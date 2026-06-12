@@ -21,15 +21,33 @@ This file is read at the start of every Claude Code session. It tells you where 
 |-----------|--------|
 | M0: Repo + tooling + docs | ✅ Complete |
 | M1: Running skeleton (5-tab layout) | ✅ Complete |
-| M2: Crypto + DB layer | 🔄 Next |
-| M3: CI PII gate | ⏳ Pending |
-| M4: Onboarding flow | ⏳ Pending |
-| M5: Feature modules (no AI) | ⏳ Pending |
+| M2: Crypto + DB layer | ✅ Complete |
+| M3: CI PII gate | ✅ Complete |
+| M4: Onboarding flow | ✅ Complete |
+| M5: Feature modules (no AI) | 🔄 In progress — Step 22 (Home dashboard) next |
 | M6: PWA + responsive polish | ⏳ Pending |
 | M7: Hardening | ⏳ Pending |
 | M8: Phase 1 + Chip (real Anthropic) | ⏳ Future |
 
-**Next step when you pick up a session:** Check this table and start from the first 🔄 or ⏳ milestone.
+**M5 step tracker:**
+
+| Step | Feature | Status |
+|------|---------|--------|
+| Infra | formatters, repositories, mockChip, useRepository hook | ✅ Done |
+| 22 | Home dashboard (net worth card, Chip insights, module tiles) | 🔄 Next |
+| 23 | Expenses (list, form, categories, hashtags, budgets) | ⏳ |
+| 24 | Goals (cards, progress rings, SIP calculator) | ⏳ |
+| 25 | Portfolio (holdings, live price fetch, report card) | ⏳ |
+| 26 | Insurance (policy cards, form, renewal tracker) | ⏳ |
+| 27 | Subscription detection (3-pass algorithm) | ⏳ |
+| 28 | IOU tracker (lent/borrowed, ageing alerts) | ⏳ |
+| 29 | Loan scenarios (6 on-device calculations) | ⏳ |
+| 30 | Financial health score (0–100 composite) | ⏳ |
+| 31 | Tax awareness (80C/80D/24B, LTCG/STCG) | ⏳ |
+| 32 | Cash flow forecast (week/month ahead) | ⏳ |
+| 33 | Chip tab (full chat UI, mock streaming) | ⏳ |
+
+**Next step when you pick up a session:** Check this table and resume from the first 🔄 row.
 
 ---
 
