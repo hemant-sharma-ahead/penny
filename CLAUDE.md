@@ -24,7 +24,7 @@ This file is read at the start of every Claude Code session. It tells you where 
 | M2: Crypto + DB layer | ✅ Complete |
 | M3: CI PII gate | ✅ Complete |
 | M4: Onboarding flow | ✅ Complete |
-| M5: Feature modules (no AI) | 🔄 In progress — Step 22 (Home dashboard) next |
+| M5: Feature modules (no AI) | 🔄 In progress — Step 23 (Expenses) next |
 | M6: PWA + responsive polish | ⏳ Pending |
 | M7: Hardening | ⏳ Pending |
 | M8: Phase 1 + Chip (real Anthropic) | ⏳ Future |
@@ -34,8 +34,8 @@ This file is read at the start of every Claude Code session. It tells you where 
 | Step | Feature | Status |
 |------|---------|--------|
 | Infra | formatters, repositories, mockChip, useRepository hook | ✅ Done |
-| 22 | Home dashboard (net worth card, Chip insights, module tiles) | 🔄 Next |
-| 23 | Expenses (list, form, categories, hashtags, budgets) | ⏳ |
+| 22 | Home dashboard (net worth card, Chip insights, module tiles) | ✅ Done |
+| 23 | Expenses (list, form, categories, hashtags, budgets) | 🔄 Next |
 | 24 | Goals (cards, progress rings, SIP calculator) | ⏳ |
 | 25 | Portfolio (holdings, live price fetch, report card) | ⏳ |
 | 26 | Insurance (policy cards, form, renewal tracker) | ⏳ |
