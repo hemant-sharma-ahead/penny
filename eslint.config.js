@@ -54,5 +54,12 @@ export default defineConfig([
     rules: {
       'no-restricted-imports': 'off'
     }
+  },
+  {
+    // Context files intentionally export both a Provider component and a hook
+    files: ['src/context/*.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off'
+    }
   }
 ]);
