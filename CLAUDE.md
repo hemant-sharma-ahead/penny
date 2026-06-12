@@ -20,8 +20,8 @@ This file is read at the start of every Claude Code session. It tells you where 
 | Milestone | Status |
 |-----------|--------|
 | M0: Repo + tooling + docs | ✅ Complete |
-| M1: Running skeleton (5-tab layout) | 🔄 In progress |
-| M2: Crypto + DB layer | ⏳ Pending |
+| M1: Running skeleton (5-tab layout) | ✅ Complete |
+| M2: Crypto + DB layer | 🔄 Next |
 | M3: CI PII gate | ⏳ Pending |
 | M4: Onboarding flow | ⏳ Pending |
 | M5: Feature modules (no AI) | ⏳ Pending |
