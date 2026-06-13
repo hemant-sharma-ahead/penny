@@ -25,7 +25,7 @@ This file is read at the start of every Claude Code session. It tells you where 
 | M3: CI PII gate | ✅ Complete |
 | M4: Onboarding flow | ✅ Complete |
 | M5: Feature modules (no AI) | ✅ Complete |
-| M6: PWA + responsive polish | ⏳ Pending |
+| M6: PWA + responsive polish | 🔄 In progress — Step 35 (responsive audit) next |
 | M7: Hardening | ⏳ Pending |
 | M8: Phase 1 polish | ⏳ Pending — scope TBD with user |
 | M9: Chip (AI integration) | ⏳ Future |
