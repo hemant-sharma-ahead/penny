@@ -80,7 +80,7 @@ function LabeledInput({ label, hint, value, onChange, placeholder, prefix, suffi
         <input
           type="number"
           inputMode="decimal"
-          className="w-full rounded-xl border border-slate-200 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+          className="w-full rounded-xl border border-slate-200 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
           style={{ paddingLeft: prefix ? '1.75rem' : '0.75rem', paddingRight: suffix ? '2.5rem' : '0.75rem' }}
           placeholder={placeholder ?? '0'}
           value={value}

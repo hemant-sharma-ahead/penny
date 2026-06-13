@@ -81,7 +81,10 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
         {/* Header */}
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-slate-900">{editing ? 'Edit expense' : 'Add expense'}</h3>
-          <button onClick={onClose} className="p-1 text-slate-400">
+          <button
+            onClick={onClose}
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400"
+          >
             <i className="ti ti-x" style={{ fontSize: 20 }} aria-hidden="true" />
           </button>
         </div>
@@ -92,7 +95,7 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
           <input
             type="number"
             inputMode="decimal"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             placeholder="0"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
@@ -128,7 +131,7 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
           <label className="text-xs font-medium text-slate-500">Description</label>
           <input
             type="text"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             placeholder="What was this for?"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -140,7 +143,7 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
           <label className="text-xs font-medium text-slate-500">Date</label>
           <input
             type="date"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
@@ -151,7 +154,7 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
           <label className="text-xs font-medium text-slate-500">Tags (space-separated, e.g. emi travel)</label>
           <input
             type="text"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             placeholder="emi groceries travel"
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
@@ -198,7 +201,7 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
             <input
               type="number"
               inputMode="numeric"
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
               value={intervalDays}
               onChange={(e) => setIntervalDays(e.target.value)}
             />

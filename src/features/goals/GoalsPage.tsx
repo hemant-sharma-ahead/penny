@@ -298,7 +298,7 @@ export function GoalsPage() {
                 <input
                   type="number"
                   inputMode="decimal"
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
                   placeholder="e.g. 1000000"
                   value={sipTarget}
                   onChange={(e) => setSipTarget(e.target.value)}
@@ -310,7 +310,7 @@ export function GoalsPage() {
                 <input
                   type="number"
                   inputMode="decimal"
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
                   placeholder="0"
                   value={sipSaved}
                   onChange={(e) => setSipSaved(e.target.value)}
@@ -322,7 +322,7 @@ export function GoalsPage() {
                 <input
                   type="number"
                   inputMode="decimal"
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
                   placeholder="e.g. 5"
                   value={sipYears}
                   onChange={(e) => setSipYears(e.target.value)}

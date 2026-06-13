@@ -76,7 +76,10 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
       <div className="relative w-full bg-white rounded-t-2xl p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-slate-900">{editing ? 'Edit policy' : 'Add policy'}</h3>
-          <button onClick={onClose} className="p-1 text-slate-400">
+          <button
+            onClick={onClose}
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400"
+          >
             <i className="ti ti-x" style={{ fontSize: 20 }} aria-hidden="true" />
           </button>
         </div>
@@ -118,7 +121,7 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
           <label className="text-xs font-medium text-slate-500">Insurer / Company</label>
           <input
             type="text"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             placeholder="e.g. LIC, HDFC ERGO, Star Health"
             value={insurer}
             onChange={(e) => setInsurer(e.target.value)}
@@ -131,7 +134,7 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
           <label className="text-xs font-medium text-slate-500">Policy number (optional)</label>
           <input
             type="text"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             placeholder="e.g. P-12345678"
             value={policyNumber}
             onChange={(e) => setPolicyNumber(e.target.value)}
@@ -145,7 +148,7 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
             <input
               type="number"
               inputMode="decimal"
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
               placeholder="e.g. 10000000"
               value={coverageAmount}
               onChange={(e) => setCoverageAmount(e.target.value)}
@@ -156,7 +159,7 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
             <input
               type="number"
               inputMode="decimal"
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
               placeholder="e.g. 12000"
               value={annualPremium}
               onChange={(e) => setAnnualPremium(e.target.value)}
@@ -169,7 +172,7 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
           <label className="text-xs font-medium text-slate-500">Renewal / expiry date</label>
           <input
             type="date"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             value={renewalDate}
             onChange={(e) => setRenewalDate(e.target.value)}
           />
@@ -180,7 +183,7 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
           <label className="text-xs font-medium text-slate-500">Nominees (optional)</label>
           <input
             type="text"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             placeholder="e.g. Spouse, Child"
             value={nominees}
             onChange={(e) => setNominees(e.target.value)}
@@ -192,7 +195,7 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
           <label className="text-xs font-medium text-slate-500">Notes (optional)</label>
           <input
             type="text"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             placeholder="e.g. Family floater, includes dental"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}

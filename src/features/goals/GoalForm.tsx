@@ -63,7 +63,10 @@ export function GoalForm({ editing, onSave, onDelete, onClose }: Props) {
       <div className="relative w-full bg-white rounded-t-2xl p-5 flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-slate-900">{editing ? 'Edit goal' : 'New goal'}</h3>
-          <button onClick={onClose} className="p-1 text-slate-400">
+          <button
+            onClick={onClose}
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400"
+          >
             <i className="ti ti-x" style={{ fontSize: 20 }} aria-hidden="true" />
           </button>
         </div>
@@ -73,7 +76,7 @@ export function GoalForm({ editing, onSave, onDelete, onClose }: Props) {
           <label className="text-xs font-medium text-slate-500">Goal name</label>
           <input
             type="text"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             placeholder="e.g. Emergency fund, Europe trip"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -87,7 +90,7 @@ export function GoalForm({ editing, onSave, onDelete, onClose }: Props) {
           <input
             type="number"
             inputMode="decimal"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             placeholder="e.g. 500000"
             value={targetAmount}
             onChange={(e) => setTargetAmount(e.target.value)}
@@ -100,7 +103,7 @@ export function GoalForm({ editing, onSave, onDelete, onClose }: Props) {
           <input
             type="number"
             inputMode="decimal"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             placeholder="0"
             value={currentAmount}
             onChange={(e) => setCurrentAmount(e.target.value)}
@@ -112,7 +115,7 @@ export function GoalForm({ editing, onSave, onDelete, onClose }: Props) {
           <label className="text-xs font-medium text-slate-500">Target date</label>
           <input
             type="date"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             value={targetDate}
             onChange={(e) => setTargetDate(e.target.value)}
           />

@@ -25,8 +25,8 @@ This file is read at the start of every Claude Code session. It tells you where 
 | M3: CI PII gate | ✅ Complete |
 | M4: Onboarding flow | ✅ Complete |
 | M5: Feature modules (no AI) | ✅ Complete |
-| M6: PWA + responsive polish | 🔄 In progress — Step 35 (responsive audit) next |
-| M7: Hardening | ⏳ Pending |
+| M6: PWA + responsive polish | ✅ Complete |
+| M7: Hardening | 🔄 In progress — Step 36 (PIN lockout UI) next |
 | M8: Phase 1 polish | ⏳ Pending — scope TBD with user |
 | M9: Chip (AI integration) | ⏳ Future |
 
@@ -49,7 +49,16 @@ This file is read at the start of every Claude Code session. It tells you where 
 
 **M5 is complete.** Step 33 (Chip tab) moved to M9.
 
-**Next step when you pick up a session:** M6 — PWA + responsive polish (Step 34).
+**M6 step tracker:**
+
+| Step | Feature | Status |
+|------|---------|--------|
+| 34 | PWA setup (vite-plugin-pwa, Workbox, CSP, offline icons) | ✅ Done |
+| 35 | Responsive audit (360/390/768px, tap targets ≥44px) | ✅ Done |
+
+**M6 is complete.**
+
+**Next step when you pick up a session:** M7 — Hardening (Step 36: PIN lockout UI).
 
 ---
 
