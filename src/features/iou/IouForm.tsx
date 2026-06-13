@@ -51,7 +51,7 @@ export function IouForm({ editing, onSave, onDelete, onClose, nowMs }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-20 flex items-end">
+    <div className="fixed inset-0 z-60 flex items-end">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div className="relative w-full bg-white rounded-t-2xl p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between">
