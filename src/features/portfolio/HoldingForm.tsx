@@ -53,26 +53,31 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
       assetClass,
       name: name.trim(),
       investedAmount: invested,
-      currentValue: parsedCurrentValue,
-      notes: notes.trim() || undefined,
       createdAt: editing?.createdAt ?? now,
       updatedAt: now
     };
 
+    if (parsedCurrentValue !== undefined) holding.currentValue = parsedCurrentValue;
+    const notesVal = notes.trim();
+    if (notesVal) holding.notes = notesVal;
+
     if (assetClass === 'mf') {
-      holding.schemeCode = schemeCode.trim() || undefined;
-      holding.units = parsedUnits;
-      holding.avgCostPrice = parsedAvgCost;
+      const sc = schemeCode.trim();
+      if (sc) holding.schemeCode = sc;
+      if (parsedUnits !== undefined) holding.units = parsedUnits;
+      if (parsedAvgCost !== undefined) holding.avgCostPrice = parsedAvgCost;
     } else if (assetClass === 'stock') {
-      holding.symbol = symbol.trim().toUpperCase() || undefined;
-      holding.units = parsedUnits;
-      holding.avgCostPrice = parsedAvgCost;
+      const sym = symbol.trim().toUpperCase();
+      if (sym) holding.symbol = sym;
+      if (parsedUnits !== undefined) holding.units = parsedUnits;
+      if (parsedAvgCost !== undefined) holding.avgCostPrice = parsedAvgCost;
     } else if (assetClass === 'fd') {
-      holding.interestRate = parseFloat(interestRate) || undefined;
-      holding.maturityDate = maturityDate ? new Date(maturityDate).getTime() : undefined;
+      const rate = parseFloat(interestRate);
+      if (!isNaN(rate) && rate > 0) holding.interestRate = rate;
+      if (maturityDate) holding.maturityDate = new Date(maturityDate).getTime();
     } else if (assetClass === 'gold') {
-      holding.units = parsedUnits;
-      holding.avgCostPrice = parsedAvgCost;
+      if (parsedUnits !== undefined) holding.units = parsedUnits;
+      if (parsedAvgCost !== undefined) holding.avgCostPrice = parsedAvgCost;
     }
 
     onSave(holding)
@@ -121,7 +126,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
                   className="text-[9px] font-medium text-center leading-tight"
                   style={{ color: assetClass === ac.value ? ac.color : '#64748b' }}
                 >
-                  {ac.label.split(' ').at(0) ?? ac.label}
+                  {ac.label.split(' ')[0] ?? ac.label}
                 </span>
               </button>
             ))}

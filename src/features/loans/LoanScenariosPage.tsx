@@ -256,7 +256,7 @@ export function LoanScenariosPage() {
               {sharedInputs}
               <LabeledInput
                 label="Starting EMI (₹)"
-                hint={suggestedStartEmi > 0 ? `suggested: ${formatCurrency(suggestedStartEmi)}` : undefined}
+                {...(suggestedStartEmi > 0 ? { hint: `suggested: ${formatCurrency(suggestedStartEmi)}` } : {})}
                 value={startEmi}
                 onChange={setStartEmi}
                 prefix="₹"

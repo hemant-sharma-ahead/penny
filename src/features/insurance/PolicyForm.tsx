@@ -45,16 +45,19 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
     if (!insurer.trim() || isNaN(coverage) || coverage <= 0 || isNaN(premium) || premium <= 0) return;
     setSaving(true);
     const now = Date.now();
+    const pn = policyNumber.trim();
+    const nom = nominees.trim();
+    const notesVal = notes.trim();
     onSave({
       id: editing?.id ?? crypto.randomUUID(),
       type,
       insurer: insurer.trim(),
-      policyNumber: policyNumber.trim() || undefined,
+      ...(pn ? { policyNumber: pn } : {}),
       coverageAmount: coverage,
       annualPremium: premium,
       renewalDate: new Date(renewalDate).getTime(),
-      nominees: nominees.trim() || undefined,
-      notes: notes.trim() || undefined,
+      ...(nom ? { nominees: nom } : {}),
+      ...(notesVal ? { notes: notesVal } : {}),
       createdAt: editing?.createdAt ?? now,
       updatedAt: now
     })
@@ -103,7 +106,7 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
                   className="text-[9px] font-medium text-center leading-tight"
                   style={{ color: type === pt.value ? pt.color : '#64748b' }}
                 >
-                  {pt.label.split(' ').at(0) ?? pt.label}
+                  {pt.label.split(' ')[0] ?? pt.label}
                 </span>
               </button>
             ))}

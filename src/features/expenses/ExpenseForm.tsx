@@ -23,7 +23,7 @@ function parseTags(raw: string): string[] {
 }
 
 export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, onClose }: Props) {
-  const defaultCategoryId = categories.at(0)?.id ?? '';
+  const defaultCategoryId = categories[0]?.id ?? '';
 
   const [amount, setAmount] = useState(editing ? String(editing.amount) : '');
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? defaultCategoryId);
@@ -35,11 +35,8 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
   const [saving, setSaving] = useState(false);
 
   const activeTags = parseTags(tagInput);
-  const lastWord =
-    tagInput
-      .split(/[\s,]+/)
-      .at(-1)
-      ?.replace(/^#/, '') ?? '';
+  const tagParts = tagInput.split(/[\s,]+/);
+  const lastWord = (tagParts[tagParts.length - 1] ?? '').replace(/^#/, '');
   const tagSuggestions =
     lastWord.length > 0
       ? hashtags.filter((h) => h.name.startsWith(lastWord) && !activeTags.includes(h.name)).slice(0, 5)
@@ -64,7 +61,7 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
       date: new Date(date).getTime(),
       hashtags: parseTags(tagInput),
       isRecurring,
-      recurringIntervalDays: isRecurring ? parseInt(intervalDays, 10) || 30 : undefined,
+      ...(isRecurring ? { recurringIntervalDays: parseInt(intervalDays, 10) || 30 } : {}),
       createdAt: editing?.createdAt ?? now,
       updatedAt: now
     })
@@ -119,7 +116,7 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
               >
                 <i className={`ti ${cat.icon}`} style={{ fontSize: 18, color: cat.color }} aria-hidden="true" />
                 <span className="text-[9px] font-medium text-slate-600 text-center leading-tight">
-                  {cat.name.split(' ').at(0) ?? cat.name}
+                  {cat.name.split(' ')[0] ?? cat.name}
                 </span>
               </button>
             ))}

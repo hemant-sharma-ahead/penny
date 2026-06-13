@@ -37,7 +37,7 @@ export async function fetchMfNav(schemeCode: string): Promise<number | null> {
     const res = await fetch(`https://api.mfapi.in/mf/${schemeCode}`);
     if (!res.ok) return null;
     const json = (await res.json()) as MfApiResponse;
-    const navStr = json.data.at(0)?.nav;
+    const navStr = json.data[0]?.nav;
     if (!navStr) return null;
     const nav = parseFloat(navStr);
     if (isNaN(nav)) return null;
@@ -65,7 +65,7 @@ export async function fetchStockPrice(symbol: string): Promise<number | null> {
     const res = await fetch(url);
     if (!res.ok) return null;
     const json = (await res.json()) as YfChartResponse;
-    const price = json.chart?.result?.at(0)?.meta?.regularMarketPrice;
+    const price = json.chart?.result?.[0]?.meta?.regularMarketPrice;
     if (typeof price !== 'number') return null;
     await setCache({ id: cacheKey, symbol, price, currency: 'INR', fetchedAt: Date.now() });
     return price;

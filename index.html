@@ -4,11 +4,22 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#00a86b" />
+    <meta name="theme-color" content="#00A86B" />
     <meta name="description" content="Penny — your private, AI-powered wealth companion. Chip in. Watch it grow." />
+
+    <!-- PWA / Apple -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Penny" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+
+    <!-- CSP — tightened for Phase 1; add api.anthropic.com in M9 -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' https://api.mfapi.in https://query1.finance.yahoo.com; img-src 'self' data: blob:; worker-src 'self';"
+    />
+
     <title>Penny</title>
-    <!-- Tabler Icons (outline only) -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.30.0/dist/tabler-icons.min.css" />
   </head>
   <body>
     <div id="root"></div>

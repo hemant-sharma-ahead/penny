@@ -23,7 +23,11 @@ function bufferToBase64(buf: ArrayBuffer): string {
 }
 
 export class EncryptedRepository<T extends { id: string }> {
-  constructor(private table: Table<EncryptedRecord, string>) {}
+  private table: Table<EncryptedRecord, string>;
+
+  constructor(table: Table<EncryptedRecord, string>) {
+    this.table = table;
+  }
 
   async put(record: T): Promise<void> {
     const mk = keystore.getMasterKey();
