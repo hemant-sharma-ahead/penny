@@ -24,10 +24,11 @@ This file is read at the start of every Claude Code session. It tells you where 
 | M2: Crypto + DB layer | ✅ Complete |
 | M3: CI PII gate | ✅ Complete |
 | M4: Onboarding flow | ✅ Complete |
-| M5: Feature modules (no AI) | 🔄 In progress — Step 33 (Chip tab) next |
+| M5: Feature modules (no AI) | ✅ Complete |
 | M6: PWA + responsive polish | ⏳ Pending |
 | M7: Hardening | ⏳ Pending |
-| M8: Phase 1 + Chip (real Anthropic) | ⏳ Future |
+| M8: Phase 1 polish | ⏳ Pending — scope TBD with user |
+| M9: Chip (AI integration) | ⏳ Future |
 
 **M5 step tracker:**
 
@@ -45,9 +46,10 @@ This file is read at the start of every Claude Code session. It tells you where 
 | 30 | Financial health score (0–100 composite) | ✅ Done |
 | 31 | Tax awareness (80C/80D/24B, LTCG/STCG) | ✅ Done |
 | 32 | Cash flow forecast (week/month ahead) | ✅ Done |
-| 33 | Chip tab (full chat UI, mock streaming) | 🔄 Next |
 
-**Next step when you pick up a session:** Check this table and resume from the first 🔄 row.
+**M5 is complete.** Step 33 (Chip tab) moved to M9.
+
+**Next step when you pick up a session:** M6 — PWA + responsive polish (Step 34).
 
 ---
 
@@ -146,7 +148,7 @@ Bottom nav tabs: Home · Portfolio · Chip (FAB, centred) · Expenses · Goals
 
 ---
 
-## Chip AI (Phase 1 + Chip — future)
+## Chip AI (M9 — future)
 
 - `mockChip.ts` provides simulated responses during development
 - `CHIP_MODE: 'mock' | 'real'` flag controls which path is used
