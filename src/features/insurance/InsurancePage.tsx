@@ -232,8 +232,12 @@ export function InsurancePage() {
       {/* FAB */}
       <button
         onClick={openAdd}
-        className="fixed bottom-20 right-4 w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white z-10"
-        style={{ backgroundColor: 'var(--color-primary)' }}
+        className="fixed w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white z-10"
+        style={{
+          bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+          right: '1rem',
+          backgroundColor: 'var(--color-primary)'
+        }}
         aria-label="Add policy"
       >
         <i className="ti ti-plus" style={{ fontSize: 24 }} aria-hidden="true" />
