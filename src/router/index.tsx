@@ -17,6 +17,7 @@ import { InsurancePage } from '@/features/insurance/InsurancePage';
 import { SubscriptionsPage } from '@/features/subscriptions/SubscriptionsPage';
 import { IouPage } from '@/features/iou/IouPage';
 import { LoanScenariosPage } from '@/features/loans/LoanScenariosPage';
+import { HealthScorePage } from '@/features/health/HealthScorePage';
 import { ChipPage } from '@/features/chip/ChipPage';
 
 export const router = createBrowserRouter([
@@ -44,6 +45,7 @@ export const router = createBrowserRouter([
           { path: PATHS.app.subscriptions, element: <SubscriptionsPage /> },
           { path: PATHS.app.iou, element: <IouPage /> },
           { path: PATHS.app.loans, element: <LoanScenariosPage /> },
+          { path: PATHS.app.health, element: <HealthScorePage /> },
           { path: PATHS.app.chip, element: <ChipPage /> }
         ]
       }

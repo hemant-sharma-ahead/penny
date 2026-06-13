@@ -57,7 +57,8 @@ const CORE_TILES = [
 const SMART_TILES = [
   { label: 'Subscriptions', icon: 'ti-refresh', path: PATHS.app.subscriptions, color: '#8b5cf6' },
   { label: 'IOUs', icon: 'ti-arrows-exchange', path: PATHS.app.iou, color: '#f59e0b' },
-  { label: 'Loans', icon: 'ti-calculator', path: PATHS.app.loans, color: '#06b6d4' }
+  { label: 'Loans', icon: 'ti-calculator', path: PATHS.app.loans, color: '#06b6d4' },
+  { label: 'Health Score', icon: 'ti-heart-rate-monitor', path: PATHS.app.health, color: '#ec4899' }
 ];
 
 export function HomePage() {

@@ -18,6 +18,7 @@ export const PATHS = {
     subscriptions: '/app/subscriptions',
     iou: '/app/iou',
     loans: '/app/loans',
+    health: '/app/health',
     chip: '/app/chip'
   }
 } as const;
