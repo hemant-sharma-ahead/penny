@@ -1,4 +1,4 @@
-import { useSettings, type FontScale, type ModuleVisibility } from '@/context/SettingsContext';
+import { useSettings, type FontScale, type ModuleVisibility, type Theme } from '@/context/SettingsContext';
 
 interface Props {
   open: boolean;
@@ -31,8 +31,14 @@ const FONT_SCALES: { value: FontScale; label: string }[] = [
   { value: 'xl', label: 'A++' }
 ];
 
+const THEMES: { value: Theme; label: string; icon: string }[] = [
+  { value: 'light', label: 'Light', icon: 'ti-sun' },
+  { value: 'system', label: 'System', icon: 'ti-device-desktop' },
+  { value: 'dark', label: 'Dark', icon: 'ti-moon' }
+];
+
 export function SettingsDrawer({ open, onClose }: Props) {
-  const { modules, fontScale, setModule, setFontScale } = useSettings();
+  const { modules, fontScale, theme, setModule, setFontScale, setTheme } = useSettings();
 
   return (
     <>
@@ -41,19 +47,26 @@ export function SettingsDrawer({ open, onClose }: Props) {
 
       {/* Drawer panel */}
       <div
-        className={`fixed top-0 left-0 h-full w-72 bg-white z-70 flex flex-col shadow-2xl transition-transform duration-300 ${
+        className={`fixed top-0 left-0 h-full w-72 z-70 flex flex-col shadow-2xl transition-transform duration-300 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
+        style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
         role="dialog"
         aria-modal="true"
         aria-label="Settings"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-4 border-b border-slate-100">
-          <span className="text-base font-semibold text-slate-900">Settings</span>
+        <div
+          className="flex items-center justify-between px-4 py-4"
+          style={{ borderBottom: '1px solid var(--color-border)' }}
+        >
+          <span className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+            Settings
+          </span>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/10"
+            style={{ color: 'var(--color-text-secondary)' }}
             aria-label="Close settings"
           >
             <i className="ti ti-x" style={{ fontSize: 18 }} aria-hidden="true" />
@@ -64,16 +77,32 @@ export function SettingsDrawer({ open, onClose }: Props) {
         <div className="flex-1 overflow-y-auto">
           {/* Modules section */}
           <section className="px-4 pt-4 pb-2">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">Modules</p>
-            <p className="text-xs text-slate-400 mb-3">Home, Expenses, and Chip are always visible.</p>
+            <p
+              className="text-[11px] font-semibold uppercase tracking-wider mb-3"
+              style={{ color: 'var(--color-text-tertiary)' }}
+            >
+              Modules
+            </p>
+            <p className="text-xs mb-3" style={{ color: 'var(--color-text-tertiary)' }}>
+              Home, Expenses, and Chip are always visible.
+            </p>
             <div className="flex flex-col gap-1">
               {MODULE_ROWS.map((row) => (
                 <label key={row.key} className="flex items-center justify-between py-2.5 cursor-pointer">
                   <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
-                      <i className={`ti ${row.icon} text-slate-500`} style={{ fontSize: 15 }} aria-hidden="true" />
+                    <div
+                      className="w-7 h-7 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: 'var(--color-surface-secondary)' }}
+                    >
+                      <i
+                        className={`ti ${row.icon}`}
+                        style={{ fontSize: 15, color: 'var(--color-text-secondary)' }}
+                        aria-hidden="true"
+                      />
                     </div>
-                    <span className="text-sm text-slate-800">{row.label}</span>
+                    <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                      {row.label}
+                    </span>
                   </div>
                   <button
                     role="switch"
@@ -94,22 +123,60 @@ export function SettingsDrawer({ open, onClose }: Props) {
             </div>
           </section>
 
-          <div className="h-px bg-slate-100 mx-4 my-2" />
+          <div className="h-px mx-4 my-2" style={{ backgroundColor: 'var(--color-border)' }} />
 
           {/* Display section */}
           <section className="px-4 py-4">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">Display</p>
-            <p className="text-xs text-slate-500 mb-3">Font size</p>
+            <p
+              className="text-[11px] font-semibold uppercase tracking-wider mb-3"
+              style={{ color: 'var(--color-text-tertiary)' }}
+            >
+              Display
+            </p>
+
+            <p className="text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+              Theme
+            </p>
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {THEMES.map((t) => (
+                <button
+                  key={t.value}
+                  onClick={() => setTheme(t.value)}
+                  className="flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-medium transition-colors"
+                  style={
+                    theme === t.value
+                      ? { backgroundColor: 'var(--color-primary)', color: '#fff', borderColor: 'var(--color-primary)' }
+                      : {
+                          backgroundColor: 'transparent',
+                          color: 'var(--color-text-secondary)',
+                          borderColor: 'var(--color-border)'
+                        }
+                  }
+                >
+                  <i className={`ti ${t.icon}`} style={{ fontSize: 18 }} aria-hidden="true" />
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            <p className="text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+              Font size
+            </p>
             <div className="grid grid-cols-4 gap-2">
               {FONT_SCALES.map((s) => (
                 <button
                   key={s.value}
                   onClick={() => setFontScale(s.value)}
-                  className={`py-2 rounded-lg text-sm font-medium border transition-colors ${
+                  className="py-2 rounded-lg text-sm font-medium border transition-colors"
+                  style={
                     fontScale === s.value
-                      ? 'bg-[#00a86b] text-white border-[#00a86b]'
-                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                  }`}
+                      ? { backgroundColor: 'var(--color-primary)', color: '#fff', borderColor: 'var(--color-primary)' }
+                      : {
+                          backgroundColor: 'transparent',
+                          color: 'var(--color-text-secondary)',
+                          borderColor: 'var(--color-border)'
+                        }
+                  }
                 >
                   {s.label}
                 </button>
@@ -117,19 +184,37 @@ export function SettingsDrawer({ open, onClose }: Props) {
             </div>
           </section>
 
-          <div className="h-px bg-slate-100 mx-4 my-2" />
+          <div className="h-px mx-4 my-2" style={{ backgroundColor: 'var(--color-border)' }} />
 
           {/* Security section */}
           <section className="px-4 py-4">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">Security</p>
+            <p
+              className="text-[11px] font-semibold uppercase tracking-wider mb-3"
+              style={{ color: 'var(--color-text-tertiary)' }}
+            >
+              Security
+            </p>
             <button className="flex items-center justify-between w-full py-2.5 text-left">
               <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
-                  <i className="ti ti-lock text-slate-500" style={{ fontSize: 15 }} aria-hidden="true" />
+                <div
+                  className="w-7 h-7 rounded-lg flex items-center justify-center"
+                  style={{ backgroundColor: 'var(--color-surface-secondary)' }}
+                >
+                  <i
+                    className="ti ti-lock"
+                    style={{ fontSize: 15, color: 'var(--color-text-secondary)' }}
+                    aria-hidden="true"
+                  />
                 </div>
-                <span className="text-sm text-slate-800">Change PIN</span>
+                <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                  Change PIN
+                </span>
               </div>
-              <i className="ti ti-chevron-right text-slate-300" style={{ fontSize: 16 }} aria-hidden="true" />
+              <i
+                className="ti ti-chevron-right"
+                style={{ fontSize: 16, color: 'var(--color-text-tertiary)' }}
+                aria-hidden="true"
+              />
             </button>
           </section>
         </div>

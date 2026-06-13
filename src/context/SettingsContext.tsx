@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 
 export type FontScale = 'small' | 'default' | 'large' | 'xl';
+export type Theme = 'light' | 'dark' | 'system';
 
 export interface ModuleVisibility {
   portfolio: boolean;
@@ -37,6 +38,18 @@ const FONT_SCALE_MAP: Record<FontScale, number> = {
 
 const MODULES_KEY = 'penny_settings_modules';
 const FONT_SCALE_KEY = 'penny_settings_font_scale';
+const THEME_KEY = 'penny_settings_theme';
+
+function loadTheme(): Theme {
+  const raw = localStorage.getItem(THEME_KEY);
+  if (raw === 'light' || raw === 'dark' || raw === 'system') return raw;
+  return 'system';
+}
+
+function resolveTheme(theme: Theme): 'light' | 'dark' {
+  if (theme !== 'system') return theme;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
 
 function loadModules(): ModuleVisibility {
   try {
@@ -57,8 +70,10 @@ function loadFontScale(): FontScale {
 interface SettingsContextValue {
   modules: ModuleVisibility;
   fontScale: FontScale;
+  theme: Theme;
   setModule: (key: keyof ModuleVisibility, visible: boolean) => void;
   setFontScale: (scale: FontScale) => void;
+  setTheme: (theme: Theme) => void;
 }
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -66,11 +81,23 @@ const SettingsContext = createContext<SettingsContextValue | null>(null);
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [modules, setModules] = useState<ModuleVisibility>(loadModules);
   const [fontScale, setFontScaleState] = useState<FontScale>(loadFontScale);
+  const [theme, setThemeState] = useState<Theme>(loadTheme);
 
   useEffect(() => {
     const scale = FONT_SCALE_MAP[fontScale];
     document.documentElement.style.setProperty('--font-scale', String(scale));
   }, [fontScale]);
+
+  useEffect(() => {
+    const apply = () => {
+      document.body.setAttribute('data-theme', resolveTheme(theme));
+    };
+    apply();
+    if (theme !== 'system') return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, [theme]);
 
   const setModule = useCallback((key: keyof ModuleVisibility, visible: boolean) => {
     setModules((prev) => {
@@ -85,8 +112,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setFontScaleState(scale);
   }, []);
 
+  const setTheme = useCallback((t: Theme) => {
+    localStorage.setItem(THEME_KEY, t);
+    setThemeState(t);
+  }, []);
+
   return (
-    <SettingsContext.Provider value={{ modules, fontScale, setModule, setFontScale }}>
+    <SettingsContext.Provider value={{ modules, fontScale, theme, setModule, setFontScale, setTheme }}>
       {children}
     </SettingsContext.Provider>
   );

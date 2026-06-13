@@ -72,7 +72,10 @@ export function PrivacyModeSwitcher() {
   return (
     <>
       {/* 3-segment toggle */}
-      <div className="flex items-center rounded-lg border border-slate-200 overflow-hidden bg-slate-50 p-0.5 gap-0.5">
+      <div
+        className="flex items-center rounded-lg overflow-hidden p-0.5 gap-0.5"
+        style={{ border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface-secondary)' }}
+      >
         {SEGMENTS.map(({ mode: seg, label }) => {
           const isActive = mode === seg;
           return (
@@ -94,13 +97,24 @@ export function PrivacyModeSwitcher() {
       {/* PIN modal — centered */}
       {step === 'pin' && (
         <div className="fixed inset-0 z-60 flex items-center justify-center px-6 bg-black/40" onClick={handleClose}>
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 mx-auto mb-4">
+          <div
+            className="w-full max-w-sm rounded-2xl shadow-2xl p-6"
+            style={{ backgroundColor: 'var(--color-surface)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="flex items-center justify-center w-12 h-12 rounded-full mx-auto mb-4"
+              style={{ backgroundColor: 'var(--color-primary-light)' }}
+            >
               <i className="ti ti-lock-open text-[#00a86b]" style={{ fontSize: 24 }} aria-hidden="true" />
             </div>
 
-            <h3 className="text-lg font-semibold text-slate-900 text-center mb-1">Switch to Open mode</h3>
-            <p className="text-sm text-slate-500 text-center mb-5">Enter your PIN to reveal all financial values.</p>
+            <h3 className="text-lg font-semibold text-center mb-1" style={{ color: 'var(--color-text-primary)' }}>
+              Switch to Open mode
+            </h3>
+            <p className="text-sm text-center mb-5" style={{ color: 'var(--color-text-secondary)' }}>
+              Enter your PIN to reveal all financial values.
+            </p>
 
             <input
               ref={pinInputRef}
@@ -114,7 +128,12 @@ export function PrivacyModeSwitcher() {
                 if (e.key === 'Escape') handleClose();
               }}
               placeholder="6-digit PIN"
-              className="w-full text-center text-2xl tracking-widest border border-slate-200 rounded-xl px-4 py-3 mb-2 focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+              className="w-full text-center text-2xl tracking-widest rounded-xl px-4 py-3 mb-2 focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+              style={{
+                border: '1px solid var(--color-border)',
+                backgroundColor: 'var(--color-surface-secondary)',
+                color: 'var(--color-text-primary)'
+              }}
               aria-label="PIN"
             />
 
@@ -123,7 +142,11 @@ export function PrivacyModeSwitcher() {
             <div className="flex gap-3 mt-4">
               <button
                 onClick={handleClose}
-                className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium"
+                className="flex-1 py-3 rounded-xl text-sm font-medium"
+                style={{
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text-secondary)'
+                }}
               >
                 Cancel
               </button>
@@ -143,15 +166,20 @@ export function PrivacyModeSwitcher() {
       {/* Warning modal — shown after PIN verified, before mode switches to open */}
       {step === 'warning' && (
         <div className="fixed inset-0 z-60 flex items-center justify-center px-6 bg-black/50">
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6">
-            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-50 mx-auto mb-4">
+          <div
+            className="w-full max-w-sm rounded-2xl shadow-2xl p-6"
+            style={{ backgroundColor: 'var(--color-surface)' }}
+          >
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-500/10 mx-auto mb-4">
               <i className="ti ti-alert-triangle text-red-500" style={{ fontSize: 24 }} aria-hidden="true" />
             </div>
 
-            <h3 className="text-lg font-semibold text-slate-900 text-center mb-3">Before switching to Open mode</h3>
+            <h3 className="text-lg font-semibold text-center mb-3" style={{ color: 'var(--color-text-primary)' }}>
+              Before switching to Open mode
+            </h3>
 
-            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5">
-              <p className="text-sm text-red-800 leading-relaxed">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-5">
+              <p className="text-sm text-red-500 leading-relaxed">
                 Make sure no one can see your screen — check that you are not on a screen share, video call, or in a
                 public place where someone could be looking over your shoulder. All your financial details including
                 amounts, account information, and portfolio holdings will be fully visible to anyone who can see your
@@ -169,7 +197,8 @@ export function PrivacyModeSwitcher() {
 
             <button
               onClick={handleConfirmOpen}
-              className="w-full py-2.5 rounded-xl border border-amber-400 text-amber-700 text-sm font-medium hover:bg-amber-50 transition-colors"
+              className="w-full py-2.5 rounded-xl border border-amber-400 text-amber-600 text-sm font-medium transition-colors"
+              style={{ backgroundColor: 'transparent' }}
             >
               I'm sure, switch to Open
             </button>

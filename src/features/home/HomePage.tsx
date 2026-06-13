@@ -115,7 +115,9 @@ export function HomePage() {
 
   return (
     <div className="px-4 pt-4 pb-6 flex flex-col gap-4">
-      <h2 className="text-xl font-semibold text-slate-900">{greeting}</h2>
+      <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+        {greeting}
+      </h2>
 
       {/* Net worth card */}
       <div className="rounded-2xl p-5 text-white" style={{ backgroundColor: 'var(--color-primary)' }}>
@@ -131,21 +133,29 @@ export function HomePage() {
 
       {/* Tools grid */}
       <div>
-        <p className="text-xs font-medium text-slate-400 mb-2">Tools</p>
+        <p className="text-xs font-medium mb-2" style={{ color: 'var(--color-text-tertiary)' }}>
+          Tools
+        </p>
         <div className="grid grid-cols-4 gap-2">
           {TOOL_TILES.filter((m) => modules[m.moduleKey]).map((m) => (
             <button
               key={m.label}
               onClick={() => navigate(m.path)}
-              className="flex flex-col items-center gap-1.5 bg-white rounded-xl p-3 border border-slate-100 active:opacity-70"
+              className="flex flex-col items-center gap-1.5 rounded-xl p-3 active:opacity-70 transition-colors"
+              style={{
+                backgroundColor: 'var(--color-surface)',
+                border: '1px solid var(--color-border)'
+              }}
             >
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center"
-                style={{ backgroundColor: `${m.color}18` }}
+                style={{ backgroundColor: `${m.color}22` }}
               >
                 <i className={`ti ${m.icon}`} style={{ fontSize: 20, color: m.color }} aria-hidden="true" />
               </div>
-              <span className="text-[10px] font-medium text-slate-600">{m.label}</span>
+              <span className="text-[10px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                {m.label}
+              </span>
             </button>
           ))}
         </div>
@@ -161,18 +171,34 @@ export function HomePage() {
             >
               <i className="ti ti-sparkles text-white" style={{ fontSize: 11 }} aria-hidden="true" />
             </div>
-            <span className="text-sm font-medium text-slate-700">Chip insights</span>
+            <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+              Chip insights
+            </span>
           </div>
           <div className="flex flex-col gap-2">
             {insights.map((insight) => (
-              <article key={insight.id} className="bg-white rounded-xl border border-slate-100 p-4">
-                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">
+              <article
+                key={insight.id}
+                className="rounded-xl p-4"
+                style={{
+                  backgroundColor: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)'
+                }}
+              >
+                <span
+                  className="text-[10px] font-medium uppercase tracking-wide"
+                  style={{ color: 'var(--color-text-tertiary)' }}
+                >
                   {insight.moduleTag}
                 </span>
-                <p className="text-sm font-medium text-slate-900 mt-0.5 mb-1">{insight.headline}</p>
-                <p className="text-xs text-slate-500 leading-relaxed">{insight.reasoning}</p>
+                <p className="text-sm font-medium mt-0.5 mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                  {insight.headline}
+                </p>
+                <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                  {insight.reasoning}
+                </p>
                 {insight.consequence && (
-                  <p className="text-xs text-amber-700 mt-1.5 leading-relaxed">⚠ {insight.consequence}</p>
+                  <p className="text-xs text-amber-600 mt-1.5 leading-relaxed">⚠ {insight.consequence}</p>
                 )}
                 {insight.actionLabel && (
                   <button
@@ -190,9 +216,21 @@ export function HomePage() {
       )}
 
       {insights.length === 0 && summary !== null && (
-        <div className="bg-slate-50 rounded-xl border border-slate-100 p-6 text-center">
-          <i className="ti ti-sparkles text-slate-300" style={{ fontSize: 32 }} aria-hidden="true" />
-          <p className="text-sm text-slate-400 mt-2">Add your financial data and Chip will surface insights here.</p>
+        <div
+          className="rounded-xl p-6 text-center"
+          style={{
+            backgroundColor: 'var(--color-surface-secondary)',
+            border: '1px solid var(--color-border)'
+          }}
+        >
+          <i
+            className="ti ti-sparkles"
+            style={{ fontSize: 32, color: 'var(--color-text-tertiary)' }}
+            aria-hidden="true"
+          />
+          <p className="text-sm mt-2" style={{ color: 'var(--color-text-tertiary)' }}>
+            Add your financial data and Chip will surface insights here.
+          </p>
         </div>
       )}
     </div>
