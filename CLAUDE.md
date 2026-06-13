@@ -26,8 +26,8 @@ This file is read at the start of every Claude Code session. It tells you where 
 | M4: Onboarding flow | ✅ Complete |
 | M5: Feature modules (no AI) | ✅ Complete |
 | M6: PWA + responsive polish | ✅ Complete |
-| M7: Hardening | 🔄 In progress — Step 36 (PIN lockout UI) next |
-| M8: Phase 1 polish | ⏳ Pending — scope TBD with user |
+| M7: Hardening | ✅ Complete |
+| M8: Phase 1 polish | 🔄 Next — scope discussion required before starting |
 | M9: Chip (AI integration) | ⏳ Future |
 
 **M5 step tracker:**
@@ -58,7 +58,18 @@ This file is read at the start of every Claude Code session. It tells you where 
 
 **M6 is complete.**
 
-**Next step when you pick up a session:** M7 — Hardening (Step 36: PIN lockout UI).
+**M7 step tracker:**
+
+| Step | Feature | Status |
+|------|---------|--------|
+| 36 | PIN lockout UI (countdown, exponential backoff, attempt warnings) | ✅ Done |
+| 37 | 21-day PIN rotation banner (AuthGuard always checks, shown after unlock) | ✅ Done |
+| 38 | Encrypted backup/restore (.penny export/import, passphrase-derived MK) | ✅ Done |
+| 39 | Final CI pass + CLAUDE.md updated | ✅ Done |
+
+**M7 is complete.**
+
+**Next step when you pick up a session:** M8 — Phase 1 polish. Requires scope discussion first: simulated data strategy, demo flows, end-to-end UX. Have this conversation with the user before writing any code.
 
 ---
 
