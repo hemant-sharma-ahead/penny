@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
+    "@tabler/icons-webfont": "^3.44.0",
     "@tailwindcss/vite": "^4.3.0",
     "dexie": "^4.4.3",
     "react": "^19.2.6",
@@ -58,6 +59,7 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12",
+    "vite-plugin-pwa": "^1.3.0",
     "vitest": "^4.1.8"
   }
 }

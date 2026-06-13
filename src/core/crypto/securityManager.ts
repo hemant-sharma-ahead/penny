@@ -91,7 +91,7 @@ export async function unlock(pin: string): Promise<UnlockResult> {
       lastPinVerifiedAt: now,
       sessionExpiresAt: now + 30 * 60 * 1000,
       updatedAt: now
-    });
+    } as object);
 
     return 'ok';
   } catch {

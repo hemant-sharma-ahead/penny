@@ -95,15 +95,23 @@ export function PortfolioPage() {
         if (h.assetClass === 'mf' && h.schemeCode) {
           return fetchMfNav(h.schemeCode).then((nav) => {
             if (nav === null) return;
-            const currentValue = h.units != null ? h.units * nav : undefined;
-            return saveHolding({ ...h, currentPrice: nav, currentValue, updatedAt: Date.now() });
+            return saveHolding({
+              ...h,
+              currentPrice: nav,
+              ...(h.units != null ? { currentValue: h.units * nav } : {}),
+              updatedAt: Date.now()
+            });
           });
         }
         if (h.assetClass === 'stock' && h.symbol) {
           return fetchStockPrice(h.symbol).then((price) => {
             if (price === null) return;
-            const currentValue = h.units != null ? h.units * price : undefined;
-            return saveHolding({ ...h, currentPrice: price, currentValue, updatedAt: Date.now() });
+            return saveHolding({
+              ...h,
+              currentPrice: price,
+              ...(h.units != null ? { currentValue: h.units * price } : {}),
+              updatedAt: Date.now()
+            });
           });
         }
         return Promise.resolve();

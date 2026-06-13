@@ -28,7 +28,7 @@ export async function deriveKey(
 }
 
 export function generateSalt(byteLength = 32): ArrayBuffer {
-  return crypto.getRandomValues(new Uint8Array(byteLength)).buffer;
+  return crypto.getRandomValues(new Uint8Array(byteLength)).buffer as ArrayBuffer;
 }
 
 // ─── Encrypt / Decrypt ────────────────────────────────────────────────────────
@@ -38,8 +38,8 @@ export interface EncryptResult {
   ciphertext: ArrayBuffer;
 }
 
-export async function encrypt(key: CryptoKey, plaintext: ArrayBuffer | Uint8Array): Promise<EncryptResult> {
-  const iv = crypto.getRandomValues(new Uint8Array(GCM_IV_LENGTH)).buffer;
+export async function encrypt(key: CryptoKey, plaintext: BufferSource): Promise<EncryptResult> {
+  const iv = crypto.getRandomValues(new Uint8Array(GCM_IV_LENGTH)).buffer as ArrayBuffer;
   const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext);
   return { iv, ciphertext };
 }
@@ -51,7 +51,7 @@ export async function decrypt(key: CryptoKey, iv: ArrayBuffer, ciphertext: Array
 // ─── Key wrapping (MK ↔ KEK) ─────────────────────────────────────────────────
 
 export async function wrapKey(keyToWrap: CryptoKey, wrappingKey: CryptoKey): Promise<ArrayBuffer> {
-  const iv = crypto.getRandomValues(new Uint8Array(GCM_IV_LENGTH)).buffer;
+  const iv = crypto.getRandomValues(new Uint8Array(GCM_IV_LENGTH)).buffer as ArrayBuffer;
   const wrapped = await crypto.subtle.wrapKey('raw', keyToWrap, wrappingKey, { name: 'AES-GCM', iv });
   // Prepend IV to wrapped key so unwrapKey can extract it
   const combined = new Uint8Array(GCM_IV_LENGTH + wrapped.byteLength);

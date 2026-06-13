@@ -53,26 +53,31 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
       assetClass,
       name: name.trim(),
       investedAmount: invested,
-      currentValue: parsedCurrentValue,
-      notes: notes.trim() || undefined,
       createdAt: editing?.createdAt ?? now,
       updatedAt: now
     };
 
+    if (parsedCurrentValue !== undefined) holding.currentValue = parsedCurrentValue;
+    const notesVal = notes.trim();
+    if (notesVal) holding.notes = notesVal;
+
     if (assetClass === 'mf') {
-      holding.schemeCode = schemeCode.trim() || undefined;
-      holding.units = parsedUnits;
-      holding.avgCostPrice = parsedAvgCost;
+      const sc = schemeCode.trim();
+      if (sc) holding.schemeCode = sc;
+      if (parsedUnits !== undefined) holding.units = parsedUnits;
+      if (parsedAvgCost !== undefined) holding.avgCostPrice = parsedAvgCost;
     } else if (assetClass === 'stock') {
-      holding.symbol = symbol.trim().toUpperCase() || undefined;
-      holding.units = parsedUnits;
-      holding.avgCostPrice = parsedAvgCost;
+      const sym = symbol.trim().toUpperCase();
+      if (sym) holding.symbol = sym;
+      if (parsedUnits !== undefined) holding.units = parsedUnits;
+      if (parsedAvgCost !== undefined) holding.avgCostPrice = parsedAvgCost;
     } else if (assetClass === 'fd') {
-      holding.interestRate = parseFloat(interestRate) || undefined;
-      holding.maturityDate = maturityDate ? new Date(maturityDate).getTime() : undefined;
+      const rate = parseFloat(interestRate);
+      if (!isNaN(rate) && rate > 0) holding.interestRate = rate;
+      if (maturityDate) holding.maturityDate = new Date(maturityDate).getTime();
     } else if (assetClass === 'gold') {
-      holding.units = parsedUnits;
-      holding.avgCostPrice = parsedAvgCost;
+      if (parsedUnits !== undefined) holding.units = parsedUnits;
+      if (parsedAvgCost !== undefined) holding.avgCostPrice = parsedAvgCost;
     }
 
     onSave(holding)
@@ -91,7 +96,10 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
       <div className="relative w-full bg-white rounded-t-2xl p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-slate-900">{editing ? 'Edit holding' : 'Add holding'}</h3>
-          <button onClick={onClose} className="p-1 text-slate-400">
+          <button
+            onClick={onClose}
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400"
+          >
             <i className="ti ti-x" style={{ fontSize: 20 }} aria-hidden="true" />
           </button>
         </div>
@@ -121,7 +129,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
                   className="text-[9px] font-medium text-center leading-tight"
                   style={{ color: assetClass === ac.value ? ac.color : '#64748b' }}
                 >
-                  {ac.label.split(' ').at(0) ?? ac.label}
+                  {ac.label.split(' ')[0] ?? ac.label}
                 </span>
               </button>
             ))}
@@ -133,7 +141,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
           <label className="text-xs font-medium text-slate-500">Name</label>
           <input
             type="text"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             placeholder={
               assetClass === 'mf'
                 ? 'e.g. Parag Parikh Flexi Cap'
@@ -159,7 +167,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
               <input
                 type="text"
                 inputMode="numeric"
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
                 placeholder="Leave blank to enter price manually"
                 value={schemeCode}
                 onChange={(e) => setSchemeCode(e.target.value)}
@@ -171,7 +179,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
                 <input
                   type="number"
                   inputMode="decimal"
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
                   placeholder="0.000"
                   value={units}
                   onChange={(e) => setUnits(e.target.value)}
@@ -182,7 +190,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
                 <input
                   type="number"
                   inputMode="decimal"
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
                   placeholder="0.00"
                   value={avgCostPrice}
                   onChange={(e) => setAvgCostPrice(e.target.value)}
@@ -201,7 +209,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
               </label>
               <input
                 type="text"
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
                 placeholder="INFY, TCS, HDFC..."
                 value={symbol}
                 onChange={(e) => setSymbol(e.target.value.toUpperCase())}
@@ -213,7 +221,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
                 <input
                   type="number"
                   inputMode="decimal"
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
                   placeholder="0"
                   value={units}
                   onChange={(e) => setUnits(e.target.value)}
@@ -224,7 +232,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
                 <input
                   type="number"
                   inputMode="decimal"
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
                   placeholder="0.00"
                   value={avgCostPrice}
                   onChange={(e) => setAvgCostPrice(e.target.value)}
@@ -242,7 +250,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
               <input
                 type="number"
                 inputMode="decimal"
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
                 placeholder="7.1"
                 value={interestRate}
                 onChange={(e) => setInterestRate(e.target.value)}
@@ -252,7 +260,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
               <label className="text-xs font-medium text-slate-500">Maturity date</label>
               <input
                 type="date"
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
                 value={maturityDate}
                 onChange={(e) => setMaturityDate(e.target.value)}
               />
@@ -268,7 +276,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
               <input
                 type="number"
                 inputMode="decimal"
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
                 placeholder="0.00"
                 value={units}
                 onChange={(e) => setUnits(e.target.value)}
@@ -279,7 +287,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
               <input
                 type="number"
                 inputMode="decimal"
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
                 placeholder="0.00"
                 value={avgCostPrice}
                 onChange={(e) => setAvgCostPrice(e.target.value)}
@@ -294,7 +302,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
           <input
             type="number"
             inputMode="decimal"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             placeholder="0"
             value={investedAmount}
             onChange={(e) => setInvestedAmount(e.target.value)}
@@ -310,7 +318,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
           <input
             type="number"
             inputMode="decimal"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             placeholder="Leave blank to use invested amount"
             value={currentValue}
             onChange={(e) => setCurrentValue(e.target.value)}
@@ -322,7 +330,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
           <label className="text-xs font-medium text-slate-500">Notes (optional)</label>
           <input
             type="text"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             placeholder="e.g. held in Zerodha, SBI Kolar branch"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
