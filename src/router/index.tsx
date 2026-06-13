@@ -15,6 +15,7 @@ import { ExpensesPage } from '@/features/expenses/ExpensesPage';
 import { GoalsPage } from '@/features/goals/GoalsPage';
 import { InsurancePage } from '@/features/insurance/InsurancePage';
 import { SubscriptionsPage } from '@/features/subscriptions/SubscriptionsPage';
+import { IouPage } from '@/features/iou/IouPage';
 import { ChipPage } from '@/features/chip/ChipPage';
 
 export const router = createBrowserRouter([
@@ -40,6 +41,7 @@ export const router = createBrowserRouter([
           { path: PATHS.app.goals, element: <GoalsPage /> },
           { path: PATHS.app.insurance, element: <InsurancePage /> },
           { path: PATHS.app.subscriptions, element: <SubscriptionsPage /> },
+          { path: PATHS.app.iou, element: <IouPage /> },
           { path: PATHS.app.chip, element: <ChipPage /> }
         ]
       }

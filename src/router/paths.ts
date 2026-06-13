@@ -16,6 +16,7 @@ export const PATHS = {
     goals: '/app/goals',
     insurance: '/app/insurance',
     subscriptions: '/app/subscriptions',
+    iou: '/app/iou',
     chip: '/app/chip'
   }
 } as const;

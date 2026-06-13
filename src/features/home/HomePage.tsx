@@ -54,7 +54,10 @@ const CORE_TILES = [
   { label: 'Insurance', icon: 'ti-shield', path: PATHS.app.insurance, color: '#3b82f6' }
 ];
 
-const SMART_TILES = [{ label: 'Subscriptions', icon: 'ti-refresh', path: PATHS.app.subscriptions, color: '#8b5cf6' }];
+const SMART_TILES = [
+  { label: 'Subscriptions', icon: 'ti-refresh', path: PATHS.app.subscriptions, color: '#8b5cf6' },
+  { label: 'IOUs', icon: 'ti-arrows-exchange', path: PATHS.app.iou, color: '#f59e0b' }
+];
 
 export function HomePage() {
   const { mode } = usePrivacy();
