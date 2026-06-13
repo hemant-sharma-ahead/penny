@@ -40,6 +40,29 @@
 
   /* Font scale (controlled by SettingsContext) */
   --font-scale: 1;
+
+  /* Mode accent — default to open/green */
+  --color-mode-accent: #00a86b;
+  --color-mode-header-bg: #ffffff;
+}
+
+/* Per-mode overrides applied via data-privacy-mode on <body> */
+[data-privacy-mode='safe'] {
+  --color-mode-accent: #f59e0b;
+  --color-mode-header-bg: #fef3c7; /* amber-100 — clearly amber at a glance */
+  --color-mode-bg: #fffbeb; /* amber-50  — lighter tint for content area */
+}
+
+[data-privacy-mode='privacy'] {
+  --color-mode-accent: #7c3aed;
+  --color-mode-header-bg: #ede9fe; /* violet-100 */
+  --color-mode-bg: #f5f3ff; /* violet-50 */
+}
+
+[data-privacy-mode='open'] {
+  --color-mode-accent: #00a86b;
+  --color-mode-header-bg: #dcfce7; /* green-100 */
+  --color-mode-bg: #f0fdf4; /* green-50 */
 }
 
 * {

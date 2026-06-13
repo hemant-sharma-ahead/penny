@@ -30,8 +30,12 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-white border-t border-slate-200 z-50"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-50 transition-colors duration-300"
+      style={{
+        backgroundColor: 'var(--color-mode-header-bg, #ffffff)',
+        borderTop: '2px solid var(--color-mode-accent, #00a86b)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)'
+      }}
       aria-label="Main navigation"
     >
       <ul className="flex items-center justify-around h-16 px-2 list-none m-0 p-0">

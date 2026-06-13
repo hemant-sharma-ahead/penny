@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 
 export type PrivacyMode = 'safe' | 'privacy' | 'open';
 
@@ -14,10 +14,10 @@ const PrivacyContext = createContext<PrivacyContextValue | null>(null);
 export function PrivacyProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<PrivacyMode>('safe');
 
-  const setMode = (newMode: PrivacyMode) => {
+  const setMode = useCallback((newMode: PrivacyMode) => {
     setModeState(newMode);
     document.body.setAttribute('data-privacy-mode', newMode);
-  };
+  }, []);
 
   useEffect(() => {
     document.body.setAttribute('data-privacy-mode', mode);
