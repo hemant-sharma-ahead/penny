@@ -110,6 +110,23 @@ export async function unlock(pin: string): Promise<UnlockResult> {
   }
 }
 
+// ─── Lockout state ───────────────────────────────────────────────────────────
+
+export interface LockoutState {
+  pinAttempts: number;
+  lockedUntil: number | null;
+}
+
+export async function getLockoutState(): Promise<LockoutState | null> {
+  const records = await db.security.toArray();
+  const record = records[0];
+  if (!record) return null;
+  return {
+    pinAttempts: record.pinAttempts,
+    lockedUntil: record.lockedUntil ?? null
+  };
+}
+
 // ─── Session helpers ──────────────────────────────────────────────────────────
 
 export async function isSessionValid(): Promise<boolean> {
