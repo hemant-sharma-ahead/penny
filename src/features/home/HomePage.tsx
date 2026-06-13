@@ -59,7 +59,8 @@ const SMART_TILES = [
   { label: 'IOUs', icon: 'ti-arrows-exchange', path: PATHS.app.iou, color: '#f59e0b' },
   { label: 'Loans', icon: 'ti-calculator', path: PATHS.app.loans, color: '#06b6d4' },
   { label: 'Health Score', icon: 'ti-heart-rate-monitor', path: PATHS.app.health, color: '#ec4899' },
-  { label: 'Tax', icon: 'ti-receipt-tax', path: PATHS.app.tax, color: '#8b5cf6' }
+  { label: 'Tax', icon: 'ti-receipt-tax', path: PATHS.app.tax, color: '#8b5cf6' },
+  { label: 'Cash Flow', icon: 'ti-trending-down', path: PATHS.app.cashflow, color: '#14b8a6' }
 ];
 
 export function HomePage() {

@@ -19,6 +19,7 @@ import { IouPage } from '@/features/iou/IouPage';
 import { LoanScenariosPage } from '@/features/loans/LoanScenariosPage';
 import { HealthScorePage } from '@/features/health/HealthScorePage';
 import { TaxAwarenessPage } from '@/features/tax/TaxAwarenessPage';
+import { CashFlowPage } from '@/features/cashflow/CashFlowPage';
 import { ChipPage } from '@/features/chip/ChipPage';
 
 export const router = createBrowserRouter([
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
           { path: PATHS.app.loans, element: <LoanScenariosPage /> },
           { path: PATHS.app.health, element: <HealthScorePage /> },
           { path: PATHS.app.tax, element: <TaxAwarenessPage /> },
+          { path: PATHS.app.cashflow, element: <CashFlowPage /> },
           { path: PATHS.app.chip, element: <ChipPage /> }
         ]
       }

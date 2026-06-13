@@ -20,6 +20,7 @@ export const PATHS = {
     loans: '/app/loans',
     health: '/app/health',
     tax: '/app/tax',
+    cashflow: '/app/cashflow',
     chip: '/app/chip'
   }
 } as const;
