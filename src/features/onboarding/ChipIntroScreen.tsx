@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '@/router/paths';
+import { ChipAvatar } from '@/components/ui/ChipAvatar';
 
 const mockInsights = [
   {
@@ -26,11 +27,8 @@ export function ChipIntroScreen() {
     <div className="min-h-screen flex flex-col bg-white px-6 py-10">
       <div className="flex-1 w-full max-w-sm mx-auto flex flex-col">
         <div className="mb-8 text-center">
-          <div
-            className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg"
-            style={{ backgroundColor: 'var(--color-primary)' }}
-          >
-            <i className="ti ti-sparkles text-white" style={{ fontSize: 28 }} aria-hidden="true" />
+          <div className="mx-auto mb-4 drop-shadow-lg w-fit">
+            <ChipAvatar size={56} />
           </div>
           <h2 className="text-2xl font-semibold text-slate-900 mb-2">Meet Chip</h2>
           <p className="text-slate-500 text-sm">

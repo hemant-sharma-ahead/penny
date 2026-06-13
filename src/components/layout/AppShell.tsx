@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
 import { PrivacyBadge } from '@/components/privacy/PrivacyBadge';
+import { PennyWordmark } from '@/components/ui/PennyLogo';
 
 export function AppShell() {
   return (
@@ -8,7 +9,7 @@ export function AppShell() {
       <div className="relative w-full max-w-[430px] min-h-screen bg-white shadow-xl flex flex-col">
         {/* Top bar */}
         <header className="flex items-center justify-between px-4 py-3 bg-white border-b border-slate-100 sticky top-0 z-40">
-          <span className="text-lg font-semibold text-slate-800">Penny</span>
+          <PennyWordmark height={24} />
           <PrivacyBadge />
         </header>
 

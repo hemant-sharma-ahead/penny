@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { PATHS } from '@/router/paths';
+import { ChipAvatar } from '@/components/ui/ChipAvatar';
 
 interface NavItem {
   path: string;
@@ -37,7 +38,7 @@ export function BottomNav() {
                 }
                 aria-label={item.label}
               >
-                <i className={`ti ${item.icon} text-white`} style={{ fontSize: 24 }} aria-hidden="true" />
+                <ChipAvatar size={30} />
               </NavLink>
             </li>
           ) : (
