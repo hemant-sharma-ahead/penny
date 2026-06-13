@@ -15,6 +15,7 @@ export const PATHS = {
     expenses: '/app/expenses',
     goals: '/app/goals',
     insurance: '/app/insurance',
+    subscriptions: '/app/subscriptions',
     chip: '/app/chip'
   }
 } as const;
