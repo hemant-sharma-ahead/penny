@@ -13,6 +13,7 @@ import { HomePage } from '@/features/home/HomePage';
 import { PortfolioPage } from '@/features/portfolio/PortfolioPage';
 import { ExpensesPage } from '@/features/expenses/ExpensesPage';
 import { GoalsPage } from '@/features/goals/GoalsPage';
+import { InsurancePage } from '@/features/insurance/InsurancePage';
 import { ChipPage } from '@/features/chip/ChipPage';
 
 export const router = createBrowserRouter([
@@ -36,6 +37,7 @@ export const router = createBrowserRouter([
           { path: PATHS.app.portfolio, element: <PortfolioPage /> },
           { path: PATHS.app.expenses, element: <ExpensesPage /> },
           { path: PATHS.app.goals, element: <GoalsPage /> },
+          { path: PATHS.app.insurance, element: <InsurancePage /> },
           { path: PATHS.app.chip, element: <ChipPage /> }
         ]
       }
