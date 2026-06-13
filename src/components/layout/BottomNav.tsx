@@ -6,14 +6,15 @@ interface NavItem {
   label: string;
   icon: string;
   isFab?: boolean;
+  color?: string;
 }
 
 const navItems: NavItem[] = [
-  { path: PATHS.app.home, label: 'Home', icon: 'ti-home' },
-  { path: PATHS.app.portfolio, label: 'Portfolio', icon: 'ti-chart-pie' },
+  { path: PATHS.app.home, label: 'Home', icon: 'ti-home', color: '#00a86b' },
+  { path: PATHS.app.portfolio, label: 'Portfolio', icon: 'ti-chart-pie', color: '#6366f1' },
   { path: PATHS.app.chip, label: 'Chip', icon: 'ti-sparkles', isFab: true },
-  { path: PATHS.app.expenses, label: 'Expenses', icon: 'ti-wallet' },
-  { path: PATHS.app.goals, label: 'Goals', icon: 'ti-target' }
+  { path: PATHS.app.expenses, label: 'Expenses', icon: 'ti-wallet', color: '#f59e0b' },
+  { path: PATHS.app.goals, label: 'Goals', icon: 'ti-target', color: '#10b981' }
 ];
 
 export function BottomNav() {
@@ -45,8 +46,9 @@ export function BottomNav() {
                 to={item.path}
                 className={({ isActive }) =>
                   `flex flex-col items-center justify-center gap-0.5 py-2 w-full transition-colors
-                   ${isActive ? 'text-[#00a86b]' : 'text-slate-400 hover:text-slate-600'}`
+                   ${isActive ? '' : 'text-slate-400 hover:text-slate-600'}`
                 }
+                style={({ isActive }) => (isActive && item.color ? { color: item.color } : undefined)}
               >
                 <i className={`ti ${item.icon}`} style={{ fontSize: 22 }} aria-hidden="true" />
                 <span className="text-[10px] font-medium leading-none">{item.label}</span>
