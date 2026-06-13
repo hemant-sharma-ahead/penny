@@ -21,15 +21,35 @@ This file is read at the start of every Claude Code session. It tells you where 
 |-----------|--------|
 | M0: Repo + tooling + docs | ✅ Complete |
 | M1: Running skeleton (5-tab layout) | ✅ Complete |
-| M2: Crypto + DB layer | 🔄 Next |
-| M3: CI PII gate | ⏳ Pending |
-| M4: Onboarding flow | ⏳ Pending |
-| M5: Feature modules (no AI) | ⏳ Pending |
+| M2: Crypto + DB layer | ✅ Complete |
+| M3: CI PII gate | ✅ Complete |
+| M4: Onboarding flow | ✅ Complete |
+| M5: Feature modules (no AI) | ✅ Complete |
 | M6: PWA + responsive polish | ⏳ Pending |
 | M7: Hardening | ⏳ Pending |
-| M8: Phase 1 + Chip (real Anthropic) | ⏳ Future |
+| M8: Phase 1 polish | ⏳ Pending — scope TBD with user |
+| M9: Chip (AI integration) | ⏳ Future |
 
-**Next step when you pick up a session:** Check this table and start from the first 🔄 or ⏳ milestone.
+**M5 step tracker:**
+
+| Step | Feature | Status |
+|------|---------|--------|
+| Infra | formatters, repositories, mockChip, useRepository hook | ✅ Done |
+| 22 | Home dashboard (net worth card, Chip insights, module tiles) | ✅ Done |
+| 23 | Expenses (list, form, categories, hashtags, budgets) | ✅ Done |
+| 24 | Goals (cards, progress rings, SIP calculator) | ✅ Done |
+| 25 | Portfolio (holdings, live price fetch, report card) | ✅ Done |
+| 26 | Insurance (policy cards, form, renewal tracker) | ✅ Done |
+| 27 | Subscription detection (3-pass algorithm) | ✅ Done |
+| 28 | IOU tracker (lent/borrowed, ageing alerts) | ✅ Done |
+| 29 | Loan scenarios (6 on-device calculations) | ✅ Done |
+| 30 | Financial health score (0–100 composite) | ✅ Done |
+| 31 | Tax awareness (80C/80D/24B, LTCG/STCG) | ✅ Done |
+| 32 | Cash flow forecast (week/month ahead) | ✅ Done |
+
+**M5 is complete.** Step 33 (Chip tab) moved to M9.
+
+**Next step when you pick up a session:** M6 — PWA + responsive polish (Step 34).
 
 ---
 
@@ -128,7 +148,7 @@ Bottom nav tabs: Home · Portfolio · Chip (FAB, centred) · Expenses · Goals
 
 ---
 
-## Chip AI (Phase 1 + Chip — future)
+## Chip AI (M9 — future)
 
 - `mockChip.ts` provides simulated responses during development
 - `CHIP_MODE: 'mock' | 'real'` flag controls which path is used

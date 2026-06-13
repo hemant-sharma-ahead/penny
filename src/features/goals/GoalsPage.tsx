@@ -1,11 +1,406 @@
+import { useState, useMemo } from 'react';
+import { usePrivacy } from '@/context/PrivacyContext';
+import { goalsRepo } from '@/core/db/repositories';
+import { useRepository } from '@/hooks/useRepository';
+import type { Goal } from '@/core/db/types';
+import { formatCurrency, formatDate } from '@/lib/formatters';
+import { GoalForm } from './GoalForm';
+
+// SVG progress ring constants
+const RING_RADIUS = 40;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+const RISK_COLORS: Record<string, string> = {
+  conservative: '#3b82f6',
+  moderate: '#10b981',
+  aggressive: '#ef4444'
+};
+
+const RISK_RETURNS: Record<string, number> = {
+  conservative: 7,
+  moderate: 11,
+  aggressive: 14
+};
+
+const SIP_RETURN_OPTIONS: { value: string; label: string }[] = [
+  { value: '7', label: 'Conservative' },
+  { value: '11', label: 'Moderate' },
+  { value: '14', label: 'Aggressive' }
+];
+
+// PMT formula: monthly SIP needed to reach remaining target
+// Accounts for current savings already growing at the same rate
+function calcSipNeeded(
+  targetAmount: number,
+  currentAmount: number,
+  monthsLeft: number,
+  annualReturnPct: number
+): number {
+  if (monthsLeft <= 0) return 0;
+  const r = annualReturnPct / 100 / 12;
+  const fvOfCurrent = currentAmount * Math.pow(1 + r, monthsLeft);
+  const remaining = targetAmount - fvOfCurrent;
+  if (remaining <= 0) return 0;
+  if (r === 0) return remaining / monthsLeft;
+  return (remaining * r) / (Math.pow(1 + r, monthsLeft) - 1);
+}
+
+function monthsUntil(epochMs: number): number {
+  const now = new Date();
+  const target = new Date(epochMs);
+  const diff = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
+  return Math.max(0, diff);
+}
+
 export function GoalsPage() {
+  const { mode } = usePrivacy();
+  const { items: goals, save: saveGoal, remove: removeGoal } = useRepository(goalsRepo);
+
+  const [activeTab, setActiveTab] = useState<'goals' | 'sip'>('goals');
+  const [showForm, setShowForm] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [contributingTo, setContributingTo] = useState<string | null>(null);
+  const [contribAmount, setContribAmount] = useState('');
+
+  // SIP calculator state (standalone, not stored)
+  const [sipTarget, setSipTarget] = useState('');
+  const [sipSaved, setSipSaved] = useState('');
+  const [sipYears, setSipYears] = useState('');
+  const [sipReturn, setSipReturn] = useState('11');
+  const [sipResult, setSipResult] = useState<number | null>(null);
+
+  const totalSaved = useMemo(() => goals.reduce((s, g) => s + g.currentAmount, 0), [goals]);
+  const totalTarget = useMemo(() => goals.reduce((s, g) => s + g.targetAmount, 0), [goals]);
+
+  function openAdd() {
+    setEditingGoal(null);
+    setShowForm(true);
+  }
+
+  function openEdit(goal: Goal) {
+    setEditingGoal(goal);
+    setShowForm(true);
+  }
+
+  async function handleSave(goal: Goal) {
+    await saveGoal(goal);
+    setShowForm(false);
+  }
+
+  async function handleDelete(id: string) {
+    await removeGoal(id);
+    setShowForm(false);
+  }
+
+  function handleAddContribution(goal: Goal) {
+    const amount = parseFloat(contribAmount);
+    if (isNaN(amount) || amount <= 0) return;
+    saveGoal({ ...goal, currentAmount: goal.currentAmount + amount, updatedAt: Date.now() })
+      .then(() => {
+        setContributingTo(null);
+        setContribAmount('');
+      })
+      .catch(() => {});
+  }
+
+  function calcSipResult() {
+    const target = parseFloat(sipTarget);
+    const saved = parseFloat(sipSaved) || 0;
+    const years = parseFloat(sipYears);
+    const ret = parseFloat(sipReturn) || 11;
+    if (isNaN(target) || isNaN(years) || target <= 0 || years <= 0) return;
+    setSipResult(calcSipNeeded(target, saved, years * 12, ret));
+  }
+
   return (
-    <div className="p-4">
-      <h1 className="text-xl font-semibold text-slate-800 mb-1">Goals</h1>
-      <p className="text-sm text-slate-500">Net worth, goals, and loan scenarios</p>
-      <div className="mt-6 rounded-xl bg-slate-50 border border-slate-200 p-6 text-center text-slate-400 text-sm">
-        Goals module coming soon — M5
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="px-4 pt-4 pb-3 border-b border-slate-100">
+        <h2 className="text-xl font-semibold text-slate-900">Goals</h2>
+        {goals.length > 0 && (
+          <p className="text-sm text-slate-500 mt-0.5">
+            {mode === 'open' ? formatCurrency(totalSaved) : '••••'} of{' '}
+            {mode === 'open' ? formatCurrency(totalTarget) : '••••'} saved
+          </p>
+        )}
       </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-slate-100 px-4">
+        {(['goals', 'sip'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`py-2.5 mr-5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              activeTab === tab ? 'border-[#00a86b] text-[#00a86b]' : 'border-transparent text-slate-500'
+            }`}
+          >
+            {tab === 'sip' ? 'SIP Calculator' : 'Goals'}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 overflow-y-auto pb-24">
+        {/* ── Goals tab ── */}
+        {activeTab === 'goals' && (
+          <div>
+            {goals.length === 0 ? (
+              <div className="p-10 text-center">
+                <i className="ti ti-target text-slate-300" style={{ fontSize: 44 }} aria-hidden="true" />
+                <p className="text-sm text-slate-400 mt-3">No goals yet. Tap + to set your first goal.</p>
+              </div>
+            ) : (
+              <div className="px-4 py-4 flex flex-col gap-3">
+                {goals.map((goal) => {
+                  const pct = Math.min(goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0, 100);
+                  const color = RISK_COLORS[goal.risk] ?? '#10b981';
+                  const dashOffset = RING_CIRCUMFERENCE * (1 - pct / 100);
+                  const months = monthsUntil(goal.targetDate);
+                  const annualReturn = RISK_RETURNS[goal.risk] ?? 11;
+                  const sipNeeded = calcSipNeeded(goal.targetAmount, goal.currentAmount, months, annualReturn);
+                  const isContributing = contributingTo === goal.id;
+
+                  return (
+                    <div key={goal.id} className="bg-white rounded-2xl border border-slate-100 p-4">
+                      <div className="flex items-start gap-4">
+                        {/* Progress ring */}
+                        <div className="flex-shrink-0">
+                          <svg viewBox="0 0 100 100" width="72" height="72" aria-hidden="true">
+                            <circle cx="50" cy="50" r={RING_RADIUS} fill="none" stroke="#f1f5f9" strokeWidth="10" />
+                            <circle
+                              cx="50"
+                              cy="50"
+                              r={RING_RADIUS}
+                              fill="none"
+                              stroke={color}
+                              strokeWidth="10"
+                              strokeDasharray={String(RING_CIRCUMFERENCE)}
+                              strokeDashoffset={String(dashOffset)}
+                              strokeLinecap="round"
+                              transform="rotate(-90 50 50)"
+                            />
+                            <text
+                              x="50"
+                              y="50"
+                              textAnchor="middle"
+                              dominantBaseline="central"
+                              fontSize="18"
+                              fontWeight="700"
+                              fill="#1e293b"
+                            >
+                              {Math.round(pct)}%
+                            </text>
+                          </svg>
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-semibold text-slate-900 truncate">{goal.name}</p>
+                            <button
+                              onClick={() => openEdit(goal)}
+                              className="text-slate-400 ml-2 flex-shrink-0 p-0.5"
+                              aria-label={`Edit ${goal.name}`}
+                            >
+                              <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true" />
+                            </button>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {mode === 'open' ? formatCurrency(goal.currentAmount) : '••••'} of{' '}
+                            {mode === 'open' ? formatCurrency(goal.targetAmount) : '••••'}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                            <span
+                              className="text-[10px] font-medium px-1.5 py-0.5 rounded-full text-white capitalize"
+                              style={{ backgroundColor: color }}
+                            >
+                              {goal.risk}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {months > 0 ? `${months}mo left` : 'Due'} · {formatDate(goal.targetDate)}
+                            </span>
+                          </div>
+                          {sipNeeded > 0 && (
+                            <p className="text-[10px] text-slate-400 mt-1">
+                              SIP needed: {mode === 'open' ? formatCurrency(Math.ceil(sipNeeded)) : '••••'}
+                              /mo
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Contribution row */}
+                      {isContributing ? (
+                        <div className="mt-3 flex gap-2">
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                            placeholder="Amount (₹)"
+                            value={contribAmount}
+                            onChange={(e) => setContribAmount(e.target.value)}
+                            autoFocus
+                          />
+                          <button
+                            className="px-4 py-2 rounded-xl text-white text-sm font-medium"
+                            style={{ backgroundColor: 'var(--color-primary)' }}
+                            onClick={() => handleAddContribution(goal)}
+                          >
+                            Add
+                          </button>
+                          <button
+                            className="px-3 py-2 rounded-xl border border-slate-200 text-slate-500 text-sm"
+                            onClick={() => {
+                              setContributingTo(null);
+                              setContribAmount('');
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="mt-3 w-full py-2 rounded-xl border border-dashed border-slate-200 text-xs font-medium text-slate-400"
+                          onClick={() => {
+                            setContributingTo(goal.id);
+                            setContribAmount('');
+                          }}
+                        >
+                          + Add contribution
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── SIP Calculator tab ── */}
+        {activeTab === 'sip' && (
+          <div className="px-4 py-4 flex flex-col gap-4">
+            <div className="bg-blue-50 rounded-xl p-3 flex gap-2">
+              <i
+                className="ti ti-calculator text-blue-500 flex-shrink-0 mt-0.5"
+                style={{ fontSize: 18 }}
+                aria-hidden="true"
+              />
+              <p className="text-xs text-blue-700 leading-relaxed">
+                Enter your goal details to find the monthly SIP amount needed to reach your target, accounting for any
+                savings already set aside.
+              </p>
+            </div>
+
+            <div className="bg-white rounded-xl border border-slate-100 p-4 flex flex-col gap-3">
+              <div>
+                <label className="text-xs font-medium text-slate-500">Goal amount (₹)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                  placeholder="e.g. 1000000"
+                  value={sipTarget}
+                  onChange={(e) => setSipTarget(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-slate-500">Already saved (₹)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                  placeholder="0"
+                  value={sipSaved}
+                  onChange={(e) => setSipSaved(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-slate-500">Time horizon (years)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                  placeholder="e.g. 5"
+                  value={sipYears}
+                  onChange={(e) => setSipYears(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-slate-500">Expected return (% per year)</label>
+                <div className="mt-1 grid grid-cols-3 gap-2">
+                  {SIP_RETURN_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setSipReturn(opt.value)}
+                      className="py-2 rounded-xl text-xs font-medium border-2 transition-colors"
+                      style={
+                        sipReturn === opt.value
+                          ? { borderColor: '#00a86b', color: '#00a86b', backgroundColor: '#00a86b10' }
+                          : { borderColor: '#f1f5f9', color: '#64748b' }
+                      }
+                    >
+                      {opt.value}% {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={calcSipResult}
+                className="w-full py-3 rounded-xl text-white text-sm font-medium"
+                style={{ backgroundColor: 'var(--color-primary)' }}
+              >
+                Calculate
+              </button>
+            </div>
+
+            {sipResult !== null && (
+              <div className="bg-white rounded-xl border border-slate-100 p-5 text-center">
+                <p className="text-xs text-slate-500 mb-1">Required monthly SIP</p>
+                <p className="text-3xl font-semibold text-slate-900">{formatCurrency(Math.ceil(sipResult))}</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  per month for {sipYears} year{sipYears === '1' ? '' : 's'} at {sipReturn}% p.a.
+                </p>
+                {parseFloat(sipSaved) > 0 && (
+                  <p className="text-xs mt-2" style={{ color: 'var(--color-primary)' }}>
+                    Existing savings of {formatCurrency(parseFloat(sipSaved))} factored in.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* FAB — add goal */}
+      {activeTab === 'goals' && (
+        <button
+          onClick={openAdd}
+          className="fixed w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white z-10"
+          style={{
+            bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+            right: '1rem',
+            backgroundColor: 'var(--color-primary)'
+          }}
+          aria-label="Add goal"
+        >
+          <i className="ti ti-plus" style={{ fontSize: 24 }} aria-hidden="true" />
+        </button>
+      )}
+
+      {showForm && (
+        <GoalForm
+          editing={editingGoal}
+          onSave={handleSave}
+          onDelete={handleDelete}
+          onClose={() => setShowForm(false)}
+        />
+      )}
     </div>
   );
 }
