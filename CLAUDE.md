@@ -24,7 +24,7 @@ This file is read at the start of every Claude Code session. It tells you where 
 | M2: Crypto + DB layer | ✅ Complete |
 | M3: CI PII gate | ✅ Complete |
 | M4: Onboarding flow | ✅ Complete |
-| M5: Feature modules (no AI) | 🔄 In progress — Step 29 (Loan scenarios) next |
+| M5: Feature modules (no AI) | 🔄 In progress — Step 30 (Financial health score) next |
 | M6: PWA + responsive polish | ⏳ Pending |
 | M7: Hardening | ⏳ Pending |
 | M8: Phase 1 + Chip (real Anthropic) | ⏳ Future |
@@ -41,8 +41,8 @@ This file is read at the start of every Claude Code session. It tells you where 
 | 26 | Insurance (policy cards, form, renewal tracker) | ✅ Done |
 | 27 | Subscription detection (3-pass algorithm) | ✅ Done |
 | 28 | IOU tracker (lent/borrowed, ageing alerts) | ✅ Done |
-| 29 | Loan scenarios (6 on-device calculations) | 🔄 Next |
-| 30 | Financial health score (0–100 composite) | ⏳ |
+| 29 | Loan scenarios (6 on-device calculations) | ✅ Done |
+| 30 | Financial health score (0–100 composite) | 🔄 Next |
 | 31 | Tax awareness (80C/80D/24B, LTCG/STCG) | ⏳ |
 | 32 | Cash flow forecast (week/month ahead) | ⏳ |
 | 33 | Chip tab (full chat UI, mock streaming) | ⏳ |
