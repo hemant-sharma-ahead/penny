@@ -21,6 +21,7 @@ import { HealthScorePage } from '@/features/health/HealthScorePage';
 import { TaxAwarenessPage } from '@/features/tax/TaxAwarenessPage';
 import { CashFlowPage } from '@/features/cashflow/CashFlowPage';
 import { ChipPage } from '@/features/chip/ChipPage';
+import { BackupPage } from '@/features/backup/BackupPage';
 
 export const router = createBrowserRouter([
   { index: true, element: <Navigate to={PATHS.onboarding.splash} replace /> },
@@ -50,7 +51,8 @@ export const router = createBrowserRouter([
           { path: PATHS.app.health, element: <HealthScorePage /> },
           { path: PATHS.app.tax, element: <TaxAwarenessPage /> },
           { path: PATHS.app.cashflow, element: <CashFlowPage /> },
-          { path: PATHS.app.chip, element: <ChipPage /> }
+          { path: PATHS.app.chip, element: <ChipPage /> },
+          { path: PATHS.app.backup, element: <BackupPage /> }
         ]
       }
     ]

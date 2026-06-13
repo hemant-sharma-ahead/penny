@@ -20,18 +20,12 @@ export function AuthGuard() {
           setState('needs_onboarding');
           return;
         }
-        return isSessionValid().then((valid) => {
+        // Check rotation regardless of session validity — banner should show
+        // after unlock even when the app opens in a locked state.
+        return Promise.all([isSessionValid(), isPinRotationDue()]).then(([, due]) => {
           if (cancelled) return;
-          if (valid) {
-            return isPinRotationDue().then((due) => {
-              if (!cancelled) {
-                setRotationDue(due);
-                setState('ready');
-              }
-            });
-          } else {
-            setState('ready'); // SessionGate will show lock screen (keystore is locked)
-          }
+          setRotationDue(due);
+          setState('ready');
         });
       })
       .catch(() => {

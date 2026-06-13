@@ -1,12 +1,26 @@
 import { useEffect, useState } from 'react';
 import { keystore } from '@/core/crypto/keystore';
-import { unlock } from '@/core/crypto/securityManager';
+import { getLockoutState, unlock } from '@/core/crypto/securityManager';
 import { recordActivity, startSessionWatcher, stopSessionWatcher } from './sessionStore';
 
 interface Props {
   children: React.ReactNode;
   onNeedsOnboarding: () => void;
   showRotationBanner?: boolean;
+}
+
+const MAX_ATTEMPTS = 5;
+
+function formatCountdown(ms: number): string {
+  const totalSeconds = Math.ceil(ms / 1000);
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  if (mins >= 60) {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+  return `${mins}:${String(secs).padStart(2, '0')}`;
 }
 
 // Initial lock state is read synchronously from the keystore — no async on mount.
@@ -16,7 +30,44 @@ export function SessionGate({ children, showRotationBanner = false }: Props) {
   const [rotationDismissed, setRotationDismissed] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [error, setError] = useState('');
+  const [attemptsUsed, setAttemptsUsed] = useState(0);
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  // tickNow drives the live countdown — updated every second while locked out.
+  const [tickNow, setTickNow] = useState(() => Date.now());
+
+  // Derived: countdown string computed from lockedUntil and tickNow (no extra state).
+  const countdownMs = lockedUntil ? Math.max(0, lockedUntil - tickNow) : 0;
+  const countdown = countdownMs > 0 ? formatCountdown(countdownMs) : '';
+
+  // Read real lockout state from DB whenever the screen becomes locked.
+  useEffect(() => {
+    if (!locked) return;
+    getLockoutState()
+      .then((state) => {
+        if (!state) return;
+        setAttemptsUsed(state.pinAttempts);
+        if (state.lockedUntil && state.lockedUntil > Date.now()) {
+          setLockedUntil(state.lockedUntil);
+        }
+      })
+      .catch(() => {});
+  }, [locked]);
+
+  // Live countdown ticker — clears lockedUntil when it expires.
+  useEffect(() => {
+    if (!lockedUntil) return;
+    const target = lockedUntil; // capture non-null for use inside interval
+    const id = setInterval(() => {
+      const now = Date.now();
+      if (now >= target) {
+        setLockedUntil(null);
+        setAttemptsUsed(0);
+      } else {
+        setTickNow(now);
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [lockedUntil]);
 
   useEffect(() => {
     // setLocked called from callback (event handler), not directly in effect body ✓
@@ -32,55 +83,109 @@ export function SessionGate({ children, showRotationBanner = false }: Props) {
   }, []);
 
   const handleUnlock = async () => {
+    if (lockedUntil) return;
     setError('');
     const result = await unlock(pinInput);
     setPinInput('');
     if (result === 'ok') {
       setLocked(false);
+      setAttemptsUsed(0);
     } else if (result === 'locked_out') {
-      setLockedUntil(Date.now() + 5 * 60 * 1000);
-      setError('Too many attempts. Try again later.');
+      // Re-read DB for the real lockedUntil (exponential backoff computed there).
+      getLockoutState()
+        .then((state) => {
+          if (state?.lockedUntil) setLockedUntil(state.lockedUntil);
+          if (state) setAttemptsUsed(state.pinAttempts);
+        })
+        .catch(() => {});
     } else {
-      setError('Incorrect PIN. Try again.');
+      // wrong_pin — read updated attempt count
+      getLockoutState()
+        .then((state) => {
+          if (state) setAttemptsUsed(state.pinAttempts);
+        })
+        .catch(() => {});
+      setError('Incorrect PIN.');
     }
   };
 
   if (locked) {
+    const isLockedOut = !!lockedUntil;
+    const remaining = MAX_ATTEMPTS - attemptsUsed;
+    const showWarning = !isLockedOut && attemptsUsed >= 3 && remaining > 0;
+
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white px-6">
         <div className="w-full max-w-sm text-center">
-          <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-6">
-            <i className="ti ti-lock text-amber-500" style={{ fontSize: 32 }} aria-hidden="true" />
-          </div>
-          <h2 className="text-xl font-semibold text-slate-900 mb-2">Session locked</h2>
-          <p className="text-slate-500 text-sm mb-8">Enter your PIN to continue</p>
-          <input
-            type="password"
-            inputMode="numeric"
-            maxLength={6}
-            value={pinInput}
-            onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void handleUnlock();
-            }}
-            placeholder="6-digit PIN"
-            className="w-full text-center text-2xl tracking-widest border border-slate-200 rounded-xl px-4 py-3 mb-4 focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            aria-label="PIN"
-          />
-          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-          {lockedUntil && (
-            <p className="text-slate-400 text-xs mb-4">
-              Locked until {new Date(lockedUntil).toLocaleTimeString('en-IN')}
-            </p>
-          )}
-          <button
-            onClick={() => void handleUnlock()}
-            disabled={pinInput.length !== 6}
-            className="w-full py-3 rounded-xl font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-            style={{ backgroundColor: 'var(--color-primary)' }}
+          {/* Icon */}
+          <div
+            className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 ${
+              isLockedOut ? 'bg-red-50' : 'bg-amber-50'
+            }`}
           >
-            Unlock
-          </button>
+            <i
+              className={`ti ti-lock ${isLockedOut ? 'text-red-500' : 'text-amber-500'}`}
+              style={{ fontSize: 32 }}
+              aria-hidden="true"
+            />
+          </div>
+
+          {/* Title + subtitle */}
+          <h2 className="text-xl font-semibold text-slate-900 mb-2">
+            {isLockedOut ? 'Too many attempts' : 'Session locked'}
+          </h2>
+          <p className="text-slate-500 text-sm mb-8">
+            {isLockedOut ? `Try again in ${countdown}` : 'Enter your PIN to continue'}
+          </p>
+
+          {/* PIN input — hidden during lockout */}
+          {!isLockedOut && (
+            <>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void handleUnlock();
+                }}
+                placeholder="6-digit PIN"
+                className="w-full text-center text-2xl tracking-widest border border-slate-200 rounded-xl px-4 py-3 mb-3 focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                aria-label="PIN"
+                autoFocus
+              />
+
+              {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
+
+              {showWarning && (
+                <div className="flex items-center justify-center gap-1.5 mb-4 text-amber-600">
+                  <i className="ti ti-alert-triangle" style={{ fontSize: 14 }} aria-hidden="true" />
+                  <p className="text-xs">
+                    {remaining === 1
+                      ? '1 attempt remaining before lockout'
+                      : `${remaining} attempts remaining before lockout`}
+                  </p>
+                </div>
+              )}
+
+              <button
+                onClick={() => void handleUnlock()}
+                disabled={pinInput.length !== 6}
+                className="w-full py-3 rounded-xl font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                style={{ backgroundColor: 'var(--color-primary)' }}
+              >
+                Unlock
+              </button>
+            </>
+          )}
+
+          {/* Locked-out countdown bar */}
+          {isLockedOut && (
+            <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 text-center">
+              <p className="text-xs text-red-400">For your security, PIN entry is disabled temporarily.</p>
+            </div>
+          )}
         </div>
       </div>
     );

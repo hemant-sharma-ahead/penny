@@ -21,6 +21,7 @@ export const PATHS = {
     health: '/app/health',
     tax: '/app/tax',
     cashflow: '/app/cashflow',
-    chip: '/app/chip'
+    chip: '/app/chip',
+    backup: '/app/backup'
   }
 } as const;
