@@ -23,14 +23,14 @@ export function BottomNav() {
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       aria-label="Main navigation"
     >
-      <ul className="flex items-end justify-around h-16 px-2 list-none m-0 p-0">
+      <ul className="flex items-center justify-around h-16 px-2 list-none m-0 p-0">
         {navItems.map((item) =>
           item.isFab ? (
             <li key={item.path} className="flex-1 flex justify-center">
               <NavLink
                 to={item.path}
                 className={({ isActive }) =>
-                  `flex flex-col items-center justify-center -translate-y-4
+                  `flex flex-col items-center justify-center
                    w-14 h-14 rounded-full shadow-lg transition-all
                    ${isActive ? 'bg-green-600 shadow-green-200' : 'bg-[#00a86b] shadow-slate-200'}`
                 }
