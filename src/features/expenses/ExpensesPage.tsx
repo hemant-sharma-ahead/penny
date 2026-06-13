@@ -23,14 +23,6 @@ const DEFAULT_CATEGORIES: ExpenseCategory[] = [
   { id: 'cat-other', name: 'Other', icon: 'ti-dots', color: '#6b7280', isDefault: true, createdAt: 0 }
 ];
 
-async function seedCategoriesIfEmpty(): Promise<boolean> {
-  const existing = await expenseCategoriesRepo.getAll();
-  if (existing.length > 0) return false;
-  const now = Date.now();
-  await Promise.all(DEFAULT_CATEGORIES.map((c) => expenseCategoriesRepo.put({ ...c, createdAt: now })));
-  return true;
-}
-
 function toDateKey(epochMs: number): string {
   const d = new Date(epochMs);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -52,7 +44,11 @@ export function ExpensesPage() {
   const { mode } = usePrivacy();
 
   const { items: expenses, save: saveExpense, remove: removeExpense } = useRepository(expensesRepo);
-  const { items: categories, reload: reloadCategories } = useRepository(expenseCategoriesRepo);
+  const {
+    items: categories,
+    loading: categoriesLoading,
+    reload: reloadCategories
+  } = useRepository(expenseCategoriesRepo);
   const { items: budgets, save: saveBudget } = useRepository(budgetsRepo);
   const { items: hashtags, save: saveHashtag } = useRepository(hashtagsRepo);
 
@@ -63,17 +59,21 @@ export function ExpensesPage() {
   const [budgetCategoryId, setBudgetCategoryId] = useState('');
   const [budgetAmount, setBudgetAmount] = useState('');
 
+  // Wait for useRepository's initial load before seeding — prevents StrictMode
+  // double-invoke from cancelling the reload before categories appear in state.
   useEffect(() => {
+    if (categoriesLoading || categories.length > 0) return;
     let cancelled = false;
-    seedCategoriesIfEmpty()
-      .then((seeded) => {
-        if (!cancelled && seeded) reloadCategories();
+    const now = Date.now();
+    Promise.all(DEFAULT_CATEGORIES.map((c) => expenseCategoriesRepo.put({ ...c, createdAt: now })))
+      .then(() => {
+        if (!cancelled) reloadCategories();
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [reloadCategories]);
+  }, [categoriesLoading, categories.length, reloadCategories]);
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
@@ -335,7 +335,10 @@ export function ExpensesPage() {
 
       {/* Budget slide-up form */}
       {showBudgetForm && (
-        <div className="fixed inset-0 z-20 flex items-end">
+        <div
+          className="fixed inset-0 z-60 flex items-end"
+          style={{ paddingBottom: 'calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px))' }}
+        >
           <div className="absolute inset-0 bg-black/30" onClick={() => setShowBudgetForm(false)} />
           <div className="relative w-full bg-white rounded-t-2xl p-5 flex flex-col gap-4">
             <h3 className="text-base font-semibold text-slate-900">Set monthly budget</h3>

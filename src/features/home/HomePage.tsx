@@ -47,14 +47,8 @@ async function loadSummary(): Promise<Summary> {
   return { netWorth: totalAssets - totalLiabilities, monthlyExpenses };
 }
 
-const CORE_TILES = [
-  { label: 'Portfolio', icon: 'ti-chart-pie', path: PATHS.app.portfolio, color: '#6366f1' },
-  { label: 'Expenses', icon: 'ti-wallet', path: PATHS.app.expenses, color: '#f59e0b' },
-  { label: 'Goals', icon: 'ti-target', path: PATHS.app.goals, color: '#10b981' },
-  { label: 'Insurance', icon: 'ti-shield', path: PATHS.app.insurance, color: '#3b82f6' }
-];
-
-const SMART_TILES = [
+const TOOL_TILES = [
+  { label: 'Insurance', icon: 'ti-shield', path: PATHS.app.insurance, color: '#3b82f6' },
   { label: 'Subscriptions', icon: 'ti-refresh', path: PATHS.app.subscriptions, color: '#8b5cf6' },
   { label: 'IOUs', icon: 'ti-arrows-exchange', path: PATHS.app.iou, color: '#f59e0b' },
   { label: 'Loans', icon: 'ti-calculator', path: PATHS.app.loans, color: '#06b6d4' },
@@ -120,30 +114,11 @@ export function HomePage() {
         )}
       </div>
 
-      {/* Core modules */}
-      <div className="grid grid-cols-4 gap-2">
-        {CORE_TILES.map((m) => (
-          <button
-            key={m.label}
-            onClick={() => navigate(m.path)}
-            className="flex flex-col items-center gap-1.5 bg-white rounded-xl p-3 border border-slate-100 active:opacity-70"
-          >
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center"
-              style={{ backgroundColor: `${m.color}18` }}
-            >
-              <i className={`ti ${m.icon}`} style={{ fontSize: 20, color: m.color }} aria-hidden="true" />
-            </div>
-            <span className="text-[10px] font-medium text-slate-600">{m.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Smart tools */}
+      {/* Tools grid */}
       <div>
-        <p className="text-xs font-medium text-slate-400 mb-2">Smart tools</p>
+        <p className="text-xs font-medium text-slate-400 mb-2">Tools</p>
         <div className="grid grid-cols-4 gap-2">
-          {SMART_TILES.map((m) => (
+          {TOOL_TILES.map((m) => (
             <button
               key={m.label}
               onClick={() => navigate(m.path)}

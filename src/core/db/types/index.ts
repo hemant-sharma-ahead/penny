@@ -67,6 +67,7 @@ export interface Expense {
   hashtags: string[];
   isRecurring: boolean;
   recurringIntervalDays?: number;
+  paymentMode?: string;
   notes?: string;
   createdAt: number;
   updatedAt: number;

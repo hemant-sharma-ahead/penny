@@ -22,11 +22,28 @@ function parseTags(raw: string): string[] {
     .filter(Boolean);
 }
 
+interface PaymentMode {
+  id: string;
+  label: string;
+  icon: string;
+  color: string;
+}
+
+const PAYMENT_MODES: PaymentMode[] = [
+  { id: 'cash', label: 'Cash', icon: 'ti-cash', color: '#22c55e' },
+  { id: 'upi', label: 'UPI', icon: 'ti-qrcode', color: '#7c3aed' },
+  { id: 'hdfc', label: 'HDFC', icon: 'ti-building-bank', color: '#004c8f' },
+  { id: 'sbi', label: 'SBI', icon: 'ti-building-bank', color: '#1e3a8a' },
+  { id: 'icici', label: 'ICICI', icon: 'ti-building-bank', color: '#f97316' },
+  { id: 'axis', label: 'Axis', icon: 'ti-building-bank', color: '#97144d' }
+];
+
 export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, onClose }: Props) {
   const defaultCategoryId = categories[0]?.id ?? '';
 
   const [amount, setAmount] = useState(editing ? String(editing.amount) : '');
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? defaultCategoryId);
+  const [paymentMode, setPaymentMode] = useState(editing?.paymentMode ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
   const [date, setDate] = useState(() => (editing ? epochToDateInput(editing.date) : epochToDateInput(Date.now())));
   const [tagInput, setTagInput] = useState(editing ? editing.hashtags.join(' ') : '');
@@ -62,6 +79,7 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
       hashtags: parseTags(tagInput),
       isRecurring,
       ...(isRecurring ? { recurringIntervalDays: parseInt(intervalDays, 10) || 30 } : {}),
+      ...(paymentMode ? { paymentMode } : {}),
       createdAt: editing?.createdAt ?? now,
       updatedAt: now
     })
@@ -75,7 +93,10 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
   }
 
   return (
-    <div className="fixed inset-0 z-20 flex items-end">
+    <div
+      className="fixed inset-0 z-60 flex items-end"
+      style={{ paddingBottom: 'calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px))' }}
+    >
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div className="relative w-full bg-white rounded-t-2xl p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
         {/* Header */}
@@ -89,18 +110,50 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
           </button>
         </div>
 
-        {/* Amount */}
+        {/* Amount + Date */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-medium text-slate-500">Amount (₹)</label>
+            <input
+              type="number"
+              inputMode="decimal"
+              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+              placeholder="0"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-slate-500">Date</label>
+            <input
+              type="date"
+              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Payment mode */}
         <div>
-          <label className="text-xs font-medium text-slate-500">Amount (₹)</label>
-          <input
-            type="number"
-            inputMode="decimal"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            placeholder="0"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            autoFocus
-          />
+          <label className="text-xs font-medium text-slate-500">Payment mode</label>
+          <div className="mt-1 flex gap-2 overflow-x-auto pb-0.5">
+            {PAYMENT_MODES.map((mode) => (
+              <button
+                key={mode.id}
+                type="button"
+                onClick={() => setPaymentMode((prev) => (prev === mode.id ? '' : mode.id))}
+                className={`flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors w-[58px] ${
+                  paymentMode === mode.id ? 'bg-slate-50' : 'border-transparent bg-slate-50/50'
+                }`}
+                style={paymentMode === mode.id ? { borderColor: mode.color } : {}}
+              >
+                <i className={`ti ${mode.icon}`} style={{ fontSize: 18, color: mode.color }} aria-hidden="true" />
+                <span className="text-[9px] font-medium text-slate-600 leading-tight">{mode.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Category */}
@@ -138,17 +191,6 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
           />
         </div>
 
-        {/* Date */}
-        <div>
-          <label className="text-xs font-medium text-slate-500">Date</label>
-          <input
-            type="date"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-        </div>
-
         {/* Hashtags */}
         <div>
           <label className="text-xs font-medium text-slate-500">Tags (space-separated, e.g. emi travel)</label>
@@ -175,38 +217,39 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
           )}
         </div>
 
-        {/* Recurring toggle */}
-        <div className="flex items-center justify-between">
+        {/* Recurring toggle + optional interval */}
+        <div className={`grid gap-3 ${isRecurring ? 'grid-cols-2' : 'grid-cols-1'}`}>
           <div>
-            <p className="text-sm font-medium text-slate-700">Recurring</p>
-            <p className="text-xs text-slate-400">Bills, subscriptions, EMIs</p>
+            <label className="text-xs font-medium text-slate-500">Recurring</label>
+            <div className="mt-1 flex items-center justify-between rounded-xl border border-slate-200 px-3 py-3">
+              <span className="text-xs text-slate-400">Bills, EMIs</span>
+              <button
+                type="button"
+                onClick={() => setIsRecurring((v) => !v)}
+                className={`w-11 h-6 rounded-full transition-colors flex-shrink-0 ${isRecurring ? 'bg-[#00a86b]' : 'bg-slate-200'}`}
+                aria-label="Toggle recurring"
+              >
+                <span
+                  className={`block w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                    isRecurring ? 'translate-x-[22px]' : 'translate-x-[2px]'
+                  }`}
+                />
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsRecurring((v) => !v)}
-            className={`w-11 h-6 rounded-full transition-colors ${isRecurring ? 'bg-[#00a86b]' : 'bg-slate-200'}`}
-            aria-label="Toggle recurring"
-          >
-            <span
-              className={`block w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                isRecurring ? 'translate-x-[22px]' : 'translate-x-[2px]'
-              }`}
-            />
-          </button>
+          {isRecurring && (
+            <div>
+              <label className="text-xs font-medium text-slate-500">Every (days)</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                value={intervalDays}
+                onChange={(e) => setIntervalDays(e.target.value)}
+              />
+            </div>
+          )}
         </div>
-
-        {isRecurring && (
-          <div>
-            <label className="text-xs font-medium text-slate-500">Repeat every (days)</label>
-            <input
-              type="number"
-              inputMode="numeric"
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-              value={intervalDays}
-              onChange={(e) => setIntervalDays(e.target.value)}
-            />
-          </div>
-        )}
 
         {/* Actions */}
         <div className="flex gap-3 pt-1">
