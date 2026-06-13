@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePrivacy } from '@/context/PrivacyContext';
+import { useSettings, type ModuleVisibility } from '@/context/SettingsContext';
 import { assetsRepo, chipInsightsRepo, expensesRepo, holdingsRepo, liabilitiesRepo } from '@/core/db/repositories';
 import { DEFAULT_INSIGHTS } from '@/core/ai-safety/mockChip';
 import type { ChipInsight } from '@/core/db/types';
@@ -47,19 +48,32 @@ async function loadSummary(): Promise<Summary> {
   return { netWorth: totalAssets - totalLiabilities, monthlyExpenses };
 }
 
-const TOOL_TILES = [
-  { label: 'Insurance', icon: 'ti-shield', path: PATHS.app.insurance, color: '#3b82f6' },
-  { label: 'Subscriptions', icon: 'ti-refresh', path: PATHS.app.subscriptions, color: '#8b5cf6' },
-  { label: 'IOUs', icon: 'ti-arrows-exchange', path: PATHS.app.iou, color: '#f59e0b' },
-  { label: 'Loans', icon: 'ti-calculator', path: PATHS.app.loans, color: '#06b6d4' },
-  { label: 'Health Score', icon: 'ti-heart-rate-monitor', path: PATHS.app.health, color: '#ec4899' },
-  { label: 'Tax', icon: 'ti-receipt-tax', path: PATHS.app.tax, color: '#8b5cf6' },
-  { label: 'Cash Flow', icon: 'ti-trending-down', path: PATHS.app.cashflow, color: '#14b8a6' },
-  { label: 'Backup', icon: 'ti-cloud-download', path: PATHS.app.backup, color: '#64748b' }
+const TOOL_TILES: { label: string; icon: string; path: string; color: string; moduleKey: keyof ModuleVisibility }[] = [
+  { label: 'Insurance', icon: 'ti-shield', path: PATHS.app.insurance, color: '#3b82f6', moduleKey: 'insurance' },
+  {
+    label: 'Subscriptions',
+    icon: 'ti-refresh',
+    path: PATHS.app.subscriptions,
+    color: '#8b5cf6',
+    moduleKey: 'subscriptions'
+  },
+  { label: 'IOUs', icon: 'ti-arrows-exchange', path: PATHS.app.iou, color: '#f59e0b', moduleKey: 'iou' },
+  { label: 'Loans', icon: 'ti-calculator', path: PATHS.app.loans, color: '#06b6d4', moduleKey: 'loans' },
+  {
+    label: 'Health Score',
+    icon: 'ti-heart-rate-monitor',
+    path: PATHS.app.health,
+    color: '#ec4899',
+    moduleKey: 'health'
+  },
+  { label: 'Tax', icon: 'ti-receipt-tax', path: PATHS.app.tax, color: '#8b5cf6', moduleKey: 'tax' },
+  { label: 'Cash Flow', icon: 'ti-trending-down', path: PATHS.app.cashflow, color: '#14b8a6', moduleKey: 'cashflow' },
+  { label: 'Backup', icon: 'ti-cloud-download', path: PATHS.app.backup, color: '#64748b', moduleKey: 'backup' }
 ];
 
 export function HomePage() {
   const { mode } = usePrivacy();
+  const { modules } = useSettings();
   const navigate = useNavigate();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [insights, setInsights] = useState<ChipInsight[]>([]);
@@ -119,7 +133,7 @@ export function HomePage() {
       <div>
         <p className="text-xs font-medium text-slate-400 mb-2">Tools</p>
         <div className="grid grid-cols-4 gap-2">
-          {TOOL_TILES.map((m) => (
+          {TOOL_TILES.filter((m) => modules[m.moduleKey]).map((m) => (
             <button
               key={m.label}
               onClick={() => navigate(m.path)}

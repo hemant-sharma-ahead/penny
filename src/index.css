@@ -37,6 +37,9 @@
 
   /* Bottom nav height (used for scroll padding) */
   --bottom-nav-height: 64px;
+
+  /* Font scale (controlled by SettingsContext) */
+  --font-scale: 1;
 }
 
 * {
@@ -51,6 +54,7 @@ html {
     'Segoe UI',
     sans-serif;
   -webkit-text-size-adjust: 100%;
+  font-size: calc(16px * var(--font-scale, 1));
 }
 
 body {

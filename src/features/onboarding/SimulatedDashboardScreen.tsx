@@ -28,7 +28,14 @@ export function SimulatedDashboardScreen() {
         updatedAt: Date.now()
       });
       navigate(PATHS.app.home);
-    } catch {
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      // Master key not in memory — onboarding already completed in a prior session.
+      // Route to the app; SessionGate will handle the PIN unlock.
+      if (msg.includes('master key') || msg.includes('Session locked')) {
+        navigate(PATHS.app.home);
+        return;
+      }
       setError('Something went wrong. Please try again.');
       setLoading(false);
     }
