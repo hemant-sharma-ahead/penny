@@ -60,7 +60,7 @@ export function BottomNav() {
                 to={item.path}
                 className={({ isActive }) =>
                   `flex flex-col items-center justify-center gap-0.5 py-2 w-full transition-colors
-                   ${isActive ? '' : 'text-slate-400 hover:text-slate-600'}`
+                   ${isActive ? '' : 'text-tertiary hover:text-secondary'}`
                 }
                 style={({ isActive }) => (isActive && item.color ? { color: item.color } : undefined)}
               >

@@ -7,12 +7,6 @@ import { PATHS } from '@/router/paths';
 const strengthLabels = ['Very weak', 'Weak', 'Fair', 'Strong', 'Very strong'];
 const strengthColors = ['bg-red-400', 'bg-orange-400', 'bg-yellow-400', 'bg-emerald-400', 'bg-emerald-600'];
 
-const inputStyle = {
-  backgroundColor: 'var(--color-surface-secondary)',
-  color: 'var(--color-text-primary)',
-  borderColor: 'var(--color-border)'
-};
-
 export function SetupCredentialsScreen() {
   const [passphrase, setPassphrase] = useState('');
   const [pin, setPin] = useState('');
@@ -42,7 +36,7 @@ export function SetupCredentialsScreen() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col px-6 py-10" style={{ backgroundColor: 'var(--color-surface)' }}>
+    <div className="min-h-screen flex flex-col bg-surface px-6 py-10">
       <div className="flex-1 w-full max-w-sm mx-auto flex flex-col">
         <div className="mb-8 text-center">
           <div
@@ -51,33 +45,25 @@ export function SetupCredentialsScreen() {
           >
             <i className="ti ti-lock-square text-white" style={{ fontSize: 28 }} aria-hidden="true" />
           </div>
-          <h2 className="text-2xl font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-            Set up your vault
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            Your passphrase encrypts everything. It never leaves your device.
-          </p>
+          <h2 className="text-2xl font-semibold text-primary mb-2">Set up your vault</h2>
+          <p className="text-sm text-secondary">Your passphrase encrypts everything. It never leaves your device.</p>
         </div>
 
         {/* Passphrase */}
         <div className="mb-5">
-          <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-            Passphrase
-          </label>
+          <label className="block text-sm font-medium text-secondary mb-1.5">Passphrase</label>
           <div className="relative">
             <input
               type={showPassphrase ? 'text' : 'password'}
               value={passphrase}
               onChange={(e) => setPassphrase(e.target.value)}
               placeholder="Use a phrase you'll remember"
-              className="w-full border rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-              style={inputStyle}
+              className="input-surface w-full border rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             />
             <button
               type="button"
               onClick={() => setShowPassphrase((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2"
-              style={{ color: 'var(--color-text-tertiary)' }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-tertiary"
               aria-label={showPassphrase ? 'Hide passphrase' : 'Show passphrase'}
             >
               <i className={`ti ${showPassphrase ? 'ti-eye-off' : 'ti-eye'}`} style={{ fontSize: 18 }} />
@@ -91,14 +77,12 @@ export function SetupCredentialsScreen() {
                 {[0, 1, 2, 3, 4].map((i) => (
                   <div
                     key={i}
-                    className={`h-1 flex-1 rounded-full transition-colors ${i <= score ? strengthColors[score] : 'bg-slate-200'}`}
+                    className={`h-1 flex-1 rounded-full transition-colors ${i <= score ? strengthColors[score] : 'bg-[var(--color-border)]'}`}
                   />
                 ))}
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                  {strengthLabels[score]}
-                </span>
+                <span className="text-xs text-secondary">{strengthLabels[score]}</span>
                 {score < 3 && <span className="text-xs text-amber-600">Need a stronger passphrase</span>}
               </div>
             </div>
@@ -107,9 +91,7 @@ export function SetupCredentialsScreen() {
 
         {/* PIN */}
         <div className="mb-4">
-          <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-            6-digit PIN
-          </label>
+          <label className="block text-sm font-medium text-secondary mb-1.5">6-digit PIN</label>
           <input
             type="password"
             inputMode="numeric"
@@ -117,17 +99,14 @@ export function SetupCredentialsScreen() {
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
             placeholder="For quick unlock"
-            className="w-full text-center tracking-widest border rounded-xl px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            style={inputStyle}
+            className="input-surface w-full text-center tracking-widest border rounded-xl px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
             aria-label="PIN"
           />
         </div>
 
         {/* Confirm PIN */}
         <div className="mb-6">
-          <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-            Confirm PIN
-          </label>
+          <label className="block text-sm font-medium text-secondary mb-1.5">Confirm PIN</label>
           <input
             type="password"
             inputMode="numeric"
@@ -135,8 +114,8 @@ export function SetupCredentialsScreen() {
             value={confirmPin}
             onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
             placeholder="Repeat your PIN"
-            className="w-full text-center tracking-widest border rounded-xl px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            style={{ ...inputStyle, borderColor: pinMismatch ? '#ef4444' : 'var(--color-border)' }}
+            className="input-surface w-full text-center tracking-widest border rounded-xl px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            style={{ borderColor: pinMismatch ? '#ef4444' : undefined }}
             aria-label="Confirm PIN"
           />
           {pinMismatch && <p className="text-xs text-red-500 mt-1">PINs don't match</p>}
@@ -167,7 +146,7 @@ export function SetupCredentialsScreen() {
           )}
         </button>
 
-        <p className="text-xs text-center mt-3" style={{ color: 'var(--color-text-tertiary)' }}>
+        <p className="text-xs text-tertiary text-center mt-3">
           This takes a few seconds — we use 600,000 rounds of key derivation for your security.
         </p>
       </div>

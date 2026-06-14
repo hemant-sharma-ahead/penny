@@ -63,12 +63,12 @@ function ScoreGauge({ score, color }: { score: number; color: string }) {
 
 // ── Component card ────────────────────────────────────────────────────────────
 
-const STATUS_STYLE: Record<ComponentStatus, { bg: string; border: string; text: string; bar: string }> = {
-  excellent: { bg: '#f0fdf4', border: '#bbf7d0', text: '#15803d', bar: '#10b981' },
-  good: { bg: '#f0fdf4', border: '#bbf7d0', text: '#16a34a', bar: '#22c55e' },
-  fair: { bg: '#fffbeb', border: '#fde68a', text: '#b45309', bar: '#f59e0b' },
-  poor: { bg: '#fef2f2', border: '#fecaca', text: '#b91c1c', bar: '#ef4444' },
-  no_data: { bg: '#f8fafc', border: '#e2e8f0', text: '#64748b', bar: '#cbd5e1' }
+const STATUS_STYLE: Record<ComponentStatus, { border: string; text: string; bar: string }> = {
+  excellent: { border: '#10b981', text: '#10b981', bar: '#10b981' },
+  good: { border: '#22c55e', text: '#22c55e', bar: '#22c55e' },
+  fair: { border: '#f59e0b', text: '#f59e0b', bar: '#f59e0b' },
+  poor: { border: '#ef4444', text: '#ef4444', bar: '#ef4444' },
+  no_data: { border: 'var(--color-border)', text: 'var(--color-text-tertiary)', bar: 'var(--color-border-strong)' }
 };
 
 function ComponentCard({ c }: { c: ScoreComponent }) {
@@ -77,17 +77,12 @@ function ComponentCard({ c }: { c: ScoreComponent }) {
   const statusLabel = c.status === 'no_data' ? 'No data' : c.status.charAt(0).toUpperCase() + c.status.slice(1);
 
   return (
-    <div
-      className="rounded-2xl border p-3 flex flex-col gap-2"
-      style={{ backgroundColor: s.bg, borderColor: s.border }}
-    >
+    <div className="surface rounded-2xl p-3 flex flex-col gap-2" style={{ borderColor: s.border }}>
       {/* Header row */}
       <div className="flex items-center justify-between gap-1">
         <div className="flex items-center gap-1.5 min-w-0">
           <i className={`ti ${c.icon} flex-shrink-0`} style={{ fontSize: 15, color: s.text }} aria-hidden="true" />
-          <span className="text-xs font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
-            {c.label}
-          </span>
+          <span className="text-xs font-semibold truncate text-primary">{c.label}</span>
         </div>
         <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: s.text }}>
           {c.earned}/{c.max}
@@ -95,7 +90,7 @@ function ComponentCard({ c }: { c: ScoreComponent }) {
       </div>
 
       {/* Progress bar */}
-      <div className="w-full h-1.5 rounded-full bg-white/60">
+      <div className="w-full h-1.5 rounded-full bg-surface-3">
         <div
           className="h-1.5 rounded-full transition-all duration-500"
           style={{ width: `${pct}%`, backgroundColor: s.bar }}
@@ -106,13 +101,11 @@ function ComponentCard({ c }: { c: ScoreComponent }) {
       <div>
         <span
           className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded"
-          style={{ color: s.text, backgroundColor: `${s.bar}20` }}
+          style={{ color: s.text, backgroundColor: `${s.bar}22` }}
         >
           {statusLabel}
         </span>
-        <p className="text-[10px] mt-1 leading-relaxed line-clamp-2" style={{ color: 'var(--color-text-secondary)' }}>
-          {c.insight}
-        </p>
+        <p className="text-[10px] mt-1 leading-relaxed line-clamp-2 text-secondary">{c.insight}</p>
       </div>
     </div>
   );
@@ -173,13 +166,9 @@ export function HealthScorePage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
-        <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          Financial Health
-        </h2>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
-          On-device · updates as you add data
-        </p>
+      <div className="px-4 pt-4 pb-3 border-b border-theme">
+        <h2 className="text-xl font-semibold text-primary">Financial Health</h2>
+        <p className="text-xs mt-0.5 text-tertiary">On-device · updates as you add data</p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-24 flex flex-col gap-4">
@@ -198,23 +187,14 @@ export function HealthScorePage() {
             aria-hidden="true"
           />
           <div className="flex-1 min-w-0">
-            <label
-              htmlFor="income-input"
-              className="text-xs font-medium block mb-1"
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
+            <label htmlFor="income-input" className="text-xs font-medium block mb-1 text-secondary">
               Monthly take-home income (₹)
             </label>
             <input
               id="income-input"
               type="number"
               inputMode="decimal"
-              className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-              style={{
-                backgroundColor: 'var(--color-surface)',
-                color: 'var(--color-text-primary)',
-                borderColor: 'var(--color-border)'
-              }}
+              className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
               placeholder="e.g. 80,000"
               value={monthlyIncome}
               onChange={(e) => setMonthlyIncome(e.target.value)}
@@ -224,10 +204,7 @@ export function HealthScorePage() {
 
         {/* Score gauge */}
         {healthScore ? (
-          <div
-            className="rounded-2xl px-4 pt-4 pb-3"
-            style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
-          >
+          <div className="rounded-2xl px-4 pt-4 pb-3 surface">
             <div className="w-48 mx-auto">
               <ScoreGauge score={healthScore.total} color={healthScore.color} />
             </div>
@@ -239,26 +216,17 @@ export function HealthScorePage() {
                 {healthScore.grade} · {healthScore.gradeLabel}
               </span>
             </div>
-            <p className="text-xs text-center mt-2" style={{ color: 'var(--color-text-tertiary)' }}>
+            <p className="text-xs text-center mt-2 text-tertiary">
               {incomeNeeded
                 ? 'Enter income above to score Savings Rate and Debt-to-Income'
                 : 'Based on your current data across 6 dimensions'}
             </p>
           </div>
         ) : (
-          <div
-            className="rounded-2xl p-8 flex items-center justify-center"
-            style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
-          >
+          <div className="rounded-2xl p-8 flex items-center justify-center surface">
             <div className="text-center">
-              <i
-                className="ti ti-loader-2"
-                style={{ fontSize: 32, color: 'var(--color-text-tertiary)' }}
-                aria-hidden="true"
-              />
-              <p className="text-sm mt-2" style={{ color: 'var(--color-text-tertiary)' }}>
-                Loading your data…
-              </p>
+              <i className="ti ti-loader-2 text-tertiary" style={{ fontSize: 32 }} aria-hidden="true" />
+              <p className="text-sm mt-2 text-tertiary">Loading your data…</p>
             </div>
           </div>
         )}
@@ -266,12 +234,7 @@ export function HealthScorePage() {
         {/* Score breakdown */}
         {healthScore && (
           <>
-            <p
-              className="text-xs font-semibold uppercase tracking-wide -mb-2"
-              style={{ color: 'var(--color-text-tertiary)' }}
-            >
-              Score breakdown
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-wide -mb-2 text-tertiary">Score breakdown</p>
             <div className="grid grid-cols-2 gap-3">
               {healthScore.components.map((c) => (
                 <ComponentCard key={c.key} c={c} />
@@ -282,13 +245,8 @@ export function HealthScorePage() {
 
         {/* How scores are calculated */}
         {healthScore && (
-          <div
-            className="rounded-2xl p-4"
-            style={{ backgroundColor: 'var(--color-surface-secondary)', border: '1px solid var(--color-border)' }}
-          >
-            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-              How it's scored
-            </p>
+          <div className="rounded-2xl p-4 bg-surface-2 border border-theme">
+            <p className="text-xs font-semibold mb-2 text-secondary">How it's scored</p>
             <div className="flex flex-col gap-1">
               {[
                 ['Emergency Fund', '20 pts', '6+ months of expenses'],
@@ -299,10 +257,8 @@ export function HealthScorePage() {
                 ['Diversification', '10 pts', '4+ asset classes']
               ].map(([label, pts, target]) => (
                 <div key={label} className="flex items-baseline justify-between gap-2">
-                  <span className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
-                    {label}
-                  </span>
-                  <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--color-text-tertiary)' }}>
+                  <span className="text-[11px] text-secondary">{label}</span>
+                  <span className="text-[10px] flex-shrink-0 text-tertiary">
                     {pts} · {target}
                   </span>
                 </div>

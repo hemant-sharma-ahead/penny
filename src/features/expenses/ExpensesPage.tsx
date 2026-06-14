@@ -39,12 +39,6 @@ function dateLabel(key: string): string {
   return `${d ?? ''} ${mLabel} ${y ?? ''}`.trim();
 }
 
-const inputStyle = {
-  backgroundColor: 'var(--color-surface-secondary)',
-  color: 'var(--color-text-primary)',
-  borderColor: 'var(--color-border)'
-};
-
 export function ExpensesPage() {
   const { mode } = usePrivacy();
 
@@ -170,20 +164,16 @@ export function ExpensesPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
-        <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          Expenses
-        </h2>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+      <div className="px-4 pt-4 pb-3 border-b border-theme">
+        <h2 className="text-xl font-semibold text-primary">Expenses</h2>
+        <p className="text-sm mt-0.5 text-secondary">
           This month:{' '}
-          <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-            {mode === 'open' ? formatCurrency(thisMonthTotal) : '••••'}
-          </span>
+          <span className="font-medium text-primary">{mode === 'open' ? formatCurrency(thisMonthTotal) : '••••'}</span>
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex px-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
+      <div className="flex px-4 border-b border-theme">
         {(['expenses', 'budgets'] as const).map((tab) => (
           <button
             key={tab}
@@ -207,31 +197,14 @@ export function ExpensesPage() {
           <div>
             {grouped.length === 0 ? (
               <div className="p-10 text-center">
-                <i
-                  className="ti ti-wallet"
-                  style={{ fontSize: 44, color: 'var(--color-text-tertiary)' }}
-                  aria-hidden="true"
-                />
-                <p className="text-sm mt-3" style={{ color: 'var(--color-text-tertiary)' }}>
-                  No expenses yet. Tap + to add one.
-                </p>
+                <i className="ti ti-wallet text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
+                <p className="text-sm mt-3 text-tertiary">No expenses yet. Tap + to add one.</p>
               </div>
             ) : (
               grouped.map((group) => (
                 <div key={group.label}>
-                  <div
-                    className="px-4 py-2"
-                    style={{
-                      backgroundColor: 'var(--color-surface-secondary)',
-                      borderBottom: '1px solid var(--color-border)'
-                    }}
-                  >
-                    <span
-                      className="text-xs font-medium uppercase tracking-wide"
-                      style={{ color: 'var(--color-text-tertiary)' }}
-                    >
-                      {group.label}
-                    </span>
+                  <div className="px-4 py-2 bg-surface-2 border-b border-theme">
+                    <span className="text-xs font-medium uppercase tracking-wide text-tertiary">{group.label}</span>
                   </div>
                   {group.items.map((expense) => {
                     const cat = categoryMap.get(expense.categoryId);
@@ -239,8 +212,7 @@ export function ExpensesPage() {
                       <button
                         key={expense.id}
                         onClick={() => openEdit(expense)}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left"
-                        style={{ borderBottom: '1px solid var(--color-border)' }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-theme"
                       >
                         <div
                           className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -253,15 +225,9 @@ export function ExpensesPage() {
                           />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
-                            {expense.description}
-                          </p>
+                          <p className="text-sm font-medium truncate text-primary">{expense.description}</p>
                           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                            {cat && (
-                              <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
-                                {cat.name}
-                              </span>
-                            )}
+                            {cat && <span className="text-[10px] text-tertiary">{cat.name}</span>}
                             {expense.hashtags.map((tag) => (
                               <span
                                 key={tag}
@@ -273,10 +239,7 @@ export function ExpensesPage() {
                             ))}
                           </div>
                         </div>
-                        <span
-                          className="text-sm font-semibold flex-shrink-0 ml-2"
-                          style={{ color: 'var(--color-text-primary)' }}
-                        >
+                        <span className="text-sm font-semibold flex-shrink-0 ml-2 text-primary">
                           {mode === 'open' ? formatCurrency(expense.amount) : '••••'}
                         </span>
                       </button>
@@ -291,11 +254,7 @@ export function ExpensesPage() {
         {/* ── Budgets tab ── */}
         {activeTab === 'budgets' && (
           <div className="px-4 py-4 flex flex-col gap-3">
-            {categories.length === 0 && (
-              <p className="text-sm text-center mt-8" style={{ color: 'var(--color-text-tertiary)' }}>
-                Loading categories…
-              </p>
-            )}
+            {categories.length === 0 && <p className="text-sm text-center mt-8 text-tertiary">Loading categories…</p>}
             {categories.map((cat) => {
               const budget = monthBudgets.find((b) => b.categoryId === cat.id);
               const spent = spendByCategory.get(cat.id) ?? 0;
@@ -303,14 +262,7 @@ export function ExpensesPage() {
               const over = !!budget && spent > budget.limitAmount;
 
               return (
-                <div
-                  key={cat.id}
-                  className="rounded-xl p-4"
-                  style={{
-                    backgroundColor: 'var(--color-surface)',
-                    border: '1px solid var(--color-border)'
-                  }}
-                >
+                <div key={cat.id} className="surface rounded-xl p-4">
                   <div className="flex items-center justify-between mb-2.5">
                     <div className="flex items-center gap-2">
                       <div
@@ -319,13 +271,10 @@ export function ExpensesPage() {
                       >
                         <i className={`ti ${cat.icon}`} style={{ fontSize: 15, color: cat.color }} aria-hidden="true" />
                       </div>
-                      <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                        {cat.name}
-                      </span>
+                      <span className="text-sm font-medium text-primary">{cat.name}</span>
                     </div>
                     <button
-                      className="text-xs font-medium underline"
-                      style={{ color: 'var(--color-text-tertiary)' }}
+                      className="text-xs font-medium underline text-tertiary"
                       onClick={() => openBudgetForm(cat, budget)}
                     >
                       {budget ? 'Edit' : 'Set limit'}
@@ -333,17 +282,14 @@ export function ExpensesPage() {
                   </div>
                   {budget ? (
                     <>
-                      <div
-                        className="h-2 rounded-full overflow-hidden"
-                        style={{ backgroundColor: 'var(--color-surface-tertiary)' }}
-                      >
+                      <div className="h-2 rounded-full overflow-hidden bg-surface-3">
                         <div
                           className="h-full rounded-full transition-all duration-300"
                           style={{ width: `${pct}%`, backgroundColor: over ? '#ef4444' : cat.color }}
                         />
                       </div>
                       <div className="flex justify-between mt-1.5">
-                        <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                        <span className="text-xs text-secondary">
                           {mode === 'open' ? formatCurrency(spent) : '••••'} spent
                         </span>
                         <span
@@ -356,9 +302,7 @@ export function ExpensesPage() {
                       </div>
                     </>
                   ) : (
-                    <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-                      No budget set for this month
-                    </p>
+                    <p className="text-xs text-tertiary">No budget set for this month</p>
                   )}
                 </div>
               );
@@ -390,20 +334,12 @@ export function ExpensesPage() {
           style={{ paddingBottom: 'calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px))' }}
         >
           <div className="absolute inset-0 bg-black/30" onClick={() => setShowBudgetForm(false)} />
-          <div
-            className="relative w-full rounded-t-2xl p-5 flex flex-col gap-4"
-            style={{ backgroundColor: 'var(--color-surface)' }}
-          >
-            <h3 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-              Set monthly budget
-            </h3>
+          <div className="relative w-full bg-surface rounded-t-2xl p-5 flex flex-col gap-4">
+            <h3 className="text-base font-semibold text-primary">Set monthly budget</h3>
             <div>
-              <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                Category
-              </label>
+              <label className="text-xs font-medium text-secondary">Category</label>
               <select
-                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                style={inputStyle}
+                className="input-surface mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
                 value={budgetCategoryId}
                 onChange={(e) => setBudgetCategoryId(e.target.value)}
               >
@@ -416,14 +352,11 @@ export function ExpensesPage() {
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                Monthly limit (₹)
-              </label>
+              <label className="text-xs font-medium text-secondary">Monthly limit (₹)</label>
               <input
                 type="number"
                 inputMode="decimal"
-                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                style={inputStyle}
+                className="input-surface mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
                 placeholder="e.g. 5000"
                 value={budgetAmount}
                 onChange={(e) => setBudgetAmount(e.target.value)}

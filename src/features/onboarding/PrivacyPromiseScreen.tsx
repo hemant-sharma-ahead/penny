@@ -29,7 +29,7 @@ export function PrivacyPromiseScreen() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen flex flex-col bg-white px-6 py-10">
+    <div className="min-h-screen flex flex-col bg-surface px-6 py-10">
       <div className="flex-1 w-full max-w-sm mx-auto flex flex-col">
         <div className="mb-8 text-center">
           <div
@@ -38,15 +38,15 @@ export function PrivacyPromiseScreen() {
           >
             <i className="ti ti-shield-check text-white" style={{ fontSize: 28 }} aria-hidden="true" />
           </div>
-          <h2 className="text-2xl font-semibold text-slate-900 mb-2">Our privacy promise</h2>
-          <p className="text-slate-500 text-sm">
+          <h2 className="text-2xl font-semibold text-primary mb-2">Our privacy promise</h2>
+          <p className="text-secondary text-sm">
             We built Penny for people who want wealth tools without surveillance.
           </p>
         </div>
 
         <div className="flex flex-col gap-3 mb-8">
           {pillars.map((p) => (
-            <div key={p.title} className="flex items-start gap-3 bg-slate-50 rounded-xl p-4 border border-slate-100">
+            <div key={p.title} className="flex items-start gap-3 bg-surface-2 rounded-xl p-4 border border-theme">
               <div
                 className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
                 style={{ backgroundColor: 'var(--color-primary)' }}
@@ -54,8 +54,8 @@ export function PrivacyPromiseScreen() {
                 <i className={`ti ${p.icon} text-white`} style={{ fontSize: 18 }} aria-hidden="true" />
               </div>
               <div>
-                <p className="text-sm font-medium text-slate-900">{p.title}</p>
-                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{p.detail}</p>
+                <p className="text-sm font-medium text-primary">{p.title}</p>
+                <p className="text-xs text-secondary mt-0.5 leading-relaxed">{p.detail}</p>
               </div>
             </div>
           ))}

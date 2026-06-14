@@ -25,7 +25,7 @@ export function AppShell() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSettingsOpen(true)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-700 hover:bg-white/60 -ml-1"
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:text-primary hover:bg-surface-2 -ml-1"
               aria-label="Open settings"
             >
               <i className="ti ti-menu-2" style={{ fontSize: 20 }} aria-hidden="true" />

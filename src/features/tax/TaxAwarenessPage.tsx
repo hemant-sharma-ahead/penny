@@ -15,23 +15,19 @@ function DeductionBar({ used, limit, label }: { used: number; limit: number; lab
   return (
     <div>
       <div className="flex items-baseline justify-between mb-1.5">
-        <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          {label}
-        </span>
-        <span className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
+        <span className="text-xs font-semibold text-primary">{label}</span>
+        <span className="text-[11px] text-secondary">
           {formatCurrency(used)} / {formatCurrency(limit)}
         </span>
       </div>
-      <div className="w-full h-2 rounded-full" style={{ backgroundColor: 'var(--color-surface-tertiary)' }}>
+      <div className="w-full h-2 rounded-full bg-surface-3">
         <div
           className="h-2 rounded-full transition-all duration-500"
           style={{ width: `${pct}%`, backgroundColor: color }}
         />
       </div>
       {remaining > 0 ? (
-        <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
-          {formatCurrency(remaining)} remaining to invest this FY
-        </p>
+        <p className="text-[10px] mt-1 text-tertiary">{formatCurrency(remaining)} remaining to invest this FY</p>
       ) : (
         <p className="text-[10px] text-emerald-600 mt-1 font-medium">Limit fully utilised</p>
       )}
@@ -44,25 +40,13 @@ function DeductionBar({ used, limit, label }: { used: number; limit: number; lab
 function ManualInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs flex-1 min-w-0 truncate" style={{ color: 'var(--color-text-secondary)' }}>
-        {label}
-      </span>
+      <span className="text-xs flex-1 min-w-0 truncate text-secondary">{label}</span>
       <div className="relative flex-shrink-0 w-28">
-        <span
-          className="absolute left-2 top-1/2 -translate-y-1/2 text-xs pointer-events-none"
-          style={{ color: 'var(--color-text-tertiary)' }}
-        >
-          ₹
-        </span>
+        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs pointer-events-none text-tertiary">₹</span>
         <input
           type="number"
           inputMode="decimal"
-          className="w-full rounded-lg border pl-5 pr-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#00a86b]"
-          style={{
-            backgroundColor: 'var(--color-surface-secondary)',
-            color: 'var(--color-text-primary)',
-            borderColor: 'var(--color-border)'
-          }}
+          className="w-full rounded-lg border pl-5 pr-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#00a86b] input-surface"
           placeholder="0"
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -81,23 +65,18 @@ function CapGainRow({ item }: { item: CapGainItem }) {
   const gainColor = isGain ? '#10b981' : isLoss ? '#ef4444' : '#64748b';
 
   return (
-    <div
-      className="rounded-xl p-3"
-      style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
-    >
+    <div className="rounded-xl p-3 surface">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
-            {item.name}
-          </p>
-          <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
+          <p className="text-sm font-medium truncate text-primary">{item.name}</p>
+          <p className="text-[11px] mt-0.5 text-tertiary">
             {item.assetClass.toUpperCase()} · {item.holdingDays}d held ·{' '}
             {item.isLongTerm ? (
               <span className="text-emerald-600 font-medium">Long-term</span>
             ) : daysToLT > 0 ? (
               <span className="text-amber-600 font-medium">{daysToLT}d to long-term</span>
             ) : (
-              <span style={{ color: 'var(--color-text-secondary)' }}>Short-term</span>
+              <span className="text-secondary">Short-term</span>
             )}
           </p>
         </div>
@@ -106,7 +85,7 @@ function CapGainRow({ item }: { item: CapGainItem }) {
             {isGain ? '+' : ''}
             {formatCurrency(Math.abs(item.gain))}
           </p>
-          <p className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+          <p className="text-[10px] text-tertiary">
             {item.gainPct >= 0 ? '+' : ''}
             {item.gainPct.toFixed(1)}%
           </p>
@@ -114,24 +93,19 @@ function CapGainRow({ item }: { item: CapGainItem }) {
       </div>
 
       {item.gain > 0 && item.taxRatePct !== null && (
-        <div
-          className="mt-2 pt-2 flex items-center justify-between"
-          style={{ borderTop: '1px solid var(--color-border)' }}
-        >
-          <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+        <div className="mt-2 pt-2 flex items-center justify-between border-t border-theme">
+          <span className="text-[10px] text-tertiary">
             Est. tax @ {item.taxRatePct}%
             {!item.isLongTerm && item.assetClass === 'stock' ? ' (STCG)' : item.isLongTerm ? ' (LTCG)' : ''}
           </span>
-          <span className="text-[11px] font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="text-[11px] font-semibold text-secondary">
             {item.estimatedTax !== null ? formatCurrency(Math.round(item.estimatedTax)) : 'At slab rate'}
           </span>
         </div>
       )}
       {item.gain > 0 && item.taxRatePct === null && (
-        <div className="mt-2 pt-2" style={{ borderTop: '1px solid var(--color-border)' }}>
-          <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
-            Taxed at your income slab rate
-          </span>
+        <div className="mt-2 pt-2 border-t border-theme">
+          <span className="text-[10px] text-tertiary">Taxed at your income slab rate</span>
         </div>
       )}
     </div>
@@ -199,15 +173,11 @@ export function TaxAwarenessPage() {
   if (!summary) {
     return (
       <div className="flex flex-col h-full">
-        <div className="px-4 pt-4 pb-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
-          <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-            Tax Awareness
-          </h2>
+        <div className="px-4 pt-4 pb-3 border-b border-theme">
+          <h2 className="text-xl font-semibold text-primary">Tax Awareness</h2>
         </div>
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-sm" style={{ color: 'var(--color-text-tertiary)' }}>
-            Loading…
-          </p>
+          <p className="text-sm text-tertiary">Loading…</p>
         </div>
       </div>
     );
@@ -220,18 +190,12 @@ export function TaxAwarenessPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
-        <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          Tax Awareness
-        </h2>
+      <div className="px-4 pt-4 pb-3 border-b border-theme">
+        <h2 className="text-xl font-semibold text-primary">Tax Awareness</h2>
         <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-            {fy.label}
-          </span>
+          <span className="text-xs text-secondary">{fy.label}</span>
           <span style={{ color: 'var(--color-border-strong)' }}>·</span>
-          <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-            {fy.daysLeft} days left in FY
-          </span>
+          <span className="text-xs text-secondary">{fy.daysLeft} days left in FY</span>
           {fy.isQ4 && (
             <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
               Q4 — invest now
@@ -241,7 +205,7 @@ export function TaxAwarenessPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex px-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
+      <div className="flex px-4 border-b border-theme">
         {(
           [
             ['deductions', 'Deductions'],
@@ -268,17 +232,10 @@ export function TaxAwarenessPage() {
         {activeTab === 'deductions' && (
           <>
             {/* 80C */}
-            <div
-              className="rounded-2xl p-4 flex flex-col gap-4"
-              style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
-            >
+            <div className="rounded-2xl p-4 flex flex-col gap-4 surface">
               <div>
-                <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  Section 80C
-                </p>
-                <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-                  Tax-saving investments (max ₹1,50,000)
-                </p>
+                <p className="text-sm font-semibold text-primary">Section 80C</p>
+                <p className="text-xs text-tertiary">Tax-saving investments (max ₹1,50,000)</p>
               </div>
 
               <DeductionBar used={total80C} limit={LIMITS.SEC_80C} label="80C utilisation" />
@@ -286,24 +243,14 @@ export function TaxAwarenessPage() {
               {/* Inferred items */}
               {summary.inferred80C.length > 0 && (
                 <div className="flex flex-col gap-1.5">
-                  <p
-                    className="text-[10px] font-semibold uppercase tracking-wide"
-                    style={{ color: 'var(--color-text-tertiary)' }}
-                  >
-                    From your data
-                  </p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">From your data</p>
                   {summary.inferred80C.map((item) => (
                     <div key={item.label} className="flex items-center justify-between">
-                      <span
-                        className="text-xs flex items-center gap-1"
-                        style={{ color: 'var(--color-text-secondary)' }}
-                      >
+                      <span className="text-xs flex items-center gap-1 text-secondary">
                         <i className="ti ti-check text-emerald-500" style={{ fontSize: 11 }} aria-hidden="true" />
                         {item.label}
                       </span>
-                      <span className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                        {formatCurrency(item.amount)}
-                      </span>
+                      <span className="text-xs font-medium text-primary">{formatCurrency(item.amount)}</span>
                     </div>
                   ))}
                 </div>
@@ -311,12 +258,7 @@ export function TaxAwarenessPage() {
 
               {/* Manual inputs */}
               <div className="flex flex-col gap-2.5">
-                <p
-                  className="text-[10px] font-semibold uppercase tracking-wide"
-                  style={{ color: 'var(--color-text-tertiary)' }}
-                >
-                  Add your investments
-                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">Add your investments</p>
                 <ManualInput label="PPF contribution" value={ppf} onChange={setPpf} />
                 <ManualInput label="ELSS mutual funds" value={elss} onChange={setElss} />
                 <ManualInput label="NPS (80C portion)" value={nps} onChange={setNps} />
@@ -328,8 +270,8 @@ export function TaxAwarenessPage() {
             {npsAmount > 0 && (
               <div className="bg-indigo-50 rounded-2xl border border-indigo-100 p-4 flex flex-col gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">Section 80CCD(1B) — NPS bonus</p>
-                  <p className="text-xs text-slate-400">Additional ₹50,000 over 80C limit</p>
+                  <p className="text-sm font-semibold text-primary">Section 80CCD(1B) — NPS bonus</p>
+                  <p className="text-xs text-tertiary">Additional ₹50,000 over 80C limit</p>
                 </div>
                 <DeductionBar
                   used={Math.min(npsAmount, LIMITS.NPS_80CCD_1B)}
@@ -340,40 +282,26 @@ export function TaxAwarenessPage() {
             )}
 
             {/* 80D */}
-            <div
-              className="rounded-2xl p-4 flex flex-col gap-4"
-              style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
-            >
+            <div className="rounded-2xl p-4 flex flex-col gap-4 surface">
               <div>
-                <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  Section 80D
-                </p>
-                <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-                  Health insurance premiums (max ₹25,000 self + ₹25,000 parents)
-                </p>
+                <p className="text-sm font-semibold text-primary">Section 80D</p>
+                <p className="text-xs text-tertiary">Health insurance premiums (max ₹25,000 self + ₹25,000 parents)</p>
               </div>
 
               <DeductionBar used={total80D.self} limit={LIMITS.SEC_80D_SELF} label="Self & family" />
 
               {summary.inferred80DAmount > 0 && (
                 <div className="flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  <span className="flex items-center gap-1 text-secondary">
                     <i className="ti ti-check text-emerald-500" style={{ fontSize: 11 }} aria-hidden="true" />
                     Health insurance premium
                   </span>
-                  <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                    {formatCurrency(summary.inferred80DAmount)}
-                  </span>
+                  <span className="font-medium text-primary">{formatCurrency(summary.inferred80DAmount)}</span>
                 </div>
               )}
 
               <div>
-                <p
-                  className="text-[10px] font-semibold uppercase tracking-wide mb-2"
-                  style={{ color: 'var(--color-text-tertiary)' }}
-                >
-                  Parents
-                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide mb-2 text-tertiary">Parents</p>
                 <DeductionBar
                   used={total80D.parents}
                   limit={LIMITS.SEC_80D_PARENTS}
@@ -386,17 +314,10 @@ export function TaxAwarenessPage() {
             </div>
 
             {/* 24B */}
-            <div
-              className="rounded-2xl p-4 flex flex-col gap-4"
-              style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
-            >
+            <div className="rounded-2xl p-4 flex flex-col gap-4 surface">
               <div>
-                <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  Section 24B
-                </p>
-                <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-                  Home loan interest deduction (max ₹2,00,000)
-                </p>
+                <p className="text-sm font-semibold text-primary">Section 24B</p>
+                <p className="text-xs text-tertiary">Home loan interest deduction (max ₹2,00,000)</p>
               </div>
 
               {sec24B.hasHomeLoan ? (
@@ -406,7 +327,7 @@ export function TaxAwarenessPage() {
                     limit={LIMITS.SEC_24B}
                     label="Home loan interest"
                   />
-                  <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                  <p className="text-xs text-secondary">
                     Estimated annual interest: {formatCurrency(sec24B.annualInterest)}
                     {sec24B.annualInterest > LIMITS.SEC_24B && (
                       <span className="text-amber-600"> (capped at ₹2L for self-occupied property)</span>
@@ -414,21 +335,16 @@ export function TaxAwarenessPage() {
                   </p>
                 </>
               ) : (
-                <p className="text-sm" style={{ color: 'var(--color-text-tertiary)' }}>
+                <p className="text-sm text-tertiary">
                   No home loan found. Add one under Liabilities to track this deduction.
                 </p>
               )}
             </div>
 
             {/* Old vs New regime note */}
-            <div
-              className="rounded-2xl p-4"
-              style={{ backgroundColor: 'var(--color-surface-secondary)', border: '1px solid var(--color-border)' }}
-            >
-              <p className="text-xs font-semibold mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                Old vs. New Regime
-              </p>
-              <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+            <div className="rounded-2xl p-4 bg-surface-2 border border-theme">
+              <p className="text-xs font-semibold mb-1 text-secondary">Old vs. New Regime</p>
+              <p className="text-xs leading-relaxed text-secondary">
                 Deductions (80C/80D/24B) apply under the <strong>old tax regime</strong>. Under the new regime these are
                 unavailable but slab rates are lower. Compare both before filing — this tool covers old-regime
                 deductions only.
@@ -446,10 +362,8 @@ export function TaxAwarenessPage() {
                 {totalEquityLtcg > 0 && (
                   <div className="bg-emerald-50 rounded-2xl border border-emerald-100 p-3">
                     <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wide">Equity LTCG</p>
-                    <p className="text-lg font-bold text-slate-900 mt-1">
-                      {formatCurrency(Math.round(totalEquityLtcg))}
-                    </p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">
+                    <p className="text-lg font-bold text-primary mt-1">{formatCurrency(Math.round(totalEquityLtcg))}</p>
+                    <p className="text-[10px] text-secondary mt-0.5">
                       {formatCurrency(EQUITY_LTCG_EXEMPTION)} exempt · tax on remainder
                     </p>
                     <p className="text-xs font-semibold text-emerald-600 mt-1">
@@ -461,10 +375,8 @@ export function TaxAwarenessPage() {
                 {totalEquityStcg > 0 && (
                   <div className="bg-amber-50 rounded-2xl border border-amber-100 p-3">
                     <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wide">Equity STCG</p>
-                    <p className="text-lg font-bold text-slate-900 mt-1">
-                      {formatCurrency(Math.round(totalEquityStcg))}
-                    </p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Taxed @ 20%</p>
+                    <p className="text-lg font-bold text-primary mt-1">{formatCurrency(Math.round(totalEquityStcg))}</p>
+                    <p className="text-[10px] text-secondary mt-0.5">Taxed @ 20%</p>
                     <p className="text-xs font-semibold text-amber-600 mt-1">
                       Est. tax: {formatCurrency(Math.round(totalEquityStcg * 0.2))}
                     </p>
@@ -473,35 +385,20 @@ export function TaxAwarenessPage() {
                 {(totalOtherLtcg > 0 || totalOtherStcg > 0) && (
                   <div className="bg-blue-50 rounded-2xl border border-blue-100 p-3">
                     <p className="text-[10px] font-semibold text-blue-700 uppercase tracking-wide">Other LTCG</p>
-                    <p className="text-lg font-bold text-slate-900 mt-1">
-                      {formatCurrency(Math.round(totalOtherLtcg))}
-                    </p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Gold / debt · 12.5%</p>
+                    <p className="text-lg font-bold text-primary mt-1">{formatCurrency(Math.round(totalOtherLtcg))}</p>
+                    <p className="text-[10px] text-secondary mt-0.5">Gold / debt · 12.5%</p>
                     <p className="text-xs font-semibold text-blue-600 mt-1">
                       Est. tax: {formatCurrency(Math.round(totalOtherLtcg * 0.125))}
                     </p>
                   </div>
                 )}
                 {(totalEquityLtcg > 0 || totalEquityStcg > 0) && (
-                  <div
-                    className="rounded-2xl p-3"
-                    style={{
-                      backgroundColor: 'var(--color-surface-secondary)',
-                      border: '1px solid var(--color-border)'
-                    }}
-                  >
-                    <p
-                      className="text-[10px] font-semibold uppercase tracking-wide"
-                      style={{ color: 'var(--color-text-tertiary)' }}
-                    >
-                      Total est. tax
-                    </p>
-                    <p className="text-lg font-bold mt-1" style={{ color: 'var(--color-text-primary)' }}>
+                  <div className="rounded-2xl p-3 bg-surface-2 border border-theme">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">Total est. tax</p>
+                    <p className="text-lg font-bold mt-1 text-primary">
                       {formatCurrency(Math.round(totalLtcgTax + totalStcgTax))}
                     </p>
-                    <p className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
-                      Equity only (excl. slab-rate items)
-                    </p>
+                    <p className="text-[10px] mt-0.5 text-tertiary">Equity only (excl. slab-rate items)</p>
                   </div>
                 )}
               </div>
@@ -538,10 +435,7 @@ export function TaxAwarenessPage() {
             {/* Holdings list */}
             {capGains.length > 0 ? (
               <div className="flex flex-col gap-2">
-                <p
-                  className="text-xs font-semibold uppercase tracking-wide"
-                  style={{ color: 'var(--color-text-tertiary)' }}
-                >
+                <p className="text-xs font-semibold uppercase tracking-wide text-tertiary">
                   Holdings with gains/losses
                 </p>
                 {capGains.map((item) => (
@@ -550,12 +444,8 @@ export function TaxAwarenessPage() {
               </div>
             ) : (
               <div className="p-10 text-center">
-                <i
-                  className="ti ti-chart-pie"
-                  style={{ fontSize: 40, color: 'var(--color-text-tertiary)' }}
-                  aria-hidden="true"
-                />
-                <p className="text-sm mt-3" style={{ color: 'var(--color-text-tertiary)' }}>
+                <i className="ti ti-chart-pie text-tertiary" style={{ fontSize: 40 }} aria-hidden="true" />
+                <p className="text-sm mt-3 text-tertiary">
                   No holdings found. Add investments in Portfolio to see capital gains.
                 </p>
               </div>
@@ -563,11 +453,8 @@ export function TaxAwarenessPage() {
 
             {/* Disclaimer */}
             {capGains.length > 0 && (
-              <div
-                className="rounded-xl p-3"
-                style={{ backgroundColor: 'var(--color-surface-secondary)', border: '1px solid var(--color-border)' }}
-              >
-                <p className="text-[10px] leading-relaxed" style={{ color: 'var(--color-text-tertiary)' }}>
+              <div className="rounded-xl p-3 bg-surface-2 border border-theme">
+                <p className="text-[10px] leading-relaxed text-tertiary">
                   <strong>Note:</strong> Holding period is calculated from when you added this holding to Penny, which
                   may differ from the actual purchase date. Tax estimates are indicative — consult a CA for precise
                   calculations. Equity LTCG exemption of ₹1.25L is shown per-holding here; it applies across all equity

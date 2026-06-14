@@ -11,19 +11,20 @@ interface ModuleRow {
   key: keyof ModuleVisibility;
   label: string;
   icon: string;
+  color: string;
 }
 
 const MODULE_ROWS: ModuleRow[] = [
-  { key: 'portfolio', label: 'Portfolio', icon: 'ti-chart-pie' },
-  { key: 'goals', label: 'Goals', icon: 'ti-target' },
-  { key: 'insurance', label: 'Insurance', icon: 'ti-shield' },
-  { key: 'subscriptions', label: 'Subscriptions', icon: 'ti-refresh' },
-  { key: 'iou', label: 'IOUs', icon: 'ti-arrows-exchange' },
-  { key: 'loans', label: 'Loans', icon: 'ti-calculator' },
-  { key: 'health', label: 'Health Score', icon: 'ti-heart-rate-monitor' },
-  { key: 'tax', label: 'Tax', icon: 'ti-receipt-tax' },
-  { key: 'cashflow', label: 'Cash Flow', icon: 'ti-trending-down' },
-  { key: 'backup', label: 'Backup', icon: 'ti-cloud-download' }
+  { key: 'portfolio', label: 'Portfolio', icon: 'ti-chart-pie', color: '#6366f1' },
+  { key: 'goals', label: 'Goals', icon: 'ti-target', color: '#10b981' },
+  { key: 'insurance', label: 'Insurance', icon: 'ti-shield', color: '#3b82f6' },
+  { key: 'subscriptions', label: 'Subs', icon: 'ti-refresh', color: '#8b5cf6' },
+  { key: 'iou', label: 'IOUs', icon: 'ti-arrows-exchange', color: '#f59e0b' },
+  { key: 'loans', label: 'Loans', icon: 'ti-calculator', color: '#06b6d4' },
+  { key: 'health', label: 'Health', icon: 'ti-heart-rate-monitor', color: '#ec4899' },
+  { key: 'tax', label: 'Tax', icon: 'ti-receipt-tax', color: '#8b5cf6' },
+  { key: 'cashflow', label: 'Cash Flow', icon: 'ti-trending-down', color: '#14b8a6' },
+  { key: 'backup', label: 'Backup', icon: 'ti-cloud-download', color: '#64748b' }
 ];
 
 const FONT_SCALES: { value: FontScale; label: string }[] = [
@@ -60,26 +61,19 @@ export function SettingsDrawer({ open, onClose }: Props) {
 
       {/* Drawer panel */}
       <div
-        className={`fixed top-0 left-0 h-full w-72 z-70 flex flex-col shadow-2xl transition-transform duration-300 ${
+        className={`fixed top-0 left-0 h-full w-72 z-70 flex flex-col shadow-2xl transition-transform duration-300 bg-surface text-primary ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
-        style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
         role="dialog"
         aria-modal="true"
         aria-label="Settings"
       >
         {/* Header */}
-        <div
-          className="flex items-center justify-between px-4 py-4"
-          style={{ borderBottom: '1px solid var(--color-border)' }}
-        >
-          <span className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-            Settings
-          </span>
+        <div className="flex items-center justify-between px-4 py-4 border-b border-theme">
+          <span className="text-base font-semibold text-primary">Settings</span>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/10"
-            style={{ color: 'var(--color-text-secondary)' }}
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/10 text-secondary"
             aria-label="Close settings"
           >
             <i className="ti ti-x" style={{ fontSize: 18 }} aria-hidden="true" />
@@ -90,66 +84,42 @@ export function SettingsDrawer({ open, onClose }: Props) {
         <div className="flex-1 overflow-y-auto">
           {/* Modules section */}
           <section className="px-4 pt-4 pb-2">
-            <p
-              className="text-[11px] font-semibold uppercase tracking-wider mb-3"
-              style={{ color: 'var(--color-text-tertiary)' }}
-            >
-              Modules
-            </p>
-            <p className="text-xs mb-3" style={{ color: 'var(--color-text-tertiary)' }}>
-              Home, Expenses, and Chip are always visible.
-            </p>
-            <div className="flex flex-col gap-1">
-              {MODULE_ROWS.map((row) => (
-                <label key={row.key} className="flex items-center justify-between py-2.5 cursor-pointer">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-7 h-7 rounded-lg flex items-center justify-center"
-                      style={{ backgroundColor: 'var(--color-surface-secondary)' }}
-                    >
-                      <i
-                        className={`ti ${row.icon}`}
-                        style={{ fontSize: 15, color: 'var(--color-text-secondary)' }}
-                        aria-hidden="true"
-                      />
-                    </div>
-                    <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                      {row.label}
-                    </span>
-                  </div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider mb-1 text-tertiary">Modules</p>
+            <p className="text-[10px] mb-3 text-tertiary">Tap to show/hide. Home, Expenses &amp; Chip are always on.</p>
+            <div className="grid grid-cols-5 gap-1.5">
+              {MODULE_ROWS.map((row) => {
+                const on = modules[row.key];
+                return (
                   <button
-                    role="switch"
-                    aria-checked={modules[row.key]}
-                    onClick={() => setModule(row.key, !modules[row.key])}
-                    className={`relative w-10 h-6 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#00a86b] ${
-                      modules[row.key] ? 'bg-[#00a86b]' : 'bg-slate-200'
-                    }`}
+                    key={row.key}
+                    onClick={() => setModule(row.key, !on)}
+                    aria-pressed={on}
+                    className="flex flex-col items-center justify-center gap-1 py-3 rounded-xl border transition-colors"
+                    style={
+                      on
+                        ? { backgroundColor: `${row.color}1a`, borderColor: row.color, color: row.color }
+                        : {
+                            backgroundColor: 'var(--color-surface-secondary)',
+                            borderColor: 'var(--color-border)',
+                            color: 'var(--color-text-tertiary)'
+                          }
+                    }
                   >
-                    <span
-                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        modules[row.key] ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
+                    <i className={`ti ${row.icon}`} style={{ fontSize: 18 }} aria-hidden="true" />
+                    <span className="text-[9px] font-medium leading-tight text-center px-0.5">{row.label}</span>
                   </button>
-                </label>
-              ))}
+                );
+              })}
             </div>
           </section>
 
-          <div className="h-px mx-4 my-2" style={{ backgroundColor: 'var(--color-border)' }} />
+          <div className="mx-4 my-2 border-t border-theme" />
 
           {/* Display section */}
           <section className="px-4 py-4">
-            <p
-              className="text-[11px] font-semibold uppercase tracking-wider mb-3"
-              style={{ color: 'var(--color-text-tertiary)' }}
-            >
-              Display
-            </p>
+            <p className="text-[11px] font-semibold uppercase tracking-wider mb-3 text-tertiary">Display</p>
 
-            <p className="text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-              Theme
-            </p>
+            <p className="text-xs mb-2 text-secondary">Theme</p>
             <div className="grid grid-cols-3 gap-2 mb-4">
               {THEMES.map((t) => (
                 <button
@@ -172,9 +142,7 @@ export function SettingsDrawer({ open, onClose }: Props) {
               ))}
             </div>
 
-            <p className="text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-              Font size
-            </p>
+            <p className="text-xs mb-2 text-secondary">Font size</p>
             <div className="grid grid-cols-4 gap-2">
               {FONT_SCALES.map((s) => (
                 <button
@@ -197,52 +165,34 @@ export function SettingsDrawer({ open, onClose }: Props) {
             </div>
           </section>
 
-          <div className="h-px mx-4 my-2" style={{ backgroundColor: 'var(--color-border)' }} />
+          <div className="mx-4 my-2 border-t border-theme" />
 
           {/* Security section */}
           <section className="px-4 py-4">
-            <p
-              className="text-[11px] font-semibold uppercase tracking-wider mb-3"
-              style={{ color: 'var(--color-text-tertiary)' }}
-            >
-              Security
-            </p>
-            <button className="flex items-center justify-between w-full py-2.5 text-left">
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center"
-                  style={{ backgroundColor: 'var(--color-surface-secondary)' }}
-                >
-                  <i
-                    className="ti ti-lock"
-                    style={{ fontSize: 15, color: 'var(--color-text-secondary)' }}
-                    aria-hidden="true"
-                  />
+            <p className="text-[11px] font-semibold uppercase tracking-wider mb-3 text-tertiary">Security</p>
+            {[
+              { icon: 'ti-lock', label: 'Change PIN' },
+              { icon: 'ti-key', label: 'Change Passphrase' }
+            ].map((item) => (
+              <button key={item.label} className="flex items-center justify-between w-full py-2.5 text-left">
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-surface-2">
+                    <i className={`ti ${item.icon} text-secondary`} style={{ fontSize: 15 }} aria-hidden="true" />
+                  </div>
+                  <span className="text-sm text-primary">{item.label}</span>
                 </div>
-                <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                  Change PIN
-                </span>
-              </div>
-              <i
-                className="ti ti-chevron-right"
-                style={{ fontSize: 16, color: 'var(--color-text-tertiary)' }}
-                aria-hidden="true"
-              />
-            </button>
+                <i className="ti ti-chevron-right text-tertiary" style={{ fontSize: 16 }} aria-hidden="true" />
+              </button>
+            ))}
           </section>
 
           {isDemoSeeded() && (
             <>
-              <div className="h-px mx-4 my-2" style={{ backgroundColor: 'var(--color-border)' }} />
+              <div className="mx-4 my-2 border-t border-theme" />
 
               <section className="px-4 py-4">
-                <p
-                  className="text-[11px] font-semibold uppercase tracking-wider mb-3"
-                  style={{ color: 'var(--color-text-tertiary)' }}
-                >
-                  Sample Data
-                </p>
-                <p className="text-xs mb-3 leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                <p className="text-[11px] font-semibold uppercase tracking-wider mb-3 text-tertiary">Sample Data</p>
+                <p className="text-xs mb-3 leading-relaxed text-secondary">
                   Remove all sample records and start fresh with your own data.
                 </p>
                 <button

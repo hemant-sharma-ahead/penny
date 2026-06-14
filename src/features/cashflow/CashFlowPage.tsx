@@ -106,10 +106,8 @@ export function CashFlowPage() {
   return (
     <div className="px-4 pt-4 pb-6 flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          Cash Flow
-        </h2>
-        <div className="flex rounded-lg p-0.5 gap-0.5" style={{ backgroundColor: 'var(--color-surface-secondary)' }}>
+        <h2 className="text-xl font-semibold text-primary">Cash Flow</h2>
+        <div className="flex rounded-lg p-0.5 gap-0.5 bg-surface-2">
           {(['week', 'month'] as Horizon[]).map((h) => (
             <button
               key={h}
@@ -146,11 +144,7 @@ export function CashFlowPage() {
       {data === null && (
         <div className="flex flex-col gap-2">
           {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="rounded-xl h-16 animate-pulse"
-              style={{ backgroundColor: 'var(--color-surface-secondary)' }}
-            />
+            <div key={i} className="rounded-xl h-16 animate-pulse bg-surface-2" />
           ))}
         </div>
       )}
@@ -161,14 +155,11 @@ export function CashFlowPage() {
           {grouped.map(([dayMs, dayEvents]) => (
             <div key={dayMs}>
               <div className="flex items-center gap-2 mb-2">
-                <span
-                  className="text-xs font-semibold uppercase tracking-wide"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                >
+                <span className="text-xs font-semibold uppercase tracking-wide text-secondary">
                   {formatGroupDate(dayMs, todayStart)}
                 </span>
-                <div className="flex-1 h-px" style={{ backgroundColor: 'var(--color-border)' }} />
-                <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                <div className="flex-1 h-px bg-surface-2 border-t border-theme" />
+                <span className="text-xs text-tertiary">
                   {mode === 'open' ? formatCurrency(dayEvents.reduce((s, e) => s + e.amount, 0)) : '••••'}
                 </span>
               </div>
@@ -176,11 +167,7 @@ export function CashFlowPage() {
                 {dayEvents.map((event) => {
                   const cfg = TYPE_CONFIG[event.type];
                   return (
-                    <div
-                      key={event.id}
-                      className="flex items-center gap-3 rounded-xl p-3"
-                      style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
-                    >
+                    <div key={event.id} className="surface flex items-center gap-3 rounded-xl p-3">
                       <div
                         className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
                         style={{ backgroundColor: `${cfg.color}18` }}
@@ -188,14 +175,10 @@ export function CashFlowPage() {
                         <i className={`ti ${cfg.icon}`} style={{ fontSize: 18, color: cfg.color }} aria-hidden="true" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
-                          {event.label}
-                        </p>
-                        <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-                          {cfg.label}
-                        </p>
+                        <p className="text-sm font-medium truncate text-primary">{event.label}</p>
+                        <p className="text-xs text-tertiary">{cfg.label}</p>
                       </div>
-                      <span className="text-sm font-semibold shrink-0" style={{ color: 'var(--color-text-primary)' }}>
+                      <span className="text-sm font-semibold shrink-0 text-primary">
                         {mode === 'open' ? formatCurrency(event.amount) : '••••'}
                       </span>
                     </div>
@@ -209,25 +192,16 @@ export function CashFlowPage() {
 
       {/* Empty state */}
       {data !== null && grouped.length === 0 && (
-        <div
-          className="rounded-xl p-8 text-center"
-          style={{ backgroundColor: 'var(--color-surface-secondary)', border: '1px solid var(--color-border)' }}
-        >
-          <i
-            className="ti ti-calendar-check"
-            style={{ fontSize: 40, color: 'var(--color-text-tertiary)' }}
-            aria-hidden="true"
-          />
-          <p className="text-sm font-medium mt-3" style={{ color: 'var(--color-text-secondary)' }}>
-            No upcoming payments
-          </p>
-          <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--color-text-tertiary)' }}>
+        <div className="rounded-xl p-8 text-center bg-surface-2 border border-theme">
+          <i className="ti ti-calendar-check text-tertiary" style={{ fontSize: 40 }} aria-hidden="true" />
+          <p className="text-sm font-medium mt-3 text-secondary">No upcoming payments</p>
+          <p className="text-xs mt-1 leading-relaxed text-tertiary">
             Add loans, subscriptions, or recurring expenses to see your cash flow forecast.
           </p>
         </div>
       )}
 
-      <p className="text-xs text-center leading-relaxed" style={{ color: 'var(--color-text-tertiary)' }}>
+      <p className="text-xs text-center leading-relaxed text-tertiary">
         Based on your loans, subscriptions, renewals, and recurring expenses. Actual amounts may vary.
       </p>
     </div>

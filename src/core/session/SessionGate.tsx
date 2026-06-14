@@ -115,7 +115,7 @@ export function SessionGate({ children, showRotationBanner = false }: Props) {
     const showWarning = !isLockedOut && attemptsUsed >= 3 && remaining > 0;
 
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white px-6">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-surface-3 px-6">
         <div className="w-full max-w-sm text-center">
           {/* Icon */}
           <div
@@ -131,10 +131,10 @@ export function SessionGate({ children, showRotationBanner = false }: Props) {
           </div>
 
           {/* Title + subtitle */}
-          <h2 className="text-xl font-semibold text-slate-900 mb-2">
+          <h2 className="text-xl font-semibold text-primary mb-2">
             {isLockedOut ? 'Too many attempts' : 'Session locked'}
           </h2>
-          <p className="text-slate-500 text-sm mb-8">
+          <p className="text-secondary text-sm mb-8">
             {isLockedOut ? `Try again in ${countdown}` : 'Enter your PIN to continue'}
           </p>
 
@@ -151,7 +151,7 @@ export function SessionGate({ children, showRotationBanner = false }: Props) {
                   if (e.key === 'Enter') void handleUnlock();
                 }}
                 placeholder="6-digit PIN"
-                className="w-full text-center text-2xl tracking-widest border border-slate-200 rounded-xl px-4 py-3 mb-3 focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                className="input-surface w-full text-center text-2xl tracking-widest border border-theme rounded-xl px-4 py-3 mb-3 focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
                 aria-label="PIN"
                 autoFocus
               />

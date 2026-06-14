@@ -72,10 +72,7 @@ export function PrivacyModeSwitcher() {
   return (
     <>
       {/* 3-segment toggle */}
-      <div
-        className="flex items-center rounded-lg overflow-hidden p-0.5 gap-0.5"
-        style={{ border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface-secondary)' }}
-      >
+      <div className="flex items-center rounded-lg overflow-hidden p-0.5 gap-0.5 border border-theme bg-surface-2">
         {SEGMENTS.map(({ mode: seg, label }) => {
           const isActive = mode === seg;
           return (
@@ -83,7 +80,7 @@ export function PrivacyModeSwitcher() {
               key={seg}
               onClick={() => handleSegmentTap(seg)}
               className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                isActive ? `${MODE_COLORS[seg].active} text-white shadow-sm` : 'text-slate-400 hover:text-slate-600'
+                isActive ? `${MODE_COLORS[seg].active} text-white shadow-sm` : 'text-tertiary hover:text-secondary'
               }`}
               aria-pressed={isActive}
               aria-label={`${label} mode`}
@@ -97,11 +94,7 @@ export function PrivacyModeSwitcher() {
       {/* PIN modal — centered */}
       {step === 'pin' && (
         <div className="fixed inset-0 z-60 flex items-center justify-center px-6 bg-black/40" onClick={handleClose}>
-          <div
-            className="w-full max-w-sm rounded-2xl shadow-2xl p-6"
-            style={{ backgroundColor: 'var(--color-surface)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="w-full max-w-sm rounded-2xl shadow-2xl p-6 bg-surface" onClick={(e) => e.stopPropagation()}>
             <div
               className="flex items-center justify-center w-12 h-12 rounded-full mx-auto mb-4"
               style={{ backgroundColor: 'var(--color-primary-light)' }}
@@ -109,12 +102,8 @@ export function PrivacyModeSwitcher() {
               <i className="ti ti-lock-open text-[#00a86b]" style={{ fontSize: 24 }} aria-hidden="true" />
             </div>
 
-            <h3 className="text-lg font-semibold text-center mb-1" style={{ color: 'var(--color-text-primary)' }}>
-              Switch to Open mode
-            </h3>
-            <p className="text-sm text-center mb-5" style={{ color: 'var(--color-text-secondary)' }}>
-              Enter your PIN to reveal all financial values.
-            </p>
+            <h3 className="text-lg font-semibold text-center mb-1 text-primary">Switch to Open mode</h3>
+            <p className="text-sm text-center mb-5 text-secondary">Enter your PIN to reveal all financial values.</p>
 
             <input
               ref={pinInputRef}
@@ -128,12 +117,7 @@ export function PrivacyModeSwitcher() {
                 if (e.key === 'Escape') handleClose();
               }}
               placeholder="6-digit PIN"
-              className="w-full text-center text-2xl tracking-widest rounded-xl px-4 py-3 mb-2 focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-              style={{
-                border: '1px solid var(--color-border)',
-                backgroundColor: 'var(--color-surface-secondary)',
-                color: 'var(--color-text-primary)'
-              }}
+              className="w-full text-center text-2xl tracking-widest rounded-xl px-4 py-3 mb-2 focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface border"
               aria-label="PIN"
             />
 
@@ -142,11 +126,7 @@ export function PrivacyModeSwitcher() {
             <div className="flex gap-3 mt-4">
               <button
                 onClick={handleClose}
-                className="flex-1 py-3 rounded-xl text-sm font-medium"
-                style={{
-                  border: '1px solid var(--color-border)',
-                  color: 'var(--color-text-secondary)'
-                }}
+                className="flex-1 py-3 rounded-xl text-sm font-medium border border-theme text-secondary"
               >
                 Cancel
               </button>
@@ -166,17 +146,12 @@ export function PrivacyModeSwitcher() {
       {/* Warning modal — shown after PIN verified, before mode switches to open */}
       {step === 'warning' && (
         <div className="fixed inset-0 z-60 flex items-center justify-center px-6 bg-black/50">
-          <div
-            className="w-full max-w-sm rounded-2xl shadow-2xl p-6"
-            style={{ backgroundColor: 'var(--color-surface)' }}
-          >
+          <div className="w-full max-w-sm rounded-2xl shadow-2xl p-6 bg-surface">
             <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-500/10 mx-auto mb-4">
               <i className="ti ti-alert-triangle text-red-500" style={{ fontSize: 24 }} aria-hidden="true" />
             </div>
 
-            <h3 className="text-lg font-semibold text-center mb-3" style={{ color: 'var(--color-text-primary)' }}>
-              Before switching to Open mode
-            </h3>
+            <h3 className="text-lg font-semibold text-center mb-3 text-primary">Before switching to Open mode</h3>
 
             <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-5">
               <p className="text-sm text-red-500 leading-relaxed">

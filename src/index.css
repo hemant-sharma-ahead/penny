@@ -117,6 +117,72 @@
   --color-mode-bg: #071510;
 }
 
+/* ─────────────────────────────────────────────────────────────────
+   Semantic theme utilities
+   Use these in ALL new components instead of hardcoded Tailwind
+   colors (bg-white, text-slate-900, border-slate-100, etc.).
+   They reference CSS variables so they automatically switch between
+   Penny Light and Penny Dark — no inline styles needed.
+
+   Quick reference:
+     bg-surface / bg-surface-2 / bg-surface-3
+     text-primary / text-secondary / text-tertiary
+     border-theme / border-theme-strong
+     surface       → bg-surface + 1px border  (card shorthand)
+     input-surface → bg + text + border for <input>/<select>
+
+   Usage example:
+     <div className="surface rounded-2xl p-4">
+       <h2 className="text-primary font-semibold">Title</h2>
+       <p className="text-secondary text-sm">Subtitle</p>
+       <input className="input-surface border rounded-xl px-3 py-2" />
+     </div>
+ ───────────────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Backgrounds */
+  .bg-surface {
+    background-color: var(--color-surface);
+  }
+  .bg-surface-2 {
+    background-color: var(--color-surface-secondary);
+  }
+  .bg-surface-3 {
+    background-color: var(--color-surface-tertiary);
+  }
+
+  /* Text */
+  .text-primary {
+    color: var(--color-text-primary);
+  }
+  .text-secondary {
+    color: var(--color-text-secondary);
+  }
+  .text-tertiary {
+    color: var(--color-text-tertiary);
+  }
+
+  /* Borders (color only — pair with Tailwind's `border` for width/style) */
+  .border-theme {
+    border-color: var(--color-border);
+  }
+  .border-theme-strong {
+    border-color: var(--color-border-strong);
+  }
+
+  /* Card shorthand: sets bg + 1px solid border in one class */
+  .surface {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+  }
+
+  /* Input shorthand: sets bg + text + border-color for form elements */
+  .input-surface {
+    background-color: var(--color-surface-secondary);
+    color: var(--color-text-primary);
+    border-color: var(--color-border);
+  }
+}
+
 * {
   box-sizing: border-box;
 }

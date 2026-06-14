@@ -115,9 +115,7 @@ export function HomePage() {
 
   return (
     <div className="px-4 pt-4 pb-6 flex flex-col gap-4">
-      <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-        {greeting}
-      </h2>
+      <h2 className="text-xl font-semibold text-primary">{greeting}</h2>
 
       {/* Net worth card */}
       <div className="rounded-2xl p-5 text-white" style={{ backgroundColor: 'var(--color-primary)' }}>
@@ -133,19 +131,13 @@ export function HomePage() {
 
       {/* Tools grid */}
       <div>
-        <p className="text-xs font-medium mb-2" style={{ color: 'var(--color-text-tertiary)' }}>
-          Tools
-        </p>
+        <p className="text-xs font-medium mb-2 text-tertiary">Tools</p>
         <div className="grid grid-cols-4 gap-2">
           {TOOL_TILES.filter((m) => modules[m.moduleKey]).map((m) => (
             <button
               key={m.label}
               onClick={() => navigate(m.path)}
-              className="flex flex-col items-center gap-1.5 rounded-xl p-3 active:opacity-70 transition-colors"
-              style={{
-                backgroundColor: 'var(--color-surface)',
-                border: '1px solid var(--color-border)'
-              }}
+              className="surface flex flex-col items-center gap-1.5 rounded-xl p-3 active:opacity-70 transition-colors"
             >
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center"
@@ -153,9 +145,7 @@ export function HomePage() {
               >
                 <i className={`ti ${m.icon}`} style={{ fontSize: 20, color: m.color }} aria-hidden="true" />
               </div>
-              <span className="text-[10px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                {m.label}
-              </span>
+              <span className="text-[10px] font-medium text-secondary">{m.label}</span>
             </button>
           ))}
         </div>
@@ -171,32 +161,16 @@ export function HomePage() {
             >
               <i className="ti ti-sparkles text-white" style={{ fontSize: 11 }} aria-hidden="true" />
             </div>
-            <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-              Chip insights
-            </span>
+            <span className="text-sm font-medium text-primary">Chip insights</span>
           </div>
           <div className="flex flex-col gap-2">
             {insights.map((insight) => (
-              <article
-                key={insight.id}
-                className="rounded-xl p-4"
-                style={{
-                  backgroundColor: 'var(--color-surface)',
-                  border: '1px solid var(--color-border)'
-                }}
-              >
-                <span
-                  className="text-[10px] font-medium uppercase tracking-wide"
-                  style={{ color: 'var(--color-text-tertiary)' }}
-                >
+              <article key={insight.id} className="surface rounded-xl p-4">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-tertiary">
                   {insight.moduleTag}
                 </span>
-                <p className="text-sm font-medium mt-0.5 mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                  {insight.headline}
-                </p>
-                <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-                  {insight.reasoning}
-                </p>
+                <p className="text-sm font-medium mt-0.5 mb-1 text-primary">{insight.headline}</p>
+                <p className="text-xs leading-relaxed text-secondary">{insight.reasoning}</p>
                 {insight.consequence && (
                   <p className="text-xs text-amber-600 mt-1.5 leading-relaxed">⚠ {insight.consequence}</p>
                 )}
@@ -216,21 +190,9 @@ export function HomePage() {
       )}
 
       {insights.length === 0 && summary !== null && (
-        <div
-          className="rounded-xl p-6 text-center"
-          style={{
-            backgroundColor: 'var(--color-surface-secondary)',
-            border: '1px solid var(--color-border)'
-          }}
-        >
-          <i
-            className="ti ti-sparkles"
-            style={{ fontSize: 32, color: 'var(--color-text-tertiary)' }}
-            aria-hidden="true"
-          />
-          <p className="text-sm mt-2" style={{ color: 'var(--color-text-tertiary)' }}>
-            Add your financial data and Chip will surface insights here.
-          </p>
+        <div className="rounded-xl p-6 text-center bg-surface-2 border border-theme">
+          <i className="ti ti-sparkles text-tertiary" style={{ fontSize: 32 }} aria-hidden="true" />
+          <p className="text-sm mt-2 text-tertiary">Add your financial data and Chip will surface insights here.</p>
         </div>
       )}
     </div>

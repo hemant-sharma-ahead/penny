@@ -44,7 +44,7 @@ export function PennyWordmark({ height = 28, className }: WordmarkProps) {
       viewBox="0 0 120 32"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={className}
+      className={`text-primary ${className ?? ''}`}
       aria-label="Penny"
       role="img"
     >
@@ -61,7 +61,7 @@ export function PennyWordmark({ height = 28, className }: WordmarkProps) {
         fontFamily="Inter, system-ui, sans-serif"
         fontWeight="600"
         fontSize="18"
-        fill="#1e293b"
+        fill="currentColor"
         letterSpacing="-0.3"
       >
         Penny

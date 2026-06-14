@@ -91,10 +91,8 @@ export function IouPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
-        <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          IOUs
-        </h2>
+      <div className="px-4 pt-4 pb-3 border-b border-theme">
+        <h2 className="text-xl font-semibold text-primary">IOUs</h2>
         {active.length > 0 && (
           <div className="flex gap-3 mt-1">
             {totalLent > 0 && (
@@ -117,7 +115,7 @@ export function IouPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex px-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
+      <div className="flex px-4 border-b border-theme">
         {(
           [
             ['active', `Active (${active.length})`],
@@ -160,14 +158,8 @@ export function IouPage() {
 
             {sortedActive.length === 0 ? (
               <div className="p-10 text-center">
-                <i
-                  className="ti ti-arrows-exchange"
-                  style={{ fontSize: 44, color: 'var(--color-text-tertiary)' }}
-                  aria-hidden="true"
-                />
-                <p className="text-sm mt-3" style={{ color: 'var(--color-text-tertiary)' }}>
-                  No active IOUs. Tap + to log one.
-                </p>
+                <i className="ti ti-arrows-exchange text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
+                <p className="text-sm mt-3 text-tertiary">No active IOUs. Tap + to log one.</p>
               </div>
             ) : (
               sortedActive.map((iou) => {
@@ -180,8 +172,7 @@ export function IouPage() {
                   <button
                     key={iou.id}
                     onClick={() => openEdit(iou)}
-                    className="rounded-2xl p-4 text-left w-full"
-                    style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+                    className="rounded-2xl p-4 text-left w-full surface"
                   >
                     <div className="flex items-start gap-3">
                       {/* Direction icon */}
@@ -199,15 +190,13 @@ export function IouPage() {
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
-                            {iou.description}
-                          </p>
+                          <p className="text-sm font-semibold truncate text-primary">{iou.description}</p>
                           <p className="text-sm font-semibold flex-shrink-0" style={{ color: accentColor }}>
                             {mode === 'open' ? formatCurrency(iou.amount) : '••••'}
                           </p>
                         </div>
                         <div className="flex items-center justify-between mt-1 gap-2">
-                          <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                          <p className="text-xs text-tertiary">
                             {isLent ? 'Lent' : 'Borrowed'} {formatDateShort(iou.date)}
                           </p>
                           {due !== null && (
@@ -219,16 +208,12 @@ export function IouPage() {
                             </span>
                           )}
                         </div>
-                        {iou.notes && (
-                          <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--color-text-tertiary)' }}>
-                            {iou.notes}
-                          </p>
-                        )}
+                        {iou.notes && <p className="text-xs mt-0.5 truncate text-tertiary">{iou.notes}</p>}
                       </div>
                     </div>
 
                     {/* Settle row */}
-                    <div className="mt-3 pt-3 flex justify-end" style={{ borderTop: '1px solid var(--color-border)' }}>
+                    <div className="mt-3 pt-3 flex justify-end border-t border-theme">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -253,14 +238,8 @@ export function IouPage() {
           <div className="px-4 py-4 flex flex-col gap-3">
             {history.length === 0 ? (
               <div className="p-10 text-center">
-                <i
-                  className="ti ti-clock-check"
-                  style={{ fontSize: 44, color: 'var(--color-text-tertiary)' }}
-                  aria-hidden="true"
-                />
-                <p className="text-sm mt-3" style={{ color: 'var(--color-text-tertiary)' }}>
-                  No settled IOUs yet.
-                </p>
+                <i className="ti ti-clock-check text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
+                <p className="text-sm mt-3 text-tertiary">No settled IOUs yet.</p>
               </div>
             ) : (
               history.map((iou) => {
@@ -270,30 +249,20 @@ export function IouPage() {
                   <button
                     key={iou.id}
                     onClick={() => openEdit(iou)}
-                    className="rounded-2xl p-4 text-left w-full opacity-70"
-                    style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+                    className="rounded-2xl p-4 text-left w-full opacity-70 surface"
                   >
                     <div className="flex items-center gap-3">
-                      <div
-                        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: 'var(--color-surface-secondary)' }}
-                      >
-                        <i
-                          className="ti ti-check"
-                          style={{ fontSize: 18, color: 'var(--color-text-tertiary)' }}
-                          aria-hidden="true"
-                        />
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-surface-2">
+                        <i className="ti ti-check text-tertiary" style={{ fontSize: 18 }} aria-hidden="true" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-secondary)' }}>
-                            {iou.description}
-                          </p>
+                          <p className="text-sm font-medium truncate text-secondary">{iou.description}</p>
                           <p className="text-sm font-semibold flex-shrink-0" style={{ color: accentColor }}>
                             {mode === 'open' ? formatCurrency(iou.amount) : '••••'}
                           </p>
                         </div>
-                        <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
+                        <p className="text-xs mt-0.5 text-tertiary">
                           {isLent ? 'Lent' : 'Borrowed'} {formatDateShort(iou.date)}
                           {iou.settledAt !== undefined && ` · settled ${formatDateShort(iou.settledAt)}`}
                         </p>

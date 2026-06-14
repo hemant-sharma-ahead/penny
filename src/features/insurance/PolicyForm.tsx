@@ -23,14 +23,6 @@ const POLICY_TYPES: { value: InsuranceType; label: string; icon: string; color: 
   { value: 'other', label: 'Other', icon: 'ti-shield', color: '#6b7280' }
 ];
 
-const inputStyle = {
-  backgroundColor: 'var(--color-surface-secondary)',
-  color: 'var(--color-text-primary)',
-  borderColor: 'var(--color-border)'
-};
-
-const labelStyle = { color: 'var(--color-text-secondary)' };
-
 export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
   const [type, setType] = useState<InsuranceType>(editing?.type ?? 'term');
   const [insurer, setInsurer] = useState(editing?.insurer ?? '');
@@ -84,18 +76,12 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
       style={{ paddingBottom: 'calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px))' }}
     >
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div
-        className="relative w-full rounded-t-2xl p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto"
-        style={{ backgroundColor: 'var(--color-surface)' }}
-      >
+      <div className="relative w-full rounded-t-2xl p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto bg-surface">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-            {editing ? 'Edit policy' : 'Add policy'}
-          </h3>
+          <h3 className="text-base font-semibold text-primary">{editing ? 'Edit policy' : 'Add policy'}</h3>
           <button
             onClick={onClose}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center"
-            style={{ color: 'var(--color-text-tertiary)' }}
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-tertiary"
           >
             <i className="ti ti-x" style={{ fontSize: 20 }} aria-hidden="true" />
           </button>
@@ -103,9 +89,7 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
 
         {/* Policy type */}
         <div>
-          <label className="text-xs font-medium" style={labelStyle}>
-            Policy type
-          </label>
+          <label className="text-xs font-medium text-secondary">Policy type</label>
           <div className="mt-1 grid grid-cols-4 gap-2">
             {POLICY_TYPES.map((pt) => (
               <button
@@ -137,13 +121,10 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
 
         {/* Insurer */}
         <div>
-          <label className="text-xs font-medium" style={labelStyle}>
-            Insurer / Company
-          </label>
+          <label className="text-xs font-medium text-secondary">Insurer / Company</label>
           <input
             type="text"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            style={inputStyle}
+            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
             placeholder="e.g. LIC, HDFC ERGO, Star Health"
             value={insurer}
             onChange={(e) => setInsurer(e.target.value)}
@@ -153,13 +134,10 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
 
         {/* Policy number */}
         <div>
-          <label className="text-xs font-medium" style={labelStyle}>
-            Policy number (optional)
-          </label>
+          <label className="text-xs font-medium text-secondary">Policy number (optional)</label>
           <input
             type="text"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            style={inputStyle}
+            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
             placeholder="e.g. P-12345678"
             value={policyNumber}
             onChange={(e) => setPolicyNumber(e.target.value)}
@@ -169,28 +147,22 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
         {/* Coverage + Premium */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs font-medium" style={labelStyle}>
-              Coverage amount (₹)
-            </label>
+            <label className="text-xs font-medium text-secondary">Coverage amount (₹)</label>
             <input
               type="number"
               inputMode="decimal"
-              className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-              style={inputStyle}
+              className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
               placeholder="e.g. 10000000"
               value={coverageAmount}
               onChange={(e) => setCoverageAmount(e.target.value)}
             />
           </div>
           <div>
-            <label className="text-xs font-medium" style={labelStyle}>
-              Annual premium (₹)
-            </label>
+            <label className="text-xs font-medium text-secondary">Annual premium (₹)</label>
             <input
               type="number"
               inputMode="decimal"
-              className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-              style={inputStyle}
+              className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
               placeholder="e.g. 12000"
               value={annualPremium}
               onChange={(e) => setAnnualPremium(e.target.value)}
@@ -200,13 +172,10 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
 
         {/* Renewal date */}
         <div>
-          <label className="text-xs font-medium" style={labelStyle}>
-            Renewal / expiry date
-          </label>
+          <label className="text-xs font-medium text-secondary">Renewal / expiry date</label>
           <input
             type="date"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            style={inputStyle}
+            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
             value={renewalDate}
             onChange={(e) => setRenewalDate(e.target.value)}
           />
@@ -214,13 +183,10 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
 
         {/* Nominees */}
         <div>
-          <label className="text-xs font-medium" style={labelStyle}>
-            Nominees (optional)
-          </label>
+          <label className="text-xs font-medium text-secondary">Nominees (optional)</label>
           <input
             type="text"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            style={inputStyle}
+            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
             placeholder="e.g. Spouse, Child"
             value={nominees}
             onChange={(e) => setNominees(e.target.value)}
@@ -229,13 +195,10 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
 
         {/* Notes */}
         <div>
-          <label className="text-xs font-medium" style={labelStyle}>
-            Notes (optional)
-          </label>
+          <label className="text-xs font-medium text-secondary">Notes (optional)</label>
           <input
             type="text"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            style={inputStyle}
+            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
             placeholder="e.g. Family floater, includes dental"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}

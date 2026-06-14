@@ -23,14 +23,6 @@ const ASSET_CLASSES: { value: AssetClass; label: string; icon: string; color: st
   { value: 'other', label: 'Other', icon: 'ti-dots', color: '#6b7280' }
 ];
 
-const inputStyle = {
-  backgroundColor: 'var(--color-surface-secondary)',
-  color: 'var(--color-text-primary)',
-  borderColor: 'var(--color-border)'
-};
-
-const labelStyle = { color: 'var(--color-text-secondary)' };
-
 export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
   const [assetClass, setAssetClass] = useState<AssetClass>(editing?.assetClass ?? 'mf');
   const [name, setName] = useState(editing?.name ?? '');
@@ -104,18 +96,12 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
       style={{ paddingBottom: 'calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px))' }}
     >
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div
-        className="relative w-full rounded-t-2xl p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto"
-        style={{ backgroundColor: 'var(--color-surface)' }}
-      >
+      <div className="relative w-full rounded-t-2xl p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto bg-surface">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-            {editing ? 'Edit holding' : 'Add holding'}
-          </h3>
+          <h3 className="text-base font-semibold text-primary">{editing ? 'Edit holding' : 'Add holding'}</h3>
           <button
             onClick={onClose}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center"
-            style={{ color: 'var(--color-text-tertiary)' }}
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-tertiary"
           >
             <i className="ti ti-x" style={{ fontSize: 20 }} aria-hidden="true" />
           </button>
@@ -123,9 +109,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
 
         {/* Asset class */}
         <div>
-          <label className="text-xs font-medium" style={labelStyle}>
-            Asset type
-          </label>
+          <label className="text-xs font-medium text-secondary">Asset type</label>
           <div className="mt-1 grid grid-cols-4 gap-2">
             {ASSET_CLASSES.map((ac) => (
               <button
@@ -157,13 +141,10 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
 
         {/* Name */}
         <div>
-          <label className="text-xs font-medium" style={labelStyle}>
-            Name
-          </label>
+          <label className="text-xs font-medium text-secondary">Name</label>
           <input
             type="text"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            style={inputStyle}
+            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
             placeholder={
               assetClass === 'mf'
                 ? 'e.g. Parag Parikh Flexi Cap'
@@ -183,17 +164,13 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
         {assetClass === 'mf' && (
           <>
             <div>
-              <label className="text-xs font-medium" style={labelStyle}>
-                MFAPI scheme code{' '}
-                <span className="font-normal" style={{ color: 'var(--color-text-tertiary)' }}>
-                  (e.g. 120503 for PPFAS)
-                </span>
+              <label className="text-xs font-medium text-secondary">
+                MFAPI scheme code <span className="font-normal text-tertiary">(e.g. 120503 for PPFAS)</span>
               </label>
               <input
                 type="text"
                 inputMode="numeric"
-                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                style={inputStyle}
+                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
                 placeholder="Leave blank to enter price manually"
                 value={schemeCode}
                 onChange={(e) => setSchemeCode(e.target.value)}
@@ -201,28 +178,22 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-medium" style={labelStyle}>
-                  Units held
-                </label>
+                <label className="text-xs font-medium text-secondary">Units held</label>
                 <input
                   type="number"
                   inputMode="decimal"
-                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                  style={inputStyle}
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
                   placeholder="0.000"
                   value={units}
                   onChange={(e) => setUnits(e.target.value)}
                 />
               </div>
               <div>
-                <label className="text-xs font-medium" style={labelStyle}>
-                  Avg NAV (₹)
-                </label>
+                <label className="text-xs font-medium text-secondary">Avg NAV (₹)</label>
                 <input
                   type="number"
                   inputMode="decimal"
-                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                  style={inputStyle}
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
                   placeholder="0.00"
                   value={avgCostPrice}
                   onChange={(e) => setAvgCostPrice(e.target.value)}
@@ -236,16 +207,12 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
         {assetClass === 'stock' && (
           <>
             <div>
-              <label className="text-xs font-medium" style={labelStyle}>
-                NSE symbol{' '}
-                <span className="font-normal" style={{ color: 'var(--color-text-tertiary)' }}>
-                  (e.g. RELIANCE)
-                </span>
+              <label className="text-xs font-medium text-secondary">
+                NSE symbol <span className="font-normal text-tertiary">(e.g. RELIANCE)</span>
               </label>
               <input
                 type="text"
-                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                style={inputStyle}
+                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
                 placeholder="INFY, TCS, HDFC..."
                 value={symbol}
                 onChange={(e) => setSymbol(e.target.value.toUpperCase())}
@@ -253,28 +220,22 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-medium" style={labelStyle}>
-                  Shares held
-                </label>
+                <label className="text-xs font-medium text-secondary">Shares held</label>
                 <input
                   type="number"
                   inputMode="decimal"
-                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                  style={inputStyle}
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
                   placeholder="0"
                   value={units}
                   onChange={(e) => setUnits(e.target.value)}
                 />
               </div>
               <div>
-                <label className="text-xs font-medium" style={labelStyle}>
-                  Avg buy price (₹)
-                </label>
+                <label className="text-xs font-medium text-secondary">Avg buy price (₹)</label>
                 <input
                   type="number"
                   inputMode="decimal"
-                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                  style={inputStyle}
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
                   placeholder="0.00"
                   value={avgCostPrice}
                   onChange={(e) => setAvgCostPrice(e.target.value)}
@@ -288,27 +249,21 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
         {assetClass === 'fd' && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium" style={labelStyle}>
-                Interest rate (%)
-              </label>
+              <label className="text-xs font-medium text-secondary">Interest rate (%)</label>
               <input
                 type="number"
                 inputMode="decimal"
-                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                style={inputStyle}
+                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
                 placeholder="7.1"
                 value={interestRate}
                 onChange={(e) => setInterestRate(e.target.value)}
               />
             </div>
             <div>
-              <label className="text-xs font-medium" style={labelStyle}>
-                Maturity date
-              </label>
+              <label className="text-xs font-medium text-secondary">Maturity date</label>
               <input
                 type="date"
-                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                style={inputStyle}
+                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
                 value={maturityDate}
                 onChange={(e) => setMaturityDate(e.target.value)}
               />
@@ -320,28 +275,22 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
         {assetClass === 'gold' && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium" style={labelStyle}>
-                Weight (grams)
-              </label>
+              <label className="text-xs font-medium text-secondary">Weight (grams)</label>
               <input
                 type="number"
                 inputMode="decimal"
-                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                style={inputStyle}
+                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
                 placeholder="0.00"
                 value={units}
                 onChange={(e) => setUnits(e.target.value)}
               />
             </div>
             <div>
-              <label className="text-xs font-medium" style={labelStyle}>
-                Avg buy price (₹/g)
-              </label>
+              <label className="text-xs font-medium text-secondary">Avg buy price (₹/g)</label>
               <input
                 type="number"
                 inputMode="decimal"
-                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                style={inputStyle}
+                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
                 placeholder="0.00"
                 value={avgCostPrice}
                 onChange={(e) => setAvgCostPrice(e.target.value)}
@@ -352,14 +301,11 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
 
         {/* Invested amount (always) */}
         <div>
-          <label className="text-xs font-medium" style={labelStyle}>
-            Amount invested (₹)
-          </label>
+          <label className="text-xs font-medium text-secondary">Amount invested (₹)</label>
           <input
             type="number"
             inputMode="decimal"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            style={inputStyle}
+            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
             placeholder="0"
             value={investedAmount}
             onChange={(e) => setInvestedAmount(e.target.value)}
@@ -368,17 +314,14 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
 
         {/* Current value (manual override) */}
         <div>
-          <label className="text-xs font-medium" style={labelStyle}>
+          <label className="text-xs font-medium text-secondary">
             Current value (₹){' '}
-            <span className="font-normal" style={{ color: 'var(--color-text-tertiary)' }}>
-              — optional, fetched automatically for MF/stocks
-            </span>
+            <span className="font-normal text-tertiary">— optional, fetched automatically for MF/stocks</span>
           </label>
           <input
             type="number"
             inputMode="decimal"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            style={inputStyle}
+            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
             placeholder="Leave blank to use invested amount"
             value={currentValue}
             onChange={(e) => setCurrentValue(e.target.value)}
@@ -387,13 +330,10 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
 
         {/* Notes */}
         <div>
-          <label className="text-xs font-medium" style={labelStyle}>
-            Notes (optional)
-          </label>
+          <label className="text-xs font-medium text-secondary">Notes (optional)</label>
           <input
             type="text"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            style={inputStyle}
+            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
             placeholder="e.g. held in Zerodha, SBI Kolar branch"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
