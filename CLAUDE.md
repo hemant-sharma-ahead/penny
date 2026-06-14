@@ -27,8 +27,9 @@ This file is read at the start of every Claude Code session. It tells you where 
 | M5: Feature modules (no AI)         | ✅ Complete                                         |
 | M6: PWA + responsive polish         | ✅ Complete                                         |
 | M7: Hardening                       | ✅ Complete                                         |
-| M8: Phase 1 polish                  | 🔄 Next — scope discussion required before starting |
-| M9: Chip (AI integration)           | ⏳ Future                                           |
+| M8: Phase 1 polish                  | ✅ Complete                                         |
+| M9: Income, transfers & cash        | 🔄 Next — scope discussion required before starting |
+| M10: Chip (AI integration)          | ⏳ Future                                           |
 
 **M5 step tracker:**
 
@@ -69,7 +70,25 @@ This file is read at the start of every Claude Code session. It tells you where 
 
 **M7 is complete.**
 
-**Next step when you pick up a session:** M8 — Phase 1 polish. Requires scope discussion first: simulated data strategy, demo flows, end-to-end UX. Have this conversation with the user before writing any code.
+**M8 step tracker:**
+
+| Step | Feature                                                                         | Status  |
+| ---- | ------------------------------------------------------------------------------- | ------- |
+| 40   | Visual identity — Penny SVG logo, Chip avatar, updated PWA icons                | ✅ Done |
+| 41   | Settings drawer — module visibility toggles, font scale slider                  | ✅ Done |
+| 42   | Privacy mode switcher — 3-segment toggle, PIN gate for Open, theme tinting      | ✅ Done |
+| 42b  | Light/dark theme system (Penny Light + Penny Dark)                              | ✅ Done |
+| 43   | Demo data seeding — realistic sample records on first onboarding                | ✅ Done |
+| 44   | Chip mock chat UI — full message UI wired to mockChip.ts                        | ✅ Done |
+| 45   | Expense categories rethink + analytics tab + budget tab polish                  | ✅ Done |
+| 46   | Import expenses — Penny CSV template + YNAB/Cashew/MoneyView parsers, 3-step UI | ✅ Done |
+| 47   | Export CSV — AES-256 password-protected ZIP, date range picker                  | ✅ Done |
+| 48   | Responsive/laptop layout                                                        | ⏳ Deferred to Phase 2 |
+| 49   | Final CI pass + CLAUDE.md updated                                               | ✅ Done |
+
+**M8 is complete.** Step 48 (desktop layout) deferred to Phase 2 — app is mobile-first and Phase 1 use case does not require it.
+
+**Next step when you pick up a session:** M9 — Income, transfers & cash. Requires scope discussion first: data model changes (income/transfer types on expenses), cash account tracking, net cash flow view. Have this conversation with the user before writing any code.
 
 ---
 
@@ -223,12 +242,16 @@ For inline styles that reference CSS variables (e.g. SVG `fill`, dynamic colors)
 
 ## Key files
 
-| File                                     | Purpose                                          |
-| ---------------------------------------- | ------------------------------------------------ |
-| `src/core/db/schema.ts`                  | All 19 Dexie stores — everything depends on this |
-| `src/core/crypto/securityManager.ts`     | All reads/writes flow through this               |
-| `src/core/ai-safety/buildUserContext.ts` | Only path to Anthropic                           |
-| `src/core/ai-safety/mockChip.ts`         | All Phase 1 dev runs on this                     |
-| `tests/pii-gate/piiGate.test.ts`         | CI gate — never skip                             |
-| `src/context/PrivacyContext.tsx`         | Privacy mode — wraps entire app                  |
-| `src/router/index.tsx`                   | All routes + AuthGuard                           |
+| File                                     | Purpose                                               |
+| ---------------------------------------- | ----------------------------------------------------- |
+| `src/core/db/schema.ts`                  | All 19 Dexie stores — everything depends on this      |
+| `src/core/crypto/securityManager.ts`     | All reads/writes flow through this                    |
+| `src/core/ai-safety/buildUserContext.ts` | Only path to Anthropic                                |
+| `src/core/ai-safety/mockChip.ts`         | All Phase 1 dev runs on this                          |
+| `src/core/import/importParsers.ts`       | CSV parsers: Penny, YNAB, Cashew, MoneyView           |
+| `src/core/export/exportCsv.ts`           | CSV export + AES-256 ZIP download (zip.js, no workers)|
+| `src/core/db/seedDemoData.ts`            | Demo data seeding — called once after onboarding      |
+| `tests/pii-gate/piiGate.test.ts`         | CI gate — never skip                                  |
+| `src/context/PrivacyContext.tsx`         | Privacy mode — wraps entire app                       |
+| `src/context/SettingsContext.tsx`        | Module visibility + font scale (localStorage)         |
+| `src/router/index.tsx`                   | All routes + AuthGuard                                |
