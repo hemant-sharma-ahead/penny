@@ -38,6 +38,14 @@ const PAYMENT_MODES: PaymentMode[] = [
   { id: 'axis', label: 'Axis', icon: 'ti-building-bank', color: '#97144d' }
 ];
 
+const inputStyle = {
+  backgroundColor: 'var(--color-surface-secondary)',
+  color: 'var(--color-text-primary)',
+  borderColor: 'var(--color-border)'
+};
+
+const labelStyle = { color: 'var(--color-text-secondary)' };
+
 export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, onClose }: Props) {
   const defaultCategoryId = categories[0]?.id ?? '';
 
@@ -98,13 +106,19 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
       style={{ paddingBottom: 'calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px))' }}
     >
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full bg-white rounded-t-2xl p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
+      <div
+        className="relative w-full rounded-t-2xl p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto"
+        style={{ backgroundColor: 'var(--color-surface)' }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold text-slate-900">{editing ? 'Edit expense' : 'Add expense'}</h3>
+          <h3 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+            {editing ? 'Edit expense' : 'Add expense'}
+          </h3>
           <button
             onClick={onClose}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center"
+            style={{ color: 'var(--color-text-tertiary)' }}
           >
             <i className="ti ti-x" style={{ fontSize: 20 }} aria-hidden="true" />
           </button>
@@ -113,11 +127,14 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
         {/* Amount + Date */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs font-medium text-slate-500">Amount (₹)</label>
+            <label className="text-xs font-medium" style={labelStyle}>
+              Amount (₹)
+            </label>
             <input
               type="number"
               inputMode="decimal"
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+              className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+              style={inputStyle}
               placeholder="0"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
@@ -125,10 +142,13 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-slate-500">Date</label>
+            <label className="text-xs font-medium" style={labelStyle}>
+              Date
+            </label>
             <input
               type="date"
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+              className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+              style={inputStyle}
               value={date}
               onChange={(e) => setDate(e.target.value)}
             />
@@ -137,20 +157,26 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
 
         {/* Payment mode */}
         <div>
-          <label className="text-xs font-medium text-slate-500">Payment mode</label>
+          <label className="text-xs font-medium" style={labelStyle}>
+            Payment mode
+          </label>
           <div className="mt-1 flex gap-2 overflow-x-auto pb-0.5">
             {PAYMENT_MODES.map((mode) => (
               <button
                 key={mode.id}
                 type="button"
                 onClick={() => setPaymentMode((prev) => (prev === mode.id ? '' : mode.id))}
-                className={`flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors w-[58px] ${
-                  paymentMode === mode.id ? 'bg-slate-50' : 'border-transparent bg-slate-50/50'
-                }`}
-                style={paymentMode === mode.id ? { borderColor: mode.color } : {}}
+                className="flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors w-[58px]"
+                style={
+                  paymentMode === mode.id
+                    ? { borderColor: mode.color, backgroundColor: 'var(--color-surface-secondary)' }
+                    : { borderColor: 'transparent', backgroundColor: 'var(--color-surface-secondary)' }
+                }
               >
                 <i className={`ti ${mode.icon}`} style={{ fontSize: 18, color: mode.color }} aria-hidden="true" />
-                <span className="text-[9px] font-medium text-slate-600 leading-tight">{mode.label}</span>
+                <span className="text-[9px] font-medium leading-tight" style={{ color: 'var(--color-text-secondary)' }}>
+                  {mode.label}
+                </span>
               </button>
             ))}
           </div>
@@ -158,20 +184,27 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
 
         {/* Category */}
         <div>
-          <label className="text-xs font-medium text-slate-500">Category</label>
+          <label className="text-xs font-medium" style={labelStyle}>
+            Category
+          </label>
           <div className="mt-1 grid grid-cols-4 gap-2">
             {categories.map((cat) => (
               <button
                 key={cat.id}
                 type="button"
                 onClick={() => setCategoryId(cat.id)}
-                className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors ${
-                  categoryId === cat.id ? 'bg-slate-50' : 'border-transparent bg-slate-50/50'
-                }`}
-                style={categoryId === cat.id ? { borderColor: cat.color } : {}}
+                className="flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors"
+                style={
+                  categoryId === cat.id
+                    ? { borderColor: cat.color, backgroundColor: 'var(--color-surface-secondary)' }
+                    : { borderColor: 'transparent', backgroundColor: 'var(--color-surface-secondary)' }
+                }
               >
                 <i className={`ti ${cat.icon}`} style={{ fontSize: 18, color: cat.color }} aria-hidden="true" />
-                <span className="text-[9px] font-medium text-slate-600 text-center leading-tight">
+                <span
+                  className="text-[9px] font-medium text-center leading-tight"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
                   {cat.name.split(' ')[0] ?? cat.name}
                 </span>
               </button>
@@ -181,10 +214,13 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
 
         {/* Description */}
         <div>
-          <label className="text-xs font-medium text-slate-500">Description</label>
+          <label className="text-xs font-medium" style={labelStyle}>
+            Description
+          </label>
           <input
             type="text"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            style={inputStyle}
             placeholder="What was this for?"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -193,10 +229,13 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
 
         {/* Hashtags */}
         <div>
-          <label className="text-xs font-medium text-slate-500">Tags (space-separated, e.g. emi travel)</label>
+          <label className="text-xs font-medium" style={labelStyle}>
+            Tags (space-separated, e.g. emi travel)
+          </label>
           <input
             type="text"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+            style={inputStyle}
             placeholder="emi groceries travel"
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
@@ -207,7 +246,11 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
                 <button
                   key={s.id}
                   type="button"
-                  className="text-xs bg-slate-100 text-slate-600 rounded-full px-2.5 py-0.5"
+                  className="text-xs rounded-full px-2.5 py-0.5"
+                  style={{
+                    backgroundColor: 'var(--color-surface-tertiary)',
+                    color: 'var(--color-text-secondary)'
+                  }}
                   onClick={() => applyTagSuggestion(s.name)}
                 >
                   #{s.name}
@@ -220,13 +263,21 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
         {/* Recurring toggle + optional interval */}
         <div className={`grid gap-3 ${isRecurring ? 'grid-cols-2' : 'grid-cols-1'}`}>
           <div>
-            <label className="text-xs font-medium text-slate-500">Recurring</label>
-            <div className="mt-1 flex items-center justify-between rounded-xl border border-slate-200 px-3 py-3">
-              <span className="text-xs text-slate-400">Bills, EMIs</span>
+            <label className="text-xs font-medium" style={labelStyle}>
+              Recurring
+            </label>
+            <div
+              className="mt-1 flex items-center justify-between rounded-xl border px-3 py-3"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                Bills, EMIs
+              </span>
               <button
                 type="button"
                 onClick={() => setIsRecurring((v) => !v)}
-                className={`w-11 h-6 rounded-full transition-colors flex-shrink-0 ${isRecurring ? 'bg-[#00a86b]' : 'bg-slate-200'}`}
+                className={`w-11 h-6 rounded-full transition-colors flex-shrink-0 ${isRecurring ? 'bg-[#00a86b]' : ''}`}
+                style={isRecurring ? {} : { backgroundColor: 'var(--color-surface-tertiary)' }}
                 aria-label="Toggle recurring"
               >
                 <span
@@ -239,11 +290,14 @@ export function ExpenseForm({ categories, hashtags, editing, onSave, onDelete, o
           </div>
           {isRecurring && (
             <div>
-              <label className="text-xs font-medium text-slate-500">Every (days)</label>
+              <label className="text-xs font-medium" style={labelStyle}>
+                Every (days)
+              </label>
               <input
                 type="number"
                 inputMode="numeric"
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                style={inputStyle}
                 value={intervalDays}
                 onChange={(e) => setIntervalDays(e.target.value)}
               />

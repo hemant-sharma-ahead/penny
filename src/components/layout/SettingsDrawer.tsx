@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useSettings, type FontScale, type ModuleVisibility, type Theme } from '@/context/SettingsContext';
+import { clearDemoData, isDemoSeeded } from '@/core/db/seedDemoData';
 
 interface Props {
   open: boolean;
@@ -39,6 +41,17 @@ const THEMES: { value: Theme; label: string; icon: string }[] = [
 
 export function SettingsDrawer({ open, onClose }: Props) {
   const { modules, fontScale, theme, setModule, setFontScale, setTheme } = useSettings();
+  const [clearing, setClearing] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  const handleClearSample = async () => {
+    if (!confirmClear) {
+      setConfirmClear(true);
+      return;
+    }
+    setClearing(true);
+    await clearDemoData();
+  };
 
   return (
     <>
@@ -217,6 +230,36 @@ export function SettingsDrawer({ open, onClose }: Props) {
               />
             </button>
           </section>
+
+          {isDemoSeeded() && (
+            <>
+              <div className="h-px mx-4 my-2" style={{ backgroundColor: 'var(--color-border)' }} />
+
+              <section className="px-4 py-4">
+                <p
+                  className="text-[11px] font-semibold uppercase tracking-wider mb-3"
+                  style={{ color: 'var(--color-text-tertiary)' }}
+                >
+                  Sample Data
+                </p>
+                <p className="text-xs mb-3 leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                  Remove all sample records and start fresh with your own data.
+                </p>
+                <button
+                  onClick={() => void handleClearSample()}
+                  disabled={clearing}
+                  className="w-full py-2.5 rounded-xl text-sm font-medium border transition-colors disabled:opacity-40"
+                  style={
+                    confirmClear
+                      ? { backgroundColor: '#ef4444', color: '#fff', borderColor: '#ef4444' }
+                      : { backgroundColor: 'transparent', color: '#ef4444', borderColor: '#ef4444' }
+                  }
+                >
+                  {clearing ? 'Clearing…' : confirmClear ? 'Tap again to confirm' : 'Clear sample data'}
+                </button>
+              </section>
+            </>
+          )}
         </div>
       </div>
     </>

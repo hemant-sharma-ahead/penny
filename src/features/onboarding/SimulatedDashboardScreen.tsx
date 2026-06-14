@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EncryptedRepository } from '@/core/db/repository';
 import { db } from '@/core/db/schema';
+import { seedDemoData } from '@/core/db/seedDemoData';
 import type { Profile } from '@/core/db/types';
 import { PATHS } from '@/router/paths';
 
@@ -27,6 +28,7 @@ export function SimulatedDashboardScreen() {
         createdAt: Date.now(),
         updatedAt: Date.now()
       });
+      await seedDemoData();
       navigate(PATHS.app.home);
     } catch (e) {
       const msg = e instanceof Error ? e.message : '';

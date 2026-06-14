@@ -6,7 +6,6 @@ import type { Goal } from '@/core/db/types';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { GoalForm } from './GoalForm';
 
-// SVG progress ring constants
 const RING_RADIUS = 40;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
@@ -28,8 +27,6 @@ const SIP_RETURN_OPTIONS: { value: string; label: string }[] = [
   { value: '14', label: 'Aggressive' }
 ];
 
-// PMT formula: monthly SIP needed to reach remaining target
-// Accounts for current savings already growing at the same rate
 function calcSipNeeded(
   targetAmount: number,
   currentAmount: number,
@@ -52,6 +49,12 @@ function monthsUntil(epochMs: number): number {
   return Math.max(0, diff);
 }
 
+const inputStyle = {
+  backgroundColor: 'var(--color-surface-secondary)',
+  color: 'var(--color-text-primary)',
+  borderColor: 'var(--color-border)'
+};
+
 export function GoalsPage() {
   const { mode } = usePrivacy();
   const { items: goals, save: saveGoal, remove: removeGoal } = useRepository(goalsRepo);
@@ -62,7 +65,6 @@ export function GoalsPage() {
   const [contributingTo, setContributingTo] = useState<string | null>(null);
   const [contribAmount, setContribAmount] = useState('');
 
-  // SIP calculator state (standalone, not stored)
   const [sipTarget, setSipTarget] = useState('');
   const [sipSaved, setSipSaved] = useState('');
   const [sipYears, setSipYears] = useState('');
@@ -115,10 +117,12 @@ export function GoalsPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-slate-100">
-        <h2 className="text-xl font-semibold text-slate-900">Goals</h2>
+      <div className="px-4 pt-4 pb-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
+        <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+          Goals
+        </h2>
         {goals.length > 0 && (
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
             {mode === 'open' ? formatCurrency(totalSaved) : '••••'} of{' '}
             {mode === 'open' ? formatCurrency(totalTarget) : '••••'} saved
           </p>
@@ -126,14 +130,17 @@ export function GoalsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-100 px-4">
+      <div className="flex px-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
         {(['goals', 'sip'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`py-2.5 mr-5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              activeTab === tab ? 'border-[#00a86b] text-[#00a86b]' : 'border-transparent text-slate-500'
-            }`}
+            className="py-2.5 mr-5 text-sm font-medium border-b-2 -mb-px transition-colors"
+            style={
+              activeTab === tab
+                ? { borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }
+                : { borderColor: 'transparent', color: 'var(--color-text-secondary)' }
+            }
           >
             {tab === 'sip' ? 'SIP Calculator' : 'Goals'}
           </button>
@@ -146,8 +153,14 @@ export function GoalsPage() {
           <div>
             {goals.length === 0 ? (
               <div className="p-10 text-center">
-                <i className="ti ti-target text-slate-300" style={{ fontSize: 44 }} aria-hidden="true" />
-                <p className="text-sm text-slate-400 mt-3">No goals yet. Tap + to set your first goal.</p>
+                <i
+                  className="ti ti-target"
+                  style={{ fontSize: 44, color: 'var(--color-text-tertiary)' }}
+                  aria-hidden="true"
+                />
+                <p className="text-sm mt-3" style={{ color: 'var(--color-text-tertiary)' }}>
+                  No goals yet. Tap + to set your first goal.
+                </p>
               </div>
             ) : (
               <div className="px-4 py-4 flex flex-col gap-3">
@@ -161,12 +174,26 @@ export function GoalsPage() {
                   const isContributing = contributingTo === goal.id;
 
                   return (
-                    <div key={goal.id} className="bg-white rounded-2xl border border-slate-100 p-4">
+                    <div
+                      key={goal.id}
+                      className="rounded-2xl p-4"
+                      style={{
+                        backgroundColor: 'var(--color-surface)',
+                        border: '1px solid var(--color-border)'
+                      }}
+                    >
                       <div className="flex items-start gap-4">
                         {/* Progress ring */}
                         <div className="flex-shrink-0">
                           <svg viewBox="0 0 100 100" width="72" height="72" aria-hidden="true">
-                            <circle cx="50" cy="50" r={RING_RADIUS} fill="none" stroke="#f1f5f9" strokeWidth="10" />
+                            <circle
+                              cx="50"
+                              cy="50"
+                              r={RING_RADIUS}
+                              fill="none"
+                              strokeWidth="10"
+                              style={{ stroke: 'var(--color-surface-tertiary)' }}
+                            />
                             <circle
                               cx="50"
                               cy="50"
@@ -186,7 +213,7 @@ export function GoalsPage() {
                               dominantBaseline="central"
                               fontSize="18"
                               fontWeight="700"
-                              fill="#1e293b"
+                              style={{ fill: 'var(--color-text-primary)' }}
                             >
                               {Math.round(pct)}%
                             </text>
@@ -196,16 +223,22 @@ export function GoalsPage() {
                         {/* Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <p className="text-sm font-semibold text-slate-900 truncate">{goal.name}</p>
+                            <p
+                              className="text-sm font-semibold truncate"
+                              style={{ color: 'var(--color-text-primary)' }}
+                            >
+                              {goal.name}
+                            </p>
                             <button
                               onClick={() => openEdit(goal)}
-                              className="text-slate-400 ml-2 flex-shrink-0 p-0.5"
+                              className="ml-2 flex-shrink-0 p-0.5"
+                              style={{ color: 'var(--color-text-tertiary)' }}
                               aria-label={`Edit ${goal.name}`}
                             >
                               <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true" />
                             </button>
                           </div>
-                          <p className="text-xs text-slate-500 mt-0.5">
+                          <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
                             {mode === 'open' ? formatCurrency(goal.currentAmount) : '••••'} of{' '}
                             {mode === 'open' ? formatCurrency(goal.targetAmount) : '••••'}
                           </p>
@@ -216,12 +249,12 @@ export function GoalsPage() {
                             >
                               {goal.risk}
                             </span>
-                            <span className="text-[10px] text-slate-400">
+                            <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
                               {months > 0 ? `${months}mo left` : 'Due'} · {formatDate(goal.targetDate)}
                             </span>
                           </div>
                           {sipNeeded > 0 && (
-                            <p className="text-[10px] text-slate-400 mt-1">
+                            <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
                               SIP needed: {mode === 'open' ? formatCurrency(Math.ceil(sipNeeded)) : '••••'}
                               /mo
                             </p>
@@ -235,7 +268,8 @@ export function GoalsPage() {
                           <input
                             type="number"
                             inputMode="decimal"
-                            className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                            className="flex-1 rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                            style={inputStyle}
                             placeholder="Amount (₹)"
                             value={contribAmount}
                             onChange={(e) => setContribAmount(e.target.value)}
@@ -249,7 +283,11 @@ export function GoalsPage() {
                             Add
                           </button>
                           <button
-                            className="px-3 py-2 rounded-xl border border-slate-200 text-slate-500 text-sm"
+                            className="px-3 py-2 rounded-xl text-sm border"
+                            style={{
+                              borderColor: 'var(--color-border)',
+                              color: 'var(--color-text-secondary)'
+                            }}
                             onClick={() => {
                               setContributingTo(null);
                               setContribAmount('');
@@ -260,7 +298,11 @@ export function GoalsPage() {
                         </div>
                       ) : (
                         <button
-                          className="mt-3 w-full py-2 rounded-xl border border-dashed border-slate-200 text-xs font-medium text-slate-400"
+                          className="mt-3 w-full py-2 rounded-xl border border-dashed text-xs font-medium"
+                          style={{
+                            borderColor: 'var(--color-border-strong)',
+                            color: 'var(--color-text-secondary)'
+                          }}
                           onClick={() => {
                             setContributingTo(goal.id);
                             setContribAmount('');
@@ -280,25 +322,41 @@ export function GoalsPage() {
         {/* ── SIP Calculator tab ── */}
         {activeTab === 'sip' && (
           <div className="px-4 py-4 flex flex-col gap-4">
-            <div className="bg-blue-50 rounded-xl p-3 flex gap-2">
+            {/* Info box — theme-safe tint */}
+            <div
+              className="rounded-xl p-3 flex gap-2"
+              style={{
+                backgroundColor: 'var(--color-surface-secondary)',
+                border: '1px solid var(--color-border)'
+              }}
+            >
               <i
-                className="ti ti-calculator text-blue-500 flex-shrink-0 mt-0.5"
-                style={{ fontSize: 18 }}
+                className="ti ti-calculator flex-shrink-0 mt-0.5"
+                style={{ fontSize: 18, color: 'var(--color-primary)' }}
                 aria-hidden="true"
               />
-              <p className="text-xs text-blue-700 leading-relaxed">
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
                 Enter your goal details to find the monthly SIP amount needed to reach your target, accounting for any
                 savings already set aside.
               </p>
             </div>
 
-            <div className="bg-white rounded-xl border border-slate-100 p-4 flex flex-col gap-3">
+            <div
+              className="rounded-xl p-4 flex flex-col gap-3"
+              style={{
+                backgroundColor: 'var(--color-surface)',
+                border: '1px solid var(--color-border)'
+              }}
+            >
               <div>
-                <label className="text-xs font-medium text-slate-500">Goal amount (₹)</label>
+                <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                  Goal amount (₹)
+                </label>
                 <input
                   type="number"
                   inputMode="decimal"
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                  style={inputStyle}
                   placeholder="e.g. 1000000"
                   value={sipTarget}
                   onChange={(e) => setSipTarget(e.target.value)}
@@ -306,11 +364,14 @@ export function GoalsPage() {
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-500">Already saved (₹)</label>
+                <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                  Already saved (₹)
+                </label>
                 <input
                   type="number"
                   inputMode="decimal"
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                  style={inputStyle}
                   placeholder="0"
                   value={sipSaved}
                   onChange={(e) => setSipSaved(e.target.value)}
@@ -318,11 +379,14 @@ export function GoalsPage() {
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-500">Time horizon (years)</label>
+                <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                  Time horizon (years)
+                </label>
                 <input
                   type="number"
                   inputMode="decimal"
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                  style={inputStyle}
                   placeholder="e.g. 5"
                   value={sipYears}
                   onChange={(e) => setSipYears(e.target.value)}
@@ -330,7 +394,9 @@ export function GoalsPage() {
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-500">Expected return (% per year)</label>
+                <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                  Expected return (% per year)
+                </label>
                 <div className="mt-1 grid grid-cols-3 gap-2">
                   {SIP_RETURN_OPTIONS.map((opt) => (
                     <button
@@ -341,7 +407,7 @@ export function GoalsPage() {
                       style={
                         sipReturn === opt.value
                           ? { borderColor: '#00a86b', color: '#00a86b', backgroundColor: '#00a86b10' }
-                          : { borderColor: '#f1f5f9', color: '#64748b' }
+                          : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
                       }
                     >
                       {opt.value}% {opt.label}
@@ -360,10 +426,20 @@ export function GoalsPage() {
             </div>
 
             {sipResult !== null && (
-              <div className="bg-white rounded-xl border border-slate-100 p-5 text-center">
-                <p className="text-xs text-slate-500 mb-1">Required monthly SIP</p>
-                <p className="text-3xl font-semibold text-slate-900">{formatCurrency(Math.ceil(sipResult))}</p>
-                <p className="text-xs text-slate-400 mt-1">
+              <div
+                className="rounded-xl p-5 text-center"
+                style={{
+                  backgroundColor: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)'
+                }}
+              >
+                <p className="text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  Required monthly SIP
+                </p>
+                <p className="text-3xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                  {formatCurrency(Math.ceil(sipResult))}
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
                   per month for {sipYears} year{sipYears === '1' ? '' : 's'} at {sipReturn}% p.a.
                 </p>
                 {parseFloat(sipSaved) > 0 && (

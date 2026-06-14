@@ -45,10 +45,12 @@ interface RowProps {
 function Row({ label, value, accent, saving }: RowProps) {
   return (
     <div className="flex items-center justify-between py-1.5">
-      <span className="text-sm text-slate-600">{label}</span>
+      <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+        {label}
+      </span>
       <span
         className="text-sm font-semibold"
-        style={{ color: saving ? '#10b981' : accent ? 'var(--color-primary)' : '#0f172a' }}
+        style={{ color: saving ? '#10b981' : accent ? 'var(--color-primary)' : 'var(--color-text-primary)' }}
       >
         {value}
       </span>
@@ -70,24 +72,46 @@ function LabeledInput({ label, hint, value, onChange, placeholder, prefix, suffi
   return (
     <div>
       <div className="flex items-baseline justify-between mb-1">
-        <label className="text-xs font-medium text-slate-500">{label}</label>
-        {hint && <span className="text-[10px] text-slate-400">{hint}</span>}
+        <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+          {label}
+        </label>
+        {hint && (
+          <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+            {hint}
+          </span>
+        )}
       </div>
       <div className="relative flex items-center">
         {prefix && (
-          <span className="absolute left-3 text-sm text-slate-400 pointer-events-none select-none">{prefix}</span>
+          <span
+            className="absolute left-3 text-sm pointer-events-none select-none"
+            style={{ color: 'var(--color-text-tertiary)' }}
+          >
+            {prefix}
+          </span>
         )}
         <input
           type="number"
           inputMode="decimal"
-          className="w-full rounded-xl border border-slate-200 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-          style={{ paddingLeft: prefix ? '1.75rem' : '0.75rem', paddingRight: suffix ? '2.5rem' : '0.75rem' }}
+          className="w-full rounded-xl border py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+          style={{
+            paddingLeft: prefix ? '1.75rem' : '0.75rem',
+            paddingRight: suffix ? '2.5rem' : '0.75rem',
+            backgroundColor: 'var(--color-surface-secondary)',
+            color: 'var(--color-text-primary)',
+            borderColor: 'var(--color-border)'
+          }}
           placeholder={placeholder ?? '0'}
           value={value}
           onChange={(e) => onChange(e.target.value)}
         />
         {suffix && (
-          <span className="absolute right-3 text-sm text-slate-400 pointer-events-none select-none">{suffix}</span>
+          <span
+            className="absolute right-3 text-sm pointer-events-none select-none"
+            style={{ color: 'var(--color-text-tertiary)' }}
+          >
+            {suffix}
+          </span>
         )}
       </div>
     </div>
@@ -125,8 +149,7 @@ export function LoanScenariosPage() {
 
   const suggestedStartEmi = sharedOk ? Math.round(calcEmi(p, r, n) * 0.75) : 0;
 
-  // ── Results via useMemo (no Date.now() needed) ────────────────────────────────
-  // Note: !(x > 0) guards correctly reject NaN (NaN > 0 is false) unlike x <= 0 which doesn't.
+  // ── Results via useMemo ────────────────────────────────────────────────────────
 
   const emiResult = useMemo(() => {
     if (scenario !== 'emi' || !sharedOk) return null;
@@ -206,13 +229,20 @@ export function LoanScenariosPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-slate-100">
-        <h2 className="text-xl font-semibold text-slate-900">Loan Scenarios</h2>
-        <p className="text-xs text-slate-400 mt-0.5">On-device calculations — nothing leaves your phone</p>
+      <div className="px-4 pt-4 pb-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
+        <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+          Loan Scenarios
+        </h2>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
+          On-device calculations — nothing leaves your phone
+        </p>
       </div>
 
       {/* Scenario selector */}
-      <div className="flex gap-2 px-4 py-3 overflow-x-auto border-b border-slate-100 scrollbar-hide">
+      <div
+        className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide"
+        style={{ borderBottom: '1px solid var(--color-border)' }}
+      >
         {SCENARIOS.map((s) => (
           <button
             key={s.id}
@@ -221,7 +251,7 @@ export function LoanScenariosPage() {
             style={
               scenario === s.id
                 ? { backgroundColor: 'var(--color-primary)', color: '#fff' }
-                : { backgroundColor: '#f1f5f9', color: '#475569' }
+                : { backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-secondary)' }
             }
           >
             <i className={`ti ${s.icon}`} style={{ fontSize: 13 }} aria-hidden="true" />
@@ -232,7 +262,10 @@ export function LoanScenariosPage() {
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-24 flex flex-col gap-4">
         {/* ── Inputs ── */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-4 flex flex-col gap-4">
+        <div
+          className="rounded-2xl p-4 flex flex-col gap-4"
+          style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+        >
           {/* Scenario 1: EMI Calculator */}
           {scenario === 'emi' && sharedInputs}
 
@@ -410,9 +443,14 @@ export function LoanScenariosPage() {
         {/* Scenario 4 */}
         {scenario === 'lumpsum' && lumpSumResult && (
           <div className="flex flex-col gap-3">
-            <div className="bg-slate-50 rounded-2xl border border-slate-100 p-4">
-              <p className="text-xs font-medium text-slate-500 mb-2">At month {prepayMonth}</p>
-              <div className="divide-y divide-slate-100">
+            <div
+              className="rounded-2xl p-4"
+              style={{ backgroundColor: 'var(--color-surface-secondary)', border: '1px solid var(--color-border)' }}
+            >
+              <p className="text-xs font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+                At month {prepayMonth}
+              </p>
+              <div className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
                 <Row label="Outstanding balance" value={fmtAmt(lumpSumResult.balanceAtMonth, mode)} />
                 <Row label="Interest remaining (base)" value={fmtAmt(lumpSumResult.baseInterestAfter, mode)} />
               </div>
@@ -498,7 +536,7 @@ export function LoanScenariosPage() {
 
         {/* Privacy hint */}
         {mode !== 'open' && (
-          <p className="text-xs text-slate-400 text-center pb-2">
+          <p className="text-xs text-center pb-2" style={{ color: 'var(--color-text-tertiary)' }}>
             <i className="ti ti-eye-off mr-1" aria-hidden="true" />
             Switch to Open mode to see calculated amounts
           </p>

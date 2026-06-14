@@ -32,8 +32,6 @@ export function PortfolioPage() {
   const [editingHolding, setEditingHolding] = useState<Holding | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  // ── Derived ────────────────────────────────────────────────────────────────
-
   const totalInvested = useMemo(() => holdings.reduce((s, h) => s + h.investedAmount, 0), [holdings]);
   const totalCurrent = useMemo(() => holdings.reduce((s, h) => s + effectiveValue(h), 0), [holdings]);
   const overallReturn = totalInvested > 0 ? ((totalCurrent - totalInvested) / totalInvested) * 100 : 0;
@@ -64,8 +62,6 @@ export function PortfolioPage() {
       };
     });
   }, [grouped, holdings, totalCurrent]);
-
-  // ── Handlers ───────────────────────────────────────────────────────────────
 
   function openAdd() {
     setEditingHolding(null);
@@ -122,19 +118,23 @@ export function PortfolioPage() {
       .finally(() => setRefreshing(false));
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-slate-100">
+      <div className="px-4 pt-4 pb-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-slate-900">Portfolio</h2>
+          <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+            Portfolio
+          </h2>
           {holdings.some((h) => (h.assetClass === 'mf' && h.schemeCode) || (h.assetClass === 'stock' && h.symbol)) && (
             <button
               onClick={handleRefreshPrices}
               disabled={refreshing}
-              className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full border border-slate-200 text-slate-600 disabled:opacity-50"
+              className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full border disabled:opacity-50"
+              style={{
+                borderColor: 'var(--color-border)',
+                color: 'var(--color-text-secondary)'
+              }}
             >
               <i
                 className={`ti ti-refresh ${refreshing ? 'animate-spin' : ''}`}
@@ -147,7 +147,9 @@ export function PortfolioPage() {
         </div>
         {holdings.length > 0 && (
           <div className="flex items-baseline gap-3 mt-1">
-            <p className="text-sm text-slate-500">{mode === 'open' ? formatCurrency(totalCurrent) : '••••'}</p>
+            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+              {mode === 'open' ? formatCurrency(totalCurrent) : '••••'}
+            </p>
             <span className={`text-xs font-medium ${overallReturn >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
               {overallReturn >= 0 ? '+' : ''}
               {formatPercent(overallReturn)}
@@ -157,14 +159,17 @@ export function PortfolioPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-100 px-4">
+      <div className="flex px-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
         {(['holdings', 'allocation'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`py-2.5 mr-5 text-sm font-medium border-b-2 -mb-px capitalize transition-colors ${
-              activeTab === tab ? 'border-[#00a86b] text-[#00a86b]' : 'border-transparent text-slate-500'
-            }`}
+            className="py-2.5 mr-5 text-sm font-medium border-b-2 -mb-px capitalize transition-colors"
+            style={
+              activeTab === tab
+                ? { borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }
+                : { borderColor: 'transparent', color: 'var(--color-text-secondary)' }
+            }
           >
             {tab === 'allocation' ? 'Allocation' : 'Holdings'}
           </button>
@@ -177,8 +182,14 @@ export function PortfolioPage() {
           <div>
             {holdings.length === 0 ? (
               <div className="p-10 text-center">
-                <i className="ti ti-chart-bar text-slate-300" style={{ fontSize: 44 }} aria-hidden="true" />
-                <p className="text-sm text-slate-400 mt-3">No holdings yet. Tap + to add your first investment.</p>
+                <i
+                  className="ti ti-chart-bar"
+                  style={{ fontSize: 44, color: 'var(--color-text-tertiary)' }}
+                  aria-hidden="true"
+                />
+                <p className="text-sm mt-3" style={{ color: 'var(--color-text-tertiary)' }}>
+                  No holdings yet. Tap + to add your first investment.
+                </p>
               </div>
             ) : (
               <div className="py-2">
@@ -196,7 +207,10 @@ export function PortfolioPage() {
                           aria-hidden="true"
                         />
                       </div>
-                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      <span
+                        className="text-xs font-semibold uppercase tracking-wide"
+                        style={{ color: 'var(--color-text-secondary)' }}
+                      >
                         {group.meta.label}
                       </span>
                     </div>
@@ -211,7 +225,8 @@ export function PortfolioPage() {
                         <button
                           key={h.id}
                           onClick={() => openEdit(h)}
-                          className="w-full flex items-center gap-3 px-4 py-3 border-b border-slate-50 active:bg-slate-50 text-left"
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                          style={{ borderBottom: '1px solid var(--color-border)' }}
                         >
                           <div
                             className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -224,8 +239,10 @@ export function PortfolioPage() {
                             />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-800 truncate">{h.name}</p>
-                            <p className="text-xs text-slate-400 mt-0.5">
+                            <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
+                              {h.name}
+                            </p>
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
                               Invested: {mode === 'open' ? formatCurrency(h.investedAmount) : '••••'}
                               {hasLivePrice && (
                                 <span className="ml-1.5 text-[10px] font-medium text-[#00a86b]">live</span>
@@ -233,7 +250,7 @@ export function PortfolioPage() {
                             </p>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <p className="text-sm font-semibold text-slate-800">
+                            <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                               {mode === 'open' ? formatCurrency(current) : '••••'}
                             </p>
                             <p className={`text-xs font-medium ${gain >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
@@ -255,7 +272,9 @@ export function PortfolioPage() {
         {activeTab === 'allocation' && (
           <div className="px-4 py-4">
             {allocation.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center mt-8">Add holdings to see your allocation.</p>
+              <p className="text-sm text-center mt-8" style={{ color: 'var(--color-text-tertiary)' }}>
+                Add holdings to see your allocation.
+              </p>
             ) : (
               <>
                 {/* Stacked bar */}
@@ -268,7 +287,14 @@ export function PortfolioPage() {
                 {/* Breakdown rows */}
                 <div className="flex flex-col gap-3">
                   {allocation.map((a) => (
-                    <div key={a.assetClass} className="bg-white rounded-xl border border-slate-100 p-3">
+                    <div
+                      key={a.assetClass}
+                      className="rounded-xl p-3"
+                      style={{
+                        backgroundColor: 'var(--color-surface)',
+                        border: '1px solid var(--color-border)'
+                      }}
+                    >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <div
@@ -281,16 +307,23 @@ export function PortfolioPage() {
                               aria-hidden="true"
                             />
                           </div>
-                          <span className="text-sm font-medium text-slate-700">{a.meta.label}</span>
+                          <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                            {a.meta.label}
+                          </span>
                         </div>
                         <div className="text-right">
-                          <span className="text-sm font-semibold text-slate-800">
+                          <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                             {mode === 'open' ? formatCurrency(a.value) : '••••'}
                           </span>
-                          <span className="text-xs text-slate-400 ml-2">{formatPercent(a.pct, 0)}</span>
+                          <span className="text-xs ml-2" style={{ color: 'var(--color-text-tertiary)' }}>
+                            {formatPercent(a.pct, 0)}
+                          </span>
                         </div>
                       </div>
-                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-1.5 rounded-full overflow-hidden"
+                        style={{ backgroundColor: 'var(--color-surface-tertiary)' }}
+                      >
                         <div
                           className="h-full rounded-full"
                           style={{ width: `${a.pct}%`, backgroundColor: a.meta.color }}
@@ -301,16 +334,19 @@ export function PortfolioPage() {
                 </div>
 
                 {/* Summary footer */}
-                <div className="mt-4 bg-slate-50 rounded-xl p-3 flex justify-between text-xs">
-                  <span className="text-slate-500">
+                <div
+                  className="mt-4 rounded-xl p-3 flex justify-between text-xs"
+                  style={{ backgroundColor: 'var(--color-surface-secondary)' }}
+                >
+                  <span style={{ color: 'var(--color-text-secondary)' }}>
                     Total invested:{' '}
-                    <span className="font-medium text-slate-700">
+                    <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
                       {mode === 'open' ? formatCurrency(totalInvested) : '••••'}
                     </span>
                   </span>
-                  <span className="text-slate-500">
+                  <span style={{ color: 'var(--color-text-secondary)' }}>
                     Current:{' '}
-                    <span className="font-medium text-slate-700">
+                    <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
                       {mode === 'open' ? formatCurrency(totalCurrent) : '••••'}
                     </span>
                   </span>

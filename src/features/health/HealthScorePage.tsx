@@ -30,7 +30,7 @@ function ScoreGauge({ score, color }: { score: number; color: string }) {
         cy={cy}
         r={R}
         fill="none"
-        stroke="#e2e8f0"
+        stroke="var(--color-border)"
         strokeWidth={14}
         strokeDasharray={`${C * 0.75} ${C * 0.25}`}
         strokeLinecap="round"
@@ -51,10 +51,10 @@ function ScoreGauge({ score, color }: { score: number; color: string }) {
         />
       )}
       {/* Score text */}
-      <text x={cx} y={82} textAnchor="middle" fill="#0f172a" fontSize="42" fontWeight="700">
+      <text x={cx} y={82} textAnchor="middle" fill="var(--color-text-primary)" fontSize="42" fontWeight="700">
         {score}
       </text>
-      <text x={cx} y={104} textAnchor="middle" fill="#94a3b8" fontSize="13">
+      <text x={cx} y={104} textAnchor="middle" fill="var(--color-text-tertiary)" fontSize="13">
         out of 100
       </text>
     </svg>
@@ -85,7 +85,9 @@ function ComponentCard({ c }: { c: ScoreComponent }) {
       <div className="flex items-center justify-between gap-1">
         <div className="flex items-center gap-1.5 min-w-0">
           <i className={`ti ${c.icon} flex-shrink-0`} style={{ fontSize: 15, color: s.text }} aria-hidden="true" />
-          <span className="text-xs font-semibold text-slate-700 truncate">{c.label}</span>
+          <span className="text-xs font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
+            {c.label}
+          </span>
         </div>
         <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: s.text }}>
           {c.earned}/{c.max}
@@ -108,7 +110,9 @@ function ComponentCard({ c }: { c: ScoreComponent }) {
         >
           {statusLabel}
         </span>
-        <p className="text-[10px] text-slate-500 mt-1 leading-relaxed line-clamp-2">{c.insight}</p>
+        <p className="text-[10px] mt-1 leading-relaxed line-clamp-2" style={{ color: 'var(--color-text-secondary)' }}>
+          {c.insight}
+        </p>
       </div>
     </div>
   );
@@ -128,7 +132,7 @@ interface LoadedData {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function HealthScorePage() {
-  usePrivacy(); // access but not masking — this is a calculator, not stored PII
+  usePrivacy();
   const [nowMs] = useState(() => Date.now());
   const [data, setData] = useState<LoadedData | null>(null);
   const [monthlyIncome, setMonthlyIncome] = useState('');
@@ -169,9 +173,13 @@ export function HealthScorePage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-slate-100">
-        <h2 className="text-xl font-semibold text-slate-900">Financial Health</h2>
-        <p className="text-xs text-slate-400 mt-0.5">On-device · updates as you add data</p>
+      <div className="px-4 pt-4 pb-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
+        <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+          Financial Health
+        </h2>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
+          On-device · updates as you add data
+        </p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-24 flex flex-col gap-4">
@@ -190,14 +198,23 @@ export function HealthScorePage() {
             aria-hidden="true"
           />
           <div className="flex-1 min-w-0">
-            <label htmlFor="income-input" className="text-xs font-medium text-slate-600 block mb-1">
+            <label
+              htmlFor="income-input"
+              className="text-xs font-medium block mb-1"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
               Monthly take-home income (₹)
             </label>
             <input
               id="income-input"
               type="number"
               inputMode="decimal"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+              className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+              style={{
+                backgroundColor: 'var(--color-surface)',
+                color: 'var(--color-text-primary)',
+                borderColor: 'var(--color-border)'
+              }}
               placeholder="e.g. 80,000"
               value={monthlyIncome}
               onChange={(e) => setMonthlyIncome(e.target.value)}
@@ -207,7 +224,10 @@ export function HealthScorePage() {
 
         {/* Score gauge */}
         {healthScore ? (
-          <div className="bg-white rounded-2xl border border-slate-100 px-4 pt-4 pb-3">
+          <div
+            className="rounded-2xl px-4 pt-4 pb-3"
+            style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+          >
             <div className="w-48 mx-auto">
               <ScoreGauge score={healthScore.total} color={healthScore.color} />
             </div>
@@ -219,17 +239,26 @@ export function HealthScorePage() {
                 {healthScore.grade} · {healthScore.gradeLabel}
               </span>
             </div>
-            <p className="text-xs text-slate-400 text-center mt-2">
+            <p className="text-xs text-center mt-2" style={{ color: 'var(--color-text-tertiary)' }}>
               {incomeNeeded
                 ? 'Enter income above to score Savings Rate and Debt-to-Income'
                 : 'Based on your current data across 6 dimensions'}
             </p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-slate-100 p-8 flex items-center justify-center">
+          <div
+            className="rounded-2xl p-8 flex items-center justify-center"
+            style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+          >
             <div className="text-center">
-              <i className="ti ti-loader-2 text-slate-300" style={{ fontSize: 32 }} aria-hidden="true" />
-              <p className="text-sm text-slate-400 mt-2">Loading your data…</p>
+              <i
+                className="ti ti-loader-2"
+                style={{ fontSize: 32, color: 'var(--color-text-tertiary)' }}
+                aria-hidden="true"
+              />
+              <p className="text-sm mt-2" style={{ color: 'var(--color-text-tertiary)' }}>
+                Loading your data…
+              </p>
             </div>
           </div>
         )}
@@ -237,7 +266,12 @@ export function HealthScorePage() {
         {/* Score breakdown */}
         {healthScore && (
           <>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide -mb-2">Score breakdown</p>
+            <p
+              className="text-xs font-semibold uppercase tracking-wide -mb-2"
+              style={{ color: 'var(--color-text-tertiary)' }}
+            >
+              Score breakdown
+            </p>
             <div className="grid grid-cols-2 gap-3">
               {healthScore.components.map((c) => (
                 <ComponentCard key={c.key} c={c} />
@@ -248,8 +282,13 @@ export function HealthScorePage() {
 
         {/* How scores are calculated */}
         {healthScore && (
-          <div className="bg-slate-50 rounded-2xl border border-slate-100 p-4">
-            <p className="text-xs font-semibold text-slate-500 mb-2">How it's scored</p>
+          <div
+            className="rounded-2xl p-4"
+            style={{ backgroundColor: 'var(--color-surface-secondary)', border: '1px solid var(--color-border)' }}
+          >
+            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+              How it's scored
+            </p>
             <div className="flex flex-col gap-1">
               {[
                 ['Emergency Fund', '20 pts', '6+ months of expenses'],
@@ -260,8 +299,10 @@ export function HealthScorePage() {
                 ['Diversification', '10 pts', '4+ asset classes']
               ].map(([label, pts, target]) => (
                 <div key={label} className="flex items-baseline justify-between gap-2">
-                  <span className="text-[11px] text-slate-600">{label}</span>
-                  <span className="text-[10px] text-slate-400 flex-shrink-0">
+                  <span className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
+                    {label}
+                  </span>
+                  <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--color-text-tertiary)' }}>
                     {pts} · {target}
                   </span>
                 </div>

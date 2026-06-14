@@ -106,15 +106,24 @@ export function CashFlowPage() {
   return (
     <div className="px-4 pt-4 pb-6 flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-900">Cash Flow</h2>
-        <div className="flex bg-slate-100 rounded-lg p-0.5 gap-0.5">
+        <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+          Cash Flow
+        </h2>
+        <div className="flex rounded-lg p-0.5 gap-0.5" style={{ backgroundColor: 'var(--color-surface-secondary)' }}>
           {(['week', 'month'] as Horizon[]).map((h) => (
             <button
               key={h}
               onClick={() => setHorizon(h)}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                horizon === h ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
-              }`}
+              className="px-3 py-1 rounded-md text-xs font-medium transition-colors"
+              style={
+                horizon === h
+                  ? {
+                      backgroundColor: 'var(--color-surface)',
+                      color: 'var(--color-text-primary)',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                    }
+                  : { color: 'var(--color-text-secondary)' }
+              }
             >
               {h === 'week' ? 'Week' : 'Month'}
             </button>
@@ -137,7 +146,11 @@ export function CashFlowPage() {
       {data === null && (
         <div className="flex flex-col gap-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-slate-100 rounded-xl h-16 animate-pulse" />
+            <div
+              key={i}
+              className="rounded-xl h-16 animate-pulse"
+              style={{ backgroundColor: 'var(--color-surface-secondary)' }}
+            />
           ))}
         </div>
       )}
@@ -148,11 +161,14 @@ export function CashFlowPage() {
           {grouped.map(([dayMs, dayEvents]) => (
             <div key={dayMs}>
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                <span
+                  className="text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
                   {formatGroupDate(dayMs, todayStart)}
                 </span>
-                <div className="flex-1 h-px bg-slate-100" />
-                <span className="text-xs text-slate-400">
+                <div className="flex-1 h-px" style={{ backgroundColor: 'var(--color-border)' }} />
+                <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
                   {mode === 'open' ? formatCurrency(dayEvents.reduce((s, e) => s + e.amount, 0)) : '••••'}
                 </span>
               </div>
@@ -162,7 +178,8 @@ export function CashFlowPage() {
                   return (
                     <div
                       key={event.id}
-                      className="flex items-center gap-3 bg-white rounded-xl border border-slate-100 p-3"
+                      className="flex items-center gap-3 rounded-xl p-3"
+                      style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
                     >
                       <div
                         className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
@@ -171,10 +188,14 @@ export function CashFlowPage() {
                         <i className={`ti ${cfg.icon}`} style={{ fontSize: 18, color: cfg.color }} aria-hidden="true" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-900 truncate">{event.label}</p>
-                        <p className="text-xs text-slate-400">{cfg.label}</p>
+                        <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
+                          {event.label}
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                          {cfg.label}
+                        </p>
                       </div>
-                      <span className="text-sm font-semibold text-slate-900 shrink-0">
+                      <span className="text-sm font-semibold shrink-0" style={{ color: 'var(--color-text-primary)' }}>
                         {mode === 'open' ? formatCurrency(event.amount) : '••••'}
                       </span>
                     </div>
@@ -188,16 +209,25 @@ export function CashFlowPage() {
 
       {/* Empty state */}
       {data !== null && grouped.length === 0 && (
-        <div className="bg-slate-50 rounded-xl border border-slate-100 p-8 text-center">
-          <i className="ti ti-calendar-check text-slate-300" style={{ fontSize: 40 }} aria-hidden="true" />
-          <p className="text-sm font-medium text-slate-600 mt-3">No upcoming payments</p>
-          <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+        <div
+          className="rounded-xl p-8 text-center"
+          style={{ backgroundColor: 'var(--color-surface-secondary)', border: '1px solid var(--color-border)' }}
+        >
+          <i
+            className="ti ti-calendar-check"
+            style={{ fontSize: 40, color: 'var(--color-text-tertiary)' }}
+            aria-hidden="true"
+          />
+          <p className="text-sm font-medium mt-3" style={{ color: 'var(--color-text-secondary)' }}>
+            No upcoming payments
+          </p>
+          <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--color-text-tertiary)' }}>
             Add loans, subscriptions, or recurring expenses to see your cash flow forecast.
           </p>
         </div>
       )}
 
-      <p className="text-xs text-slate-400 text-center leading-relaxed">
+      <p className="text-xs text-center leading-relaxed" style={{ color: 'var(--color-text-tertiary)' }}>
         Based on your loans, subscriptions, renewals, and recurring expenses. Actual amounts may vary.
       </p>
     </div>
