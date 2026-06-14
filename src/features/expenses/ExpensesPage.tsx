@@ -7,6 +7,9 @@ import { useRepository } from '@/hooks/useRepository';
 import type { Budget, Expense, ExpenseCategory } from '@/core/db/types';
 import { formatCurrency, formatCompact, toMonthYearKey } from '@/lib/formatters';
 import { ALL_DEFAULT_CATEGORIES, CATEGORY_MIGRATION_MAP, INTENT_GROUP_META } from '@/core/db/defaultCategories';
+import { useNavigate } from 'react-router-dom';
+import { exportExpensesAsCsv, downloadProtectedZip } from '@/core/export/exportCsv';
+import { PATHS } from '@/router/paths';
 import { ExpenseForm } from './ExpenseForm';
 
 // Evaluated once at module load — safe to use as a min= date attribute
@@ -107,6 +110,7 @@ function IntentDonut({ segments, total }: { segments: DonutSegment[]; total: num
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function ExpensesPage() {
+  const navigate = useNavigate();
   const { mode } = usePrivacy();
   const { events, pastEvents, allEventHashtags, addEvent, stopEvent, promoteHashtagToEvent, demoteEvent } =
     useEventMode();
@@ -130,6 +134,13 @@ export function ExpensesPage() {
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [showEventSheet, setShowEventSheet] = useState(false);
+  const [showExportSheet, setShowExportSheet] = useState(false);
+  const [exportRange, setExportRange] = useState<'this_month' | 'last_3' | 'all_time' | 'custom'>('this_month');
+  const [exportFrom, setExportFrom] = useState('');
+  const [exportTo, setExportTo] = useState('');
+  const [exportPassword, setExportPassword] = useState('');
+  const [showExportPassword, setShowExportPassword] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [showNewEventForm, setShowNewEventForm] = useState(false);
   const [newEventName, setNewEventName] = useState('');
   const [newEventType, setNewEventType] = useState<EventSubtype>('background');
@@ -466,16 +477,16 @@ export function ExpensesPage() {
               )}
             </button>
             <button
+              onClick={() => navigate(PATHS.app.import)}
               className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:text-primary hover:bg-surface-2"
-              aria-label="Import expenses (coming soon)"
-              title="Import (coming in step 46)"
+              aria-label="Import expenses"
             >
               <i className="ti ti-file-import" style={{ fontSize: 18 }} aria-hidden="true" />
             </button>
             <button
+              onClick={() => setShowExportSheet(true)}
               className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:text-primary hover:bg-surface-2"
-              aria-label="Export expenses (coming soon)"
-              title="Export (coming in step 47)"
+              aria-label="Export expenses"
             >
               <i className="ti ti-file-export" style={{ fontSize: 18 }} aria-hidden="true" />
             </button>
@@ -947,6 +958,133 @@ export function ExpensesPage() {
         >
           <i className="ti ti-plus" style={{ fontSize: 24 }} aria-hidden="true" />
         </button>
+      )}
+
+      {/* ── Export sheet ── */}
+      {showExportSheet && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setShowExportSheet(false)} />
+          <div className="relative w-full max-w-sm bg-surface rounded-2xl p-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-primary">Export expenses</h3>
+              <button onClick={() => setShowExportSheet(false)} className="text-tertiary p-1">
+                <i className="ti ti-x" style={{ fontSize: 18 }} aria-hidden="true" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {(
+                [
+                  { value: 'this_month', label: 'This month' },
+                  { value: 'last_3', label: 'Last 3 months' },
+                  { value: 'all_time', label: 'All time' },
+                  { value: 'custom', label: 'Custom range' }
+                ] as const
+              ).map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setExportRange(value)}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors text-left"
+                  style={{
+                    borderColor: exportRange === value ? 'var(--color-primary)' : 'var(--color-border)',
+                    backgroundColor: exportRange === value ? 'var(--color-primary)15' : 'transparent'
+                  }}
+                >
+                  <div
+                    className="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                    style={{ borderColor: exportRange === value ? 'var(--color-primary)' : 'var(--color-border)' }}
+                  >
+                    {exportRange === value && (
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--color-primary)' }} />
+                    )}
+                  </div>
+                  <span className="text-sm font-medium text-primary">{label}</span>
+                </button>
+              ))}
+              {exportRange === 'custom' && (
+                <div className="flex gap-2 pt-1">
+                  <div className="flex-1 flex flex-col gap-1">
+                    <label className="text-xs text-tertiary">From</label>
+                    <input
+                      type="date"
+                      value={exportFrom}
+                      onChange={(e) => setExportFrom(e.target.value)}
+                      className="input-surface border border-theme rounded-xl px-3 py-2 text-sm w-full"
+                    />
+                  </div>
+                  <div className="flex-1 flex flex-col gap-1">
+                    <label className="text-xs text-tertiary">To</label>
+                    <input
+                      type="date"
+                      value={exportTo}
+                      onChange={(e) => setExportTo(e.target.value)}
+                      className="input-surface border border-theme rounded-xl px-3 py-2 text-sm w-full"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* Password input */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-tertiary">Export password</label>
+              <div className="relative">
+                <input
+                  type={showExportPassword ? 'text' : 'password'}
+                  value={exportPassword}
+                  onChange={(e) => setExportPassword(e.target.value)}
+                  placeholder="Set a password for the ZIP file"
+                  className="input-surface border border-theme rounded-xl px-3 py-2.5 text-sm w-full pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowExportPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-tertiary"
+                >
+                  <i
+                    className={`ti ${showExportPassword ? 'ti-eye-off' : 'ti-eye'}`}
+                    style={{ fontSize: 16 }}
+                    aria-hidden="true"
+                  />
+                </button>
+              </div>
+              <p className="text-[11px] text-tertiary leading-relaxed">
+                The ZIP is AES-256 encrypted. This password cannot be recovered — keep it safe.
+              </p>
+            </div>
+
+            <button
+              onClick={async () => {
+                if (!exportPassword) return;
+                setExporting(true);
+                const now = Date.now();
+                let startMs = 0;
+                let endMs = now;
+                let label = 'all-time';
+                if (exportRange === 'this_month') {
+                  startMs = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+                  label = 'this-month';
+                } else if (exportRange === 'last_3') {
+                  startMs = new Date(new Date().getFullYear(), new Date().getMonth() - 3, 1).getTime();
+                  label = 'last-3-months';
+                } else if (exportRange === 'custom') {
+                  startMs = exportFrom ? new Date(exportFrom).getTime() : 0;
+                  endMs = exportTo ? new Date(exportTo + 'T23:59:59').getTime() : now;
+                  label = exportFrom && exportTo ? `${exportFrom}-to-${exportTo}` : 'custom';
+                }
+                const filtered = expenses.filter((e) => e.date >= startMs && e.date <= endMs);
+                const csv = exportExpensesAsCsv(filtered, expenseCategories);
+                await downloadProtectedZip(csv, `penny-expenses-${label}.zip`, exportPassword);
+                setExporting(false);
+                setExportPassword('');
+                setShowExportSheet(false);
+              }}
+              disabled={!exportPassword || exporting || (exportRange === 'custom' && (!exportFrom || !exportTo))}
+              className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+              style={{ backgroundColor: 'var(--color-primary)' }}
+            >
+              {exporting ? 'Creating ZIP…' : 'Download protected ZIP'}
+            </button>
+          </div>
+        </div>
       )}
 
       {/* ── Event management sheet ── */}
