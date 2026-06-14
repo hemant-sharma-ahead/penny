@@ -47,6 +47,8 @@ export async function seedDemoData(): Promise<void> {
       icon: 'ti-shopping-cart',
       color: '#10b981',
       isDefault: true,
+      intentGroup: 'daily_living',
+      applicableTo: 'expense',
       createdAt: ago(90)
     },
     dining: {
@@ -55,6 +57,8 @@ export async function seedDemoData(): Promise<void> {
       icon: 'ti-coffee',
       color: '#f59e0b',
       isDefault: true,
+      intentGroup: 'daily_living',
+      applicableTo: 'expense',
       createdAt: ago(90)
     },
     transport: {
@@ -63,6 +67,8 @@ export async function seedDemoData(): Promise<void> {
       icon: 'ti-car',
       color: '#3b82f6',
       isDefault: true,
+      intentGroup: 'daily_living',
+      applicableTo: 'expense',
       createdAt: ago(90)
     },
     utilities: {
@@ -71,15 +77,28 @@ export async function seedDemoData(): Promise<void> {
       icon: 'ti-bolt',
       color: '#6366f1',
       isDefault: true,
+      intentGroup: 'home_utilities',
+      applicableTo: 'expense',
       createdAt: ago(90)
     },
-    rent: { id: 'demo-cat-rent', name: 'Rent', icon: 'ti-home', color: '#ec4899', isDefault: true, createdAt: ago(90) },
+    rent: {
+      id: 'demo-cat-rent',
+      name: 'Rent',
+      icon: 'ti-home',
+      color: '#ec4899',
+      isDefault: true,
+      intentGroup: 'home_utilities',
+      applicableTo: 'expense',
+      createdAt: ago(90)
+    },
     medical: {
       id: 'demo-cat-medical',
       name: 'Medical',
       icon: 'ti-heart-plus',
       color: '#ef4444',
       isDefault: true,
+      intentGroup: 'health',
+      applicableTo: 'expense',
       createdAt: ago(90)
     },
     shopping: {
@@ -88,6 +107,8 @@ export async function seedDemoData(): Promise<void> {
       icon: 'ti-shirt',
       color: '#8b5cf6',
       isDefault: true,
+      intentGroup: 'lifestyle',
+      applicableTo: 'expense',
       createdAt: ago(90)
     },
     entertainment: {
@@ -96,6 +117,8 @@ export async function seedDemoData(): Promise<void> {
       icon: 'ti-device-tv',
       color: '#f97316',
       isDefault: true,
+      intentGroup: 'lifestyle',
+      applicableTo: 'expense',
       createdAt: ago(90)
     },
     investments: {
@@ -104,6 +127,8 @@ export async function seedDemoData(): Promise<void> {
       icon: 'ti-chart-line',
       color: '#00a86b',
       isDefault: true,
+      intentGroup: 'financial',
+      applicableTo: 'expense',
       createdAt: ago(90)
     },
     other: {
@@ -112,6 +137,8 @@ export async function seedDemoData(): Promise<void> {
       icon: 'ti-dots-circle-horizontal',
       color: '#94a3b8',
       isDefault: true,
+      intentGroup: 'other',
+      applicableTo: 'expense',
       createdAt: ago(90)
     }
   };
@@ -588,6 +615,23 @@ export async function seedDemoData(): Promise<void> {
   ];
   await Promise.all(extraInsights.map((i) => chipInsightsRepo.put(i)));
 
+  // Seed past events so the analytics Events section works out of the box
+  const demoPastEvents = [
+    {
+      id: 'demo-event-leh',
+      name: 'Leh Ladakh',
+      subtype: 'immersive' as const,
+      hashtag: 'leh-ladakh', // matches expense hashtags exactly
+      startDate: ago(9), // Jun 5
+      endDate: ago(4), // Jun 10 (day after last trip expense)
+      autoTag: true,
+      color: '#0ea5e9'
+    }
+  ];
+  localStorage.setItem('penny_past_events', JSON.stringify(demoPastEvents));
+  // Notify EventModeProvider (already mounted) to re-sync from localStorage
+  window.dispatchEvent(new CustomEvent('penny-events-updated'));
+
   localStorage.setItem(DEMO_SEED_KEY, '1');
 }
 
@@ -609,5 +653,7 @@ export async function clearDemoData(): Promise<void> {
     db.personal_ious.clear()
   ]);
   localStorage.removeItem(DEMO_SEED_KEY);
+  localStorage.removeItem('penny_past_events');
+  localStorage.removeItem('penny_cats_v2');
   window.location.reload();
 }

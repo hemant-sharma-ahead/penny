@@ -4,9 +4,12 @@ import { BottomNav } from './BottomNav';
 import { SettingsDrawer } from './SettingsDrawer';
 import { PrivacyModeSwitcher } from '@/components/privacy/PrivacyModeSwitcher';
 import { PennyWordmark } from '@/components/ui/PennyLogo';
+import { useEventMode } from '@/context/EventModeContext';
 
 export function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const { events } = useEventMode();
+  const activeEvent = events[0];
 
   return (
     <div className="min-h-screen flex justify-center" style={{ backgroundColor: 'var(--color-mode-bg, #f8fafc)' }}>
@@ -22,15 +25,26 @@ export function AppShell() {
             borderBottom: '2px solid var(--color-mode-accent, #00a86b)'
           }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => setSettingsOpen(true)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:text-primary hover:bg-surface-2 -ml-1"
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:text-primary hover:bg-surface-2 -ml-1 flex-shrink-0"
               aria-label="Open settings"
             >
               <i className="ti ti-menu-2" style={{ fontSize: 20 }} aria-hidden="true" />
             </button>
             <PennyWordmark height={24} />
+            {activeEvent && (
+              <span
+                className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 text-white truncate max-w-[90px]"
+                style={{ backgroundColor: activeEvent.color }}
+                title={activeEvent.name}
+              >
+                <i className="ti ti-flag-3-filled" style={{ fontSize: 9 }} aria-hidden="true" />
+                {activeEvent.name}
+                {events.length > 1 && <span className="ml-0.5">+{events.length - 1}</span>}
+              </span>
+            )}
           </div>
           <PrivacyModeSwitcher />
         </header>
