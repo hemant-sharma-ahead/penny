@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '@/router/paths';
+import { ChipAvatar } from '@/components/ui/ChipAvatar';
 
 const mockInsights = [
   {
@@ -23,25 +24,22 @@ export function ChipIntroScreen() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen flex flex-col bg-white px-6 py-10">
+    <div className="min-h-screen flex flex-col bg-surface px-6 py-10">
       <div className="flex-1 w-full max-w-sm mx-auto flex flex-col">
         <div className="mb-8 text-center">
-          <div
-            className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg"
-            style={{ backgroundColor: 'var(--color-primary)' }}
-          >
-            <i className="ti ti-sparkles text-white" style={{ fontSize: 28 }} aria-hidden="true" />
+          <div className="mx-auto mb-4 drop-shadow-lg w-fit">
+            <ChipAvatar size={56} />
           </div>
-          <h2 className="text-2xl font-semibold text-slate-900 mb-2">Meet Chip</h2>
-          <p className="text-slate-500 text-sm">
+          <h2 className="text-2xl font-semibold text-primary mb-2">Meet Chip</h2>
+          <p className="text-secondary text-sm">
             Your AI money coach. Context-aware, always shows its reasoning, and never shares your data.
           </p>
         </div>
 
-        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">Sample insights</p>
+        <p className="text-xs font-medium text-tertiary uppercase tracking-wide mb-3">Sample insights</p>
         <div className="flex flex-col gap-3 mb-8">
           {mockInsights.map((insight) => (
-            <div key={insight.tag} className="bg-slate-50 border border-slate-100 rounded-xl p-4">
+            <div key={insight.tag} className="bg-surface-2 border border-theme rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <div
                   className="w-6 h-6 rounded-md flex items-center justify-center"
@@ -49,9 +47,9 @@ export function ChipIntroScreen() {
                 >
                   <i className={`ti ${insight.icon} text-white`} style={{ fontSize: 12 }} aria-hidden="true" />
                 </div>
-                <span className="text-xs font-medium text-slate-500">{insight.tag}</span>
+                <span className="text-xs font-medium text-secondary">{insight.tag}</span>
               </div>
-              <p className="text-sm text-slate-700 leading-relaxed">{insight.text}</p>
+              <p className="text-sm text-primary leading-relaxed">{insight.text}</p>
             </div>
           ))}
         </div>

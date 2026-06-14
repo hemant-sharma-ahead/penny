@@ -36,20 +36,13 @@ export function IouPage() {
     return [...active].sort((a, b) => {
       const aRemaining = a.dueDate !== undefined ? Math.ceil((a.dueDate - nowMs) / 86_400_000) : null;
       const bRemaining = b.dueDate !== undefined ? Math.ceil((b.dueDate - nowMs) / 86_400_000) : null;
-      // Both overdue: most overdue (most negative) first
       if (aRemaining !== null && aRemaining < 0 && bRemaining !== null && bRemaining < 0)
         return aRemaining - bRemaining;
-      // a overdue, b not
       if (aRemaining !== null && aRemaining < 0) return -1;
-      // b overdue, a not
       if (bRemaining !== null && bRemaining < 0) return 1;
-      // Both have future due dates
       if (aRemaining !== null && bRemaining !== null) return aRemaining - bRemaining;
-      // a has due date, b doesn't
       if (aRemaining !== null) return -1;
-      // b has due date, a doesn't
       if (bRemaining !== null) return 1;
-      // Neither: newest first
       return b.date - a.date;
     });
   }, [active, nowMs]);
@@ -98,8 +91,8 @@ export function IouPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-slate-100">
-        <h2 className="text-xl font-semibold text-slate-900">IOUs</h2>
+      <div className="px-4 pt-4 pb-3 border-b border-theme">
+        <h2 className="text-xl font-semibold text-primary">IOUs</h2>
         {active.length > 0 && (
           <div className="flex gap-3 mt-1">
             {totalLent > 0 && (
@@ -107,7 +100,11 @@ export function IouPage() {
                 You&apos;re owed {mode === 'open' ? formatCurrency(totalLent) : '••••'}
               </span>
             )}
-            {totalLent > 0 && totalBorrowed > 0 && <span className="text-xs text-slate-300">·</span>}
+            {totalLent > 0 && totalBorrowed > 0 && (
+              <span className="text-xs" style={{ color: 'var(--color-border-strong)' }}>
+                ·
+              </span>
+            )}
             {totalBorrowed > 0 && (
               <span className="text-xs font-medium text-red-500">
                 You owe {mode === 'open' ? formatCurrency(totalBorrowed) : '••••'}
@@ -118,7 +115,7 @@ export function IouPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-100 px-4">
+      <div className="flex px-4 border-b border-theme">
         {(
           [
             ['active', `Active (${active.length})`],
@@ -128,9 +125,12 @@ export function IouPage() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`py-2.5 mr-5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              activeTab === tab ? 'border-[#00a86b] text-[#00a86b]' : 'border-transparent text-slate-500'
-            }`}
+            className="py-2.5 mr-5 text-sm font-medium border-b-2 -mb-px transition-colors"
+            style={
+              activeTab === tab
+                ? { borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }
+                : { borderColor: 'transparent', color: 'var(--color-text-secondary)' }
+            }
           >
             {label}
           </button>
@@ -158,8 +158,8 @@ export function IouPage() {
 
             {sortedActive.length === 0 ? (
               <div className="p-10 text-center">
-                <i className="ti ti-arrows-exchange text-slate-300" style={{ fontSize: 44 }} aria-hidden="true" />
-                <p className="text-sm text-slate-400 mt-3">No active IOUs. Tap + to log one.</p>
+                <i className="ti ti-arrows-exchange text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
+                <p className="text-sm mt-3 text-tertiary">No active IOUs. Tap + to log one.</p>
               </div>
             ) : (
               sortedActive.map((iou) => {
@@ -172,7 +172,7 @@ export function IouPage() {
                   <button
                     key={iou.id}
                     onClick={() => openEdit(iou)}
-                    className="bg-white rounded-2xl border border-slate-100 p-4 text-left w-full active:bg-slate-50"
+                    className="rounded-2xl p-4 text-left w-full surface"
                   >
                     <div className="flex items-start gap-3">
                       {/* Direction icon */}
@@ -190,13 +190,13 @@ export function IouPage() {
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-semibold text-slate-900 truncate">{iou.description}</p>
+                          <p className="text-sm font-semibold truncate text-primary">{iou.description}</p>
                           <p className="text-sm font-semibold flex-shrink-0" style={{ color: accentColor }}>
                             {mode === 'open' ? formatCurrency(iou.amount) : '••••'}
                           </p>
                         </div>
                         <div className="flex items-center justify-between mt-1 gap-2">
-                          <p className="text-xs text-slate-400">
+                          <p className="text-xs text-tertiary">
                             {isLent ? 'Lent' : 'Borrowed'} {formatDateShort(iou.date)}
                           </p>
                           {due !== null && (
@@ -208,12 +208,12 @@ export function IouPage() {
                             </span>
                           )}
                         </div>
-                        {iou.notes && <p className="text-xs text-slate-400 mt-0.5 truncate">{iou.notes}</p>}
+                        {iou.notes && <p className="text-xs mt-0.5 truncate text-tertiary">{iou.notes}</p>}
                       </div>
                     </div>
 
                     {/* Settle row */}
-                    <div className="mt-3 pt-3 border-t border-slate-50 flex justify-end">
+                    <div className="mt-3 pt-3 flex justify-end border-t border-theme">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -238,8 +238,8 @@ export function IouPage() {
           <div className="px-4 py-4 flex flex-col gap-3">
             {history.length === 0 ? (
               <div className="p-10 text-center">
-                <i className="ti ti-clock-check text-slate-300" style={{ fontSize: 44 }} aria-hidden="true" />
-                <p className="text-sm text-slate-400 mt-3">No settled IOUs yet.</p>
+                <i className="ti ti-clock-check text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
+                <p className="text-sm mt-3 text-tertiary">No settled IOUs yet.</p>
               </div>
             ) : (
               history.map((iou) => {
@@ -249,20 +249,20 @@ export function IouPage() {
                   <button
                     key={iou.id}
                     onClick={() => openEdit(iou)}
-                    className="bg-white rounded-2xl border border-slate-100 p-4 text-left w-full active:bg-slate-50 opacity-70"
+                    className="rounded-2xl p-4 text-left w-full opacity-70 surface"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-slate-50">
-                        <i className="ti ti-check text-slate-400" style={{ fontSize: 18 }} aria-hidden="true" />
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-surface-2">
+                        <i className="ti ti-check text-tertiary" style={{ fontSize: 18 }} aria-hidden="true" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium text-slate-600 truncate">{iou.description}</p>
+                          <p className="text-sm font-medium truncate text-secondary">{iou.description}</p>
                           <p className="text-sm font-semibold flex-shrink-0" style={{ color: accentColor }}>
                             {mode === 'open' ? formatCurrency(iou.amount) : '••••'}
                           </p>
                         </div>
-                        <p className="text-xs text-slate-400 mt-0.5">
+                        <p className="text-xs mt-0.5 text-tertiary">
                           {isLent ? 'Lent' : 'Borrowed'} {formatDateShort(iou.date)}
                           {iou.settledAt !== undefined && ` · settled ${formatDateShort(iou.settledAt)}`}
                         </p>

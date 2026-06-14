@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EncryptedRepository } from '@/core/db/repository';
 import { db } from '@/core/db/schema';
+import { seedDemoData } from '@/core/db/seedDemoData';
 import type { Profile } from '@/core/db/types';
 import { PATHS } from '@/router/paths';
 
@@ -27,19 +28,27 @@ export function SimulatedDashboardScreen() {
         createdAt: Date.now(),
         updatedAt: Date.now()
       });
+      await seedDemoData();
       navigate(PATHS.app.home);
-    } catch {
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      // Master key not in memory — onboarding already completed in a prior session.
+      // Route to the app; SessionGate will handle the PIN unlock.
+      if (msg.includes('master key') || msg.includes('Session locked')) {
+        navigate(PATHS.app.home);
+        return;
+      }
       setError('Something went wrong. Please try again.');
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 px-6 py-10">
+    <div className="min-h-screen flex flex-col bg-surface-2 px-6 py-10">
       <div className="flex-1 w-full max-w-sm mx-auto flex flex-col">
         <div className="mb-6 text-center">
-          <h2 className="text-2xl font-semibold text-slate-900 mb-1">Here's a preview</h2>
-          <p className="text-slate-500 text-sm">Sample data — your real numbers will look like this.</p>
+          <h2 className="text-2xl font-semibold text-primary mb-1">Here's a preview</h2>
+          <p className="text-secondary text-sm">Sample data — your real numbers will look like this.</p>
         </div>
 
         {/* Net worth card */}
@@ -60,19 +69,19 @@ export function SimulatedDashboardScreen() {
             { icon: 'ti-target', label: 'Goals', value: '2 active', sub: '1 on track' },
             { icon: 'ti-shield', label: 'Insurance', value: '₹1.5Cr', sub: 'coverage' }
           ].map((tile) => (
-            <div key={tile.label} className="bg-white rounded-xl p-3.5 border border-slate-100">
+            <div key={tile.label} className="surface rounded-xl p-3.5">
               <div className="flex items-center gap-2 mb-2">
                 <i className={`ti ${tile.icon} text-[#00a86b]`} style={{ fontSize: 16 }} aria-hidden="true" />
-                <span className="text-xs font-medium text-slate-500">{tile.label}</span>
+                <span className="text-xs font-medium text-secondary">{tile.label}</span>
               </div>
-              <p className="text-sm font-semibold text-slate-900">{tile.value}</p>
-              <p className="text-xs text-slate-400">{tile.sub}</p>
+              <p className="text-sm font-semibold text-primary">{tile.value}</p>
+              <p className="text-xs text-tertiary">{tile.sub}</p>
             </div>
           ))}
         </div>
 
         {/* Chip insight */}
-        <div className="bg-white border border-slate-100 rounded-xl p-4 mb-6">
+        <div className="surface rounded-xl p-4 mb-6">
           <div className="flex items-center gap-2 mb-2">
             <div
               className="w-6 h-6 rounded-full flex items-center justify-center"
@@ -80,9 +89,9 @@ export function SimulatedDashboardScreen() {
             >
               <i className="ti ti-sparkles text-white" style={{ fontSize: 12 }} aria-hidden="true" />
             </div>
-            <span className="text-xs font-medium text-slate-500">Chip insight</span>
+            <span className="text-xs font-medium text-secondary">Chip insight</span>
           </div>
-          <p className="text-sm text-slate-700 leading-relaxed">
+          <p className="text-sm text-primary leading-relaxed">
             Your emergency fund covers 2.1 months of expenses. Building it to 6 months would improve your financial
             health score by 18 points.
           </p>

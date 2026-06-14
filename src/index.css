@@ -2,6 +2,9 @@
 @import '@fontsource/inter/500.css';
 @import 'tailwindcss';
 
+/* Enable dark: prefix — targets descendants of [data-theme=dark] on <body> */
+@custom-variant dark (&:where([data-theme=dark] *));
+
 :root {
   /* Brand */
   --color-primary: #00a86b;
@@ -16,10 +19,10 @@
   --color-open: #10b981;
   --color-open-bg: #d1fae5;
 
-  /* Surfaces */
+  /* Surfaces — Penny Light palette */
   --color-surface: #ffffff;
-  --color-surface-secondary: #f8fafc;
-  --color-surface-tertiary: #f1f5f9;
+  --color-surface-secondary: #eff6ff; /* Penny Light */
+  --color-surface-tertiary: #e4eeff; /* slightly deeper for body bg */
 
   /* Text */
   --color-text-primary: #0f172a;
@@ -27,8 +30,8 @@
   --color-text-tertiary: #94a3b8;
 
   /* Borders */
-  --color-border: #e2e8f0;
-  --color-border-strong: #cbd5e1;
+  --color-border: #c7d8f0;
+  --color-border-strong: #a5bfdf;
 
   /* Status */
   --color-danger: #ef4444;
@@ -37,6 +40,147 @@
 
   /* Bottom nav height (used for scroll padding) */
   --bottom-nav-height: 64px;
+
+  /* Font scale (controlled by SettingsContext) */
+  --font-scale: 1;
+
+  /* Mode accent — default to open/green */
+  --color-mode-accent: #00a86b;
+  --color-mode-header-bg: #ffffff;
+  --color-mode-bg: #eff6ff;
+}
+
+/* ── Light theme explicit overrides (when data-theme=light) ── */
+[data-theme='light'] {
+  --color-surface: #ffffff;
+  --color-surface-secondary: #eff6ff;
+  --color-surface-tertiary: #e4eeff;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-tertiary: #94a3b8;
+  --color-border: #c7d8f0;
+  --color-border-strong: #a5bfdf;
+  --color-mode-header-bg: #ffffff;
+  --color-mode-bg: #eff6ff;
+}
+
+/* ── Dark theme — Penny Dark (#1F3864) palette ── */
+[data-theme='dark'] {
+  --color-surface: #1e3a6e; /* card / panel bg */
+  --color-surface-secondary: #162f5a; /* slightly deeper */
+  --color-surface-tertiary: #1f3864; /* Penny Dark — body bg */
+  --color-text-primary: #e8f0fe;
+  --color-text-secondary: #94a3b8;
+  --color-text-tertiary: #64748b;
+  --color-border: #2d4a7a;
+  --color-border-strong: #3a5a8a;
+  --color-mode-accent: #00a86b;
+  --color-mode-header-bg: #162f5a;
+  --color-mode-bg: #1f3864;
+}
+
+/* ── Per-mode overrides (light) — applied via data-privacy-mode on <body> ── */
+[data-privacy-mode='safe'] {
+  --color-mode-accent: #f59e0b;
+  --color-mode-header-bg: #fef3c7; /* amber-100 */
+  --color-mode-bg: #fffbeb; /* amber-50 */
+}
+
+[data-privacy-mode='privacy'] {
+  --color-mode-accent: #7c3aed;
+  --color-mode-header-bg: #ede9fe; /* violet-100 */
+  --color-mode-bg: #f5f3ff; /* violet-50 */
+}
+
+[data-privacy-mode='open'] {
+  --color-mode-accent: #00a86b;
+  --color-mode-header-bg: #dcfce7; /* green-100 */
+  --color-mode-bg: #f0fdf4; /* green-50 */
+}
+
+/* ── Dark mode privacy overrides — higher specificity wins ── */
+[data-theme='dark'][data-privacy-mode='safe'] {
+  --color-mode-accent: #f59e0b;
+  --color-mode-header-bg: #2a1c08; /* dark amber */
+  --color-mode-bg: #1e1508;
+}
+
+[data-theme='dark'][data-privacy-mode='privacy'] {
+  --color-mode-accent: #7c3aed;
+  --color-mode-header-bg: #1e1030; /* dark violet */
+  --color-mode-bg: #170d25;
+}
+
+[data-theme='dark'][data-privacy-mode='open'] {
+  --color-mode-accent: #00a86b;
+  --color-mode-header-bg: #0a1f14; /* dark green */
+  --color-mode-bg: #071510;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Semantic theme utilities
+   Use these in ALL new components instead of hardcoded Tailwind
+   colors (bg-white, text-slate-900, border-slate-100, etc.).
+   They reference CSS variables so they automatically switch between
+   Penny Light and Penny Dark — no inline styles needed.
+
+   Quick reference:
+     bg-surface / bg-surface-2 / bg-surface-3
+     text-primary / text-secondary / text-tertiary
+     border-theme / border-theme-strong
+     surface       → bg-surface + 1px border  (card shorthand)
+     input-surface → bg + text + border for <input>/<select>
+
+   Usage example:
+     <div className="surface rounded-2xl p-4">
+       <h2 className="text-primary font-semibold">Title</h2>
+       <p className="text-secondary text-sm">Subtitle</p>
+       <input className="input-surface border rounded-xl px-3 py-2" />
+     </div>
+ ───────────────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Backgrounds */
+  .bg-surface {
+    background-color: var(--color-surface);
+  }
+  .bg-surface-2 {
+    background-color: var(--color-surface-secondary);
+  }
+  .bg-surface-3 {
+    background-color: var(--color-surface-tertiary);
+  }
+
+  /* Text */
+  .text-primary {
+    color: var(--color-text-primary);
+  }
+  .text-secondary {
+    color: var(--color-text-secondary);
+  }
+  .text-tertiary {
+    color: var(--color-text-tertiary);
+  }
+
+  /* Borders (color only — pair with Tailwind's `border` for width/style) */
+  .border-theme {
+    border-color: var(--color-border);
+  }
+  .border-theme-strong {
+    border-color: var(--color-border-strong);
+  }
+
+  /* Card shorthand: sets bg + 1px solid border in one class */
+  .surface {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+  }
+
+  /* Input shorthand: sets bg + text + border-color for form elements */
+  .input-surface {
+    background-color: var(--color-surface-secondary);
+    color: var(--color-text-primary);
+    border-color: var(--color-border);
+  }
 }
 
 * {
@@ -51,6 +195,7 @@ html {
     'Segoe UI',
     sans-serif;
   -webkit-text-size-adjust: 100%;
+  font-size: calc(16px * var(--font-scale, 1));
 }
 
 body {
@@ -60,6 +205,9 @@ body {
   font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
 button {

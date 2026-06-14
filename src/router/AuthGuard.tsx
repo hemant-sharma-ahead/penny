@@ -39,7 +39,7 @@ export function AuthGuard() {
 
   if (state === 'checking') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="min-h-screen flex items-center justify-center bg-surface-3">
         <div className="w-8 h-8 border-2 border-[#00a86b] border-t-transparent rounded-full animate-spin" />
       </div>
     );

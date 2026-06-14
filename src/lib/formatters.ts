@@ -1,22 +1,36 @@
-const inrFormatter = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
-const inrDecimalFormatter = new Intl.NumberFormat('en-IN', {
-  style: 'currency',
-  currency: 'INR',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2
-});
-const compactFormatter = new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 });
+function toIndianGrouping(n: number): string {
+  const str = Math.abs(Math.round(n)).toString();
+  if (str.length <= 3) return str;
+
+  const tail = str.slice(-3);
+  const head = str.slice(0, -3);
+  const groups: string[] = [];
+  for (let i = head.length; i > 0; i -= 2) {
+    groups.unshift(head.slice(Math.max(0, i - 2), i));
+  }
+  return [...groups, tail].join(',');
+}
 
 export function formatCurrency(amount: number): string {
-  return inrFormatter.format(amount);
+  const sign = amount < 0 ? '-' : '';
+  return `${sign}₹${toIndianGrouping(amount)}`;
 }
 
 export function formatCurrencyDecimal(amount: number): string {
-  return inrDecimalFormatter.format(amount);
+  const sign = amount < 0 ? '-' : '';
+  const abs = Math.abs(amount);
+  const intPart = Math.floor(abs);
+  const decPart = Math.round((abs - intPart) * 100);
+  return `${sign}₹${toIndianGrouping(intPart)}.${String(decPart).padStart(2, '0')}`;
 }
 
 export function formatCompact(amount: number): string {
-  return `₹${compactFormatter.format(amount)}`;
+  const abs = Math.abs(amount);
+  const sign = amount < 0 ? '-' : '';
+  if (abs >= 1_00_00_000) return `${sign}₹${(abs / 1_00_00_000).toFixed(1)}Cr`;
+  if (abs >= 1_00_000) return `${sign}₹${(abs / 1_00_000).toFixed(1)}L`;
+  if (abs >= 1_000) return `${sign}₹${(abs / 1_000).toFixed(1)}K`;
+  return formatCurrency(amount);
 }
 
 export function formatPercent(value: number, decimals = 1): string {

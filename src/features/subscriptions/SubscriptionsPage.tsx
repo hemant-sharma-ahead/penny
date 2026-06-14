@@ -95,17 +95,17 @@ export function SubscriptionsPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-slate-100">
-        <h2 className="text-xl font-semibold text-slate-900">Subscriptions</h2>
+      <div className="px-4 pt-4 pb-3 border-b border-theme">
+        <h2 className="text-xl font-semibold text-primary">Subscriptions</h2>
         {active.length > 0 && (
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-secondary mt-0.5">
             {mode === 'open' ? formatCurrency(monthlyTotal) : '••••'}/month total
           </p>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-100 px-4">
+      <div className="flex border-b border-theme px-4">
         {(
           [
             ['detected', `Detected (${detected.length})`],
@@ -115,9 +115,12 @@ export function SubscriptionsPage() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`py-2.5 mr-5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              activeTab === tab ? 'border-[#00a86b] text-[#00a86b]' : 'border-transparent text-slate-500'
-            }`}
+            className="py-2.5 mr-5 text-sm font-medium border-b-2 -mb-px transition-colors"
+            style={
+              activeTab === tab
+                ? { borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }
+                : { borderColor: 'transparent', color: 'var(--color-text-secondary)' }
+            }
           >
             {label}
           </button>
@@ -130,9 +133,9 @@ export function SubscriptionsPage() {
           <div className="px-4 py-4 flex flex-col gap-3">
             {detected.length === 0 ? (
               <div className="p-10 text-center">
-                <i className="ti ti-refresh text-slate-300" style={{ fontSize: 44 }} aria-hidden="true" />
-                <p className="text-sm font-medium text-slate-500 mt-3">No new subscriptions detected</p>
-                <p className="text-xs text-slate-400 mt-1">
+                <i className="ti ti-refresh text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
+                <p className="text-sm font-medium text-secondary mt-3">No new subscriptions detected</p>
+                <p className="text-xs text-tertiary mt-1">
                   {expenses.length === 0
                     ? 'Add expenses first — recurring patterns will surface here.'
                     : 'All detected subscriptions have been reviewed.'}
@@ -140,19 +143,17 @@ export function SubscriptionsPage() {
               </div>
             ) : (
               <>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-tertiary">
                   Found {detected.length} recurring pattern{detected.length !== 1 ? 's' : ''} in your expenses. Confirm
                   ones you recognise.
                 </p>
                 {detected.map((c) => (
-                  <div key={subKey(c)} className="bg-white rounded-2xl border border-slate-100 p-4 flex flex-col gap-3">
+                  <div key={subKey(c)} className="surface rounded-2xl p-4 flex flex-col gap-3">
                     {/* Name + flags row */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-900 truncate">
-                          {displayName(c.merchantCategory)}
-                        </p>
-                        <p className="text-xs text-slate-500 mt-0.5">
+                        <p className="text-sm font-semibold text-primary truncate">{displayName(c.merchantCategory)}</p>
+                        <p className="text-xs text-secondary mt-0.5">
                           {mode === 'open' ? formatCurrency(c.detectedAmount) : '••••'} ·{' '}
                           {intervalLabel(c.intervalDays)}
                         </p>
@@ -169,7 +170,7 @@ export function SubscriptionsPage() {
                           </span>
                         )}
                         {c.dormant && (
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-surface-2 text-secondary">
                             Dormant
                           </span>
                         )}
@@ -177,7 +178,7 @@ export function SubscriptionsPage() {
                     </div>
 
                     {/* Meta row */}
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-tertiary">
                       Seen {c.occurrenceCount} time{c.occurrenceCount !== 1 ? 's' : ''}
                       {c.lastChargedAt !== undefined && ` · last ${formatDateShort(c.lastChargedAt)}`}
                       {c.status === 'trial' && c.trialEndsAt !== undefined && (
@@ -197,7 +198,7 @@ export function SubscriptionsPage() {
                       </button>
                       <button
                         onClick={() => handleDismiss(c)}
-                        className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-500 text-xs font-semibold"
+                        className="flex-1 py-2 rounded-xl border border-theme text-secondary text-xs font-semibold"
                       >
                         <i className="ti ti-x mr-1" aria-hidden="true" />
                         Dismiss
@@ -215,18 +216,18 @@ export function SubscriptionsPage() {
           <div className="px-4 py-4 flex flex-col gap-3">
             {active.length === 0 ? (
               <div className="p-10 text-center">
-                <i className="ti ti-checklist text-slate-300" style={{ fontSize: 44 }} aria-hidden="true" />
-                <p className="text-sm font-medium text-slate-500 mt-3">No active subscriptions</p>
-                <p className="text-xs text-slate-400 mt-1">
+                <i className="ti ti-checklist text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
+                <p className="text-sm font-medium text-secondary mt-3">No active subscriptions</p>
+                <p className="text-xs text-tertiary mt-1">
                   Confirm detected subscriptions to track your recurring costs here.
                 </p>
               </div>
             ) : (
               <>
                 {/* Monthly summary */}
-                <div className="bg-slate-50 rounded-xl p-3 flex items-center justify-between">
-                  <span className="text-xs text-slate-500">Monthly spend</span>
-                  <span className="text-sm font-semibold text-slate-800">
+                <div className="bg-surface-2 rounded-xl p-3 flex items-center justify-between">
+                  <span className="text-xs text-secondary">Monthly spend</span>
+                  <span className="text-sm font-semibold text-primary">
                     {mode === 'open' ? formatCurrency(monthlyTotal) : '••••'}
                   </span>
                 </div>
@@ -234,11 +235,11 @@ export function SubscriptionsPage() {
                 {active.map((sub) => {
                   const monthly = toMonthly(sub.detectedAmount, sub.intervalDays);
                   return (
-                    <div key={sub.id} className="bg-white rounded-2xl border border-slate-100 p-4">
+                    <div key={sub.id} className="surface rounded-2xl p-4">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-semibold text-slate-900 truncate">
+                            <p className="text-sm font-semibold text-primary truncate">
                               {displayName(sub.merchantCategory)}
                             </p>
                             {sub.status === 'trial' && (
@@ -247,15 +248,15 @@ export function SubscriptionsPage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-slate-500 mt-0.5">
+                          <p className="text-xs text-secondary mt-0.5">
                             {mode === 'open' ? formatCurrency(sub.detectedAmount) : '••••'} ·{' '}
                             {intervalLabel(sub.intervalDays)}
                             {sub.intervalDays !== 30 && mode === 'open' && (
-                              <span className="text-slate-400"> ({formatCurrency(monthly)}/mo)</span>
+                              <span className="text-tertiary"> ({formatCurrency(monthly)}/mo)</span>
                             )}
                           </p>
                           {sub.lastChargedAt !== undefined && (
-                            <p className="text-xs text-slate-400 mt-0.5">
+                            <p className="text-xs text-tertiary mt-0.5">
                               Last charged {formatDateShort(sub.lastChargedAt)}
                             </p>
                           )}
@@ -267,7 +268,7 @@ export function SubscriptionsPage() {
                         </div>
                         <button
                           onClick={() => handleCancel(sub)}
-                          className="text-[10px] font-medium text-slate-400 border border-slate-200 rounded-lg px-2 py-1 flex-shrink-0 active:bg-slate-50"
+                          className="text-[10px] font-medium text-tertiary border border-theme rounded-lg px-2 py-1 flex-shrink-0 active:bg-surface-2"
                         >
                           Cancel
                         </button>

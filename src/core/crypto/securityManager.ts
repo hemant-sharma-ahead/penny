@@ -163,6 +163,23 @@ export async function isOnboardingComplete(): Promise<boolean> {
   return profileCount > 0;
 }
 
+// ─── PIN verification (read-only — no session state touched) ─────────────────
+
+export async function verifyPin(pin: string): Promise<boolean> {
+  const records = await db.security.toArray();
+  const record = records[0];
+  if (!record) return false;
+  try {
+    const kekSalt = base64ToBuffer(record.kekSalt);
+    const kek = await deriveKey(pin, kekSalt, KEK_ITERATIONS);
+    const encryptedMk = base64ToBuffer(record.encryptedMasterKey);
+    await unwrapKey(encryptedMk, kek);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function isPinRotationDue(): Promise<boolean> {
   const records = await db.security.toArray();
   const record = records[0];

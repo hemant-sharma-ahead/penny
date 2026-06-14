@@ -55,8 +55,17 @@ export interface ExpenseCategory {
   icon: string;
   color: string;
   isDefault: boolean;
+  parentId?: string; // subcategory prep — not used in UI yet
+  intentGroup?: string; // e.g. 'daily_living', 'income', 'transfers'
+  applicableTo?: 'expense' | 'income' | 'transfer'; // defaults to 'expense'
   createdAt: number;
 }
+
+// Transaction direction — all new records should set this explicitly; legacy records implicitly 'expense'
+export type TransactionType = 'expense' | 'income' | 'transfer';
+
+// Where the record originated — used for deduplication and audit
+export type TransactionSource = 'manual' | 'import' | 'sms' | 'bank_sync';
 
 export interface Expense {
   id: string;
@@ -69,6 +78,9 @@ export interface Expense {
   recurringIntervalDays?: number;
   paymentMode?: string;
   notes?: string;
+  type?: TransactionType; // omitted on legacy records = 'expense'
+  source?: TransactionSource; // omitted on legacy records = 'manual'
+  sourceRef?: string; // dedup key: hash(date+amount+description) for import; bank ref for sync
   createdAt: number;
   updatedAt: number;
 }

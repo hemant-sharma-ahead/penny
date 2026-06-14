@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePrivacy } from '@/context/PrivacyContext';
+import { useSettings, type ModuleVisibility } from '@/context/SettingsContext';
 import { assetsRepo, chipInsightsRepo, expensesRepo, holdingsRepo, liabilitiesRepo } from '@/core/db/repositories';
 import { DEFAULT_INSIGHTS } from '@/core/ai-safety/mockChip';
 import type { ChipInsight } from '@/core/db/types';
@@ -47,19 +48,32 @@ async function loadSummary(): Promise<Summary> {
   return { netWorth: totalAssets - totalLiabilities, monthlyExpenses };
 }
 
-const TOOL_TILES = [
-  { label: 'Insurance', icon: 'ti-shield', path: PATHS.app.insurance, color: '#3b82f6' },
-  { label: 'Subscriptions', icon: 'ti-refresh', path: PATHS.app.subscriptions, color: '#8b5cf6' },
-  { label: 'IOUs', icon: 'ti-arrows-exchange', path: PATHS.app.iou, color: '#f59e0b' },
-  { label: 'Loans', icon: 'ti-calculator', path: PATHS.app.loans, color: '#06b6d4' },
-  { label: 'Health Score', icon: 'ti-heart-rate-monitor', path: PATHS.app.health, color: '#ec4899' },
-  { label: 'Tax', icon: 'ti-receipt-tax', path: PATHS.app.tax, color: '#8b5cf6' },
-  { label: 'Cash Flow', icon: 'ti-trending-down', path: PATHS.app.cashflow, color: '#14b8a6' },
-  { label: 'Backup', icon: 'ti-cloud-download', path: PATHS.app.backup, color: '#64748b' }
+const TOOL_TILES: { label: string; icon: string; path: string; color: string; moduleKey: keyof ModuleVisibility }[] = [
+  { label: 'Insurance', icon: 'ti-shield', path: PATHS.app.insurance, color: '#3b82f6', moduleKey: 'insurance' },
+  {
+    label: 'Subscriptions',
+    icon: 'ti-refresh',
+    path: PATHS.app.subscriptions,
+    color: '#8b5cf6',
+    moduleKey: 'subscriptions'
+  },
+  { label: 'IOUs', icon: 'ti-arrows-exchange', path: PATHS.app.iou, color: '#f59e0b', moduleKey: 'iou' },
+  { label: 'Loans', icon: 'ti-calculator', path: PATHS.app.loans, color: '#06b6d4', moduleKey: 'loans' },
+  {
+    label: 'Health Score',
+    icon: 'ti-heart-rate-monitor',
+    path: PATHS.app.health,
+    color: '#ec4899',
+    moduleKey: 'health'
+  },
+  { label: 'Tax', icon: 'ti-receipt-tax', path: PATHS.app.tax, color: '#8b5cf6', moduleKey: 'tax' },
+  { label: 'Cash Flow', icon: 'ti-trending-down', path: PATHS.app.cashflow, color: '#14b8a6', moduleKey: 'cashflow' },
+  { label: 'Backup', icon: 'ti-cloud-download', path: PATHS.app.backup, color: '#64748b', moduleKey: 'backup' }
 ];
 
 export function HomePage() {
   const { mode } = usePrivacy();
+  const { modules } = useSettings();
   const navigate = useNavigate();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [insights, setInsights] = useState<ChipInsight[]>([]);
@@ -101,7 +115,7 @@ export function HomePage() {
 
   return (
     <div className="px-4 pt-4 pb-6 flex flex-col gap-4">
-      <h2 className="text-xl font-semibold text-slate-900">{greeting}</h2>
+      <h2 className="text-xl font-semibold text-primary">{greeting}</h2>
 
       {/* Net worth card */}
       <div className="rounded-2xl p-5 text-white" style={{ backgroundColor: 'var(--color-primary)' }}>
@@ -117,21 +131,21 @@ export function HomePage() {
 
       {/* Tools grid */}
       <div>
-        <p className="text-xs font-medium text-slate-400 mb-2">Tools</p>
+        <p className="text-xs font-medium mb-2 text-tertiary">Tools</p>
         <div className="grid grid-cols-4 gap-2">
-          {TOOL_TILES.map((m) => (
+          {TOOL_TILES.filter((m) => modules[m.moduleKey]).map((m) => (
             <button
               key={m.label}
               onClick={() => navigate(m.path)}
-              className="flex flex-col items-center gap-1.5 bg-white rounded-xl p-3 border border-slate-100 active:opacity-70"
+              className="surface flex flex-col items-center gap-1.5 rounded-xl p-3 active:opacity-70 transition-colors"
             >
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center"
-                style={{ backgroundColor: `${m.color}18` }}
+                style={{ backgroundColor: `${m.color}22` }}
               >
                 <i className={`ti ${m.icon}`} style={{ fontSize: 20, color: m.color }} aria-hidden="true" />
               </div>
-              <span className="text-[10px] font-medium text-slate-600">{m.label}</span>
+              <span className="text-[10px] font-medium text-secondary">{m.label}</span>
             </button>
           ))}
         </div>
@@ -147,18 +161,18 @@ export function HomePage() {
             >
               <i className="ti ti-sparkles text-white" style={{ fontSize: 11 }} aria-hidden="true" />
             </div>
-            <span className="text-sm font-medium text-slate-700">Chip insights</span>
+            <span className="text-sm font-medium text-primary">Chip insights</span>
           </div>
           <div className="flex flex-col gap-2">
             {insights.map((insight) => (
-              <article key={insight.id} className="bg-white rounded-xl border border-slate-100 p-4">
-                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">
+              <article key={insight.id} className="surface rounded-xl p-4">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-tertiary">
                   {insight.moduleTag}
                 </span>
-                <p className="text-sm font-medium text-slate-900 mt-0.5 mb-1">{insight.headline}</p>
-                <p className="text-xs text-slate-500 leading-relaxed">{insight.reasoning}</p>
+                <p className="text-sm font-medium mt-0.5 mb-1 text-primary">{insight.headline}</p>
+                <p className="text-xs leading-relaxed text-secondary">{insight.reasoning}</p>
                 {insight.consequence && (
-                  <p className="text-xs text-amber-700 mt-1.5 leading-relaxed">⚠ {insight.consequence}</p>
+                  <p className="text-xs text-amber-600 mt-1.5 leading-relaxed">⚠ {insight.consequence}</p>
                 )}
                 {insight.actionLabel && (
                   <button
@@ -176,9 +190,9 @@ export function HomePage() {
       )}
 
       {insights.length === 0 && summary !== null && (
-        <div className="bg-slate-50 rounded-xl border border-slate-100 p-6 text-center">
-          <i className="ti ti-sparkles text-slate-300" style={{ fontSize: 32 }} aria-hidden="true" />
-          <p className="text-sm text-slate-400 mt-2">Add your financial data and Chip will surface insights here.</p>
+        <div className="rounded-xl p-6 text-center bg-surface-2 border border-theme">
+          <i className="ti ti-sparkles text-tertiary" style={{ fontSize: 32 }} aria-hidden="true" />
+          <p className="text-sm mt-2 text-tertiary">Add your financial data and Chip will surface insights here.</p>
         </div>
       )}
     </div>
