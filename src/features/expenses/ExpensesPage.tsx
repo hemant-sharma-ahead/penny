@@ -2,15 +2,25 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useEventMode, EVENT_COLORS, toEventHashtag, normalizeHashtag } from '@/context/EventModeContext';
 import type { EventSubtype } from '@/context/EventModeContext';
-import { budgetsRepo, expenseCategoriesRepo, expensesRepo, hashtagsRepo } from '@/core/db/repositories';
+import {
+  accountsRepo,
+  budgetsRepo,
+  expenseCategoriesRepo,
+  expensesRepo,
+  hashtagsRepo,
+  personalIousRepo,
+  subscriptionsRepo
+} from '@/core/db/repositories';
 import { useRepository } from '@/hooks/useRepository';
-import type { Budget, Expense, ExpenseCategory } from '@/core/db/types';
-import { formatCurrency, formatCompact, toMonthYearKey } from '@/lib/formatters';
+import type { Budget, Expense, ExpenseCategory, PersonalIou, Subscription, TransactionType } from '@/core/db/types';
+import { formatCurrency, formatCompact, formatDateShort, toMonthYearKey } from '@/lib/formatters';
 import { ALL_DEFAULT_CATEGORIES, CATEGORY_MIGRATION_MAP, INTENT_GROUP_META } from '@/core/db/defaultCategories';
 import { useNavigate } from 'react-router-dom';
 import { exportExpensesAsCsv, downloadProtectedZip } from '@/core/export/exportCsv';
 import { PATHS } from '@/router/paths';
 import { ExpenseForm } from './ExpenseForm';
+import { detectSubscriptions, type DetectedSubscription } from '@/core/subscriptions/detector';
+import { IouForm } from '../iou/IouForm';
 
 // Evaluated once at module load — safe to use as a min= date attribute
 const TODAY_DATE_INPUT = epochToDateInput(Date.now());
@@ -123,10 +133,15 @@ export function ExpensesPage() {
   } = useRepository(expenseCategoriesRepo);
   const { items: budgets, save: saveBudget } = useRepository(budgetsRepo);
   const { items: hashtags, save: saveHashtag } = useRepository(hashtagsRepo);
+  const { items: accounts } = useRepository(accountsRepo);
 
-  const [activeTab, setActiveTab] = useState<'expenses' | 'budgets' | 'analytics'>('expenses');
+  const [activeTab, setActiveTab] = useState<'transactions' | 'subscriptions' | 'iou' | 'budgets' | 'analytics'>(
+    'transactions'
+  );
   const [showForm, setShowForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [initialTransactionType, setInitialTransactionType] = useState<TransactionType>('expense');
+  const [showDial, setShowDial] = useState(false);
   const [showBudgetForm, setShowBudgetForm] = useState(false);
   const [budgetCategoryId, setBudgetCategoryId] = useState('');
   const [budgetAmount, setBudgetAmount] = useState('');
@@ -146,6 +161,17 @@ export function ExpensesPage() {
   const [newEventType, setNewEventType] = useState<EventSubtype>('background');
   const [newEventEndDate, setNewEventEndDate] = useState('');
   const [newEventColor, setNewEventColor] = useState(EVENT_COLORS[0] ?? '#ef4444');
+
+  // ── Subscriptions tab state ───────────────────────────────────────────────────
+  const { items: stored, save: saveSubscription } = useRepository(subscriptionsRepo);
+  const [subActiveTab, setSubActiveTab] = useState<'detected' | 'active'>('detected');
+  const [nowMs] = useState(() => Date.now());
+
+  // ── IOU tab state ─────────────────────────────────────────────────────────────
+  const { items: ious, save: saveIou, remove: removeIou } = useRepository(personalIousRepo);
+  const [iouActiveTab, setIouActiveTab] = useState<'active' | 'history'>('active');
+  const [showIouForm, setShowIouForm] = useState(false);
+  const [editingIou, setEditingIou] = useState<PersonalIou | null>(null);
 
   // ── Category seeding (v2 migration) ──────────────────────────────────────────
   const seededRef = useRef(false);
@@ -194,11 +220,11 @@ export function ExpensesPage() {
   );
 
   const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
+  const accountMap = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Expense[]>();
     for (const e of expenses) {
-      if (e.type && e.type !== 'expense') continue;
       const key = toDateKey(e.date);
       const arr = map.get(key) ?? [];
       arr.push(e);
@@ -368,10 +394,116 @@ export function ExpensesPage() {
     return { daysElapsed, daysInMonth, projected };
   }, [selectedMonth, analyticsTotal]);
 
+  // ── Subscriptions derived ─────────────────────────────────────────────────────
+
+  const detectedSubs = useMemo(() => {
+    if (expenses.length === 0) return [];
+    const candidates = detectSubscriptions(expenses, nowMs);
+    const storedKeys = new Set(stored.map((s) => `${s.merchantCategory}:${s.intervalDays}`));
+    return candidates.filter((c) => !storedKeys.has(`${c.merchantCategory}:${c.intervalDays}`));
+  }, [expenses, stored, nowMs]);
+
+  const activeSubs = useMemo(() => stored.filter((s) => s.confirmedByUser && s.status !== 'cancelled'), [stored]);
+
+  const subsMonthlyTotal = useMemo(
+    () => activeSubs.reduce((sum, s) => sum + (s.detectedAmount / s.intervalDays) * 30, 0),
+    [activeSubs]
+  );
+
+  function handleSubConfirm(candidate: DetectedSubscription) {
+    const sub: Subscription = {
+      id: crypto.randomUUID(),
+      merchantCategory: candidate.merchantCategory,
+      detectedAmount: candidate.detectedAmount,
+      intervalDays: candidate.intervalDays,
+      status: candidate.status,
+      confirmedByUser: true,
+      createdAt: nowMs,
+      updatedAt: nowMs
+    };
+    if (candidate.trialEndsAt !== undefined) sub.trialEndsAt = candidate.trialEndsAt;
+    if (candidate.lastChargedAt !== undefined) sub.lastChargedAt = candidate.lastChargedAt;
+    saveSubscription(sub).catch(() => {});
+  }
+
+  function handleSubDismiss(candidate: DetectedSubscription) {
+    const sub: Subscription = {
+      id: crypto.randomUUID(),
+      merchantCategory: candidate.merchantCategory,
+      detectedAmount: candidate.detectedAmount,
+      intervalDays: candidate.intervalDays,
+      status: 'cancelled',
+      confirmedByUser: false,
+      createdAt: nowMs,
+      updatedAt: nowMs
+    };
+    if (candidate.lastChargedAt !== undefined) sub.lastChargedAt = candidate.lastChargedAt;
+    saveSubscription(sub).catch(() => {});
+  }
+
+  function handleSubCancel(sub: Subscription) {
+    saveSubscription({ ...sub, status: 'cancelled', updatedAt: nowMs }).catch(() => {});
+  }
+
+  // ── IOU derived ───────────────────────────────────────────────────────────────
+
+  const iouActive = useMemo(() => ious.filter((i) => !i.isSettled), [ious]);
+  const iouHistory = useMemo(
+    () =>
+      [...ious.filter((i) => i.isSettled)].sort((a, b) => (b.settledAt ?? b.updatedAt) - (a.settledAt ?? a.updatedAt)),
+    [ious]
+  );
+  const iouSortedActive = useMemo(
+    () =>
+      [...iouActive].sort((a, b) => {
+        const aR = a.dueDate !== undefined ? Math.ceil((a.dueDate - nowMs) / 86_400_000) : null;
+        const bR = b.dueDate !== undefined ? Math.ceil((b.dueDate - nowMs) / 86_400_000) : null;
+        if (aR !== null && aR < 0 && bR !== null && bR < 0) return aR - bR;
+        if (aR !== null && aR < 0) return -1;
+        if (bR !== null && bR < 0) return 1;
+        if (aR !== null && bR !== null) return aR - bR;
+        if (aR !== null) return -1;
+        if (bR !== null) return 1;
+        return b.date - a.date;
+      }),
+    [iouActive, nowMs]
+  );
+  const iouTotalLent = useMemo(
+    () => iouActive.filter((i) => i.direction === 'lent').reduce((s, i) => s + i.amount, 0),
+    [iouActive]
+  );
+  const iouTotalBorrowed = useMemo(
+    () => iouActive.filter((i) => i.direction === 'borrowed').reduce((s, i) => s + i.amount, 0),
+    [iouActive]
+  );
+  const iouOverdueCount = useMemo(
+    () => iouActive.filter((i) => i.dueDate !== undefined && i.dueDate < nowMs).length,
+    [iouActive, nowMs]
+  );
+
+  function iouDueLabel(dueDate: number): { text: string; color: string; bg: string } {
+    const days = Math.ceil((dueDate - nowMs) / 86_400_000);
+    if (days < 0) return { text: `${-days}d overdue`, color: '#ef4444', bg: '#fef2f2' };
+    if (days === 0) return { text: 'Due today', color: '#f59e0b', bg: '#fffbeb' };
+    if (days <= 7) return { text: `${days}d left`, color: '#f59e0b', bg: '#fffbeb' };
+    return { text: formatDateShort(dueDate), color: '#64748b', bg: 'var(--color-surface-secondary)' };
+  }
+
+  function subIntervalLabel(days: number): string {
+    if (days === 7) return 'weekly';
+    if (days === 14) return 'fortnightly';
+    if (days === 30) return 'monthly';
+    if (days === 91) return 'quarterly';
+    if (days === 365) return 'annual';
+    return `every ${days}d`;
+  }
+
   // ── Handlers ──────────────────────────────────────────────────────────────────
 
-  function openAdd() {
+  function openAdd(type: TransactionType = 'expense') {
+    setInitialTransactionType(type);
     setEditingExpense(null);
+    setShowDial(false);
     setShowForm(true);
   }
 
@@ -454,7 +586,7 @@ export function ExpensesPage() {
       <div className="px-4 pt-4 pb-3 border-b border-theme">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h2 className="text-xl font-semibold text-primary">Expenses</h2>
+            <h2 className="text-xl font-semibold text-primary">Transactions</h2>
             <p className="text-sm mt-0.5 text-secondary">
               This month:{' '}
               <span className="font-medium text-primary">
@@ -495,32 +627,40 @@ export function ExpensesPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex px-4 border-b border-theme">
-        {(['expenses', 'budgets', 'analytics'] as const).map((tab) => (
+      <div className="flex overflow-x-auto px-4 border-b border-theme" style={{ scrollbarWidth: 'none' }}>
+        {(
+          [
+            { key: 'transactions', label: 'Transactions' },
+            { key: 'subscriptions', label: 'Subscriptions' },
+            { key: 'iou', label: 'IOU' },
+            { key: 'budgets', label: 'Budgets' },
+            { key: 'analytics', label: 'Analytics' }
+          ] as const
+        ).map(({ key, label }) => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className="py-2.5 mr-5 text-sm font-medium border-b-2 -mb-px capitalize transition-colors"
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className="flex-shrink-0 py-2.5 mr-5 text-sm font-medium border-b-2 -mb-px transition-colors"
             style={
-              activeTab === tab
+              activeTab === key
                 ? { borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }
                 : { borderColor: 'transparent', color: 'var(--color-text-secondary)' }
             }
           >
-            {tab}
+            {label}
           </button>
         ))}
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto pb-24">
-        {/* ── Expenses tab ── */}
-        {activeTab === 'expenses' && (
+        {/* ── Transactions tab ── */}
+        {activeTab === 'transactions' && (
           <div>
             {grouped.length === 0 ? (
               <div className="p-10 text-center">
                 <i className="ti ti-wallet text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
-                <p className="text-sm mt-3 text-tertiary">No expenses yet. Tap + to add one.</p>
+                <p className="text-sm mt-3 text-tertiary">No transactions yet. Tap + to add one.</p>
               </div>
             ) : (
               grouped.map((group) => (
@@ -528,29 +668,55 @@ export function ExpensesPage() {
                   <div className="px-4 py-2 bg-surface-2 border-b border-theme">
                     <span className="text-xs font-medium uppercase tracking-wide text-tertiary">{group.label}</span>
                   </div>
-                  {group.items.map((expense) => {
-                    const cat = categoryMap.get(expense.categoryId);
+                  {group.items.map((txn) => {
+                    const txnType = txn.type ?? 'expense';
+                    const cat = categoryMap.get(txn.categoryId);
+                    const iconColor =
+                      txnType === 'income' ? '#10b981' : txnType === 'transfer' ? '#3b82f6' : (cat?.color ?? '#6b7280');
+                    const icon =
+                      txnType === 'income'
+                        ? 'ti-arrow-up-circle'
+                        : txnType === 'transfer'
+                          ? 'ti-arrows-exchange'
+                          : (cat?.icon ?? 'ti-dots');
+                    const amountColor =
+                      txnType === 'income' ? '#10b981' : txnType === 'expense' ? '#ef4444' : '#3b82f6';
+                    const prefix = txnType === 'income' ? '+' : txnType === 'transfer' ? '' : '-';
+                    const acc = txn.accountId ? accountMap.get(txn.accountId) : undefined;
+                    const pmLabel = txn.paymentMode
+                      ? ({ cash: 'Cash', upi: 'UPI', card: 'Card', net: 'Net', wallet: 'Wallet' }[txn.paymentMode] ??
+                        txn.paymentMode)
+                      : undefined;
+                    const accLine = [acc?.name, pmLabel ? `(${pmLabel})` : undefined].filter(Boolean).join(' ');
                     return (
                       <button
-                        key={expense.id}
-                        onClick={() => openEdit(expense)}
+                        key={txn.id}
+                        onClick={() => openEdit(txn)}
                         className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-theme"
                       >
                         <div
                           className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: `${cat?.color ?? '#6b7280'}18` }}
+                          style={{ backgroundColor: `${iconColor}18` }}
                         >
-                          <i
-                            className={`ti ${cat?.icon ?? 'ti-dots'}`}
-                            style={{ fontSize: 18, color: cat?.color ?? '#6b7280' }}
-                            aria-hidden="true"
-                          />
+                          <i className={`ti ${icon}`} style={{ fontSize: 18, color: iconColor }} aria-hidden="true" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate text-primary">{expense.description}</p>
+                          <p className="text-sm font-medium truncate text-primary">{txn.description}</p>
                           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                            {cat && <span className="text-[10px] text-tertiary">{cat.name}</span>}
-                            {expense.hashtags.map((tag) => (
+                            {txnType === 'expense' && cat && (
+                              <span className="text-[10px] text-tertiary">{cat.name}</span>
+                            )}
+                            {txnType === 'income' && (
+                              <span className="text-[10px] font-medium" style={{ color: '#10b981' }}>
+                                Income
+                              </span>
+                            )}
+                            {txnType === 'transfer' && (
+                              <span className="text-[10px] font-medium" style={{ color: '#3b82f6' }}>
+                                Transfer
+                              </span>
+                            )}
+                            {txn.hashtags.map((tag) => (
                               <span
                                 key={tag}
                                 className="text-[10px] font-medium"
@@ -561,9 +727,19 @@ export function ExpensesPage() {
                             ))}
                           </div>
                         </div>
-                        <span className="text-sm font-semibold flex-shrink-0 ml-2 text-primary">
-                          {mode === 'open' ? formatCurrency(expense.amount) : '••••'}
-                        </span>
+                        <div className="flex flex-col items-end flex-shrink-0 ml-2 gap-0.5">
+                          <span
+                            className="text-sm font-semibold"
+                            style={{ color: mode === 'open' ? amountColor : 'var(--color-text-primary)' }}
+                          >
+                            {mode === 'open' ? `${prefix}${formatCurrency(txn.amount)}` : '••••'}
+                          </span>
+                          {accLine && (
+                            <span className="text-[9px] text-tertiary text-right leading-tight max-w-[90px] truncate">
+                              {accLine}
+                            </span>
+                          )}
+                        </div>
                       </button>
                     );
                   })}
@@ -942,22 +1118,449 @@ export function ExpensesPage() {
             )}
           </div>
         )}
+
+        {/* ── Subscriptions tab ── */}
+        {activeTab === 'subscriptions' && (
+          <div className="flex flex-col">
+            {/* Inner sub-tabs */}
+            <div className="flex px-4 border-b border-theme">
+              {(
+                [
+                  ['detected', `Detected (${detectedSubs.length})`],
+                  ['active', `Active (${activeSubs.length})`]
+                ] as const
+              ).map(([tab, label]) => (
+                <button
+                  key={tab}
+                  onClick={() => setSubActiveTab(tab)}
+                  className="py-2.5 mr-5 text-sm font-medium border-b-2 -mb-px transition-colors"
+                  style={
+                    subActiveTab === tab
+                      ? { borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }
+                      : { borderColor: 'transparent', color: 'var(--color-text-secondary)' }
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+              {activeSubs.length > 0 && (
+                <span className="ml-auto self-center text-xs text-secondary">
+                  {mode === 'open' ? formatCurrency(subsMonthlyTotal) : '••••'}/mo
+                </span>
+              )}
+            </div>
+
+            {/* Detected */}
+            {subActiveTab === 'detected' && (
+              <div className="px-4 py-4 flex flex-col gap-3">
+                {detectedSubs.length === 0 ? (
+                  <div className="p-10 text-center">
+                    <i className="ti ti-refresh text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
+                    <p className="text-sm font-medium text-secondary mt-3">No new subscriptions detected</p>
+                    <p className="text-xs text-tertiary mt-1">
+                      {expenses.length === 0
+                        ? 'Add expenses first — recurring patterns will surface here.'
+                        : 'All detected subscriptions have been reviewed.'}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs text-tertiary">
+                      {detectedSubs.length} recurring pattern{detectedSubs.length !== 1 ? 's' : ''} found. Confirm ones
+                      you recognise.
+                    </p>
+                    {detectedSubs.map((c) => (
+                      <div
+                        key={`${c.merchantCategory}:${c.intervalDays}`}
+                        className="surface rounded-2xl p-4 flex flex-col gap-3"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-primary truncate">
+                              {c.merchantCategory.replace(/\b\w/g, (ch) => ch.toUpperCase())}
+                            </p>
+                            <p className="text-xs text-secondary mt-0.5">
+                              {mode === 'open' ? formatCurrency(c.detectedAmount) : '••••'} ·{' '}
+                              {subIntervalLabel(c.intervalDays)}
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                            {c.status === 'trial' && (
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">
+                                Trial
+                              </span>
+                            )}
+                            {c.priceCreep && (
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">
+                                Price creep
+                              </span>
+                            )}
+                            {c.dormant && (
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-surface-2 text-secondary">
+                                Dormant
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-xs text-tertiary">
+                          Seen {c.occurrenceCount} time{c.occurrenceCount !== 1 ? 's' : ''}
+                          {c.lastChargedAt !== undefined && ` · last ${formatDateShort(c.lastChargedAt)}`}
+                          {c.status === 'trial' && c.trialEndsAt !== undefined && (
+                            <span className="ml-1 text-blue-500">· trial may end {formatDateShort(c.trialEndsAt)}</span>
+                          )}
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleSubConfirm(c)}
+                            className="flex-1 py-2 rounded-xl text-white text-xs font-semibold"
+                            style={{ backgroundColor: 'var(--color-primary)' }}
+                          >
+                            <i className="ti ti-check mr-1" aria-hidden="true" /> Confirm
+                          </button>
+                          <button
+                            onClick={() => handleSubDismiss(c)}
+                            className="flex-1 py-2 rounded-xl border border-theme text-secondary text-xs font-semibold"
+                          >
+                            <i className="ti ti-x mr-1" aria-hidden="true" /> Dismiss
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Active */}
+            {subActiveTab === 'active' && (
+              <div className="px-4 py-4 flex flex-col gap-3">
+                {activeSubs.length === 0 ? (
+                  <div className="p-10 text-center">
+                    <i className="ti ti-checklist text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
+                    <p className="text-sm font-medium text-secondary mt-3">No active subscriptions</p>
+                    <p className="text-xs text-tertiary mt-1">
+                      Confirm detected subscriptions to track recurring costs.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="bg-surface-2 rounded-xl p-3 flex items-center justify-between">
+                      <span className="text-xs text-secondary">Monthly spend</span>
+                      <span className="text-sm font-semibold text-primary">
+                        {mode === 'open' ? formatCurrency(subsMonthlyTotal) : '••••'}
+                      </span>
+                    </div>
+                    {activeSubs.map((sub) => {
+                      const monthly = (sub.detectedAmount / sub.intervalDays) * 30;
+                      return (
+                        <div key={sub.id} className="surface rounded-2xl p-4">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-semibold text-primary truncate">
+                                  {sub.merchantCategory.replace(/\b\w/g, (ch) => ch.toUpperCase())}
+                                </p>
+                                {sub.status === 'trial' && (
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 flex-shrink-0">
+                                    Trial
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-secondary mt-0.5">
+                                {mode === 'open' ? formatCurrency(sub.detectedAmount) : '••••'} ·{' '}
+                                {subIntervalLabel(sub.intervalDays)}
+                                {sub.intervalDays !== 30 && mode === 'open' && (
+                                  <span className="text-tertiary"> ({formatCurrency(monthly)}/mo)</span>
+                                )}
+                              </p>
+                              {sub.lastChargedAt !== undefined && (
+                                <p className="text-xs text-tertiary mt-0.5">
+                                  Last charged {formatDateShort(sub.lastChargedAt)}
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => handleSubCancel(sub)}
+                              className="text-[10px] font-medium text-tertiary border border-theme rounded-lg px-2 py-1 flex-shrink-0"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── IOU tab ── */}
+        {activeTab === 'iou' && (
+          <div className="flex flex-col pb-24">
+            {/* Summary strip */}
+            {iouActive.length > 0 && (
+              <div className="flex gap-4 px-4 py-3 border-b border-theme">
+                {iouTotalLent > 0 && (
+                  <span className="text-xs font-medium text-emerald-600">
+                    Owed to you: {mode === 'open' ? formatCurrency(iouTotalLent) : '••••'}
+                  </span>
+                )}
+                {iouTotalBorrowed > 0 && (
+                  <span className="text-xs font-medium text-red-500">
+                    You owe: {mode === 'open' ? formatCurrency(iouTotalBorrowed) : '••••'}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Inner sub-tabs */}
+            <div className="flex px-4 border-b border-theme">
+              {(
+                [
+                  ['active', `Active (${iouActive.length})`],
+                  ['history', `History (${iouHistory.length})`]
+                ] as const
+              ).map(([tab, label]) => (
+                <button
+                  key={tab}
+                  onClick={() => setIouActiveTab(tab)}
+                  className="py-2.5 mr-5 text-sm font-medium border-b-2 -mb-px transition-colors"
+                  style={
+                    iouActiveTab === tab
+                      ? { borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }
+                      : { borderColor: 'transparent', color: 'var(--color-text-secondary)' }
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Active IOUs */}
+            {iouActiveTab === 'active' && (
+              <div className="px-4 py-4 flex flex-col gap-3">
+                {iouOverdueCount > 0 && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex gap-2">
+                    <i
+                      className="ti ti-alert-triangle text-red-500 flex-shrink-0 mt-0.5"
+                      style={{ fontSize: 16 }}
+                      aria-hidden="true"
+                    />
+                    <p className="text-xs text-red-700">
+                      {iouOverdueCount} {iouOverdueCount === 1 ? 'IOU is' : 'IOUs are'} overdue.
+                    </p>
+                  </div>
+                )}
+                {iouSortedActive.length === 0 ? (
+                  <div className="p-10 text-center">
+                    <i className="ti ti-arrows-exchange text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
+                    <p className="text-sm mt-3 text-tertiary">No active IOUs. Tap + to log one.</p>
+                  </div>
+                ) : (
+                  iouSortedActive.map((iou) => {
+                    const isLent = iou.direction === 'lent';
+                    const accentColor = isLent ? '#10b981' : '#ef4444';
+                    const accentBg = isLent ? '#f0fdf4' : '#fef2f2';
+                    const due = iou.dueDate !== undefined ? iouDueLabel(iou.dueDate) : null;
+                    return (
+                      <button
+                        key={iou.id}
+                        onClick={() => {
+                          setEditingIou(iou);
+                          setShowIouForm(true);
+                        }}
+                        className="rounded-2xl p-4 text-left w-full surface"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div
+                            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: accentBg }}
+                          >
+                            <i
+                              className={`ti ${isLent ? 'ti-arrow-up' : 'ti-arrow-down'}`}
+                              style={{ fontSize: 18, color: accentColor }}
+                              aria-hidden="true"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm font-semibold truncate text-primary">{iou.description}</p>
+                              <p className="text-sm font-semibold flex-shrink-0" style={{ color: accentColor }}>
+                                {mode === 'open' ? formatCurrency(iou.amount) : '••••'}
+                              </p>
+                            </div>
+                            <div className="flex items-center justify-between mt-1 gap-2">
+                              <p className="text-xs text-tertiary">
+                                {isLent ? 'Lent' : 'Borrowed'} {formatDateShort(iou.date)}
+                              </p>
+                              {due !== null && (
+                                <span
+                                  className="text-[10px] font-semibold px-2 py-0.5 rounded-lg flex-shrink-0"
+                                  style={{ color: due.color, backgroundColor: due.bg }}
+                                >
+                                  {due.text}
+                                </span>
+                              )}
+                            </div>
+                            {iou.notes && <p className="text-xs mt-0.5 truncate text-tertiary">{iou.notes}</p>}
+                          </div>
+                        </div>
+                        <div className="mt-3 pt-3 flex justify-end border-t border-theme">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              saveIou({ ...iou, isSettled: true, settledAt: nowMs, updatedAt: nowMs }).catch(() => {});
+                            }}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg"
+                            style={{ backgroundColor: `${accentColor}18`, color: accentColor }}
+                          >
+                            <i className="ti ti-check mr-1" aria-hidden="true" /> Mark settled
+                          </button>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+
+            {/* IOU History */}
+            {iouActiveTab === 'history' && (
+              <div className="px-4 py-4 flex flex-col gap-3">
+                {iouHistory.length === 0 ? (
+                  <div className="p-10 text-center">
+                    <i className="ti ti-clock-check text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
+                    <p className="text-sm mt-3 text-tertiary">No settled IOUs yet.</p>
+                  </div>
+                ) : (
+                  iouHistory.map((iou) => {
+                    const isLent = iou.direction === 'lent';
+                    const accentColor = isLent ? '#10b981' : '#ef4444';
+                    return (
+                      <button
+                        key={iou.id}
+                        onClick={() => {
+                          setEditingIou(iou);
+                          setShowIouForm(true);
+                        }}
+                        className="rounded-2xl p-4 text-left w-full opacity-70 surface"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-surface-2">
+                            <i className="ti ti-check text-tertiary" style={{ fontSize: 18 }} aria-hidden="true" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-sm font-medium truncate text-secondary">{iou.description}</p>
+                              <p className="text-sm font-semibold flex-shrink-0" style={{ color: accentColor }}>
+                                {mode === 'open' ? formatCurrency(iou.amount) : '••••'}
+                              </p>
+                            </div>
+                            <p className="text-xs mt-0.5 text-tertiary">
+                              {isLent ? 'Lent' : 'Borrowed'} {formatDateShort(iou.date)}
+                              {iou.settledAt !== undefined && ` · settled ${formatDateShort(iou.settledAt)}`}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* FAB — add expense */}
-      {activeTab === 'expenses' && (
+      {/* Speed dial FAB */}
+      {activeTab === 'transactions' && (
+        <>
+          {showDial && <div className="fixed inset-0 z-[9]" onClick={() => setShowDial(false)} aria-hidden="true" />}
+          <div
+            className="fixed flex flex-col items-end gap-2 z-10"
+            style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))', right: '1rem' }}
+          >
+            {showDial && (
+              <div className="flex flex-col items-end gap-2 mb-1">
+                {[
+                  { type: 'income' as TransactionType, label: 'Income', color: '#10b981', icon: 'ti-arrow-up-circle' },
+                  {
+                    type: 'transfer' as TransactionType,
+                    label: 'Transfer',
+                    color: '#3b82f6',
+                    icon: 'ti-arrows-exchange'
+                  },
+                  {
+                    type: 'expense' as TransactionType,
+                    label: 'Expense',
+                    color: '#ef4444',
+                    icon: 'ti-arrow-down-circle'
+                  }
+                ].map(({ type: t, label, color, icon }) => (
+                  <button
+                    key={t}
+                    onClick={() => openAdd(t)}
+                    className="flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full shadow-lg text-white text-sm font-semibold"
+                    style={{ backgroundColor: color }}
+                  >
+                    <i className={`ti ${icon}`} style={{ fontSize: 16 }} aria-hidden="true" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={() => setShowDial((d) => !d)}
+              className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white self-end"
+              style={{ backgroundColor: 'var(--color-primary)' }}
+              aria-label="Add transaction"
+            >
+              <i
+                className="ti ti-plus"
+                style={{ fontSize: 24, transition: 'transform 0.2s', transform: showDial ? 'rotate(45deg)' : 'none' }}
+                aria-hidden="true"
+              />
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* IOU FAB */}
+      {activeTab === 'iou' && (
         <button
-          onClick={openAdd}
+          onClick={() => {
+            setEditingIou(null);
+            setShowIouForm(true);
+          }}
           className="fixed w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white z-10"
           style={{
             bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
             right: '1rem',
             backgroundColor: 'var(--color-primary)'
           }}
-          aria-label="Add expense"
+          aria-label="Add IOU"
         >
           <i className="ti ti-plus" style={{ fontSize: 24 }} aria-hidden="true" />
         </button>
+      )}
+
+      {/* IOU form modal */}
+      {showIouForm && (
+        <IouForm
+          editing={editingIou}
+          onSave={async (iou: PersonalIou) => {
+            await saveIou(iou);
+            setShowIouForm(false);
+          }}
+          onDelete={async (id: string) => {
+            await removeIou(id);
+            setShowIouForm(false);
+          }}
+          onClose={() => setShowIouForm(false)}
+          nowMs={nowMs}
+        />
       )}
 
       {/* ── Export sheet ── */}
@@ -1308,13 +1911,14 @@ export function ExpensesPage() {
         </div>
       )}
 
-      {/* ── Expense form ── */}
+      {/* ── Transaction form ── */}
       {showForm && (
         <ExpenseForm
-          categories={expenseCategories}
+          categories={categories}
           hashtags={hashtags}
           editing={editingExpense}
           activeEvents={events}
+          initialType={initialTransactionType}
           onSave={handleSaveExpense}
           onDelete={handleDeleteExpense}
           onCategoryCreated={reloadCategories}

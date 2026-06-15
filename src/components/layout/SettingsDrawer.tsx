@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSettings, type FontScale, type ModuleVisibility, type Theme } from '@/context/SettingsContext';
 import { clearDemoData, isDemoSeeded } from '@/core/db/seedDemoData';
+import { PATHS } from '@/router/paths';
 
 interface Props {
   open: boolean;
@@ -18,13 +20,10 @@ const MODULE_ROWS: ModuleRow[] = [
   { key: 'portfolio', label: 'Portfolio', icon: 'ti-chart-pie', color: '#6366f1' },
   { key: 'goals', label: 'Goals', icon: 'ti-target', color: '#10b981' },
   { key: 'insurance', label: 'Insurance', icon: 'ti-shield', color: '#3b82f6' },
-  { key: 'subscriptions', label: 'Subs', icon: 'ti-refresh', color: '#8b5cf6' },
-  { key: 'iou', label: 'IOUs', icon: 'ti-arrows-exchange', color: '#f59e0b' },
   { key: 'loans', label: 'Loans', icon: 'ti-calculator', color: '#06b6d4' },
   { key: 'health', label: 'Health', icon: 'ti-heart-rate-monitor', color: '#ec4899' },
   { key: 'tax', label: 'Tax', icon: 'ti-receipt-tax', color: '#8b5cf6' },
-  { key: 'cashflow', label: 'Cash Flow', icon: 'ti-trending-down', color: '#14b8a6' },
-  { key: 'backup', label: 'Backup', icon: 'ti-cloud-download', color: '#64748b' }
+  { key: 'cashflow', label: 'Cash Flow', icon: 'ti-trending-down', color: '#14b8a6' }
 ];
 
 const FONT_SCALES: { value: FontScale; label: string }[] = [
@@ -41,6 +40,7 @@ const THEMES: { value: Theme; label: string; icon: string }[] = [
 ];
 
 export function SettingsDrawer({ open, onClose }: Props) {
+  const navigate = useNavigate();
   const { modules, fontScale, theme, setModule, setFontScale, setTheme } = useSettings();
   const [clearing, setClearing] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -169,12 +169,22 @@ export function SettingsDrawer({ open, onClose }: Props) {
 
           {/* Security section */}
           <section className="px-4 py-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wider mb-3 text-tertiary">Security</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wider mb-3 text-tertiary">Security &amp; Data</p>
             {[
-              { icon: 'ti-lock', label: 'Change PIN' },
-              { icon: 'ti-key', label: 'Change Passphrase' }
+              { icon: 'ti-lock', label: 'Change PIN', path: null },
+              { icon: 'ti-key', label: 'Change Passphrase', path: null },
+              { icon: 'ti-database-export', label: 'Backup & Restore', path: PATHS.app.backup }
             ].map((item) => (
-              <button key={item.label} className="flex items-center justify-between w-full py-2.5 text-left">
+              <button
+                key={item.label}
+                onClick={() => {
+                  if (item.path) {
+                    onClose();
+                    navigate(item.path);
+                  }
+                }}
+                className="flex items-center justify-between w-full py-2.5 text-left"
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-surface-2">
                     <i className={`ti ${item.icon} text-secondary`} style={{ fontSize: 15 }} aria-hidden="true" />

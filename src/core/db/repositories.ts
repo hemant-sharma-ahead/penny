@@ -3,6 +3,7 @@
 import { db } from './schema';
 import { EncryptedRepository } from './repository';
 import type {
+  Account,
   AiCallLog,
   Asset,
   Budget,
@@ -37,3 +38,4 @@ export const aiCallLogRepo = new EncryptedRepository<AiCallLog>(db.ai_call_log a
 export const subscriptionsRepo = new EncryptedRepository<Subscription>(db.subscriptions as never);
 export const personalIousRepo = new EncryptedRepository<PersonalIou>(db.personal_ious as never);
 export const creditProfileRepo = new EncryptedRepository<CreditProfile>(db.credit_profile as never);
+export const accountsRepo = new EncryptedRepository<Account>(db.accounts as never);

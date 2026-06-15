@@ -2,15 +2,31 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useSettings, type ModuleVisibility } from '@/context/SettingsContext';
-import { assetsRepo, chipInsightsRepo, expensesRepo, holdingsRepo, liabilitiesRepo } from '@/core/db/repositories';
+import {
+  accountsRepo,
+  assetsRepo,
+  chipInsightsRepo,
+  expensesRepo,
+  holdingsRepo,
+  liabilitiesRepo
+} from '@/core/db/repositories';
 import { DEFAULT_INSIGHTS } from '@/core/ai-safety/mockChip';
 import type { ChipInsight } from '@/core/db/types';
 import { formatCompact, formatCurrency, toMonthYearKey } from '@/lib/formatters';
 import { PATHS } from '@/router/paths';
 
+interface AccountBalance {
+  id: string;
+  name: string;
+  balance: number;
+  color: string;
+  icon: string;
+}
+
 interface Summary {
   netWorth: number;
   monthlyExpenses: number;
+  accountBalances: AccountBalance[];
 }
 
 async function seedInsightsIfEmpty(): Promise<ChipInsight[]> {
@@ -29,11 +45,12 @@ async function seedInsightsIfEmpty(): Promise<ChipInsight[]> {
 }
 
 async function loadSummary(): Promise<Summary> {
-  const [assets, liabilities, expenses, holdings] = await Promise.all([
+  const [assets, liabilities, expenses, holdings, accs] = await Promise.all([
     assetsRepo.getAll(),
     liabilitiesRepo.getAll(),
     expensesRepo.getAll(),
-    holdingsRepo.getAll()
+    holdingsRepo.getAll(),
+    accountsRepo.getAll()
   ]);
 
   const totalAssets =
@@ -42,22 +59,32 @@ async function loadSummary(): Promise<Summary> {
 
   const thisMonth = toMonthYearKey();
   const monthlyExpenses = expenses
-    .filter((e) => toMonthYearKey(new Date(e.date)) === thisMonth)
+    .filter((e) => toMonthYearKey(new Date(e.date)) === thisMonth && (!e.type || e.type === 'expense'))
     .reduce((s, e) => s + e.amount, 0);
 
-  return { netWorth: totalAssets - totalLiabilities, monthlyExpenses };
+  const accountBalances: AccountBalance[] = accs
+    .filter((a) => !a.isArchived)
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .map((acc) => {
+      const linked = expenses.filter((t) => t.accountId === acc.id || t.toAccountId === acc.id);
+      const balance = linked.reduce((bal, t) => {
+        const type = t.type ?? 'expense';
+        if (type === 'income' && t.accountId === acc.id) return bal + t.amount;
+        if (type === 'expense' && t.accountId === acc.id) return bal - t.amount;
+        if (type === 'transfer') {
+          if (t.accountId === acc.id) return bal - t.amount;
+          if (t.toAccountId === acc.id) return bal + t.amount;
+        }
+        return bal;
+      }, acc.openingBalance);
+      return { id: acc.id, name: acc.name, balance, color: acc.color, icon: acc.icon };
+    });
+
+  return { netWorth: totalAssets - totalLiabilities, monthlyExpenses, accountBalances };
 }
 
 const TOOL_TILES: { label: string; icon: string; path: string; color: string; moduleKey: keyof ModuleVisibility }[] = [
   { label: 'Insurance', icon: 'ti-shield', path: PATHS.app.insurance, color: '#3b82f6', moduleKey: 'insurance' },
-  {
-    label: 'Subscriptions',
-    icon: 'ti-refresh',
-    path: PATHS.app.subscriptions,
-    color: '#8b5cf6',
-    moduleKey: 'subscriptions'
-  },
-  { label: 'IOUs', icon: 'ti-arrows-exchange', path: PATHS.app.iou, color: '#f59e0b', moduleKey: 'iou' },
   { label: 'Loans', icon: 'ti-calculator', path: PATHS.app.loans, color: '#06b6d4', moduleKey: 'loans' },
   {
     label: 'Health Score',
@@ -67,8 +94,7 @@ const TOOL_TILES: { label: string; icon: string; path: string; color: string; mo
     moduleKey: 'health'
   },
   { label: 'Tax', icon: 'ti-receipt-tax', path: PATHS.app.tax, color: '#8b5cf6', moduleKey: 'tax' },
-  { label: 'Cash Flow', icon: 'ti-trending-down', path: PATHS.app.cashflow, color: '#14b8a6', moduleKey: 'cashflow' },
-  { label: 'Backup', icon: 'ti-cloud-download', path: PATHS.app.backup, color: '#64748b', moduleKey: 'backup' }
+  { label: 'Cash Flow', icon: 'ti-trending-down', path: PATHS.app.cashflow, color: '#14b8a6', moduleKey: 'cashflow' }
 ];
 
 export function HomePage() {
@@ -129,23 +155,59 @@ export function HomePage() {
         )}
       </div>
 
+      {/* Accounts strip */}
+      {summary && summary.accountBalances.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium text-tertiary">Accounts</p>
+            <button
+              onClick={() => navigate(PATHS.app.accounts)}
+              className="text-xs font-medium"
+              style={{ color: 'var(--color-primary)' }}
+            >
+              Manage →
+            </button>
+          </div>
+          <div className="flex gap-2.5 overflow-x-auto pb-0.5 -mx-4 px-4">
+            {summary.accountBalances.map((acc) => (
+              <button
+                key={acc.id}
+                onClick={() => navigate(PATHS.app.accounts)}
+                className="flex-shrink-0 surface rounded-2xl px-3.5 py-3 flex flex-col gap-1 min-w-[120px] text-left active:opacity-70"
+              >
+                <div
+                  className="w-7 h-7 rounded-lg flex items-center justify-center"
+                  style={{ backgroundColor: acc.color + '22' }}
+                >
+                  <i className={`ti ${acc.icon}`} style={{ fontSize: 15, color: acc.color }} aria-hidden="true" />
+                </div>
+                <p className="text-[11px] font-medium text-secondary truncate mt-0.5">{acc.name}</p>
+                <p className="text-sm font-bold text-primary">
+                  {mode === 'open' ? formatCurrency(acc.balance) : '••••'}
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Tools grid */}
       <div>
         <p className="text-xs font-medium mb-2 text-tertiary">Tools</p>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-5 gap-1.5">
           {TOOL_TILES.filter((m) => modules[m.moduleKey]).map((m) => (
             <button
               key={m.label}
               onClick={() => navigate(m.path)}
-              className="surface flex flex-col items-center gap-1.5 rounded-xl p-3 active:opacity-70 transition-colors"
+              className="surface flex flex-col items-center gap-1 rounded-xl p-2 active:opacity-70 transition-colors"
             >
               <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                className="w-8 h-8 rounded-lg flex items-center justify-center"
                 style={{ backgroundColor: `${m.color}22` }}
               >
-                <i className={`ti ${m.icon}`} style={{ fontSize: 20, color: m.color }} aria-hidden="true" />
+                <i className={`ti ${m.icon}`} style={{ fontSize: 17, color: m.color }} aria-hidden="true" />
               </div>
-              <span className="text-[10px] font-medium text-secondary">{m.label}</span>
+              <span className="text-[9px] font-medium text-secondary text-center leading-tight">{m.label}</span>
             </button>
           ))}
         </div>

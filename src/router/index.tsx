@@ -23,6 +23,7 @@ import { CashFlowPage } from '@/features/cashflow/CashFlowPage';
 import { ChipPage } from '@/features/chip/ChipPage';
 import { BackupPage } from '@/features/backup/BackupPage';
 import { ImportPage } from '@/features/import/ImportPage';
+import { AccountsPage } from '@/features/accounts/AccountsPage';
 
 export const router = createBrowserRouter([
   { index: true, element: <Navigate to={PATHS.onboarding.splash} replace /> },
@@ -54,7 +55,8 @@ export const router = createBrowserRouter([
           { path: PATHS.app.cashflow, element: <CashFlowPage /> },
           { path: PATHS.app.chip, element: <ChipPage /> },
           { path: PATHS.app.backup, element: <BackupPage /> },
-          { path: PATHS.app.import, element: <ImportPage /> }
+          { path: PATHS.app.import, element: <ImportPage /> },
+          { path: PATHS.app.accounts, element: <AccountsPage /> }
         ]
       }
     ]
