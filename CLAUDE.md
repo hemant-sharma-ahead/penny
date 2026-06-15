@@ -28,13 +28,13 @@ This file is read at the start of every Claude Code session. It tells you where 
 | M6: PWA + responsive polish          | ✅ Complete                                         |
 | M7: Hardening                        | ✅ Complete                                         |
 | M8: Phase 1 polish                   | ✅ Complete                                         |
-| M9: Income, transfers & cash         | 🔄 Next — scope discussion required before starting |
-| M10: Export PDF/HTML                 | ⏳ Future                                           |
-| M11: Portfolio enhancements          | ⏳ Future                                           |
-| M12: Extended asset tracking         | ⏳ Future                                           |
-| M13: IPO tracker + GMP               | ⏳ Future                                           |
-| M14: Financial calculators           | ⏳ Future                                           |
-| M15: Finance news + Contact/Feedback | ⏳ Future                                           |
+| M9: Income, transfers & cash         | ✅ Complete                                         |
+| M10: IPO tracker + GMP               | ⏳ Future                                           |
+| M11: Extended asset tracking         | ⏳ Future                                           |
+| M12: Portfolio enhancements          | ⏳ Future                                           |
+| M13: Financial calculators           | ⏳ Future                                           |
+| M14: Finance news + Contact/Feedback | ⏳ Future                                           |
+| M15: Export PDF/HTML                 | ⏳ Future                                           |
 
 **M5 step tracker:**
 
@@ -102,21 +102,23 @@ This file is read at the start of every Claude Code session. It tells you where 
 | 52   | Transactions tab — all types in list with type-specific icons/colors, page rename            | ✅ Done     |
 | 53   | Demo data — 3 accounts, salary income ×3, freelance income, CC + savings transfers           | ✅ Done     |
 | 54   | Home dashboard — accounts strip with live balances                                           | ✅ Done     |
-| 55   | Final CI pass + CLAUDE.md updated                                                            | 🔄 In progress |
+| 55   | Final CI pass + CLAUDE.md updated                                                            | ✅ Done        |
 
-**Next step when you pick up a session:** M9 — finalize step 55 (final CI pass + CLAUDE.md), then commit, PR, merge, start M10.
+**M9 is complete.**
+
+**Next step when you pick up a session:** Start M10 — IPO tracker + GMP.
 
 **Full Phase 1 roadmap (M9–M15):**
 
 | Milestone | Scope                                                                                                         | Key data sources                                                    |
 | --------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | M9        | Income entries, transfer tracking, cash account, net cash flow view                                           | Local DB only                                                       |
-| M10       | Export PDF + HTML — wealth snapshot, tax summary, share-ready report                                          | On-device render                                                    |
-| M11       | Portfolio enhancements — MF/stock search, CAS PDF import, watchlists                                          | MFAPI.in, Yahoo Finance, casparser SDK                              |
-| M12       | Extended asset tracking — vehicles, property, PPF, NPS, EPF (manual + last-updated timestamp)                 | Manual entry only                                                   |
-| M13       | IPO tracker + GMP — Upcoming/Open/Closed/Listed, subscription multiples, GMP                                  | ipoalerts.in (free), NSE eIPO API via Cloudflare Worker, ipoguru.in |
-| M14       | Financial calculators — FIRE, HRA exemption, PPF maturity, NPS corpus, step-up SIP, old vs new tax regime     | Pure on-device TypeScript                                           |
-| M15       | Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Contact/Feedback (mailto: deep-link) | RSS feeds, no backend                                               |
+| M10       | IPO tracker + GMP — Upcoming/Open/Closed/Listed, subscription multiples, GMP                                  | ipoalerts.in (free), NSE eIPO API via Cloudflare Worker, ipoguru.in |
+| M11       | Extended asset tracking — vehicles, property, PPF, NPS, EPF (manual + last-updated timestamp)                 | Manual entry only                                                   |
+| M12       | Portfolio enhancements — MF/stock search, CAS PDF import, watchlists                                          | MFAPI.in, Yahoo Finance, casparser SDK                              |
+| M13       | Financial calculators — FIRE, HRA exemption, PPF maturity, NPS corpus, step-up SIP, old vs new tax regime     | Pure on-device TypeScript                                           |
+| M14       | Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Contact/Feedback (mailto: deep-link) | RSS feeds, no backend                                               |
+| M15       | Export PDF + HTML — wealth snapshot, tax summary, share-ready report                                          | On-device render                                                    |
 
 **Phase boundaries:**
 
