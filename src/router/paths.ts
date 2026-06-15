@@ -23,6 +23,7 @@ export const PATHS = {
     cashflow: '/app/cashflow',
     chip: '/app/chip',
     backup: '/app/backup',
-    import: '/app/import'
+    import: '/app/import',
+    accounts: '/app/accounts'
   }
 } as const;

@@ -17,24 +17,24 @@ This file is read at the start of every Claude Code session. It tells you where 
 
 ## Current milestone status
 
-| Milestone                           | Status                                              |
-| ----------------------------------- | --------------------------------------------------- |
-| M0: Repo + tooling + docs           | ✅ Complete                                         |
-| M1: Running skeleton (5-tab layout) | ✅ Complete                                         |
-| M2: Crypto + DB layer               | ✅ Complete                                         |
-| M3: CI PII gate                     | ✅ Complete                                         |
-| M4: Onboarding flow                 | ✅ Complete                                         |
-| M5: Feature modules (no AI)         | ✅ Complete                                         |
-| M6: PWA + responsive polish         | ✅ Complete                                         |
-| M7: Hardening                       | ✅ Complete                                         |
-| M8: Phase 1 polish                  | ✅ Complete                                         |
-| M9: Income, transfers & cash        | 🔄 Next — scope discussion required before starting |
-| M10: Export PDF/HTML                | ⏳ Future                                           |
-| M11: Portfolio enhancements         | ⏳ Future                                           |
-| M12: Extended asset tracking        | ⏳ Future                                           |
-| M13: IPO tracker + GMP              | ⏳ Future                                           |
-| M14: Financial calculators          | ⏳ Future                                           |
-| M15: Finance news + Contact/Feedback| ⏳ Future                                           |
+| Milestone                            | Status                                              |
+| ------------------------------------ | --------------------------------------------------- |
+| M0: Repo + tooling + docs            | ✅ Complete                                         |
+| M1: Running skeleton (5-tab layout)  | ✅ Complete                                         |
+| M2: Crypto + DB layer                | ✅ Complete                                         |
+| M3: CI PII gate                      | ✅ Complete                                         |
+| M4: Onboarding flow                  | ✅ Complete                                         |
+| M5: Feature modules (no AI)          | ✅ Complete                                         |
+| M6: PWA + responsive polish          | ✅ Complete                                         |
+| M7: Hardening                        | ✅ Complete                                         |
+| M8: Phase 1 polish                   | ✅ Complete                                         |
+| M9: Income, transfers & cash         | 🔄 Next — scope discussion required before starting |
+| M10: Export PDF/HTML                 | ⏳ Future                                           |
+| M11: Portfolio enhancements          | ⏳ Future                                           |
+| M12: Extended asset tracking         | ⏳ Future                                           |
+| M13: IPO tracker + GMP               | ⏳ Future                                           |
+| M14: Financial calculators           | ⏳ Future                                           |
+| M15: Finance news + Contact/Feedback | ⏳ Future                                           |
 
 **M5 step tracker:**
 
@@ -77,37 +77,49 @@ This file is read at the start of every Claude Code session. It tells you where 
 
 **M8 step tracker:**
 
-| Step | Feature                                                                         | Status  |
-| ---- | ------------------------------------------------------------------------------- | ------- |
-| 40   | Visual identity — Penny SVG logo, Chip avatar, updated PWA icons                | ✅ Done |
-| 41   | Settings drawer — module visibility toggles, font scale slider                  | ✅ Done |
-| 42   | Privacy mode switcher — 3-segment toggle, PIN gate for Open, theme tinting      | ✅ Done |
-| 42b  | Light/dark theme system (Penny Light + Penny Dark)                              | ✅ Done |
-| 43   | Demo data seeding — realistic sample records on first onboarding                | ✅ Done |
+| Step | Feature                                                                         | Status                 |
+| ---- | ------------------------------------------------------------------------------- | ---------------------- |
+| 40   | Visual identity — Penny SVG logo, Chip avatar, updated PWA icons                | ✅ Done                |
+| 41   | Settings drawer — module visibility toggles, font scale slider                  | ✅ Done                |
+| 42   | Privacy mode switcher — 3-segment toggle, PIN gate for Open, theme tinting      | ✅ Done                |
+| 42b  | Light/dark theme system (Penny Light + Penny Dark)                              | ✅ Done                |
+| 43   | Demo data seeding — realistic sample records on first onboarding                | ✅ Done                |
 | 44   | Chip mock chat UI — full message UI wired to mockChip.ts                        | ⏳ Deferred to Phase 2 |
-| 45   | Expense categories rethink + analytics tab + budget tab polish                  | ✅ Done |
-| 46   | Import expenses — Penny CSV template + YNAB/Cashew/MoneyView parsers, 3-step UI | ✅ Done |
-| 47   | Export CSV — AES-256 password-protected ZIP, date range picker                  | ✅ Done |
+| 45   | Expense categories rethink + analytics tab + budget tab polish                  | ✅ Done                |
+| 46   | Import expenses — Penny CSV template + YNAB/Cashew/MoneyView parsers, 3-step UI | ✅ Done                |
+| 47   | Export CSV — AES-256 password-protected ZIP, date range picker                  | ✅ Done                |
 | 48   | Responsive/laptop layout                                                        | ⏳ Deferred to Phase 2 |
-| 49   | Final CI pass + CLAUDE.md updated                                               | ✅ Done |
+| 49   | Final CI pass + CLAUDE.md updated                                               | ✅ Done                |
 
 **M8 is complete.** Steps 44 (Chip chat UI) and 48 (desktop layout) deferred to Phase 2.
 
-**Next step when you pick up a session:** M9 — Income, transfers & cash. Requires scope discussion first: data model changes (income/transfer types on expenses), cash account tracking, net cash flow view. Have this conversation with the user before writing any code.
+**M9 step tracker:**
+
+| Step | Feature                                                                                     | Status      |
+| ---- | ------------------------------------------------------------------------------------------- | ----------- |
+| 50   | Data model — Account type + Dexie v2, accountsRepo, AccountsPage, router wiring             | ✅ Done     |
+| 51   | TransactionForm — type selector (Expense/Income/Transfer), account selectors, speed dial FAB | ✅ Done     |
+| 52   | Transactions tab — all types in list with type-specific icons/colors, page rename            | ✅ Done     |
+| 53   | Demo data — 3 accounts, salary income ×3, freelance income, CC + savings transfers           | ✅ Done     |
+| 54   | Home dashboard — accounts strip with live balances                                           | ✅ Done     |
+| 55   | Final CI pass + CLAUDE.md updated                                                            | 🔄 In progress |
+
+**Next step when you pick up a session:** M9 — finalize step 55 (final CI pass + CLAUDE.md), then commit, PR, merge, start M10.
 
 **Full Phase 1 roadmap (M9–M15):**
 
-| Milestone | Scope | Key data sources |
-| --------- | ----- | ---------------- |
-| M9  | Income entries, transfer tracking, cash account, net cash flow view | Local DB only |
-| M10 | Export PDF + HTML — wealth snapshot, tax summary, share-ready report | On-device render |
-| M11 | Portfolio enhancements — MF/stock search, CAS PDF import, watchlists | MFAPI.in, Yahoo Finance, casparser SDK |
-| M12 | Extended asset tracking — vehicles, property, PPF, NPS, EPF (manual + last-updated timestamp) | Manual entry only |
-| M13 | IPO tracker + GMP — Upcoming/Open/Closed/Listed, subscription multiples, GMP | ipoalerts.in (free), NSE eIPO API via Cloudflare Worker, ipoguru.in |
-| M14 | Financial calculators — FIRE, HRA exemption, PPF maturity, NPS corpus, step-up SIP, old vs new tax regime | Pure on-device TypeScript |
-| M15 | Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Contact/Feedback (mailto: deep-link) | RSS feeds, no backend |
+| Milestone | Scope                                                                                                         | Key data sources                                                    |
+| --------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| M9        | Income entries, transfer tracking, cash account, net cash flow view                                           | Local DB only                                                       |
+| M10       | Export PDF + HTML — wealth snapshot, tax summary, share-ready report                                          | On-device render                                                    |
+| M11       | Portfolio enhancements — MF/stock search, CAS PDF import, watchlists                                          | MFAPI.in, Yahoo Finance, casparser SDK                              |
+| M12       | Extended asset tracking — vehicles, property, PPF, NPS, EPF (manual + last-updated timestamp)                 | Manual entry only                                                   |
+| M13       | IPO tracker + GMP — Upcoming/Open/Closed/Listed, subscription multiples, GMP                                  | ipoalerts.in (free), NSE eIPO API via Cloudflare Worker, ipoguru.in |
+| M14       | Financial calculators — FIRE, HRA exemption, PPF maturity, NPS corpus, step-up SIP, old vs new tax regime     | Pure on-device TypeScript                                           |
+| M15       | Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Contact/Feedback (mailto: deep-link) | RSS feeds, no backend                                               |
 
 **Phase boundaries:**
+
 - Phase 1 ends after M15 — full financial life tracking, zero paid APIs, zero backend (except 1 Cloudflare Worker for IPO)
 - Phase 1.5 — Groups & Household OS (shared expenses, family vaults, joint goals, household net worth)
 - Phase 2 — Chip AI (real Anthropic SDK), RBI AA framework automated sync (MF/demat/EPF when FIP/NPS), desktop layout, cloud sync, native apps
@@ -253,15 +265,15 @@ For inline styles that reference CSS variables (e.g. SVG `fill`, dynamic colors)
 
 **Free API sources used in Phase 1:**
 
-| API | Used for | Cost |
-| --- | -------- | ---- |
-| MFAPI.in | MF search, NAV, scheme info | Free, no auth |
-| Yahoo Finance (unofficial) | Stock search, price, fundamentals | Free, no key |
-| ipoalerts.in | IPO metadata (dates, price band, lot size) | Free tier 750 req/mo |
-| NSE eIPO Query Server | Live IPO subscription multiples (QIB/NII/RII) | Free, via Cloudflare Worker |
-| ipoguru.in | Live GMP + GMP% | Free tier 300 req/day |
-| casparser SDK | Parse CDSL/CAMS CAS PDF → structured holdings | Open-source |
-| RSS feeds | Finance news headlines | Free |
+| API                        | Used for                                      | Cost                        |
+| -------------------------- | --------------------------------------------- | --------------------------- |
+| MFAPI.in                   | MF search, NAV, scheme info                   | Free, no auth               |
+| Yahoo Finance (unofficial) | Stock search, price, fundamentals             | Free, no key                |
+| ipoalerts.in               | IPO metadata (dates, price band, lot size)    | Free tier 750 req/mo        |
+| NSE eIPO Query Server      | Live IPO subscription multiples (QIB/NII/RII) | Free, via Cloudflare Worker |
+| ipoguru.in                 | Live GMP + GMP%                               | Free tier 300 req/day       |
+| casparser SDK              | Parse CDSL/CAMS CAS PDF → structured holdings | Open-source                 |
+| RSS feeds                  | Finance news headlines                        | Free                        |
 
 ---
 
@@ -288,16 +300,18 @@ For inline styles that reference CSS variables (e.g. SVG `fill`, dynamic colors)
 
 ## Key files
 
-| File                                     | Purpose                                               |
-| ---------------------------------------- | ----------------------------------------------------- |
-| `src/core/db/schema.ts`                  | All 19 Dexie stores — everything depends on this      |
-| `src/core/crypto/securityManager.ts`     | All reads/writes flow through this                    |
-| `src/core/ai-safety/buildUserContext.ts` | Only path to Anthropic                                |
-| `src/core/ai-safety/mockChip.ts`         | All Phase 1 dev runs on this                          |
-| `src/core/import/importParsers.ts`       | CSV parsers: Penny, YNAB, Cashew, MoneyView           |
-| `src/core/export/exportCsv.ts`           | CSV export + AES-256 ZIP download (zip.js, no workers)|
-| `src/core/db/seedDemoData.ts`            | Demo data seeding — called once after onboarding      |
-| `tests/pii-gate/piiGate.test.ts`         | CI gate — never skip                                  |
-| `src/context/PrivacyContext.tsx`         | Privacy mode — wraps entire app                       |
-| `src/context/SettingsContext.tsx`        | Module visibility + font scale (localStorage)         |
-| `src/router/index.tsx`                   | All routes + AuthGuard                                |
+| File                                     | Purpose                                                |
+| ---------------------------------------- | ------------------------------------------------------ |
+| `src/core/db/schema.ts`                  | All 19 Dexie stores — everything depends on this       |
+| `src/core/crypto/securityManager.ts`     | All reads/writes flow through this                     |
+| `src/core/ai-safety/buildUserContext.ts` | Only path to Anthropic                                 |
+| `src/core/ai-safety/mockChip.ts`         | All Phase 1 dev runs on this                           |
+| `src/core/import/importParsers.ts`       | CSV parsers: Penny, YNAB, Cashew, MoneyView            |
+| `src/core/export/exportCsv.ts`           | CSV export + AES-256 ZIP download (zip.js, no workers) |
+| `src/core/db/seedDemoData.ts`            | Demo data seeding — called once after onboarding       |
+| `tests/pii-gate/piiGate.test.ts`         | CI gate — never skip                                   |
+| `src/context/PrivacyContext.tsx`         | Privacy mode — wraps entire app                        |
+| `src/context/SettingsContext.tsx`        | Module visibility + font scale (localStorage)          |
+| `src/router/index.tsx`                   | All routes + AuthGuard                                 |
+
+![alt text](image.png)

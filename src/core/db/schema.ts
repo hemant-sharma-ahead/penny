@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type {
+  Account,
   AiCallLog,
   Asset,
   Budget,
@@ -44,6 +45,7 @@ export class PennyDatabase extends Dexie {
   subscriptions!: EntityTable<Subscription, 'id'>;
   personal_ious!: EntityTable<PersonalIou, 'id'>;
   credit_profile!: EntityTable<CreditProfile, 'id'>;
+  accounts!: EntityTable<Account, 'id'>;
 
   constructor() {
     super('penny');
@@ -73,6 +75,11 @@ export class PennyDatabase extends Dexie {
       subscriptions: 'id',
       personal_ious: 'id',
       credit_profile: 'id'
+    });
+
+    // v2 — adds accounts store for multi-account tracking (M9)
+    this.version(2).stores({
+      accounts: 'id'
     });
   }
 }

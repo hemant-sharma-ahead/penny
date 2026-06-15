@@ -1,4 +1,5 @@
 import type {
+  Account,
   Asset,
   Budget,
   ChipInsight,
@@ -13,6 +14,7 @@ import type {
   Subscription
 } from './types';
 import {
+  accountsRepo,
   assetsRepo,
   budgetsRepo,
   chipInsightsRepo,
@@ -151,6 +153,10 @@ export async function seedDemoData(): Promise<void> {
   };
 
   // ── Expenses ───────────────────────────────────────────────────────────────
+  const CC = 'demo-acc-hdfc-cc';
+  const SAVINGS = 'demo-acc-hdfc-savings';
+  const CASH = 'demo-acc-cash';
+
   const exp = (
     daysAgo: number,
     amount: number,
@@ -166,6 +172,7 @@ export async function seedDemoData(): Promise<void> {
     date: ago(daysAgo),
     hashtags: ['sample', ...hashtags],
     isRecurring: false,
+    accountId: SAVINGS,
     createdAt: ago(daysAgo),
     updatedAt: ago(daysAgo),
     ...extra
@@ -173,90 +180,144 @@ export async function seedDemoData(): Promise<void> {
 
   const expenses: Expense[] = [
     // ── April 2026 (75–45 days ago) ──
-    exp(75, 22000, 'rent', 'Monthly rent — April', ['emi'], { isRecurring: true, recurringIntervalDays: 30 }),
-    exp(73, 1800, 'utilities', 'Electricity bill — April', []),
-    exp(72, 5500, 'groceries', 'Big Bazaar monthly grocery run', []),
-    exp(70, 1200, 'dining', 'Lunch at office café', []),
-    exp(69, 800, 'transport', 'Ola rides — week 1', []),
-    exp(67, 3200, 'groceries', 'Zepto & Blinkit top-ups', []),
+    exp(75, 22000, 'rent', 'Monthly rent — April', ['emi'], {
+      isRecurring: true,
+      recurringIntervalDays: 30,
+      accountId: SAVINGS,
+      paymentMode: 'net'
+    }),
+    exp(73, 1800, 'utilities', 'Electricity bill — April', [], { accountId: SAVINGS, paymentMode: 'upi' }),
+    exp(72, 5500, 'groceries', 'Big Bazaar monthly grocery run', [], { accountId: CC, paymentMode: 'card' }),
+    exp(70, 1200, 'dining', 'Lunch at office café', [], { accountId: CC, paymentMode: 'card' }),
+    exp(69, 800, 'transport', 'Ola rides — week 1', [], { accountId: CASH, paymentMode: 'cash' }),
+    exp(67, 3200, 'groceries', 'Zepto & Blinkit top-ups', [], { accountId: CC, paymentMode: 'card' }),
     exp(65, 649, 'entertainment', 'Netflix subscription', ['subscription'], {
       isRecurring: true,
-      recurringIntervalDays: 30
+      recurringIntervalDays: 30,
+      accountId: CC,
+      paymentMode: 'card'
     }),
     exp(65, 119, 'entertainment', 'Spotify subscription', ['subscription'], {
       isRecurring: true,
-      recurringIntervalDays: 30
+      recurringIntervalDays: 30,
+      accountId: CC,
+      paymentMode: 'card'
     }),
     exp(65, 999, 'other', 'Cult.fit gym membership', ['subscription'], {
       isRecurring: true,
-      recurringIntervalDays: 30
+      recurringIntervalDays: 30,
+      accountId: CC,
+      paymentMode: 'card'
     }),
-    exp(63, 1200, 'medical', 'Pharmacy — vitamins & prescription', []),
-    exp(61, 2100, 'dining', 'Team dinner at Social', []),
-    exp(58, 4500, 'shopping', 'Myntra — kurtas & casuals', []),
+    exp(63, 1200, 'medical', 'Pharmacy — vitamins & prescription', [], { accountId: SAVINGS, paymentMode: 'upi' }),
+    exp(61, 2100, 'dining', 'Team dinner at Social', [], { accountId: CC, paymentMode: 'card' }),
+    exp(58, 4500, 'shopping', 'Myntra — kurtas & casuals', [], { accountId: CC, paymentMode: 'card' }),
 
     // ── May 2026 (44–15 days ago) ──
-    exp(44, 22000, 'rent', 'Monthly rent — May', ['emi'], { isRecurring: true, recurringIntervalDays: 30 }),
-    exp(43, 2100, 'utilities', 'Electricity + internet bill', []),
-    exp(41, 6200, 'groceries', 'Supermart monthly stock-up', []),
+    exp(44, 22000, 'rent', 'Monthly rent — May', ['emi'], {
+      isRecurring: true,
+      recurringIntervalDays: 30,
+      accountId: SAVINGS,
+      paymentMode: 'net'
+    }),
+    exp(43, 2100, 'utilities', 'Electricity + internet bill', [], { accountId: SAVINGS, paymentMode: 'upi' }),
+    exp(41, 6200, 'groceries', 'Supermart monthly stock-up', [], { accountId: CC, paymentMode: 'card' }),
     exp(40, 1499, 'shopping', 'Amazon Prime annual renewal', ['subscription'], {
       isRecurring: true,
-      recurringIntervalDays: 365
+      recurringIntervalDays: 365,
+      accountId: CC,
+      paymentMode: 'card'
     }),
-    exp(38, 2800, 'groceries', "Blinkit + Nature's Basket", []),
-    exp(37, 4800, 'dining', 'Birthday dinner at Trèsind', []),
-    exp(36, 2100, 'transport', 'Uber + metro recharge', []),
+    exp(38, 2800, 'groceries', "Blinkit + Nature's Basket", [], { accountId: CC, paymentMode: 'card' }),
+    exp(37, 4800, 'dining', 'Birthday dinner at Trèsind', [], { accountId: CC, paymentMode: 'card' }),
+    exp(36, 2100, 'transport', 'Uber + metro recharge', [], { accountId: CASH, paymentMode: 'cash' }),
     exp(34, 649, 'entertainment', 'Netflix subscription', ['subscription'], {
       isRecurring: true,
-      recurringIntervalDays: 30
+      recurringIntervalDays: 30,
+      accountId: CC,
+      paymentMode: 'card'
     }),
     exp(34, 119, 'entertainment', 'Spotify subscription', ['subscription'], {
       isRecurring: true,
-      recurringIntervalDays: 30
+      recurringIntervalDays: 30,
+      accountId: CC,
+      paymentMode: 'card'
     }),
     exp(34, 999, 'other', 'Cult.fit gym membership', ['subscription'], {
       isRecurring: true,
-      recurringIntervalDays: 30
+      recurringIntervalDays: 30,
+      accountId: CC,
+      paymentMode: 'card'
     }),
     exp(32, 5000, 'investments', 'PPFCF SIP — May instalment', ['sip', 'tax'], {
       isRecurring: true,
-      recurringIntervalDays: 30
+      recurringIntervalDays: 30,
+      accountId: SAVINGS,
+      paymentMode: 'net'
     }),
-    exp(30, 6800, 'shopping', 'Amazon sale — shoes & bags', []),
-    exp(28, 3200, 'entertainment', 'Movie tickets + BookMyShow', []),
-    exp(25, 800, 'medical', 'Apollo pharmacy', []),
-    exp(22, 1800, 'dining', 'Swiggy weekend orders', []),
-    exp(18, 1400, 'transport', 'Ola & auto fares', []),
+    exp(30, 6800, 'shopping', 'Amazon sale — shoes & bags', [], { accountId: CC, paymentMode: 'card' }),
+    exp(28, 3200, 'entertainment', 'Movie tickets + BookMyShow', [], { accountId: CC, paymentMode: 'card' }),
+    exp(25, 800, 'medical', 'Apollo pharmacy', [], { accountId: CASH, paymentMode: 'cash' }),
+    exp(22, 1800, 'dining', 'Swiggy weekend orders', [], { accountId: CC, paymentMode: 'card' }),
+    exp(18, 1400, 'transport', 'Ola & auto fares', [], { accountId: CASH, paymentMode: 'cash' }),
 
     // ── June 2026 current month ──
-    exp(13, 22000, 'rent', 'Monthly rent — June', ['emi'], { isRecurring: true, recurringIntervalDays: 30 }),
-    exp(12, 1950, 'utilities', 'Electricity bill — June', []),
-    exp(11, 2800, 'groceries', 'Zepto + local kirana', []),
-    exp(10, 1200, 'dining', 'Lunch with colleague', []),
+    exp(13, 22000, 'rent', 'Monthly rent — June', ['emi'], {
+      isRecurring: true,
+      recurringIntervalDays: 30,
+      accountId: SAVINGS,
+      paymentMode: 'net'
+    }),
+    exp(12, 1950, 'utilities', 'Electricity bill — June', [], { accountId: SAVINGS, paymentMode: 'upi' }),
+    exp(11, 2800, 'groceries', 'Zepto + local kirana', [], { accountId: CC, paymentMode: 'card' }),
+    exp(10, 1200, 'dining', 'Lunch with colleague', [], { accountId: CASH, paymentMode: 'cash' }),
 
     // Leh Ladakh trip (June 4–9)
-    exp(9, 18500, 'transport', 'IndiGo flights — DEL-IXL return', ['leh-ladakh', 'vacation']),
-    exp(8, 12000, 'other', 'Zostel Leh — 4 nights', ['leh-ladakh', 'vacation']),
-    exp(7, 3500, 'transport', 'Shared taxi — Leh-Nubra-Pangong', ['leh-ladakh', 'vacation']),
-    exp(7, 4200, 'dining', 'Meals & cafés during trip', ['leh-ladakh', 'vacation']),
-    exp(6, 2800, 'entertainment', 'Rafting, Khardung La permit & activities', ['leh-ladakh', 'vacation']),
+    exp(9, 18500, 'transport', 'IndiGo flights — DEL-IXL return', ['leh-ladakh', 'vacation'], {
+      accountId: SAVINGS,
+      paymentMode: 'card'
+    }),
+    exp(8, 12000, 'other', 'Zostel Leh — 4 nights', ['leh-ladakh', 'vacation'], { accountId: CC, paymentMode: 'card' }),
+    exp(7, 3500, 'transport', 'Shared taxi — Leh-Nubra-Pangong', ['leh-ladakh', 'vacation'], {
+      accountId: CASH,
+      paymentMode: 'cash'
+    }),
+    exp(7, 4200, 'dining', 'Meals & cafés during trip', ['leh-ladakh', 'vacation'], {
+      accountId: CASH,
+      paymentMode: 'cash'
+    }),
+    exp(6, 2800, 'entertainment', 'Rafting, Khardung La permit & activities', ['leh-ladakh', 'vacation'], {
+      accountId: CASH,
+      paymentMode: 'cash'
+    }),
 
     exp(5, 649, 'entertainment', 'Netflix subscription', ['subscription'], {
       isRecurring: true,
-      recurringIntervalDays: 30
+      recurringIntervalDays: 30,
+      accountId: CC,
+      paymentMode: 'card'
     }),
     exp(5, 119, 'entertainment', 'Spotify subscription', ['subscription'], {
       isRecurring: true,
-      recurringIntervalDays: 30
+      recurringIntervalDays: 30,
+      accountId: CC,
+      paymentMode: 'card'
     }),
-    exp(5, 999, 'other', 'Cult.fit gym membership', ['subscription'], { isRecurring: true, recurringIntervalDays: 30 }),
+    exp(5, 999, 'other', 'Cult.fit gym membership', ['subscription'], {
+      isRecurring: true,
+      recurringIntervalDays: 30,
+      accountId: CC,
+      paymentMode: 'card'
+    }),
     exp(4, 5000, 'investments', 'PPFCF SIP — June instalment', ['sip', 'tax'], {
       isRecurring: true,
-      recurringIntervalDays: 30
+      recurringIntervalDays: 30,
+      accountId: SAVINGS,
+      paymentMode: 'net'
     }),
-    exp(3, 1900, 'groceries', 'Blinkit top-up post trip', []),
-    exp(2, 2300, 'dining', 'Team lunch — catching up post vacation', []),
-    exp(1, 700, 'transport', 'Uber to office', [])
+    exp(3, 1900, 'groceries', 'Blinkit top-up post trip', [], { accountId: CC, paymentMode: 'card' }),
+    exp(2, 2300, 'dining', 'Team lunch — catching up post vacation', [], { accountId: CC, paymentMode: 'card' }),
+    exp(1, 700, 'transport', 'Uber to office', [], { accountId: CASH, paymentMode: 'cash' })
   ];
   await Promise.all(expenses.map((e) => expensesRepo.put(e)));
 
@@ -632,6 +693,117 @@ export async function seedDemoData(): Promise<void> {
   // Notify EventModeProvider (already mounted) to re-sync from localStorage
   window.dispatchEvent(new CustomEvent('penny-events-updated'));
 
+  // ── Accounts ─────────────────────────────────────────────────────────────
+  const accounts: Account[] = [
+    {
+      id: 'demo-acc-hdfc-savings',
+      name: 'HDFC Savings',
+      type: 'bank',
+      openingBalance: 250000,
+      color: '#3b82f6',
+      icon: 'ti-building-bank',
+      includeInNetWorth: true,
+      isArchived: false,
+      createdAt: ago(365),
+      updatedAt: ago(1)
+    },
+    {
+      id: 'demo-acc-hdfc-cc',
+      name: 'HDFC Regalia CC',
+      type: 'credit_card',
+      openingBalance: 0,
+      color: '#ef4444',
+      icon: 'ti-credit-card',
+      includeInNetWorth: false,
+      isArchived: false,
+      createdAt: ago(365),
+      updatedAt: ago(1)
+    },
+    {
+      id: 'demo-acc-cash',
+      name: 'Cash Wallet',
+      type: 'cash',
+      openingBalance: 5000,
+      color: '#10b981',
+      icon: 'ti-cash',
+      includeInNetWorth: true,
+      isArchived: false,
+      createdAt: ago(90),
+      updatedAt: ago(1)
+    }
+  ];
+  await Promise.all(accounts.map((a) => accountsRepo.put(a)));
+
+  // ── Income transactions ───────────────────────────────────────────────────
+  // Salary on the 1st of each of the past 3 months
+  const salaryDates = [ago(13), ago(43), ago(74)];
+  const incomeExpenses: Expense[] = [
+    ...salaryDates.map((d, i) => ({
+      id: `demo-income-salary-${i}`,
+      amount: 120000,
+      categoryId: 'cat-inc-salary',
+      description: 'Monthly salary credit',
+      date: d,
+      hashtags: ['sample'],
+      isRecurring: true,
+      recurringIntervalDays: 30,
+      type: 'income' as const,
+      accountId: 'demo-acc-hdfc-savings',
+      source: 'manual' as const,
+      createdAt: d,
+      updatedAt: d
+    })),
+    {
+      id: 'demo-income-freelance',
+      amount: 35000,
+      categoryId: 'cat-inc-freelance',
+      description: 'Website redesign project',
+      date: ago(20),
+      hashtags: ['sample', 'freelance'],
+      isRecurring: false,
+      type: 'income' as const,
+      accountId: 'demo-acc-hdfc-savings',
+      source: 'manual' as const,
+      createdAt: ago(20),
+      updatedAt: ago(20)
+    }
+  ];
+  await Promise.all(incomeExpenses.map((e) => expensesRepo.put(e)));
+
+  // ── Transfer transactions ─────────────────────────────────────────────────
+  const transfers: Expense[] = [
+    {
+      id: 'demo-transfer-cc-payment',
+      amount: 18500,
+      categoryId: 'cat-tr-cc-payment',
+      description: 'HDFC CC bill payment',
+      date: ago(8),
+      hashtags: ['sample'],
+      isRecurring: false,
+      type: 'transfer' as const,
+      accountId: 'demo-acc-hdfc-savings',
+      toAccountId: 'demo-acc-hdfc-cc',
+      source: 'manual' as const,
+      createdAt: ago(8),
+      updatedAt: ago(8)
+    },
+    {
+      id: 'demo-transfer-savings',
+      amount: 20000,
+      categoryId: 'cat-tr-bank',
+      description: 'Monthly SIP top-up transfer',
+      date: ago(12),
+      hashtags: ['sample'],
+      isRecurring: false,
+      type: 'transfer' as const,
+      accountId: 'demo-acc-hdfc-savings',
+      source: 'manual' as const,
+      createdAt: ago(12),
+      updatedAt: ago(12)
+    }
+  ];
+  await Promise.all(transfers.map((t) => expensesRepo.put(t)));
+
   localStorage.setItem(DEMO_SEED_KEY, '1');
 }
 
@@ -650,7 +822,8 @@ export async function clearDemoData(): Promise<void> {
     db.insurance_policies.clear(),
     db.chip_insights.clear(),
     db.subscriptions.clear(),
-    db.personal_ious.clear()
+    db.personal_ious.clear(),
+    db.accounts.clear()
   ]);
   localStorage.removeItem(DEMO_SEED_KEY);
   localStorage.removeItem('penny_past_events');

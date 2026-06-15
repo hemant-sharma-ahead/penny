@@ -1,14 +1,17 @@
-import { useMemo, useState } from 'react';
-import type { Expense, ExpenseCategory, Hashtag } from '@/core/db/types';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { Account, Expense, ExpenseCategory, Hashtag, TransactionType } from '@/core/db/types';
 import type { ActiveEvent } from '@/context/EventModeContext';
-import { expenseCategoriesRepo } from '@/core/db/repositories';
+import { accountsRepo, expenseCategoriesRepo } from '@/core/db/repositories';
 import { INTENT_GROUP_META } from '@/core/db/defaultCategories';
+import { useNavigate } from 'react-router-dom';
+import { PATHS } from '@/router/paths';
 
 interface Props {
   categories: ExpenseCategory[];
   hashtags: Hashtag[];
   editing: Expense | null;
   activeEvents: ActiveEvent[];
+  initialType?: TransactionType;
   onSave: (expense: Expense) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onCategoryCreated: () => void;
@@ -25,6 +28,12 @@ const PAYMENT_MODES = [
   { id: 'wallet', label: 'Wallet', icon: 'ti-wallet', color: '#f97316' }
 ];
 
+const TYPE_META: Record<TransactionType, { label: string; color: string; icon: string }> = {
+  expense: { label: 'Expense', color: '#ef4444', icon: 'ti-arrow-down-circle' },
+  income: { label: 'Income', color: '#10b981', icon: 'ti-arrow-up-circle' },
+  transfer: { label: 'Transfer', color: '#3b82f6', icon: 'ti-arrows-exchange' }
+};
+
 function epochToDateInput(epochMs: number): string {
   const d = new Date(epochMs);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -37,23 +46,99 @@ function parseTags(raw: string): string[] {
     .filter(Boolean);
 }
 
+// ── Account chips ─────────────────────────────────────────────────────────────
+
+interface AccountChipsProps {
+  accounts: Account[];
+  value: string;
+  onChange: (id: string) => void;
+  showNone?: boolean;
+  disabledId?: string;
+  onAddAccount: () => void;
+}
+
+function AccountChips({ accounts, value, onChange, showNone, disabledId, onAddAccount }: AccountChipsProps) {
+  if (accounts.length === 0) {
+    return (
+      <button
+        type="button"
+        onClick={onAddAccount}
+        className="text-xs font-medium"
+        style={{ color: 'var(--color-primary)' }}
+      >
+        + Add account to track balance
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-0.5">
+      {showNone && (
+        <button
+          type="button"
+          onClick={() => onChange('')}
+          className="flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors w-[64px]"
+          style={
+            value === ''
+              ? { borderColor: '#6b7280', backgroundColor: 'var(--color-surface-secondary)' }
+              : { borderColor: 'transparent', backgroundColor: 'var(--color-surface-secondary)' }
+          }
+        >
+          <i className="ti ti-circle-off" style={{ fontSize: 18, color: '#6b7280' }} aria-hidden="true" />
+          <span className="text-[9px] font-medium leading-tight text-secondary">None</span>
+        </button>
+      )}
+      {accounts.map((acc) => {
+        const isSelected = value === acc.id;
+        const isDisabled = acc.id === disabledId;
+        return (
+          <button
+            key={acc.id}
+            type="button"
+            disabled={isDisabled}
+            onClick={() => !isDisabled && onChange(isSelected && showNone ? '' : acc.id)}
+            className="flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors w-[64px]"
+            style={{
+              opacity: isDisabled ? 0.35 : 1,
+              cursor: isDisabled ? 'not-allowed' : 'pointer',
+              borderColor: isSelected ? acc.color : 'transparent',
+              backgroundColor: 'var(--color-surface-secondary)'
+            }}
+          >
+            <i className={`ti ${acc.icon}`} style={{ fontSize: 18, color: acc.color }} aria-hidden="true" />
+            <span className="text-[9px] font-medium text-center leading-tight text-secondary line-clamp-2 break-words w-full">
+              {acc.name}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Main form ──────────────────────────────────────────────────────────────────
+
 export function ExpenseForm({
   categories,
   hashtags,
   editing,
   activeEvents,
+  initialType,
   onSave,
   onDelete,
   onCategoryCreated,
   onClose
 }: Props) {
-  const defaultCategoryId = categories[0]?.id ?? '';
-
+  const navigate = useNavigate();
+  const [type, setType] = useState<TransactionType>(editing?.type ?? initialType ?? 'expense');
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accountId, setAccountId] = useState(editing?.accountId ?? '');
+  const [toAccountId, setToAccountId] = useState(editing?.toAccountId ?? '');
   const [amount, setAmount] = useState(editing ? String(editing.amount) : '');
-  const [categoryId, setCategoryId] = useState(editing?.categoryId ?? defaultCategoryId);
+  const [date, setDate] = useState(() => (editing ? epochToDateInput(editing.date) : epochToDateInput(Date.now())));
+  const [categoryId, setCategoryId] = useState(editing?.categoryId ?? '');
   const [paymentMode, setPaymentMode] = useState(editing?.paymentMode ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
-  const [date, setDate] = useState(() => (editing ? epochToDateInput(editing.date) : epochToDateInput(Date.now())));
   const [tagInput, setTagInput] = useState(() => {
     if (editing) return editing.hashtags.join(' ');
     const autoTags = activeEvents.filter((e) => e.autoTag).map((e) => e.hashtag.toLowerCase());
@@ -62,13 +147,79 @@ export function ExpenseForm({
   const [isRecurring, setIsRecurring] = useState(editing?.isRecurring ?? false);
   const [intervalDays, setIntervalDays] = useState(String(editing?.recurringIntervalDays ?? 30));
   const [saving, setSaving] = useState(false);
-
-  // New category form
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showNewCat, setShowNewCat] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatIcon, setNewCatIcon] = useState('ti-dots');
   const [newCatColor, setNewCatColor] = useState('#6b7280');
   const [savingCat, setSavingCat] = useState(false);
+
+  const initEditing = useRef(editing);
+
+  useEffect(() => {
+    accountsRepo.getAll().then((accs) => {
+      const active = accs.filter((a) => !a.isArchived);
+      setAccounts(active);
+      if (!initEditing.current && active.length > 0) {
+        const first = active[0];
+        setAccountId(first.id);
+        if (first.type === 'cash') setPaymentMode('cash');
+      }
+    });
+  }, []);
+
+  const applicableCategories = useMemo(() => {
+    if (type === 'income') return categories.filter((c) => c.applicableTo === 'income');
+    if (type === 'transfer') return [];
+    return categories.filter((c) => !c.applicableTo || c.applicableTo === 'expense');
+  }, [categories, type]);
+
+  const groupedCategories = useMemo(() => {
+    const byGroup = new Map<string, ExpenseCategory[]>();
+    for (const cat of applicableCategories) {
+      const group = cat.intentGroup ?? 'other';
+      const arr = byGroup.get(group) ?? [];
+      arr.push(cat);
+      byGroup.set(group, arr);
+    }
+    return Object.entries(INTENT_GROUP_META)
+      .filter(([g]) => (type === 'income' ? g === 'income' : g !== 'income' && g !== 'transfers'))
+      .flatMap(([group, meta]) => {
+        const cats = byGroup.get(group) ?? [];
+        return cats.length > 0 ? [{ group, label: meta.label, color: meta.color, cats }] : [];
+      });
+  }, [applicableCategories, type]);
+
+  const selectedCat = useMemo(
+    () => (type !== 'transfer' ? applicableCategories.find((c) => c.id === categoryId) : undefined),
+    [categoryId, applicableCategories, type]
+  );
+
+  const selectedAccount = useMemo(() => accounts.find((a) => a.id === accountId), [accounts, accountId]);
+
+  function isPaymentModeDisabled(modeId: string): boolean {
+    if (!selectedAccount) return false;
+    if (selectedAccount.type === 'cash') return modeId !== 'cash';
+    return modeId === 'cash';
+  }
+
+  function handleAccountSelect(id: string) {
+    setAccountId(id);
+    const acc = accounts.find((a) => a.id === id);
+    if (!acc) return;
+    if (acc.type === 'cash') {
+      setPaymentMode('cash');
+    } else if (paymentMode === 'cash') {
+      setPaymentMode('');
+    }
+  }
+
+  function handleTypeChange(newType: TransactionType) {
+    setType(newType);
+    setCategoryId('');
+    setPaymentMode('');
+    setIsRecurring(false);
+  }
 
   const activeTags = parseTags(tagInput);
   const tagParts = tagInput.split(/[\s,]+/);
@@ -77,22 +228,6 @@ export function ExpenseForm({
     lastWord.length > 0
       ? hashtags.filter((h) => h.name.startsWith(lastWord) && !activeTags.includes(h.name)).slice(0, 5)
       : [];
-
-  const groupedCategories = useMemo(() => {
-    const byGroup = new Map<string, ExpenseCategory[]>();
-    for (const cat of categories) {
-      const group = cat.intentGroup ?? 'other';
-      const arr = byGroup.get(group) ?? [];
-      arr.push(cat);
-      byGroup.set(group, arr);
-    }
-    return Object.entries(INTENT_GROUP_META)
-      .filter(([g]) => g !== 'income' && g !== 'transfers')
-      .flatMap(([group, meta]) => {
-        const cats = byGroup.get(group) ?? [];
-        return cats.length > 0 ? [{ group, label: meta.label, color: meta.color, cats }] : [];
-      });
-  }, [categories]);
 
   function applyTagSuggestion(name: string) {
     const parts = tagInput.split(/[\s,]+/);
@@ -111,24 +246,28 @@ export function ExpenseForm({
 
   function handleSave() {
     const amt = parseFloat(amount);
-    if (isNaN(amt) || amt <= 0 || !description.trim() || !categoryId) return;
+    if (isNaN(amt) || amt <= 0 || !description.trim()) return;
+    if (type !== 'transfer' && !categoryId) return;
     setSaving(true);
     const now = Date.now();
-    onSave({
+    const base: Expense = {
       id: editing?.id ?? crypto.randomUUID(),
       amount: amt,
-      categoryId,
+      categoryId: type === 'transfer' ? 'cat-tr-bank' : categoryId,
       description: description.trim(),
       date: new Date(date).getTime(),
-      hashtags: parseTags(tagInput),
-      isRecurring,
-      ...(isRecurring ? { recurringIntervalDays: parseInt(intervalDays, 10) || 30 } : {}),
-      ...(paymentMode ? { paymentMode } : {}),
-      type: editing?.type ?? 'expense',
+      hashtags: type === 'transfer' ? [] : parseTags(tagInput),
+      isRecurring: type === 'expense' ? isRecurring : false,
+      recurringIntervalDays: type === 'expense' && isRecurring ? parseInt(intervalDays, 10) || 30 : undefined,
+      paymentMode: paymentMode || undefined,
+      type,
+      accountId: accountId || undefined,
+      toAccountId: type === 'transfer' && toAccountId ? toAccountId : undefined,
       source: editing?.source ?? 'manual',
       createdAt: editing?.createdAt ?? now,
       updatedAt: now
-    })
+    };
+    onSave(base)
       .catch(() => {})
       .finally(() => setSaving(false));
   }
@@ -152,6 +291,7 @@ export function ExpenseForm({
       setCategoryId(newCat.id);
       onCategoryCreated();
       setShowNewCat(false);
+      setShowCategoryPicker(false);
       setNewCatName('');
       setNewCatIcon('ti-dots');
       setNewCatColor('#6b7280');
@@ -160,300 +300,470 @@ export function ExpenseForm({
     }
   }
 
+  function goToAccounts() {
+    onClose();
+    navigate(PATHS.app.accounts);
+  }
+
+  const typeMeta = TYPE_META[type];
+  const titleText = editing ? `Edit ${type}` : `Add ${type}`;
+  const saveText = saving ? 'Saving…' : editing ? 'Update' : `Add ${type}`;
+
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full max-w-[430px] bg-surface rounded-2xl p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold text-primary">{editing ? 'Edit expense' : 'Add expense'}</h3>
-          <button
-            onClick={onClose}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-tertiary"
-          >
-            <i className="ti ti-x" style={{ fontSize: 20 }} aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* Amount + Date */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-medium text-secondary">Amount (₹)</label>
-            <input
-              type="number"
-              inputMode="decimal"
-              className="input-surface mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-              placeholder="0"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              autoFocus
-            />
+    <>
+      {/* ── Main form modal ── */}
+      <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+        <div className="relative w-full max-w-[430px] bg-surface rounded-2xl p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-primary capitalize">{titleText}</h3>
+            <button
+              onClick={onClose}
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center text-tertiary"
+            >
+              <i className="ti ti-x" style={{ fontSize: 20 }} aria-hidden="true" />
+            </button>
           </div>
-          <div>
-            <label className="text-xs font-medium text-secondary">Date</label>
-            <input
-              type="date"
-              className="input-surface mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </div>
-        </div>
 
-        {/* Payment mode */}
-        <div>
-          <label className="text-xs font-medium text-secondary">Payment mode</label>
-          <div className="mt-1 flex gap-2 overflow-x-auto pb-0.5">
-            {PAYMENT_MODES.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => setPaymentMode((prev) => (prev === m.id ? '' : m.id))}
-                className="flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors w-[58px]"
-                style={
-                  paymentMode === m.id
-                    ? { borderColor: m.color, backgroundColor: 'var(--color-surface-secondary)' }
-                    : { borderColor: 'transparent', backgroundColor: 'var(--color-surface-secondary)' }
-                }
-              >
-                <i className={`ti ${m.icon}`} style={{ fontSize: 18, color: m.color }} aria-hidden="true" />
-                <span className="text-[9px] font-medium leading-tight text-secondary">{m.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Category — grouped by intent */}
-        <div>
-          <label className="text-xs font-medium text-secondary">Category</label>
-          <div className="mt-2 flex flex-col gap-3">
-            {groupedCategories.map(({ group, label, color, cats }) => (
-              <div key={group}>
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                  <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color }}>
-                    {label}
-                  </span>
-                </div>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {cats.map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setCategoryId(cat.id)}
-                      className="flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors"
-                      style={
-                        categoryId === cat.id
-                          ? { borderColor: cat.color, backgroundColor: 'var(--color-surface-secondary)' }
-                          : { borderColor: 'transparent', backgroundColor: 'var(--color-surface-secondary)' }
-                      }
-                    >
-                      <i className={`ti ${cat.icon}`} style={{ fontSize: 18, color: cat.color }} aria-hidden="true" />
-                      <span className="text-[9px] font-medium text-center leading-tight text-secondary line-clamp-1">
-                        {cat.name}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-
-            {/* New category inline form */}
-            {showNewCat ? (
-              <div className="bg-surface-2 rounded-xl p-3 flex flex-col gap-2.5 border border-theme">
-                <input
-                  type="text"
-                  className="input-surface w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                  placeholder="Category name"
-                  value={newCatName}
-                  onChange={(e) => setNewCatName(e.target.value)}
-                  autoFocus
-                />
-                <div>
-                  <p className="text-[10px] text-secondary mb-1">Icon name (Tabler)</p>
-                  <input
-                    type="text"
-                    className="input-surface w-full rounded-xl border px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                    placeholder="ti-star, ti-home, ti-bolt…"
-                    value={newCatIcon}
-                    onChange={(e) => setNewCatIcon(e.target.value)}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <p className="text-[10px] text-secondary flex-shrink-0">Colour</p>
-                  {CAT_COLORS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setNewCatColor(c)}
-                      className="w-6 h-6 rounded-full border-2 flex-shrink-0 transition-transform"
-                      style={{
-                        backgroundColor: c,
-                        borderColor: newCatColor === c ? 'var(--color-text-primary)' : 'transparent',
-                        transform: newCatColor === c ? 'scale(1.2)' : 'scale(1)'
-                      }}
-                      aria-label={`Colour ${c}`}
-                    />
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowNewCat(false)}
-                    className="flex-1 py-2 rounded-xl border border-theme text-xs font-medium text-secondary"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleCreateCategory()}
-                    disabled={!newCatName.trim() || savingCat}
-                    className="flex-1 py-2 rounded-xl text-white text-xs font-medium disabled:opacity-40"
-                    style={{ backgroundColor: newCatColor }}
-                  >
-                    {savingCat ? 'Creating…' : 'Create'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowNewCat(true)}
-                className="flex items-center gap-1.5 text-xs font-medium text-tertiary hover:text-secondary mt-0.5"
-              >
-                <i className="ti ti-plus" style={{ fontSize: 13 }} aria-hidden="true" />
-                New category
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Description */}
-        <div>
-          <label className="text-xs font-medium text-secondary">Description</label>
-          <input
-            type="text"
-            className="input-surface mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            placeholder="What was this for?"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-
-        {/* Active event chips */}
-        {activeEvents.length > 0 && (
-          <div>
-            <label className="text-xs font-medium text-secondary">Active events</label>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {activeEvents.map((ev) => {
-                const isTagged = activeTags.includes(ev.hashtag.toLowerCase());
+          {/* Type selector (only when adding new) */}
+          {!editing && (
+            <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-surface-2">
+              {(['expense', 'income', 'transfer'] as const).map((t) => {
+                const m = TYPE_META[t];
+                const active = type === t;
                 return (
                   <button
-                    key={ev.id}
+                    key={t}
                     type="button"
-                    onClick={() => toggleEventTag(ev)}
-                    className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border-2 transition-colors"
+                    onClick={() => handleTypeChange(t)}
+                    className="flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-colors"
                     style={
-                      isTagged
-                        ? { borderColor: ev.color, backgroundColor: `${ev.color}18`, color: ev.color }
-                        : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
+                      active ? { backgroundColor: m.color, color: '#fff' } : { color: 'var(--color-text-secondary)' }
                     }
                   >
-                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
-                    {ev.name}
-                    {ev.autoTag && !isTagged && <span className="text-[9px] opacity-60">auto</span>}
+                    <i className={`ti ${m.icon}`} style={{ fontSize: 14 }} aria-hidden="true" />
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── Amount row: [Category chip] + [Amount] + [Date] ── */}
+          <div className="flex gap-2 items-end">
+            {/* Category chip (expense/income only) */}
+            {type !== 'transfer' && (
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] font-medium text-secondary">Category</span>
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryPicker(true)}
+                  className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl border-2 transition-colors w-[68px]"
+                  style={{
+                    minHeight: '58px',
+                    borderColor: selectedCat ? selectedCat.color : 'var(--color-border)',
+                    backgroundColor: 'var(--color-surface-secondary)'
+                  }}
+                >
+                  {selectedCat ? (
+                    <i
+                      className={`ti ${selectedCat.icon}`}
+                      style={{ fontSize: 18, color: selectedCat.color }}
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <i
+                      className="ti ti-layout-grid-add"
+                      style={{ fontSize: 18, color: 'var(--color-text-tertiary)' }}
+                      aria-hidden="true"
+                    />
+                  )}
+                  <span
+                    className="text-[8px] font-medium text-center leading-tight line-clamp-2 break-words w-full"
+                    style={{ color: selectedCat ? 'var(--color-text-secondary)' : 'var(--color-text-tertiary)' }}
+                  >
+                    {selectedCat?.name ?? 'Select'}
+                  </span>
+                </button>
+              </div>
+            )}
+
+            <div className="flex-1 min-w-0">
+              <label className="text-[10px] font-medium text-secondary">Amount (₹)</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                className="input-surface mt-0.5 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                placeholder="0"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                autoFocus
+              />
+            </div>
+
+            <div className="w-[142px] flex-shrink-0">
+              <label className="text-[10px] font-medium text-secondary">Date</label>
+              <input
+                type="date"
+                className="input-surface mt-0.5 w-full rounded-xl border px-2 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* ── Account section ── */}
+          {type === 'transfer' ? (
+            accounts.length === 0 ? (
+              <button
+                type="button"
+                onClick={goToAccounts}
+                className="text-xs font-medium text-left"
+                style={{ color: '#3b82f6' }}
+              >
+                + Add accounts to track where money moves
+              </button>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <div>
+                  <label className="text-xs font-medium text-secondary">From account</label>
+                  <div className="mt-1">
+                    <AccountChips
+                      accounts={accounts}
+                      value={accountId}
+                      onChange={setAccountId}
+                      disabledId={toAccountId}
+                      onAddAccount={goToAccounts}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-secondary">To account</label>
+                  <div className="mt-1">
+                    <AccountChips
+                      accounts={accounts}
+                      value={toAccountId}
+                      onChange={setToAccountId}
+                      disabledId={accountId}
+                      onAddAccount={goToAccounts}
+                    />
+                  </div>
+                </div>
+              </div>
+            )
+          ) : (
+            <div>
+              <label className="text-xs font-medium text-secondary">Account</label>
+              <div className="mt-1">
+                <AccountChips
+                  accounts={accounts}
+                  value={accountId}
+                  onChange={handleAccountSelect}
+                  onAddAccount={goToAccounts}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ── Payment mode ── */}
+          <div>
+            <label className="text-xs font-medium text-secondary">Payment mode</label>
+            <div className="mt-1 flex gap-2 overflow-x-auto pb-0.5">
+              {PAYMENT_MODES.map((m) => {
+                const disabled = isPaymentModeDisabled(m.id);
+                const active = paymentMode === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => !disabled && setPaymentMode((prev) => (prev === m.id ? '' : m.id))}
+                    className="flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors w-[58px]"
+                    style={{
+                      opacity: disabled ? 0.3 : 1,
+                      cursor: disabled ? 'not-allowed' : 'pointer',
+                      borderColor: active && !disabled ? m.color : 'transparent',
+                      backgroundColor: 'var(--color-surface-secondary)'
+                    }}
+                  >
+                    <i className={`ti ${m.icon}`} style={{ fontSize: 18, color: m.color }} aria-hidden="true" />
+                    <span className="text-[9px] font-medium leading-tight text-secondary">{m.label}</span>
                   </button>
                 );
               })}
             </div>
           </div>
-        )}
 
-        {/* Hashtags */}
-        <div>
-          <label className="text-xs font-medium text-secondary">Tags</label>
-          <input
-            type="text"
-            className="input-surface mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            placeholder="emi groceries travel"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-          />
-          {tagSuggestions.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap gap-1">
-              {tagSuggestions.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  className="text-xs rounded-full px-2.5 py-0.5 bg-surface-3 text-secondary"
-                  onClick={() => applyTagSuggestion(s.name)}
-                >
-                  #{s.name}
-                </button>
-              ))}
+          {/* Description */}
+          <div>
+            <label className="text-xs font-medium text-secondary">Description</label>
+            <input
+              type="text"
+              className="input-surface mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+              placeholder={type === 'transfer' ? 'e.g. Moving to savings' : 'What was this for?'}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+
+          {/* Active event chips (expense only) */}
+          {type === 'expense' && activeEvents.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-secondary">Active events</label>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {activeEvents.map((ev) => {
+                  const isTagged = activeTags.includes(ev.hashtag.toLowerCase());
+                  return (
+                    <button
+                      key={ev.id}
+                      type="button"
+                      onClick={() => toggleEventTag(ev)}
+                      className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border-2 transition-colors"
+                      style={
+                        isTagged
+                          ? { borderColor: ev.color, backgroundColor: `${ev.color}18`, color: ev.color }
+                          : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
+                      }
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
+                      {ev.name}
+                      {ev.autoTag && !isTagged && <span className="text-[9px] opacity-60">auto</span>}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
-        </div>
 
-        {/* Recurring toggle */}
-        <div className={`grid gap-3 ${isRecurring ? 'grid-cols-2' : 'grid-cols-1'}`}>
-          <div>
-            <label className="text-xs font-medium text-secondary">Recurring</label>
-            <div className="mt-1 flex items-center justify-between rounded-xl border border-theme px-3 py-3">
-              <span className="text-xs text-tertiary">Bills, EMIs</span>
+          {/* Tags (expense/income) */}
+          {type !== 'transfer' && (
+            <div>
+              <label className="text-xs font-medium text-secondary">Tags</label>
+              <input
+                type="text"
+                className="input-surface mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                placeholder="emi groceries travel"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+              />
+              {tagSuggestions.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {tagSuggestions.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      className="text-xs rounded-full px-2.5 py-0.5 bg-surface-3 text-secondary"
+                      onClick={() => applyTagSuggestion(s.name)}
+                    >
+                      #{s.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Recurring toggle (expense only) */}
+          {type === 'expense' && (
+            <div className={`grid gap-3 ${isRecurring ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              <div>
+                <label className="text-xs font-medium text-secondary">Recurring</label>
+                <div className="mt-1 flex items-center justify-between rounded-xl border border-theme px-3 py-3">
+                  <span className="text-xs text-tertiary">Bills, EMIs</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsRecurring((v) => !v)}
+                    className="w-11 h-6 rounded-full transition-colors flex-shrink-0"
+                    style={
+                      isRecurring
+                        ? { backgroundColor: '#00a86b' }
+                        : { backgroundColor: 'var(--color-surface-tertiary)' }
+                    }
+                    aria-label="Toggle recurring"
+                  >
+                    <span
+                      className={`block w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                        isRecurring ? 'translate-x-[22px]' : 'translate-x-[2px]'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+              {isRecurring && (
+                <div>
+                  <label className="text-xs font-medium text-secondary">Every (days)</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    className="input-surface mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                    value={intervalDays}
+                    onChange={(e) => setIntervalDays(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-1">
+            {editing && (
               <button
                 type="button"
-                onClick={() => setIsRecurring((v) => !v)}
-                className="w-11 h-6 rounded-full transition-colors flex-shrink-0"
-                style={
-                  isRecurring ? { backgroundColor: '#00a86b' } : { backgroundColor: 'var(--color-surface-tertiary)' }
-                }
-                aria-label="Toggle recurring"
+                onClick={() => editing && onDelete(editing.id).catch(() => {})}
+                className="flex-1 py-3 rounded-xl border border-red-200 text-red-500 text-sm font-medium"
               >
-                <span
-                  className={`block w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                    isRecurring ? 'translate-x-[22px]' : 'translate-x-[2px]'
-                  }`}
-                />
+                Delete
               </button>
-            </div>
-          </div>
-          {isRecurring && (
-            <div>
-              <label className="text-xs font-medium text-secondary">Every (days)</label>
-              <input
-                type="number"
-                inputMode="numeric"
-                className="input-surface mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                value={intervalDays}
-                onChange={(e) => setIntervalDays(e.target.value)}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-3 pt-1">
-          {editing && (
+            )}
             <button
               type="button"
-              onClick={() => editing && onDelete(editing.id).catch(() => {})}
-              className="flex-1 py-3 rounded-xl border border-red-200 text-red-500 text-sm font-medium"
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 py-3 rounded-xl text-white text-sm font-medium disabled:opacity-50 capitalize"
+              style={{ backgroundColor: typeMeta.color }}
             >
-              Delete
+              {saveText}
             </button>
-          )}
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="flex-1 py-3 rounded-xl text-white text-sm font-medium disabled:opacity-50"
-            style={{ backgroundColor: 'var(--color-primary)' }}
-          >
-            {saving ? 'Saving…' : editing ? 'Update' : 'Add expense'}
-          </button>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* ── Category picker — centered modal (z-70, above form) ── */}
+      {showCategoryPicker && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0"
+            style={{ background: 'rgba(0,0,0,0.45)' }}
+            onClick={() => setShowCategoryPicker(false)}
+          />
+          <div
+            className="relative bg-surface rounded-2xl overflow-hidden w-full"
+            style={{ maxWidth: 430, maxHeight: '85vh' }}
+          >
+            {/* Sticky header */}
+            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-theme sticky top-0 bg-surface z-10">
+              <h4 className="text-base font-semibold text-primary">Select category</h4>
+              <button
+                type="button"
+                onClick={() => setShowCategoryPicker(false)}
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center text-tertiary"
+              >
+                <i className="ti ti-x" style={{ fontSize: 20 }} aria-hidden="true" />
+              </button>
+            </div>
+
+            {/* Scrollable content */}
+            <div
+              className="overflow-y-auto px-5 pt-3 pb-8 flex flex-col gap-4"
+              style={{ maxHeight: 'calc(85vh - 64px)' }}
+            >
+              {groupedCategories.map(({ group, label, color, cats }) => (
+                <div key={group}>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                    <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color }}>
+                      {label}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {cats.map((cat) => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => {
+                          setCategoryId(cat.id);
+                          setShowCategoryPicker(false);
+                        }}
+                        className="flex flex-col items-center gap-1 p-1.5 rounded-xl border-2 transition-colors"
+                        style={
+                          categoryId === cat.id
+                            ? { borderColor: cat.color, backgroundColor: 'var(--color-surface-secondary)' }
+                            : { borderColor: 'transparent', backgroundColor: 'var(--color-surface-secondary)' }
+                        }
+                      >
+                        <i className={`ti ${cat.icon}`} style={{ fontSize: 16, color: cat.color }} aria-hidden="true" />
+                        <span className="text-[8px] font-medium text-center leading-tight text-secondary line-clamp-2 break-words w-full">
+                          {cat.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {/* New category (expense only) */}
+              {type === 'expense' &&
+                (showNewCat ? (
+                  <div className="bg-surface-2 rounded-xl p-3 flex flex-col gap-2.5 border border-theme">
+                    <input
+                      type="text"
+                      className="input-surface w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                      placeholder="Category name"
+                      value={newCatName}
+                      onChange={(e) => setNewCatName(e.target.value)}
+                      autoFocus
+                    />
+                    <div>
+                      <p className="text-[10px] text-secondary mb-1">Icon name (Tabler)</p>
+                      <input
+                        type="text"
+                        className="input-surface w-full rounded-xl border px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                        placeholder="ti-star, ti-home, ti-bolt…"
+                        value={newCatIcon}
+                        onChange={(e) => setNewCatIcon(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] text-secondary flex-shrink-0">Colour</p>
+                      {CAT_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setNewCatColor(c)}
+                          className="w-6 h-6 rounded-full border-2 flex-shrink-0 transition-transform"
+                          style={{
+                            backgroundColor: c,
+                            borderColor: newCatColor === c ? 'var(--color-text-primary)' : 'transparent',
+                            transform: newCatColor === c ? 'scale(1.2)' : 'scale(1)'
+                          }}
+                          aria-label={`Colour ${c}`}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowNewCat(false)}
+                        className="flex-1 py-2 rounded-xl border border-theme text-xs font-medium text-secondary"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleCreateCategory()}
+                        disabled={!newCatName.trim() || savingCat}
+                        className="flex-1 py-2 rounded-xl text-white text-xs font-medium disabled:opacity-40"
+                        style={{ backgroundColor: newCatColor }}
+                      >
+                        {savingCat ? 'Creating…' : 'Create'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowNewCat(true)}
+                    className="flex items-center gap-1.5 text-xs font-medium text-tertiary hover:text-secondary"
+                  >
+                    <i className="ti ti-plus" style={{ fontSize: 13 }} aria-hidden="true" />
+                    New category
+                  </button>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

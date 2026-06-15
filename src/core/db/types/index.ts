@@ -79,8 +79,27 @@ export interface Expense {
   paymentMode?: string;
   notes?: string;
   type?: TransactionType; // omitted on legacy records = 'expense'
+  accountId?: string; // which account this transaction belongs to
+  toAccountId?: string; // transfers only: destination account
   source?: TransactionSource; // omitted on legacy records = 'manual'
   sourceRef?: string; // dedup key: hash(date+amount+description) for import; bank ref for sync
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ─── Accounts ─────────────────────────────────────────────────────────────────
+
+export type AccountType = 'cash' | 'bank' | 'credit_card' | 'wallet';
+
+export interface Account {
+  id: string;
+  name: string;
+  type: AccountType;
+  openingBalance: number; // balance before any recorded transactions
+  color: string;
+  icon: string; // Tabler icon class e.g. 'ti-wallet'
+  includeInNetWorth: boolean; // cash + bank = yes, credit card = no (it's a liability)
+  isArchived: boolean;
   createdAt: number;
   updatedAt: number;
 }
