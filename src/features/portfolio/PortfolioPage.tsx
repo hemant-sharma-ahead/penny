@@ -6,6 +6,8 @@ import { useRepository } from '@/hooks/useRepository';
 import type { AssetClass, Holding } from '@/core/db/types';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
 import { HoldingForm } from './HoldingForm';
+import { useIpos } from '@/core/ipo/useIpos';
+import type { IpoStatus } from '@/core/ipo/ipoTypes';
 
 const ASSET_META: Record<AssetClass, { label: string; icon: string; color: string }> = {
   mf: { label: 'Mutual Funds', icon: 'ti-chart-donut', color: '#6366f1' },
@@ -19,18 +21,36 @@ const ASSET_META: Record<AssetClass, { label: string; icon: string; color: strin
 
 const ASSET_ORDER: AssetClass[] = ['mf', 'stock', 'fd', 'nps', 'ppf', 'gold', 'other'];
 
+const IPO_SUBTAB_ORDER: IpoStatus[] = ['upcoming', 'open', 'closed', 'listed'];
+
+const IPO_SUBTAB_META: Record<IpoStatus, { label: string; icon: string; emptyMessage: string }> = {
+  upcoming: { label: 'Upcoming', icon: 'ti-calendar-event', emptyMessage: 'No upcoming IPOs right now.' },
+  open: { label: 'Open', icon: 'ti-door-enter', emptyMessage: 'No IPOs are currently open for subscription.' },
+  closed: { label: 'Closed', icon: 'ti-clock-hour-4', emptyMessage: 'No closed IPOs awaiting listing.' },
+  listed: { label: 'Listed', icon: 'ti-list-check', emptyMessage: 'No recently listed IPOs.' }
+};
+
 function effectiveValue(h: Holding): number {
   return h.currentValue ?? h.investedAmount;
+}
+
+function formatLastUpdated(ts: number): string {
+  const diff = Date.now() - ts;
+  if (diff < 60_000) return 'Updated just now';
+  return `Updated ${new Date(ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
 }
 
 export function PortfolioPage() {
   const { mode } = usePrivacy();
   const { items: holdings, save: saveHolding, remove: removeHolding } = useRepository(holdingsRepo);
 
-  const [activeTab, setActiveTab] = useState<'holdings' | 'allocation'>('holdings');
+  const [activeTab, setActiveTab] = useState<'holdings' | 'allocation' | 'ipo'>('holdings');
+  const [ipoSubTab, setIpoSubTab] = useState<IpoStatus>('upcoming');
   const [showForm, setShowForm] = useState(false);
   const [editingHolding, setEditingHolding] = useState<Holding | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  const ipos = useIpos();
 
   const totalInvested = useMemo(() => holdings.reduce((s, h) => s + h.investedAmount, 0), [holdings]);
   const totalCurrent = useMemo(() => holdings.reduce((s, h) => s + effectiveValue(h), 0), [holdings]);
@@ -118,13 +138,19 @@ export function PortfolioPage() {
       .finally(() => setRefreshing(false));
   }
 
+  const hasLivePriceRefresh = holdings.some(
+    (h) => (h.assetClass === 'mf' && h.schemeCode) || (h.assetClass === 'stock' && h.symbol)
+  );
+  const ipoSubList = ipos[ipoSubTab];
+  const activeIpoMeta = IPO_SUBTAB_META[ipoSubTab];
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="px-4 pt-4 pb-3 border-b border-theme">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-primary">Portfolio</h2>
-          {holdings.some((h) => (h.assetClass === 'mf' && h.schemeCode) || (h.assetClass === 'stock' && h.symbol)) && (
+          {activeTab !== 'ipo' && hasLivePriceRefresh && (
             <button
               onClick={handleRefreshPrices}
               disabled={refreshing}
@@ -139,7 +165,7 @@ export function PortfolioPage() {
             </button>
           )}
         </div>
-        {holdings.length > 0 && (
+        {activeTab !== 'ipo' && holdings.length > 0 && (
           <div className="flex items-baseline gap-3 mt-1">
             <p className="text-sm text-secondary">{mode === 'open' ? formatCurrency(totalCurrent) : '••••'}</p>
             <span className={`text-xs font-medium ${overallReturn >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
@@ -150,20 +176,20 @@ export function PortfolioPage() {
         )}
       </div>
 
-      {/* Tabs */}
+      {/* Main tabs */}
       <div className="flex px-4 border-b border-theme">
-        {(['holdings', 'allocation'] as const).map((tab) => (
+        {(['holdings', 'allocation', 'ipo'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className="py-2.5 mr-5 text-sm font-medium border-b-2 -mb-px capitalize transition-colors"
+            className="py-2.5 mr-5 text-sm font-medium border-b-2 -mb-px transition-colors"
             style={
               activeTab === tab
                 ? { borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }
                 : { borderColor: 'transparent', color: 'var(--color-text-secondary)' }
             }
           >
-            {tab === 'allocation' ? 'Allocation' : 'Holdings'}
+            {tab === 'ipo' ? 'IPO' : tab === 'allocation' ? 'Allocation' : 'Holdings'}
           </button>
         ))}
       </div>
@@ -316,21 +342,111 @@ export function PortfolioPage() {
             )}
           </div>
         )}
+
+        {/* ── IPO tab ── */}
+        {activeTab === 'ipo' && (
+          <div>
+            {/* Sub-tabs + refresh */}
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-theme">
+              <div className="flex gap-1.5">
+                {IPO_SUBTAB_ORDER.map((key) => {
+                  const { label } = IPO_SUBTAB_META[key];
+                  const count = ipos[key].length;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setIpoSubTab(key)}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
+                      style={
+                        ipoSubTab === key
+                          ? { backgroundColor: 'var(--color-primary)', color: '#fff' }
+                          : { backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-secondary)' }
+                      }
+                    >
+                      {label}
+                      {count > 0 && (
+                        <span
+                          className="text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center leading-none"
+                          style={
+                            ipoSubTab === key
+                              ? { backgroundColor: 'rgba(255,255,255,0.25)', color: '#fff' }
+                              : {
+                                  backgroundColor: 'var(--color-surface-tertiary)',
+                                  color: 'var(--color-text-tertiary)'
+                                }
+                          }
+                        >
+                          {count > 9 ? '9+' : count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={ipos.refresh}
+                disabled={ipos.refreshing || ipos.loading}
+                className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border border-theme text-secondary disabled:opacity-40 ml-2 flex-shrink-0"
+                aria-label="Refresh IPO data"
+              >
+                <i
+                  className={`ti ti-refresh ${ipos.refreshing ? 'animate-spin' : ''}`}
+                  style={{ fontSize: 13 }}
+                  aria-hidden="true"
+                />
+                {ipos.refreshing ? 'Refreshing…' : 'Refresh'}
+              </button>
+            </div>
+
+            {/* Last updated */}
+            {ipos.lastUpdated && (
+              <p className="text-[10px] text-tertiary px-4 pt-1.5 pb-0.5">
+                {formatLastUpdated(ipos.lastUpdated)} · investorgain.com
+              </p>
+            )}
+
+            {/* Content */}
+            {ipos.loading && ipos.all.length === 0 ? (
+              <div className="p-10 text-center">
+                <div
+                  className="w-6 h-6 border-2 rounded-full animate-spin mx-auto"
+                  style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }}
+                />
+                <p className="text-sm mt-3 text-tertiary">Fetching IPO data…</p>
+              </div>
+            ) : ipoSubList.length === 0 ? (
+              <div className="p-10 text-center">
+                <i className={`ti ${activeIpoMeta.icon} text-tertiary`} style={{ fontSize: 44 }} aria-hidden="true" />
+                <p className="text-sm mt-3 text-tertiary">{activeIpoMeta.emptyMessage}</p>
+              </div>
+            ) : (
+              <div className="p-4 text-center">
+                <p className="text-sm text-secondary">
+                  {ipoSubList.length} {activeIpoMeta.label.toLowerCase()} IPO
+                  {ipoSubList.length !== 1 ? 's' : ''} loaded
+                </p>
+                <p className="text-xs mt-1 text-tertiary">Detailed cards coming in the next update.</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* FAB — add holding */}
-      <button
-        onClick={openAdd}
-        className="fixed w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white z-10"
-        style={{
-          bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
-          right: '1rem',
-          backgroundColor: 'var(--color-primary)'
-        }}
-        aria-label="Add holding"
-      >
-        <i className="ti ti-plus" style={{ fontSize: 24 }} aria-hidden="true" />
-      </button>
+      {/* FAB — add holding (hidden on IPO tab) */}
+      {activeTab !== 'ipo' && (
+        <button
+          onClick={openAdd}
+          className="fixed w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white z-10"
+          style={{
+            bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+            right: '1rem',
+            backgroundColor: 'var(--color-primary)'
+          }}
+          aria-label="Add holding"
+        >
+          <i className="ti ti-plus" style={{ fontSize: 24 }} aria-hidden="true" />
+        </button>
+      )}
 
       {showForm && (
         <HoldingForm
