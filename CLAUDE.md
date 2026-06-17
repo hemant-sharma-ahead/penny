@@ -32,7 +32,7 @@ This file is read at the start of every Claude Code session. It tells you where 
 | M10: IPO tracker + GMP               | ✅ Complete                                         |
 | M11: Extended asset tracking         | ⏳ Future                                           |
 | M12: Portfolio enhancements          | ⏳ Future                                           |
-| M13: Financial calculators           | ⏳ Future                                           |
+| M13: Financial calculators           | 🚧 In progress by PANKHURI                         |
 | M14: Finance news + Contact/Feedback | ⏳ Future                                           |
 | M15: Export PDF/HTML                 | ⏳ Future                                           |
 
