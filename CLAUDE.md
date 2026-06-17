@@ -29,7 +29,7 @@ This file is read at the start of every Claude Code session. It tells you where 
 | M7: Hardening                        | ✅ Complete                                         |
 | M8: Phase 1 polish                   | ✅ Complete                                         |
 | M9: Income, transfers & cash         | ✅ Complete                                         |
-| M10: IPO tracker + GMP               | ⏳ Future                                           |
+| M10: IPO tracker + GMP               | ✅ Complete                                         |
 | M11: Extended asset tracking         | ⏳ Future                                           |
 | M12: Portfolio enhancements          | ⏳ Future                                           |
 | M13: Financial calculators           | ⏳ Future                                           |
@@ -106,7 +106,21 @@ This file is read at the start of every Claude Code session. It tells you where 
 
 **M9 is complete.**
 
-**Next step when you pick up a session:** Start M10 — IPO tracker + GMP.
+**M10 step tracker:**
+
+| Step | Feature                                                                                          | Status                  |
+| ---- | ------------------------------------------------------------------------------------------------ | ----------------------- |
+| 56   | IPO types + ipoClient (investorgain.com, cache, FY constants)                                    | ✅ Done                 |
+| 57   | useIpos hook + IPO_TRACKER.md research doc                                                       | ✅ Done                 |
+| 58   | IPO tab in PortfolioPage — sub-tabs (Upcoming/Open/Closed/Listed), refresh, empty states         | ✅ Done                 |
+| 59   | CSP fix (webnodejs.investorgain.com) + FY year fix (2026/2026-27) + live data wiring             | ✅ Done                 |
+| 60   | IPO cards redesign — 2-column layout (financials left, dates right), all 4 tabs                  | ✅ Done                 |
+| 61   | Demo data seeding                                                                                | ⏳ Skipped (live data only) |
+| 62   | IPO detail modal — 4-col grids, subscription API (QIB/HNI/Retail), day-wise table, final CI pass | ✅ Done                 |
+
+**M10 is complete.** Step 61 skipped — IPO data comes from live investorgain.com API, no demo seeding needed.
+
+**Next step when you pick up a session:** Start M11 — Extended asset tracking (vehicles, property, PPF, NPS, EPF — manual entry + last-updated timestamp).
 
 **Full Phase 1 roadmap (M9–M15):**
 

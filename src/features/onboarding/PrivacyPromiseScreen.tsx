@@ -10,7 +10,7 @@ const pillars = [
   },
   {
     icon: 'ti-world-check',
-    title: '3 permitted domains',
+    title: `${ALLOWED_DOMAINS.length} permitted domains`,
     detail: ALLOWED_DOMAINS.join(' · ')
   },
   {
