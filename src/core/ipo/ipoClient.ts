@@ -1,10 +1,17 @@
-import type { IpoCache, IpoCategory, IpoItem, IpoStatus, RawIpoResponse, RawIpoRow } from './ipoTypes';
+import type {
+  IpoCache,
+  IpoCategory,
+  IpoItem,
+  IpoStatus,
+  IpoSubDetail,
+  IpoSubRow,
+  RawIpoResponse,
+  RawIpoRow
+} from './ipoTypes';
 
-// Update {year} and {fy} every April when the Indian financial year rolls over.
-// Confirmed working with these values as of June 2026 — the year params appear
-// to be internal report keys on investorgain, not strict calendar filters.
-const IPO_API_YEAR = '2025';
-const IPO_API_FY = '2025-26';
+// Update every April when the Indian financial year rolls over (FY starts April 1).
+const IPO_API_YEAR = '2026';
+const IPO_API_FY = '2026-27';
 
 const BASE_URL = 'https://webnodejs.investorgain.com/cloud/report/data-read';
 const CACHE_KEY = 'penny_ipo_cache';
@@ -96,6 +103,60 @@ function saveCache(cache: IpoCache): void {
 
 export function getCachedIpos(): IpoCache | null {
   return loadCache();
+}
+
+function fmtSub(val: string | number): string {
+  const n = parseFloat(String(val));
+  if (!n || n <= 0) return '—';
+  return `${n.toFixed(2)}x`;
+}
+
+// In-memory cache — subscription data is session-scoped, no need for localStorage
+const subCache = new Map<number, IpoSubDetail>();
+
+interface RawSubRow {
+  Seq: number;
+  bid_date: string;
+  qib: string;
+  nii: string;
+  nii_big: string;
+  nii_small: string;
+  rii: string;
+  emp: string;
+  total: string;
+  [key: string]: unknown;
+}
+
+export async function fetchIpoSubscription(id: number): Promise<IpoSubDetail | null> {
+  const cached = subCache.get(id);
+  if (cached) return cached;
+  try {
+    const res = await fetch(`https://webnodejs.investorgain.com/cloud/ipo/ipo-subscription-read/${id}`);
+    if (!res.ok) return null;
+    const json = (await res.json()) as { data?: { ipoBiddingData?: RawSubRow[] } };
+    const raw = json.data?.ipoBiddingData;
+    if (!Array.isArray(raw) || raw.length === 0) return null;
+    const detail: IpoSubDetail = {
+      rows: raw.map(
+        (r): IpoSubRow => ({
+          seq: Number(r.Seq),
+          bidDate: r.bid_date.split(' ').slice(0, 3).join(' '),
+          qib: fmtSub(r.qib),
+          nii: fmtSub(r.nii),
+          niiBig: fmtSub(r.nii_big),
+          niiSmall: fmtSub(r.nii_small),
+          rii: fmtSub(r.rii),
+          emp: fmtSub(r.emp),
+          total: fmtSub(r.total)
+        })
+      ),
+      fetchedAt: Date.now()
+    };
+    subCache.set(id, detail);
+    return detail;
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchIpos(forceRefresh = false): Promise<IpoItem[]> {

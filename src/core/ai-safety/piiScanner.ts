@@ -11,7 +11,12 @@ export const PII_PATTERNS: Record<string, RegExp> = {
   accountNumber: /\b\d{9,18}\b/
 };
 
-export const ALLOWED_DOMAINS = ['api.anthropic.com', 'api.mfapi.in', 'query.yahoofinance.com'];
+export const ALLOWED_DOMAINS = [
+  'api.anthropic.com',
+  'api.mfapi.in',
+  'query.yahoofinance.com',
+  'webnodejs.investorgain.com'
+];
 
 export interface PiiScanResult {
   hasPii: boolean;

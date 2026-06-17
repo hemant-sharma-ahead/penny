@@ -27,6 +27,23 @@ export interface IpoCache {
   fetchedAt: number;
 }
 
+export interface IpoSubRow {
+  seq: number;
+  bidDate: string;
+  qib: string;
+  nii: string;
+  niiBig: string;
+  niiSmall: string;
+  rii: string;
+  emp: string;
+  total: string;
+}
+
+export interface IpoSubDetail {
+  rows: IpoSubRow[];
+  fetchedAt: number;
+}
+
 // Raw shape returned by investorgain.com internal API
 export interface RawIpoRow {
   '~id': number;

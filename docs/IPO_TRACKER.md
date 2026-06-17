@@ -34,8 +34,8 @@ Sources evaluated and rejected:
 GET https://webnodejs.investorgain.com/cloud/report/data-read/331/1/6/{year}/{fy}/0/all?search=&v={timestamp}
 ```
 
-- `{year}` = current calendar year (e.g. `2025`)
-- `{fy}` = financial year string (e.g. `2025-26`)
+- `{year}` = current calendar year (e.g. `2026`)
+- `{fy}` = financial year string (e.g. `2026-27`)
 - `{timestamp}` = `Date.now()` to bust cache
 - **Update required every April** when the financial year rolls over
 - No auth headers needed
