@@ -3,6 +3,8 @@ import type {
   Asset,
   Budget,
   ChipInsight,
+  EpfEmployer,
+  EpfTransaction,
   Expense,
   ExpenseCategory,
   Goal,
@@ -11,6 +13,7 @@ import type {
   InsurancePolicy,
   Liability,
   PersonalIou,
+  PpfTransaction,
   Subscription
 } from './types';
 import {
@@ -417,6 +420,173 @@ export async function seedDemoData(): Promise<void> {
       currentValue: 36000,
       createdAt: ago(365),
       updatedAt: ago(1)
+    },
+    {
+      id: 'demo-holding-nps',
+      assetClass: 'nps',
+      name: 'NPS Tier 1 — SBI Pension Funds',
+      investedAmount: 360000,
+      currentValue: 545000,
+      assetMeta: {
+        pran: '110123456789',
+        tier: 'tier1',
+        fundManager: 'SBI Pension Funds',
+        monthlyContribution: 3000,
+        npsChoiceType: 'auto',
+        npsLifecycleFund: 'lc75',
+        npsBirthYear: 1990
+      },
+      lastUpdatedAt: ago(7),
+      createdAt: ago(3650),
+      updatedAt: ago(7)
+    },
+    {
+      id: 'demo-holding-ppf',
+      assetClass: 'ppf',
+      name: 'PPF Account — SBI',
+      investedAmount: 613324,
+      currentValue: 613324,
+      assetMeta: {
+        ppfOpeningDate: ago(1900),
+        ppfBank: 'SBI',
+        annualContribution: 100000,
+        ppfTransactions: [
+          { id: 'ppf-tx-1', type: 'deposit', date: ago(1883), amount: 50000, note: 'Annual contribution FY 2021-22' },
+          { id: 'ppf-tx-2', type: 'interest', date: ago(1539), amount: 3200, note: 'Interest credit FY 2021-22' },
+          { id: 'ppf-tx-3', type: 'deposit', date: ago(1536), amount: 75000, note: 'Annual contribution FY 2022-23' },
+          { id: 'ppf-tx-4', type: 'interest', date: ago(1174), amount: 9100, note: 'Interest credit FY 2022-23' },
+          { id: 'ppf-tx-5', type: 'deposit', date: ago(1170), amount: 100000, note: 'Annual contribution FY 2023-24' },
+          { id: 'ppf-tx-6', type: 'interest', date: ago(808), amount: 16849, note: 'Interest credit FY 2023-24' },
+          { id: 'ppf-tx-7', type: 'deposit', date: ago(805), amount: 100000, note: 'Annual contribution FY 2024-25' },
+          { id: 'ppf-tx-8', type: 'interest', date: ago(443), amount: 25145, note: 'Interest credit FY 2024-25' },
+          { id: 'ppf-tx-9', type: 'deposit', date: ago(440), amount: 100000, note: 'Annual contribution FY 2025-26' },
+          { id: 'ppf-tx-10', type: 'interest', date: ago(78), amount: 34030, note: 'Interest credit FY 2025-26' },
+          { id: 'ppf-tx-11', type: 'deposit', date: ago(75), amount: 100000, note: 'Annual contribution FY 2026-27' }
+        ] as PpfTransaction[]
+      },
+      lastUpdatedAt: ago(75),
+      createdAt: ago(1900),
+      updatedAt: ago(75)
+    },
+    {
+      id: 'demo-holding-epf',
+      assetClass: 'epf',
+      name: 'EPF Account — TCS',
+      investedAmount: 820000,
+      currentValue: 820000,
+      assetMeta: {
+        uan: '100987654321',
+        epfBirthYear: 1990,
+        epfEmployers: [
+          {
+            id: 'epf-emp-1',
+            companyName: 'Wipro',
+            basicSalary: 25000,
+            employeeContribPct: 12,
+            fromDate: new Date('2016-04-15').getTime(),
+            toDate: new Date('2019-03-20').getTime()
+          } as EpfEmployer,
+          {
+            id: 'epf-emp-2',
+            companyName: 'Infosys',
+            basicSalary: 40000,
+            employeeContribPct: 12,
+            fromDate: new Date('2019-04-01').getTime(),
+            toDate: new Date('2023-09-30').getTime()
+          } as EpfEmployer,
+          {
+            id: 'epf-emp-3',
+            companyName: 'TCS',
+            basicSalary: 60000,
+            employeeContribPct: 12,
+            fromDate: new Date('2023-10-01').getTime()
+          } as EpfEmployer
+        ],
+        epfTransactions: [
+          // Transfer in when joining TCS
+          {
+            id: 'epf-tx-1',
+            type: 'transfer_in',
+            date: ago(975),
+            amount: 480000,
+            note: 'Transfer from Infosys EPF account'
+          } as EpfTransaction,
+          // FY 2024-25 interest
+          {
+            id: 'epf-tx-2',
+            type: 'interest',
+            date: ago(443),
+            amount: 41000,
+            note: 'Interest credit FY 2024-25'
+          } as EpfTransaction,
+          // FY 2025-26 interest
+          {
+            id: 'epf-tx-3',
+            type: 'interest',
+            date: ago(78),
+            amount: 46200,
+            note: 'Interest credit FY 2025-26'
+          } as EpfTransaction,
+          // Monthly contributions — last 6 months (TCS: Basic ₹60,000 → Emp ₹7,200 + Emplr ₹2,202)
+          {
+            id: 'epf-tx-4',
+            type: 'contribution',
+            wagesMonth: '2026-05',
+            date: ago(7),
+            employeeAmount: 7200,
+            employerAmount: 2202,
+            pensionAmount: 4998
+          } as EpfTransaction,
+          {
+            id: 'epf-tx-5',
+            type: 'contribution',
+            wagesMonth: '2026-04',
+            date: ago(36),
+            employeeAmount: 7200,
+            employerAmount: 2202,
+            pensionAmount: 4998
+          } as EpfTransaction,
+          {
+            id: 'epf-tx-6',
+            type: 'contribution',
+            wagesMonth: '2026-03',
+            date: ago(67),
+            employeeAmount: 7200,
+            employerAmount: 2202,
+            pensionAmount: 4998
+          } as EpfTransaction,
+          {
+            id: 'epf-tx-7',
+            type: 'contribution',
+            wagesMonth: '2026-02',
+            date: ago(97),
+            employeeAmount: 7200,
+            employerAmount: 2202,
+            pensionAmount: 4998
+          } as EpfTransaction,
+          {
+            id: 'epf-tx-8',
+            type: 'contribution',
+            wagesMonth: '2026-01',
+            date: ago(124),
+            employeeAmount: 7200,
+            employerAmount: 2202,
+            pensionAmount: 4998
+          } as EpfTransaction,
+          {
+            id: 'epf-tx-9',
+            type: 'contribution',
+            wagesMonth: '2025-12',
+            date: ago(154),
+            employeeAmount: 7200,
+            employerAmount: 2202,
+            pensionAmount: 4998
+          } as EpfTransaction
+        ]
+      },
+      lastUpdatedAt: ago(7),
+      createdAt: new Date('2023-10-01').getTime(),
+      updatedAt: ago(7)
     }
   ];
   await Promise.all(holdings.map((h) => holdingsRepo.put(h)));

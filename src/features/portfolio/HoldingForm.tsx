@@ -1,11 +1,24 @@
 import { useState } from 'react';
-import type { AssetClass, Holding } from '@/core/db/types';
+import type { AssetClass, AssetMeta, EpfEmployer, Holding } from '@/core/db/types';
+import { NPS_FUND_MANAGERS, LIFECYCLE_FUNDS } from '@/core/nps';
+import type { NpsChoiceType, NpsLifecycleFund, NpsPfmKey, NpsSchemeType } from '@/core/nps';
 
 interface Props {
   editing: Holding | null;
   onSave: (holding: Holding) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onClose: () => void;
+  lockAssetClass?: AssetClass;
+}
+
+function ppfMaturityLabel(openingDateStr: string): { text: string } | null {
+  if (!openingDateStr) return null;
+  const openMs = new Date(openingDateStr).getTime();
+  const maturityMs = openMs + 15 * 365.25 * 24 * 60 * 60 * 1000;
+  const maturityDate = new Date(maturityMs);
+  const yearsLeft = Math.max(0, Math.round((maturityMs - Date.now()) / (365.25 * 24 * 60 * 60 * 1000)));
+  const suffix = yearsLeft > 0 ? ` · ${yearsLeft} yr${yearsLeft !== 1 ? 's' : ''} remaining` : ' · Matured';
+  return { text: `Matures ${maturityDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}${suffix}` };
 }
 
 function epochToDateInput(epochMs: number): string {
@@ -18,13 +31,128 @@ const ASSET_CLASSES: { value: AssetClass; label: string; icon: string; color: st
   { value: 'stock', label: 'Stock', icon: 'ti-trending-up', color: '#0ea5e9' },
   { value: 'fd', label: 'FD / RD', icon: 'ti-building-bank', color: '#f59e0b' },
   { value: 'nps', label: 'NPS', icon: 'ti-building-community', color: '#10b981' },
-  { value: 'ppf', label: 'PPF / EPF', icon: 'ti-safe', color: '#8b5cf6' },
+  { value: 'ppf', label: 'PPF', icon: 'ti-safe', color: '#8b5cf6' },
+  { value: 'epf', label: 'EPF', icon: 'ti-building-factory', color: '#64748b' },
   { value: 'gold', label: 'Gold', icon: 'ti-coin', color: '#d97706' },
   { value: 'other', label: 'Other', icon: 'ti-dots', color: '#6b7280' }
 ];
 
-export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
-  const [assetClass, setAssetClass] = useState<AssetClass>(editing?.assetClass ?? 'mf');
+function NpsLifecycleDetail({
+  fund,
+  birthYearStr,
+  onClose
+}: {
+  fund: NpsLifecycleFund;
+  birthYearStr: string;
+  onClose: () => void;
+}) {
+  const config = LIFECYCLE_FUNDS[fund];
+  const birthYear = parseInt(birthYearStr, 10);
+  const currentAge = !isNaN(birthYear) ? new Date().getFullYear() - birthYear : null;
+  const currentAgeRow = currentAge != null ? Math.max(35, Math.min(55, currentAge)) : null;
+
+  return (
+    <div className="fixed inset-0 z-70 flex items-end" onClick={onClose}>
+      <div
+        className="relative w-full rounded-t-2xl max-h-[85vh] overflow-y-auto bg-surface"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sticky top-0 px-4 py-3 border-b border-theme flex items-start justify-between gap-3 bg-surface">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span
+                className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: `${config.color}18`, color: config.color }}
+              >
+                {config.shortLabel}
+              </span>
+              <p className="text-sm font-semibold text-primary">{config.label}</p>
+            </div>
+            <p className="text-xs text-secondary mt-0.5 leading-snug">{config.description}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-tertiary"
+            style={{ backgroundColor: 'var(--color-surface-secondary)' }}
+          >
+            <i className="ti ti-x" style={{ fontSize: 14 }} aria-hidden="true" />
+          </button>
+        </div>
+        <div className="p-4">
+          {currentAge != null && (
+            <p className="text-xs text-secondary mb-3">
+              Your age: <strong className="text-primary">{currentAge}</strong>
+              {currentAge < 35 && ' — PFRDA schedule starts at 35'}
+              {currentAge > 55 && ' — PFRDA schedule ends at 55'}
+            </p>
+          )}
+          <div className="rounded-xl overflow-hidden border border-theme">
+            <table className="w-full text-xs table-fixed">
+              <colgroup>
+                <col style={{ width: '25%' }} />
+                <col style={{ width: '25%' }} />
+                <col style={{ width: '25%' }} />
+                <col style={{ width: '25%' }} />
+              </colgroup>
+              <thead>
+                <tr style={{ backgroundColor: 'var(--color-surface-secondary)' }}>
+                  <th className="text-left px-3 py-2 font-semibold text-tertiary">Age</th>
+                  <th className="text-right px-2 py-2 font-semibold" style={{ color: '#0ea5e9' }}>
+                    Equity
+                  </th>
+                  <th className="text-right px-2 py-2 font-semibold" style={{ color: '#d97706' }}>
+                    Corp.
+                  </th>
+                  <th className="text-right px-3 py-2 font-semibold" style={{ color: '#10b981' }}>
+                    Govt.
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {config.table.map((row) => {
+                  const isCurrent = row.age === currentAgeRow;
+                  return (
+                    <tr
+                      key={row.age}
+                      style={
+                        isCurrent
+                          ? { backgroundColor: 'color-mix(in srgb, var(--color-primary) 8%, transparent)' }
+                          : undefined
+                      }
+                    >
+                      <td className="px-3 py-1.5">
+                        <span className={isCurrent ? 'font-bold text-primary' : 'text-secondary'}>
+                          {row.age}
+                          {isCurrent && ' ← you'}
+                        </span>
+                      </td>
+                      <td className="text-right px-2 py-1.5 tabular-nums font-medium" style={{ color: '#0ea5e9' }}>
+                        {row.equity}%
+                      </td>
+                      <td className="text-right px-2 py-1.5 tabular-nums font-medium" style={{ color: '#d97706' }}>
+                        {row.corporate}%
+                      </td>
+                      <td className="text-right px-3 py-1.5 tabular-nums font-medium" style={{ color: '#10b981' }}>
+                        {row.govt}%
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-[10px] text-tertiary leading-relaxed">
+            Source: PFRDA lifecycle fund circular. Ages below 35 use the 35-year allocation; ages above 55 use the
+            55-year allocation.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass }: Props) {
+  const [assetClass, setAssetClass] = useState<AssetClass>(editing?.assetClass ?? lockAssetClass ?? 'mf');
   const [name, setName] = useState(editing?.name ?? '');
   const [investedAmount, setInvestedAmount] = useState(editing ? String(editing.investedAmount) : '');
   const [currentValue, setCurrentValue] = useState(editing?.currentValue != null ? String(editing.currentValue) : '');
@@ -37,6 +165,56 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
     editing?.maturityDate != null ? epochToDateInput(editing.maturityDate) : ''
   );
   const [notes, setNotes] = useState(editing?.notes ?? '');
+
+  // NPS fields
+  const [npsTier, setNpsTier] = useState<'tier1' | 'tier2'>(editing?.assetMeta?.tier ?? 'tier1');
+  const [npsPran, setNpsPran] = useState(editing?.assetMeta?.pran ?? '');
+  const [npsMonthly, setNpsMonthly] = useState(
+    editing?.assetMeta?.monthlyContribution != null ? String(editing.assetMeta.monthlyContribution) : ''
+  );
+  // NPS extended (choice, lifecycle, scheme)
+  const [npsChoiceType, setNpsChoiceType] = useState<NpsChoiceType>(editing?.assetMeta?.npsChoiceType ?? 'auto');
+  const [npsLifecycleFund, setNpsLifecycleFund] = useState<NpsLifecycleFund>(
+    editing?.assetMeta?.npsLifecycleFund ?? 'lc50'
+  );
+  const [npsBirthYear, setNpsBirthYear] = useState(
+    editing?.assetMeta?.npsBirthYear != null ? String(editing.assetMeta.npsBirthYear) : ''
+  );
+  const [npsPfm, setNpsPfm] = useState<NpsPfmKey | ''>((editing?.assetMeta?.npsPfm as NpsPfmKey | undefined) ?? '');
+  const [npsSchemeType, setNpsSchemeType] = useState<NpsSchemeType | ''>(editing?.assetMeta?.npsSchemeType ?? '');
+  const [showNpsSchedule, setShowNpsSchedule] = useState(false);
+
+  // PPF fields
+  const [ppfOpeningDate, setPpfOpeningDate] = useState(() =>
+    editing?.assetMeta?.ppfOpeningDate != null ? epochToDateInput(editing.assetMeta.ppfOpeningDate) : ''
+  );
+  const [ppfBank, setPpfBank] = useState(editing?.assetMeta?.ppfBank ?? '');
+  const [ppfAnnual, setPpfAnnual] = useState(
+    editing?.assetMeta?.annualContribution != null ? String(editing.assetMeta.annualContribution) : ''
+  );
+
+  // EPF fields
+  const [epfUan, setEpfUan] = useState(editing?.assetMeta?.uan ?? '');
+  const [epfBirthYear, setEpfBirthYear] = useState(
+    editing?.assetMeta?.epfBirthYear != null ? String(editing.assetMeta.epfBirthYear) : ''
+  );
+  const [epfCompany, setEpfCompany] = useState(() => {
+    const cur = editing?.assetMeta?.epfEmployers?.find((e) => !e.toDate);
+    return cur?.companyName ?? '';
+  });
+  const [epfBasicSalary, setEpfBasicSalary] = useState(() => {
+    const cur = editing?.assetMeta?.epfEmployers?.find((e) => !e.toDate);
+    return cur?.basicSalary != null ? String(cur.basicSalary) : '';
+  });
+  const [epfJoiningDate, setEpfJoiningDate] = useState(() => {
+    const cur = editing?.assetMeta?.epfEmployers?.find((e) => !e.toDate);
+    return cur?.fromDate != null ? epochToDateInput(cur.fromDate) : '';
+  });
+  const epfEmployeePct = (() => {
+    const cur = editing?.assetMeta?.epfEmployers?.find((e) => !e.toDate);
+    return cur?.employeeContribPct ?? 12;
+  })();
+
   const [saving, setSaving] = useState(false);
 
   function handleSave() {
@@ -53,6 +231,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
       assetClass,
       name: name.trim(),
       investedAmount: invested,
+      lastUpdatedAt: now,
       createdAt: editing?.createdAt ?? now,
       updatedAt: now
     };
@@ -78,6 +257,62 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
     } else if (assetClass === 'gold') {
       if (parsedUnits !== undefined) holding.units = parsedUnits;
       if (parsedAvgCost !== undefined) holding.avgCostPrice = parsedAvgCost;
+    } else if (assetClass === 'nps') {
+      const meta: AssetMeta = { tier: npsTier, npsChoiceType };
+      if (npsPran.trim()) meta.pran = npsPran.trim();
+      const monthly = parseFloat(npsMonthly);
+      if (!isNaN(monthly) && monthly > 0) meta.monthlyContribution = monthly;
+      const birthYear = parseInt(npsBirthYear, 10);
+      if (!isNaN(birthYear) && birthYear > 1940 && birthYear < 2010) meta.npsBirthYear = birthYear;
+
+      if (npsChoiceType === 'auto') {
+        meta.npsLifecycleFund = npsLifecycleFund;
+        if (npsPfm) {
+          meta.npsPfm = npsPfm;
+          meta.fundManager = NPS_FUND_MANAGERS.find((m) => m.key === npsPfm)?.label ?? npsPfm;
+        }
+      } else {
+        // active choice
+        if (npsPfm) meta.npsPfm = npsPfm;
+        if (npsSchemeType) meta.npsSchemeType = npsSchemeType;
+        if (parsedUnits !== undefined) holding.units = parsedUnits;
+      }
+      holding.assetMeta = meta;
+    } else if (assetClass === 'ppf') {
+      const meta: AssetMeta = { ...(editing?.assetMeta ?? {}) };
+      if (ppfOpeningDate) meta.ppfOpeningDate = new Date(ppfOpeningDate).getTime();
+      if (ppfBank.trim()) meta.ppfBank = ppfBank.trim();
+      const annual = parseFloat(ppfAnnual);
+      if (!isNaN(annual) && annual > 0) meta.annualContribution = annual;
+      holding.assetMeta = meta;
+    } else if (assetClass === 'epf') {
+      const meta: AssetMeta = { ...(editing?.assetMeta ?? {}) };
+      if (epfUan.trim()) meta.uan = epfUan.trim();
+      const by = parseInt(epfBirthYear, 10);
+      if (!isNaN(by) && by > 1940 && by < 2010) meta.epfBirthYear = by;
+
+      const existingEmployers: EpfEmployer[] = [...(editing?.assetMeta?.epfEmployers ?? [])];
+      const currentIdx = existingEmployers.findIndex((e) => !e.toDate);
+      const basic = parseFloat(epfBasicSalary);
+      const empPct = epfEmployeePct;
+
+      if (epfCompany.trim() && !isNaN(basic) && basic > 0) {
+        const emp: EpfEmployer = {
+          id: currentIdx >= 0 ? existingEmployers[currentIdx].id : crypto.randomUUID(),
+          companyName: epfCompany.trim(),
+          basicSalary: basic,
+          employeeContribPct: empPct,
+          fromDate: epfJoiningDate ? new Date(epfJoiningDate).getTime() : Date.now()
+        };
+        if (currentIdx >= 0) {
+          existingEmployers[currentIdx] = emp;
+        } else {
+          existingEmployers.push(emp);
+        }
+      }
+
+      meta.epfEmployers = existingEmployers;
+      holding.assetMeta = meta;
     }
 
     onSave(holding)
@@ -98,7 +333,17 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div className="relative w-full rounded-t-2xl p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto bg-surface">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold text-primary">{editing ? 'Edit holding' : 'Add holding'}</h3>
+          <h3 className="text-base font-semibold text-primary">
+            {editing
+              ? 'Edit holding'
+              : lockAssetClass === 'nps'
+                ? 'Track NPS'
+                : lockAssetClass === 'ppf'
+                  ? 'Track PPF'
+                  : lockAssetClass === 'epf'
+                    ? 'Track EPF'
+                    : 'Add holding'}
+          </h3>
           <button
             onClick={onClose}
             className="min-h-[44px] min-w-[44px] flex items-center justify-center text-tertiary"
@@ -107,37 +352,39 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
           </button>
         </div>
 
-        {/* Asset class */}
-        <div>
-          <label className="text-xs font-medium text-secondary">Asset type</label>
-          <div className="mt-1 grid grid-cols-4 gap-2">
-            {ASSET_CLASSES.map((ac) => (
-              <button
-                key={ac.value}
-                type="button"
-                onClick={() => setAssetClass(ac.value)}
-                className="flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors"
-                style={
-                  assetClass === ac.value
-                    ? { borderColor: ac.color, backgroundColor: `${ac.color}10` }
-                    : { borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-secondary)' }
-                }
-              >
-                <i
-                  className={`ti ${ac.icon}`}
-                  style={{ fontSize: 18, color: assetClass === ac.value ? ac.color : 'var(--color-text-tertiary)' }}
-                  aria-hidden="true"
-                />
-                <span
-                  className="text-[9px] font-medium text-center leading-tight"
-                  style={{ color: assetClass === ac.value ? ac.color : 'var(--color-text-secondary)' }}
+        {/* Asset class — hidden when opened from a typed retirement card */}
+        {!lockAssetClass && (
+          <div>
+            <label className="text-xs font-medium text-secondary">Asset type</label>
+            <div className="mt-1 grid grid-cols-4 gap-2">
+              {ASSET_CLASSES.map((ac) => (
+                <button
+                  key={ac.value}
+                  type="button"
+                  onClick={() => setAssetClass(ac.value)}
+                  className="flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors"
+                  style={
+                    assetClass === ac.value
+                      ? { borderColor: ac.color, backgroundColor: `${ac.color}10` }
+                      : { borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-secondary)' }
+                  }
                 >
-                  {ac.label.split(' ')[0] ?? ac.label}
-                </span>
-              </button>
-            ))}
+                  <i
+                    className={`ti ${ac.icon}`}
+                    style={{ fontSize: 18, color: assetClass === ac.value ? ac.color : 'var(--color-text-tertiary)' }}
+                    aria-hidden="true"
+                  />
+                  <span
+                    className="text-[9px] font-medium text-center leading-tight"
+                    style={{ color: assetClass === ac.value ? ac.color : 'var(--color-text-secondary)' }}
+                  >
+                    {ac.label.split(' ')[0] ?? ac.label}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Name */}
         <div>
@@ -152,7 +399,13 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
                   ? 'e.g. Reliance Industries'
                   : assetClass === 'fd'
                     ? 'e.g. SBI FD 7.1%'
-                    : 'e.g. PPF Account'
+                    : assetClass === 'nps'
+                      ? 'e.g. My NPS Account'
+                      : assetClass === 'ppf'
+                        ? 'e.g. PPF Account'
+                        : assetClass === 'epf'
+                          ? 'e.g. EPF Account'
+                          : 'e.g. Gold holdings'
             }
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -271,6 +524,385 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
           </div>
         )}
 
+        {/* NPS-specific */}
+        {assetClass === 'nps' && (
+          <>
+            {/* Choice type toggle */}
+            <div>
+              <label className="text-xs font-medium text-secondary">Investment choice</label>
+              <div className="mt-1 flex rounded-xl overflow-hidden border border-theme">
+                {(['auto', 'active'] as const).map((choice) => (
+                  <button
+                    key={choice}
+                    type="button"
+                    onClick={() => setNpsChoiceType(choice)}
+                    className="flex-1 py-2.5 text-xs font-medium transition-colors"
+                    style={
+                      npsChoiceType === choice
+                        ? { backgroundColor: 'var(--color-primary)', color: '#fff' }
+                        : { backgroundColor: 'var(--color-surface)', color: 'var(--color-text-secondary)' }
+                    }
+                  >
+                    {choice === 'auto' ? 'Auto / Lifecycle' : 'Active Choice'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Auto Choice: lifecycle fund selector — pills + contextual description */}
+            {npsChoiceType === 'auto' && (
+              <div>
+                <label className="text-xs font-medium text-secondary">Lifecycle fund</label>
+                <div className="mt-1 flex gap-1.5 flex-wrap">
+                  {(Object.values(LIFECYCLE_FUNDS) as (typeof LIFECYCLE_FUNDS)[keyof typeof LIFECYCLE_FUNDS][]).map(
+                    (fund) => {
+                      const isSelected = npsLifecycleFund === fund.key;
+                      return (
+                        <button
+                          key={fund.key}
+                          type="button"
+                          onClick={() => setNpsLifecycleFund(fund.key as NpsLifecycleFund)}
+                          className="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border"
+                          style={
+                            isSelected
+                              ? { backgroundColor: fund.color, color: '#fff', borderColor: fund.color }
+                              : {
+                                  backgroundColor: 'var(--color-surface-secondary)',
+                                  color: 'var(--color-text-secondary)',
+                                  borderColor: 'var(--color-border)'
+                                }
+                          }
+                        >
+                          {fund.shortLabel}
+                        </button>
+                      );
+                    }
+                  )}
+                </div>
+                {/* Selected fund description + schedule link */}
+                {(() => {
+                  const selected = LIFECYCLE_FUNDS[npsLifecycleFund];
+                  return (
+                    <div className="mt-2 px-1">
+                      <p className="text-xs leading-snug" style={{ color: selected.color }}>
+                        {selected.description}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setShowNpsSchedule(true)}
+                        className="mt-1 text-xs font-medium underline underline-offset-2"
+                        style={{ color: 'var(--color-primary)' }}
+                      >
+                        See year-by-year allocation →
+                      </button>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* Active Choice: fund manager + scheme type + tier + units */}
+            {npsChoiceType === 'active' && (
+              <>
+                <div>
+                  <label className="text-xs font-medium text-secondary">Fund manager</label>
+                  <div className="mt-1 grid grid-cols-2 gap-1.5">
+                    {NPS_FUND_MANAGERS.map((m) => (
+                      <button
+                        key={m.key}
+                        type="button"
+                        onClick={() => setNpsPfm(npsPfm === m.key ? '' : (m.key as NpsPfmKey))}
+                        className="px-2.5 py-2 rounded-xl text-[11px] font-medium text-left leading-tight transition-colors border"
+                        style={
+                          npsPfm === m.key
+                            ? {
+                                backgroundColor: 'var(--color-primary)',
+                                color: '#fff',
+                                borderColor: 'var(--color-primary)'
+                              }
+                            : {
+                                backgroundColor: 'var(--color-surface-secondary)',
+                                color: 'var(--color-text-secondary)',
+                                borderColor: 'var(--color-border)'
+                              }
+                        }
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-secondary">Scheme type</label>
+                    <div className="mt-1 grid grid-cols-4 rounded-xl overflow-hidden border border-theme">
+                      {(['E', 'C', 'G', 'A'] as const).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setNpsSchemeType(t)}
+                          className="py-2 text-xs font-semibold transition-colors"
+                          style={
+                            npsSchemeType === t
+                              ? { backgroundColor: 'var(--color-primary)', color: '#fff' }
+                              : { color: 'var(--color-text-secondary)' }
+                          }
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-secondary">Tier</label>
+                    <div className="mt-1 grid grid-cols-2 rounded-xl overflow-hidden border border-theme">
+                      {(['tier1', 'tier2'] as const).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setNpsTier(t)}
+                          className="py-2 text-xs font-semibold transition-colors"
+                          style={
+                            npsTier === t
+                              ? { backgroundColor: 'var(--color-primary)', color: '#fff' }
+                              : { color: 'var(--color-text-secondary)' }
+                          }
+                        >
+                          {t === 'tier1' ? 'Tier I' : 'Tier II'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-secondary">Units held</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                    placeholder="0.0000"
+                    value={units}
+                    onChange={(e) => setUnits(e.target.value)}
+                  />
+                  <p className="mt-1 text-[10px] text-tertiary">
+                    NAV is auto-fetched from npsnav.in — live corpus shown on the card
+                  </p>
+                </div>
+              </>
+            )}
+
+            {/* Common NPS fields */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-secondary">Birth year</label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                  placeholder="e.g. 1985"
+                  value={npsBirthYear}
+                  onChange={(e) => setNpsBirthYear(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-secondary">
+                  PRAN <span className="font-normal text-tertiary">(opt.)</span>
+                </label>
+                <input
+                  type="text"
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                  placeholder="12-digit"
+                  value={npsPran}
+                  onChange={(e) => setNpsPran(e.target.value)}
+                />
+              </div>
+            </div>
+            {npsChoiceType === 'auto' && (
+              <>
+                <div>
+                  <label className="text-xs font-medium text-secondary">
+                    Fund manager <span className="font-normal text-tertiary">(optional)</span>
+                  </label>
+                  <div className="mt-1 grid grid-cols-2 gap-1.5">
+                    {NPS_FUND_MANAGERS.map((m) => (
+                      <button
+                        key={m.key}
+                        type="button"
+                        onClick={() => setNpsPfm(npsPfm === m.key ? '' : (m.key as NpsPfmKey))}
+                        className="px-2.5 py-2 rounded-xl text-[11px] font-medium text-left leading-tight transition-colors border"
+                        style={
+                          npsPfm === m.key
+                            ? {
+                                backgroundColor: 'var(--color-primary)',
+                                color: '#fff',
+                                borderColor: 'var(--color-primary)'
+                              }
+                            : {
+                                backgroundColor: 'var(--color-surface-secondary)',
+                                color: 'var(--color-text-secondary)',
+                                borderColor: 'var(--color-border)'
+                              }
+                        }
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-secondary">Tier</label>
+                  <div className="mt-1 grid grid-cols-2 rounded-xl overflow-hidden border border-theme">
+                    {(['tier1', 'tier2'] as const).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setNpsTier(t)}
+                        className="py-2 text-xs font-semibold transition-colors"
+                        style={
+                          npsTier === t
+                            ? { backgroundColor: 'var(--color-primary)', color: '#fff' }
+                            : { color: 'var(--color-text-secondary)' }
+                        }
+                      >
+                        {t === 'tier1' ? 'Tier I' : 'Tier II'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+            <div>
+              <label className="text-xs font-medium text-secondary">Monthly contribution (₹)</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                placeholder="0"
+                value={npsMonthly}
+                onChange={(e) => setNpsMonthly(e.target.value)}
+              />
+            </div>
+          </>
+        )}
+
+        {/* PPF-specific */}
+        {assetClass === 'ppf' && (
+          <div className="flex flex-col gap-3">
+            {/* Opening date + derived maturity */}
+            <div>
+              <label className="text-xs font-medium text-secondary">Account opening date</label>
+              <input
+                type="date"
+                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                value={ppfOpeningDate}
+                onChange={(e) => setPpfOpeningDate(e.target.value)}
+              />
+              {ppfOpeningDate && ppfMaturityLabel(ppfOpeningDate) && (
+                <p className="mt-1 text-xs" style={{ color: '#8b5cf6' }}>
+                  {ppfMaturityLabel(ppfOpeningDate)?.text}
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-secondary">Annual contribution (₹)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                  placeholder="e.g. 150000"
+                  value={ppfAnnual}
+                  onChange={(e) => setPpfAnnual(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-secondary">
+                  Bank / Institution <span className="font-normal text-tertiary">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                  placeholder="e.g. SBI"
+                  value={ppfBank}
+                  onChange={(e) => setPpfBank(e.target.value)}
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-tertiary -mt-1">
+              Transactions (deposits, interest, withdrawals) are added from the PPF card after saving.
+            </p>
+          </div>
+        )}
+
+        {/* EPF-specific */}
+        {assetClass === 'epf' && (
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-secondary">
+                  UAN <span className="font-normal text-tertiary">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                  placeholder="12-digit UAN"
+                  value={epfUan}
+                  onChange={(e) => setEpfUan(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-secondary">
+                  Birth year <span className="font-normal text-tertiary">(optional)</span>
+                </label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                  placeholder="e.g. 1990"
+                  value={epfBirthYear}
+                  onChange={(e) => setEpfBirthYear(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-secondary">Current employer</label>
+              <input
+                type="text"
+                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                placeholder="e.g. TCS, Infosys, Wipro"
+                value={epfCompany}
+                onChange={(e) => setEpfCompany(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-secondary">Basic + DA (₹/mo)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                  placeholder="e.g. 60000"
+                  value={epfBasicSalary}
+                  onChange={(e) => setEpfBasicSalary(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-secondary">Joining date</label>
+                <input
+                  type="date"
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                  value={epfJoiningDate}
+                  onChange={(e) => setEpfJoiningDate(e.target.value)}
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-tertiary -mt-1">
+              Add previous employers and transaction history from the EPF card after saving.
+            </p>
+          </div>
+        )}
+
         {/* Gold-specific */}
         {assetClass === 'gold' && (
           <div className="grid grid-cols-2 gap-3">
@@ -299,9 +931,13 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
           </div>
         )}
 
-        {/* Invested amount (always) */}
+        {/* Balance / invested amount */}
         <div>
-          <label className="text-xs font-medium text-secondary">Amount invested (₹)</label>
+          <label className="text-xs font-medium text-secondary">
+            {assetClass === 'nps' || assetClass === 'ppf' || assetClass === 'epf'
+              ? 'Current corpus / balance (₹)'
+              : 'Amount invested (₹)'}
+          </label>
           <input
             type="number"
             inputMode="decimal"
@@ -312,21 +948,23 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
           />
         </div>
 
-        {/* Current value (manual override) */}
-        <div>
-          <label className="text-xs font-medium text-secondary">
-            Current value (₹){' '}
-            <span className="font-normal text-tertiary">— optional, fetched automatically for MF/stocks</span>
-          </label>
-          <input
-            type="number"
-            inputMode="decimal"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-            placeholder="Leave blank to use invested amount"
-            value={currentValue}
-            onChange={(e) => setCurrentValue(e.target.value)}
-          />
-        </div>
+        {/* Current value (manual override — not for retirement) */}
+        {assetClass !== 'nps' && assetClass !== 'ppf' && assetClass !== 'epf' && (
+          <div>
+            <label className="text-xs font-medium text-secondary">
+              Current value (₹){' '}
+              <span className="font-normal text-tertiary">— optional, fetched automatically for MF/stocks</span>
+            </label>
+            <input
+              type="number"
+              inputMode="decimal"
+              className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+              placeholder="Leave blank to use invested amount"
+              value={currentValue}
+              onChange={(e) => setCurrentValue(e.target.value)}
+            />
+          </div>
+        )}
 
         {/* Notes */}
         <div>
@@ -339,6 +977,14 @@ export function HoldingForm({ editing, onSave, onDelete, onClose }: Props) {
             onChange={(e) => setNotes(e.target.value)}
           />
         </div>
+
+        {showNpsSchedule && (
+          <NpsLifecycleDetail
+            fund={npsLifecycleFund}
+            birthYearStr={npsBirthYear}
+            onClose={() => setShowNpsSchedule(false)}
+          />
+        )}
 
         {/* Actions */}
         <div className="flex gap-3 pt-1">

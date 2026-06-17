@@ -120,7 +120,31 @@ This file is read at the start of every Claude Code session. It tells you where 
 
 **M10 is complete.** Step 61 skipped — IPO data comes from live investorgain.com API, no demo seeding needed.
 
-**Next step when you pick up a session:** Start M11 — Extended asset tracking (vehicles, property, PPF, NPS, EPF — manual entry + last-updated timestamp).
+**M11 step tracker (in progress):**
+
+| Step | Feature                                                                                                         | Status          |
+| ---- | --------------------------------------------------------------------------------------------------------------- | --------------- |
+| 63   | Holdings sub-tab shell (6 tabs) + Retirement sub-tab (NPS/PPF/EPF cards, staleness indicators, form fields)     | ✅ Done         |
+| 63+  | NPS live NAV tracking — npsnav.in client, lifecycle fund tables (LC-75/50/25/BLC), auto choice allocation pills, year-by-year schedule sheet, active choice NAV × units corpus | ✅ Done |
+| 63++ | PPF full tracking — passbook ledger (deposit/interest/withdrawal), before/after-5th badges, FY deposit bar vs ₹1.5L, corpus projection, Add Transaction sheet | ✅ Done |
+| 63+++| EPF full tracking — employment history (company + basic salary + from/to), transaction ledger (employee/employer/interest/transfer/withdrawal), contribution auto-calc per employer period, retirement projection at 58, pro-rata partial months | ✅ Done |
+| 64   | Real Assets — vehicles + property sub-tab, manual entry, 90-day refresh UX                                      | ⏳ Next          |
+| 65   | Fixed Income — FD/RD maturity auto-calc + compound interest projection                                          | ⏳               |
+| 66   | Precious Metals — Gold + Silver live prices (GOLDBEES.NS / SILVERIETF.NS)                                       | ⏳               |
+| 67   | Stocks — enhanced cards, Yahoo Finance symbol search                                                            | ⏳               |
+| 68   | Mutual Funds — enhanced cards, MFAPI.in scheme search                                                          | ⏳               |
+| 69   | Home dashboard + Portfolio restructure                                                                          | ⏳               |
+| 70   | PDF Imports — CAS PDF (MF/stocks via casparser) + EPFO passbook PDF (employment history + transactions via PDF.js) | ⏳           |
+| 71   | Watchlist                                                                                                       | ⏳               |
+| 72   | Final CI pass + CLAUDE.md updated                                                                               | ⏳               |
+
+**EPF data model (step 63+++):**
+- `EpfEmployer`: `{ id, companyName, basicSalary, fromDate, toDate?, employeeContribPct (default 12) }`
+- `EpfTransaction`: `{ id, type (employee/employer/interest/transfer_in/withdrawal/advance), wagesMonth (YYYY-MM), date, employeeAmount?, employerAmount?, pensionAmount?, note? }`
+- Card shows: contribution breakdown per employer period, expected vs actual balance, monthly contribution from current employer, retirement corpus projection at 58
+- PDF import deferred to step 70 (grouped with CAS PDF — same PDF.js infrastructure)
+
+**Next step when you pick up a session:** Step 64 — Real Assets (vehicles + property sub-tab, manual entry, 90-day refresh UX).
 
 **Full Phase 1 roadmap (M9–M15):**
 
@@ -128,7 +152,7 @@ This file is read at the start of every Claude Code session. It tells you where 
 | --------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | M9        | Income entries, transfer tracking, cash account, net cash flow view                                           | Local DB only                                                       |
 | M10       | IPO tracker + GMP — Upcoming/Open/Closed/Listed, subscription multiples, GMP                                  | ipoalerts.in (free), NSE eIPO API via Cloudflare Worker, ipoguru.in |
-| M11       | Extended asset tracking — vehicles, property, PPF, NPS, EPF (manual + last-updated timestamp)                 | Manual entry only                                                   |
+| M11       | Extended asset tracking — NPS (live NAV), PPF (passbook ledger + projection), EPF (employment history + transaction ledger), vehicles, property, FD/RD, precious metals, stocks + MF enhanced cards | Manual + npsnav.in |
 | M12       | Portfolio enhancements — MF/stock search, CAS PDF import, watchlists                                          | MFAPI.in, Yahoo Finance, casparser SDK                              |
 | M13       | Financial calculators — FIRE, HRA exemption, PPF maturity, NPS corpus, step-up SIP, old vs new tax regime     | Pure on-device TypeScript                                           |
 | M14       | Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Contact/Feedback (mailto: deep-link) | RSS feeds, no backend                                               |

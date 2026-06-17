@@ -29,7 +29,72 @@ export interface Profile {
   updatedAt: number;
 }
 
-export type AssetClass = 'mf' | 'stock' | 'fd' | 'nps' | 'ppf' | 'gold' | 'other';
+export type AssetClass = 'mf' | 'stock' | 'fd' | 'nps' | 'ppf' | 'epf' | 'gold' | 'other';
+
+// ─── PPF transaction ledger ───────────────────────────────────────────────────
+
+export type PpfTransactionType = 'deposit' | 'interest' | 'withdrawal';
+
+export interface PpfTransaction {
+  id: string;
+  type: PpfTransactionType;
+  date: number; // epoch ms
+  amount: number;
+  note?: string;
+}
+
+// ─── EPF employment + transaction ledger ─────────────────────────────────────
+
+export interface EpfEmployer {
+  id: string;
+  companyName: string;
+  basicSalary: number; // monthly basic + DA
+  employeeContribPct: number; // default 12; higher for VPF
+  fromDate: number; // epoch ms — start of employment
+  toDate?: number; // undefined = current employer
+}
+
+export type EpfTransactionType = 'contribution' | 'interest' | 'transfer_in' | 'withdrawal' | 'advance';
+
+export interface EpfTransaction {
+  id: string;
+  type: EpfTransactionType;
+  wagesMonth?: string; // "YYYY-MM" — salary month contributions relate to
+  date: number; // epoch ms — date credited to EPF account
+  employeeAmount?: number; // employee share (contribution type)
+  employerAmount?: number; // employer share to EPF 3.67% (contribution type)
+  pensionAmount?: number; // EPS 8.33% — informational only
+  amount?: number; // interest / transfer_in / withdrawal / advance
+  note?: string;
+}
+
+// ─── Asset metadata ───────────────────────────────────────────────────────────
+
+export interface AssetMeta {
+  // NPS
+  pran?: string;
+  tier?: 'tier1' | 'tier2';
+  fundManager?: string;
+  monthlyContribution?: number;
+  // NPS extended (M11) — choice type + lifecycle + scheme for live NAV
+  npsChoiceType?: 'active' | 'auto';
+  npsLifecycleFund?: 'lc75' | 'lc50' | 'lc25' | 'blc';
+  npsBirthYear?: number;
+  npsPfm?: string;
+  npsSchemeType?: 'E' | 'C' | 'G' | 'A';
+  npsSchemeCode?: string;
+  // PPF extended (M11)
+  ppfOpeningDate?: number; // epoch ms — maturity = opening + 15 years
+  ppfBank?: string; // SBI / HDFC / Post Office / ICICI etc.
+  annualContribution?: number; // planned annual amount (used for projection)
+  maturityYear?: number; // fallback if no opening date set
+  ppfTransactions?: PpfTransaction[]; // embedded passbook ledger
+  // EPF extended (M11)
+  uan?: string;
+  epfBirthYear?: number;
+  epfEmployers?: EpfEmployer[];
+  epfTransactions?: EpfTransaction[];
+}
 
 export interface Holding {
   id: string;
@@ -45,6 +110,8 @@ export interface Holding {
   investedAmount: number;
   currentValue?: number;
   notes?: string;
+  lastUpdatedAt?: number; // epoch ms — when the value was last manually refreshed
+  assetMeta?: AssetMeta; // class-specific metadata (NPS/PPF/EPF/vehicle/property)
   createdAt: number;
   updatedAt: number;
 }
