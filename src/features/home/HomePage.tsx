@@ -31,20 +31,20 @@ interface Summary {
   liabilities: Liability[];
 }
 
-const HOLDING_META: Record<string, { label: string; color: string; icon: string }> = {
-  mf:       { label: 'Mutual Funds',  color: '#6366f1', icon: 'ti-chart-donut' },
-  stock:    { label: 'Stocks',        color: '#0ea5e9', icon: 'ti-trending-up' },
-  fd:       { label: 'FD / RD',       color: '#f59e0b', icon: 'ti-building-bank' },
-  nps:      { label: 'NPS',           color: '#10b981', icon: 'ti-building-community' },
-  ppf:      { label: 'PPF',           color: '#8b5cf6', icon: 'ti-safe' },
-  epf:      { label: 'EPF',           color: '#64748b', icon: 'ti-building-factory' },
-  gold:     { label: 'Gold',          color: '#d97706', icon: 'ti-coin' },
-  vehicle:  { label: 'Vehicles',      color: '#3b82f6', icon: 'ti-car' },
-  property: { label: 'Property',      color: '#8b5cf6', icon: 'ti-building' },
-  other:    { label: 'Other',         color: '#6b7280', icon: 'ti-dots' },
+const HOLDING_META: Record<string, { label: string; short: string; color: string; icon: string }> = {
+  mf:       { label: 'Mutual Funds',  short: 'MF',       color: '#6366f1', icon: 'ti-chart-donut' },
+  stock:    { label: 'Stocks',        short: 'Stocks',   color: '#0ea5e9', icon: 'ti-trending-up' },
+  fd:       { label: 'FD / RD',       short: 'FD/RD',    color: '#f59e0b', icon: 'ti-building-bank' },
+  nps:      { label: 'NPS',           short: 'NPS',      color: '#10b981', icon: 'ti-building-community' },
+  ppf:      { label: 'PPF',           short: 'PPF',      color: '#8b5cf6', icon: 'ti-safe' },
+  epf:      { label: 'EPF',           short: 'EPF',      color: '#64748b', icon: 'ti-building-factory' },
+  gold:     { label: 'Gold',          short: 'Gold',     color: '#d97706', icon: 'ti-coin' },
+  vehicle:  { label: 'Vehicles',      short: 'Vehicles', color: '#3b82f6', icon: 'ti-car' },
+  property: { label: 'Property',      short: 'Property', color: '#8b5cf6', icon: 'ti-building' },
+  other:    { label: 'Other',         short: 'Other',    color: '#6b7280', icon: 'ti-dots' },
 };
 const ASSET_CLASS_ORDER = ['mf', 'stock', 'fd', 'nps', 'ppf', 'epf', 'gold', 'vehicle', 'property', 'other'];
-const FALLBACK_HOLDING_META = { label: 'Other', color: '#6b7280', icon: 'ti-dots' };
+const FALLBACK_HOLDING_META = { label: 'Other', short: 'Other', color: '#6b7280', icon: 'ti-dots' };
 
 const LIABILITY_META: Record<string, { label: string; icon: string }> = {
   home_loan:      { label: 'Home Loan',              icon: 'ti-home' },
@@ -218,72 +218,99 @@ export function HomePage() {
     <div className="px-4 pt-4 pb-6 flex flex-col gap-4">
       <h2 className="text-xl font-semibold text-primary">{greeting}</h2>
 
-      {/* Net worth card */}
-      <div className="rounded-2xl p-5 text-white" style={{ backgroundColor: 'var(--color-primary)' }}>
-        <p className="text-sm opacity-75 mb-1">Net worth</p>
-        <p className="text-3xl font-semibold tracking-tight">{displayNetWorth}</p>
-        {displayExpenses && <p className="text-sm opacity-70 mt-1">{displayExpenses}</p>}
-        {summary && mode !== 'open' && (
-          <p className="text-xs opacity-60 mt-2">
-            <i className="ti ti-eye-off" aria-hidden="true" /> Privacy mode active — tap the badge to reveal
-          </p>
-        )}
-      </div>
+      {/* Combined net worth + assets & liabilities card */}
+      {summary && (
+        <div className="rounded-[20px] overflow-hidden" style={{ backgroundColor: '#064e3b' }}>
 
-      {/* Assets & Liabilities card */}
-      {summary && assetGroups.length > 0 && (
-        <div className="surface rounded-2xl mx-0 mb-0 overflow-hidden">
-          {/* Header — always visible, tap to expand */}
-          <button
-            className="w-full px-4 pt-4 pb-3 text-left"
-            onClick={() => setAssetsExpanded(v => !v)}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-secondary uppercase tracking-wide">Assets & Liabilities</p>
-              <i className={`ti ${assetsExpanded ? 'ti-chevron-up' : 'ti-chevron-down'} text-tertiary`} style={{ fontSize: 14 }} />
-            </div>
-            {/* Summary row */}
-            <div className="flex items-baseline gap-3">
-              <div>
-                <p className="text-base font-bold text-primary">
-                  {mode === 'open' ? formatCurrency(summary.totalPortfolio) : '••••'}
-                </p>
-                <p className="text-[10px] text-tertiary mt-0.5">Assets</p>
+          {/* Top row: net worth left, assets/liabilities right */}
+          <div style={{ padding: '16px 18px 0' }}>
+            <div className="flex items-start gap-3">
+              <div className="flex-1">
+                <p className="mb-0.5 text-[12px]" style={{ color: '#6ee7b7' }}>Net worth</p>
+                <p className="text-[28px] font-medium tracking-tight text-white">{displayNetWorth}</p>
               </div>
-              {totalLiabilities > 0 && (
+              <div className="flex flex-col items-end gap-1.5 pt-0.5">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: '#6ee7b7' }}>Assets</span>
+                  <span className="text-[13px] font-medium" style={{ color: '#a7f3d0' }}>
+                    {mode === 'open' ? formatCurrency(summary.totalPortfolio) : '••••'}
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: '#6ee7b7' }}>Liabilities</span>
+                  <span className="text-[13px] font-medium" style={{ color: totalLiabilities > 0 ? '#fca5a5' : '#a7f3d0' }}>
+                    {mode === 'open' ? formatCurrency(totalLiabilities) : '••••'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="mt-3" style={{ height: '0.5px', backgroundColor: 'rgba(255,255,255,0.15)' }} />
+
+          {/* Footer: spent this month + expand chevron */}
+          <div className="flex items-center justify-between px-[18px] pt-[10px] pb-3">
+            {displayExpenses
+              ? <p className="text-xs" style={{ color: '#6ee7b7' }}>{displayExpenses}</p>
+              : <span />
+            }
+            {assetGroups.length > 0 && (
+              <button
+                onClick={() => setAssetsExpanded(v => !v)}
+                className="w-8 h-7 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: '#065f46' }}
+                aria-label="Toggle asset breakdown"
+              >
+                <i
+                  className={`ti ${assetsExpanded ? 'ti-chevron-up' : 'ti-chevron-down'}`}
+                  style={{ fontSize: 15, color: '#34d399' }}
+                  aria-hidden="true"
+                />
+              </button>
+            )}
+          </div>
+
+          {/* Collapsed: summary bar + legend + liabilities total */}
+          {!assetsExpanded && assetGroups.length > 0 && (
+            <div style={{ padding: '14px 18px 16px', backgroundColor: '#065f46' }}>
+              {mode === 'open' && summary.totalPortfolio > 0 && (
                 <>
-                  <span className="text-tertiary text-sm">·</span>
-                  <div>
-                    <p className="text-base font-bold" style={{ color: '#ef4444' }}>
-                      {mode === 'open' ? formatCurrency(totalLiabilities) : '••••'}
-                    </p>
-                    <p className="text-[10px] text-tertiary mt-0.5">Liabilities</p>
+                  <div className="flex rounded-full overflow-hidden" style={{ height: '5px', gap: '2px', marginBottom: '10px' }}>
+                    {assetGroups.map(({ ac, value, meta }) => (
+                      <div key={ac} style={{ flex: value / summary.totalPortfolio, backgroundColor: meta.color }} />
+                    ))}
                   </div>
+                  <div className="flex flex-wrap" style={{ gap: '8px 14px' }}>
+                    {assetGroups.map(({ ac, meta, value }) => (
+                      <div key={ac} className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: meta.color }} />
+                        <span className="text-[11px]" style={{ color: '#6ee7b7' }}>{meta.short}</span>
+                        <span className="text-[11px] font-medium" style={{ color: '#a7f3d0' }}>{formatCompact(value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {totalLiabilities > 0 && (
+                    <div
+                      className="flex items-center justify-between"
+                      style={{ marginTop: '10px', paddingTop: '10px', borderTop: '0.5px solid rgba(255,255,255,0.12)' }}
+                    >
+                      <span className="text-[12px]" style={{ color: '#6ee7b7' }}>Liabilities</span>
+                      <span className="text-[13px] font-medium" style={{ color: '#fca5a5' }}>
+                        − {formatCurrency(totalLiabilities)}
+                      </span>
+                    </div>
+                  )}
                 </>
               )}
             </div>
-            {/* Stacked bar */}
-            {mode === 'open' && summary.totalPortfolio > 0 && (
-              <div className="flex h-1.5 rounded-full overflow-hidden mt-3 gap-px">
-                {assetGroups.map(({ ac, value, meta }) => (
-                  <div
-                    key={ac}
-                    style={{
-                      flex: value / summary.totalPortfolio,
-                      backgroundColor: meta.color,
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-          </button>
+          )}
 
-          {/* Expanded content */}
+          {/* Expanded: full asset rows + liabilities list */}
           {assetsExpanded && (
-            <div className="border-t border-theme">
-              {/* Assets section */}
-              <div className="px-4 pt-3 pb-1">
-                <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wide mb-2">Assets</p>
+            <div style={{ backgroundColor: '#065f46' }} className="pb-2">
+              <div style={{ padding: '12px 18px 4px' }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#6ee7b7' }}>Assets</p>
               </div>
               {assetGroups.map(({ ac, value, meta }) => (
                 <button
@@ -294,67 +321,68 @@ export function HomePage() {
                       : ac === 'vehicle' || ac === 'property' || ac === 'other' ? 'real_assets'
                       : ac === 'fd' ? 'fixed_income'
                       : ac === 'stock' ? 'stocks'
-                      : ac; // 'mf'
+                      : ac;
                     navigate('/app/portfolio', { state: { holdingsSubTab: subTab } });
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left border-b border-theme last:border-0"
+                  className="w-full flex items-center gap-3 text-left"
+                  style={{ padding: '10px 18px', borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}
                 >
                   <div
-                    className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: `${meta.color}20` }}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: `${meta.color}25` }}
                   >
-                    <i className={`ti ${meta.icon}`} style={{ fontSize: 14, color: meta.color }} />
+                    <i className={`ti ${meta.icon}`} style={{ fontSize: 16, color: meta.color }} aria-hidden="true" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs font-medium text-primary">{meta.label}</p>
-                      <p className="text-[10px] text-tertiary">
-                        {summary.totalPortfolio > 0 ? `${((value / summary.totalPortfolio) * 100).toFixed(0)}%` : ''}
-                      </p>
+                    <div className="flex items-baseline gap-1.5 mb-1">
+                      <p className="text-[13px] font-medium" style={{ color: '#e2f8f0' }}>{meta.label}</p>
+                      {mode === 'open' && summary.totalPortfolio > 0 && (
+                        <p className="text-[10px]" style={{ color: '#6ee7b7' }}>
+                          {((value / summary.totalPortfolio) * 100).toFixed(0)}%
+                        </p>
+                      )}
                     </div>
-                    {/* Mini progress bar */}
-                    <div className="h-1 rounded-full mt-1 w-full overflow-hidden bg-surface-2">
+                    <div className="h-[3px] rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
                       <div
                         className="h-full rounded-full"
                         style={{
-                          width: `${summary.totalPortfolio > 0 ? (value / summary.totalPortfolio) * 100 : 0}%`,
+                          width: `${mode === 'open' && summary.totalPortfolio > 0 ? (value / summary.totalPortfolio) * 100 : 0}%`,
                           backgroundColor: meta.color,
                         }}
                       />
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-xs font-semibold text-primary">
-                      {mode === 'open' ? formatCurrency(value) : '••••'}
-                    </p>
-                  </div>
-                  <i className="ti ti-chevron-right text-tertiary flex-shrink-0" style={{ fontSize: 12 }} />
+                  <p className="text-[13px] font-medium flex-shrink-0" style={{ color: '#a7f3d0' }}>
+                    {mode === 'open' ? formatCurrency(value) : '••••'}
+                  </p>
+                  <i className="ti ti-chevron-right flex-shrink-0" style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }} aria-hidden="true" />
                 </button>
               ))}
 
-              {/* Liabilities section */}
               {summary.liabilities && summary.liabilities.length > 0 && (
                 <>
-                  <div className="px-4 pt-3 pb-1 border-t border-theme">
-                    <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wide mb-2">Liabilities</p>
+                  <div
+                    style={{ padding: '12px 18px 4px', marginTop: '4px', borderTop: '0.5px solid rgba(255,255,255,0.1)' }}
+                  >
+                    <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#6ee7b7' }}>Liabilities</p>
                   </div>
                   {summary.liabilities.map((l) => {
                     const lMeta = LIABILITY_META[l.type] ?? { label: l.type, icon: 'ti-credit-card' };
                     return (
-                      <div
-                        key={l.id}
-                        className="flex items-center gap-3 px-4 py-2.5 border-b border-theme last:border-0"
-                      >
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-surface-2">
-                          <i className={`ti ${lMeta.icon}`} style={{ fontSize: 14, color: '#ef4444' }} />
+                      <div key={l.id} className="flex items-center gap-3" style={{ padding: '10px 18px' }}>
+                        <div
+                          className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: 'rgba(252,165,165,0.15)' }}
+                        >
+                          <i className={`ti ${lMeta.icon}`} style={{ fontSize: 16, color: '#fca5a5' }} aria-hidden="true" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-primary truncate">{l.name}</p>
+                          <p className="text-[13px] font-medium truncate" style={{ color: '#fecaca' }}>{l.name}</p>
                           {l.interestRate > 0 && (
-                            <p className="text-[10px] text-tertiary">{l.interestRate}% p.a.</p>
+                            <p className="text-[10px]" style={{ color: '#f87171' }}>{l.interestRate}% p.a.</p>
                           )}
                         </div>
-                        <p className="text-xs font-semibold flex-shrink-0" style={{ color: '#ef4444' }}>
+                        <p className="text-[13px] font-medium flex-shrink-0" style={{ color: '#fca5a5' }}>
                           {mode === 'open' ? formatCurrency(l.outstandingAmount) : '••••'}
                         </p>
                       </div>
