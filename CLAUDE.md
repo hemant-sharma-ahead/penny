@@ -133,7 +133,7 @@ This file is read at the start of every Claude Code session. It tells you where 
 | 66   | Precious Metals — Gold + Silver live prices via MFAPI.in (Gold BeES NAV×100, Silver ETF NAV)                    | ✅ Done         |
 | 67   | Stocks — full-width Stock/MF tabs, MFAPI.in fund search, symbol validation via Yahoo chart API, live price × units = currentValue; symbol grouping with weighted avg, lot breakdown | ✅ Done |
 | 68   | Mutual Funds — enhanced cards (scheme category + fund house from MFAPI.in detail endpoint), MFAPI.in scheme search, schemeCode grouping with lot breakdown                           | ✅ Done |
-| 69   | Home dashboard + Portfolio restructure                                                                          | ⏳               |
+| 69   | Home dashboard + Portfolio restructure — drop legacy assets store, fix net worth (holdings + accounts), portfolio summary tile on Home, vehicle/property in ASSET_META               | ✅ Done |
 | 70   | PDF Imports — CAS PDF (MF/stocks via casparser) + EPFO passbook PDF (employment history + transactions via PDF.js) | ⏳           |
 | 71   | Watchlist                                                                                                       | ⏳               |
 | 72   | Final CI pass + CLAUDE.md updated                                                                               | ⏳               |
@@ -159,7 +159,7 @@ This file is read at the start of every Claude Code session. It tells you where 
 - Live price: MFAPI.in scheme 140088 (Gold BeES) NAV × 100 = ₹/gram 24K; scheme 149758 (Silver ETF) NAV = ₹/gram
 - Karat-adjusted value: `weight × (karat/24) × spot_24K_per_gram`
 
-**Next step when you pick up a session:** Step 69 — Home dashboard + Portfolio restructure.
+**Next step when you pick up a session:** Step 70 — PDF Imports (CAS PDF for MF/stocks via casparser + EPFO passbook PDF via PDF.js).
 
 **MF data model (step 68):**
 - `mfFundHouse`, `mfSchemeCategory`, `mfSchemeType` stored in `assetMeta` (fetched from MFAPI.in `/mf/{schemeCode}` detail endpoint on scheme selection)

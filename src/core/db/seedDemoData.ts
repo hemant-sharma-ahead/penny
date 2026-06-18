@@ -1,6 +1,5 @@
 import type {
   Account,
-  Asset,
   Budget,
   ChipInsight,
   EpfEmployer,
@@ -18,7 +17,6 @@ import type {
 } from './types';
 import {
   accountsRepo,
-  assetsRepo,
   budgetsRepo,
   chipInsightsRepo,
   expenseCategoriesRepo,
@@ -406,65 +404,20 @@ export async function seedDemoData(): Promise<void> {
       currentValue: 107500,
       interestRate: 7.5,
       maturityDate: from(180),
-      createdAt: ago(365),
-      updatedAt: ago(1),
-      assetMeta: {
-        fdSubType: 'fd',
-        fdBank: 'SBI',
-        fdStartDate: ago(365),
-        fdCompoundingFreq: 'quarterly'
-      }
-    },
-    {
-      id: 'demo-holding-rd',
-      assetClass: 'fd',
-      name: 'HDFC Recurring Deposit',
-      investedAmount: 60000,
-      currentValue: 63200,
-      interestRate: 7.0,
-      createdAt: ago(270),
-      updatedAt: ago(1),
-      assetMeta: {
-        fdSubType: 'rd',
-        fdBank: 'HDFC Bank',
-        fdStartDate: ago(270),
-        rdMonthlyInstallment: 5000,
-        rdTenureMonths: 12
-      }
+      createdAt: ago(185),
+      updatedAt: ago(1)
     },
     {
       id: 'demo-holding-gold',
       assetClass: 'gold',
-      name: 'Gold Bangles',
-      units: 25,
-      avgCostPrice: 8500,
-      investedAmount: 212500,
-      createdAt: ago(730),
-      updatedAt: ago(1),
-      assetMeta: {
-        metalType: 'gold',
-        metalCategory: 'jewellery',
-        metalKarat: 22,
-        metalWeightGrams: 25,
-        metalPurchasePricePerGram: 8500
-      }
-    },
-    {
-      id: 'demo-holding-silver',
-      assetClass: 'gold',
-      name: 'Silver Coins',
-      units: 100,
-      avgCostPrice: 80,
-      investedAmount: 8000,
-      createdAt: ago(180),
-      updatedAt: ago(1),
-      assetMeta: {
-        metalType: 'silver',
-        metalCategory: 'coin',
-        metalPurity: '999',
-        metalWeightGrams: 100,
-        metalPurchasePricePerGram: 80
-      }
+      name: '24K Gold — 5g',
+      units: 5,
+      avgCostPrice: 5500,
+      currentPrice: 7200,
+      investedAmount: 27500,
+      currentValue: 36000,
+      createdAt: ago(365),
+      updatedAt: ago(1)
     },
     {
       id: 'demo-holding-nps',
@@ -636,7 +589,7 @@ export async function seedDemoData(): Promise<void> {
     // Vehicle — data as if fetched from vahandetails.com
     {
       id: 'demo-holding-vehicle',
-      assetClass: 'vehicle',
+      assetClass: 'vehicle' as const,
       name: 'Maruti Swift VXi',
       investedAmount: 750000,
       currentValue: 580000,
@@ -668,18 +621,19 @@ export async function seedDemoData(): Promise<void> {
     // Property
     {
       id: 'demo-holding-property',
-      assetClass: 'property',
-      name: '2BHK Flat, Whitefield',
-      investedAmount: 4500000,
-      currentValue: 6200000,
-      lastUpdatedAt: ago(45),
+      assetClass: 'property' as const,
+      name: '2BHK Apartment — Koramangala',
+      investedAmount: 6000000,
+      currentValue: 8500000,
+      lastUpdatedAt: ago(30),
       assetMeta: {
-        propertyType: 'flat',
-        propertyAreaSqft: 1150,
-        propertyCity: 'Bangalore'
+        propertyType: 'flat' as const,
+        propertyCity: 'Bengaluru',
+        propertyAreaSqft: 1050
       },
-      createdAt: new Date('2019-03-01').getTime(),
-      updatedAt: ago(45)
+      notes: '#sample',
+      createdAt: ago(1825),
+      updatedAt: ago(30)
     }
   ];
   await Promise.all(holdings.map((h) => holdingsRepo.put(h)));
@@ -852,41 +806,6 @@ export async function seedDemoData(): Promise<void> {
     }
   ];
   await Promise.all(ious.map((i) => personalIousRepo.put(i)));
-
-  // ── Assets (for net worth) ────────────────────────────────────────────────
-  const assets: Asset[] = [
-    {
-      id: 'demo-asset-home',
-      type: 'real_estate',
-      name: '2BHK Apartment — Primary Residence',
-      value: 8000000,
-      purchaseValue: 6000000,
-      purchaseDate: ago(1825),
-      notes: '#sample',
-      createdAt: ago(1825),
-      updatedAt: ago(30)
-    },
-    {
-      id: 'demo-asset-savings',
-      type: 'bank_account',
-      name: 'HDFC Savings Account',
-      value: 250000,
-      notes: '#sample',
-      createdAt: ago(365),
-      updatedAt: ago(1)
-    },
-    {
-      id: 'demo-asset-ppf',
-      type: 'ppf',
-      name: 'PPF Account — SBI',
-      value: 325000,
-      purchaseDate: ago(1095),
-      notes: '#sample',
-      createdAt: ago(1095),
-      updatedAt: ago(30)
-    }
-  ];
-  await Promise.all(assets.map((a) => assetsRepo.put(a)));
 
   // ── Liabilities ───────────────────────────────────────────────────────────
   const liabilities: Liability[] = [
@@ -1080,7 +999,6 @@ export async function clearDemoData(): Promise<void> {
     db.holdings.clear(),
     db.goals.clear(),
     db.goal_contributions.clear(),
-    db.assets.clear(),
     db.liabilities.clear(),
     db.insurance_policies.clear(),
     db.chip_insights.clear(),

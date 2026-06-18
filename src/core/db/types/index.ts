@@ -89,6 +89,11 @@ export interface AssetMeta {
   annualContribution?: number; // planned annual amount (used for projection)
   maturityYear?: number; // fallback if no opening date set
   ppfTransactions?: PpfTransaction[]; // embedded passbook ledger
+  // EPF extended (M11)
+  uan?: string;
+  epfBirthYear?: number;
+  epfEmployers?: EpfEmployer[];
+  epfTransactions?: EpfTransaction[];
   // FD/RD extended (M11 step 65)
   fdSubType?: 'fd' | 'rd';
   fdBank?: string;
@@ -96,41 +101,36 @@ export interface AssetMeta {
   fdCompoundingFreq?: 'monthly' | 'quarterly' | 'half-yearly' | 'yearly' | 'at_maturity';
   rdMonthlyInstallment?: number; // RD only — fixed monthly deposit amount
   rdTenureMonths?: number; // RD only — total tenure in months
-  // EPF extended (M11)
-  uan?: string;
-  epfBirthYear?: number;
-  epfEmployers?: EpfEmployer[];
-  epfTransactions?: EpfTransaction[];
   // Vehicle (M11 step 64) — RC data fetched from vahandetails.com
-  vehicleRegNumber?: string; // plate number — masked in safe/privacy mode
+  vehicleRegNumber?: string;
   vehicleMake?: string;
   vehicleModel?: string;
   vehicleYear?: number;
   vehicleFuelType?: string;
   vehicleColor?: string;
-  vehicleType?: string; // "Two Wheeler" / "Four Wheeler" etc.
+  vehicleType?: string;
   vehicleRtoLocation?: string;
-  vehicleRcStatus?: string; // "ACTIVE" / "SUSPENDED"
-  vehicleRcValidUpto?: number; // epoch ms
+  vehicleRcStatus?: string;
+  vehicleRcValidUpto?: number;
   vehicleInsuranceCompany?: string;
-  vehicleInsuranceUpto?: number; // epoch ms
-  vehiclePuccUpto?: number; // epoch ms
-  vehicleFitnessUpto?: number; // epoch ms
-  vehicleRcFetchedAt?: number; // epoch ms — when RC data was last fetched
+  vehicleInsuranceUpto?: number;
+  vehiclePuccUpto?: number;
+  vehicleFitnessUpto?: number;
+  vehicleRcFetchedAt?: number;
   vehicleEngineNo?: string;
   vehicleChassisNo?: string;
-  vehicleRegDate?: string; // registration date string
-  vehicleManufactureLabel?: string; // e.g. "June 2017"
+  vehicleRegDate?: string;
+  vehicleManufactureLabel?: string;
   vehicleBodyType?: string;
   vehicleOwnerName?: string;
   vehiclePresentAddress?: string;
   vehiclePermanentAddress?: string;
   vehicleFinancer?: string;
-  vehicleCubicCap?: string; // engine CC
+  vehicleCubicCap?: string;
   vehicleSeatCap?: string;
-  vehicleUnladenWeight?: string; // actual vehicle weight (kg)
-  vehicleGrossWeight?: string; // GVW including load (kg)
-  vehicleNorms?: string; // emission standard e.g. "BHARAT STAGE VI"
+  vehicleUnladenWeight?: string;
+  vehicleGrossWeight?: string;
+  vehicleNorms?: string;
   vehicleInsurancePolicyNo?: string;
   vehiclePuccNo?: string;
   vehicleChallanTotal?: number;
@@ -138,33 +138,33 @@ export interface AssetMeta {
   vehicleChallanPaid?: number;
   vehicleChallanDisposed?: number;
   vehicleChallanPendingAmount?: number;
-  vehicleChallanFetchedAt?: number; // epoch ms
+  vehicleChallanFetchedAt?: number;
   vehicleChallanRecords?: Array<{
     challanNo: string;
     date: string;
     amount: number;
-    paymentStatus: string; // "UNPAID" | "DISPOSED" | "PAID"
-    challanStatus: string; // "Virtual Court" | "Already Paid"
+    paymentStatus: string;
+    challanStatus: string;
     offenceDetails: string;
     challanPlace: string;
     courtName: string;
     courtAddress: string;
-    challanType: string; // "OFFLINE" | "ONLINE"
+    challanType: string;
     rto: string;
     state: string;
   }>;
   // Precious metals (M11 step 66)
   metalType?: 'gold' | 'silver';
   metalCategory?: 'jewellery' | 'coin' | 'bar' | 'digital' | 'other';
-  metalKarat?: 14 | 18 | 22 | 24; // gold only
-  metalPurity?: string; // silver: '999' | '925' | '800' | 'other'
+  metalKarat?: 14 | 18 | 22 | 24;
+  metalPurity?: string;
   metalWeightGrams?: number;
-  metalPurchasePricePerGram?: number; // cost basis per gram at time of purchase
+  metalPurchasePricePerGram?: number;
   // Property (M11 step 64)
   propertyType?: 'flat' | 'house' | 'plot' | 'commercial';
   propertyAreaSqft?: number;
   propertyCity?: string;
-  // Mutual Fund (M11 step 68) — scheme metadata from MFAPI.in detail endpoint
+  // Mutual Fund (M11 step 68)
   mfFundHouse?: string;
   mfSchemeCategory?: string;
   mfSchemeType?: string;
@@ -284,32 +284,6 @@ export interface GoalContribution {
   date: number;
   notes?: string;
   createdAt: number;
-}
-
-export type AssetType =
-  | 'real_estate'
-  | 'vehicle'
-  | 'jewelry'
-  | 'bank_account'
-  | 'fixed_deposit'
-  | 'ppf'
-  | 'nps'
-  | 'mutual_fund'
-  | 'stock'
-  | 'gold'
-  | 'crypto'
-  | 'other';
-
-export interface Asset {
-  id: string;
-  type: AssetType;
-  name: string;
-  value: number;
-  purchaseValue?: number;
-  purchaseDate?: number;
-  notes?: string;
-  createdAt: number;
-  updatedAt: number;
 }
 
 export type LiabilityType =

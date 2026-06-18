@@ -1,4 +1,4 @@
-import type { Asset, Expense, Goal, Holding, InsurancePolicy, Liability } from '@/core/db/types';
+import type { Expense, Goal, Holding, InsurancePolicy, Liability } from '@/core/db/types';
 
 // ── Derived input types ───────────────────────────────────────────────────────
 
@@ -43,7 +43,6 @@ function expenseMonthSpan(expenses: Expense[], nowMs: number): number {
 }
 
 export function deriveInputs(
-  assets: Asset[],
   holdings: Holding[],
   expenses: Expense[],
   liabilities: Liability[],
@@ -51,9 +50,9 @@ export function deriveInputs(
   goals: Goal[],
   nowMs: number
 ): DerivedInputs {
-  // Liquid assets: bank accounts + money-market / liquid MF holdings
+  // Liquid assets: FD holdings (short-term) + MF holdings (liquid/money-market equivalent)
   const liquidAssets =
-    assets.filter((a) => a.type === 'bank_account').reduce((s, a) => s + a.value, 0) +
+    holdings.filter((h) => h.assetClass === 'fd').reduce((s, h) => s + (h.currentValue ?? h.investedAmount), 0) +
     holdings.filter((h) => h.assetClass === 'mf').reduce((s, h) => s + (h.currentValue ?? h.investedAmount), 0);
 
   // Average monthly expenses over last 3 months (or all available data, min 1 month)
@@ -92,14 +91,12 @@ export function deriveInputs(
   }).length;
 
   // Diversification: count distinct asset classes with non-zero value
-  const hasEquity =
-    holdings.some((h) => h.assetClass === 'stock' || h.assetClass === 'mf') ||
-    assets.some((a) => a.type === 'stock' || a.type === 'mutual_fund');
-  const hasDebt =
-    holdings.some((h) => h.assetClass === 'fd' || h.assetClass === 'ppf' || h.assetClass === 'nps') ||
-    assets.some((a) => a.type === 'fixed_deposit' || a.type === 'ppf' || a.type === 'nps');
-  const hasGold = holdings.some((h) => h.assetClass === 'gold') || assets.some((a) => a.type === 'gold');
-  const hasRealEstate = assets.some((a) => a.type === 'real_estate');
+  const hasEquity = holdings.some((h) => h.assetClass === 'stock' || h.assetClass === 'mf');
+  const hasDebt = holdings.some(
+    (h) => h.assetClass === 'fd' || h.assetClass === 'ppf' || h.assetClass === 'nps' || h.assetClass === 'epf'
+  );
+  const hasGold = holdings.some((h) => h.assetClass === 'gold');
+  const hasRealEstate = holdings.some((h) => h.assetClass === 'property');
   const assetClassCount = [hasEquity, hasDebt, hasGold, hasRealEstate].filter(Boolean).length;
 
   return {

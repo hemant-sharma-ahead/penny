@@ -2,7 +2,6 @@ import Dexie, { type EntityTable } from 'dexie';
 import type {
   Account,
   AiCallLog,
-  Asset,
   Budget,
   ChipInsight,
   CreditProfile,
@@ -36,7 +35,6 @@ export class PennyDatabase extends Dexie {
   hashtags!: EntityTable<Hashtag, 'id'>;
   goals!: EntityTable<Goal, 'id'>;
   goal_contributions!: EntityTable<GoalContribution, 'id'>;
-  assets!: EntityTable<Asset, 'id'>;
   liabilities!: EntityTable<Liability, 'id'>;
   insurance_policies!: EntityTable<InsurancePolicy, 'id'>;
   chip_insights!: EntityTable<ChipInsight, 'id'>;
@@ -81,6 +79,9 @@ export class PennyDatabase extends Dexie {
     this.version(2).stores({
       accounts: 'id'
     });
+
+    // v3 — drops legacy assets store (superseded by holdings with assetClass) (M11 step 69)
+    this.version(3).stores({ assets: null });
   }
 }
 

@@ -30,7 +30,6 @@ const BACKUP_STORES = [
   'hashtags',
   'goals',
   'goal_contributions',
-  'assets',
   'liabilities',
   'insurance_policies',
   'chip_insights',
