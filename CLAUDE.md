@@ -30,8 +30,8 @@ This file is read at the start of every Claude Code session. It tells you where 
 | M8: Phase 1 polish                   | ✅ Complete                                         |
 | M9: Income, transfers & cash         | ✅ Complete                                         |
 | M10: IPO tracker + GMP               | ✅ Complete                                         |
-| M11: Extended asset tracking         | ⏳ Future                                           |
-| M12: Portfolio enhancements          | ⏳ Future                                           |
+| M11: Extended asset tracking         | 🚧 In progress by HEMANT                           |
+| M12: Portfolio enhancements          | 🚧 In progress by HEMANT                           |
 | M13: Financial calculators           | 🚧 In progress by PANKHURI                         |
 | M14: Finance news + Contact/Feedback | ⏳ Future                                           |
 | M15: Export PDF/HTML                 | ⏳ Future                                           |
@@ -129,7 +129,7 @@ This file is read at the start of every Claude Code session. It tells you where 
 | 63++ | PPF full tracking — passbook ledger (deposit/interest/withdrawal), before/after-5th badges, FY deposit bar vs ₹1.5L, corpus projection, Add Transaction sheet | ✅ Done |
 | 63+++| EPF full tracking — employment history (company + basic salary + from/to), transaction ledger (employee/employer/interest/transfer/withdrawal), contribution auto-calc per employer period, retirement projection at 58, pro-rata partial months | ✅ Done |
 | 64   | Real Assets — vehicles (RC fetch via vahandetails.com, IRDA depreciation, challan cards) + property sub-tab, 90-day staleness UX | ✅ Done |
-| 65   | Fixed Income — FD/RD maturity auto-calc + compound interest projection                                          | ⏳               |
+| 65   | Fixed Income — FD/RD maturity auto-calc + compound interest projection                                          | ✅ Done         |
 | 66   | Precious Metals — Gold + Silver live prices (GOLDBEES.NS / SILVERIETF.NS)                                       | ⏳               |
 | 67   | Stocks — enhanced cards, Yahoo Finance symbol search                                                            | ⏳               |
 | 68   | Mutual Funds — enhanced cards, MFAPI.in scheme search                                                          | ⏳               |
@@ -144,7 +144,14 @@ This file is read at the start of every Claude Code session. It tells you where 
 - Card shows: contribution breakdown per employer period, expected vs actual balance, monthly contribution from current employer, retirement corpus projection at 58
 - PDF import deferred to step 70 (grouped with CAS PDF — same PDF.js infrastructure)
 
-**Next step when you pick up a session:** Step 65 — Fixed Income (FD/RD maturity auto-calc + compound interest projection).
+**FD/RD data model (step 65):**
+- `fdSubType`: `'fd' | 'rd'` stored in `assetMeta`
+- FD fields: `fdBank`, `fdStartDate` (epoch ms), `fdCompoundingFreq` (`monthly | quarterly | half-yearly | yearly | at_maturity`), `interestRate`, `maturityDate` (epoch ms), `investedAmount` (principal)
+- RD fields: `fdBank`, `fdStartDate` (epoch ms), `rdMonthlyInstallment`, `rdTenureMonths`, `interestRate`; `investedAmount` = installment × tenure (total committed)
+- `currentValue` = accrued amount (live, recalculated from `calcFdMaturity` / `calcRdMaturity` in `src/core/fd/fdCalculations.ts`)
+- Pure calculation functions in `src/core/fd/fdCalculations.ts`: `calcFdMaturity` (compound P×(1+r/n)^nt) + `calcRdMaturity` (iterative quarterly per-installment, Indian bank standard)
+
+**Next step when you pick up a session:** Step 66 — Precious Metals (Gold + Silver live prices via GOLDBEES.NS / SILVERIETF.NS).
 
 **Full Phase 1 roadmap (M9–M15):**
 

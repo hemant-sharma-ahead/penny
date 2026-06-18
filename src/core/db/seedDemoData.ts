@@ -406,8 +406,31 @@ export async function seedDemoData(): Promise<void> {
       currentValue: 107500,
       interestRate: 7.5,
       maturityDate: from(180),
-      createdAt: ago(185),
-      updatedAt: ago(1)
+      createdAt: ago(365),
+      updatedAt: ago(1),
+      assetMeta: {
+        fdSubType: 'fd',
+        fdBank: 'SBI',
+        fdStartDate: ago(365),
+        fdCompoundingFreq: 'quarterly'
+      }
+    },
+    {
+      id: 'demo-holding-rd',
+      assetClass: 'fd',
+      name: 'HDFC Recurring Deposit',
+      investedAmount: 60000,
+      currentValue: 63200,
+      interestRate: 7.0,
+      createdAt: ago(270),
+      updatedAt: ago(1),
+      assetMeta: {
+        fdSubType: 'rd',
+        fdBank: 'HDFC Bank',
+        fdStartDate: ago(270),
+        rdMonthlyInstallment: 5000,
+        rdTenureMonths: 12
+      }
     },
     {
       id: 'demo-holding-gold',

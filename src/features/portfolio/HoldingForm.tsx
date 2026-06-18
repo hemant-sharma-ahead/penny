@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { AssetClass, AssetMeta, EpfEmployer, Holding } from '@/core/db/types';
 import { fetchVehicleData } from '@/core/vehicle/rcClient';
 import type { RcDetails } from '@/core/vehicle/rcClient';
 import { NPS_FUND_MANAGERS, LIFECYCLE_FUNDS } from '@/core/nps';
 import type { NpsChoiceType, NpsLifecycleFund, NpsPfmKey, NpsSchemeType } from '@/core/nps';
+import { calcFdMaturity, calcRdMaturity } from '@/core/fd/fdCalculations';
+import type { CompoundingFreq } from '@/core/fd/fdCalculations';
 
 interface Props {
   editing: Holding | null;
@@ -180,7 +182,16 @@ function NpsLifecycleDetail({
 export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass }: Props) {
   const [assetClass, setAssetClass] = useState<AssetClass>(editing?.assetClass ?? lockAssetClass ?? 'mf');
   const [name, setName] = useState(editing?.name ?? '');
-  const [investedAmount, setInvestedAmount] = useState(editing ? String(editing.investedAmount) : '');
+  const [investedAmount, setInvestedAmount] = useState(() => {
+    if (!editing) return '';
+    // For RD, the form field shows monthly installment, not total committed
+    if (
+      (editing.assetMeta?.fdSubType ?? editing.assetClass) === 'rd' &&
+      editing.assetMeta?.rdMonthlyInstallment != null
+    )
+      return String(editing.assetMeta.rdMonthlyInstallment);
+    return String(editing.investedAmount);
+  });
   const [currentValue, setCurrentValue] = useState(editing?.currentValue != null ? String(editing.currentValue) : '');
   const [schemeCode, setSchemeCode] = useState(editing?.schemeCode ?? '');
   const [symbol, setSymbol] = useState(editing?.symbol ?? '');
@@ -241,6 +252,19 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
     return cur?.employeeContribPct ?? 12;
   })();
 
+  // FD/RD states
+  const [fdSubType, setFdSubType] = useState<'fd' | 'rd'>(editing?.assetMeta?.fdSubType ?? 'fd');
+  const [fdBank, setFdBank] = useState(editing?.assetMeta?.fdBank ?? '');
+  const [fdStartDate, setFdStartDate] = useState(() =>
+    editing?.assetMeta?.fdStartDate != null ? epochToDateInput(editing.assetMeta.fdStartDate) : ''
+  );
+  const [fdCompoundingFreq, setFdCompoundingFreq] = useState<CompoundingFreq>(
+    editing?.assetMeta?.fdCompoundingFreq ?? 'quarterly'
+  );
+  const [rdTenureMonths, setRdTenureMonths] = useState(
+    editing?.assetMeta?.rdTenureMonths != null ? String(editing.assetMeta.rdTenureMonths) : ''
+  );
+
   // Vehicle states — reg number lookup flow
   const [vehicleRegInput, setVehicleRegInput] = useState(editing?.assetMeta?.vehicleRegNumber ?? '');
   const [vehicleFetching, setVehicleFetching] = useState(false);
@@ -282,10 +306,41 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
 
   const [saving, setSaving] = useState(false);
 
+  // Live FD/RD preview — recomputes whenever form inputs change
+  const fdPreview = useMemo(() => {
+    if (assetClass !== 'fd') return null;
+    const principal = parseFloat(investedAmount) || 0;
+    const rate = parseFloat(interestRate) || 0;
+    if (principal <= 0 || rate <= 0 || !fdStartDate) return null;
+
+    if (fdSubType === 'fd') {
+      if (!maturityDate) return null;
+      const startMs = new Date(fdStartDate).getTime();
+      const matMs = new Date(maturityDate).getTime();
+      if (isNaN(startMs) || isNaN(matMs) || matMs <= startMs) return null;
+      return calcFdMaturity(principal, rate, startMs, matMs, fdCompoundingFreq);
+    } else {
+      const tenure = parseInt(rdTenureMonths, 10);
+      if (isNaN(tenure) || tenure <= 0) return null;
+      const startMs = new Date(fdStartDate).getTime();
+      if (isNaN(startMs)) return null;
+      return calcRdMaturity(principal, rate, tenure, startMs);
+    }
+  }, [
+    assetClass,
+    fdSubType,
+    investedAmount,
+    interestRate,
+    fdStartDate,
+    maturityDate,
+    fdCompoundingFreq,
+    rdTenureMonths
+  ]);
+
   function handleSave() {
     const invested = parseFloat(investedAmount) || 0;
     const effectiveName = name.trim() || (assetClass === 'vehicle' ? vehicleRegInput.trim() : '');
-    const requiresAmount = assetClass !== 'vehicle' && assetClass !== 'property';
+    const requiresAmount = assetClass !== 'vehicle' && assetClass !== 'property' && assetClass !== 'fd';
     if (!effectiveName || (requiresAmount && (isNaN(invested) || invested <= 0))) return;
     setSaving(true);
     const now = Date.now();
@@ -320,7 +375,32 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
     } else if (assetClass === 'fd') {
       const rate = parseFloat(interestRate);
       if (!isNaN(rate) && rate > 0) holding.interestRate = rate;
-      if (maturityDate) holding.maturityDate = new Date(maturityDate).getTime();
+      const meta: AssetMeta = { ...(editing?.assetMeta ?? {}) };
+      meta.fdSubType = fdSubType;
+      if (fdBank.trim()) meta.fdBank = fdBank.trim();
+      if (fdStartDate) meta.fdStartDate = new Date(fdStartDate).getTime();
+      if (fdSubType === 'fd') {
+        if (maturityDate) holding.maturityDate = new Date(maturityDate).getTime();
+        meta.fdCompoundingFreq = fdCompoundingFreq;
+      } else {
+        // RD — maturity date auto-computed; investedAmount = monthly installment
+        const tenure = parseInt(rdTenureMonths, 10);
+        if (!isNaN(tenure) && tenure > 0) {
+          meta.rdTenureMonths = tenure;
+          meta.rdMonthlyInstallment = parseFloat(investedAmount) || 0;
+          if (fdStartDate) {
+            const ms = new Date(fdStartDate).getTime() + tenure * 30.4375 * 24 * 3600 * 1000;
+            holding.maturityDate = Math.round(ms);
+          }
+        }
+        // investedAmount for RD = total committed (installment × tenure)
+        const rdInstallment = parseFloat(investedAmount) || 0;
+        const tenure2 = parseInt(rdTenureMonths, 10) || 0;
+        holding.investedAmount = rdInstallment * tenure2;
+      }
+      // Snapshot currentValue from live preview so portfolio totals are accurate
+      if (fdPreview) holding.currentValue = fdPreview.isMatured ? fdPreview.maturityAmount : fdPreview.accruedAmount;
+      holding.assetMeta = meta;
     } else if (assetClass === 'gold') {
       if (parsedUnits !== undefined) holding.units = parsedUnits;
       if (parsedAvgCost !== undefined) holding.avgCostPrice = parsedAvgCost;
@@ -461,7 +541,19 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-primary">
             {editing
-              ? 'Edit holding'
+              ? assetClass === 'nps'
+                ? 'Edit NPS'
+                : assetClass === 'ppf'
+                  ? 'Edit PPF'
+                  : assetClass === 'epf'
+                    ? 'Edit EPF'
+                    : assetClass === 'vehicle'
+                      ? 'Edit Vehicle'
+                      : assetClass === 'property'
+                        ? 'Edit Property'
+                        : assetClass === 'fd'
+                          ? 'Edit Fixed Income'
+                          : 'Edit holding'
               : lockAssetClass === 'nps' || assetClass === 'nps'
                 ? 'Track NPS'
                 : lockAssetClass === 'ppf' || assetClass === 'ppf'
@@ -472,7 +564,9 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
                       ? 'Track Vehicle'
                       : assetClass === 'property'
                         ? 'Track Property'
-                        : 'Add holding'}
+                        : assetClass === 'fd'
+                          ? 'Track Fixed Income'
+                          : 'Add holding'}
           </h3>
           <button
             onClick={onClose}
@@ -632,29 +726,184 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
           </>
         )}
 
-        {/* FD-specific */}
+        {/* FD/RD-specific */}
         {assetClass === 'fd' && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-3">
+            {/* FD / RD toggle */}
             <div>
-              <label className="text-xs font-medium text-secondary">Interest rate (%)</label>
+              <label className="text-xs font-medium text-secondary">Type</label>
+              <div className="mt-1 flex rounded-xl overflow-hidden border border-theme">
+                {(['fd', 'rd'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => !editing && setFdSubType(t)}
+                    disabled={!!editing}
+                    className="flex-1 py-2.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed"
+                    style={
+                      fdSubType === t
+                        ? { backgroundColor: 'var(--color-primary)', color: '#fff', opacity: editing ? 0.7 : 1 }
+                        : { color: 'var(--color-text-secondary)', opacity: editing ? 0.4 : 1 }
+                    }
+                  >
+                    {t === 'fd' ? 'Fixed Deposit' : 'Recurring Deposit'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Bank */}
+            <div>
+              <label className="text-xs font-medium text-secondary">
+                Bank / Institution <span className="font-normal text-tertiary">(optional)</span>
+              </label>
               <input
-                type="number"
-                inputMode="decimal"
+                type="text"
                 className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-                placeholder="7.1"
-                value={interestRate}
-                onChange={(e) => setInterestRate(e.target.value)}
+                placeholder="e.g. SBI, HDFC, Post Office"
+                value={fdBank}
+                onChange={(e) => setFdBank(e.target.value)}
               />
             </div>
-            <div>
-              <label className="text-xs font-medium text-secondary">Maturity date</label>
-              <input
-                type="date"
-                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-                value={maturityDate}
-                onChange={(e) => setMaturityDate(e.target.value)}
-              />
+
+            {/* Start date + interest rate */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-secondary">
+                  {fdSubType === 'rd' ? 'First installment date' : 'Deposit date'}
+                </label>
+                <input
+                  type="date"
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                  value={fdStartDate}
+                  onChange={(e) => setFdStartDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-secondary">Interest rate (%)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                  placeholder="7.1"
+                  value={interestRate}
+                  onChange={(e) => setInterestRate(e.target.value)}
+                />
+              </div>
             </div>
+
+            {fdSubType === 'fd' ? (
+              /* FD-specific */
+              <>
+                <div>
+                  <label className="text-xs font-medium text-secondary">Principal amount (₹)</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                    placeholder="0"
+                    value={investedAmount}
+                    onChange={(e) => setInvestedAmount(e.target.value)}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-secondary">Compounding</label>
+                    <select
+                      className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                      value={fdCompoundingFreq}
+                      onChange={(e) => setFdCompoundingFreq(e.target.value as CompoundingFreq)}
+                    >
+                      <option value="quarterly">Quarterly (default)</option>
+                      <option value="monthly">Monthly</option>
+                      <option value="half-yearly">Half-yearly</option>
+                      <option value="yearly">Yearly</option>
+                      <option value="at_maturity">At maturity</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-secondary">Maturity date</label>
+                    <input
+                      type="date"
+                      className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                      value={maturityDate}
+                      onChange={(e) => setMaturityDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* RD-specific */
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-secondary">Monthly installment (₹)</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                    placeholder="5000"
+                    value={investedAmount}
+                    onChange={(e) => setInvestedAmount(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-secondary">Tenure (months)</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                    placeholder="24"
+                    value={rdTenureMonths}
+                    onChange={(e) => setRdTenureMonths(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Live preview */}
+            {fdPreview && (
+              <div
+                className="rounded-xl p-3 flex flex-col gap-1 border border-theme"
+                style={{ backgroundColor: 'var(--color-surface-secondary)' }}
+              >
+                {fdSubType === 'fd' ? (
+                  <>
+                    <p className="text-[11px] text-tertiary">Projected maturity amount</p>
+                    <p className="text-base font-bold text-primary">
+                      ₹{fdPreview.maturityAmount.toLocaleString('en-IN')}
+                    </p>
+                    <p className="text-[11px]" style={{ color: '#10b981' }}>
+                      +₹{fdPreview.totalInterest.toLocaleString('en-IN')} interest (
+                      {(
+                        ((fdPreview.maturityAmount - (parseFloat(investedAmount) || 0)) /
+                          (parseFloat(investedAmount) || 1)) *
+                        100
+                      ).toFixed(1)}
+                      %)
+                    </p>
+                    {fdPreview.daysRemaining > 0 && (
+                      <p className="text-[10px] text-tertiary">{fdPreview.daysRemaining} days remaining</p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[11px] text-tertiary">Projected maturity amount</p>
+                    <p className="text-base font-bold text-primary">
+                      ₹{fdPreview.maturityAmount.toLocaleString('en-IN')}
+                    </p>
+                    <p className="text-[11px]" style={{ color: '#10b981' }}>
+                      +₹{fdPreview.totalInterest.toLocaleString('en-IN')} interest over {rdTenureMonths} months
+                    </p>
+                    <p className="text-[10px] text-tertiary">
+                      Total committed: ₹
+                      {((parseFloat(investedAmount) || 0) * (parseInt(rdTenureMonths, 10) || 0)).toLocaleString(
+                        'en-IN'
+                      )}
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -1210,8 +1459,8 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
           </div>
         )}
 
-        {/* Balance / invested amount — hidden for vehicle (no purchase price required) */}
-        {assetClass !== 'vehicle' && (
+        {/* Balance / invested amount — hidden for vehicle and fd (both handle amount inside their section) */}
+        {assetClass !== 'vehicle' && assetClass !== 'fd' && (
           <div>
             <label className="text-xs font-medium text-secondary">
               {assetClass === 'nps' || assetClass === 'ppf' || assetClass === 'epf'
@@ -1231,30 +1480,34 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
           </div>
         )}
 
-        {/* Current value — not for retirement or vehicle */}
-        {assetClass !== 'nps' && assetClass !== 'ppf' && assetClass !== 'epf' && assetClass !== 'vehicle' && (
-          <div>
-            <label className="text-xs font-medium text-secondary">
-              {assetClass === 'property' ? 'Current market value (₹)' : 'Current value (₹)'}
-              {assetClass !== 'property' && (
-                <span className="font-normal text-tertiary"> — optional, fetched automatically for MF/stocks</span>
+        {/* Current value — not for retirement, vehicle, or fd (auto-calculated) */}
+        {assetClass !== 'nps' &&
+          assetClass !== 'ppf' &&
+          assetClass !== 'epf' &&
+          assetClass !== 'vehicle' &&
+          assetClass !== 'fd' && (
+            <div>
+              <label className="text-xs font-medium text-secondary">
+                {assetClass === 'property' ? 'Current market value (₹)' : 'Current value (₹)'}
+                {assetClass !== 'property' && (
+                  <span className="font-normal text-tertiary"> — optional, fetched automatically for MF/stocks</span>
+                )}
+              </label>
+              <input
+                type="number"
+                inputMode="decimal"
+                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                placeholder={assetClass === 'property' ? 'e.g. 6500000' : 'Leave blank to use invested amount'}
+                value={currentValue}
+                onChange={(e) => setCurrentValue(e.target.value)}
+              />
+              {assetClass === 'property' && (
+                <p className="text-[10px] text-tertiary mt-1">
+                  You can update this anytime from the card — a staleness reminder appears after 90 days.
+                </p>
               )}
-            </label>
-            <input
-              type="number"
-              inputMode="decimal"
-              className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-              placeholder={assetClass === 'property' ? 'e.g. 6500000' : 'Leave blank to use invested amount'}
-              value={currentValue}
-              onChange={(e) => setCurrentValue(e.target.value)}
-            />
-            {assetClass === 'property' && (
-              <p className="text-[10px] text-tertiary mt-1">
-                You can update this anytime from the card — a staleness reminder appears after 90 days.
-              </p>
-            )}
-          </div>
-        )}
+            </div>
+          )}
 
         {/* Notes — hidden for vehicle */}
         {assetClass !== 'vehicle' && (

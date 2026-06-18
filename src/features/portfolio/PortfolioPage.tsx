@@ -20,6 +20,8 @@ import { fetchIpoSubscription } from '@/core/ipo/ipoClient';
 import type { IpoItem, IpoStatus, IpoSubDetail } from '@/core/ipo/ipoTypes';
 import { LIFECYCLE_FUNDS, getAllocationAtAge, findNpsSchemeCode, fetchNpsNav, getPfmLabel } from '@/core/nps';
 import type { NpsNavDetail, NpsPfmKey, NpsSchemeType, NpsLifecycleFund } from '@/core/nps';
+import { calcFdMaturity, calcRdMaturity } from '@/core/fd/fdCalculations';
+import type { CompoundingFreq } from '@/core/fd/fdCalculations';
 
 // ─── Asset metadata ───────────────────────────────────────────────────────────
 
@@ -3040,6 +3042,297 @@ function PropertyCard({
   );
 }
 
+// ─── FixedIncomeTab ───────────────────────────────────────────────────────────
+
+function fdNowMs(): number {
+  return Date.now();
+}
+
+function FdProgressBar({ pct }: { pct: number }) {
+  return (
+    <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--color-surface-secondary)' }}>
+      <div
+        className="h-full rounded-full transition-all"
+        style={{ width: `${Math.min(100, pct)}%`, backgroundColor: 'var(--color-primary)' }}
+      />
+    </div>
+  );
+}
+
+function FdCard({ holding, onEdit, mode }: { holding: Holding; onEdit: () => void; mode: string }) {
+  const meta = holding.assetMeta ?? {};
+  const principal = holding.investedAmount;
+  const rate = holding.interestRate ?? 0;
+  const startMs = meta.fdStartDate ?? null;
+  const maturityMs = holding.maturityDate ?? null;
+  const freq: CompoundingFreq = meta.fdCompoundingFreq ?? 'quarterly';
+  const bank = meta.fdBank ?? '';
+
+  const result =
+    principal > 0 && rate > 0 && startMs && maturityMs
+      ? calcFdMaturity(principal, rate, startMs, maturityMs, freq, fdNowMs())
+      : null;
+
+  const maturityDateStr = maturityMs
+    ? new Date(maturityMs).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
+  const startDateStr = startMs
+    ? new Date(startMs).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })
+    : null;
+
+  const freqLabel: Record<CompoundingFreq, string> = {
+    monthly: 'Monthly',
+    quarterly: 'Quarterly',
+    'half-yearly': 'Half-yearly',
+    yearly: 'Yearly',
+    at_maturity: 'At maturity'
+  };
+
+  return (
+    <button onClick={onEdit} className="surface rounded-2xl px-4 py-3 flex flex-col gap-3 w-full text-left">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: '#f59e0b15' }}
+          >
+            <i className="ti ti-building-bank" style={{ fontSize: 18, color: '#f59e0b' }} aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-primary truncate">{holding.name}</p>
+            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+              {bank && <span className="text-[10px] text-secondary">{bank}</span>}
+              {rate > 0 && (
+                <span
+                  className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                  style={{ backgroundColor: '#10b98115', color: '#10b981' }}
+                >
+                  {rate}% p.a.
+                </span>
+              )}
+              <span className="text-[9px] text-tertiary">{freqLabel[freq]}</span>
+            </div>
+          </div>
+        </div>
+        {result?.isMatured ? (
+          <span
+            className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+            style={{ backgroundColor: '#10b98115', color: '#10b981' }}
+          >
+            MATURED
+          </span>
+        ) : (
+          <i
+            className="ti ti-chevron-right text-tertiary flex-shrink-0 mt-1"
+            style={{ fontSize: 15 }}
+            aria-hidden="true"
+          />
+        )}
+      </div>
+
+      {/* Progress bar + dates */}
+      {result && (
+        <div className="flex flex-col gap-1">
+          <FdProgressBar pct={result.pctElapsed} />
+          <div className="flex justify-between">
+            <p className="text-[9px] text-tertiary">{startDateStr}</p>
+            <p className="text-[9px] text-tertiary">
+              {result.isMatured ? 'Matured' : `${result.daysRemaining} days left`} · {maturityDateStr}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Value row */}
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-[10px] text-tertiary mb-0.5">Principal</p>
+          <p className="text-sm font-semibold text-primary tabular-nums">
+            {mode === 'open' ? `₹${principal.toLocaleString('en-IN')}` : '••••'}
+          </p>
+          {!result && maturityDateStr && <p className="text-[10px] text-tertiary mt-0.5">Matures {maturityDateStr}</p>}
+        </div>
+        {result && (
+          <div className="text-right">
+            <p className="text-[10px] text-tertiary mb-0.5">
+              {result.isMatured ? 'Maturity amount' : 'Projected maturity'}
+            </p>
+            <p className="text-lg font-bold tabular-nums" style={{ color: '#10b981' }}>
+              {mode === 'open' ? `₹${result.maturityAmount.toLocaleString('en-IN')}` : '••••'}
+            </p>
+            <p className="text-[9px] font-medium" style={{ color: '#10b981' }}>
+              +₹{result.totalInterest.toLocaleString('en-IN')} ({((result.totalInterest / principal) * 100).toFixed(1)}
+              %)
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Accrued interest */}
+      {result && !result.isMatured && result.accruedInterest > 0 && (
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl" style={{ backgroundColor: '#10b98110' }}>
+          <i className="ti ti-trending-up" style={{ fontSize: 13, color: '#10b981' }} aria-hidden="true" />
+          <p className="text-[10px] font-medium" style={{ color: '#10b981' }}>
+            {mode === 'open'
+              ? `Accrued so far: ₹${result.accruedInterest.toLocaleString('en-IN')}`
+              : 'Accrued interest: ••••'}
+          </p>
+        </div>
+      )}
+    </button>
+  );
+}
+
+function RdCard({ holding, onEdit, mode }: { holding: Holding; onEdit: () => void; mode: string }) {
+  const meta = holding.assetMeta ?? {};
+  const monthlyInstallment = meta.rdMonthlyInstallment ?? holding.investedAmount;
+  const rate = holding.interestRate ?? 0;
+  const tenureMonths = meta.rdTenureMonths ?? 0;
+  const startMs = meta.fdStartDate ?? null;
+  const bank = meta.fdBank ?? '';
+
+  const result =
+    monthlyInstallment > 0 && rate > 0 && tenureMonths > 0 && startMs
+      ? calcRdMaturity(monthlyInstallment, rate, tenureMonths, startMs, fdNowMs())
+      : null;
+
+  const startDateStr = startMs
+    ? new Date(startMs).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+    : null;
+  const maturityMs = startMs ? startMs + tenureMonths * 30.4375 * 24 * 3600 * 1000 : null;
+  const maturityDateStr = maturityMs
+    ? new Date(maturityMs).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+    : null;
+
+  return (
+    <button onClick={onEdit} className="surface rounded-2xl px-4 py-3 flex flex-col gap-3 w-full text-left">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: '#6366f115' }}
+          >
+            <i className="ti ti-calendar-repeat" style={{ fontSize: 18, color: '#6366f1' }} aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-primary truncate">{holding.name}</p>
+            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+              {bank && <span className="text-[10px] text-secondary">{bank}</span>}
+              {rate > 0 && (
+                <span
+                  className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                  style={{ backgroundColor: '#10b98115', color: '#10b981' }}
+                >
+                  {rate}% p.a.
+                </span>
+              )}
+              {tenureMonths > 0 && <span className="text-[9px] text-tertiary">{tenureMonths} months</span>}
+            </div>
+          </div>
+        </div>
+        {result?.isMatured ? (
+          <span
+            className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+            style={{ backgroundColor: '#10b98115', color: '#10b981' }}
+          >
+            MATURED
+          </span>
+        ) : (
+          <i
+            className="ti ti-chevron-right text-tertiary flex-shrink-0 mt-1"
+            style={{ fontSize: 15 }}
+            aria-hidden="true"
+          />
+        )}
+      </div>
+
+      {/* Progress bar + installments */}
+      {result && (
+        <div className="flex flex-col gap-1">
+          <FdProgressBar pct={result.pctElapsed} />
+          <div className="flex justify-between">
+            <p className="text-[9px] text-tertiary">
+              {result.monthsCompleted}/{tenureMonths} months · {startDateStr}
+            </p>
+            <p className="text-[9px] text-tertiary">
+              {result.isMatured ? 'Matured' : `${result.monthsRemaining} left`} · {maturityDateStr}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Value row */}
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-[10px] text-tertiary mb-0.5">Monthly</p>
+          <p className="text-sm font-semibold text-primary tabular-nums">
+            {mode === 'open' ? `₹${monthlyInstallment.toLocaleString('en-IN')}/mo` : '••••'}
+          </p>
+          {result && (
+            <p className="text-[10px] text-tertiary mt-0.5">
+              Deposited: {mode === 'open' ? `₹${result.totalDeposited.toLocaleString('en-IN')}` : '••••'}
+            </p>
+          )}
+        </div>
+        {result && (
+          <div className="text-right">
+            <p className="text-[10px] text-tertiary mb-0.5">
+              {result.isMatured ? 'Maturity amount' : 'Projected maturity'}
+            </p>
+            <p className="text-lg font-bold tabular-nums" style={{ color: '#10b981' }}>
+              {mode === 'open' ? `₹${result.maturityAmount.toLocaleString('en-IN')}` : '••••'}
+            </p>
+            <p className="text-[9px] font-medium" style={{ color: '#10b981' }}>
+              +₹{result.totalInterest.toLocaleString('en-IN')} interest
+            </p>
+          </div>
+        )}
+      </div>
+    </button>
+  );
+}
+
+function FixedIncomeTab({
+  holdings,
+  onEdit,
+  onAdd,
+  mode
+}: {
+  holdings: Holding[];
+  onEdit: (h: Holding) => void;
+  onAdd: () => void;
+  mode: string;
+}) {
+  return (
+    <div className="px-4 py-3 flex flex-col gap-3">
+      {holdings.length === 0 ? (
+        <div className="p-10 text-center">
+          <i className="ti ti-building-bank text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
+          <p className="text-sm mt-3 text-tertiary">No FDs or RDs yet. Tap + to track your fixed deposits.</p>
+        </div>
+      ) : (
+        holdings.map((h) => {
+          const subType = h.assetMeta?.fdSubType;
+          return subType === 'rd' ? (
+            <RdCard key={h.id} holding={h} onEdit={() => onEdit(h)} mode={mode} />
+          ) : (
+            <FdCard key={h.id} holding={h} onEdit={() => onEdit(h)} mode={mode} />
+          );
+        })
+      )}
+      <button
+        onClick={onAdd}
+        className="flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-theme text-sm font-medium text-tertiary"
+      >
+        <i className="ti ti-plus" style={{ fontSize: 16 }} aria-hidden="true" />
+        Add FD / RD
+      </button>
+    </div>
+  );
+}
+
 // ─── RealAssetsTab ────────────────────────────────────────────────────────────
 
 function RealAssetsTab({
@@ -3391,6 +3684,18 @@ export function PortfolioPage() {
                   );
                 })}
               </div>
+            ) : holdingsSubTab === 'fixed_income' ? (
+              /* Fixed Income — FdCard / RdCard with auto-calculated maturity */
+              <FixedIncomeTab
+                holdings={subTabHoldings}
+                onEdit={openEdit}
+                onAdd={() => {
+                  setPresetAssetClass('fd');
+                  setEditingHolding(null);
+                  setShowForm(true);
+                }}
+                mode={mode}
+              />
             ) : holdingsSubTab === 'real_assets' ? (
               /* Real Assets — vehicle + property sections with dedicated cards */
               <RealAssetsTab

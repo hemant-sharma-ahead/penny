@@ -89,6 +89,13 @@ export interface AssetMeta {
   annualContribution?: number; // planned annual amount (used for projection)
   maturityYear?: number; // fallback if no opening date set
   ppfTransactions?: PpfTransaction[]; // embedded passbook ledger
+  // FD/RD extended (M11 step 65)
+  fdSubType?: 'fd' | 'rd';
+  fdBank?: string;
+  fdStartDate?: number; // epoch ms — deposit / first installment date
+  fdCompoundingFreq?: 'monthly' | 'quarterly' | 'half-yearly' | 'yearly' | 'at_maturity';
+  rdMonthlyInstallment?: number; // RD only — fixed monthly deposit amount
+  rdTenureMonths?: number; // RD only — total tenure in months
   // EPF extended (M11)
   uan?: string;
   epfBirthYear?: number;
