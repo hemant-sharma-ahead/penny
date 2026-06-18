@@ -5,6 +5,18 @@ import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 
 export default defineConfig({
+  server: {
+    // Proxy Yahoo Finance in dev to bypass CORS — the browser fetches /api/yf/...
+    // and Vite transparently forwards it. In production, set VITE_YF_PROXY to a
+    // CORS-enabled Worker URL (same CF Worker used for IPO data).
+    proxy: {
+      '/api/yf': {
+        target: 'https://query1.finance.yahoo.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace('/api/yf', '')
+      }
+    }
+  },
   plugins: [
     react(),
     tailwindcss(),

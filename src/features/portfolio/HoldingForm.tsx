@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { AssetClass, AssetMeta, EpfEmployer, Holding } from '@/core/db/types';
+import { fetchMfNav, YF_BASE } from '@/core/db/priceCache';
 import { fetchVehicleData } from '@/core/vehicle/rcClient';
 import type { RcDetails } from '@/core/vehicle/rcClient';
 import { NPS_FUND_MANAGERS, LIFECYCLE_FUNDS } from '@/core/nps';
@@ -13,6 +14,7 @@ interface Props {
   onDelete: (id: string) => Promise<void>;
   onClose: () => void;
   lockAssetClass?: AssetClass;
+  allowedClasses?: AssetClass[]; // when set, only these classes appear in the asset type selector
 }
 
 function nowMs(): number {
@@ -179,8 +181,10 @@ function NpsLifecycleDetail({
   );
 }
 
-export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass }: Props) {
-  const [assetClass, setAssetClass] = useState<AssetClass>(editing?.assetClass ?? lockAssetClass ?? 'mf');
+export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass, allowedClasses }: Props) {
+  const [assetClass, setAssetClass] = useState<AssetClass>(
+    editing?.assetClass ?? lockAssetClass ?? (allowedClasses?.[0] ?? 'mf')
+  );
   const [name, setName] = useState(editing?.name ?? '');
   const [investedAmount, setInvestedAmount] = useState(() => {
     if (!editing) return '';
@@ -195,6 +199,21 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
   const [currentValue, setCurrentValue] = useState(editing?.currentValue != null ? String(editing.currentValue) : '');
   const [schemeCode, setSchemeCode] = useState(editing?.schemeCode ?? '');
   const [symbol, setSymbol] = useState(editing?.symbol ?? '');
+  // MF fund search (MFAPI.in)
+  const [mfQuery, setMfQuery] = useState(editing?.name ?? '');
+  const [mfResults, setMfResults] = useState<Array<{ schemeCode: string; schemeName: string }>>([]);
+  const [mfSearching, setMfSearching] = useState(false);
+  const [schemeDetail, setSchemeDetail] = useState<{ fundHouse: string; schemeCategory: string; schemeType: string } | null>(
+    editing?.assetMeta?.mfFundHouse
+      ? { fundHouse: editing.assetMeta.mfFundHouse ?? '', schemeCategory: editing.assetMeta.mfSchemeCategory ?? '', schemeType: editing.assetMeta.mfSchemeType ?? '' }
+      : null
+  );
+  const [mfDropdownOpen, setMfDropdownOpen] = useState(false);
+  // Live price — shared for MF (NAV) and stock (chart price)
+  const [fetchedPrice, setFetchedPrice] = useState<number | null>(null);
+  const [priceFetching, setPriceFetching] = useState(false);
+  const [stockFetchAttempted, setStockFetchAttempted] = useState(false);
+  const [fetchedName, setFetchedName] = useState('');
   const [units, setUnits] = useState(editing?.units != null ? String(editing.units) : '');
   const [avgCostPrice, setAvgCostPrice] = useState(editing?.avgCostPrice != null ? String(editing.avgCostPrice) : '');
   const [interestRate, setInterestRate] = useState(editing?.interestRate != null ? String(editing.interestRate) : '');
@@ -351,11 +370,107 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
     rdTenureMonths
   ]);
 
+  // MF fund search — debounced 400ms via MFAPI.in (CORS-safe, no API key)
+  useEffect(() => {
+    interface MfSearchResult { schemeCode: string; schemeName: string; }
+    if (assetClass !== 'mf' || mfQuery.trim().length < 2 || !!schemeCode) {
+      const t = setTimeout(() => { setMfResults([]); setMfDropdownOpen(false); }, 0);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(async () => {
+      setMfSearching(true);
+      try {
+        const res = await fetch(`https://api.mfapi.in/mf/search?q=${encodeURIComponent(mfQuery.trim())}`);
+        if (!res.ok) { setMfResults([]); setMfDropdownOpen(false); return; }
+        const json = (await res.json()) as MfSearchResult[];
+        const results = json.slice(0, 8);
+        setMfResults(results);
+        setMfDropdownOpen(results.length > 0);
+      } catch { setMfResults([]); setMfDropdownOpen(false); }
+      finally { setMfSearching(false); }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [assetClass, mfQuery, schemeCode]);
+
+  // Fetch MF scheme detail (fund house, category, type) from MFAPI.in when a scheme is selected
+  useEffect(() => {
+    if (assetClass !== 'mf' || !schemeCode.trim()) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        interface MfDetailResp { meta?: { fund_house?: string; scheme_category?: string; scheme_type?: string } }
+        const res = await fetch(`https://api.mfapi.in/mf/${schemeCode.trim()}`);
+        if (!res.ok || cancelled) return;
+        const json = (await res.json()) as MfDetailResp;
+        const m = json.meta;
+        if (!m || cancelled) return;
+        setSchemeDetail({ fundHouse: m.fund_house ?? '', schemeCategory: m.scheme_category ?? '', schemeType: m.scheme_type ?? '' });
+      } catch { /* leave existing detail */ }
+    })();
+    return () => { cancelled = true; };
+  }, [assetClass, schemeCode]);
+
+  // Live price fetch — MF NAV via MFAPI.in, stock price via Yahoo Finance chart API
+  // All setState calls inside setTimeout to satisfy react-hooks/set-state-in-effect
+  useEffect(() => {
+    interface YfChartMeta { regularMarketPrice?: number; shortName?: string; longName?: string; }
+    interface YfChartResp { chart?: { result?: Array<{ meta?: YfChartMeta }> } }
+
+    if (assetClass === 'mf') {
+      const sc = schemeCode.trim();
+      if (!sc) {
+        const t = setTimeout(() => { setFetchedPrice(null); setPriceFetching(false); }, 0);
+        return () => clearTimeout(t);
+      }
+      const t = setTimeout(async () => {
+        setPriceFetching(true);
+        try {
+          const nav = await fetchMfNav(sc);
+          setFetchedPrice(nav);
+        } catch { setFetchedPrice(null); }
+        finally { setPriceFetching(false); }
+      }, 300);
+      return () => clearTimeout(t);
+    }
+
+    if (assetClass === 'stock') {
+      const sym = symbol.trim().toUpperCase();
+      if (!sym) {
+        const t = setTimeout(() => { setFetchedPrice(null); setPriceFetching(false); setStockFetchAttempted(false); setFetchedName(''); }, 0);
+        return () => clearTimeout(t);
+      }
+      const t = setTimeout(async () => {
+        setStockFetchAttempted(false);
+        setPriceFetching(true);
+        try {
+          const yfSymbol = sym.endsWith('.NS') || sym.endsWith('.BO') ? sym : `${sym}.NS`;
+          const res = await fetch(`${YF_BASE}/v8/finance/chart/${yfSymbol}?interval=1d&range=1d`);
+          if (!res.ok) { setFetchedPrice(null); return; }
+          const json = (await res.json()) as YfChartResp;
+          const meta = json.chart?.result?.[0]?.meta;
+          const price = meta?.regularMarketPrice ?? null;
+          const sname = meta?.longName ?? meta?.shortName ?? '';
+          setFetchedPrice(typeof price === 'number' ? price : null);
+          setFetchedName(sname);
+        } catch { setFetchedPrice(null); setFetchedName(''); }
+        finally { setPriceFetching(false); setStockFetchAttempted(true); }
+      }, 700);
+      return () => clearTimeout(t);
+    }
+
+    const t = setTimeout(() => { setFetchedPrice(null); }, 0);
+    return () => clearTimeout(t);
+  }, [assetClass, schemeCode, symbol]);
+
   function handleSave() {
     const invested = parseFloat(investedAmount) || 0;
-    const effectiveName = name.trim() || (assetClass === 'vehicle' ? vehicleRegInput.trim() : '');
+    const effectiveName =
+      name.trim() ||
+      (assetClass === 'vehicle' ? vehicleRegInput.trim() : '') ||
+      (assetClass === 'stock' ? (fetchedName || symbol.trim().replace(/\.(NS|BO)$/i, '')) : '');
     const requiresAmount =
-      assetClass !== 'vehicle' && assetClass !== 'property' && assetClass !== 'fd' && assetClass !== 'gold';
+      assetClass !== 'vehicle' && assetClass !== 'property' && assetClass !== 'fd' &&
+      assetClass !== 'gold' && assetClass !== 'mf' && assetClass !== 'stock';
     if (!effectiveName || (requiresAmount && (isNaN(invested) || invested <= 0))) return;
     if (assetClass === 'gold' && (parseFloat(metalWeightGrams) <= 0 || parseFloat(metalPurchasePrice) <= 0)) return;
     setSaving(true);
@@ -383,11 +498,29 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
       if (sc) holding.schemeCode = sc;
       if (parsedUnits !== undefined) holding.units = parsedUnits;
       if (parsedAvgCost !== undefined) holding.avgCostPrice = parsedAvgCost;
+      holding.investedAmount = (parsedUnits ?? 0) * (parsedAvgCost ?? 0);
+      if (fetchedPrice !== null) {
+        holding.currentPrice = fetchedPrice;
+        if (parsedUnits !== undefined) holding.currentValue = parsedUnits * fetchedPrice;
+      }
+      if (schemeDetail) {
+        holding.assetMeta = {
+          ...(holding.assetMeta ?? {}),
+          mfFundHouse: schemeDetail.fundHouse,
+          mfSchemeCategory: schemeDetail.schemeCategory,
+          mfSchemeType: schemeDetail.schemeType,
+        };
+      }
     } else if (assetClass === 'stock') {
       const sym = symbol.trim().toUpperCase();
       if (sym) holding.symbol = sym;
       if (parsedUnits !== undefined) holding.units = parsedUnits;
       if (parsedAvgCost !== undefined) holding.avgCostPrice = parsedAvgCost;
+      holding.investedAmount = (parsedUnits ?? 0) * (parsedAvgCost ?? 0);
+      if (fetchedPrice !== null) {
+        holding.currentPrice = fetchedPrice;
+        if (parsedUnits !== undefined) holding.currentValue = parsedUnits * fetchedPrice;
+      }
     } else if (assetClass === 'fd') {
       const rate = parseFloat(interestRate);
       if (!isNaN(rate) && rate > 0) holding.interestRate = rate;
@@ -616,38 +749,70 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
         {!lockAssetClass && !editing && (
           <div>
             <label className="text-xs font-medium text-secondary">Asset type</label>
-            <div className="mt-1 grid grid-cols-4 gap-2">
-              {ASSET_CLASSES.map((ac) => (
-                <button
-                  key={ac.value}
-                  type="button"
-                  onClick={() => setAssetClass(ac.value)}
-                  className="flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors"
-                  style={
-                    assetClass === ac.value
-                      ? { borderColor: ac.color, backgroundColor: `${ac.color}10` }
-                      : { borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-secondary)' }
-                  }
-                >
-                  <i
-                    className={`ti ${ac.icon}`}
-                    style={{ fontSize: 18, color: assetClass === ac.value ? ac.color : 'var(--color-text-tertiary)' }}
-                    aria-hidden="true"
-                  />
-                  <span
-                    className="text-[9px] font-medium text-center leading-tight"
-                    style={{ color: assetClass === ac.value ? ac.color : 'var(--color-text-secondary)' }}
-                  >
-                    {ac.label.split(' ')[0] ?? ac.label}
-                  </span>
-                </button>
-              ))}
-            </div>
+            {(() => {
+              const filtered = allowedClasses
+                ? allowedClasses.flatMap((cls) => {
+                    const ac = ASSET_CLASSES.find((a) => a.value === cls);
+                    return ac ? [ac] : [];
+                  })
+                : ASSET_CLASSES;
+              if (filtered.length <= 2) {
+                return (
+                  <div className="mt-1 flex rounded-xl overflow-hidden border border-theme">
+                    {filtered.map((ac) => (
+                      <button
+                        key={ac.value}
+                        type="button"
+                        onClick={() => setAssetClass(ac.value)}
+                        className="flex-1 py-2.5 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
+                        style={
+                          assetClass === ac.value
+                            ? { backgroundColor: ac.color, color: '#fff' }
+                            : { color: 'var(--color-text-secondary)' }
+                        }
+                      >
+                        <i className={`ti ${ac.icon}`} style={{ fontSize: 14 }} aria-hidden="true" />
+                        {ac.label}
+                      </button>
+                    ))}
+                  </div>
+                );
+              }
+              return (
+                <div className="mt-1 grid grid-cols-4 gap-2">
+                  {filtered.map((ac) => (
+                    <button
+                      key={ac.value}
+                      type="button"
+                      onClick={() => setAssetClass(ac.value)}
+                      className="flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors"
+                      style={
+                        assetClass === ac.value
+                          ? { borderColor: ac.color, backgroundColor: `${ac.color}10` }
+                          : { borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-secondary)' }
+                      }
+                    >
+                      <i
+                        className={`ti ${ac.icon}`}
+                        style={{ fontSize: 18, color: assetClass === ac.value ? ac.color : 'var(--color-text-tertiary)' }}
+                        aria-hidden="true"
+                      />
+                      <span
+                        className="text-[9px] font-medium text-center leading-tight"
+                        style={{ color: assetClass === ac.value ? ac.color : 'var(--color-text-secondary)' }}
+                      >
+                        {ac.label.split(' ')[0] ?? ac.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         )}
 
-        {/* Name — hidden for vehicle (auto-filled from RC fetch) */}
-        {assetClass !== 'vehicle' && (
+        {/* Name — hidden for vehicle (RC fetch), stock (Yahoo Finance), and mf (MFAPI search) */}
+        {assetClass !== 'vehicle' && assetClass !== 'stock' && assetClass !== 'mf' && (
           <div>
             <label className="text-xs font-medium text-secondary">Name</label>
             <input
@@ -680,19 +845,112 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
         {/* MF-specific */}
         {assetClass === 'mf' && (
           <>
-            <div>
-              <label className="text-xs font-medium text-secondary">
-                MFAPI scheme code <span className="font-normal text-tertiary">(e.g. 120503 for PPFAS)</span>
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-                placeholder="Leave blank to enter price manually"
-                value={schemeCode}
-                onChange={(e) => setSchemeCode(e.target.value)}
-              />
-            </div>
+            {/* Search — only when adding new; editing shows plain scheme code field */}
+            {!editing ? (
+              <div className="relative">
+                <label className="text-xs font-medium text-secondary">Search fund</label>
+                <div className="mt-1 relative">
+                  <input
+                    type="text"
+                    className="w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface pr-16"
+                    placeholder="e.g. Parag Parikh, Axis Bluechip…"
+                    value={mfQuery}
+                    onChange={(e) => {
+                      setMfQuery(e.target.value);
+                      if (!e.target.value) { setSchemeCode(''); setMfDropdownOpen(false); }
+                    }}
+                  />
+                  {mfSearching && (
+                    <i className="ti ti-loader-2 animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-tertiary" style={{ fontSize: 16 }} />
+                  )}
+                  {schemeCode && !mfSearching && (
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-tertiary px-1 py-0.5"
+                      onClick={() => { setSchemeCode(''); setMfQuery(''); setMfDropdownOpen(false); setName(''); setFetchedPrice(null); setSchemeDetail(null); }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                {mfDropdownOpen && mfResults.length > 0 && !schemeCode && (
+                  <div
+                    className="absolute z-10 mt-1 w-full rounded-xl border border-theme overflow-hidden shadow-lg"
+                    style={{ backgroundColor: 'var(--color-surface)' }}
+                  >
+                    {mfResults.map((r) => (
+                      <button
+                        key={r.schemeCode}
+                        type="button"
+                        className="w-full px-3 py-2.5 text-left flex items-center justify-between gap-2 border-b border-theme last:border-0"
+                        style={{ backgroundColor: 'var(--color-surface)' }}
+                        onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-surface-secondary)')}
+                        onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-surface)')}
+                        onClick={() => {
+                          setSchemeCode(String(r.schemeCode));
+                          setMfQuery(r.schemeName);
+                          if (!name) setName(r.schemeName);
+                          setMfDropdownOpen(false);
+                        }}
+                      >
+                        <p className="text-xs text-primary leading-snug truncate">{r.schemeName}</p>
+                        <span
+                          className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: '#6366f115', color: '#6366f1' }}
+                        >
+                          {r.schemeCode}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {schemeCode && (
+                  <div className="mt-1 flex flex-col gap-0.5">
+                    <p className="text-[10px] text-tertiary">Code: {schemeCode}</p>
+                    {schemeDetail?.schemeCategory && (
+                      <p className="text-[10px] text-secondary">
+                        {schemeDetail.schemeCategory}
+                        {schemeDetail.fundHouse ? ` · ${schemeDetail.fundHouse}` : ''}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                <label className="text-xs font-medium text-secondary">
+                  MFAPI scheme code <span className="font-normal text-tertiary">(e.g. 120503 for PPFAS)</span>
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                  placeholder="Leave blank to enter price manually"
+                  value={schemeCode}
+                  onChange={(e) => setSchemeCode(e.target.value)}
+                />
+              </div>
+            )}
+
+            {/* Live NAV */}
+            {schemeCode && (
+              <div className="flex items-center gap-1.5 px-0.5">
+                {priceFetching ? (
+                  <>
+                    <i className="ti ti-loader-2 animate-spin text-tertiary" style={{ fontSize: 12 }} />
+                    <span className="text-[11px] text-tertiary">Fetching NAV…</span>
+                  </>
+                ) : fetchedPrice !== null ? (
+                  <>
+                    <i className="ti ti-check" style={{ fontSize: 12, color: '#10b981' }} />
+                    <span className="text-[11px] text-secondary">
+                      Current NAV: <strong className="text-primary">₹{fetchedPrice.toFixed(4)}</strong>
+                    </span>
+                  </>
+                ) : null}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-medium text-secondary">Units held</label>
@@ -717,6 +975,19 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
                 />
               </div>
             </div>
+
+            {/* Computed current value */}
+            {fetchedPrice !== null && parseFloat(units) > 0 && (
+              <div
+                className="rounded-xl px-3 py-2.5 flex items-center justify-between"
+                style={{ backgroundColor: 'var(--color-surface-secondary)' }}
+              >
+                <span className="text-xs text-secondary">Current value (units × NAV)</span>
+                <span className="text-sm font-bold text-primary">
+                  ₹{(parseFloat(units) * fetchedPrice).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                </span>
+              </div>
+            )}
           </>
         )}
 
@@ -724,16 +995,41 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
         {assetClass === 'stock' && (
           <>
             <div>
-              <label className="text-xs font-medium text-secondary">
-                NSE symbol <span className="font-normal text-tertiary">(e.g. RELIANCE)</span>
-              </label>
-              <input
-                type="text"
-                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-                placeholder="INFY, TCS, HDFC..."
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-              />
+              <label className="text-xs font-medium text-secondary">NSE symbol</label>
+              <div className="mt-1 relative">
+                <input
+                  type="text"
+                  className="w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface uppercase pr-8"
+                  placeholder="e.g. RELIANCE, INFY, TCS, HDFCBANK"
+                  value={symbol}
+                  onChange={(e) => {
+                    setSymbol(e.target.value.toUpperCase());
+                    setStockFetchAttempted(false);
+                    setFetchedPrice(null);
+                    setFetchedName('');
+                  }}
+                />
+                {priceFetching && (
+                  <i
+                    className="ti ti-loader-2 animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-tertiary"
+                    style={{ fontSize: 16 }}
+                  />
+                )}
+              </div>
+              {!priceFetching && fetchedPrice !== null && (
+                <p className="mt-1 text-[11px]" style={{ color: '#10b981' }}>
+                  <i className="ti ti-check" style={{ fontSize: 10 }} /> Current price:{' '}
+                  <strong>₹{fetchedPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                </p>
+              )}
+              {!priceFetching && fetchedName && (
+                <p className="mt-0.5 text-[11px] text-secondary">{fetchedName}</p>
+              )}
+              {!priceFetching && stockFetchAttempted && fetchedPrice === null && symbol.trim().length >= 1 && (
+                <p className="mt-1 text-[11px] text-tertiary">
+                  Symbol not found on NSE — try with .BO suffix for BSE (e.g. RELIANCE.BO)
+                </p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -759,6 +1055,19 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
                 />
               </div>
             </div>
+
+            {/* Computed current value */}
+            {fetchedPrice !== null && parseFloat(units) > 0 && (
+              <div
+                className="rounded-xl px-3 py-2.5 flex items-center justify-between"
+                style={{ backgroundColor: 'var(--color-surface-secondary)' }}
+              >
+                <span className="text-xs text-secondary">Current value (shares × price)</span>
+                <span className="text-sm font-bold text-primary">
+                  ₹{(parseFloat(units) * fetchedPrice).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                </span>
+              </div>
+            )}
           </>
         )}
 
@@ -1612,8 +1921,9 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
           </div>
         )}
 
-        {/* Balance / invested amount — hidden for vehicle, fd, and gold (all handle amount inside their section) */}
-        {assetClass !== 'vehicle' && assetClass !== 'fd' && assetClass !== 'gold' && (
+        {/* Balance / invested amount — hidden for vehicle, fd, gold, mf, stock (auto-computed from units × price) */}
+        {assetClass !== 'vehicle' && assetClass !== 'fd' && assetClass !== 'gold' &&
+          assetClass !== 'mf' && assetClass !== 'stock' && (
           <div>
             <label className="text-xs font-medium text-secondary">
               {assetClass === 'nps' || assetClass === 'ppf' || assetClass === 'epf'
@@ -1633,13 +1943,15 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
           </div>
         )}
 
-        {/* Current value — not for retirement, vehicle, fd, or gold (auto-calculated from live price) */}
+        {/* Current value — not for retirement, vehicle, fd, gold, mf, stock (all auto-calculated) */}
         {assetClass !== 'nps' &&
           assetClass !== 'ppf' &&
           assetClass !== 'epf' &&
           assetClass !== 'vehicle' &&
           assetClass !== 'fd' &&
-          assetClass !== 'gold' && (
+          assetClass !== 'gold' &&
+          assetClass !== 'mf' &&
+          assetClass !== 'stock' && (
             <div>
               <label className="text-xs font-medium text-secondary">
                 {assetClass === 'property' ? 'Current market value (₹)' : 'Current value (₹)'}

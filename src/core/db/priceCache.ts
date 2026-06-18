@@ -3,6 +3,12 @@ import type { PriceCache } from './types';
 
 const PRICE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+// In dev, Vite proxies /api/yf → query1.finance.yahoo.com (bypasses CORS).
+// In production, set VITE_YF_PROXY to a CORS-enabled Cloudflare Worker URL.
+export const YF_BASE: string =
+  (import.meta.env.VITE_YF_PROXY as string | undefined) ??
+  (import.meta.env.DEV ? '/api/yf' : 'https://query1.finance.yahoo.com');
+
 export function isPriceFresh(entry: PriceCache): boolean {
   return Date.now() - entry.fetchedAt < PRICE_TTL_MS;
 }
@@ -61,7 +67,9 @@ export async function fetchStockPrice(symbol: string): Promise<number | null> {
   if (cached && isPriceFresh(cached)) return cached.price;
 
   try {
-    const url = `https://query.yahoofinance.com/v8/finance/chart/${symbol}.NS?interval=1d&range=1d`;
+    // Use full symbol if it already has an exchange suffix (.NS / .BO), otherwise default to NSE
+    const yfSymbol = symbol.endsWith('.NS') || symbol.endsWith('.BO') ? symbol : `${symbol}.NS`;
+    const url = `${YF_BASE}/v8/finance/chart/${yfSymbol}?interval=1d&range=1d`;
     const res = await fetch(url);
     if (!res.ok) return null;
     const json = (await res.json()) as YfChartResponse;

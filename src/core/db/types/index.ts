@@ -164,6 +164,10 @@ export interface AssetMeta {
   propertyType?: 'flat' | 'house' | 'plot' | 'commercial';
   propertyAreaSqft?: number;
   propertyCity?: string;
+  // Mutual Fund (M11 step 68) — scheme metadata from MFAPI.in detail endpoint
+  mfFundHouse?: string;
+  mfSchemeCategory?: string;
+  mfSchemeType?: string;
 }
 
 export interface Holding {
