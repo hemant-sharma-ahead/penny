@@ -35,8 +35,8 @@ const ASSET_META: Record<AssetClass, { label: string; icon: string; color: strin
   ppf: { label: 'PPF', icon: 'ti-safe', color: '#8b5cf6' },
   epf: { label: 'EPF', icon: 'ti-building-factory', color: '#64748b' },
   gold: { label: 'Gold', icon: 'ti-coin', color: '#d97706' },
-  vehicle: { label: 'Vehicles', icon: 'ti-car', color: '#f97316' },
-  property: { label: 'Property', icon: 'ti-building', color: '#84cc16' },
+  vehicle: { label: 'Vehicles', icon: 'ti-car', color: '#3b82f6' },
+  property: { label: 'Property', icon: 'ti-building', color: '#8b5cf6' },
   other: { label: 'Other', icon: 'ti-dots', color: '#6b7280' }
 };
 
@@ -3523,11 +3523,12 @@ function RealAssetsTab({
   holdings: Holding[];
   onEdit: (h: Holding) => void;
   onSave: (h: Holding) => Promise<void>;
-  onAdd: (ac: 'vehicle' | 'property') => void;
+  onAdd: (ac: 'vehicle' | 'property' | 'other') => void;
   mode: string;
 }) {
   const vehicles = holdings.filter((h) => h.assetClass === 'vehicle');
   const properties = holdings.filter((h) => h.assetClass === 'property');
+  const others = holdings.filter((h) => h.assetClass === 'other');
 
   return (
     <div className="px-4 py-3 flex flex-col gap-4">
@@ -3604,6 +3605,48 @@ function RealAssetsTab({
           </div>
         )}
       </div>
+
+      {/* Other assets section */}
+      {others.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-secondary flex items-center gap-1.5 mb-2">
+            <i className="ti ti-dots" style={{ fontSize: 14, color: '#6b7280' }} aria-hidden="true" />
+            Other Assets
+          </p>
+          <div className="flex flex-col gap-3">
+            {others.map((h) => {
+              const currentVal = h.currentValue ?? h.investedAmount;
+              const gain = currentVal - h.investedAmount;
+              const gainPct = h.investedAmount > 0 ? (gain / h.investedAmount) * 100 : 0;
+              const stale = realAssetIsStale(h.lastUpdatedAt);
+              return (
+                <button
+                  key={h.id}
+                  onClick={() => onEdit(h)}
+                  className="surface rounded-2xl px-4 py-3 flex items-center gap-3 w-full text-left"
+                >
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#6b728015' }}>
+                    <i className="ti ti-dots" style={{ fontSize: 18, color: '#6b7280' }} aria-hidden="true" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-primary truncate">{h.name}</p>
+                    <p className="text-[10px] text-tertiary">{realAssetStalenessLabel(h.lastUpdatedAt)}{stale ? ' · Stale' : ''}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-semibold text-primary">{mode === 'open' ? `₹${currentVal.toLocaleString('en-IN')}` : '••••'}</p>
+                    {mode === 'open' && (
+                      <p className={`text-[10px] font-medium ${gain >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                        {gain >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
+                      </p>
+                    )}
+                  </div>
+                  <i className="ti ti-chevron-right text-tertiary" style={{ fontSize: 15 }} aria-hidden="true" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -39,8 +39,8 @@ const HOLDING_META: Record<string, { label: string; color: string; icon: string 
   ppf:      { label: 'PPF',           color: '#8b5cf6', icon: 'ti-safe' },
   epf:      { label: 'EPF',           color: '#64748b', icon: 'ti-building-factory' },
   gold:     { label: 'Gold',          color: '#d97706', icon: 'ti-coin' },
-  vehicle:  { label: 'Vehicles',      color: '#f97316', icon: 'ti-car' },
-  property: { label: 'Property',      color: '#84cc16', icon: 'ti-building' },
+  vehicle:  { label: 'Vehicles',      color: '#3b82f6', icon: 'ti-car' },
+  property: { label: 'Property',      color: '#8b5cf6', icon: 'ti-building' },
   other:    { label: 'Other',         color: '#6b7280', icon: 'ti-dots' },
 };
 const ASSET_CLASS_ORDER = ['mf', 'stock', 'fd', 'nps', 'ppf', 'epf', 'gold', 'vehicle', 'property', 'other'];
