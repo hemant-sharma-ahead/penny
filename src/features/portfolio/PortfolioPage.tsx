@@ -22,6 +22,7 @@ import { LIFECYCLE_FUNDS, getAllocationAtAge, findNpsSchemeCode, fetchNpsNav, ge
 import type { NpsNavDetail, NpsPfmKey, NpsSchemeType, NpsLifecycleFund } from '@/core/nps';
 import { calcFdMaturity, calcRdMaturity } from '@/core/fd/fdCalculations';
 import type { CompoundingFreq } from '@/core/fd/fdCalculations';
+import { fetchMetalPrices, goldPriceForKarat } from '@/core/metals/metalsClient';
 
 // ─── Asset metadata ───────────────────────────────────────────────────────────
 
@@ -3042,6 +3043,181 @@ function PropertyCard({
   );
 }
 
+// ─── PreciousMetalsTab ────────────────────────────────────────────────────────
+
+const METAL_CATEGORY_LABEL: Record<string, string> = {
+  jewellery: 'Jewellery',
+  coin: 'Coin',
+  bar: 'Bar',
+  digital: 'Digital',
+  other: 'Other'
+};
+
+function PreciousMetalCard({
+  holding,
+  spotGold,
+  spotSilver,
+  onEdit,
+  mode
+}: {
+  holding: Holding;
+  spotGold: number | null;
+  spotSilver: number | null;
+  onEdit: () => void;
+  mode: string;
+}) {
+  const meta = holding.assetMeta ?? {};
+  const isGold = meta.metalType !== 'silver';
+  const weightGrams = meta.metalWeightGrams ?? holding.units ?? 0;
+  const purchasePricePerGram = meta.metalPurchasePricePerGram ?? holding.avgCostPrice ?? 0;
+  const karat = meta.metalKarat ?? 22;
+  const purity = meta.metalPurity ?? '999';
+  const category = meta.metalCategory ?? 'other';
+
+  const spotPrice = isGold ? spotGold : spotSilver;
+  const effectiveSpotPerGram =
+    isGold && spotPrice ? goldPriceForKarat(spotPrice, karat as 14 | 18 | 22 | 24) : spotPrice;
+  const currentValue = effectiveSpotPerGram
+    ? weightGrams * effectiveSpotPerGram
+    : (holding.currentValue ?? holding.investedAmount);
+  const costBasis = weightGrams * purchasePricePerGram;
+  const gainLoss = currentValue - costBasis;
+  const gainLossPct = costBasis > 0 ? (gainLoss / costBasis) * 100 : 0;
+
+  const iconColor = isGold ? '#d97706' : '#94a3b8';
+  const iconBg = isGold ? '#d9780615' : '#94a3b815';
+  const icon = isGold ? 'ti-circle-letter-g' : 'ti-circle-letter-s';
+
+  const priceLabel = isGold
+    ? `₹${Math.round(spotPrice ?? 0).toLocaleString('en-IN')}/g (24K)`
+    : `₹${Math.round(spotPrice ?? 0).toLocaleString('en-IN')}/g`;
+
+  return (
+    <button onClick={onEdit} className="surface rounded-2xl px-4 py-3 flex flex-col gap-3 w-full text-left">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: iconBg }}
+          >
+            <i className={`ti ${icon}`} style={{ fontSize: 18, color: iconColor }} aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-primary truncate">{holding.name}</p>
+            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+              <span
+                className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                style={{ backgroundColor: iconBg, color: iconColor }}
+              >
+                {METAL_CATEGORY_LABEL[category]}
+              </span>
+              <span className="text-[10px] text-secondary">
+                {weightGrams}g · {isGold ? `${karat}K` : purity}
+              </span>
+            </div>
+          </div>
+        </div>
+        <i
+          className="ti ti-chevron-right text-tertiary flex-shrink-0 mt-1"
+          style={{ fontSize: 15 }}
+          aria-hidden="true"
+        />
+      </div>
+
+      {/* Value row */}
+      <div className="flex items-end justify-between">
+        <div>
+          <p className="text-[10px] text-secondary">Current value</p>
+          <p className="text-lg font-bold text-primary">{mode === 'open' ? formatCurrency(currentValue) : '••••'}</p>
+          {mode === 'open' && <p className="text-[10px] text-secondary mt-0.5">Cost: {formatCurrency(costBasis)}</p>}
+        </div>
+        {mode === 'open' && (
+          <div className="text-right">
+            <p
+              className="text-sm font-semibold"
+              style={{ color: gainLoss >= 0 ? 'var(--color-primary)' : 'var(--color-danger, #ef4444)' }}
+            >
+              {gainLoss >= 0 ? '+' : ''}
+              {formatCurrency(gainLoss)}
+            </p>
+            <p
+              className="text-[10px]"
+              style={{ color: gainLoss >= 0 ? 'var(--color-primary)' : 'var(--color-danger, #ef4444)' }}
+            >
+              {gainLoss >= 0 ? '▲' : '▼'} {Math.abs(gainLossPct).toFixed(1)}%
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Spot price stamp */}
+      {spotPrice ? (
+        <p className="text-[9px] text-tertiary">{priceLabel} · Live (end-of-day)</p>
+      ) : (
+        <p className="text-[9px] text-tertiary">Live price unavailable · showing cost basis</p>
+      )}
+    </button>
+  );
+}
+
+function PreciousMetalsTab({
+  holdings,
+  onEdit,
+  onAdd,
+  mode
+}: {
+  holdings: Holding[];
+  onEdit: (h: Holding) => void;
+  onAdd: (type: 'gold') => void;
+  mode: string;
+}) {
+  const [spotGold, setSpotGold] = useState<number | null>(null);
+  const [spotSilver, setSpotSilver] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchMetalPrices()
+      .then(({ gold, silver }) => {
+        setSpotGold(gold);
+        setSpotSilver(silver);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="px-4 py-3 flex flex-col gap-3">
+      {holdings.length === 0 ? (
+        <div className="p-10 text-center">
+          <i className="ti ti-coin text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
+          <p className="text-sm mt-3 text-tertiary">No precious metal holdings yet. Tap + to track gold or silver.</p>
+        </div>
+      ) : (
+        <>
+          {loading && <p className="text-[10px] text-center text-tertiary">Fetching live prices…</p>}
+          {holdings.map((h) => (
+            <PreciousMetalCard
+              key={h.id}
+              holding={h}
+              spotGold={spotGold}
+              spotSilver={spotSilver}
+              onEdit={() => onEdit(h)}
+              mode={mode}
+            />
+          ))}
+        </>
+      )}
+      <button
+        onClick={() => onAdd('gold')}
+        className="flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-theme text-sm font-medium text-tertiary"
+      >
+        <i className="ti ti-plus" style={{ fontSize: 16 }} aria-hidden="true" />
+        Add Gold / Silver
+      </button>
+    </div>
+  );
+}
+
 // ─── FixedIncomeTab ───────────────────────────────────────────────────────────
 
 function fdNowMs(): number {
@@ -3684,6 +3860,18 @@ export function PortfolioPage() {
                   );
                 })}
               </div>
+            ) : holdingsSubTab === 'precious_metals' ? (
+              /* Precious Metals — live gold/silver prices via MFAPI.in */
+              <PreciousMetalsTab
+                holdings={subTabHoldings}
+                onEdit={openEdit}
+                onAdd={() => {
+                  setPresetAssetClass('gold');
+                  setEditingHolding(null);
+                  setShowForm(true);
+                }}
+                mode={mode}
+              />
             ) : holdingsSubTab === 'fixed_income' ? (
               /* Fixed Income — FdCard / RdCard with auto-calculated maturity */
               <FixedIncomeTab
@@ -4099,21 +4287,25 @@ export function PortfolioPage() {
         )}
       </div>
 
-      {/* FAB — add holding (hidden on IPO tab and Retirement sub-tab which has its own Track buttons) */}
-      {activeTab !== 'ipo' && !(activeTab === 'holdings' && holdingsSubTab === 'retirement') && (
-        <button
-          onClick={openAdd}
-          className="fixed w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white z-10"
-          style={{
-            bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
-            right: '1rem',
-            backgroundColor: 'var(--color-primary)'
-          }}
-          aria-label="Add holding"
-        >
-          <i className="ti ti-plus" style={{ fontSize: 24 }} aria-hidden="true" />
-        </button>
-      )}
+      {/* FAB — hidden on IPO tab and on sub-tabs that have their own contextual Add button */}
+      {activeTab !== 'ipo' &&
+        !(activeTab === 'holdings' && holdingsSubTab === 'retirement') &&
+        !(activeTab === 'holdings' && holdingsSubTab === 'precious_metals') &&
+        !(activeTab === 'holdings' && holdingsSubTab === 'fixed_income') &&
+        !(activeTab === 'holdings' && holdingsSubTab === 'real_assets') && (
+          <button
+            onClick={openAdd}
+            className="fixed w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white z-10"
+            style={{
+              bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+              right: '1rem',
+              backgroundColor: 'var(--color-primary)'
+            }}
+            aria-label="Add holding"
+          >
+            <i className="ti ti-plus" style={{ fontSize: 24 }} aria-hidden="true" />
+          </button>
+        )}
 
       {showForm && (
         <HoldingForm

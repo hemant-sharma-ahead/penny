@@ -435,14 +435,36 @@ export async function seedDemoData(): Promise<void> {
     {
       id: 'demo-holding-gold',
       assetClass: 'gold',
-      name: '24K Gold — 5g',
-      units: 5,
-      avgCostPrice: 5500,
-      currentPrice: 7200,
-      investedAmount: 27500,
-      currentValue: 36000,
-      createdAt: ago(365),
-      updatedAt: ago(1)
+      name: 'Gold Bangles',
+      units: 25,
+      avgCostPrice: 8500,
+      investedAmount: 212500,
+      createdAt: ago(730),
+      updatedAt: ago(1),
+      assetMeta: {
+        metalType: 'gold',
+        metalCategory: 'jewellery',
+        metalKarat: 22,
+        metalWeightGrams: 25,
+        metalPurchasePricePerGram: 8500
+      }
+    },
+    {
+      id: 'demo-holding-silver',
+      assetClass: 'gold',
+      name: 'Silver Coins',
+      units: 100,
+      avgCostPrice: 80,
+      investedAmount: 8000,
+      createdAt: ago(180),
+      updatedAt: ago(1),
+      assetMeta: {
+        metalType: 'silver',
+        metalCategory: 'coin',
+        metalPurity: '999',
+        metalWeightGrams: 100,
+        metalPurchasePricePerGram: 80
+      }
     },
     {
       id: 'demo-holding-nps',

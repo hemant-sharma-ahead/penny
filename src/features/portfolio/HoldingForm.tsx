@@ -265,6 +265,20 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
     editing?.assetMeta?.rdTenureMonths != null ? String(editing.assetMeta.rdTenureMonths) : ''
   );
 
+  // Precious metal states
+  const [metalType, setMetalType] = useState<'gold' | 'silver'>(editing?.assetMeta?.metalType ?? 'gold');
+  const [metalCategory, setMetalCategory] = useState<'jewellery' | 'coin' | 'bar' | 'digital' | 'other'>(
+    editing?.assetMeta?.metalCategory ?? 'jewellery'
+  );
+  const [metalKarat, setMetalKarat] = useState<14 | 18 | 22 | 24>(editing?.assetMeta?.metalKarat ?? 22);
+  const [metalPurity, setMetalPurity] = useState(editing?.assetMeta?.metalPurity ?? '999');
+  const [metalWeightGrams, setMetalWeightGrams] = useState(
+    editing?.assetMeta?.metalWeightGrams != null ? String(editing.assetMeta.metalWeightGrams) : ''
+  );
+  const [metalPurchasePrice, setMetalPurchasePrice] = useState(
+    editing?.assetMeta?.metalPurchasePricePerGram != null ? String(editing.assetMeta.metalPurchasePricePerGram) : ''
+  );
+
   // Vehicle states — reg number lookup flow
   const [vehicleRegInput, setVehicleRegInput] = useState(editing?.assetMeta?.vehicleRegNumber ?? '');
   const [vehicleFetching, setVehicleFetching] = useState(false);
@@ -340,8 +354,10 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
   function handleSave() {
     const invested = parseFloat(investedAmount) || 0;
     const effectiveName = name.trim() || (assetClass === 'vehicle' ? vehicleRegInput.trim() : '');
-    const requiresAmount = assetClass !== 'vehicle' && assetClass !== 'property' && assetClass !== 'fd';
+    const requiresAmount =
+      assetClass !== 'vehicle' && assetClass !== 'property' && assetClass !== 'fd' && assetClass !== 'gold';
     if (!effectiveName || (requiresAmount && (isNaN(invested) || invested <= 0))) return;
+    if (assetClass === 'gold' && (parseFloat(metalWeightGrams) <= 0 || parseFloat(metalPurchasePrice) <= 0)) return;
     setSaving(true);
     const now = Date.now();
     const parsedUnits = parseFloat(units) || undefined;
@@ -402,8 +418,24 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
       if (fdPreview) holding.currentValue = fdPreview.isMatured ? fdPreview.maturityAmount : fdPreview.accruedAmount;
       holding.assetMeta = meta;
     } else if (assetClass === 'gold') {
-      if (parsedUnits !== undefined) holding.units = parsedUnits;
-      if (parsedAvgCost !== undefined) holding.avgCostPrice = parsedAvgCost;
+      const wt = parseFloat(metalWeightGrams) || 0;
+      const pp = parseFloat(metalPurchasePrice) || 0;
+      holding.units = wt; // weight in grams
+      holding.avgCostPrice = pp; // purchase price per gram
+      holding.investedAmount = wt * pp;
+      const meta: AssetMeta = { ...(editing?.assetMeta ?? {}) };
+      meta.metalType = metalType;
+      meta.metalCategory = metalCategory;
+      meta.metalWeightGrams = wt;
+      meta.metalPurchasePricePerGram = pp;
+      if (metalType === 'gold') {
+        meta.metalKarat = metalKarat;
+        delete meta.metalPurity;
+      } else {
+        meta.metalPurity = metalPurity;
+        delete meta.metalKarat;
+      }
+      holding.assetMeta = meta;
     } else if (assetClass === 'nps') {
       const meta: AssetMeta = { tier: npsTier, npsChoiceType };
       if (npsPran.trim()) meta.pran = npsPran.trim();
@@ -553,7 +585,9 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
                         ? 'Edit Property'
                         : assetClass === 'fd'
                           ? 'Edit Fixed Income'
-                          : 'Edit holding'
+                          : assetClass === 'gold'
+                            ? 'Edit Precious Metal'
+                            : 'Edit holding'
               : lockAssetClass === 'nps' || assetClass === 'nps'
                 ? 'Track NPS'
                 : lockAssetClass === 'ppf' || assetClass === 'ppf'
@@ -566,7 +600,9 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
                         ? 'Track Property'
                         : assetClass === 'fd'
                           ? 'Track Fixed Income'
-                          : 'Add holding'}
+                          : assetClass === 'gold'
+                            ? 'Track Precious Metal'
+                            : 'Add holding'}
           </h3>
           <button
             onClick={onClose}
@@ -1286,31 +1322,148 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
           </div>
         )}
 
-        {/* Gold-specific */}
+        {/* Precious metal fields */}
         {assetClass === 'gold' && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-3">
+            {/* Gold / Silver toggle */}
             <div>
-              <label className="text-xs font-medium text-secondary">Weight (grams)</label>
-              <input
-                type="number"
-                inputMode="decimal"
-                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-                placeholder="0.00"
-                value={units}
-                onChange={(e) => setUnits(e.target.value)}
-              />
+              <label className="text-xs font-medium text-secondary">Metal</label>
+              <div className="mt-1 flex rounded-xl overflow-hidden border border-theme">
+                {(['gold', 'silver'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => !editing && setMetalType(m)}
+                    disabled={!!editing}
+                    className="flex-1 py-2.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed"
+                    style={
+                      metalType === m
+                        ? {
+                            backgroundColor: m === 'gold' ? '#d97706' : '#94a3b8',
+                            color: '#fff',
+                            opacity: editing ? 0.7 : 1
+                          }
+                        : { color: 'var(--color-text-secondary)', opacity: editing ? 0.4 : 1 }
+                    }
+                  >
+                    {m === 'gold' ? '🥇 Gold' : '🥈 Silver'}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Category */}
             <div>
-              <label className="text-xs font-medium text-secondary">Avg buy price (₹/g)</label>
-              <input
-                type="number"
-                inputMode="decimal"
-                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-                placeholder="0.00"
-                value={avgCostPrice}
-                onChange={(e) => setAvgCostPrice(e.target.value)}
-              />
+              <label className="text-xs font-medium text-secondary">Category</label>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {(['jewellery', 'coin', 'bar', 'digital', 'other'] as const).map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setMetalCategory(cat)}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                    style={
+                      metalCategory === cat
+                        ? {
+                            backgroundColor: 'var(--color-primary)',
+                            color: '#fff',
+                            borderColor: 'var(--color-primary)'
+                          }
+                        : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
+                    }
+                  >
+                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Karat (gold) or Purity (silver) */}
+            {metalType === 'gold' ? (
+              <div>
+                <label className="text-xs font-medium text-secondary">Karat</label>
+                <div className="mt-1 flex gap-2">
+                  {([14, 18, 22, 24] as const).map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setMetalKarat(k)}
+                      className="flex-1 py-2 rounded-xl text-xs font-semibold border transition-colors"
+                      style={
+                        metalKarat === k
+                          ? { backgroundColor: '#d97706', color: '#fff', borderColor: '#d97706' }
+                          : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
+                      }
+                    >
+                      {k}K
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="text-xs font-medium text-secondary">Purity</label>
+                <div className="mt-1 flex gap-2">
+                  {(['999', '925', '800', 'other'] as const).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setMetalPurity(p)}
+                      className="flex-1 py-2 rounded-xl text-xs font-semibold border transition-colors"
+                      style={
+                        metalPurity === p
+                          ? { backgroundColor: '#94a3b8', color: '#fff', borderColor: '#94a3b8' }
+                          : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
+                      }
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Weight + Purchase price */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-secondary">Weight (grams)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                  placeholder="0.00"
+                  value={metalWeightGrams}
+                  onChange={(e) => setMetalWeightGrams(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-secondary">Purchase price (₹/g)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                  placeholder="0.00"
+                  value={metalPurchasePrice}
+                  onChange={(e) => setMetalPurchasePrice(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Invested amount preview */}
+            {parseFloat(metalWeightGrams) > 0 && parseFloat(metalPurchasePrice) > 0 && (
+              <div
+                className="rounded-xl px-3 py-2.5 flex items-center justify-between"
+                style={{ backgroundColor: 'var(--color-surface-secondary)' }}
+              >
+                <span className="text-xs text-secondary">Total invested</span>
+                <span className="text-sm font-bold text-primary">
+                  ₹
+                  {(parseFloat(metalWeightGrams) * parseFloat(metalPurchasePrice)).toLocaleString('en-IN', {
+                    maximumFractionDigits: 0
+                  })}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
@@ -1459,8 +1612,8 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
           </div>
         )}
 
-        {/* Balance / invested amount — hidden for vehicle and fd (both handle amount inside their section) */}
-        {assetClass !== 'vehicle' && assetClass !== 'fd' && (
+        {/* Balance / invested amount — hidden for vehicle, fd, and gold (all handle amount inside their section) */}
+        {assetClass !== 'vehicle' && assetClass !== 'fd' && assetClass !== 'gold' && (
           <div>
             <label className="text-xs font-medium text-secondary">
               {assetClass === 'nps' || assetClass === 'ppf' || assetClass === 'epf'
@@ -1480,12 +1633,13 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
           </div>
         )}
 
-        {/* Current value — not for retirement, vehicle, or fd (auto-calculated) */}
+        {/* Current value — not for retirement, vehicle, fd, or gold (auto-calculated from live price) */}
         {assetClass !== 'nps' &&
           assetClass !== 'ppf' &&
           assetClass !== 'epf' &&
           assetClass !== 'vehicle' &&
-          assetClass !== 'fd' && (
+          assetClass !== 'fd' &&
+          assetClass !== 'gold' && (
             <div>
               <label className="text-xs font-medium text-secondary">
                 {assetClass === 'property' ? 'Current market value (₹)' : 'Current value (₹)'}

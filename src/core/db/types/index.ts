@@ -153,6 +153,13 @@ export interface AssetMeta {
     rto: string;
     state: string;
   }>;
+  // Precious metals (M11 step 66)
+  metalType?: 'gold' | 'silver';
+  metalCategory?: 'jewellery' | 'coin' | 'bar' | 'digital' | 'other';
+  metalKarat?: 14 | 18 | 22 | 24; // gold only
+  metalPurity?: string; // silver: '999' | '925' | '800' | 'other'
+  metalWeightGrams?: number;
+  metalPurchasePricePerGram?: number; // cost basis per gram at time of purchase
   // Property (M11 step 64)
   propertyType?: 'flat' | 'house' | 'plot' | 'commercial';
   propertyAreaSqft?: number;
