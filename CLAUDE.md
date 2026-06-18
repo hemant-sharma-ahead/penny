@@ -130,7 +130,7 @@ This file is read at the start of every Claude Code session. It tells you where 
 | 63+++| EPF full tracking — employment history (company + basic salary + from/to), transaction ledger (employee/employer/interest/transfer/withdrawal), contribution auto-calc per employer period, retirement projection at 58, pro-rata partial months | ✅ Done |
 | 64   | Real Assets — vehicles (RC fetch via vahandetails.com, IRDA depreciation, challan cards) + property sub-tab, 90-day staleness UX | ✅ Done |
 | 65   | Fixed Income — FD/RD maturity auto-calc + compound interest projection                                          | ✅ Done         |
-| 66   | Precious Metals — Gold + Silver live prices (GOLDBEES.NS / SILVERIETF.NS)                                       | ⏳               |
+| 66   | Precious Metals — Gold + Silver live prices via MFAPI.in (Gold BeES NAV×100, Silver ETF NAV)                    | ✅ Done         |
 | 67   | Stocks — enhanced cards, Yahoo Finance symbol search                                                            | ⏳               |
 | 68   | Mutual Funds — enhanced cards, MFAPI.in scheme search                                                          | ⏳               |
 | 69   | Home dashboard + Portfolio restructure                                                                          | ⏳               |
@@ -151,7 +151,15 @@ This file is read at the start of every Claude Code session. It tells you where 
 - `currentValue` = accrued amount (live, recalculated from `calcFdMaturity` / `calcRdMaturity` in `src/core/fd/fdCalculations.ts`)
 - Pure calculation functions in `src/core/fd/fdCalculations.ts`: `calcFdMaturity` (compound P×(1+r/n)^nt) + `calcRdMaturity` (iterative quarterly per-installment, Indian bank standard)
 
-**Next step when you pick up a session:** Step 66 — Precious Metals (Gold + Silver live prices via GOLDBEES.NS / SILVERIETF.NS).
+**Precious metals data model (step 66):**
+- `metalType`: `'gold' | 'silver'` stored in `assetMeta`, both use `assetClass: 'gold'`
+- `metalCategory`: `'jewellery' | 'coin' | 'bar' | 'digital' | 'other'`
+- `metalKarat`: `14 | 18 | 22 | 24` (gold only); `metalPurity`: `'999' | '925' | '800' | 'other'` (silver)
+- `metalWeightGrams`, `metalPurchasePricePerGram` — weight and cost basis per gram
+- Live price: MFAPI.in scheme 140088 (Gold BeES) NAV × 100 = ₹/gram 24K; scheme 149758 (Silver ETF) NAV = ₹/gram
+- Karat-adjusted value: `weight × (karat/24) × spot_24K_per_gram`
+
+**Next step when you pick up a session:** Step 67 — Stocks (enhanced cards, Yahoo Finance symbol search).
 
 **Full Phase 1 roadmap (M9–M15):**
 
