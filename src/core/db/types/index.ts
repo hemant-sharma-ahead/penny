@@ -29,7 +29,7 @@ export interface Profile {
   updatedAt: number;
 }
 
-export type AssetClass = 'mf' | 'stock' | 'fd' | 'nps' | 'ppf' | 'epf' | 'gold' | 'other';
+export type AssetClass = 'mf' | 'stock' | 'fd' | 'nps' | 'ppf' | 'epf' | 'gold' | 'vehicle' | 'property' | 'other';
 
 // ─── PPF transaction ledger ───────────────────────────────────────────────────
 
@@ -94,6 +94,62 @@ export interface AssetMeta {
   epfBirthYear?: number;
   epfEmployers?: EpfEmployer[];
   epfTransactions?: EpfTransaction[];
+  // Vehicle (M11 step 64) — RC data fetched from vahandetails.com
+  vehicleRegNumber?: string; // plate number — masked in safe/privacy mode
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleYear?: number;
+  vehicleFuelType?: string;
+  vehicleColor?: string;
+  vehicleType?: string; // "Two Wheeler" / "Four Wheeler" etc.
+  vehicleRtoLocation?: string;
+  vehicleRcStatus?: string; // "ACTIVE" / "SUSPENDED"
+  vehicleRcValidUpto?: number; // epoch ms
+  vehicleInsuranceCompany?: string;
+  vehicleInsuranceUpto?: number; // epoch ms
+  vehiclePuccUpto?: number; // epoch ms
+  vehicleFitnessUpto?: number; // epoch ms
+  vehicleRcFetchedAt?: number; // epoch ms — when RC data was last fetched
+  vehicleEngineNo?: string;
+  vehicleChassisNo?: string;
+  vehicleRegDate?: string; // registration date string
+  vehicleManufactureLabel?: string; // e.g. "June 2017"
+  vehicleBodyType?: string;
+  vehicleOwnerName?: string;
+  vehiclePresentAddress?: string;
+  vehiclePermanentAddress?: string;
+  vehicleFinancer?: string;
+  vehicleCubicCap?: string; // engine CC
+  vehicleSeatCap?: string;
+  vehicleUnladenWeight?: string; // actual vehicle weight (kg)
+  vehicleGrossWeight?: string; // GVW including load (kg)
+  vehicleNorms?: string; // emission standard e.g. "BHARAT STAGE VI"
+  vehicleInsurancePolicyNo?: string;
+  vehiclePuccNo?: string;
+  vehicleChallanTotal?: number;
+  vehicleChallanPending?: number;
+  vehicleChallanPaid?: number;
+  vehicleChallanDisposed?: number;
+  vehicleChallanPendingAmount?: number;
+  vehicleChallanFetchedAt?: number; // epoch ms
+  vehicleChallanRecords?: Array<{
+    challanNo: string;
+    date: string;
+    amount: number;
+    paymentStatus: string; // "UNPAID" | "DISPOSED" | "PAID"
+    challanStatus: string; // "Virtual Court" | "Already Paid"
+    offenceDetails: string;
+    challanPlace: string;
+    courtName: string;
+    courtAddress: string;
+    challanType: string; // "OFFLINE" | "ONLINE"
+    rto: string;
+    state: string;
+  }>;
+  // Property (M11 step 64)
+  propertyType?: 'flat' | 'house' | 'plot' | 'commercial';
+  propertyAreaSqft?: number;
+  propertyCity?: string;
 }
 
 export interface Holding {

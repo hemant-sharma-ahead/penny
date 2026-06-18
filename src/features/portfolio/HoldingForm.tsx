@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import type { AssetClass, AssetMeta, EpfEmployer, Holding } from '@/core/db/types';
+import { fetchVehicleData } from '@/core/vehicle/rcClient';
+import type { RcDetails } from '@/core/vehicle/rcClient';
 import { NPS_FUND_MANAGERS, LIFECYCLE_FUNDS } from '@/core/nps';
 import type { NpsChoiceType, NpsLifecycleFund, NpsPfmKey, NpsSchemeType } from '@/core/nps';
 
@@ -9,6 +11,28 @@ interface Props {
   onDelete: (id: string) => Promise<void>;
   onClose: () => void;
   lockAssetClass?: AssetClass;
+}
+
+function nowMs(): number {
+  return Date.now();
+}
+
+function ValidityBadge({ label, upto }: { label: string; upto: number }) {
+  const days = Math.floor((upto - nowMs()) / (1000 * 60 * 60 * 24));
+  const expired = days < 0;
+  const soon = days >= 0 && days <= 30;
+  const color = expired ? '#ef4444' : soon ? '#f59e0b' : '#10b981';
+  const text = expired
+    ? `${label} expired`
+    : `${label} · ${new Date(upto).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}`;
+  return (
+    <span
+      className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+      style={{ backgroundColor: `${color}15`, color }}
+    >
+      {text}
+    </span>
+  );
 }
 
 function ppfMaturityLabel(openingDateStr: string): { text: string } | null {
@@ -34,6 +58,8 @@ const ASSET_CLASSES: { value: AssetClass; label: string; icon: string; color: st
   { value: 'ppf', label: 'PPF', icon: 'ti-safe', color: '#8b5cf6' },
   { value: 'epf', label: 'EPF', icon: 'ti-building-factory', color: '#64748b' },
   { value: 'gold', label: 'Gold', icon: 'ti-coin', color: '#d97706' },
+  { value: 'vehicle', label: 'Vehicle', icon: 'ti-car', color: '#3b82f6' },
+  { value: 'property', label: 'Property', icon: 'ti-building', color: '#8b5cf6' },
   { value: 'other', label: 'Other', icon: 'ti-dots', color: '#6b7280' }
 ];
 
@@ -215,11 +241,52 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
     return cur?.employeeContribPct ?? 12;
   })();
 
+  // Vehicle states — reg number lookup flow
+  const [vehicleRegInput, setVehicleRegInput] = useState(editing?.assetMeta?.vehicleRegNumber ?? '');
+  const [vehicleFetching, setVehicleFetching] = useState(false);
+  const [vehicleFetchError, setVehicleFetchError] = useState('');
+  const [vehicleChallanSnapshot, setVehicleChallanSnapshot] = useState<
+    import('@/core/vehicle/rcClient').ChallanSummary | null
+  >(null);
+  const [vehicleRcSnapshot, setVehicleRcSnapshot] = useState<RcDetails | null>(
+    editing?.assetMeta?.vehicleRegNumber
+      ? {
+          regNumber: editing.assetMeta.vehicleRegNumber,
+          make: editing.assetMeta.vehicleMake ?? '',
+          model: editing.assetMeta.vehicleModel ?? '',
+          year: editing.assetMeta.vehicleYear ?? null,
+          fuelType: editing.assetMeta.vehicleFuelType ?? '',
+          color: editing.assetMeta.vehicleColor ?? '',
+          vehicleType: editing.assetMeta.vehicleType ?? '',
+          rtoLocation: editing.assetMeta.vehicleRtoLocation ?? '',
+          rcStatus: editing.assetMeta.vehicleRcStatus ?? '',
+          rcValidUpto: editing.assetMeta.vehicleRcValidUpto ?? null,
+          insuranceCompany: editing.assetMeta.vehicleInsuranceCompany ?? '',
+          insuranceUpto: editing.assetMeta.vehicleInsuranceUpto ?? null,
+          puccUpto: editing.assetMeta.vehiclePuccUpto ?? null,
+          fitnessUpto: editing.assetMeta.vehicleFitnessUpto ?? null,
+          salePriceRaw: null,
+          fetchedAt: editing.assetMeta.vehicleRcFetchedAt ?? nowMs()
+        }
+      : null
+  );
+
+  // Property states
+  const [propertyType, setPropertyType] = useState<'flat' | 'house' | 'plot' | 'commercial' | ''>(
+    editing?.assetMeta?.propertyType ?? ''
+  );
+  const [propertyAreaSqft, setPropertyAreaSqft] = useState(
+    editing?.assetMeta?.propertyAreaSqft != null ? String(editing.assetMeta.propertyAreaSqft) : ''
+  );
+  const [propertyCity, setPropertyCity] = useState(editing?.assetMeta?.propertyCity ?? '');
+
   const [saving, setSaving] = useState(false);
 
   function handleSave() {
-    const invested = parseFloat(investedAmount);
-    if (!name.trim() || isNaN(invested) || invested <= 0) return;
+    const invested = parseFloat(investedAmount) || 0;
+    const effectiveName = name.trim() || (assetClass === 'vehicle' ? vehicleRegInput.trim() : '');
+    const requiresAmount = assetClass !== 'vehicle' && assetClass !== 'property';
+    if (!effectiveName || (requiresAmount && (isNaN(invested) || invested <= 0))) return;
     setSaving(true);
     const now = Date.now();
     const parsedUnits = parseFloat(units) || undefined;
@@ -229,7 +296,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
     const holding: Holding = {
       id: editing?.id ?? crypto.randomUUID(),
       assetClass,
-      name: name.trim(),
+      name: effectiveName,
       investedAmount: invested,
       lastUpdatedAt: now,
       createdAt: editing?.createdAt ?? now,
@@ -313,6 +380,62 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
 
       meta.epfEmployers = existingEmployers;
       holding.assetMeta = meta;
+    } else if (assetClass === 'vehicle') {
+      const meta: AssetMeta = { ...(editing?.assetMeta ?? {}) };
+      const rc = vehicleRcSnapshot;
+      if (rc) {
+        meta.vehicleRegNumber = rc.regNumber;
+        meta.vehicleMake = rc.make;
+        meta.vehicleModel = rc.model;
+        if (rc.year) meta.vehicleYear = rc.year;
+        meta.vehicleFuelType = rc.fuelType;
+        meta.vehicleColor = rc.color;
+        meta.vehicleType = rc.vehicleType;
+        meta.vehicleRtoLocation = rc.rtoLocation;
+        meta.vehicleRcStatus = rc.rcStatus;
+        if (rc.rcValidUpto) meta.vehicleRcValidUpto = rc.rcValidUpto;
+        meta.vehicleInsuranceCompany = rc.insuranceCompany;
+        if (rc.insuranceUpto) meta.vehicleInsuranceUpto = rc.insuranceUpto;
+        if (rc.puccUpto) meta.vehiclePuccUpto = rc.puccUpto;
+        if (rc.fitnessUpto) meta.vehicleFitnessUpto = rc.fitnessUpto;
+        meta.vehicleRcFetchedAt = rc.fetchedAt;
+        if (rc.engineNo) meta.vehicleEngineNo = rc.engineNo;
+        if (rc.chassisNo) meta.vehicleChassisNo = rc.chassisNo;
+        if (rc.regDate) meta.vehicleRegDate = rc.regDate;
+        if (rc.manufactureMonthYear) meta.vehicleManufactureLabel = rc.manufactureMonthYear;
+        if (rc.bodyType) meta.vehicleBodyType = rc.bodyType;
+        if (rc.ownerName) meta.vehicleOwnerName = rc.ownerName;
+        if (rc.presentAddress) meta.vehiclePresentAddress = rc.presentAddress;
+        if (rc.permanentAddress) meta.vehiclePermanentAddress = rc.permanentAddress;
+        if (rc.financer) meta.vehicleFinancer = rc.financer;
+        if (rc.cubicCap) meta.vehicleCubicCap = rc.cubicCap;
+        if (rc.seatCap) meta.vehicleSeatCap = rc.seatCap;
+        if (rc.unladenWeight) meta.vehicleUnladenWeight = rc.unladenWeight;
+        if (rc.grossWeight) meta.vehicleGrossWeight = rc.grossWeight;
+        if (rc.norms) meta.vehicleNorms = rc.norms;
+        if (rc.insurancePolicyNo) meta.vehicleInsurancePolicyNo = rc.insurancePolicyNo;
+        if (rc.puccNo) meta.vehiclePuccNo = rc.puccNo;
+      } else if (vehicleRegInput.trim()) {
+        meta.vehicleRegNumber = vehicleRegInput.trim().toUpperCase();
+      }
+      const ch = vehicleChallanSnapshot;
+      if (ch) {
+        meta.vehicleChallanTotal = ch.total;
+        meta.vehicleChallanPending = ch.pending;
+        meta.vehicleChallanPaid = ch.paid;
+        meta.vehicleChallanDisposed = ch.disposed;
+        meta.vehicleChallanPendingAmount = ch.pendingAmount;
+        meta.vehicleChallanFetchedAt = ch.fetchedAt;
+        if (ch.records.length > 0) meta.vehicleChallanRecords = ch.records;
+      }
+      holding.assetMeta = meta;
+    } else if (assetClass === 'property') {
+      const meta: AssetMeta = { ...(editing?.assetMeta ?? {}) };
+      if (propertyType) meta.propertyType = propertyType;
+      const sqft = parseFloat(propertyAreaSqft);
+      if (!isNaN(sqft) && sqft > 0) meta.propertyAreaSqft = sqft;
+      if (propertyCity.trim()) meta.propertyCity = propertyCity.trim();
+      holding.assetMeta = meta;
     }
 
     onSave(holding)
@@ -327,22 +450,29 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
 
   return (
     <div
-      className="fixed inset-0 z-60 flex items-end"
-      style={{ paddingBottom: 'calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px))' }}
+      className="fixed inset-0 z-60 flex items-center justify-center px-4"
+      style={{ paddingTop: 56, paddingBottom: 72 }}
     >
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full rounded-t-2xl p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto bg-surface">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div
+        className="relative w-full max-w-[430px] rounded-2xl p-5 flex flex-col gap-4 overflow-y-auto bg-surface"
+        style={{ maxHeight: '100%' }}
+      >
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-primary">
             {editing
               ? 'Edit holding'
-              : lockAssetClass === 'nps'
+              : lockAssetClass === 'nps' || assetClass === 'nps'
                 ? 'Track NPS'
-                : lockAssetClass === 'ppf'
+                : lockAssetClass === 'ppf' || assetClass === 'ppf'
                   ? 'Track PPF'
-                  : lockAssetClass === 'epf'
+                  : lockAssetClass === 'epf' || assetClass === 'epf'
                     ? 'Track EPF'
-                    : 'Add holding'}
+                    : assetClass === 'vehicle'
+                      ? 'Track Vehicle'
+                      : assetClass === 'property'
+                        ? 'Track Property'
+                        : 'Add holding'}
           </h3>
           <button
             onClick={onClose}
@@ -352,8 +482,8 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
           </button>
         </div>
 
-        {/* Asset class — hidden when opened from a typed retirement card */}
-        {!lockAssetClass && (
+        {/* Asset class — hidden when editing an existing holding or opened from a typed card */}
+        {!lockAssetClass && !editing && (
           <div>
             <label className="text-xs font-medium text-secondary">Asset type</label>
             <div className="mt-1 grid grid-cols-4 gap-2">
@@ -386,32 +516,36 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
           </div>
         )}
 
-        {/* Name */}
-        <div>
-          <label className="text-xs font-medium text-secondary">Name</label>
-          <input
-            type="text"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-            placeholder={
-              assetClass === 'mf'
-                ? 'e.g. Parag Parikh Flexi Cap'
-                : assetClass === 'stock'
-                  ? 'e.g. Reliance Industries'
-                  : assetClass === 'fd'
-                    ? 'e.g. SBI FD 7.1%'
-                    : assetClass === 'nps'
-                      ? 'e.g. My NPS Account'
-                      : assetClass === 'ppf'
-                        ? 'e.g. PPF Account'
-                        : assetClass === 'epf'
-                          ? 'e.g. EPF Account'
-                          : 'e.g. Gold holdings'
-            }
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoFocus
-          />
-        </div>
+        {/* Name — hidden for vehicle (auto-filled from RC fetch) */}
+        {assetClass !== 'vehicle' && (
+          <div>
+            <label className="text-xs font-medium text-secondary">Name</label>
+            <input
+              type="text"
+              className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+              placeholder={
+                assetClass === 'mf'
+                  ? 'e.g. Parag Parikh Flexi Cap'
+                  : assetClass === 'stock'
+                    ? 'e.g. Reliance Industries'
+                    : assetClass === 'fd'
+                      ? 'e.g. SBI FD 7.1%'
+                      : assetClass === 'nps'
+                        ? 'e.g. My NPS Account'
+                        : assetClass === 'ppf'
+                          ? 'e.g. PPF Account'
+                          : assetClass === 'epf'
+                            ? 'e.g. EPF Account'
+                            : assetClass === 'property'
+                              ? 'e.g. 2BHK Whitefield'
+                              : 'e.g. Gold holdings'
+              }
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+            />
+          </div>
+        )}
 
         {/* MF-specific */}
         {assetClass === 'mf' && (
@@ -931,52 +1065,210 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
           </div>
         )}
 
-        {/* Balance / invested amount */}
-        <div>
-          <label className="text-xs font-medium text-secondary">
-            {assetClass === 'nps' || assetClass === 'ppf' || assetClass === 'epf'
-              ? 'Current corpus / balance (₹)'
-              : 'Amount invested (₹)'}
-          </label>
-          <input
-            type="number"
-            inputMode="decimal"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-            placeholder="0"
-            value={investedAmount}
-            onChange={(e) => setInvestedAmount(e.target.value)}
-          />
-        </div>
+        {/* Vehicle fields — plate number lookup */}
+        {assetClass === 'vehicle' && (
+          <div className="flex flex-col gap-3">
+            <div>
+              <label className="text-xs font-medium text-secondary">Registration number</label>
+              <div className="mt-1 flex gap-2">
+                <input
+                  className="flex-1 rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface font-mono uppercase"
+                  placeholder="e.g. MH12AB1234"
+                  value={vehicleRegInput}
+                  onChange={(e) => {
+                    setVehicleRegInput(e.target.value.toUpperCase());
+                    setVehicleFetchError('');
+                    if (vehicleRcSnapshot) setVehicleRcSnapshot(null);
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={vehicleFetching || vehicleRegInput.trim().length < 6}
+                  onClick={async () => {
+                    setVehicleFetching(true);
+                    setVehicleFetchError('');
+                    try {
+                      const { rc, challans } = await fetchVehicleData(vehicleRegInput.trim());
+                      setVehicleRcSnapshot(rc);
+                      setVehicleChallanSnapshot(challans);
+                      setVehicleRegInput(rc.regNumber);
+                      const autoName = [rc.make, rc.model, rc.year ? String(rc.year) : ''].filter(Boolean).join(' ');
+                      if (autoName) setName(autoName);
+                      // salePriceRaw = ex-showroom purchase price
+                      if (rc.salePriceRaw && rc.salePriceRaw > 0) {
+                        if (!investedAmount) setInvestedAmount(String(rc.salePriceRaw));
+                        // Estimate depreciated current value (IRDA IDV method)
+                        if (!currentValue && rc.year) {
+                          const yearsOld = new Date().getFullYear() - rc.year;
+                          const deprRates = [0.05, 0.15, 0.3, 0.4, 0.5];
+                          const rate = yearsOld <= 0 ? 0 : (deprRates[Math.min(yearsOld - 1, 4)] ?? 0.5);
+                          const estimated = Math.round(rc.salePriceRaw * (1 - rate));
+                          setCurrentValue(String(estimated));
+                        }
+                      }
+                    } catch (e) {
+                      setVehicleFetchError(e instanceof Error ? e.message : 'Could not fetch vehicle details');
+                    } finally {
+                      setVehicleFetching(false);
+                    }
+                  }}
+                  className="flex-shrink-0 px-4 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-40"
+                  style={{ backgroundColor: '#3b82f6' }}
+                >
+                  {vehicleFetching ? '…' : 'Fetch'}
+                </button>
+              </div>
+              {vehicleFetchError && <p className="text-[11px] text-red-500 mt-1">{vehicleFetchError}</p>}
+            </div>
 
-        {/* Current value (manual override — not for retirement) */}
-        {assetClass !== 'nps' && assetClass !== 'ppf' && assetClass !== 'epf' && (
+            {/* Fetched RC details preview */}
+            {vehicleRcSnapshot && (
+              <div className="rounded-xl p-3 flex flex-col gap-2 bg-surface-2 border border-theme">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-primary">
+                    {vehicleRcSnapshot.make} {vehicleRcSnapshot.model}
+                    {vehicleRcSnapshot.year ? ` · ${vehicleRcSnapshot.year}` : ''}
+                  </p>
+                  <span
+                    className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full"
+                    style={{
+                      backgroundColor: vehicleRcSnapshot.rcStatus === 'ACTIVE' ? '#10b98115' : '#ef444415',
+                      color: vehicleRcSnapshot.rcStatus === 'ACTIVE' ? '#10b981' : '#ef4444'
+                    }}
+                  >
+                    {vehicleRcSnapshot.rcStatus}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                  {vehicleRcSnapshot.fuelType && (
+                    <p className="text-[10px] text-tertiary">
+                      Fuel: <span className="text-secondary">{vehicleRcSnapshot.fuelType}</span>
+                    </p>
+                  )}
+                  {vehicleRcSnapshot.color && (
+                    <p className="text-[10px] text-tertiary">
+                      Colour: <span className="text-secondary">{vehicleRcSnapshot.color}</span>
+                    </p>
+                  )}
+                  {vehicleRcSnapshot.rtoLocation && (
+                    <p className="text-[10px] text-tertiary col-span-2">
+                      RTO: <span className="text-secondary">{vehicleRcSnapshot.rtoLocation}</span>
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1.5 pt-1 border-t border-theme">
+                  {vehicleRcSnapshot.insuranceUpto && (
+                    <ValidityBadge label="Insurance" upto={vehicleRcSnapshot.insuranceUpto} />
+                  )}
+                  {vehicleRcSnapshot.puccUpto && <ValidityBadge label="PUC" upto={vehicleRcSnapshot.puccUpto} />}
+                  {vehicleRcSnapshot.rcValidUpto && <ValidityBadge label="RC" upto={vehicleRcSnapshot.rcValidUpto} />}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Property fields */}
+        {assetClass === 'property' && (
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-secondary">Type</label>
+                <select
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                  value={propertyType}
+                  onChange={(e) => setPropertyType(e.target.value as typeof propertyType)}
+                >
+                  <option value="">Select…</option>
+                  <option value="flat">Flat</option>
+                  <option value="house">House</option>
+                  <option value="plot">Plot</option>
+                  <option value="commercial">Commercial</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-secondary">Area (sqft)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                  placeholder="e.g. 1200"
+                  value={propertyAreaSqft}
+                  onChange={(e) => setPropertyAreaSqft(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-secondary">City</label>
+              <input
+                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                placeholder="e.g. Bangalore"
+                value={propertyCity}
+                onChange={(e) => setPropertyCity(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Balance / invested amount — hidden for vehicle (no purchase price required) */}
+        {assetClass !== 'vehicle' && (
           <div>
             <label className="text-xs font-medium text-secondary">
-              Current value (₹){' '}
-              <span className="font-normal text-tertiary">— optional, fetched automatically for MF/stocks</span>
+              {assetClass === 'nps' || assetClass === 'ppf' || assetClass === 'epf'
+                ? 'Current corpus / balance (₹)'
+                : assetClass === 'property'
+                  ? 'Purchase price (₹)'
+                  : 'Amount invested (₹)'}
             </label>
             <input
               type="number"
               inputMode="decimal"
               className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-              placeholder="Leave blank to use invested amount"
-              value={currentValue}
-              onChange={(e) => setCurrentValue(e.target.value)}
+              placeholder="0"
+              value={investedAmount}
+              onChange={(e) => setInvestedAmount(e.target.value)}
             />
           </div>
         )}
 
-        {/* Notes */}
-        <div>
-          <label className="text-xs font-medium text-secondary">Notes (optional)</label>
-          <input
-            type="text"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-            placeholder="e.g. held in Zerodha, SBI Kolar branch"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </div>
+        {/* Current value — not for retirement or vehicle */}
+        {assetClass !== 'nps' && assetClass !== 'ppf' && assetClass !== 'epf' && assetClass !== 'vehicle' && (
+          <div>
+            <label className="text-xs font-medium text-secondary">
+              {assetClass === 'property' ? 'Current market value (₹)' : 'Current value (₹)'}
+              {assetClass !== 'property' && (
+                <span className="font-normal text-tertiary"> — optional, fetched automatically for MF/stocks</span>
+              )}
+            </label>
+            <input
+              type="number"
+              inputMode="decimal"
+              className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+              placeholder={assetClass === 'property' ? 'e.g. 6500000' : 'Leave blank to use invested amount'}
+              value={currentValue}
+              onChange={(e) => setCurrentValue(e.target.value)}
+            />
+            {assetClass === 'property' && (
+              <p className="text-[10px] text-tertiary mt-1">
+                You can update this anytime from the card — a staleness reminder appears after 90 days.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Notes — hidden for vehicle */}
+        {assetClass !== 'vehicle' && (
+          <div>
+            <label className="text-xs font-medium text-secondary">Notes (optional)</label>
+            <input
+              type="text"
+              className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+              placeholder="e.g. held in Zerodha, SBI Kolar branch"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+        )}
 
         {showNpsSchedule && (
           <NpsLifecycleDetail

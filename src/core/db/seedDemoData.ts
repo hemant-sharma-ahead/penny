@@ -587,6 +587,54 @@ export async function seedDemoData(): Promise<void> {
       lastUpdatedAt: ago(7),
       createdAt: new Date('2023-10-01').getTime(),
       updatedAt: ago(7)
+    },
+    // Vehicle — data as if fetched from vahandetails.com
+    {
+      id: 'demo-holding-vehicle',
+      assetClass: 'vehicle',
+      name: 'Maruti Swift VXi',
+      investedAmount: 750000,
+      currentValue: 580000,
+      lastUpdatedAt: ago(105),
+      assetMeta: {
+        vehicleRegNumber: 'KA03MN5678',
+        vehicleMake: 'MARUTI SUZUKI',
+        vehicleModel: 'SWIFT VXI',
+        vehicleYear: 2021,
+        vehicleFuelType: 'PETROL',
+        vehicleColor: 'PEARL WHITE',
+        vehicleType: 'Four Wheeler',
+        vehicleRtoLocation: 'BENGALURU (SOUTH) RTO, Karnataka',
+        vehicleRcStatus: 'ACTIVE',
+        vehicleRcValidUpto: new Date('2036-06-14').getTime(),
+        vehicleInsuranceCompany: 'HDFC ERGO General Insurance Co. Ltd.',
+        vehicleInsuranceUpto: new Date('2026-08-20').getTime(),
+        vehiclePuccUpto: new Date('2026-12-10').getTime(),
+        vehicleFitnessUpto: new Date('2036-06-14').getTime(),
+        vehicleRcFetchedAt: ago(105),
+        vehicleChallanTotal: 1,
+        vehicleChallanPending: 1,
+        vehicleChallanPendingAmount: 500,
+        vehicleChallanFetchedAt: ago(105)
+      },
+      createdAt: new Date('2021-06-15').getTime(),
+      updatedAt: ago(105)
+    },
+    // Property
+    {
+      id: 'demo-holding-property',
+      assetClass: 'property',
+      name: '2BHK Flat, Whitefield',
+      investedAmount: 4500000,
+      currentValue: 6200000,
+      lastUpdatedAt: ago(45),
+      assetMeta: {
+        propertyType: 'flat',
+        propertyAreaSqft: 1150,
+        propertyCity: 'Bangalore'
+      },
+      createdAt: new Date('2019-03-01').getTime(),
+      updatedAt: ago(45)
     }
   ];
   await Promise.all(holdings.map((h) => holdingsRepo.put(h)));

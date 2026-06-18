@@ -128,7 +128,7 @@ This file is read at the start of every Claude Code session. It tells you where 
 | 63+  | NPS live NAV tracking — npsnav.in client, lifecycle fund tables (LC-75/50/25/BLC), auto choice allocation pills, year-by-year schedule sheet, active choice NAV × units corpus | ✅ Done |
 | 63++ | PPF full tracking — passbook ledger (deposit/interest/withdrawal), before/after-5th badges, FY deposit bar vs ₹1.5L, corpus projection, Add Transaction sheet | ✅ Done |
 | 63+++| EPF full tracking — employment history (company + basic salary + from/to), transaction ledger (employee/employer/interest/transfer/withdrawal), contribution auto-calc per employer period, retirement projection at 58, pro-rata partial months | ✅ Done |
-| 64   | Real Assets — vehicles + property sub-tab, manual entry, 90-day refresh UX                                      | ⏳ Next          |
+| 64   | Real Assets — vehicles (RC fetch via vahandetails.com, IRDA depreciation, challan cards) + property sub-tab, 90-day staleness UX | ✅ Done |
 | 65   | Fixed Income — FD/RD maturity auto-calc + compound interest projection                                          | ⏳               |
 | 66   | Precious Metals — Gold + Silver live prices (GOLDBEES.NS / SILVERIETF.NS)                                       | ⏳               |
 | 67   | Stocks — enhanced cards, Yahoo Finance symbol search                                                            | ⏳               |
@@ -144,7 +144,7 @@ This file is read at the start of every Claude Code session. It tells you where 
 - Card shows: contribution breakdown per employer period, expected vs actual balance, monthly contribution from current employer, retirement corpus projection at 58
 - PDF import deferred to step 70 (grouped with CAS PDF — same PDF.js infrastructure)
 
-**Next step when you pick up a session:** Step 64 — Real Assets (vehicles + property sub-tab, manual entry, 90-day refresh UX).
+**Next step when you pick up a session:** Step 65 — Fixed Income (FD/RD maturity auto-calc + compound interest projection).
 
 **Full Phase 1 roadmap (M9–M15):**
 
@@ -164,6 +164,16 @@ This file is read at the start of every Claude Code session. It tells you where 
 - Phase 1.5 — Groups & Household OS (shared expenses, family vaults, joint goals, household net worth)
 - Phase 2 — Chip AI (real Anthropic SDK), RBI AA framework automated sync (MF/demat/EPF when FIP/NPS), desktop layout, cloud sync, native apps
 - Phase 3 — Regional languages, crypto/Web3, international equities, advanced AI advisor
+
+---
+
+## UI / Modal design principles
+
+- **No bottom sheets.** All modals, drawers, and popups must appear centred between the app header and the bottom nav — never sliding up from the bottom edge.
+- **Always visible header + nav.** The header (≈48 px) and bottom nav (≈64 px) must never be obscured by a modal. Use `paddingTop: 56, paddingBottom: 72` (or equivalent) on the fixed overlay so the modal floats between them.
+- **Horizontal margin.** Modals must never stretch edge-to-edge. Use `px-4` (16 px each side) on the overlay and `max-w-[430px]` on the card so there is always a visible gap between the card and the screen edges.
+- **Scrollable body.** Long content (forms, detail views) must scroll inside the card (`overflow-y-auto flex-1`) — the header and footer actions of the card stay sticky.
+- **Standard z-index ladder:** bottom nav `z-50` → app header `z-40` → modals `z-60` → nested modals / confirmation dialogs `z-70`.
 
 ---
 

@@ -31,10 +31,12 @@ const ASSET_META: Record<AssetClass, { label: string; icon: string; color: strin
   ppf: { label: 'PPF', icon: 'ti-safe', color: '#8b5cf6' },
   epf: { label: 'EPF', icon: 'ti-building-factory', color: '#64748b' },
   gold: { label: 'Gold', icon: 'ti-coin', color: '#d97706' },
+  vehicle: { label: 'Vehicle', icon: 'ti-car', color: '#3b82f6' },
+  property: { label: 'Property', icon: 'ti-building', color: '#8b5cf6' },
   other: { label: 'Other', icon: 'ti-dots', color: '#6b7280' }
 };
 
-const ASSET_ORDER: AssetClass[] = ['mf', 'stock', 'fd', 'nps', 'ppf', 'epf', 'gold', 'other'];
+const ASSET_ORDER: AssetClass[] = ['mf', 'stock', 'fd', 'nps', 'ppf', 'epf', 'gold', 'vehicle', 'property', 'other'];
 
 // ─── Holdings sub-tabs ────────────────────────────────────────────────────────
 
@@ -87,9 +89,9 @@ const HOLDINGS_SUBTABS: HoldingsSubTabConfig[] = [
   {
     key: 'real_assets',
     label: 'Real Assets',
-    assetClasses: ['other'],
+    assetClasses: ['vehicle', 'property'],
     icon: 'ti-home',
-    emptyMessage: 'No real assets yet. Vehicles and property tracking coming soon.'
+    emptyMessage: 'No real assets yet.'
   }
 ];
 
@@ -2230,6 +2232,911 @@ function IpoDetailModal({ ipo, onClose }: { ipo: IpoItem; onClose: () => void })
   );
 }
 
+// ─── Real Assets helpers ──────────────────────────────────────────────────────
+
+const REAL_ASSET_STALENESS_DAYS = 90;
+
+function realAssetIsStale(lastUpdatedAt?: number): boolean {
+  if (!lastUpdatedAt) return true;
+  return Date.now() - lastUpdatedAt > REAL_ASSET_STALENESS_DAYS * 24 * 60 * 60 * 1000;
+}
+
+function realAssetStalenessLabel(lastUpdatedAt?: number): string {
+  if (!lastUpdatedAt) return 'Never updated';
+  const days = Math.floor((Date.now() - lastUpdatedAt) / (24 * 60 * 60 * 1000));
+  if (days === 0) return 'Updated today';
+  if (days === 1) return 'Updated yesterday';
+  if (days < 30) return `Updated ${days} days ago`;
+  const months = Math.floor(days / 30);
+  return `Updated ${months} month${months > 1 ? 's' : ''} ago`;
+}
+
+// ─── UpdateValueSheet ─────────────────────────────────────────────────────────
+
+function UpdateValueSheet({
+  holding,
+  onSave,
+  onClose
+}: {
+  holding: Holding;
+  onSave: (updated: Holding) => Promise<void>;
+  onClose: () => void;
+}) {
+  const meta = holding.assetMeta ?? {};
+  const isVehicle = holding.assetClass === 'vehicle';
+  const label = isVehicle
+    ? `${meta.vehicleMake ?? ''} ${meta.vehicleModel ?? ''}`.trim() || holding.name
+    : meta.propertyCity
+      ? `${meta.propertyType ?? 'Property'} · ${meta.propertyCity}`
+      : holding.name;
+
+  const [value, setValue] = useState(holding.currentValue?.toString() ?? holding.investedAmount.toString());
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    const v = parseFloat(value);
+    if (isNaN(v) || v <= 0) return;
+    setSaving(true);
+    await onSave({ ...holding, currentValue: v, lastUpdatedAt: Date.now() });
+    setSaving(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-70 flex items-end" onClick={onClose}>
+      <div
+        className="w-full max-w-[430px] mx-auto rounded-t-2xl p-5 flex flex-col gap-4 bg-surface"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-primary">Update value</h3>
+            <p className="text-xs text-tertiary">{label}</p>
+          </div>
+          <button onClick={onClose} className="w-10 h-10 flex items-center justify-center text-tertiary">
+            <i className="ti ti-x" style={{ fontSize: 20 }} aria-hidden="true" />
+          </button>
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-secondary block mb-1">Current market value (₹)</label>
+          <input
+            type="number"
+            inputMode="decimal"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            className="input-surface w-full border rounded-xl px-3 py-2.5 text-sm"
+            placeholder="e.g. 650000"
+          />
+          {holding.investedAmount > 0 && (
+            <p className="text-[10px] text-tertiary mt-1">
+              Purchase price: ₹{holding.investedAmount.toLocaleString('en-IN')}
+            </p>
+          )}
+        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full py-3 rounded-xl text-sm font-semibold text-white"
+          style={{ backgroundColor: '#00a86b', opacity: saving ? 0.6 : 1 }}
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── VehicleDetailModal ───────────────────────────────────────────────────────
+
+function VehicleDetailRow({
+  label,
+  value,
+  masked,
+  mode
+}: {
+  label: string;
+  value?: string | number | null;
+  masked?: boolean;
+  mode: string;
+}) {
+  if (!value && value !== 0) return null;
+  const display = masked && mode !== 'open' ? '••••' : String(value);
+  return (
+    <div className="flex items-start justify-between py-2.5 border-b border-theme last:border-0 gap-3">
+      <p className="text-xs text-tertiary shrink-0">{label}</p>
+      <p className="text-xs font-medium text-primary text-right">{display}</p>
+    </div>
+  );
+}
+
+function VehicleDetailModal({
+  holding,
+  onClose,
+  onEdit,
+  onSave,
+  mode
+}: {
+  holding: Holding;
+  onClose: () => void;
+  onEdit: () => void;
+  onSave: (updated: Holding) => Promise<void>;
+  mode: string;
+}) {
+  const meta = holding.assetMeta ?? {};
+  const [showUpdateSheet, setShowUpdateSheet] = useState(false);
+  const currentVal = holding.currentValue ?? holding.investedAmount;
+  const gain = holding.investedAmount > 0 ? currentVal - holding.investedAmount : null;
+  const gainPct = gain !== null && holding.investedAmount > 0 ? (gain / holding.investedAmount) * 100 : null;
+  const stale = realAssetIsStale(holding.lastUpdatedAt);
+
+  const fuelColors: Record<string, string> = {
+    PETROL: '#f59e0b',
+    DIESEL: '#64748b',
+    ELECTRIC: '#10b981',
+    CNG: '#3b82f6',
+    HYBRID: '#8b5cf6'
+  };
+  const fuelKey = (meta.vehicleFuelType ?? '').toUpperCase();
+  const fuelColor = fuelColors[fuelKey] ?? '#64748b';
+
+  function dateStr(ms?: number | null) {
+    if (!ms) return null;
+    return new Date(ms).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  const pendingChallans = meta.vehicleChallanPending ?? 0;
+
+  return (
+    <div className="fixed inset-0 z-60 flex items-center justify-center px-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/50" />
+      <div
+        className="relative w-full max-w-[390px] rounded-2xl flex flex-col bg-surface"
+        style={{ maxHeight: 'calc(100vh - 120px)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-4 pt-4 pb-3 border-b border-theme flex items-start justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+              style={{ backgroundColor: '#3b82f615' }}
+            >
+              <i className="ti ti-car" style={{ fontSize: 20, color: '#3b82f6' }} aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-primary leading-snug">
+                {meta.vehicleMake && meta.vehicleModel ? `${meta.vehicleMake} ${meta.vehicleModel}` : holding.name}
+              </p>
+              <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                {meta.vehicleYear && <span className="text-[10px] text-tertiary">{meta.vehicleYear}</span>}
+                {meta.vehicleFuelType && (
+                  <span
+                    className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-full"
+                    style={{ backgroundColor: `${fuelColor}18`, color: fuelColor }}
+                  >
+                    {meta.vehicleFuelType}
+                  </span>
+                )}
+                {meta.vehicleRcStatus && (
+                  <span
+                    className="text-[9px] font-bold uppercase px-1 py-0.5 rounded"
+                    style={{
+                      backgroundColor: meta.vehicleRcStatus === 'ACTIVE' ? '#10b98112' : '#ef444412',
+                      color: meta.vehicleRcStatus === 'ACTIVE' ? '#10b981' : '#ef4444'
+                    }}
+                  >
+                    {meta.vehicleRcStatus}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-tertiary shrink-0">
+            <i className="ti ti-x" style={{ fontSize: 18 }} aria-hidden="true" />
+          </button>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1 px-4 py-4 flex flex-col gap-5">
+          {/* Validity badges */}
+          {(meta.vehicleInsuranceUpto || meta.vehiclePuccUpto || meta.vehicleRcValidUpto) && (
+            <div className="flex gap-2">
+              {meta.vehicleInsuranceUpto && <VehicleValidityBadge label="Insurance" upto={meta.vehicleInsuranceUpto} />}
+              {meta.vehiclePuccUpto && <VehicleValidityBadge label="PUC" upto={meta.vehiclePuccUpto} />}
+              {meta.vehicleRcValidUpto && <VehicleValidityBadge label="RC valid" upto={meta.vehicleRcValidUpto} />}
+            </div>
+          )}
+
+          {/* Value tiles */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl p-3" style={{ backgroundColor: 'var(--color-surface-secondary)' }}>
+              <p className="text-[10px] text-tertiary mb-0.5">Current value</p>
+              <p className="text-base font-bold text-primary tabular-nums">
+                {mode === 'open' ? (currentVal > 0 ? `₹${currentVal.toLocaleString('en-IN')}` : '—') : '••••'}
+              </p>
+              {stale && (
+                <p className="text-[9px] mt-0.5 font-medium" style={{ color: '#f59e0b' }}>
+                  Needs update
+                </p>
+              )}
+            </div>
+            <div className="rounded-xl p-3" style={{ backgroundColor: 'var(--color-surface-secondary)' }}>
+              <p className="text-[10px] text-tertiary mb-0.5">Purchase price</p>
+              <p className="text-base font-bold text-primary tabular-nums">
+                {mode === 'open'
+                  ? holding.investedAmount > 0
+                    ? `₹${holding.investedAmount.toLocaleString('en-IN')}`
+                    : '—'
+                  : '••••'}
+              </p>
+              {gainPct !== null && (
+                <p className={`text-[9px] mt-0.5 font-medium ${gainPct >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                  {gainPct >= 0 ? '+' : ''}
+                  {gainPct.toFixed(1)}%
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Vehicle identity */}
+          <div>
+            <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wide mb-1.5">Vehicle</p>
+            <div className="surface rounded-xl px-3">
+              <VehicleDetailRow mode={mode} label="Manufacturer" value={meta.vehicleMake} />
+              <VehicleDetailRow mode={mode} label="Model" value={meta.vehicleModel} />
+              <Row
+                label="Year of manufacture"
+                value={meta.vehicleManufactureLabel ?? (meta.vehicleYear ? String(meta.vehicleYear) : null)}
+              />
+              <VehicleDetailRow mode={mode} label="Body type" value={meta.vehicleBodyType} />
+              <VehicleDetailRow mode={mode} label="Colour" value={meta.vehicleColor} />
+              <VehicleDetailRow mode={mode} label="Vehicle class" value={meta.vehicleType} />
+              <VehicleDetailRow mode={mode} label="Engine number" value={meta.vehicleEngineNo} masked />
+              <VehicleDetailRow mode={mode} label="Chassis number" value={meta.vehicleChassisNo} masked />
+            </div>
+          </div>
+
+          {/* Engine & specs */}
+          {(meta.vehicleCubicCap ||
+            meta.vehicleNorms ||
+            meta.vehicleSeatCap ||
+            meta.vehicleUnladenWeight ||
+            meta.vehicleGrossWeight) && (
+            <div>
+              <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wide mb-1.5">Engine & specs</p>
+              <div className="surface rounded-xl px-3">
+                <VehicleDetailRow mode={mode} label="Engine capacity (CC)" value={meta.vehicleCubicCap} />
+                <VehicleDetailRow mode={mode} label="Fuel type" value={meta.vehicleFuelType} />
+                <VehicleDetailRow mode={mode} label="Emission norms" value={meta.vehicleNorms} />
+                <VehicleDetailRow mode={mode} label="Seating capacity" value={meta.vehicleSeatCap} />
+                <VehicleDetailRow mode={mode} label="Unladen weight (kg)" value={meta.vehicleUnladenWeight} />
+                <VehicleDetailRow mode={mode} label="Gross vehicle weight (kg)" value={meta.vehicleGrossWeight} />
+              </div>
+            </div>
+          )}
+
+          {/* Registration */}
+          <div>
+            <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wide mb-1.5">Registration</p>
+            <div className="surface rounded-xl px-3">
+              <VehicleDetailRow mode={mode} label="Reg number" value={meta.vehicleRegNumber} masked />
+              <VehicleDetailRow mode={mode} label="Registration date" value={meta.vehicleRegDate} />
+              <VehicleDetailRow mode={mode} label="RTO" value={meta.vehicleRtoLocation} />
+              <VehicleDetailRow mode={mode} label="RC status" value={meta.vehicleRcStatus} />
+              <VehicleDetailRow mode={mode} label="RC valid upto" value={dateStr(meta.vehicleRcValidUpto)} />
+              <VehicleDetailRow mode={mode} label="Fitness upto" value={dateStr(meta.vehicleFitnessUpto)} />
+            </div>
+          </div>
+
+          {/* Compliance */}
+          <div>
+            <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wide mb-1.5">Compliance</p>
+            <div className="surface rounded-xl px-3">
+              <VehicleDetailRow mode={mode} label="Insurance company" value={meta.vehicleInsuranceCompany} />
+              <VehicleDetailRow mode={mode} label="Policy number" value={meta.vehicleInsurancePolicyNo} masked />
+              <VehicleDetailRow mode={mode} label="Insurance valid upto" value={dateStr(meta.vehicleInsuranceUpto)} />
+              <VehicleDetailRow mode={mode} label="PUC certificate no." value={meta.vehiclePuccNo} masked />
+              <VehicleDetailRow mode={mode} label="PUC valid upto" value={dateStr(meta.vehiclePuccUpto)} />
+            </div>
+          </div>
+
+          {/* Owner */}
+          {(meta.vehicleOwnerName || meta.vehiclePresentAddress) && (
+            <div>
+              <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wide mb-1.5">Owner</p>
+              <div className="surface rounded-xl px-3">
+                <VehicleDetailRow mode={mode} label="Name" value={meta.vehicleOwnerName} masked />
+                <VehicleDetailRow mode={mode} label="Present address" value={meta.vehiclePresentAddress} masked />
+                <VehicleDetailRow mode={mode} label="Permanent address" value={meta.vehiclePermanentAddress} masked />
+                <VehicleDetailRow mode={mode} label="Financer / Hypothecation" value={meta.vehicleFinancer} />
+              </div>
+            </div>
+          )}
+
+          {/* Challans — individual records */}
+          {meta.vehicleChallanFetchedAt && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-[10px] font-semibold text-tertiary uppercase tracking-wide">Traffic challans</p>
+                {pendingChallans > 0 && (
+                  <span
+                    className="text-[9px] font-bold px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: '#ef444415', color: '#ef4444' }}
+                  >
+                    ⚠ {pendingChallans} pending
+                  </span>
+                )}
+              </div>
+              {(meta.vehicleChallanRecords ?? []).length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  {(meta.vehicleChallanRecords ?? []).map((c, i) => {
+                    const isPending = c.paymentStatus === 'UNPAID';
+                    const isPaid = c.paymentStatus === 'PAID';
+                    const isDisposed = c.paymentStatus === 'DISPOSED';
+                    const statusColor = isPending ? '#ef4444' : isPaid ? '#10b981' : isDisposed ? '#6366f1' : '#94a3b8';
+                    const fmtDate = c.date
+                      ? (() => {
+                          const d = new Date(c.date);
+                          return isNaN(d.getTime())
+                            ? c.date
+                            : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+                        })()
+                      : null;
+                    const rtoLabel = [c.rto, c.state].filter(Boolean).join(' · ') || '—';
+                    return (
+                      <div key={i} className="surface rounded-xl p-3 flex flex-col gap-2">
+                        {/* Top row: challan no + amount */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-primary">{c.challanNo || `Challan ${i + 1}`}</p>
+                            {fmtDate && <p className="text-[10px] text-tertiary">{fmtDate}</p>}
+                          </div>
+                          <p
+                            className="text-sm font-bold tabular-nums shrink-0"
+                            style={{ color: isPending ? '#ef4444' : 'var(--color-text-primary)' }}
+                          >
+                            {mode === 'open' ? `₹${c.amount.toLocaleString('en-IN')}` : '••••'}
+                          </p>
+                        </div>
+                        {/* Detail rows — always shown, — when absent */}
+                        <div className="flex flex-col gap-1.5">
+                          <div>
+                            <p className="text-[9px] text-tertiary">Offense</p>
+                            <p className="text-[10px] text-primary leading-snug">{c.offenceDetails || '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-tertiary">Place</p>
+                            <p className="text-[10px] text-primary">{c.challanPlace || '—'}</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-x-3">
+                            <div>
+                              <p className="text-[9px] text-tertiary">Court</p>
+                              <p className="text-[10px] text-primary">{c.courtName || '—'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] text-tertiary">RTO</p>
+                              <p className="text-[10px] text-primary">{rtoLabel}</p>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Status row — payment status + challan status + type all in one line */}
+                        <div className="flex items-center gap-1.5 pt-1 border-t border-theme flex-wrap">
+                          <span
+                            className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                            style={{ backgroundColor: `${statusColor}15`, color: statusColor }}
+                          >
+                            {c.paymentStatus || 'UNKNOWN'}
+                          </span>
+                          {c.challanStatus && (
+                            <span
+                              className="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
+                              style={{
+                                backgroundColor: 'var(--color-surface-secondary)',
+                                color: 'var(--color-text-tertiary)'
+                              }}
+                            >
+                              {c.challanStatus}
+                            </span>
+                          )}
+                          {c.challanType && (
+                            <span
+                              className="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
+                              style={{
+                                backgroundColor: 'var(--color-surface-secondary)',
+                                color: 'var(--color-text-tertiary)'
+                              }}
+                            >
+                              {c.challanType}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="surface rounded-xl px-3">
+                  <VehicleDetailRow mode={mode} label="Total" value={meta.vehicleChallanTotal ?? 0} />
+                  <VehicleDetailRow mode={mode} label="Pending" value={meta.vehicleChallanPending ?? 0} />
+                  {pendingChallans > 0 && (
+                    <Row
+                      label="Pending amount"
+                      value={
+                        mode === 'open' && meta.vehicleChallanPendingAmount
+                          ? `₹${meta.vehicleChallanPendingAmount.toLocaleString('en-IN')}`
+                          : '••••'
+                      }
+                    />
+                  )}
+                  <VehicleDetailRow mode={mode} label="Paid" value={meta.vehicleChallanPaid ?? 0} />
+                  <VehicleDetailRow mode={mode} label="Disposed" value={meta.vehicleChallanDisposed ?? 0} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {meta.vehicleRcFetchedAt && (
+            <p className="text-[9px] text-tertiary text-center pb-1">
+              RC data fetched {dateStr(meta.vehicleRcFetchedAt)}
+            </p>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 py-3 border-t border-theme flex gap-2 shrink-0">
+          <button
+            onClick={() => {
+              onClose();
+              onEdit();
+            }}
+            className="flex-1 py-2.5 rounded-xl text-sm font-medium border-theme border text-secondary"
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => setShowUpdateSheet(true)}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white"
+            style={{ backgroundColor: '#3b82f6' }}
+          >
+            Update value
+          </button>
+        </div>
+      </div>
+
+      {showUpdateSheet && (
+        <UpdateValueSheet
+          holding={holding}
+          onSave={async (updated) => {
+            await onSave(updated);
+            setShowUpdateSheet(false);
+            onClose();
+          }}
+          onClose={() => setShowUpdateSheet(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── VehicleCard ──────────────────────────────────────────────────────────────
+
+function vehicleNowMs(): number {
+  return Date.now();
+}
+
+function VehicleValidityBadge({ label, upto }: { label: string; upto: number }) {
+  const days = Math.floor((upto - vehicleNowMs()) / (1000 * 60 * 60 * 24));
+  const expired = days < 0;
+  const soon = days >= 0 && days <= 30;
+  const color = expired ? '#ef4444' : soon ? '#f59e0b' : '#10b981';
+  const dateStr = new Date(upto).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' });
+  return (
+    <div className="flex flex-col items-center px-2 py-1.5 rounded-xl flex-1" style={{ backgroundColor: `${color}10` }}>
+      <p className="text-[9px] text-tertiary">{label}</p>
+      <p className="text-[10px] font-semibold tabular-nums" style={{ color }}>
+        {expired ? 'Expired' : dateStr}
+      </p>
+    </div>
+  );
+}
+
+function VehicleCard({
+  holding,
+  onEdit,
+  onSave,
+  mode
+}: {
+  holding: Holding;
+  onEdit: () => void;
+  onSave: (updated: Holding) => Promise<void>;
+  mode: string;
+}) {
+  const [showDetail, setShowDetail] = useState(false);
+  const meta = holding.assetMeta ?? {};
+  const valueStale = realAssetIsStale(holding.lastUpdatedAt);
+  const stalenessLabel = realAssetStalenessLabel(holding.lastUpdatedAt);
+  const currentVal = holding.currentValue ?? holding.investedAmount;
+  const gain = holding.investedAmount > 0 ? currentVal - holding.investedAmount : null;
+  const gainPct = gain !== null && holding.investedAmount > 0 ? (gain / holding.investedAmount) * 100 : null;
+
+  const fuelColors: Record<string, string> = {
+    PETROL: '#f59e0b',
+    DIESEL: '#64748b',
+    ELECTRIC: '#10b981',
+    CNG: '#3b82f6',
+    HYBRID: '#8b5cf6'
+  };
+  const fuelKey = (meta.vehicleFuelType ?? '').toUpperCase();
+  const fuelColor = fuelColors[fuelKey] ?? '#64748b';
+  const isTwoWheeler = (meta.vehicleType ?? '').toLowerCase().includes('two');
+  const vehicleIcon = isTwoWheeler ? 'ti-motorbike' : 'ti-car';
+
+  const hasChallanData = meta.vehicleChallanFetchedAt != null;
+  const pendingChallans = meta.vehicleChallanPending ?? 0;
+
+  return (
+    <>
+      <button
+        onClick={() => setShowDetail(true)}
+        className="surface rounded-2xl px-4 py-3 flex flex-col gap-3 w-full text-left"
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: '#3b82f615' }}
+            >
+              <i className={`ti ${vehicleIcon}`} style={{ fontSize: 18, color: '#3b82f6' }} aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-primary truncate">
+                {meta.vehicleMake && meta.vehicleModel ? `${meta.vehicleMake} ${meta.vehicleModel}` : holding.name}
+              </p>
+              <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                {meta.vehicleYear && <span className="text-[10px] text-tertiary">{meta.vehicleYear}</span>}
+                {meta.vehicleFuelType && (
+                  <span
+                    className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-full"
+                    style={{ backgroundColor: `${fuelColor}18`, color: fuelColor }}
+                  >
+                    {meta.vehicleFuelType}
+                  </span>
+                )}
+                {meta.vehicleRegNumber && (
+                  <span className="text-[10px] font-mono text-tertiary">
+                    {mode === 'open' ? meta.vehicleRegNumber : `${meta.vehicleRegNumber.slice(0, 4)}••••`}
+                  </span>
+                )}
+                {meta.vehicleRcStatus && (
+                  <span
+                    className="text-[9px] font-bold uppercase px-1 py-0.5 rounded"
+                    style={{
+                      backgroundColor: meta.vehicleRcStatus === 'ACTIVE' ? '#10b98112' : '#ef444412',
+                      color: meta.vehicleRcStatus === 'ACTIVE' ? '#10b981' : '#ef4444'
+                    }}
+                  >
+                    {meta.vehicleRcStatus}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <i
+            className="ti ti-chevron-right text-tertiary flex-shrink-0 mt-1"
+            style={{ fontSize: 15 }}
+            aria-hidden="true"
+          />
+        </div>
+
+        {/* Owner + address */}
+        {meta.vehicleOwnerName && (
+          <div className="flex items-center justify-between gap-2 -mt-1">
+            <p className="text-[10px] text-secondary shrink-0">
+              <i className="ti ti-user mr-1 text-tertiary" style={{ fontSize: 10 }} aria-hidden="true" />
+              {mode === 'open' ? meta.vehicleOwnerName : '••••••••'}
+            </p>
+            {meta.vehiclePresentAddress && mode === 'open' && (
+              <p className="text-[10px] text-tertiary truncate text-right">{meta.vehiclePresentAddress}</p>
+            )}
+          </div>
+        )}
+
+        {/* Validity badges row */}
+        {(meta.vehicleInsuranceUpto || meta.vehiclePuccUpto || meta.vehicleRcValidUpto) && (
+          <div className="flex gap-2">
+            {meta.vehicleInsuranceUpto && <VehicleValidityBadge label="Insurance" upto={meta.vehicleInsuranceUpto} />}
+            {meta.vehiclePuccUpto && <VehicleValidityBadge label="PUC" upto={meta.vehiclePuccUpto} />}
+            {meta.vehicleRcValidUpto && <VehicleValidityBadge label="RC valid" upto={meta.vehicleRcValidUpto} />}
+          </div>
+        )}
+
+        {/* Value row — purchase price left, current value right */}
+        <div className="flex items-end justify-between gap-3">
+          {holding.investedAmount > 0 && (
+            <div>
+              <p className="text-[10px] text-tertiary mb-0.5">Purchase price</p>
+              <p className="text-sm font-semibold text-primary tabular-nums">
+                {mode === 'open' ? `₹${holding.investedAmount.toLocaleString('en-IN')}` : '••••'}
+              </p>
+              {gainPct !== null && (
+                <p className={`text-[9px] font-medium ${gainPct >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                  {gainPct >= 0 ? '+' : ''}
+                  {gainPct.toFixed(1)}% depreciation
+                </p>
+              )}
+            </div>
+          )}
+          <div className="text-right">
+            <p className="text-[10px] text-tertiary mb-0.5">Current value</p>
+            <p className="text-lg font-bold text-primary tabular-nums">
+              {mode === 'open' ? (currentVal > 0 ? `₹${currentVal.toLocaleString('en-IN')}` : '—') : '••••'}
+            </p>
+          </div>
+        </div>
+
+        {/* Challan row */}
+        {hasChallanData && (
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl"
+            style={{ backgroundColor: pendingChallans > 0 ? '#ef444410' : '#10b98110' }}
+          >
+            <i
+              className={`ti ${pendingChallans > 0 ? 'ti-alert-triangle' : 'ti-shield-check'}`}
+              style={{ fontSize: 13, color: pendingChallans > 0 ? '#ef4444' : '#10b981' }}
+              aria-hidden="true"
+            />
+            <p className="text-[10px] font-medium" style={{ color: pendingChallans > 0 ? '#ef4444' : '#10b981' }}>
+              {pendingChallans > 0
+                ? `${pendingChallans} pending challan${pendingChallans > 1 ? 's' : ''} · ₹${(meta.vehicleChallanPendingAmount ?? 0).toLocaleString('en-IN')}`
+                : 'No pending challans'}
+            </p>
+          </div>
+        )}
+
+        {/* Staleness label */}
+        <div className="flex items-center justify-between pt-0.5 border-t border-theme">
+          <p
+            className={`text-[10px] ${valueStale ? 'font-medium' : 'text-tertiary'}`}
+            style={valueStale ? { color: '#f59e0b' } : {}}
+          >
+            {valueStale && <i className="ti ti-clock-exclamation mr-1" style={{ fontSize: 11 }} aria-hidden="true" />}
+            {stalenessLabel}
+          </p>
+          <p className="text-[10px] text-tertiary">Tap for details →</p>
+        </div>
+      </button>
+
+      {showDetail && (
+        <VehicleDetailModal
+          holding={holding}
+          onClose={() => setShowDetail(false)}
+          onEdit={() => {
+            setShowDetail(false);
+            onEdit();
+          }}
+          onSave={async (updated) => {
+            await onSave(updated);
+            setShowDetail(false);
+          }}
+          mode={mode}
+        />
+      )}
+    </>
+  );
+}
+
+// ─── PropertyCard ─────────────────────────────────────────────────────────────
+
+function PropertyCard({
+  holding,
+  onEdit,
+  onSave,
+  mode
+}: {
+  holding: Holding;
+  onEdit: () => void;
+  onSave: (updated: Holding) => Promise<void>;
+  mode: string;
+}) {
+  const [showUpdateSheet, setShowUpdateSheet] = useState(false);
+  const meta = holding.assetMeta ?? {};
+  const currentVal = holding.currentValue ?? holding.investedAmount;
+  const gain = currentVal - holding.investedAmount;
+  const gainPct = holding.investedAmount > 0 ? (gain / holding.investedAmount) * 100 : 0;
+  const stale = realAssetIsStale(holding.lastUpdatedAt);
+  const stalenessLabel = realAssetStalenessLabel(holding.lastUpdatedAt);
+
+  const propTypeLabel: Record<string, string> = {
+    flat: 'Flat',
+    house: 'House',
+    plot: 'Plot',
+    commercial: 'Commercial'
+  };
+
+  return (
+    <>
+      <div className="surface rounded-2xl px-4 py-3 flex flex-col gap-2.5">
+        {/* Header row */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: '#8b5cf615' }}
+            >
+              <i className="ti ti-building" style={{ fontSize: 18, color: '#8b5cf6' }} aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-primary truncate">{holding.name}</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {meta.propertyType && (
+                  <span className="text-[10px] text-tertiary">
+                    {propTypeLabel[meta.propertyType] ?? meta.propertyType}
+                  </span>
+                )}
+                {meta.propertyCity && <span className="text-[10px] text-tertiary">· {meta.propertyCity}</span>}
+                {meta.propertyAreaSqft && (
+                  <span className="text-[10px] text-tertiary">
+                    · {meta.propertyAreaSqft.toLocaleString('en-IN')} sqft
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <button onClick={onEdit} className="w-8 h-8 flex items-center justify-center text-tertiary flex-shrink-0">
+            <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true" />
+          </button>
+        </div>
+
+        {/* Value row */}
+        <div className="flex items-end justify-between">
+          <div>
+            <p className="text-[10px] text-tertiary mb-0.5">Current value</p>
+            <p className="text-lg font-bold text-primary tabular-nums">
+              {mode === 'open' ? `₹${currentVal.toLocaleString('en-IN')}` : '••••'}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] text-tertiary mb-0.5">vs purchase</p>
+            <p className={`text-sm font-semibold tabular-nums ${gain >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+              {gain >= 0 ? '+' : ''}
+              {gainPct.toFixed(1)}%
+            </p>
+          </div>
+        </div>
+
+        {/* Staleness + update row */}
+        <div className="flex items-center justify-between pt-0.5 border-t border-theme">
+          <p
+            className={`text-[10px] ${stale ? 'font-medium' : 'text-tertiary'}`}
+            style={stale ? { color: '#f59e0b' } : {}}
+          >
+            {stale && <i className="ti ti-clock-exclamation mr-1" style={{ fontSize: 11 }} aria-hidden="true" />}
+            {stalenessLabel}
+          </p>
+          <button
+            onClick={() => setShowUpdateSheet(true)}
+            className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: '#8b5cf615', color: '#8b5cf6' }}
+          >
+            <i className="ti ti-refresh" style={{ fontSize: 11 }} aria-hidden="true" />
+            Update value
+          </button>
+        </div>
+      </div>
+
+      {showUpdateSheet && (
+        <UpdateValueSheet
+          holding={holding}
+          onSave={async (updated) => {
+            await onSave(updated);
+            setShowUpdateSheet(false);
+          }}
+          onClose={() => setShowUpdateSheet(false)}
+        />
+      )}
+    </>
+  );
+}
+
+// ─── RealAssetsTab ────────────────────────────────────────────────────────────
+
+function RealAssetsTab({
+  holdings,
+  onEdit,
+  onSave,
+  onAdd,
+  mode
+}: {
+  holdings: Holding[];
+  onEdit: (h: Holding) => void;
+  onSave: (h: Holding) => Promise<void>;
+  onAdd: (ac: 'vehicle' | 'property') => void;
+  mode: string;
+}) {
+  const vehicles = holdings.filter((h) => h.assetClass === 'vehicle');
+  const properties = holdings.filter((h) => h.assetClass === 'property');
+
+  return (
+    <div className="px-4 py-3 flex flex-col gap-4">
+      {/* Vehicles section */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold text-secondary flex items-center gap-1.5">
+            <i className="ti ti-car" style={{ fontSize: 14, color: '#3b82f6' }} aria-hidden="true" />
+            Vehicles
+          </p>
+          <button
+            onClick={() => onAdd('vehicle')}
+            className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: '#3b82f615', color: '#3b82f6' }}
+          >
+            <i className="ti ti-plus" style={{ fontSize: 11 }} aria-hidden="true" />
+            Add
+          </button>
+        </div>
+        {vehicles.length === 0 ? (
+          <button
+            onClick={() => onAdd('vehicle')}
+            className="w-full surface rounded-2xl px-4 py-5 flex flex-col items-center gap-2 border-dashed"
+            style={{ borderStyle: 'dashed', borderColor: 'var(--color-border)' }}
+          >
+            <i className="ti ti-car" style={{ fontSize: 28, color: '#3b82f640' }} aria-hidden="true" />
+            <p className="text-xs text-tertiary">Track your car, bike, or other vehicle</p>
+            <p className="text-[10px] font-semibold" style={{ color: '#3b82f6' }}>
+              + Add vehicle
+            </p>
+          </button>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {vehicles.map((h) => (
+              <VehicleCard key={h.id} holding={h} onEdit={() => onEdit(h)} onSave={onSave} mode={mode} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Properties section */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold text-secondary flex items-center gap-1.5">
+            <i className="ti ti-building" style={{ fontSize: 14, color: '#8b5cf6' }} aria-hidden="true" />
+            Property
+          </p>
+          <button
+            onClick={() => onAdd('property')}
+            className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: '#8b5cf615', color: '#8b5cf6' }}
+          >
+            <i className="ti ti-plus" style={{ fontSize: 11 }} aria-hidden="true" />
+            Add
+          </button>
+        </div>
+        {properties.length === 0 ? (
+          <button
+            onClick={() => onAdd('property')}
+            className="w-full surface rounded-2xl px-4 py-5 flex flex-col items-center gap-2"
+            style={{ borderStyle: 'dashed', borderColor: 'var(--color-border)' }}
+          >
+            <i className="ti ti-building" style={{ fontSize: 28, color: '#8b5cf640' }} aria-hidden="true" />
+            <p className="text-xs text-tertiary">Track flat, house, plot, or commercial property</p>
+            <p className="text-[10px] font-semibold" style={{ color: '#8b5cf6' }}>
+              + Add property
+            </p>
+          </button>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {properties.map((h) => (
+              <PropertyCard key={h.id} holding={h} onEdit={() => onEdit(h)} onSave={onSave} mode={mode} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── PortfolioPage ────────────────────────────────────────────────────────────
 
 export function PortfolioPage() {
@@ -2484,6 +3391,19 @@ export function PortfolioPage() {
                   );
                 })}
               </div>
+            ) : holdingsSubTab === 'real_assets' ? (
+              /* Real Assets — vehicle + property sections with dedicated cards */
+              <RealAssetsTab
+                holdings={subTabHoldings}
+                onEdit={openEdit}
+                onSave={saveHolding}
+                onAdd={(ac) => {
+                  setPresetAssetClass(ac);
+                  setEditingHolding(null);
+                  setShowForm(true);
+                }}
+                mode={mode}
+              />
             ) : subTabHoldings.length === 0 ? (
               <div className="p-10 text-center">
                 <i
