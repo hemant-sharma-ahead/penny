@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useEventMode, EVENT_COLORS, toEventHashtag, normalizeHashtag } from '@/context/EventModeContext';
-import type { EventSubtype } from '@/context/EventModeContext';
+import type { ActiveEvent, EventSubtype } from '@/context/EventModeContext';
 import {
   accountsRepo,
   budgetsRepo,
@@ -122,8 +122,17 @@ function IntentDonut({ segments, total }: { segments: DonutSegment[]; total: num
 export function ExpensesPage() {
   const navigate = useNavigate();
   const { mode } = usePrivacy();
-  const { events, pastEvents, allEventHashtags, addEvent, stopEvent, promoteHashtagToEvent, demoteEvent } =
-    useEventMode();
+  const {
+    events,
+    pastEvents,
+    allEventHashtags,
+    addEvent,
+    stopEvent,
+    updateEvent,
+    reactivateEvent,
+    promoteHashtagToEvent,
+    demoteEvent
+  } = useEventMode();
 
   const { items: expenses, save: saveExpense, remove: removeExpense } = useRepository(expensesRepo);
   const {
@@ -159,8 +168,22 @@ export function ExpensesPage() {
   const [showNewEventForm, setShowNewEventForm] = useState(false);
   const [newEventName, setNewEventName] = useState('');
   const [newEventType, setNewEventType] = useState<EventSubtype>('background');
+  const [newEventStartDate, setNewEventStartDate] = useState(TODAY_DATE_INPUT);
   const [newEventEndDate, setNewEventEndDate] = useState('');
   const [newEventColor, setNewEventColor] = useState(EVENT_COLORS[0] ?? '#ef4444');
+  const [vacationBlockError, setVacationBlockError] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<ActiveEvent | null>(null);
+  const [editEventName, setEditEventName] = useState('');
+  const [editEventStartDate, setEditEventStartDate] = useState('');
+  const [editEventEndDate, setEditEventEndDate] = useState('');
+  const [editEventColor, setEditEventColor] = useState(EVENT_COLORS[0] ?? '#ef4444');
+  const [reactivatingEvent, setReactivatingEvent] = useState<ActiveEvent | null>(null);
+  const [reactivateEndDate, setReactivateEndDate] = useState('');
+  const [unlinkDialog, setUnlinkDialog] = useState<{
+    outOfRangeCount: number;
+    onConfirm: () => void;
+    onConfirmUnlink: () => void;
+  } | null>(null);
 
   // ── Subscriptions tab state ───────────────────────────────────────────────────
   const { items: stored, save: saveSubscription } = useRepository(subscriptionsRepo);
@@ -394,6 +417,68 @@ export function ExpensesPage() {
     return { daysElapsed, daysInMonth, projected };
   }, [selectedMonth, analyticsTotal]);
 
+  // Count all expenses (not just this month) linked to each event hashtag
+  const linkedCountByEventHashtag = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of expenses) {
+      for (const tag of e.hashtags) {
+        const norm = normalizeHashtag(tag);
+        map.set(norm, (map.get(norm) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [expenses]);
+
+  function handleEditEventSave() {
+    if (!editingEvent) return;
+    const newName = editEventName.trim();
+    if (!newName) return;
+
+    const newStartMs = new Date(editEventStartDate).getTime();
+    const updates: Partial<Omit<ActiveEvent, 'id'>> = {
+      name: newName,
+      color: editEventColor,
+      startDate: newStartMs
+    };
+
+    if (editingEvent.subtype === 'immersive' && editEventEndDate) {
+      const newEndMs = new Date(editEventEndDate + 'T23:59:59').getTime();
+      updates.endDate = newEndMs;
+      const oldEndMs = editingEvent.endDate;
+      if (oldEndMs !== undefined && newEndMs < oldEndMs) {
+        const eventNorm = normalizeHashtag(editingEvent.hashtag);
+        const outOfRange = expenses.filter(
+          (e) => e.hashtags.some((t) => normalizeHashtag(t) === eventNorm) && (e.date > newEndMs || e.date < newStartMs)
+        );
+        if (outOfRange.length > 0) {
+          setUnlinkDialog({
+            outOfRangeCount: outOfRange.length,
+            onConfirm: () => {
+              updateEvent(editingEvent.id, updates);
+              setEditingEvent(null);
+              setUnlinkDialog(null);
+            },
+            onConfirmUnlink: () => {
+              const norm = normalizeHashtag(editingEvent.hashtag);
+              outOfRange.forEach((e) => {
+                saveExpense({ ...e, hashtags: e.hashtags.filter((t) => normalizeHashtag(t) !== norm) }).catch(() => {});
+              });
+              updateEvent(editingEvent.id, updates);
+              setEditingEvent(null);
+              setUnlinkDialog(null);
+            }
+          });
+          return;
+        }
+      }
+    } else if (!editEventEndDate) {
+      updates.endDate = undefined;
+    }
+
+    updateEvent(editingEvent.id, updates);
+    setEditingEvent(null);
+  }
+
   // ── Subscriptions derived ─────────────────────────────────────────────────────
 
   const detectedSubs = useMemo(() => {
@@ -559,19 +644,25 @@ export function ExpensesPage() {
   function handleCreateEvent() {
     const name = newEventName.trim();
     if (!name) return;
+    if (newEventType === 'immersive' && events.some((e) => e.subtype === 'immersive')) {
+      setVacationBlockError(true);
+      return;
+    }
+    setVacationBlockError(false);
     addEvent({
       name,
       subtype: newEventType,
       hashtag: toEventHashtag(name),
-      startDate: Date.now(),
+      startDate: new Date(newEventStartDate).getTime(),
       ...(newEventType === 'immersive' && newEventEndDate
-        ? { endDate: new Date(newEventEndDate).getTime() + 86_400_000 - 1 }
+        ? { endDate: new Date(newEventEndDate + 'T23:59:59').getTime() }
         : {}),
       autoTag: newEventType === 'immersive',
       color: newEventColor
     });
     setNewEventName('');
     setNewEventType('background');
+    setNewEventStartDate(TODAY_DATE_INPUT);
     setNewEventEndDate('');
     setNewEventColor(EVENT_COLORS[0] ?? '#ef4444');
     setShowNewEventForm(false);
@@ -582,18 +673,11 @@ export function ExpensesPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-theme">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h2 className="text-xl font-semibold text-primary">Transactions</h2>
-            <p className="text-sm mt-0.5 text-secondary">
-              This month:{' '}
-              <span className="font-medium text-primary">
-                {mode === 'open' ? formatCurrency(thisMonthTotal) : '••••'}
-              </span>
-            </p>
-          </div>
-          <div className="flex items-center gap-1 mt-0.5">
+      <div className="px-4 pt-4 pb-3 border-b border-theme flex flex-col gap-1">
+        {/* Row 1: title + action icons */}
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-xl font-semibold text-primary">Transactions</h2>
+          <div className="flex items-center gap-1">
             <button
               onClick={() => setShowEventSheet(true)}
               className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:text-primary hover:bg-surface-2 relative"
@@ -622,6 +706,24 @@ export function ExpensesPage() {
               <i className="ti ti-file-export" style={{ fontSize: 18 }} aria-hidden="true" />
             </button>
           </div>
+        </div>
+        {/* Row 2: this month total + vacation indicator */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-secondary">
+            This month:{' '}
+            <span className="font-medium text-primary">
+              {mode === 'open' ? formatCurrency(thisMonthTotal) : '••••'}
+            </span>
+          </p>
+          {events.find((e) => e.subtype === 'immersive') && (
+            <span
+              className="text-[10px] font-semibold flex items-center gap-1"
+              style={{ color: events.find((e) => e.subtype === 'immersive')?.color }}
+            >
+              <i className="ti ti-plane" style={{ fontSize: 11 }} aria-hidden="true" />
+              Vacation On · {events.find((e) => e.subtype === 'immersive')?.name}
+            </span>
+          )}
         </div>
       </div>
 
@@ -1691,178 +1793,474 @@ export function ExpensesPage() {
 
       {/* ── Event management sheet ── */}
       {showEventSheet && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center px-4"
+          style={{ paddingTop: 56, paddingBottom: 72 }}
+        >
           <div className="absolute inset-0 bg-black/30" onClick={() => setShowEventSheet(false)} />
-          <div className="relative w-full max-w-sm bg-surface rounded-2xl p-5 flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
+          <div className="relative w-full max-w-[430px] bg-surface rounded-2xl flex flex-col max-h-full overflow-hidden">
+            {/* Sticky header */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
               <h3 className="text-base font-semibold text-primary">Events</h3>
-              <button onClick={() => setShowEventSheet(false)} className="text-tertiary p-1">
+              <button
+                onClick={() => setShowEventSheet(false)}
+                className="min-w-[36px] min-h-[36px] flex items-center justify-center text-tertiary -mr-1"
+              >
                 <i className="ti ti-x" style={{ fontSize: 18 }} aria-hidden="true" />
               </button>
             </div>
 
-            {/* Active events list */}
-            {events.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-tertiary">Active</p>
-                {events.map((ev) => (
-                  <div key={ev.id} className="surface rounded-xl p-3 flex items-center gap-3">
-                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-primary truncate">{ev.name}</p>
-                      <p className="text-[10px] text-tertiary">
-                        #{ev.hashtag} · {ev.subtype === 'immersive' ? 'Vacation' : 'Event'} ·{' '}
-                        {ev.endDate ? `ends ${new Date(ev.endDate).toLocaleDateString('en-IN')}` : 'Ongoing'}
+            {/* Scrollable body */}
+            <div className="flex flex-col gap-4 px-5 pb-5 overflow-y-auto">
+              {/* ── New event toggle / form ── */}
+              {showNewEventForm ? (
+                <div className="flex flex-col gap-3 bg-surface-2 rounded-xl p-4">
+                  <div>
+                    <label className="text-xs font-medium text-secondary">Event name</label>
+                    <input
+                      type="text"
+                      className="input-surface mt-1 w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                      placeholder="e.g. Goa Trip, Home Renovation"
+                      value={newEventName}
+                      onChange={(e) => setNewEventName(e.target.value)}
+                      autoFocus
+                    />
+                    {newEventName.trim() && (
+                      <p className="text-[10px] mt-1 text-tertiary">
+                        Hashtag: <span style={{ color: 'var(--color-primary)' }}>#{toEventHashtag(newEventName)}</span>
                       </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-medium text-secondary">Type</label>
+                    <div className="mt-1 grid grid-cols-2 gap-2">
+                      {(['background', 'immersive'] as EventSubtype[]).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => {
+                            setNewEventType(t);
+                            setVacationBlockError(false);
+                          }}
+                          className="py-2.5 rounded-xl border-2 text-xs font-medium transition-colors"
+                          style={
+                            newEventType === t
+                              ? {
+                                  borderColor: 'var(--color-primary)',
+                                  color: 'var(--color-primary)',
+                                  backgroundColor: 'var(--color-surface)'
+                                }
+                              : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
+                          }
+                        >
+                          {t === 'background' ? '🗓 Event' : '✈ Vacation'}
+                        </button>
+                      ))}
                     </div>
+                    {vacationBlockError ? (
+                      <p className="text-[10px] mt-1.5 text-red-500">
+                        A vacation is already active. Stop it before starting a new one.
+                      </p>
+                    ) : (
+                      <p className="text-[10px] mt-1.5 text-tertiary">
+                        {newEventType === 'background'
+                          ? 'Open-ended. Tap the hashtag chip in the expense form to associate expenses.'
+                          : 'Fixed dates. Every expense is auto-tagged while the vacation is active.'}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-medium text-secondary">Start date</label>
+                      <input
+                        type="date"
+                        className="input-surface mt-1 w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                        value={newEventStartDate}
+                        onChange={(e) => {
+                          setNewEventStartDate(e.target.value);
+                          if (newEventEndDate && newEventEndDate < e.target.value) setNewEventEndDate(e.target.value);
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-secondary">End date</label>
+                      <input
+                        type="date"
+                        className="input-surface mt-1 w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] disabled:opacity-40"
+                        min={newEventStartDate}
+                        value={newEventEndDate}
+                        disabled={newEventType === 'background'}
+                        onChange={(e) => setNewEventEndDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-medium text-secondary">Colour</label>
+                    <div className="mt-1.5 flex gap-2">
+                      {EVENT_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setNewEventColor(c)}
+                          className="w-7 h-7 rounded-full border-2 transition-all"
+                          style={{
+                            backgroundColor: c,
+                            borderColor: newEventColor === c ? 'var(--color-text-primary)' : 'transparent',
+                            transform: newEventColor === c ? 'scale(1.2)' : 'scale(1)'
+                          }}
+                          aria-label={`Select colour ${c}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
                     <button
-                      onClick={() => stopEvent(ev.id)}
-                      className="text-xs text-red-500 border border-red-200 rounded-lg px-2.5 py-1 flex-shrink-0"
+                      onClick={() => {
+                        setShowNewEventForm(false);
+                        setNewEventName('');
+                        setVacationBlockError(false);
+                      }}
+                      className="flex-1 py-2.5 rounded-xl border border-theme text-secondary text-sm font-medium"
                     >
-                      Stop
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleCreateEvent}
+                      disabled={!newEventName.trim() || (newEventType === 'immersive' && !newEventEndDate)}
+                      className="flex-1 py-2.5 rounded-xl text-white text-sm font-medium disabled:opacity-40"
+                      style={{ backgroundColor: 'var(--color-primary)' }}
+                    >
+                      Start event
                     </button>
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowNewEventForm(true)}
+                  className="w-full py-3 rounded-xl border-2 border-dashed text-sm font-medium transition-colors text-secondary hover:text-primary"
+                  style={{ borderColor: 'var(--color-border-strong)' }}
+                >
+                  + New event
+                </button>
+              )}
 
-            {/* Past / promoted events */}
-            {pastEvents.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-tertiary">Tracked</p>
-                {pastEvents.map((ev) => (
-                  <div key={ev.id} className="surface rounded-xl p-3 flex items-center gap-3">
-                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-primary truncate">{ev.name}</p>
-                      <p className="text-[10px] text-tertiary">#{ev.hashtag} · expenses kept separate in analytics</p>
-                    </div>
-                    <button
-                      onClick={() => demoteEvent(ev.id)}
-                      className="text-xs text-tertiary border border-theme rounded-lg px-2.5 py-1 flex-shrink-0"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {events.length === 0 && pastEvents.length === 0 && !showNewEventForm && (
-              <p className="text-sm text-center text-tertiary py-2">
-                No active events. Start one to auto-tag your expenses.
-              </p>
-            )}
-
-            {/* New event form */}
-            {showNewEventForm ? (
-              <div className="flex flex-col gap-3 bg-surface-2 rounded-xl p-4">
-                <div>
-                  <label className="text-xs font-medium text-secondary">Event name</label>
-                  <input
-                    type="text"
-                    className="input-surface mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                    placeholder="e.g. Goa Trip, Home Renovation"
-                    value={newEventName}
-                    onChange={(e) => setNewEventName(e.target.value)}
-                    autoFocus
-                  />
-                  {newEventName.trim() && (
-                    <p className="text-[10px] mt-1 text-tertiary">
-                      Hashtag: <span style={{ color: 'var(--color-primary)' }}>#{toEventHashtag(newEventName)}</span>
-                    </p>
+              {/* ── Active events ── */}
+              {events.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-tertiary">Active</p>
+                  {events.map((ev) =>
+                    editingEvent?.id === ev.id ? (
+                      <div key={ev.id} className="flex flex-col gap-3 bg-surface-2 rounded-xl p-4">
+                        <div>
+                          <label className="text-xs font-medium text-secondary">Event name</label>
+                          <input
+                            type="text"
+                            className="input-surface mt-1 w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                            value={editEventName}
+                            onChange={(e) => setEditEventName(e.target.value)}
+                            autoFocus
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs font-medium text-secondary">Start date</label>
+                            <input
+                              type="date"
+                              className="input-surface mt-1 w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                              value={editEventStartDate}
+                              onChange={(e) => {
+                                setEditEventStartDate(e.target.value);
+                                if (editEventEndDate && editEventEndDate < e.target.value)
+                                  setEditEventEndDate(e.target.value);
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-secondary">End date</label>
+                            <input
+                              type="date"
+                              className="input-surface mt-1 w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] disabled:opacity-40"
+                              value={editEventEndDate}
+                              min={editEventStartDate}
+                              disabled={ev.subtype === 'background'}
+                              onChange={(e) => setEditEventEndDate(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-secondary">Colour</label>
+                          <div className="mt-1.5 flex gap-2">
+                            {EVENT_COLORS.map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                onClick={() => setEditEventColor(c)}
+                                className="w-7 h-7 rounded-full border-2 transition-all"
+                                style={{
+                                  backgroundColor: c,
+                                  borderColor: editEventColor === c ? 'var(--color-text-primary)' : 'transparent',
+                                  transform: editEventColor === c ? 'scale(1.2)' : 'scale(1)'
+                                }}
+                                aria-label={`Select colour ${c}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setEditingEvent(null)}
+                            className="flex-1 py-2.5 rounded-xl border border-theme text-secondary text-sm font-medium"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleEditEventSave}
+                            disabled={!editEventName.trim() || (ev.subtype === 'immersive' && !editEventEndDate)}
+                            className="flex-1 py-2.5 rounded-xl text-white text-sm font-medium disabled:opacity-40"
+                            style={{ backgroundColor: 'var(--color-primary)' }}
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div key={ev.id} className="surface rounded-xl p-3 flex items-center gap-3">
+                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-primary truncate">{ev.name}</p>
+                          <p className="text-[10px] text-tertiary">
+                            #{ev.hashtag} · {ev.subtype === 'immersive' ? 'Vacation' : 'Event'} ·{' '}
+                            {ev.endDate ? `ends ${new Date(ev.endDate).toLocaleDateString('en-IN')}` : 'Ongoing'}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setEditingEvent(ev);
+                            setEditEventName(ev.name);
+                            setEditEventColor(ev.color);
+                            setEditEventStartDate(epochToDateInput(ev.startDate));
+                            setEditEventEndDate(ev.endDate ? epochToDateInput(ev.endDate) : '');
+                          }}
+                          className="text-xs text-secondary border border-theme rounded-lg px-2.5 py-1 flex-shrink-0"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => stopEvent(ev.id)}
+                          className="text-xs text-red-500 border border-red-200 rounded-lg px-2.5 py-1 flex-shrink-0"
+                        >
+                          Stop
+                        </button>
+                      </div>
+                    )
                   )}
                 </div>
+              )}
 
-                <div>
-                  <label className="text-xs font-medium text-secondary">Type</label>
-                  <div className="mt-1 grid grid-cols-2 gap-2">
-                    {(['background', 'immersive'] as EventSubtype[]).map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setNewEventType(t)}
-                        className="py-2.5 rounded-xl border-2 text-xs font-medium transition-colors"
-                        style={
-                          newEventType === t
-                            ? {
-                                borderColor: 'var(--color-primary)',
-                                color: 'var(--color-primary)',
-                                backgroundColor: 'var(--color-surface-secondary)'
-                              }
-                            : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
-                        }
-                      >
-                        {t === 'background' ? '🗓 Event' : '✈ Vacation'}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[10px] mt-1.5 text-tertiary">
-                    {newEventType === 'background'
-                      ? 'Open-ended. Tap the hashtag chip in the expense form to associate expenses.'
-                      : 'Fixed dates. Every expense is auto-tagged while the vacation is active.'}
-                  </p>
+              {/* ── Tracked (past) events ── */}
+              {pastEvents.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-tertiary">Tracked</p>
+                  {pastEvents.map((ev) => {
+                    const linkedCount = linkedCountByEventHashtag.get(normalizeHashtag(ev.hashtag)) ?? 0;
+                    const endDatePast = ev.endDate !== undefined && ev.endDate < nowMs;
+                    const durationDays =
+                      ev.endDate !== undefined
+                        ? Math.max(1, Math.round((ev.endDate - ev.startDate) / 86_400_000))
+                        : null;
+                    const sameDay =
+                      ev.endDate !== undefined &&
+                      new Date(ev.startDate).toDateString() === new Date(ev.endDate).toDateString();
+                    const fmtShort = (ms: number) =>
+                      new Date(ms).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+                    const fmtFull = (ms: number) =>
+                      new Date(ms).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+                    const trackedDateLabel = ev.endDate
+                      ? sameDay
+                        ? `${fmtFull(ev.startDate)} · 1 day`
+                        : `${fmtShort(ev.startDate)} – ${fmtFull(ev.endDate)} · ${durationDays} day${durationDays !== 1 ? 's' : ''}`
+                      : fmtFull(ev.startDate);
+
+                    // Card header — shared between normal card and reactivate-form card
+                    const cardHeader = (
+                      <div className="flex items-start gap-3 p-3">
+                        <span
+                          className="w-3 h-3 rounded-full flex-shrink-0 mt-0.5"
+                          style={{ backgroundColor: ev.color }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-primary truncate">{ev.name}</p>
+                          <p className="text-[10px] text-tertiary mt-0.5 truncate">#{ev.hashtag}</p>
+                          <p className="text-[10px] text-tertiary truncate">{trackedDateLabel}</p>
+                        </div>
+                      </div>
+                    );
+
+                    // Inline reactivate form — shown when end date is in the past
+                    if (reactivatingEvent?.id === ev.id) {
+                      const isVacation = ev.subtype === 'immersive';
+                      return (
+                        <div key={ev.id} className="surface rounded-xl overflow-hidden">
+                          {cardHeader}
+                          <div className="h-px border-theme mx-3" style={{ borderTopWidth: 1 }} />
+                          <div className="flex flex-col gap-3 p-3">
+                            <div className="flex items-start gap-2 bg-amber-50 rounded-xl px-3 py-2.5">
+                              <i
+                                className="ti ti-alert-triangle text-amber-500 flex-shrink-0 mt-0.5"
+                                style={{ fontSize: 14 }}
+                                aria-hidden="true"
+                              />
+                              <p className="text-[11px] text-amber-700 leading-snug">
+                                {isVacation
+                                  ? 'End date has passed. Set a new end date to reactivate.'
+                                  : 'End date has passed. Reactivating will clear it so the event continues ongoing.'}
+                              </p>
+                            </div>
+                            {isVacation && (
+                              <div>
+                                <label className="text-xs font-medium text-secondary">New end date</label>
+                                <input
+                                  type="date"
+                                  className="input-surface mt-1 w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                                  min={TODAY_DATE_INPUT}
+                                  value={reactivateEndDate}
+                                  onChange={(e) => setReactivateEndDate(e.target.value)}
+                                  autoFocus
+                                />
+                              </div>
+                            )}
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => {
+                                  setReactivatingEvent(null);
+                                  setReactivateEndDate('');
+                                }}
+                                className="flex-1 py-2 rounded-xl border border-theme text-secondary text-sm font-medium"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (isVacation) {
+                                    if (!reactivateEndDate) return;
+                                    const newEndMs = new Date(reactivateEndDate + 'T23:59:59').getTime();
+                                    reactivateEvent(ev.id, { endDate: newEndMs });
+                                  } else {
+                                    reactivateEvent(ev.id);
+                                  }
+                                  setReactivatingEvent(null);
+                                  setReactivateEndDate('');
+                                }}
+                                disabled={isVacation && !reactivateEndDate}
+                                className="flex-1 py-2 rounded-xl text-white text-sm font-medium disabled:opacity-40"
+                                style={{ backgroundColor: 'var(--color-primary)' }}
+                              >
+                                Reactivate
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={ev.id} className="surface rounded-xl">
+                        <div className="flex items-start gap-3 p-3">
+                          <span
+                            className="w-3 h-3 rounded-full flex-shrink-0 mt-0.5"
+                            style={{ backgroundColor: ev.color }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-primary truncate">{ev.name}</p>
+                            <p className="text-[10px] text-tertiary mt-0.5 truncate">#{ev.hashtag}</p>
+                            <p className="text-[10px] text-tertiary truncate">{trackedDateLabel}</p>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button
+                              onClick={() => {
+                                if (endDatePast) {
+                                  setReactivatingEvent(ev);
+                                  setReactivateEndDate(ev.endDate ? epochToDateInput(ev.endDate) : '');
+                                } else {
+                                  reactivateEvent(ev.id);
+                                }
+                              }}
+                              className="text-xs text-secondary border border-theme rounded-lg px-2.5 py-1"
+                            >
+                              Reactivate
+                            </button>
+                            {linkedCount > 0 ? (
+                              <span className="text-[10px] text-tertiary border border-theme rounded-lg px-2 py-1">
+                                {linkedCount} linked
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => demoteEvent(ev.id)}
+                                className="text-xs text-tertiary border border-theme rounded-lg px-2.5 py-1"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
-                {newEventType === 'immersive' && (
-                  <div>
-                    <label className="text-xs font-medium text-secondary">End date</label>
-                    <input
-                      type="date"
-                      className="input-surface mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                      min={TODAY_DATE_INPUT}
-                      value={newEventEndDate}
-                      onChange={(e) => setNewEventEndDate(e.target.value)}
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <label className="text-xs font-medium text-secondary">Colour</label>
-                  <div className="mt-1.5 flex gap-2">
-                    {EVENT_COLORS.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setNewEventColor(c)}
-                        className="w-7 h-7 rounded-full border-2 transition-all"
-                        style={{
-                          backgroundColor: c,
-                          borderColor: newEventColor === c ? 'var(--color-text-primary)' : 'transparent',
-                          transform: newEventColor === c ? 'scale(1.2)' : 'scale(1)'
-                        }}
-                        aria-label={`Select colour ${c}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex gap-2 pt-1">
-                  <button
-                    onClick={() => setShowNewEventForm(false)}
-                    className="flex-1 py-2.5 rounded-xl border border-theme text-secondary text-sm font-medium"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleCreateEvent}
-                    disabled={!newEventName.trim()}
-                    className="flex-1 py-2.5 rounded-xl text-white text-sm font-medium disabled:opacity-40"
-                    style={{ backgroundColor: 'var(--color-primary)' }}
-                  >
-                    Start event
-                  </button>
-                </div>
+      {/* ── Unlink confirmation dialog ── */}
+      {unlinkDialog && (
+        <div
+          className="fixed inset-0 z-70 flex items-center justify-center px-4"
+          style={{ paddingTop: 56, paddingBottom: 72 }}
+        >
+          <div className="absolute inset-0 bg-black/40" onClick={() => setUnlinkDialog(null)} />
+          <div className="relative w-full max-w-[430px] bg-surface rounded-2xl p-5 flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
+                <i className="ti ti-alert-triangle text-amber-500" style={{ fontSize: 20 }} aria-hidden="true" />
               </div>
-            ) : (
+              <div>
+                <p className="text-sm font-semibold text-primary">Date range changed</p>
+                <p className="text-xs mt-0.5 text-tertiary">
+                  {unlinkDialog.outOfRangeCount} transaction
+                  {unlinkDialog.outOfRangeCount !== 1 ? 's fall' : ' falls'} outside the new date range.
+                </p>
+              </div>
+            </div>
+            <p className="text-xs leading-relaxed text-secondary">
+              You can keep them linked to this event, or unlink them so they appear in regular analytics instead.
+            </p>
+            <div className="flex flex-col gap-2">
               <button
-                onClick={() => setShowNewEventForm(true)}
-                className="w-full py-3 rounded-xl border-2 border-dashed text-sm font-medium transition-colors border-theme text-secondary hover:text-primary"
-                style={{ borderColor: 'var(--color-border-strong)' }}
+                onClick={unlinkDialog.onConfirmUnlink}
+                className="w-full py-3 rounded-xl text-white text-sm font-medium"
+                style={{ backgroundColor: 'var(--color-primary)' }}
               >
-                + New event
+                Confirm & Unlink
               </button>
-            )}
+              <button
+                onClick={unlinkDialog.onConfirm}
+                className="w-full py-3 rounded-xl border border-theme text-secondary text-sm font-medium"
+              >
+                Confirm, keep linked
+              </button>
+              <button
+                onClick={() => setUnlinkDialog(null)}
+                className="w-full py-3 rounded-xl text-secondary text-sm font-medium"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
