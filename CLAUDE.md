@@ -34,7 +34,7 @@ This file is read at the start of every Claude Code session. It tells you where 
 | M12: Portfolio enhancements          | ✅ Complete                                         |
 | M13: Financial calculators           | 🚧 In progress by PANKHURI                         |
 | M14: Finance news + Contact/Feedback | ⏳ Future                                           |
-| M15: UI polish + feature refinements | ⏳ Future                                           |
+| M15: UI polish + feature refinements | 🚧 In progress by HEMANT                           |
 
 **M5 step tracker:**
 
@@ -161,6 +161,22 @@ This file is read at the start of every Claude Code session. It tells you where 
 
 **M11 and M12 are complete.** Steps 70 (CAS PDF Import), 71 (Watchlist), and Export PDF/HTML deferred to Phase 2. Next milestone: M13 (Financial calculators — Pankhuri) or M14 (Finance news + Contact/Feedback).
 
+**M15 step tracker (in progress — branch: `feat/m15-ui-polish-refinements`):**
+
+| Step | Feature                                                                                                         | Status          |
+| ---- | --------------------------------------------------------------------------------------------------------------- | --------------- |
+| M15-1  | Modal centering — convert all bottom-sheet violations to centred modals per design rule                       | ⏳ Pending      |
+| M15-2  | Events system redesign — conditional delete, edit with unlink dialog, vacation guard, header UI cleanup       | ⏳ Pending      |
+| M15-3  | Privacy mode overhaul — open mode red theme, default mode setting, safe mode sensitivity rethink              | ⏳ Pending      |
+| M15-4  | Home net worth fixes — credit card in liabilities, Liquid Funds bucket, move Chip Insights to Chip screen     | ⏳ Pending      |
+| M15-5  | Market data strip on Home — indices, metals, commodities, city picker for fuel, user-customisable list        | ⏳ Pending      |
+| M15-6  | Expenses improvements — transaction filters (incl. event filter), accounts strip relocation, analytics redesign | ⏳ Pending     |
+| M15-7  | Recurring transactions expansion — daily/weekly/bi-weekly/monthly/quarterly/half-yearly/yearly rules           | ⏳ Pending      |
+| M15-8  | IPO Listed tab — FY year picker (default current FY), search bar, listing gain %                               | ⏳ Pending      |
+| M15-9  | Loans module redesign — My Loans + amortization schedule + payoff planner + XLSX download, 2-tab layout        | ⏳ Pending      |
+| M15-10 | EPF salary hike groups — per-employer hike timeline, salary period model, contribution recalculation           | ⏳ Pending      |
+| M15-11 | Shared component extraction — plan separately before starting (React Native migration considerations)           | ⏳ Pending      |
+
 **MF data model (step 68):**
 - `mfFundHouse`, `mfSchemeCategory`, `mfSchemeType` stored in `assetMeta` (fetched from MFAPI.in `/mf/{schemeCode}` detail endpoint on scheme selection)
 - Card shows: fund name, scheme category · fund house, gain ₹/%, units · avg NAV · live NAV strip
@@ -194,6 +210,33 @@ This file is read at the start of every Claude Code session. It tells you where 
 - **Horizontal margin.** Modals must never stretch edge-to-edge. Use `px-4` (16 px each side) on the overlay and `max-w-[430px]` on the card so there is always a visible gap between the card and the screen edges.
 - **Scrollable body.** Long content (forms, detail views) must scroll inside the card (`overflow-y-auto flex-1`) — the header and footer actions of the card stay sticky.
 - **Standard z-index ladder:** bottom nav `z-50` → app header `z-40` → modals `z-60` → nested modals / confirmation dialogs `z-70`.
+
+---
+
+## Branching & commit discipline
+
+These rules apply to every contributor and every Claude Code session — no exceptions.
+
+### Branch rule
+- Every milestone gets its own branch cut from `main`: `feat/m<N>-<short-slug>`
+- Never commit milestone work directly to `main`
+- Open a PR when the milestone (or a complete step within it) is ready
+
+### Before every commit
+All three gates must pass — fix any failures before committing, never skip them:
+
+1. **Prettier** — `npm run format` (or `npx prettier --write .`). No unformatted files.
+2. **ESLint** — `npm run lint`. Zero errors. Warnings are tolerated but should be minimised.
+3. **Tests** — `npm test -- --run`. All tests green.
+
+### Commit cadence
+- Commit after each completed step within a milestone (e.g. M15-1, M15-2, …).
+- Commit message format: `feat(m<N>): step <X> — <short description>`
+- After all steps in a milestone are done, open a PR to `main`.
+
+### PR rule
+- PR title: `feat(m<N>): <milestone short name>`
+- Every PR must pass CI before merge (lint + tests run in CI automatically).
 
 ---
 
