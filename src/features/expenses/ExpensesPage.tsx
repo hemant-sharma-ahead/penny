@@ -60,6 +60,79 @@ function monthLabel(m: string): string {
   return `${months[(parseInt(mo ?? '1', 10) - 1) % 12] ?? ''} ${y ?? ''}`.trim();
 }
 
+// ── Month picker modal ────────────────────────────────────────────────────────
+
+const MONTH_LABELS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function MonthPickerModal({
+  value,
+  onSelect,
+  onClose,
+  maxMonth
+}: {
+  value: string;
+  onSelect: (m: string) => void;
+  onClose: () => void;
+  maxMonth?: string;
+}) {
+  const [year, setYear] = useState(() => parseInt(value.split('-')[0] ?? String(new Date().getFullYear()), 10));
+  const maxYear = maxMonth
+    ? parseInt(maxMonth.split('-')[0] ?? String(new Date().getFullYear()), 10)
+    : new Date().getFullYear();
+
+  return (
+    <div
+      className="fixed inset-0 z-70 flex items-center justify-center px-4"
+      style={{ paddingTop: 56, paddingBottom: 72 }}
+    >
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="relative w-full max-w-sm bg-surface rounded-2xl p-5 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setYear((y) => y - 1)}
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-2"
+          >
+            <i className="ti ti-chevron-left" style={{ fontSize: 18 }} aria-hidden="true" />
+          </button>
+          <span className="text-base font-semibold text-primary">{year}</span>
+          <button
+            onClick={() => setYear((y) => y + 1)}
+            disabled={year >= maxYear}
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-2 disabled:opacity-30"
+          >
+            <i className="ti ti-chevron-right" style={{ fontSize: 18 }} aria-hidden="true" />
+          </button>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {MONTH_LABELS_SHORT.map((label, idx) => {
+            const m = `${year}-${String(idx + 1).padStart(2, '0')}`;
+            const isSelected = m === value;
+            const isDisabled = maxMonth ? m > maxMonth : false;
+            return (
+              <button
+                key={m}
+                onClick={() => {
+                  onSelect(m);
+                  onClose();
+                }}
+                disabled={isDisabled}
+                className="py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-30"
+                style={
+                  isSelected
+                    ? { backgroundColor: 'var(--color-primary)', color: '#fff' }
+                    : { backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-secondary)' }
+                }
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Donut chart ───────────────────────────────────────────────────────────────
 
 interface DonutSegment {
@@ -185,6 +258,18 @@ export function ExpensesPage() {
     onConfirmUnlink: () => void;
   } | null>(null);
 
+  // ── Transaction filter state ──────────────────────────────────────────────────
+  const [txnTypeFilter, setTxnTypeFilter] = useState<'all' | TransactionType>('all');
+  const [txnAccountFilter, setTxnAccountFilter] = useState<string | null>(null);
+  const [txnEventFilter, setTxnEventFilter] = useState<string | null>(null);
+  const [txnMonthFilter, setTxnMonthFilter] = useState<string>(toMonthYearKey);
+  const [showTxnMonthPicker, setShowTxnMonthPicker] = useState(false);
+
+  // ── Analytics state ───────────────────────────────────────────────────────────
+  const [analyticsView, setAnalyticsView] = useState<'monthly' | 'annual'>('monthly');
+  const [analyticsYear, setAnalyticsYear] = useState(() => new Date().getFullYear());
+  const [showAnalyticsMonthPicker, setShowAnalyticsMonthPicker] = useState(false);
+
   // ── Subscriptions tab state ───────────────────────────────────────────────────
   const { items: stored, save: saveSubscription } = useRepository(subscriptionsRepo);
   const [subActiveTab, setSubActiveTab] = useState<'detected' | 'active'>('detected');
@@ -245,9 +330,27 @@ export function ExpensesPage() {
   const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
   const accountMap = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
 
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter((e) => {
+      if (txnTypeFilter !== 'all' && (e.type ?? 'expense') !== txnTypeFilter) return false;
+      if (txnAccountFilter && e.accountId !== txnAccountFilter) return false;
+      if (txnEventFilter) {
+        const norm = normalizeHashtag(txnEventFilter);
+        if (!e.hashtags.some((t) => normalizeHashtag(t) === norm)) return false;
+      }
+      if (toMonthYearKey(new Date(e.date)) !== txnMonthFilter) return false;
+      return true;
+    });
+  }, [expenses, txnTypeFilter, txnAccountFilter, txnEventFilter, txnMonthFilter]);
+
+  const filteredTotal = useMemo(
+    () => filteredExpenses.filter((e) => !e.type || e.type === 'expense').reduce((s, e) => s + e.amount, 0),
+    [filteredExpenses]
+  );
+
   const grouped = useMemo(() => {
     const map = new Map<string, Expense[]>();
-    for (const e of expenses) {
+    for (const e of filteredExpenses) {
       const key = toDateKey(e.date);
       const arr = map.get(key) ?? [];
       arr.push(e);
@@ -256,14 +359,7 @@ export function ExpensesPage() {
     return Array.from(map.entries())
       .sort(([a], [b]) => b.localeCompare(a))
       .map(([key, items]) => ({ label: dateLabel(key), items: [...items].sort((a, b) => b.date - a.date) }));
-  }, [expenses]);
-
-  const thisMonthTotal = useMemo(() => {
-    const month = toMonthYearKey();
-    return expenses
-      .filter((e) => toMonthYearKey(new Date(e.date)) === month && (!e.type || e.type === 'expense'))
-      .reduce((s, e) => s + e.amount, 0);
-  }, [expenses]);
+  }, [filteredExpenses]);
 
   const monthBudgets = useMemo(() => budgets.filter((b) => b.monthYear === toMonthYearKey()), [budgets]);
 
@@ -416,6 +512,26 @@ export function ExpensesPage() {
     const projected = Math.round((analyticsTotal / daysElapsed) * daysInMonth);
     return { daysElapsed, daysInMonth, projected };
   }, [selectedMonth, analyticsTotal]);
+
+  const annualData = useMemo(() => {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = Array.from({ length: 12 }, (_, i) => ({
+      month: `${analyticsYear}-${String(i + 1).padStart(2, '0')}`,
+      label: monthNames[i] ?? '',
+      total: 0
+    }));
+    for (const e of expenses) {
+      if (e.type && e.type !== 'expense') continue;
+      const d = new Date(e.date);
+      if (d.getFullYear() !== analyticsYear) continue;
+      const slot = months[d.getMonth()];
+      if (slot) slot.total += e.amount;
+    }
+    return months;
+  }, [expenses, analyticsYear]);
+
+  const annualTotal = useMemo(() => annualData.reduce((s, m) => s + m.total, 0), [annualData]);
+  const annualMax = useMemo(() => Math.max(...annualData.map((m) => m.total), 1), [annualData]);
 
   // Count all expenses (not just this month) linked to each event hashtag
   const linkedCountByEventHashtag = useMemo(() => {
@@ -707,13 +823,11 @@ export function ExpensesPage() {
             </button>
           </div>
         </div>
-        {/* Row 2: this month total + vacation indicator */}
+        {/* Row 2: month total + vacation indicator */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-secondary">
-            This month:{' '}
-            <span className="font-medium text-primary">
-              {mode === 'open' ? formatCurrency(thisMonthTotal) : '••••'}
-            </span>
+            {monthLabel(txnMonthFilter)}:{' '}
+            <span className="font-medium text-primary">{mode === 'open' ? formatCurrency(filteredTotal) : '••••'}</span>
           </p>
           {events.find((e) => e.subtype === 'immersive') && (
             <span
@@ -752,6 +866,124 @@ export function ExpensesPage() {
           </button>
         ))}
       </div>
+
+      {/* ── Transaction filter bar (sticky, below tabs) ── */}
+      {activeTab === 'transactions' && (
+        <div className="flex-shrink-0 border-b border-theme">
+          {/* Account chips */}
+          {accounts.filter((a) => !a.isArchived).length > 0 && (
+            <div className="flex gap-2 overflow-x-auto px-4 pt-2 pb-1 scrollbar-none">
+              <button
+                onClick={() => setTxnAccountFilter(null)}
+                className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+                style={
+                  txnAccountFilter === null
+                    ? { backgroundColor: 'var(--color-text-primary)', color: 'var(--color-surface)' }
+                    : { backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-secondary)' }
+                }
+              >
+                All accounts
+              </button>
+              {accounts
+                .filter((a) => !a.isArchived)
+                .map((acc) => (
+                  <button
+                    key={acc.id}
+                    onClick={() => setTxnAccountFilter(txnAccountFilter === acc.id ? null : acc.id)}
+                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+                    style={
+                      txnAccountFilter === acc.id
+                        ? { backgroundColor: acc.color, color: '#fff' }
+                        : { backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-secondary)' }
+                    }
+                  >
+                    <i className={`ti ${acc.icon}`} style={{ fontSize: 11 }} aria-hidden="true" />
+                    {acc.name}
+                  </button>
+                ))}
+            </div>
+          )}
+
+          {/* Type + month + event chips */}
+          <div className="flex gap-2 overflow-x-auto px-4 pt-1 pb-2 scrollbar-none">
+            {(['all', 'expense', 'income', 'transfer'] as const).map((t) => {
+              const activeColors: Record<string, string> = {
+                all: 'var(--color-text-secondary)',
+                expense: '#ef4444',
+                income: '#10b981',
+                transfer: '#3b82f6'
+              };
+              const isActive = txnTypeFilter === t;
+              return (
+                <button
+                  key={t}
+                  onClick={() => setTxnTypeFilter(t)}
+                  className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+                  style={
+                    isActive
+                      ? { backgroundColor: activeColors[t], color: '#fff' }
+                      : { backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-secondary)' }
+                  }
+                >
+                  {t === 'all' ? 'All types' : t.charAt(0).toUpperCase() + t.slice(1)}
+                </button>
+              );
+            })}
+
+            <div
+              className="w-px self-stretch bg-border flex-shrink-0 mx-0.5"
+              style={{ backgroundColor: 'var(--color-border)' }}
+            />
+
+            {/* Month chip — tappable to open picker */}
+            <button
+              onClick={() => setShowTxnMonthPicker(true)}
+              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-theme"
+              style={{ backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-secondary)' }}
+            >
+              <i className="ti ti-calendar" style={{ fontSize: 11 }} aria-hidden="true" />
+              {monthLabel(txnMonthFilter)}
+            </button>
+
+            {/* Event filter chip */}
+            {[...events, ...pastEvents].length > 0 && (
+              <select
+                value={txnEventFilter ?? ''}
+                onChange={(e) => setTxnEventFilter(e.target.value || null)}
+                className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-theme focus:outline-none"
+                style={
+                  txnEventFilter
+                    ? { backgroundColor: 'var(--color-primary)', color: '#fff', borderColor: 'var(--color-primary)' }
+                    : { backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-secondary)' }
+                }
+              >
+                <option value="">All events</option>
+                {[...events, ...pastEvents].map((ev) => (
+                  <option key={ev.id} value={ev.hashtag}>
+                    {ev.name}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Clear filters */}
+            {(txnTypeFilter !== 'all' || txnAccountFilter || txnEventFilter) && (
+              <button
+                onClick={() => {
+                  setTxnTypeFilter('all');
+                  setTxnAccountFilter(null);
+                  setTxnEventFilter(null);
+                }}
+                className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium"
+                style={{ color: '#ef4444', backgroundColor: '#fef2f2' }}
+              >
+                <i className="ti ti-x" style={{ fontSize: 11 }} aria-hidden="true" />
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto pb-24">
@@ -913,38 +1145,178 @@ export function ExpensesPage() {
         {/* ── Analytics tab ── */}
         {activeTab === 'analytics' && (
           <div className="px-4 py-4 flex flex-col gap-4">
-            {/* Month navigation */}
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => {
-                  setSelectedMonth((m) => offsetMonth(m, -1));
-                  setExpandedGroup(null);
-                }}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:text-primary hover:bg-surface-2"
-                aria-label="Previous month"
-              >
-                <i className="ti ti-chevron-left" style={{ fontSize: 18 }} aria-hidden="true" />
-              </button>
-              <span className="text-sm font-semibold text-primary">{monthLabel(selectedMonth)}</span>
-              <button
-                onClick={() => {
-                  setSelectedMonth((m) => offsetMonth(m, 1));
-                  setExpandedGroup(null);
-                }}
-                disabled={selectedMonth >= toMonthYearKey()}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:text-primary hover:bg-surface-2 disabled:opacity-30 disabled:cursor-default"
-                aria-label="Next month"
-              >
-                <i className="ti ti-chevron-right" style={{ fontSize: 18 }} aria-hidden="true" />
-              </button>
+            {/* View toggle + navigation */}
+            <div className="flex items-center justify-between gap-3">
+              {/* Monthly / Annual toggle */}
+              <div className="flex gap-0.5 bg-surface-2 rounded-lg p-0.5 flex-shrink-0">
+                {(['monthly', 'annual'] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setAnalyticsView(v)}
+                    className="px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
+                    style={
+                      analyticsView === v
+                        ? {
+                            backgroundColor: 'var(--color-surface)',
+                            color: 'var(--color-text-primary)',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                          }
+                        : { color: 'var(--color-text-tertiary)' }
+                    }
+                  >
+                    {v.charAt(0).toUpperCase() + v.slice(1)}
+                  </button>
+                ))}
+              </div>
+
+              {/* Monthly navigation */}
+              {analyticsView === 'monthly' && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      setSelectedMonth((m) => offsetMonth(m, -1));
+                      setExpandedGroup(null);
+                    }}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-2"
+                    aria-label="Previous month"
+                  >
+                    <i className="ti ti-chevron-left" style={{ fontSize: 16 }} aria-hidden="true" />
+                  </button>
+                  <button
+                    onClick={() => setShowAnalyticsMonthPicker(true)}
+                    className="px-2.5 py-1 rounded-lg text-sm font-semibold text-primary hover:bg-surface-2 transition-colors"
+                  >
+                    {monthLabel(selectedMonth)}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedMonth((m) => offsetMonth(m, 1));
+                      setExpandedGroup(null);
+                    }}
+                    disabled={selectedMonth >= toMonthYearKey()}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-2 disabled:opacity-30"
+                    aria-label="Next month"
+                  >
+                    <i className="ti ti-chevron-right" style={{ fontSize: 16 }} aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+
+              {/* Annual navigation */}
+              {analyticsView === 'annual' && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setAnalyticsYear((y) => y - 1)}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-2"
+                    aria-label="Previous year"
+                  >
+                    <i className="ti ti-chevron-left" style={{ fontSize: 16 }} aria-hidden="true" />
+                  </button>
+                  <span className="px-2.5 py-1 text-sm font-semibold text-primary">{analyticsYear}</span>
+                  <button
+                    onClick={() => setAnalyticsYear((y) => y + 1)}
+                    disabled={analyticsYear >= new Date().getFullYear()}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-2 disabled:opacity-30"
+                    aria-label="Next year"
+                  >
+                    <i className="ti ti-chevron-right" style={{ fontSize: 16 }} aria-hidden="true" />
+                  </button>
+                </div>
+              )}
             </div>
 
-            {analyticsData.length === 0 ? (
+            {/* ── Annual view ── */}
+            {analyticsView === 'annual' && (
+              <>
+                {annualTotal === 0 ? (
+                  <div className="p-10 text-center">
+                    <i className="ti ti-chart-bar text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
+                    <p className="text-sm mt-3 text-tertiary">No expenses in {analyticsYear}.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="surface rounded-2xl p-4 flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-tertiary uppercase tracking-wide">
+                          Total {analyticsYear}
+                        </p>
+                        <p className="text-base font-bold text-primary">
+                          {mode === 'open' ? formatCurrency(annualTotal) : '••••'}
+                        </p>
+                      </div>
+                      {/* Bar chart */}
+                      <div className="flex items-end gap-1 h-20">
+                        {annualData.map((m) => {
+                          const heightPct =
+                            annualMax > 0 ? Math.max((m.total / annualMax) * 100, m.total > 0 ? 5 : 0) : 0;
+                          const isCurrentMonth = m.month === toMonthYearKey();
+                          return (
+                            <button
+                              key={m.month}
+                              onClick={() => {
+                                setSelectedMonth(m.month);
+                                setAnalyticsView('monthly');
+                                setExpandedGroup(null);
+                              }}
+                              disabled={m.total === 0}
+                              className="flex-1 flex flex-col items-center gap-0.5 group disabled:cursor-default"
+                              title={m.total > 0 ? `${m.label}: ${formatCurrency(m.total)}` : undefined}
+                            >
+                              <div className="w-full flex flex-col justify-end" style={{ height: '72px' }}>
+                                <div
+                                  className="w-full rounded-t-sm transition-all group-hover:opacity-80"
+                                  style={{
+                                    height: `${heightPct}%`,
+                                    backgroundColor: isCurrentMonth ? 'var(--color-primary)' : 'var(--color-primary)',
+                                    opacity: isCurrentMonth ? 1 : 0.5
+                                  }}
+                                />
+                              </div>
+                              <span className="text-[9px] text-tertiary">{m.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="surface rounded-xl divide-y divide-theme overflow-hidden">
+                      {annualData
+                        .filter((m) => m.total > 0)
+                        .sort((a, b) => b.total - a.total)
+                        .map((m, i) => (
+                          <button
+                            key={m.month}
+                            onClick={() => {
+                              setSelectedMonth(m.month);
+                              setAnalyticsView('monthly');
+                              setExpandedGroup(null);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-2"
+                          >
+                            <span className="text-xs text-tertiary w-4 flex-shrink-0">{i + 1}</span>
+                            <span className="text-sm font-medium text-primary flex-1">{monthLabel(m.month)}</span>
+                            <span className="text-sm font-semibold text-primary">
+                              {mode === 'open' ? formatCurrency(m.total) : '••••'}
+                            </span>
+                            <i
+                              className="ti ti-chevron-right text-tertiary"
+                              style={{ fontSize: 13 }}
+                              aria-hidden="true"
+                            />
+                          </button>
+                        ))}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+
+            {/* ── Monthly view ── */}
+            {analyticsView === 'monthly' && analyticsData.length === 0 ? (
               <div className="p-10 text-center">
                 <i className="ti ti-chart-donut text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
                 <p className="text-sm mt-3 text-tertiary">No expenses in {monthLabel(selectedMonth)}.</p>
               </div>
-            ) : (
+            ) : analyticsView === 'monthly' ? (
               <>
                 {/* Spend velocity — current month only */}
                 {spendVelocity && (
@@ -1216,7 +1588,7 @@ export function ExpensesPage() {
                   </div>
                 )}
               </>
-            )}
+            ) : null}
           </div>
         )}
 
@@ -2306,6 +2678,27 @@ export function ExpensesPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* ── Month pickers ── */}
+      {showTxnMonthPicker && (
+        <MonthPickerModal
+          value={txnMonthFilter}
+          onSelect={setTxnMonthFilter}
+          onClose={() => setShowTxnMonthPicker(false)}
+          maxMonth={toMonthYearKey()}
+        />
+      )}
+      {showAnalyticsMonthPicker && (
+        <MonthPickerModal
+          value={selectedMonth}
+          onSelect={(m) => {
+            setSelectedMonth(m);
+            setExpandedGroup(null);
+          }}
+          onClose={() => setShowAnalyticsMonthPicker(false)}
+          maxMonth={toMonthYearKey()}
+        />
       )}
 
       {/* ── Transaction form ── */}
