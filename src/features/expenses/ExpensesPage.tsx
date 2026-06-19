@@ -259,11 +259,15 @@ export function ExpensesPage() {
   } | null>(null);
 
   // ── Transaction filter state ──────────────────────────────────────────────────
+  const [txnSearch, setTxnSearch] = useState('');
   const [txnTypeFilter, setTxnTypeFilter] = useState<'all' | TransactionType>('all');
-  const [txnAccountFilter, setTxnAccountFilter] = useState<string | null>(null);
-  const [txnEventFilter, setTxnEventFilter] = useState<string | null>(null);
-  const [txnMonthFilter, setTxnMonthFilter] = useState<string>(toMonthYearKey);
+  const [txnAccountFilters, setTxnAccountFilters] = useState<Set<string>>(new Set());
+  const [txnParentCategoryFilters, setTxnParentCategoryFilters] = useState<Set<string>>(new Set());
+  const [txnCategoryFilters, setTxnCategoryFilters] = useState<Set<string>>(new Set());
+  const [txnEventFilters, setTxnEventFilters] = useState<Set<string>>(new Set());
+  const [txnMonthFilter, setTxnMonthFilter] = useState<string | null>(null);
   const [showTxnMonthPicker, setShowTxnMonthPicker] = useState(false);
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
 
   // ── Analytics state ───────────────────────────────────────────────────────────
   const [analyticsView, setAnalyticsView] = useState<'monthly' | 'annual'>('monthly');
@@ -330,18 +334,52 @@ export function ExpensesPage() {
   const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
   const accountMap = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
 
+  const activeFilterCount =
+    (txnMonthFilter ? 1 : 0) +
+    (txnTypeFilter !== 'all' ? 1 : 0) +
+    (txnAccountFilters.size > 0 ? 1 : 0) +
+    (txnParentCategoryFilters.size > 0 || txnCategoryFilters.size > 0 ? 1 : 0) +
+    (txnEventFilters.size > 0 ? 1 : 0);
+
   const filteredExpenses = useMemo(() => {
+    const q = txnSearch.trim().toLowerCase();
     return expenses.filter((e) => {
       if (txnTypeFilter !== 'all' && (e.type ?? 'expense') !== txnTypeFilter) return false;
-      if (txnAccountFilter && e.accountId !== txnAccountFilter) return false;
-      if (txnEventFilter) {
-        const norm = normalizeHashtag(txnEventFilter);
-        if (!e.hashtags.some((t) => normalizeHashtag(t) === norm)) return false;
+      if (txnAccountFilters.size > 0 && !txnAccountFilters.has(e.accountId ?? '')) return false;
+      if (txnCategoryFilters.size > 0) {
+        if (!txnCategoryFilters.has(e.categoryId)) return false;
+      } else if (txnParentCategoryFilters.size > 0) {
+        const group = categoryMap.get(e.categoryId)?.intentGroup;
+        if (!group || !txnParentCategoryFilters.has(group)) return false;
       }
-      if (toMonthYearKey(new Date(e.date)) !== txnMonthFilter) return false;
+      if (txnEventFilters.size > 0) {
+        const hasMatch = e.hashtags.some((t) => {
+          const norm = normalizeHashtag(t);
+          return [...txnEventFilters].some((f) => normalizeHashtag(f) === norm);
+        });
+        if (!hasMatch) return false;
+      }
+      if (txnMonthFilter && toMonthYearKey(new Date(e.date)) !== txnMonthFilter) return false;
+      if (q) {
+        const cat = categoryMap.get(e.categoryId);
+        const matchDesc = e.description.toLowerCase().includes(q);
+        const matchCat = cat?.name.toLowerCase().includes(q) ?? false;
+        const matchTag = e.hashtags.some((t) => t.toLowerCase().includes(q));
+        if (!matchDesc && !matchCat && !matchTag) return false;
+      }
       return true;
     });
-  }, [expenses, txnTypeFilter, txnAccountFilter, txnEventFilter, txnMonthFilter]);
+  }, [
+    expenses,
+    txnTypeFilter,
+    txnAccountFilters,
+    txnParentCategoryFilters,
+    txnCategoryFilters,
+    txnEventFilters,
+    txnMonthFilter,
+    txnSearch,
+    categoryMap
+  ]);
 
   const filteredTotal = useMemo(
     () => filteredExpenses.filter((e) => !e.type || e.type === 'expense').reduce((s, e) => s + e.amount, 0),
@@ -823,10 +861,10 @@ export function ExpensesPage() {
             </button>
           </div>
         </div>
-        {/* Row 2: month total + vacation indicator */}
+        {/* Row 2: filtered total label + vacation indicator */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-secondary">
-            {monthLabel(txnMonthFilter)}:{' '}
+            {txnMonthFilter ? monthLabel(txnMonthFilter) : 'All transactions'}:{' '}
             <span className="font-medium text-primary">{mode === 'open' ? formatCurrency(filteredTotal) : '••••'}</span>
           </p>
           {events.find((e) => e.subtype === 'immersive') && (
@@ -870,118 +908,164 @@ export function ExpensesPage() {
       {/* ── Transaction filter bar (sticky, below tabs) ── */}
       {activeTab === 'transactions' && (
         <div className="flex-shrink-0 border-b border-theme">
-          {/* Account chips */}
-          {accounts.filter((a) => !a.isArchived).length > 0 && (
-            <div className="flex gap-2 overflow-x-auto px-4 pt-2 pb-1 scrollbar-none">
-              <button
-                onClick={() => setTxnAccountFilter(null)}
-                className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
-                style={
-                  txnAccountFilter === null
-                    ? { backgroundColor: 'var(--color-text-primary)', color: 'var(--color-surface)' }
-                    : { backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-secondary)' }
-                }
-              >
-                All accounts
-              </button>
-              {accounts
-                .filter((a) => !a.isArchived)
-                .map((acc) => (
-                  <button
-                    key={acc.id}
-                    onClick={() => setTxnAccountFilter(txnAccountFilter === acc.id ? null : acc.id)}
-                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
-                    style={
-                      txnAccountFilter === acc.id
-                        ? { backgroundColor: acc.color, color: '#fff' }
-                        : { backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-secondary)' }
-                    }
-                  >
-                    <i className={`ti ${acc.icon}`} style={{ fontSize: 11 }} aria-hidden="true" />
-                    {acc.name}
-                  </button>
-                ))}
-            </div>
-          )}
-
-          {/* Type + month + event chips */}
-          <div className="flex gap-2 overflow-x-auto px-4 pt-1 pb-2 scrollbar-none">
-            {(['all', 'expense', 'income', 'transfer'] as const).map((t) => {
-              const activeColors: Record<string, string> = {
-                all: 'var(--color-text-secondary)',
-                expense: '#ef4444',
-                income: '#10b981',
-                transfer: '#3b82f6'
-              };
-              const isActive = txnTypeFilter === t;
-              return (
-                <button
-                  key={t}
-                  onClick={() => setTxnTypeFilter(t)}
-                  className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
-                  style={
-                    isActive
-                      ? { backgroundColor: activeColors[t], color: '#fff' }
-                      : { backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-secondary)' }
-                  }
-                >
-                  {t === 'all' ? 'All types' : t.charAt(0).toUpperCase() + t.slice(1)}
-                </button>
-              );
-            })}
-
-            <div
-              className="w-px self-stretch bg-border flex-shrink-0 mx-0.5"
-              style={{ backgroundColor: 'var(--color-border)' }}
-            />
-
-            {/* Month chip — tappable to open picker */}
+          {/* Month chip + search + funnel icon */}
+          <div className="flex items-center gap-2 px-4 py-2">
             <button
               onClick={() => setShowTxnMonthPicker(true)}
-              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-theme"
-              style={{ backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-secondary)' }}
+              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-theme bg-surface-2 text-sm font-medium"
+              style={{ color: txnMonthFilter ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}
             >
-              <i className="ti ti-calendar" style={{ fontSize: 11 }} aria-hidden="true" />
-              {monthLabel(txnMonthFilter)}
+              <i className="ti ti-calendar" style={{ fontSize: 14 }} aria-hidden="true" />
+              {txnMonthFilter ? monthLabel(txnMonthFilter) : 'All'}
+              {txnMonthFilter && (
+                <button
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    setTxnMonthFilter(null);
+                  }}
+                  className="ml-0.5 -mr-1"
+                  aria-label="Clear month filter"
+                >
+                  <i className="ti ti-x" style={{ fontSize: 11 }} aria-hidden="true" />
+                </button>
+              )}
             </button>
+            <div className="flex-1 flex items-center gap-2 rounded-xl px-3 py-2 border border-theme bg-surface-2">
+              <i className="ti ti-search text-tertiary" style={{ fontSize: 15 }} aria-hidden="true" />
+              <input
+                type="text"
+                value={txnSearch}
+                onChange={(e) => setTxnSearch(e.target.value)}
+                placeholder="Search…"
+                className="flex-1 bg-transparent text-sm focus:outline-none text-primary placeholder:text-tertiary"
+              />
+              {txnSearch && (
+                <button onClick={() => setTxnSearch('')} className="text-tertiary" aria-label="Clear search">
+                  <i className="ti ti-x" style={{ fontSize: 13 }} aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setShowFilterSheet(true)}
+              className="relative flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl border border-theme bg-surface-2 text-secondary"
+              aria-label="Open filters"
+            >
+              <i className="ti ti-adjustments-horizontal" style={{ fontSize: 18 }} aria-hidden="true" />
+              {activeFilterCount > 0 && (
+                <span
+                  className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-white font-bold"
+                  style={{ fontSize: 9, backgroundColor: '#ef4444' }}
+                >
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          </div>
 
-            {/* Event filter chip */}
-            {[...events, ...pastEvents].length > 0 && (
-              <select
-                value={txnEventFilter ?? ''}
-                onChange={(e) => setTxnEventFilter(e.target.value || null)}
-                className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-theme focus:outline-none"
-                style={
-                  txnEventFilter
-                    ? { backgroundColor: 'var(--color-primary)', color: '#fff', borderColor: 'var(--color-primary)' }
-                    : { backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-secondary)' }
-                }
-              >
-                <option value="">All events</option>
-                {[...events, ...pastEvents].map((ev) => (
-                  <option key={ev.id} value={ev.hashtag}>
-                    {ev.name}
-                  </option>
-                ))}
-              </select>
-            )}
+          {/* Active filter chips (dismissible) — shown when filters other than month are active */}
+          {(txnTypeFilter !== 'all' ||
+            txnAccountFilters.size > 0 ||
+            txnParentCategoryFilters.size > 0 ||
+            txnCategoryFilters.size > 0 ||
+            txnEventFilters.size > 0) && (
+            <div className="flex gap-2 overflow-x-auto px-4 pb-2 scrollbar-none">
+              {txnTypeFilter !== 'all' && (
+                <button
+                  onClick={() => setTxnTypeFilter('all')}
+                  className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-white"
+                  style={{
+                    backgroundColor:
+                      txnTypeFilter === 'expense' ? '#ef4444' : txnTypeFilter === 'income' ? '#10b981' : '#3b82f6'
+                  }}
+                >
+                  {txnTypeFilter.charAt(0).toUpperCase() + txnTypeFilter.slice(1)}
+                  <i className="ti ti-x" style={{ fontSize: 10 }} aria-hidden="true" />
+                </button>
+              )}
 
-            {/* Clear filters */}
-            {(txnTypeFilter !== 'all' || txnAccountFilter || txnEventFilter) && (
+              {(txnCategoryFilters.size > 0 || txnParentCategoryFilters.size > 0) &&
+                (() => {
+                  const catCount = txnCategoryFilters.size;
+                  const parentCount = txnParentCategoryFilters.size;
+                  let label: string;
+                  let color = 'var(--color-primary)';
+                  if (catCount === 1) {
+                    const cat = categoryMap.get([...txnCategoryFilters][0] ?? '');
+                    label = cat?.name ?? 'Category';
+                    color = cat?.color ?? color;
+                  } else if (catCount > 1) {
+                    label = `${catCount} categories`;
+                  } else if (parentCount === 1) {
+                    label = [...txnParentCategoryFilters][0]?.replace(/_/g, ' ') ?? 'Group';
+                  } else {
+                    label = `${parentCount} groups`;
+                  }
+                  return (
+                    <button
+                      onClick={() => {
+                        setTxnCategoryFilters(new Set());
+                        setTxnParentCategoryFilters(new Set());
+                      }}
+                      className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-white"
+                      style={{ backgroundColor: color }}
+                    >
+                      {label}
+                      <i className="ti ti-x" style={{ fontSize: 10 }} aria-hidden="true" />
+                    </button>
+                  );
+                })()}
+
+              {txnAccountFilters.size > 0 &&
+                (() => {
+                  const accs = [...txnAccountFilters].map((id) => accountMap.get(id)).filter(Boolean);
+                  const label = accs.length === 1 ? (accs[0]?.name ?? 'Account') : `${accs.length} accounts`;
+                  const color = accs.length === 1 ? (accs[0]?.color ?? 'var(--color-primary)') : 'var(--color-primary)';
+                  return (
+                    <button
+                      onClick={() => setTxnAccountFilters(new Set())}
+                      className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-white"
+                      style={{ backgroundColor: color }}
+                    >
+                      {label}
+                      <i className="ti ti-x" style={{ fontSize: 10 }} aria-hidden="true" />
+                    </button>
+                  );
+                })()}
+
+              {txnEventFilters.size > 0 &&
+                (() => {
+                  const evList = [...events, ...pastEvents].filter((ev) => txnEventFilters.has(ev.hashtag));
+                  const label = evList.length === 1 ? `#${evList[0]?.hashtag ?? ''}` : `${evList.length} events`;
+                  const color =
+                    evList.length === 1 ? (evList[0]?.color ?? 'var(--color-primary)') : 'var(--color-primary)';
+                  return (
+                    <button
+                      onClick={() => setTxnEventFilters(new Set())}
+                      className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-white"
+                      style={{ backgroundColor: color }}
+                    >
+                      {label}
+                      <i className="ti ti-x" style={{ fontSize: 10 }} aria-hidden="true" />
+                    </button>
+                  );
+                })()}
+
               <button
                 onClick={() => {
                   setTxnTypeFilter('all');
-                  setTxnAccountFilter(null);
-                  setTxnEventFilter(null);
+                  setTxnAccountFilters(new Set());
+                  setTxnParentCategoryFilters(new Set());
+                  setTxnCategoryFilters(new Set());
+                  setTxnEventFilters(new Set());
                 }}
                 className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium"
                 style={{ color: '#ef4444', backgroundColor: '#fef2f2' }}
               >
                 <i className="ti ti-x" style={{ fontSize: 11 }} aria-hidden="true" />
-                Clear
+                Clear all
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -2680,11 +2764,390 @@ export function ExpensesPage() {
         </div>
       )}
 
+      {/* ── Transaction filter modal ── */}
+      {showFilterSheet && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center px-4"
+          style={{ paddingTop: 56, paddingBottom: 72 }}
+        >
+          <div className="absolute inset-0 bg-black/30" onClick={() => setShowFilterSheet(false)} />
+          <div className="relative w-full max-w-[430px] bg-surface rounded-2xl flex flex-col max-h-full overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-4 border-b border-theme flex-shrink-0">
+              <p className="text-base font-semibold text-primary">Filters</p>
+              <button
+                onClick={() => setShowFilterSheet(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-2"
+              >
+                <i className="ti ti-x" style={{ fontSize: 18 }} aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-5 px-4 py-4 overflow-y-auto">
+              {/* Month */}
+              <div>
+                <p className="text-xs font-medium text-secondary mb-2">Month</p>
+                <button
+                  onClick={() => setShowTxnMonthPicker(true)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl border border-theme bg-surface-2 text-sm font-medium text-primary text-left"
+                >
+                  <i className="ti ti-calendar text-tertiary" style={{ fontSize: 15 }} aria-hidden="true" />
+                  <span className="flex-1">{txnMonthFilter ? monthLabel(txnMonthFilter) : 'All months'}</span>
+                  <i className="ti ti-chevron-right text-tertiary" style={{ fontSize: 14 }} aria-hidden="true" />
+                </button>
+              </div>
+
+              {/* Type — 4 equal pills in one row */}
+              <div>
+                <p className="text-xs font-medium text-secondary mb-2">Type</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {(['all', 'expense', 'income', 'transfer'] as const).map((t) => {
+                    const selColor: Record<string, string> = {
+                      all: 'var(--color-primary)',
+                      expense: '#ef4444',
+                      income: '#10b981',
+                      transfer: '#3b82f6'
+                    };
+                    const isSelected = txnTypeFilter === t;
+                    return (
+                      <button
+                        key={t}
+                        onClick={() => setTxnTypeFilter(t)}
+                        className="py-2 rounded-xl text-xs font-medium transition-colors"
+                        style={
+                          isSelected
+                            ? { backgroundColor: selColor[t], color: '#fff' }
+                            : {
+                                backgroundColor: 'var(--color-surface-secondary)',
+                                color: 'var(--color-text-secondary)',
+                                border: '0.5px solid var(--color-border)'
+                              }
+                        }
+                      >
+                        {t === 'all' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Event — multi-select wrapping chips */}
+              {[...events, ...pastEvents].length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-secondary mb-2">Event</p>
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={() => setTxnEventFilters(new Set())}
+                      className="px-3 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                      style={
+                        txnEventFilters.size === 0
+                          ? { backgroundColor: 'var(--color-text-primary)', color: 'var(--color-surface)' }
+                          : {
+                              backgroundColor: 'var(--color-surface-secondary)',
+                              color: 'var(--color-text-secondary)',
+                              border: '0.5px solid var(--color-border)'
+                            }
+                      }
+                    >
+                      All events
+                    </button>
+                    {[...events, ...pastEvents].map((ev) => {
+                      const isSelected = txnEventFilters.has(ev.hashtag);
+                      return (
+                        <button
+                          key={ev.id}
+                          onClick={() =>
+                            setTxnEventFilters((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(ev.hashtag)) next.delete(ev.hashtag);
+                              else next.add(ev.hashtag);
+                              return next;
+                            })
+                          }
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                          style={
+                            isSelected
+                              ? { backgroundColor: ev.color, color: '#fff' }
+                              : {
+                                  backgroundColor: 'var(--color-surface-secondary)',
+                                  color: 'var(--color-text-secondary)',
+                                  border: '0.5px solid var(--color-border)'
+                                }
+                          }
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: isSelected ? '#fff' : ev.color }}
+                          />
+                          {ev.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Account — icon-style multi-select */}
+              {accounts.filter((a) => !a.isArchived).length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-secondary mb-2">Account</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setTxnAccountFilters(new Set())}
+                      className="flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors w-16"
+                      style={{
+                        borderColor: txnAccountFilters.size === 0 ? 'var(--color-primary)' : 'transparent',
+                        backgroundColor: 'var(--color-surface-secondary)'
+                      }}
+                    >
+                      <i
+                        className="ti ti-layout-grid"
+                        style={{
+                          fontSize: 18,
+                          color: txnAccountFilters.size === 0 ? 'var(--color-primary)' : 'var(--color-text-tertiary)'
+                        }}
+                        aria-hidden="true"
+                      />
+                      <span
+                        className="text-[9px] font-medium text-center leading-tight"
+                        style={{
+                          color: txnAccountFilters.size === 0 ? 'var(--color-primary)' : 'var(--color-text-secondary)'
+                        }}
+                      >
+                        All
+                      </span>
+                    </button>
+                    {accounts
+                      .filter((a) => !a.isArchived)
+                      .map((acc) => {
+                        const isSelected = txnAccountFilters.has(acc.id);
+                        return (
+                          <button
+                            key={acc.id}
+                            onClick={() =>
+                              setTxnAccountFilters((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(acc.id)) next.delete(acc.id);
+                                else next.add(acc.id);
+                                return next;
+                              })
+                            }
+                            className="flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors w-16"
+                            style={{
+                              borderColor: isSelected ? acc.color : 'transparent',
+                              backgroundColor: 'var(--color-surface-secondary)'
+                            }}
+                          >
+                            <i
+                              className={`ti ${acc.icon}`}
+                              style={{ fontSize: 18, color: acc.color }}
+                              aria-hidden="true"
+                            />
+                            <span className="text-[9px] font-medium text-center leading-tight text-secondary line-clamp-2 break-words w-full">
+                              {acc.name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {/* Category group — multi-select, type-aware */}
+              {(() => {
+                const intentGroupLabel: Record<string, string> = {
+                  daily_living: 'Daily Living',
+                  home_utilities: 'Home & Utilities',
+                  health: 'Health',
+                  lifestyle: 'Lifestyle',
+                  financial: 'Financial',
+                  income: 'Income',
+                  transfers: 'Transfers',
+                  other: 'Other'
+                };
+                const applicableGroups =
+                  txnTypeFilter !== 'all'
+                    ? new Set(
+                        categories
+                          .filter((c) => (c.applicableTo ?? 'expense') === txnTypeFilter)
+                          .map((c) => c.intentGroup)
+                          .filter((g): g is string => !!g)
+                      )
+                    : null;
+                const allGroups = [
+                  ...new Set(categories.map((c) => c.intentGroup).filter((g): g is string => !!g))
+                ].map((g) => ({ key: g, label: intentGroupLabel[g] ?? g.replace(/_/g, ' ') }));
+                return (
+                  <div>
+                    <p className="text-xs font-medium text-secondary mb-2">Category group</p>
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        onClick={() => {
+                          setTxnParentCategoryFilters(new Set());
+                          setTxnCategoryFilters(new Set());
+                        }}
+                        className="px-3 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                        style={
+                          txnParentCategoryFilters.size === 0
+                            ? { backgroundColor: 'var(--color-primary)', color: '#fff' }
+                            : {
+                                backgroundColor: 'var(--color-surface-secondary)',
+                                color: 'var(--color-text-secondary)',
+                                border: '0.5px solid var(--color-border)'
+                              }
+                        }
+                      >
+                        All
+                      </button>
+                      {allGroups.map(({ key, label }) => {
+                        const isApplicable = applicableGroups === null || applicableGroups.has(key);
+                        const isSelected = txnParentCategoryFilters.has(key);
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => {
+                              if (!isApplicable) return;
+                              setTxnParentCategoryFilters((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(key)) next.delete(key);
+                                else next.add(key);
+                                return next;
+                              });
+                              setTxnCategoryFilters(new Set());
+                            }}
+                            className="px-3 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                            style={
+                              isSelected
+                                ? { backgroundColor: 'var(--color-primary)', color: '#fff' }
+                                : isApplicable
+                                  ? {
+                                      backgroundColor: 'var(--color-surface-secondary)',
+                                      color: 'var(--color-text-secondary)',
+                                      border: '0.5px solid var(--color-border)'
+                                    }
+                                  : {
+                                      backgroundColor: 'var(--color-surface-secondary)',
+                                      color: 'var(--color-text-tertiary)',
+                                      border: '0.5px solid var(--color-border)',
+                                      opacity: 0.4,
+                                      cursor: 'not-allowed'
+                                    }
+                            }
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Category — icon-style multi-select, filtered by selected groups */}
+              {(() => {
+                const visibleCategories =
+                  txnParentCategoryFilters.size > 0
+                    ? categories.filter((c) => c.intentGroup && txnParentCategoryFilters.has(c.intentGroup))
+                    : categories;
+                return (
+                  <div>
+                    <p className="text-xs font-medium text-secondary mb-2">Category</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setTxnCategoryFilters(new Set())}
+                        className="flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors w-16"
+                        style={{
+                          borderColor: txnCategoryFilters.size === 0 ? 'var(--color-primary)' : 'transparent',
+                          backgroundColor: 'var(--color-surface-secondary)'
+                        }}
+                      >
+                        <i
+                          className="ti ti-layout-grid"
+                          style={{
+                            fontSize: 16,
+                            color: txnCategoryFilters.size === 0 ? 'var(--color-primary)' : 'var(--color-text-tertiary)'
+                          }}
+                          aria-hidden="true"
+                        />
+                        <span
+                          className="text-[8px] font-medium text-center leading-tight"
+                          style={{
+                            color:
+                              txnCategoryFilters.size === 0 ? 'var(--color-primary)' : 'var(--color-text-secondary)'
+                          }}
+                        >
+                          All
+                        </span>
+                      </button>
+                      {visibleCategories.map((cat) => {
+                        const isSelected = txnCategoryFilters.has(cat.id);
+                        return (
+                          <button
+                            key={cat.id}
+                            onClick={() =>
+                              setTxnCategoryFilters((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(cat.id)) next.delete(cat.id);
+                                else next.add(cat.id);
+                                return next;
+                              })
+                            }
+                            className="flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors w-16"
+                            style={{
+                              borderColor: isSelected ? cat.color : 'transparent',
+                              backgroundColor: 'var(--color-surface-secondary)'
+                            }}
+                          >
+                            <i
+                              className={`ti ${cat.icon}`}
+                              style={{ fontSize: 16, color: cat.color }}
+                              aria-hidden="true"
+                            />
+                            <span className="text-[8px] font-medium text-center leading-tight text-secondary line-clamp-2 break-words w-full">
+                              {cat.name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="px-4 py-4 border-t border-theme flex-shrink-0 flex gap-3">
+              <button
+                onClick={() => {
+                  setTxnMonthFilter(null);
+                  setTxnTypeFilter('all');
+                  setTxnAccountFilters(new Set());
+                  setTxnParentCategoryFilters(new Set());
+                  setTxnCategoryFilters(new Set());
+                  setTxnEventFilters(new Set());
+                }}
+                className="flex-1 py-3 rounded-xl border border-theme text-sm font-medium text-secondary"
+              >
+                Clear filters
+              </button>
+              <button
+                onClick={() => setShowFilterSheet(false)}
+                className="flex-1 py-3 rounded-xl text-white text-sm font-semibold"
+                style={{ backgroundColor: 'var(--color-primary)' }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Month pickers ── */}
       {showTxnMonthPicker && (
         <MonthPickerModal
-          value={txnMonthFilter}
-          onSelect={setTxnMonthFilter}
+          value={txnMonthFilter ?? toMonthYearKey()}
+          onSelect={(m) => {
+            setTxnMonthFilter(m);
+            setShowTxnMonthPicker(false);
+          }}
           onClose={() => setShowTxnMonthPicker(false)}
           maxMonth={toMonthYearKey()}
         />
