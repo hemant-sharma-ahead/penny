@@ -1,31 +1,37 @@
-import { useMemo, useState } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { utils, writeFile } from 'xlsx';
 import { usePrivacy } from '@/context/PrivacyContext';
+import { useRepository } from '@/hooks/useRepository';
+import { liabilitiesRepo } from '@/core/db/repositories';
+import type { Liability, LiabilityType } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
-import {
-  scenarioEmi,
-  scenarioExtraEmi,
-  scenarioStepUp,
-  scenarioLumpSum,
-  scenarioBalanceTransfer,
-  scenarioCombination,
-  calcEmi
-} from '@/core/loans/calculator';
-import type { PrivacyMode } from '@/context/PrivacyContext';
+import { calcAmortization, deriveTenureMonths } from '@/core/loans/amortization';
+import type { LoanPlanParams } from '@/core/loans/amortization';
+import { calcEmi } from '@/core/loans/calculator';
 
-type ScenarioId = 'emi' | 'extra' | 'stepup' | 'lumpsum' | 'bt' | 'combo';
+// ── Constants ────────────────────────────────────────────────────────────────
 
-const SCENARIOS: { id: ScenarioId; label: string; icon: string }[] = [
-  { id: 'emi', label: 'EMI Calc', icon: 'ti-calculator' },
-  { id: 'extra', label: 'Extra EMI', icon: 'ti-coin' },
-  { id: 'stepup', label: 'Step-up', icon: 'ti-trending-up' },
-  { id: 'lumpsum', label: 'Lump Sum', icon: 'ti-cash' },
-  { id: 'bt', label: 'Bal. Transfer', icon: 'ti-arrows-exchange' },
-  { id: 'combo', label: 'Combo', icon: 'ti-sparkles' }
+const EMI_LOAN_TYPES: LiabilityType[] = [
+  'home_loan',
+  'car_loan',
+  'personal_loan',
+  'education_loan',
+  'gold_loan',
+  'lap'
 ];
 
-function fmtAmt(n: number, mode: PrivacyMode): string {
-  return mode === 'open' ? formatCurrency(Math.abs(Math.round(n))) : '••••';
-}
+const LOAN_META: Record<string, { label: string; icon: string; color: string }> = {
+  home_loan: { label: 'Home Loan', icon: 'ti-home', color: '#6366f1' },
+  car_loan: { label: 'Car Loan', icon: 'ti-car', color: '#3b82f6' },
+  personal_loan: { label: 'Personal Loan', icon: 'ti-user', color: '#f59e0b' },
+  education_loan: { label: 'Education Loan', icon: 'ti-school', color: '#10b981' },
+  gold_loan: { label: 'Gold Loan', icon: 'ti-coin', color: '#d97706' },
+  lap: { label: 'Loan Against Property', icon: 'ti-building', color: '#8b5cf6' }
+};
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtMonths(m: number): string {
   const y = Math.floor(m / 12);
@@ -35,477 +41,946 @@ function fmtMonths(m: number): string {
   return `${y}y ${mo}m`;
 }
 
-interface RowProps {
-  label: string;
-  value: string;
-  accent?: boolean;
-  saving?: boolean;
+function num(s: string): number {
+  return parseFloat(s) || 0;
 }
 
-function Row({ label, value, accent, saving }: RowProps) {
+// ── Sub-components ───────────────────────────────────────────────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <p className="text-xs font-semibold text-secondary uppercase tracking-wide mb-2">{children}</p>;
+}
+
+interface FieldProps {
+  label?: string;
+  prefix?: string;
+  suffix?: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  hint?: string;
+}
+function Field({ label, prefix, suffix, value, onChange, placeholder, hint }: FieldProps) {
   return (
-    <div className="flex items-center justify-between py-1.5">
-      <span className="text-sm text-secondary">{label}</span>
+    <div>
+      {label !== undefined && (
+        <div className="flex items-baseline justify-between mb-1">
+          <span className="text-xs font-medium text-secondary">{label}</span>
+          {hint && <span className="text-[10px] text-tertiary">{hint}</span>}
+        </div>
+      )}
+      <div className="flex items-center rounded-xl border border-theme bg-surface-2 overflow-hidden">
+        {prefix && <span className="pl-3 text-sm text-tertiary select-none">{prefix}</span>}
+        <input
+          type="number"
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="flex-1 bg-transparent px-3 py-2.5 text-sm text-primary focus:outline-none min-w-0"
+        />
+        {suffix && <span className="pr-3 text-sm text-tertiary select-none">{suffix}</span>}
+      </div>
+    </div>
+  );
+}
+
+interface CompareRowProps {
+  label: string;
+  original: string;
+  withPlan: string;
+  saving?: boolean;
+}
+function CompareRow({ label, original, withPlan, saving }: CompareRowProps) {
+  return (
+    <div className="flex items-center gap-2 py-1.5 border-b border-theme last:border-0">
+      <span className="flex-1 text-xs text-secondary">{label}</span>
+      <span className="w-24 text-right text-xs font-medium text-primary">{original}</span>
       <span
-        className="text-sm font-semibold"
-        style={{ color: saving ? '#10b981' : accent ? 'var(--color-primary)' : 'var(--color-text-primary)' }}
+        className="w-24 text-right text-xs font-semibold"
+        style={{ color: saving ? '#10b981' : 'var(--color-primary)' }}
       >
-        {value}
+        {withPlan}
       </span>
     </div>
   );
 }
 
-interface LabeledInputProps {
+interface SelectOption {
   label: string;
-  hint?: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  prefix?: string;
-  suffix?: string;
+  value: number;
 }
+interface CustomSelectProps {
+  value: number;
+  onChange: (v: number) => void;
+  options: SelectOption[];
+  className?: string;
+}
+function CustomSelect({ value, onChange, options, className }: CustomSelectProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
-function LabeledInput({ label, hint, value, onChange, placeholder, prefix, suffix }: LabeledInputProps) {
+  useEffect(() => {
+    if (!open) return;
+    function onOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
+  }, [open]);
+
+  const selected = options.find((o) => o.value === value);
+
   return (
-    <div>
-      <div className="flex items-baseline justify-between mb-1">
-        <label className="text-xs font-medium text-secondary">{label}</label>
-        {hint && <span className="text-[10px] text-tertiary">{hint}</span>}
-      </div>
-      <div className="relative flex items-center">
-        {prefix && (
-          <span className="absolute left-3 text-sm pointer-events-none select-none text-tertiary">{prefix}</span>
-        )}
-        <input
-          type="number"
-          inputMode="decimal"
-          className="w-full rounded-xl border py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-          style={{
-            paddingLeft: prefix ? '1.75rem' : '0.75rem',
-            paddingRight: suffix ? '2.5rem' : '0.75rem'
-          }}
-          placeholder={placeholder ?? '0'}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-        {suffix && (
-          <span className="absolute right-3 text-sm pointer-events-none select-none text-tertiary">{suffix}</span>
-        )}
-      </div>
+    <div ref={ref} className={`relative ${className ?? ''}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between input-surface rounded-xl border px-3 py-2.5 text-xs focus:outline-none"
+      >
+        <span className="text-primary">{selected?.label}</span>
+        <i className="ti ti-chevron-down text-tertiary" style={{ fontSize: 11 }} aria-hidden="true" />
+      </button>
+      {open && (
+        <div
+          className="absolute top-full left-0 right-0 mt-1 rounded-xl border border-theme shadow-lg overflow-hidden z-10"
+          style={{ backgroundColor: 'var(--color-surface)', maxHeight: 200, overflowY: 'auto' }}
+        >
+          {options.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => {
+                onChange(o.value);
+                setOpen(false);
+              }}
+              className="w-full text-left px-3 py-2 text-xs"
+              style={
+                o.value === value
+                  ? {
+                      color: 'var(--color-primary)',
+                      fontWeight: 600,
+                      backgroundColor: 'var(--color-surface-secondary)'
+                    }
+                  : { color: 'var(--color-text-primary)' }
+              }
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
+// ── Main component ───────────────────────────────────────────────────────────
+
 export function LoanScenariosPage() {
   const { mode } = usePrivacy();
-  const [scenario, setScenario] = useState<ScenarioId>('emi');
+  const { items: liabilities, save: saveLiability } = useRepository(liabilitiesRepo);
 
-  // Shared inputs (used by all except balance transfer)
+  const [activeTab, setActiveTab] = useState<'myloans' | 'planner'>('myloans');
+
+  // ── Planner state ──
+  const now = new Date();
   const [principal, setPrincipal] = useState('');
-  const [annualRate, setAnnualRate] = useState('');
-  const [tenureMonths, setTenureMonths] = useState('');
+  const [rate, setRate] = useState('');
+  const [tenureYrs, setTenureYrs] = useState('');
+  const [tenureMos, setTenureMos] = useState('');
+  const [startYear, setStartYear] = useState(now.getFullYear());
+  const [startMonth, setStartMonth] = useState(now.getMonth());
+  const [stepUp, setStepUp] = useState('0');
+  const [extraEmi, setExtraEmi] = useState('0');
+  const [strategy, setStrategy] = useState<'reduce_tenure' | 'reduce_emi'>('reduce_tenure');
+  const [prepayRows, setPrepayRows] = useState<{ id: string; month: string; amount: string }[]>([]);
 
-  // Scenario-specific inputs
-  const [extraPerYear, setExtraPerYear] = useState('1');
-  const [startEmi, setStartEmi] = useState('');
-  const [stepUpPct, setStepUpPct] = useState('10');
-  const [prepayMonth, setPrepayMonth] = useState('');
-  const [lumpSum, setLumpSum] = useState('');
-  const [outstanding, setOutstanding] = useState('');
-  const [remainingMonths, setRemainingMonths] = useState('');
-  const [currentRate, setCurrentRate] = useState('');
-  const [newRate, setNewRate] = useState('');
-  const [processingFee, setProcessingFee] = useState('');
-  const [comboExtra, setComboExtra] = useState('1');
-  const [comboLump, setComboLump] = useState('');
+  // ── Add Loan form state ──
+  const [showAddLoan, setShowAddLoan] = useState(false);
+  const [formType, setFormType] = useState<LiabilityType>('home_loan');
+  const [formName, setFormName] = useState('');
+  const [formLender, setFormLender] = useState('');
+  const [formOutstanding, setFormOutstanding] = useState('');
+  const [formRate, setFormRate] = useState('');
+  const [formTenureYrs, setFormTenureYrs] = useState('');
+  const [formTenureMos, setFormTenureMos] = useState('');
+  const [formSaving, setFormSaving] = useState(false);
 
-  // ── Parse shared ─────────────────────────────────────────────────────────────
-  const p = parseFloat(principal);
-  const r = parseFloat(annualRate);
-  const n = parseFloat(tenureMonths);
-  const sharedOk = p > 0 && r >= 0 && n > 0;
+  const formTenureTotal = num(formTenureYrs) * 12 + num(formTenureMos);
+  const computedEmi =
+    formTenureTotal > 0 && num(formOutstanding) > 0 && num(formRate) > 0
+      ? calcEmi(num(formOutstanding), num(formRate), formTenureTotal)
+      : null;
 
-  const suggestedStartEmi = sharedOk ? Math.round(calcEmi(p, r, n) * 0.75) : 0;
+  function openAddLoan() {
+    setFormType('home_loan');
+    setFormName('');
+    setFormLender('');
+    setFormOutstanding('');
+    setFormRate('');
+    setFormTenureYrs('');
+    setFormTenureMos('');
+    setShowAddLoan(true);
+  }
 
-  // ── Results via useMemo ────────────────────────────────────────────────────────
+  function handleSaveLoan(id: string, ts: number) {
+    if (!formName.trim() || !formOutstanding || !formRate || formSaving) return;
+    setFormSaving(true);
+    const loan: Liability = {
+      id,
+      type: formType,
+      name: formName.trim(),
+      lenderName: formLender.trim() || undefined,
+      principalAmount: num(formOutstanding),
+      outstandingAmount: num(formOutstanding),
+      interestRate: num(formRate),
+      emiAmount: computedEmi ?? undefined,
+      createdAt: ts,
+      updatedAt: ts
+    };
+    saveLiability(loan)
+      .then(() => {
+        setFormSaving(false);
+        setShowAddLoan(false);
+      })
+      .catch(() => setFormSaving(false));
+  }
 
-  const emiResult = useMemo(() => {
-    if (scenario !== 'emi' || !sharedOk) return null;
-    return scenarioEmi(p, r, n);
-  }, [scenario, p, r, n, sharedOk]);
+  // ── My Loans ──
+  const emiLoans = useMemo(() => liabilities.filter((l: Liability) => EMI_LOAN_TYPES.includes(l.type)), [liabilities]);
 
-  const extraResult = useMemo(() => {
-    if (scenario !== 'extra' || !sharedOk) return null;
-    const extra = parseFloat(extraPerYear);
-    if (!(extra > 0)) return null;
-    return scenarioExtraEmi(p, r, n, extra);
-  }, [scenario, p, r, n, sharedOk, extraPerYear]);
+  function prefillFromLoan(l: Liability) {
+    setPrincipal(String(Math.round(l.outstandingAmount)));
+    setRate(String(l.interestRate));
+    if (l.emiAmount) {
+      const t = deriveTenureMonths(l.outstandingAmount, l.interestRate, l.emiAmount);
+      setTenureYrs(String(Math.floor(t / 12)));
+      setTenureMos(String(t % 12));
+    } else {
+      setTenureYrs('');
+      setTenureMos('');
+    }
+    setStartYear(now.getFullYear());
+    setStartMonth(now.getMonth());
+    setStepUp('0');
+    setExtraEmi('0');
+    setStrategy('reduce_tenure');
+    setPrepayRows([]);
+    setActiveTab('planner');
+  }
 
-  const stepUpResult = useMemo(() => {
-    if (scenario !== 'stepup' || !sharedOk) return null;
-    const se = startEmi ? parseFloat(startEmi) : suggestedStartEmi;
-    const sup = parseFloat(stepUpPct);
-    if (!(se > 0) || !(sup >= 0)) return null;
-    return scenarioStepUp(p, r, n, se, sup);
-  }, [scenario, p, r, n, sharedOk, startEmi, stepUpPct, suggestedStartEmi]);
+  // ── Compute params ──
+  const totalTenureMonths = num(tenureYrs) * 12 + num(tenureMos);
 
-  const lumpSumResult = useMemo(() => {
-    if (scenario !== 'lumpsum' || !sharedOk) return null;
-    const pm = parseFloat(prepayMonth);
-    const ls = parseFloat(lumpSum);
-    if (!(pm > 0) || !(ls > 0)) return null;
-    return scenarioLumpSum(p, r, n, pm, ls);
-  }, [scenario, p, r, n, sharedOk, prepayMonth, lumpSum]);
-
-  const btResult = useMemo(() => {
-    if (scenario !== 'bt') return null;
-    const os = parseFloat(outstanding);
-    const rm = parseFloat(remainingMonths);
-    const cr = parseFloat(currentRate);
-    const nr = parseFloat(newRate);
-    const fee = processingFee ? parseFloat(processingFee) : 0;
-    if (!(os > 0) || !(rm > 0) || !(cr >= 0) || !(nr >= 0)) return null;
-    return scenarioBalanceTransfer(os, rm, cr, nr, fee);
-  }, [scenario, outstanding, remainingMonths, currentRate, newRate, processingFee]);
-
-  const comboResult = useMemo(() => {
-    if (scenario !== 'combo' || !sharedOk) return null;
-    const extra = parseFloat(comboExtra);
-    const ls = comboLump ? parseFloat(comboLump) : 0;
-    if (!(extra >= 0) || !(ls >= 0)) return null;
-    return scenarioCombination(p, r, n, extra, ls);
-  }, [scenario, p, r, n, sharedOk, comboExtra, comboLump]);
-
-  // ── Shared input block ────────────────────────────────────────────────────────
-  const sharedInputs = (
-    <>
-      <LabeledInput
-        label="Loan principal (₹)"
-        value={principal}
-        onChange={setPrincipal}
-        prefix="₹"
-        placeholder="e.g. 50,00,000"
-      />
-      <LabeledInput
-        label="Annual interest rate"
-        value={annualRate}
-        onChange={setAnnualRate}
-        suffix="%"
-        placeholder="e.g. 8.5"
-      />
-      <LabeledInput
-        label="Loan tenure"
-        value={tenureMonths}
-        onChange={setTenureMonths}
-        suffix="mo"
-        placeholder="e.g. 240"
-      />
-    </>
+  const planParams = useMemo(
+    (): LoanPlanParams => ({
+      principal: num(principal),
+      annualRatePct: num(rate),
+      tenureMonths: totalTenureMonths,
+      startYear,
+      startMonth,
+      stepUpPct: num(stepUp),
+      extraEmiPerYear: Math.round(num(extraEmi)),
+      prepayments: prepayRows
+        .map((r) => ({ month: parseInt(r.month, 10), amount: num(r.amount) }))
+        .filter((p) => p.month > 0 && p.amount > 0),
+      strategy
+    }),
+    [principal, rate, totalTenureMonths, startYear, startMonth, stepUp, extraEmi, prepayRows, strategy]
   );
 
-  // ── Render ────────────────────────────────────────────────────────────────────
+  const baseParams = useMemo(
+    (): LoanPlanParams => ({ ...planParams, stepUpPct: 0, extraEmiPerYear: 0, prepayments: [] }),
+    [planParams]
+  );
+
+  const result = useMemo(() => calcAmortization(planParams), [planParams]);
+  const baseline = useMemo(() => calcAmortization(baseParams), [baseParams]);
+
+  const isValid = planParams.principal > 0 && planParams.annualRatePct > 0 && planParams.tenureMonths > 0;
+  const hasAccelerators =
+    planParams.stepUpPct > 0 || planParams.extraEmiPerYear > 0 || planParams.prepayments.length > 0;
+  const interestSaved = Math.max(0, baseline.totalInterest - result.totalInterest);
+  const monthsSaved = Math.max(0, baseline.actualTenureMonths - result.actualTenureMonths);
+
+  // ── XLSX download ──
+  function downloadXlsx() {
+    if (!isValid || result.rows.length === 0) return;
+
+    const wb = utils.book_new();
+
+    // Sheet 1: Summary
+    const summaryData: (string | number)[][] = [
+      ['Penny — Loan Planner Summary'],
+      [],
+      ['Loan Parameters'],
+      ['Principal (₹)', planParams.principal],
+      ['Interest Rate', `${planParams.annualRatePct}% p.a.`],
+      ['Tenure', fmtMonths(planParams.tenureMonths)],
+      ['Start Month', `${MONTHS[planParams.startMonth]} ${planParams.startYear}`],
+      ['EMI Step-up', planParams.stepUpPct > 0 ? `${planParams.stepUpPct}% per year` : 'None'],
+      ['Extra EMI / year', planParams.extraEmiPerYear > 0 ? `${planParams.extraEmiPerYear}` : 'None'],
+      ['Prepayment Strategy', planParams.strategy === 'reduce_tenure' ? 'Reduce Tenure' : 'Reduce EMI'],
+      [],
+      ['Comparison', 'Original', 'With Plan', 'Saved'],
+      ['Tenure', fmtMonths(baseline.actualTenureMonths), fmtMonths(result.actualTenureMonths), fmtMonths(monthsSaved)],
+      [
+        'Total Interest (₹)',
+        Math.round(baseline.totalInterest),
+        Math.round(result.totalInterest),
+        Math.round(interestSaved)
+      ],
+      [
+        'Total Paid (₹)',
+        Math.round(baseline.totalEmiPaid),
+        Math.round(result.totalEmiPaid + result.totalPrepayment),
+        ''
+      ],
+      ['Total Prepayment (₹)', 0, Math.round(result.totalPrepayment), '']
+    ];
+    const ws1 = utils.aoa_to_sheet(summaryData);
+    utils.book_append_sheet(wb, ws1, 'Summary');
+
+    // Sheet 2: Amortization Schedule
+    const header = [
+      'Month',
+      'Date',
+      'Opening Balance (₹)',
+      'EMI (₹)',
+      'Principal (₹)',
+      'Interest (₹)',
+      'Prepayment (₹)',
+      'Closing Balance (₹)'
+    ];
+    const schedData: (string | number)[][] = [
+      header,
+      ...result.rows.map((r) => [
+        r.month,
+        r.date,
+        Math.round(r.openingBalance),
+        Math.round(r.emi),
+        Math.round(r.principal),
+        Math.round(r.interest),
+        r.prepayment > 0 ? Math.round(r.prepayment) : '',
+        Math.round(r.closingBalance)
+      ])
+    ];
+    const ws2 = utils.aoa_to_sheet(schedData);
+    ws2['!cols'] = [
+      { wch: 8 },
+      { wch: 10 },
+      { wch: 22 },
+      { wch: 12 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 16 },
+      { wch: 22 }
+    ];
+    utils.book_append_sheet(wb, ws2, 'Schedule');
+
+    writeFile(wb, `penny-loan-${planParams.annualRatePct}pct-${planParams.tenureMonths}m.xlsx`);
+  }
+
+  // ── Prepayment helpers ──
+  function addPrepayRow() {
+    setPrepayRows((prev) => [...prev, { id: crypto.randomUUID(), month: '', amount: '' }]);
+  }
+  function updatePrepayRow(id: string, field: 'month' | 'amount', val: string) {
+    setPrepayRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: val } : r)));
+  }
+  function removePrepayRow(id: string) {
+    setPrepayRows((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  const yearOptions = Array.from({ length: 8 }, (_, i) => now.getFullYear() - 1 + i);
+
+  // ── Render ───────────────────────────────────────────────────────────────
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-theme">
-        <h2 className="text-xl font-semibold text-primary">Loan Scenarios</h2>
-        <p className="text-xs mt-0.5 text-tertiary">On-device calculations — nothing leaves your phone</p>
+      <div className="px-4 pt-4 pb-3 border-b border-theme flex-shrink-0">
+        <h2 className="text-xl font-semibold text-primary">Loans</h2>
       </div>
 
-      {/* Scenario selector */}
-      <div className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide border-b border-theme">
-        {SCENARIOS.map((s) => (
+      {/* Tab bar */}
+      <div className="flex gap-1.5 px-4 py-2.5 border-b border-theme flex-shrink-0">
+        {(['myloans', 'planner'] as const).map((t) => (
           <button
-            key={s.id}
-            onClick={() => setScenario(s.id)}
-            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+            key={t}
+            onClick={() => setActiveTab(t)}
+            className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
             style={
-              scenario === s.id
+              activeTab === t
                 ? { backgroundColor: 'var(--color-primary)', color: '#fff' }
                 : { backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-secondary)' }
             }
           >
-            <i className={`ti ${s.icon}`} style={{ fontSize: 13 }} aria-hidden="true" />
-            {s.label}
+            {t === 'myloans' ? 'My Loans' : 'Planner'}
           </button>
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 pb-24 flex flex-col gap-4">
-        {/* ── Inputs ── */}
-        <div className="rounded-2xl p-4 flex flex-col gap-4 surface">
-          {/* Scenario 1: EMI Calculator */}
-          {scenario === 'emi' && sharedInputs}
+      {/* ── My Loans tab ── */}
+      {activeTab === 'myloans' && (
+        <div className="flex-1 overflow-y-auto px-4 py-3">
+          {emiLoans.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <i className="ti ti-building-bank text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
+              <p className="text-sm text-primary font-medium mt-3">No loans tracked yet</p>
+              <p className="text-xs text-tertiary mt-1 max-w-[260px]">
+                Track your home, car, or personal loans to plan repayment.
+              </p>
+              <button
+                onClick={openAddLoan}
+                className="mt-5 flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white"
+                style={{ backgroundColor: 'var(--color-primary)' }}
+              >
+                <i className="ti ti-plus" style={{ fontSize: 15 }} aria-hidden="true" />
+                Add Loan
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={openAddLoan}
+                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dashed border-theme text-xs font-medium text-secondary"
+              >
+                <i className="ti ti-plus" style={{ fontSize: 13 }} aria-hidden="true" />
+                Add Loan
+              </button>
+              {emiLoans.map((l: Liability) => {
+                const meta = LOAN_META[l.type] ?? { label: l.type, icon: 'ti-coin', color: 'var(--color-primary)' };
+                const monthsLeft = l.emiAmount
+                  ? deriveTenureMonths(l.outstandingAmount, l.interestRate, l.emiAmount)
+                  : l.endDate
+                    ? Math.max(0, Math.round((l.endDate - now.getTime()) / (30.44 * 24 * 60 * 60 * 1000)))
+                    : null;
 
-          {/* Scenario 2: Extra EMI */}
-          {scenario === 'extra' && (
-            <>
-              {sharedInputs}
-              <LabeledInput
-                label="Extra EMIs per year"
-                hint="e.g. from annual bonus"
-                value={extraPerYear}
-                onChange={setExtraPerYear}
-                placeholder="1"
-              />
-            </>
-          )}
+                return (
+                  <div key={l.id} className="surface rounded-2xl p-4">
+                    <div className="flex items-start gap-3">
+                      <div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: `${meta.color}18` }}
+                      >
+                        <i
+                          className={`ti ${meta.icon}`}
+                          style={{ fontSize: 18, color: meta.color }}
+                          aria-hidden="true"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-primary leading-tight">{l.name}</p>
+                        {l.lenderName && <p className="text-xs text-tertiary mt-0.5">{l.lenderName}</p>}
+                      </div>
+                      <span
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
+                        style={{ backgroundColor: `${meta.color}18`, color: meta.color }}
+                      >
+                        {meta.label}
+                      </span>
+                    </div>
 
-          {/* Scenario 3: Step-up */}
-          {scenario === 'stepup' && (
-            <>
-              {sharedInputs}
-              <LabeledInput
-                label="Starting EMI (₹)"
-                {...(suggestedStartEmi > 0 ? { hint: `suggested: ${formatCurrency(suggestedStartEmi)}` } : {})}
-                value={startEmi}
-                onChange={setStartEmi}
-                prefix="₹"
-                placeholder={suggestedStartEmi > 0 ? String(suggestedStartEmi) : 'e.g. 30,000'}
-              />
-              <LabeledInput
-                label="Annual EMI step-up"
-                hint="increase each year"
-                value={stepUpPct}
-                onChange={setStepUpPct}
-                suffix="%"
-                placeholder="10"
-              />
-            </>
-          )}
+                    <div className="grid grid-cols-3 gap-3 mt-3">
+                      <div>
+                        <p className="text-[10px] text-tertiary">Outstanding</p>
+                        <p className="text-sm font-semibold text-primary">
+                          {mode === 'open' ? formatCurrency(l.outstandingAmount) : '••••'}
+                        </p>
+                      </div>
+                      {l.emiAmount ? (
+                        <div>
+                          <p className="text-[10px] text-tertiary">EMI / month</p>
+                          <p className="text-sm font-semibold text-primary">
+                            {mode === 'open' ? formatCurrency(l.emiAmount) : '••••'}
+                          </p>
+                        </div>
+                      ) : null}
+                      <div>
+                        <p className="text-[10px] text-tertiary">Rate</p>
+                        <p className="text-sm font-semibold text-primary">{l.interestRate}% p.a.</p>
+                      </div>
+                    </div>
 
-          {/* Scenario 4: Lump Sum */}
-          {scenario === 'lumpsum' && (
-            <>
-              {sharedInputs}
-              <LabeledInput
-                label="Prepayment at month"
-                hint="EMI number when you pay"
-                value={prepayMonth}
-                onChange={setPrepayMonth}
-                placeholder="e.g. 24"
-              />
-              <LabeledInput
-                label="Lump sum amount (₹)"
-                value={lumpSum}
-                onChange={setLumpSum}
-                prefix="₹"
-                placeholder="e.g. 5,00,000"
-              />
-            </>
-          )}
+                    {monthsLeft !== null && (
+                      <div className="mt-2.5">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-[10px] text-tertiary">Estimated remaining</p>
+                          <p className="text-[10px] font-medium text-secondary">{fmtMonths(monthsLeft)}</p>
+                        </div>
+                      </div>
+                    )}
 
-          {/* Scenario 5: Balance Transfer */}
-          {scenario === 'bt' && (
-            <>
-              <LabeledInput
-                label="Outstanding principal (₹)"
-                value={outstanding}
-                onChange={setOutstanding}
-                prefix="₹"
-                placeholder="e.g. 40,00,000"
-              />
-              <LabeledInput
-                label="Remaining tenure"
-                value={remainingMonths}
-                onChange={setRemainingMonths}
-                suffix="mo"
-                placeholder="e.g. 180"
-              />
-              <LabeledInput
-                label="Current rate"
-                value={currentRate}
-                onChange={setCurrentRate}
-                suffix="%"
-                placeholder="e.g. 9.5"
-              />
-              <LabeledInput
-                label="New (lower) rate"
-                value={newRate}
-                onChange={setNewRate}
-                suffix="%"
-                placeholder="e.g. 8.5"
-              />
-              <LabeledInput
-                label="Processing fee (₹)"
-                hint="optional"
-                value={processingFee}
-                onChange={setProcessingFee}
-                prefix="₹"
-                placeholder="0"
-              />
-            </>
-          )}
-
-          {/* Scenario 6: Combination */}
-          {scenario === 'combo' && (
-            <>
-              {sharedInputs}
-              <LabeledInput label="Extra EMIs per year" value={comboExtra} onChange={setComboExtra} placeholder="1" />
-              <LabeledInput
-                label="Annual lump sum (₹)"
-                hint="optional"
-                value={comboLump}
-                onChange={setComboLump}
-                prefix="₹"
-                placeholder="0"
-              />
-            </>
+                    <button
+                      onClick={() => prefillFromLoan(l)}
+                      className="mt-3 w-full py-2 rounded-xl text-xs font-semibold border border-theme text-secondary flex items-center justify-center gap-1.5"
+                    >
+                      <i className="ti ti-calculator" style={{ fontSize: 13 }} aria-hidden="true" />
+                      Plan this loan
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
+      )}
 
-        {/* ── Results ── */}
-
-        {/* Scenario 1 */}
-        {scenario === 'emi' && emiResult && (
-          <div className="bg-emerald-50 rounded-2xl border border-emerald-100 p-4">
-            <p className="text-xs font-semibold text-emerald-700 mb-2 uppercase tracking-wide">Results</p>
-            <div className="divide-y divide-emerald-100">
-              <Row label="Monthly EMI" value={fmtAmt(emiResult.emi, mode)} accent />
-              <Row label="Total interest" value={fmtAmt(emiResult.totalInterest, mode)} />
-              <Row label="Total payment" value={fmtAmt(emiResult.totalPayment, mode)} />
-              <Row label="Interest as % of principal" value={`${emiResult.interestPct.toFixed(1)}%`} />
+      {/* ── Planner tab ── */}
+      {activeTab === 'planner' && (
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-4 py-4 flex flex-col gap-5">
+            {/* Loan Basics */}
+            <div>
+              <SectionLabel>Loan Basics</SectionLabel>
+              <div className="surface rounded-2xl p-4 flex flex-col gap-3">
+                <Field
+                  label="Principal"
+                  prefix="₹"
+                  value={principal}
+                  onChange={setPrincipal}
+                  placeholder="e.g. 5000000"
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Interest rate" suffix="% p.a." value={rate} onChange={setRate} placeholder="8.5" />
+                  <div>
+                    <p className="text-xs font-medium text-secondary mb-1">Start month</p>
+                    <div className="flex gap-1">
+                      <CustomSelect
+                        value={startMonth}
+                        onChange={setStartMonth}
+                        options={MONTHS.map((m, i) => ({ label: m, value: i }))}
+                        className="flex-1"
+                      />
+                      <CustomSelect
+                        value={startYear}
+                        onChange={setStartYear}
+                        options={yearOptions.map((y) => ({ label: String(y), value: y }))}
+                        className="w-20"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-secondary mb-1">Tenure</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field suffix="years" value={tenureYrs} onChange={setTenureYrs} placeholder="20" />
+                    <Field suffix="months" value={tenureMos} onChange={setTenureMos} placeholder="0" />
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
 
-        {/* Scenario 2 */}
-        {scenario === 'extra' && extraResult && (
-          <div className="bg-emerald-50 rounded-2xl border border-emerald-100 p-4">
-            <p className="text-xs font-semibold text-emerald-700 mb-2 uppercase tracking-wide">Results</p>
-            <div className="divide-y divide-emerald-100">
-              <Row label="Original tenure" value={fmtMonths(extraResult.baseMonths)} />
-              <Row label="New tenure" value={fmtMonths(extraResult.newMonths)} accent />
-              <Row label="Time saved" value={`${fmtMonths(extraResult.monthsSaved)} faster`} saving />
-              <Row label="Original interest" value={fmtAmt(extraResult.baseInterest, mode)} />
-              <Row label="New interest" value={fmtAmt(extraResult.newInterest, mode)} />
-              <Row label="Interest saved" value={fmtAmt(extraResult.interestSaved, mode)} saving />
+            {/* Accelerators */}
+            <div>
+              <SectionLabel>Accelerators</SectionLabel>
+              <div className="surface rounded-2xl p-4 flex flex-col gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Field
+                    label="EMI step-up"
+                    suffix="% / year"
+                    value={stepUp}
+                    onChange={setStepUp}
+                    placeholder="0"
+                    hint="0 = off"
+                  />
+                  <Field
+                    label="Extra EMI"
+                    suffix="/ year"
+                    value={extraEmi}
+                    onChange={setExtraEmi}
+                    placeholder="0"
+                    hint="0 = off"
+                  />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-secondary mb-1.5">Prepayment strategy</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['reduce_tenure', 'reduce_emi'] as const).map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => setStrategy(s)}
+                        className="py-2 rounded-xl text-xs font-medium border transition-colors"
+                        style={
+                          strategy === s
+                            ? {
+                                backgroundColor: 'var(--color-primary)',
+                                color: '#fff',
+                                borderColor: 'var(--color-primary)'
+                              }
+                            : {
+                                backgroundColor: 'var(--color-surface-secondary)',
+                                color: 'var(--color-text-secondary)',
+                                borderColor: 'var(--color-border)'
+                              }
+                        }
+                      >
+                        {s === 'reduce_tenure' ? 'Reduce tenure' : 'Reduce EMI'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
 
-        {/* Scenario 3 */}
-        {scenario === 'stepup' && stepUpResult && (
-          <div className="bg-emerald-50 rounded-2xl border border-emerald-100 p-4">
-            <p className="text-xs font-semibold text-emerald-700 mb-2 uppercase tracking-wide">Results</p>
-            <div className="divide-y divide-emerald-100">
-              <Row label="Starting EMI" value={fmtAmt(stepUpResult.startingEmi, mode)} accent />
-              <Row label="Flat EMI (standard)" value={fmtAmt(stepUpResult.flatEmi, mode)} />
-              <Row label="Effective tenure" value={fmtMonths(stepUpResult.actualMonths)} />
-              <Row label="Flat EMI interest" value={fmtAmt(stepUpResult.baseInterest, mode)} />
-              <Row label="Step-up interest" value={fmtAmt(stepUpResult.newInterest, mode)} />
-              {stepUpResult.interestDiff >= 0 ? (
-                <Row label="Interest saved" value={fmtAmt(stepUpResult.interestDiff, mode)} saving />
-              ) : (
-                <Row label="Extra interest paid" value={fmtAmt(-stepUpResult.interestDiff, mode)} />
-              )}
+            {/* Lump Sum Prepayments */}
+            <div>
+              <SectionLabel>Lump Sum Prepayments</SectionLabel>
+              <div className="surface rounded-2xl p-4 flex flex-col gap-3">
+                {prepayRows.length === 0 && (
+                  <p className="text-xs text-tertiary text-center py-1">
+                    No prepayments added. Add one-time lump sum payments below.
+                  </p>
+                )}
+                {prepayRows.map((r) => (
+                  <div key={r.id} className="flex items-center gap-2">
+                    <div className="flex items-center flex-1 rounded-xl border border-theme bg-surface-2 overflow-hidden">
+                      <span className="pl-3 text-xs text-tertiary whitespace-nowrap">Month</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        value={r.month}
+                        onChange={(e) => updatePrepayRow(r.id, 'month', e.target.value)}
+                        placeholder="e.g. 12"
+                        className="w-14 bg-transparent px-2 py-2.5 text-sm text-primary focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex items-center flex-1 rounded-xl border border-theme bg-surface-2 overflow-hidden">
+                      <span className="pl-3 text-xs text-tertiary">₹</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        value={r.amount}
+                        onChange={(e) => updatePrepayRow(r.id, 'amount', e.target.value)}
+                        placeholder="Amount"
+                        className="flex-1 bg-transparent px-2 py-2.5 text-sm text-primary focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      onClick={() => removePrepayRow(r.id)}
+                      className="w-9 h-9 flex items-center justify-center rounded-xl border border-theme text-tertiary flex-shrink-0"
+                      aria-label="Remove prepayment"
+                    >
+                      <i className="ti ti-x" style={{ fontSize: 14 }} aria-hidden="true" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={addPrepayRow}
+                  className="flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-theme text-xs font-medium text-secondary"
+                >
+                  <i className="ti ti-plus" style={{ fontSize: 13 }} aria-hidden="true" />
+                  Add prepayment
+                </button>
+              </div>
             </div>
-            {stepUpResult.actualMonths > n * 2 && (
-              <p className="text-xs text-amber-600 mt-3 bg-amber-50 rounded-lg p-2">
-                Starting EMI may be too low — loan takes significantly longer than planned.
-              </p>
+
+            {/* Results */}
+            {isValid && result.rows.length > 0 && (
+              <>
+                {/* Summary card */}
+                <div>
+                  <SectionLabel>Summary</SectionLabel>
+                  <div className="surface rounded-2xl p-4">
+                    <div className="flex items-center gap-2 pb-1.5 mb-0.5">
+                      <span className="flex-1" />
+                      <span className="w-24 text-right text-[10px] font-semibold text-tertiary uppercase">
+                        Original
+                      </span>
+                      <span className="w-24 text-right text-[10px] font-semibold text-tertiary uppercase">
+                        With plan
+                      </span>
+                    </div>
+                    <CompareRow
+                      label="Tenure"
+                      original={fmtMonths(baseline.actualTenureMonths)}
+                      withPlan={fmtMonths(result.actualTenureMonths)}
+                    />
+                    <CompareRow
+                      label="Total interest"
+                      original={mode === 'open' ? formatCurrency(baseline.totalInterest) : '••••'}
+                      withPlan={mode === 'open' ? formatCurrency(result.totalInterest) : '••••'}
+                    />
+                    <CompareRow
+                      label="Total paid"
+                      original={mode === 'open' ? formatCurrency(baseline.totalEmiPaid) : '••••'}
+                      withPlan={mode === 'open' ? formatCurrency(result.totalEmiPaid + result.totalPrepayment) : '••••'}
+                    />
+                    {result.totalPrepayment > 0 && (
+                      <CompareRow
+                        label="Total prepayment"
+                        original="—"
+                        withPlan={mode === 'open' ? formatCurrency(result.totalPrepayment) : '••••'}
+                      />
+                    )}
+                    {hasAccelerators && (
+                      <>
+                        <CompareRow
+                          label="Interest saved"
+                          original="—"
+                          withPlan={mode === 'open' ? formatCurrency(interestSaved) : '••••'}
+                          saving
+                        />
+                        <CompareRow label="Months saved" original="—" withPlan={fmtMonths(monthsSaved)} saving />
+                      </>
+                    )}
+
+                    <button
+                      onClick={downloadXlsx}
+                      className="mt-4 w-full py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2"
+                      style={{ backgroundColor: 'var(--color-primary)' }}
+                    >
+                      <i className="ti ti-table-down" style={{ fontSize: 16 }} aria-hidden="true" />
+                      Download XLSX
+                    </button>
+                  </div>
+                </div>
+
+                {/* Amortization table */}
+                <div>
+                  <SectionLabel>Amortization Schedule</SectionLabel>
+                  <div className="surface rounded-2xl overflow-hidden">
+                    {/* Header row */}
+                    <div
+                      className="grid text-[10px] font-semibold text-tertiary uppercase px-3 py-2 border-b border-theme bg-surface-2"
+                      style={{ gridTemplateColumns: '2rem 4.5rem 1fr 1fr 1fr 1fr' }}
+                    >
+                      <span>#</span>
+                      <span>Date</span>
+                      <span className="text-right">EMI</span>
+                      <span className="text-right">Principal</span>
+                      <span className="text-right">Interest</span>
+                      <span className="text-right">Balance</span>
+                    </div>
+
+                    {result.rows.map((r) => (
+                      <div key={r.month}>
+                        <div
+                          className="grid text-xs px-3 py-2 border-b border-theme last:border-0"
+                          style={{
+                            gridTemplateColumns: '2rem 4.5rem 1fr 1fr 1fr 1fr',
+                            backgroundColor: r.prepayment > 0 ? 'var(--color-surface-secondary)' : undefined
+                          }}
+                        >
+                          <span className="text-tertiary">{r.month}</span>
+                          <span className="text-tertiary truncate">{r.date}</span>
+                          <span className="text-right text-primary font-medium">
+                            {mode === 'open' ? formatCurrency(r.emi) : '••'}
+                          </span>
+                          <span className="text-right text-secondary">
+                            {mode === 'open' ? formatCurrency(r.principal) : '••'}
+                          </span>
+                          <span className="text-right" style={{ color: '#ef4444' }}>
+                            {mode === 'open' ? formatCurrency(r.interest) : '••'}
+                          </span>
+                          <span className="text-right text-primary">
+                            {mode === 'open' ? formatCurrency(r.closingBalance) : '••'}
+                          </span>
+                        </div>
+                        {r.prepayment > 0 && (
+                          <div
+                            className="flex items-center justify-between px-3 py-1 border-b border-theme"
+                            style={{ backgroundColor: 'var(--color-surface-secondary)' }}
+                          >
+                            <span className="text-[10px] font-medium" style={{ color: '#10b981' }}>
+                              <i className="ti ti-arrow-down-circle mr-1" style={{ fontSize: 11 }} aria-hidden="true" />
+                              Prepayment
+                            </span>
+                            <span className="text-[10px] font-semibold" style={{ color: '#10b981' }}>
+                              {mode === 'open' ? `− ${formatCurrency(r.prepayment)}` : '••••'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
-          </div>
-        )}
 
-        {/* Scenario 4 */}
-        {scenario === 'lumpsum' && lumpSumResult && (
-          <div className="flex flex-col gap-3">
-            <div className="rounded-2xl p-4 bg-surface-2 border border-theme">
-              <p className="text-xs font-medium mb-2 text-secondary">At month {prepayMonth}</p>
-              <div className="divide-y divide-[var(--color-border)]">
-                <Row label="Outstanding balance" value={fmtAmt(lumpSumResult.balanceAtMonth, mode)} />
-                <Row label="Interest remaining (base)" value={fmtAmt(lumpSumResult.baseInterestAfter, mode)} />
+            {!isValid && (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <i className="ti ti-calculator text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
+                <p className="text-sm text-secondary mt-3">
+                  Enter principal, rate, and tenure above to see the schedule.
+                </p>
               </div>
+            )}
+
+            <div style={{ height: 16 }} />
+          </div>
+        </div>
+      )}
+
+      {/* ── Add Loan modal ── */}
+      {showAddLoan && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center px-4"
+          style={{ paddingTop: 56, paddingBottom: 72, backgroundColor: 'rgba(0,0,0,0.5)' }}
+          onClick={() => setShowAddLoan(false)}
+        >
+          <div
+            className="surface rounded-2xl w-full max-w-[430px] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-theme flex-shrink-0">
+              <h3 className="text-base font-semibold text-primary">Add Loan</h3>
+              <button
+                onClick={() => setShowAddLoan(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-tertiary"
+              >
+                <i className="ti ti-x" style={{ fontSize: 16 }} aria-hidden="true" />
+              </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-emerald-50 rounded-2xl border border-emerald-100 p-3">
-                <p className="text-[11px] font-semibold text-emerald-700 mb-2">Option A — Reduce tenure</p>
-                <p className="text-xs text-secondary">Remaining tenure</p>
-                <p className="text-sm font-semibold text-primary">
-                  {fmtMonths(lumpSumResult.optionA.newRemainingMonths)}
-                </p>
-                <p className="text-[10px] text-emerald-600 mt-0.5">
-                  {fmtMonths(lumpSumResult.optionA.monthsSaved)} saved
-                </p>
-                <p className="text-xs text-secondary mt-2">Interest after</p>
-                <p className="text-sm font-semibold text-primary">
-                  {fmtAmt(lumpSumResult.optionA.interestAfter, mode)}
-                </p>
+            {/* Modal body */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+              {/* Loan type */}
+              <div>
+                <p className="text-xs font-medium text-secondary mb-1.5">Loan type</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {EMI_LOAN_TYPES.map((t) => {
+                    const m = LOAN_META[t] ?? { label: t, icon: 'ti-coin', color: 'var(--color-primary)' };
+                    return (
+                      <button
+                        key={t}
+                        onClick={() => setFormType(t)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-colors text-left"
+                        style={
+                          formType === t
+                            ? { backgroundColor: `${m.color}18`, borderColor: m.color, color: m.color }
+                            : {
+                                backgroundColor: 'var(--color-surface-secondary)',
+                                borderColor: 'var(--color-border)',
+                                color: 'var(--color-text-secondary)'
+                              }
+                        }
+                      >
+                        <i className={`ti ${m.icon}`} style={{ fontSize: 14 }} aria-hidden="true" />
+                        {m.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="bg-blue-50 rounded-2xl border border-blue-100 p-3">
-                <p className="text-[11px] font-semibold text-blue-700 mb-2">Option B — Reduce EMI</p>
-                <p className="text-xs text-secondary">New monthly EMI</p>
-                <p className="text-sm font-semibold text-primary">{fmtAmt(lumpSumResult.optionB.newEmi, mode)}</p>
-                <p className="text-[10px] text-blue-600 mt-0.5">
-                  {fmtAmt(lumpSumResult.optionB.emiReduction, mode)} lower
-                </p>
-                <p className="text-xs text-secondary mt-2">Interest after</p>
-                <p className="text-sm font-semibold text-primary">
-                  {fmtAmt(lumpSumResult.optionB.interestAfter, mode)}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* Scenario 5: Balance Transfer */}
-        {scenario === 'bt' && btResult === null && outstanding && remainingMonths && currentRate && newRate && (
-          <div className="bg-amber-50 rounded-2xl border border-amber-100 p-4">
-            <p className="text-sm text-amber-700">
-              New rate must be lower than current rate for a balance transfer to make sense.
-            </p>
-          </div>
-        )}
-        {scenario === 'bt' && btResult && (
-          <div className="bg-emerald-50 rounded-2xl border border-emerald-100 p-4">
-            <p className="text-xs font-semibold text-emerald-700 mb-2 uppercase tracking-wide">Results</p>
-            <div className="divide-y divide-emerald-100">
-              <Row label="Current EMI" value={fmtAmt(btResult.currentEmi, mode)} />
-              <Row label="New EMI" value={fmtAmt(btResult.newEmi, mode)} accent />
-              <Row label="EMI reduction" value={fmtAmt(btResult.emiReduction, mode)} saving />
-              <Row label="Interest remaining (current)" value={fmtAmt(btResult.currentInterestRemaining, mode)} />
-              <Row label="Interest remaining (new)" value={fmtAmt(btResult.newInterestRemaining, mode)} />
-              <Row label="Gross saving" value={fmtAmt(btResult.grossSaving, mode)} saving />
-              <Row
-                label="Net saving (after fee)"
-                value={
-                  btResult.netSaving >= 0 ? fmtAmt(btResult.netSaving, mode) : `−${fmtAmt(-btResult.netSaving, mode)}`
-                }
-                saving={btResult.netSaving >= 0}
-              />
-              {btResult.breakEvenMonths !== null && (
-                <Row label="Break-even" value={`${fmtMonths(btResult.breakEvenMonths)} to recover fee`} />
+              {/* Name */}
+              <div>
+                <p className="text-xs font-medium text-secondary mb-1">Loan name</p>
+                <input
+                  type="text"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  placeholder={`e.g. ${LOAN_META[formType]?.label ?? 'My Loan'}`}
+                  className="input-surface w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none"
+                />
+              </div>
+
+              {/* Lender */}
+              <div>
+                <p className="text-xs font-medium text-secondary mb-1">
+                  Lender <span className="text-tertiary font-normal">(optional)</span>
+                </p>
+                <input
+                  type="text"
+                  value={formLender}
+                  onChange={(e) => setFormLender(e.target.value)}
+                  placeholder="e.g. HDFC Bank, SBI"
+                  className="input-surface w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none"
+                />
+              </div>
+
+              {/* Outstanding + Rate */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs font-medium text-secondary mb-1">Outstanding (₹)</p>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={formOutstanding}
+                    onChange={(e) => setFormOutstanding(e.target.value)}
+                    placeholder="e.g. 2500000"
+                    className="input-surface w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-secondary mb-1">Rate (% p.a.)</p>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={formRate}
+                    onChange={(e) => setFormRate(e.target.value)}
+                    placeholder="e.g. 8.5"
+                    className="input-surface w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Tenure */}
+              <div>
+                <p className="text-xs font-medium text-secondary mb-1">Tenure</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center rounded-xl border border-theme bg-surface-2 overflow-hidden">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={formTenureYrs}
+                      onChange={(e) => setFormTenureYrs(e.target.value)}
+                      placeholder="e.g. 20"
+                      className="flex-1 bg-transparent px-3 py-2.5 text-sm text-primary focus:outline-none min-w-0"
+                    />
+                    <span className="pr-3 text-sm text-tertiary select-none">yr</span>
+                  </div>
+                  <div className="flex items-center rounded-xl border border-theme bg-surface-2 overflow-hidden">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={formTenureMos}
+                      onChange={(e) => setFormTenureMos(e.target.value)}
+                      placeholder="0"
+                      className="flex-1 bg-transparent px-3 py-2.5 text-sm text-primary focus:outline-none min-w-0"
+                    />
+                    <span className="pr-3 text-sm text-tertiary select-none">mo</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Computed EMI */}
+              {computedEmi !== null && (
+                <div
+                  className="flex items-center justify-between px-3 py-2.5 rounded-xl"
+                  style={{ backgroundColor: 'var(--color-surface-secondary)' }}
+                >
+                  <span className="text-xs font-medium text-secondary">Monthly EMI</span>
+                  <span className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>
+                    {formatCurrency(computedEmi)}
+                  </span>
+                </div>
               )}
             </div>
-          </div>
-        )}
 
-        {/* Scenario 6 */}
-        {scenario === 'combo' && comboResult && (
-          <div className="bg-emerald-50 rounded-2xl border border-emerald-100 p-4">
-            <p className="text-xs font-semibold text-emerald-700 mb-2 uppercase tracking-wide">Results</p>
-            <div className="divide-y divide-emerald-100">
-              <Row label="Original tenure" value={fmtMonths(comboResult.baseMonths)} />
-              <Row label="New tenure" value={fmtMonths(comboResult.newMonths)} accent />
-              <Row label="Time saved" value={`${fmtMonths(comboResult.monthsSaved)} faster`} saving />
-              <Row label="Original interest" value={fmtAmt(comboResult.baseInterest, mode)} />
-              <Row label="New interest" value={fmtAmt(comboResult.newInterest, mode)} />
-              <Row label="Total saving" value={fmtAmt(comboResult.interestSaved, mode)} saving />
+            {/* Modal footer */}
+            <div className="px-4 py-3 border-t border-theme flex gap-2 flex-shrink-0">
+              <button
+                onClick={() => setShowAddLoan(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-theme text-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleSaveLoan(crypto.randomUUID(), Date.now())}
+                disabled={!formName.trim() || !formOutstanding || !formRate || formSaving}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-40"
+                style={{ backgroundColor: 'var(--color-primary)' }}
+              >
+                {formSaving ? 'Saving…' : 'Save Loan'}
+              </button>
             </div>
           </div>
-        )}
-
-        {/* Privacy hint */}
-        {mode !== 'open' && (
-          <p className="text-xs text-center pb-2 text-tertiary">
-            <i className="ti ti-eye-off mr-1" aria-hidden="true" />
-            Switch to Open mode to see calculated amounts
-          </p>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
