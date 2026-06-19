@@ -17,7 +17,7 @@ import type {
 import { formatCurrency, formatPercent } from '@/lib/formatters';
 import { HoldingForm } from './HoldingForm';
 import { useIpos } from '@/core/ipo/useIpos';
-import { fetchIpoSubscription } from '@/core/ipo/ipoClient';
+import { fetchIpoSubscription, fetchHistoricalListedIpos } from '@/core/ipo/ipoClient';
 import type { IpoItem, IpoStatus, IpoSubDetail } from '@/core/ipo/ipoTypes';
 import { LIFECYCLE_FUNDS, getAllocationAtAge, findNpsSchemeCode, fetchNpsNav, getPfmLabel } from '@/core/nps';
 import type { NpsNavDetail, NpsPfmKey, NpsSchemeType, NpsLifecycleFund } from '@/core/nps';
@@ -123,6 +123,14 @@ function formatLastUpdated(ts: number): string {
 function formatIpoDate(dateStr: string | null): string {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+
+function currentFyLabel(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth() + 1;
+  const s = m >= 4 ? y : y - 1;
+  return `FY ${s}-${String(s + 1).slice(2)}`;
 }
 
 function daysUntil(dateStr: string | null): number | null {
@@ -2000,7 +2008,7 @@ function IpoDetailModal({ ipo, onClose }: { ipo: IpoItem; onClose: () => void })
 
   const catColor = ipo.category === 'mainboard' ? '#6366f1' : '#f59e0b';
   const catLabel = ipo.category === 'mainboard' ? 'Mainboard' : 'SME';
-  const safeGmpPct = isNaN(ipo.gmpPercent) ? 0 : ipo.gmpPercent;
+  const safeGmpPct = !ipo.gmpPercent || isNaN(ipo.gmpPercent) ? 0 : ipo.gmpPercent;
   const minInvestment = ipo.price && ipo.lotSize ? ipo.price * ipo.lotSize : null;
   const statusMeta: Record<IpoStatus, { label: string; color: string }> = {
     upcoming: { label: 'Upcoming', color: '#f59e0b' },
@@ -3683,6 +3691,10 @@ export function PortfolioPage() {
   const [holdingsSubTab, setHoldingsSubTab] = useState<HoldingsSubTab>(locationState?.holdingsSubTab ?? 'stocks');
   const [ipoSubTab, setIpoSubTab] = useState<IpoStatus>('upcoming');
   const [ipoShowMainboardOnly, setIpoShowMainboardOnly] = useState(false);
+  const [ipoListedFy, setIpoListedFy] = useState<string>(currentFyLabel());
+  const [ipoListedSearch, setIpoListedSearch] = useState('');
+  const [historicalListedIpos, setHistoricalListedIpos] = useState<IpoItem[]>([]);
+  const [historicalLoadedFy, setHistoricalLoadedFy] = useState<string | null>(null);
   const [selectedIpo, setSelectedIpo] = useState<IpoItem | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingHolding, setEditingHolding] = useState<Holding | null>(null);
@@ -3780,9 +3792,48 @@ export function PortfolioPage() {
   const hasLivePriceRefresh = holdings.some(
     (h) => (h.assetClass === 'mf' && h.schemeCode) || (h.assetClass === 'stock' && h.symbol)
   );
-  const ipoSubList = ipos[ipoSubTab];
+
+  useEffect(() => {
+    if (ipoSubTab !== 'listed') return;
+    const fyStart = parseInt(ipoListedFy.match(/\d{4}/)?.[0] ?? '0', 10);
+    if (!fyStart) return;
+    let cancelled = false;
+    fetchHistoricalListedIpos(fyStart)
+      .then((items) => {
+        if (!cancelled) {
+          setHistoricalListedIpos(items);
+          setHistoricalLoadedFy(ipoListedFy);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setHistoricalLoadedFy(ipoListedFy);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ipoSubTab, ipoListedFy]);
+
+  const historicalListedLoading = ipoSubTab === 'listed' && historicalLoadedFy !== ipoListedFy;
+  const ipoSubList = ipoSubTab === 'listed' ? historicalListedIpos : ipos[ipoSubTab];
   const activeIpoMeta = IPO_SUBTAB_META[ipoSubTab];
-  const ipoFilteredList = ipoShowMainboardOnly ? ipoSubList.filter((i) => i.category === 'mainboard') : ipoSubList;
+  const ipoListedFyOptions = useMemo(() => {
+    const now = new Date();
+    const m = now.getMonth() + 1;
+    const y = now.getFullYear();
+    const start = m >= 4 ? y : y - 1;
+    return Array.from({ length: 5 }, (_, i) => {
+      const s = start - i;
+      return `FY ${s}-${String(s + 1).slice(2)}`;
+    });
+  }, []);
+  const ipoFilteredList = (() => {
+    let list = ipoShowMainboardOnly ? ipoSubList.filter((i) => i.category === 'mainboard') : ipoSubList;
+    if (ipoSubTab === 'listed') {
+      const q = ipoListedSearch.trim().toLowerCase();
+      if (q) list = list.filter((i) => i.name.toLowerCase().includes(q));
+    }
+    return list;
+  })();
 
   return (
     <div className="flex flex-col h-full">
@@ -4331,7 +4382,7 @@ export function PortfolioPage() {
               <div className="flex gap-1.5">
                 {IPO_SUBTAB_ORDER.map((key) => {
                   const { label } = IPO_SUBTAB_META[key];
-                  const count = ipos[key].length;
+                  const count = key === 'listed' ? historicalListedIpos.length : ipos[key].length;
                   return (
                     <button
                       key={key}
@@ -4363,19 +4414,21 @@ export function PortfolioPage() {
                   );
                 })}
               </div>
-              <button
-                onClick={ipos.refresh}
-                disabled={ipos.refreshing || ipos.loading}
-                className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border border-theme text-secondary disabled:opacity-40 ml-2 flex-shrink-0"
-                aria-label="Refresh IPO data"
-              >
-                <i
-                  className={`ti ti-refresh ${ipos.refreshing ? 'animate-spin' : ''}`}
-                  style={{ fontSize: 13 }}
-                  aria-hidden="true"
-                />
-                {ipos.refreshing ? 'Refreshing…' : 'Refresh'}
-              </button>
+              {ipoSubTab !== 'listed' && (
+                <button
+                  onClick={ipos.refresh}
+                  disabled={ipos.refreshing || ipos.loading}
+                  className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border border-theme text-secondary disabled:opacity-40 ml-2 flex-shrink-0"
+                  aria-label="Refresh IPO data"
+                >
+                  <i
+                    className={`ti ti-refresh ${ipos.refreshing ? 'animate-spin' : ''}`}
+                    style={{ fontSize: 13 }}
+                    aria-hidden="true"
+                  />
+                  {ipos.refreshing ? 'Refreshing…' : 'Refresh'}
+                </button>
+              )}
             </div>
 
             {/* Last updated */}
@@ -4383,6 +4436,47 @@ export function PortfolioPage() {
               <p className="text-[10px] text-tertiary px-4 pt-1.5 pb-0.5">
                 {formatLastUpdated(ipos.lastUpdated)} · investorgain.com
               </p>
+            )}
+
+            {/* Listed tab: FY picker + search on one row */}
+            {ipoSubTab === 'listed' && (
+              <div className="flex items-center gap-2 px-4 pt-2.5 pb-0.5">
+                <div className="flex gap-1.5 overflow-x-auto scrollbar-none flex-1 min-w-0">
+                  {ipoListedFyOptions.map((fy) => (
+                    <button
+                      key={fy}
+                      onClick={() => setIpoListedFy(fy)}
+                      className="flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors"
+                      style={
+                        ipoListedFy === fy
+                          ? { backgroundColor: 'var(--color-primary)', color: '#fff' }
+                          : {
+                              backgroundColor: 'var(--color-surface-secondary)',
+                              color: 'var(--color-text-secondary)',
+                              border: '0.5px solid var(--color-border)'
+                            }
+                      }
+                    >
+                      {fy}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0 rounded-xl px-2.5 py-1.5 border border-theme bg-surface-2">
+                  <i className="ti ti-search text-tertiary" style={{ fontSize: 13 }} aria-hidden="true" />
+                  <input
+                    type="text"
+                    value={ipoListedSearch}
+                    onChange={(e) => setIpoListedSearch(e.target.value)}
+                    placeholder="Search…"
+                    className="bg-transparent text-xs focus:outline-none text-primary placeholder:text-tertiary w-20"
+                  />
+                  {ipoListedSearch && (
+                    <button onClick={() => setIpoListedSearch('')} className="text-tertiary" aria-label="Clear search">
+                      <i className="ti ti-x" style={{ fontSize: 11 }} aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              </div>
             )}
 
             {/* Mainboard / All filter */}
@@ -4414,7 +4508,7 @@ export function PortfolioPage() {
             )}
 
             {/* Content */}
-            {ipos.loading && ipos.all.length === 0 ? (
+            {(ipoSubTab === 'listed' ? historicalListedLoading : ipos.loading && ipos.all.length === 0) ? (
               <div className="p-10 text-center">
                 <div
                   className="w-6 h-6 border-2 rounded-full animate-spin mx-auto"
@@ -4437,7 +4531,7 @@ export function PortfolioPage() {
                   const catColor = ipo.category === 'mainboard' ? '#6366f1' : '#f59e0b';
                   const catLabel = ipo.category === 'mainboard' ? 'MAIN' : 'SME';
                   const closingDays = daysUntil(ipo.closeDate);
-                  const safeGmpPct = isNaN(ipo.gmpPercent) ? 0 : ipo.gmpPercent;
+                  const safeGmpPct = !ipo.gmpPercent || isNaN(ipo.gmpPercent) ? 0 : ipo.gmpPercent;
                   const gmpColor =
                     ipo.gmpValue !== null && ipo.gmpValue > 0
                       ? '#10b981'

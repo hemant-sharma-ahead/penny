@@ -44,6 +44,24 @@ export interface IpoSubDetail {
   fetchedAt: number;
 }
 
+// Raw shape returned by investorgain.com performance-history endpoint (report 486)
+export interface RawHistoricalIpoRow {
+  '~id': number;
+  '~orderby': number;
+  IPO: string;
+  Symbol: string;
+  'Listing Date': string; // "31-Dec-2024"
+  IPO_Size: number;
+  Subscription: string;
+  'IPO Price': string; // "&#8377;239.00"
+  'Listing Price': string; // HTML span with price and gain%
+  LTP: string; // HTML span
+  LTP_Percent: string;
+  '~URLRewrite_Folder_Name': string;
+  'Last Updated': string;
+  '~IPO_Category': 'IPO' | 'SME';
+}
+
 // Raw shape returned by investorgain.com internal API
 export interface RawIpoRow {
   '~id': number;
