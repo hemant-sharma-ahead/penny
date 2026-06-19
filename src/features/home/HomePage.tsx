@@ -2,9 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useSettings, type ModuleVisibility } from '@/context/SettingsContext';
-import { accountsRepo, chipInsightsRepo, expensesRepo, holdingsRepo, liabilitiesRepo } from '@/core/db/repositories';
-import { DEFAULT_INSIGHTS } from '@/core/ai-safety/mockChip';
-import type { ChipInsight, Holding, Liability } from '@/core/db/types';
+import { accountsRepo, expensesRepo, holdingsRepo, liabilitiesRepo } from '@/core/db/repositories';
+import type { Holding, Liability } from '@/core/db/types';
 import { formatCompact, formatCurrency, toMonthYearKey } from '@/lib/formatters';
 import { PATHS } from '@/router/paths';
 
@@ -16,13 +15,23 @@ interface AccountBalance {
   icon: string;
 }
 
+interface CreditCardAccount {
+  id: string;
+  name: string;
+  outstanding: number;
+  color: string;
+  icon: string;
+}
+
 interface Summary {
   netWorth: number;
   monthlyExpenses: number;
   accountBalances: AccountBalance[];
   totalPortfolio: number;
+  liquidFunds: number;
   holdings: Holding[];
   liabilities: Liability[];
+  creditCardAccounts: CreditCardAccount[];
 }
 
 const HOLDING_META: Record<string, { label: string; short: string; color: string; icon: string }> = {
@@ -39,6 +48,7 @@ const HOLDING_META: Record<string, { label: string; short: string; color: string
 };
 const ASSET_CLASS_ORDER = ['mf', 'stock', 'fd', 'nps', 'ppf', 'epf', 'gold', 'vehicle', 'property', 'other'];
 const FALLBACK_HOLDING_META = { label: 'Other', short: 'Other', color: '#6b7280', icon: 'ti-dots' };
+const LIQUID_META = { label: 'Liquid Funds', short: 'Liquid', color: '#06b6d4', icon: 'ti-building-bank' };
 
 const LIABILITY_META: Record<string, { label: string; icon: string }> = {
   home_loan: { label: 'Home Loan', icon: 'ti-home' },
@@ -54,21 +64,6 @@ const LIABILITY_META: Record<string, { label: string; icon: string }> = {
   informal: { label: 'Informal Loan', icon: 'ti-users' },
   rental_deposit: { label: 'Rental Deposit', icon: 'ti-building' }
 };
-
-async function seedInsightsIfEmpty(): Promise<ChipInsight[]> {
-  const existing = await chipInsightsRepo.getAll();
-  if (existing.length > 0) return existing;
-  const now = Date.now();
-  const seeded: ChipInsight[] = DEFAULT_INSIGHTS.map((s) => ({
-    ...s,
-    isRead: false,
-    isMock: true,
-    generatedAt: now,
-    createdAt: now
-  }));
-  await Promise.all(seeded.map((i) => chipInsightsRepo.put(i)));
-  return seeded;
-}
 
 async function loadSummary(): Promise<Summary> {
   const [liabilities, expenses, holdings, accs] = await Promise.all([
@@ -104,33 +99,41 @@ async function loadSummary(): Promise<Summary> {
       return { id: acc.id, name: acc.name, balance, color: acc.color, icon: acc.icon };
     });
 
-  // Account balances that count toward net worth (cash + bank, not credit cards)
-  const accountsNetWorthBalance = accs
-    .filter((a) => a.includeInNetWorth && !a.isArchived)
-    .reduce((s, acc) => {
-      const linked = expenses.filter((t) => t.accountId === acc.id || t.toAccountId === acc.id);
-      const balance = linked.reduce((bal, t) => {
-        const type = t.type ?? 'expense';
-        if (type === 'income' && t.accountId === acc.id) return bal + t.amount;
-        if (type === 'expense' && t.accountId === acc.id) return bal - t.amount;
-        if (type === 'transfer') {
-          if (t.accountId === acc.id) return bal - t.amount;
-          if (t.toAccountId === acc.id) return bal + t.amount;
-        }
-        return bal;
-      }, acc.openingBalance);
-      return s + balance;
-    }, 0);
+  function calcBalance(accId: string, openingBalance: number): number {
+    const linked = expenses.filter((t) => t.accountId === accId || t.toAccountId === accId);
+    return linked.reduce((bal, t) => {
+      const type = t.type ?? 'expense';
+      if (type === 'income' && t.accountId === accId) return bal + t.amount;
+      if (type === 'expense' && t.accountId === accId) return bal - t.amount;
+      if (type === 'transfer') {
+        if (t.accountId === accId) return bal - t.amount;
+        if (t.toAccountId === accId) return bal + t.amount;
+      }
+      return bal;
+    }, openingBalance);
+  }
 
-  const totalAssets = totalPortfolio + accountsNetWorthBalance;
+  const liquidAccs = accs.filter((a) => a.includeInNetWorth && !a.isArchived);
+  const liquidFunds = liquidAccs.reduce((s, a) => s + calcBalance(a.id, a.openingBalance), 0);
+
+  const ccAccs = accs.filter((a) => a.type === 'credit_card' && !a.isArchived);
+  const creditCardAccounts: CreditCardAccount[] = ccAccs.map((a) => {
+    const bal = calcBalance(a.id, a.openingBalance);
+    return { id: a.id, name: a.name, outstanding: Math.max(0, -bal), color: a.color, icon: a.icon };
+  });
+  const totalCcOutstanding = creditCardAccounts.reduce((s, c) => s + c.outstanding, 0);
+
+  const totalAssets = totalPortfolio + Math.max(0, liquidFunds);
 
   return {
-    netWorth: totalAssets - totalLiabilitiesAmt,
+    netWorth: totalAssets - totalLiabilitiesAmt - totalCcOutstanding,
     monthlyExpenses,
     accountBalances,
     totalPortfolio,
+    liquidFunds: Math.max(0, liquidFunds),
     holdings,
-    liabilities
+    liabilities,
+    creditCardAccounts
   };
 }
 
@@ -153,16 +156,14 @@ export function HomePage() {
   const { modules } = useSettings();
   const navigate = useNavigate();
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [insights, setInsights] = useState<ChipInsight[]>([]);
   const [assetsExpanded, setAssetsExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([loadSummary(), seedInsightsIfEmpty()])
-      .then(([s, all]) => {
+    loadSummary()
+      .then((s) => {
         if (cancelled) return;
         setSummary(s);
-        setInsights(all.filter((x) => !x.isRead).slice(0, 3));
       })
       .catch(() => {
         // session may not be unlocked yet — AuthGuard ensures this is transient
@@ -173,21 +174,28 @@ export function HomePage() {
   }, []);
 
   const assetGroups = useMemo(() => {
-    if (!summary?.holdings) return [];
+    if (!summary) return [];
     const map = new Map<string, number>();
     for (const h of summary.holdings) {
       const key = h.assetClass;
       map.set(key, (map.get(key) ?? 0) + (h.currentValue ?? h.investedAmount));
     }
-    return ASSET_CLASS_ORDER.filter((ac) => (map.get(ac) ?? 0) > 0).map((ac) => ({
-      ac,
-      value: map.get(ac) ?? 0,
-      meta: HOLDING_META[ac] ?? FALLBACK_HOLDING_META
-    }));
+    const groups: { ac: string; value: number; meta: (typeof HOLDING_META)[string] }[] = [];
+    if (summary.liquidFunds > 0) {
+      groups.push({ ac: 'liquid', value: summary.liquidFunds, meta: LIQUID_META });
+    }
+    ASSET_CLASS_ORDER.filter((ac) => (map.get(ac) ?? 0) > 0).forEach((ac) => {
+      groups.push({ ac, value: map.get(ac) ?? 0, meta: HOLDING_META[ac] ?? FALLBACK_HOLDING_META });
+    });
+    return groups;
   }, [summary]);
 
+  const totalAssets = useMemo(() => assetGroups.reduce((s, g) => s + g.value, 0), [assetGroups]);
+
   const totalLiabilities = useMemo(
-    () => summary?.liabilities?.reduce((s, l) => s + l.outstandingAmount, 0) ?? 0,
+    () =>
+      (summary?.liabilities?.reduce((s, l) => s + l.outstandingAmount, 0) ?? 0) +
+      (summary?.creditCardAccounts?.reduce((s, c) => s + c.outstanding, 0) ?? 0),
     [summary]
   );
 
@@ -202,13 +210,6 @@ export function HomePage() {
         ? `${formatCompact(summary.monthlyExpenses)} spent this month`
         : '•••• spent this month'
       : null;
-
-  function dismissInsight(insight: ChipInsight) {
-    chipInsightsRepo
-      .put({ ...insight, isRead: true })
-      .then(() => setInsights((prev) => prev.filter((i) => i.id !== insight.id)))
-      .catch(() => {});
-  }
 
   return (
     <div className="px-4 pt-4 pb-6 flex flex-col gap-4">
@@ -232,7 +233,7 @@ export function HomePage() {
                     Assets
                   </span>
                   <span className="text-[13px] font-medium" style={{ color: '#a7f3d0' }}>
-                    {mode === 'open' ? formatCurrency(summary.totalPortfolio) : '••••'}
+                    {mode === 'open' ? formatCurrency(totalAssets) : '••••'}
                   </span>
                 </div>
                 <div className="flex items-baseline gap-1.5">
@@ -281,14 +282,14 @@ export function HomePage() {
           {/* Collapsed: summary bar + legend + liabilities total */}
           {!assetsExpanded && assetGroups.length > 0 && (
             <div style={{ padding: '14px 18px 16px', backgroundColor: '#065f46' }}>
-              {mode === 'open' && summary.totalPortfolio > 0 && (
+              {mode === 'open' && totalAssets > 0 && (
                 <>
                   <div
                     className="flex rounded-full overflow-hidden"
                     style={{ height: '5px', gap: '2px', marginBottom: '10px' }}
                   >
                     {assetGroups.map(({ ac, value, meta }) => (
-                      <div key={ac} style={{ flex: value / summary.totalPortfolio, backgroundColor: meta.color }} />
+                      <div key={ac} style={{ flex: value / totalAssets, backgroundColor: meta.color }} />
                     ))}
                   </div>
                   <div className="flex flex-wrap" style={{ gap: '8px 14px' }}>
@@ -330,69 +331,76 @@ export function HomePage() {
                   Assets
                 </p>
               </div>
-              {assetGroups.map(({ ac, value, meta }) => (
-                <button
-                  key={ac}
-                  onClick={() => {
-                    const subTab =
-                      ac === 'nps' || ac === 'ppf' || ac === 'epf'
-                        ? 'retirement'
-                        : ac === 'gold'
-                          ? 'precious_metals'
-                          : ac === 'vehicle' || ac === 'property' || ac === 'other'
-                            ? 'real_assets'
-                            : ac === 'fd'
-                              ? 'fixed_income'
-                              : ac === 'stock'
-                                ? 'stocks'
-                                : ac;
-                    navigate('/app/portfolio', { state: { holdingsSubTab: subTab } });
-                  }}
-                  className="w-full flex items-center gap-3 text-left"
-                  style={{ padding: '10px 18px', borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}
-                >
-                  <div
-                    className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: `${meta.color}25` }}
+              {assetGroups.map(({ ac, value, meta }) => {
+                const isLiquid = ac === 'liquid';
+                return (
+                  <button
+                    key={ac}
+                    onClick={() => {
+                      if (isLiquid) {
+                        navigate(PATHS.app.accounts);
+                        return;
+                      }
+                      const subTab =
+                        ac === 'nps' || ac === 'ppf' || ac === 'epf'
+                          ? 'retirement'
+                          : ac === 'gold'
+                            ? 'precious_metals'
+                            : ac === 'vehicle' || ac === 'property' || ac === 'other'
+                              ? 'real_assets'
+                              : ac === 'fd'
+                                ? 'fixed_income'
+                                : ac === 'stock'
+                                  ? 'stocks'
+                                  : ac;
+                      navigate('/app/portfolio', { state: { holdingsSubTab: subTab } });
+                    }}
+                    className="w-full flex items-center gap-3 text-left"
+                    style={{ padding: '10px 18px', borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}
                   >
-                    <i className={`ti ${meta.icon}`} style={{ fontSize: 16, color: meta.color }} aria-hidden="true" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-1.5 mb-1">
-                      <p className="text-[13px] font-medium" style={{ color: '#e2f8f0' }}>
-                        {meta.label}
-                      </p>
-                      {mode === 'open' && summary.totalPortfolio > 0 && (
-                        <p className="text-[10px]" style={{ color: '#6ee7b7' }}>
-                          {((value / summary.totalPortfolio) * 100).toFixed(0)}%
-                        </p>
-                      )}
-                    </div>
                     <div
-                      className="h-[3px] rounded-full overflow-hidden"
-                      style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: `${meta.color}25` }}
                     >
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${mode === 'open' && summary.totalPortfolio > 0 ? (value / summary.totalPortfolio) * 100 : 0}%`,
-                          backgroundColor: meta.color
-                        }}
-                      />
+                      <i className={`ti ${meta.icon}`} style={{ fontSize: 16, color: meta.color }} aria-hidden="true" />
                     </div>
-                  </div>
-                  <p className="text-[13px] font-medium flex-shrink-0" style={{ color: '#a7f3d0' }}>
-                    {mode === 'open' ? formatCurrency(value) : '••••'}
-                  </p>
-                  <i
-                    className="ti ti-chevron-right flex-shrink-0"
-                    style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}
-                    aria-hidden="true"
-                  />
-                </button>
-              ))}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-1.5 mb-1">
+                        <p className="text-[13px] font-medium" style={{ color: '#e2f8f0' }}>
+                          {meta.label}
+                        </p>
+                        {mode === 'open' && totalAssets > 0 && (
+                          <p className="text-[10px]" style={{ color: '#6ee7b7' }}>
+                            {((value / totalAssets) * 100).toFixed(0)}%
+                          </p>
+                        )}
+                      </div>
+                      <div
+                        className="h-[3px] rounded-full overflow-hidden"
+                        style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+                      >
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${mode === 'open' && totalAssets > 0 ? (value / totalAssets) * 100 : 0}%`,
+                            backgroundColor: meta.color
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[13px] font-medium flex-shrink-0" style={{ color: '#a7f3d0' }}>
+                      {mode === 'open' ? formatCurrency(value) : '••••'}
+                    </p>
+                    <i
+                      className="ti ti-chevron-right flex-shrink-0"
+                      style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}
+                      aria-hidden="true"
+                    />
+                  </button>
+                );
+              })}
 
-              {summary.liabilities && summary.liabilities.length > 0 && (
+              {(summary.liabilities.length > 0 || summary.creditCardAccounts.some((c) => c.outstanding > 0)) && (
                 <>
                   <div
                     style={{
@@ -405,6 +413,34 @@ export function HomePage() {
                       Liabilities
                     </p>
                   </div>
+                  {summary.creditCardAccounts
+                    .filter((c) => c.outstanding > 0)
+                    .map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => navigate(PATHS.app.accounts)}
+                        className="w-full flex items-center gap-3 text-left"
+                        style={{ padding: '10px 18px' }}
+                      >
+                        <div
+                          className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: 'rgba(252,165,165,0.15)' }}
+                        >
+                          <i className={`ti ${c.icon}`} style={{ fontSize: 16, color: '#fca5a5' }} aria-hidden="true" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium truncate" style={{ color: '#fecaca' }}>
+                            {c.name}
+                          </p>
+                          <p className="text-[10px]" style={{ color: '#f87171' }}>
+                            Credit card outstanding
+                          </p>
+                        </div>
+                        <p className="text-[13px] font-medium flex-shrink-0" style={{ color: '#fca5a5' }}>
+                          {mode === 'open' ? formatCurrency(c.outstanding) : '••••'}
+                        </p>
+                      </button>
+                    ))}
                   {summary.liabilities.map((l) => {
                     const lMeta = LIABILITY_META[l.type] ?? { label: l.type, icon: 'ti-credit-card' };
                     return (
@@ -499,51 +535,6 @@ export function HomePage() {
           ))}
         </div>
       </div>
-
-      {/* Chip insights */}
-      {insights.length > 0 && (
-        <section>
-          <div className="flex items-center gap-2 mb-2">
-            <div
-              className="w-5 h-5 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: 'var(--color-primary)' }}
-            >
-              <i className="ti ti-sparkles text-white" style={{ fontSize: 11 }} aria-hidden="true" />
-            </div>
-            <span className="text-sm font-medium text-primary">Chip insights</span>
-          </div>
-          <div className="flex flex-col gap-2">
-            {insights.map((insight) => (
-              <article key={insight.id} className="surface rounded-xl p-4">
-                <span className="text-[10px] font-medium uppercase tracking-wide text-tertiary">
-                  {insight.moduleTag}
-                </span>
-                <p className="text-sm font-medium mt-0.5 mb-1 text-primary">{insight.headline}</p>
-                <p className="text-xs leading-relaxed text-secondary">{insight.reasoning}</p>
-                {insight.consequence && (
-                  <p className="text-xs text-amber-600 mt-1.5 leading-relaxed">⚠ {insight.consequence}</p>
-                )}
-                {insight.actionLabel && (
-                  <button
-                    className="mt-2 text-xs font-medium"
-                    style={{ color: 'var(--color-primary)' }}
-                    onClick={() => dismissInsight(insight)}
-                  >
-                    {insight.actionLabel} →
-                  </button>
-                )}
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {insights.length === 0 && summary !== null && (
-        <div className="rounded-xl p-6 text-center bg-surface-2 border border-theme">
-          <i className="ti ti-sparkles text-tertiary" style={{ fontSize: 32 }} aria-hidden="true" />
-          <p className="text-sm mt-2 text-tertiary">Add your financial data and Chip will surface insights here.</p>
-        </div>
-      )}
     </div>
   );
 }
