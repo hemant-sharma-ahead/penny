@@ -82,9 +82,13 @@ function NpsLifecycleDetail({
   const currentAgeRow = currentAge != null ? Math.max(35, Math.min(55, currentAge)) : null;
 
   return (
-    <div className="fixed inset-0 z-70 flex items-end" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-70 flex items-center justify-center px-4"
+      style={{ paddingTop: 56, paddingBottom: 72 }}
+      onClick={onClose}
+    >
       <div
-        className="relative w-full rounded-t-2xl max-h-[85vh] overflow-y-auto bg-surface"
+        className="relative w-full max-w-[430px] rounded-2xl max-h-full overflow-y-auto bg-surface"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="sticky top-0 px-4 py-3 border-b border-theme flex items-start justify-between gap-3 bg-surface">
@@ -183,7 +187,7 @@ function NpsLifecycleDetail({
 
 export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass, allowedClasses }: Props) {
   const [assetClass, setAssetClass] = useState<AssetClass>(
-    editing?.assetClass ?? lockAssetClass ?? (allowedClasses?.[0] ?? 'mf')
+    editing?.assetClass ?? lockAssetClass ?? allowedClasses?.[0] ?? 'mf'
   );
   const [name, setName] = useState(editing?.name ?? '');
   const [investedAmount, setInvestedAmount] = useState(() => {
@@ -203,9 +207,17 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
   const [mfQuery, setMfQuery] = useState(editing?.name ?? '');
   const [mfResults, setMfResults] = useState<Array<{ schemeCode: string; schemeName: string }>>([]);
   const [mfSearching, setMfSearching] = useState(false);
-  const [schemeDetail, setSchemeDetail] = useState<{ fundHouse: string; schemeCategory: string; schemeType: string } | null>(
+  const [schemeDetail, setSchemeDetail] = useState<{
+    fundHouse: string;
+    schemeCategory: string;
+    schemeType: string;
+  } | null>(
     editing?.assetMeta?.mfFundHouse
-      ? { fundHouse: editing.assetMeta.mfFundHouse ?? '', schemeCategory: editing.assetMeta.mfSchemeCategory ?? '', schemeType: editing.assetMeta.mfSchemeType ?? '' }
+      ? {
+          fundHouse: editing.assetMeta.mfFundHouse ?? '',
+          schemeCategory: editing.assetMeta.mfSchemeCategory ?? '',
+          schemeType: editing.assetMeta.mfSchemeType ?? ''
+        }
       : null
   );
   const [mfDropdownOpen, setMfDropdownOpen] = useState(false);
@@ -388,22 +400,36 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
 
   // MF fund search — debounced 400ms via MFAPI.in (CORS-safe, no API key)
   useEffect(() => {
-    interface MfSearchResult { schemeCode: string; schemeName: string; }
+    interface MfSearchResult {
+      schemeCode: string;
+      schemeName: string;
+    }
     if (assetClass !== 'mf' || mfQuery.trim().length < 2 || !!schemeCode) {
-      const t = setTimeout(() => { setMfResults([]); setMfDropdownOpen(false); }, 0);
+      const t = setTimeout(() => {
+        setMfResults([]);
+        setMfDropdownOpen(false);
+      }, 0);
       return () => clearTimeout(t);
     }
     const t = setTimeout(async () => {
       setMfSearching(true);
       try {
         const res = await fetch(`https://api.mfapi.in/mf/search?q=${encodeURIComponent(mfQuery.trim())}`);
-        if (!res.ok) { setMfResults([]); setMfDropdownOpen(false); return; }
+        if (!res.ok) {
+          setMfResults([]);
+          setMfDropdownOpen(false);
+          return;
+        }
         const json = (await res.json()) as MfSearchResult[];
         const results = json.slice(0, 8);
         setMfResults(results);
         setMfDropdownOpen(results.length > 0);
-      } catch { setMfResults([]); setMfDropdownOpen(false); }
-      finally { setMfSearching(false); }
+      } catch {
+        setMfResults([]);
+        setMfDropdownOpen(false);
+      } finally {
+        setMfSearching(false);
+      }
     }, 400);
     return () => clearTimeout(t);
   }, [assetClass, mfQuery, schemeCode]);
@@ -414,28 +440,47 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
     let cancelled = false;
     void (async () => {
       try {
-        interface MfDetailResp { meta?: { fund_house?: string; scheme_category?: string; scheme_type?: string } }
+        interface MfDetailResp {
+          meta?: { fund_house?: string; scheme_category?: string; scheme_type?: string };
+        }
         const res = await fetch(`https://api.mfapi.in/mf/${schemeCode.trim()}`);
         if (!res.ok || cancelled) return;
         const json = (await res.json()) as MfDetailResp;
         const m = json.meta;
         if (!m || cancelled) return;
-        setSchemeDetail({ fundHouse: m.fund_house ?? '', schemeCategory: m.scheme_category ?? '', schemeType: m.scheme_type ?? '' });
-      } catch { /* leave existing detail */ }
+        setSchemeDetail({
+          fundHouse: m.fund_house ?? '',
+          schemeCategory: m.scheme_category ?? '',
+          schemeType: m.scheme_type ?? ''
+        });
+      } catch {
+        /* leave existing detail */
+      }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [assetClass, schemeCode]);
 
   // Live price fetch — MF NAV via MFAPI.in, stock price via Yahoo Finance chart API
   // All setState calls inside setTimeout to satisfy react-hooks/set-state-in-effect
   useEffect(() => {
-    interface YfChartMeta { regularMarketPrice?: number; shortName?: string; longName?: string; }
-    interface YfChartResp { chart?: { result?: Array<{ meta?: YfChartMeta }> } }
+    interface YfChartMeta {
+      regularMarketPrice?: number;
+      shortName?: string;
+      longName?: string;
+    }
+    interface YfChartResp {
+      chart?: { result?: Array<{ meta?: YfChartMeta }> };
+    }
 
     if (assetClass === 'mf') {
       const sc = schemeCode.trim();
       if (!sc) {
-        const t = setTimeout(() => { setFetchedPrice(null); setPriceFetching(false); }, 0);
+        const t = setTimeout(() => {
+          setFetchedPrice(null);
+          setPriceFetching(false);
+        }, 0);
         return () => clearTimeout(t);
       }
       const t = setTimeout(async () => {
@@ -443,8 +488,11 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
         try {
           const nav = await fetchMfNav(sc);
           setFetchedPrice(nav);
-        } catch { setFetchedPrice(null); }
-        finally { setPriceFetching(false); }
+        } catch {
+          setFetchedPrice(null);
+        } finally {
+          setPriceFetching(false);
+        }
       }, 300);
       return () => clearTimeout(t);
     }
@@ -452,7 +500,12 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
     if (assetClass === 'stock') {
       const sym = symbol.trim().toUpperCase();
       if (!sym) {
-        const t = setTimeout(() => { setFetchedPrice(null); setPriceFetching(false); setStockFetchAttempted(false); setFetchedName(''); }, 0);
+        const t = setTimeout(() => {
+          setFetchedPrice(null);
+          setPriceFetching(false);
+          setStockFetchAttempted(false);
+          setFetchedName('');
+        }, 0);
         return () => clearTimeout(t);
       }
       const t = setTimeout(async () => {
@@ -461,20 +514,30 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
         try {
           const yfSymbol = sym.endsWith('.NS') || sym.endsWith('.BO') ? sym : `${sym}.NS`;
           const res = await fetch(`${YF_BASE}/v8/finance/chart/${yfSymbol}?interval=1d&range=1d`);
-          if (!res.ok) { setFetchedPrice(null); return; }
+          if (!res.ok) {
+            setFetchedPrice(null);
+            return;
+          }
           const json = (await res.json()) as YfChartResp;
           const meta = json.chart?.result?.[0]?.meta;
           const price = meta?.regularMarketPrice ?? null;
           const sname = meta?.longName ?? meta?.shortName ?? '';
           setFetchedPrice(typeof price === 'number' ? price : null);
           setFetchedName(sname);
-        } catch { setFetchedPrice(null); setFetchedName(''); }
-        finally { setPriceFetching(false); setStockFetchAttempted(true); }
+        } catch {
+          setFetchedPrice(null);
+          setFetchedName('');
+        } finally {
+          setPriceFetching(false);
+          setStockFetchAttempted(true);
+        }
       }, 700);
       return () => clearTimeout(t);
     }
 
-    const t = setTimeout(() => { setFetchedPrice(null); }, 0);
+    const t = setTimeout(() => {
+      setFetchedPrice(null);
+    }, 0);
     return () => clearTimeout(t);
   }, [assetClass, schemeCode, symbol]);
 
@@ -483,10 +546,14 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
     const effectiveName =
       name.trim() ||
       (assetClass === 'vehicle' ? vehicleRegInput.trim() : '') ||
-      (assetClass === 'stock' ? (fetchedName || symbol.trim().replace(/\.(NS|BO)$/i, '')) : '');
+      (assetClass === 'stock' ? fetchedName || symbol.trim().replace(/\.(NS|BO)$/i, '') : '');
     const requiresAmount =
-      assetClass !== 'vehicle' && assetClass !== 'property' && assetClass !== 'fd' &&
-      assetClass !== 'gold' && assetClass !== 'mf' && assetClass !== 'stock';
+      assetClass !== 'vehicle' &&
+      assetClass !== 'property' &&
+      assetClass !== 'fd' &&
+      assetClass !== 'gold' &&
+      assetClass !== 'mf' &&
+      assetClass !== 'stock';
     if (!effectiveName || (requiresAmount && (isNaN(invested) || invested <= 0))) return;
     if (assetClass === 'gold' && (parseFloat(metalWeightGrams) <= 0 || parseFloat(metalPurchasePrice) <= 0)) return;
     setSaving(true);
@@ -524,7 +591,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
           ...(holding.assetMeta ?? {}),
           mfFundHouse: schemeDetail.fundHouse,
           mfSchemeCategory: schemeDetail.schemeCategory,
-          mfSchemeType: schemeDetail.schemeType,
+          mfSchemeType: schemeDetail.schemeType
         };
       }
     } else if (assetClass === 'stock') {
@@ -564,7 +631,12 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
         holding.investedAmount = rdInstallment * tenure2;
       }
       // Snapshot currentValue from live preview so portfolio totals are accurate
-      if (fdPreview) holding.currentValue = fdPreview.isMatured ? fdPreview.maturityAmount : ('accruedAmount' in fdPreview ? fdPreview.accruedAmount : fdPreview.totalDeposited);
+      if (fdPreview)
+        holding.currentValue = fdPreview.isMatured
+          ? fdPreview.maturityAmount
+          : 'accruedAmount' in fdPreview
+            ? fdPreview.accruedAmount
+            : fdPreview.totalDeposited;
       holding.assetMeta = meta;
     } else if (assetClass === 'gold') {
       const wt = parseFloat(metalWeightGrams) || 0;
@@ -737,7 +809,11 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
                           ? 'Edit Fixed Income'
                           : assetClass === 'gold'
                             ? 'Edit Precious Metal'
-                            : 'Edit holding'
+                            : assetClass === 'mf'
+                              ? 'Edit Mutual Fund'
+                              : assetClass === 'stock'
+                                ? 'Edit Stock'
+                                : 'Edit holding'
               : lockAssetClass === 'nps' || assetClass === 'nps'
                 ? 'Track NPS'
                 : lockAssetClass === 'ppf' || assetClass === 'ppf'
@@ -752,7 +828,11 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
                           ? 'Track Fixed Income'
                           : assetClass === 'gold'
                             ? 'Track Precious Metal'
-                            : 'Add holding'}
+                            : lockAssetClass === 'mf'
+                              ? 'Add Mutual Fund'
+                              : lockAssetClass === 'stock'
+                                ? 'Add Stock'
+                                : 'Add holding'}
           </h3>
           <button
             onClick={onClose}
@@ -811,7 +891,10 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
                     >
                       <i
                         className={`ti ${ac.icon}`}
-                        style={{ fontSize: 18, color: assetClass === ac.value ? ac.color : 'var(--color-text-tertiary)' }}
+                        style={{
+                          fontSize: 18,
+                          color: assetClass === ac.value ? ac.color : 'var(--color-text-tertiary)'
+                        }}
                         aria-hidden="true"
                       />
                       <span
@@ -837,16 +920,16 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
               className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
               placeholder={
                 assetClass === 'fd'
-                      ? 'e.g. SBI FD 7.1%'
-                      : assetClass === 'nps'
-                        ? 'e.g. My NPS Account'
-                        : assetClass === 'ppf'
-                          ? 'e.g. PPF Account'
-                          : assetClass === 'epf'
-                            ? 'e.g. EPF Account'
-                            : assetClass === 'property'
-                              ? 'e.g. 2BHK Whitefield'
-                              : 'e.g. Gold holdings'
+                  ? 'e.g. SBI FD 7.1%'
+                  : assetClass === 'nps'
+                    ? 'e.g. My NPS Account'
+                    : assetClass === 'ppf'
+                      ? 'e.g. PPF Account'
+                      : assetClass === 'epf'
+                        ? 'e.g. EPF Account'
+                        : assetClass === 'property'
+                          ? 'e.g. 2BHK Whitefield'
+                          : 'e.g. Gold holdings'
               }
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -870,17 +953,30 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
                     value={mfQuery}
                     onChange={(e) => {
                       setMfQuery(e.target.value);
-                      if (!e.target.value) { setSchemeCode(''); setMfDropdownOpen(false); }
+                      if (!e.target.value) {
+                        setSchemeCode('');
+                        setMfDropdownOpen(false);
+                      }
                     }}
                   />
                   {mfSearching && (
-                    <i className="ti ti-loader-2 animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-tertiary" style={{ fontSize: 16 }} />
+                    <i
+                      className="ti ti-loader-2 animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-tertiary"
+                      style={{ fontSize: 16 }}
+                    />
                   )}
                   {schemeCode && !mfSearching && (
                     <button
                       type="button"
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-tertiary px-1 py-0.5"
-                      onClick={() => { setSchemeCode(''); setMfQuery(''); setMfDropdownOpen(false); setName(''); setFetchedPrice(null); setSchemeDetail(null); }}
+                      onClick={() => {
+                        setSchemeCode('');
+                        setMfQuery('');
+                        setMfDropdownOpen(false);
+                        setName('');
+                        setFetchedPrice(null);
+                        setSchemeDetail(null);
+                      }}
                     >
                       Clear
                     </button>
@@ -897,8 +993,12 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
                         type="button"
                         className="w-full px-3 py-2.5 text-left flex items-center justify-between gap-2 border-b border-theme last:border-0"
                         style={{ backgroundColor: 'var(--color-surface)' }}
-                        onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-surface-secondary)')}
-                        onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-surface)')}
+                        onMouseEnter={(e) =>
+                          ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-surface-secondary)')
+                        }
+                        onMouseLeave={(e) =>
+                          ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-surface)')
+                        }
                         onClick={() => {
                           setSchemeCode(String(r.schemeCode));
                           setMfQuery(r.schemeName);
@@ -1032,12 +1132,12 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
               {!priceFetching && fetchedPrice !== null && (
                 <p className="mt-1 text-[11px]" style={{ color: '#10b981' }}>
                   <i className="ti ti-check" style={{ fontSize: 10 }} /> Current price:{' '}
-                  <strong>₹{fetchedPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                  <strong>
+                    ₹{fetchedPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </strong>
                 </p>
               )}
-              {!priceFetching && fetchedName && (
-                <p className="mt-0.5 text-[11px] text-secondary">{fetchedName}</p>
-              )}
+              {!priceFetching && fetchedName && <p className="mt-0.5 text-[11px] text-secondary">{fetchedName}</p>}
               {!priceFetching && stockFetchAttempted && fetchedPrice === null && symbol.trim().length >= 1 && (
                 <p className="mt-1 text-[11px] text-tertiary">
                   Symbol not found on NSE — try with .BO suffix for BSE (e.g. RELIANCE.BO)
@@ -1935,26 +2035,29 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
         )}
 
         {/* Balance / invested amount — hidden for vehicle, fd, gold, mf, stock (auto-computed from units × price) */}
-        {assetClass !== 'vehicle' && assetClass !== 'fd' && assetClass !== 'gold' &&
-          assetClass !== 'mf' && assetClass !== 'stock' && (
-          <div>
-            <label className="text-xs font-medium text-secondary">
-              {assetClass === 'nps' || assetClass === 'ppf' || assetClass === 'epf'
-                ? 'Current corpus / balance (₹)'
-                : assetClass === 'property'
-                  ? 'Purchase price (₹)'
-                  : 'Amount invested (₹)'}
-            </label>
-            <input
-              type="number"
-              inputMode="decimal"
-              className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-              placeholder="0"
-              value={investedAmount}
-              onChange={(e) => setInvestedAmount(e.target.value)}
-            />
-          </div>
-        )}
+        {assetClass !== 'vehicle' &&
+          assetClass !== 'fd' &&
+          assetClass !== 'gold' &&
+          assetClass !== 'mf' &&
+          assetClass !== 'stock' && (
+            <div>
+              <label className="text-xs font-medium text-secondary">
+                {assetClass === 'nps' || assetClass === 'ppf' || assetClass === 'epf'
+                  ? 'Current corpus / balance (₹)'
+                  : assetClass === 'property'
+                    ? 'Purchase price (₹)'
+                    : 'Amount invested (₹)'}
+              </label>
+              <input
+                type="number"
+                inputMode="decimal"
+                className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+                placeholder="0"
+                value={investedAmount}
+                onChange={(e) => setInvestedAmount(e.target.value)}
+              />
+            </div>
+          )}
 
         {/* Current value — not for retirement, vehicle, fd, gold, mf, stock (all auto-calculated) */}
         {assetClass !== 'nps' &&

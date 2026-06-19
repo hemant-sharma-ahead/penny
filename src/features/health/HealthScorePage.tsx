@@ -1,12 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePrivacy } from '@/context/PrivacyContext';
-import {
-  expensesRepo,
-  goalsRepo,
-  holdingsRepo,
-  insurancePoliciesRepo,
-  liabilitiesRepo
-} from '@/core/db/repositories';
+import { expensesRepo, goalsRepo, holdingsRepo, insurancePoliciesRepo, liabilitiesRepo } from '@/core/db/repositories';
 import type { Expense, Goal, Holding, InsurancePolicy, Liability } from '@/core/db/types';
 import { computeHealthScore, deriveInputs } from '@/core/health/scorer';
 import type { ComponentStatus, ScoreComponent } from '@/core/health/scorer';

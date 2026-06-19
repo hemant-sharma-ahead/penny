@@ -180,9 +180,13 @@ function NpsScheduleSheet({ holding, onClose }: { holding: Holding; onClose: () 
   const currentAgeRow = userAge != null ? Math.max(35, Math.min(55, userAge)) : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-60 flex items-center justify-center px-4"
+      style={{ paddingTop: 56, paddingBottom: 72 }}
+      onClick={onClose}
+    >
       <div
-        className="relative w-full rounded-t-2xl max-h-[88vh] overflow-y-auto bg-surface"
+        className="relative w-full max-w-[430px] rounded-2xl max-h-full overflow-y-auto bg-surface"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -403,9 +407,13 @@ function PpfTransactionSheet({
   };
 
   return (
-    <div className="fixed inset-0 z-70 flex items-end" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-60 flex items-center justify-center px-4"
+      style={{ paddingTop: 56, paddingBottom: 72 }}
+      onClick={onClose}
+    >
       <div
-        className="relative w-full rounded-t-2xl p-5 flex flex-col gap-4 bg-surface"
+        className="relative w-full max-w-[430px] rounded-2xl p-5 flex flex-col gap-4 bg-surface"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -1040,11 +1048,11 @@ function EpfTransactionSheet({
 
   return (
     <div
-      className="fixed inset-0 z-70 flex items-end"
-      style={{ paddingBottom: 'calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px))' }}
+      className="fixed inset-0 z-60 flex items-center justify-center px-4"
+      style={{ paddingTop: 56, paddingBottom: 72 }}
     >
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full rounded-t-2xl p-5 flex flex-col gap-4 max-h-[90vh] overflow-y-auto bg-surface">
+      <div className="relative w-full max-w-[430px] rounded-2xl p-5 flex flex-col gap-4 max-h-full overflow-y-auto bg-surface">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-primary">Add EPF transaction</h3>
           <button
@@ -1230,11 +1238,11 @@ function EpfEmployerSheet({
 
   return (
     <div
-      className="fixed inset-0 z-70 flex items-end"
-      style={{ paddingBottom: 'calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px))' }}
+      className="fixed inset-0 z-60 flex items-center justify-center px-4"
+      style={{ paddingTop: 56, paddingBottom: 72 }}
     >
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full rounded-t-2xl p-5 flex flex-col gap-4 max-h-[90vh] overflow-y-auto bg-surface">
+      <div className="relative w-full max-w-[430px] rounded-2xl p-5 flex flex-col gap-4 max-h-full overflow-y-auto bg-surface">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-primary">Add previous employer</h3>
           <button
@@ -2284,9 +2292,13 @@ function UpdateValueSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-70 flex items-end" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-60 flex items-center justify-center px-4"
+      style={{ paddingTop: 56, paddingBottom: 72 }}
+      onClick={onClose}
+    >
       <div
-        className="w-full max-w-[430px] mx-auto rounded-t-2xl p-5 flex flex-col gap-4 bg-surface"
+        className="w-full max-w-[430px] rounded-2xl p-5 flex flex-col gap-4 bg-surface"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -3686,7 +3698,8 @@ export function PortfolioPage() {
   const overallReturn = totalInvested > 0 ? ((totalCurrent - totalInvested) / totalInvested) * 100 : 0;
 
   // Holdings filtered per sub-tab
-  const activeSubTabConfig = (HOLDINGS_SUBTABS.find((t) => t.key === holdingsSubTab) ?? HOLDINGS_SUBTABS[0]) as HoldingsSubTabConfig;
+  const activeSubTabConfig = (HOLDINGS_SUBTABS.find((t) => t.key === holdingsSubTab) ??
+    HOLDINGS_SUBTABS[0]) as HoldingsSubTabConfig;
   const subTabHoldings = useMemo(
     () => holdings.filter((h) => activeSubTabConfig.assetClasses.includes(h.assetClass)),
     [holdings, activeSubTabConfig]
@@ -3702,7 +3715,7 @@ export function PortfolioPage() {
   }, [holdings]);
 
   function openAdd() {
-    setPresetAssetClass(null);
+    setPresetAssetClass(holdingsSubTab === 'mf' ? 'mf' : 'stock');
     setEditingHolding(null);
     setShowForm(true);
   }

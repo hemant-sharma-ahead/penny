@@ -52,11 +52,11 @@ export function IouForm({ editing, onSave, onDelete, onClose, nowMs }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-60 flex items-end"
-      style={{ paddingBottom: 'calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px))' }}
+      className="fixed inset-0 z-60 flex items-center justify-center px-4"
+      style={{ paddingTop: 56, paddingBottom: 72 }}
     >
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full rounded-t-2xl p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto bg-surface">
+      <div className="relative w-full max-w-[430px] rounded-2xl p-5 flex flex-col gap-4 max-h-full overflow-y-auto bg-surface">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-primary">{editing ? 'Edit IOU' : 'Add IOU'}</h3>
           <button

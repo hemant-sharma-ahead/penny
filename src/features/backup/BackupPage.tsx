@@ -165,11 +165,11 @@ export function BackupPage() {
       {/* Confirmation overlay */}
       {showConfirm && (
         <div
-          className="fixed inset-0 z-60 flex items-end"
-          style={{ paddingBottom: 'calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px))' }}
+          className="fixed inset-0 z-60 flex items-center justify-center px-4"
+          style={{ paddingTop: 56, paddingBottom: 72 }}
         >
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowConfirm(false)} />
-          <div className="relative w-full bg-surface rounded-t-2xl p-5 flex flex-col gap-4">
+          <div className="relative w-full max-w-[430px] bg-surface rounded-2xl p-5 flex flex-col gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
                 <i className="ti ti-alert-triangle text-red-500" style={{ fontSize: 20 }} aria-hidden="true" />
