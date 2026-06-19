@@ -11,7 +11,7 @@ const SEGMENTS: { mode: PrivacyMode; label: string }[] = [
 const MODE_COLORS: Record<PrivacyMode, { active: string }> = {
   safe: { active: 'bg-amber-500' },
   privacy: { active: 'bg-violet-600' },
-  open: { active: 'bg-[#00a86b]' }
+  open: { active: 'bg-red-600' }
 };
 
 type Step = null | 'pin' | 'warning';
@@ -153,8 +153,8 @@ export function PrivacyModeSwitcher() {
 
             <h3 className="text-lg font-semibold text-center mb-3 text-primary">Before switching to Open mode</h3>
 
-            <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-5">
-              <p className="text-sm text-red-500 leading-relaxed">
+            <div className="rounded-xl px-4 py-3 mb-5" style={{ backgroundColor: '#dc2626' }}>
+              <p className="text-sm leading-relaxed" style={{ color: '#ffffff' }}>
                 Make sure no one can see your screen — check that you are not on a screen share, video call, or in a
                 public place where someone could be looking over your shoulder. All your financial details including
                 amounts, account information, and portfolio holdings will be fully visible to anyone who can see your

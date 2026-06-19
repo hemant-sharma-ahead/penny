@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSettings, type FontScale, type ModuleVisibility, type Theme } from '@/context/SettingsContext';
+import { type PrivacyMode } from '@/context/PrivacyContext';
 import { clearDemoData, isDemoSeeded } from '@/core/db/seedDemoData';
 import { PATHS } from '@/router/paths';
 
@@ -41,7 +42,8 @@ const THEMES: { value: Theme; label: string; icon: string }[] = [
 
 export function SettingsDrawer({ open, onClose }: Props) {
   const navigate = useNavigate();
-  const { modules, fontScale, theme, setModule, setFontScale, setTheme } = useSettings();
+  const { modules, fontScale, theme, defaultPrivacyMode, setModule, setFontScale, setTheme, setDefaultPrivacyMode } =
+    useSettings();
   const [clearing, setClearing] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
 
@@ -160,6 +162,36 @@ export function SettingsDrawer({ open, onClose }: Props) {
                   }
                 >
                   {s.label}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <div className="mx-4 my-2 border-t border-theme" />
+
+          {/* Privacy section */}
+          <section className="px-4 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider mb-3 text-tertiary">Privacy</p>
+            <p className="text-xs text-secondary mb-2">Default mode on app open</p>
+            <div className="flex gap-2">
+              {(
+                [
+                  { mode: 'safe', label: 'Safe', color: '#f59e0b' },
+                  { mode: 'privacy', label: 'Private', color: '#7c3aed' },
+                  { mode: 'open', label: 'Open', color: '#dc2626' }
+                ] as { mode: PrivacyMode; label: string; color: string }[]
+              ).map(({ mode: m, label, color }) => (
+                <button
+                  key={m}
+                  onClick={() => setDefaultPrivacyMode(m)}
+                  className="flex-1 py-2 rounded-xl text-xs font-semibold border transition-colors"
+                  style={
+                    defaultPrivacyMode === m
+                      ? { backgroundColor: color, color: '#fff', borderColor: color }
+                      : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
+                  }
+                >
+                  {label}
                 </button>
               ))}
             </div>

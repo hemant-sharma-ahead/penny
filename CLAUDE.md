@@ -167,7 +167,7 @@ This file is read at the start of every Claude Code session. It tells you where 
 | ---- | --------------------------------------------------------------------------------------------------------------- | --------------- |
 | M15-1  | Modal centering — convert all bottom-sheet violations to centred modals per design rule                       | ✅ Done         |
 | M15-2  | Events system redesign — conditional delete, edit with unlink dialog, vacation guard, header UI cleanup       | ✅ Done         |
-| M15-3  | Privacy mode overhaul — open mode red theme, default mode setting, safe mode sensitivity rethink              | ⏳ Pending      |
+| M15-3  | Privacy mode overhaul — open mode red theme, default mode setting, safe mode sensitivity rethink              | ✅ Done         |
 | M15-4  | Home net worth fixes — credit card in liabilities, Liquid Funds bucket, move Chip Insights to Chip screen     | ⏳ Pending      |
 | M15-5  | Market data strip on Home — indices, metals, commodities, city picker for fuel, user-customisable list        | ⏳ Pending      |
 | M15-6  | Expenses improvements — transaction filters (incl. event filter), accounts strip relocation, analytics redesign | ⏳ Pending     |
@@ -318,7 +318,7 @@ Bottom nav tabs: Home · Portfolio · Chip (FAB, centred) · Expenses · Goals
 --color-primary: #00a86b; /* Penny green */
 --color-safe: #f59e0b; /* Amber — Safe mode */
 --color-privacy: #7c3aed; /* Violet — Privacy mode */
---color-open: #10b981; /* Emerald — Open mode */
+--color-open: #dc2626; /* Red — Open mode (signals exposed) */
 ```
 
 ---
