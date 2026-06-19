@@ -15,7 +15,9 @@ export const ALLOWED_DOMAINS = [
   'api.anthropic.com',
   'api.mfapi.in',
   'query.yahoofinance.com',
-  'webnodejs.investorgain.com'
+  'webnodejs.investorgain.com',
+  'npsnav.in',
+  'backend.vahandetails.com'
 ];
 
 export interface PiiScanResult {

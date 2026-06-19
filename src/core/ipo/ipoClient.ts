@@ -28,13 +28,13 @@ function isMarketHours(): boolean {
 function parseGmpValue(raw: string): number | null {
   const match = raw.match(/<b>([\d.-]+)<\/b>/);
   if (!match || match[1] === '--') return null;
-  return parseFloat(match[1]);
+  return parseFloat(match[1] ?? '');
 }
 
 function parseListingGain(nameHtml: string): { price: number; gain: number } | null {
   const match = nameHtml.match(/L@([\d.]+)\s*\(([-\d.]+)%\)/);
   if (!match) return null;
-  return { price: parseFloat(match[1]), gain: parseFloat(match[2]) };
+  return { price: parseFloat(match[1] ?? ''), gain: parseFloat(match[2] ?? '') };
 }
 
 function stripHtml(s: string): string {

@@ -162,8 +162,10 @@ export function ExpenseForm({
       setAccounts(active);
       if (!initEditing.current && active.length > 0) {
         const first = active[0];
-        setAccountId(first.id);
-        if (first.type === 'cash') setPaymentMode('cash');
+        if (first) {
+          setAccountId(first.id);
+          if (first.type === 'cash') setPaymentMode('cash');
+        }
       }
     });
   }, []);
@@ -258,11 +260,11 @@ export function ExpenseForm({
       date: new Date(date).getTime(),
       hashtags: type === 'transfer' ? [] : parseTags(tagInput),
       isRecurring: type === 'expense' ? isRecurring : false,
-      recurringIntervalDays: type === 'expense' && isRecurring ? parseInt(intervalDays, 10) || 30 : undefined,
-      paymentMode: paymentMode || undefined,
+      ...(type === 'expense' && isRecurring && { recurringIntervalDays: parseInt(intervalDays, 10) || 30 }),
+      ...(paymentMode && { paymentMode }),
       type,
-      accountId: accountId || undefined,
-      toAccountId: type === 'transfer' && toAccountId ? toAccountId : undefined,
+      ...(accountId && { accountId }),
+      ...(type === 'transfer' && toAccountId ? { toAccountId } : {}),
       source: editing?.source ?? 'manual',
       createdAt: editing?.createdAt ?? now,
       updatedAt: now

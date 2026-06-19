@@ -81,9 +81,9 @@ export function parsePennyCsv(text: string): ParsedRow[] {
         description: desc,
         categoryName: cat ?? 'Other',
         type,
-        paymentMode: pm || undefined,
+        ...(pm && { paymentMode: pm }),
         hashtags: parseTags(tags ?? ''),
-        notes: notes || undefined
+        ...(notes?.trim() && { notes: notes.trim() })
       }
     ];
   });
@@ -165,7 +165,7 @@ export function parseCashewCsv(text: string): ParsedRow[] {
         description: desc,
         categoryName: cat || 'Other',
         type: raw < 0 ? 'expense' : 'income',
-        notes: (iNote >= 0 ? cols[iNote] : '') || undefined,
+        ...(iNote >= 0 && cols[iNote] ? { notes: cols[iNote] as string } : {}),
         hashtags: []
       }
     ];
@@ -186,7 +186,7 @@ export function parseMoneyViewCsv(text: string): ParsedRow[] {
 
   return rows.flatMap((cols) => {
     const dateStr = (cols[iDate] ?? '').trim();
-    const desc = (iDesc >= 0 ? cols[iDesc] : (cols[1] ?? '')).trim();
+    const desc = (iDesc >= 0 ? (cols[iDesc] ?? '') : (cols[1] ?? '')).trim();
     const raw = parseFloat((cols[iAmount] ?? '0').replace(/[,₹\s]/g, '')) || 0;
     const cat = (iCat >= 0 ? (cols[iCat] ?? '') : '').trim();
     if (!dateStr || !desc || !raw) return [];

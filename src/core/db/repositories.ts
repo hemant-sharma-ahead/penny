@@ -5,7 +5,6 @@ import { EncryptedRepository } from './repository';
 import type {
   Account,
   AiCallLog,
-  Asset,
   Budget,
   ChipInsight,
   CreditProfile,
@@ -30,7 +29,6 @@ export const budgetsRepo = new EncryptedRepository<Budget>(db.budgets as never);
 export const hashtagsRepo = new EncryptedRepository<Hashtag>(db.hashtags as never);
 export const goalsRepo = new EncryptedRepository<Goal>(db.goals as never);
 export const goalContributionsRepo = new EncryptedRepository<GoalContribution>(db.goal_contributions as never);
-export const assetsRepo = new EncryptedRepository<Asset>(db.assets as never);
 export const liabilitiesRepo = new EncryptedRepository<Liability>(db.liabilities as never);
 export const insurancePoliciesRepo = new EncryptedRepository<InsurancePolicy>(db.insurance_policies as never);
 export const chipInsightsRepo = new EncryptedRepository<ChipInsight>(db.chip_insights as never);

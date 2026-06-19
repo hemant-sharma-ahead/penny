@@ -29,7 +29,7 @@ export interface Profile {
   updatedAt: number;
 }
 
-export type AssetClass = 'mf' | 'stock' | 'fd' | 'nps' | 'ppf' | 'epf' | 'gold' | 'other';
+export type AssetClass = 'mf' | 'stock' | 'fd' | 'nps' | 'ppf' | 'epf' | 'gold' | 'vehicle' | 'property' | 'other';
 
 // ─── PPF transaction ledger ───────────────────────────────────────────────────
 
@@ -94,6 +94,80 @@ export interface AssetMeta {
   epfBirthYear?: number;
   epfEmployers?: EpfEmployer[];
   epfTransactions?: EpfTransaction[];
+  // FD/RD extended (M11 step 65)
+  fdSubType?: 'fd' | 'rd';
+  fdBank?: string;
+  fdStartDate?: number; // epoch ms — deposit / first installment date
+  fdCompoundingFreq?: 'monthly' | 'quarterly' | 'half-yearly' | 'yearly' | 'at_maturity';
+  rdMonthlyInstallment?: number; // RD only — fixed monthly deposit amount
+  rdTenureMonths?: number; // RD only — total tenure in months
+  // Vehicle (M11 step 64) — RC data fetched from vahandetails.com
+  vehicleRegNumber?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleYear?: number;
+  vehicleFuelType?: string;
+  vehicleColor?: string;
+  vehicleType?: string;
+  vehicleRtoLocation?: string;
+  vehicleRcStatus?: string;
+  vehicleRcValidUpto?: number;
+  vehicleInsuranceCompany?: string;
+  vehicleInsuranceUpto?: number;
+  vehiclePuccUpto?: number;
+  vehicleFitnessUpto?: number;
+  vehicleRcFetchedAt?: number;
+  vehicleEngineNo?: string;
+  vehicleChassisNo?: string;
+  vehicleRegDate?: string;
+  vehicleManufactureLabel?: string;
+  vehicleBodyType?: string;
+  vehicleOwnerName?: string;
+  vehiclePresentAddress?: string;
+  vehiclePermanentAddress?: string;
+  vehicleFinancer?: string;
+  vehicleCubicCap?: string;
+  vehicleSeatCap?: string;
+  vehicleUnladenWeight?: string;
+  vehicleGrossWeight?: string;
+  vehicleNorms?: string;
+  vehicleInsurancePolicyNo?: string;
+  vehiclePuccNo?: string;
+  vehicleChallanTotal?: number;
+  vehicleChallanPending?: number;
+  vehicleChallanPaid?: number;
+  vehicleChallanDisposed?: number;
+  vehicleChallanPendingAmount?: number;
+  vehicleChallanFetchedAt?: number;
+  vehicleChallanRecords?: Array<{
+    challanNo: string;
+    date: string;
+    amount: number;
+    paymentStatus: string;
+    challanStatus: string;
+    offenceDetails: string;
+    challanPlace: string;
+    courtName: string;
+    courtAddress: string;
+    challanType: string;
+    rto: string;
+    state: string;
+  }>;
+  // Precious metals (M11 step 66)
+  metalType?: 'gold' | 'silver';
+  metalCategory?: 'jewellery' | 'coin' | 'bar' | 'digital' | 'other';
+  metalKarat?: 14 | 18 | 22 | 24;
+  metalPurity?: string;
+  metalWeightGrams?: number;
+  metalPurchasePricePerGram?: number;
+  // Property (M11 step 64)
+  propertyType?: 'flat' | 'house' | 'plot' | 'commercial';
+  propertyAreaSqft?: number;
+  propertyCity?: string;
+  // Mutual Fund (M11 step 68)
+  mfFundHouse?: string;
+  mfSchemeCategory?: string;
+  mfSchemeType?: string;
 }
 
 export interface Holding {
@@ -210,32 +284,6 @@ export interface GoalContribution {
   date: number;
   notes?: string;
   createdAt: number;
-}
-
-export type AssetType =
-  | 'real_estate'
-  | 'vehicle'
-  | 'jewelry'
-  | 'bank_account'
-  | 'fixed_deposit'
-  | 'ppf'
-  | 'nps'
-  | 'mutual_fund'
-  | 'stock'
-  | 'gold'
-  | 'crypto'
-  | 'other';
-
-export interface Asset {
-  id: string;
-  type: AssetType;
-  name: string;
-  value: number;
-  purchaseValue?: number;
-  purchaseDate?: number;
-  notes?: string;
-  createdAt: number;
-  updatedAt: number;
 }
 
 export type LiabilityType =

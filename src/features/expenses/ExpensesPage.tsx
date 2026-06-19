@@ -564,10 +564,9 @@ export function ExpensesPage() {
       subtype: newEventType,
       hashtag: toEventHashtag(name),
       startDate: Date.now(),
-      endDate:
-        newEventType === 'immersive' && newEventEndDate
-          ? new Date(newEventEndDate).getTime() + 86_400_000 - 1
-          : undefined,
+      ...(newEventType === 'immersive' && newEventEndDate
+        ? { endDate: new Date(newEventEndDate).getTime() + 86_400_000 - 1 }
+        : {}),
       autoTag: newEventType === 'immersive',
       color: newEventColor
     });

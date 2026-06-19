@@ -1,6 +1,5 @@
 import type {
   Account,
-  Asset,
   Budget,
   ChipInsight,
   EpfEmployer,
@@ -18,7 +17,6 @@ import type {
 } from './types';
 import {
   accountsRepo,
-  assetsRepo,
   budgetsRepo,
   chipInsightsRepo,
   expenseCategoriesRepo,
@@ -587,6 +585,55 @@ export async function seedDemoData(): Promise<void> {
       lastUpdatedAt: ago(7),
       createdAt: new Date('2023-10-01').getTime(),
       updatedAt: ago(7)
+    },
+    // Vehicle — data as if fetched from vahandetails.com
+    {
+      id: 'demo-holding-vehicle',
+      assetClass: 'vehicle' as const,
+      name: 'Maruti Swift VXi',
+      investedAmount: 750000,
+      currentValue: 580000,
+      lastUpdatedAt: ago(105),
+      assetMeta: {
+        vehicleRegNumber: 'KA03MN5678',
+        vehicleMake: 'MARUTI SUZUKI',
+        vehicleModel: 'SWIFT VXI',
+        vehicleYear: 2021,
+        vehicleFuelType: 'PETROL',
+        vehicleColor: 'PEARL WHITE',
+        vehicleType: 'Four Wheeler',
+        vehicleRtoLocation: 'BENGALURU (SOUTH) RTO, Karnataka',
+        vehicleRcStatus: 'ACTIVE',
+        vehicleRcValidUpto: new Date('2036-06-14').getTime(),
+        vehicleInsuranceCompany: 'HDFC ERGO General Insurance Co. Ltd.',
+        vehicleInsuranceUpto: new Date('2026-08-20').getTime(),
+        vehiclePuccUpto: new Date('2026-12-10').getTime(),
+        vehicleFitnessUpto: new Date('2036-06-14').getTime(),
+        vehicleRcFetchedAt: ago(105),
+        vehicleChallanTotal: 1,
+        vehicleChallanPending: 1,
+        vehicleChallanPendingAmount: 500,
+        vehicleChallanFetchedAt: ago(105)
+      },
+      createdAt: new Date('2021-06-15').getTime(),
+      updatedAt: ago(105)
+    },
+    // Property
+    {
+      id: 'demo-holding-property',
+      assetClass: 'property' as const,
+      name: '2BHK Apartment — Koramangala',
+      investedAmount: 6000000,
+      currentValue: 8500000,
+      lastUpdatedAt: ago(30),
+      assetMeta: {
+        propertyType: 'flat' as const,
+        propertyCity: 'Bengaluru',
+        propertyAreaSqft: 1050
+      },
+      notes: '#sample',
+      createdAt: ago(1825),
+      updatedAt: ago(30)
     }
   ];
   await Promise.all(holdings.map((h) => holdingsRepo.put(h)));
@@ -759,41 +806,6 @@ export async function seedDemoData(): Promise<void> {
     }
   ];
   await Promise.all(ious.map((i) => personalIousRepo.put(i)));
-
-  // ── Assets (for net worth) ────────────────────────────────────────────────
-  const assets: Asset[] = [
-    {
-      id: 'demo-asset-home',
-      type: 'real_estate',
-      name: '2BHK Apartment — Primary Residence',
-      value: 8000000,
-      purchaseValue: 6000000,
-      purchaseDate: ago(1825),
-      notes: '#sample',
-      createdAt: ago(1825),
-      updatedAt: ago(30)
-    },
-    {
-      id: 'demo-asset-savings',
-      type: 'bank_account',
-      name: 'HDFC Savings Account',
-      value: 250000,
-      notes: '#sample',
-      createdAt: ago(365),
-      updatedAt: ago(1)
-    },
-    {
-      id: 'demo-asset-ppf',
-      type: 'ppf',
-      name: 'PPF Account — SBI',
-      value: 325000,
-      purchaseDate: ago(1095),
-      notes: '#sample',
-      createdAt: ago(1095),
-      updatedAt: ago(30)
-    }
-  ];
-  await Promise.all(assets.map((a) => assetsRepo.put(a)));
 
   // ── Liabilities ───────────────────────────────────────────────────────────
   const liabilities: Liability[] = [
@@ -987,7 +999,6 @@ export async function clearDemoData(): Promise<void> {
     db.holdings.clear(),
     db.goals.clear(),
     db.goal_contributions.clear(),
-    db.assets.clear(),
     db.liabilities.clear(),
     db.insurance_policies.clear(),
     db.chip_insights.clear(),

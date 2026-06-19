@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePrivacy } from '@/context/PrivacyContext';
 import {
-  assetsRepo,
   expensesRepo,
   goalsRepo,
   holdingsRepo,
   insurancePoliciesRepo,
   liabilitiesRepo
 } from '@/core/db/repositories';
-import type { Asset, Expense, Goal, Holding, InsurancePolicy, Liability } from '@/core/db/types';
+import type { Expense, Goal, Holding, InsurancePolicy, Liability } from '@/core/db/types';
 import { computeHealthScore, deriveInputs } from '@/core/health/scorer';
 import type { ComponentStatus, ScoreComponent } from '@/core/health/scorer';
 
@@ -114,7 +113,6 @@ function ComponentCard({ c }: { c: ScoreComponent }) {
 // ── Loaded data bag ───────────────────────────────────────────────────────────
 
 interface LoadedData {
-  assets: Asset[];
   holdings: Holding[];
   expenses: Expense[];
   liabilities: Liability[];
@@ -133,16 +131,15 @@ export function HealthScorePage() {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      assetsRepo.getAll(),
       holdingsRepo.getAll(),
       expensesRepo.getAll(),
       liabilitiesRepo.getAll(),
       insurancePoliciesRepo.getAll(),
       goalsRepo.getAll()
     ])
-      .then(([assets, holdings, expenses, liabilities, policies, goals]) => {
+      .then(([holdings, expenses, liabilities, policies, goals]) => {
         if (cancelled) return;
-        setData({ assets, holdings, expenses, liabilities, policies, goals });
+        setData({ holdings, expenses, liabilities, policies, goals });
       })
       .catch(() => {});
     return () => {
@@ -152,7 +149,7 @@ export function HealthScorePage() {
 
   const derived = useMemo(() => {
     if (!data) return null;
-    return deriveInputs(data.assets, data.holdings, data.expenses, data.liabilities, data.policies, data.goals, nowMs);
+    return deriveInputs(data.holdings, data.expenses, data.liabilities, data.policies, data.goals, nowMs);
   }, [data, nowMs]);
 
   const healthScore = useMemo(() => {

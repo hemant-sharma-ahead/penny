@@ -1,17 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useSettings, type ModuleVisibility } from '@/context/SettingsContext';
 import {
   accountsRepo,
-  assetsRepo,
   chipInsightsRepo,
   expensesRepo,
   holdingsRepo,
   liabilitiesRepo
 } from '@/core/db/repositories';
 import { DEFAULT_INSIGHTS } from '@/core/ai-safety/mockChip';
-import type { ChipInsight } from '@/core/db/types';
+import type { ChipInsight, Holding, Liability } from '@/core/db/types';
 import { formatCompact, formatCurrency, toMonthYearKey } from '@/lib/formatters';
 import { PATHS } from '@/router/paths';
 
@@ -27,7 +26,40 @@ interface Summary {
   netWorth: number;
   monthlyExpenses: number;
   accountBalances: AccountBalance[];
+  totalPortfolio: number;
+  holdings: Holding[];
+  liabilities: Liability[];
 }
+
+const HOLDING_META: Record<string, { label: string; short: string; color: string; icon: string }> = {
+  mf:       { label: 'Mutual Funds',  short: 'MF',       color: '#6366f1', icon: 'ti-chart-donut' },
+  stock:    { label: 'Stocks',        short: 'Stocks',   color: '#0ea5e9', icon: 'ti-trending-up' },
+  fd:       { label: 'FD / RD',       short: 'FD/RD',    color: '#f59e0b', icon: 'ti-building-bank' },
+  nps:      { label: 'NPS',           short: 'NPS',      color: '#10b981', icon: 'ti-building-community' },
+  ppf:      { label: 'PPF',           short: 'PPF',      color: '#8b5cf6', icon: 'ti-safe' },
+  epf:      { label: 'EPF',           short: 'EPF',      color: '#64748b', icon: 'ti-building-factory' },
+  gold:     { label: 'Gold',          short: 'Gold',     color: '#d97706', icon: 'ti-coin' },
+  vehicle:  { label: 'Vehicles',      short: 'Vehicles', color: '#3b82f6', icon: 'ti-car' },
+  property: { label: 'Property',      short: 'Property', color: '#8b5cf6', icon: 'ti-building' },
+  other:    { label: 'Other',         short: 'Other',    color: '#6b7280', icon: 'ti-dots' },
+};
+const ASSET_CLASS_ORDER = ['mf', 'stock', 'fd', 'nps', 'ppf', 'epf', 'gold', 'vehicle', 'property', 'other'];
+const FALLBACK_HOLDING_META = { label: 'Other', short: 'Other', color: '#6b7280', icon: 'ti-dots' };
+
+const LIABILITY_META: Record<string, { label: string; icon: string }> = {
+  home_loan:      { label: 'Home Loan',              icon: 'ti-home' },
+  car_loan:       { label: 'Car Loan',               icon: 'ti-car' },
+  personal_loan:  { label: 'Personal Loan',          icon: 'ti-user' },
+  education_loan: { label: 'Education Loan',         icon: 'ti-school' },
+  credit_card:    { label: 'Credit Card',            icon: 'ti-credit-card' },
+  bnpl:           { label: 'BNPL',                   icon: 'ti-device-mobile' },
+  gold_loan:      { label: 'Gold Loan',              icon: 'ti-coin' },
+  lap:            { label: 'Loan Against Property',  icon: 'ti-building' },
+  las:            { label: 'Loan Against Securities', icon: 'ti-chart-bar' },
+  overdraft:      { label: 'Overdraft',              icon: 'ti-credit-card' },
+  informal:       { label: 'Informal Loan',          icon: 'ti-users' },
+  rental_deposit: { label: 'Rental Deposit',         icon: 'ti-building' },
+};
 
 async function seedInsightsIfEmpty(): Promise<ChipInsight[]> {
   const existing = await chipInsightsRepo.getAll();
@@ -45,17 +77,15 @@ async function seedInsightsIfEmpty(): Promise<ChipInsight[]> {
 }
 
 async function loadSummary(): Promise<Summary> {
-  const [assets, liabilities, expenses, holdings, accs] = await Promise.all([
-    assetsRepo.getAll(),
+  const [liabilities, expenses, holdings, accs] = await Promise.all([
     liabilitiesRepo.getAll(),
     expensesRepo.getAll(),
     holdingsRepo.getAll(),
     accountsRepo.getAll()
   ]);
 
-  const totalAssets =
-    assets.reduce((s, a) => s + a.value, 0) + holdings.reduce((s, h) => s + (h.currentValue ?? h.investedAmount), 0);
-  const totalLiabilities = liabilities.reduce((s, l) => s + l.outstandingAmount, 0);
+  const totalPortfolio = holdings.reduce((s, h) => s + (h.currentValue ?? h.investedAmount), 0);
+  const totalLiabilitiesAmt = liabilities.reduce((s, l) => s + l.outstandingAmount, 0);
 
   const thisMonth = toMonthYearKey();
   const monthlyExpenses = expenses
@@ -80,7 +110,34 @@ async function loadSummary(): Promise<Summary> {
       return { id: acc.id, name: acc.name, balance, color: acc.color, icon: acc.icon };
     });
 
-  return { netWorth: totalAssets - totalLiabilities, monthlyExpenses, accountBalances };
+  // Account balances that count toward net worth (cash + bank, not credit cards)
+  const accountsNetWorthBalance = accs
+    .filter((a) => a.includeInNetWorth && !a.isArchived)
+    .reduce((s, acc) => {
+      const linked = expenses.filter((t) => t.accountId === acc.id || t.toAccountId === acc.id);
+      const balance = linked.reduce((bal, t) => {
+        const type = t.type ?? 'expense';
+        if (type === 'income' && t.accountId === acc.id) return bal + t.amount;
+        if (type === 'expense' && t.accountId === acc.id) return bal - t.amount;
+        if (type === 'transfer') {
+          if (t.accountId === acc.id) return bal - t.amount;
+          if (t.toAccountId === acc.id) return bal + t.amount;
+        }
+        return bal;
+      }, acc.openingBalance);
+      return s + balance;
+    }, 0);
+
+  const totalAssets = totalPortfolio + accountsNetWorthBalance;
+
+  return {
+    netWorth: totalAssets - totalLiabilitiesAmt,
+    monthlyExpenses,
+    accountBalances,
+    totalPortfolio,
+    holdings,
+    liabilities
+  };
 }
 
 const TOOL_TILES: { label: string; icon: string; path: string; color: string; moduleKey: keyof ModuleVisibility }[] = [
@@ -103,6 +160,7 @@ export function HomePage() {
   const navigate = useNavigate();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [insights, setInsights] = useState<ChipInsight[]>([]);
+  const [assetsExpanded, setAssetsExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,6 +177,23 @@ export function HomePage() {
       cancelled = true;
     };
   }, []);
+
+  const assetGroups = useMemo(() => {
+    if (!summary?.holdings) return [];
+    const map = new Map<string, number>();
+    for (const h of summary.holdings) {
+      const key = h.assetClass;
+      map.set(key, (map.get(key) ?? 0) + (h.currentValue ?? h.investedAmount));
+    }
+    return ASSET_CLASS_ORDER
+      .filter(ac => (map.get(ac) ?? 0) > 0)
+      .map(ac => ({ ac, value: map.get(ac) ?? 0, meta: HOLDING_META[ac] ?? FALLBACK_HOLDING_META }));
+  }, [summary]);
+
+  const totalLiabilities = useMemo(
+    () => summary?.liabilities?.reduce((s, l) => s + l.outstandingAmount, 0) ?? 0,
+    [summary]
+  );
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -143,17 +218,182 @@ export function HomePage() {
     <div className="px-4 pt-4 pb-6 flex flex-col gap-4">
       <h2 className="text-xl font-semibold text-primary">{greeting}</h2>
 
-      {/* Net worth card */}
-      <div className="rounded-2xl p-5 text-white" style={{ backgroundColor: 'var(--color-primary)' }}>
-        <p className="text-sm opacity-75 mb-1">Net worth</p>
-        <p className="text-3xl font-semibold tracking-tight">{displayNetWorth}</p>
-        {displayExpenses && <p className="text-sm opacity-70 mt-1">{displayExpenses}</p>}
-        {summary && mode !== 'open' && (
-          <p className="text-xs opacity-60 mt-2">
-            <i className="ti ti-eye-off" aria-hidden="true" /> Privacy mode active — tap the badge to reveal
-          </p>
-        )}
-      </div>
+      {/* Combined net worth + assets & liabilities card */}
+      {summary && (
+        <div className="rounded-[20px] overflow-hidden" style={{ backgroundColor: '#064e3b' }}>
+
+          {/* Top row: net worth left, assets/liabilities right */}
+          <div style={{ padding: '16px 18px 0' }}>
+            <div className="flex items-start gap-3">
+              <div className="flex-1">
+                <p className="mb-0.5 text-[12px]" style={{ color: '#6ee7b7' }}>Net worth</p>
+                <p className="text-[28px] font-medium tracking-tight text-white">{displayNetWorth}</p>
+              </div>
+              <div className="flex flex-col items-end gap-1.5 pt-0.5">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: '#6ee7b7' }}>Assets</span>
+                  <span className="text-[13px] font-medium" style={{ color: '#a7f3d0' }}>
+                    {mode === 'open' ? formatCurrency(summary.totalPortfolio) : '••••'}
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: '#6ee7b7' }}>Liabilities</span>
+                  <span className="text-[13px] font-medium" style={{ color: totalLiabilities > 0 ? '#fca5a5' : '#a7f3d0' }}>
+                    {mode === 'open' ? formatCurrency(totalLiabilities) : '••••'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="mt-3" style={{ height: '0.5px', backgroundColor: 'rgba(255,255,255,0.15)' }} />
+
+          {/* Footer: spent this month + expand chevron */}
+          <div className="flex items-center justify-between px-[18px] pt-[10px] pb-3">
+            {displayExpenses
+              ? <p className="text-xs" style={{ color: '#6ee7b7' }}>{displayExpenses}</p>
+              : <span />
+            }
+            {assetGroups.length > 0 && (
+              <button
+                onClick={() => setAssetsExpanded(v => !v)}
+                className="w-8 h-7 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: '#065f46' }}
+                aria-label="Toggle asset breakdown"
+              >
+                <i
+                  className={`ti ${assetsExpanded ? 'ti-chevron-up' : 'ti-chevron-down'}`}
+                  style={{ fontSize: 15, color: '#34d399' }}
+                  aria-hidden="true"
+                />
+              </button>
+            )}
+          </div>
+
+          {/* Collapsed: summary bar + legend + liabilities total */}
+          {!assetsExpanded && assetGroups.length > 0 && (
+            <div style={{ padding: '14px 18px 16px', backgroundColor: '#065f46' }}>
+              {mode === 'open' && summary.totalPortfolio > 0 && (
+                <>
+                  <div className="flex rounded-full overflow-hidden" style={{ height: '5px', gap: '2px', marginBottom: '10px' }}>
+                    {assetGroups.map(({ ac, value, meta }) => (
+                      <div key={ac} style={{ flex: value / summary.totalPortfolio, backgroundColor: meta.color }} />
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap" style={{ gap: '8px 14px' }}>
+                    {assetGroups.map(({ ac, meta, value }) => (
+                      <div key={ac} className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: meta.color }} />
+                        <span className="text-[11px]" style={{ color: '#6ee7b7' }}>{meta.short}</span>
+                        <span className="text-[11px] font-medium" style={{ color: '#a7f3d0' }}>{formatCompact(value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {totalLiabilities > 0 && (
+                    <div
+                      className="flex items-center justify-between"
+                      style={{ marginTop: '10px', paddingTop: '10px', borderTop: '0.5px solid rgba(255,255,255,0.12)' }}
+                    >
+                      <span className="text-[12px]" style={{ color: '#6ee7b7' }}>Liabilities</span>
+                      <span className="text-[13px] font-medium" style={{ color: '#fca5a5' }}>
+                        − {formatCurrency(totalLiabilities)}
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Expanded: full asset rows + liabilities list */}
+          {assetsExpanded && (
+            <div style={{ backgroundColor: '#065f46' }} className="pb-2">
+              <div style={{ padding: '12px 18px 4px' }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#6ee7b7' }}>Assets</p>
+              </div>
+              {assetGroups.map(({ ac, value, meta }) => (
+                <button
+                  key={ac}
+                  onClick={() => {
+                    const subTab = ac === 'nps' || ac === 'ppf' || ac === 'epf' ? 'retirement'
+                      : ac === 'gold' ? 'precious_metals'
+                      : ac === 'vehicle' || ac === 'property' || ac === 'other' ? 'real_assets'
+                      : ac === 'fd' ? 'fixed_income'
+                      : ac === 'stock' ? 'stocks'
+                      : ac;
+                    navigate('/app/portfolio', { state: { holdingsSubTab: subTab } });
+                  }}
+                  className="w-full flex items-center gap-3 text-left"
+                  style={{ padding: '10px 18px', borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}
+                >
+                  <div
+                    className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: `${meta.color}25` }}
+                  >
+                    <i className={`ti ${meta.icon}`} style={{ fontSize: 16, color: meta.color }} aria-hidden="true" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-1.5 mb-1">
+                      <p className="text-[13px] font-medium" style={{ color: '#e2f8f0' }}>{meta.label}</p>
+                      {mode === 'open' && summary.totalPortfolio > 0 && (
+                        <p className="text-[10px]" style={{ color: '#6ee7b7' }}>
+                          {((value / summary.totalPortfolio) * 100).toFixed(0)}%
+                        </p>
+                      )}
+                    </div>
+                    <div className="h-[3px] rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${mode === 'open' && summary.totalPortfolio > 0 ? (value / summary.totalPortfolio) * 100 : 0}%`,
+                          backgroundColor: meta.color,
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[13px] font-medium flex-shrink-0" style={{ color: '#a7f3d0' }}>
+                    {mode === 'open' ? formatCurrency(value) : '••••'}
+                  </p>
+                  <i className="ti ti-chevron-right flex-shrink-0" style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }} aria-hidden="true" />
+                </button>
+              ))}
+
+              {summary.liabilities && summary.liabilities.length > 0 && (
+                <>
+                  <div
+                    style={{ padding: '12px 18px 4px', marginTop: '4px', borderTop: '0.5px solid rgba(255,255,255,0.1)' }}
+                  >
+                    <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#6ee7b7' }}>Liabilities</p>
+                  </div>
+                  {summary.liabilities.map((l) => {
+                    const lMeta = LIABILITY_META[l.type] ?? { label: l.type, icon: 'ti-credit-card' };
+                    return (
+                      <div key={l.id} className="flex items-center gap-3" style={{ padding: '10px 18px' }}>
+                        <div
+                          className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: 'rgba(252,165,165,0.15)' }}
+                        >
+                          <i className={`ti ${lMeta.icon}`} style={{ fontSize: 16, color: '#fca5a5' }} aria-hidden="true" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium truncate" style={{ color: '#fecaca' }}>{l.name}</p>
+                          {l.interestRate > 0 && (
+                            <p className="text-[10px]" style={{ color: '#f87171' }}>{l.interestRate}% p.a.</p>
+                          )}
+                        </div>
+                        <p className="text-[13px] font-medium flex-shrink-0" style={{ color: '#fca5a5' }}>
+                          {mode === 'open' ? formatCurrency(l.outstandingAmount) : '••••'}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Accounts strip */}
       {summary && summary.accountBalances.length > 0 && (
