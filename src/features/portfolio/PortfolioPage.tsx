@@ -40,7 +40,6 @@ const ASSET_META: Record<AssetClass, { label: string; icon: string; color: strin
   other: { label: 'Other', icon: 'ti-dots', color: '#6b7280' }
 };
 
-
 // ─── Holdings sub-tabs ────────────────────────────────────────────────────────
 
 type HoldingsSubTab = 'stocks' | 'mf' | 'fixed_income' | 'precious_metals' | 'retirement' | 'real_assets';
@@ -384,7 +383,7 @@ function PpfTransactionSheet({
       type: txType,
       date: dateMs,
       amount: amt,
-      note: txNote.trim() || undefined
+      ...(txNote.trim() && { note: txNote.trim() })
     };
     const existing = holding.assetMeta?.ppfTransactions ?? [];
     const updated: Holding = {
@@ -549,7 +548,7 @@ interface EpfMonthEntry {
 }
 
 function epfMonthToFy(month: string): { label: string; startYear: number } {
-  const [y, m] = month.split('-').map(Number);
+  const [y = 0, m = 0] = month.split('-').map(Number);
   const s = m >= 4 ? y : y - 1;
   return { label: `FY ${s}-${String(s + 1).slice(2)}`, startYear: s };
 }
@@ -3625,18 +3624,27 @@ function RealAssetsTab({
                   onClick={() => onEdit(h)}
                   className="surface rounded-2xl px-4 py-3 flex items-center gap-3 w-full text-left"
                 >
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#6b728015' }}>
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: '#6b728015' }}
+                  >
                     <i className="ti ti-dots" style={{ fontSize: 18, color: '#6b7280' }} aria-hidden="true" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-primary truncate">{h.name}</p>
-                    <p className="text-[10px] text-tertiary">{realAssetStalenessLabel(h.lastUpdatedAt)}{stale ? ' · Stale' : ''}</p>
+                    <p className="text-[10px] text-tertiary">
+                      {realAssetStalenessLabel(h.lastUpdatedAt)}
+                      {stale ? ' · Stale' : ''}
+                    </p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-semibold text-primary">{mode === 'open' ? `₹${currentVal.toLocaleString('en-IN')}` : '••••'}</p>
+                    <p className="text-sm font-semibold text-primary">
+                      {mode === 'open' ? `₹${currentVal.toLocaleString('en-IN')}` : '••••'}
+                    </p>
                     {mode === 'open' && (
                       <p className={`text-[10px] font-medium ${gain >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                        {gain >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
+                        {gain >= 0 ? '+' : ''}
+                        {gainPct.toFixed(1)}%
                       </p>
                     )}
                   </div>
@@ -3660,9 +3668,7 @@ export function PortfolioPage() {
 
   const locationState = location.state as { holdingsSubTab?: HoldingsSubTab } | null;
   const [activeTab, setActiveTab] = useState<'holdings' | 'ipo'>('holdings');
-  const [holdingsSubTab, setHoldingsSubTab] = useState<HoldingsSubTab>(
-    locationState?.holdingsSubTab ?? 'stocks'
-  );
+  const [holdingsSubTab, setHoldingsSubTab] = useState<HoldingsSubTab>(locationState?.holdingsSubTab ?? 'stocks');
   const [ipoSubTab, setIpoSubTab] = useState<IpoStatus>('upcoming');
   const [ipoShowMainboardOnly, setIpoShowMainboardOnly] = useState(false);
   const [selectedIpo, setSelectedIpo] = useState<IpoItem | null>(null);
@@ -3680,7 +3686,7 @@ export function PortfolioPage() {
   const overallReturn = totalInvested > 0 ? ((totalCurrent - totalInvested) / totalInvested) * 100 : 0;
 
   // Holdings filtered per sub-tab
-  const activeSubTabConfig = HOLDINGS_SUBTABS.find((t) => t.key === holdingsSubTab) ?? HOLDINGS_SUBTABS[0]!;
+  const activeSubTabConfig = (HOLDINGS_SUBTABS.find((t) => t.key === holdingsSubTab) ?? HOLDINGS_SUBTABS[0]) as HoldingsSubTabConfig;
   const subTabHoldings = useMemo(
     () => holdings.filter((h) => activeSubTabConfig.assetClasses.includes(h.assetClass)),
     [holdings, activeSubTabConfig]
@@ -3931,7 +3937,7 @@ export function PortfolioPage() {
               <div className="py-2">
                 {(() => {
                   const stockGroups = (() => {
-                    const stockHoldings = subTabHoldings.filter(h => h.assetClass === 'stock');
+                    const stockHoldings = subTabHoldings.filter((h) => h.assetClass === 'stock');
                     if (stockHoldings.length === 0) return new Map<string, typeof stockHoldings>();
                     const map = new Map<string, typeof stockHoldings>();
                     for (const h of stockHoldings) {
@@ -3945,7 +3951,7 @@ export function PortfolioPage() {
                   const renderedStockSymbols = new Set<string>();
 
                   const mfGroups = (() => {
-                    const mfHoldings = subTabHoldings.filter(h => h.assetClass === 'mf');
+                    const mfHoldings = subTabHoldings.filter((h) => h.assetClass === 'mf');
                     if (mfHoldings.length === 0) return new Map<string, typeof mfHoldings>();
                     const map = new Map<string, typeof mfHoldings>();
                     for (const h of mfHoldings) {
@@ -3971,7 +3977,7 @@ export function PortfolioPage() {
                       const totalInvested = lots.reduce((s, l) => s + l.investedAmount, 0);
                       const weightedAvg = totalUnits > 0 ? totalInvested / totalUnits : 0;
                       const totalCurrent = lots.reduce((s, l) => s + effectiveValue(l), 0);
-                      const livePrice = lots.find(l => l.currentPrice != null)?.currentPrice ?? null;
+                      const livePrice = lots.find((l) => l.currentPrice != null)?.currentPrice ?? null;
                       const totalGain = totalCurrent - totalInvested;
                       const totalGainPct = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
                       const totalGainColor = totalGain >= 0 ? '#10b981' : '#ef4444';
@@ -3983,13 +3989,15 @@ export function PortfolioPage() {
 
                       const handleGroupTap = () => {
                         if (isMultiLot) {
-                          setExpandedSymbols(prev => {
+                          setExpandedSymbols((prev) => {
                             const next = new Set(prev);
-                            if (next.has(symKey)) next.delete(symKey); else next.add(symKey);
+                            if (next.has(symKey)) next.delete(symKey);
+                            else next.add(symKey);
                             return next;
                           });
                         } else {
-                          openEdit(lots[0]!);
+                          const firstLot = lots[0];
+                          if (firstLot) openEdit(firstLot);
                         }
                       };
 
@@ -3997,15 +4005,27 @@ export function PortfolioPage() {
                         <div key={symKey} className="border-b border-theme">
                           <button onClick={handleGroupTap} className="w-full px-4 py-3 text-left">
                             <div className="flex items-start gap-3">
-                              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: `${meta.color}15` }}>
-                                <i className={`ti ${meta.icon}`} style={{ fontSize: 18, color: meta.color }} aria-hidden="true" />
+                              <div
+                                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                                style={{ backgroundColor: `${meta.color}15` }}
+                              >
+                                <i
+                                  className={`ti ${meta.icon}`}
+                                  style={{ fontSize: 18, color: meta.color }}
+                                  aria-hidden="true"
+                                />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-baseline justify-between gap-2">
                                   <div className="flex items-center gap-1.5 min-w-0">
-                                    <p className="text-sm font-semibold text-primary tracking-wide truncate">{displayName}</p>
+                                    <p className="text-sm font-semibold text-primary tracking-wide truncate">
+                                      {displayName}
+                                    </p>
                                     {isMultiLot && (
-                                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ backgroundColor: `${meta.color}20`, color: meta.color }}>
+                                      <span
+                                        className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0"
+                                        style={{ backgroundColor: `${meta.color}20`, color: meta.color }}
+                                      >
                                         {lots.length} lots
                                       </span>
                                     )}
@@ -4015,39 +4035,94 @@ export function PortfolioPage() {
                                   </p>
                                 </div>
                                 <div className="flex items-baseline justify-between gap-2 mt-0.5">
-                                  {companyName ? <p className="text-xs text-secondary truncate">{companyName}</p> : <span />}
+                                  {companyName ? (
+                                    <p className="text-xs text-secondary truncate">{companyName}</p>
+                                  ) : (
+                                    <span />
+                                  )}
                                   <p className="text-xs font-medium flex-shrink-0" style={{ color: totalGainColor }}>
-                                    {mode === 'open' ? `${totalGain >= 0 ? '+' : '−'}${formatCurrency(Math.abs(totalGain))} · ${totalGain >= 0 ? '+' : ''}${formatPercent(totalGainPct)}` : '••••'}
+                                    {mode === 'open'
+                                      ? `${totalGain >= 0 ? '+' : '−'}${formatCurrency(Math.abs(totalGain))} · ${totalGain >= 0 ? '+' : ''}${formatPercent(totalGainPct)}`
+                                      : '••••'}
                                   </p>
                                 </div>
                                 <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                                   <span className="text-[10px] text-tertiary">{totalUnits} shares</span>
-                                  {weightedAvg > 0 && <><span className="text-[9px] text-tertiary">·</span><span className="text-[10px] text-tertiary">Avg {mode === 'open' ? `₹${weightedAvg.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : '••••'}</span></>}
-                                  {livePrice != null && <><span className="text-[9px] text-tertiary">·</span><span className="text-[10px] font-medium" style={{ color: meta.color }}>{mode === 'open' ? `₹${livePrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : '••••'}<span className="ml-0.5 opacity-60 text-[9px]">live</span></span></>}
-                                  {isMultiLot && <span className="ml-auto text-[10px] text-tertiary flex items-center gap-0.5"><i className={`ti ${isExpanded ? 'ti-chevron-up' : 'ti-chevron-down'}`} style={{ fontSize: 11 }} /></span>}
+                                  {weightedAvg > 0 && (
+                                    <>
+                                      <span className="text-[9px] text-tertiary">·</span>
+                                      <span className="text-[10px] text-tertiary">
+                                        Avg{' '}
+                                        {mode === 'open'
+                                          ? `₹${weightedAvg.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+                                          : '••••'}
+                                      </span>
+                                    </>
+                                  )}
+                                  {livePrice != null && (
+                                    <>
+                                      <span className="text-[9px] text-tertiary">·</span>
+                                      <span className="text-[10px] font-medium" style={{ color: meta.color }}>
+                                        {mode === 'open'
+                                          ? `₹${livePrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+                                          : '••••'}
+                                        <span className="ml-0.5 opacity-60 text-[9px]">live</span>
+                                      </span>
+                                    </>
+                                  )}
+                                  {isMultiLot && (
+                                    <span className="ml-auto text-[10px] text-tertiary flex items-center gap-0.5">
+                                      <i
+                                        className={`ti ${isExpanded ? 'ti-chevron-up' : 'ti-chevron-down'}`}
+                                        style={{ fontSize: 11 }}
+                                      />
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </div>
                           </button>
                           {isMultiLot && isExpanded && (
-                            <div className="mx-4 mb-3 rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--color-surface-secondary)' }}>
+                            <div
+                              className="mx-4 mb-3 rounded-xl overflow-hidden"
+                              style={{ backgroundColor: 'var(--color-surface-secondary)' }}
+                            >
                               {lots.map((lot, idx) => {
                                 const lotCurrent = effectiveValue(lot);
                                 const lotGain = lotCurrent - lot.investedAmount;
                                 const lotGainPct = lot.investedAmount > 0 ? (lotGain / lot.investedAmount) * 100 : 0;
                                 const lotGainColor = lotGain >= 0 ? '#10b981' : '#ef4444';
                                 return (
-                                  <button key={lot.id} onClick={() => openEdit(lot)} className="w-full flex items-center gap-3 px-3 py-2.5 text-left border-b border-theme last:border-0">
-                                    <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-secondary bg-surface">{idx + 1}</div>
+                                  <button
+                                    key={lot.id}
+                                    onClick={() => openEdit(lot)}
+                                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left border-b border-theme last:border-0"
+                                  >
+                                    <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-secondary bg-surface">
+                                      {idx + 1}
+                                    </div>
                                     <div className="flex-1 min-w-0">
                                       <p className="text-xs text-primary">
                                         {lot.units} shares
-                                        {lot.avgCostPrice != null && <span className="text-tertiary"> · Avg {mode === 'open' ? `₹${lot.avgCostPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : '••••'}</span>}
+                                        {lot.avgCostPrice != null && (
+                                          <span className="text-tertiary">
+                                            {' '}
+                                            · Avg{' '}
+                                            {mode === 'open'
+                                              ? `₹${lot.avgCostPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+                                              : '••••'}
+                                          </span>
+                                        )}
                                       </p>
                                     </div>
                                     <div className="text-right flex-shrink-0">
-                                      <p className="text-xs font-medium text-primary">{mode === 'open' ? formatCurrency(lotCurrent) : '••••'}</p>
-                                      <p className="text-[10px]" style={{ color: lotGainColor }}>{lotGain >= 0 ? '+' : '−'}{formatPercent(Math.abs(lotGainPct))}</p>
+                                      <p className="text-xs font-medium text-primary">
+                                        {mode === 'open' ? formatCurrency(lotCurrent) : '••••'}
+                                      </p>
+                                      <p className="text-[10px]" style={{ color: lotGainColor }}>
+                                        {lotGain >= 0 ? '+' : '−'}
+                                        {formatPercent(Math.abs(lotGainPct))}
+                                      </p>
                                     </div>
                                     <i className="ti ti-pencil text-tertiary flex-shrink-0" style={{ fontSize: 13 }} />
                                   </button>
@@ -4069,7 +4144,7 @@ export function PortfolioPage() {
                       const totalInvested = lots.reduce((s, l) => s + l.investedAmount, 0);
                       const weightedAvg = totalUnits > 0 ? totalInvested / totalUnits : 0;
                       const totalCurrent = lots.reduce((s, l) => s + effectiveValue(l), 0);
-                      const liveNav = lots.find(l => l.currentPrice != null)?.currentPrice ?? null;
+                      const liveNav = lots.find((l) => l.currentPrice != null)?.currentPrice ?? null;
                       const mfGain = totalCurrent - totalInvested;
                       const mfGainPct = totalInvested > 0 ? (mfGain / totalInvested) * 100 : 0;
                       const gainColor = mfGain >= 0 ? '#10b981' : '#ef4444';
@@ -4080,13 +4155,15 @@ export function PortfolioPage() {
 
                       const handleGroupTap = () => {
                         if (isMultiLot) {
-                          setExpandedSymbols(prev => {
+                          setExpandedSymbols((prev) => {
                             const next = new Set(prev);
-                            if (next.has(schemeKey)) next.delete(schemeKey); else next.add(schemeKey);
+                            if (next.has(schemeKey)) next.delete(schemeKey);
+                            else next.add(schemeKey);
                             return next;
                           });
                         } else {
-                          openEdit(lots[0]!);
+                          const firstLot = lots[0];
+                          if (firstLot) openEdit(firstLot);
                         }
                       };
 
@@ -4094,15 +4171,25 @@ export function PortfolioPage() {
                         <div key={schemeKey} className="border-b border-theme">
                           <button onClick={handleGroupTap} className="w-full px-4 py-3 text-left">
                             <div className="flex items-start gap-3">
-                              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: `${meta.color}15` }}>
-                                <i className={`ti ${meta.icon}`} style={{ fontSize: 18, color: meta.color }} aria-hidden="true" />
+                              <div
+                                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                                style={{ backgroundColor: `${meta.color}15` }}
+                              >
+                                <i
+                                  className={`ti ${meta.icon}`}
+                                  style={{ fontSize: 18, color: meta.color }}
+                                  aria-hidden="true"
+                                />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-baseline justify-between gap-2">
                                   <div className="flex items-center gap-1.5 min-w-0">
                                     <p className="text-xs font-semibold text-primary truncate">{h.name}</p>
                                     {isMultiLot && (
-                                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ backgroundColor: `${meta.color}20`, color: meta.color }}>
+                                      <span
+                                        className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0"
+                                        style={{ backgroundColor: `${meta.color}20`, color: meta.color }}
+                                      >
                                         {lots.length} SIPs
                                       </span>
                                     )}
@@ -4112,39 +4199,98 @@ export function PortfolioPage() {
                                   </p>
                                 </div>
                                 <div className="flex items-baseline justify-between gap-2 mt-0.5">
-                                  {mfSchemeCategory ? <p className="text-xs text-secondary truncate">{mfSchemeCategory}{mfFundHouse ? ` · ${mfFundHouse}` : ''}</p> : <span />}
+                                  {mfSchemeCategory ? (
+                                    <p className="text-xs text-secondary truncate">
+                                      {mfSchemeCategory}
+                                      {mfFundHouse ? ` · ${mfFundHouse}` : ''}
+                                    </p>
+                                  ) : (
+                                    <span />
+                                  )}
                                   <p className="text-xs font-medium flex-shrink-0" style={{ color: gainColor }}>
-                                    {mode === 'open' ? `${mfGain >= 0 ? '+' : '−'}${formatCurrency(Math.abs(mfGain))} · ${mfGain >= 0 ? '+' : ''}${formatPercent(mfGainPct)}` : '••••'}
+                                    {mode === 'open'
+                                      ? `${mfGain >= 0 ? '+' : '−'}${formatCurrency(Math.abs(mfGain))} · ${mfGain >= 0 ? '+' : ''}${formatPercent(mfGainPct)}`
+                                      : '••••'}
                                   </p>
                                 </div>
                                 <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                                   <span className="text-[10px] text-tertiary">{totalUnits.toFixed(3)} units</span>
-                                  {weightedAvg > 0 && <><span className="text-[9px] text-tertiary">·</span><span className="text-[10px] text-tertiary">Avg NAV {mode === 'open' ? `₹${weightedAvg.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : '••••'}</span></>}
-                                  {liveNav != null && <><span className="text-[9px] text-tertiary">·</span><span className="text-[10px] font-medium" style={{ color: meta.color }}>NAV {mode === 'open' ? `₹${liveNav.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : '••••'}<span className="ml-0.5 opacity-60 text-[9px]">live</span></span></>}
-                                  {isMultiLot && <span className="ml-auto text-[10px] text-tertiary flex items-center gap-0.5"><i className={`ti ${isExpanded ? 'ti-chevron-up' : 'ti-chevron-down'}`} style={{ fontSize: 11 }} /></span>}
+                                  {weightedAvg > 0 && (
+                                    <>
+                                      <span className="text-[9px] text-tertiary">·</span>
+                                      <span className="text-[10px] text-tertiary">
+                                        Avg NAV{' '}
+                                        {mode === 'open'
+                                          ? `₹${weightedAvg.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+                                          : '••••'}
+                                      </span>
+                                    </>
+                                  )}
+                                  {liveNav != null && (
+                                    <>
+                                      <span className="text-[9px] text-tertiary">·</span>
+                                      <span className="text-[10px] font-medium" style={{ color: meta.color }}>
+                                        NAV{' '}
+                                        {mode === 'open'
+                                          ? `₹${liveNav.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+                                          : '••••'}
+                                        <span className="ml-0.5 opacity-60 text-[9px]">live</span>
+                                      </span>
+                                    </>
+                                  )}
+                                  {isMultiLot && (
+                                    <span className="ml-auto text-[10px] text-tertiary flex items-center gap-0.5">
+                                      <i
+                                        className={`ti ${isExpanded ? 'ti-chevron-up' : 'ti-chevron-down'}`}
+                                        style={{ fontSize: 11 }}
+                                      />
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </div>
                           </button>
                           {isMultiLot && isExpanded && (
-                            <div className="mx-4 mb-3 rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--color-surface-secondary)' }}>
+                            <div
+                              className="mx-4 mb-3 rounded-xl overflow-hidden"
+                              style={{ backgroundColor: 'var(--color-surface-secondary)' }}
+                            >
                               {lots.map((lot, idx) => {
                                 const lotCurrent = effectiveValue(lot);
                                 const lotGain = lotCurrent - lot.investedAmount;
                                 const lotGainPct = lot.investedAmount > 0 ? (lotGain / lot.investedAmount) * 100 : 0;
                                 const lotGainColor = lotGain >= 0 ? '#10b981' : '#ef4444';
                                 return (
-                                  <button key={lot.id} onClick={() => openEdit(lot)} className="w-full flex items-center gap-3 px-3 py-2.5 text-left border-b border-theme last:border-0">
-                                    <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-secondary bg-surface">{idx + 1}</div>
+                                  <button
+                                    key={lot.id}
+                                    onClick={() => openEdit(lot)}
+                                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left border-b border-theme last:border-0"
+                                  >
+                                    <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-secondary bg-surface">
+                                      {idx + 1}
+                                    </div>
                                     <div className="flex-1 min-w-0">
                                       <p className="text-xs text-primary">
                                         {(lot.units ?? 0).toFixed(3)} units
-                                        {lot.avgCostPrice != null && <span className="text-tertiary"> · Avg NAV {mode === 'open' ? `₹${lot.avgCostPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : '••••'}</span>}
+                                        {lot.avgCostPrice != null && (
+                                          <span className="text-tertiary">
+                                            {' '}
+                                            · Avg NAV{' '}
+                                            {mode === 'open'
+                                              ? `₹${lot.avgCostPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+                                              : '••••'}
+                                          </span>
+                                        )}
                                       </p>
                                     </div>
                                     <div className="text-right flex-shrink-0">
-                                      <p className="text-xs font-medium text-primary">{mode === 'open' ? formatCurrency(lotCurrent) : '••••'}</p>
-                                      <p className="text-[10px]" style={{ color: lotGainColor }}>{lotGain >= 0 ? '+' : '−'}{formatPercent(Math.abs(lotGainPct))}</p>
+                                      <p className="text-xs font-medium text-primary">
+                                        {mode === 'open' ? formatCurrency(lotCurrent) : '••••'}
+                                      </p>
+                                      <p className="text-[10px]" style={{ color: lotGainColor }}>
+                                        {lotGain >= 0 ? '+' : '−'}
+                                        {formatPercent(Math.abs(lotGainPct))}
+                                      </p>
                                     </div>
                                     <i className="ti ti-pencil text-tertiary flex-shrink-0" style={{ fontSize: 13 }} />
                                   </button>
@@ -4432,19 +4578,19 @@ export function PortfolioPage() {
         !(activeTab === 'holdings' && holdingsSubTab === 'precious_metals') &&
         !(activeTab === 'holdings' && holdingsSubTab === 'fixed_income') &&
         !(activeTab === 'holdings' && holdingsSubTab === 'real_assets') && (
-        <button
-          onClick={openAdd}
-          className="fixed w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white z-10"
-          style={{
-            bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
-            right: '1rem',
-            backgroundColor: 'var(--color-primary)'
-          }}
-          aria-label="Add holding"
-        >
-          <i className="ti ti-plus" style={{ fontSize: 24 }} aria-hidden="true" />
-        </button>
-      )}
+          <button
+            onClick={openAdd}
+            className="fixed w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white z-10"
+            style={{
+              bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+              right: '1rem',
+              backgroundColor: 'var(--color-primary)'
+            }}
+            aria-label="Add holding"
+          >
+            <i className="ti ti-plus" style={{ fontSize: 24 }} aria-hidden="true" />
+          </button>
+        )}
 
       {showForm && (
         <HoldingForm

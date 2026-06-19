@@ -30,11 +30,11 @@ This file is read at the start of every Claude Code session. It tells you where 
 | M8: Phase 1 polish                   | ✅ Complete                                         |
 | M9: Income, transfers & cash         | ✅ Complete                                         |
 | M10: IPO tracker + GMP               | ✅ Complete                                         |
-| M11: Extended asset tracking         | 🚧 In progress by HEMANT                           |
-| M12: Portfolio enhancements          | 🚧 In progress by HEMANT                           |
+| M11: Extended asset tracking         | ✅ Complete                                         |
+| M12: Portfolio enhancements          | ✅ Complete                                         |
 | M13: Financial calculators           | 🚧 In progress by PANKHURI                         |
 | M14: Finance news + Contact/Feedback | ⏳ Future                                           |
-| M15: Export PDF/HTML                 | ⏳ Future                                           |
+| M15: UI polish + feature refinements | ⏳ Future                                           |
 
 **M5 step tracker:**
 
@@ -134,9 +134,9 @@ This file is read at the start of every Claude Code session. It tells you where 
 | 67   | Stocks — full-width Stock/MF tabs, MFAPI.in fund search, symbol validation via Yahoo chart API, live price × units = currentValue; symbol grouping with weighted avg, lot breakdown | ✅ Done |
 | 68   | Mutual Funds — enhanced cards (scheme category + fund house from MFAPI.in detail endpoint), MFAPI.in scheme search, schemeCode grouping with lot breakdown                           | ✅ Done |
 | 69   | Home dashboard + Portfolio restructure — drop legacy assets store, fix net worth (holdings + accounts), portfolio summary tile on Home, vehicle/property in ASSET_META               | ✅ Done |
-| 70   | PDF Imports — CAS PDF (MF/stocks via casparser) + EPFO passbook PDF (employment history + transactions via PDF.js) | ⏳           |
-| 71   | Watchlist                                                                                                       | ⏳               |
-| 72   | Final CI pass + CLAUDE.md updated                                                                               | ⏳               |
+| 70   | PDF Imports — CAS PDF (MF/stocks via casparser) + EPFO passbook PDF (employment history + transactions via PDF.js) | ⏳ Deferred to Phase 2 |
+| 71   | Watchlist                                                                                                       | ⏳ Deferred to Phase 2 |
+| 72   | Final CI pass + CLAUDE.md updated                                                                               | ✅ Done         |
 
 **EPF data model (step 63+++):**
 - `EpfEmployer`: `{ id, companyName, basicSalary, fromDate, toDate?, employeeContribPct (default 12) }`
@@ -159,7 +159,7 @@ This file is read at the start of every Claude Code session. It tells you where 
 - Live price: MFAPI.in scheme 140088 (Gold BeES) NAV × 100 = ₹/gram 24K; scheme 149758 (Silver ETF) NAV = ₹/gram
 - Karat-adjusted value: `weight × (karat/24) × spot_24K_per_gram`
 
-**Next step when you pick up a session:** Step 70 — PDF Imports (CAS PDF for MF/stocks via casparser + EPFO passbook PDF via PDF.js).
+**M11 and M12 are complete.** Steps 70 (CAS PDF Import), 71 (Watchlist), and Export PDF/HTML deferred to Phase 2. Next milestone: M13 (Financial calculators — Pankhuri) or M14 (Finance news + Contact/Feedback).
 
 **MF data model (step 68):**
 - `mfFundHouse`, `mfSchemeCategory`, `mfSchemeType` stored in `assetMeta` (fetched from MFAPI.in `/mf/{schemeCode}` detail endpoint on scheme selection)
@@ -173,16 +173,16 @@ This file is read at the start of every Claude Code session. It tells you where 
 | M9        | Income entries, transfer tracking, cash account, net cash flow view                                           | Local DB only                                                       |
 | M10       | IPO tracker + GMP — Upcoming/Open/Closed/Listed, subscription multiples, GMP                                  | ipoalerts.in (free), NSE eIPO API via Cloudflare Worker, ipoguru.in |
 | M11       | Extended asset tracking — NPS (live NAV), PPF (passbook ledger + projection), EPF (employment history + transaction ledger), vehicles, property, FD/RD, precious metals, stocks + MF enhanced cards | Manual + npsnav.in |
-| M12       | Portfolio enhancements — MF/stock search, CAS PDF import, watchlists                                          | MFAPI.in, Yahoo Finance, casparser SDK                              |
+| M12       | Portfolio enhancements — MF/stock search with live prices, symbol/scheme grouping, lot breakdown, scheme metadata (fund house, category) | MFAPI.in, Yahoo Finance |
 | M13       | Financial calculators — FIRE, HRA exemption, PPF maturity, NPS corpus, step-up SIP, old vs new tax regime     | Pure on-device TypeScript                                           |
 | M14       | Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Contact/Feedback (mailto: deep-link) | RSS feeds, no backend                                               |
-| M15       | Export PDF + HTML — wealth snapshot, tax summary, share-ready report                                          | On-device render                                                    |
+| M15       | UI polish + feature refinements — UX improvements, consistency, empty states, user-friendliness across all modules | —                                                              |
 
 **Phase boundaries:**
 
 - Phase 1 ends after M15 — full financial life tracking, zero paid APIs, zero backend (except 1 Cloudflare Worker for IPO)
 - Phase 1.5 — Groups & Household OS (shared expenses, family vaults, joint goals, household net worth)
-- Phase 2 — Chip AI (real Anthropic SDK), RBI AA framework automated sync (MF/demat/EPF when FIP/NPS), desktop layout, cloud sync, native apps
+- Phase 2 — Chip AI (real Anthropic SDK), Export PDF/HTML (wealth snapshot + tax summary), app pricing model, RBI AA framework automated sync (MF/demat/EPF when FIP/NPS), desktop layout, cloud sync, native apps
 - Phase 3 — Regional languages, crypto/Web3, international equities, advanced AI advisor
 
 ---
@@ -326,8 +326,7 @@ For inline styles that reference CSS variables (e.g. SVG `fill`, dynamic colors)
 **M9–M15 additions (confirmed, all free):**
 
 - Income & transfer tracking, cash account, net cash flow view
-- Export PDF/HTML — wealth snapshot + tax summary
-- MF/stock searchable add flow (Groww-style), CAS PDF import (all brokers in one file), watchlists
+- MF/stock searchable add flow (Groww-style) with live prices, symbol/scheme grouping, lot breakdown
 - Extended asset tracking — vehicles, property, PPF, NPS, EPF/PF (manual entry, last-updated timestamp)
 - IPO tracker + GMP — full lifecycle display (Upcoming/Open/Closed/Listed), live subscription multiples, Grey Market Premium
 - Financial calculators — FIRE, HRA exemption, PPF maturity, NPS corpus, step-up SIP, old vs new tax regime

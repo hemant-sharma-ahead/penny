@@ -73,7 +73,7 @@ function parseDate(val: string | null | undefined): number | null {
 function parseYear(manuMonthYr: string | null | undefined): number | null {
   if (!manuMonthYr) return null;
   const parts = manuMonthYr.split('/');
-  const yr = parseInt(parts[parts.length - 1], 10);
+  const yr = parseInt(parts[parts.length - 1] ?? '', 10);
   return isNaN(yr) ? null : yr;
 }
 
@@ -81,8 +81,8 @@ function parseManuLabel(manuMonthYr: string | null | undefined): string {
   if (!manuMonthYr) return '';
   const parts = manuMonthYr.split('/');
   if (parts.length < 2) return manuMonthYr;
-  const monthNum = parseInt(parts[0], 10);
-  const year = parts[parts.length - 1];
+  const monthNum = parseInt(parts[0] ?? '', 10);
+  const year = parts[parts.length - 1] ?? '';
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const monthLabel = months[monthNum - 1] ?? '';
   return monthLabel ? `${monthLabel} ${year}` : year;

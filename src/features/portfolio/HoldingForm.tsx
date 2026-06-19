@@ -311,19 +311,35 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
           regNumber: editing.assetMeta.vehicleRegNumber,
           make: editing.assetMeta.vehicleMake ?? '',
           model: editing.assetMeta.vehicleModel ?? '',
+          manufactureMonthYear: '',
           year: editing.assetMeta.vehicleYear ?? null,
           fuelType: editing.assetMeta.vehicleFuelType ?? '',
           color: editing.assetMeta.vehicleColor ?? '',
           vehicleType: editing.assetMeta.vehicleType ?? '',
+          bodyType: '',
           rtoLocation: editing.assetMeta.vehicleRtoLocation ?? '',
           rcStatus: editing.assetMeta.vehicleRcStatus ?? '',
+          regDate: '',
+          engineNo: '',
+          chassisNo: '',
           rcValidUpto: editing.assetMeta.vehicleRcValidUpto ?? null,
-          insuranceCompany: editing.assetMeta.vehicleInsuranceCompany ?? '',
-          insuranceUpto: editing.assetMeta.vehicleInsuranceUpto ?? null,
-          puccUpto: editing.assetMeta.vehiclePuccUpto ?? null,
           fitnessUpto: editing.assetMeta.vehicleFitnessUpto ?? null,
+          insuranceCompany: editing.assetMeta.vehicleInsuranceCompany ?? '',
+          insurancePolicyNo: '',
+          insuranceUpto: editing.assetMeta.vehicleInsuranceUpto ?? null,
+          puccNo: '',
+          puccUpto: editing.assetMeta.vehiclePuccUpto ?? null,
           salePriceRaw: null,
-          fetchedAt: editing.assetMeta.vehicleRcFetchedAt ?? nowMs()
+          fetchedAt: editing.assetMeta.vehicleRcFetchedAt ?? nowMs(),
+          ownerName: '',
+          presentAddress: '',
+          permanentAddress: '',
+          financer: '',
+          cubicCap: '',
+          seatCap: '',
+          unladenWeight: '',
+          grossWeight: '',
+          norms: ''
         }
       : null
   );
@@ -548,7 +564,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
         holding.investedAmount = rdInstallment * tenure2;
       }
       // Snapshot currentValue from live preview so portfolio totals are accurate
-      if (fdPreview) holding.currentValue = fdPreview.isMatured ? fdPreview.maturityAmount : fdPreview.accruedAmount;
+      if (fdPreview) holding.currentValue = fdPreview.isMatured ? fdPreview.maturityAmount : ('accruedAmount' in fdPreview ? fdPreview.accruedAmount : fdPreview.totalDeposited);
       holding.assetMeta = meta;
     } else if (assetClass === 'gold') {
       const wt = parseFloat(metalWeightGrams) || 0;
@@ -609,8 +625,9 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
       const empPct = epfEmployeePct;
 
       if (epfCompany.trim() && !isNaN(basic) && basic > 0) {
+        const currentEmp = currentIdx >= 0 ? existingEmployers[currentIdx] : undefined;
         const emp: EpfEmployer = {
-          id: currentIdx >= 0 ? existingEmployers[currentIdx].id : crypto.randomUUID(),
+          id: currentEmp?.id ?? crypto.randomUUID(),
           companyName: epfCompany.trim(),
           basicSalary: basic,
           employeeContribPct: empPct,
@@ -819,11 +836,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
               type="text"
               className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
               placeholder={
-                assetClass === 'mf'
-                  ? 'e.g. Parag Parikh Flexi Cap'
-                  : assetClass === 'stock'
-                    ? 'e.g. Reliance Industries'
-                    : assetClass === 'fd'
+                assetClass === 'fd'
                       ? 'e.g. SBI FD 7.1%'
                       : assetClass === 'nps'
                         ? 'e.g. My NPS Account'
@@ -1226,7 +1239,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
                       ).toFixed(1)}
                       %)
                     </p>
-                    {fdPreview.daysRemaining > 0 && (
+                    {'daysRemaining' in fdPreview && fdPreview.daysRemaining > 0 && (
                       <p className="text-[10px] text-tertiary">{fdPreview.daysRemaining} days remaining</p>
                     )}
                   </>
