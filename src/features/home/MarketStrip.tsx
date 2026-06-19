@@ -15,13 +15,13 @@ export function MarketStrip() {
   const [manageOpen, setManageOpen] = useState(false);
 
   useEffect(() => {
-    const ids = TICKER_CONFIGS.filter((c) => enabled.has(c.id)).map((c) => c.id);
-    if (ids.length === 0) return;
-    fetchMarketTickers(ids)
+    const mountIds = TICKER_CONFIGS.filter((c) => loadEnabledTickers().has(c.id)).map((c) => c.id);
+    if (mountIds.length === 0) return;
+    fetchMarketTickers(mountIds)
       .then(setTickers)
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []); // run once on mount — enabled is stable from localStorage at mount time
+  }, []);
 
   function toggleTicker(id: TickerId) {
     setEnabled((prev) => {
