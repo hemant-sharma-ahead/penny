@@ -5,6 +5,7 @@ export interface PriceCache {
   symbol: string;
   price: number;
   nav?: number;
+  previousClose?: number;
   currency: string;
   fetchedAt: number; // epoch ms
 }

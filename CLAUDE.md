@@ -169,7 +169,7 @@ This file is read at the start of every Claude Code session. It tells you where 
 | M15-2  | Events system redesign — conditional delete, edit with unlink dialog, vacation guard, header UI cleanup       | ✅ Done         |
 | M15-3  | Privacy mode overhaul — open mode red theme, default mode setting, safe mode sensitivity rethink              | ✅ Done         |
 | M15-4  | Home net worth fixes — credit card in liabilities, Liquid Funds bucket, move Chip Insights to Chip screen     | ✅ Done         |
-| M15-5  | Market data strip on Home — indices, metals, commodities, city picker for fuel, user-customisable list        | ⏳ Pending      |
+| M15-5  | Market data strip on Home — indices, metals, forex, user-customisable list (6 tickers: Sensex/Nifty/Gold/Silver/USD-INR/Crude) | ✅ Done         |
 | M15-6  | Expenses improvements — transaction filters (incl. event filter), accounts strip relocation, analytics redesign | ⏳ Pending     |
 | M15-7  | Recurring transactions expansion — daily/weekly/bi-weekly/monthly/quarterly/half-yearly/yearly rules           | ⏳ Pending      |
 | M15-8  | IPO Listed tab — FY year picker (default current FY), search bar, listing gain %                               | ⏳ Pending      |
@@ -407,6 +407,7 @@ For inline styles that reference CSS variables (e.g. SVG `fill`, dynamic colors)
 | D2  | Passphrase strength (zxcvbn ≥ 3)    | Confirmed                                       |
 | D3  | PWA hosting                         | Cloudflare Pages recommended                    |
 | D4  | Anthropic API key handling          | User-supplied, encrypted with MK                |
+| D5  | Petrol/diesel/LPG in market strip   | Skipped — no free client-callable API exists (GoodReturns scrapes server-side). Plan when a backend is available in Phase 2. |
 
 ---
 

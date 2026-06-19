@@ -6,6 +6,7 @@ import { accountsRepo, expensesRepo, holdingsRepo, liabilitiesRepo } from '@/cor
 import type { Holding, Liability } from '@/core/db/types';
 import { formatCompact, formatCurrency, toMonthYearKey } from '@/lib/formatters';
 import { PATHS } from '@/router/paths';
+import { MarketStrip } from './MarketStrip';
 
 interface AccountBalance {
   id: string;
@@ -477,6 +478,9 @@ export function HomePage() {
           )}
         </div>
       )}
+
+      {/* Market data strip */}
+      <MarketStrip />
 
       {/* Accounts strip */}
       {summary && summary.accountBalances.length > 0 && (
