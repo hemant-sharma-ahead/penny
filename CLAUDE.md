@@ -34,7 +34,7 @@ This file is read at the start of every Claude Code session. It tells you where 
 | M12: Portfolio enhancements          | ✅ Complete                                         |
 | M13: Financial calculators           | 🚧 In progress by PANKHURI                         |
 | M14: Finance news + Contact/Feedback | ⏳ Future                                           |
-| M15: UI polish + feature refinements | 🚧 In progress by HEMANT                           |
+| M15: UI polish + feature refinements | ✅ Complete                                         |
 
 **M5 step tracker:**
 
@@ -161,7 +161,7 @@ This file is read at the start of every Claude Code session. It tells you where 
 
 **M11 and M12 are complete.** Steps 70 (CAS PDF Import), 71 (Watchlist), and Export PDF/HTML deferred to Phase 2. Next milestone: M13 (Financial calculators — Pankhuri) or M14 (Finance news + Contact/Feedback).
 
-**M15 step tracker (in progress — branch: `feat/m15-ui-polish-refinements`):**
+**M15 step tracker:**
 
 | Step | Feature                                                                                                         | Status          |
 | ---- | --------------------------------------------------------------------------------------------------------------- | --------------- |
@@ -170,12 +170,14 @@ This file is read at the start of every Claude Code session. It tells you where 
 | M15-3  | Privacy mode overhaul — open mode red theme, default mode setting, safe mode sensitivity rethink              | ✅ Done         |
 | M15-4  | Home net worth fixes — credit card in liabilities, Liquid Funds bucket, move Chip Insights to Chip screen     | ✅ Done         |
 | M15-5  | Market data strip on Home — indices, metals, forex, user-customisable list (6 tickers: Sensex/Nifty/Gold/Silver/USD-INR/Crude) | ✅ Done         |
-| M15-6  | Expenses improvements — transaction filters (incl. event filter), accounts strip relocation, analytics redesign | ⏳ Pending     |
-| M15-7  | Recurring transactions expansion — daily/weekly/bi-weekly/monthly/quarterly/half-yearly/yearly rules           | ⏳ Pending      |
-| M15-8  | IPO Listed tab — FY year picker (default current FY), search bar, listing gain %                               | ⏳ Pending      |
-| M15-9  | Loans module redesign — My Loans + amortization schedule + payoff planner + XLSX download, 2-tab layout        | ⏳ Pending      |
-| M15-10 | EPF salary hike groups — per-employer hike timeline, salary period model, contribution recalculation           | ⏳ Pending      |
-| M15-11 | Shared component extraction — plan separately before starting (React Native migration considerations)           | ⏳ Pending      |
+| M15-6  | Expenses improvements — transaction filters (incl. event filter), accounts strip relocation, analytics redesign | ✅ Done        |
+| M15-7  | Recurring transactions expansion — daily/weekly/bi-weekly/monthly/quarterly/half-yearly/yearly rules           | ✅ Done         |
+| M15-8  | IPO Listed tab — FY year picker (default current FY), search bar, listing gain %                               | ✅ Done         |
+| M15-9  | Loans module redesign — My Loans + amortization schedule + payoff planner + XLSX download, 2-tab layout        | ✅ Done         |
+| M15-10 | EPF salary hike groups — per-employer hike timeline, corpus auto-calc, card redesign                          | ✅ Done         |
+| M15-11 | Shared component extraction                                                                                    | ➡️ Moved to Pre-Phase 1.5 |
+
+**M15 is complete.**
 
 **MF data model (step 68):**
 - `mfFundHouse`, `mfSchemeCategory`, `mfSchemeType` stored in `assetMeta` (fetched from MFAPI.in `/mf/{schemeCode}` detail endpoint on scheme selection)
@@ -196,7 +198,8 @@ This file is read at the start of every Claude Code session. It tells you where 
 
 **Phase boundaries:**
 
-- Phase 1 ends after M15 — full financial life tracking, zero paid APIs, zero backend (except 1 Cloudflare Worker for IPO)
+- Phase 1 ends after M15 — full financial life tracking, zero paid APIs, zero backend (except 1 Cloudflare Worker for IPO) ✅
+- Pre-Phase 1.5 — Shared component extraction (React Native migration prep: common card shells, form primitives, PrivacyAwareText, MaskedValue)
 - Phase 1.5 — Groups & Household OS (shared expenses, family vaults, joint goals, household net worth)
 - Phase 2 — Chip AI (real Anthropic SDK), Export PDF/HTML (wealth snapshot + tax summary), app pricing model, RBI AA framework automated sync (MF/demat/EPF when FIP/NPS), desktop layout, cloud sync, native apps
 - Phase 3 — Regional languages, crypto/Web3, international equities, advanced AI advisor
