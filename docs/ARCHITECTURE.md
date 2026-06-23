@@ -295,10 +295,11 @@ Every feature module follows a strict three-layer pattern. This was established 
                            │ calls
 ┌──────────────────────────▼──────────────────────────────┐
 │  Layer 2: Feature Hook (src/features/{name}/use{Name})  │
-│  • ALL useState, useEffect, useCallback, useMemo        │
-│  • ALL repository calls (getAll, add, put, delete)      │
-│  • ALL mutations with optimistic updates                │
-│  • Imports calculations from Layer 1                    │
+│  • useEffect for data loading + repo calls              │
+│  • useCallback mutations (create/update/delete)         │
+│  • useMemo derived values (totals, filtered lists)      │
+│  • loading/saving flags                                 │
+│  • Does NOT own UI state (forms, modals, selections)    │
 │  • 100% React Native portable (hooks work identically)  │
 └──────────────────────────┬──────────────────────────────┘
                            │ imports
@@ -311,26 +312,41 @@ Every feature module follows a strict three-layer pattern. This was established 
 └─────────────────────────────────────────────────────────┘
 ```
 
-### Example: Expenses feature (before vs after Track 1)
+### Example: Expenses feature (before vs after Track 1B)
 
 **Before (wrong — everything in one file):**
 ```
 src/features/expenses/
-  ExpensesPage.tsx    ← 3,183 lines: calculations + state + data fetching + UI
+  ExpensesPage.tsx    ← 3,130 lines: calculations + state + data fetching + UI
   ExpenseForm.tsx     ←   767 lines: state + data fetching + UI
 ```
 
-**After (correct):**
+**After Track 1B (correct):**
 ```
 src/features/expenses/
-  useExpenses.ts      ← ~400 lines: all state + repo calls + mutations
-  ExpensesPage.tsx    ← ~350 lines: thin layout + calls hook + calls shared components
-  ExpenseForm.tsx     ← ~180 lines: thin form layout only
+  useExpenses.ts         ← domain hook: load txns/categories/accounts, seeding, derived maps
+  useSubscriptions.ts    ← domain hook: subscription detection, confirm/dismiss/cancel mutations
+  useIou.ts              ← domain hook: IOU CRUD, sorted/filtered derived lists
+  useBudgets.ts          ← domain hook: budget CRUD, current-month budgets
+  ExpensesPage.tsx       ← thin page: calls all 4 hooks + owns all filter/analytics/form UI state
+  ExpenseForm.tsx        ← form layout only
 
 src/core/expenses/
   filterAndAggregate.ts  ← pure: filtering, grouping, category aggregation
-  eventAggregator.ts     ← pure: hashtag/event spending summaries
 ```
+
+### Example: Portfolio feature (Track 1B)
+
+```
+src/features/portfolio/
+  usePortfolioHoldings.ts ← domain hook + exports HoldingsSubTab, HOLDINGS_SUBTABS, effectiveValue
+  PortfolioPage.tsx       ← thin page: calls hook + owns all sub-tab/IPO/form UI state
+  HoldingForm.tsx         ← form layout only
+```
+
+Complex pages compose multiple focused domain hooks — one per domain concern. The page owns
+its own UI interaction state (form fields, modal toggles, which item is being edited).
+Bridge functions that read UI state then call a hook mutation live in the page.
 
 ### React Native portability by layer
 
@@ -376,6 +392,9 @@ src/core/expenses/
 
 ### Decision: React Native for mobile (not Capacitor)
 **Rationale (Phase 2):** Capacitor wraps the web app in a WebView — performance is constrained by CSS rendering and JavaScript layout. React Native renders to native components. The component extraction in Pre-Phase 1.5 (semantic variant props, no Tailwind className in feature files) makes the migration mechanical: swap component implementations, keep all business logic and `src/core/`.
+
+### Decision: Domain hooks, not page-god-hooks
+**Rationale:** A single hook that owns everything for a page (all useState, all effects, all form state, all mutations) violates SRP, is hard to test, and returns 20+ values with unclear cohesion. Instead: each hook has one domain responsibility (data loading + mutations for one entity). Form fields, modal toggles, and selection state (`editing`, `deletingId`) stay in the page component — they're local UI state, not business state. Bridge functions that read UI state and call a domain mutation (e.g. `handleSave` reads the form, then calls `saveAccount(form, editing)`) also stay in the page. Complex pages compose multiple focused hooks (e.g. `ExpensesPage` calls `useExpenses`, `useSubscriptions`, `useIou`, `useBudgets`). Each domain hook exports ≤10 values and is independently testable with `renderHook`.
 
 ### Decision: `src/features/` not `src/pages/`
 **Rationale:** The React community uses `pages/` for file-based routing. We use client-side routing manually, and each folder contains more than just a page (form, hook, types). `features/` better describes self-contained feature modules.

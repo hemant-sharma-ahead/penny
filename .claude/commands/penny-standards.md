@@ -139,25 +139,33 @@ Layer 3: src/features/{name}/{Name}Page.tsx — Thin UI. Calls hook. Calls share
 - If it does a calculation or data transformation → it belongs here
 
 **Layer 2 — Feature hook rules:**
-- One hook per feature page: `useExpenses`, `usePortfolio`, `useGoals`, etc.
-- Owns ALL state (`useState`), ALL data fetching (repo calls), ALL mutations
+- One domain hook per feature: `useAccounts`, `useExpenses`, `useGoals`, etc.
+- Complex features use multiple focused hooks — one per domain (e.g. `useExpenses`, `useSubscriptions`, `useIou`, `useBudgets` — all called from `ExpensesPage`)
 - Imports from `src/core/` for calculations — never recalculates inline
-- Returns a typed object: `{ data, isLoading, create, update, delete, ...uiState }`
+- Wraps mutations in `useCallback` (stable references, no unnecessary re-renders)
+- Wraps derived data in `useMemo` with accurate dependency arrays
 - No JSX ever — if you're writing `return <div>`, you're in the wrong file
 
-**Layer 2 — What goes in the hook, without exception:**
-- All `useState` for this feature
-- All `useEffect` for data loading
-- All `useCallback` for mutations (create/update/delete)
-- All `useMemo` for derived data (totals, filters, groupings)
-- All repository calls (`expensesRepo.getAll()`, etc.)
+**Layer 2 — What belongs in the hook:**
+- All `useEffect` for data loading (repo calls)
+- All `useCallback` mutations (create/update/delete) — async, repo-dependent
+- All `useMemo` derived values that depend on fetched data (totals, filtered lists, aggregations)
+- Loading and saving flags (paired with the async work they describe)
+
+**Layer 2 — What stays in the page (NOT the hook):**
+- Form field state (`const [form, setForm] = useState(DEFAULT_FORM)`) — it's local UI state
+- Modal open/close state (`showForm`, `deletingId`, `expandedId`) — UI interaction
+- Which item is being edited/selected — selection is a UI concern
+- `useNavigate()` — routing is not business logic
+- `usePrivacy()` / `masked` — display concern
+- Bridge functions that read UI state then call a hook mutation (e.g. `handleSave` reads form fields then calls `saveAccount(form, editing)`) — they need both worlds
 
 **Layer 3 — Thin page rules:**
-- Calls the feature hook for all data and actions
-- Calls shared components (`<Card>`, `<Modal>`, `<Button>`) for all UI
+- Calls domain hook(s) for all data and mutations
+- Manages its own UI state (forms, modals, selections) — see above
+- Calls shared components (`<Card>`, `<Modal>`, `<Button>`) for all UI primitives
 - Maximum 400 lines for a page, 200 lines for a form
-- If a page exceeds 400 lines, extract a sub-component or move logic to the hook
-- No calculations, no business logic — delegate to Layer 1 and Layer 2
+- No calculations, no repo calls — delegate to Layer 1 and Layer 2
 
 **The RN portability test:**
 - Layer 1: zero changes for RN — pure TypeScript

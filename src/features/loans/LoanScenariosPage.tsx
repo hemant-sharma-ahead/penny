@@ -1,24 +1,14 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { utils, writeFile } from 'xlsx';
 import { usePrivacy } from '@/context/PrivacyContext';
-import { useRepository } from '@/hooks/useRepository';
-import { liabilitiesRepo } from '@/core/db/repositories';
 import type { Liability, LiabilityType } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
 import { calcAmortization, deriveTenureMonths } from '@/core/loans/amortization';
 import type { LoanPlanParams } from '@/core/loans/amortization';
 import { calcEmi } from '@/core/loans/calculator';
+import { useLoans, EMI_LOAN_TYPES } from './useLoans';
 
 // ── Constants ────────────────────────────────────────────────────────────────
-
-const EMI_LOAN_TYPES: LiabilityType[] = [
-  'home_loan',
-  'car_loan',
-  'personal_loan',
-  'education_loan',
-  'gold_loan',
-  'lap'
-];
 
 const LOAN_META: Record<string, { label: string; icon: string; color: string }> = {
   home_loan: { label: 'Home Loan', icon: 'ti-home', color: '#6366f1' },
@@ -178,8 +168,9 @@ function CustomSelect({ value, onChange, options, className }: CustomSelectProps
 
 export function LoanScenariosPage() {
   const { mode } = usePrivacy();
-  const { items: liabilities, save: saveLiability } = useRepository(liabilitiesRepo);
+  const { saveLiability, emiLoans } = useLoans();
 
+  // UI state
   const [activeTab, setActiveTab] = useState<'myloans' | 'planner'>('myloans');
 
   // ── Planner state ──
@@ -245,9 +236,6 @@ export function LoanScenariosPage() {
       })
       .catch(() => setFormSaving(false));
   }
-
-  // ── My Loans ──
-  const emiLoans = useMemo(() => liabilities.filter((l: Liability) => EMI_LOAN_TYPES.includes(l.type)), [liabilities]);
 
   function prefillFromLoan(l: Liability) {
     setPrincipal(String(Math.round(l.outstandingAmount)));

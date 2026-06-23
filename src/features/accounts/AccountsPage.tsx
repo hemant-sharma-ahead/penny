@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { accountsRepo, expensesRepo } from '@/core/db/repositories';
-import type { Account, AccountType, Expense } from '@/core/db/types';
+import type { Account, AccountType } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
 import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { PATHS } from '@/router/paths';
+import { useAccounts } from './useAccounts';
+import type { AccountInput } from './useAccounts';
 
 const ACCOUNT_TYPE_META: Record<AccountType, { label: string; icon: string; color: string }> = {
   cash: { label: 'Cash', icon: 'ti-cash', color: '#10b981' },
@@ -44,20 +45,13 @@ export function AccountsPage() {
   const { mode } = usePrivacy();
   const masked = mode !== 'open';
 
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [txns, setTxns] = useState<Expense[]>([]);
+  const { accounts, txns, saving, totalBalance, saveAccount, deleteAccount } = useAccounts();
+
+  // UI state — form, modal toggles, selection
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
   const [form, setForm] = useState<AccountFormState>(DEFAULT_FORM);
-  const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    Promise.all([accountsRepo.getAll(), expensesRepo.getAll()]).then(([accs, exps]) => {
-      setAccounts(accs.filter((a) => !a.isArchived).sort((a, b) => a.createdAt - b.createdAt));
-      setTxns(exps);
-    });
-  }, []);
 
   function openAdd() {
     setEditing(null);
@@ -78,48 +72,24 @@ export function AccountsPage() {
     setShowForm(true);
   }
 
+  // Bridge: reads form UI state, calls domain mutation
   async function handleSave() {
     const name = form.name.trim();
     if (!name) return;
-    const openingBalance = parseFloat(form.openingBalance) || 0;
-    setSaving(true);
-    const now = Date.now();
-    if (editing) {
-      const updated: Account = {
-        ...editing,
-        name,
-        type: form.type,
-        openingBalance,
-        color: form.color,
-        icon: form.icon,
-        includeInNetWorth: form.includeInNetWorth,
-        updatedAt: now
-      };
-      await accountsRepo.put(updated);
-      setAccounts((prev) => prev.map((a) => (a.id === editing.id ? updated : a)));
-    } else {
-      const acc: Account = {
-        id: crypto.randomUUID(),
-        name,
-        type: form.type,
-        openingBalance,
-        color: form.color,
-        icon: form.icon,
-        includeInNetWorth: form.includeInNetWorth,
-        isArchived: false,
-        createdAt: now,
-        updatedAt: now
-      };
-      await accountsRepo.put(acc);
-      setAccounts((prev) => [...prev, acc]);
-    }
-    setSaving(false);
+    const data: AccountInput = {
+      name,
+      type: form.type,
+      openingBalance: parseFloat(form.openingBalance) || 0,
+      color: form.color,
+      icon: form.icon,
+      includeInNetWorth: form.includeInNetWorth
+    };
+    await saveAccount(data, editing);
     setShowForm(false);
   }
 
   async function handleDelete(id: string) {
-    await accountsRepo.delete(id);
-    setAccounts((prev) => prev.filter((a) => a.id !== id));
+    await deleteAccount(id);
     setDeletingId(null);
   }
 
@@ -133,11 +103,6 @@ export function AccountsPage() {
       includeInNetWorth: type !== 'credit_card'
     }));
   }
-
-  const totalBalance = accounts.reduce((sum, acc) => {
-    if (!acc.includeInNetWorth) return sum;
-    return sum + computeBalance(acc.id, acc.openingBalance, txns);
-  }, 0);
 
   return (
     <div className="flex flex-col min-h-full">

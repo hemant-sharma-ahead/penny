@@ -1,9 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { usePrivacy } from '@/context/PrivacyContext';
-import { holdingsRepo } from '@/core/db/repositories';
-import { fetchMfNav, fetchStockPrice } from '@/core/db/priceCache';
-import { useRepository } from '@/hooks/useRepository';
+import { usePortfolioHoldings, HOLDINGS_SUBTABS, effectiveValue } from './usePortfolioHoldings';
+import type { HoldingsSubTab, HoldingsSubTabConfig } from './usePortfolioHoldings';
 import type {
   AssetClass,
   EpfEmployer,
@@ -59,61 +58,6 @@ function nowMs(): number {
 
 // ─── Holdings sub-tabs ────────────────────────────────────────────────────────
 
-type HoldingsSubTab = 'stocks' | 'mf' | 'fixed_income' | 'precious_metals' | 'retirement' | 'real_assets';
-
-interface HoldingsSubTabConfig {
-  key: HoldingsSubTab;
-  label: string;
-  assetClasses: AssetClass[];
-  icon: string;
-  emptyMessage: string;
-}
-
-const HOLDINGS_SUBTABS: HoldingsSubTabConfig[] = [
-  {
-    key: 'stocks',
-    label: 'Stocks',
-    assetClasses: ['stock'],
-    icon: 'ti-trending-up',
-    emptyMessage: 'No stocks yet. Tap + to track your equity holdings.'
-  },
-  {
-    key: 'mf',
-    label: 'Mutual Funds',
-    assetClasses: ['mf'],
-    icon: 'ti-chart-donut',
-    emptyMessage: 'No mutual funds yet. Tap + to add your MF holdings.'
-  },
-  {
-    key: 'fixed_income',
-    label: 'Fixed Income',
-    assetClasses: ['fd'],
-    icon: 'ti-building-bank',
-    emptyMessage: 'No FDs or RDs yet. Tap + to track your fixed deposits.'
-  },
-  {
-    key: 'precious_metals',
-    label: 'Metals',
-    assetClasses: ['gold'],
-    icon: 'ti-coin',
-    emptyMessage: 'No gold holdings yet. Tap + to track your precious metals.'
-  },
-  {
-    key: 'retirement',
-    label: 'Retirement',
-    assetClasses: ['nps', 'ppf', 'epf'],
-    icon: 'ti-shield-check',
-    emptyMessage: 'No retirement accounts yet. Tap + to add NPS, PPF, or EPF.'
-  },
-  {
-    key: 'real_assets',
-    label: 'Real Assets',
-    assetClasses: ['vehicle', 'property', 'other'],
-    icon: 'ti-home',
-    emptyMessage: 'No real assets yet. Tap + to add vehicles or property.'
-  }
-];
-
 // ─── IPO sub-tabs ─────────────────────────────────────────────────────────────
 
 const IPO_SUBTAB_ORDER: IpoStatus[] = ['upcoming', 'open', 'closed', 'listed'];
@@ -126,10 +70,6 @@ const IPO_SUBTAB_META: Record<IpoStatus, { label: string; icon: string; emptyMes
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function effectiveValue(h: Holding): number {
-  return h.currentValue ?? h.investedAmount;
-}
 
 function formatLastUpdated(ts: number): string {
   const diff = Date.now() - ts;
@@ -3674,7 +3614,17 @@ function RealAssetsTab({
 export function PortfolioPage() {
   const { mode } = usePrivacy();
   const location = useLocation();
-  const { items: holdings, save: saveHolding, remove: removeHolding } = useRepository(holdingsRepo);
+  const {
+    holdings,
+    saveHolding,
+    removeHolding,
+    totalInvested,
+    totalCurrent,
+    subTabCounts,
+    hasLivePriceRefresh,
+    refreshing,
+    refreshPrices
+  } = usePortfolioHoldings();
 
   const locationState = location.state as { holdingsSubTab?: HoldingsSubTab } | null;
   const [activeTab, setActiveTab] = useState<'holdings' | 'ipo'>('holdings');
@@ -3689,32 +3639,20 @@ export function PortfolioPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingHolding, setEditingHolding] = useState<Holding | null>(null);
   const [presetAssetClass, setPresetAssetClass] = useState<AssetClass | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [scheduleHolding, setScheduleHolding] = useState<Holding | null>(null);
   const [expandedSymbols, setExpandedSymbols] = useState<Set<string>>(new Set());
 
   const ipos = useIpos();
 
-  const totalInvested = useMemo(() => holdings.reduce((s, h) => s + h.investedAmount, 0), [holdings]);
-  const totalCurrent = useMemo(() => holdings.reduce((s, h) => s + effectiveValue(h), 0), [holdings]);
   const overallReturn = totalInvested > 0 ? ((totalCurrent - totalInvested) / totalInvested) * 100 : 0;
 
-  // Holdings filtered per sub-tab
+  // Holdings filtered per sub-tab (depends on holdingsSubTab UI state — stays in page)
   const activeSubTabConfig = (HOLDINGS_SUBTABS.find((t) => t.key === holdingsSubTab) ??
     HOLDINGS_SUBTABS[0]) as HoldingsSubTabConfig;
   const subTabHoldings = useMemo(
     () => holdings.filter((h) => activeSubTabConfig.assetClasses.includes(h.assetClass)),
     [holdings, activeSubTabConfig]
   );
-
-  // Count per sub-tab for badges
-  const subTabCounts = useMemo(() => {
-    const counts: Partial<Record<HoldingsSubTab, number>> = {};
-    for (const tab of HOLDINGS_SUBTABS) {
-      counts[tab.key] = holdings.filter((h) => tab.assetClasses.includes(h.assetClass)).length;
-    }
-    return counts;
-  }, [holdings]);
 
   function openAdd() {
     setPresetAssetClass(holdingsSubTab === 'mf' ? 'mf' : 'stock');
@@ -3743,45 +3681,6 @@ export function PortfolioPage() {
     await removeHolding(id);
     setShowForm(false);
   }
-
-  function handleRefreshPrices() {
-    setRefreshing(true);
-    const updates: Promise<void>[] = holdings
-      .filter((h) => (h.assetClass === 'mf' && h.schemeCode) || (h.assetClass === 'stock' && h.symbol))
-      .map((h) => {
-        if (h.assetClass === 'mf' && h.schemeCode) {
-          return fetchMfNav(h.schemeCode).then((nav) => {
-            if (nav === null) return;
-            return saveHolding({
-              ...h,
-              currentPrice: nav,
-              ...(h.units != null ? { currentValue: h.units * nav } : {}),
-              updatedAt: Date.now()
-            });
-          });
-        }
-        if (h.assetClass === 'stock' && h.symbol) {
-          return fetchStockPrice(h.symbol).then((price) => {
-            if (price === null) return;
-            return saveHolding({
-              ...h,
-              currentPrice: price,
-              ...(h.units != null ? { currentValue: h.units * price } : {}),
-              updatedAt: Date.now()
-            });
-          });
-        }
-        return Promise.resolve();
-      });
-
-    Promise.all(updates)
-      .catch(() => {})
-      .finally(() => setRefreshing(false));
-  }
-
-  const hasLivePriceRefresh = holdings.some(
-    (h) => (h.assetClass === 'mf' && h.schemeCode) || (h.assetClass === 'stock' && h.symbol)
-  );
 
   useEffect(() => {
     if (ipoSubTab !== 'listed') return;
@@ -3833,7 +3732,7 @@ export function PortfolioPage() {
           <h2 className="text-xl font-semibold text-primary">Portfolio</h2>
           {activeTab !== 'ipo' && hasLivePriceRefresh && (
             <button
-              onClick={handleRefreshPrices}
+              onClick={refreshPrices}
               disabled={refreshing}
               className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full border border-theme text-secondary disabled:opacity-50"
             >

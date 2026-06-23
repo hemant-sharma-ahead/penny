@@ -1,11 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { usePrivacy } from '@/context/PrivacyContext';
-import { goalsRepo } from '@/core/db/repositories';
-import { useRepository } from '@/hooks/useRepository';
-import type { Goal } from '@/core/db/types';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { calcSipNeeded, monthsUntil } from '@/core/goals/sipCalculator';
 import { GoalForm } from './GoalForm';
+import { useGoals } from './useGoals';
+import type { Goal } from './useGoals';
 
 const RING_RADIUS = 40;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
@@ -30,8 +29,9 @@ const SIP_RETURN_OPTIONS: { value: string; label: string }[] = [
 
 export function GoalsPage() {
   const { mode } = usePrivacy();
-  const { items: goals, save: saveGoal, remove: removeGoal } = useRepository(goalsRepo);
+  const { goals, saveGoal, removeGoal, totalSaved, totalTarget } = useGoals();
 
+  // UI state — tabs, modals, contribution input, SIP calculator inputs
   const [activeTab, setActiveTab] = useState<'goals' | 'sip'>('goals');
   const [showForm, setShowForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
@@ -43,9 +43,6 @@ export function GoalsPage() {
   const [sipYears, setSipYears] = useState('');
   const [sipReturn, setSipReturn] = useState('11');
   const [sipResult, setSipResult] = useState<number | null>(null);
-
-  const totalSaved = useMemo(() => goals.reduce((s, g) => s + g.currentAmount, 0), [goals]);
-  const totalTarget = useMemo(() => goals.reduce((s, g) => s + g.targetAmount, 0), [goals]);
 
   function openAdd() {
     setEditingGoal(null);

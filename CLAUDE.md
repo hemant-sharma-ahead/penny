@@ -23,7 +23,7 @@ This file is read at the start of every Claude Code session. It provides orienta
 | M13: Financial calculators | 🚧 In progress (Pankhuri) |
 | M14: Finance news + Contact/Feedback | ⏳ Future |
 | M15: UI polish + feature refinements | ✅ Complete |
-| **Pre-Phase 1.5: Track 5 ✅ · Track 1A ✅ · Track 1B/1C/1D · Track 2 · Track 3 · Track 4** | 🚧 In progress |
+| **Pre-Phase 1.5: Track 5 ✅ · Track 1A ✅ · Track 1B ✅ · Track 1C/1D · Track 2 · Track 3 · Track 4** | 🚧 In progress |
 | Phase 1.5: Groups & Household OS | ⏳ Next |
 | Phase 2: Chip AI, native apps, cloud sync | ⏳ Future |
 | Phase 3: Regional languages, crypto, international equities | ⏳ Future |

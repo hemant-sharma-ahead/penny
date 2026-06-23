@@ -1,28 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useEventMode, EVENT_COLORS, toEventHashtag, normalizeHashtag } from '@/context/EventModeContext';
 import type { ActiveEvent, EventSubtype } from '@/context/EventModeContext';
-import {
-  accountsRepo,
-  budgetsRepo,
-  expenseCategoriesRepo,
-  expensesRepo,
-  hashtagsRepo,
-  personalIousRepo,
-  subscriptionsRepo
-} from '@/core/db/repositories';
-import { useRepository } from '@/hooks/useRepository';
-import type { Budget, Expense, ExpenseCategory, PersonalIou, Subscription, TransactionType } from '@/core/db/types';
+import type { Expense, ExpenseCategory, PersonalIou, TransactionType } from '@/core/db/types';
 import { formatCurrency, formatCompact, formatDateShort, toMonthYearKey, epochToDateInput } from '@/lib/formatters';
 import { offsetMonth, monthLabel } from '@/lib/dateUtils';
-import { ALL_DEFAULT_CATEGORIES, CATEGORY_MIGRATION_MAP, INTENT_GROUP_META } from '@/core/db/defaultCategories';
-import { groupExpensesByDate, calcSpendByCategory } from '@/core/expenses/filterAndAggregate';
+import { INTENT_GROUP_META } from '@/core/db/defaultCategories';
+import { groupExpensesByDate } from '@/core/expenses/filterAndAggregate';
 import { useNavigate } from 'react-router-dom';
 import { exportExpensesAsCsv, downloadProtectedZip } from '@/core/export/exportCsv';
 import { PATHS } from '@/router/paths';
 import { ExpenseForm } from './ExpenseForm';
-import { detectSubscriptions, type DetectedSubscription } from '@/core/subscriptions/detector';
 import { IouForm } from '../iou/IouForm';
+import { useExpenses } from './useExpenses';
+import { useSubscriptions } from './useSubscriptions';
+import { useIou } from './useIou';
+import { useBudgets } from './useBudgets';
 
 // Evaluated once at module load — safe to use as a min= date attribute
 const TODAY_DATE_INPUT = epochToDateInput(Date.now());
@@ -174,15 +167,31 @@ export function ExpensesPage() {
     demoteEvent
   } = useEventMode();
 
-  const { items: expenses, save: saveExpense, remove: removeExpense } = useRepository(expensesRepo);
   const {
-    items: categories,
-    loading: categoriesLoading,
-    reload: reloadCategories
-  } = useRepository(expenseCategoriesRepo);
-  const { items: budgets, save: saveBudget } = useRepository(budgetsRepo);
-  const { items: hashtags, save: saveHashtag } = useRepository(hashtagsRepo);
-  const { items: accounts } = useRepository(accountsRepo);
+    expenses,
+    saveExpense,
+    removeExpense,
+    expenseCategories,
+    categoryMap,
+    accountMap,
+    spendByCategory,
+    linkedCountByEventHashtag,
+    saveExpenseWithHashtags
+  } = useExpenses();
+  const { detectedSubs, activeSubs, subsMonthlyTotal, confirmSubscription, dismissSubscription, cancelSubscription } =
+    useSubscriptions(expenses);
+  const {
+    saveIou,
+    removeIou,
+    iouActive,
+    iouHistory,
+    iouSortedActive,
+    iouTotalLent,
+    iouTotalBorrowed,
+    iouOverdueCount,
+    nowMs
+  } = useIou();
+  const { budgets, saveBudget, monthBudgets } = useBudgets();
 
   const [activeTab, setActiveTab] = useState<'transactions' | 'subscriptions' | 'iou' | 'budgets' | 'analytics'>(
     'transactions'
@@ -242,64 +251,14 @@ export function ExpensesPage() {
   const [showAnalyticsMonthPicker, setShowAnalyticsMonthPicker] = useState(false);
 
   // ── Subscriptions tab state ───────────────────────────────────────────────────
-  const { items: stored, save: saveSubscription } = useRepository(subscriptionsRepo);
   const [subActiveTab, setSubActiveTab] = useState<'detected' | 'active'>('detected');
-  const [nowMs] = useState(() => Date.now());
 
   // ── IOU tab state ─────────────────────────────────────────────────────────────
-  const { items: ious, save: saveIou, remove: removeIou } = useRepository(personalIousRepo);
   const [iouActiveTab, setIouActiveTab] = useState<'active' | 'history'>('active');
   const [showIouForm, setShowIouForm] = useState(false);
   const [editingIou, setEditingIou] = useState<PersonalIou | null>(null);
 
-  // ── Category seeding (v2 migration) ──────────────────────────────────────────
-  const seededRef = useRef(false);
-  useEffect(() => {
-    if (categoriesLoading) return;
-    if (seededRef.current) return;
-    // Re-run if flag missing OR if any default category still lacks intentGroup
-    // (covers existing installs where demo-cat-* were seeded before step 45)
-    const needsMigration =
-      !localStorage.getItem('penny_cats_v2') || categories.some((c) => c.isDefault && !c.intentGroup);
-    if (!needsMigration) {
-      seededRef.current = true;
-      return;
-    }
-    seededRef.current = true;
-    const now = Date.now();
-    const toSeed = ALL_DEFAULT_CATEGORIES.map((c) => {
-      const existing = categories.find((x) => x.id === c.id);
-      return { ...c, createdAt: existing?.createdAt ?? now };
-    });
-    // Patch any existing categories (e.g. demo-cat-*) that still lack intentGroup
-    const toPatch = categories
-      .filter((c) => !c.intentGroup)
-      .map((c) => {
-        const targetId = CATEGORY_MIGRATION_MAP[c.name.toLowerCase()];
-        const target = ALL_DEFAULT_CATEGORIES.find((x) => x.id === targetId);
-        return {
-          ...c,
-          intentGroup: target?.intentGroup ?? 'other',
-          applicableTo: c.applicableTo ?? ('expense' as const)
-        };
-      });
-    Promise.all([...toSeed, ...toPatch].map((c) => expenseCategoriesRepo.put(c)))
-      .then(() => {
-        localStorage.setItem('penny_cats_v2', '1');
-        reloadCategories();
-      })
-      .catch(() => {});
-  }, [categoriesLoading, categories, reloadCategories]);
-
   // ── Derived ───────────────────────────────────────────────────────────────────
-
-  const expenseCategories = useMemo(
-    () => categories.filter((c) => !c.applicableTo || c.applicableTo === 'expense'),
-    [categories]
-  );
-
-  const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
-  const accountMap = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
 
   const activeFilterCount =
     (txnMonthFilter ? 1 : 0) +
@@ -354,10 +313,6 @@ export function ExpensesPage() {
   );
 
   const grouped = useMemo(() => groupExpensesByDate(filteredExpenses), [filteredExpenses]);
-
-  const monthBudgets = useMemo(() => budgets.filter((b) => b.monthYear === toMonthYearKey()), [budgets]);
-
-  const spendByCategory = useMemo(() => calcSpendByCategory(expenses), [expenses]);
 
   const analyticsMonthBudgets = useMemo(
     () => budgets.filter((b) => b.monthYear === selectedMonth),
@@ -518,18 +473,6 @@ export function ExpensesPage() {
   const annualTotal = useMemo(() => annualData.reduce((s, m) => s + m.total, 0), [annualData]);
   const annualMax = useMemo(() => Math.max(...annualData.map((m) => m.total), 1), [annualData]);
 
-  // Count all expenses (not just this month) linked to each event hashtag
-  const linkedCountByEventHashtag = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const e of expenses) {
-      for (const tag of e.hashtags) {
-        const norm = normalizeHashtag(tag);
-        map.set(norm, (map.get(norm) ?? 0) + 1);
-      }
-    }
-    return map;
-  }, [expenses]);
-
   function handleEditEventSave() {
     if (!editingEvent) return;
     const newName = editEventName.trim();
@@ -580,93 +523,6 @@ export function ExpensesPage() {
     setEditingEvent(null);
   }
 
-  // ── Subscriptions derived ─────────────────────────────────────────────────────
-
-  const detectedSubs = useMemo(() => {
-    if (expenses.length === 0) return [];
-    const candidates = detectSubscriptions(expenses, nowMs);
-    const storedKeys = new Set(stored.map((s) => `${s.merchantCategory}:${s.intervalDays}`));
-    return candidates.filter((c) => !storedKeys.has(`${c.merchantCategory}:${c.intervalDays}`));
-  }, [expenses, stored, nowMs]);
-
-  const activeSubs = useMemo(() => stored.filter((s) => s.confirmedByUser && s.status !== 'cancelled'), [stored]);
-
-  const subsMonthlyTotal = useMemo(
-    () => activeSubs.reduce((sum, s) => sum + (s.detectedAmount / s.intervalDays) * 30, 0),
-    [activeSubs]
-  );
-
-  function handleSubConfirm(candidate: DetectedSubscription) {
-    const sub: Subscription = {
-      id: crypto.randomUUID(),
-      merchantCategory: candidate.merchantCategory,
-      detectedAmount: candidate.detectedAmount,
-      intervalDays: candidate.intervalDays,
-      status: candidate.status,
-      confirmedByUser: true,
-      createdAt: nowMs,
-      updatedAt: nowMs
-    };
-    if (candidate.trialEndsAt !== undefined) sub.trialEndsAt = candidate.trialEndsAt;
-    if (candidate.lastChargedAt !== undefined) sub.lastChargedAt = candidate.lastChargedAt;
-    saveSubscription(sub).catch(() => {});
-  }
-
-  function handleSubDismiss(candidate: DetectedSubscription) {
-    const sub: Subscription = {
-      id: crypto.randomUUID(),
-      merchantCategory: candidate.merchantCategory,
-      detectedAmount: candidate.detectedAmount,
-      intervalDays: candidate.intervalDays,
-      status: 'cancelled',
-      confirmedByUser: false,
-      createdAt: nowMs,
-      updatedAt: nowMs
-    };
-    if (candidate.lastChargedAt !== undefined) sub.lastChargedAt = candidate.lastChargedAt;
-    saveSubscription(sub).catch(() => {});
-  }
-
-  function handleSubCancel(sub: Subscription) {
-    saveSubscription({ ...sub, status: 'cancelled', updatedAt: nowMs }).catch(() => {});
-  }
-
-  // ── IOU derived ───────────────────────────────────────────────────────────────
-
-  const iouActive = useMemo(() => ious.filter((i) => !i.isSettled), [ious]);
-  const iouHistory = useMemo(
-    () =>
-      [...ious.filter((i) => i.isSettled)].sort((a, b) => (b.settledAt ?? b.updatedAt) - (a.settledAt ?? a.updatedAt)),
-    [ious]
-  );
-  const iouSortedActive = useMemo(
-    () =>
-      [...iouActive].sort((a, b) => {
-        const aR = a.dueDate !== undefined ? Math.ceil((a.dueDate - nowMs) / 86_400_000) : null;
-        const bR = b.dueDate !== undefined ? Math.ceil((b.dueDate - nowMs) / 86_400_000) : null;
-        if (aR !== null && aR < 0 && bR !== null && bR < 0) return aR - bR;
-        if (aR !== null && aR < 0) return -1;
-        if (bR !== null && bR < 0) return 1;
-        if (aR !== null && bR !== null) return aR - bR;
-        if (aR !== null) return -1;
-        if (bR !== null) return 1;
-        return b.date - a.date;
-      }),
-    [iouActive, nowMs]
-  );
-  const iouTotalLent = useMemo(
-    () => iouActive.filter((i) => i.direction === 'lent').reduce((s, i) => s + i.amount, 0),
-    [iouActive]
-  );
-  const iouTotalBorrowed = useMemo(
-    () => iouActive.filter((i) => i.direction === 'borrowed').reduce((s, i) => s + i.amount, 0),
-    [iouActive]
-  );
-  const iouOverdueCount = useMemo(
-    () => iouActive.filter((i) => i.dueDate !== undefined && i.dueDate < nowMs).length,
-    [iouActive, nowMs]
-  );
-
   function iouDueLabel(dueDate: number): { text: string; color: string; bg: string } {
     const days = Math.ceil((dueDate - nowMs) / 86_400_000);
     if (days < 0) return { text: `${-days}d overdue`, color: '#ef4444', bg: '#fef2f2' };
@@ -699,15 +555,7 @@ export function ExpensesPage() {
   }
 
   async function handleSaveExpense(expense: Expense) {
-    await saveExpense(expense);
-    for (const tag of expense.hashtags) {
-      const existing = hashtags.find((h) => h.name === tag);
-      if (existing) {
-        await saveHashtag({ ...existing, usageCount: existing.usageCount + 1 });
-      } else {
-        await saveHashtag({ id: crypto.randomUUID(), name: tag, usageCount: 1, createdAt: Date.now() });
-      }
-    }
+    await saveExpenseWithHashtags(expense);
     setShowForm(false);
   }
 
@@ -1715,14 +1563,14 @@ export function ExpensesPage() {
                         </p>
                         <div className="flex gap-2">
                           <button
-                            onClick={() => handleSubConfirm(c)}
+                            onClick={() => confirmSubscription(c)}
                             className="flex-1 py-2 rounded-xl text-white text-xs font-semibold"
                             style={{ backgroundColor: 'var(--color-primary)' }}
                           >
                             <i className="ti ti-check mr-1" aria-hidden="true" /> Confirm
                           </button>
                           <button
-                            onClick={() => handleSubDismiss(c)}
+                            onClick={() => dismissSubscription(c)}
                             className="flex-1 py-2 rounded-xl border border-theme text-secondary text-xs font-semibold"
                           >
                             <i className="ti ti-x mr-1" aria-hidden="true" /> Dismiss
@@ -1784,7 +1632,7 @@ export function ExpensesPage() {
                               )}
                             </div>
                             <button
-                              onClick={() => handleSubCancel(sub)}
+                              onClick={() => cancelSubscription(sub)}
                               className="text-[10px] font-medium text-tertiary border border-theme rounded-lg px-2 py-1 flex-shrink-0"
                             >
                               Cancel
