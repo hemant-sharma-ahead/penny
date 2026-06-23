@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useEventMode, EVENT_COLORS, toEventHashtag, normalizeHashtag } from '@/context/EventModeContext';
-import type { EventSubtype } from '@/context/EventModeContext';
+import type { ActiveEvent, EventSubtype } from '@/context/EventModeContext';
 import {
   accountsRepo,
   budgetsRepo,
@@ -58,6 +58,79 @@ function monthLabel(m: string): string {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const [y, mo] = m.split('-');
   return `${months[(parseInt(mo ?? '1', 10) - 1) % 12] ?? ''} ${y ?? ''}`.trim();
+}
+
+// ── Month picker modal ────────────────────────────────────────────────────────
+
+const MONTH_LABELS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function MonthPickerModal({
+  value,
+  onSelect,
+  onClose,
+  maxMonth
+}: {
+  value: string;
+  onSelect: (m: string) => void;
+  onClose: () => void;
+  maxMonth?: string;
+}) {
+  const [year, setYear] = useState(() => parseInt(value.split('-')[0] ?? String(new Date().getFullYear()), 10));
+  const maxYear = maxMonth
+    ? parseInt(maxMonth.split('-')[0] ?? String(new Date().getFullYear()), 10)
+    : new Date().getFullYear();
+
+  return (
+    <div
+      className="fixed inset-0 z-70 flex items-center justify-center px-4"
+      style={{ paddingTop: 56, paddingBottom: 72 }}
+    >
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="relative w-full max-w-sm bg-surface rounded-2xl p-5 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setYear((y) => y - 1)}
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-2"
+          >
+            <i className="ti ti-chevron-left" style={{ fontSize: 18 }} aria-hidden="true" />
+          </button>
+          <span className="text-base font-semibold text-primary">{year}</span>
+          <button
+            onClick={() => setYear((y) => y + 1)}
+            disabled={year >= maxYear}
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-2 disabled:opacity-30"
+          >
+            <i className="ti ti-chevron-right" style={{ fontSize: 18 }} aria-hidden="true" />
+          </button>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {MONTH_LABELS_SHORT.map((label, idx) => {
+            const m = `${year}-${String(idx + 1).padStart(2, '0')}`;
+            const isSelected = m === value;
+            const isDisabled = maxMonth ? m > maxMonth : false;
+            return (
+              <button
+                key={m}
+                onClick={() => {
+                  onSelect(m);
+                  onClose();
+                }}
+                disabled={isDisabled}
+                className="py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-30"
+                style={
+                  isSelected
+                    ? { backgroundColor: 'var(--color-primary)', color: '#fff' }
+                    : { backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-secondary)' }
+                }
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Donut chart ───────────────────────────────────────────────────────────────
@@ -122,8 +195,17 @@ function IntentDonut({ segments, total }: { segments: DonutSegment[]; total: num
 export function ExpensesPage() {
   const navigate = useNavigate();
   const { mode } = usePrivacy();
-  const { events, pastEvents, allEventHashtags, addEvent, stopEvent, promoteHashtagToEvent, demoteEvent } =
-    useEventMode();
+  const {
+    events,
+    pastEvents,
+    allEventHashtags,
+    addEvent,
+    stopEvent,
+    updateEvent,
+    reactivateEvent,
+    promoteHashtagToEvent,
+    demoteEvent
+  } = useEventMode();
 
   const { items: expenses, save: saveExpense, remove: removeExpense } = useRepository(expensesRepo);
   const {
@@ -159,8 +241,38 @@ export function ExpensesPage() {
   const [showNewEventForm, setShowNewEventForm] = useState(false);
   const [newEventName, setNewEventName] = useState('');
   const [newEventType, setNewEventType] = useState<EventSubtype>('background');
+  const [newEventStartDate, setNewEventStartDate] = useState(TODAY_DATE_INPUT);
   const [newEventEndDate, setNewEventEndDate] = useState('');
   const [newEventColor, setNewEventColor] = useState(EVENT_COLORS[0] ?? '#ef4444');
+  const [vacationBlockError, setVacationBlockError] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<ActiveEvent | null>(null);
+  const [editEventName, setEditEventName] = useState('');
+  const [editEventStartDate, setEditEventStartDate] = useState('');
+  const [editEventEndDate, setEditEventEndDate] = useState('');
+  const [editEventColor, setEditEventColor] = useState(EVENT_COLORS[0] ?? '#ef4444');
+  const [reactivatingEvent, setReactivatingEvent] = useState<ActiveEvent | null>(null);
+  const [reactivateEndDate, setReactivateEndDate] = useState('');
+  const [unlinkDialog, setUnlinkDialog] = useState<{
+    outOfRangeCount: number;
+    onConfirm: () => void;
+    onConfirmUnlink: () => void;
+  } | null>(null);
+
+  // ── Transaction filter state ──────────────────────────────────────────────────
+  const [txnSearch, setTxnSearch] = useState('');
+  const [txnTypeFilter, setTxnTypeFilter] = useState<'all' | TransactionType>('all');
+  const [txnAccountFilters, setTxnAccountFilters] = useState<Set<string>>(new Set());
+  const [txnParentCategoryFilters, setTxnParentCategoryFilters] = useState<Set<string>>(new Set());
+  const [txnCategoryFilters, setTxnCategoryFilters] = useState<Set<string>>(new Set());
+  const [txnEventFilters, setTxnEventFilters] = useState<Set<string>>(new Set());
+  const [txnMonthFilter, setTxnMonthFilter] = useState<string | null>(null);
+  const [showTxnMonthPicker, setShowTxnMonthPicker] = useState(false);
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
+
+  // ── Analytics state ───────────────────────────────────────────────────────────
+  const [analyticsView, setAnalyticsView] = useState<'monthly' | 'annual'>('monthly');
+  const [analyticsYear, setAnalyticsYear] = useState(() => new Date().getFullYear());
+  const [showAnalyticsMonthPicker, setShowAnalyticsMonthPicker] = useState(false);
 
   // ── Subscriptions tab state ───────────────────────────────────────────────────
   const { items: stored, save: saveSubscription } = useRepository(subscriptionsRepo);
@@ -222,9 +334,61 @@ export function ExpensesPage() {
   const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
   const accountMap = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
 
+  const activeFilterCount =
+    (txnMonthFilter ? 1 : 0) +
+    (txnTypeFilter !== 'all' ? 1 : 0) +
+    (txnAccountFilters.size > 0 ? 1 : 0) +
+    (txnParentCategoryFilters.size > 0 || txnCategoryFilters.size > 0 ? 1 : 0) +
+    (txnEventFilters.size > 0 ? 1 : 0);
+
+  const filteredExpenses = useMemo(() => {
+    const q = txnSearch.trim().toLowerCase();
+    return expenses.filter((e) => {
+      if (txnTypeFilter !== 'all' && (e.type ?? 'expense') !== txnTypeFilter) return false;
+      if (txnAccountFilters.size > 0 && !txnAccountFilters.has(e.accountId ?? '')) return false;
+      if (txnCategoryFilters.size > 0) {
+        if (!txnCategoryFilters.has(e.categoryId)) return false;
+      } else if (txnParentCategoryFilters.size > 0) {
+        const group = categoryMap.get(e.categoryId)?.intentGroup;
+        if (!group || !txnParentCategoryFilters.has(group)) return false;
+      }
+      if (txnEventFilters.size > 0) {
+        const hasMatch = e.hashtags.some((t) => {
+          const norm = normalizeHashtag(t);
+          return [...txnEventFilters].some((f) => normalizeHashtag(f) === norm);
+        });
+        if (!hasMatch) return false;
+      }
+      if (txnMonthFilter && toMonthYearKey(new Date(e.date)) !== txnMonthFilter) return false;
+      if (q) {
+        const cat = categoryMap.get(e.categoryId);
+        const matchDesc = e.description.toLowerCase().includes(q);
+        const matchCat = cat?.name.toLowerCase().includes(q) ?? false;
+        const matchTag = e.hashtags.some((t) => t.toLowerCase().includes(q));
+        if (!matchDesc && !matchCat && !matchTag) return false;
+      }
+      return true;
+    });
+  }, [
+    expenses,
+    txnTypeFilter,
+    txnAccountFilters,
+    txnParentCategoryFilters,
+    txnCategoryFilters,
+    txnEventFilters,
+    txnMonthFilter,
+    txnSearch,
+    categoryMap
+  ]);
+
+  const filteredTotal = useMemo(
+    () => filteredExpenses.filter((e) => !e.type || e.type === 'expense').reduce((s, e) => s + e.amount, 0),
+    [filteredExpenses]
+  );
+
   const grouped = useMemo(() => {
     const map = new Map<string, Expense[]>();
-    for (const e of expenses) {
+    for (const e of filteredExpenses) {
       const key = toDateKey(e.date);
       const arr = map.get(key) ?? [];
       arr.push(e);
@@ -233,14 +397,7 @@ export function ExpensesPage() {
     return Array.from(map.entries())
       .sort(([a], [b]) => b.localeCompare(a))
       .map(([key, items]) => ({ label: dateLabel(key), items: [...items].sort((a, b) => b.date - a.date) }));
-  }, [expenses]);
-
-  const thisMonthTotal = useMemo(() => {
-    const month = toMonthYearKey();
-    return expenses
-      .filter((e) => toMonthYearKey(new Date(e.date)) === month && (!e.type || e.type === 'expense'))
-      .reduce((s, e) => s + e.amount, 0);
-  }, [expenses]);
+  }, [filteredExpenses]);
 
   const monthBudgets = useMemo(() => budgets.filter((b) => b.monthYear === toMonthYearKey()), [budgets]);
 
@@ -393,6 +550,88 @@ export function ExpensesPage() {
     const projected = Math.round((analyticsTotal / daysElapsed) * daysInMonth);
     return { daysElapsed, daysInMonth, projected };
   }, [selectedMonth, analyticsTotal]);
+
+  const annualData = useMemo(() => {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = Array.from({ length: 12 }, (_, i) => ({
+      month: `${analyticsYear}-${String(i + 1).padStart(2, '0')}`,
+      label: monthNames[i] ?? '',
+      total: 0
+    }));
+    for (const e of expenses) {
+      if (e.type && e.type !== 'expense') continue;
+      const d = new Date(e.date);
+      if (d.getFullYear() !== analyticsYear) continue;
+      const slot = months[d.getMonth()];
+      if (slot) slot.total += e.amount;
+    }
+    return months;
+  }, [expenses, analyticsYear]);
+
+  const annualTotal = useMemo(() => annualData.reduce((s, m) => s + m.total, 0), [annualData]);
+  const annualMax = useMemo(() => Math.max(...annualData.map((m) => m.total), 1), [annualData]);
+
+  // Count all expenses (not just this month) linked to each event hashtag
+  const linkedCountByEventHashtag = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of expenses) {
+      for (const tag of e.hashtags) {
+        const norm = normalizeHashtag(tag);
+        map.set(norm, (map.get(norm) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [expenses]);
+
+  function handleEditEventSave() {
+    if (!editingEvent) return;
+    const newName = editEventName.trim();
+    if (!newName) return;
+
+    const newStartMs = new Date(editEventStartDate).getTime();
+    const updates: Partial<Omit<ActiveEvent, 'id'>> = {
+      name: newName,
+      color: editEventColor,
+      startDate: newStartMs
+    };
+
+    if (editingEvent.subtype === 'immersive' && editEventEndDate) {
+      const newEndMs = new Date(editEventEndDate + 'T23:59:59').getTime();
+      updates.endDate = newEndMs;
+      const oldEndMs = editingEvent.endDate;
+      if (oldEndMs !== undefined && newEndMs < oldEndMs) {
+        const eventNorm = normalizeHashtag(editingEvent.hashtag);
+        const outOfRange = expenses.filter(
+          (e) => e.hashtags.some((t) => normalizeHashtag(t) === eventNorm) && (e.date > newEndMs || e.date < newStartMs)
+        );
+        if (outOfRange.length > 0) {
+          setUnlinkDialog({
+            outOfRangeCount: outOfRange.length,
+            onConfirm: () => {
+              updateEvent(editingEvent.id, updates);
+              setEditingEvent(null);
+              setUnlinkDialog(null);
+            },
+            onConfirmUnlink: () => {
+              const norm = normalizeHashtag(editingEvent.hashtag);
+              outOfRange.forEach((e) => {
+                saveExpense({ ...e, hashtags: e.hashtags.filter((t) => normalizeHashtag(t) !== norm) }).catch(() => {});
+              });
+              updateEvent(editingEvent.id, updates);
+              setEditingEvent(null);
+              setUnlinkDialog(null);
+            }
+          });
+          return;
+        }
+      }
+    } else if (!editEventEndDate) {
+      updates.endDate = undefined;
+    }
+
+    updateEvent(editingEvent.id, updates);
+    setEditingEvent(null);
+  }
 
   // ── Subscriptions derived ─────────────────────────────────────────────────────
 
@@ -559,19 +798,25 @@ export function ExpensesPage() {
   function handleCreateEvent() {
     const name = newEventName.trim();
     if (!name) return;
+    if (newEventType === 'immersive' && events.some((e) => e.subtype === 'immersive')) {
+      setVacationBlockError(true);
+      return;
+    }
+    setVacationBlockError(false);
     addEvent({
       name,
       subtype: newEventType,
       hashtag: toEventHashtag(name),
-      startDate: Date.now(),
+      startDate: new Date(newEventStartDate).getTime(),
       ...(newEventType === 'immersive' && newEventEndDate
-        ? { endDate: new Date(newEventEndDate).getTime() + 86_400_000 - 1 }
+        ? { endDate: new Date(newEventEndDate + 'T23:59:59').getTime() }
         : {}),
       autoTag: newEventType === 'immersive',
       color: newEventColor
     });
     setNewEventName('');
     setNewEventType('background');
+    setNewEventStartDate(TODAY_DATE_INPUT);
     setNewEventEndDate('');
     setNewEventColor(EVENT_COLORS[0] ?? '#ef4444');
     setShowNewEventForm(false);
@@ -582,18 +827,11 @@ export function ExpensesPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-theme">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h2 className="text-xl font-semibold text-primary">Transactions</h2>
-            <p className="text-sm mt-0.5 text-secondary">
-              This month:{' '}
-              <span className="font-medium text-primary">
-                {mode === 'open' ? formatCurrency(thisMonthTotal) : '••••'}
-              </span>
-            </p>
-          </div>
-          <div className="flex items-center gap-1 mt-0.5">
+      <div className="px-4 pt-4 pb-3 border-b border-theme flex flex-col gap-1">
+        {/* Row 1: title + action icons */}
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-xl font-semibold text-primary">Transactions</h2>
+          <div className="flex items-center gap-1">
             <button
               onClick={() => setShowEventSheet(true)}
               className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:text-primary hover:bg-surface-2 relative"
@@ -623,6 +861,22 @@ export function ExpensesPage() {
             </button>
           </div>
         </div>
+        {/* Row 2: filtered total label + vacation indicator */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-secondary">
+            {txnMonthFilter ? monthLabel(txnMonthFilter) : 'All transactions'}:{' '}
+            <span className="font-medium text-primary">{mode === 'open' ? formatCurrency(filteredTotal) : '••••'}</span>
+          </p>
+          {events.find((e) => e.subtype === 'immersive') && (
+            <span
+              className="text-[10px] font-semibold flex items-center gap-1"
+              style={{ color: events.find((e) => e.subtype === 'immersive')?.color }}
+            >
+              <i className="ti ti-plane" style={{ fontSize: 11 }} aria-hidden="true" />
+              Vacation On · {events.find((e) => e.subtype === 'immersive')?.name}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -650,6 +904,170 @@ export function ExpensesPage() {
           </button>
         ))}
       </div>
+
+      {/* ── Transaction filter bar (sticky, below tabs) ── */}
+      {activeTab === 'transactions' && (
+        <div className="flex-shrink-0 border-b border-theme">
+          {/* Month chip + search + funnel icon */}
+          <div className="flex items-center gap-2 px-4 py-2">
+            <button
+              onClick={() => setShowTxnMonthPicker(true)}
+              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-theme bg-surface-2 text-sm font-medium"
+              style={{ color: txnMonthFilter ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}
+            >
+              <i className="ti ti-calendar" style={{ fontSize: 14 }} aria-hidden="true" />
+              {txnMonthFilter ? monthLabel(txnMonthFilter) : 'All'}
+              {txnMonthFilter && (
+                <button
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    setTxnMonthFilter(null);
+                  }}
+                  className="ml-0.5 -mr-1"
+                  aria-label="Clear month filter"
+                >
+                  <i className="ti ti-x" style={{ fontSize: 11 }} aria-hidden="true" />
+                </button>
+              )}
+            </button>
+            <div className="flex-1 flex items-center gap-2 rounded-xl px-3 py-2 border border-theme bg-surface-2">
+              <i className="ti ti-search text-tertiary" style={{ fontSize: 15 }} aria-hidden="true" />
+              <input
+                type="text"
+                value={txnSearch}
+                onChange={(e) => setTxnSearch(e.target.value)}
+                placeholder="Search…"
+                className="flex-1 bg-transparent text-sm focus:outline-none text-primary placeholder:text-tertiary"
+              />
+              {txnSearch && (
+                <button onClick={() => setTxnSearch('')} className="text-tertiary" aria-label="Clear search">
+                  <i className="ti ti-x" style={{ fontSize: 13 }} aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setShowFilterSheet(true)}
+              className="relative flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl border border-theme bg-surface-2 text-secondary"
+              aria-label="Open filters"
+            >
+              <i className="ti ti-adjustments-horizontal" style={{ fontSize: 18 }} aria-hidden="true" />
+              {activeFilterCount > 0 && (
+                <span
+                  className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-white font-bold"
+                  style={{ fontSize: 9, backgroundColor: '#ef4444' }}
+                >
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Active filter chips (dismissible) — shown when filters other than month are active */}
+          {(txnTypeFilter !== 'all' ||
+            txnAccountFilters.size > 0 ||
+            txnParentCategoryFilters.size > 0 ||
+            txnCategoryFilters.size > 0 ||
+            txnEventFilters.size > 0) && (
+            <div className="flex gap-2 overflow-x-auto px-4 pb-2 scrollbar-none">
+              {txnTypeFilter !== 'all' && (
+                <button
+                  onClick={() => setTxnTypeFilter('all')}
+                  className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-white"
+                  style={{
+                    backgroundColor:
+                      txnTypeFilter === 'expense' ? '#ef4444' : txnTypeFilter === 'income' ? '#10b981' : '#3b82f6'
+                  }}
+                >
+                  {txnTypeFilter.charAt(0).toUpperCase() + txnTypeFilter.slice(1)}
+                  <i className="ti ti-x" style={{ fontSize: 10 }} aria-hidden="true" />
+                </button>
+              )}
+
+              {(txnCategoryFilters.size > 0 || txnParentCategoryFilters.size > 0) &&
+                (() => {
+                  const catCount = txnCategoryFilters.size;
+                  const parentCount = txnParentCategoryFilters.size;
+                  let label: string;
+                  let color = 'var(--color-primary)';
+                  if (catCount === 1) {
+                    const cat = categoryMap.get([...txnCategoryFilters][0] ?? '');
+                    label = cat?.name ?? 'Category';
+                    color = cat?.color ?? color;
+                  } else if (catCount > 1) {
+                    label = `${catCount} categories`;
+                  } else if (parentCount === 1) {
+                    label = [...txnParentCategoryFilters][0]?.replace(/_/g, ' ') ?? 'Group';
+                  } else {
+                    label = `${parentCount} groups`;
+                  }
+                  return (
+                    <button
+                      onClick={() => {
+                        setTxnCategoryFilters(new Set());
+                        setTxnParentCategoryFilters(new Set());
+                      }}
+                      className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-white"
+                      style={{ backgroundColor: color }}
+                    >
+                      {label}
+                      <i className="ti ti-x" style={{ fontSize: 10 }} aria-hidden="true" />
+                    </button>
+                  );
+                })()}
+
+              {txnAccountFilters.size > 0 &&
+                (() => {
+                  const accs = [...txnAccountFilters].map((id) => accountMap.get(id)).filter(Boolean);
+                  const label = accs.length === 1 ? (accs[0]?.name ?? 'Account') : `${accs.length} accounts`;
+                  const color = accs.length === 1 ? (accs[0]?.color ?? 'var(--color-primary)') : 'var(--color-primary)';
+                  return (
+                    <button
+                      onClick={() => setTxnAccountFilters(new Set())}
+                      className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-white"
+                      style={{ backgroundColor: color }}
+                    >
+                      {label}
+                      <i className="ti ti-x" style={{ fontSize: 10 }} aria-hidden="true" />
+                    </button>
+                  );
+                })()}
+
+              {txnEventFilters.size > 0 &&
+                (() => {
+                  const evList = [...events, ...pastEvents].filter((ev) => txnEventFilters.has(ev.hashtag));
+                  const label = evList.length === 1 ? `#${evList[0]?.hashtag ?? ''}` : `${evList.length} events`;
+                  const color =
+                    evList.length === 1 ? (evList[0]?.color ?? 'var(--color-primary)') : 'var(--color-primary)';
+                  return (
+                    <button
+                      onClick={() => setTxnEventFilters(new Set())}
+                      className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-white"
+                      style={{ backgroundColor: color }}
+                    >
+                      {label}
+                      <i className="ti ti-x" style={{ fontSize: 10 }} aria-hidden="true" />
+                    </button>
+                  );
+                })()}
+
+              <button
+                onClick={() => {
+                  setTxnTypeFilter('all');
+                  setTxnAccountFilters(new Set());
+                  setTxnParentCategoryFilters(new Set());
+                  setTxnCategoryFilters(new Set());
+                  setTxnEventFilters(new Set());
+                }}
+                className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium"
+                style={{ color: '#ef4444', backgroundColor: '#fef2f2' }}
+              >
+                <i className="ti ti-x" style={{ fontSize: 11 }} aria-hidden="true" />
+                Clear all
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto pb-24">
@@ -811,38 +1229,178 @@ export function ExpensesPage() {
         {/* ── Analytics tab ── */}
         {activeTab === 'analytics' && (
           <div className="px-4 py-4 flex flex-col gap-4">
-            {/* Month navigation */}
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => {
-                  setSelectedMonth((m) => offsetMonth(m, -1));
-                  setExpandedGroup(null);
-                }}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:text-primary hover:bg-surface-2"
-                aria-label="Previous month"
-              >
-                <i className="ti ti-chevron-left" style={{ fontSize: 18 }} aria-hidden="true" />
-              </button>
-              <span className="text-sm font-semibold text-primary">{monthLabel(selectedMonth)}</span>
-              <button
-                onClick={() => {
-                  setSelectedMonth((m) => offsetMonth(m, 1));
-                  setExpandedGroup(null);
-                }}
-                disabled={selectedMonth >= toMonthYearKey()}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:text-primary hover:bg-surface-2 disabled:opacity-30 disabled:cursor-default"
-                aria-label="Next month"
-              >
-                <i className="ti ti-chevron-right" style={{ fontSize: 18 }} aria-hidden="true" />
-              </button>
+            {/* View toggle + navigation */}
+            <div className="flex items-center justify-between gap-3">
+              {/* Monthly / Annual toggle */}
+              <div className="flex gap-0.5 bg-surface-2 rounded-lg p-0.5 flex-shrink-0">
+                {(['monthly', 'annual'] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setAnalyticsView(v)}
+                    className="px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
+                    style={
+                      analyticsView === v
+                        ? {
+                            backgroundColor: 'var(--color-surface)',
+                            color: 'var(--color-text-primary)',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                          }
+                        : { color: 'var(--color-text-tertiary)' }
+                    }
+                  >
+                    {v.charAt(0).toUpperCase() + v.slice(1)}
+                  </button>
+                ))}
+              </div>
+
+              {/* Monthly navigation */}
+              {analyticsView === 'monthly' && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      setSelectedMonth((m) => offsetMonth(m, -1));
+                      setExpandedGroup(null);
+                    }}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-2"
+                    aria-label="Previous month"
+                  >
+                    <i className="ti ti-chevron-left" style={{ fontSize: 16 }} aria-hidden="true" />
+                  </button>
+                  <button
+                    onClick={() => setShowAnalyticsMonthPicker(true)}
+                    className="px-2.5 py-1 rounded-lg text-sm font-semibold text-primary hover:bg-surface-2 transition-colors"
+                  >
+                    {monthLabel(selectedMonth)}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedMonth((m) => offsetMonth(m, 1));
+                      setExpandedGroup(null);
+                    }}
+                    disabled={selectedMonth >= toMonthYearKey()}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-2 disabled:opacity-30"
+                    aria-label="Next month"
+                  >
+                    <i className="ti ti-chevron-right" style={{ fontSize: 16 }} aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+
+              {/* Annual navigation */}
+              {analyticsView === 'annual' && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setAnalyticsYear((y) => y - 1)}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-2"
+                    aria-label="Previous year"
+                  >
+                    <i className="ti ti-chevron-left" style={{ fontSize: 16 }} aria-hidden="true" />
+                  </button>
+                  <span className="px-2.5 py-1 text-sm font-semibold text-primary">{analyticsYear}</span>
+                  <button
+                    onClick={() => setAnalyticsYear((y) => y + 1)}
+                    disabled={analyticsYear >= new Date().getFullYear()}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-2 disabled:opacity-30"
+                    aria-label="Next year"
+                  >
+                    <i className="ti ti-chevron-right" style={{ fontSize: 16 }} aria-hidden="true" />
+                  </button>
+                </div>
+              )}
             </div>
 
-            {analyticsData.length === 0 ? (
+            {/* ── Annual view ── */}
+            {analyticsView === 'annual' && (
+              <>
+                {annualTotal === 0 ? (
+                  <div className="p-10 text-center">
+                    <i className="ti ti-chart-bar text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
+                    <p className="text-sm mt-3 text-tertiary">No expenses in {analyticsYear}.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="surface rounded-2xl p-4 flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-tertiary uppercase tracking-wide">
+                          Total {analyticsYear}
+                        </p>
+                        <p className="text-base font-bold text-primary">
+                          {mode === 'open' ? formatCurrency(annualTotal) : '••••'}
+                        </p>
+                      </div>
+                      {/* Bar chart */}
+                      <div className="flex items-end gap-1 h-20">
+                        {annualData.map((m) => {
+                          const heightPct =
+                            annualMax > 0 ? Math.max((m.total / annualMax) * 100, m.total > 0 ? 5 : 0) : 0;
+                          const isCurrentMonth = m.month === toMonthYearKey();
+                          return (
+                            <button
+                              key={m.month}
+                              onClick={() => {
+                                setSelectedMonth(m.month);
+                                setAnalyticsView('monthly');
+                                setExpandedGroup(null);
+                              }}
+                              disabled={m.total === 0}
+                              className="flex-1 flex flex-col items-center gap-0.5 group disabled:cursor-default"
+                              title={m.total > 0 ? `${m.label}: ${formatCurrency(m.total)}` : undefined}
+                            >
+                              <div className="w-full flex flex-col justify-end" style={{ height: '72px' }}>
+                                <div
+                                  className="w-full rounded-t-sm transition-all group-hover:opacity-80"
+                                  style={{
+                                    height: `${heightPct}%`,
+                                    backgroundColor: isCurrentMonth ? 'var(--color-primary)' : 'var(--color-primary)',
+                                    opacity: isCurrentMonth ? 1 : 0.5
+                                  }}
+                                />
+                              </div>
+                              <span className="text-[9px] text-tertiary">{m.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="surface rounded-xl divide-y divide-theme overflow-hidden">
+                      {annualData
+                        .filter((m) => m.total > 0)
+                        .sort((a, b) => b.total - a.total)
+                        .map((m, i) => (
+                          <button
+                            key={m.month}
+                            onClick={() => {
+                              setSelectedMonth(m.month);
+                              setAnalyticsView('monthly');
+                              setExpandedGroup(null);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-2"
+                          >
+                            <span className="text-xs text-tertiary w-4 flex-shrink-0">{i + 1}</span>
+                            <span className="text-sm font-medium text-primary flex-1">{monthLabel(m.month)}</span>
+                            <span className="text-sm font-semibold text-primary">
+                              {mode === 'open' ? formatCurrency(m.total) : '••••'}
+                            </span>
+                            <i
+                              className="ti ti-chevron-right text-tertiary"
+                              style={{ fontSize: 13 }}
+                              aria-hidden="true"
+                            />
+                          </button>
+                        ))}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+
+            {/* ── Monthly view ── */}
+            {analyticsView === 'monthly' && analyticsData.length === 0 ? (
               <div className="p-10 text-center">
                 <i className="ti ti-chart-donut text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
                 <p className="text-sm mt-3 text-tertiary">No expenses in {monthLabel(selectedMonth)}.</p>
               </div>
-            ) : (
+            ) : analyticsView === 'monthly' ? (
               <>
                 {/* Spend velocity — current month only */}
                 {spendVelocity && (
@@ -1114,7 +1672,7 @@ export function ExpensesPage() {
                   </div>
                 )}
               </>
-            )}
+            ) : null}
           </div>
         )}
 
@@ -1691,178 +2249,474 @@ export function ExpensesPage() {
 
       {/* ── Event management sheet ── */}
       {showEventSheet && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center px-4"
+          style={{ paddingTop: 56, paddingBottom: 72 }}
+        >
           <div className="absolute inset-0 bg-black/30" onClick={() => setShowEventSheet(false)} />
-          <div className="relative w-full max-w-sm bg-surface rounded-2xl p-5 flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
+          <div className="relative w-full max-w-[430px] bg-surface rounded-2xl flex flex-col max-h-full overflow-hidden">
+            {/* Sticky header */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
               <h3 className="text-base font-semibold text-primary">Events</h3>
-              <button onClick={() => setShowEventSheet(false)} className="text-tertiary p-1">
+              <button
+                onClick={() => setShowEventSheet(false)}
+                className="min-w-[36px] min-h-[36px] flex items-center justify-center text-tertiary -mr-1"
+              >
                 <i className="ti ti-x" style={{ fontSize: 18 }} aria-hidden="true" />
               </button>
             </div>
 
-            {/* Active events list */}
-            {events.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-tertiary">Active</p>
-                {events.map((ev) => (
-                  <div key={ev.id} className="surface rounded-xl p-3 flex items-center gap-3">
-                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-primary truncate">{ev.name}</p>
-                      <p className="text-[10px] text-tertiary">
-                        #{ev.hashtag} · {ev.subtype === 'immersive' ? 'Vacation' : 'Event'} ·{' '}
-                        {ev.endDate ? `ends ${new Date(ev.endDate).toLocaleDateString('en-IN')}` : 'Ongoing'}
+            {/* Scrollable body */}
+            <div className="flex flex-col gap-4 px-5 pb-5 overflow-y-auto">
+              {/* ── New event toggle / form ── */}
+              {showNewEventForm ? (
+                <div className="flex flex-col gap-3 bg-surface-2 rounded-xl p-4">
+                  <div>
+                    <label className="text-xs font-medium text-secondary">Event name</label>
+                    <input
+                      type="text"
+                      className="input-surface mt-1 w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                      placeholder="e.g. Goa Trip, Home Renovation"
+                      value={newEventName}
+                      onChange={(e) => setNewEventName(e.target.value)}
+                      autoFocus
+                    />
+                    {newEventName.trim() && (
+                      <p className="text-[10px] mt-1 text-tertiary">
+                        Hashtag: <span style={{ color: 'var(--color-primary)' }}>#{toEventHashtag(newEventName)}</span>
                       </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-medium text-secondary">Type</label>
+                    <div className="mt-1 grid grid-cols-2 gap-2">
+                      {(['background', 'immersive'] as EventSubtype[]).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => {
+                            setNewEventType(t);
+                            setVacationBlockError(false);
+                          }}
+                          className="py-2.5 rounded-xl border-2 text-xs font-medium transition-colors"
+                          style={
+                            newEventType === t
+                              ? {
+                                  borderColor: 'var(--color-primary)',
+                                  color: 'var(--color-primary)',
+                                  backgroundColor: 'var(--color-surface)'
+                                }
+                              : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
+                          }
+                        >
+                          {t === 'background' ? '🗓 Event' : '✈ Vacation'}
+                        </button>
+                      ))}
                     </div>
+                    {vacationBlockError ? (
+                      <p className="text-[10px] mt-1.5 text-red-500">
+                        A vacation is already active. Stop it before starting a new one.
+                      </p>
+                    ) : (
+                      <p className="text-[10px] mt-1.5 text-tertiary">
+                        {newEventType === 'background'
+                          ? 'Open-ended. Tap the hashtag chip in the expense form to associate expenses.'
+                          : 'Fixed dates. Every expense is auto-tagged while the vacation is active.'}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-medium text-secondary">Start date</label>
+                      <input
+                        type="date"
+                        className="input-surface mt-1 w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                        value={newEventStartDate}
+                        onChange={(e) => {
+                          setNewEventStartDate(e.target.value);
+                          if (newEventEndDate && newEventEndDate < e.target.value) setNewEventEndDate(e.target.value);
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-secondary">End date</label>
+                      <input
+                        type="date"
+                        className="input-surface mt-1 w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] disabled:opacity-40"
+                        min={newEventStartDate}
+                        value={newEventEndDate}
+                        disabled={newEventType === 'background'}
+                        onChange={(e) => setNewEventEndDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-medium text-secondary">Colour</label>
+                    <div className="mt-1.5 flex gap-2">
+                      {EVENT_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setNewEventColor(c)}
+                          className="w-7 h-7 rounded-full border-2 transition-all"
+                          style={{
+                            backgroundColor: c,
+                            borderColor: newEventColor === c ? 'var(--color-text-primary)' : 'transparent',
+                            transform: newEventColor === c ? 'scale(1.2)' : 'scale(1)'
+                          }}
+                          aria-label={`Select colour ${c}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
                     <button
-                      onClick={() => stopEvent(ev.id)}
-                      className="text-xs text-red-500 border border-red-200 rounded-lg px-2.5 py-1 flex-shrink-0"
+                      onClick={() => {
+                        setShowNewEventForm(false);
+                        setNewEventName('');
+                        setVacationBlockError(false);
+                      }}
+                      className="flex-1 py-2.5 rounded-xl border border-theme text-secondary text-sm font-medium"
                     >
-                      Stop
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleCreateEvent}
+                      disabled={!newEventName.trim() || (newEventType === 'immersive' && !newEventEndDate)}
+                      className="flex-1 py-2.5 rounded-xl text-white text-sm font-medium disabled:opacity-40"
+                      style={{ backgroundColor: 'var(--color-primary)' }}
+                    >
+                      Start event
                     </button>
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowNewEventForm(true)}
+                  className="w-full py-3 rounded-xl border-2 border-dashed text-sm font-medium transition-colors text-secondary hover:text-primary"
+                  style={{ borderColor: 'var(--color-border-strong)' }}
+                >
+                  + New event
+                </button>
+              )}
 
-            {/* Past / promoted events */}
-            {pastEvents.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-tertiary">Tracked</p>
-                {pastEvents.map((ev) => (
-                  <div key={ev.id} className="surface rounded-xl p-3 flex items-center gap-3">
-                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-primary truncate">{ev.name}</p>
-                      <p className="text-[10px] text-tertiary">#{ev.hashtag} · expenses kept separate in analytics</p>
-                    </div>
-                    <button
-                      onClick={() => demoteEvent(ev.id)}
-                      className="text-xs text-tertiary border border-theme rounded-lg px-2.5 py-1 flex-shrink-0"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {events.length === 0 && pastEvents.length === 0 && !showNewEventForm && (
-              <p className="text-sm text-center text-tertiary py-2">
-                No active events. Start one to auto-tag your expenses.
-              </p>
-            )}
-
-            {/* New event form */}
-            {showNewEventForm ? (
-              <div className="flex flex-col gap-3 bg-surface-2 rounded-xl p-4">
-                <div>
-                  <label className="text-xs font-medium text-secondary">Event name</label>
-                  <input
-                    type="text"
-                    className="input-surface mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                    placeholder="e.g. Goa Trip, Home Renovation"
-                    value={newEventName}
-                    onChange={(e) => setNewEventName(e.target.value)}
-                    autoFocus
-                  />
-                  {newEventName.trim() && (
-                    <p className="text-[10px] mt-1 text-tertiary">
-                      Hashtag: <span style={{ color: 'var(--color-primary)' }}>#{toEventHashtag(newEventName)}</span>
-                    </p>
+              {/* ── Active events ── */}
+              {events.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-tertiary">Active</p>
+                  {events.map((ev) =>
+                    editingEvent?.id === ev.id ? (
+                      <div key={ev.id} className="flex flex-col gap-3 bg-surface-2 rounded-xl p-4">
+                        <div>
+                          <label className="text-xs font-medium text-secondary">Event name</label>
+                          <input
+                            type="text"
+                            className="input-surface mt-1 w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                            value={editEventName}
+                            onChange={(e) => setEditEventName(e.target.value)}
+                            autoFocus
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs font-medium text-secondary">Start date</label>
+                            <input
+                              type="date"
+                              className="input-surface mt-1 w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                              value={editEventStartDate}
+                              onChange={(e) => {
+                                setEditEventStartDate(e.target.value);
+                                if (editEventEndDate && editEventEndDate < e.target.value)
+                                  setEditEventEndDate(e.target.value);
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-secondary">End date</label>
+                            <input
+                              type="date"
+                              className="input-surface mt-1 w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] disabled:opacity-40"
+                              value={editEventEndDate}
+                              min={editEventStartDate}
+                              disabled={ev.subtype === 'background'}
+                              onChange={(e) => setEditEventEndDate(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-secondary">Colour</label>
+                          <div className="mt-1.5 flex gap-2">
+                            {EVENT_COLORS.map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                onClick={() => setEditEventColor(c)}
+                                className="w-7 h-7 rounded-full border-2 transition-all"
+                                style={{
+                                  backgroundColor: c,
+                                  borderColor: editEventColor === c ? 'var(--color-text-primary)' : 'transparent',
+                                  transform: editEventColor === c ? 'scale(1.2)' : 'scale(1)'
+                                }}
+                                aria-label={`Select colour ${c}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setEditingEvent(null)}
+                            className="flex-1 py-2.5 rounded-xl border border-theme text-secondary text-sm font-medium"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleEditEventSave}
+                            disabled={!editEventName.trim() || (ev.subtype === 'immersive' && !editEventEndDate)}
+                            className="flex-1 py-2.5 rounded-xl text-white text-sm font-medium disabled:opacity-40"
+                            style={{ backgroundColor: 'var(--color-primary)' }}
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div key={ev.id} className="surface rounded-xl p-3 flex items-center gap-3">
+                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-primary truncate">{ev.name}</p>
+                          <p className="text-[10px] text-tertiary">
+                            #{ev.hashtag} · {ev.subtype === 'immersive' ? 'Vacation' : 'Event'} ·{' '}
+                            {ev.endDate ? `ends ${new Date(ev.endDate).toLocaleDateString('en-IN')}` : 'Ongoing'}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setEditingEvent(ev);
+                            setEditEventName(ev.name);
+                            setEditEventColor(ev.color);
+                            setEditEventStartDate(epochToDateInput(ev.startDate));
+                            setEditEventEndDate(ev.endDate ? epochToDateInput(ev.endDate) : '');
+                          }}
+                          className="text-xs text-secondary border border-theme rounded-lg px-2.5 py-1 flex-shrink-0"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => stopEvent(ev.id)}
+                          className="text-xs text-red-500 border border-red-200 rounded-lg px-2.5 py-1 flex-shrink-0"
+                        >
+                          Stop
+                        </button>
+                      </div>
+                    )
                   )}
                 </div>
+              )}
 
-                <div>
-                  <label className="text-xs font-medium text-secondary">Type</label>
-                  <div className="mt-1 grid grid-cols-2 gap-2">
-                    {(['background', 'immersive'] as EventSubtype[]).map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setNewEventType(t)}
-                        className="py-2.5 rounded-xl border-2 text-xs font-medium transition-colors"
-                        style={
-                          newEventType === t
-                            ? {
-                                borderColor: 'var(--color-primary)',
-                                color: 'var(--color-primary)',
-                                backgroundColor: 'var(--color-surface-secondary)'
-                              }
-                            : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
-                        }
-                      >
-                        {t === 'background' ? '🗓 Event' : '✈ Vacation'}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[10px] mt-1.5 text-tertiary">
-                    {newEventType === 'background'
-                      ? 'Open-ended. Tap the hashtag chip in the expense form to associate expenses.'
-                      : 'Fixed dates. Every expense is auto-tagged while the vacation is active.'}
-                  </p>
+              {/* ── Tracked (past) events ── */}
+              {pastEvents.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-tertiary">Tracked</p>
+                  {pastEvents.map((ev) => {
+                    const linkedCount = linkedCountByEventHashtag.get(normalizeHashtag(ev.hashtag)) ?? 0;
+                    const endDatePast = ev.endDate !== undefined && ev.endDate < nowMs;
+                    const durationDays =
+                      ev.endDate !== undefined
+                        ? Math.max(1, Math.round((ev.endDate - ev.startDate) / 86_400_000))
+                        : null;
+                    const sameDay =
+                      ev.endDate !== undefined &&
+                      new Date(ev.startDate).toDateString() === new Date(ev.endDate).toDateString();
+                    const fmtShort = (ms: number) =>
+                      new Date(ms).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+                    const fmtFull = (ms: number) =>
+                      new Date(ms).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+                    const trackedDateLabel = ev.endDate
+                      ? sameDay
+                        ? `${fmtFull(ev.startDate)} · 1 day`
+                        : `${fmtShort(ev.startDate)} – ${fmtFull(ev.endDate)} · ${durationDays} day${durationDays !== 1 ? 's' : ''}`
+                      : fmtFull(ev.startDate);
+
+                    // Card header — shared between normal card and reactivate-form card
+                    const cardHeader = (
+                      <div className="flex items-start gap-3 p-3">
+                        <span
+                          className="w-3 h-3 rounded-full flex-shrink-0 mt-0.5"
+                          style={{ backgroundColor: ev.color }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-primary truncate">{ev.name}</p>
+                          <p className="text-[10px] text-tertiary mt-0.5 truncate">#{ev.hashtag}</p>
+                          <p className="text-[10px] text-tertiary truncate">{trackedDateLabel}</p>
+                        </div>
+                      </div>
+                    );
+
+                    // Inline reactivate form — shown when end date is in the past
+                    if (reactivatingEvent?.id === ev.id) {
+                      const isVacation = ev.subtype === 'immersive';
+                      return (
+                        <div key={ev.id} className="surface rounded-xl overflow-hidden">
+                          {cardHeader}
+                          <div className="h-px border-theme mx-3" style={{ borderTopWidth: 1 }} />
+                          <div className="flex flex-col gap-3 p-3">
+                            <div className="flex items-start gap-2 bg-amber-50 rounded-xl px-3 py-2.5">
+                              <i
+                                className="ti ti-alert-triangle text-amber-500 flex-shrink-0 mt-0.5"
+                                style={{ fontSize: 14 }}
+                                aria-hidden="true"
+                              />
+                              <p className="text-[11px] text-amber-700 leading-snug">
+                                {isVacation
+                                  ? 'End date has passed. Set a new end date to reactivate.'
+                                  : 'End date has passed. Reactivating will clear it so the event continues ongoing.'}
+                              </p>
+                            </div>
+                            {isVacation && (
+                              <div>
+                                <label className="text-xs font-medium text-secondary">New end date</label>
+                                <input
+                                  type="date"
+                                  className="input-surface mt-1 w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                                  min={TODAY_DATE_INPUT}
+                                  value={reactivateEndDate}
+                                  onChange={(e) => setReactivateEndDate(e.target.value)}
+                                  autoFocus
+                                />
+                              </div>
+                            )}
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => {
+                                  setReactivatingEvent(null);
+                                  setReactivateEndDate('');
+                                }}
+                                className="flex-1 py-2 rounded-xl border border-theme text-secondary text-sm font-medium"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (isVacation) {
+                                    if (!reactivateEndDate) return;
+                                    const newEndMs = new Date(reactivateEndDate + 'T23:59:59').getTime();
+                                    reactivateEvent(ev.id, { endDate: newEndMs });
+                                  } else {
+                                    reactivateEvent(ev.id);
+                                  }
+                                  setReactivatingEvent(null);
+                                  setReactivateEndDate('');
+                                }}
+                                disabled={isVacation && !reactivateEndDate}
+                                className="flex-1 py-2 rounded-xl text-white text-sm font-medium disabled:opacity-40"
+                                style={{ backgroundColor: 'var(--color-primary)' }}
+                              >
+                                Reactivate
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={ev.id} className="surface rounded-xl">
+                        <div className="flex items-start gap-3 p-3">
+                          <span
+                            className="w-3 h-3 rounded-full flex-shrink-0 mt-0.5"
+                            style={{ backgroundColor: ev.color }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-primary truncate">{ev.name}</p>
+                            <p className="text-[10px] text-tertiary mt-0.5 truncate">#{ev.hashtag}</p>
+                            <p className="text-[10px] text-tertiary truncate">{trackedDateLabel}</p>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button
+                              onClick={() => {
+                                if (endDatePast) {
+                                  setReactivatingEvent(ev);
+                                  setReactivateEndDate(ev.endDate ? epochToDateInput(ev.endDate) : '');
+                                } else {
+                                  reactivateEvent(ev.id);
+                                }
+                              }}
+                              className="text-xs text-secondary border border-theme rounded-lg px-2.5 py-1"
+                            >
+                              Reactivate
+                            </button>
+                            {linkedCount > 0 ? (
+                              <span className="text-[10px] text-tertiary border border-theme rounded-lg px-2 py-1">
+                                {linkedCount} linked
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => demoteEvent(ev.id)}
+                                className="text-xs text-tertiary border border-theme rounded-lg px-2.5 py-1"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
-                {newEventType === 'immersive' && (
-                  <div>
-                    <label className="text-xs font-medium text-secondary">End date</label>
-                    <input
-                      type="date"
-                      className="input-surface mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                      min={TODAY_DATE_INPUT}
-                      value={newEventEndDate}
-                      onChange={(e) => setNewEventEndDate(e.target.value)}
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <label className="text-xs font-medium text-secondary">Colour</label>
-                  <div className="mt-1.5 flex gap-2">
-                    {EVENT_COLORS.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setNewEventColor(c)}
-                        className="w-7 h-7 rounded-full border-2 transition-all"
-                        style={{
-                          backgroundColor: c,
-                          borderColor: newEventColor === c ? 'var(--color-text-primary)' : 'transparent',
-                          transform: newEventColor === c ? 'scale(1.2)' : 'scale(1)'
-                        }}
-                        aria-label={`Select colour ${c}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex gap-2 pt-1">
-                  <button
-                    onClick={() => setShowNewEventForm(false)}
-                    className="flex-1 py-2.5 rounded-xl border border-theme text-secondary text-sm font-medium"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleCreateEvent}
-                    disabled={!newEventName.trim()}
-                    className="flex-1 py-2.5 rounded-xl text-white text-sm font-medium disabled:opacity-40"
-                    style={{ backgroundColor: 'var(--color-primary)' }}
-                  >
-                    Start event
-                  </button>
-                </div>
+      {/* ── Unlink confirmation dialog ── */}
+      {unlinkDialog && (
+        <div
+          className="fixed inset-0 z-70 flex items-center justify-center px-4"
+          style={{ paddingTop: 56, paddingBottom: 72 }}
+        >
+          <div className="absolute inset-0 bg-black/40" onClick={() => setUnlinkDialog(null)} />
+          <div className="relative w-full max-w-[430px] bg-surface rounded-2xl p-5 flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
+                <i className="ti ti-alert-triangle text-amber-500" style={{ fontSize: 20 }} aria-hidden="true" />
               </div>
-            ) : (
+              <div>
+                <p className="text-sm font-semibold text-primary">Date range changed</p>
+                <p className="text-xs mt-0.5 text-tertiary">
+                  {unlinkDialog.outOfRangeCount} transaction
+                  {unlinkDialog.outOfRangeCount !== 1 ? 's fall' : ' falls'} outside the new date range.
+                </p>
+              </div>
+            </div>
+            <p className="text-xs leading-relaxed text-secondary">
+              You can keep them linked to this event, or unlink them so they appear in regular analytics instead.
+            </p>
+            <div className="flex flex-col gap-2">
               <button
-                onClick={() => setShowNewEventForm(true)}
-                className="w-full py-3 rounded-xl border-2 border-dashed text-sm font-medium transition-colors border-theme text-secondary hover:text-primary"
-                style={{ borderColor: 'var(--color-border-strong)' }}
+                onClick={unlinkDialog.onConfirmUnlink}
+                className="w-full py-3 rounded-xl text-white text-sm font-medium"
+                style={{ backgroundColor: 'var(--color-primary)' }}
               >
-                + New event
+                Confirm & Unlink
               </button>
-            )}
+              <button
+                onClick={unlinkDialog.onConfirm}
+                className="w-full py-3 rounded-xl border border-theme text-secondary text-sm font-medium"
+              >
+                Confirm, keep linked
+              </button>
+              <button
+                onClick={() => setUnlinkDialog(null)}
+                className="w-full py-3 rounded-xl text-secondary text-sm font-medium"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1908,6 +2762,406 @@ export function ExpensesPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* ── Transaction filter modal ── */}
+      {showFilterSheet && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center px-4"
+          style={{ paddingTop: 56, paddingBottom: 72 }}
+        >
+          <div className="absolute inset-0 bg-black/30" onClick={() => setShowFilterSheet(false)} />
+          <div className="relative w-full max-w-[430px] bg-surface rounded-2xl flex flex-col max-h-full overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-4 border-b border-theme flex-shrink-0">
+              <p className="text-base font-semibold text-primary">Filters</p>
+              <button
+                onClick={() => setShowFilterSheet(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-2"
+              >
+                <i className="ti ti-x" style={{ fontSize: 18 }} aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-5 px-4 py-4 overflow-y-auto">
+              {/* Month */}
+              <div>
+                <p className="text-xs font-medium text-secondary mb-2">Month</p>
+                <button
+                  onClick={() => setShowTxnMonthPicker(true)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl border border-theme bg-surface-2 text-sm font-medium text-primary text-left"
+                >
+                  <i className="ti ti-calendar text-tertiary" style={{ fontSize: 15 }} aria-hidden="true" />
+                  <span className="flex-1">{txnMonthFilter ? monthLabel(txnMonthFilter) : 'All months'}</span>
+                  <i className="ti ti-chevron-right text-tertiary" style={{ fontSize: 14 }} aria-hidden="true" />
+                </button>
+              </div>
+
+              {/* Type — 4 equal pills in one row */}
+              <div>
+                <p className="text-xs font-medium text-secondary mb-2">Type</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {(['all', 'expense', 'income', 'transfer'] as const).map((t) => {
+                    const selColor: Record<string, string> = {
+                      all: 'var(--color-primary)',
+                      expense: '#ef4444',
+                      income: '#10b981',
+                      transfer: '#3b82f6'
+                    };
+                    const isSelected = txnTypeFilter === t;
+                    return (
+                      <button
+                        key={t}
+                        onClick={() => setTxnTypeFilter(t)}
+                        className="py-2 rounded-xl text-xs font-medium transition-colors"
+                        style={
+                          isSelected
+                            ? { backgroundColor: selColor[t], color: '#fff' }
+                            : {
+                                backgroundColor: 'var(--color-surface-secondary)',
+                                color: 'var(--color-text-secondary)',
+                                border: '0.5px solid var(--color-border)'
+                              }
+                        }
+                      >
+                        {t === 'all' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Event — multi-select wrapping chips */}
+              {[...events, ...pastEvents].length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-secondary mb-2">Event</p>
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={() => setTxnEventFilters(new Set())}
+                      className="px-3 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                      style={
+                        txnEventFilters.size === 0
+                          ? { backgroundColor: 'var(--color-text-primary)', color: 'var(--color-surface)' }
+                          : {
+                              backgroundColor: 'var(--color-surface-secondary)',
+                              color: 'var(--color-text-secondary)',
+                              border: '0.5px solid var(--color-border)'
+                            }
+                      }
+                    >
+                      All events
+                    </button>
+                    {[...events, ...pastEvents].map((ev) => {
+                      const isSelected = txnEventFilters.has(ev.hashtag);
+                      return (
+                        <button
+                          key={ev.id}
+                          onClick={() =>
+                            setTxnEventFilters((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(ev.hashtag)) next.delete(ev.hashtag);
+                              else next.add(ev.hashtag);
+                              return next;
+                            })
+                          }
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                          style={
+                            isSelected
+                              ? { backgroundColor: ev.color, color: '#fff' }
+                              : {
+                                  backgroundColor: 'var(--color-surface-secondary)',
+                                  color: 'var(--color-text-secondary)',
+                                  border: '0.5px solid var(--color-border)'
+                                }
+                          }
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: isSelected ? '#fff' : ev.color }}
+                          />
+                          {ev.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Account — icon-style multi-select */}
+              {accounts.filter((a) => !a.isArchived).length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-secondary mb-2">Account</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setTxnAccountFilters(new Set())}
+                      className="flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors w-16"
+                      style={{
+                        borderColor: txnAccountFilters.size === 0 ? 'var(--color-primary)' : 'transparent',
+                        backgroundColor: 'var(--color-surface-secondary)'
+                      }}
+                    >
+                      <i
+                        className="ti ti-layout-grid"
+                        style={{
+                          fontSize: 18,
+                          color: txnAccountFilters.size === 0 ? 'var(--color-primary)' : 'var(--color-text-tertiary)'
+                        }}
+                        aria-hidden="true"
+                      />
+                      <span
+                        className="text-[9px] font-medium text-center leading-tight"
+                        style={{
+                          color: txnAccountFilters.size === 0 ? 'var(--color-primary)' : 'var(--color-text-secondary)'
+                        }}
+                      >
+                        All
+                      </span>
+                    </button>
+                    {accounts
+                      .filter((a) => !a.isArchived)
+                      .map((acc) => {
+                        const isSelected = txnAccountFilters.has(acc.id);
+                        return (
+                          <button
+                            key={acc.id}
+                            onClick={() =>
+                              setTxnAccountFilters((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(acc.id)) next.delete(acc.id);
+                                else next.add(acc.id);
+                                return next;
+                              })
+                            }
+                            className="flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors w-16"
+                            style={{
+                              borderColor: isSelected ? acc.color : 'transparent',
+                              backgroundColor: 'var(--color-surface-secondary)'
+                            }}
+                          >
+                            <i
+                              className={`ti ${acc.icon}`}
+                              style={{ fontSize: 18, color: acc.color }}
+                              aria-hidden="true"
+                            />
+                            <span className="text-[9px] font-medium text-center leading-tight text-secondary line-clamp-2 break-words w-full">
+                              {acc.name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {/* Category group — multi-select, type-aware */}
+              {(() => {
+                const intentGroupLabel: Record<string, string> = {
+                  daily_living: 'Daily Living',
+                  home_utilities: 'Home & Utilities',
+                  health: 'Health',
+                  lifestyle: 'Lifestyle',
+                  financial: 'Financial',
+                  income: 'Income',
+                  transfers: 'Transfers',
+                  other: 'Other'
+                };
+                const applicableGroups =
+                  txnTypeFilter !== 'all'
+                    ? new Set(
+                        categories
+                          .filter((c) => (c.applicableTo ?? 'expense') === txnTypeFilter)
+                          .map((c) => c.intentGroup)
+                          .filter((g): g is string => !!g)
+                      )
+                    : null;
+                const allGroups = [
+                  ...new Set(categories.map((c) => c.intentGroup).filter((g): g is string => !!g))
+                ].map((g) => ({ key: g, label: intentGroupLabel[g] ?? g.replace(/_/g, ' ') }));
+                return (
+                  <div>
+                    <p className="text-xs font-medium text-secondary mb-2">Category group</p>
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        onClick={() => {
+                          setTxnParentCategoryFilters(new Set());
+                          setTxnCategoryFilters(new Set());
+                        }}
+                        className="px-3 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                        style={
+                          txnParentCategoryFilters.size === 0
+                            ? { backgroundColor: 'var(--color-primary)', color: '#fff' }
+                            : {
+                                backgroundColor: 'var(--color-surface-secondary)',
+                                color: 'var(--color-text-secondary)',
+                                border: '0.5px solid var(--color-border)'
+                              }
+                        }
+                      >
+                        All
+                      </button>
+                      {allGroups.map(({ key, label }) => {
+                        const isApplicable = applicableGroups === null || applicableGroups.has(key);
+                        const isSelected = txnParentCategoryFilters.has(key);
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => {
+                              if (!isApplicable) return;
+                              setTxnParentCategoryFilters((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(key)) next.delete(key);
+                                else next.add(key);
+                                return next;
+                              });
+                              setTxnCategoryFilters(new Set());
+                            }}
+                            className="px-3 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                            style={
+                              isSelected
+                                ? { backgroundColor: 'var(--color-primary)', color: '#fff' }
+                                : isApplicable
+                                  ? {
+                                      backgroundColor: 'var(--color-surface-secondary)',
+                                      color: 'var(--color-text-secondary)',
+                                      border: '0.5px solid var(--color-border)'
+                                    }
+                                  : {
+                                      backgroundColor: 'var(--color-surface-secondary)',
+                                      color: 'var(--color-text-tertiary)',
+                                      border: '0.5px solid var(--color-border)',
+                                      opacity: 0.4,
+                                      cursor: 'not-allowed'
+                                    }
+                            }
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Category — icon-style multi-select, filtered by selected groups */}
+              {(() => {
+                const visibleCategories =
+                  txnParentCategoryFilters.size > 0
+                    ? categories.filter((c) => c.intentGroup && txnParentCategoryFilters.has(c.intentGroup))
+                    : categories;
+                return (
+                  <div>
+                    <p className="text-xs font-medium text-secondary mb-2">Category</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setTxnCategoryFilters(new Set())}
+                        className="flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors w-16"
+                        style={{
+                          borderColor: txnCategoryFilters.size === 0 ? 'var(--color-primary)' : 'transparent',
+                          backgroundColor: 'var(--color-surface-secondary)'
+                        }}
+                      >
+                        <i
+                          className="ti ti-layout-grid"
+                          style={{
+                            fontSize: 16,
+                            color: txnCategoryFilters.size === 0 ? 'var(--color-primary)' : 'var(--color-text-tertiary)'
+                          }}
+                          aria-hidden="true"
+                        />
+                        <span
+                          className="text-[8px] font-medium text-center leading-tight"
+                          style={{
+                            color:
+                              txnCategoryFilters.size === 0 ? 'var(--color-primary)' : 'var(--color-text-secondary)'
+                          }}
+                        >
+                          All
+                        </span>
+                      </button>
+                      {visibleCategories.map((cat) => {
+                        const isSelected = txnCategoryFilters.has(cat.id);
+                        return (
+                          <button
+                            key={cat.id}
+                            onClick={() =>
+                              setTxnCategoryFilters((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(cat.id)) next.delete(cat.id);
+                                else next.add(cat.id);
+                                return next;
+                              })
+                            }
+                            className="flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors w-16"
+                            style={{
+                              borderColor: isSelected ? cat.color : 'transparent',
+                              backgroundColor: 'var(--color-surface-secondary)'
+                            }}
+                          >
+                            <i
+                              className={`ti ${cat.icon}`}
+                              style={{ fontSize: 16, color: cat.color }}
+                              aria-hidden="true"
+                            />
+                            <span className="text-[8px] font-medium text-center leading-tight text-secondary line-clamp-2 break-words w-full">
+                              {cat.name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="px-4 py-4 border-t border-theme flex-shrink-0 flex gap-3">
+              <button
+                onClick={() => {
+                  setTxnMonthFilter(null);
+                  setTxnTypeFilter('all');
+                  setTxnAccountFilters(new Set());
+                  setTxnParentCategoryFilters(new Set());
+                  setTxnCategoryFilters(new Set());
+                  setTxnEventFilters(new Set());
+                }}
+                className="flex-1 py-3 rounded-xl border border-theme text-sm font-medium text-secondary"
+              >
+                Clear filters
+              </button>
+              <button
+                onClick={() => setShowFilterSheet(false)}
+                className="flex-1 py-3 rounded-xl text-white text-sm font-semibold"
+                style={{ backgroundColor: 'var(--color-primary)' }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Month pickers ── */}
+      {showTxnMonthPicker && (
+        <MonthPickerModal
+          value={txnMonthFilter ?? toMonthYearKey()}
+          onSelect={(m) => {
+            setTxnMonthFilter(m);
+            setShowTxnMonthPicker(false);
+          }}
+          onClose={() => setShowTxnMonthPicker(false)}
+          maxMonth={toMonthYearKey()}
+        />
+      )}
+      {showAnalyticsMonthPicker && (
+        <MonthPickerModal
+          value={selectedMonth}
+          onSelect={(m) => {
+            setSelectedMonth(m);
+            setExpandedGroup(null);
+          }}
+          onClose={() => setShowAnalyticsMonthPicker(false)}
+          maxMonth={toMonthYearKey()}
+        />
       )}
 
       {/* ── Transaction form ── */}

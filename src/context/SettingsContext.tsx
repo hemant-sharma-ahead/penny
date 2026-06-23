@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { type PrivacyMode } from '@/context/PrivacyContext';
 
 export type FontScale = 'small' | 'default' | 'large' | 'xl';
 export type Theme = 'light' | 'dark' | 'system';
@@ -39,6 +40,7 @@ const FONT_SCALE_MAP: Record<FontScale, number> = {
 const MODULES_KEY = 'penny_settings_modules';
 const FONT_SCALE_KEY = 'penny_settings_font_scale';
 const THEME_KEY = 'penny_settings_theme';
+export const DEFAULT_PRIVACY_KEY = 'penny_settings_default_privacy';
 
 function loadTheme(): Theme {
   const raw = localStorage.getItem(THEME_KEY);
@@ -67,13 +69,21 @@ function loadFontScale(): FontScale {
   return 'default';
 }
 
+export function loadDefaultPrivacyMode(): PrivacyMode {
+  const raw = localStorage.getItem(DEFAULT_PRIVACY_KEY);
+  if (raw === 'safe' || raw === 'privacy' || raw === 'open') return raw;
+  return 'safe';
+}
+
 interface SettingsContextValue {
   modules: ModuleVisibility;
   fontScale: FontScale;
   theme: Theme;
+  defaultPrivacyMode: PrivacyMode;
   setModule: (key: keyof ModuleVisibility, visible: boolean) => void;
   setFontScale: (scale: FontScale) => void;
   setTheme: (theme: Theme) => void;
+  setDefaultPrivacyMode: (mode: PrivacyMode) => void;
 }
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -82,6 +92,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [modules, setModules] = useState<ModuleVisibility>(loadModules);
   const [fontScale, setFontScaleState] = useState<FontScale>(loadFontScale);
   const [theme, setThemeState] = useState<Theme>(loadTheme);
+  const [defaultPrivacyMode, setDefaultPrivacyModeState] = useState<PrivacyMode>(loadDefaultPrivacyMode);
 
   useEffect(() => {
     const scale = FONT_SCALE_MAP[fontScale];
@@ -117,8 +128,24 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setThemeState(t);
   }, []);
 
+  const setDefaultPrivacyMode = useCallback((m: PrivacyMode) => {
+    localStorage.setItem(DEFAULT_PRIVACY_KEY, m);
+    setDefaultPrivacyModeState(m);
+  }, []);
+
   return (
-    <SettingsContext.Provider value={{ modules, fontScale, theme, setModule, setFontScale, setTheme }}>
+    <SettingsContext.Provider
+      value={{
+        modules,
+        fontScale,
+        theme,
+        defaultPrivacyMode,
+        setModule,
+        setFontScale,
+        setTheme,
+        setDefaultPrivacyMode
+      }}
+    >
       {children}
     </SettingsContext.Provider>
   );

@@ -19,6 +19,8 @@ interface EventModeContextValue {
   allEventHashtags: Set<string>;
   addEvent: (event: Omit<ActiveEvent, 'id'>) => void;
   stopEvent: (id: string) => void;
+  updateEvent: (id: string, updates: Partial<Omit<ActiveEvent, 'id'>>) => void;
+  reactivateEvent: (id: string, overrides?: Partial<Omit<ActiveEvent, 'id'>>) => void;
   promoteHashtagToEvent: (tag: string) => void;
   demoteEvent: (id: string) => void;
 }
@@ -177,6 +179,35 @@ export function EventModeProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const updateEvent = useCallback((id: string, updates: Partial<Omit<ActiveEvent, 'id'>>) => {
+    setEvents((prev) => {
+      const next = prev.map((e) => (e.id === id ? { ...e, ...updates } : e));
+      persistEvents(next);
+      return next;
+    });
+  }, []);
+
+  // Move a past event back to active.
+  // Background events always get endDate cleared (stopEvent stamps one on archive).
+  // Vacation events: preserve a future endDate; caller supplies overrides when the stored one is past.
+  const reactivateEvent = useCallback((id: string, overrides?: Partial<Omit<ActiveEvent, 'id'>>) => {
+    setPastEvents((past) => {
+      const ev = past.find((e) => e.id === id);
+      if (!ev) return past;
+      const endDate = ev.subtype === 'background' ? undefined : ev.endDate;
+      const reactivated: ActiveEvent = { ...ev, endDate, ...overrides };
+      setEvents((active) => {
+        if (active.some((e) => e.id === id)) return active;
+        const next = [...active, reactivated];
+        persistEvents(next);
+        return next;
+      });
+      const updated = past.filter((e) => e.id !== id);
+      persistPastEvents(updated);
+      return updated;
+    });
+  }, []);
+
   // Remove an event from past events (undo promote, or clear old events)
   const demoteEvent = useCallback((id: string) => {
     setPastEvents((past) => {
@@ -197,7 +228,17 @@ export function EventModeProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <EventModeContext.Provider
-      value={{ events, pastEvents, allEventHashtags, addEvent, stopEvent, promoteHashtagToEvent, demoteEvent }}
+      value={{
+        events,
+        pastEvents,
+        allEventHashtags,
+        addEvent,
+        stopEvent,
+        updateEvent,
+        reactivateEvent,
+        promoteHashtagToEvent,
+        demoteEvent
+      }}
     >
       {children}
     </EventModeContext.Provider>

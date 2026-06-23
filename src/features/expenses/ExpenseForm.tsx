@@ -259,8 +259,8 @@ export function ExpenseForm({
       description: description.trim(),
       date: new Date(date).getTime(),
       hashtags: type === 'transfer' ? [] : parseTags(tagInput),
-      isRecurring: type === 'expense' ? isRecurring : false,
-      ...(type === 'expense' && isRecurring && { recurringIntervalDays: parseInt(intervalDays, 10) || 30 }),
+      isRecurring,
+      ...(isRecurring && { recurringIntervalDays: parseInt(intervalDays, 10) || 30 }),
       ...(paymentMode && { paymentMode }),
       type,
       ...(accountId && { accountId }),
@@ -566,46 +566,42 @@ export function ExpenseForm({
             </div>
           )}
 
-          {/* Recurring toggle (expense only) */}
-          {type === 'expense' && (
-            <div className={`grid gap-3 ${isRecurring ? 'grid-cols-2' : 'grid-cols-1'}`}>
-              <div>
-                <label className="text-xs font-medium text-secondary">Recurring</label>
-                <div className="mt-1 flex items-center justify-between rounded-xl border border-theme px-3 py-3">
-                  <span className="text-xs text-tertiary">Bills, EMIs</span>
-                  <button
-                    type="button"
-                    onClick={() => setIsRecurring((v) => !v)}
-                    className="w-11 h-6 rounded-full transition-colors flex-shrink-0"
-                    style={
-                      isRecurring
-                        ? { backgroundColor: '#00a86b' }
-                        : { backgroundColor: 'var(--color-surface-tertiary)' }
-                    }
-                    aria-label="Toggle recurring"
-                  >
-                    <span
-                      className={`block w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        isRecurring ? 'translate-x-[22px]' : 'translate-x-[2px]'
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-              {isRecurring && (
-                <div>
-                  <label className="text-xs font-medium text-secondary">Every (days)</label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    className="input-surface mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-                    value={intervalDays}
-                    onChange={(e) => setIntervalDays(e.target.value)}
+          {/* Recurring toggle */}
+          <div className={`grid gap-3 ${isRecurring ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            <div>
+              <label className="text-xs font-medium text-secondary">Recurring</label>
+              <div className="mt-1 flex items-center justify-between rounded-xl border border-theme px-3 py-3">
+                <span className="text-xs text-tertiary">Bills, EMIs</span>
+                <button
+                  type="button"
+                  onClick={() => setIsRecurring((v) => !v)}
+                  className="w-11 h-6 rounded-full transition-colors flex-shrink-0"
+                  style={
+                    isRecurring ? { backgroundColor: '#00a86b' } : { backgroundColor: 'var(--color-surface-tertiary)' }
+                  }
+                  aria-label="Toggle recurring"
+                >
+                  <span
+                    className={`block w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                      isRecurring ? 'translate-x-[22px]' : 'translate-x-[2px]'
+                    }`}
                   />
-                </div>
-              )}
+                </button>
+              </div>
             </div>
-          )}
+            {isRecurring && (
+              <div>
+                <label className="text-xs font-medium text-secondary">Every (days)</label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  className="input-surface mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
+                  value={intervalDays}
+                  onChange={(e) => setIntervalDays(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
 
           {/* Actions */}
           <div className="flex gap-3 pt-1">

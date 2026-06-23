@@ -5,6 +5,7 @@ export interface PriceCache {
   symbol: string;
   price: number;
   nav?: number;
+  previousClose?: number;
   currency: string;
   fetchedAt: number; // epoch ms
 }
@@ -45,13 +46,19 @@ export interface PpfTransaction {
 
 // ─── EPF employment + transaction ledger ─────────────────────────────────────
 
+export interface EpfSalaryHike {
+  fromDate: number; // epoch ms — 1st of the month the new salary applies
+  basicSalary: number; // new basic + DA
+}
+
 export interface EpfEmployer {
   id: string;
   companyName: string;
-  basicSalary: number; // monthly basic + DA
+  basicSalary: number; // joining salary (basic + DA)
   employeeContribPct: number; // default 12; higher for VPF
   fromDate: number; // epoch ms — start of employment
   toDate?: number; // undefined = current employer
+  hikeTimeline?: EpfSalaryHike[]; // sorted ascending by fromDate
 }
 
 export type EpfTransactionType = 'contribution' | 'interest' | 'transfer_in' | 'withdrawal' | 'advance';

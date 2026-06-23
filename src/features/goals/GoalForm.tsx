@@ -59,11 +59,11 @@ export function GoalForm({ editing, onSave, onDelete, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-60 flex items-end"
-      style={{ paddingBottom: 'calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px))' }}
+      className="fixed inset-0 z-60 flex items-center justify-center px-4"
+      style={{ paddingTop: 56, paddingBottom: 72 }}
     >
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full bg-surface rounded-t-2xl p-5 flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-[430px] bg-surface rounded-2xl p-5 flex flex-col gap-4 max-h-full overflow-y-auto">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-primary">{editing ? 'Edit goal' : 'New goal'}</h3>
           <button

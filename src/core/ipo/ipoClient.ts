@@ -5,6 +5,7 @@ import type {
   IpoStatus,
   IpoSubDetail,
   IpoSubRow,
+  RawHistoricalIpoRow,
   RawIpoResponse,
   RawIpoRow
 } from './ipoTypes';
@@ -157,6 +158,100 @@ export async function fetchIpoSubscription(id: number): Promise<IpoSubDetail | n
   } catch {
     return null;
   }
+}
+
+const HIST_CACHE_PREFIX = 'penny_ipo_hist_';
+const HIST_CACHE_TTL_CURRENT = 60 * 60 * 1000; // 1 h for current FY
+const HIST_CACHE_TTL_PAST = 24 * 60 * 60 * 1000; // 24 h for past FYs
+
+function currentFyStartYear(): number {
+  const now = new Date();
+  const m = now.getMonth() + 1;
+  return m >= 4 ? now.getFullYear() : now.getFullYear() - 1;
+}
+
+function parseHistDate(s: string): string | null {
+  if (!s) return null;
+  const months: Record<string, number> = {
+    Jan: 1,
+    Feb: 2,
+    Mar: 3,
+    Apr: 4,
+    May: 5,
+    Jun: 6,
+    Jul: 7,
+    Aug: 8,
+    Sep: 9,
+    Oct: 10,
+    Nov: 11,
+    Dec: 12
+  };
+  const [day, mon, year] = s.split('-');
+  if (!day || !mon || !year) return null;
+  const m = months[mon];
+  if (!m) return null;
+  return `${year}-${String(m).padStart(2, '0')}-${String(parseInt(day, 10)).padStart(2, '0')}`;
+}
+
+function parseHistoricalRow(row: RawHistoricalIpoRow): IpoItem {
+  const lpMatch = row['Listing Price'].match(/([\d.]+)\s*\(([-\d.]+)%\)/);
+  const listingPrice = lpMatch ? parseFloat(lpMatch[1] ?? '') || null : null;
+  const listingGain = lpMatch ? parseFloat(lpMatch[2] ?? '') : null;
+
+  const priceStr = row['IPO Price'].replace(/&#?\w+;/g, '').trim();
+  const price = parseFloat(priceStr) || null;
+
+  return {
+    id: row['~id'],
+    name: row.IPO,
+    category: row['~IPO_Category'] === 'IPO' ? 'mainboard' : 'sme',
+    status: 'listed',
+    price,
+    lotSize: null,
+    issueSize: row.IPO_Size ? `₹${row.IPO_Size} Cr` : null,
+    openDate: null,
+    closeDate: null,
+    boaDate: null,
+    listingDate: parseHistDate(row['Listing Date']),
+    gmpValue: null,
+    gmpPercent: 0,
+    subscription: row.Subscription || null,
+    listingGain: listingGain !== null && !isNaN(listingGain) ? listingGain : null,
+    listingPrice,
+    detailPath: row['~URLRewrite_Folder_Name'] ?? '',
+    updatedAt: row['Last Updated'] ?? ''
+  };
+}
+
+export async function fetchHistoricalListedIpos(fyStartYear: number): Promise<IpoItem[]> {
+  const fy = `${fyStartYear}-${String(fyStartYear + 1).slice(2)}`;
+  const cacheKey = `${HIST_CACHE_PREFIX}${fyStartYear}`;
+  const isCurrent = fyStartYear === currentFyStartYear();
+  const ttl = isCurrent ? HIST_CACHE_TTL_CURRENT : HIST_CACHE_TTL_PAST;
+
+  try {
+    const raw = localStorage.getItem(cacheKey);
+    if (raw) {
+      const { data, ts } = JSON.parse(raw) as { data: IpoItem[]; ts: number };
+      if (Date.now() - ts < ttl) return data;
+    }
+  } catch {
+    /* ignore */
+  }
+
+  const url = `${BASE_URL}/486/1/6/${fyStartYear}/${fy}/0/all?search=&v=${Date.now()}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = (await res.json()) as { reportTableData?: RawHistoricalIpoRow[] };
+  const items = (json.reportTableData ?? []).map(parseHistoricalRow);
+
+  try {
+    localStorage.setItem(cacheKey, JSON.stringify({ data: items, ts: Date.now() }));
+  } catch {
+    /* localStorage full — non-fatal */
+  }
+
+  return items;
 }
 
 export async function fetchIpos(forceRefresh = false): Promise<IpoItem[]> {
