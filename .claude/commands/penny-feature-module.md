@@ -4,6 +4,25 @@ Use this when adding a new feature module (a new section of the app) from scratc
 
 ---
 
+## The target structure
+
+Every feature module must follow this exact three-layer pattern. Read `penny-standards.md` for the full rationale.
+
+```
+src/features/{name}/
+  use{Name}.ts          ← Layer 2: ALL state + data fetching + mutations
+  {Name}Page.tsx        ← Layer 3: thin UI (≤400 lines)
+  {Name}Form.tsx        ← Layer 3: thin form (≤200 lines)
+
+src/core/{domain}/
+  {name}Calculator.ts   ← Layer 1: pure calculations (100% RN-portable)
+  {name}Utils.ts        ← Layer 1: pure utilities (domain-specific helpers)
+```
+
+**Never put calculations or data fetching in a Page or Form component.**
+
+---
+
 ## Checklist
 
 ### 1. Read before touching code

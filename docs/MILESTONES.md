@@ -180,8 +180,39 @@ Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Conta
 
 | Track | Feature | Status |
 |---|---|---|
-| Track 5 | Documentation overhaul — CLAUDE.md, docs/, skills files | 🚧 In progress |
-| Track 1 | Component extraction — src/components/ui/ + src/hooks/ + wire up everywhere | ⏳ Next |
+| Track 5 | Documentation overhaul — CLAUDE.md, docs/, skills files | ✅ Complete |
+| Track 1A | Logic extraction — pure calculations out of component files into src/core/ | ⏳ Next |
+| Track 1B | Feature hooks — extract all state + data fetching into useXxx.ts per feature | ⏳ Next |
+| Track 1C | Component library — create src/components/ui/ primitives (Card, Modal, Button, etc.) | ⏳ Next |
+| Track 1D | Component wiring — replace all inline patterns in now-thin feature pages | ⏳ Next |
 | Track 2 | Onboarding v2 — DOB, employment type, username field | ⏳ Next |
 | Track 3 | Expense category overhaul — management page, visual icon picker, merge, bulk ops | ⏳ Next |
 | Track 4 | Activity log foundation — new Dexie store + basic UI | ⏳ Next |
+
+### Track 1 rationale
+
+Analysis of the existing codebase revealed that major feature files (ExpensesPage: 3,183 lines, PortfolioPage: 4,957 lines) mixed pure calculations, data fetching, state management, and UI rendering in a single file. This makes React Native migration expensive and feature logic untestable. The four-sub-track approach fixes the root cause before addressing the surface symptom (inline Tailwind patterns).
+
+**RN migration reusability:**
+- Before Track 1: ~33% reusable (pure logic already in src/core/)
+- After Track 1 complete: ~85% reusable (feature hooks + thin pages + component swap pattern)
+
+### Target feature module structure (after Track 1)
+
+```
+src/features/{name}/
+  use{Name}.ts          ← ALL state + ALL data fetching + ALL mutations (RN-portable)
+  {Name}Page.tsx        ← thin: layout + calls hook + calls shared components (~300 lines max)
+  {Name}Form.tsx        ← thin: form layout only (~150 lines max)
+
+src/core/{domain}/
+  {domain}Calculator.ts ← pure functions: calculations, transforms, aggregations (100% RN-portable)
+  {domain}Utils.ts      ← pure utilities (date helpers, formatters specific to domain)
+```
+
+### Verification gate (after every sub-track step)
+
+1. `npm run type-check` — catches prop mismatches and type errors immediately
+2. `npm run lint` — catches architecture violations
+3. `npm test -- --run` — PII gate + all tests green
+4. Dev server visual check — navigate to the changed feature, verify UI and interactions

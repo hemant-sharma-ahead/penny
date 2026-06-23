@@ -272,6 +272,74 @@ Three files, one responsibility each:
 
 ---
 
+## Feature module architecture (target state after Pre-Phase 1.5 Track 1)
+
+Every feature module follows a strict three-layer pattern. This was established after analysis revealed that files like `ExpensesPage.tsx` (3,183 lines) and `PortfolioPage.tsx` (4,957 lines) were mixing pure calculations, data fetching, state management, and UI rendering — making them untestable, hard to maintain, and expensive to migrate to React Native.
+
+### The three layers
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Layer 3: Feature UI (src/features/{name}/{Name}Page)   │
+│  • Calls feature hook for all data/actions              │
+│  • Calls src/components/ui/ for all UI                  │
+│  • ZERO calculations, ZERO repo calls                   │
+│  • ≤400 lines for a page, ≤200 lines for a form         │
+│  • Needs UI rewrite for React Native                    │
+└──────────────────────────┬──────────────────────────────┘
+                           │ calls
+┌──────────────────────────▼──────────────────────────────┐
+│  Layer 2: Feature Hook (src/features/{name}/use{Name})  │
+│  • ALL useState, useEffect, useCallback, useMemo        │
+│  • ALL repository calls (getAll, add, put, delete)      │
+│  • ALL mutations with optimistic updates                │
+│  • Imports calculations from Layer 1                    │
+│  • 100% React Native portable (hooks work identically)  │
+└──────────────────────────┬──────────────────────────────┘
+                           │ imports
+┌──────────────────────────▼──────────────────────────────┐
+│  Layer 1: Core Logic (src/core/{domain}/*)              │
+│  • Pure TypeScript functions only                       │
+│  • ZERO JSX, ZERO React, ZERO browser APIs              │
+│  • Independently testable without mounting a component  │
+│  • 100% React Native portable — zero changes needed     │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Example: Expenses feature (before vs after Track 1)
+
+**Before (wrong — everything in one file):**
+```
+src/features/expenses/
+  ExpensesPage.tsx    ← 3,183 lines: calculations + state + data fetching + UI
+  ExpenseForm.tsx     ←   767 lines: state + data fetching + UI
+```
+
+**After (correct):**
+```
+src/features/expenses/
+  useExpenses.ts      ← ~400 lines: all state + repo calls + mutations
+  ExpensesPage.tsx    ← ~350 lines: thin layout + calls hook + calls shared components
+  ExpenseForm.tsx     ← ~180 lines: thin form layout only
+
+src/core/expenses/
+  filterAndAggregate.ts  ← pure: filtering, grouping, category aggregation
+  eventAggregator.ts     ← pure: hashtag/event spending summaries
+```
+
+### React Native portability by layer
+
+| Layer | RN effort | Why |
+|---|---|---|
+| `src/core/` | Zero changes | Pure TypeScript, no browser deps |
+| Feature hooks (`use{Name}.ts`) | Zero changes | React hooks work identically in RN |
+| Feature UI (`{Name}Page.tsx`) | Swap component implementations | Pages call `<Card>`, `<Modal>` — not Tailwind directly |
+| `src/components/ui/` | Create `*.native.tsx` variants | Same props API, different renderer |
+| `src/core/db/` | Replace Dexie with SQLite | Isolated behind EncryptedRepository interface |
+| `src/core/crypto/` | Replace Web Crypto with RN crypto | Isolated in engine.ts |
+
+---
+
 ## Key architectural decisions
 
 ### Decision: UUID primary keys everywhere

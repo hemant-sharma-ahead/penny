@@ -121,6 +121,89 @@ Never skip. Never use `--no-verify`. Fix the root cause.
 
 ---
 
+## Feature architecture — the three-layer rule
+
+Every feature module must have exactly three layers. **Never collapse them.**
+
+```
+Layer 1: src/core/{domain}/          — Pure logic. Zero JSX. Zero React. Zero browser APIs.
+Layer 2: src/features/{name}/use{Name}.ts  — All state + data fetching. React hooks only.
+Layer 3: src/features/{name}/{Name}Page.tsx — Thin UI. Calls hook. Calls shared components.
+```
+
+**Layer 1 — Core logic rules:**
+- Must be pure TypeScript functions with no side effects
+- No `useState`, no `useEffect`, no JSX, no `className`
+- No browser APIs (`window`, `document`, `fetch`, `localStorage`)
+- Must be independently testable without mounting a component
+- If it does a calculation or data transformation → it belongs here
+
+**Layer 2 — Feature hook rules:**
+- One hook per feature page: `useExpenses`, `usePortfolio`, `useGoals`, etc.
+- Owns ALL state (`useState`), ALL data fetching (repo calls), ALL mutations
+- Imports from `src/core/` for calculations — never recalculates inline
+- Returns a typed object: `{ data, isLoading, create, update, delete, ...uiState }`
+- No JSX ever — if you're writing `return <div>`, you're in the wrong file
+
+**Layer 2 — What goes in the hook, without exception:**
+- All `useState` for this feature
+- All `useEffect` for data loading
+- All `useCallback` for mutations (create/update/delete)
+- All `useMemo` for derived data (totals, filters, groupings)
+- All repository calls (`expensesRepo.getAll()`, etc.)
+
+**Layer 3 — Thin page rules:**
+- Calls the feature hook for all data and actions
+- Calls shared components (`<Card>`, `<Modal>`, `<Button>`) for all UI
+- Maximum 400 lines for a page, 200 lines for a form
+- If a page exceeds 400 lines, extract a sub-component or move logic to the hook
+- No calculations, no business logic — delegate to Layer 1 and Layer 2
+
+**The RN portability test:**
+- Layer 1: zero changes for RN — pure TypeScript
+- Layer 2: zero changes for RN — React hooks work identically
+- Layer 3: swap `Modal.tsx` → `Modal.native.tsx` — feature page itself unchanged
+
+---
+
+## Anti-patterns — never do these
+
+**Anti-pattern 1: Logic in component files**
+```tsx
+// WRONG — calculation inside component
+const totalSpend = useMemo(() =>
+  expenses.reduce((sum, e) => e.type === 'expense' ? sum + e.amount : sum, 0), [expenses]);
+
+// RIGHT — import from core
+import { totalExpenseAmount } from '@/core/expenses/filterAndAggregate';
+const totalSpend = useMemo(() => totalExpenseAmount(expenses), [expenses]);
+```
+
+**Anti-pattern 2: Data fetching in page components**
+```tsx
+// WRONG — repo call in page
+const [expenses, setExpenses] = useState<Expense[]>([]);
+useEffect(() => { expensesRepo.getAll().then(setExpenses); }, []);
+
+// RIGHT — in feature hook
+// useExpenses.ts exports { expenses, isLoading, createExpense, ... }
+const { expenses, isLoading } = useExpenses();
+```
+
+**Anti-pattern 3: Duplicate utility functions across files**
+```tsx
+// WRONG — same function in 4 files
+function epochToDateInput(ms: number) { return new Date(ms).toISOString().slice(0, 10); }
+
+// RIGHT — one place
+import { epochToDateInput } from '@/lib/formatters';
+```
+
+**Anti-pattern 4: Monolithic feature files**
+A file over 400 lines that contains both UI and logic is a code smell. Split it.
+
+---
+
 ## File naming conventions
 
 - Components: `PascalCase.tsx`
