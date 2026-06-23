@@ -93,15 +93,54 @@ The CI gate (`tests/pii-gate/piiGate.test.ts`) will fail the build if any PII es
 
 ---
 
+## Branch rules
+
+- Every milestone or track gets its own branch cut from `main`: `feat/<milestone-slug>`
+- Examples: `feat/pre-phase-1.5`, `feat/m16-groups`, `feat/m13-calculators`
+- Never commit milestone work directly to `main`
+- Open a PR when a milestone (or all tracks within it) is complete
+
+---
+
+## Pre-commit gates — all three must pass before every commit
+
+```bash
+npm run format      # Prettier — no unformatted files
+npm run lint        # ESLint — zero errors (warnings tolerated, minimise them)
+npm test -- --run   # Vitest — all tests green including PII gate
+```
+
+Run them in this order. Fix failures before committing. Never use `--no-verify` or suppress lint with `eslint-disable`.
+
+---
+
 ## Commit conventions
 
-Each step or module gets its own commit. Format:
+Each completed step or track gets its own commit. Format:
 ```
-feat(module): short description
-chore: tooling/config change
+feat(scope): step X — short description
+feat(scope): short description
+fix(scope): short description
+chore: tooling or config change
+docs: documentation change
 test: test additions
-fix(module): bug description
 ```
+
+**Milestone commit examples:**
+```
+feat(pre-1.5): track 5 — documentation overhaul
+feat(m16): step 1 — groups data model and Dexie store
+fix(expenses): category merge not updating transaction count
+```
+
+---
+
+## PR rules
+
+- **Title:** `feat(<milestone>): <milestone short name>`
+- **Example:** `feat(pre-phase-1.5): documentation, components, onboarding, categories, activity log`
+- Every PR must pass CI (lint + tests) before merge
+- PR description: what changed, why, and any decisions or trade-offs made
 
 ---
 
@@ -109,9 +148,14 @@ fix(module): bug description
 
 | File | What it covers |
 |------|---------------|
-| `CLAUDE.md` | Full developer guide for AI-assisted sessions |
-| `docs/DEVELOPMENT_PLAN.md` | Phased roadmap with feature lists |
-| `docs/SCHEMA.md` | All 19 Dexie stores with field definitions |
-| `docs/PRIVACY_RULES.md` | PII definitions and anonymisation rules |
-| `docs/FEATURES.md` | Complete feature specification |
-| `.claude/commands/penny-standards.md` | Code standards loaded in every Claude session |
+| `CLAUDE.md` | Orientation: project identity, rules, milestone status, key files |
+| `CONTRIBUTING.md` | This file — branching, commits, CI, PR rules |
+| `docs/README.md` | Documentation index — navigate all docs from here |
+| `docs/BRD.md` | Product vision, users, competitive positioning, phase plan |
+| `docs/ARCHITECTURE.md` | Codebase map (dirs, components, hooks) + architectural decision log |
+| `docs/SCHEMA.md` | All Dexie stores with field definitions |
+| `docs/PRIVACY.md` | PII definitions, anonymisation rules, privacy architecture |
+| `docs/ROADMAP.md` | Phase 1.5/2/3 scope, backend design, architectural decisions |
+| `docs/MILESTONES.md` | Full milestone history — M0 through current, all steps |
+| `docs/features/` | Per-feature documentation — what's built, data model, planned improvements |
+| `.claude/commands/penny-standards.md` | Best practices skill — loaded at the start of every implementation session |

@@ -1,6 +1,6 @@
-# Penny — Code Standards
+# Penny — Code Standards & Best Practices
 
-This file is loaded by Claude Code at the start of every session. These standards must be followed at all times, no exceptions.
+Invoke this at the start of any implementation task on Penny. These rules apply without exception.
 
 ---
 
@@ -12,11 +12,20 @@ This file is loaded by Claude Code at the start of every session. These standard
 
 3. **The CI PII gate is non-negotiable.** `tests/pii-gate/piiGate.test.ts` must always pass. Never use `eslint-disable`, `// @ts-ignore`, or test skips to work around it.
 
-4. **Three domains only.** The app may only make outbound requests to `api.anthropic.com`, `api.mfapi.in`, and `query.yahoofinance.com`. Any other fetch is a bug.
+4. **Permitted outbound domains.** The app may only contact these external domains — any other fetch is a bug:
+   - `api.anthropic.com` — Chip AI (anonymised payload only)
+   - `api.mfapi.in` — MF NAV data (scheme codes, no user data)
+   - `query.yahoofinance.com` — Stock prices (tickers, no user data)
+   - `webnodejs.investorgain.com` — IPO data (no user data)
+   - `npsnav.in` — NPS NAV (no user data)
+   - `vahandetails.com` — Vehicle RC (no user data)
+   - `api.openweathermap.org` — Market data (no user data)
 
-5. **Person names from `personal_ious` never leave the device.** In AI context, use "IOU 1", "IOU 2" etc.
+5. **IOU person names never leave the device.** In AI context, use "Person 1", "Person 2". The `buildUserContext()` function handles this substitution.
 
-6. **`raw_report_encrypted` from `credit_profile` is never sent to AI.** It contains PAN and tradelines.
+6. **`raw_report_encrypted` from `credit_profile` is never sent to AI.** Contains PAN and full tradelines.
+
+7. **DOB is never sent as-is.** Always send as 5-year age band (e.g. "29–35"). `buildUserContext()` handles this.
 
 ---
 
@@ -26,9 +35,21 @@ This file is loaded by Claude Code at the start of every session. These standard
 
 2. **Never import or call `window.crypto.subtle` directly** from feature code. Only `src/core/crypto/engine.ts` and `src/core/crypto/securityManager.ts` may do this.
 
-3. **The Master Key lives in memory only.** It is never written to IndexedDB in plaintext. The `keystore.ts` module holds it — never extract it to any other variable across module boundaries.
+3. **The Master Key lives in memory only.** Never write it to IndexedDB. `keystore.ts` holds it — never extract it across module boundaries.
 
-4. **All data written to IndexedDB must go through the encryption layer.** No raw plaintext records in any encrypted store.
+4. **All data written to IndexedDB must go through the encryption layer.** No raw plaintext in any encrypted store.
+
+---
+
+## Architecture non-negotiables
+
+1. **Feature modules are self-contained.** `src/features/expenses/` must not import from `src/features/portfolio/`. Both may import from `src/core/`, `src/components/`, `src/context/`, `src/hooks/`, `src/lib/`.
+
+2. **Use repositories, not raw Dexie.** All store access goes through the repository instances in `src/core/db/repositories.ts`.
+
+3. **`mockChip.ts` for all Phase 1.** Never add a real Anthropic API call during Phase 1. The `CHIP_MODE` flag controls this.
+
+4. **No half-implemented features.** Stub with a placeholder rather than shipping broken UI.
 
 ---
 
@@ -38,46 +59,74 @@ This file is loaded by Claude Code at the start of every session. These standard
 
 2. **`noUncheckedIndexedAccess` is on.** Always handle the case where an array index or record key returns `undefined`.
 
-3. **`exactOptionalPropertyTypes` is on.** Do not pass `undefined` as an optional property — omit the property instead.
+3. **`exactOptionalPropertyTypes` is on.** Omit optional properties instead of passing `undefined`.
 
 4. **No implicit returns** in functions that return a value. Every code path must explicitly return.
 
 ---
 
-## Component conventions
+## Component & UI standards
 
-1. **Use `usePrivacy()` hook** for all privacy-aware rendering. Never check `mode` directly in feature components — use `<PrivacyAwareText>` or `<MaskedValue>` from `src/components/privacy/`.
+1. **Use shared primitives** from `src/components/ui/` (Card, Modal, Button, TextInput, etc.). Do not recreate these inline.
 
-2. **Mobile-first Tailwind.** Default classes are for mobile (390px). Use `md:` and `lg:` breakpoints for larger screens. The app shell constrains width to `max-w-[430px]` on desktop.
+2. **No Tailwind classNames in feature files for primitives.** Use semantic props: `variant="primary"`, not `className="py-3 rounded-xl bg-green-600"`.
 
-3. **Currency formatting:** Always use `Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' })` from `src/lib/formatters.ts`. Never format rupee amounts inline.
+3. **Always semantic tokens.** Never use hardcoded Tailwind colours (`bg-white`, `text-slate-900`, `border-slate-100`). Use: `bg-surface`, `text-primary`, `text-secondary`, `border-theme`, `surface`, `input-surface`.
 
-4. **Date formatting:** Use `src/lib/formatters.ts` helpers. Never use `new Date().toLocaleDateString()` directly — locale must be `en-IN`.
+4. **No bottom sheets.** All modals appear centred between header and bottom nav. Use the `Modal` component.
 
-5. **No inline styles.** Use Tailwind classes. For dynamic values (e.g. progress ring circumference), use CSS custom properties.
+5. **Z-index ladder:** bottom nav `z-50` → app header `z-40` → modals `z-60` → nested modals/confirmation `z-70`.
 
-6. **Tabler icons only.** Use `<i class="ti ti-NAME">` — outline only. Never use filled variants (`ti-heart-filled` etc.) or draw custom SVG icon paths.
+6. **Mobile-first Tailwind.** Default classes are for mobile (390px). Use `md:` and `lg:` for larger screens. App shell constrains to `max-w-[430px]`.
 
----
+7. **Use `usePrivacy()` hook** for privacy-aware rendering. Never check the privacy mode directly in feature code — use `<MaskedValue>` or `<PrivacyAwareText>` from `src/components/privacy/`.
 
-## Architecture conventions
-
-1. **Feature modules are self-contained.** A feature in `src/features/expenses/` must not import from `src/features/portfolio/`. Both may import from `src/core/`, `src/components/`, `src/context/`, `src/lib/`.
-
-2. **One commit per step or module.** Commit format: `feat(module): description`, `chore: description`, `test: description`, `fix(module): description`.
-
-3. **No half-implemented features.** If a feature isn't complete, leave the stub as a placeholder rather than shipping broken UI.
-
-4. **`mockChip.ts` for all Phase 1 development.** Never add a real Anthropic API call during Phase 1 Core development. The `CHIP_MODE` flag controls this.
+8. **Tabler icons only.** Use `<i className="ti ti-NAME" />` — outline variants only. Never filled icons or custom SVG paths. (Note: Pre-Phase 1.5 track 3 replaces category icons with an SVG sprite — for categories only, use the new icon system.)
 
 ---
 
-## File naming
+## India-specific rules
+
+1. **Currency:** Always use `formatCurrency()` from `src/lib/formatters.ts`. Never format ₹ amounts inline. Always `en-IN` locale.
+
+2. **Number formatting:** Use `formatCompact()` for large numbers (lakhs/crores, not millions/billions). ₹1,00,000 = ₹1L. ₹1,00,00,000 = ₹1Cr.
+
+3. **Financial year:** Indian FY runs April–March. FY 2026 = April 2025 to March 2026. Use `CURRENT_FY` from `src/core/ipo/ipoTypes.ts` for the current FY constant.
+
+4. **Dates:** Use `src/lib/formatters.ts` helpers. Never use `new Date().toLocaleDateString()` directly — locale must be `en-IN`.
+
+5. **Tax slabs:** Senior citizen = 60+, Super senior = 80+. These thresholds drive different calculations in the tax module.
+
+---
+
+## Pre-commit gates (all three must pass)
+
+```bash
+npm run format      # Prettier
+npm run lint        # ESLint — zero errors
+npm test -- --run   # Vitest — all green including PII gate
+```
+
+Never skip. Never use `--no-verify`. Fix the root cause.
+
+---
+
+## Phase awareness
+
+- **What's built:** See `docs/features/` for per-module documentation
+- **What's deferred:** CAS PDF import, Watchlist, Export PDF, Chip real AI, Desktop layout, Chip chat UI — all Phase 2
+- **What's planned:** Phase 1.5/2/3 architecture decisions in `docs/ROADMAP.md`
+- **Don't re-implement** something that already exists — read the feature doc before starting
+- **Don't re-ask architecture questions** already decided — check `docs/ROADMAP.md` first
+
+---
+
+## File naming conventions
 
 - Components: `PascalCase.tsx`
 - Hooks: `useCamelCase.ts`
-- Utilities: `camelCase.ts`
-- Types: `camelCase.types.ts`
+- Utilities / clients: `camelCase.ts`
+- Types: colocated in `src/core/db/types/index.ts` or feature-local `types.ts`
 - Tests: `fileName.test.ts`
 - Route pages: `ModulePage.tsx` (e.g. `ExpensesPage.tsx`)
 
@@ -85,10 +134,10 @@ This file is loaded by Claude Code at the start of every session. These standard
 
 ## What Chip always shows
 
-Every Chip insight must have all four fields populated before being shown:
-1. **Reasoning** — the data points behind the recommendation
-2. **"What if I do nothing?"** — consequence in rupees
+Every Chip insight must have all four fields populated:
+1. **Reasoning** — data points behind the recommendation
+2. **"What if I do nothing?"** — consequence in rupees (most important field)
 3. **Module tag** — which area it relates to
-4. **Confidence** — Chip's certainty (shown as a subtle indicator, not a percentage)
+4. **Confidence** — shown as a subtle indicator
 
-Never show a Chip insight without a populated `do_nothing_consequence`. It is the most important field.
+Never show a Chip insight without a populated `do_nothing_consequence`.
