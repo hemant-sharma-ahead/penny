@@ -183,7 +183,7 @@ Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Conta
 | Track 5 | Documentation overhaul — CLAUDE.md, docs/, skills files | ✅ Complete |
 | Track 1A | Logic extraction — pure calculations out of component files into src/core/ | ✅ Complete |
 | Track 1B | Feature hooks — extract all state + data fetching into useXxx.ts per feature | ✅ Complete |
-| Track 1C | Component library — create src/components/ui/ primitives (Card, Modal, Button, etc.) | ⏳ Next |
+| Track 1C | Component library — create src/components/ui/ primitives (Card, Modal, Button, etc.) | ✅ Complete |
 | Track 1D | Component wiring — replace all inline patterns in now-thin feature pages | ⏳ Next |
 | Track 2 | Onboarding v2 — DOB, employment type, username field | ⏳ Next |
 | Track 3 | Expense category overhaul — management page, visual icon picker, merge, bulk ops | ⏳ Next |

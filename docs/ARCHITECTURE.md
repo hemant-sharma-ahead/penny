@@ -145,13 +145,27 @@ penny/
 | `PrivacyBadge.tsx` | — | Coloured badge (amber/violet/red) showing current mode. Tappable to open switcher. |
 | `PrivacyModeSwitcher.tsx` | `isOpen`, `onClose` | 3-segment toggle. PIN modal fires when switching to Open mode. |
 
-### `src/components/ui/` *(expanding in Pre-Phase 1.5 Track 1)*
+### `src/components/ui/`
 
-| File | Purpose |
-|---|---|
-| `ChipAvatar.tsx` | Chip AI avatar SVG |
-| `PennyLogo.tsx` | Penny coin + wordmark SVG |
-| *(Track 1 adds: Card, Modal, Button, ConfirmDialog, TextInput, FormField, IconChip, SegmentedControl, Badge, EmptyState, SectionHeader)* |
+| File | Key Props | Purpose |
+|---|---|---|
+| `ChipAvatar.tsx` | — | Chip AI avatar SVG |
+| `PennyLogo.tsx` | — | Penny coin + wordmark SVG |
+| `Card.tsx` | `padding?` sm/md/lg · `radius?` md/lg · `onClick?` · `className?` | Surface card. Renders `<button>` when `onClick` is provided. Layout classes allowed via `className`; never pass colour/spacing overrides. |
+| `Modal.tsx` | `onClose` · `title?` · `footer?` · `size?` sm/md · `nested?` · `scrollable?` | Fixed-overlay centred modal. `nested=true` bumps to `z-70`. Always uses `paddingTop:56, paddingBottom:72` so header + nav remain visible. |
+| `Button.tsx` | `variant` primary/secondary/danger/ghost · `size?` sm/md/lg · `loading?` · `icon?` · `fullWidth?` | All interactive buttons. Primary/danger use CSS vars; secondary/ghost use semantic tokens. |
+| `ConfirmDialog.tsx` | `isOpen` · `onClose` · `onConfirm` · `title` · `message` · `confirmLabel?` · `confirmVariant?` · `loading?` | Two-button confirmation dialog. Wraps `Modal(nested=true)` + two `Button`s. |
+| `FormField.tsx` | `label` · `required?` · `hint?` · `error?` | Label wrapper. Shows required star, hint text, or error (error takes priority over hint). |
+| `TextInput.tsx` | `label?` · `value` · `onChange(value)` · `error?` · `hint?` · `prefix?` · `suffix?` | Controlled text input. When `label` is provided, wraps with `FormField`. |
+| `EmptyState.tsx` | `icon` · `title` · `description?` · `action?` | Icon + title + optional description + optional CTA button. Use for zero-data states. |
+| `TabStrip.tsx` | `options[]{value,label,icon?,count?}` · `value` · `onChange` · `scrollable?` | Underline-style tab strip. Generic over the tab value type. Horizontally scrollable when `scrollable=true`. |
+| `Badge.tsx` | `label` · `color?` · `variant?` solid/subtle · `size?` sm/md | Coloured pill. `subtle` variant uses `color` at 10% opacity background. |
+| `SectionHeader.tsx` | `title` · `subtitle?` · `action?` · `className?` | Section heading row with optional subtitle and right-aligned action slot. |
+| `ProgressBar.tsx` | `value` 0–100 · `color?` · `size?` xs/sm/md · `animate?` | Horizontal fill bar. Clamps value to 0–100. |
+| `SegmentedControl.tsx` | `options[]{value,label,icon?,color?}` · `value` · `onChange` · `cols?` | 2–4 option radio group. Active option fills with `color` (default `--color-primary`). Background: `bg-surface-2`. |
+| `SelectInput.tsx` | `label?` · `value` · `onChange(value)` · `options[]{value,label}` · `placeholder?` · `error?` | Native `<select>` wrapper with chevron icon. Wraps `FormField` when `label` provided. |
+| `Toggle.tsx` | `value` · `onChange(value)` · `disabled?` · `aria-label?` | iOS-style sliding boolean switch. Active: `--color-primary`; inactive: `--color-surface-3`. |
+| `index.ts` | — | Barrel export for all ui components. |
 
 ---
 
