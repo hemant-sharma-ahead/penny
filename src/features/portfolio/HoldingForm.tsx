@@ -282,7 +282,6 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
     const cur = editing?.assetMeta?.epfEmployers?.find((e) => !e.toDate);
     return cur?.employeeContribPct ?? 12;
   })();
-
   // FD/RD states
   const [fdSubType, setFdSubType] = useState<'fd' | 'rd'>(editing?.assetMeta?.fdSubType ?? 'fd');
   const [fdBank, setFdBank] = useState(editing?.assetMeta?.fdBank ?? '');
@@ -553,7 +552,8 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
       assetClass !== 'fd' &&
       assetClass !== 'gold' &&
       assetClass !== 'mf' &&
-      assetClass !== 'stock';
+      assetClass !== 'stock' &&
+      assetClass !== 'epf'; // corpus auto-calculated from transactions
     if (!effectiveName || (requiresAmount && (isNaN(invested) || invested <= 0))) return;
     if (assetClass === 'gold' && (parseFloat(metalWeightGrams) <= 0 || parseFloat(metalPurchasePrice) <= 0)) return;
     setSaving(true);
@@ -703,7 +703,8 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
           companyName: epfCompany.trim(),
           basicSalary: basic,
           employeeContribPct: empPct,
-          fromDate: epfJoiningDate ? new Date(epfJoiningDate).getTime() : Date.now()
+          fromDate: epfJoiningDate ? new Date(epfJoiningDate).getTime() : Date.now(),
+          ...(currentEmp?.hikeTimeline && { hikeTimeline: currentEmp.hikeTimeline })
         };
         if (currentIdx >= 0) {
           existingEmployers[currentIdx] = emp;
@@ -713,6 +714,16 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
       }
 
       meta.epfEmployers = existingEmployers;
+
+      // Corpus calculated from transaction history — not entered manually
+      const txns = meta.epfTransactions ?? [];
+      const calculated = txns.reduce((sum, t) => {
+        if (t.type === 'contribution') return sum + (t.employeeAmount ?? 0) + (t.employerAmount ?? 0);
+        if (t.type === 'transfer_in' || t.type === 'interest') return sum + (t.amount ?? 0);
+        if (t.type === 'withdrawal' || t.type === 'advance') return sum - (t.amount ?? 0);
+        return sum;
+      }, 0);
+      holding.investedAmount = Math.max(0, calculated);
       holding.assetMeta = meta;
     } else if (assetClass === 'vehicle') {
       const meta: AssetMeta = { ...(editing?.assetMeta ?? {}) };
@@ -1738,7 +1749,7 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
                 />
               </div>
             </div>
-            <p className="text-[11px] text-tertiary -mt-1">
+            <p className="text-[11px] text-tertiary">
               Add previous employers and transaction history from the EPF card after saving.
             </p>
           </div>
@@ -2034,12 +2045,13 @@ export function HoldingForm({ editing, onSave, onDelete, onClose, lockAssetClass
           </div>
         )}
 
-        {/* Balance / invested amount — hidden for vehicle, fd, gold, mf, stock (auto-computed from units × price) */}
+        {/* Balance / invested amount — hidden for vehicle, fd, gold, mf, stock, epf (auto-computed) */}
         {assetClass !== 'vehicle' &&
           assetClass !== 'fd' &&
           assetClass !== 'gold' &&
           assetClass !== 'mf' &&
-          assetClass !== 'stock' && (
+          assetClass !== 'stock' &&
+          assetClass !== 'epf' && (
             <div>
               <label className="text-xs font-medium text-secondary">
                 {assetClass === 'nps' || assetClass === 'ppf' || assetClass === 'epf'

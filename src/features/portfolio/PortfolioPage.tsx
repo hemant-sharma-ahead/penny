@@ -8,6 +8,7 @@ import type {
   AssetClass,
   AssetMeta,
   EpfEmployer,
+  EpfSalaryHike,
   EpfTransaction,
   EpfTransactionType,
   Holding,
@@ -550,6 +551,23 @@ function epfMonthLabel(ms: number): string {
   return new Date(ms).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
 }
 
+function epfGetSalaryForMonth(emp: EpfEmployer, month: string): number {
+  const hikes = emp.hikeTimeline;
+  if (!hikes || hikes.length === 0) return emp.basicSalary;
+  const monthMs = new Date(`${month}-01T00:00:00`).getTime();
+  let salary = emp.basicSalary;
+  for (const hike of hikes) {
+    if (hike.fromDate <= monthMs) salary = hike.basicSalary;
+    else break; // sorted ascending
+  }
+  return salary;
+}
+
+function epfLatestSalary(emp: EpfEmployer): number {
+  const sorted = [...(emp.hikeTimeline ?? [])].sort((a, b) => b.fromDate - a.fromDate);
+  return sorted[0]?.basicSalary ?? emp.basicSalary;
+}
+
 // ── EPF computed months (auto-generated from employment history) ──────────────
 
 interface EpfMonthEntry {
@@ -596,9 +614,9 @@ function epfComputeAllMonths(employers: EpfEmployer[]): EpfMonthEntry[] {
         fyLabel: fy.label,
         fyStartYear: fy.startYear,
         companyName: emp.companyName,
-        empAmount: Math.round(emp.basicSalary * (emp.employeeContribPct / 100) * fraction),
-        eplrEpfAmount: Math.round(emp.basicSalary * EPF_EMPLOYER_EPF_PCT * fraction),
-        epsAmount: Math.round(emp.basicSalary * EPS_PCT * fraction),
+        empAmount: Math.round(epfGetSalaryForMonth(emp, month) * (emp.employeeContribPct / 100) * fraction),
+        eplrEpfAmount: Math.round(epfGetSalaryForMonth(emp, month) * EPF_EMPLOYER_EPF_PCT * fraction),
+        epsAmount: Math.round(epfGetSalaryForMonth(emp, month) * EPS_PCT * fraction),
         ...(isPartial && { proRata: { workedDays, totalDays: daysInMonth } })
       });
       mo++;
@@ -620,19 +638,54 @@ interface EpfCardData {
   yearsToRetirement: number | null;
   projectedCorpus: number | null;
   totalComputedMonths: number;
+  corpus: number;
+  employeeTotal: number;
+  employerTotal: number;
+  interestEarned: number;
 }
 
-function epfBuildCardData(meta: AssetMeta, balance: number): EpfCardData {
+function epfBuildCardData(meta: AssetMeta): EpfCardData {
   const now = Date.now();
   const employers = meta.epfEmployers ?? [];
+  const txns = meta.epfTransactions ?? [];
   const currentEmp = epfCurrentEmployer(employers);
-  const basic = currentEmp?.basicSalary ?? 0;
+  const basic = currentEmp ? epfLatestSalary(currentEmp) : 0;
   const empPct = (currentEmp?.employeeContribPct ?? 12) / 100;
 
   const monthlyEmployee = Math.round(basic * empPct);
   const monthlyEmployerEpf = Math.round(basic * EPF_EMPLOYER_EPF_PCT);
   const monthlyEps = Math.round(basic * EPS_PCT);
   const monthlyTotalEpf = monthlyEmployee + monthlyEmployerEpf;
+
+  let employeeTotal = 0;
+  let employerTotal = 0;
+  let interestEarned = 0;
+  let corpus = 0;
+  for (const t of txns) {
+    if (t.type === 'contribution') {
+      employeeTotal += t.employeeAmount ?? 0;
+      employerTotal += t.employerAmount ?? 0;
+      corpus += (t.employeeAmount ?? 0) + (t.employerAmount ?? 0);
+    } else if (t.type === 'interest') {
+      interestEarned += t.amount ?? 0;
+      corpus += t.amount ?? 0;
+    } else if (t.type === 'transfer_in') {
+      corpus += t.amount ?? 0;
+    } else if (t.type === 'withdrawal' || t.type === 'advance') {
+      corpus -= t.amount ?? 0;
+    }
+  }
+  corpus = Math.max(0, corpus);
+
+  // If no passbook transactions recorded, estimate from employment history
+  if (txns.length === 0 && employers.length > 0) {
+    const allMonths = epfComputeAllMonths(employers);
+    for (const m of allMonths) {
+      employeeTotal += m.empAmount;
+      employerTotal += m.eplrEpfAmount;
+      corpus += m.empAmount + m.eplrEpfAmount;
+    }
+  }
 
   let yearsToRetirement: number | null = null;
   let projectedCorpus: number | null = null;
@@ -643,7 +696,7 @@ function epfBuildCardData(meta: AssetMeta, balance: number): EpfCardData {
       yearsToRetirement = yrs;
       const r = EPF_RATE / 12;
       const n = yrs * 12;
-      projectedCorpus = balance * Math.pow(1 + r, n) + (monthlyTotalEpf * (Math.pow(1 + r, n) - 1)) / r;
+      projectedCorpus = corpus * Math.pow(1 + r, n) + (monthlyTotalEpf * (Math.pow(1 + r, n) - 1)) / r;
     }
   }
 
@@ -659,7 +712,11 @@ function epfBuildCardData(meta: AssetMeta, balance: number): EpfCardData {
     monthlyTotalEpf,
     yearsToRetirement,
     projectedCorpus,
-    totalComputedMonths
+    totalComputedMonths,
+    corpus,
+    employeeTotal,
+    employerTotal,
+    interestEarned
   };
 }
 
@@ -1200,6 +1257,118 @@ function EpfTransactionSheet({
   );
 }
 
+// ─── EpfSalaryHikeSheet ───────────────────────────────────────────────────────
+
+function EpfSalaryHikeSheet({
+  holding,
+  empId,
+  onSave,
+  onClose
+}: {
+  holding: Holding;
+  empId: string;
+  onSave: (updated: Holding) => Promise<void>;
+  onClose: () => void;
+}) {
+  const emp = (holding.assetMeta?.epfEmployers ?? []).find((e) => e.id === empId);
+  const [hikeMonth, setHikeMonth] = useState('');
+  const [hikeBasic, setHikeBasic] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const canSave = hikeMonth && parseFloat(hikeBasic) > 0;
+
+  function handleSave(id: string, ts: number) {
+    if (!canSave || !emp) return;
+    setSaving(true);
+    const hikeMs = new Date(`${hikeMonth}-01T00:00:00`).getTime();
+    const newHike: EpfSalaryHike = { fromDate: hikeMs, basicSalary: parseFloat(hikeBasic) };
+    const updatedHikes = [...(emp.hikeTimeline ?? []), newHike].sort((a, b) => a.fromDate - b.fromDate);
+    const updatedEmp: EpfEmployer = { ...emp, hikeTimeline: updatedHikes };
+    const updated: Holding = {
+      ...holding,
+      assetMeta: {
+        ...holding.assetMeta,
+        epfEmployers: (holding.assetMeta?.epfEmployers ?? []).map((e) => (e.id === empId ? updatedEmp : e))
+      },
+      updatedAt: ts,
+      id
+    };
+    onSave(updated)
+      .catch(() => {})
+      .finally(() => setSaving(false));
+  }
+
+  if (!emp) return null;
+
+  const minMonth = new Date(emp.fromDate).toISOString().slice(0, 7);
+  const maxMonth = emp.toDate ? new Date(emp.toDate).toISOString().slice(0, 7) : undefined;
+
+  return (
+    <div
+      className="fixed inset-0 z-70 flex items-center justify-center px-4"
+      style={{ paddingTop: 56, paddingBottom: 72 }}
+    >
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-[430px] rounded-2xl p-5 flex flex-col gap-4 bg-surface">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-primary">Add Salary Hike</h3>
+            <p className="text-xs text-tertiary mt-0.5">{emp.companyName}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-tertiary"
+          >
+            <i className="ti ti-x" style={{ fontSize: 20 }} aria-hidden="true" />
+          </button>
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-secondary">Effective from (month)</label>
+          <input
+            type="month"
+            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+            value={hikeMonth}
+            min={minMonth}
+            max={maxMonth}
+            onChange={(e) => setHikeMonth(e.target.value)}
+            autoFocus
+          />
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-secondary">New basic + DA salary (₹/mo)</label>
+          <input
+            type="number"
+            inputMode="decimal"
+            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+            placeholder={`Current: ₹${epfLatestSalary(emp).toLocaleString('en-IN')}`}
+            value={hikeBasic}
+            onChange={(e) => setHikeBasic(e.target.value)}
+          />
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 rounded-xl border border-theme text-sm font-medium text-secondary"
+          >
+            Cancel
+          </button>
+          <button
+            disabled={!canSave || saving}
+            onClick={() => handleSave(holding.id, Date.now())}
+            className="flex-1 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-40"
+            style={{ backgroundColor: 'var(--color-primary)' }}
+          >
+            {saving ? 'Saving…' : 'Save Hike'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── EpfEmployerSheet ─────────────────────────────────────────────────────────
 
 function EpfEmployerSheet({
@@ -1392,11 +1561,11 @@ function RetirementCard({
   const [showEpfTxSheet, setShowEpfTxSheet] = useState(false);
   const [showEpfEmpSheet, setShowEpfEmpSheet] = useState(false);
   const [showEpfAllTxSheet, setShowEpfAllTxSheet] = useState(false);
+  const [epfHikeEmpId, setEpfHikeEmpId] = useState<string | null>(null);
 
-  // EPF computed values — Date.now() lives inside epfBuildCardData (module-level)
   const epfData = useMemo(
-    () => (holding.assetClass === 'epf' ? epfBuildCardData(holding.assetMeta ?? {}, holding.investedAmount) : null),
-    [holding.assetClass, holding.investedAmount, holding.assetMeta]
+    () => (holding.assetClass === 'epf' ? epfBuildCardData(holding.assetMeta ?? {}) : null),
+    [holding.assetClass, holding.assetMeta]
   );
 
   function staleBadge() {
@@ -1436,7 +1605,12 @@ function RetirementCard({
 
   const assetMeta = ASSET_META[holding.assetClass];
   const showLiveCorpus = liveCorpus != null;
-  const displayValue = showLiveCorpus ? liveCorpus : holding.investedAmount;
+  const displayValue =
+    holding.assetClass === 'epf' && epfData != null
+      ? epfData.corpus
+      : showLiveCorpus
+        ? liveCorpus
+        : holding.investedAmount;
 
   const txTypeLabel: Record<string, string> = { deposit: 'Deposit', interest: 'Interest', withdrawal: 'Withdrawal' };
   const txTypeColor: Record<string, string> = { deposit: '#8b5cf6', interest: '#10b981', withdrawal: '#f59e0b' };
@@ -1487,6 +1661,7 @@ function RetirementCard({
                 {(holding.units ?? 0).toFixed(4)} units × ₹{npsNav?.nav.toFixed(4)}
               </p>
             )}
+            {holding.assetClass === 'epf' && <p className="text-[10px] text-tertiary mt-0.5">corpus</p>}
           </button>
         </div>
 
@@ -1727,14 +1902,16 @@ function RetirementCard({
                 .join(' · ')}
             </p>
 
-            {/* Employment history */}
+            <div className="border-t border-theme" />
+
+            {/* Employment */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <p className="text-[10px] font-medium text-tertiary uppercase tracking-wide">Employment history</p>
+                <p className="text-[10px] font-medium text-tertiary uppercase tracking-wide">Employment</p>
                 <button
                   onClick={() => setShowEpfEmpSheet(true)}
                   className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                  style={{ backgroundColor: '#64748b15', color: '#64748b' }}
+                  style={{ backgroundColor: '#10b98115', color: '#10b981' }}
                 >
                   <i className="ti ti-plus" style={{ fontSize: 11 }} aria-hidden="true" />
                   Add
@@ -1745,35 +1922,84 @@ function RetirementCard({
               ) : (
                 <div className="flex flex-col gap-1.5">
                   {[...(meta.epfEmployers ?? [])]
-                    .sort((a, b) => a.fromDate - b.fromDate)
-                    .map((emp) => (
-                      <div key={emp.id} className="flex justify-between items-start gap-2">
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium text-primary truncate">
-                            {emp.companyName}
-                            {!emp.toDate && (
-                              <span
-                                className="ml-1.5 text-[9px] font-bold uppercase tracking-wide px-1 py-0.5 rounded"
-                                style={{ backgroundColor: '#10b98115', color: '#10b981' }}
-                              >
-                                Current
-                              </span>
-                            )}
-                          </p>
-                          <p className="text-[10px] text-tertiary">
-                            {epfMonthLabel(emp.fromDate)} – {emp.toDate ? epfMonthLabel(emp.toDate) : 'present'}
-                            {' · '}
-                            {epfMonthsBetween(emp.fromDate, emp.toDate ?? epfNowMs())} months
-                          </p>
+                    .sort((a, b) => {
+                      // Current employer (no toDate) always first, then descending by fromDate
+                      const aCurrent = !a.toDate ? 0 : 1;
+                      const bCurrent = !b.toDate ? 0 : 1;
+                      if (aCurrent !== bCurrent) return aCurrent - bCurrent;
+                      return b.fromDate - a.fromDate;
+                    })
+                    .map((emp) => {
+                      const hikeCount = (emp.hikeTimeline ?? []).length;
+                      return (
+                        <div
+                          key={emp.id}
+                          className="flex items-center justify-between gap-2 rounded-xl px-3 py-2 bg-surface-2 border border-theme"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-primary truncate">
+                              {emp.companyName}
+                              {!emp.toDate && (
+                                <span
+                                  className="ml-1.5 text-[9px] font-bold uppercase tracking-wide px-1 py-0.5 rounded"
+                                  style={{ backgroundColor: '#10b98115', color: '#10b981' }}
+                                >
+                                  Current
+                                </span>
+                              )}
+                              {hikeCount > 0 && (
+                                <span
+                                  className="ml-1.5 text-[9px] font-medium px-1 py-0.5 rounded"
+                                  style={{ backgroundColor: '#378add18', color: '#378add' }}
+                                >
+                                  {hikeCount} hike{hikeCount !== 1 ? 's' : ''}
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-[10px] text-tertiary mt-0.5">
+                              {epfMonthLabel(emp.fromDate)} – {emp.toDate ? epfMonthLabel(emp.toDate) : 'present'}
+                              {' · '}
+                              {epfMonthsBetween(emp.fromDate, emp.toDate ?? epfNowMs())} months
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setEpfHikeEmpId(emp.id)}
+                            className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-1 rounded-lg border flex-shrink-0"
+                            style={{ color: '#378add', borderColor: '#378add30' }}
+                          >
+                            <i className="ti ti-plus" style={{ fontSize: 10 }} aria-hidden="true" />
+                            Hike
+                          </button>
                         </div>
-                        <p className="text-[10px] text-secondary tabular-nums flex-shrink-0">
-                          ₹{emp.basicSalary.toLocaleString('en-IN')}/mo
-                        </p>
-                      </div>
-                    ))}
+                      );
+                    })}
                 </div>
               )}
             </div>
+
+            {/* Corpus breakdown — 3-col stat grid */}
+            {(epfData.employeeTotal > 0 || epfData.employerTotal > 0 || epfData.interestEarned > 0) && (
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-xl p-2.5 bg-surface-2 flex flex-col gap-0.5">
+                  <p className="text-[10px] text-tertiary">Employee total</p>
+                  <p className="text-xs font-semibold text-primary tabular-nums">
+                    {mode === 'open' ? `₹${epfData.employeeTotal.toLocaleString('en-IN')}` : '••••'}
+                  </p>
+                </div>
+                <div className="rounded-xl p-2.5 bg-surface-2 flex flex-col gap-0.5">
+                  <p className="text-[10px] text-tertiary">Employer total</p>
+                  <p className="text-xs font-semibold text-primary tabular-nums">
+                    {mode === 'open' ? `₹${epfData.employerTotal.toLocaleString('en-IN')}` : '••••'}
+                  </p>
+                </div>
+                <div className="rounded-xl p-2.5 bg-surface-2 flex flex-col gap-0.5">
+                  <p className="text-[10px] text-tertiary">Interest earned</p>
+                  <p className="text-xs font-semibold tabular-nums" style={{ color: '#10b981' }}>
+                    {mode === 'open' ? `₹${epfData.interestEarned.toLocaleString('en-IN')}` : '••••'}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Monthly contribution breakdown */}
             {epfData.currentEmployer && (
@@ -1821,7 +2047,7 @@ function RetirementCard({
                   <p className="text-[10px] text-tertiary">{epfData.yearsToRetirement} yrs away</p>
                 </div>
                 {mode === 'open' && (
-                  <p className="text-sm font-bold" style={{ color: '#64748b' }}>
+                  <p className="text-sm font-bold" style={{ color: '#378add' }}>
                     {formatCurrency(epfData.projectedCorpus)}
                   </p>
                 )}
@@ -1830,7 +2056,7 @@ function RetirementCard({
                     className="h-full rounded-full"
                     style={{
                       width: `${Math.min(100, ((EPF_RETIREMENT_AGE - epfData.yearsToRetirement) / EPF_RETIREMENT_AGE) * 100)}%`,
-                      backgroundColor: '#64748b'
+                      backgroundColor: '#378add'
                     }}
                   />
                 </div>
@@ -1900,6 +2126,19 @@ function RetirementCard({
             setShowEpfTxSheet(false);
           }}
           onClose={() => setShowEpfTxSheet(false)}
+        />
+      )}
+
+      {/* EPF salary hike sheet */}
+      {epfHikeEmpId && (
+        <EpfSalaryHikeSheet
+          holding={holding}
+          empId={epfHikeEmpId}
+          onSave={async (updated) => {
+            await onSave(updated);
+            setEpfHikeEmpId(null);
+          }}
+          onClose={() => setEpfHikeEmpId(null)}
         />
       )}
 
