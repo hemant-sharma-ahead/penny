@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { IouDirection, PersonalIou } from '@/core/db/types';
+import { epochToDateInput } from '@/lib/formatters';
 
 interface Props {
   editing: PersonalIou | null;
@@ -7,11 +8,6 @@ interface Props {
   onDelete: (id: string) => Promise<void>;
   onClose: () => void;
   nowMs: number;
-}
-
-function epochToDateInput(epochMs: number): string {
-  const d = new Date(epochMs);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export function IouForm({ editing, onSave, onDelete, onClose, nowMs }: Props) {

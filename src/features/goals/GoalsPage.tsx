@@ -4,6 +4,7 @@ import { goalsRepo } from '@/core/db/repositories';
 import { useRepository } from '@/hooks/useRepository';
 import type { Goal } from '@/core/db/types';
 import { formatCurrency, formatDate } from '@/lib/formatters';
+import { calcSipNeeded, monthsUntil } from '@/core/goals/sipCalculator';
 import { GoalForm } from './GoalForm';
 
 const RING_RADIUS = 40;
@@ -26,28 +27,6 @@ const SIP_RETURN_OPTIONS: { value: string; label: string }[] = [
   { value: '11', label: 'Moderate' },
   { value: '14', label: 'Aggressive' }
 ];
-
-function calcSipNeeded(
-  targetAmount: number,
-  currentAmount: number,
-  monthsLeft: number,
-  annualReturnPct: number
-): number {
-  if (monthsLeft <= 0) return 0;
-  const r = annualReturnPct / 100 / 12;
-  const fvOfCurrent = currentAmount * Math.pow(1 + r, monthsLeft);
-  const remaining = targetAmount - fvOfCurrent;
-  if (remaining <= 0) return 0;
-  if (r === 0) return remaining / monthsLeft;
-  return (remaining * r) / (Math.pow(1 + r, monthsLeft) - 1);
-}
-
-function monthsUntil(epochMs: number): number {
-  const now = new Date();
-  const target = new Date(epochMs);
-  const diff = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
-  return Math.max(0, diff);
-}
 
 export function GoalsPage() {
   const { mode } = usePrivacy();

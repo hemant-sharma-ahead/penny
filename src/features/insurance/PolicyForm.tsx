@@ -1,16 +1,12 @@
 import { useState } from 'react';
 import type { InsurancePolicy, InsuranceType } from '@/core/db/types';
+import { epochToDateInput } from '@/lib/formatters';
 
 interface Props {
   editing: InsurancePolicy | null;
   onSave: (policy: InsurancePolicy) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onClose: () => void;
-}
-
-function epochToDateInput(epochMs: number): string {
-  const d = new Date(epochMs);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 const POLICY_TYPES: { value: InsuranceType; label: string; icon: string; color: string }[] = [

@@ -6,7 +6,6 @@ import { fetchMfNav, fetchStockPrice } from '@/core/db/priceCache';
 import { useRepository } from '@/hooks/useRepository';
 import type {
   AssetClass,
-  AssetMeta,
   EpfEmployer,
   EpfSalaryHike,
   EpfTransaction,
@@ -15,7 +14,7 @@ import type {
   PpfTransaction,
   PpfTransactionType
 } from '@/core/db/types';
-import { formatCurrency, formatPercent } from '@/lib/formatters';
+import { formatCurrency, formatPercent, epochToDateInput } from '@/lib/formatters';
 import { HoldingForm } from './HoldingForm';
 import { useIpos } from '@/core/ipo/useIpos';
 import { fetchIpoSubscription, fetchHistoricalListedIpos } from '@/core/ipo/ipoClient';
@@ -25,6 +24,19 @@ import type { NpsNavDetail, NpsPfmKey, NpsSchemeType, NpsLifecycleFund } from '@
 import { calcFdMaturity, calcRdMaturity } from '@/core/fd/fdCalculations';
 import type { CompoundingFreq } from '@/core/fd/fdCalculations';
 import { fetchMetalPrices, goldPriceForKarat } from '@/core/metals/metalsClient';
+import { isBeforeFifth, ppfBuildCardData } from '@/core/portfolio/ppfCalculations';
+import {
+  EPF_EMPLOYER_EPF_PCT,
+  EPS_PCT,
+  EPF_RETIREMENT_AGE,
+  epfCurrentEmployer,
+  epfMonthsBetween,
+  epfMonthLabel,
+  epfLatestSalary,
+  epfComputeAllMonths,
+  epfBuildCardData
+} from '@/core/portfolio/epfCalculations';
+import type { EpfMonthEntry } from '@/core/portfolio/epfCalculations';
 
 // ─── Asset metadata ───────────────────────────────────────────────────────────
 
@@ -40,6 +52,10 @@ const ASSET_META: Record<AssetClass, { label: string; icon: string; color: strin
   property: { label: 'Property', icon: 'ti-building', color: '#8b5cf6' },
   other: { label: 'Other', icon: 'ti-dots', color: '#6b7280' }
 };
+
+function nowMs(): number {
+  return Date.now();
+}
 
 // ─── Holdings sub-tabs ────────────────────────────────────────────────────────
 
@@ -295,77 +311,6 @@ function NpsScheduleSheet({ holding, onClose }: { holding: Holding; onClose: () 
   );
 }
 
-// ─── PPF helpers ─────────────────────────────────────────────────────────────
-
-const PPF_RATE = 0.071;
-const PPF_MAX_ANNUAL = 150_000;
-
-function ppfMaturityMs(openingMs: number): number {
-  const d = new Date(openingMs);
-  d.setFullYear(d.getFullYear() + 15);
-  return d.getTime();
-}
-
-function ppfProjectedCorpus(balanceNow: number, annualContrib: number, yearsLeft: number): number {
-  if (yearsLeft <= 0) return balanceNow;
-  const r = PPF_RATE;
-  // year-end compounding: balance grows + annual contributions
-  return balanceNow * Math.pow(1 + r, yearsLeft) + annualContrib * ((Math.pow(1 + r, yearsLeft) - 1) / r);
-}
-
-function ppfFyStart(): Date {
-  const now = new Date();
-  return now.getMonth() >= 3 ? new Date(now.getFullYear(), 3, 1) : new Date(now.getFullYear() - 1, 3, 1);
-}
-
-function ppfThisYearDeposits(txns: PpfTransaction[]): number {
-  const fyStart = ppfFyStart().getTime();
-  return txns.filter((t) => t.type === 'deposit' && t.date >= fyStart).reduce((s, t) => s + t.amount, 0);
-}
-
-function isBeforeFifth(dateMs: number): boolean {
-  return new Date(dateMs).getDate() <= 5;
-}
-
-function epochToDateInput(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function todayDateInput(): string {
-  return epochToDateInput(Date.now());
-}
-
-interface PpfCardData {
-  sortedTxns: PpfTransaction[];
-  maturityMs: number | null;
-  yearsLeft: number | null;
-  yearsElapsed: number | null;
-  projected: number | null;
-  fyDeposits: number;
-  fyPct: number;
-  showAprilTip: boolean;
-}
-
-function ppfBuildCardData(meta: AssetMeta, balance: number): PpfCardData {
-  const now = Date.now();
-  const txns: PpfTransaction[] = meta.ppfTransactions ?? [];
-  const sortedTxns = [...txns].sort((a, b) => b.date - a.date);
-  const maturityMs = meta.ppfOpeningDate ? ppfMaturityMs(meta.ppfOpeningDate) : null;
-  const yearsLeft = maturityMs ? Math.max(0, (maturityMs - now) / (365.25 * 24 * 60 * 60 * 1000)) : null;
-  const yearsElapsed = meta.ppfOpeningDate
-    ? Math.min(15, (now - meta.ppfOpeningDate) / (365.25 * 24 * 60 * 60 * 1000))
-    : null;
-  const annualContrib = meta.annualContribution ?? 0;
-  const projected =
-    yearsLeft != null && annualContrib > 0 ? ppfProjectedCorpus(balance, annualContrib, Math.ceil(yearsLeft)) : null;
-  const fyDeposits = ppfThisYearDeposits(txns);
-  const fyPct = Math.min(100, (fyDeposits / PPF_MAX_ANNUAL) * 100);
-  const nowMonth = new Date(now).getMonth();
-  const showAprilTip = (nowMonth === 2 || nowMonth === 3) && fyDeposits === 0;
-  return { sortedTxns, maturityMs, yearsLeft, yearsElapsed, projected, fyDeposits, fyPct, showAprilTip };
-}
-
 // ─── PpfTransactionSheet ──────────────────────────────────────────────────────
 
 function PpfTransactionSheet({
@@ -378,7 +323,7 @@ function PpfTransactionSheet({
   onClose: () => void;
 }) {
   const [txType, setTxType] = useState<PpfTransactionType>('deposit');
-  const [txDate, setTxDate] = useState(() => todayDateInput());
+  const [txDate, setTxDate] = useState(() => epochToDateInput(Date.now()));
   const [txAmount, setTxAmount] = useState('');
   const [txNote, setTxNote] = useState('');
   const [saving, setSaving] = useState(false);
@@ -524,200 +469,6 @@ function PpfTransactionSheet({
       </div>
     </div>
   );
-}
-
-// ─── EPF helpers ─────────────────────────────────────────────────────────────
-
-const EPF_RATE = 0.0825;
-const EPF_EMPLOYER_EPF_PCT = 0.0367;
-const EPS_PCT = 0.0833;
-const EPF_RETIREMENT_AGE = 58;
-
-function epfCurrentEmployer(employers: EpfEmployer[]): EpfEmployer | null {
-  return employers.find((e) => !e.toDate) ?? null;
-}
-
-function epfMonthsBetween(fromMs: number, toMs: number): number {
-  const f = new Date(fromMs);
-  const t = new Date(toMs);
-  return Math.max(0, (t.getFullYear() - f.getFullYear()) * 12 + t.getMonth() - f.getMonth());
-}
-
-function epfNowMs(): number {
-  return Date.now();
-}
-
-function epfMonthLabel(ms: number): string {
-  return new Date(ms).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
-}
-
-function epfGetSalaryForMonth(emp: EpfEmployer, month: string): number {
-  const hikes = emp.hikeTimeline;
-  if (!hikes || hikes.length === 0) return emp.basicSalary;
-  const monthMs = new Date(`${month}-01T00:00:00`).getTime();
-  let salary = emp.basicSalary;
-  for (const hike of hikes) {
-    if (hike.fromDate <= monthMs) salary = hike.basicSalary;
-    else break; // sorted ascending
-  }
-  return salary;
-}
-
-function epfLatestSalary(emp: EpfEmployer): number {
-  const sorted = [...(emp.hikeTimeline ?? [])].sort((a, b) => b.fromDate - a.fromDate);
-  return sorted[0]?.basicSalary ?? emp.basicSalary;
-}
-
-// ── EPF computed months (auto-generated from employment history) ──────────────
-
-interface EpfMonthEntry {
-  month: string; // "YYYY-MM"
-  fyLabel: string; // "FY 2025-26"
-  fyStartYear: number;
-  companyName: string;
-  empAmount: number;
-  eplrEpfAmount: number;
-  epsAmount: number;
-  proRata?: { workedDays: number; totalDays: number }; // present only for partial months
-}
-
-function epfMonthToFy(month: string): { label: string; startYear: number } {
-  const [y = 0, m = 0] = month.split('-').map(Number);
-  const s = m >= 4 ? y : y - 1;
-  return { label: `FY ${s}-${String(s + 1).slice(2)}`, startYear: s };
-}
-
-function epfComputeAllMonths(employers: EpfEmployer[]): EpfMonthEntry[] {
-  const entries: EpfMonthEntry[] = [];
-  const now = new Date();
-  for (const emp of employers) {
-    const from = new Date(emp.fromDate);
-    const to = emp.toDate ? new Date(emp.toDate) : now;
-    let y = from.getFullYear();
-    let mo = from.getMonth() + 1;
-    const toY = to.getFullYear();
-    const toMo = to.getMonth() + 1;
-    while (y < toY || (y === toY && mo <= toMo)) {
-      const month = `${y}-${String(mo).padStart(2, '0')}`;
-      const fy = epfMonthToFy(month);
-      const daysInMonth = new Date(y, mo, 0).getDate();
-      // Pro-rata: joining month starts from join day; last month ends on last working day
-      const isFirstMonth = y === from.getFullYear() && mo === from.getMonth() + 1;
-      const isLastMonth = y === toY && mo === toMo;
-      let workedDays = daysInMonth;
-      if (isFirstMonth && from.getDate() > 1) workedDays = daysInMonth - (from.getDate() - 1);
-      if (isLastMonth && to.getDate() < daysInMonth) workedDays = Math.min(workedDays, to.getDate());
-      const fraction = workedDays / daysInMonth;
-      const isPartial = workedDays < daysInMonth;
-      entries.push({
-        month,
-        fyLabel: fy.label,
-        fyStartYear: fy.startYear,
-        companyName: emp.companyName,
-        empAmount: Math.round(epfGetSalaryForMonth(emp, month) * (emp.employeeContribPct / 100) * fraction),
-        eplrEpfAmount: Math.round(epfGetSalaryForMonth(emp, month) * EPF_EMPLOYER_EPF_PCT * fraction),
-        epsAmount: Math.round(epfGetSalaryForMonth(emp, month) * EPS_PCT * fraction),
-        ...(isPartial && { proRata: { workedDays, totalDays: daysInMonth } })
-      });
-      mo++;
-      if (mo > 12) {
-        mo = 1;
-        y++;
-      }
-    }
-  }
-  return entries.sort((a, b) => b.month.localeCompare(a.month));
-}
-
-interface EpfCardData {
-  currentEmployer: EpfEmployer | null;
-  monthlyEmployee: number;
-  monthlyEmployerEpf: number;
-  monthlyEps: number;
-  monthlyTotalEpf: number;
-  yearsToRetirement: number | null;
-  projectedCorpus: number | null;
-  totalComputedMonths: number;
-  corpus: number;
-  employeeTotal: number;
-  employerTotal: number;
-  interestEarned: number;
-}
-
-function epfBuildCardData(meta: AssetMeta): EpfCardData {
-  const now = Date.now();
-  const employers = meta.epfEmployers ?? [];
-  const txns = meta.epfTransactions ?? [];
-  const currentEmp = epfCurrentEmployer(employers);
-  const basic = currentEmp ? epfLatestSalary(currentEmp) : 0;
-  const empPct = (currentEmp?.employeeContribPct ?? 12) / 100;
-
-  const monthlyEmployee = Math.round(basic * empPct);
-  const monthlyEmployerEpf = Math.round(basic * EPF_EMPLOYER_EPF_PCT);
-  const monthlyEps = Math.round(basic * EPS_PCT);
-  const monthlyTotalEpf = monthlyEmployee + monthlyEmployerEpf;
-
-  let employeeTotal = 0;
-  let employerTotal = 0;
-  let interestEarned = 0;
-  let corpus = 0;
-  for (const t of txns) {
-    if (t.type === 'contribution') {
-      employeeTotal += t.employeeAmount ?? 0;
-      employerTotal += t.employerAmount ?? 0;
-      corpus += (t.employeeAmount ?? 0) + (t.employerAmount ?? 0);
-    } else if (t.type === 'interest') {
-      interestEarned += t.amount ?? 0;
-      corpus += t.amount ?? 0;
-    } else if (t.type === 'transfer_in') {
-      corpus += t.amount ?? 0;
-    } else if (t.type === 'withdrawal' || t.type === 'advance') {
-      corpus -= t.amount ?? 0;
-    }
-  }
-  corpus = Math.max(0, corpus);
-
-  // If no passbook transactions recorded, estimate from employment history
-  if (txns.length === 0 && employers.length > 0) {
-    const allMonths = epfComputeAllMonths(employers);
-    for (const m of allMonths) {
-      employeeTotal += m.empAmount;
-      employerTotal += m.eplrEpfAmount;
-      corpus += m.empAmount + m.eplrEpfAmount;
-    }
-  }
-
-  let yearsToRetirement: number | null = null;
-  let projectedCorpus: number | null = null;
-  if (meta.epfBirthYear) {
-    const age = new Date(now).getFullYear() - meta.epfBirthYear;
-    const yrs = EPF_RETIREMENT_AGE - age;
-    if (yrs > 0) {
-      yearsToRetirement = yrs;
-      const r = EPF_RATE / 12;
-      const n = yrs * 12;
-      projectedCorpus = corpus * Math.pow(1 + r, n) + (monthlyTotalEpf * (Math.pow(1 + r, n) - 1)) / r;
-    }
-  }
-
-  const totalComputedMonths = employers.reduce(
-    (sum, emp) => sum + epfMonthsBetween(emp.fromDate, emp.toDate ?? now),
-    0
-  );
-  return {
-    currentEmployer: currentEmp,
-    monthlyEmployee,
-    monthlyEmployerEpf,
-    monthlyEps,
-    monthlyTotalEpf,
-    yearsToRetirement,
-    projectedCorpus,
-    totalComputedMonths,
-    corpus,
-    employeeTotal,
-    employerTotal,
-    interestEarned
-  };
 }
 
 const EPF_TX_LABELS: Record<EpfTransactionType, string> = {
@@ -1051,7 +802,7 @@ function EpfTransactionSheet({
   const empPct = (currentEmp?.employeeContribPct ?? 12) / 100;
 
   const [txType, setTxType] = useState<EpfTransactionType>('contribution');
-  const [txDate, setTxDate] = useState(() => todayDateInput());
+  const [txDate, setTxDate] = useState(() => epochToDateInput(Date.now()));
   const [wagesMonth, setWagesMonth] = useState(() => {
     const d = new Date(Date.now());
     d.setMonth(d.getMonth() - 1);
@@ -1959,7 +1710,7 @@ function RetirementCard({
                             <p className="text-[10px] text-tertiary mt-0.5">
                               {epfMonthLabel(emp.fromDate)} – {emp.toDate ? epfMonthLabel(emp.toDate) : 'present'}
                               {' · '}
-                              {epfMonthsBetween(emp.fromDate, emp.toDate ?? epfNowMs())} months
+                              {epfMonthsBetween(emp.fromDate, emp.toDate ?? nowMs())} months
                             </p>
                           </div>
                           <button

@@ -7,6 +7,7 @@ import { NPS_FUND_MANAGERS, LIFECYCLE_FUNDS } from '@/core/nps';
 import type { NpsChoiceType, NpsLifecycleFund, NpsPfmKey, NpsSchemeType } from '@/core/nps';
 import { calcFdMaturity, calcRdMaturity } from '@/core/fd/fdCalculations';
 import type { CompoundingFreq } from '@/core/fd/fdCalculations';
+import { epochToDateInput } from '@/lib/formatters';
 
 interface Props {
   editing: Holding | null;
@@ -47,11 +48,6 @@ function ppfMaturityLabel(openingDateStr: string): { text: string } | null {
   const yearsLeft = Math.max(0, Math.round((maturityMs - Date.now()) / (365.25 * 24 * 60 * 60 * 1000)));
   const suffix = yearsLeft > 0 ? ` · ${yearsLeft} yr${yearsLeft !== 1 ? 's' : ''} remaining` : ' · Matured';
   return { text: `Matures ${maturityDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}${suffix}` };
-}
-
-function epochToDateInput(epochMs: number): string {
-  const d = new Date(epochMs);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 const ASSET_CLASSES: { value: AssetClass; label: string; icon: string; color: string }[] = [

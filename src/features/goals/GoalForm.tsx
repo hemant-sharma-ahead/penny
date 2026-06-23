@@ -1,16 +1,12 @@
 import { useState } from 'react';
 import type { Goal, GoalRisk } from '@/core/db/types';
+import { epochToDateInput } from '@/lib/formatters';
 
 interface Props {
   editing: Goal | null;
   onSave: (goal: Goal) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onClose: () => void;
-}
-
-function epochToDateInput(epochMs: number): string {
-  const d = new Date(epochMs);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 const RISK_OPTIONS: { value: GoalRisk; label: string; color: string }[] = [

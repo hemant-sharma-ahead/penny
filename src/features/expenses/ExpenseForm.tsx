@@ -3,6 +3,7 @@ import type { Account, Expense, ExpenseCategory, Hashtag, TransactionType } from
 import type { ActiveEvent } from '@/context/EventModeContext';
 import { accountsRepo, expenseCategoriesRepo } from '@/core/db/repositories';
 import { INTENT_GROUP_META } from '@/core/db/defaultCategories';
+import { epochToDateInput } from '@/lib/formatters';
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '@/router/paths';
 
@@ -33,11 +34,6 @@ const TYPE_META: Record<TransactionType, { label: string; color: string; icon: s
   income: { label: 'Income', color: '#10b981', icon: 'ti-arrow-up-circle' },
   transfer: { label: 'Transfer', color: '#3b82f6', icon: 'ti-arrows-exchange' }
 };
-
-function epochToDateInput(epochMs: number): string {
-  const d = new Date(epochMs);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 function parseTags(raw: string): string[] {
   return raw

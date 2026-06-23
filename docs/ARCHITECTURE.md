@@ -16,13 +16,16 @@ penny/
 │   ├── index.css                ← Tailwind v4 + semantic token definitions
 │   │
 │   ├── core/                   ← Infrastructure layer (features import FROM here)
+│   │   ├── accounts/           ← balanceCalculator.ts — account balance from transactions
 │   │   ├── ai-safety/          ← PII pipeline, buildUserContext, mock Chip
 │   │   ├── backup/             ← Encrypted .penny export/import
 │   │   ├── cashflow/           ← Cash flow forecasting engine
 │   │   ├── crypto/             ← AES-256-GCM encryption (Web Crypto API)
 │   │   ├── db/                 ← Dexie schema + EncryptedRepository pattern
+│   │   ├── expenses/           ← filterAndAggregate.ts — grouping, category spend aggregation
 │   │   ├── export/             ← CSV export + AES-256 password-protected ZIP
 │   │   ├── fd/                 ← FD/RD maturity calculation
+│   │   ├── goals/              ← sipCalculator.ts — SIP needed + monthsUntil
 │   │   ├── health/             ← Financial health score engine
 │   │   ├── import/             ← CSV import parsers
 │   │   ├── ipo/                ← IPO data client + types + hook
@@ -30,6 +33,7 @@ penny/
 │   │   ├── market/             ← Market data (indices, forex, commodities)
 │   │   ├── metals/             ← Gold/silver price client
 │   │   ├── nps/                ← NPS NAV client + lifecycle fund tables
+│   │   ├── portfolio/          ← ppfCalculations.ts, epfCalculations.ts — PPF/EPF projections
 │   │   ├── session/            ← PIN session management + SessionGate
 │   │   ├── subscriptions/      ← 3-pass subscription detection
 │   │   ├── tax/                ← Tax calculations (LTCG/STCG/80C/80D)
@@ -67,7 +71,8 @@ penny/
 │   │   └── useRepository.ts   ← Generic repository hook
 │   │
 │   ├── lib/                    ← Pure utilities
-│   │   └── formatters.ts       ← Currency, date, compact number formatters
+│   │   ├── formatters.ts       ← Currency, date, compact number formatters + epochToDateInput
+│   │   └── dateUtils.ts        ← Date key helpers (toDateKey, dateLabel, offsetMonth, monthLabel)
 │   │
 │   └── router/                 ← Routing config
 │       ├── index.tsx           ← createBrowserRouter with all 19 routes

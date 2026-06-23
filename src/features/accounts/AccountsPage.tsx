@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { accountsRepo, expensesRepo } from '@/core/db/repositories';
 import type { Account, AccountType, Expense } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
+import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { PATHS } from '@/router/paths';
 
@@ -12,20 +13,6 @@ const ACCOUNT_TYPE_META: Record<AccountType, { label: string; icon: string; colo
   credit_card: { label: 'Credit Card', icon: 'ti-credit-card', color: '#ef4444' },
   wallet: { label: 'Wallet', icon: 'ti-wallet', color: '#8b5cf6' }
 };
-
-function computeBalance(account: Account, txns: Expense[]): number {
-  const linked = txns.filter((t) => t.accountId === account.id || t.toAccountId === account.id);
-  return linked.reduce((bal, t) => {
-    const type = t.type ?? 'expense';
-    if (type === 'income' && t.accountId === account.id) return bal + t.amount;
-    if (type === 'expense' && t.accountId === account.id) return bal - t.amount;
-    if (type === 'transfer') {
-      if (t.accountId === account.id) return bal - t.amount;
-      if (t.toAccountId === account.id) return bal + t.amount;
-    }
-    return bal;
-  }, account.openingBalance);
-}
 
 interface AccountFormState {
   name: string;
@@ -149,7 +136,7 @@ export function AccountsPage() {
 
   const totalBalance = accounts.reduce((sum, acc) => {
     if (!acc.includeInNetWorth) return sum;
-    return sum + computeBalance(acc, txns);
+    return sum + computeBalance(acc.id, acc.openingBalance, txns);
   }, 0);
 
   return (
@@ -203,7 +190,7 @@ export function AccountsPage() {
           <div className="surface rounded-xl overflow-hidden divide-y divide-theme">
             {accounts.map((acc) => {
               const meta = ACCOUNT_TYPE_META[acc.type];
-              const balance = computeBalance(acc, txns);
+              const balance = computeBalance(acc.id, acc.openingBalance, txns);
               const isNeg = balance < 0;
               return (
                 <div key={acc.id} className="px-4 py-3.5 flex items-center gap-3">

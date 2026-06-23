@@ -13,8 +13,10 @@ import {
 } from '@/core/db/repositories';
 import { useRepository } from '@/hooks/useRepository';
 import type { Budget, Expense, ExpenseCategory, PersonalIou, Subscription, TransactionType } from '@/core/db/types';
-import { formatCurrency, formatCompact, formatDateShort, toMonthYearKey } from '@/lib/formatters';
+import { formatCurrency, formatCompact, formatDateShort, toMonthYearKey, epochToDateInput } from '@/lib/formatters';
+import { offsetMonth, monthLabel } from '@/lib/dateUtils';
 import { ALL_DEFAULT_CATEGORIES, CATEGORY_MIGRATION_MAP, INTENT_GROUP_META } from '@/core/db/defaultCategories';
+import { groupExpensesByDate, calcSpendByCategory } from '@/core/expenses/filterAndAggregate';
 import { useNavigate } from 'react-router-dom';
 import { exportExpensesAsCsv, downloadProtectedZip } from '@/core/export/exportCsv';
 import { PATHS } from '@/router/paths';
@@ -24,41 +26,6 @@ import { IouForm } from '../iou/IouForm';
 
 // Evaluated once at module load — safe to use as a min= date attribute
 const TODAY_DATE_INPUT = epochToDateInput(Date.now());
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function toDateKey(epochMs: number): string {
-  const d = new Date(epochMs);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function dateLabel(key: string): string {
-  const todayKey = toDateKey(Date.now());
-  const yesterdayKey = toDateKey(Date.now() - 86_400_000);
-  if (key === todayKey) return 'Today';
-  if (key === yesterdayKey) return 'Yesterday';
-  const [y, m, d] = key.split('-');
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const mLabel = m ? months[(parseInt(m, 10) - 1) % 12] : '';
-  return `${d ?? ''} ${mLabel} ${y ?? ''}`.trim();
-}
-
-function epochToDateInput(epochMs: number): string {
-  const d = new Date(epochMs);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function offsetMonth(m: string, delta: number): string {
-  const [y, mo] = m.split('-').map(Number);
-  const d = new Date(y ?? 0, (mo ?? 1) - 1 + delta, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function monthLabel(m: string): string {
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const [y, mo] = m.split('-');
-  return `${months[(parseInt(mo ?? '1', 10) - 1) % 12] ?? ''} ${y ?? ''}`.trim();
-}
 
 // ── Month picker modal ────────────────────────────────────────────────────────
 
@@ -386,31 +353,11 @@ export function ExpensesPage() {
     [filteredExpenses]
   );
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, Expense[]>();
-    for (const e of filteredExpenses) {
-      const key = toDateKey(e.date);
-      const arr = map.get(key) ?? [];
-      arr.push(e);
-      map.set(key, arr);
-    }
-    return Array.from(map.entries())
-      .sort(([a], [b]) => b.localeCompare(a))
-      .map(([key, items]) => ({ label: dateLabel(key), items: [...items].sort((a, b) => b.date - a.date) }));
-  }, [filteredExpenses]);
+  const grouped = useMemo(() => groupExpensesByDate(filteredExpenses), [filteredExpenses]);
 
   const monthBudgets = useMemo(() => budgets.filter((b) => b.monthYear === toMonthYearKey()), [budgets]);
 
-  const spendByCategory = useMemo(() => {
-    const month = toMonthYearKey();
-    const map = new Map<string, number>();
-    for (const e of expenses) {
-      if (toMonthYearKey(new Date(e.date)) !== month) continue;
-      if (e.type && e.type !== 'expense') continue;
-      map.set(e.categoryId, (map.get(e.categoryId) ?? 0) + e.amount);
-    }
-    return map;
-  }, [expenses]);
+  const spendByCategory = useMemo(() => calcSpendByCategory(expenses), [expenses]);
 
   const analyticsMonthBudgets = useMemo(
     () => budgets.filter((b) => b.monthYear === selectedMonth),

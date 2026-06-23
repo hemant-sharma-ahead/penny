@@ -5,6 +5,7 @@ import { useSettings, type ModuleVisibility } from '@/context/SettingsContext';
 import { accountsRepo, expensesRepo, holdingsRepo, liabilitiesRepo } from '@/core/db/repositories';
 import type { Holding, Liability } from '@/core/db/types';
 import { formatCompact, formatCurrency, toMonthYearKey } from '@/lib/formatters';
+import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { PATHS } from '@/router/paths';
 import { MarketStrip } from './MarketStrip';
 
@@ -85,41 +86,20 @@ async function loadSummary(): Promise<Summary> {
   const accountBalances: AccountBalance[] = accs
     .filter((a) => !a.isArchived)
     .sort((a, b) => a.createdAt - b.createdAt)
-    .map((acc) => {
-      const linked = expenses.filter((t) => t.accountId === acc.id || t.toAccountId === acc.id);
-      const balance = linked.reduce((bal, t) => {
-        const type = t.type ?? 'expense';
-        if (type === 'income' && t.accountId === acc.id) return bal + t.amount;
-        if (type === 'expense' && t.accountId === acc.id) return bal - t.amount;
-        if (type === 'transfer') {
-          if (t.accountId === acc.id) return bal - t.amount;
-          if (t.toAccountId === acc.id) return bal + t.amount;
-        }
-        return bal;
-      }, acc.openingBalance);
-      return { id: acc.id, name: acc.name, balance, color: acc.color, icon: acc.icon };
-    });
-
-  function calcBalance(accId: string, openingBalance: number): number {
-    const linked = expenses.filter((t) => t.accountId === accId || t.toAccountId === accId);
-    return linked.reduce((bal, t) => {
-      const type = t.type ?? 'expense';
-      if (type === 'income' && t.accountId === accId) return bal + t.amount;
-      if (type === 'expense' && t.accountId === accId) return bal - t.amount;
-      if (type === 'transfer') {
-        if (t.accountId === accId) return bal - t.amount;
-        if (t.toAccountId === accId) return bal + t.amount;
-      }
-      return bal;
-    }, openingBalance);
-  }
+    .map((acc) => ({
+      id: acc.id,
+      name: acc.name,
+      balance: computeBalance(acc.id, acc.openingBalance, expenses),
+      color: acc.color,
+      icon: acc.icon
+    }));
 
   const liquidAccs = accs.filter((a) => a.includeInNetWorth && !a.isArchived);
-  const liquidFunds = liquidAccs.reduce((s, a) => s + calcBalance(a.id, a.openingBalance), 0);
+  const liquidFunds = liquidAccs.reduce((s, a) => s + computeBalance(a.id, a.openingBalance, expenses), 0);
 
   const ccAccs = accs.filter((a) => a.type === 'credit_card' && !a.isArchived);
   const creditCardAccounts: CreditCardAccount[] = ccAccs.map((a) => {
-    const bal = calcBalance(a.id, a.openingBalance);
+    const bal = computeBalance(a.id, a.openingBalance, expenses);
     return { id: a.id, name: a.name, outstanding: Math.max(0, -bal), color: a.color, icon: a.icon };
   });
   const totalCcOutstanding = creditCardAccounts.reduce((s, c) => s + c.outstanding, 0);
