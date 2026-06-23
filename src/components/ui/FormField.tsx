@@ -17,7 +17,11 @@ export function FormField({ label, required, hint, error, children }: FormFieldP
       </label>
       {children}
       {hint && !error && <p className="text-xs text-tertiary">{hint}</p>}
-      {error && <p className="text-xs" style={{ color: 'var(--color-open)' }}>{error}</p>}
+      {error && (
+        <p className="text-xs" style={{ color: 'var(--color-open)' }}>
+          {error}
+        </p>
+      )}
     </div>
   );
 }

@@ -13,7 +13,15 @@ interface ModalProps {
   scrollable?: boolean;
 }
 
-export function Modal({ onClose, title, children, footer, size = 'md', nested = false, scrollable = false }: ModalProps) {
+export function Modal({
+  onClose,
+  title,
+  children,
+  footer,
+  size = 'md',
+  nested = false,
+  scrollable = false
+}: ModalProps) {
   const zClass = nested ? 'z-70' : 'z-60';
   const maxW = size === 'sm' ? 'max-w-sm' : 'max-w-[430px]';
 
@@ -43,9 +51,7 @@ export function Modal({ onClose, title, children, footer, size = 'md', nested = 
         </div>
 
         {footer !== undefined && (
-          <div className="px-5 pb-5 flex-shrink-0 border-t border-theme pt-4 -mt-1">
-            {footer}
-          </div>
+          <div className="px-5 pb-5 flex-shrink-0 border-t border-theme pt-4 -mt-1">{footer}</div>
         )}
       </div>
     </div>

@@ -15,21 +15,10 @@ interface SegmentedControlProps<T extends string> {
   cols?: number;
 }
 
-export function SegmentedControl<T extends string>({
-  options,
-  value,
-  onChange,
-  cols
-}: SegmentedControlProps<T>) {
+export function SegmentedControl<T extends string>({ options, value, onChange, cols }: SegmentedControlProps<T>) {
   const gridCols = cols ?? options.length;
   const gridClass =
-    gridCols === 2
-      ? 'grid-cols-2'
-      : gridCols === 3
-        ? 'grid-cols-3'
-        : gridCols === 4
-          ? 'grid-cols-4'
-          : 'grid-cols-2';
+    gridCols === 2 ? 'grid-cols-2' : gridCols === 3 ? 'grid-cols-3' : gridCols === 4 ? 'grid-cols-4' : 'grid-cols-2';
 
   return (
     <div className={`grid ${gridClass} gap-1.5 p-1 rounded-xl bg-surface-2`}>
@@ -48,9 +37,7 @@ export function SegmentedControl<T extends string>({
                 : { color: 'var(--color-text-secondary, #6b7280)' }
             }
           >
-            {opt.icon && (
-              <i className={`ti ${opt.icon}`} style={{ fontSize: 14 }} aria-hidden="true" />
-            )}
+            {opt.icon && <i className={`ti ${opt.icon}`} style={{ fontSize: 14 }} aria-hidden="true" />}
             {opt.label}
           </button>
         );

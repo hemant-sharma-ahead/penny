@@ -16,9 +16,7 @@ const SIZE_CLASS: Record<BadgeSize, string> = {
 
 export function Badge({ label, color = 'var(--color-primary)', variant = 'subtle', size = 'md' }: BadgeProps) {
   const style =
-    variant === 'solid'
-      ? { backgroundColor: color, color: '#fff' }
-      : { backgroundColor: `${color}1a`, color };
+    variant === 'solid' ? { backgroundColor: color, color: '#fff' } : { backgroundColor: `${color}1a`, color };
 
   return (
     <span

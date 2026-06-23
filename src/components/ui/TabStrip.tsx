@@ -15,16 +15,9 @@ interface TabStripProps<T extends string> {
   scrollable?: boolean;
 }
 
-export function TabStrip<T extends string>({
-  options,
-  value,
-  onChange,
-  scrollable = false
-}: TabStripProps<T>) {
+export function TabStrip<T extends string>({ options, value, onChange, scrollable = false }: TabStripProps<T>) {
   return (
-    <div
-      className={`flex border-b border-theme ${scrollable ? 'overflow-x-auto scrollbar-none' : ''}`}
-    >
+    <div className={`flex border-b border-theme ${scrollable ? 'overflow-x-auto scrollbar-none' : ''}`}>
       {options.map((opt) => {
         const active = opt.value === value;
         return (
@@ -39,9 +32,7 @@ export function TabStrip<T extends string>({
                 : 'border-transparent text-tertiary hover:text-secondary'
             ].join(' ')}
           >
-            {opt.icon && (
-              <i className={`ti ${opt.icon}`} style={{ fontSize: 15 }} aria-hidden="true" />
-            )}
+            {opt.icon && <i className={`ti ${opt.icon}`} style={{ fontSize: 15 }} aria-hidden="true" />}
             {opt.label}
             {opt.count !== undefined && opt.count > 0 && (
               <span
