@@ -24,6 +24,7 @@ export const PATHS = {
     chip: '/app/chip',
     backup: '/app/backup',
     import: '/app/import',
-    accounts: '/app/accounts'
+    accounts: '/app/accounts',
+    calculators: '/app/calculators'
   }
 } as const;
