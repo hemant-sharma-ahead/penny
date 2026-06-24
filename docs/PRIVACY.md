@@ -19,29 +19,31 @@ Penny is local-first and encrypted-at-rest. The architecture has three layers:
 
 ---
 
-## Three-key encryption model
+## Envelope encryption model (Track 2)
 
 ```
-User passphrase
-    └── PBKDF2 (600K iterations, SHA-256) 
-        └── Master Key (MK, 256-bit AES-GCM)
-                └── Encrypted Master Key stored in IndexedDB
-                    (wrapped by KEK, not stored directly)
-
-User PIN
-    └── PBKDF2 (200K iterations, SHA-256)
-        └── Key Encryption Key (KEK, 256-bit)
-                └── Used to unwrap MK from IndexedDB
-
-Master Key (in memory only)
+Data Master Key (DMK, random 256-bit AES-GCM)
     └── Encrypts all user data in IndexedDB
+    └── In memory only, non-extractable, while unlocked
+
+The DMK is wrapped independently by each unlock factor and only the
+wrapped form is stored in IndexedDB — never the bare DMK:
+
+  User passphrase ── PBKDF2 (600K, SHA-256) ── KEK ──wraps──▶ [DMK]
+  User PIN        ── PBKDF2 (200K, SHA-256) ── KEK ──wraps──▶ [DMK]
+  (biometric/device key — Phase 2 native — another wrapping slot)
 ```
+
+Any factor unwraps the *same* DMK. **Changing the passphrase or PIN only re-wraps the DMK — data is never re-encrypted** — and the old wrapping is deleted so the old secret stops working. Changing the passphrase **requires the current passphrase**.
 
 **Critical invariants:**
-- The Master Key **never** exists in persistent storage — only in memory during an active session
-- If the passphrase is lost, data is permanently unrecoverable. This is by design.
-- Session clears Master Key from memory after PIN timeout
-- Backup (.penny file) derives a new encryption key from a user-chosen backup passphrase — stored nowhere by us
+- The DMK **never** exists in persistent storage — only in memory (non-extractable) during an active session.
+- The DMK is random — it reveals nothing about any chosen secret.
+- If the passphrase is lost, data is permanently unrecoverable. No key escrow. This is by design.
+- Session clears the DMK from memory after PIN timeout.
+- Backup (.penny file / cloud) carries the DMK wrapped by the backup passphrase — we store the key nowhere.
+
+> Supersedes the earlier "passphrase-derived Master Key" model. Existing vaults migrate without re-encryption: the old MK simply becomes the opaque DMK. See `docs/ROADMAP.md` → *Pre-Phase 1.5 Track 2*.
 
 ---
 

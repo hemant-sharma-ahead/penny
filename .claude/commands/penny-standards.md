@@ -35,9 +35,13 @@ Invoke this at the start of any implementation task on Penny. These rules apply 
 
 2. **Never import or call `window.crypto.subtle` directly** from feature code. Only `src/core/crypto/engine.ts` and `src/core/crypto/securityManager.ts` may do this.
 
-3. **The Master Key lives in memory only.** Never write it to IndexedDB. `keystore.ts` holds it — never extract it across module boundaries.
+3. **The Data Master Key lives in memory only, non-extractable.** Never write it to IndexedDB. `keystore.ts` holds it — never extract it across module boundaries.
 
 4. **All data written to IndexedDB must go through the encryption layer.** No raw plaintext in any encrypted store.
+
+5. **Envelope encryption only (Track 2).** A random DMK encrypts data; it is wrapped independently by passphrase- and PIN-derived KEKs. **Never derive the data key directly from the passphrase**, and **never re-encrypt data on a passphrase/PIN change** — only re-wrap the DMK. Changing the passphrase must require the current passphrase.
+
+6. **DOB never leaves raw to the AI.** Use `deriveAgeBand()` (5-year band) in any AI context — never the exact date or age. Gate would-be-paid features through the `entitlement` check rather than hardcoding access.
 
 ---
 

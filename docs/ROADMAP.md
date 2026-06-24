@@ -18,6 +18,80 @@ This document records the product roadmap for Phase 1.5, 2, and 3, along with th
 
 ---
 
+## Pre-Phase 1.5 — Track 2: Identity, Account & Security
+
+Track 2 expanded from "collect DOB/employment/username" into a Phase-1 **Identity, Account & Security** program. Decisions finalized 2026-06-24.
+
+### Encryption model — envelope encryption (supersedes passphrase-derived MK)
+
+**Problem with the original model:** the Master Key was derived *directly* from the passphrase, so the data key *was* the passphrase. Changing the passphrase changed the MK → every record had to be re-encrypted (slow, corruption risk on interrupt). That's why passphrase change was never built.
+
+**Decision:** adopt **envelope encryption**.
+- One **random Data Master Key (DMK)** encrypts all data and never changes.
+- The DMK is wrapped *independently* by a passphrase-derived KEK and a PIN-derived KEK (and, later, biometric/device keys). Any factor unwraps the same DMK.
+- **Change passphrase / PIN = re-wrap the DMK only** — instant, no data re-encryption. The old wrapping is deleted, so the old secret stops working.
+- **Changing the passphrase requires the current passphrase** (defeats a found-unlocked-phone attacker who lacks it).
+- DMK is random (leaks nothing about a chosen secret) and held **non-extractable** in memory only while unlocked. This is the standard privacy-first pattern (1Password, Apple, WhatsApp). No key escrow — passphrase lost = data lost.
+- **Rejected** full re-encryption on passphrase change: true key-rotation buys ~nothing in a local-only app (a DMK leak implies device compromise, where plaintext is already exposed) and can't touch already-exported backups.
+- **Migration:** the existing passphrase-derived MK simply *becomes* the opaque DMK (data untouched); the passphrase-wrapping is added lazily when the passphrase is next available.
+
+**In plain terms (the locker analogy).** Your data lives in a *locker* opened by one *metal key* — that key is the DMK, stamped at random in the factory (not cut from your passphrase). You don't carry the metal key; you drop a copy into two small *combo boxes* on the wall — one combo is your passphrase, the other your PIN. Dial either combo → get the key → open the locker.
+- **Old (passphrase-derived) model:** the passphrase was the metal key's *shape*. A new passphrase = a new key shape = a new lock on the locker = you must haul every item out and re-lock it (slow; half-done if interrupted = corrupted).
+- **Envelope model:** the metal key never changes. Changing your passphrase just *re-sets the combo on one box* — the locker and its contents are untouched. Instant. The old combo opens nothing.
+
+**Why envelope, side by side:**
+
+| | Passphrase-derived MK (rejected) | Envelope / random DMK (chosen) |
+|---|---|---|
+| Change passphrase | Re-encrypt **every** record | **Re-wrap** the key — data untouched |
+| Speed / risk | Slow; corruption if interrupted | Instant; atomic |
+| Add biometric later | Awkward | Just another wrapping slot |
+| Cloud backup across a passphrase change | Breaks / re-keys | Works unchanged |
+| Key rotation if DMK leaks | Possible (re-encrypt) | Not possible without re-encrypt — **but** a local DMK leak means the device is already compromised (plaintext exposed), so this buys ~nothing |
+| Privacy posture | Key tied to a chosen secret | Random key reveals nothing; non-extractable; no escrow |
+
+Net: envelope wins on every axis that matters for a local-first app; the one thing it gives up (data-key rotation) is near-worthless here. This is also the industry-standard pattern (1Password, Apple Data Protection, WhatsApp backups).
+
+### Identity — local now, server auth later
+
+- Create `userId` + `username` + an **on-device keypair** locally at onboarding. **No backend / no SMS in Phase 1.**
+- Phone + OTP server registration becomes an **optional Phase 1.5 upgrade** that "claims" the existing local identity (for cloud sync / groups) — same flow, **no data migration**.
+- **Rejected:** phone+OTP from the start (forces the Auth Worker + paid SMS now, reframes the privacy promise); pure-local-no-identity (guarantees a 1.5 migration).
+
+**Username uniqueness — the local-vs-server collision problem.** A locally chosen username is *not* globally reserved (no backend in Phase 1), so a fully-local user and a server-registered user can both hold "rohan". Resolution:
+- **`userId` (UUID) is the permanent anchor**, not the username. It's collision-free by construction and is what the keypair, future group memberships, IOU links, and the eventual server account all reference. **No local or shared data ever keys off the username string** — so the username can change with zero breakage.
+- **The local username is explicitly *provisional* — a wished-for label, not a reservation.** UI copy says so (e.g. "you'll confirm this when you set up sharing"). Username is **optional** in Phase 1, which shrinks the collision surface further.
+- **At "claim your account" (Phase 1.5):** run the server availability check. Free → claim it (atomic, enforced by the D1 `username_idx` unique constraint, first-claim-wins for races). Taken → show suggestions and let the user pick another. Because nothing references the string, this is a painless relabel — no migration, no broken references.
+- Optional nicety once the availability endpoint exists: a soft online check during onboarding to warn early; in pure-offline Phase 1 we simply set expectations in copy.
+
+### Pulled into Phase 1 (from later phases)
+
+| Feature | Was | Now | Notes |
+|---|---|---|---|
+| Change Passphrase / Change PIN | "planned" | **Phase 1** | Trivial under envelope (re-wrap). Settings buttons already exist as no-ops. |
+| Cloud backup | Phase 1.5/2 | **Phase 1** | Extends the existing `.penny` backup; web = user's own Google Drive (OAuth), we store nothing; iCloud waits for native. Routed through the entitlement gate so it can be gated later. |
+| Re-auth to enter Open mode | — | **Phase 1** | PIN required to reveal real amounts. |
+
+### Pricing readiness (no backend required)
+
+Add an **`entitlement` gate that currently always returns pro/true**; route would-be-paid features (e.g. cloud backup) through it. Turning pricing on later = swap the entitlement source + add a "choose plan" step, with zero feature-code changes. Mechanism later: **store receipts** (native) / **offline-verifiable signed license tokens** (web) — neither requires us to store user data. Local `plan` / `licenseToken` concept stored on-device.
+
+### Onboarding v2 flow
+
+Splash → Privacy Promise (+ **Terms/Privacy consent**) → Privacy Demo → Meet Chip → **Simulated Dashboard (preview)** → **"Let us know you"** (one screen: full name [= display name], username, DOB, employment) → **Setup Credentials** (passphrase + 6-digit PIN) → [init encryption → write profile + identity → seed demo] → app. Personal info comes after the preview; credentials last so the DMK exists right before the write.
+
+### Dropped
+
+- **Biometric** — deferred until React Native (Phase 2); WebAuthn-PRF on PWA is patchy. Envelope leaves a wrapping slot to add it later.
+- **Recovery key** — a shown-once unstored key is just another passphrase-equivalent; cloud backup is the real recovery path.
+- **i18n** — English only.
+
+### DOB privacy
+
+Stored encrypted; only a **5-year age band** ever leaves to the AI (Phase 2). Two pure helpers: `deriveAge(dob)` (exact — FIRE/tax/EPF/NPS) and `deriveAgeBand(dob)` (band — AI). The band helper is the guardrail against wiring raw DOB into AI context. Downstream wiring in scope: FIRE age auto-fill, tax slab by age (senior 60+, super-senior 80+), EPF tab visibility + deductions by employment type, health benchmarks by employment type.
+
+---
+
 ## Phase 1.5 — Groups & Household OS
 
 ### What it does
@@ -240,7 +314,9 @@ Each group has its own **Group Key** (AES-256), completely independent of person
 | Real Chip AI | All of Phase 1 | Phase 2 |
 | SMS transaction parsing | BRD v4 | Phase 2 |
 | Credit score via bureau aggregator | BRD v4 | Phase 2 |
-| Biometric auth | TSD v1.0 | Phase 2 (native app) |
+| Biometric auth | TSD v1.0 | Phase 2 (native app) — WebAuthn-PRF on PWA too patchy; envelope crypto leaves a wrapping slot ready |
+| Cloud backup | Phase 1.5/2 | **Pulled into Phase 1** (Track 2) — user-owned Google Drive |
+| Change passphrase / PIN | "planned" | **Pulled into Phase 1** (Track 2) — trivial under envelope crypto |
 
 ---
 

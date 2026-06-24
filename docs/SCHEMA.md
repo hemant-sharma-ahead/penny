@@ -22,13 +22,17 @@ Single-record store. The user's identity and app preferences.
 | Field | Type | Notes |
 |-------|------|-------|
 | id | string (UUID) | Primary key |
-| displayName | string | User's chosen display name |
+| displayName | string | User's full name (also used as the display name) |
 | currency | `'INR'` | Always INR in Phase 1 |
 | locale | `'en-IN'` | Always en-IN in Phase 1 |
-| onboardingCompleted | boolean | AuthGuard checks this |
-| dob | string? | ISO date — added Pre-Phase 1.5 |
-| employmentType | `'salaried' \| 'self_employed' \| 'business_owner' \| 'student' \| 'retired'`? | Added Pre-Phase 1.5; affects health score benchmarks |
-| username | string? | Added Pre-Phase 1.5; used for group identity in Phase 1.5 |
+| onboardingComplete | boolean | AuthGuard checks profile existence (field name is `onboardingComplete` in code) |
+| dob | string? | ISO date (YYYY-MM-DD) — Track 2. Encrypted; only a 5-year age band ever sent to AI |
+| employmentType | `'salaried' \| 'self_employed' \| 'business_owner' \| 'student' \| 'retired'`? | Track 2; gates EPF visibility, tax deductions, health benchmarks |
+| username | string? | Track 2; 3–20 lowercase alphanumeric/underscore. Local now; server-checked for uniqueness in Phase 1.5 |
+| userId | string? | Track 2; local identity id, "claimed" on the server at Phase 1.5 registration |
+| plan | `'free' \| 'pro'`? | Track 2; entitlement marker. Always effectively pro until pricing ships |
+
+> The on-device identity **keypair** and any `licenseToken` are stored in the encrypted DB alongside the profile (private key never leaves the device). Non-indexed fields → no Dexie migration.
 
 ---
 
@@ -231,18 +235,23 @@ Audit trail of every AI call. Logged before the call is made.
 
 ### `security`
 
-Single-record store. Holds the cryptographic material for the three-key architecture.
+Single-record store. Holds the cryptographic material for **envelope encryption** (Track 2): a random DMK wrapped independently by the PIN and the passphrase. (Field names below are illustrative; the live code uses base64 strings — see `src/core/db/types/index.ts` `SecurityRecord`.)
 
 | Field | Type | Notes |
 |-------|------|-------|
 | id | `'singleton'` | Fixed primary key — always one record |
-| mkSalt | Uint8Array | 32-byte salt for Master Key derivation (PBKDF2, 600K iterations) |
-| kekSalt | Uint8Array | 32-byte salt for KEK derivation (PBKDF2, 200K iterations) |
-| wrappedMk | ArrayBuffer | AES-KW wrapped Master Key |
-| mkVerifier | ArrayBuffer | Used to verify passphrase without exposing MK |
+| mkSalt | string | Salt retained from the original MK derivation (migration) |
+| kekSalt | string | Salt for the PIN-derived KEK (PBKDF2, 200K iterations) |
+| encryptedMasterKey | string | DMK wrapped by the **PIN**-KEK (base64) |
+| encryptedMasterKeyByPassphrase | string? | **Track 2** — DMK wrapped by the **passphrase**-KEK (base64). Added lazily for migrated vaults; set at init for new ones |
+| passphraseKekSalt | string? | **Track 2** — salt for the passphrase-KEK (PBKDF2, 600K iterations) |
+| passphraseVerifier | string | Verifies the passphrase without unwrapping the DMK |
 | pinAttempts | number | Failed PIN attempts (0–5); resets on success |
 | lockedUntil | number? | Epoch ms — lockout expiry after 5 failed attempts |
-| pinRotationDate | number? | Epoch ms — tracks 21-day PIN rotation reminder |
+| pinChangedAt | number? | Epoch ms — tracks 21-day PIN rotation reminder |
+| sessionExpiresAt | number? | Epoch ms — session/auto-lock expiry |
+
+Changing the passphrase or PIN re-derives the relevant KEK and re-wraps the **same** DMK — `encryptedMasterKey*` changes, the data does not.
 
 ---
 

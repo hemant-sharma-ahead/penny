@@ -473,6 +473,15 @@ Bridge functions that read UI state then call a hook mutation live in the page.
 ### Decision: Client-side encryption only, user-owned cloud backup
 **Rationale (Phase 2):** Option A (no key escrow). The strongest possible privacy promise: we cannot decrypt your data even if legally compelled. Backup goes to the user's Google Drive / iCloud as an encrypted blob — we never touch it. Users who lose their passphrase lose their data. This is the stated tradeoff (communicated in onboarding).
 
+### Decision: Envelope encryption (random DMK), not passphrase-derived MK
+**Rationale (Track 2):** Deriving the Master Key directly from the passphrase makes the data key *be* the passphrase — so changing the passphrase forces re-encrypting every record (slow, corruption-prone). Switching to a random **Data Master Key** wrapped independently by a passphrase-KEK and a PIN-KEK (the standard "envelope" / key-wrapping pattern) means changing any factor is just a re-wrap — instant, no data re-encryption — and adding biometric later is just another wrapping slot. The DMK is non-extractable and in memory only while unlocked. Full re-encryption was rejected: in a local-only app a DMK leak implies device compromise (plaintext already exposed), so key-rotation buys ~nothing. Changing the passphrase requires the current passphrase. See `docs/ROADMAP.md` → *Pre-Phase 1.5 Track 2*.
+
+### Decision: Local identity now, server registration later
+**Rationale (Track 2):** Create `userId` + `username` + an on-device keypair locally at onboarding with no backend. Phone+OTP server registration is an optional Phase 1.5 upgrade that "claims" the existing local identity — so groups/cloud-sync arrive with **no data migration**, while Phase 1 stays backendless and SMS-free.
+
+### Decision: Always-on entitlement gate for pricing-readiness
+**Rationale (Track 2):** Route would-be-paid features (e.g. cloud backup) through a single `entitlement` check that currently always returns pro/true. Enabling pricing later (store receipts on native, offline-verifiable signed license tokens on web) swaps the entitlement source without touching feature code and without storing user data.
+
 ### Decision: React Native for mobile (not Capacitor)
 **Rationale (Phase 2):** Capacitor wraps the web app in a WebView — performance is constrained by CSS rendering and JavaScript layout. React Native renders to native components. The component extraction in Pre-Phase 1.5 (semantic variant props, no Tailwind className in feature files) makes the migration mechanical: swap component implementations, keep all business logic and `src/core/`.
 

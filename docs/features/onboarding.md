@@ -15,17 +15,30 @@ Step through six screens in order:
 
 After onboarding, you can choose to load demo data — a complete set of realistic transactions, goals, holdings, and accounts — to explore every feature without entering real data first.
 
-**Coming in Pre-Phase 1.5 (Track 2):** Three additional steps will be added to collect:
-- **Date of birth** — with a clear explanation of exactly how Penny uses it (FIRE calculator, NPS projection, EPF retirement estimate, tax slab detection)
-- **Employment type** — Salaried / Self-employed / Business owner / Student / Retired — with a brief explanation of how this personalises the app (EPF visibility, health score benchmarks)
-- **Username** — optional, skippable, 3–20 characters, lowercase alphanumeric and underscores — explained as needed for future household sharing
+**Onboarding v2 (Pre-Phase 1.5, Track 2) — finalized design.** The flow is reordered so the user sees the full value (the simulated dashboard preview) *before* providing personal details, and credentials are set last (so the encryption key exists right before the profile is written):
+
+```
+Splash → Privacy Promise (+ Terms/Privacy consent) → Privacy Demo → Meet Chip
+  → Simulated Dashboard (preview, "Continue")
+  → "Let us know you"  (ONE combined screen)
+  → Setup Credentials  (passphrase + 6-digit PIN)
+  → [init encryption → write profile + identity → seed demo] → app
+```
+
+The single **"Let us know you"** screen collects:
+- **Full name** — this is also the display name (one field).
+- **Username** — optional; 3–20 chars, lowercase alphanumeric + underscore. Format-validated locally now; server availability check arrives with Phase 1.5 auth. A local `userId` + on-device keypair are also generated (no backend) so the Phase 1.5 "claim your account" upgrade needs no data migration.
+- **Date of birth** — with a clear explanation of how Penny uses it (FIRE calculator, NPS projection, EPF retirement estimate, tax slab detection). Stored encrypted; only a 5-year age band is ever sent to the AI.
+- **Employment type** — Salaried / Self-employed / Business owner / Student / Retired — gates EPF visibility, tax deductions, and health-score benchmarks.
+
+Personal data is held in memory (an onboarding draft) until the final write — nothing is persisted before encryption is initialized. See [`docs/ROADMAP.md`](../ROADMAP.md) → *Pre-Phase 1.5 Track 2* for the full design (envelope crypto, identity, pricing-readiness).
 
 ## How it works
 Onboarding lives in `src/features/onboarding/` as a set of screen components routed under `/onboarding/*`.
 
-During the credentials setup screen, `securityManager.ts` initialises the three-key encryption architecture: your passphrase is used with PBKDF2 (600,000 iterations) to derive the Master Key; a separate KEK is derived with PBKDF2 (200,000 iterations) to wrap the Master Key. The Master Key lives in memory only and is cleared when the session expires. Nothing is ever stored in plaintext.
+During the credentials setup screen, `securityManager.ts` initialises **envelope encryption** (Track 2): a random Data Master Key (DMK) encrypts all data, and the DMK is independently wrapped by a passphrase-derived KEK (PBKDF2 600,000 iterations) and a PIN-derived KEK (PBKDF2 200,000 iterations). The DMK lives in memory only (non-extractable) and is cleared on session expiry. Changing the passphrase or PIN only re-wraps the DMK — data is never re-encrypted. Nothing is ever stored in plaintext.
 
-The `profile` store holds: displayName, currency, locale, and onboardingCompleted. When the Pre-Phase 1.5 Track 2 steps are added, it will also store: dob, employmentType, and username.
+The `profile` store holds: `displayName` (= full name), `currency`, `locale`, `onboardingComplete`, and (Track 2) `dob`, `employmentType`, `username`, `userId`. The on-device keypair and the `plan`/entitlement marker are stored alongside (the keypair in the encrypted DB).
 
 Demo data is seeded by `seedDemoData.ts` immediately after onboarding completes if the user opts in.
 
@@ -47,15 +60,13 @@ Key files:
 
 ## Current limitations
 - No way to re-run onboarding screens without a full app reset — if you want to review the privacy promise again, there is no in-app path
-- The passphrase cannot be changed after initial setup (passphrase rotation is a planned feature)
-- No biometric (Face ID / fingerprint) authentication in Phase 1 — PIN is the fastest unlock method
-- Date of birth and employment type are not yet collected (Pre-Phase 1.5 Track 2)
+- No biometric (Face ID / fingerprint) auth in Phase 1 — deferred until the React Native apps (WebAuthn-PRF on the PWA is too patchy); PIN is the fastest unlock
+- Date of birth and employment type are not yet collected (being added in Track 2)
 
 ## Planned improvements
-- Pre-Phase 1.5 Track 2: Add DOB, employment type, and username steps to the onboarding flow
-- Phase 2: Biometric authentication (Face ID / Touch ID) as an alternative to PIN
-- Phase 2: Passphrase change flow with re-encryption of all data
-- Phase 2: Cloud backup option (encrypted backup to user's Google Drive / iCloud) offered at onboarding completion
+- **Track 2 (in progress):** Onboarding v2 — combined "Let us know you" screen (full name, username, DOB, employment) after the dashboard preview; Change Passphrase + Change PIN (envelope re-wrap, current passphrase required); re-auth to enter Open mode; cloud backup to the user's own Google Drive; a full-reset path; local identity (userId + keypair) ready for Phase 1.5 server registration
+- Phase 2: Biometric auth (Face ID / Touch ID) — an extra DMK wrapping slot, native apps
+- Phase 2: Cloud backup to iCloud (native); push notifications
 
 ## Ideas welcome
 - How much detail do users actually want to read in the Privacy Promise screen, versus a shorter summary with a "read more" link?

@@ -48,8 +48,9 @@ Never disable these rules with `eslint-disable` comments.
 
 - **Never access Dexie tables directly** from feature code
 - Always use `EncryptedRepository<T>` from `src/core/db/repository.ts`
-- The Master Key lives in memory only (`src/core/crypto/keystore.ts`) — cleared on session expiry
-- Three-key architecture: passphrase → MK (PBKDF2 600K) → KEK (PBKDF2 200K) → wraps MK
+- The Master Key (DMK) lives in memory only, non-extractable (`src/core/crypto/keystore.ts`) — cleared on session expiry
+- **Envelope encryption (Track 2):** a random Data Master Key (DMK) encrypts all data; it's wrapped independently by a passphrase-KEK (PBKDF2 600K) and a PIN-KEK (PBKDF2 200K). Changing passphrase/PIN re-wraps the DMK only — never re-encrypt data. Changing the passphrase requires the current passphrase. Never derive the data key directly from the passphrase. (See `docs/ROADMAP.md` → Track 2.)
+- **DOB never leaves raw to AI** — use `deriveAgeBand()` (5-year band), never the exact date/age
 
 ---
 
