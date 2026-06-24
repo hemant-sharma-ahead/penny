@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { exportBackup, importBackup } from '@/core/backup/backupManager';
 import { Card, TextInput, Button, ConfirmDialog } from '@/components/ui';
+import { STATUS } from '@/lib/statusColors';
 
 type ExportState = 'idle' | 'exporting' | 'done' | 'error';
 type ImportState = 'idle' | 'importing' | 'done' | 'error';
@@ -78,12 +79,12 @@ export function BackupPage() {
         </div>
 
         {exportState === 'done' && (
-          <div className="flex items-center gap-2 text-green-600 bg-green-50 rounded-xl px-3 py-2">
+          <div className="flex items-center gap-2 text-success bg-success-subtle rounded-xl px-3 py-2">
             <i className="ti ti-circle-check" style={{ fontSize: 16 }} aria-hidden="true" />
             <p className="text-xs font-medium">Backup downloaded successfully</p>
           </div>
         )}
-        {exportState === 'error' && <p className="text-xs text-red-500">{exportError}</p>}
+        {exportState === 'error' && <p className="text-xs text-danger">{exportError}</p>}
 
         <Button variant="primary" fullWidth onClick={() => void handleExport()} loading={exportState === 'exporting'}>
           {exportState === 'exporting' ? 'Preparing backup…' : 'Download backup'}
@@ -93,8 +94,8 @@ export function BackupPage() {
       {/* Import card */}
       <Card padding="lg" className="flex flex-col gap-4">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
-            <i className="ti ti-cloud-upload" style={{ fontSize: 20, color: '#f59e0b' }} aria-hidden="true" />
+          <div className="w-10 h-10 rounded-xl bg-warning-subtle flex items-center justify-center flex-shrink-0">
+            <i className="ti ti-cloud-upload" style={{ fontSize: 20, color: STATUS.warning }} aria-hidden="true" />
           </div>
           <div>
             <p className="text-sm font-semibold text-primary">Restore from backup</p>
@@ -136,12 +137,12 @@ export function BackupPage() {
         />
 
         {importState === 'done' && (
-          <div className="flex items-center gap-2 text-green-600 bg-green-50 rounded-xl px-3 py-2">
+          <div className="flex items-center gap-2 text-success bg-success-subtle rounded-xl px-3 py-2">
             <i className="ti ti-circle-check" style={{ fontSize: 16 }} aria-hidden="true" />
             <p className="text-xs font-medium">Restored — relocking session…</p>
           </div>
         )}
-        {importState === 'error' && <p className="text-xs text-red-500">{importError}</p>}
+        {importState === 'error' && <p className="text-xs text-danger">{importError}</p>}
 
         <Button
           variant="primary"

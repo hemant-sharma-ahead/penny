@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { calcGratuity } from '@/core/calculators/gratuity';
+import { Banner } from '@/components/ui';
 import { LabeledInput, ResultCard, AmountRow, HeroResult } from './CalcUI';
 
 export function GratuityCalculator() {
@@ -47,20 +48,12 @@ export function GratuityCalculator() {
           />
 
           {!result.eligible && (
-            <div
-              className="rounded-2xl p-4 flex items-start gap-3"
-              style={{ backgroundColor: '#f59e0b1a', border: '1px solid #f59e0b' }}
-            >
-              <i className="ti ti-alert-triangle" style={{ fontSize: 20, color: '#f59e0b' }} aria-hidden="true" />
-              <div className="min-w-0">
-                <p className="text-sm font-semibold" style={{ color: '#f59e0b' }}>
-                  Below the 5-year minimum
-                </p>
-                <p className="text-xs text-secondary mt-0.5">
-                  Gratuity is normally payable only after 5 years of continuous service. This figure is indicative.
-                </p>
-              </div>
-            </div>
+            <Banner variant="warning">
+              <p className="text-sm font-semibold">Below the 5-year minimum</p>
+              <p className="text-xs text-secondary mt-0.5">
+                Gratuity is normally payable only after 5 years of continuous service. This figure is indicative.
+              </p>
+            </Banner>
           )}
 
           <ResultCard title="Breakdown">

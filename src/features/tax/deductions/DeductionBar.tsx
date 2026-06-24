@@ -1,5 +1,6 @@
 import { ProgressBar } from '@/components/ui';
 import { formatCurrency } from '@/lib/formatters';
+import { STATUS } from '@/lib/statusColors';
 
 interface DeductionBarProps {
   used: number;
@@ -11,7 +12,7 @@ interface DeductionBarProps {
 export function DeductionBar({ used, limit, label }: DeductionBarProps) {
   const pct = Math.min(100, (used / limit) * 100);
   const remaining = Math.max(0, limit - used);
-  const color = pct >= 100 ? '#10b981' : pct >= 70 ? '#f59e0b' : 'var(--color-primary)';
+  const color = pct >= 100 ? STATUS.success : pct >= 70 ? STATUS.warning : 'var(--color-primary)';
 
   return (
     <div>
@@ -25,7 +26,7 @@ export function DeductionBar({ used, limit, label }: DeductionBarProps) {
       {remaining > 0 ? (
         <p className="text-[10px] mt-1 text-tertiary">{formatCurrency(remaining)} remaining to invest this FY</p>
       ) : (
-        <p className="text-[10px] text-emerald-600 mt-1 font-medium">Limit fully utilised</p>
+        <p className="text-[10px] text-success mt-1 font-medium">Limit fully utilised</p>
       )}
     </div>
   );

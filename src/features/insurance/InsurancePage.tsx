@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { usePrivacy } from '@/context/PrivacyContext';
 import type { InsurancePolicy } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
-import { Button } from '@/components/ui';
+import { Button, Banner, PageHeader } from '@/components/ui';
 import { useInsurance } from './useInsurance';
 import { PolicyCard } from './PolicyCard';
 import { CoverageSummary } from './CoverageSummary';
@@ -17,16 +17,14 @@ export function InsurancePage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-theme">
-        <h2 className="text-xl font-semibold text-primary">Insurance</h2>
-        {policies.length > 0 && (
-          <p className="text-sm mt-0.5 text-secondary">
-            {policies.length} {policies.length === 1 ? 'policy' : 'policies'} ·{' '}
-            {mode === 'open' ? formatCurrency(totalAnnualPremium) : '••••'}/yr
-          </p>
-        )}
-      </div>
+      <PageHeader
+        title="Insurance"
+        subtitle={
+          policies.length > 0
+            ? `${policies.length} ${policies.length === 1 ? 'policy' : 'policies'} · ${mode === 'open' ? formatCurrency(totalAnnualPremium) : '••••'}/yr`
+            : undefined
+        }
+      />
 
       <div className="flex-1 overflow-y-auto pb-24">
         {policies.length === 0 ? (
@@ -37,17 +35,10 @@ export function InsurancePage() {
         ) : (
           <div className="px-4 py-4 flex flex-col gap-3">
             {expiringCount > 0 && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex gap-2">
-                <i
-                  className="ti ti-alert-triangle text-amber-500 flex-shrink-0 mt-0.5"
-                  style={{ fontSize: 16 }}
-                  aria-hidden="true"
-                />
-                <p className="text-xs text-amber-700">
-                  {expiringCount} {expiringCount === 1 ? 'policy renews' : 'policies renew'} within 30 days. Review and
-                  renew to avoid a coverage gap.
-                </p>
-              </div>
+              <Banner variant="warning">
+                {expiringCount} {expiringCount === 1 ? 'policy renews' : 'policies renew'} within 30 days. Review and
+                renew to avoid a coverage gap.
+              </Banner>
             )}
 
             {sorted.map((policy) => (

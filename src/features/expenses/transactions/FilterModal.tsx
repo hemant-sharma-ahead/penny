@@ -3,7 +3,7 @@ import { Modal, Button } from '@/components/ui';
 import type { Account, ExpenseCategory } from '@/core/db/types';
 import type { ActiveEvent } from '@/context/EventModeContext';
 import { MonthPickerModal } from './MonthPickerModal';
-import { monthLabel } from '@/lib/dateUtils';
+import { monthLabel } from '@/lib/date';
 import { toMonthYearKey } from '@/lib/formatters';
 
 type TxnTypeFilter = 'all' | 'expense' | 'income' | 'transfer';

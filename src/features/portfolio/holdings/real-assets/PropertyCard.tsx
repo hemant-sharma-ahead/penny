@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { IconBadge } from '@/components/ui';
+import { ListRow } from '@/components/shared';
 import type { Holding } from '@/core/db/types';
 import { realAssetIsStale, realAssetStalenessLabel } from './realAssetHelpers';
 import { UpdateValueSheet } from './UpdateValueSheet';
@@ -33,30 +33,33 @@ export function PropertyCard({
     <>
       <div className="surface rounded-2xl px-4 py-3 flex flex-col gap-2.5">
         {/* Header row */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <IconBadge icon="ti-building" color="#8b5cf6" bg="#8b5cf615" size="sm" />
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-primary truncate">{holding.name}</p>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {meta.propertyType && (
-                  <span className="text-[10px] text-tertiary">
-                    {propTypeLabel[meta.propertyType] ?? meta.propertyType}
-                  </span>
-                )}
-                {meta.propertyCity && <span className="text-[10px] text-tertiary">· {meta.propertyCity}</span>}
-                {meta.propertyAreaSqft && (
-                  <span className="text-[10px] text-tertiary">
-                    · {meta.propertyAreaSqft.toLocaleString('en-IN')} sqft
-                  </span>
-                )}
-              </div>
+        <ListRow
+          icon="ti-building"
+          iconColor="#8b5cf6"
+          iconBg="#8b5cf615"
+          iconSize="sm"
+          title={<p className="text-sm font-semibold text-primary truncate">{holding.name}</p>}
+          subtitle={
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {meta.propertyType && (
+                <span className="text-[10px] text-tertiary">
+                  {propTypeLabel[meta.propertyType] ?? meta.propertyType}
+                </span>
+              )}
+              {meta.propertyCity && <span className="text-[10px] text-tertiary">· {meta.propertyCity}</span>}
+              {meta.propertyAreaSqft && (
+                <span className="text-[10px] text-tertiary">
+                  · {meta.propertyAreaSqft.toLocaleString('en-IN')} sqft
+                </span>
+              )}
             </div>
-          </div>
-          <button onClick={onEdit} className="w-8 h-8 flex items-center justify-center text-tertiary flex-shrink-0">
-            <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true" />
-          </button>
-        </div>
+          }
+          right={
+            <button onClick={onEdit} className="w-8 h-8 flex items-center justify-center text-tertiary flex-shrink-0">
+              <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true" />
+            </button>
+          }
+        />
 
         {/* Value row */}
         <div className="flex items-end justify-between">
@@ -68,7 +71,7 @@ export function PropertyCard({
           </div>
           <div className="text-right">
             <p className="text-[10px] text-tertiary mb-0.5">vs purchase</p>
-            <p className={`text-sm font-semibold tabular-nums ${gain >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+            <p className={`text-sm font-semibold tabular-nums ${gain >= 0 ? 'text-success' : 'text-danger'}`}>
               {gain >= 0 ? '+' : ''}
               {gainPct.toFixed(1)}%
             </p>
@@ -77,10 +80,7 @@ export function PropertyCard({
 
         {/* Staleness + update row */}
         <div className="flex items-center justify-between pt-0.5 border-t border-theme">
-          <p
-            className={`text-[10px] ${stale ? 'font-medium' : 'text-tertiary'}`}
-            style={stale ? { color: '#f59e0b' } : {}}
-          >
+          <p className={`text-[10px] ${stale ? 'font-medium text-warning' : 'text-tertiary'}`}>
             {stale && <i className="ti ti-clock-exclamation mr-1" style={{ fontSize: 11 }} aria-hidden="true" />}
             {stalenessLabel}
           </p>

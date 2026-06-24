@@ -1,12 +1,13 @@
 import type { CapGainItem } from '@/core/tax/calculator';
 import { formatCurrency } from '@/lib/formatters';
+import { STATUS } from '@/lib/statusColors';
 
 /** A single holding's realised/unrealised gain row with long-term progress and estimated tax. */
 export function CapGainRow({ item }: { item: CapGainItem }) {
   const isGain = item.gain > 0;
   const isLoss = item.gain < 0;
   const daysToLT = item.ltThresholdDays - item.holdingDays;
-  const gainColor = isGain ? '#10b981' : isLoss ? '#ef4444' : '#64748b';
+  const gainColor = isGain ? STATUS.success : isLoss ? STATUS.danger : STATUS.neutral;
 
   return (
     <div className="rounded-xl p-3 surface">
@@ -16,9 +17,9 @@ export function CapGainRow({ item }: { item: CapGainItem }) {
           <p className="text-[11px] mt-0.5 text-tertiary">
             {item.assetClass.toUpperCase()} · {item.holdingDays}d held ·{' '}
             {item.isLongTerm ? (
-              <span className="text-emerald-600 font-medium">Long-term</span>
+              <span className="text-success font-medium">Long-term</span>
             ) : daysToLT > 0 ? (
-              <span className="text-amber-600 font-medium">{daysToLT}d to long-term</span>
+              <span className="text-warning font-medium">{daysToLT}d to long-term</span>
             ) : (
               <span className="text-secondary">Short-term</span>
             )}

@@ -4,6 +4,7 @@ import { usePrivacy } from '@/context/PrivacyContext';
 import { usePortfolioHoldings, HOLDINGS_SUBTABS } from './usePortfolioHoldings';
 import type { HoldingsSubTab, HoldingsSubTabConfig } from './usePortfolioHoldings';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
+import { PageHeader } from '@/components/ui';
 import { EquitySection } from './holdings/equity/EquitySection';
 import { FixedIncomeSection } from './holdings/fixed-income/FixedIncomeSection';
 import { PreciousMetalsSection } from './holdings/precious-metals/PreciousMetalsSection';
@@ -44,11 +45,11 @@ export function PortfolioPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-theme">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-primary">Portfolio</h2>
-          {activeTab !== 'ipo' && hasLivePriceRefresh && (
+      <PageHeader
+        title="Portfolio"
+        actions={
+          activeTab !== 'ipo' &&
+          hasLivePriceRefresh && (
             <button
               onClick={refreshPrices}
               disabled={refreshing}
@@ -61,8 +62,9 @@ export function PortfolioPage() {
               />
               {refreshing ? 'Fetching…' : 'Refresh prices'}
             </button>
-          )}
-        </div>
+          )
+        }
+      >
         {activeTab !== 'ipo' && holdings.length > 0 && (
           <div className="flex items-baseline gap-3 mt-1">
             <p className="text-sm text-secondary">{mode === 'open' ? formatCurrency(totalCurrent) : '••••'}</p>
@@ -72,7 +74,7 @@ export function PortfolioPage() {
             </span>
           </div>
         )}
-      </div>
+      </PageHeader>
 
       {/* Main tabs */}
       <div className="flex px-4 border-b border-theme">

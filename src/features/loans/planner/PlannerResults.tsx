@@ -1,8 +1,7 @@
-import { utils, writeFile } from 'xlsx';
 import { formatCurrency, formatMonthsDuration } from '@/lib/formatters';
 import { buildLoanPlanExport } from '@/core/loans/planExport';
-import { Card, Button } from '@/components/ui';
-import { SectionLabel } from './SectionLabel';
+import { Card, Button, SectionLabel } from '@/components/ui';
+import { STATUS } from '@/lib/statusColors';
 import type { usePlanner } from './usePlanner';
 
 interface CompareRowProps {
@@ -18,7 +17,7 @@ function CompareRow({ label, original, withPlan, saving }: CompareRowProps) {
       <span className="w-24 text-right text-xs font-medium text-primary">{original}</span>
       <span
         className="w-24 text-right text-xs font-semibold"
-        style={{ color: saving ? '#10b981' : 'var(--color-primary)' }}
+        style={{ color: saving ? STATUS.success : 'var(--color-primary)' }}
       >
         {withPlan}
       </span>
@@ -35,8 +34,10 @@ export function PlannerResults({ planner, mode }: PlannerResultsProps) {
   const { planParams, baseline, result, interestSaved, monthsSaved, hasAccelerators } = planner;
   const masked = mode !== 'open';
 
-  function downloadXlsx() {
+  async function downloadXlsx() {
     if (result.rows.length === 0) return;
+    // Lazy-load xlsx (~hundreds of KB) only when the user actually exports.
+    const { utils, writeFile } = await import('xlsx');
     const data = buildLoanPlanExport(planParams, baseline, result, interestSaved, monthsSaved);
 
     const wb = utils.book_new();
@@ -130,7 +131,7 @@ export function PlannerResults({ planner, mode }: PlannerResultsProps) {
                 <span className="text-tertiary truncate">{r.date}</span>
                 <span className="text-right text-primary font-medium">{masked ? '••' : formatCurrency(r.emi)}</span>
                 <span className="text-right text-secondary">{masked ? '••' : formatCurrency(r.principal)}</span>
-                <span className="text-right" style={{ color: '#ef4444' }}>
+                <span className="text-right" style={{ color: STATUS.danger }}>
                   {masked ? '••' : formatCurrency(r.interest)}
                 </span>
                 <span className="text-right text-primary">{masked ? '••' : formatCurrency(r.closingBalance)}</span>
@@ -140,11 +141,11 @@ export function PlannerResults({ planner, mode }: PlannerResultsProps) {
                   className="flex items-center justify-between px-3 py-1 border-b border-theme"
                   style={{ backgroundColor: 'var(--color-surface-secondary)' }}
                 >
-                  <span className="text-[10px] font-medium" style={{ color: '#10b981' }}>
+                  <span className="text-[10px] font-medium" style={{ color: STATUS.success }}>
                     <i className="ti ti-arrow-down-circle mr-1" style={{ fontSize: 11 }} aria-hidden="true" />
                     Prepayment
                   </span>
-                  <span className="text-[10px] font-semibold" style={{ color: '#10b981' }}>
+                  <span className="text-[10px] font-semibold" style={{ color: STATUS.success }}>
                     {masked ? '••••' : `− ${formatCurrency(r.prepayment)}`}
                   </span>
                 </div>

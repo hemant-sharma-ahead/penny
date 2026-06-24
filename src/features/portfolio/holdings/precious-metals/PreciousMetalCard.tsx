@@ -1,6 +1,8 @@
-import { Card, IconBadge } from '@/components/ui';
+import { Card, Badge } from '@/components/ui';
+import { ListRow } from '@/components/shared';
 import { goldPriceForKarat } from '@/core/metals/metalsClient';
 import { formatCurrency } from '@/lib/formatters';
+import { STATUS } from '@/lib/statusColors';
 import type { Holding } from '@/core/db/types';
 
 const METAL_CATEGORY_LABEL: Record<string, string> = {
@@ -54,30 +56,22 @@ export function PreciousMetalCard({
   return (
     <Card onClick={onEdit} padding="sm" className="flex flex-col gap-3">
       {/* Header */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <IconBadge icon={icon} color={iconColor} bg={iconBg} size="sm" />
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-primary truncate">{holding.name}</p>
-            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-              <span
-                className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                style={{ backgroundColor: iconBg, color: iconColor }}
-              >
-                {METAL_CATEGORY_LABEL[category]}
-              </span>
-              <span className="text-[10px] text-secondary">
-                {weightGrams}g · {isGold ? `${karat}K` : purity}
-              </span>
-            </div>
+      <ListRow
+        icon={icon}
+        iconColor={iconColor}
+        iconBg={iconBg}
+        iconSize="sm"
+        title={<p className="text-sm font-semibold text-primary truncate">{holding.name}</p>}
+        subtitle={
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Badge label={METAL_CATEGORY_LABEL[category]} color={iconColor} size="sm" />
+            <span className="text-[10px] text-secondary">
+              {weightGrams}g · {isGold ? `${karat}K` : purity}
+            </span>
           </div>
-        </div>
-        <i
-          className="ti ti-chevron-right text-tertiary flex-shrink-0 mt-1"
-          style={{ fontSize: 15 }}
-          aria-hidden="true"
-        />
-      </div>
+        }
+        right={<i className="ti ti-chevron-right text-tertiary" style={{ fontSize: 15 }} aria-hidden="true" />}
+      />
 
       {/* Value row */}
       <div className="flex items-end justify-between">
@@ -90,15 +84,12 @@ export function PreciousMetalCard({
           <div className="text-right">
             <p
               className="text-sm font-semibold"
-              style={{ color: gainLoss >= 0 ? 'var(--color-primary)' : 'var(--color-danger, #ef4444)' }}
+              style={{ color: gainLoss >= 0 ? 'var(--color-primary)' : STATUS.danger }}
             >
               {gainLoss >= 0 ? '+' : ''}
               {formatCurrency(gainLoss)}
             </p>
-            <p
-              className="text-[10px]"
-              style={{ color: gainLoss >= 0 ? 'var(--color-primary)' : 'var(--color-danger, #ef4444)' }}
-            >
+            <p className="text-[10px]" style={{ color: gainLoss >= 0 ? 'var(--color-primary)' : STATUS.danger }}>
               {gainLoss >= 0 ? '▲' : '▼'} {Math.abs(gainLossPct).toFixed(1)}%
             </p>
           </div>

@@ -37,12 +37,12 @@ export function IouSlice({ mode }: IouSliceProps) {
         {iouActive.length > 0 && (
           <div className="flex gap-4 px-4 py-3 border-b border-theme">
             {iouTotalLent > 0 && (
-              <span className="text-xs font-medium text-emerald-600">
+              <span className="text-xs font-medium text-success">
                 Owed to you: {mode === 'open' ? formatCurrency(iouTotalLent) : '••••'}
               </span>
             )}
             {iouTotalBorrowed > 0 && (
-              <span className="text-xs font-medium text-red-500">
+              <span className="text-xs font-medium text-danger">
                 You owe: {mode === 'open' ? formatCurrency(iouTotalBorrowed) : '••••'}
               </span>
             )}

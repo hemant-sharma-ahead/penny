@@ -1,12 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import zxcvbn from 'zxcvbn';
 import { initialize } from '@/core/crypto/securityManager';
 import { PATHS } from '@/router/paths';
 import { Button, TextInput } from '@/components/ui';
 
 const strengthLabels = ['Very weak', 'Weak', 'Fair', 'Strong', 'Very strong'];
 const strengthColors = ['bg-red-400', 'bg-orange-400', 'bg-yellow-400', 'bg-emerald-400', 'bg-emerald-600'];
+
+type ZxcvbnFn = (password: string) => { score: number };
 
 export function SetupCredentialsScreen() {
   const [passphrase, setPassphrase] = useState('');
@@ -17,7 +18,19 @@ export function SetupCredentialsScreen() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const strength = useMemo(() => (passphrase ? zxcvbn(passphrase) : null), [passphrase]);
+  // Lazy-load zxcvbn (large dictionary bundle) on mount — keeps it out of the initial app chunk.
+  const [zxcvbnFn, setZxcvbnFn] = useState<ZxcvbnFn | null>(null);
+  useEffect(() => {
+    let active = true;
+    void import('zxcvbn').then((m) => {
+      if (active) setZxcvbnFn(() => m.default as ZxcvbnFn);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const strength = useMemo(() => (passphrase && zxcvbnFn ? zxcvbnFn(passphrase) : null), [passphrase, zxcvbnFn]);
   const score: number = strength?.score ?? 0;
 
   const pinMismatch = confirmPin.length === 6 && pin !== confirmPin;
@@ -84,7 +97,7 @@ export function SetupCredentialsScreen() {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-secondary">{strengthLabels[score]}</span>
-                {score < 3 && <span className="text-xs text-amber-600">Need a stronger passphrase</span>}
+                {score < 3 && <span className="text-xs text-warning">Need a stronger passphrase</span>}
               </div>
             </div>
           )}
@@ -126,7 +139,7 @@ export function SetupCredentialsScreen() {
           </p>
         </div>
 
-        {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
+        {error && <p className="text-danger text-sm mb-4 text-center">{error}</p>}
 
         <Button
           variant="primary"

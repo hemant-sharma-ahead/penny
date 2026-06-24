@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { PersonalIou } from '@/core/db/types';
-import { TabStrip } from '@/components/ui';
+import { TabStrip, Banner } from '@/components/ui';
 import { IouCard } from './IouCard';
 
 interface IouListViewProps {
@@ -32,17 +32,10 @@ export function IouListView({ sortedActive, history, overdueCount, nowMs, mode, 
       {activeTab === 'active' && (
         <div className="px-4 py-4 flex flex-col gap-3">
           {overdueCount > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex gap-2">
-              <i
-                className="ti ti-alert-triangle text-red-500 flex-shrink-0 mt-0.5"
-                style={{ fontSize: 16 }}
-                aria-hidden="true"
-              />
-              <p className="text-xs text-red-700">
-                {overdueCount} {overdueCount === 1 ? 'IOU is' : 'IOUs are'} overdue. Address{' '}
-                {overdueCount === 1 ? 'it' : 'them'} to stay on top of things.
-              </p>
-            </div>
+            <Banner variant="danger">
+              {overdueCount} {overdueCount === 1 ? 'IOU is' : 'IOUs are'} overdue. Address{' '}
+              {overdueCount === 1 ? 'it' : 'them'} to stay on top of things.
+            </Banner>
           )}
           {sortedActive.length === 0 ? (
             <div className="p-10 text-center">

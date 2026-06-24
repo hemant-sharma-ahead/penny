@@ -2,7 +2,10 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import { type PrivacyMode } from '@/context/PrivacyContext';
 
 export type FontScale = 'small' | 'default' | 'large' | 'xl';
-export type Theme = 'light' | 'dark' | 'system';
+/** Visual themes: light, Penny Blue (navy brand), true dark, or follow OS. */
+export type Theme = 'light' | 'blue' | 'dark' | 'system';
+/** What actually gets written to `data-theme` — 'system' resolves to one of these. */
+export type ResolvedTheme = 'light' | 'blue' | 'dark';
 
 export interface ModuleVisibility {
   portfolio: boolean;
@@ -40,15 +43,27 @@ const FONT_SCALE_MAP: Record<FontScale, number> = {
 const MODULES_KEY = 'penny_settings_modules';
 const FONT_SCALE_KEY = 'penny_settings_font_scale';
 const THEME_KEY = 'penny_settings_theme';
+const THEME_MIGRATED_KEY = 'penny_settings_theme_v2';
 export const DEFAULT_PRIVACY_KEY = 'penny_settings_default_privacy';
 
 function loadTheme(): Theme {
-  const raw = localStorage.getItem(THEME_KEY);
-  if (raw === 'light' || raw === 'dark' || raw === 'system') return raw;
+  let raw = localStorage.getItem(THEME_KEY);
+  // One-time migration: the legacy 'dark' theme was the navy brand palette,
+  // now named 'blue'. Remap it once so existing users keep their look, then
+  // 'dark' is free to mean the new true-dark palette. The flag is set on first
+  // load regardless, so a fresh 'dark' pick afterwards is never remapped.
+  if (!localStorage.getItem(THEME_MIGRATED_KEY)) {
+    if (raw === 'dark') {
+      raw = 'blue';
+      localStorage.setItem(THEME_KEY, 'blue');
+    }
+    localStorage.setItem(THEME_MIGRATED_KEY, '1');
+  }
+  if (raw === 'light' || raw === 'blue' || raw === 'dark' || raw === 'system') return raw;
   return 'system';
 }
 
-function resolveTheme(theme: Theme): 'light' | 'dark' {
+function resolveTheme(theme: Theme): ResolvedTheme {
   if (theme !== 'system') return theme;
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }

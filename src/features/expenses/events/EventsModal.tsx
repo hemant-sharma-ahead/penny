@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Modal, Button, TextInput, Card } from '@/components/ui';
+import { Modal, Button, TextInput, Card, Banner } from '@/components/ui';
 import { useEventMode, EVENT_COLORS, toEventHashtag, normalizeHashtag } from '@/context/EventModeContext';
 import type { ActiveEvent, EventSubtype } from '@/context/EventModeContext';
-import { epochToDateInput } from '@/lib/formatters';
+import { epochToDateInput, daysBetween } from '@/lib/date';
 
 interface EventsModalProps {
   onClose: () => void;
@@ -119,7 +119,7 @@ export function EventsModal({ onClose, linkedCountByEventHashtag, nowMs, onReque
               ))}
             </div>
             {vacationBlockError ? (
-              <p className="text-[10px] mt-1.5 text-red-500">
+              <p className="text-[10px] mt-1.5 text-danger">
                 A vacation is already active. Stop it before starting a new one.
               </p>
             ) : (
@@ -300,7 +300,7 @@ export function EventsModal({ onClose, linkedCountByEventHashtag, nowMs, onReque
                 </button>
                 <button
                   onClick={() => stopEvent(ev.id)}
-                  className="text-xs text-red-500 border border-red-200 rounded-lg px-2.5 py-1 flex-shrink-0"
+                  className="text-xs text-danger border border-red-200 rounded-lg px-2.5 py-1 flex-shrink-0"
                 >
                   Stop
                 </button>
@@ -317,8 +317,7 @@ export function EventsModal({ onClose, linkedCountByEventHashtag, nowMs, onReque
           {pastEvents.map((ev) => {
             const linkedCount = linkedCountByEventHashtag.get(normalizeHashtag(ev.hashtag)) ?? 0;
             const endDatePast = ev.endDate !== undefined && ev.endDate < nowMs;
-            const durationDays =
-              ev.endDate !== undefined ? Math.max(1, Math.round((ev.endDate - ev.startDate) / 86_400_000)) : null;
+            const durationDays = ev.endDate !== undefined ? Math.max(1, daysBetween(ev.startDate, ev.endDate)) : null;
             const sameDay =
               ev.endDate !== undefined && new Date(ev.startDate).toDateString() === new Date(ev.endDate).toDateString();
             const fmtShort = (ms: number) =>
@@ -349,18 +348,11 @@ export function EventsModal({ onClose, linkedCountByEventHashtag, nowMs, onReque
                   {cardHeader}
                   <div className="h-px border-theme mx-3" style={{ borderTopWidth: 1 }} />
                   <div className="flex flex-col gap-3 p-3">
-                    <div className="flex items-start gap-2 bg-amber-50 rounded-xl px-3 py-2.5">
-                      <i
-                        className="ti ti-alert-triangle text-amber-500 flex-shrink-0 mt-0.5"
-                        style={{ fontSize: 14 }}
-                        aria-hidden="true"
-                      />
-                      <p className="text-[11px] text-amber-700 leading-snug">
-                        {isVacation
-                          ? 'End date has passed. Set a new end date to reactivate.'
-                          : 'End date has passed. Reactivating will clear it so the event continues ongoing.'}
-                      </p>
-                    </div>
+                    <Banner variant="warning">
+                      {isVacation
+                        ? 'End date has passed. Set a new end date to reactivate.'
+                        : 'End date has passed. Reactivating will clear it so the event continues ongoing.'}
+                    </Banner>
                     {isVacation && (
                       <div>
                         <TextInput

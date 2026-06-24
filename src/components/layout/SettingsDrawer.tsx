@@ -36,8 +36,9 @@ const FONT_SCALES: { value: FontScale; label: string }[] = [
 
 const THEMES: { value: Theme; label: string; icon: string }[] = [
   { value: 'light', label: 'Light', icon: 'ti-sun' },
-  { value: 'system', label: 'System', icon: 'ti-device-desktop' },
-  { value: 'dark', label: 'Dark', icon: 'ti-moon' }
+  { value: 'blue', label: 'Penny Blue', icon: 'ti-droplet' },
+  { value: 'dark', label: 'Dark', icon: 'ti-moon' },
+  { value: 'system', label: 'System', icon: 'ti-device-desktop' }
 ];
 
 export function SettingsDrawer({ open, onClose }: Props) {
@@ -134,7 +135,7 @@ export function SettingsDrawer({ open, onClose }: Props) {
             <p className="text-[11px] font-semibold uppercase tracking-wider mb-3 text-tertiary">Display</p>
 
             <p className="text-xs mb-2 text-secondary">Theme</p>
-            <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="grid grid-cols-2 gap-2 mb-4">
               {THEMES.map((t) => (
                 <button
                   key={t.value}

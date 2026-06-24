@@ -1,11 +1,12 @@
 import { ProgressBar } from '@/components/ui';
+import { STATUS, tint } from '@/lib/statusColors';
 import type { ComponentStatus, ScoreComponent } from '@/core/health/scorer';
 
 const STATUS_STYLE: Record<ComponentStatus, { border: string; text: string; bar: string }> = {
-  excellent: { border: '#10b981', text: '#10b981', bar: '#10b981' },
-  good: { border: '#22c55e', text: '#22c55e', bar: '#22c55e' },
-  fair: { border: '#f59e0b', text: '#f59e0b', bar: '#f59e0b' },
-  poor: { border: '#ef4444', text: '#ef4444', bar: '#ef4444' },
+  excellent: { border: STATUS.success, text: STATUS.success, bar: STATUS.success },
+  good: { border: STATUS.success, text: STATUS.success, bar: STATUS.success },
+  fair: { border: STATUS.warning, text: STATUS.warning, bar: STATUS.warning },
+  poor: { border: STATUS.danger, text: STATUS.danger, bar: STATUS.danger },
   no_data: { border: 'var(--color-border)', text: 'var(--color-text-tertiary)', bar: 'var(--color-border-strong)' }
 };
 
@@ -31,7 +32,7 @@ export function ComponentCard({ c }: { c: ScoreComponent }) {
       <div>
         <span
           className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded"
-          style={{ color: s.text, backgroundColor: `${s.bar}22` }}
+          style={{ color: s.text, backgroundColor: tint(s.bar) }}
         >
           {statusLabel}
         </span>

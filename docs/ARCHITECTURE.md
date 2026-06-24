@@ -161,12 +161,14 @@ penny/
 | `EmptyState.tsx` | `icon` · `title` · `description?` · `action?` | Icon + title + optional description + optional CTA button. Use for zero-data states. |
 | `TabStrip.tsx` | `options[]{value,label,icon?,count?}` · `value` · `onChange` · `scrollable?` | Underline-style tab strip. Generic over the tab value type. Horizontally scrollable when `scrollable=true`. |
 | `Badge.tsx` | `label` · `color?` · `variant?` solid/subtle · `size?` sm/md | Coloured pill. `subtle` variant uses `color` at 10% opacity background. |
-| `SectionHeader.tsx` | `title` · `subtitle?` · `action?` · `className?` | Section heading row with optional subtitle and right-aligned action slot. |
+| `PageHeader.tsx` | `title` · `subtitle?` · `leading?` · `actions?` · `children?` · `className?` | Standard page header: `px-4 pt-4 pb-3` bottom-bordered block. `leading` (e.g. back button) sits left of the title, `actions` right-aligned, `subtitle` renders as a `text-sm text-secondary` line, `children` is a full-width slot below the title row. Use at the top of every feature page. |
+| `SectionLabel.tsx` | `children` · `className?` | Small uppercase `text-tertiary` label titling a section between cards/lists. Spacing is caller-controlled via `className` (default `mb-2`; pass `-mb-2` when the parent supplies a gap). |
+| `ListContainer.tsx` | `children` · `className?` | Bordered rounded `surface` that hairline-divides its direct children (`divide-[var(--color-border)]`). Standard wrapper for grouped list rows (accounts, transactions, previews). |
 | `ProgressBar.tsx` | `value` 0–100 · `color?` · `size?` xs/sm/md · `animate?` | Horizontal fill bar. Clamps value to 0–100. |
 | `SegmentedControl.tsx` | `options[]{value,label,icon?,color?}` · `value` · `onChange` · `cols?` | 2–4 option radio group. Active option fills with `color` (default `--color-primary`). Background: `bg-surface-2`. |
 | `SelectInput.tsx` | `label?` · `value` · `onChange(value)` · `options[]{value,label}` · `placeholder?` · `error?` | Native `<select>` wrapper with chevron icon. Wraps `FormField` when `label` provided. |
 | `Toggle.tsx` | `value` · `onChange(value)` · `disabled?` · `aria-label?` | iOS-style sliding boolean switch. Active: `--color-primary`; inactive: `--color-surface-3`. |
-| `index.ts` | — | Barrel export for all ui components (Card, Modal, Button, OptionButton, TextInput, SelectInput, SegmentedControl, Toggle, Badge, EmptyState, TabStrip, SectionHeader, ProgressBar, ConfirmDialog, FormField). |
+| `index.ts` | — | Barrel export for all ui components. Import shared primitives from `@/components/ui` (never deep-import the file). |
 
 ---
 

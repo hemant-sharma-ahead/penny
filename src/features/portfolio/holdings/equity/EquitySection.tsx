@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { EmptyState, IconBadge } from '@/components/ui';
+import { EmptyState, IconBadge, Badge } from '@/components/ui';
 import type { AssetClass, Holding } from '@/core/db/types';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
+import { STATUS } from '@/lib/statusColors';
 import { effectiveValue, HOLDINGS_SUBTABS } from '@/features/portfolio/usePortfolioHoldings';
 import { ASSET_META } from '@/features/portfolio/holdings/shared/registry';
 import { StockModal } from './StockModal';
@@ -85,7 +86,7 @@ export function EquitySection({ holdings, assetClass, mode, onSave, onRemove }: 
                 const livePrice = lots.find((l) => l.currentPrice != null)?.currentPrice ?? null;
                 const totalGain = totalCurrent - totalInvested;
                 const totalGainPct = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
-                const totalGainColor = totalGain >= 0 ? '#10b981' : '#ef4444';
+                const totalGainColor = totalGain >= 0 ? STATUS.success : STATUS.danger;
                 const ticker = h.symbol ? h.symbol.replace(/\.(NS|BO)$/i, '') : null;
                 const displayName = ticker ?? h.name;
                 const companyName = h.name !== displayName ? h.name : '';
@@ -122,11 +123,8 @@ export function EquitySection({ holdings, assetClass, mode, onSave, onRemove }: 
                             <div className="flex items-center gap-1.5 min-w-0">
                               <p className="text-sm font-semibold text-primary tracking-wide truncate">{displayName}</p>
                               {isMultiLot && (
-                                <span
-                                  className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0"
-                                  style={{ backgroundColor: `${meta.color}20`, color: meta.color }}
-                                >
-                                  {lots.length} lots
+                                <span className="flex-shrink-0">
+                                  <Badge label={`${lots.length} lots`} color={meta.color} size="sm" />
                                 </span>
                               )}
                             </div>
@@ -187,7 +185,7 @@ export function EquitySection({ holdings, assetClass, mode, onSave, onRemove }: 
                           const lotCurrent = effectiveValue(lot);
                           const lotGain = lotCurrent - lot.investedAmount;
                           const lotGainPct = lot.investedAmount > 0 ? (lotGain / lot.investedAmount) * 100 : 0;
-                          const lotGainColor = lotGain >= 0 ? '#10b981' : '#ef4444';
+                          const lotGainColor = lotGain >= 0 ? STATUS.success : STATUS.danger;
                           return (
                             <button
                               key={lot.id}
@@ -243,7 +241,7 @@ export function EquitySection({ holdings, assetClass, mode, onSave, onRemove }: 
                 const liveNav = lots.find((l) => l.currentPrice != null)?.currentPrice ?? null;
                 const mfGain = totalCurrent - totalInvested;
                 const mfGainPct = totalInvested > 0 ? (mfGain / totalInvested) * 100 : 0;
-                const gainColor = mfGain >= 0 ? '#10b981' : '#ef4444';
+                const gainColor = mfGain >= 0 ? STATUS.success : STATUS.danger;
                 const isMultiLot = lots.length > 1;
                 const isExpanded = expandedSymbols.has(schemeKey);
                 const mfSchemeCategory = h.assetMeta?.mfSchemeCategory ?? '';
@@ -279,11 +277,8 @@ export function EquitySection({ holdings, assetClass, mode, onSave, onRemove }: 
                             <div className="flex items-center gap-1.5 min-w-0">
                               <p className="text-xs font-semibold text-primary truncate">{h.name}</p>
                               {isMultiLot && (
-                                <span
-                                  className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0"
-                                  style={{ backgroundColor: `${meta.color}20`, color: meta.color }}
-                                >
-                                  {lots.length} SIPs
+                                <span className="flex-shrink-0">
+                                  <Badge label={`${lots.length} SIPs`} color={meta.color} size="sm" />
                                 </span>
                               )}
                             </div>
@@ -352,7 +347,7 @@ export function EquitySection({ holdings, assetClass, mode, onSave, onRemove }: 
                           const lotCurrent = effectiveValue(lot);
                           const lotGain = lotCurrent - lot.investedAmount;
                           const lotGainPct = lot.investedAmount > 0 ? (lotGain / lot.investedAmount) * 100 : 0;
-                          const lotGainColor = lotGain >= 0 ? '#10b981' : '#ef4444';
+                          const lotGainColor = lotGain >= 0 ? STATUS.success : STATUS.danger;
                           return (
                             <button
                               key={lot.id}

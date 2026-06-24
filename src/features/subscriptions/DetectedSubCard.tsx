@@ -1,5 +1,6 @@
-import { Card, Button } from '@/components/ui';
+import { Card, Button, Badge } from '@/components/ui';
 import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import { STATUS } from '@/lib/statusColors';
 import { displayName, intervalLabel } from '@/core/subscriptions/format';
 import type { DetectedSubscription } from '@/core/subscriptions/detector';
 
@@ -21,19 +22,9 @@ export function DetectedSubCard({ candidate: c, mode, onConfirm, onDismiss }: De
           </p>
         </div>
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
-          {c.status === 'trial' && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">Trial</span>
-          )}
-          {c.priceCreep && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">
-              Price creep
-            </span>
-          )}
-          {c.dormant && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-surface-2 text-secondary">
-              Dormant
-            </span>
-          )}
+          {c.status === 'trial' && <Badge label="Trial" color={STATUS.info} size="sm" />}
+          {c.priceCreep && <Badge label="Price creep" color={STATUS.warning} size="sm" />}
+          {c.dormant && <Badge label="Dormant" color={STATUS.neutral} size="sm" />}
         </div>
       </div>
 
@@ -41,7 +32,7 @@ export function DetectedSubCard({ candidate: c, mode, onConfirm, onDismiss }: De
         Seen {c.occurrenceCount} time{c.occurrenceCount !== 1 ? 's' : ''}
         {c.lastChargedAt !== undefined && ` · last ${formatDateShort(c.lastChargedAt)}`}
         {c.status === 'trial' && c.trialEndsAt !== undefined && (
-          <span className="ml-1 text-blue-500">· trial may end {formatDateShort(c.trialEndsAt)}</span>
+          <span className="ml-1 text-info">· trial may end {formatDateShort(c.trialEndsAt)}</span>
         )}
       </p>
 

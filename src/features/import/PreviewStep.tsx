@@ -1,5 +1,6 @@
-import { Button, Card } from '@/components/ui';
+import { Button, Card, ListContainer } from '@/components/ui';
 import { formatCurrency } from '@/lib/formatters';
+import { STATUS } from '@/lib/statusColors';
 import type { PreviewRow } from '@/core/import/importPipeline';
 
 interface PreviewStepProps {
@@ -33,7 +34,7 @@ export function PreviewStep({
         <div className="flex flex-wrap gap-x-3 gap-y-0.5">
           {toImport.length > 0 && <span className="text-xs text-secondary">{toImport.length} to import</span>}
           {unrecognisedCount > 0 && (
-            <span className="text-xs" style={{ color: '#f59e0b' }}>
+            <span className="text-xs" style={{ color: STATUS.warning }}>
               {unrecognisedCount} category unrecognised → Other
             </span>
           )}
@@ -46,13 +47,17 @@ export function PreviewStep({
       </Card>
 
       {/* Row list */}
-      <div className="surface rounded-xl overflow-hidden divide-y divide-theme">
+      <ListContainer>
         {preview.map((row, i) => (
           <div key={i} className="px-4 py-3 flex items-start gap-3" style={{ opacity: row.duplicate ? 0.45 : 1 }}>
             <div
               className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
               style={{
-                backgroundColor: row.duplicate ? 'var(--color-text-tertiary)' : row.unrecognised ? '#f59e0b' : '#22c55e'
+                backgroundColor: row.duplicate
+                  ? 'var(--color-text-tertiary)'
+                  : row.unrecognised
+                    ? STATUS.warning
+                    : STATUS.success
               }}
             />
             <div className="flex-1 min-w-0">
@@ -61,7 +66,7 @@ export function PreviewStep({
                 <span
                   className="text-sm font-semibold flex-shrink-0"
                   style={{
-                    color: row.type === 'income' ? '#10b981' : 'var(--color-text-primary)',
+                    color: row.type === 'income' ? STATUS.success : 'var(--color-text-primary)',
                     textDecoration: row.duplicate ? 'line-through' : undefined
                   }}
                 >
@@ -74,7 +79,7 @@ export function PreviewStep({
                 <span className="text-tertiary text-xs">·</span>
                 <span
                   className="text-xs"
-                  style={{ color: row.unrecognised ? '#f59e0b' : 'var(--color-text-secondary)' }}
+                  style={{ color: row.unrecognised ? STATUS.warning : 'var(--color-text-secondary)' }}
                 >
                   {row.matchedCategoryName}
                   {row.unrecognised && ' (unrecognised)'}
@@ -89,7 +94,7 @@ export function PreviewStep({
             </div>
           </div>
         ))}
-      </div>
+      </ListContainer>
 
       {/* Actions */}
       <div className="flex gap-3 pb-4">

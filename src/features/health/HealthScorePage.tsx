@@ -1,4 +1,5 @@
-import { TextInput } from '@/components/ui';
+import { TextInput, SectionLabel, PageHeader } from '@/components/ui';
+import { tint } from '@/lib/statusColors';
 import { useHealthScore } from './useHealthScore';
 import { ScoreGauge } from './ScoreGauge';
 import { ComponentCard } from './ComponentCard';
@@ -9,11 +10,9 @@ export function HealthScorePage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-theme">
-        <h2 className="text-xl font-semibold text-primary">Financial Health</h2>
+      <PageHeader title="Financial Health">
         <p className="text-xs mt-0.5 text-tertiary">On-device · updates as you add data</p>
-      </div>
+      </PageHeader>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-24 flex flex-col gap-4">
         {/* Monthly income input */}
@@ -51,7 +50,7 @@ export function HealthScorePage() {
             <div className="text-center -mt-2">
               <span
                 className="inline-flex items-center gap-1.5 text-base font-semibold px-3 py-1 rounded-full"
-                style={{ backgroundColor: `${healthScore.color}18`, color: healthScore.color }}
+                style={{ backgroundColor: tint(healthScore.color), color: healthScore.color }}
               >
                 {healthScore.grade} · {healthScore.gradeLabel}
               </span>
@@ -74,7 +73,7 @@ export function HealthScorePage() {
         {/* Score breakdown */}
         {healthScore && (
           <>
-            <p className="text-xs font-semibold uppercase tracking-wide -mb-2 text-tertiary">Score breakdown</p>
+            <SectionLabel className="-mb-2">Score breakdown</SectionLabel>
             <div className="grid grid-cols-2 gap-3">
               {healthScore.components.map((c) => (
                 <ComponentCard key={c.key} c={c} />

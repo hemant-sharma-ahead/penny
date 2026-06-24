@@ -1,12 +1,7 @@
 import { useMemo } from 'react';
 import { insurancePoliciesRepo } from '@/core/db/repositories';
 import { useRepository } from '@/hooks/useRepository';
-
-function daysUntil(epochMs: number): number {
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  return Math.ceil((epochMs - todayStart.getTime()) / 86_400_000);
-}
+import { daysUntil } from '@/lib/date';
 
 /** Loads insurance policies and derives premium total, expiring-soon count, and a renewal-sorted list. */
 export function useInsurance() {

@@ -3,7 +3,8 @@ import type { Account, Expense } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
 import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { getAccountMeta } from '@/core/accounts/meta';
-import { Card, Button, ConfirmDialog, EmptyState, IconBadge } from '@/components/ui';
+import { Card, Button, ConfirmDialog, EmptyState, IconBadge, ListContainer } from '@/components/ui';
+import { STATUS } from '@/lib/statusColors';
 
 interface AccountListProps {
   accounts: Account[];
@@ -43,7 +44,7 @@ export function AccountList({ accounts, txns, totalBalance, mode, onAdd, onEdit,
           />
         </Card>
       ) : (
-        <div className="surface rounded-xl overflow-hidden divide-y divide-theme">
+        <ListContainer>
           {accounts.map((acc) => {
             const meta = getAccountMeta(acc.type);
             const balance = computeBalance(acc.id, acc.openingBalance, txns);
@@ -58,7 +59,7 @@ export function AccountList({ accounts, txns, totalBalance, mode, onAdd, onEdit,
                 <div className="text-right flex-shrink-0">
                   <p
                     className="text-sm font-semibold"
-                    style={{ color: !masked && isNeg ? '#ef4444' : 'var(--color-text-primary)' }}
+                    style={{ color: !masked && isNeg ? STATUS.danger : 'var(--color-text-primary)' }}
                   >
                     {masked ? '••••' : formatCurrency(balance)}
                   </p>
@@ -75,13 +76,13 @@ export function AccountList({ accounts, txns, totalBalance, mode, onAdd, onEdit,
                   variant="ghost"
                   icon="ti-trash"
                   aria-label="Delete account"
-                  className="w-8 h-8 rounded-lg flex-shrink-0 hover:text-red-500"
+                  className="w-8 h-8 rounded-lg flex-shrink-0 hover:text-danger"
                   onClick={() => setDeletingId(acc.id)}
                 />
               </div>
             );
           })}
-        </div>
+        </ListContainer>
       )}
 
       <ConfirmDialog

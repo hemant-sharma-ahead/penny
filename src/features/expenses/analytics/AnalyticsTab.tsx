@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { formatCurrency, formatCompact, toMonthYearKey } from '@/lib/formatters';
+import { STATUS, tint } from '@/lib/statusColors';
+import { ListContainer, SectionLabel } from '@/components/ui';
 
 // ── Local helpers ─────────────────────────────────────────────────────────────
 
@@ -349,7 +351,7 @@ export function AnalyticsTab({
                   })}
                 </div>
               </div>
-              <div className="surface rounded-xl divide-y divide-theme overflow-hidden">
+              <ListContainer>
                 {annualData
                   .filter((m) => m.total > 0)
                   .sort((a, b) => b.total - a.total)
@@ -371,7 +373,7 @@ export function AnalyticsTab({
                       <i className="ti ti-chevron-right text-tertiary" style={{ fontSize: 13 }} aria-hidden="true" />
                     </button>
                   ))}
-              </div>
+              </ListContainer>
             </>
           )}
         </>
@@ -437,7 +439,7 @@ export function AnalyticsTab({
           {/* Events — above groups, only when present */}
           {eventsThisMonth.length > 0 && (
             <>
-              <p className="text-xs font-semibold uppercase tracking-wide -mb-2 text-tertiary">Events</p>
+              <SectionLabel className="-mb-2">Events</SectionLabel>
               {eventsThisMonth.map((ev) => {
                 const isExpanded = expandedEventId === ev.id;
                 return (
@@ -489,8 +491,8 @@ export function AnalyticsTab({
           )}
 
           {/* Groups — compact rows, detail on expand */}
-          <p className="text-xs font-semibold uppercase tracking-wide -mb-2 text-tertiary">Spending groups</p>
-          <div className="surface rounded-xl overflow-hidden divide-y divide-theme">
+          <SectionLabel className="-mb-2">Spending groups</SectionLabel>
+          <ListContainer>
             {analyticsData.map((seg) => {
               const pct = analyticsTotal > 0 ? (seg.amount / analyticsTotal) * 100 : 0;
               const prevAmount = prevMonthData.get(seg.group) ?? 0;
@@ -513,8 +515,8 @@ export function AnalyticsTab({
                       <span
                         className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
                         style={{
-                          color: delta > 0 ? '#ef4444' : '#10b981',
-                          backgroundColor: delta > 0 ? '#ef444418' : '#10b98118'
+                          color: delta > 0 ? STATUS.danger : STATUS.success,
+                          backgroundColor: delta > 0 ? tint(STATUS.danger) : tint(STATUS.success)
                         }}
                       >
                         {delta > 0 ? '↑' : '↓'}
@@ -524,7 +526,7 @@ export function AnalyticsTab({
                     {overBudget && (
                       <span
                         className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
-                        style={{ color: '#ef4444', backgroundColor: '#ef444418' }}
+                        style={{ color: STATUS.danger, backgroundColor: tint(STATUS.danger) }}
                       >
                         over
                       </span>
@@ -604,7 +606,7 @@ export function AnalyticsTab({
                                     className="h-1 rounded-full"
                                     style={{
                                       width: `${catBudgetPct}%`,
-                                      backgroundColor: catOver ? '#ef4444' : '#22c55e'
+                                      backgroundColor: catOver ? STATUS.danger : STATUS.success
                                     }}
                                   />
                                 </div>
@@ -625,12 +627,12 @@ export function AnalyticsTab({
                 </div>
               );
             })}
-          </div>
+          </ListContainer>
 
           {/* Non-event hashtag summary — with promote action */}
           {hashtagSummary.length > 0 && (
             <div className="surface rounded-xl p-3.5 flex flex-col gap-2.5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-tertiary">Other hashtags</p>
+              <SectionLabel className="">Other hashtags</SectionLabel>
               {hashtagSummary.map(({ tag, amount }) => (
                 <div key={tag} className="flex items-center gap-2">
                   <span className="text-sm font-medium flex-1" style={{ color: 'var(--color-primary)' }}>

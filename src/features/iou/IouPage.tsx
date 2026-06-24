@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { usePrivacy } from '@/context/PrivacyContext';
 import type { PersonalIou } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
-import { Button } from '@/components/ui';
+import { Button, PageHeader } from '@/components/ui';
 import { useIou } from './useIou';
 import { IouListView } from './IouListView';
 import { IouForm } from './IouForm';
@@ -31,13 +31,11 @@ export function IouPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-theme">
-        <h2 className="text-xl font-semibold text-primary">IOUs</h2>
+      <PageHeader title="IOUs">
         {iouActive.length > 0 && (
           <div className="flex gap-3 mt-1">
             {iouTotalLent > 0 && (
-              <span className="text-xs font-medium text-emerald-600">
+              <span className="text-xs font-medium text-success">
                 You&apos;re owed {mode === 'open' ? formatCurrency(iouTotalLent) : '••••'}
               </span>
             )}
@@ -47,13 +45,13 @@ export function IouPage() {
               </span>
             )}
             {iouTotalBorrowed > 0 && (
-              <span className="text-xs font-medium text-red-500">
+              <span className="text-xs font-medium text-danger">
                 You owe {mode === 'open' ? formatCurrency(iouTotalBorrowed) : '••••'}
               </span>
             )}
           </div>
         )}
-      </div>
+      </PageHeader>
 
       <div className="flex-1 overflow-y-auto pb-24">
         <IouListView

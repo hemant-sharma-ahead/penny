@@ -4,7 +4,7 @@ import type { ActiveEvent } from '@/context/EventModeContext';
 import { normalizeHashtag } from '@/context/EventModeContext';
 import { INTENT_GROUP_META } from '@/core/db/defaultCategories';
 import { toMonthYearKey } from '@/lib/formatters';
-import { offsetMonth } from '@/lib/dateUtils';
+import { offsetMonth } from '@/lib/date';
 
 interface Args {
   expenses: Expense[];

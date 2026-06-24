@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { IconBadge } from '@/components/ui';
+import { Badge } from '@/components/ui';
+import { ListRow } from '@/components/shared';
+import { STATUS } from '@/lib/statusColors';
 import type { Holding } from '@/core/db/types';
 import { realAssetIsStale, realAssetStalenessLabel } from './realAssetHelpers';
 import { VehicleValidityBadge } from './VehicleValidityBadge';
@@ -46,48 +48,37 @@ export function VehicleCard({
         className="surface rounded-2xl px-4 py-3 flex flex-col gap-3 w-full text-left"
       >
         {/* Header */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <IconBadge icon={vehicleIcon} color="#3b82f6" bg="#3b82f615" size="sm" />
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-primary truncate">
-                {meta.vehicleMake && meta.vehicleModel ? `${meta.vehicleMake} ${meta.vehicleModel}` : holding.name}
-              </p>
-              <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                {meta.vehicleYear && <span className="text-[10px] text-tertiary">{meta.vehicleYear}</span>}
-                {meta.vehicleFuelType && (
-                  <span
-                    className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-full"
-                    style={{ backgroundColor: `${fuelColor}18`, color: fuelColor }}
-                  >
-                    {meta.vehicleFuelType}
-                  </span>
-                )}
-                {meta.vehicleRegNumber && (
-                  <span className="text-[10px] font-mono text-tertiary">
-                    {mode === 'open' ? meta.vehicleRegNumber : `${meta.vehicleRegNumber.slice(0, 4)}••••`}
-                  </span>
-                )}
-                {meta.vehicleRcStatus && (
-                  <span
-                    className="text-[9px] font-bold uppercase px-1 py-0.5 rounded"
-                    style={{
-                      backgroundColor: meta.vehicleRcStatus === 'ACTIVE' ? '#10b98112' : '#ef444412',
-                      color: meta.vehicleRcStatus === 'ACTIVE' ? '#10b981' : '#ef4444'
-                    }}
-                  >
-                    {meta.vehicleRcStatus}
-                  </span>
-                )}
-              </div>
+        <ListRow
+          icon={vehicleIcon}
+          iconColor="#3b82f6"
+          iconBg="#3b82f615"
+          iconSize="sm"
+          title={
+            <p className="text-sm font-semibold text-primary truncate">
+              {meta.vehicleMake && meta.vehicleModel ? `${meta.vehicleMake} ${meta.vehicleModel}` : holding.name}
+            </p>
+          }
+          subtitle={
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {meta.vehicleYear && <span className="text-[10px] text-tertiary">{meta.vehicleYear}</span>}
+              {meta.vehicleFuelType && <Badge label={meta.vehicleFuelType.toUpperCase()} color={fuelColor} size="sm" />}
+              {meta.vehicleRegNumber && (
+                <span className="text-[10px] font-mono text-tertiary">
+                  {mode === 'open' ? meta.vehicleRegNumber : `${meta.vehicleRegNumber.slice(0, 4)}••••`}
+                </span>
+              )}
+              {meta.vehicleRcStatus && (
+                <Badge
+                  label={meta.vehicleRcStatus}
+                  color={meta.vehicleRcStatus === 'ACTIVE' ? STATUS.success : STATUS.danger}
+                  size="sm"
+                  rounded="md"
+                />
+              )}
             </div>
-          </div>
-          <i
-            className="ti ti-chevron-right text-tertiary flex-shrink-0 mt-1"
-            style={{ fontSize: 15 }}
-            aria-hidden="true"
-          />
-        </div>
+          }
+          right={<i className="ti ti-chevron-right text-tertiary" style={{ fontSize: 15 }} aria-hidden="true" />}
+        />
 
         {/* Owner + address */}
         {meta.vehicleOwnerName && (
@@ -120,7 +111,7 @@ export function VehicleCard({
                 {mode === 'open' ? `₹${holding.investedAmount.toLocaleString('en-IN')}` : '••••'}
               </p>
               {gainPct !== null && (
-                <p className={`text-[9px] font-medium ${gainPct >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                <p className={`text-[9px] font-medium ${gainPct >= 0 ? 'text-success' : 'text-danger'}`}>
                   {gainPct >= 0 ? '+' : ''}
                   {gainPct.toFixed(1)}% depreciation
                 </p>
@@ -138,15 +129,14 @@ export function VehicleCard({
         {/* Challan row */}
         {hasChallanData && (
           <div
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl"
-            style={{ backgroundColor: pendingChallans > 0 ? '#ef444410' : '#10b98110' }}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl ${pendingChallans > 0 ? 'bg-danger-subtle' : 'bg-success-subtle'}`}
           >
             <i
-              className={`ti ${pendingChallans > 0 ? 'ti-alert-triangle' : 'ti-shield-check'}`}
-              style={{ fontSize: 13, color: pendingChallans > 0 ? '#ef4444' : '#10b981' }}
+              className={`ti ${pendingChallans > 0 ? 'ti-alert-triangle text-danger' : 'ti-shield-check text-success'}`}
+              style={{ fontSize: 13 }}
               aria-hidden="true"
             />
-            <p className="text-[10px] font-medium" style={{ color: pendingChallans > 0 ? '#ef4444' : '#10b981' }}>
+            <p className={`text-[10px] font-medium ${pendingChallans > 0 ? 'text-danger' : 'text-success'}`}>
               {pendingChallans > 0
                 ? `${pendingChallans} pending challan${pendingChallans > 1 ? 's' : ''} · ₹${(meta.vehicleChallanPendingAmount ?? 0).toLocaleString('en-IN')}`
                 : 'No pending challans'}
@@ -156,10 +146,7 @@ export function VehicleCard({
 
         {/* Staleness label */}
         <div className="flex items-center justify-between pt-0.5 border-t border-theme">
-          <p
-            className={`text-[10px] ${valueStale ? 'font-medium' : 'text-tertiary'}`}
-            style={valueStale ? { color: '#f59e0b' } : {}}
-          >
+          <p className={`text-[10px] ${valueStale ? 'font-medium text-warning' : 'text-tertiary'}`}>
             {valueStale && <i className="ti ti-clock-exclamation mr-1" style={{ fontSize: 11 }} aria-hidden="true" />}
             {stalenessLabel}
           </p>

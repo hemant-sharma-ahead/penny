@@ -1,8 +1,10 @@
-// Shared building blocks for the financial calculator screens — labeled inputs,
-// a segmented toggle, and result rows/cards. Mirrors the visual language of the
-// existing Loan Scenarios page.
+// Shared building blocks for the financial calculator screens. These are thin adapters over the
+// app's shared component library (TextInput, SegmentedControl, DetailRow-style rows) so the
+// calculators inherit the same theming and behaviour as the rest of Penny.
 import type { ReactNode } from 'react';
 import { MaskedValue } from '@/components/privacy/MaskedValue';
+import { TextInput, SegmentedControl } from '@/components/ui';
+import { STATUS } from '@/lib/statusColors';
 import { formatCurrency } from '@/lib/formatters';
 
 interface LabeledInputProps {
@@ -17,29 +19,17 @@ interface LabeledInputProps {
 
 export function LabeledInput({ label, value, onChange, hint, placeholder, prefix, suffix }: LabeledInputProps) {
   return (
-    <div>
-      <div className="flex items-baseline justify-between mb-1">
-        <label className="text-xs font-medium text-secondary">{label}</label>
-        {hint && <span className="text-[10px] text-tertiary">{hint}</span>}
-      </div>
-      <div className="relative flex items-center">
-        {prefix && (
-          <span className="absolute left-3 text-sm pointer-events-none select-none text-tertiary">{prefix}</span>
-        )}
-        <input
-          type="number"
-          inputMode="decimal"
-          className="w-full rounded-xl border py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-          style={{ paddingLeft: prefix ? '1.75rem' : '0.75rem', paddingRight: suffix ? '2.5rem' : '0.75rem' }}
-          placeholder={placeholder ?? '0'}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-        {suffix && (
-          <span className="absolute right-3 text-sm pointer-events-none select-none text-tertiary">{suffix}</span>
-        )}
-      </div>
-    </div>
+    <TextInput
+      label={label}
+      value={value}
+      onChange={onChange}
+      hint={hint}
+      placeholder={placeholder ?? '0'}
+      prefix={prefix}
+      suffix={suffix}
+      type="number"
+      inputMode="decimal"
+    />
   );
 }
 
@@ -54,27 +44,7 @@ export function SegmentedToggle<T extends string>({ label, value, options, onCha
   return (
     <div>
       <label className="text-xs font-medium text-secondary mb-1 block">{label}</label>
-      <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
-        {options.map((o) => (
-          <button
-            key={o.value}
-            type="button"
-            onClick={() => onChange(o.value)}
-            className="py-2.5 rounded-xl border text-xs font-medium transition-colors"
-            style={
-              value === o.value
-                ? { backgroundColor: 'var(--color-primary)', color: '#fff', borderColor: 'var(--color-primary)' }
-                : {
-                    backgroundColor: 'transparent',
-                    color: 'var(--color-text-secondary)',
-                    borderColor: 'var(--color-border)'
-                  }
-            }
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl options={options} value={value} onChange={onChange} />
     </div>
   );
 }
@@ -92,7 +62,7 @@ export function ResultRow({ label, value, accent, saving }: ResultRowProps) {
       <span className="text-sm text-secondary">{label}</span>
       <span
         className="text-sm font-semibold"
-        style={{ color: saving ? '#10b981' : accent ? 'var(--color-primary)' : 'var(--color-text-primary)' }}
+        style={{ color: saving ? STATUS.success : accent ? 'var(--color-primary)' : 'var(--color-text-primary)' }}
       >
         {value}
       </span>
@@ -109,7 +79,7 @@ interface AmountRowProps {
 }
 
 export function AmountRow({ label, amount, accent, saving }: AmountRowProps) {
-  const colorClass = saving ? 'text-[#10b981]' : accent ? 'text-[var(--color-primary)]' : 'text-primary';
+  const colorClass = saving ? 'text-success' : accent ? 'text-[var(--color-primary)]' : 'text-primary';
   return (
     <div className="flex items-center justify-between py-1.5">
       <span className="text-sm text-secondary">{label}</span>

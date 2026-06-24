@@ -2,6 +2,7 @@ import type { PersonalIou } from '@/core/db/types';
 import { formatCurrency, formatDateShort } from '@/lib/formatters';
 import { Button, Card } from '@/components/ui';
 import { ListRow, DueDateBadge } from '@/components/shared';
+import { STATUS, tint } from '@/lib/statusColors';
 
 interface IouCardProps {
   iou: PersonalIou;
@@ -14,8 +15,8 @@ interface IouCardProps {
 
 export function IouCard({ iou, nowMs, mode, onEdit, onSettle }: IouCardProps) {
   const isLent = iou.direction === 'lent';
-  const accentColor = isLent ? '#10b981' : '#ef4444';
-  const accentBg = isLent ? '#f0fdf4' : '#fef2f2';
+  const accentColor = isLent ? STATUS.success : STATUS.danger;
+  const accentBg = tint(accentColor);
   const amount = mode === 'open' ? formatCurrency(iou.amount) : '••••';
 
   if (!onSettle) {
@@ -77,7 +78,7 @@ export function IouCard({ iou, nowMs, mode, onEdit, onSettle }: IouCardProps) {
             e.stopPropagation();
             onSettle(iou);
           }}
-          style={{ backgroundColor: `${accentColor}18`, color: accentColor }}
+          style={{ backgroundColor: tint(accentColor), color: accentColor }}
         >
           Mark settled
         </Button>

@@ -3,6 +3,7 @@ import { expensesRepo, insurancePoliciesRepo, liabilitiesRepo, subscriptionsRepo
 import { forecastEvents } from '@/core/cashflow/forecaster';
 import type { CashFlowEvent } from '@/core/cashflow/forecaster';
 import { CF_TYPES, getCashFlowMeta } from '@/core/cashflow/meta';
+import { startOfToday } from '@/lib/date';
 import type { Expense, InsurancePolicy, Liability, Subscription } from '@/core/db/types';
 
 export type Horizon = 'week' | 'month';
@@ -54,11 +55,7 @@ export function useCashFlow() {
     [data, nowMs, horizon]
   );
 
-  const todayStart = useMemo(() => {
-    const d = new Date(nowMs);
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
-  }, [nowMs]);
+  const todayStart = useMemo(() => startOfToday(nowMs), [nowMs]);
 
   const grouped = useMemo(() => {
     const map = new Map<number, CashFlowEvent[]>();

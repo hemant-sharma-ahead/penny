@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui';
+import { STATUS, tint } from '@/lib/statusColors';
 
 interface DoneStepProps {
   importedCount: number;
@@ -8,8 +9,11 @@ interface DoneStepProps {
 export function DoneStep({ importedCount, onDone }: DoneStepProps) {
   return (
     <div className="flex flex-col items-center justify-center gap-6 flex-1 py-12">
-      <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#10b98120' }}>
-        <i className="ti ti-check" style={{ fontSize: 32, color: '#10b981' }} aria-hidden="true" />
+      <div
+        className="w-16 h-16 rounded-full flex items-center justify-center"
+        style={{ backgroundColor: tint(STATUS.success) }}
+      >
+        <i className="ti ti-check" style={{ fontSize: 32, color: STATUS.success }} aria-hidden="true" />
       </div>
       <div className="text-center">
         <p className="text-xl font-semibold text-primary">Import complete</p>

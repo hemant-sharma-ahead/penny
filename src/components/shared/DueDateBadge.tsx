@@ -1,4 +1,4 @@
-import { dueDateInfo } from '@/lib/dueDateInfo';
+import { dueDateInfo } from '@/lib/date';
 
 interface DueDateBadgeProps {
   dueDateMs: number;

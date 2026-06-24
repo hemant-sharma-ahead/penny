@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Modal, Button } from '@/components/ui';
+import { Modal, Button, PageHeader } from '@/components/ui';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useEventMode } from '@/context/EventModeContext';
 import type { Expense, ExpenseCategory } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
-import { monthLabel } from '@/lib/dateUtils';
+import { monthLabel } from '@/lib/date';
 import { PATHS } from '@/router/paths';
 import { EventsModal } from './events/EventsModal';
 import { useEventEditor } from './events/useEventEditor';
@@ -40,10 +40,10 @@ export function ExpensesHeader({
 
   return (
     <>
-      <div className="px-4 pt-4 pb-3 border-b border-theme flex flex-col gap-1">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-xl font-semibold text-primary">Transactions</h2>
-          <div className="flex items-center gap-1">
+      <PageHeader
+        title="Transactions"
+        actions={
+          <>
             <button
               onClick={() => setShowEventSheet(true)}
               className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:text-primary hover:bg-surface-2 relative"
@@ -71,9 +71,10 @@ export function ExpensesHeader({
               className="w-8 h-8 rounded-lg hover:text-primary"
               onClick={() => setShowExportSheet(true)}
             />
-          </div>
-        </div>
-        <div className="flex items-center justify-between">
+          </>
+        }
+      >
+        <div className="flex items-center justify-between mt-1">
           <p className="text-sm text-secondary">
             {monthFilter ? monthLabel(monthFilter) : 'All transactions'}:{' '}
             <span className="font-medium text-primary">{mode === 'open' ? formatCurrency(filteredTotal) : '••••'}</span>
@@ -85,7 +86,7 @@ export function ExpensesHeader({
             </span>
           )}
         </div>
-      </div>
+      </PageHeader>
 
       {/* Export modal */}
       {showExportSheet && (
@@ -126,8 +127,8 @@ export function ExpensesHeader({
           }
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
-              <i className="ti ti-alert-triangle text-amber-500" style={{ fontSize: 20 }} aria-hidden="true" />
+            <div className="w-10 h-10 rounded-xl bg-warning-subtle flex items-center justify-center flex-shrink-0">
+              <i className="ti ti-alert-triangle text-warning" style={{ fontSize: 20 }} aria-hidden="true" />
             </div>
             <div>
               <p className="text-sm font-semibold text-primary">Date range changed</p>

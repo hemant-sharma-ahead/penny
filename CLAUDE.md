@@ -23,7 +23,7 @@ This file is read at the start of every Claude Code session. It provides orienta
 | M13: Financial calculators | 🚧 In progress (Pankhuri) |
 | M14: Finance news + Contact/Feedback | ⏳ Future |
 | M15: UI polish + feature refinements | ✅ Complete |
-| **Pre-Phase 1.5: Track 5 ✅ · Track 1A ✅ · Track 1B ✅ · Track 1C ✅ · Track 1D ✅ · Track 1E 🚧 · Track 2 · Track 3 · Track 4** | 🚧 In progress |
+| **Pre-Phase 1.5: Track 5 ✅ · Track 1A ✅ · Track 1B ✅ · Track 1C ✅ · Track 1D ✅ · Track 1E ✅ · Track 2 · Track 3 · Track 4** | 🚧 In progress |
 | Phase 1.5: Groups & Household OS | ⏳ Next |
 | Phase 2: Chip AI, native apps, cloud sync | ⏳ Future |
 | Phase 3: Regional languages, crypto, international equities | ⏳ Future |
@@ -72,6 +72,11 @@ Never disable these rules with `eslint-disable` comments.
 --color-open: #dc2626;    /* Red — Open mode */
 ```
 
+## Themes
+
+Four visual themes, set via `data-theme` on `<body>` (managed by `SettingsContext`, see `src/index.css`):
+**Light** · **Penny Blue** (navy `#1F3864` brand palette — `data-theme=blue`) · **Dark** (neutral slate/black) · **System** (resolves the OS preference to Light or true Dark — never Penny Blue, which is a deliberate manual pick). The legacy `dark` setting (which was the navy palette) auto-migrates to `blue` once on load.
+
 ## Semantic theme utilities (never use hardcoded Tailwind colours)
 
 | Class | What it does |
@@ -85,6 +90,17 @@ Never disable these rules with `eslint-disable` comments.
 | `border-theme` | Standard border color |
 | `surface` | Shorthand: `bg-surface` + `1px solid border-theme` |
 | `input-surface` | Input bg + text + border-color |
+
+## Status colors (never hardcode `#10b981`/`#ef4444`/`#f59e0b`/`#3b82f6`)
+
+Semantic status tokens: `--color-success` / `--color-danger` / `--color-warning` / `--color-info` / `--color-neutral`.
+- **Classes:** `text-success|danger|warning|info` and `bg-{success|danger|warning|info}-subtle` (theme-aware via `color-mix`).
+- **Props / inline styles:** `STATUS` map + `tint()` (subtle bg) + `ink()` (readable on-tint text) from [`src/lib/statusColors.ts`](src/lib/statusColors.ts).
+- **Pills → `<Badge color={STATUS.x}>`. Alert callouts → `<Banner variant="warning">`.** Domain/brand colors (category/asset/type accents) stay as data in `core/*/meta.ts`.
+
+## Shared utilities
+
+- **All date logic lives in [`src/lib/date.ts`](src/lib/date.ts)** (keys, labels, `formatDate*`, `dueDateInfo`, + `DAY_MS`/`startOfToday`/`daysUntil`/`daysBetween`). `lib/formatters.ts` is money/number only. Never re-implement day math or hardcode `86_400_000`.
 
 ---
 

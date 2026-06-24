@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { SearchInput, DismissibleChip } from '@/components/ui';
+import { STATUS, tint } from '@/lib/statusColors';
 import type { ActiveEvent } from '@/context/EventModeContext';
 import type { Account, Expense, ExpenseCategory, Hashtag, TransactionType } from '@/core/db/types';
 import { toMonthYearKey } from '@/lib/formatters';
-import { monthLabel } from '@/lib/dateUtils';
+import { monthLabel } from '@/lib/date';
 import { TransactionsTab } from './TransactionsTab';
 import { ExpenseForm } from './ExpenseForm';
 import { FilterModal } from './FilterModal';
@@ -132,7 +133,7 @@ export function TransactionsSlice({
             {activeFilterCount > 0 && (
               <span
                 className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-white font-bold"
-                style={{ fontSize: 9, backgroundColor: '#ef4444' }}
+                style={{ fontSize: 9, backgroundColor: STATUS.danger }}
               >
                 {activeFilterCount}
               </span>
@@ -145,7 +146,9 @@ export function TransactionsSlice({
             {typeFilter !== 'all' && (
               <DismissibleChip
                 label={typeFilter.charAt(0).toUpperCase() + typeFilter.slice(1)}
-                color={typeFilter === 'expense' ? '#ef4444' : typeFilter === 'income' ? '#10b981' : '#3b82f6'}
+                color={
+                  typeFilter === 'expense' ? STATUS.danger : typeFilter === 'income' ? STATUS.success : STATUS.info
+                }
                 onDismiss={() => setTypeFilter('all')}
               />
             )}
@@ -195,7 +198,7 @@ export function TransactionsSlice({
             <button
               onClick={clearChipFilters}
               className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium"
-              style={{ color: '#ef4444', backgroundColor: '#fef2f2' }}
+              style={{ color: STATUS.danger, backgroundColor: tint(STATUS.danger) }}
             >
               <i className="ti ti-x" style={{ fontSize: 11 }} aria-hidden="true" />
               Clear all

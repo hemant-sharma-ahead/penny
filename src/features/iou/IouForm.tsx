@@ -3,6 +3,7 @@ import type { IouDirection, PersonalIou } from '@/core/db/types';
 import { epochToDateInput } from '@/lib/formatters';
 import { TextInput, OptionButton } from '@/components/ui';
 import { FormModal } from '@/components/shared';
+import { STATUS } from '@/lib/statusColors';
 
 interface Props {
   editing: PersonalIou | null;
@@ -64,14 +65,14 @@ export function IouForm({ editing, onSave, onDelete, onClose, nowMs }: Props) {
           icon="ti-arrow-up"
           selected={direction === 'lent'}
           onClick={() => setDirection('lent')}
-          color="#10b981"
+          color={STATUS.success}
         />
         <OptionButton
           label="I borrowed"
           icon="ti-arrow-down"
           selected={direction === 'borrowed'}
           onClick={() => setDirection('borrowed')}
-          color="#ef4444"
+          color={STATUS.danger}
         />
       </div>
 

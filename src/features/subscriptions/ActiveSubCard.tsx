@@ -1,5 +1,6 @@
-import { Card, Button } from '@/components/ui';
+import { Card, Button, Badge } from '@/components/ui';
 import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import { STATUS } from '@/lib/statusColors';
 import { displayName, intervalLabel, toMonthly } from '@/core/subscriptions/format';
 import type { Subscription } from '@/core/db/types';
 
@@ -19,8 +20,8 @@ export function ActiveSubCard({ sub, mode, onCancel }: ActiveSubCardProps) {
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold text-primary truncate">{displayName(sub.merchantCategory)}</p>
             {sub.status === 'trial' && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 flex-shrink-0">
-                Trial
+              <span className="flex-shrink-0">
+                <Badge label="Trial" color={STATUS.info} size="sm" />
               </span>
             )}
           </div>
@@ -34,7 +35,7 @@ export function ActiveSubCard({ sub, mode, onCancel }: ActiveSubCardProps) {
             <p className="text-xs text-tertiary mt-0.5">Last charged {formatDateShort(sub.lastChargedAt)}</p>
           )}
           {sub.status === 'trial' && sub.trialEndsAt !== undefined && (
-            <p className="text-xs text-blue-500 mt-0.5">Trial may end {formatDateShort(sub.trialEndsAt)}</p>
+            <p className="text-xs text-info mt-0.5">Trial may end {formatDateShort(sub.trialEndsAt)}</p>
           )}
         </div>
         <Button variant="secondary" size="sm" className="flex-shrink-0" onClick={() => onCancel(sub)}>

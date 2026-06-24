@@ -1,4 +1,5 @@
 import { formatCurrency } from '@/lib/formatters';
+import { STATUS } from '@/lib/statusColors';
 import type { Budget, ExpenseCategory } from '@/core/db/types';
 
 interface BudgetsTabProps {
@@ -32,7 +33,7 @@ export function BudgetsTab({ expenseCategories, spendByCategory, monthBudgets, m
               {budget && (
                 <span
                   className="text-xs flex-shrink-0"
-                  style={{ color: over ? '#ef4444' : 'var(--color-text-tertiary)' }}
+                  style={{ color: over ? STATUS.danger : 'var(--color-text-tertiary)' }}
                 >
                   {mode === 'open' ? formatCurrency(budget.limitAmount) : '••••'}
                 </span>
@@ -50,12 +51,12 @@ export function BudgetsTab({ expenseCategories, spendByCategory, monthBudgets, m
                 <div className="flex-1 h-2 rounded-full overflow-hidden bg-surface-3">
                   <div
                     className="h-full rounded-full transition-all duration-300"
-                    style={{ width: `${pct}%`, backgroundColor: over ? '#ef4444' : cat.color }}
+                    style={{ width: `${pct}%`, backgroundColor: over ? STATUS.danger : cat.color }}
                   />
                 </div>
                 <span
                   className="text-xs flex-shrink-0"
-                  style={{ color: over ? '#ef4444' : 'var(--color-text-secondary)' }}
+                  style={{ color: over ? STATUS.danger : 'var(--color-text-secondary)' }}
                 >
                   {mode === 'open' ? formatCurrency(spent) : '••••'}
                 </span>

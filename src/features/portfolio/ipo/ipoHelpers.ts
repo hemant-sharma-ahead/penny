@@ -1,4 +1,5 @@
 import type { IpoStatus } from '@/core/ipo/ipoTypes';
+import { DAY_MS } from '@/lib/date';
 
 export const IPO_SUBTAB_ORDER: IpoStatus[] = ['upcoming', 'open', 'closed', 'listed'];
 
@@ -36,6 +37,6 @@ export function daysUntil(dateStr: string | null): number | null {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   close.setHours(0, 0, 0, 0);
-  const diff = Math.ceil((close.getTime() - today.getTime()) / 86_400_000);
+  const diff = Math.ceil((close.getTime() - today.getTime()) / DAY_MS);
   return diff >= 0 ? diff : null;
 }

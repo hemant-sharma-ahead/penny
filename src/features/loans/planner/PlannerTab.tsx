@@ -1,5 +1,4 @@
-import { Card, Button, TextInput, SelectInput, SegmentedControl } from '@/components/ui';
-import { SectionLabel } from './SectionLabel';
+import { Card, Button, TextInput, SelectInput, SegmentedControl, SectionLabel } from '@/components/ui';
 import { PlannerResults } from './PlannerResults';
 import type { usePlanner } from './usePlanner';
 

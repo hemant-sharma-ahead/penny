@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { usePrivacy } from '@/context/PrivacyContext';
 import type { Liability } from '@/core/db/types';
-import { SegmentedControl } from '@/components/ui';
+import { SegmentedControl, PageHeader } from '@/components/ui';
 import { useLoans } from './useLoans';
 import { MyLoansTab } from './myloans/MyLoansTab';
 import { PlannerTab } from './planner/PlannerTab';
@@ -20,9 +20,7 @@ export function LoanScenariosPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 pt-4 pb-3 border-b border-theme flex-shrink-0">
-        <h2 className="text-xl font-semibold text-primary">Loans</h2>
-      </div>
+      <PageHeader title="Loans" className="flex-shrink-0" />
 
       <div className="px-4 py-2.5 border-b border-theme flex-shrink-0">
         <SegmentedControl

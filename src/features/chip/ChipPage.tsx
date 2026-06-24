@@ -79,7 +79,7 @@ export function ChipPage() {
                 <p className="text-sm font-medium mt-0.5 mb-1 text-primary">{insight.headline}</p>
                 <p className="text-xs leading-relaxed text-secondary">{insight.reasoning}</p>
                 {insight.consequence && (
-                  <p className="text-xs text-amber-600 mt-1.5 leading-relaxed">⚠ {insight.consequence}</p>
+                  <p className="text-xs text-warning mt-1.5 leading-relaxed">⚠ {insight.consequence}</p>
                 )}
                 {insight.actionLabel && (
                   <Button

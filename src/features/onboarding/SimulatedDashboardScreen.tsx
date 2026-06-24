@@ -98,7 +98,7 @@ export function SimulatedDashboardScreen() {
           </p>
         </div>
 
-        {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
+        {error && <p className="text-danger text-sm mb-4 text-center">{error}</p>}
 
         <Button variant="primary" size="lg" fullWidth loading={loading} onClick={() => void handleGetStarted()}>
           {loading ? 'Setting up…' : 'Set up my dashboard'}

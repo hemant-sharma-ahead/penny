@@ -67,7 +67,7 @@ Invoke this at the start of any implementation task on Penny. These rules apply 
 
 ## Component & UI standards
 
-1. **Use shared primitives** from `src/components/ui/` (Card, Modal, Button, TextInput, etc.). Do not recreate these inline.
+1. **Use shared primitives** from `src/components/ui/` (Card, Modal, Button, TextInput, etc.). Do not recreate these inline. For layout repetition specifically: every feature page starts with `<PageHeader>` (never hand-roll the `px-4 pt-4 pb-3 border-b` title block); group divided list rows in `<ListContainer>`; title sections between cards/lists with `<SectionLabel>`. For hairline dividers use `divide-[var(--color-border)]` — **never `divide-theme`** (not a defined utility; it silently falls back to `currentColor`).
 
 2. **No Tailwind classNames in feature files for primitives.** Use semantic props: `variant="primary"`, not `className="py-3 rounded-xl bg-green-600"`.
 

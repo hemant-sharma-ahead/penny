@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { personalIousRepo } from '@/core/db/repositories';
 import { useRepository } from '@/hooks/useRepository';
+import { DAY_MS } from '@/lib/date';
 
 export function useIou() {
   const [nowMs] = useState(() => Date.now());
@@ -17,8 +18,8 @@ export function useIou() {
   const iouSortedActive = useMemo(
     () =>
       [...iouActive].sort((a, b) => {
-        const aR = a.dueDate !== undefined ? Math.ceil((a.dueDate - nowMs) / 86_400_000) : null;
-        const bR = b.dueDate !== undefined ? Math.ceil((b.dueDate - nowMs) / 86_400_000) : null;
+        const aR = a.dueDate !== undefined ? Math.ceil((a.dueDate - nowMs) / DAY_MS) : null;
+        const bR = b.dueDate !== undefined ? Math.ceil((b.dueDate - nowMs) / DAY_MS) : null;
         if (aR !== null && aR < 0 && bR !== null && bR < 0) return aR - bR;
         if (aR !== null && aR < 0) return -1;
         if (bR !== null && bR < 0) return 1;

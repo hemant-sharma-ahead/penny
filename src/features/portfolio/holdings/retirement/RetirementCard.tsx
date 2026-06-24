@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Card, IconBadge, DetailRow, ProgressBar } from '@/components/ui';
+import { Card, IconBadge, DetailRow, ProgressBar, Badge, Banner, StatBox } from '@/components/ui';
 import { formatCurrency } from '@/lib/formatters';
+import { STATUS, tint } from '@/lib/statusColors';
+import { DAY_MS } from '@/lib/date';
 import { LIFECYCLE_FUNDS, getAllocationAtAge, findNpsSchemeCode, fetchNpsNav, getPfmLabel } from '@/core/nps';
 import type { NpsLifecycleFund, NpsNavDetail, NpsPfmKey, NpsSchemeType } from '@/core/nps';
 import { isBeforeFifth, ppfBuildCardData } from '@/core/portfolio/ppfCalculations';
@@ -27,7 +29,7 @@ function nowMs(): number {
 
 function staleDays(h: Holding): number {
   const ts = h.lastUpdatedAt ?? h.updatedAt;
-  return Math.floor((Date.now() - ts) / 86_400_000);
+  return Math.floor((Date.now() - ts) / DAY_MS);
 }
 
 export function RetirementCard({
@@ -97,16 +99,9 @@ export function RetirementCard({
 
   function staleBadge() {
     if (days < 30) return null;
-    const color = days >= 60 ? '#ef4444' : '#f59e0b';
+    const color = days >= 60 ? STATUS.danger : STATUS.warning;
     const label = days >= 60 ? 'Overdue' : 'Update due';
-    return (
-      <span
-        className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
-        style={{ backgroundColor: `${color}15`, color }}
-      >
-        {label}
-      </span>
-    );
+    return <Badge label={label} color={color} size="sm" rounded="md" />;
   }
 
   function lastUpdatedText() {
@@ -156,14 +151,7 @@ export function RetirementCard({
           </button>
           <button onClick={onEdit} className="text-right flex-shrink-0">
             <div className="flex items-center gap-1.5 justify-end">
-              {showLiveCorpus && (
-                <span
-                  className="text-[9px] font-bold uppercase tracking-wide px-1 py-0.5 rounded"
-                  style={{ backgroundColor: '#10b98118', color: '#10b981' }}
-                >
-                  Live
-                </span>
-              )}
+              {showLiveCorpus && <Badge label="Live" color={STATUS.success} size="sm" rounded="md" />}
               {npsNavLoading && (
                 <div
                   className="w-3.5 h-3.5 border-2 rounded-full animate-spin"
@@ -195,7 +183,7 @@ export function RetirementCard({
                     <p className="text-[9px] text-tertiary">1Y return</p>
                     <p
                       className="text-xs font-semibold tabular-nums"
-                      style={{ color: npsNav.oneYear >= 0 ? '#10b981' : '#ef4444' }}
+                      style={{ color: npsNav.oneYear >= 0 ? STATUS.success : STATUS.danger }}
                     >
                       {npsNav.oneYear >= 0 ? '+' : ''}
                       {npsNav.oneYear.toFixed(1)}%
@@ -207,7 +195,7 @@ export function RetirementCard({
                     <p className="text-[9px] text-tertiary">3Y return</p>
                     <p
                       className="text-xs font-semibold tabular-nums"
-                      style={{ color: npsNav.threeYear >= 0 ? '#10b981' : '#ef4444' }}
+                      style={{ color: npsNav.threeYear >= 0 ? STATUS.success : STATUS.danger }}
                     >
                       {npsNav.threeYear >= 0 ? '+' : ''}
                       {npsNav.threeYear.toFixed(1)}%
@@ -219,7 +207,7 @@ export function RetirementCard({
                     <p className="text-[9px] text-tertiary">5Y return</p>
                     <p
                       className="text-xs font-semibold tabular-nums"
-                      style={{ color: npsNav.fiveYear >= 0 ? '#10b981' : '#ef4444' }}
+                      style={{ color: npsNav.fiveYear >= 0 ? STATUS.success : STATUS.danger }}
                     >
                       {npsNav.fiveYear >= 0 ? '+' : ''}
                       {npsNav.fiveYear.toFixed(1)}%
@@ -307,32 +295,21 @@ export function RetirementCard({
                 <p className="text-[10px] text-tertiary">This FY</p>
                 <p className="text-[10px] text-secondary tabular-nums">
                   {mode === 'open' ? `₹${ppfData.fyDeposits.toLocaleString('en-IN')} / ₹1.5L` : `•••• / ₹1.5L`}
-                  {ppfData.fyPct >= 100 && (
-                    <span className="ml-1 font-bold" style={{ color: '#10b981' }}>
-                      ✓ Full
-                    </span>
-                  )}
+                  {ppfData.fyPct >= 100 && <span className="ml-1 font-bold text-success">✓ Full</span>}
                 </p>
               </div>
               <ProgressBar
                 value={ppfData.fyPct}
-                color={ppfData.fyPct >= 100 ? '#10b981' : ppfData.fyPct >= 75 ? '#8b5cf6' : '#f59e0b'}
+                color={ppfData.fyPct >= 100 ? STATUS.success : ppfData.fyPct >= 75 ? '#8b5cf6' : STATUS.warning}
                 animate
               />
             </div>
 
             {/* April 5th tip */}
             {ppfData.showAprilTip && (
-              <div className="flex items-start gap-2 rounded-xl px-3 py-2" style={{ backgroundColor: '#f59e0b12' }}>
-                <i
-                  className="ti ti-calendar-event flex-shrink-0 mt-0.5"
-                  style={{ fontSize: 13, color: '#f59e0b' }}
-                  aria-hidden="true"
-                />
-                <p className="text-[11px] leading-snug" style={{ color: '#d97706' }}>
-                  Deposit before April 5 to earn interest for the full year
-                </p>
-              </div>
+              <Banner variant="warning" icon="ti-calendar-event">
+                Deposit before April 5 to earn interest for the full year
+              </Banner>
             )}
 
             {/* Transaction list */}
@@ -369,15 +346,13 @@ export function RetirementCard({
                           {mode === 'open' ? `₹${tx.amount.toLocaleString('en-IN')}` : '••••'}
                         </p>
                         {showFifth && (
-                          <span
-                            className="text-[9px] font-bold px-1 py-0.5 rounded flex-shrink-0"
-                            style={
-                              before5
-                                ? { backgroundColor: '#10b98112', color: '#10b981' }
-                                : { backgroundColor: '#f59e0b12', color: '#d97706' }
-                            }
-                          >
-                            {before5 ? '≤5th' : '>5th'}
+                          <span className="flex-shrink-0">
+                            <Badge
+                              label={before5 ? '≤5th' : '>5th'}
+                              color={before5 ? STATUS.success : STATUS.warning}
+                              size="sm"
+                              rounded="md"
+                            />
                           </span>
                         )}
                       </div>
@@ -417,7 +392,7 @@ export function RetirementCard({
                 <button
                   onClick={() => setShowEpfEmpSheet(true)}
                   className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                  style={{ backgroundColor: '#10b98115', color: '#10b981' }}
+                  style={{ backgroundColor: tint(STATUS.success), color: STATUS.success }}
                 >
                   <i className="ti ti-plus" style={{ fontSize: 11 }} aria-hidden="true" />
                   Add
@@ -446,11 +421,8 @@ export function RetirementCard({
                             <p className="text-xs font-medium text-primary truncate">
                               {emp.companyName}
                               {!emp.toDate && (
-                                <span
-                                  className="ml-1.5 text-[9px] font-bold uppercase tracking-wide px-1 py-0.5 rounded"
-                                  style={{ backgroundColor: '#10b98115', color: '#10b981' }}
-                                >
-                                  Current
+                                <span className="ml-1.5">
+                                  <Badge label="Current" color={STATUS.success} size="sm" rounded="md" />
                                 </span>
                               )}
                               {hikeCount > 0 && (
@@ -486,24 +458,22 @@ export function RetirementCard({
             {/* Corpus breakdown — 3-col stat grid */}
             {(epfData.employeeTotal > 0 || epfData.employerTotal > 0 || epfData.interestEarned > 0) && (
               <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-xl p-2.5 bg-surface-2 flex flex-col gap-0.5">
-                  <p className="text-[10px] text-tertiary">Employee total</p>
-                  <p className="text-xs font-semibold text-primary tabular-nums">
-                    {mode === 'open' ? `₹${epfData.employeeTotal.toLocaleString('en-IN')}` : '••••'}
-                  </p>
-                </div>
-                <div className="rounded-xl p-2.5 bg-surface-2 flex flex-col gap-0.5">
-                  <p className="text-[10px] text-tertiary">Employer total</p>
-                  <p className="text-xs font-semibold text-primary tabular-nums">
-                    {mode === 'open' ? `₹${epfData.employerTotal.toLocaleString('en-IN')}` : '••••'}
-                  </p>
-                </div>
-                <div className="rounded-xl p-2.5 bg-surface-2 flex flex-col gap-0.5">
-                  <p className="text-[10px] text-tertiary">Interest earned</p>
-                  <p className="text-xs font-semibold tabular-nums" style={{ color: '#10b981' }}>
-                    {mode === 'open' ? `₹${epfData.interestEarned.toLocaleString('en-IN')}` : '••••'}
-                  </p>
-                </div>
+                <StatBox
+                  size="sm"
+                  label="Employee total"
+                  value={mode === 'open' ? `₹${epfData.employeeTotal.toLocaleString('en-IN')}` : '••••'}
+                />
+                <StatBox
+                  size="sm"
+                  label="Employer total"
+                  value={mode === 'open' ? `₹${epfData.employerTotal.toLocaleString('en-IN')}` : '••••'}
+                />
+                <StatBox
+                  size="sm"
+                  label="Interest earned"
+                  valueColor={STATUS.success}
+                  value={mode === 'open' ? `₹${epfData.interestEarned.toLocaleString('en-IN')}` : '••••'}
+                />
               </div>
             )}
 

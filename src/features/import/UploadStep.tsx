@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Button, Card, OptionButton } from '@/components/ui';
+import { Button, Card, OptionButton, SectionLabel } from '@/components/ui';
 import { downloadCsv } from '@/core/export/exportCsv';
 import {
   PENNY_TEMPLATE,
@@ -29,7 +29,7 @@ export function UploadStep({ format, setFormat, parseError, onText }: UploadStep
     <>
       {/* Format selector */}
       <div className="flex flex-col gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-tertiary">Format</p>
+        <SectionLabel className="">Format</SectionLabel>
         <div className="grid grid-cols-2 gap-2">
           {IMPORT_FORMATS.map((f) => (
             <OptionButton
@@ -58,7 +58,7 @@ export function UploadStep({ format, setFormat, parseError, onText }: UploadStep
 
       {/* File picker */}
       <div className="flex flex-col gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-tertiary">File</p>
+        <SectionLabel className="">File</SectionLabel>
         <button
           onClick={() => fileRef.current?.click()}
           className="surface rounded-xl p-6 flex flex-col items-center gap-3 border-2 border-dashed border-theme hover:border-theme-strong transition-colors"
@@ -81,7 +81,7 @@ export function UploadStep({ format, setFormat, parseError, onText }: UploadStep
             e.target.value = '';
           }}
         />
-        {parseError && <p className="text-xs text-red-500">{parseError}</p>}
+        {parseError && <p className="text-xs text-danger">{parseError}</p>}
       </div>
 
       {/* Format hints */}

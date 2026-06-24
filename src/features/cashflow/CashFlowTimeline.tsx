@@ -1,10 +1,11 @@
 import { Card, IconBadge } from '@/components/ui';
 import { formatCurrency } from '@/lib/formatters';
+import { daysBetween } from '@/lib/date';
 import { getCashFlowMeta } from '@/core/cashflow/meta';
 import type { CashFlowEvent } from '@/core/cashflow/forecaster';
 
 function formatGroupDate(dueMs: number, todayStart: number): string {
-  const diffDays = Math.round((dueMs - todayStart) / 86_400_000);
+  const diffDays = daysBetween(todayStart, dueMs);
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Tomorrow';
   return new Intl.DateTimeFormat('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(dueMs));

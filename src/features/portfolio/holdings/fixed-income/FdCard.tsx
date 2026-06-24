@@ -1,4 +1,6 @@
-import { Card, IconBadge, ProgressBar } from '@/components/ui';
+import { Card, ProgressBar, Badge } from '@/components/ui';
+import { ListRow } from '@/components/shared';
+import { STATUS } from '@/lib/statusColors';
 import { calcFdMaturity } from '@/core/fd/fdCalculations';
 import type { CompoundingFreq } from '@/core/fd/fdCalculations';
 import type { Holding } from '@/core/db/types';
@@ -38,40 +40,27 @@ export function FdCard({ holding, onEdit, mode }: { holding: Holding; onEdit: ()
   return (
     <Card onClick={onEdit} padding="sm" className="flex flex-col gap-3">
       {/* Header */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <IconBadge icon="ti-building-bank" color="#f59e0b" bg="#f59e0b15" size="sm" />
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-primary truncate">{holding.name}</p>
-            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-              {bank && <span className="text-[10px] text-secondary">{bank}</span>}
-              {rate > 0 && (
-                <span
-                  className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: '#10b98115', color: '#10b981' }}
-                >
-                  {rate}% p.a.
-                </span>
-              )}
-              <span className="text-[9px] text-tertiary">{freqLabel[freq]}</span>
-            </div>
+      <ListRow
+        icon="ti-building-bank"
+        iconColor="#f59e0b"
+        iconBg="#f59e0b15"
+        iconSize="sm"
+        title={<p className="text-sm font-semibold text-primary truncate">{holding.name}</p>}
+        subtitle={
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {bank && <span className="text-[10px] text-secondary">{bank}</span>}
+            {rate > 0 && <Badge label={`${rate}% p.a.`} color={STATUS.success} size="sm" />}
+            <span className="text-[9px] text-tertiary">{freqLabel[freq]}</span>
           </div>
-        </div>
-        {result?.isMatured ? (
-          <span
-            className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
-            style={{ backgroundColor: '#10b98115', color: '#10b981' }}
-          >
-            MATURED
-          </span>
-        ) : (
-          <i
-            className="ti ti-chevron-right text-tertiary flex-shrink-0 mt-1"
-            style={{ fontSize: 15 }}
-            aria-hidden="true"
-          />
-        )}
-      </div>
+        }
+        right={
+          result?.isMatured ? (
+            <Badge label="MATURED" color={STATUS.success} size="sm" />
+          ) : (
+            <i className="ti ti-chevron-right text-tertiary" style={{ fontSize: 15 }} aria-hidden="true" />
+          )
+        }
+      />
 
       {/* Progress bar + dates */}
       {result && (
@@ -100,10 +89,10 @@ export function FdCard({ holding, onEdit, mode }: { holding: Holding; onEdit: ()
             <p className="text-[10px] text-tertiary mb-0.5">
               {result.isMatured ? 'Maturity amount' : 'Projected maturity'}
             </p>
-            <p className="text-lg font-bold tabular-nums" style={{ color: '#10b981' }}>
+            <p className="text-lg font-bold tabular-nums text-success">
               {mode === 'open' ? `₹${result.maturityAmount.toLocaleString('en-IN')}` : '••••'}
             </p>
-            <p className="text-[9px] font-medium" style={{ color: '#10b981' }}>
+            <p className="text-[9px] font-medium text-success">
               +₹{result.totalInterest.toLocaleString('en-IN')} ({((result.totalInterest / principal) * 100).toFixed(1)}
               %)
             </p>
@@ -113,9 +102,9 @@ export function FdCard({ holding, onEdit, mode }: { holding: Holding; onEdit: ()
 
       {/* Accrued interest */}
       {result && !result.isMatured && result.accruedInterest > 0 && (
-        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl" style={{ backgroundColor: '#10b98110' }}>
-          <i className="ti ti-trending-up" style={{ fontSize: 13, color: '#10b981' }} aria-hidden="true" />
-          <p className="text-[10px] font-medium" style={{ color: '#10b981' }}>
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-success-subtle">
+          <i className="ti ti-trending-up text-success" style={{ fontSize: 13 }} aria-hidden="true" />
+          <p className="text-[10px] font-medium text-success">
             {mode === 'open'
               ? `Accrued so far: ₹${result.accruedInterest.toLocaleString('en-IN')}`
               : 'Accrued interest: ••••'}

@@ -1,5 +1,6 @@
 import type { InsurancePolicy } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
+import { startOfToday } from '@/lib/date';
 import { getPolicyMeta } from '@/core/insurance/meta';
 import { Card } from '@/components/ui';
 import { ListRow, DueDateBadge } from '@/components/shared';
@@ -59,12 +60,7 @@ export function PolicyCard({ policy, mode, onEdit }: PolicyCardProps) {
           </div>
         }
         right={
-          <DueDateBadge
-            dueDateMs={policy.renewalDate}
-            nowMs={new Date().setHours(0, 0, 0, 0)}
-            warningDays={7}
-            expiredLabel="Expired"
-          />
+          <DueDateBadge dueDateMs={policy.renewalDate} nowMs={startOfToday()} warningDays={7} expiredLabel="Expired" />
         }
       />
     </Card>

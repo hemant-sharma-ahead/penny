@@ -3,7 +3,8 @@ import type { Liability } from '@/core/db/types';
 import { formatCurrency, formatMonthsDuration } from '@/lib/formatters';
 import { deriveTenureMonths } from '@/core/loans/amortization';
 import { getLoanMeta } from '@/core/loans/meta';
-import { Card, Button, EmptyState, IconBadge, DetailRow } from '@/components/ui';
+import { Card, Button, EmptyState, DetailRow, Badge } from '@/components/ui';
+import { ListRow } from '@/components/shared';
 import { AddLoanModal } from './AddLoanModal';
 
 interface MyLoansTabProps {
@@ -43,19 +44,14 @@ export function MyLoansTab({ emiLoans, mode, saveLiability, onPlanLoan }: MyLoan
             const monthsLeft = estimatedMonthsLeft(l);
             return (
               <Card key={l.id}>
-                <div className="flex items-start gap-3">
-                  <IconBadge icon={meta.icon} color={meta.color} size="sm" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-primary leading-tight">{l.name}</p>
-                    {l.lenderName && <p className="text-xs text-tertiary mt-0.5">{l.lenderName}</p>}
-                  </div>
-                  <span
-                    className="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
-                    style={{ backgroundColor: `${meta.color}18`, color: meta.color }}
-                  >
-                    {meta.label}
-                  </span>
-                </div>
+                <ListRow
+                  icon={meta.icon}
+                  iconColor={meta.color}
+                  iconSize="sm"
+                  title={<p className="text-sm font-semibold text-primary leading-tight">{l.name}</p>}
+                  subtitle={l.lenderName ? <p className="text-xs text-tertiary">{l.lenderName}</p> : undefined}
+                  right={<Badge label={meta.label} color={meta.color} size="sm" rounded="md" />}
+                />
 
                 <div className="flex flex-col gap-1.5 mt-3">
                   <DetailRow

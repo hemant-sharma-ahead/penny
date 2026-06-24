@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { calcSsy, SSY_DEFAULT_RATE_PCT, SSY_MAX_ANNUAL, SSY_MIN_ANNUAL } from '@/core/calculators/ssy';
 import { MaskedValue } from '@/components/privacy/MaskedValue';
 import { formatCurrency } from '@/lib/formatters';
+import { Banner } from '@/components/ui';
 import { LabeledInput, ResultCard, AmountRow, HeroResult } from './CalcUI';
 
 export function SsyCalculator() {
@@ -33,17 +34,11 @@ export function SsyCalculator() {
           <HeroResult label="Maturity value" amount={result.maturityValue} note="at 21 years from opening" />
 
           {(result.depositBelowMin || result.depositAboveMax) && (
-            <div
-              className="rounded-2xl p-4 flex items-start gap-3"
-              style={{ backgroundColor: '#f59e0b1a', border: '1px solid #f59e0b' }}
-            >
-              <i className="ti ti-alert-triangle" style={{ fontSize: 20, color: '#f59e0b' }} aria-hidden="true" />
-              <p className="text-xs text-secondary">
-                {result.depositBelowMin
-                  ? `The minimum yearly deposit is ${formatCurrency(SSY_MIN_ANNUAL)}.`
-                  : `The maximum yearly deposit is ${formatCurrency(SSY_MAX_ANNUAL)} — amounts above this don't earn interest.`}
-              </p>
-            </div>
+            <Banner variant="warning">
+              {result.depositBelowMin
+                ? `The minimum yearly deposit is ${formatCurrency(SSY_MIN_ANNUAL)}.`
+                : `The maximum yearly deposit is ${formatCurrency(SSY_MAX_ANNUAL)} — amounts above this don't earn interest.`}
+            </Banner>
           )}
 
           <ResultCard title="Breakdown">

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button, Modal, Toggle } from '@/components/ui';
+import { STATUS } from '@/lib/statusColors';
 import {
   TICKER_CONFIGS,
   fetchMarketTickers,
@@ -58,7 +59,8 @@ export function MarketStrip() {
               ))
             : tickers.map((t) => {
                 const up = t.changePct !== null && t.changePct >= 0;
-                const changeColor = t.changePct === null ? 'var(--color-text-tertiary)' : up ? '#16a34a' : '#dc2626';
+                const changeColor =
+                  t.changePct === null ? 'var(--color-text-tertiary)' : up ? STATUS.success : STATUS.danger;
                 return (
                   <div
                     key={t.id}
@@ -89,7 +91,7 @@ export function MarketStrip() {
       {/* Manage sheet */}
       {manageOpen && (
         <Modal onClose={() => setManageOpen(false)} title="Market tickers">
-          <div className="flex flex-col divide-y divide-theme -mx-4">
+          <div className="flex flex-col divide-y divide-[var(--color-border)] -mx-4">
             {TICKER_CONFIGS.map((c) => {
               const on = enabled.has(c.id);
               return (

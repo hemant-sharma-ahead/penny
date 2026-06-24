@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { PageHeader } from '@/components/ui';
 import { CALCULATORS, getCalculator, searchCalculators, type CalculatorId } from './calculatorRegistry';
 import { FireCalculator } from './FireCalculator';
 import { HraCalculator } from './HraCalculator';
@@ -84,10 +85,9 @@ export function CalculatorsPage() {
   // ── Searchable list view ─────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 pt-4 pb-3 border-b border-theme">
-        <h2 className="text-xl font-semibold text-primary">Calculators</h2>
+      <PageHeader title="Calculators">
         <p className="text-xs mt-0.5 text-tertiary">On-device calculations — nothing leaves your phone</p>
-      </div>
+      </PageHeader>
 
       <div className="px-4 py-3 border-b border-theme">
         <div className="relative flex items-center">
@@ -97,7 +97,7 @@ export function CalculatorsPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search calculators…"
-            className="w-full rounded-xl border py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
+            className="w-full rounded-xl border py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] input-surface"
             aria-label="Search calculators"
           />
         </div>

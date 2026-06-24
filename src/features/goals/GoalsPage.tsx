@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { formatCurrency } from '@/lib/formatters';
-import { TabStrip } from '@/components/ui';
+import { TabStrip, PageHeader } from '@/components/ui';
 import { useGoals } from './useGoals';
 import { GoalsTab } from './GoalsTab';
 import { SipCalculatorTab } from './SipCalculatorTab';
@@ -13,16 +13,14 @@ export function GoalsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-theme">
-        <h2 className="text-xl font-semibold text-primary">Goals</h2>
-        {goals.length > 0 && (
-          <p className="text-sm mt-0.5 text-secondary">
-            {mode === 'open' ? formatCurrency(totalSaved) : '••••'} of{' '}
-            {mode === 'open' ? formatCurrency(totalTarget) : '••••'} saved
-          </p>
-        )}
-      </div>
+      <PageHeader
+        title="Goals"
+        subtitle={
+          goals.length > 0
+            ? `${mode === 'open' ? formatCurrency(totalSaved) : '••••'} of ${mode === 'open' ? formatCurrency(totalTarget) : '••••'} saved`
+            : undefined
+        }
+      />
 
       {/* Tabs */}
       <TabStrip

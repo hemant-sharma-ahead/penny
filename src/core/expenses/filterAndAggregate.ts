@@ -1,5 +1,5 @@
 import type { Expense } from '@/core/db/types';
-import { toDateKey, dateLabel } from '@/lib/dateUtils';
+import { toDateKey, dateLabel } from '@/lib/date';
 import { toMonthYearKey } from '@/lib/formatters';
 
 export interface GroupedDay {

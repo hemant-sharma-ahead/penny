@@ -34,7 +34,7 @@ export function DeductionsTab({ summary, deductions }: DeductionsTabProps) {
                 key={item.label}
                 label={
                   <span className="flex items-center gap-1">
-                    <i className="ti ti-check text-emerald-500" style={{ fontSize: 11 }} aria-hidden="true" />
+                    <i className="ti ti-check text-success" style={{ fontSize: 11 }} aria-hidden="true" />
                     {item.label}
                   </span>
                 }
@@ -82,7 +82,7 @@ export function DeductionsTab({ summary, deductions }: DeductionsTabProps) {
           <DetailRow
             label={
               <span className="flex items-center gap-1">
-                <i className="ti ti-check text-emerald-500" style={{ fontSize: 11 }} aria-hidden="true" />
+                <i className="ti ti-check text-success" style={{ fontSize: 11 }} aria-hidden="true" />
                 Health insurance premium
               </span>
             }
@@ -121,7 +121,7 @@ export function DeductionsTab({ summary, deductions }: DeductionsTabProps) {
             <p className="text-xs text-secondary">
               Estimated annual interest: {formatCurrency(sec24B.annualInterest)}
               {sec24B.annualInterest > LIMITS.SEC_24B && (
-                <span className="text-amber-600"> (capped at ₹2L for self-occupied property)</span>
+                <span className="text-warning"> (capped at ₹2L for self-occupied property)</span>
               )}
             </p>
           </>
