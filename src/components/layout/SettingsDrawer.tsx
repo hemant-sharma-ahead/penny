@@ -112,6 +112,18 @@ export function SettingsDrawer({ open, onClose }: Props) {
                   </button>
                 );
               })}
+              {/* Calculators — navigates to the calculators page */}
+              <button
+                onClick={() => {
+                  onClose();
+                  navigate(PATHS.app.calculators);
+                }}
+                className="flex flex-col items-center justify-center gap-1 py-3 rounded-xl border transition-colors"
+                style={{ backgroundColor: '#f97316' + '1a', borderColor: '#f97316', color: '#f97316' }}
+              >
+                <i className="ti ti-math-function" style={{ fontSize: 18 }} aria-hidden="true" />
+                <span className="text-[9px] font-medium leading-tight text-center px-0.5">Calc</span>
+              </button>
             </div>
           </section>
 
