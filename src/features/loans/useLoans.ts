@@ -1,16 +1,9 @@
 import { useMemo } from 'react';
 import { liabilitiesRepo } from '@/core/db/repositories';
-import type { LiabilityType } from '@/core/db/types';
 import { useRepository } from '@/hooks/useRepository';
+import { EMI_LOAN_TYPES } from '@/core/loans/meta';
 
-export const EMI_LOAN_TYPES: LiabilityType[] = [
-  'home_loan',
-  'car_loan',
-  'personal_loan',
-  'education_loan',
-  'gold_loan',
-  'lap'
-];
+export { EMI_LOAN_TYPES };
 
 export function useLoans() {
   const { items: liabilities, save: saveLiability } = useRepository(liabilitiesRepo);

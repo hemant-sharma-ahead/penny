@@ -63,3 +63,17 @@ export function epochToDateInput(epochMs: number): string {
   const d = new Date(epochMs);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+
+/** Formats a month count as a compact duration, e.g. 27 → "2y 3m", 12 → "1y", 5 → "5m". */
+export function formatMonthsDuration(totalMonths: number): string {
+  const y = Math.floor(totalMonths / 12);
+  const mo = totalMonths % 12;
+  if (y === 0) return `${mo}m`;
+  if (mo === 0) return `${y}y`;
+  return `${y}y ${mo}m`;
+}
+
+/** Parses a numeric input string, returning 0 for empty/invalid values. */
+export function parseNumber(s: string): number {
+  return parseFloat(s) || 0;
+}

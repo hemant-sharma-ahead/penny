@@ -19,8 +19,11 @@ The renewal tracker reads the `renewalDate` field across all policies and filter
 When insurance data is passed to Chip AI (Phase 2), insurer names are generalised to "Insurer A", "Insurer B" to avoid identifying the user's specific providers. Policy numbers are never sent to any external service.
 
 Key files:
-- `src/features/insurance/InsurancePage.tsx` — policy list, renewal tracker, coverage summary
+- `src/features/insurance/InsurancePage.tsx` — thin shell: header + policy list + FAB + PolicyForm
+- `src/features/insurance/useInsurance.ts` — policies + premium total + expiring count + renewal-sorted list
+- `src/features/insurance/PolicyCard.tsx` / `CoverageSummary.tsx` — policy row + coverage footer
 - `src/features/insurance/PolicyForm.tsx` — add/edit policy form
+- `src/core/insurance/meta.ts` — insurance-type metadata (label/icon/colour)
 
 ## Current limitations
 - Insurer names are stored locally in full but are generalised when passed to Chip AI

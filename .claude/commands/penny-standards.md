@@ -59,7 +59,7 @@ Invoke this at the start of any implementation task on Penny. These rules apply 
 
 2. **`noUncheckedIndexedAccess` is on.** Always handle the case where an array index or record key returns `undefined`.
 
-3. **`exactOptionalPropertyTypes` is on.** Omit optional properties instead of passing `undefined`.
+3. **`exactOptionalPropertyTypes` is on.** Prefer omitting an optional property over passing `undefined`. When a prop/field is *legitimately* assigned from a possibly-undefined computed value (e.g. `currentValue: parseFloat(x) || undefined`, or a UI prop like `hint`/`error`/`bg` that may be absent), declare it `prop?: T | undefined` at the definition rather than forcing every call site into a conditional spread. Conversely, in a component's own `Props` interface, an optional prop that callers may pass explicitly-undefined must be `?: T | undefined` or `tsc -b` (TS2375) fails.
 
 4. **No implicit returns** in functions that return a value. Every code path must explicitly return.
 
@@ -99,15 +99,25 @@ Invoke this at the start of any implementation task on Penny. These rules apply 
 
 ---
 
-## Pre-commit gates (all three must pass)
+## Pre-commit gates (all must pass)
 
 ```bash
+npm run type-check  # tsc -b — REAL project type-check (see gotcha below)
 npm run format      # Prettier
 npm run lint        # ESLint — zero errors
 npm test -- --run   # Vitest — all green including PII gate
 ```
 
 Never skip. Never use `--no-verify`. Fix the root cause.
+
+**Gotcha — `type-check` must be `tsc -b`, not `tsc --noEmit`.** This is a Vite project-references
+setup: the root `tsconfig.json` has `"files": []` and only `references`, so `tsc --noEmit` against
+it type-checks **nothing** (it silently passes). The app is only checked via `tsc -b` (which builds
+`tsconfig.app.json` + `tsconfig.node.json`, both `noEmit`). A green `tsc --noEmit` is a false
+negative — it will miss undefined references (e.g. a helper you forgot to move during an extraction),
+which then crash at runtime. Always gate on `npm run type-check` (= `tsc -b`). Note Vite/esbuild
+strips types without checking, so the dev server runs even with type errors — the gate is your only
+safety net.
 
 ---
 
@@ -167,6 +177,66 @@ Layer 3: src/features/{name}/{Name}Page.tsx — Thin UI. Calls hook. Calls share
 - Maximum 400 lines for a page, 200 lines for a form
 - No calculations, no repo calls — delegate to Layer 1 and Layer 2
 
+**Layer 3 — Feature decomposition rules (within the feature folder):**
+
+When a page grows beyond ~400 lines, decompose it. The decomposition lives *inside the feature folder* — these sub-components are not generic enough for `src/components/shared/`.
+
+Split out in this order of priority:
+
+1. **Modals** → their own files (`ExpenseExportModal.tsx`, `BudgetModal.tsx`, `FilterModal.tsx`, `EventsModal.tsx`). Each modal owns its internal state. Parent only holds the show/hide boolean and passes the minimum data the modal needs to do its job.
+
+2. **Tab content** → their own files (`TransactionsTab.tsx`, `BudgetsTab.tsx`, `AnalyticsTab.tsx`). Each tab receives only the data it renders — it should not receive state that belongs to sibling tabs.
+
+3. **Row components** → their own files when repeated in a list (`TransactionRow.tsx`). Any item rendered inside a `.map()` that is more than ~10 lines is a candidate.
+
+4. **Pure helpers** → `src/lib/` (not the feature folder). Date utilities, formatters, calculators — anything with zero React belongs in `lib/` so it's importable anywhere and testable in isolation.
+
+A well-decomposed page's `return` block should look like:
+```tsx
+return (
+  <div>
+    <PageHeader ... />
+    <TabStrip ... />
+    {activeTab === 'transactions' && <TransactionsTab ... />}
+    {activeTab === 'analytics'    && <AnalyticsTab ... />}
+    {showExport  && <ExportModal  onClose={...} expenses={expenses} />}
+    {showFilter  && <FilterModal  initial={filters} onApply={...} />}
+    <ExpenseForm ... />
+  </div>
+);
+```
+
+**Layer 3 — Vertical slices for multi-domain pages:**
+
+When a page hosts several **independent domains** (e.g. Portfolio = 6 asset categories + IPO), do
+not decompose only by modal/tab — decompose by **domain into self-contained vertical slices**. The
+reference implementation is `src/features/portfolio/`:
+
+```
+features/portfolio/
+  PortfolioPage.tsx        ← thin housing (~170 lines): header + top tabs → <XSection> | <IpoTab>
+  holdings/
+    <category>/            ← ONE folder per domain (fixed-income, retirement, equity, …)
+                             owns: its view cards, <XSection>, <XModal>(s), its <XFields>,
+                             its class-only hooks + helpers — everything co-located
+    shared/                ← ONLY what 2+ categories use (form primitives, registry, nowMs)
+  ipo/                     ← same self-contained pattern for the other top-level tab
+```
+
+Rules:
+- **Each category folder is a complete slice.** Cards + section + modal(s) + field-groups + class
+  hooks + class-only helpers live together. The page just routes to the active `<XSection>`.
+- **`<XSection holdings mode onSave onRemove>` owns its own add/edit** modal state and "+" button —
+  there is no central form or chooser. Multi-class categories show their class options inline.
+- **`<XModal editing onSave onClose onDelete>` is standalone** (owns its `Modal` chrome + state).
+  It composes the shared field primitives + its own `<XFields>`, and on save calls a **pure mapper**.
+- **Save/validate logic is pure** and lives in `core/{domain}/` (e.g. `buildBaseHolding` +
+  `applyXFields`/`isHoldingValid`), unit-tested without React. Network calls live in
+  `core/{domain}/*Client.ts` — never inline in a component or hook.
+- **`shared/` means ≥2 consumers.** A file used by exactly one category is NOT shared — it belongs
+  in that category's folder. (Don't bulk-dump per-class fields/hooks into `shared/`.) Verify by
+  grepping importers before placing a file.
+
 **The RN portability test:**
 - Layer 1: zero changes for RN — pure TypeScript
 - Layer 2: zero changes for RN — React hooks work identically
@@ -210,6 +280,56 @@ import { epochToDateInput } from '@/lib/formatters';
 **Anti-pattern 4: Monolithic feature files**
 A file over 400 lines that contains both UI and logic is a code smell. Split it.
 
+**Anti-pattern 5: Parent holding modal state**
+```tsx
+// WRONG — parent owns the modal's internal form state
+const [exportRange, setExportRange] = useState('this_month');
+const [exportPassword, setExportPassword] = useState('');
+const [exporting, setExporting] = useState(false);
+{showExportSheet && <ExportModal range={exportRange} setRange={setExportRange} ... />}
+
+// RIGHT — modal owns its own state, parent just holds the boolean
+{showExportSheet && <ExportModal expenses={expenses} onClose={() => setShowExportSheet(false)} />}
+```
+
+**Anti-pattern 6: Prop-drilling instead of direct hook consumption**
+```tsx
+// WRONG — parent fetches events and threads them down as props
+const { events, pastEvents, addEvent, stopEvent } = useEventMode();
+<EventsModal events={events} pastEvents={pastEvents} addEvent={addEvent} stopEvent={stopEvent} ... />
+
+// RIGHT — modal calls the hook directly
+// EventsModal.tsx
+const { events, pastEvents, addEvent, stopEvent } = useEventMode();
+// Parent just passes the minimum it uniquely owns
+<EventsModal linkedCountByEventHashtag={linkedCount} onRequestEditSave={handleEditSave} onClose={...} />
+```
+
+**Anti-pattern 7: Live-threaded filter setters**
+```tsx
+// WRONG — 6 setter props for a buffered filter modal
+<FilterModal
+  typeFilter={txnTypeFilter} setTypeFilter={setTxnTypeFilter}
+  accountFilters={txnAccountFilters} setAccountFilters={setTxnAccountFilters}
+  // ... 4 more setter pairs
+/>
+
+// RIGHT — buffered approach: modal owns local state, applies on Done
+<FilterModal initial={currentFilterState} onApply={handleApplyFilters} onClose={...} />
+```
+
+**Anti-pattern 8: A `shared/` folder that isn't actually shared**
+```
+// WRONG — every per-class field/hook dumped into one shared/ bucket
+holdings/shared/fields/{Mf,Fd,Nps,…}Fields.tsx   ← each used by exactly ONE category
+holdings/shared/hooks/useFdPreview.ts            ← used only by fixed-income
+
+// RIGHT — co-locate single-consumer code with its consumer; shared/ = ≥2 consumers only
+holdings/fixed-income/FdFields.tsx  holdings/fixed-income/useFdPreview.ts
+holdings/shared/SharedHoldingFields.tsx          ← genuinely used by all categories
+```
+Before placing a file in `shared/`, grep its importers. One importing folder → it lives there.
+
 ---
 
 ## File naming conventions
@@ -220,6 +340,36 @@ A file over 400 lines that contains both UI and logic is a code smell. Split it.
 - Types: colocated in `src/core/db/types/index.ts` or feature-local `types.ts`
 - Tests: `fileName.test.ts`
 - Route pages: `ModulePage.tsx` (e.g. `ExpensesPage.tsx`)
+
+---
+
+## When to refactor a component
+
+Refactor when you observe any of these signals. They are not suggestions — they indicate the code has already crossed a line.
+
+**Signal 1: The file exceeds 400 lines of JSX/logic**
+Anything over 400 lines in a page or 200 lines in a form is carrying too much. Count *only* what's in the file — if the file is large because it duplicates logic that should be in `core/` or `lib/`, extract that first.
+
+**Signal 2: A modal has 5+ state variables in the parent**
+If `showExportSheet`, `exportRange`, `exportFrom`, `exportTo`, `exportPassword`, `exporting` all live in the *parent*, the modal is not self-contained. State that only exists while a modal is open belongs inside the modal.
+
+**Signal 3: You are passing 4+ props that are only used inside one child**
+When you find yourself writing `<Child a={a} setA={setA} b={b} setB={setB} c={c} setC={setC}`, that child should own that state instead. Pass the initial value and an `onApply` callback.
+
+**Signal 4: The same inline HTML block appears in 3+ places**
+Three or more instances of the same JSX pattern (e.g. a card with icon + label + value) means a shared component is overdue. Extract it with semantic props.
+
+**Signal 5: A tab or section's JSX is longer than the page's own logic**
+If the analytics tab content is 600 lines and the page's own state/handlers are 300 lines, the tab has become the dominant concern. Extract it into `AnalyticsTab.tsx`.
+
+**Signal 6: A utility function is copy-pasted across 2+ files**
+`epochToDateInput`, `toDateKey`, `monthLabel` — if you see these appearing in more than one place, they belong in `src/lib/`. The second copy is the signal, not the first.
+
+**When NOT to refactor:**
+- A component is 250 lines but reads clearly — leave it. Line count is a proxy, not the goal.
+- You are in the middle of a feature delivery — refactor before or after, not during.
+- The component is stable and has no active development — the cost of refactoring with no feature value is usually not worth it.
+- You'd be extracting a component that is only ever used once and has no reuse potential — keep it inline.
 
 ---
 

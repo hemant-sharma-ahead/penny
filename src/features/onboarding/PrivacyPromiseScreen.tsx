@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '@/router/paths';
 import { ALLOWED_DOMAINS } from '@/core/ai-safety/piiScanner';
+import { Button } from '@/components/ui';
 
 const pillars = [
   {
@@ -61,13 +62,9 @@ export function PrivacyPromiseScreen() {
           ))}
         </div>
 
-        <button
-          onClick={() => navigate(PATHS.onboarding.setupCredentials)}
-          className="w-full py-3.5 rounded-xl font-medium text-white transition-opacity hover:opacity-90"
-          style={{ backgroundColor: 'var(--color-primary)' }}
-        >
+        <Button variant="primary" size="lg" fullWidth onClick={() => navigate(PATHS.onboarding.setupCredentials)}>
           I'm in — set up my vault
-        </button>
+        </Button>
       </div>
     </div>
   );

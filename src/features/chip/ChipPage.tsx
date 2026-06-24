@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { chipInsightsRepo } from '@/core/db/repositories';
 import { DEFAULT_INSIGHTS } from '@/core/ai-safety/mockChip';
 import type { ChipInsight } from '@/core/db/types';
+import { Button, Card } from '@/components/ui';
 
 async function seedInsightsIfEmpty(): Promise<ChipInsight[]> {
   const existing = await chipInsightsRepo.getAll();
@@ -59,11 +60,11 @@ export function ChipPage() {
       </div>
 
       {loaded && insights.length === 0 && (
-        <div className="surface rounded-2xl p-6 text-center">
+        <Card className="text-center">
           <i className="ti ti-sparkles text-tertiary" style={{ fontSize: 36 }} aria-hidden="true" />
           <p className="text-sm font-medium text-primary mt-3">No new insights</p>
           <p className="text-xs text-secondary mt-1">Add your financial data and Chip will surface insights here.</p>
-        </div>
+        </Card>
       )}
 
       {insights.length > 0 && (
@@ -71,7 +72,7 @@ export function ChipPage() {
           <p className="text-xs font-medium text-tertiary mb-2">Insights</p>
           <div className="flex flex-col gap-2">
             {insights.map((insight) => (
-              <article key={insight.id} className="surface rounded-xl p-4">
+              <Card key={insight.id} radius="md" padding="sm">
                 <span className="text-[10px] font-medium uppercase tracking-wide text-tertiary">
                   {insight.moduleTag}
                 </span>
@@ -81,25 +82,27 @@ export function ChipPage() {
                   <p className="text-xs text-amber-600 mt-1.5 leading-relaxed">⚠ {insight.consequence}</p>
                 )}
                 {insight.actionLabel && (
-                  <button
-                    className="mt-2 text-xs font-medium"
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 px-0"
                     style={{ color: 'var(--color-primary)' }}
                     onClick={() => dismissInsight(insight)}
                   >
                     {insight.actionLabel} →
-                  </button>
+                  </Button>
                 )}
-              </article>
+              </Card>
             ))}
           </div>
         </section>
       )}
 
-      <div className="surface rounded-2xl p-6 text-center">
+      <Card className="text-center">
         <i className="ti ti-message-chatbot text-tertiary" style={{ fontSize: 36 }} aria-hidden="true" />
         <p className="text-sm font-medium text-primary mt-3">Chip AI chat coming in Phase 2</p>
         <p className="text-xs text-secondary mt-1">Full conversational advisor powered by Claude.</p>
-      </div>
+      </Card>
     </div>
   );
 }

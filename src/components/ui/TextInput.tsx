@@ -5,11 +5,13 @@ interface TextInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'pr
   label?: string;
   value: string;
   onChange: (value: string) => void;
-  error?: string;
-  hint?: string;
+  error?: string | undefined;
+  hint?: string | undefined;
   required?: boolean;
   prefix?: string;
   suffix?: string;
+  /** Extra classes applied to the inner <input> element (e.g. 'font-mono uppercase'). */
+  inputClassName?: string;
 }
 
 export function TextInput({
@@ -29,7 +31,8 @@ export function TextInput({
   autoComplete,
   maxLength,
   id,
-  name
+  name,
+  inputClassName = ''
 }: TextInputProps) {
   const inputEl = (
     <div className="relative flex items-center">
@@ -48,7 +51,12 @@ export function TextInput({
         autoComplete={autoComplete}
         maxLength={maxLength}
         style={error ? { borderColor: 'var(--color-open)' } : undefined}
-        className={['input-surface w-full rounded-xl px-3 py-2.5 text-sm', prefix ? 'pl-7' : '', suffix ? 'pr-10' : '']
+        className={[
+          'input-surface border w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]',
+          prefix ? 'pl-7' : '',
+          suffix ? 'pr-10' : '',
+          inputClassName
+        ]
           .filter(Boolean)
           .join(' ')}
       />

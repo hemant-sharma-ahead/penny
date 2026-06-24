@@ -29,8 +29,9 @@ Penny tracks your direct equity (stock) holdings and mutual fund (MF) investment
 - `assetClass: 'equity'` for stocks, `assetClass: 'mf'` for mutual funds.
 
 **Key files:**
-- `src/features/portfolio/PortfolioPage.tsx` — Stocks and MF sub-tabs, grouping and display logic.
-- `src/features/portfolio/HoldingForm.tsx` — Add/edit holding form for both asset types.
+- `src/features/portfolio/holdings/equity/EquitySection.tsx` — Stocks & MF grouping/lot display.
+- `src/features/portfolio/holdings/equity/StockModal.tsx` / `MfModal.tsx` — Add/edit modals (compose
+  the shared field-groups + pure mappers in `core/portfolio/holdingMappers.ts`).
 - `src/core/db/priceCache.ts` — Price fetch, cache read/write, TTL logic.
 
 ## Current limitations

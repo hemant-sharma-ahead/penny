@@ -24,8 +24,11 @@ The SIP calculator uses the standard future value of a series formula: it works 
 Chip's projection insight reads the average monthly contribution rate from the contribution history and extrapolates linearly to estimate when the goal will be reached, flagging if the current pace falls short of the target date.
 
 Key files:
-- `src/features/goals/GoalsPage.tsx` — goals list, progress rings, summary view
-- `src/features/goals/GoalForm.tsx` — create/edit goal form + SIP calculator
+- `src/features/goals/GoalsPage.tsx` — thin shell: header summary + tab strip → GoalsTab | SipCalculatorTab
+- `src/features/goals/GoalsTab.tsx` — goals list + FAB + GoalForm; `GoalCard.tsx` owns its own contribution row
+- `src/features/goals/SipCalculatorTab.tsx` + `useSipCalculator.ts` — standalone SIP calculator
+- `src/features/goals/GoalForm.tsx` — create/edit goal form
+- `src/core/goals/sipCalculator.ts` — SIP math; `meta.ts` — risk colour/return metadata
 
 ## Current limitations
 - Contributions must be logged manually — there is no way to automatically link an expense or bank transaction as a goal contribution

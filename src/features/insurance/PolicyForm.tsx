@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { InsurancePolicy, InsuranceType } from '@/core/db/types';
 import { epochToDateInput } from '@/lib/formatters';
+import { TextInput, OptionButton } from '@/components/ui';
+import { FormModal } from '@/components/shared';
 
 interface Props {
   editing: InsurancePolicy | null;
@@ -67,162 +69,76 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-60 flex items-center justify-center px-4"
-      style={{ paddingTop: 56, paddingBottom: 72 }}
+    <FormModal
+      title={editing ? 'Edit policy' : 'Add policy'}
+      onClose={onClose}
+      onSave={handleSave}
+      onDelete={editing ? handleDelete : undefined}
+      saving={saving}
+      saveLabel={editing ? 'Update' : 'Add policy'}
     >
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full max-w-[430px] rounded-2xl p-5 flex flex-col gap-4 max-h-full overflow-y-auto bg-surface">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold text-primary">{editing ? 'Edit policy' : 'Add policy'}</h3>
-          <button
-            onClick={onClose}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-tertiary"
-          >
-            <i className="ti ti-x" style={{ fontSize: 20 }} aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* Policy type */}
-        <div>
-          <label className="text-xs font-medium text-secondary">Policy type</label>
-          <div className="mt-1 grid grid-cols-4 gap-2">
-            {POLICY_TYPES.map((pt) => (
-              <button
-                key={pt.value}
-                type="button"
-                onClick={() => setType(pt.value)}
-                className="flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors"
-                style={
-                  type === pt.value
-                    ? { borderColor: pt.color, backgroundColor: `${pt.color}10` }
-                    : { borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-secondary)' }
-                }
-              >
-                <i
-                  className={`ti ${pt.icon}`}
-                  style={{ fontSize: 18, color: type === pt.value ? pt.color : 'var(--color-text-tertiary)' }}
-                  aria-hidden="true"
-                />
-                <span
-                  className="text-[9px] font-medium text-center leading-tight"
-                  style={{ color: type === pt.value ? pt.color : 'var(--color-text-secondary)' }}
-                >
-                  {pt.label.split(' ')[0] ?? pt.label}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Insurer */}
-        <div>
-          <label className="text-xs font-medium text-secondary">Insurer / Company</label>
-          <input
-            type="text"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-            placeholder="e.g. LIC, HDFC ERGO, Star Health"
-            value={insurer}
-            onChange={(e) => setInsurer(e.target.value)}
-            autoFocus
-          />
-        </div>
-
-        {/* Policy number */}
-        <div>
-          <label className="text-xs font-medium text-secondary">Policy number (optional)</label>
-          <input
-            type="text"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-            placeholder="e.g. P-12345678"
-            value={policyNumber}
-            onChange={(e) => setPolicyNumber(e.target.value)}
-          />
-        </div>
-
-        {/* Coverage + Premium */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-medium text-secondary">Coverage amount (₹)</label>
-            <input
-              type="number"
-              inputMode="decimal"
-              className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-              placeholder="e.g. 10000000"
-              value={coverageAmount}
-              onChange={(e) => setCoverageAmount(e.target.value)}
+      {/* Policy type */}
+      <div>
+        <label className="text-xs font-medium text-secondary">Policy type</label>
+        <div className="mt-1 grid grid-cols-4 gap-2">
+          {POLICY_TYPES.map((pt) => (
+            <OptionButton
+              key={pt.value}
+              compact
+              label={pt.label.split(' ')[0] ?? pt.label}
+              icon={pt.icon}
+              color={pt.color}
+              selected={type === pt.value}
+              onClick={() => setType(pt.value)}
             />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-secondary">Annual premium (₹)</label>
-            <input
-              type="number"
-              inputMode="decimal"
-              className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-              placeholder="e.g. 12000"
-              value={annualPremium}
-              onChange={(e) => setAnnualPremium(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Renewal date */}
-        <div>
-          <label className="text-xs font-medium text-secondary">Renewal / expiry date</label>
-          <input
-            type="date"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-            value={renewalDate}
-            onChange={(e) => setRenewalDate(e.target.value)}
-          />
-        </div>
-
-        {/* Nominees */}
-        <div>
-          <label className="text-xs font-medium text-secondary">Nominees (optional)</label>
-          <input
-            type="text"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-            placeholder="e.g. Spouse, Child"
-            value={nominees}
-            onChange={(e) => setNominees(e.target.value)}
-          />
-        </div>
-
-        {/* Notes */}
-        <div>
-          <label className="text-xs font-medium text-secondary">Notes (optional)</label>
-          <input
-            type="text"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-            placeholder="e.g. Family floater, includes dental"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-3 pt-1">
-          {editing && (
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="flex-1 py-3 rounded-xl border border-red-200 text-red-500 text-sm font-medium"
-            >
-              Delete
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="flex-1 py-3 rounded-xl text-white text-sm font-medium disabled:opacity-50"
-            style={{ backgroundColor: 'var(--color-primary)' }}
-          >
-            {saving ? 'Saving…' : editing ? 'Update' : 'Add policy'}
-          </button>
+          ))}
         </div>
       </div>
-    </div>
+
+      <TextInput
+        label="Insurer / Company"
+        value={insurer}
+        onChange={setInsurer}
+        placeholder="e.g. LIC, HDFC ERGO, Star Health"
+        autoFocus
+      />
+
+      <TextInput
+        label="Policy number (optional)"
+        value={policyNumber}
+        onChange={setPolicyNumber}
+        placeholder="e.g. P-12345678"
+      />
+
+      <div className="grid grid-cols-2 gap-3">
+        <TextInput
+          label="Coverage amount (₹)"
+          value={coverageAmount}
+          onChange={setCoverageAmount}
+          type="number"
+          inputMode="decimal"
+          placeholder="e.g. 10000000"
+        />
+        <TextInput
+          label="Annual premium (₹)"
+          value={annualPremium}
+          onChange={setAnnualPremium}
+          type="number"
+          inputMode="decimal"
+          placeholder="e.g. 12000"
+        />
+      </div>
+
+      <TextInput label="Renewal / expiry date" value={renewalDate} onChange={setRenewalDate} type="date" />
+
+      <TextInput label="Nominees (optional)" value={nominees} onChange={setNominees} placeholder="e.g. Spouse, Child" />
+
+      <TextInput
+        label="Notes (optional)"
+        value={notes}
+        onChange={setNotes}
+        placeholder="e.g. Family floater, includes dental"
+      />
+    </FormModal>
   );
 }

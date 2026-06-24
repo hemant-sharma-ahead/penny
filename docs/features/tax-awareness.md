@@ -35,8 +35,11 @@ Shows your tax position across the current financial year — how much of your 8
 - Standard deduction of ₹50K (salaried) applied automatically under old regime.
 
 **Key files:**
-- `src/core/tax/calculator.ts` — all computation logic
-- `src/features/tax/TaxAwarenessPage.tsx` — display page
+- `src/core/tax/calculator.ts` — all computation logic (incl. `computeCapitalGainsTax` for estimated tax)
+- `src/features/tax/TaxAwarenessPage.tsx` — thin shell: header (FY info) + tab strip → slices
+- `src/features/tax/useTaxData.ts` — loads holdings/policies/liabilities + derives the tax summary
+- `src/features/tax/deductions/` — `DeductionsTab` + `useTaxDeductions` (manual input state) + `DeductionBar`/`ManualInput`
+- `src/features/tax/gains/` — `CapitalGainsTab` + `CapGainRow`
 
 **Inputs from:** `holdings` (purchase dates, units, values), `liabilities` (home loan interest), `insurance_policies` (premiums), `profile` (income)
 

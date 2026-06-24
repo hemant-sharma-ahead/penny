@@ -21,6 +21,12 @@ src/core/{domain}/
 
 **Never put calculations or data fetching in a Page or Form component.**
 
+**Multi-domain features** (a page hosting several independent sub-domains, e.g. Portfolio's asset
+categories + IPO) use the **vertical-slice** variant: the page is a thin housing/router and each
+sub-domain is a self-contained folder (cards + section + modal + fields + class hooks/helpers
+co-located), with a `shared/` folder for only what ≥2 slices use. See "Vertical slices for
+multi-domain pages" in `penny-standards.md`, and `src/features/portfolio/` as the reference.
+
 ---
 
 ## Checklist

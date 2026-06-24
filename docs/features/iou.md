@@ -19,8 +19,14 @@ Person names are Category 1 PII — they are encrypted at rest and are **never s
 
 Ageing is calculated at read time by comparing each outstanding IOU's date against today and bucketing into 30/60/90-day bands.
 
+IOU presentation and logic are shared between the standalone `/app/iou` route and the Expenses → IOU
+tab: both consume the `useIou` domain hook and render the same `IouListView` / `IouCard` components,
+so the two surfaces stay visually and behaviourally in sync.
+
 Key files:
-- `src/features/iou/IouPage.tsx` — lent/borrowed tabs, net position, ageing alerts
+- `src/features/iou/IouPage.tsx` — standalone route: header totals + shared list + form
+- `src/features/iou/useIou.ts` — domain hook: IOU CRUD + sorted/derived lists (active/history/totals/overdue)
+- `src/features/iou/IouListView.tsx` / `IouCard.tsx` — shared list body + row card (used by both surfaces)
 - `src/features/iou/IouForm.tsx` — add/edit IOU form
 
 ## Current limitations

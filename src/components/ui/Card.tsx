@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 
 interface CardProps {
   children: ReactNode;
-  /** Inner padding. sm=p-3.5, md=p-4 (default), lg=p-5 */
-  padding?: 'sm' | 'md' | 'lg';
+  /** Inner padding. xs=p-3, sm=p-3.5, md=p-4 (default), lg=p-5 */
+  padding?: 'xs' | 'sm' | 'md' | 'lg';
   /** Corner radius. md=rounded-xl, lg=rounded-2xl (default) */
   radius?: 'md' | 'lg';
   /** Makes the card a tappable button */
@@ -12,7 +12,7 @@ interface CardProps {
   className?: string;
 }
 
-const PADDING = { sm: 'p-3', md: 'p-4', lg: 'p-5' } as const;
+const PADDING = { xs: 'p-3', sm: 'p-3.5', md: 'p-4', lg: 'p-5' } as const;
 const RADIUS = { md: 'rounded-xl', lg: 'rounded-2xl' } as const;
 
 export function Card({ children, padding = 'md', radius = 'lg', onClick, className = '' }: CardProps) {

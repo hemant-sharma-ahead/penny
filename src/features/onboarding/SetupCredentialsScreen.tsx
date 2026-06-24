@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import zxcvbn from 'zxcvbn';
 import { initialize } from '@/core/crypto/securityManager';
 import { PATHS } from '@/router/paths';
+import { Button, TextInput } from '@/components/ui';
 
 const strengthLabels = ['Very weak', 'Weak', 'Fair', 'Strong', 'Very strong'];
 const strengthColors = ['bg-red-400', 'bg-orange-400', 'bg-yellow-400', 'bg-emerald-400', 'bg-emerald-600'];
@@ -91,34 +92,31 @@ export function SetupCredentialsScreen() {
 
         {/* PIN */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-secondary mb-1.5">6-digit PIN</label>
-          <input
+          <TextInput
+            label="6-digit PIN"
             type="password"
             inputMode="numeric"
             maxLength={6}
             value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+            onChange={(v) => setPin(v.replace(/\D/g, ''))}
             placeholder="For quick unlock"
-            className="input-surface w-full text-center tracking-widest border rounded-xl px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            aria-label="PIN"
+            inputClassName="text-center tracking-widest text-lg"
           />
         </div>
 
         {/* Confirm PIN */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-secondary mb-1.5">Confirm PIN</label>
-          <input
+          <TextInput
+            label="Confirm PIN"
             type="password"
             inputMode="numeric"
             maxLength={6}
             value={confirmPin}
-            onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
+            onChange={(v) => setConfirmPin(v.replace(/\D/g, ''))}
             placeholder="Repeat your PIN"
-            className="input-surface w-full text-center tracking-widest border rounded-xl px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            style={{ borderColor: pinMismatch ? '#ef4444' : undefined }}
-            aria-label="Confirm PIN"
+            inputClassName="text-center tracking-widest text-lg"
+            error={pinMismatch ? "PINs don't match" : undefined}
           />
-          {pinMismatch && <p className="text-xs text-red-500 mt-1">PINs don't match</p>}
         </div>
 
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 mb-6">
@@ -130,21 +128,16 @@ export function SetupCredentialsScreen() {
 
         {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
 
-        <button
-          onClick={() => void handleCreate()}
+        <Button
+          variant="primary"
+          size="lg"
+          fullWidth
           disabled={!canProceed}
-          className="w-full py-3.5 rounded-xl font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
-          style={{ backgroundColor: 'var(--color-primary)' }}
+          loading={loading}
+          onClick={() => void handleCreate()}
         >
-          {loading ? (
-            <>
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Encrypting your vault…
-            </>
-          ) : (
-            'Create vault'
-          )}
-        </button>
+          {loading ? 'Encrypting your vault…' : 'Create vault'}
+        </Button>
 
         <p className="text-xs text-tertiary text-center mt-3">
           This takes a few seconds — we use 600,000 rounds of key derivation for your security.

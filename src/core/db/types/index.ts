@@ -5,7 +5,7 @@ export interface PriceCache {
   symbol: string;
   price: number;
   nav?: number;
-  previousClose?: number;
+  previousClose?: number | undefined;
   currency: string;
   fetchedAt: number; // epoch ms
 }
@@ -314,11 +314,11 @@ export interface Liability {
   principalAmount: number;
   outstandingAmount: number;
   interestRate: number;
-  emiAmount?: number;
+  emiAmount?: number | undefined;
   emiDueDate?: number; // day of month 1-31
   startDate?: number;
   endDate?: number;
-  lenderName?: string;
+  lenderName?: string | undefined;
   prepaymentPenalty?: number; // percentage
   ltvRatio?: number; // for gold loan / LAP
   creditLimit?: number; // for credit card / OD

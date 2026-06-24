@@ -8,14 +8,18 @@ interface ButtonProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   onClick?: MouseEventHandler<HTMLButtonElement>;
-  disabled?: boolean;
-  loading?: boolean;
+  disabled?: boolean | undefined;
+  loading?: boolean | undefined;
   /** Tabler icon class, e.g. 'ti-plus'. Rendered before children (or alone for icon-only buttons). */
   icon?: string;
   fullWidth?: boolean;
   type?: 'button' | 'submit' | 'reset';
   'aria-label'?: string;
   className?: string;
+  /** Override background color for dynamic-color buttons (e.g. per-type expense buttons). */
+  color?: string;
+  /** Extra inline styles — merged with variant styles. Use for one-off positioning (e.g. FAB bottom/right). */
+  style?: React.CSSProperties;
 }
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
@@ -26,7 +30,8 @@ const SIZE_CLASSES: Record<ButtonSize, string> = {
 
 const ICON_SIZES: Record<ButtonSize, number> = { sm: 13, md: 15, lg: 16 };
 
-function variantStyle(variant: ButtonVariant): React.CSSProperties {
+function variantStyle(variant: ButtonVariant, color?: string): React.CSSProperties {
+  if (color) return { backgroundColor: color, color: '#fff' };
   if (variant === 'primary') return { backgroundColor: 'var(--color-primary)', color: '#fff' };
   if (variant === 'danger') return { backgroundColor: 'var(--color-open)', color: '#fff' };
   return {};
@@ -49,7 +54,9 @@ export function Button({
   fullWidth,
   type = 'button',
   'aria-label': ariaLabel,
-  className = ''
+  className = '',
+  color,
+  style
 }: ButtonProps) {
   const iconOnly = !children && (icon || loading);
   const iconSize = ICON_SIZES[size];
@@ -79,7 +86,7 @@ export function Button({
       disabled={disabled ?? loading}
       aria-label={ariaLabel}
       className={baseClass}
-      style={variantStyle(variant)}
+      style={{ ...variantStyle(variant, color), ...style }}
     >
       {iconEl}
       {children && <span>{children}</span>}

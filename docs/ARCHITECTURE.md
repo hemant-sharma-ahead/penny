@@ -33,7 +33,7 @@ penny/
 │   │   ├── market/             ← Market data (indices, forex, commodities)
 │   │   ├── metals/             ← Gold/silver price client
 │   │   ├── nps/                ← NPS NAV client + lifecycle fund tables
-│   │   ├── portfolio/          ← ppfCalculations.ts, epfCalculations.ts — PPF/EPF projections
+│   │   ├── portfolio/          ← PPF/EPF projections; holdingMappers (pure save logic), mfApiClient, stockApiClient, vehicleMeta
 │   │   ├── session/            ← PIN session management + SessionGate
 │   │   ├── subscriptions/      ← 3-pass subscription detection
 │   │   ├── tax/                ← Tax calculations (LTCG/STCG/80C/80D)
@@ -151,12 +151,13 @@ penny/
 |---|---|---|
 | `ChipAvatar.tsx` | — | Chip AI avatar SVG |
 | `PennyLogo.tsx` | — | Penny coin + wordmark SVG |
-| `Card.tsx` | `padding?` sm/md/lg · `radius?` md/lg · `onClick?` · `className?` | Surface card. Renders `<button>` when `onClick` is provided. Layout classes allowed via `className`; never pass colour/spacing overrides. |
+| `Card.tsx` | `padding?` xs/sm/md/lg · `radius?` md/lg · `onClick?` · `className?` | Surface card. Padding tiers: xs=p-3, sm=p-3.5, md=p-4 (default), lg=p-5. Renders `<button>` when `onClick` is provided. Layout classes allowed via `className`; never pass colour/spacing overrides. |
 | `Modal.tsx` | `onClose` · `title?` · `footer?` · `size?` sm/md · `nested?` · `scrollable?` | Fixed-overlay centred modal. `nested=true` bumps to `z-70`. Always uses `paddingTop:56, paddingBottom:72` so header + nav remain visible. |
-| `Button.tsx` | `variant` primary/secondary/danger/ghost · `size?` sm/md/lg · `loading?` · `icon?` · `fullWidth?` | All interactive buttons. Primary/danger use CSS vars; secondary/ghost use semantic tokens. |
+| `Button.tsx` | `variant` primary/secondary/danger/ghost · `size?` sm/md/lg · `loading?` · `icon?` · `fullWidth?` · `color?` · `style?` | All interactive buttons. `color` overrides background with a runtime hex value. `style` merges with variant styles for one-off positioning (e.g. FAB `bottom`/`right`). Primary/danger use CSS vars; secondary/ghost use semantic tokens. |
+| `OptionButton.tsx` | `label` · `selected` · `onClick` · `icon?` · `description?` · `color?` · `disabled?` · `compact?` | Bordered option selector. Default: horizontal card (icon left, label right, `w-full`). `compact=true`: vertical tile (icon above, label below, no `w-full`) for use in 3–4-column grids (policy types, account types, asset classes). `color` defaults to `--color-primary`. |
 | `ConfirmDialog.tsx` | `isOpen` · `onClose` · `onConfirm` · `title` · `message` · `confirmLabel?` · `confirmVariant?` · `loading?` | Two-button confirmation dialog. Wraps `Modal(nested=true)` + two `Button`s. |
 | `FormField.tsx` | `label` · `required?` · `hint?` · `error?` | Label wrapper. Shows required star, hint text, or error (error takes priority over hint). |
-| `TextInput.tsx` | `label?` · `value` · `onChange(value)` · `error?` · `hint?` · `prefix?` · `suffix?` | Controlled text input. When `label` is provided, wraps with `FormField`. |
+| `TextInput.tsx` | `label?` · `value` · `onChange(value)` · `error?` · `hint?` · `prefix?` · `suffix?` · `inputClassName?` | Controlled text input. `inputClassName` adds extra classes to the inner `<input>` element (e.g. `font-mono uppercase` for ticker inputs). When `label` is provided, wraps with `FormField`. |
 | `EmptyState.tsx` | `icon` · `title` · `description?` · `action?` | Icon + title + optional description + optional CTA button. Use for zero-data states. |
 | `TabStrip.tsx` | `options[]{value,label,icon?,count?}` · `value` · `onChange` · `scrollable?` | Underline-style tab strip. Generic over the tab value type. Horizontally scrollable when `scrollable=true`. |
 | `Badge.tsx` | `label` · `color?` · `variant?` solid/subtle · `size?` sm/md | Coloured pill. `subtle` variant uses `color` at 10% opacity background. |
@@ -165,7 +166,7 @@ penny/
 | `SegmentedControl.tsx` | `options[]{value,label,icon?,color?}` · `value` · `onChange` · `cols?` | 2–4 option radio group. Active option fills with `color` (default `--color-primary`). Background: `bg-surface-2`. |
 | `SelectInput.tsx` | `label?` · `value` · `onChange(value)` · `options[]{value,label}` · `placeholder?` · `error?` | Native `<select>` wrapper with chevron icon. Wraps `FormField` when `label` provided. |
 | `Toggle.tsx` | `value` · `onChange(value)` · `disabled?` · `aria-label?` | iOS-style sliding boolean switch. Active: `--color-primary`; inactive: `--color-surface-3`. |
-| `index.ts` | — | Barrel export for all ui components. |
+| `index.ts` | — | Barrel export for all ui components (Card, Modal, Button, OptionButton, TextInput, SelectInput, SegmentedControl, Toggle, Badge, EmptyState, TabStrip, SectionHeader, ProgressBar, ConfirmDialog, FormField). |
 
 ---
 
@@ -349,14 +350,80 @@ src/core/expenses/
   filterAndAggregate.ts  ← pure: filtering, grouping, category aggregation
 ```
 
+**Current — vertical slices (mirrors the portfolio pattern):**
+
+`ExpensesPage` is a thin shell (~95 lines): calls `useExpenses` + `useTransactionFilters`, renders
+`<ExpensesHeader>` + the tab strip, and dispatches to one self-contained slice per tab. Each slice
+owns its own UI state, modals, and FAB — no central modal orchestration.
+```
+src/features/expenses/
+  ExpensesPage.tsx         ← thin shell: header + tab strip → <XSlice>
+  ExpensesHeader.tsx       ← header chrome: title/total + events/import/export buttons + their modals
+  useExpenses.ts           ← shared domain hook: txns/categories/accounts, seeding, derived maps
+  transactions/
+    TransactionsSlice.tsx  ← owns filter bar, chips, speed-dial FAB, ExpenseForm + Filter + MonthPicker modals
+    useTransactionFilters.ts ← filter state + filteredExpenses/grouped/total/activeFilterCount
+    TransactionsTab.tsx · ExpenseForm.tsx · FilterModal.tsx · MonthPickerModal.tsx · ExpenseExportModal.tsx
+  budgets/
+    BudgetsSlice.tsx       ← owns BudgetModal · BudgetsTab.tsx · BudgetModal.tsx · useBudgets.ts
+  analytics/
+    AnalyticsSlice.tsx     ← owns view/month state, calls useEventMode() + useExpenseAnalytics
+    useExpenseAnalytics.ts ← pure-input derivation hook (group/event/prev-month/velocity/annual)
+    AnalyticsTab.tsx
+  subscriptions/
+    SubscriptionsSlice.tsx ← renders the shared <SubscriptionsView> from src/features/subscriptions/
+  events/
+    EventsModal.tsx        ← create/edit/stop/reactivate events; calls useEventMode() directly
+    useEventEditor.ts      ← edit-event flow incl. out-of-range unlink confirmation
+  iou/
+    IouSlice.tsx           ← summary strip + shared IouListView + FAB + IouForm
+
+src/features/iou/          ← IOU is shared between the /app/iou route and the expenses IOU tab
+  useIou.ts                ← domain hook: IOU CRUD + sorted/derived lists (used by both)
+  IouCard.tsx · IouListView.tsx ← shared presentation (ListRow + DueDateBadge)
+  IouPage.tsx · IouForm.tsx
+
+src/core/expenses/
+  filterAndAggregate.ts    ← pure: grouping, category aggregation
+src/lib/
+  dateUtils.ts             ← toDateKey, dateLabel, offsetMonth, monthLabel (pure, no React)
+```
+
 ### Example: Portfolio feature (Track 1B)
+
+The portfolio feature is organised as **vertical slices** — each asset category owns its view
+cards, add/edit modal(s) and any sheets. `PortfolioPage` is a thin housing (~170 lines): header
+totals + Holdings/IPO top tabs + the holdings sub-tab strip that dispatches to the active section.
 
 ```
 src/features/portfolio/
   usePortfolioHoldings.ts ← domain hook + exports HoldingsSubTab, HOLDINGS_SUBTABS, effectiveValue
-  PortfolioPage.tsx       ← thin page: calls hook + owns all sub-tab/IPO/form UI state
-  HoldingForm.tsx         ← form layout only
+  PortfolioPage.tsx       ← thin housing: header + top tabs → <XSection> | <IpoTab>
+  holdings/
+    fixed-income/         ← FixedIncomeSection, FdCard/RdCard, FdModal, FdFields, useFdPreview
+    precious-metals/      ← PreciousMetalsSection, PreciousMetalCard, GoldModal, GoldFields
+    real-assets/          ← RealAssetsSection, Vehicle/Property cards, VehicleDetailModal,
+                            UpdateValueSheet, Vehicle/Property/Other modals, Vehicle/Property fields,
+                            useVehicleLookup, ValidityBadge, realAssetHelpers
+    retirement/           ← RetirementSection, RetirementCard, EPF/PPF sheets, RetirementSheets,
+                            Nps/Ppf/Epf modals + fields, NpsLifecycleDetail
+    equity/               ← EquitySection (stocks+MF grouping/lots), Stock/Mf modals + fields,
+                            useLivePrice, useMfSearch, useMfSchemeDetail
+    shared/               ← ONLY cross-category form primitives:
+      registry.ts         ← ASSET_CLASSES, ASSET_META, holdingFormTitle()
+      SharedHoldingFields (Name/value/notes), useSharedHoldingFields, helpers (nowMs)
+  ipo/                    ← IpoTab + IpoDetailModal + ipoHelpers
 ```
+
+Each category module is self-contained: its cards, section, modal(s), field-group(s), class hooks
+and class-only helpers live together. `shared/` holds **only** what 2+ categories use.
+
+**Per-category Section** (`<XSection holdings mode onSave onRemove>`): renders the cards and owns
+its add/edit modal state — no central form. **Per-class modal** (`<XModal editing onSave onClose
+onDelete>`): composes `useSharedHoldingFields` + `SharedHoldingFields` + its `<XFields>`, and on save
+builds the base holding via `buildBaseHolding` then applies a pure mapper. Save/validate logic is
+pure in `core/portfolio/holdingMappers.ts` (+ `vehicleMeta.ts`), unit-tested in
+`tests/portfolio/holdingMappers.test.ts`. Network calls live in `core/portfolio/*ApiClient.ts`.
 
 Complex pages compose multiple focused domain hooks — one per domain concern. The page owns
 its own UI interaction state (form fields, modal toggles, which item is being edited).

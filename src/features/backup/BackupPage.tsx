@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { exportBackup, importBackup } from '@/core/backup/backupManager';
+import { Card, TextInput, Button, ConfirmDialog } from '@/components/ui';
 
 type ExportState = 'idle' | 'exporting' | 'done' | 'error';
 type ImportState = 'idle' | 'importing' | 'done' | 'error';
@@ -44,7 +45,6 @@ export function BackupPage() {
 
   async function handleImport() {
     if (!selectedFile || !passphrase) return;
-    setShowConfirm(false);
     setImportState('importing');
     setImportError('');
     try {
@@ -63,7 +63,7 @@ export function BackupPage() {
       <h2 className="text-xl font-semibold text-primary">Backup & Restore</h2>
 
       {/* Export card */}
-      <div className="surface rounded-2xl p-5 flex flex-col gap-4">
+      <Card padding="lg" className="flex flex-col gap-4">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
             <i className="ti ti-cloud-download" style={{ fontSize: 20, color: '#00a86b' }} aria-hidden="true" />
@@ -85,18 +85,13 @@ export function BackupPage() {
         )}
         {exportState === 'error' && <p className="text-xs text-red-500">{exportError}</p>}
 
-        <button
-          onClick={() => void handleExport()}
-          disabled={exportState === 'exporting'}
-          className="w-full py-3 rounded-xl text-white text-sm font-medium disabled:opacity-50"
-          style={{ backgroundColor: 'var(--color-primary)' }}
-        >
+        <Button variant="primary" fullWidth onClick={() => void handleExport()} loading={exportState === 'exporting'}>
           {exportState === 'exporting' ? 'Preparing backup…' : 'Download backup'}
-        </button>
-      </div>
+        </Button>
+      </Card>
 
       {/* Import card */}
-      <div className="surface rounded-2xl p-5 flex flex-col gap-4">
+      <Card padding="lg" className="flex flex-col gap-4">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
             <i className="ti ti-cloud-upload" style={{ fontSize: 20, color: '#f59e0b' }} aria-hidden="true" />
@@ -116,7 +111,7 @@ export function BackupPage() {
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="mt-1 w-full rounded-xl border border-theme bg-surface-2 px-3 py-3 text-sm text-left flex items-center gap-2"
+            className="mt-1.5 w-full rounded-xl border border-theme bg-surface-2 px-3 py-2.5 text-sm text-left flex items-center gap-2"
           >
             <i className="ti ti-file text-tertiary" style={{ fontSize: 16 }} aria-hidden="true" />
             <span style={{ color: selectedFile ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)' }}>
@@ -132,17 +127,13 @@ export function BackupPage() {
           />
         </div>
 
-        {/* Passphrase */}
-        <div>
-          <label className="text-xs font-medium text-secondary">Passphrase</label>
-          <input
-            type="password"
-            className="input-surface mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            placeholder="Your original passphrase"
-            value={passphrase}
-            onChange={(e) => setPassphrase(e.target.value)}
-          />
-        </div>
+        <TextInput
+          label="Passphrase"
+          type="password"
+          value={passphrase}
+          onChange={setPassphrase}
+          placeholder="Your original passphrase"
+        />
 
         {importState === 'done' && (
           <div className="flex items-center gap-2 text-green-600 bg-green-50 rounded-xl px-3 py-2">
@@ -152,54 +143,26 @@ export function BackupPage() {
         )}
         {importState === 'error' && <p className="text-xs text-red-500">{importError}</p>}
 
-        <button
+        <Button
+          variant="primary"
+          fullWidth
           onClick={() => setShowConfirm(true)}
           disabled={!selectedFile || !passphrase || importState === 'importing' || importState === 'done'}
-          className="w-full py-3 rounded-xl text-white text-sm font-medium disabled:opacity-50"
-          style={{ backgroundColor: 'var(--color-primary)' }}
+          loading={importState === 'importing'}
         >
           {importState === 'importing' ? 'Restoring…' : 'Restore backup'}
-        </button>
-      </div>
+        </Button>
+      </Card>
 
-      {/* Confirmation overlay */}
-      {showConfirm && (
-        <div
-          className="fixed inset-0 z-60 flex items-center justify-center px-4"
-          style={{ paddingTop: 56, paddingBottom: 72 }}
-        >
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowConfirm(false)} />
-          <div className="relative w-full max-w-[430px] bg-surface rounded-2xl p-5 flex flex-col gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
-                <i className="ti ti-alert-triangle text-red-500" style={{ fontSize: 20 }} aria-hidden="true" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-primary">Replace all data?</p>
-                <p className="text-xs mt-0.5 text-tertiary">This cannot be undone.</p>
-              </div>
-            </div>
-            <p className="text-xs leading-relaxed text-secondary">
-              All current data — expenses, goals, portfolio, and settings — will be permanently replaced with the
-              contents of the backup file.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowConfirm(false)}
-                className="flex-1 py-3 rounded-xl border border-theme text-secondary text-sm font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => void handleImport()}
-                className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-medium"
-              >
-                Yes, restore
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={() => void handleImport()}
+        title="Replace all data?"
+        message="All current data — expenses, goals, portfolio, and settings — will be permanently replaced with the contents of the backup file. This cannot be undone."
+        confirmLabel="Yes, restore"
+        confirmVariant="danger"
+      />
     </div>
   );
 }

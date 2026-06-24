@@ -25,10 +25,19 @@ Account balances are derived, not stored — every balance is calculated from th
 
 Import parsers in `importParsers.ts` normalise transactions from four formats into Penny's internal schema before the review step. Export produces a ZIP (using zip.js) with AES-256 encryption; the password is chosen by the user at export time.
 
+The feature is organised as **vertical slices** (mirroring portfolio): `ExpensesPage.tsx` is a thin
+shell that renders `ExpensesHeader` + a tab strip and dispatches to one self-contained slice per tab
+(`transactions/`, `budgets/`, `analytics/`, `subscriptions/`, `iou/`). Each slice owns its own state,
+modals, and FAB. Shared expense data comes from `useExpenses`; the IOU tab reuses `src/features/iou/`
+(`useIou`, `IouListView`, `IouCard`) so it stays in sync with the standalone `/app/iou` route.
+
 Key files:
-- `src/features/expenses/ExpensesPage.tsx` — main transactions list, filters, analytics tabs
-- `src/features/expenses/ExpenseForm.tsx` — add/edit transaction form (also handles income and transfer types)
-- `src/core/import/importParsers.ts` — YNAB, Cashew, MoneyView, Penny CSV parsers
+- `src/features/expenses/ExpensesPage.tsx` — thin shell: header + tab strip → slice components
+- `src/features/expenses/transactions/` — transactions slice: filter bar, list, `ExpenseForm`, filter hook
+- `src/features/expenses/analytics/` — analytics slice + `useExpenseAnalytics` derivations
+- `src/features/import/` — import wizard as step slices (`UploadStep`/`PreviewStep`/`DoneStep`) + `useImport` hook
+- `src/core/import/importParsers.ts` — YNAB, Cashew, MoneyView, Penny CSV parsers + format metadata
+- `src/core/import/importPipeline.ts` — pure category matching, dedup keys, preview-row enrichment
 - `src/core/export/exportCsv.ts` — CSV generation + AES-256 ZIP creation
 - `src/core/db/defaultCategories.ts` — seed categories and intent groups
 

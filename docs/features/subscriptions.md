@@ -24,9 +24,15 @@ Detected candidates are stored in the `subscriptions` Dexie store with `confirme
 
 Key fields per subscription: name, amount, frequency, categoryId, nextDueDate, detectedAt, confirmedByUser.
 
+Subscription logic and presentation are shared between the standalone `/app/subscriptions` route and
+the Expenses → Subscriptions tab: both consume the `useSubscriptions` hook and render the same
+`SubscriptionsView` / `DetectedSubCard` / `ActiveSubCard` components, so the two surfaces stay in sync.
+
 Key files:
-- `src/features/subscriptions/SubscriptionsPage.tsx` — confirmed list, detection candidates, total cost
-- `src/core/subscriptions/detector.ts` — 3-pass detection algorithm
+- `src/features/subscriptions/SubscriptionsPage.tsx` — standalone route: header + shared `SubscriptionsView`
+- `src/features/subscriptions/useSubscriptions.ts` — detection + confirm/dismiss/cancel (used by both surfaces)
+- `src/features/subscriptions/SubscriptionsView.tsx` / `DetectedSubCard.tsx` / `ActiveSubCard.tsx` — shared UI
+- `src/core/subscriptions/detector.ts` — 3-pass detection algorithm; `format.ts` — display/interval/monthly helpers
 
 ## Current limitations
 - Detection runs on transaction history already in Penny — it cannot detect subscriptions charged to accounts whose transactions have not been imported

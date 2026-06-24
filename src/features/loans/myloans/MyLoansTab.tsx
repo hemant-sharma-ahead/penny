@@ -1,0 +1,98 @@
+import { useState } from 'react';
+import type { Liability } from '@/core/db/types';
+import { formatCurrency, formatMonthsDuration } from '@/lib/formatters';
+import { deriveTenureMonths } from '@/core/loans/amortization';
+import { getLoanMeta } from '@/core/loans/meta';
+import { Card, Button, EmptyState, IconBadge, DetailRow } from '@/components/ui';
+import { AddLoanModal } from './AddLoanModal';
+
+interface MyLoansTabProps {
+  emiLoans: Liability[];
+  mode: 'open' | 'safe' | 'privacy';
+  saveLiability: (l: Liability) => Promise<unknown>;
+  onPlanLoan: (l: Liability) => void;
+}
+
+function estimatedMonthsLeft(l: Liability): number | null {
+  if (l.emiAmount) return deriveTenureMonths(l.outstandingAmount, l.interestRate, l.emiAmount);
+  if (l.endDate) return Math.max(0, Math.round((l.endDate - Date.now()) / (30.44 * 24 * 60 * 60 * 1000)));
+  return null;
+}
+
+export function MyLoansTab({ emiLoans, mode, saveLiability, onPlanLoan }: MyLoansTabProps) {
+  const [showAddLoan, setShowAddLoan] = useState(false);
+
+  return (
+    <div className="flex-1 overflow-y-auto px-4 py-3">
+      {emiLoans.length === 0 ? (
+        <div className="py-8">
+          <EmptyState
+            icon="ti-building-bank"
+            title="No loans tracked yet"
+            description="Track your home, car, or personal loans to plan repayment."
+            action={{ label: 'Add Loan', onClick: () => setShowAddLoan(true), icon: 'ti-plus' }}
+          />
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <Button variant="secondary" fullWidth icon="ti-plus" onClick={() => setShowAddLoan(true)}>
+            Add Loan
+          </Button>
+          {emiLoans.map((l) => {
+            const meta = getLoanMeta(l.type);
+            const monthsLeft = estimatedMonthsLeft(l);
+            return (
+              <Card key={l.id}>
+                <div className="flex items-start gap-3">
+                  <IconBadge icon={meta.icon} color={meta.color} size="sm" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-primary leading-tight">{l.name}</p>
+                    {l.lenderName && <p className="text-xs text-tertiary mt-0.5">{l.lenderName}</p>}
+                  </div>
+                  <span
+                    className="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
+                    style={{ backgroundColor: `${meta.color}18`, color: meta.color }}
+                  >
+                    {meta.label}
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-1.5 mt-3">
+                  <DetailRow
+                    label="Outstanding"
+                    value={mode === 'open' ? formatCurrency(l.outstandingAmount) : '••••'}
+                    size="md"
+                  />
+                  {l.emiAmount && (
+                    <DetailRow
+                      label="EMI / month"
+                      value={mode === 'open' ? formatCurrency(l.emiAmount) : '••••'}
+                      size="md"
+                    />
+                  )}
+                  <DetailRow label="Rate" value={`${l.interestRate}% p.a.`} size="md" />
+                </div>
+
+                {monthsLeft !== null && (
+                  <DetailRow className="mt-2" label="Estimated remaining" value={formatMonthsDuration(monthsLeft)} />
+                )}
+
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  icon="ti-calculator"
+                  className="mt-3"
+                  onClick={() => onPlanLoan(l)}
+                >
+                  Plan this loan
+                </Button>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {showAddLoan && <AddLoanModal saveLiability={saveLiability} onClose={() => setShowAddLoan(false)} />}
+    </div>
+  );
+}

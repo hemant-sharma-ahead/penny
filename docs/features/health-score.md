@@ -29,8 +29,10 @@ A composite financial health score (0–100) that measures how well-structured y
 6. **Savings rate (20 pts)** — Monthly net savings divided by monthly income. Target is above 20%. Scales linearly up to that threshold.
 
 **Key files:**
-- `src/core/health/scorer.ts` — `calculate()` and `deriveInputs()` functions
-- `src/features/health/HealthScorePage.tsx` — display page
+- `src/core/health/scorer.ts` — `computeHealthScore()` and `deriveInputs()` functions
+- `src/features/health/HealthScorePage.tsx` — thin composition: income input + gauge + breakdown
+- `src/features/health/useHealthScore.ts` — loads the 5-repo snapshot, derives inputs, owns income state
+- `src/features/health/ScoreGauge.tsx` / `ComponentCard.tsx` / `ScoringGuide.tsx` — presentational pieces
 
 **Inputs pulled from:** `holdings`, `expenses`, `goals`, `liabilities`, `insurance_policies`, and `profile` (employment type for benchmark adjustments)
 

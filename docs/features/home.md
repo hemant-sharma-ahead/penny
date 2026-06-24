@@ -21,7 +21,10 @@ Market data is fetched from external price feeds via `marketDataClient.ts` and c
 Privacy mode (Safe / Privacy / Open) is read from `PrivacyContext`. In Safe mode, net worth and all balances are replaced with `••••`. In Privacy mode, only section titles are shown and all numbers are hidden. In Open mode, everything is displayed normally.
 
 Key files:
-- `src/features/home/HomePage.tsx` — main dashboard component
+- `src/features/home/HomePage.tsx` — thin composition: greeting + NetWorthCard + MarketStrip + AccountsStrip + ToolsGrid
+- `src/features/home/useHome.ts` — loads the net-worth snapshot + derives asset groups/totals
+- `src/features/home/NetWorthCard.tsx` — net-worth hero card (asset/liability breakdown); fixed dark palette centralised in one `HERO` constant
+- `src/features/home/AccountsStrip.tsx` / `ToolsGrid.tsx` — account scroller + tools tiles
 - `src/features/home/MarketStrip.tsx` — scrollable market tickers strip
 - `src/core/market/marketDataClient.ts` — price fetch + 15-minute cache logic
 

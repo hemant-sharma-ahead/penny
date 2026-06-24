@@ -19,7 +19,13 @@ Portfolio is Penny's comprehensive asset tracking module. It gives you a single 
 Net worth = SUM(holdings.currentValue) + SUM(accounts.balance) − SUM(liabilities.currentBalance)
 ```
 
-**Key file:** `src/features/portfolio/PortfolioPage.tsx` — the main page shell, sub-tab router, and net worth aggregation.
+**Code structure (vertical slices):** `PortfolioPage.tsx` is a thin housing (~170 lines) — header
+totals + Holdings/IPO top tabs + the holdings sub-tab strip that dispatches to the active section.
+Each asset category is a self-contained slice under `src/features/portfolio/holdings/<category>/`
+(its cards, `<XSection>`, add/edit `<XModal>`(s), field-groups, and class-specific hooks/helpers).
+Cross-category form primitives live in `holdings/shared/`; the IPO tab in `portfolio/ipo/`. Per-class
+save logic is pure (`core/portfolio/holdingMappers.ts` + `vehicleMeta.ts`, unit-tested); external
+APIs in `core/portfolio/*Client.ts`. See `docs/ARCHITECTURE.md` and `penny-standards.md`.
 
 **Sub-tabs:**
 - Holdings tab with 6 nested sub-tabs: Stocks, MF, Retirement, Fixed Income, Metals, Real Assets

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '@/router/paths';
 import { ChipAvatar } from '@/components/ui/ChipAvatar';
+import { Button } from '@/components/ui';
 
 const mockInsights = [
   {
@@ -61,13 +62,9 @@ export function ChipIntroScreen() {
           </p>
         </div>
 
-        <button
-          onClick={() => navigate(PATHS.onboarding.simulatedDashboard)}
-          className="w-full py-3.5 rounded-xl font-medium text-white transition-opacity hover:opacity-90"
-          style={{ backgroundColor: 'var(--color-primary)' }}
-        >
+        <Button variant="primary" size="lg" fullWidth onClick={() => navigate(PATHS.onboarding.simulatedDashboard)}>
           See my dashboard
-        </button>
+        </Button>
       </div>
     </div>
   );

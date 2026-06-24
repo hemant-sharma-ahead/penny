@@ -184,7 +184,8 @@ Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Conta
 | Track 1A | Logic extraction — pure calculations out of component files into src/core/ | ✅ Complete |
 | Track 1B | Feature hooks — extract all state + data fetching into useXxx.ts per feature | ✅ Complete |
 | Track 1C | Component library — create src/components/ui/ primitives (Card, Modal, Button, etc.) | ✅ Complete |
-| Track 1D | Component wiring — replace all inline patterns in now-thin feature pages | ⏳ Next |
+| Track 1D | Component wiring — replace all inline patterns in now-thin feature pages | ✅ Complete |
+| Track 1E | Design-system consolidation — semantic status tokens, Badge/ListRow/StatBox adoption, lib/date consolidation, card convergence onto shared primitives | 🚧 In progress |
 | Track 2 | Onboarding v2 — DOB, employment type, username field | ⏳ Next |
 | Track 3 | Expense category overhaul — management page, visual icon picker, merge, bulk ops | ⏳ Next |
 | Track 4 | Activity log foundation — new Dexie store + basic UI | ⏳ Next |
@@ -193,9 +194,10 @@ Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Conta
 
 Analysis of the existing codebase revealed that major feature files (ExpensesPage: 3,183 lines, PortfolioPage: 4,957 lines) mixed pure calculations, data fetching, state management, and UI rendering in a single file. This makes React Native migration expensive and feature logic untestable. The four-sub-track approach fixes the root cause before addressing the surface symptom (inline Tailwind patterns).
 
-**RN migration reusability:**
-- Before Track 1: ~33% reusable (pure logic already in src/core/)
-- After Track 1 complete: ~85% reusable (feature hooks + thin pages + component swap pattern)
+**RN migration reusability (measured by LOC, post Track 1D):**
+- **Logic layer (~36% of `src`) ports directly or behind an isolated adapter** — `src/core/` (minus Dexie/Web-Crypto), `src/lib/`, all feature `use*.ts` hooks. Dexie (`core/db`), Web Crypto (`core/crypto`, one file), and `context/` localStorage are swap-behind-interface.
+- The remaining ~64% is `components/ui` + feature JSX markup — inherent RN UI rework (swap renderers, keep prop contracts). The clean isolation (Web Crypto in 1 file, Dexie in 4, FileReader/xlsx in leaf components) makes that port mechanical.
+- Earlier "~85%" estimates counted the component-swap UI as "reuse"; by LOC the honest logic-reuse figure is ~36%. Track 1E (shared-component adoption) raises effective UI reuse by shrinking bespoke markup.
 
 ### Target feature module structure (after Track 1)
 

@@ -6,9 +6,9 @@ interface ModalProps {
   children: ReactNode;
   footer?: ReactNode;
   /** sm = max-w-sm (pickers, confirm dialogs), md = max-w-[430px] default */
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | undefined;
   /** true → z-70 for modals stacked on top of other modals */
-  nested?: boolean;
+  nested?: boolean | undefined;
   /** true → body scrolls inside the card instead of growing */
   scrollable?: boolean;
 }
@@ -27,11 +27,11 @@ export function Modal({
 
   return (
     <div
-      className={`fixed inset-0 ${zClass} flex items-center justify-center px-4`}
-      style={{ paddingTop: 56, paddingBottom: 72 }}
+      className={`fixed left-0 right-0 ${zClass} flex items-center justify-center px-4`}
+      style={{ top: 56, bottom: 72 }}
     >
       <div className="absolute inset-0 bg-black/30" onClick={onClose} aria-hidden="true" />
-      <div className={`relative w-full ${maxW} bg-surface rounded-2xl flex flex-col`}>
+      <div className={`relative w-full ${maxW} bg-surface rounded-2xl flex flex-col max-h-full`}>
         {title !== undefined && (
           <div className="flex items-center justify-between px-5 pt-5 pb-0 flex-shrink-0">
             <h3 className="text-base font-semibold text-primary">{title}</h3>

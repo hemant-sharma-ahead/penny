@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { encrypt, deriveKey, generateSalt } from '@/core/crypto/engine';
 import { PATHS } from '@/router/paths';
+import { Button } from '@/components/ui';
 
 const DEMO_SALT = generateSalt();
 const DEFAULT_TEXT = 'My salary is ₹80,000 per month';
@@ -104,13 +105,9 @@ export function PrivacyDemoScreen() {
           </p>
         </div>
 
-        <button
-          onClick={() => navigate(PATHS.onboarding.chipIntro)}
-          className="w-full py-3.5 rounded-xl font-medium text-white transition-opacity hover:opacity-90"
-          style={{ backgroundColor: 'var(--color-primary)' }}
-        >
+        <Button variant="primary" size="lg" fullWidth onClick={() => navigate(PATHS.onboarding.chipIntro)}>
           Got it — meet Chip
-        </button>
+        </Button>
       </div>
     </div>
   );

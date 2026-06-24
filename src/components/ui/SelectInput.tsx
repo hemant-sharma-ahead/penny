@@ -36,7 +36,7 @@ export function SelectInput({
         required={required}
         disabled={disabled}
         style={error ? { borderColor: 'var(--color-open)' } : undefined}
-        className="input-surface w-full rounded-xl px-3 py-2.5 text-sm appearance-none pr-8 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="input-surface border w-full rounded-xl px-3 py-2.5 text-sm appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {placeholder && (
           <option value="" disabled>

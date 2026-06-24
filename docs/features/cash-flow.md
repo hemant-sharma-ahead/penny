@@ -28,8 +28,10 @@ Projects your cash balance for the next 30 days based on confirmed recurring inc
 5. **Flag risk days:** Any day where the projected balance crosses ₹5,000 (warning) or ₹0 (critical) is tagged. The risk label includes the specific recurring items landing that day.
 
 **Key files:**
-- `src/core/cashflow/forecaster.ts` — all projection logic
-- `src/features/cashflow/CashFlowPage.tsx` — display page
+- `src/core/cashflow/forecaster.ts` — all projection logic; `meta.ts` — event-type metadata (icon/colour/label)
+- `src/features/cashflow/CashFlowPage.tsx` — thin shell: header + horizon toggle + summary + timeline
+- `src/features/cashflow/useCashFlow.ts` — loads sources, forecasts events, groups by day, owns horizon state
+- `src/features/cashflow/CashFlowTimeline.tsx` — grouped day-by-day event timeline
 
 **Inputs from:** `expenses` (recurring + historical), `accounts` (current balances), `liabilities` (EMI amounts and due dates), `subscriptions` (confirmed recurring charges)
 

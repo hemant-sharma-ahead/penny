@@ -3,6 +3,7 @@ import { subscriptionsRepo } from '@/core/db/repositories';
 import type { Expense, Subscription } from '@/core/db/types';
 import { useRepository } from '@/hooks/useRepository';
 import { detectSubscriptions, type DetectedSubscription } from '@/core/subscriptions/detector';
+import { subKey } from '@/core/subscriptions/format';
 
 export function useSubscriptions(expenses: Expense[]) {
   const [nowMs] = useState(() => Date.now());
@@ -11,8 +12,8 @@ export function useSubscriptions(expenses: Expense[]) {
   const detectedSubs = useMemo(() => {
     if (expenses.length === 0) return [];
     const candidates = detectSubscriptions(expenses, nowMs);
-    const storedKeys = new Set(stored.map((s) => `${s.merchantCategory}:${s.intervalDays}`));
-    return candidates.filter((c) => !storedKeys.has(`${c.merchantCategory}:${c.intervalDays}`));
+    const storedKeys = new Set(stored.map((s) => subKey(s)));
+    return candidates.filter((c) => !storedKeys.has(subKey(c)));
   }, [expenses, stored, nowMs]);
 
   const activeSubs = useMemo(() => stored.filter((s) => s.confirmedByUser && s.status !== 'cancelled'), [stored]);

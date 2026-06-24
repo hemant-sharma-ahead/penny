@@ -23,7 +23,9 @@ Transfers are recorded as a single transaction with both a source `accountId` an
 The Home dashboard's accounts strip reads all accounts and computes their live balances in a single pass.
 
 Key files:
-- `src/features/accounts/AccountsPage.tsx` — accounts list and management
+- `src/features/accounts/AccountsPage.tsx` — thin shell: header + AccountList + AccountFormModal
+- `src/features/accounts/useAccountForm.ts` — add/edit form state; `AccountList.tsx`/`AccountFormModal.tsx` — list + modal
+- `src/core/accounts/meta.ts` — account-type metadata (label/icon/colour); `balanceCalculator.ts` — balance math
 - `src/features/expenses/ExpenseForm.tsx` — handles income and transfer type transactions (which update account balances)
 
 ## Current limitations

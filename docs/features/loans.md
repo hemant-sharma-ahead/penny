@@ -23,10 +23,19 @@ Payoff scenarios are computed in `calculator.ts` without modifying stored data �
 
 The XLSX export uses a spreadsheet library to produce a formatted workbook with one sheet per loan, including a header row with loan details and a data table of the full schedule.
 
+The feature follows the **vertical-slice** pattern: `LoanScenariosPage.tsx` is a thin shell
+(~45 lines) holding the tab state + shared `usePlanner` hook, dispatching to the `myloans/` and
+`planner/` slices. Each slice owns its own UI state, hooks, and modals. Inputs use the shared
+`TextInput`/`SelectInput` components (no hand-rolled dropdowns), and the spreadsheet payload is built
+purely in `core/loans/planExport.ts` so only the `writeFile` call is web-specific.
+
 Key files:
-- `src/features/loans/LoanScenariosPage.tsx` — My Loans tab, Payoff Planner UI
+- `src/features/loans/LoanScenariosPage.tsx` — thin shell: header + tab strip → MyLoansTab | PlannerTab
+- `src/features/loans/myloans/` — loan list + `AddLoanModal` + `useLoanForm`
+- `src/features/loans/planner/` — `PlannerTab` + `PlannerResults` + `usePlanner` (amortization derivation)
 - `src/core/loans/calculator.ts` — EMI calculation and scenario modelling
 - `src/core/loans/amortization.ts` — month-by-month schedule generation
+- `src/core/loans/meta.ts` — loan-type metadata (label/icon/colour); `planExport.ts` — pure export builder
 
 ## Current limitations
 - Loan balances must be updated manually; there is no automatic sync with lenders

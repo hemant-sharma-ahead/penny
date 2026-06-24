@@ -1,158 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
-import { usePrivacy } from '@/context/PrivacyContext';
-import { expensesRepo, goalsRepo, holdingsRepo, insurancePoliciesRepo, liabilitiesRepo } from '@/core/db/repositories';
-import type { Expense, Goal, Holding, InsurancePolicy, Liability } from '@/core/db/types';
-import { computeHealthScore, deriveInputs } from '@/core/health/scorer';
-import type { ComponentStatus, ScoreComponent } from '@/core/health/scorer';
-
-// ── SVG Gauge ────────────────────────────────────────────────────────────────
-
-function ScoreGauge({ score, color }: { score: number; color: string }) {
-  const R = 68;
-  const cx = 90;
-  const cy = 90;
-  const C = 2 * Math.PI * R;
-  const arcLength = C * 0.75;
-  const filled = (arcLength * Math.min(100, Math.max(0, score))) / 100;
-
-  return (
-    <svg viewBox="0 0 180 155" aria-label={`Health score: ${score} out of 100`}>
-      {/* Background track */}
-      <circle
-        cx={cx}
-        cy={cy}
-        r={R}
-        fill="none"
-        stroke="var(--color-border)"
-        strokeWidth={14}
-        strokeDasharray={`${C * 0.75} ${C * 0.25}`}
-        strokeLinecap="round"
-        transform={`rotate(135, ${cx}, ${cy})`}
-      />
-      {/* Score fill */}
-      {filled > 2 && (
-        <circle
-          cx={cx}
-          cy={cy}
-          r={R}
-          fill="none"
-          stroke={color}
-          strokeWidth={14}
-          strokeDasharray={`${filled} ${C - filled}`}
-          strokeLinecap="round"
-          transform={`rotate(135, ${cx}, ${cy})`}
-        />
-      )}
-      {/* Score text */}
-      <text x={cx} y={82} textAnchor="middle" fill="var(--color-text-primary)" fontSize="42" fontWeight="700">
-        {score}
-      </text>
-      <text x={cx} y={104} textAnchor="middle" fill="var(--color-text-tertiary)" fontSize="13">
-        out of 100
-      </text>
-    </svg>
-  );
-}
-
-// ── Component card ────────────────────────────────────────────────────────────
-
-const STATUS_STYLE: Record<ComponentStatus, { border: string; text: string; bar: string }> = {
-  excellent: { border: '#10b981', text: '#10b981', bar: '#10b981' },
-  good: { border: '#22c55e', text: '#22c55e', bar: '#22c55e' },
-  fair: { border: '#f59e0b', text: '#f59e0b', bar: '#f59e0b' },
-  poor: { border: '#ef4444', text: '#ef4444', bar: '#ef4444' },
-  no_data: { border: 'var(--color-border)', text: 'var(--color-text-tertiary)', bar: 'var(--color-border-strong)' }
-};
-
-function ComponentCard({ c }: { c: ScoreComponent }) {
-  const s = STATUS_STYLE[c.status];
-  const pct = c.max > 0 ? (c.earned / c.max) * 100 : 0;
-  const statusLabel = c.status === 'no_data' ? 'No data' : c.status.charAt(0).toUpperCase() + c.status.slice(1);
-
-  return (
-    <div className="surface rounded-2xl p-3 flex flex-col gap-2" style={{ borderColor: s.border }}>
-      {/* Header row */}
-      <div className="flex items-center justify-between gap-1">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <i className={`ti ${c.icon} flex-shrink-0`} style={{ fontSize: 15, color: s.text }} aria-hidden="true" />
-          <span className="text-xs font-semibold truncate text-primary">{c.label}</span>
-        </div>
-        <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: s.text }}>
-          {c.earned}/{c.max}
-        </span>
-      </div>
-
-      {/* Progress bar */}
-      <div className="w-full h-1.5 rounded-full bg-surface-3">
-        <div
-          className="h-1.5 rounded-full transition-all duration-500"
-          style={{ width: `${pct}%`, backgroundColor: s.bar }}
-        />
-      </div>
-
-      {/* Status badge + insight */}
-      <div>
-        <span
-          className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded"
-          style={{ color: s.text, backgroundColor: `${s.bar}22` }}
-        >
-          {statusLabel}
-        </span>
-        <p className="text-[10px] mt-1 leading-relaxed line-clamp-2 text-secondary">{c.insight}</p>
-      </div>
-    </div>
-  );
-}
-
-// ── Loaded data bag ───────────────────────────────────────────────────────────
-
-interface LoadedData {
-  holdings: Holding[];
-  expenses: Expense[];
-  liabilities: Liability[];
-  policies: InsurancePolicy[];
-  goals: Goal[];
-}
-
-// ── Page ──────────────────────────────────────────────────────────────────────
+import { TextInput } from '@/components/ui';
+import { useHealthScore } from './useHealthScore';
+import { ScoreGauge } from './ScoreGauge';
+import { ComponentCard } from './ComponentCard';
+import { ScoringGuide } from './ScoringGuide';
 
 export function HealthScorePage() {
-  usePrivacy();
-  const [nowMs] = useState(() => Date.now());
-  const [data, setData] = useState<LoadedData | null>(null);
-  const [monthlyIncome, setMonthlyIncome] = useState('');
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      holdingsRepo.getAll(),
-      expensesRepo.getAll(),
-      liabilitiesRepo.getAll(),
-      insurancePoliciesRepo.getAll(),
-      goalsRepo.getAll()
-    ])
-      .then(([holdings, expenses, liabilities, policies, goals]) => {
-        if (cancelled) return;
-        setData({ holdings, expenses, liabilities, policies, goals });
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const derived = useMemo(() => {
-    if (!data) return null;
-    return deriveInputs(data.holdings, data.expenses, data.liabilities, data.policies, data.goals, nowMs);
-  }, [data, nowMs]);
-
-  const healthScore = useMemo(() => {
-    if (!derived) return null;
-    const income = parseFloat(monthlyIncome);
-    return computeHealthScore(derived, income > 0 ? income : 0);
-  }, [derived, monthlyIncome]);
-
-  const incomeNeeded = !monthlyIncome || !(parseFloat(monthlyIncome) > 0);
+  const { healthScore, monthlyIncome, setMonthlyIncome, incomeNeeded } = useHealthScore();
 
   return (
     <div className="flex flex-col h-full">
@@ -178,17 +31,13 @@ export function HealthScorePage() {
             aria-hidden="true"
           />
           <div className="flex-1 min-w-0">
-            <label htmlFor="income-input" className="text-xs font-medium block mb-1 text-secondary">
-              Monthly take-home income (₹)
-            </label>
-            <input
-              id="income-input"
+            <TextInput
+              label="Monthly take-home income (₹)"
               type="number"
               inputMode="decimal"
-              className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
               placeholder="e.g. 80,000"
               value={monthlyIncome}
-              onChange={(e) => setMonthlyIncome(e.target.value)}
+              onChange={setMonthlyIncome}
             />
           </div>
         </div>
@@ -231,31 +80,8 @@ export function HealthScorePage() {
                 <ComponentCard key={c.key} c={c} />
               ))}
             </div>
+            <ScoringGuide />
           </>
-        )}
-
-        {/* How scores are calculated */}
-        {healthScore && (
-          <div className="rounded-2xl p-4 bg-surface-2 border border-theme">
-            <p className="text-xs font-semibold mb-2 text-secondary">How it's scored</p>
-            <div className="flex flex-col gap-1">
-              {[
-                ['Emergency Fund', '20 pts', '6+ months of expenses'],
-                ['Savings Rate', '20 pts', '30%+ of income saved'],
-                ['Debt-to-Income', '20 pts', '≤20% of income on EMIs'],
-                ['Insurance', '15 pts', 'Life + health coverage'],
-                ['Goals on Track', '15 pts', 'All active goals progressing'],
-                ['Diversification', '10 pts', '4+ asset classes']
-              ].map(([label, pts, target]) => (
-                <div key={label} className="flex items-baseline justify-between gap-2">
-                  <span className="text-[11px] text-secondary">{label}</span>
-                  <span className="text-[10px] flex-shrink-0 text-tertiary">
-                    {pts} · {target}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
         )}
       </div>
     </div>

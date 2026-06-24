@@ -5,6 +5,7 @@ import { db } from '@/core/db/schema';
 import { seedDemoData } from '@/core/db/seedDemoData';
 import type { Profile } from '@/core/db/types';
 import { PATHS } from '@/router/paths';
+import { Button } from '@/components/ui';
 
 const mockNetWorth = '₹15,43,200';
 const mockChange = '+₹23,400 this month';
@@ -99,21 +100,9 @@ export function SimulatedDashboardScreen() {
 
         {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
 
-        <button
-          onClick={() => void handleGetStarted()}
-          disabled={loading}
-          className="w-full py-3.5 rounded-xl font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
-          style={{ backgroundColor: 'var(--color-primary)' }}
-        >
-          {loading ? (
-            <>
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Setting up…
-            </>
-          ) : (
-            'Set up my dashboard'
-          )}
-        </button>
+        <Button variant="primary" size="lg" fullWidth loading={loading} onClick={() => void handleGetStarted()}>
+          {loading ? 'Setting up…' : 'Set up my dashboard'}
+        </Button>
       </div>
     </div>
   );
