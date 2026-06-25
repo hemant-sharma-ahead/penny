@@ -5,6 +5,7 @@ import type { ActiveEvent } from '@/context/EventModeContext';
 import { MonthPickerModal } from './MonthPickerModal';
 import { monthLabel } from '@/lib/date';
 import { toMonthYearKey } from '@/lib/formatters';
+import { buildParentCategoryMap, groupKey, groupMeta } from '@/core/expenses/categoryGroups';
 
 type TxnTypeFilter = 'all' | 'expense' | 'income' | 'transfer';
 
@@ -52,36 +53,23 @@ export function FilterModal({ events, pastEvents, accounts, categories, initial,
     setEventFilters(new Set());
   }
 
-  const intentGroupLabel: Record<string, string> = {
-    daily_living: 'Daily Living',
-    home_utilities: 'Home & Utilities',
-    health: 'Health',
-    lifestyle: 'Lifestyle',
-    financial: 'Financial',
-    income: 'Income',
-    transfers: 'Transfers',
-    other: 'Other'
-  };
+  const parentCategoryMap = buildParentCategoryMap(categories);
+  const leafCategories = categories.filter((c) => !c.isGroup);
 
   const applicableGroups =
     typeFilter !== 'all'
-      ? new Set(
-          categories
-            .filter((c) => (c.applicableTo ?? 'expense') === typeFilter)
-            .map((c) => c.intentGroup)
-            .filter((g): g is string => !!g)
-        )
+      ? new Set(leafCategories.filter((c) => (c.applicableTo ?? 'expense') === typeFilter).map((c) => groupKey(c)))
       : null;
 
-  const allGroups = [...new Set(categories.map((c) => c.intentGroup).filter((g): g is string => !!g))].map((g) => ({
-    key: g,
-    label: intentGroupLabel[g] ?? g.replace(/_/g, ' ')
+  const allGroups = [...new Set(leafCategories.map((c) => groupKey(c)))].map((key) => ({
+    key,
+    label: groupMeta(key, parentCategoryMap).label
   }));
 
   const visibleCategories =
     parentCategoryFilters.size > 0
-      ? categories.filter((c) => c.intentGroup && parentCategoryFilters.has(c.intentGroup))
-      : categories;
+      ? leafCategories.filter((c) => parentCategoryFilters.has(groupKey(c)))
+      : leafCategories;
 
   return (
     <>

@@ -33,11 +33,11 @@ export interface Profile {
   locale: string; // default "en-IN"
   onboardingComplete: boolean;
   // ── Identity & attributes (Track 2) ──
-  userId?: string; // stable local identity anchor (UUID); "claimed" on the server at Phase 1.5 registration. Never keyed off the username string.
-  username?: string; // provisional, optional; 3–20 lowercase alphanumeric/underscore. Reserved on the server only at registration.
-  dob?: string; // ISO date (YYYY-MM-DD). Encrypted; only a 5-year age band is ever sent to the AI.
-  employmentType?: EmploymentType;
-  plan?: Plan; // entitlement state; defaults to 'free' (full access in Phase 1)
+  userId?: string | undefined; // stable local identity anchor (UUID); "claimed" on the server at Phase 1.5 registration. Never keyed off the username string.
+  username?: string | undefined; // provisional, optional; 3–20 lowercase alphanumeric/underscore. Reserved on the server only at registration.
+  dob?: string | undefined; // ISO date (YYYY-MM-DD). Encrypted; only a 5-year age band is ever sent to the AI.
+  employmentType?: EmploymentType | undefined;
+  plan?: Plan | undefined; // entitlement state; defaults to 'free' (full access in Phase 1)
   createdAt: number;
   updatedAt: number;
 }
@@ -215,7 +215,8 @@ export interface ExpenseCategory {
   icon: string;
   color: string;
   isDefault: boolean;
-  parentId?: string; // subcategory prep — not used in UI yet
+  isGroup?: boolean; // true ⇒ a user-created parent/grouping header, not selectable for a transaction
+  parentId?: string; // for a leaf custom category, the id of its parent (isGroup) category
   intentGroup?: string; // e.g. 'daily_living', 'income', 'transfers'
   applicableTo?: 'expense' | 'income' | 'transfer'; // defaults to 'expense'
   createdAt: number;

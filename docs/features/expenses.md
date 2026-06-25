@@ -15,11 +15,15 @@ The expense tracking module — the heart of Penny's day-to-day usage. You log e
 - Pause recurring rules automatically while a vacation event is active (vacation guard)
 - Tag transactions to life events (vacation, wedding, home renovation) for contextual spending views
 - Organise categories into parent groups (e.g. "Food & Drink" → "Dining Out", "Groceries") and use hashtags for a third level of detail
+- Manage categories from inside the Select Category popup: create/edit/rename, pick an icon from a curated visual grid **or search the full Tabler set**, recolor, move transactions to another category, delete empty custom categories (single or bulk), and create your own parent groups (creating a group requires ≥1 category under it). Income has the same category + group concept as expense.
+- Select multiple transactions in the Transactions tab (the list-check button → tap rows) and bulk-update them: change **category**, change **account + payment mode together** (coupled like the entry form — a cash account forces the cash mode), or **delete** the selection
 
 ## How it works
 Transactions are stored in the encrypted `expenses` Dexie store. Each record includes: amount, merchant, categoryId, date, type (expense/income/transfer), hashtags array, accountId, toAccountId (for transfers), eventId, recurringRuleId, and an isRecurring flag.
 
-The category system has three levels: intentGroup (parent group), ExpenseCategory (child category), and hashtags (free-form tags). Default categories are seeded from `defaultCategories.ts` at first run. Users can create custom categories.
+The category system has three levels: intentGroup (parent group), ExpenseCategory (child category), and hashtags (free-form tags). Default categories are seeded from `defaultCategories.ts` at first run.
+
+**Category management (Track 3)** lives in `src/features/expenses/categories/`. The `CategoryPickerModal` has a Select mode (tap to pick) and a Manage mode (edit/move/bulk/parent groups), opening `CategoryEditorModal` / `ParentEditorModal` (z-80) on top. Icons are stored as `ti-*` strings; the picker (`IconGridPicker`) shows a curated set from `core/expenses/categoryIcons.ts` and lazy-fetches `public/tablerIconIndex.json` (built by `scripts/build-icon-index.mjs` via `npm run gen:icons` / `predev` / `prebuild`) for search. Default categories are editable but not deletable. Custom parent groups are `ExpenseCategory` records flagged `isGroup`; children reference them via `parentId`. Grouping in the picker, analytics, and filters is unified through `groupKey`/`groupMeta` in `core/expenses/categoryGroups.ts` (`parentId ?? intentGroup ?? 'other'`). "Move transactions" reassigns `categoryId` (source survives); deleting a custom empty category also removes its budgets. Transaction-level bulk edits (`patchExpenses`/`removeExpenses` in `useExpenses`) power the Transactions-tab select mode.
 
 Account balances are derived, not stored — every balance is calculated from the opening balance plus all income, minus all expenses, plus net transfers. This means the expenses store is the single source of truth for account balances.
 
@@ -35,6 +39,10 @@ Key files:
 - `src/features/expenses/ExpensesPage.tsx` — thin shell: header + tab strip → slice components
 - `src/features/expenses/transactions/` — transactions slice: filter bar, list, `ExpenseForm`, filter hook
 - `src/features/expenses/analytics/` — analytics slice + `useExpenseAnalytics` derivations
+- `src/features/expenses/categories/` — category manager: `CategoryPickerModal`, `CategoryEditorModal`, `ParentEditorModal`, `IconGridPicker`
+- `src/core/expenses/categoryGroups.ts` — `groupKey`/`groupMeta`/`buildParentCategoryMap` grouping helpers
+- `src/core/expenses/categoryIcons.ts` — curated icon set + shared `CAT_COLORS`
+- `scripts/build-icon-index.mjs` — generates `public/tablerIconIndex.json` for icon search
 - `src/features/import/` — import wizard as step slices (`UploadStep`/`PreviewStep`/`DoneStep`) + `useImport` hook
 - `src/core/import/importParsers.ts` — YNAB, Cashew, MoneyView, Penny CSV parsers + format metadata
 - `src/core/import/importPipeline.ts` — pure category matching, dedup keys, preview-row enrichment
@@ -44,12 +52,12 @@ Key files:
 ## Current limitations
 - No SMS parsing or bank statement auto-import — all transactions must be entered manually or imported via CSV/export file
 - No photo receipt attachment
-- Category icons are stored as Tabler icon name strings; there is no visual icon picker yet (coming in Pre-Phase 1.5)
-- No bulk operations — you cannot select multiple transactions to delete or re-categorise at once (coming in Pre-Phase 1.5)
+- Category icons use the Tabler webfont; the picker exposes a curated grid + search rather than arbitrary SVG uploads
+- Bulk operations exist for categories (category manager) and individual transactions (Transactions tab select mode → change category, change account + payment mode together, or delete); the account+payment editor enforces the same coupling as the entry form, and only the fields you set are written. Bulk edits don't change a transaction's type.
+- Icon search requires the index to load (lazy fetch); offline, only the curated icon grid is available
 - Analytics charts are month-based; custom arbitrary date range analytics are not yet supported
 
 ## Planned improvements
-- Pre-Phase 1.5: Visual icon picker for categories, a full category management page (rename, merge, delete), and bulk transaction operations
 - Phase 2: AI auto-categorisation — when you type a merchant name, Chip suggests the category based on your history and a merchant database (via a Cloudflare Worker, never raw data)
 - Phase 2: Bank statement PDF import — upload a PDF statement and Penny parses transactions automatically
 

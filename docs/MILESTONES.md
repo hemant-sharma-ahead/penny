@@ -187,8 +187,24 @@ Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Conta
 | Track 1D | Component wiring — replace all inline patterns in now-thin feature pages | ✅ Complete |
 | Track 1E | Design-system consolidation — semantic status tokens, Badge/ListRow/StatBox adoption, lib/date consolidation, card convergence onto shared primitives | ✅ Complete |
 | Track 2 | Identity, Account & Security — envelope encryption, onboarding v2 (DOB/employment/username + consent + back nav), change PIN/passphrase, PIN hardening (unified lockout, weak-PIN, once/day, opt-in wipe & lock-on-background), local identity + entitlement gate, full reset + config-gated cloud backup, DOB/employment downstream wiring, profile editor | ✅ Complete |
-| Track 3 | Expense category overhaul — management page, visual icon picker, merge, bulk ops | ⏳ Next |
+| Track 3 | Expense category overhaul — in-picker category manager, visual icon picker (curated grid + searchable Tabler set), create/edit/rename/recolor, move transactions + delete-when-empty + category bulk, user-created parent groups (expense + income), anchored-popover `SelectInput`, transaction-list multi-select bulk edit (category / account+payment coupled) + delete | ✅ Complete |
 | Track 4 | Activity log foundation — new Dexie store + basic UI | ⏳ Next |
+| Track 6 | Expense productivity & power features — see backlog below | ⏳ Future |
+
+### Track 6 backlog — expense productivity & power features
+
+Captured 2026-06-25 after Track 3. All Phase-1 feasible (local-first, no backend). AI auto-categorisation stays a Phase-2/Chip item; local merchant memory is its Phase-1 stepping stone.
+
+**Top 3 (highest leverage, on-brand):**
+- **Local merchant memory** — remember the last category/account/payment for a description/merchant and auto-fill on the next matching entry. Local precursor to the Phase-2 AI categoriser.
+- **Natural-language quick-add** — one input parsing `250 chai #office cash` → amount, category (via merchant memory), hashtag, payment mode. Pure local parser.
+- **"Safe to spend" / daily allowance** — surface a single actionable number from budgets + days left, not just charts.
+
+**Fast-entry polish:** amount-field calculator (`120+45`), duplicate/repeat a transaction, saved templates/favorites, swipe actions on rows (pairs with select mode).
+
+**Distinct / India + PWA:** Web Share Target (share a GPay/PhonePe receipt or SMS text into Penny → local parser pre-fills), split transaction across categories, receipt photo attach (local, encrypted), cash-wallet reconcile.
+
+**Smart-but-local insights:** recurring-pattern detection → suggest subscriptions/recurring rules, anomaly nudges ("Dining 40% over 3-month average"), monthly recap card.
 
 ### Track 1 rationale
 

@@ -152,10 +152,10 @@ penny/
 | `ChipAvatar.tsx` | — | Chip AI avatar SVG |
 | `PennyLogo.tsx` | — | Penny coin + wordmark SVG |
 | `Card.tsx` | `padding?` xs/sm/md/lg · `radius?` md/lg · `onClick?` · `className?` | Surface card. Padding tiers: xs=p-3, sm=p-3.5, md=p-4 (default), lg=p-5. Renders `<button>` when `onClick` is provided. Layout classes allowed via `className`; never pass colour/spacing overrides. |
-| `Modal.tsx` | `onClose` · `title?` · `footer?` · `size?` sm/md · `nested?` · `scrollable?` | Fixed-overlay centred modal. `nested=true` bumps to `z-70`. Always uses `paddingTop:56, paddingBottom:72` so header + nav remain visible. |
+| `Modal.tsx` | `onClose` · `title?` · `footer?` · `size?` sm/md · `nested?` · `level?` 1/2/3 · `scrollable?` | Fixed-overlay centred modal. `nested=true` bumps to `z-70`; `level={3}` → `z-80` (third-tier, e.g. category editors above the picker). Always uses `paddingTop:56, paddingBottom:72` so header + nav remain visible. |
 | `Button.tsx` | `variant` primary/secondary/danger/ghost · `size?` sm/md/lg · `loading?` · `icon?` · `fullWidth?` · `color?` · `style?` | All interactive buttons. `color` overrides background with a runtime hex value. `style` merges with variant styles for one-off positioning (e.g. FAB `bottom`/`right`). Primary/danger use CSS vars; secondary/ghost use semantic tokens. |
 | `OptionButton.tsx` | `label` · `selected` · `onClick` · `icon?` · `description?` · `color?` · `disabled?` · `compact?` | Bordered option selector. Default: horizontal card (icon left, label right, `w-full`). `compact=true`: vertical tile (icon above, label below, no `w-full`) for use in 3–4-column grids (policy types, account types, asset classes). `color` defaults to `--color-primary`. |
-| `ConfirmDialog.tsx` | `isOpen` · `onClose` · `onConfirm` · `title` · `message` · `confirmLabel?` · `confirmVariant?` · `loading?` | Two-button confirmation dialog. Wraps `Modal(nested=true)` + two `Button`s. |
+| `ConfirmDialog.tsx` | `isOpen` · `onClose` · `onConfirm` · `title` · `message` · `confirmLabel?` · `confirmVariant?` · `loading?` · `level?` 1/2/3 | Two-button confirmation dialog. Wraps `Modal` (default `level=2`/`z-70`) + two `Button`s. |
 | `FormField.tsx` | `label` · `required?` · `hint?` · `error?` | Label wrapper. Shows required star, hint text, or error (error takes priority over hint). |
 | `TextInput.tsx` | `label?` · `value` · `onChange(value)` · `error?` · `hint?` · `prefix?` · `suffix?` · `inputClassName?` | Controlled text input. `inputClassName` adds extra classes to the inner `<input>` element (e.g. `font-mono uppercase` for ticker inputs). When `label` is provided, wraps with `FormField`. |
 | `EmptyState.tsx` | `icon` · `title` · `description?` · `action?` | Icon + title + optional description + optional CTA button. Use for zero-data states. |
@@ -167,7 +167,7 @@ penny/
 | `ListContainer.tsx` | `children` · `className?` | Bordered rounded `surface` that hairline-divides its direct children (`divide-[var(--color-border)]`). Standard wrapper for grouped list rows (accounts, transactions, previews). |
 | `ProgressBar.tsx` | `value` 0–100 · `color?` · `size?` xs/sm/md · `animate?` | Horizontal fill bar. Clamps value to 0–100. |
 | `SegmentedControl.tsx` | `options[]{value,label,icon?,color?}` · `value` · `onChange` · `cols?` | 2–4 option radio group. Active option fills with `color` (default `--color-primary`). Background: `bg-surface-2`. |
-| `SelectInput.tsx` | `label?` · `value` · `onChange(value)` · `options[]{value,label}` · `placeholder?` · `error?` | Native `<select>` wrapper with chevron icon. Wraps `FormField` when `label` provided. |
+| `SelectInput.tsx` | `label?` · `value` · `onChange(value)` · `options[]{value,label}` · `placeholder?` · `required?` · `disabled?` · `error?` · `hint?` | Custom dropdown: styled trigger + portal-rendered listbox anchored directly below the field (flips above when space is tight). Renders to `document.body` at `z-index:90` so it escapes modal `overflow` clipping and stacks above `z-80` modals; dismisses on outside-click/Escape; repositions on scroll/resize. Wraps `FormField` when `label` provided. |
 | `Toggle.tsx` | `value` · `onChange(value)` · `disabled?` · `aria-label?` | iOS-style sliding boolean switch. Active: `--color-primary`; inactive: `--color-surface-3`. |
 | `index.ts` | — | Barrel export for all ui components. Import shared primitives from `@/components/ui` (never deep-import the file). |
 
@@ -366,9 +366,13 @@ src/features/expenses/
   ExpensesHeader.tsx       ← header chrome: title/total + events/import/export buttons + their modals
   useExpenses.ts           ← shared domain hook: txns/categories/accounts, seeding, derived maps
   transactions/
-    TransactionsSlice.tsx  ← owns filter bar, chips, speed-dial FAB, ExpenseForm + Filter + MonthPicker modals
+    TransactionsSlice.tsx  ← owns filter bar, chips, speed-dial FAB, select mode + bulk bar, ExpenseForm + Filter + MonthPicker modals
     useTransactionFilters.ts ← filter state + filteredExpenses/grouped/total/activeFilterCount
     TransactionsTab.tsx · ExpenseForm.tsx · FilterModal.tsx · MonthPickerModal.tsx · ExpenseExportModal.tsx
+    AccountChips.tsx · PaymentModeChips.tsx · paymentModes.ts · BulkAccountPaymentModal.tsx
+  categories/              ← category manager (opened from ExpenseForm's Select Category popup)
+    CategoryPickerModal.tsx ← Select + Manage modes; parent-aware grouping; bulk move/delete
+    CategoryEditorModal.tsx · ParentEditorModal.tsx · IconGridPicker.tsx · types.ts (CategoryManager)
   budgets/
     BudgetsSlice.tsx       ← owns BudgetModal · BudgetsTab.tsx · BudgetModal.tsx · useBudgets.ts
   analytics/
@@ -389,7 +393,9 @@ src/features/iou/          ← IOU is shared between the /app/iou route and the 
   IouPage.tsx · IouForm.tsx
 
 src/core/expenses/
-  filterAndAggregate.ts    ← pure: grouping, category aggregation
+  filterAndAggregate.ts    ← pure: grouping, category aggregation, calcTxnCountByCategory
+  categoryGroups.ts        ← pure: groupKey / groupMeta / buildParentCategoryMap (parent-aware grouping)
+  categoryIcons.ts         ← curated category icon set + shared CAT_COLORS palette
 src/lib/
   dateUtils.ts             ← toDateKey, dateLabel, offsetMonth, monthLabel (pure, no React)
 ```

@@ -3,6 +3,7 @@ import type { Expense, ExpenseCategory, TransactionType } from '@/core/db/types'
 import { normalizeHashtag } from '@/context/EventModeContext';
 import { toMonthYearKey } from '@/lib/formatters';
 import { groupExpensesByDate } from '@/core/expenses/filterAndAggregate';
+import { groupKey } from '@/core/expenses/categoryGroups';
 import type { FilterState } from './FilterModal';
 
 /**
@@ -33,8 +34,8 @@ export function useTransactionFilters(expenses: Expense[], categoryMap: Map<stri
       if (categoryFilters.size > 0) {
         if (!categoryFilters.has(e.categoryId)) return false;
       } else if (parentCategoryFilters.size > 0) {
-        const group = categoryMap.get(e.categoryId)?.intentGroup;
-        if (!group || !parentCategoryFilters.has(group)) return false;
+        const cat = categoryMap.get(e.categoryId);
+        if (!cat || !parentCategoryFilters.has(groupKey(cat))) return false;
       }
       if (eventFilters.size > 0) {
         const hasMatch = e.hashtags.some((t) => {

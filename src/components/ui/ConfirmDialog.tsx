@@ -13,6 +13,8 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   confirmVariant?: ConfirmVariant;
   loading?: boolean;
+  /** Stacking tier passed to Modal (1 → z-60, 2 → z-70, 3 → z-80). Defaults to nested (z-70). */
+  level?: 1 | 2 | 3;
 }
 
 export function ConfirmDialog({
@@ -24,7 +26,8 @@ export function ConfirmDialog({
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   confirmVariant = 'danger',
-  loading
+  loading,
+  level
 }: ConfirmDialogProps) {
   if (!isOpen) return null;
 
@@ -33,7 +36,7 @@ export function ConfirmDialog({
       onClose={onClose}
       title={title}
       size="sm"
-      nested
+      level={level ?? 2}
       footer={
         <div className="flex gap-3">
           <Button variant="secondary" fullWidth onClick={onClose} disabled={loading}>

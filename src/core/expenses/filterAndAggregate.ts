@@ -29,3 +29,12 @@ export function calcSpendByCategory(expenses: Expense[], month: string = toMonth
   }
   return map;
 }
+
+/** All-time transaction count per categoryId — used to gate category delete/move. */
+export function calcTxnCountByCategory(expenses: Expense[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const e of expenses) {
+    map.set(e.categoryId, (map.get(e.categoryId) ?? 0) + 1);
+  }
+  return map;
+}

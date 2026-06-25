@@ -9,6 +9,8 @@ interface ModalProps {
   size?: 'sm' | 'md' | undefined;
   /** true → z-70 for modals stacked on top of other modals */
   nested?: boolean | undefined;
+  /** explicit stacking tier: 1 → z-60, 2 → z-70, 3 → z-80 (overrides `nested`) */
+  level?: 1 | 2 | 3 | undefined;
   /** true → body scrolls inside the card instead of growing */
   scrollable?: boolean;
 }
@@ -20,9 +22,11 @@ export function Modal({
   footer,
   size = 'md',
   nested = false,
+  level,
   scrollable = false
 }: ModalProps) {
-  const zClass = nested ? 'z-70' : 'z-60';
+  const tier = level ?? (nested ? 2 : 1);
+  const zClass = tier === 3 ? 'z-80' : tier === 2 ? 'z-70' : 'z-60';
   const maxW = size === 'sm' ? 'max-w-sm' : 'max-w-[430px]';
 
   return (

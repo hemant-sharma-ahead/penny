@@ -23,7 +23,7 @@ This file is read at the start of every Claude Code session. It provides orienta
 | M13: Financial calculators | 🚧 In progress (Pankhuri) |
 | M14: Finance news + Contact/Feedback | ⏳ Future |
 | M15: UI polish + feature refinements | ✅ Complete |
-| **Pre-Phase 1.5: Track 5 ✅ · Track 1A ✅ · Track 1B ✅ · Track 1C ✅ · Track 1D ✅ · Track 1E ✅ · Track 2 ✅ · Track 3 · Track 4** | 🚧 In progress |
+| **Pre-Phase 1.5: Track 5 ✅ · Track 1A ✅ · Track 1B ✅ · Track 1C ✅ · Track 1D ✅ · Track 1E ✅ · Track 2 ✅ · Track 3 ✅ · Track 4 · Track 6 (expense productivity backlog)** | 🚧 In progress |
 | Phase 1.5: Groups & Household OS | ⏳ Next |
 | Phase 2: Chip AI, native apps, cloud sync | ⏳ Future |
 | Phase 3: Regional languages, crypto, international equities | ⏳ Future |
@@ -60,7 +60,7 @@ Never disable these rules with `eslint-disable` comments.
 - **Always visible header + nav.** Use `paddingTop: 56, paddingBottom: 72` on fixed overlays.
 - **Horizontal margin.** Use `px-4` on overlay, `max-w-[430px]` on card.
 - **Scrollable body.** Long content scrolls inside the card (`overflow-y-auto flex-1`).
-- **Z-index ladder:** bottom nav `z-50` → app header `z-40` → modals `z-60` → nested modals `z-70`
+- **Z-index ladder:** bottom nav `z-50` → app header `z-40` → modals `z-60` → nested modals `z-70` → third-tier modals `z-80` (e.g. category/parent editors opened from the category picker). `Modal`/`ConfirmDialog` accept `level={1|2|3}`.
 
 ---
 

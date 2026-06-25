@@ -64,7 +64,7 @@ export function PreciousMetalCard({
         title={<p className="text-sm font-semibold text-primary truncate">{holding.name}</p>}
         subtitle={
           <div className="flex items-center gap-1.5 flex-wrap">
-            <Badge label={METAL_CATEGORY_LABEL[category]} color={iconColor} size="sm" />
+            <Badge label={METAL_CATEGORY_LABEL[category] ?? category} color={iconColor} size="sm" />
             <span className="text-[10px] text-secondary">
               {weightGrams}g · {isGold ? `${karat}K` : purity}
             </span>

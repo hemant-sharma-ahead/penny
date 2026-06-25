@@ -87,7 +87,9 @@ Invoke this at the start of any implementation task on Penny. These rules apply 
 
 7. **Use `usePrivacy()` hook** for privacy-aware rendering. Never check the privacy mode directly in feature code — use `<MaskedValue>` or `<PrivacyAwareText>` from `src/components/privacy/`.
 
-8. **Tabler icons only.** Use `<i className="ti ti-NAME" />` — outline variants only. Never filled icons or custom SVG paths. (Note: Pre-Phase 1.5 track 3 replaces category icons with an SVG sprite — for categories only, use the new icon system.)
+8. **Tabler icons only.** Use `<i className="ti ti-NAME" />` — outline variants only. Never filled icons or custom SVG paths.
+9. **Never make users type an icon class.** When a user picks an icon (categories, parents, etc.), use the visual `IconGridPicker` (`src/features/expenses/categories/IconGridPicker.tsx`) — curated grid + searchable Tabler set — not a raw `ti-*` text input. The stored value is still a `ti-*` string.
+10. **Category grouping goes through `groupKey`/`groupMeta`** (`src/core/expenses/categoryGroups.ts`). Don't read `cat.intentGroup` directly for display/filtering — a custom parent (`isGroup` + child `parentId`) overrides it.
 
 ---
 

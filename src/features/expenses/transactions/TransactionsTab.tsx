@@ -7,9 +7,21 @@ interface TransactionsTabProps {
   accountMap: Map<string, Account>;
   mode: 'open' | 'safe' | 'privacy';
   onEdit: (expense: Expense) => void;
+  selectMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 }
 
-export function TransactionsTab({ grouped, categoryMap, accountMap, mode, onEdit }: TransactionsTabProps) {
+export function TransactionsTab({
+  grouped,
+  categoryMap,
+  accountMap,
+  mode,
+  onEdit,
+  selectMode = false,
+  selectedIds,
+  onToggleSelect
+}: TransactionsTabProps) {
   return (
     <div>
       {grouped.length === 0 ? (
@@ -42,12 +54,21 @@ export function TransactionsTab({ grouped, categoryMap, accountMap, mode, onEdit
                   txn.paymentMode)
                 : undefined;
               const accLine = [acc?.name, pmLabel ? `(${pmLabel})` : undefined].filter(Boolean).join(' ');
+              const isSel = selectedIds?.has(txn.id) ?? false;
               return (
                 <button
                   key={txn.id}
-                  onClick={() => onEdit(txn)}
+                  onClick={() => (selectMode ? onToggleSelect?.(txn.id) : onEdit(txn))}
                   className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-theme"
+                  style={selectMode && isSel ? { backgroundColor: 'var(--color-surface-secondary)' } : undefined}
                 >
+                  {selectMode && (
+                    <i
+                      className={`ti ${isSel ? 'ti-circle-check-filled' : 'ti-circle'} flex-shrink-0`}
+                      style={{ fontSize: 20, color: isSel ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}
+                      aria-hidden="true"
+                    />
+                  )}
                   <div
                     className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
                     style={{ backgroundColor: `${iconColor}18` }}

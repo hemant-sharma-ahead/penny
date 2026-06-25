@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import type { Budget, Expense, ExpenseCategory } from '@/core/db/types';
 import type { ActiveEvent } from '@/context/EventModeContext';
 import { normalizeHashtag } from '@/context/EventModeContext';
-import { INTENT_GROUP_META } from '@/core/db/defaultCategories';
+import { buildParentCategoryMap, groupKey, groupMeta } from '@/core/expenses/categoryGroups';
 import { toMonthYearKey } from '@/lib/formatters';
 import { offsetMonth } from '@/lib/date';
 
@@ -37,6 +37,8 @@ export function useExpenseAnalytics({
     [budgets, selectedMonth]
   );
 
+  const parentCategoryMap = useMemo(() => buildParentCategoryMap([...categoryMap.values()]), [categoryMap]);
+
   const analyticsData = useMemo(() => {
     const byGroup = new Map<string, { amount: number; categories: Map<string, number> }>();
     for (const e of expenses) {
@@ -44,7 +46,7 @@ export function useExpenseAnalytics({
       if (e.type && e.type !== 'expense') continue;
       if (e.hashtags.some((t) => allEventHashtags.has(normalizeHashtag(t)))) continue;
       const cat = categoryMap.get(e.categoryId);
-      const group = cat?.intentGroup ?? 'other';
+      const group = cat ? groupKey(cat) : 'other';
       const slot = byGroup.get(group) ?? { amount: 0, categories: new Map<string, number>() };
       slot.amount += e.amount;
       slot.categories.set(e.categoryId, (slot.categories.get(e.categoryId) ?? 0) + e.amount);
@@ -67,17 +69,18 @@ export function useExpenseAnalytics({
           })
           .sort((a, b) => b.amount - a.amount);
         const budgetTotal = cats.reduce((s, c) => s + (c.budgetLimit ?? 0), 0);
+        const meta = groupMeta(group, parentCategoryMap);
         return {
           group,
           amount,
-          color: INTENT_GROUP_META[group]?.color ?? '#6b7280',
-          label: INTENT_GROUP_META[group]?.label ?? group,
+          color: meta.color,
+          label: meta.label,
           cats,
           budgetTotal
         };
       })
       .sort((a, b) => b.amount - a.amount);
-  }, [expenses, categoryMap, selectedMonth, analyticsMonthBudgets, allEventHashtags]);
+  }, [expenses, categoryMap, parentCategoryMap, selectedMonth, analyticsMonthBudgets, allEventHashtags]);
 
   const eventsThisMonth = useMemo(() => {
     const allEvents = [...events, ...pastEvents];
@@ -135,7 +138,7 @@ export function useExpenseAnalytics({
       if (e.type && e.type !== 'expense') continue;
       if (e.hashtags.some((t) => allEventHashtags.has(normalizeHashtag(t)))) continue;
       const cat = categoryMap.get(e.categoryId);
-      const group = cat?.intentGroup ?? 'other';
+      const group = cat ? groupKey(cat) : 'other';
       byGroup.set(group, (byGroup.get(group) ?? 0) + e.amount);
     }
     return byGroup;

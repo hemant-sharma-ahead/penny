@@ -8,8 +8,8 @@ interface TextInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'pr
   error?: string | undefined;
   hint?: string | undefined;
   required?: boolean;
-  prefix?: string;
-  suffix?: string;
+  prefix?: string | undefined;
+  suffix?: string | undefined;
   /** Extra classes applied to the inner <input> element (e.g. 'font-mono uppercase'). */
   inputClassName?: string;
 }

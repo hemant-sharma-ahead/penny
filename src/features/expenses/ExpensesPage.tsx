@@ -10,6 +10,7 @@ import { BudgetsSlice } from './budgets/BudgetsSlice';
 import { AnalyticsSlice } from './analytics/AnalyticsSlice';
 import { SubscriptionsSlice } from './subscriptions/SubscriptionsSlice';
 import { IouSlice } from './iou/IouSlice';
+import type { CategoryManager } from './categories/types';
 
 type ExpensesTab = 'transactions' | 'subscriptions' | 'iou' | 'budgets' | 'analytics';
 
@@ -23,17 +24,37 @@ export function ExpensesPage() {
     accounts,
     categories,
     hashtags,
-    reloadCategories,
     expenseCategories,
     categoryMap,
+    parentCategoryMap,
     accountMap,
     spendByCategory,
+    txnCountByCategory,
     linkedCountByEventHashtag,
-    saveExpenseWithHashtags
+    saveExpenseWithHashtags,
+    patchExpenses,
+    removeExpenses,
+    saveCategory,
+    moveTransactions,
+    deleteCategory,
+    saveParent,
+    deleteParent,
+    createParentWithChildren
   } = useExpenses();
 
   const [activeTab, setActiveTab] = useState<ExpensesTab>('transactions');
   const txnFilters = useTransactionFilters(expenses, categoryMap);
+
+  const categoryManager: CategoryManager = {
+    parentCategoryMap,
+    txnCountByCategory,
+    saveCategory,
+    moveTransactions,
+    deleteCategory,
+    saveParent,
+    deleteParent,
+    createParentWithChildren
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -72,7 +93,9 @@ export function ExpensesPage() {
           mode={mode}
           onSaveExpense={saveExpenseWithHashtags}
           onDeleteExpense={removeExpense}
-          onCategoryCreated={reloadCategories}
+          onPatchExpenses={patchExpenses}
+          onRemoveExpenses={removeExpenses}
+          categoryManager={categoryManager}
         />
       )}
 

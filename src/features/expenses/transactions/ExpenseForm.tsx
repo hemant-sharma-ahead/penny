@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Account, Expense, ExpenseCategory, Hashtag, TransactionType } from '@/core/db/types';
 import type { ActiveEvent } from '@/context/EventModeContext';
-import { accountsRepo, expenseCategoriesRepo } from '@/core/db/repositories';
-import { INTENT_GROUP_META } from '@/core/db/defaultCategories';
+import { accountsRepo } from '@/core/db/repositories';
 import { epochToDateInput } from '@/lib/formatters';
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '@/router/paths';
 import { Modal, Button, Toggle, TextInput, SegmentedControl } from '@/components/ui';
+import { CategoryPickerModal } from '../categories/CategoryPickerModal';
+import type { CategoryManager } from '../categories/types';
+import { AccountChips } from './AccountChips';
+import { PaymentModeChips } from './PaymentModeChips';
+import { couplePaymentToAccount } from './paymentModes';
 
 interface Props {
   categories: ExpenseCategory[];
@@ -16,19 +20,9 @@ interface Props {
   initialType?: TransactionType;
   onSave: (expense: Expense) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onCategoryCreated: () => void;
+  categoryManager: CategoryManager;
   onClose: () => void;
 }
-
-const CAT_COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6b7280'];
-
-const PAYMENT_MODES = [
-  { id: 'cash', label: 'Cash', icon: 'ti-cash', color: '#22c55e' },
-  { id: 'upi', label: 'UPI', icon: 'ti-qrcode', color: '#7c3aed' },
-  { id: 'card', label: 'Card', icon: 'ti-credit-card', color: '#3b82f6' },
-  { id: 'net', label: 'Net', icon: 'ti-building-bank', color: '#0ea5e9' },
-  { id: 'wallet', label: 'Wallet', icon: 'ti-wallet', color: '#f97316' }
-];
 
 const TYPE_META: Record<TransactionType, { label: string; color: string; icon: string }> = {
   expense: { label: 'Expense', color: '#ef4444', icon: 'ti-arrow-down-circle' },
@@ -43,78 +37,6 @@ function parseTags(raw: string): string[] {
     .filter(Boolean);
 }
 
-// ── Account chips ─────────────────────────────────────────────────────────────
-
-interface AccountChipsProps {
-  accounts: Account[];
-  value: string;
-  onChange: (id: string) => void;
-  showNone?: boolean;
-  disabledId?: string;
-  onAddAccount: () => void;
-}
-
-function AccountChips({ accounts, value, onChange, showNone, disabledId, onAddAccount }: AccountChipsProps) {
-  if (accounts.length === 0) {
-    return (
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        icon="ti-plus"
-        style={{ color: 'var(--color-primary)' }}
-        onClick={onAddAccount}
-      >
-        Add account to track balance
-      </Button>
-    );
-  }
-
-  return (
-    <div className="flex gap-2 overflow-x-auto pb-0.5">
-      {showNone && (
-        <button
-          type="button"
-          onClick={() => onChange('')}
-          className="flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors w-[64px]"
-          style={
-            value === ''
-              ? { borderColor: '#6b7280', backgroundColor: 'var(--color-surface-secondary)' }
-              : { borderColor: 'transparent', backgroundColor: 'var(--color-surface-secondary)' }
-          }
-        >
-          <i className="ti ti-circle-off" style={{ fontSize: 18, color: '#6b7280' }} aria-hidden="true" />
-          <span className="text-[9px] font-medium leading-tight text-secondary">None</span>
-        </button>
-      )}
-      {accounts.map((acc) => {
-        const isSelected = value === acc.id;
-        const isDisabled = acc.id === disabledId;
-        return (
-          <button
-            key={acc.id}
-            type="button"
-            disabled={isDisabled}
-            onClick={() => !isDisabled && onChange(isSelected && showNone ? '' : acc.id)}
-            className="flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors w-[64px]"
-            style={{
-              opacity: isDisabled ? 0.35 : 1,
-              cursor: isDisabled ? 'not-allowed' : 'pointer',
-              borderColor: isSelected ? acc.color : 'transparent',
-              backgroundColor: 'var(--color-surface-secondary)'
-            }}
-          >
-            <i className={`ti ${acc.icon}`} style={{ fontSize: 18, color: acc.color }} aria-hidden="true" />
-            <span className="text-[9px] font-medium text-center leading-tight text-secondary line-clamp-2 break-words w-full">
-              {acc.name}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 // ── Main form ──────────────────────────────────────────────────────────────────
 
 export function ExpenseForm({
@@ -125,7 +47,7 @@ export function ExpenseForm({
   initialType,
   onSave,
   onDelete,
-  onCategoryCreated,
+  categoryManager,
   onClose
 }: Props) {
   const navigate = useNavigate();
@@ -147,11 +69,6 @@ export function ExpenseForm({
   const [intervalDays, setIntervalDays] = useState(String(editing?.recurringIntervalDays ?? 30));
   const [saving, setSaving] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-  const [showNewCat, setShowNewCat] = useState(false);
-  const [newCatName, setNewCatName] = useState('');
-  const [newCatIcon, setNewCatIcon] = useState('ti-dots');
-  const [newCatColor, setNewCatColor] = useState('#6b7280');
-  const [savingCat, setSavingCat] = useState(false);
 
   const initEditing = useRef(editing);
 
@@ -169,50 +86,21 @@ export function ExpenseForm({
     });
   }, []);
 
-  const applicableCategories = useMemo(() => {
-    if (type === 'income') return categories.filter((c) => c.applicableTo === 'income');
-    if (type === 'transfer') return [];
-    return categories.filter((c) => !c.applicableTo || c.applicableTo === 'expense');
-  }, [categories, type]);
-
-  const groupedCategories = useMemo(() => {
-    const byGroup = new Map<string, ExpenseCategory[]>();
-    for (const cat of applicableCategories) {
-      const group = cat.intentGroup ?? 'other';
-      const arr = byGroup.get(group) ?? [];
-      arr.push(cat);
-      byGroup.set(group, arr);
-    }
-    return Object.entries(INTENT_GROUP_META)
-      .filter(([g]) => (type === 'income' ? g === 'income' : g !== 'income' && g !== 'transfers'))
-      .flatMap(([group, meta]) => {
-        const cats = byGroup.get(group) ?? [];
-        return cats.length > 0 ? [{ group, label: meta.label, color: meta.color, cats }] : [];
-      });
-  }, [applicableCategories, type]);
-
   const selectedCat = useMemo(
-    () => (type !== 'transfer' ? applicableCategories.find((c) => c.id === categoryId) : undefined),
-    [categoryId, applicableCategories, type]
+    () => (type !== 'transfer' ? categories.find((c) => c.id === categoryId) : undefined),
+    [categoryId, categories, type]
   );
 
   const selectedAccount = useMemo(() => accounts.find((a) => a.id === accountId), [accounts, accountId]);
 
-  function isPaymentModeDisabled(modeId: string): boolean {
-    if (!selectedAccount) return false;
-    if (selectedAccount.type === 'cash') return modeId !== 'cash';
-    return modeId === 'cash';
-  }
-
   function handleAccountSelect(id: string) {
     setAccountId(id);
-    const acc = accounts.find((a) => a.id === id);
-    if (!acc) return;
-    if (acc.type === 'cash') {
-      setPaymentMode('cash');
-    } else if (paymentMode === 'cash') {
-      setPaymentMode('');
-    }
+    setPaymentMode((prev) =>
+      couplePaymentToAccount(
+        accounts.find((a) => a.id === id),
+        prev
+      )
+    );
   }
 
   function handleTypeChange(newType: TransactionType) {
@@ -271,34 +159,6 @@ export function ExpenseForm({
     onSave(base)
       .catch(() => {})
       .finally(() => setSaving(false));
-  }
-
-  async function handleCreateCategory() {
-    const name = newCatName.trim();
-    if (!name) return;
-    setSavingCat(true);
-    const newCat: ExpenseCategory = {
-      id: `cat-custom-${crypto.randomUUID().slice(0, 8)}`,
-      name,
-      icon: newCatIcon || 'ti-dots',
-      color: newCatColor,
-      isDefault: false,
-      intentGroup: 'other',
-      applicableTo: 'expense',
-      createdAt: Date.now()
-    };
-    try {
-      await expenseCategoriesRepo.put(newCat);
-      setCategoryId(newCat.id);
-      onCategoryCreated();
-      setShowNewCat(false);
-      setShowCategoryPicker(false);
-      setNewCatName('');
-      setNewCatIcon('ti-dots');
-      setNewCatColor('#6b7280');
-    } finally {
-      setSavingCat(false);
-    }
   }
 
   function goToAccounts() {
@@ -458,29 +318,8 @@ export function ExpenseForm({
         {/* ── Payment mode ── */}
         <div>
           <label className="text-xs font-medium text-secondary">Payment mode</label>
-          <div className="mt-1 flex gap-2 overflow-x-auto pb-0.5">
-            {PAYMENT_MODES.map((m) => {
-              const disabled = isPaymentModeDisabled(m.id);
-              const active = paymentMode === m.id;
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => !disabled && setPaymentMode((prev) => (prev === m.id ? '' : m.id))}
-                  className="flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors w-[58px]"
-                  style={{
-                    opacity: disabled ? 0.3 : 1,
-                    cursor: disabled ? 'not-allowed' : 'pointer',
-                    borderColor: active && !disabled ? m.color : 'transparent',
-                    backgroundColor: 'var(--color-surface-secondary)'
-                  }}
-                >
-                  <i className={`ti ${m.icon}`} style={{ fontSize: 18, color: m.color }} aria-hidden="true" />
-                  <span className="text-[9px] font-medium leading-tight text-secondary">{m.label}</span>
-                </button>
-              );
-            })}
+          <div className="mt-1">
+            <PaymentModeChips value={paymentMode} onChange={setPaymentMode} selectedAccount={selectedAccount} />
           </div>
         </div>
 
@@ -565,93 +404,19 @@ export function ExpenseForm({
         </div>
       </Modal>
 
-      {/* ── Category picker — nested modal (z-70, above form) ── */}
-      {showCategoryPicker && (
-        <Modal nested onClose={() => setShowCategoryPicker(false)} title="Select category" scrollable>
-          {groupedCategories.map(({ group, label, color, cats }) => (
-            <div key={group}>
-              <div className="flex items-center gap-1.5 mb-2">
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color }}>
-                  {label}
-                </span>
-              </div>
-              <div className="grid grid-cols-6 gap-1.5">
-                {cats.map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => {
-                      setCategoryId(cat.id);
-                      setShowCategoryPicker(false);
-                    }}
-                    className="flex flex-col items-center gap-1 p-1.5 rounded-xl border-2 transition-colors"
-                    style={
-                      categoryId === cat.id
-                        ? { borderColor: cat.color, backgroundColor: 'var(--color-surface-secondary)' }
-                        : { borderColor: 'transparent', backgroundColor: 'var(--color-surface-secondary)' }
-                    }
-                  >
-                    <i className={`ti ${cat.icon}`} style={{ fontSize: 16, color: cat.color }} aria-hidden="true" />
-                    <span className="text-[8px] font-medium text-center leading-tight text-secondary line-clamp-2 break-words w-full">
-                      {cat.name}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {/* New category (expense only) */}
-          {type === 'expense' &&
-            (showNewCat ? (
-              <div className="bg-surface-2 rounded-xl p-3 flex flex-col gap-2.5 border border-theme">
-                <TextInput placeholder="Category name" value={newCatName} onChange={setNewCatName} autoFocus />
-                <TextInput
-                  label="Icon name (Tabler)"
-                  placeholder="ti-star, ti-home, ti-bolt…"
-                  value={newCatIcon}
-                  onChange={setNewCatIcon}
-                />
-                <div className="flex items-center gap-2">
-                  <p className="text-[10px] text-secondary flex-shrink-0">Colour</p>
-                  {CAT_COLORS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setNewCatColor(c)}
-                      className="w-6 h-6 rounded-full border-2 flex-shrink-0 transition-transform"
-                      style={{
-                        backgroundColor: c,
-                        borderColor: newCatColor === c ? 'var(--color-text-primary)' : 'transparent',
-                        transform: newCatColor === c ? 'scale(1.2)' : 'scale(1)'
-                      }}
-                      aria-label={`Colour ${c}`}
-                    />
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="secondary" size="sm" fullWidth onClick={() => setShowNewCat(false)}>
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    fullWidth
-                    color={newCatColor}
-                    loading={savingCat}
-                    disabled={!newCatName.trim()}
-                    onClick={() => void handleCreateCategory()}
-                  >
-                    {savingCat ? 'Creating…' : 'Create'}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button variant="ghost" size="sm" icon="ti-plus" onClick={() => setShowNewCat(true)}>
-                New category
-              </Button>
-            ))}
-        </Modal>
+      {/* ── Category picker + manager — nested modal (z-70, above form) ── */}
+      {showCategoryPicker && type !== 'transfer' && (
+        <CategoryPickerModal
+          type={type}
+          categories={categories}
+          selectedId={categoryId}
+          manager={categoryManager}
+          onSelect={(id) => {
+            setCategoryId(id);
+            setShowCategoryPicker(false);
+          }}
+          onClose={() => setShowCategoryPicker(false)}
+        />
       )}
     </>
   );

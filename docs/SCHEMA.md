@@ -85,12 +85,15 @@ Default and user-created categories for classifying expenses.
 |-------|------|-------|
 | id | string (UUID) | Primary key |
 | name | string | e.g. `'Food'`, `'EMI'`, `'Entertainment'` |
-| icon | string? | Tabler icon name or SVG key |
-| color | string? | Hex color for UI chips and charts |
-| intentGroup | string | Parent category tier (e.g. `'Needs'`, `'Wants'`, `'Savings'`) |
-| isDefault | boolean | System-provided defaults vs user-created |
-| parentId | string? | Reserved for future subcategory hierarchy — unused in UI today |
-| transactionCount | number? | Cached count for sort/display |
+| icon | string | Tabler icon class (`ti-*`), chosen via the visual icon picker |
+| color | string | Hex color for UI chips and charts |
+| intentGroup | string? | Fixed intent-group key (`'daily_living'`, `'health'`, …) used to group **default** categories. See `INTENT_GROUP_META`. |
+| isDefault | boolean | System-provided defaults (editable, not deletable) vs user-created |
+| isGroup | boolean? | `true` ⇒ this record is a user-created **parent** (grouping header), not selectable for a transaction |
+| parentId | string? | For a custom leaf category, the id of its parent (`isGroup`) category. Takes precedence over `intentGroup` for grouping. |
+| applicableTo | 'expense' \| 'income' \| 'transfer'? | Defaults to `'expense'` |
+
+> **Grouping (Track 3):** the picker/analytics/filters key off `groupKey(cat) = parentId ?? intentGroup ?? 'other'`; the header label/color comes from the parent record (custom groups) or `INTENT_GROUP_META` (fixed groups). No Dexie store/version change — `isGroup`/`parentId` ride inside the encrypted blob.
 
 ---
 
