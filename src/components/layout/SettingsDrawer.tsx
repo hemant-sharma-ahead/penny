@@ -26,7 +26,8 @@ const MODULE_ROWS: ModuleRow[] = [
   { key: 'loans', label: 'Loans', icon: 'ti-calculator', color: '#06b6d4' },
   { key: 'health', label: 'Health', icon: 'ti-heart-rate-monitor', color: '#ec4899' },
   { key: 'tax', label: 'Tax', icon: 'ti-receipt-tax', color: '#8b5cf6' },
-  { key: 'cashflow', label: 'Cash Flow', icon: 'ti-trending-down', color: '#14b8a6' }
+  { key: 'cashflow', label: 'Cash Flow', icon: 'ti-trending-down', color: '#14b8a6' },
+  { key: 'news', label: 'News', icon: 'ti-news', color: '#f59e0b' }
 ];
 
 const FONT_SCALES: { value: FontScale; label: string }[] = [
@@ -279,7 +280,8 @@ export function SettingsDrawer({ open, onClose }: Props) {
             {[
               { icon: 'ti-lock', label: 'Change PIN', path: PATHS.app.changePin },
               { icon: 'ti-key', label: 'Change Passphrase', path: PATHS.app.changePassphrase },
-              { icon: 'ti-database-export', label: 'Backup & Restore', path: PATHS.app.backup }
+              { icon: 'ti-database-export', label: 'Backup & Restore', path: PATHS.app.backup },
+              { icon: 'ti-message-circle', label: 'Contact & Feedback', path: PATHS.app.feedback }
             ].map((item) => (
               <button
                 key={item.label}

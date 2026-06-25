@@ -30,6 +30,8 @@ export const PATHS = {
     changePin: '/app/change-pin',
     changePassphrase: '/app/change-passphrase',
     profile: '/app/profile',
-    timeline: '/app/timeline'
+    timeline: '/app/timeline',
+    news: '/app/news',
+    feedback: '/app/feedback'
   }
 } as const;

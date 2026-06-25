@@ -21,7 +21,7 @@ This file is read at the start of every Claude Code session. It provides orienta
 | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | M0–M12: Foundation through portfolio enhancements                                      | ✅ Complete                                                              |
 | M13: Financial calculators                                                             | ✅ Complete                                                              |
-| M14: Finance news + Contact/Feedback                                                   | 🚧 In progress (Pankhuri)                                                |
+| M14: Finance news + Contact/Feedback                                                   | ✅ Complete                                                              |
 | M15: UI polish + feature refinements                                                   | ✅ Complete                                                              |
 | **Pre-Phase 1.5: Tracks 5, 1A–1E, 2, 3, 4, 6, 7 ✅ (Track 6 Step 3 skipped)**          | ✅ Complete                                                              |
 | Phase 1.5: Groups & Household OS — [plan](docs/plans/phase-1.5-groups-household-os.md) | 🚧 In progress (Track 1 IOU ledger ✅ complete; next: Track A API Proxy) |

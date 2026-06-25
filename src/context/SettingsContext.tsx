@@ -18,6 +18,7 @@ export interface ModuleVisibility {
   tax: boolean;
   cashflow: boolean;
   backup: boolean;
+  news: boolean;
 }
 
 const DEFAULT_MODULES: ModuleVisibility = {
@@ -30,7 +31,8 @@ const DEFAULT_MODULES: ModuleVisibility = {
   health: true,
   tax: true,
   cashflow: true,
-  backup: true
+  backup: true,
+  news: true
 };
 
 const FONT_SCALE_MAP: Record<FontScale, number> = {
