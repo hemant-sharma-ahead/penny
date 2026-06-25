@@ -1,51 +1,17 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { EncryptedRepository } from '@/core/db/repository';
-import { db } from '@/core/db/schema';
-import { seedDemoData } from '@/core/db/seedDemoData';
-import type { Profile } from '@/core/db/types';
 import { PATHS } from '@/router/paths';
 import { Button } from '@/components/ui';
+import { OnboardingBack } from './OnboardingBack';
 
 const mockNetWorth = '₹15,43,200';
 const mockChange = '+₹23,400 this month';
 
 export function SimulatedDashboardScreen() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleGetStarted = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const repo = new EncryptedRepository<Profile>(db.profile as never);
-      await repo.put({
-        id: crypto.randomUUID(),
-        displayName: '',
-        currency: 'INR',
-        locale: 'en-IN',
-        onboardingComplete: true,
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      });
-      await seedDemoData();
-      navigate(PATHS.app.home);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : '';
-      // Master key not in memory — onboarding already completed in a prior session.
-      // Route to the app; SessionGate will handle the PIN unlock.
-      if (msg.includes('master key') || msg.includes('Session locked')) {
-        navigate(PATHS.app.home);
-        return;
-      }
-      setError('Something went wrong. Please try again.');
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen flex flex-col bg-surface-2 px-6 py-10">
+    <div className="relative min-h-screen flex flex-col bg-surface-2 px-6 py-10">
+      <OnboardingBack to={PATHS.onboarding.chipIntro} />
       <div className="flex-1 w-full max-w-sm mx-auto flex flex-col">
         <div className="mb-6 text-center">
           <h2 className="text-2xl font-semibold text-primary mb-1">Here's a preview</h2>
@@ -98,10 +64,8 @@ export function SimulatedDashboardScreen() {
           </p>
         </div>
 
-        {error && <p className="text-danger text-sm mb-4 text-center">{error}</p>}
-
-        <Button variant="primary" size="lg" fullWidth loading={loading} onClick={() => void handleGetStarted()}>
-          {loading ? 'Setting up…' : 'Set up my dashboard'}
+        <Button variant="primary" size="lg" fullWidth onClick={() => navigate(PATHS.onboarding.letUsKnowYou)}>
+          Continue
         </Button>
       </div>
     </div>

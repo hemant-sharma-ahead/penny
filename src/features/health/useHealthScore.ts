@@ -3,6 +3,7 @@ import { expensesRepo, goalsRepo, holdingsRepo, insurancePoliciesRepo, liabiliti
 import type { Expense, Goal, Holding, InsurancePolicy, Liability } from '@/core/db/types';
 import { computeHealthScore, deriveInputs } from '@/core/health/scorer';
 import type { HealthScore } from '@/core/health/scorer';
+import { useProfile } from '@/hooks/useProfile';
 import { parseNumber } from '@/lib/formatters';
 
 interface LoadedData {
@@ -21,6 +22,7 @@ export function useHealthScore() {
   const [nowMs] = useState(() => Date.now());
   const [data, setData] = useState<LoadedData | null>(null);
   const [monthlyIncome, setMonthlyIncome] = useState('');
+  const { profile } = useProfile();
 
   useEffect(() => {
     let cancelled = false;
@@ -47,9 +49,10 @@ export function useHealthScore() {
   );
 
   const income = parseNumber(monthlyIncome);
+  const employmentType = profile?.employmentType;
   const healthScore: HealthScore | null = useMemo(
-    () => (derived ? computeHealthScore(derived, income > 0 ? income : 0) : null),
-    [derived, income]
+    () => (derived ? computeHealthScore(derived, income > 0 ? income : 0, employmentType) : null),
+    [derived, income, employmentType]
   );
 
   return { healthScore, monthlyIncome, setMonthlyIncome, incomeNeeded: income <= 0 };

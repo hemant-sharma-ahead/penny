@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { encrypt, deriveKey, generateSalt } from '@/core/crypto/engine';
 import { PATHS } from '@/router/paths';
 import { Button } from '@/components/ui';
+import { OnboardingBack } from './OnboardingBack';
 
 const DEMO_SALT = generateSalt();
 const DEFAULT_TEXT = 'My salary is ₹80,000 per month';
@@ -56,7 +57,8 @@ export function PrivacyDemoScreen() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-surface px-6 py-10">
+    <div className="relative min-h-screen flex flex-col bg-surface px-6 py-10">
+      <OnboardingBack to={PATHS.onboarding.privacyPromise} />
       <div className="flex-1 w-full max-w-sm mx-auto flex flex-col">
         <div className="mb-8 text-center">
           <div

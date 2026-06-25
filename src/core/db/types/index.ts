@@ -20,12 +20,24 @@ export interface PrivacyStat {
 
 // ─── Encrypted store types ────────────────────────────────────────────────────
 
+/** How the user earns — drives EPF visibility, tax deductions, and health benchmarks. */
+export type EmploymentType = 'salaried' | 'self_employed' | 'business_owner' | 'student' | 'retired';
+
+/** Local entitlement marker. Everyone is effectively full-access until pricing ships. */
+export type Plan = 'free' | 'pro';
+
 export interface Profile {
   id: string;
-  displayName: string;
+  displayName: string; // the user's full name (also used as the display name)
   currency: string; // default "INR"
   locale: string; // default "en-IN"
   onboardingComplete: boolean;
+  // ── Identity & attributes (Track 2) ──
+  userId?: string; // stable local identity anchor (UUID); "claimed" on the server at Phase 1.5 registration. Never keyed off the username string.
+  username?: string; // provisional, optional; 3–20 lowercase alphanumeric/underscore. Reserved on the server only at registration.
+  dob?: string; // ISO date (YYYY-MM-DD). Encrypted; only a 5-year age band is ever sent to the AI.
+  employmentType?: EmploymentType;
+  plan?: Plan; // entitlement state; defaults to 'free' (full access in Phase 1)
   createdAt: number;
   updatedAt: number;
 }
@@ -369,17 +381,23 @@ export interface AiCallLog {
   calledAt: number;
 }
 
+// Envelope encryption (Track 2): a random Data Master Key (DMK) encrypts all data
+// and is wrapped independently by a PIN-derived KEK and a passphrase-derived KEK.
+// Changing a factor re-wraps the DMK only — data is never re-encrypted.
 export interface SecurityRecord {
   id: string;
-  passphraseVerifier: string; // PBKDF2-derived verifier, not the passphrase
-  encryptedMasterKey: string; // MK wrapped with KEK, base64
-  kekSalt: string; // base64
-  mkSalt: string; // base64
+  encryptedMasterKey: string; // DMK wrapped by the PIN-KEK, base64
+  kekSalt: string; // salt for the PIN-KEK, base64
+  encryptedMasterKeyByPassphrase?: string; // DMK wrapped by the passphrase-KEK, base64 (added lazily for migrated vaults)
+  passphraseKekSalt?: string; // salt for the passphrase-KEK, base64
+  mkSalt?: string; // legacy: salt the pre-envelope MK was derived from (used to verify the passphrase during migration)
+  passphraseVerifier?: string; // legacy, unused
   pinAttempts: number;
   lockedUntil?: number;
   lastPinVerifiedAt?: number;
   pinChangedAt?: number;
   sessionExpiresAt?: number;
+  wipeAfterAttempts?: number; // opt-in: erase all data after this many consecutive failed PIN attempts (undefined = off)
   createdAt: number;
   updatedAt: number;
 }

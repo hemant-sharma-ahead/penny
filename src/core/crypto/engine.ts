@@ -31,6 +31,19 @@ export function generateSalt(byteLength = 32): ArrayBuffer {
   return crypto.getRandomValues(new Uint8Array(byteLength)).buffer as ArrayBuffer;
 }
 
+// ─── Random data key (envelope encryption) ────────────────────────────────────
+// The Data Master Key is random, not derived from any secret. Generate it
+// extractable only when it must be wrapped; load a non-extractable copy at runtime.
+
+export function generateMasterKey(extractable = false): Promise<CryptoKey> {
+  return crypto.subtle.generateKey({ name: 'AES-GCM', length: AES_KEY_LENGTH }, extractable, [
+    'encrypt',
+    'decrypt',
+    'wrapKey',
+    'unwrapKey'
+  ]);
+}
+
 // ─── Encrypt / Decrypt ────────────────────────────────────────────────────────
 
 export interface EncryptResult {

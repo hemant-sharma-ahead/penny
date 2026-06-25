@@ -1,4 +1,4 @@
-import type { Expense, Goal, Holding, InsurancePolicy, Liability } from '@/core/db/types';
+import type { Expense, Goal, Holding, InsurancePolicy, Liability, EmploymentType } from '@/core/db/types';
 
 // ── Derived input types ───────────────────────────────────────────────────────
 
@@ -122,18 +122,40 @@ function status(earned: number, max: number, hasData: boolean): ComponentStatus 
   return 'poor';
 }
 
-function emergencyFundComponent(liquidAssets: number, avgMonthlyExpenses: number): ScoreComponent {
+// Target emergency-fund months by employment type — irregular incomes need a bigger buffer.
+const EMERGENCY_FUND_TARGET: Record<EmploymentType, number> = {
+  salaried: 6,
+  self_employed: 12,
+  business_owner: 12,
+  student: 3,
+  retired: 6
+};
+
+function emergencyFundComponent(
+  liquidAssets: number,
+  avgMonthlyExpenses: number,
+  employmentType?: EmploymentType
+): ScoreComponent {
+  const target = employmentType ? EMERGENCY_FUND_TARGET[employmentType] : 6;
   const hasData = avgMonthlyExpenses > 0;
   const months = hasData ? liquidAssets / avgMonthlyExpenses : 0;
-  const earned = !hasData ? 0 : months >= 6 ? 20 : months >= 4 ? 15 : months >= 3 ? 10 : months >= 1.5 ? 5 : 0;
+  const earned = !hasData
+    ? 0
+    : months >= target
+      ? 20
+      : months >= target * (4 / 6)
+        ? 15
+        : months >= target * (3 / 6)
+          ? 10
+          : months >= target * (1.5 / 6)
+            ? 5
+            : 0;
 
   const insight = !hasData
     ? 'Add expenses to evaluate your emergency fund'
-    : months >= 6
+    : months >= target
       ? `${months.toFixed(1)} months covered — excellent buffer`
-      : months >= 3
-        ? `${months.toFixed(1)} months covered — aim for 6`
-        : `Only ${months.toFixed(1)} months covered — build up your buffer`;
+      : `${months.toFixed(1)} months covered — aim for ${target}`;
 
   return {
     key: 'emergency_fund',
@@ -268,9 +290,13 @@ function diversificationComponent(assetClassCount: number): ScoreComponent {
 
 // ── Main entry point ──────────────────────────────────────────────────────────
 
-export function computeHealthScore(inputs: DerivedInputs, monthlyIncome: number): HealthScore {
+export function computeHealthScore(
+  inputs: DerivedInputs,
+  monthlyIncome: number,
+  employmentType?: EmploymentType
+): HealthScore {
   const components: ScoreComponent[] = [
-    emergencyFundComponent(inputs.liquidAssets, inputs.avgMonthlyExpenses),
+    emergencyFundComponent(inputs.liquidAssets, inputs.avgMonthlyExpenses, employmentType),
     savingsRateComponent(monthlyIncome, inputs.avgMonthlyExpenses),
     debtIncomeComponent(inputs.monthlyEmiObligations, monthlyIncome),
     insuranceComponent(inputs.hasLifeInsurance, inputs.hasHealthInsurance),

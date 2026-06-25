@@ -1,9 +1,15 @@
 import { useMemo, useState } from 'react';
 import { calcFire } from '@/core/calculators/fire';
+import { useProfile } from '@/hooks/useProfile';
+import { deriveAge } from '@/lib/date';
 import { LabeledInput, ResultCard, ResultRow, AmountRow, HeroResult } from './CalcUI';
 
 export function FireCalculator() {
-  const [currentAge, setCurrentAge] = useState('30');
+  // Age is pre-filled from the profile's DOB but the user's own input always wins.
+  const { profile } = useProfile();
+  const derivedAge = profile?.dob ? deriveAge(profile.dob) : null;
+  const [ageOverride, setAgeOverride] = useState<string | null>(null);
+  const currentAge = ageOverride ?? (derivedAge !== null ? String(derivedAge) : '30');
   const [monthlyExpenses, setMonthlyExpenses] = useState('');
   const [currentCorpus, setCurrentCorpus] = useState('');
   const [monthlyInvestment, setMonthlyInvestment] = useState('');
@@ -29,7 +35,7 @@ export function FireCalculator() {
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-2xl p-4 flex flex-col gap-4 surface">
-        <LabeledInput label="Current age" value={currentAge} onChange={setCurrentAge} suffix="yrs" placeholder="30" />
+        <LabeledInput label="Current age" value={currentAge} onChange={setAgeOverride} suffix="yrs" placeholder="30" />
         <LabeledInput
           label="Monthly expenses (today)"
           value={monthlyExpenses}

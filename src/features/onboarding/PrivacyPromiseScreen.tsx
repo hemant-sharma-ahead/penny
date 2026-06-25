@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '@/router/paths';
 import { ALLOWED_DOMAINS } from '@/core/ai-safety/piiScanner';
@@ -28,6 +29,7 @@ const pillars = [
 
 export function PrivacyPromiseScreen() {
   const navigate = useNavigate();
+  const [agreed, setAgreed] = useState(false);
 
   return (
     <div className="min-h-screen flex flex-col bg-surface px-6 py-10">
@@ -62,8 +64,28 @@ export function PrivacyPromiseScreen() {
           ))}
         </div>
 
-        <Button variant="primary" size="lg" fullWidth onClick={() => navigate(PATHS.onboarding.setupCredentials)}>
-          I'm in — set up my vault
+        <label className="flex items-start gap-2.5 mb-4 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            className="mt-0.5 w-4 h-4 accent-[#00a86b] shrink-0"
+            aria-label="Agree to Terms of Use and Privacy Policy"
+          />
+          <span className="text-xs text-secondary leading-relaxed">
+            I agree to Penny&apos;s <span className="font-medium text-primary">Terms of Use</span> and{' '}
+            <span className="font-medium text-primary">Privacy Policy</span>.
+          </span>
+        </label>
+
+        <Button
+          variant="primary"
+          size="lg"
+          fullWidth
+          disabled={!agreed}
+          onClick={() => navigate(PATHS.onboarding.privacyDemo)}
+        >
+          I&apos;m in — continue
         </Button>
       </div>
     </div>

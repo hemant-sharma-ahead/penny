@@ -12,6 +12,7 @@ export { ListContainer } from './ListContainer';
 export { Modal } from './Modal';
 export { OptionButton } from './OptionButton';
 export { PageHeader } from './PageHeader';
+export { PassphraseStrengthMeter } from './PassphraseStrengthMeter';
 export { ProgressBar } from './ProgressBar';
 export { ProgressRing } from './ProgressRing';
 export { SearchInput } from './SearchInput';

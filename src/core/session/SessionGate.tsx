@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { keystore } from '@/core/crypto/keystore';
-import { getLockoutState, unlock } from '@/core/crypto/securityManager';
+import { getLockoutState, lockSession, unlock } from '@/core/crypto/securityManager';
+import { loadLockOnBackground } from '@/context/SettingsContext';
 import { recordActivity, startSessionWatcher, stopSessionWatcher } from './sessionStore';
 
 interface Props {
@@ -25,7 +26,7 @@ function formatCountdown(ms: number): string {
 
 // Initial lock state is read synchronously from the keystore — no async on mount.
 // setLocked(true) is called via the session watcher callback, not directly in an effect.
-export function SessionGate({ children, showRotationBanner = false }: Props) {
+export function SessionGate({ children, onNeedsOnboarding, showRotationBanner = false }: Props) {
   const [locked, setLocked] = useState(!keystore.isUnlocked());
   const [rotationDismissed, setRotationDismissed] = useState(false);
   const [pinInput, setPinInput] = useState('');
@@ -73,12 +74,21 @@ export function SessionGate({ children, showRotationBanner = false }: Props) {
     // setLocked called from callback (event handler), not directly in effect body ✓
     startSessionWatcher(() => setLocked(true));
     const handleActivity = () => recordActivity();
+    // Optional: lock the moment the app is backgrounded (opt-in setting).
+    const handleVisibility = () => {
+      if (document.hidden && loadLockOnBackground()) {
+        lockSession();
+        setLocked(true);
+      }
+    };
     window.addEventListener('pointerdown', handleActivity);
     window.addEventListener('keydown', handleActivity);
+    document.addEventListener('visibilitychange', handleVisibility);
     return () => {
       stopSessionWatcher();
       window.removeEventListener('pointerdown', handleActivity);
       window.removeEventListener('keydown', handleActivity);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
 
@@ -90,6 +100,8 @@ export function SessionGate({ children, showRotationBanner = false }: Props) {
     if (result === 'ok') {
       setLocked(false);
       setAttemptsUsed(0);
+    } else if (result === 'wiped') {
+      onNeedsOnboarding(); // data erased after too many attempts — restart onboarding
     } else if (result === 'locked_out') {
       // Re-read DB for the real lockedUntil (exponential backoff computed there).
       getLockoutState()

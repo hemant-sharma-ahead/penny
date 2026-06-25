@@ -103,3 +103,30 @@ export function dueDateInfo(
   if (days <= 30) return { text: `${days}d left`, color: STATUS.warning, bg: tint(STATUS.warning) };
   return { text: formatDateShort(dueDateMs), color: STATUS.neutral, bg: 'var(--color-surface-secondary)' };
 }
+
+// ─── Age from date of birth (Track 2) ─────────────────────────────────────────
+// `dob` is an ISO date string (YYYY-MM-DD). deriveAge is exact (for FIRE/tax/EPF/NPS);
+// deriveAgeBand returns a 5-year band — the ONLY form of DOB allowed in AI context.
+
+/** Exact age in whole years from an ISO `YYYY-MM-DD` date of birth. Returns null if unparseable. */
+export function deriveAge(dobIso: string, nowMs: number = Date.now()): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dobIso);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const now = new Date(nowMs);
+  let age = now.getFullYear() - year;
+  // Subtract a year if this year's birthday hasn't happened yet.
+  const monthDiff = now.getMonth() + 1 - month;
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < day)) age--;
+  return age >= 0 && age < 150 ? age : null;
+}
+
+/** 5-year age band (e.g. "30–34") for AI context — never the exact age. Returns null if unparseable. */
+export function deriveAgeBand(dobIso: string, nowMs: number = Date.now()): string | null {
+  const age = deriveAge(dobIso, nowMs);
+  if (age === null) return null;
+  const start = Math.floor(age / 5) * 5;
+  return `${start}–${start + 4}`;
+}

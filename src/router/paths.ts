@@ -6,7 +6,8 @@ export const PATHS = {
     setupCredentials: '/onboarding/setup',
     privacyDemo: '/onboarding/privacy-demo',
     chipIntro: '/onboarding/chip-intro',
-    simulatedDashboard: '/onboarding/simulated-dashboard'
+    simulatedDashboard: '/onboarding/simulated-dashboard',
+    letUsKnowYou: '/onboarding/let-us-know-you'
   },
   app: {
     root: '/app',
@@ -25,6 +26,9 @@ export const PATHS = {
     backup: '/app/backup',
     import: '/app/import',
     accounts: '/app/accounts',
-    calculators: '/app/calculators'
+    calculators: '/app/calculators',
+    changePin: '/app/change-pin',
+    changePassphrase: '/app/change-passphrase',
+    profile: '/app/profile'
   }
 } as const;
