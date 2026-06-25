@@ -43,6 +43,8 @@ Invoke this at the start of any implementation task on Penny. These rules apply 
 
 6. **DOB never leaves raw to the AI.** Use `deriveAgeBand()` (5-year band) in any AI context — never the exact date or age. Gate would-be-paid features through the `entitlement` check rather than hardcoding access.
 
+7. **PIN policy (Track 2).** The PIN is **mandatory** — never add a way to disable it. Every PIN entry point (unlock, Open-mode re-auth, change-PIN check) must route through the shared attempt counter so they share **one** 5-attempt exponential-backoff lockout — never add a PIN check that bypasses it. Reject trivial PINs with `isWeakPin()`. PIN changes are limited to once per 24h. Show "attempts remaining" on a failed entry. The opt-in "erase after N failed attempts" wipe is off by default.
+
 ---
 
 ## Architecture non-negotiables

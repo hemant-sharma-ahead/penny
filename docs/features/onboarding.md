@@ -42,16 +42,15 @@ The `profile` store holds: `displayName` (= full name), `currency`, `locale`, `o
 
 Demo data is seeded by `seedDemoData.ts` immediately after onboarding completes if the user opts in.
 
-**Downstream effects of date of birth:**
-- FIRE calculator uses your exact current age to compute years to your target retirement age
-- EPF retirement projection uses years remaining to age 58
-- NPS corpus projection uses years remaining to age 60
-- Tax module displays the correct slab (regular / senior citizen above 60 / super senior above 80)
+**Downstream effects of date of birth (wired in Track 2):**
+- FIRE calculator pre-fills your current age from DOB (still editable)
+- Tax Awareness shows an informational note for your basic-exemption tier (senior 60+ → ₹3L, super-senior 80+ → ₹5L) — informational, not a tax computation
+- (EPF/NPS retirement projections already use a per-asset birth year toward age 58/60; pre-filling that from DOB is a future convenience)
 
-**Downstream effects of employment type:**
-- Salaried: EPF tab visible in portfolio, tax computation shows the standard deduction (currently ₹75,000)
-- Self-employed: EPF tab hidden, NPS 80CCD(1B) deduction highlighted in the tax module
-- Student / Retired: different benchmark comparisons in the financial health score
+**Downstream effects of employment type (wired in Track 2):**
+- Salaried: the "Track EPF" prompt is shown; Tax Awareness notes the ₹75,000 standard deduction
+- Self-employed / business owner / student: the untracked EPF prompt is hidden (an existing EPF holding is always shown — data is never stranded); self-employed sees an NPS 80CCD(1B) note
+- Health score: employment type sets the emergency-fund target (salaried 6 months · self-employed/business 12 · student 3 · retired 6)
 
 Key files:
 - `src/features/onboarding/` — all screen components (Splash, PrivacyPromise, SetupCredentials, PrivacyDemo, ChipIntro, SimulatedDashboard)

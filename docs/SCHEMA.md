@@ -246,10 +246,11 @@ Single-record store. Holds the cryptographic material for **envelope encryption*
 | encryptedMasterKeyByPassphrase | string? | **Track 2** — DMK wrapped by the **passphrase**-KEK (base64). Added lazily for migrated vaults; set at init for new ones |
 | passphraseKekSalt | string? | **Track 2** — salt for the passphrase-KEK (PBKDF2, 600K iterations) |
 | passphraseVerifier | string | Verifies the passphrase without unwrapping the DMK |
-| pinAttempts | number | Failed PIN attempts (0–5); resets on success |
-| lockedUntil | number? | Epoch ms — lockout expiry after 5 failed attempts |
-| pinChangedAt | number? | Epoch ms — tracks 21-day PIN rotation reminder |
+| pinAttempts | number | Failed PIN attempts (shared across unlock / Open-mode / change-PIN); resets on success |
+| lockedUntil | number? | Epoch ms — exponential-backoff lockout expiry after 5 failed attempts |
+| pinChangedAt | number? | Epoch ms — drives the 21-day rotation reminder AND the once-per-24h change limit |
 | sessionExpiresAt | number? | Epoch ms — session/auto-lock expiry |
+| wipeAfterAttempts | number? | **Track 2** — opt-in: erase all data after this many consecutive failed PIN attempts (undefined = off) |
 
 Changing the passphrase or PIN re-derives the relevant KEK and re-wraps the **same** DMK — `encryptedMasterKey*` changes, the data does not.
 

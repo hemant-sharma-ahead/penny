@@ -101,7 +101,7 @@ Semantic status tokens: `--color-success` / `--color-danger` / `--color-warning`
 
 ## Shared utilities
 
-- **All date logic lives in [`src/lib/date.ts`](src/lib/date.ts)** (keys, labels, `formatDate*`, `dueDateInfo`, + `DAY_MS`/`startOfToday`/`daysUntil`/`daysBetween`). `lib/formatters.ts` is money/number only. Never re-implement day math or hardcode `86_400_000`.
+- **All date logic lives in [`src/lib/date.ts`](src/lib/date.ts)** (keys, labels, `formatDate*`, `dueDateInfo`, `deriveAge`/`deriveAgeBand`, + `DAY_MS`/`startOfToday`/`daysUntil`/`daysBetween`). `lib/formatters.ts` is money/number only. Never re-implement day math or hardcode `86_400_000`. For DOB in AI context use `deriveAgeBand` (5-year band), never `deriveAge`/raw.
 
 ---
 

@@ -47,6 +47,15 @@ Any factor unwraps the *same* DMK. **Changing the passphrase or PIN only re-wrap
 
 ---
 
+## PIN & lockout policy (Track 2)
+
+- The PIN is **mandatory** and cannot be disabled — it's one of the two DMK wrappings and the quick-unlock factor.
+- **One shared lockout** across every PIN entry point (unlock, Open-mode re-auth, change-PIN): 5 attempts → exponential backoff (5→10→20→40 min, capped 24h). A failed attempt shows "attempts remaining."
+- **Trivial PINs are rejected** (all-same, straight sequences, common values).
+- **PIN changes are limited to once per 24h**; a 21-day rotation reminder nudges periodic changes.
+- **Opt-in anti-theft (off by default):** erase all local data after N consecutive failed attempts — irreversible, no recovery.
+- **Opt-in:** lock immediately when the app is backgrounded (otherwise after 30 min idle).
+
 ## PII categories and treatments
 
 ### Category 1 — Direct identifiers (stripped entirely)
@@ -185,15 +194,16 @@ See `docs/ROADMAP.md` for the Phase 1.5 backend design.
 
 ---
 
-## Backup model
+## Backup model (Track 2)
 
-The encrypted backup feature exports a `.penny` file containing all user data encrypted with a user-chosen backup passphrase. This file is:
-- Encrypted before it leaves the device
-- Identical in structure to the on-device storage (just differently keyed)
-- Never stored by Penny — the user downloads it and stores it themselves
-- Restorable on any device with the correct backup passphrase
+The encrypted backup exports a `.penny` file containing every encrypted store (raw rows) plus the security record. The bundle is encrypted with the **DMK**; the file header carries the DMK **wrapped by the passphrase** (v2) so restore can recover it. Properties:
+- Encrypted on-device before it leaves; neither Google nor we can read it.
+- Restored by entering the **passphrase** → unwrap the DMK → decrypt → bulk-restore → session re-locks (re-enter PIN). Old **v1** files (legacy passphrase-derived MK) still restore.
+- **Never stored by Penny.** Two destinations:
+  - **Manual file** — user downloads the `.penny` and keeps it themselves.
+  - **Google Drive (cloud)** — uploaded to the user's own Drive `appDataFolder`. Routed through the entitlement gate; **inert until a Google client ID + matching CSP entries are configured** (until then the UI is disabled).
 
-The backup uses PBKDF2-derived key from the backup passphrase, independently of the app PIN or device passphrase.
+**Full reset:** "Erase all data" wipes every local store and the encryption keys, returning to onboarding. Irreversible without a backup — no escrow.
 
 ---
 

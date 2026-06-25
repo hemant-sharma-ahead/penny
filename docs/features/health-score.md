@@ -41,13 +41,13 @@ A composite financial health score (0–100) that measures how well-structured y
 ## Current limitations
 
 - Does not account for number of dependents — a family of four needs a larger emergency fund than a single person, but the score does not yet differentiate.
-- Employment type and DOB from profile (Pre-Phase 1.5 fields) are not yet used for benchmark adjustments; defaults are applied for all users.
+- Employment type now adjusts the emergency-fund target (salaried 6 months · self-employed/business 12 · student 3 · retired 6). DOB is not yet used in scoring.
 - Score history is not stored, so you cannot see whether your score has improved over time.
 - Income used in savings rate and debt-to-income calculations must be entered manually in profile; it is not auto-derived from the expenses store.
 
 ## Planned improvements
 
-- **Pre-Phase 1.5:** DOB and employment type collected during onboarding will improve benchmark accuracy (e.g. different emergency fund multipliers for salaried vs self-employed).
+- **Future:** use DOB-derived age in scoring (e.g. age-appropriate retirement-readiness), beyond the employment-based emergency-fund target already applied.
 - **Phase 2:** Score history graph showing monthly trend. Action plan generation by Chip based on the lowest-scoring dimensions.
 - **Phase 2:** Household health score — a group-level composite score for Phase 1.5 Groups, aggregating individual scores with shared-liability adjustments.
 - **Phase 2:** Dependents field in profile feeds into emergency fund and insurance benchmarks.
