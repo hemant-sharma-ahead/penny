@@ -185,8 +185,8 @@ Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Conta
 | Track 1B | Feature hooks — extract all state + data fetching into useXxx.ts per feature | ✅ Complete |
 | Track 1C | Component library — create src/components/ui/ primitives (Card, Modal, Button, etc.) | ✅ Complete |
 | Track 1D | Component wiring — replace all inline patterns in now-thin feature pages | ✅ Complete |
-| Track 1E | Design-system consolidation — semantic status tokens, Badge/ListRow/StatBox adoption, lib/date consolidation, card convergence onto shared primitives | 🚧 In progress |
-| Track 2 | Onboarding v2 — DOB, employment type, username field | ⏳ Next |
+| Track 1E | Design-system consolidation — semantic status tokens, Badge/ListRow/StatBox adoption, lib/date consolidation, card convergence onto shared primitives | ✅ Complete |
+| Track 2 | Identity, Account & Security — envelope encryption, onboarding v2 (DOB/employment/username + consent + back nav), change PIN/passphrase, PIN hardening (unified lockout, weak-PIN, once/day, opt-in wipe & lock-on-background), local identity + entitlement gate, full reset + config-gated cloud backup, DOB/employment downstream wiring, profile editor | ✅ Complete |
 | Track 3 | Expense category overhaul — management page, visual icon picker, merge, bulk ops | ⏳ Next |
 | Track 4 | Activity log foundation — new Dexie store + basic UI | ⏳ Next |
 
