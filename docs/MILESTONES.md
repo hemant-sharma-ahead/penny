@@ -21,8 +21,8 @@ Complete record of every milestone, step, and status from M0 to present. See [`d
 | M10: IPO tracker + GMP | ✅ Complete |
 | M11: Extended asset tracking | ✅ Complete |
 | M12: Portfolio enhancements | ✅ Complete |
-| M13: Financial calculators | 🚧 In progress (Pankhuri) |
-| M14: Finance news + Contact/Feedback | ⏳ Future |
+| M13: Financial calculators | ✅ Complete |
+| M14: Finance news + Contact/Feedback | 🚧 In progress (Pankhuri) |
 | M15: UI polish + feature refinements | ✅ Complete |
 
 ---
@@ -139,20 +139,20 @@ See git log for M12 step details. Key deliverables: MF/stock search with live pr
 
 ---
 
-## M13 steps (in progress — Pankhuri)
+## M13 steps (complete)
 
 | Step | Feature | Status |
 |---|---|---|
-| — | FIRE calculator | 🚧 |
-| — | HRA exemption calculator | 🚧 |
-| — | PPF maturity calculator | 🚧 |
-| — | NPS corpus calculator | 🚧 |
-| — | Step-up SIP calculator | 🚧 |
-| — | Old vs new tax regime comparison | 🚧 |
+| — | FIRE calculator | ✅ Done |
+| — | HRA exemption calculator | ✅ Done |
+| — | PPF maturity calculator | ✅ Done |
+| — | NPS corpus calculator | ✅ Done |
+| — | Step-up SIP calculator | ✅ Done |
+| — | Old vs new tax regime comparison | ✅ Done |
 
 ---
 
-## M14 (Future)
+## M14 (in progress — Pankhuri)
 
 Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Contact/Feedback (mailto: deep-link)
 
@@ -188,7 +188,7 @@ Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Conta
 | Track 1E | Design-system consolidation — semantic status tokens, Badge/ListRow/StatBox adoption, lib/date consolidation, card convergence onto shared primitives | ✅ Complete |
 | Track 2 | Identity, Account & Security — envelope encryption, onboarding v2 (DOB/employment/username + consent + back nav), change PIN/passphrase, PIN hardening (unified lockout, weak-PIN, once/day, opt-in wipe & lock-on-background), local identity + entitlement gate, full reset + config-gated cloud backup, DOB/employment downstream wiring, profile editor | ✅ Complete |
 | Track 3 | Expense category overhaul — in-picker category manager, visual icon picker (curated grid + searchable Tabler set), create/edit/rename/recolor, move transactions + delete-when-empty + category bulk, user-created parent groups (expense + income), anchored-popover `SelectInput`, transaction-list multi-select bulk edit (category / account+payment coupled) + delete | ✅ Complete |
-| Track 4 | Activity log foundation — new Dexie store + basic UI | ⏳ Next |
+| Track 4 | Activity log → **Timeline**: encrypted `activity_log` store, all-module logging via `useLoggedRepository`/`logActivity`, Undo toasts + Recently Deleted restore, day-grouped feed, beautiful diffs, per-item history, tracking heatmap + streaks, privacy receipt, On this day, Chip-narrated Money Story, full-screen shareable Weekly Wrapped, milestone moments + confetti, search + action filters, restore points (checkpoint + restore-deletions-since) | ✅ Complete |
 | Track 6 | Expense productivity & power features — see backlog below | ⏳ Future |
 
 ### Track 6 backlog — expense productivity & power features
@@ -200,7 +200,7 @@ Captured 2026-06-25 after Track 3. All Phase-1 feasible (local-first, no backend
 - **Natural-language quick-add** — one input parsing `250 chai #office cash` → amount, category (via merchant memory), hashtag, payment mode. Pure local parser.
 - **"Safe to spend" / daily allowance** — surface a single actionable number from budgets + days left, not just charts.
 
-**Fast-entry polish:** amount-field calculator (`120+45`), duplicate/repeat a transaction, saved templates/favorites, swipe actions on rows (pairs with select mode).
+**Fast-entry polish:** amount-field calculator (`120+45`), duplicate/repeat a transaction, saved templates/favorites, swipe actions on rows (pairs with select mode), **always-grouped amount inputs** (Indian thousands separator shown live in the field, everywhere) with an **amount-in-words helper** beneath (e.g. `1,00,000` → "One Lakh").
 
 **Distinct / India + PWA:** Web Share Target (share a GPay/PhonePe receipt or SMS text into Penny → local parser pre-fills), split transaction across categories, receipt photo attach (local, encrypted), cash-wallet reconcile.
 

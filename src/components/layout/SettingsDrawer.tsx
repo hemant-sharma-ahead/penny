@@ -127,6 +127,21 @@ export function SettingsDrawer({ open, onClose }: Props) {
               </div>
               <i className="ti ti-chevron-right text-tertiary" style={{ fontSize: 16 }} aria-hidden="true" />
             </button>
+            <button
+              onClick={() => {
+                onClose();
+                navigate(PATHS.app.timeline);
+              }}
+              className="flex items-center justify-between w-full py-2.5 text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-surface-2">
+                  <i className="ti ti-history text-secondary" style={{ fontSize: 15 }} aria-hidden="true" />
+                </div>
+                <span className="text-sm text-primary">Timeline</span>
+              </div>
+              <i className="ti ti-chevron-right text-tertiary" style={{ fontSize: 16 }} aria-hidden="true" />
+            </button>
           </section>
 
           <div className="mx-4 my-1 border-t border-theme" />

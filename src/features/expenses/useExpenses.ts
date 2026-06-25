@@ -6,8 +6,13 @@ import { ALL_DEFAULT_CATEGORIES, CATEGORY_MIGRATION_MAP } from '@/core/db/defaul
 import { calcSpendByCategory, calcTxnCountByCategory } from '@/core/expenses/filterAndAggregate';
 import { buildParentCategoryMap } from '@/core/expenses/categoryGroups';
 import { normalizeHashtag } from '@/context/EventModeContext';
+import { logActivity, restoreActivity, summarizeDiff } from '@/core/db/activityLog';
+import { useToast } from '@/context/ToastContext';
+
+const expenseSummary = (verb: string, e: Expense) => `${verb} ${e.type}: ${e.description} ₹${e.amount}`;
 
 export function useExpenses() {
+  const { showToast } = useToast();
   const {
     items: expenses,
     save: saveExpense,
@@ -72,10 +77,21 @@ export function useExpenses() {
   // ── Category management mutations ──────────────────────────────────────────
   const saveCategory = useCallback(
     async (cat: ExpenseCategory) => {
+      const existing = categories.find((c) => c.id === cat.id);
       await expenseCategoriesRepo.put(cat);
       reloadCategories();
+      const diff = existing
+        ? summarizeDiff(existing, cat, ['name', 'color', 'icon', 'intentGroup', 'parentId'])
+        : undefined;
+      logActivity({
+        action: existing ? 'UPDATE' : 'CREATE',
+        entityType: 'category',
+        entityId: cat.id,
+        summary: `${existing ? 'Updated' : 'Added'} category: ${cat.name}`,
+        ...(diff ? { diff } : {})
+      });
     },
-    [reloadCategories]
+    [categories, reloadCategories]
   );
 
   /** Reassign every transaction in `sourceIds` to `targetId`. Sources are not deleted. */
@@ -86,6 +102,15 @@ export function useExpenses() {
       const affected = expenses.filter((e) => sources.has(e.categoryId));
       await Promise.all(affected.map((e) => expensesRepo.put({ ...e, categoryId: targetId, updatedAt: now })));
       reloadExpenses();
+      if (affected.length > 0) {
+        logActivity({
+          action: 'BULK_MOVE',
+          entityType: 'expense',
+          entityId: targetId,
+          summary: `Moved ${affected.length} transaction${affected.length === 1 ? '' : 's'} to another category`,
+          entityCount: affected.length
+        });
+      }
     },
     [expenses, reloadExpenses]
   );
@@ -98,17 +123,73 @@ export function useExpenses() {
       const affected = expenses.filter((e) => ids.has(e.id));
       await Promise.all(affected.map((e) => expensesRepo.put({ ...e, ...patch, updatedAt: now })));
       reloadExpenses();
+      const first = affected[0];
+      if (first) {
+        logActivity({
+          action: patch.categoryId ? 'BULK_MOVE' : 'BULK_UPDATE',
+          entityType: 'expense',
+          entityId: first.id,
+          summary: `Updated ${affected.length} transaction${affected.length === 1 ? '' : 's'}`,
+          entityCount: affected.length
+        });
+      }
     },
     [expenses, reloadExpenses]
   );
 
-  /** Delete specific transactions (by id) in one batch. */
+  /** Delete specific transactions (by id) in one batch, with Undo. */
   const removeExpenses = useCallback(
     async (expenseIds: string[]) => {
+      const ids = new Set(expenseIds);
+      const removed = expenses.filter((e) => ids.has(e.id));
       await Promise.all(expenseIds.map((id) => expensesRepo.delete(id)));
       reloadExpenses();
+      const first = removed[0];
+      if (!first) return;
+      const label = `${removed.length} transaction${removed.length === 1 ? '' : 's'}`;
+      const logId = logActivity({
+        action: 'BULK_DELETE',
+        entityType: 'expense',
+        entityId: first.id,
+        summary: `Deleted ${label}`,
+        snapshot: JSON.stringify(removed),
+        entityCount: removed.length
+      });
+      showToast({
+        message: `Deleted ${label}`,
+        actionLabel: 'Undo',
+        onAction: async () => {
+          await restoreActivity(logId);
+          reloadExpenses();
+        }
+      });
     },
-    [reloadExpenses]
+    [expenses, reloadExpenses, showToast]
+  );
+
+  /** Delete a single transaction, with Undo. */
+  const deleteExpense = useCallback(
+    async (id: string) => {
+      const exp = expenses.find((e) => e.id === id);
+      await removeExpense(id);
+      if (!exp) return;
+      const logId = logActivity({
+        action: 'DELETE',
+        entityType: 'expense',
+        entityId: id,
+        summary: expenseSummary('Deleted', exp),
+        snapshot: JSON.stringify(exp)
+      });
+      showToast({
+        message: `Deleted ${exp.description}`,
+        actionLabel: 'Undo',
+        onAction: async () => {
+          await restoreActivity(logId);
+          reloadExpenses();
+        }
+      });
+    },
+    [expenses, removeExpense, reloadExpenses, showToast]
   );
 
   /** Delete a custom, empty category and any budgets attached to it. No-op for defaults or non-empty. */
@@ -121,26 +202,65 @@ export function useExpenses() {
       await Promise.all(budgets.filter((b) => b.categoryId === id).map((b) => budgetsRepo.delete(b.id)));
       await expenseCategoriesRepo.delete(id);
       reloadCategories();
+      const logId = logActivity({
+        action: 'DELETE',
+        entityType: 'category',
+        entityId: id,
+        summary: `Deleted category: ${cat.name}`,
+        snapshot: JSON.stringify(cat)
+      });
+      showToast({
+        message: `Deleted category: ${cat.name}`,
+        actionLabel: 'Undo',
+        onAction: async () => {
+          await restoreActivity(logId);
+          reloadCategories();
+        }
+      });
     },
-    [categories, txnCountByCategory, reloadCategories]
+    [categories, txnCountByCategory, reloadCategories, showToast]
   );
 
   const saveParent = useCallback(
     async (parent: ExpenseCategory) => {
+      const existing = categories.find((c) => c.id === parent.id);
       await expenseCategoriesRepo.put({ ...parent, isGroup: true });
       reloadCategories();
+      logActivity({
+        action: existing ? 'UPDATE' : 'CREATE',
+        entityType: 'category',
+        entityId: parent.id,
+        summary: `${existing ? 'Updated' : 'Added'} group: ${parent.name}`
+      });
     },
-    [reloadCategories]
+    [categories, reloadCategories]
   );
 
   /** Delete a parent that has no children. No-op otherwise. */
   const deleteParent = useCallback(
     async (id: string) => {
       if (categories.some((c) => c.parentId === id)) return;
+      const parent = categories.find((c) => c.id === id);
       await expenseCategoriesRepo.delete(id);
       reloadCategories();
+      if (!parent) return;
+      const logId = logActivity({
+        action: 'DELETE',
+        entityType: 'category',
+        entityId: id,
+        summary: `Deleted group: ${parent.name}`,
+        snapshot: JSON.stringify(parent)
+      });
+      showToast({
+        message: `Deleted group: ${parent.name}`,
+        actionLabel: 'Undo',
+        onAction: async () => {
+          await restoreActivity(logId);
+          reloadCategories();
+        }
+      });
     },
-    [categories, reloadCategories]
+    [categories, reloadCategories, showToast]
   );
 
   /** Create a parent group plus its mandatory ≥1 child categories in one go. */
@@ -150,6 +270,13 @@ export function useExpenses() {
       await expenseCategoriesRepo.put({ ...parent, isGroup: true });
       await Promise.all(children.map((c) => expenseCategoriesRepo.put({ ...c, parentId: parent.id })));
       reloadCategories();
+      logActivity({
+        action: 'CREATE',
+        entityType: 'category',
+        entityId: parent.id,
+        summary: `Added group: ${parent.name} (${children.length} categor${children.length === 1 ? 'y' : 'ies'})`,
+        entityCount: children.length + 1
+      });
     },
     [reloadCategories]
   );
@@ -168,17 +295,28 @@ export function useExpenses() {
   // Compound mutation: saves the expense and upserts all hashtag usage counts atomically
   const saveExpenseWithHashtags = useCallback(
     async (expense: Expense) => {
+      const existing = expenses.find((e) => e.id === expense.id);
       await saveExpense(expense);
       for (const tag of expense.hashtags) {
-        const existing = hashtags.find((h) => h.name === tag);
-        if (existing) {
-          await saveHashtag({ ...existing, usageCount: existing.usageCount + 1 });
+        const existingTag = hashtags.find((h) => h.name === tag);
+        if (existingTag) {
+          await saveHashtag({ ...existingTag, usageCount: existingTag.usageCount + 1 });
         } else {
           await saveHashtag({ id: crypto.randomUUID(), name: tag, usageCount: 1, createdAt: Date.now() });
         }
       }
+      const diff = existing
+        ? summarizeDiff(existing, expense, ['amount', 'categoryId', 'description', 'accountId', 'paymentMode', 'date'])
+        : undefined;
+      logActivity({
+        action: existing ? 'UPDATE' : 'CREATE',
+        entityType: 'expense',
+        entityId: expense.id,
+        summary: expenseSummary(existing ? 'Updated' : 'Added', expense),
+        ...(diff ? { diff } : {})
+      });
     },
-    [saveExpense, saveHashtag, hashtags]
+    [expenses, saveExpense, saveHashtag, hashtags]
   );
 
   return {
@@ -197,6 +335,7 @@ export function useExpenses() {
     txnCountByCategory,
     linkedCountByEventHashtag,
     saveExpenseWithHashtags,
+    deleteExpense,
     patchExpenses,
     removeExpenses,
     saveCategory,

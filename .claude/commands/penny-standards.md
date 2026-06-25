@@ -57,6 +57,8 @@ Invoke this at the start of any implementation task on Penny. These rules apply 
 
 4. **No half-implemented features.** Stub with a placeholder rather than shipping broken UI.
 
+5. **Log user mutations to the Timeline at the hook layer.** Use `useLoggedRepository` (or `logActivity` for compound/bulk flows) for user-initiated create/update/delete; include a `snapshot` on deletes so Undo/restore works, and register the `entityType` in `src/core/db/entityRegistry.ts`. Never log inside the generic repository, and never log system/side-effect writes (seeding, migrations, price cache, hashtags).
+
 ---
 
 ## TypeScript standards

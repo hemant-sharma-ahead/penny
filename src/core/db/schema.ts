@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type {
   Account,
+  ActivityLog,
   AiCallLog,
   Budget,
   ChipInsight,
@@ -44,6 +45,7 @@ export class PennyDatabase extends Dexie {
   personal_ious!: EntityTable<PersonalIou, 'id'>;
   credit_profile!: EntityTable<CreditProfile, 'id'>;
   accounts!: EntityTable<Account, 'id'>;
+  activity_log!: EntityTable<ActivityLog, 'id'>;
 
   constructor() {
     super('penny');
@@ -82,6 +84,9 @@ export class PennyDatabase extends Dexie {
 
     // v3 — drops legacy assets store (superseded by holdings with assetClass) (M11 step 69)
     this.version(3).stores({ assets: null });
+
+    // v4 — activity log for the Timeline (Pre-Phase 1.5, Track 4). Encrypted; id-only index.
+    this.version(4).stores({ activity_log: 'id' });
   }
 }
 

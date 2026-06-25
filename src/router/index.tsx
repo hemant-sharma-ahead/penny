@@ -30,6 +30,7 @@ import { CalculatorsPage } from '@/features/calculators/CalculatorsPage';
 import { ChangePinPage } from '@/features/security/ChangePinPage';
 import { ChangePassphrasePage } from '@/features/security/ChangePassphrasePage';
 import { ProfilePage } from '@/features/profile/ProfilePage';
+import { TimelinePage } from '@/features/activity/TimelinePage';
 
 export const router = createBrowserRouter([
   { index: true, element: <Navigate to={PATHS.onboarding.splash} replace /> },
@@ -72,7 +73,8 @@ export const router = createBrowserRouter([
           { path: PATHS.app.calculators, element: <CalculatorsPage /> },
           { path: PATHS.app.changePin, element: <ChangePinPage /> },
           { path: PATHS.app.changePassphrase, element: <ChangePassphrasePage /> },
-          { path: PATHS.app.profile, element: <ProfilePage /> }
+          { path: PATHS.app.profile, element: <ProfilePage /> },
+          { path: PATHS.app.timeline, element: <TimelinePage /> }
         ]
       }
     ]

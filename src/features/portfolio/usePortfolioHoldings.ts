@@ -2,7 +2,9 @@ import { useCallback, useMemo, useState } from 'react';
 import { holdingsRepo } from '@/core/db/repositories';
 import { fetchMfNav, fetchStockPrice } from '@/core/db/priceCache';
 import type { AssetClass, Holding } from '@/core/db/types';
-import { useRepository } from '@/hooks/useRepository';
+import { useLoggedRepository } from '@/hooks/useLoggedRepository';
+
+const summarizeHolding = (h: Holding) => `holding: ${h.name}`;
 
 // ─── Sub-tab config (exported so the page can render the tab strip) ───────────
 
@@ -70,7 +72,15 @@ export function effectiveValue(h: Holding): number {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function usePortfolioHoldings() {
-  const { items: holdings, save: saveHolding, remove: removeHolding } = useRepository(holdingsRepo);
+  const {
+    items: holdings,
+    save: saveHolding,
+    remove: removeHolding
+  } = useLoggedRepository(holdingsRepo, {
+    entityType: 'holding',
+    summarize: summarizeHolding,
+    diffFields: ['investedAmount', 'units', 'currentValue']
+  });
   const [refreshing, setRefreshing] = useState(false);
 
   const totalInvested = useMemo(() => holdings.reduce((s, h) => s + h.investedAmount, 0), [holdings]);

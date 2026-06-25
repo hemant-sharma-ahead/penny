@@ -382,6 +382,35 @@ export interface AiCallLog {
   calledAt: number;
 }
 
+export type ActivityAction =
+  | 'CREATE'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'MERGE'
+  | 'BULK_DELETE'
+  | 'BULK_MOVE'
+  | 'BULK_UPDATE'
+  | 'IMPORT'
+  | 'RESTORE'
+  | 'CHECKPOINT';
+
+// Audit trail of user-initiated data changes (Pre-Phase 1.5, Track 4). Encrypted store.
+// Powers the Timeline: undo/restore, per-item history, diffs, streaks, and the privacy receipt.
+export interface ActivityLog {
+  id: string;
+  timestamp: number; // epoch ms
+  action: ActivityAction;
+  entityType: string; // e.g. 'expense', 'account', 'goal', 'holding'
+  entityId: string; // affected record id (or a synthetic id for bulk actions)
+  summary: string; // human-readable, e.g. 'Deleted expense: Swiggy ₹340'
+  actor?: string; // who performed it; unused in Phase 1 (always self) — powers the Phase 1.5 household feed
+  snapshot?: string; // JSON of the deleted record(s) — enables Undo / Recently Deleted restore
+  diff?: string; // JSON { field: [before, after] } for UPDATE — beautiful diffs + future revert
+  entityCount?: number; // number of records affected (bulk actions)
+  restorePointId?: string; // groups entries under a named checkpoint (restore points / rewind)
+  restored?: boolean; // true once a deleted entry has been restored (hides it from Recently Deleted)
+}
+
 // Envelope encryption (Track 2): a random Data Master Key (DMK) encrypts all data
 // and is wrapped independently by a PIN-derived KEK and a passphrase-derived KEK.
 // Changing a factor re-wraps the DMK only — data is never re-encrypted.

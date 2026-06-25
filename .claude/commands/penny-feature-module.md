@@ -168,19 +168,39 @@ import { MaskedValue } from '@/components/privacy/MaskedValue';
 
 Use `usePrivacy()` to check the current mode if you need conditional rendering.
 
-### 8. Activity log
+### 8. Activity log (Timeline)
 
-For every create/update/delete mutation, log the action to `activityLogRepo`:
+Log user-initiated mutations so they appear in the **Timeline** (Undo, Recently Deleted, history, streaks).
+Log at the **hook/intent layer** — never inside the generic repository (that would also capture seeding,
+migrations, and price-cache writes).
+
+**Simplest path** — if your module uses `useRepository`, swap it for `useLoggedRepository`; you get
+CREATE/UPDATE logging plus a DELETE Undo toast for free:
+
 ```ts
-await activityLogRepo.add({
-  id: crypto.randomUUID(),
-  timestamp: Date.now(),
-  action: 'CREATE',
-  entityType: 'new_module_item',
-  entityId: item.id,
-  summary: `Added item: ${item.name}`,
+const { items, save, remove } = useLoggedRepository(myThingRepo, {
+  entityType: 'myThing',
+  summarize: (t) => `myThing: ${t.name}`,
+  diffFields: ['name', 'amount'] // optional — powers beautiful diffs on UPDATE
 });
 ```
+
+Also register `myThing → myThingRepo.put` in `src/core/db/entityRegistry.ts` so Undo can restore it.
+
+**Compound/bulk flows** — call `logActivity` directly (it returns the new id for Undo wiring):
+
+```ts
+const logId = logActivity({
+  action: 'DELETE',
+  entityType: 'myThing',
+  entityId: item.id,
+  summary: `Deleted myThing: ${item.name}`,
+  snapshot: JSON.stringify(item) // enables restore
+});
+showToast({ message: `Deleted ${item.name}`, actionLabel: 'Undo', onAction: async () => { await restoreActivity(logId); reload(); } });
+```
+
+Do **not** log system/side-effect writes (seeding, migrations, price cache, hashtags).
 
 ### 9. Demo data
 

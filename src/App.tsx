@@ -2,6 +2,7 @@ import { RouterProvider } from 'react-router-dom';
 import { PrivacyProvider } from '@/context/PrivacyContext';
 import { SettingsProvider } from '@/context/SettingsContext';
 import { EventModeProvider } from '@/context/EventModeContext';
+import { ToastProvider } from '@/context/ToastContext';
 import { router } from '@/router';
 
 export default function App() {
@@ -9,7 +10,9 @@ export default function App() {
     <PrivacyProvider>
       <SettingsProvider>
         <EventModeProvider>
-          <RouterProvider router={router} />
+          <ToastProvider>
+            <RouterProvider router={router} />
+          </ToastProvider>
         </EventModeProvider>
       </SettingsProvider>
     </PrivacyProvider>

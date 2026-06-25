@@ -1,13 +1,19 @@
 import { useCallback, useMemo, useState } from 'react';
 import { subscriptionsRepo } from '@/core/db/repositories';
 import type { Expense, Subscription } from '@/core/db/types';
-import { useRepository } from '@/hooks/useRepository';
+import { useLoggedRepository } from '@/hooks/useLoggedRepository';
 import { detectSubscriptions, type DetectedSubscription } from '@/core/subscriptions/detector';
 import { subKey } from '@/core/subscriptions/format';
 
+const summarizeSubscription = (s: Subscription) => `subscription: ${s.merchantCategory}`;
+
 export function useSubscriptions(expenses: Expense[]) {
   const [nowMs] = useState(() => Date.now());
-  const { items: stored, save: saveSubscription } = useRepository(subscriptionsRepo);
+  const { items: stored, save: saveSubscription } = useLoggedRepository(subscriptionsRepo, {
+    entityType: 'subscription',
+    summarize: summarizeSubscription,
+    diffFields: ['status', 'detectedAmount', 'confirmedByUser']
+  });
 
   const detectedSubs = useMemo(() => {
     if (expenses.length === 0) return [];

@@ -11,6 +11,7 @@ import type { CategoryManager } from '../categories/types';
 import { AccountChips } from './AccountChips';
 import { PaymentModeChips } from './PaymentModeChips';
 import { couplePaymentToAccount } from './paymentModes';
+import { ItemHistory } from '../../activity/components/ItemHistory';
 
 interface Props {
   categories: ExpenseCategory[];
@@ -400,6 +401,12 @@ export function ExpenseForm({
               value={intervalDays}
               onChange={setIntervalDays}
             />
+          )}
+
+          {editing && (
+            <div className="border-t border-theme pt-3">
+              <ItemHistory entityId={editing.id} />
+            </div>
           )}
         </div>
       </Modal>

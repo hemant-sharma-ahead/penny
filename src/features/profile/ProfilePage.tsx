@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, PageHeader, TextInput, OptionButton, Banner } from '@/components/ui';
 import { profileRepo } from '@/core/db/repositories';
+import { logActivity } from '@/core/db/activityLog';
 import type { EmploymentType, Profile } from '@/core/db/types';
 import { EMPLOYMENT_OPTIONS } from '@/core/profile/employment';
 import { isValidUsername } from '@/core/profile/username';
@@ -70,6 +71,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
       employmentType,
       updatedAt: Date.now()
     });
+    logActivity({ action: 'UPDATE', entityType: 'profile', entityId: profile.id, summary: 'Updated profile' });
     setSaving(false);
     setSaved(true);
   }

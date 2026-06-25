@@ -326,17 +326,24 @@ Bank accounts, wallets, and cash holdings. Used as source/destination for expens
 
 ### `activity_log`
 
-Audit trail of all user-initiated data changes. Added in Pre-Phase 1.5.
+User-initiated data changes (Pre-Phase 1.5, Track 4). Encrypted; id-only index (Dexie v4). Powers the
+**Timeline**: undo/restore, per-item history, diffs, streaks, the privacy receipt, Money Story, and
+restore points. Pruned to the newest ~500 entries.
 
 | Field | Type | Notes |
 |-------|------|-------|
 | id | string (UUID) | Primary key |
 | timestamp | number | Epoch ms |
-| action | `'CREATE' \| 'UPDATE' \| 'DELETE' \| 'MERGE' \| 'BULK_DELETE' \| 'BULK_MOVE'` | |
-| entityType | string | e.g. `'expense'`, `'holding'`, `'goal'` |
-| entityId | string | UUID of the affected record |
-| summary | string | Human-readable description e.g. `'Deleted expense: Swiggy ₹340'` |
-| diff | string? | JSON-serialised before/after diff for UPDATE actions |
+| action | `'CREATE' \| 'UPDATE' \| 'DELETE' \| 'MERGE' \| 'BULK_DELETE' \| 'BULK_MOVE' \| 'BULK_UPDATE' \| 'IMPORT' \| 'RESTORE' \| 'CHECKPOINT'` | |
+| entityType | string | e.g. `'expense'`, `'holding'`, `'goal'`, `'system'` (checkpoints) |
+| entityId | string | id of the affected record (or synthetic for bulk/checkpoint) |
+| summary | string | Human-readable, e.g. `'Deleted expense: Swiggy ₹340'` (₹ masked in UI outside Open mode) |
+| actor | string? | Who performed it; unused in Phase 1 (always self) — for the Phase 1.5 household feed |
+| snapshot | string? | JSON of the deleted record(s) — enables Undo / Recently Deleted restore |
+| diff | string? | JSON `{ field: [before, after] }` for UPDATE — beautiful diffs + future revert |
+| entityCount | number? | Records affected (bulk actions) |
+| restorePointId | string? | Groups entries under a named checkpoint (reserved for richer rewind) |
+| restored | boolean? | `true` once a deleted entry has been restored (hides it from Recently Deleted) |
 
 ---
 

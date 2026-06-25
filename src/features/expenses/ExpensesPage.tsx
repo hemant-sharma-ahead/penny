@@ -20,7 +20,7 @@ export function ExpensesPage() {
   const {
     expenses,
     saveExpense,
-    removeExpense,
+    deleteExpense,
     accounts,
     categories,
     hashtags,
@@ -92,7 +92,7 @@ export function ExpensesPage() {
           pastEvents={pastEvents}
           mode={mode}
           onSaveExpense={saveExpenseWithHashtags}
-          onDeleteExpense={removeExpense}
+          onDeleteExpense={deleteExpense}
           onPatchExpenses={patchExpenses}
           onRemoveExpenses={removeExpenses}
           categoryManager={categoryManager}

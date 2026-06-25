@@ -4,6 +4,7 @@ import { db } from './schema';
 import { EncryptedRepository } from './repository';
 import type {
   Account,
+  ActivityLog,
   AiCallLog,
   Budget,
   ChipInsight,
@@ -37,3 +38,4 @@ export const subscriptionsRepo = new EncryptedRepository<Subscription>(db.subscr
 export const personalIousRepo = new EncryptedRepository<PersonalIou>(db.personal_ious as never);
 export const creditProfileRepo = new EncryptedRepository<CreditProfile>(db.credit_profile as never);
 export const accountsRepo = new EncryptedRepository<Account>(db.accounts as never);
+export const activityLogRepo = new EncryptedRepository<ActivityLog>(db.activity_log as never);

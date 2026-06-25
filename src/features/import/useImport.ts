@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { expenseCategoriesRepo, expensesRepo } from '@/core/db/repositories';
+import { logActivity } from '@/core/db/activityLog';
 import type { ExpenseCategory } from '@/core/db/types';
 import { parseByFormat, type ImportFormat } from '@/core/import/importParsers';
 import { buildPreviewRows, dedupKey, type PreviewRow } from '@/core/import/importPipeline';
@@ -67,6 +68,15 @@ export function useImport() {
         sourceRef: row.sourceRef,
         createdAt: now,
         updatedAt: now
+      });
+    }
+    if (rows.length > 0) {
+      logActivity({
+        action: 'IMPORT',
+        entityType: 'expense',
+        entityId: 'import',
+        summary: `Imported ${rows.length} transaction${rows.length === 1 ? '' : 's'}`,
+        entityCount: rows.length
       });
     }
     setImportedCount(rows.length);

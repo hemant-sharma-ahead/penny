@@ -20,10 +20,10 @@ This file is read at the start of every Claude Code session. It provides orienta
 | Milestone | Status |
 |---|---|
 | M0–M12: Foundation through portfolio enhancements | ✅ Complete |
-| M13: Financial calculators | 🚧 In progress (Pankhuri) |
-| M14: Finance news + Contact/Feedback | ⏳ Future |
+| M13: Financial calculators | ✅ Complete |
+| M14: Finance news + Contact/Feedback | 🚧 In progress (Pankhuri) |
 | M15: UI polish + feature refinements | ✅ Complete |
-| **Pre-Phase 1.5: Track 5 ✅ · Track 1A ✅ · Track 1B ✅ · Track 1C ✅ · Track 1D ✅ · Track 1E ✅ · Track 2 ✅ · Track 3 ✅ · Track 4 · Track 6 (expense productivity backlog)** | 🚧 In progress |
+| **Pre-Phase 1.5: Track 5 ✅ · Track 1A ✅ · Track 1B ✅ · Track 1C ✅ · Track 1D ✅ · Track 1E ✅ · Track 2 ✅ · Track 3 ✅ · Track 4 ✅ · Track 6 (expense productivity backlog)** | 🚧 In progress |
 | Phase 1.5: Groups & Household OS | ⏳ Next |
 | Phase 2: Chip AI, native apps, cloud sync | ⏳ Future |
 | Phase 3: Regional languages, crypto, international equities | ⏳ Future |
@@ -132,6 +132,8 @@ Bottom nav: Home · Portfolio · Chip (FAB, centred) · Expenses · Goals
 | `src/core/ai-safety/buildUserContext.ts` | Only path to Anthropic |
 | `src/core/ai-safety/mockChip.ts` | All Phase 1 dev runs on this |
 | `src/core/db/seedDemoData.ts` | Demo data seeding |
+| `src/core/db/activityLog.ts` | Activity log service — `logActivity`/`restoreActivity` (Track 4 Timeline) |
+| `src/hooks/useLoggedRepository.ts` | Logging+Undo wrapper around `useRepository` for user mutations |
 | `tests/pii-gate/piiGate.test.ts` | CI gate — never skip |
 | `src/context/PrivacyContext.tsx` | Privacy mode — wraps entire app |
 | `src/context/SettingsContext.tsx` | Module visibility + font scale |

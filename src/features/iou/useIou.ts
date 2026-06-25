@@ -1,11 +1,22 @@
 import { useMemo, useState } from 'react';
 import { personalIousRepo } from '@/core/db/repositories';
-import { useRepository } from '@/hooks/useRepository';
+import type { PersonalIou } from '@/core/db/types';
+import { useLoggedRepository } from '@/hooks/useLoggedRepository';
 import { DAY_MS } from '@/lib/date';
+
+const summarizeIou = (i: PersonalIou) => `IOU (${i.direction === 'lent' ? 'lent' : 'borrowed'}): ${i.description}`;
 
 export function useIou() {
   const [nowMs] = useState(() => Date.now());
-  const { items: ious, save: saveIou, remove: removeIou } = useRepository(personalIousRepo);
+  const {
+    items: ious,
+    save: saveIou,
+    remove: removeIou
+  } = useLoggedRepository(personalIousRepo, {
+    entityType: 'iou',
+    summarize: summarizeIou,
+    diffFields: ['amount', 'isSettled', 'dueDate']
+  });
 
   const iouActive = useMemo(() => ious.filter((i) => !i.isSettled), [ious]);
 

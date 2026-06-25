@@ -29,6 +29,7 @@ export const PATHS = {
     calculators: '/app/calculators',
     changePin: '/app/change-pin',
     changePassphrase: '/app/change-passphrase',
-    profile: '/app/profile'
+    profile: '/app/profile',
+    timeline: '/app/timeline'
   }
 } as const;

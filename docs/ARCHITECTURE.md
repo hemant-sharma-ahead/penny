@@ -65,7 +65,8 @@ penny/
 │   ├── context/                ← React context providers
 │   │   ├── PrivacyContext.tsx  ← Privacy mode (safe/privacy/open)
 │   │   ├── SettingsContext.tsx ← Module visibility, theme, font scale
-│   │   └── EventModeContext.tsx← Active events (vacation, background)
+│   │   ├── EventModeContext.tsx← Active events (vacation, background)
+│   │   └── ToastContext.tsx    ← Global snackbar (Undo toasts) — useToast()
 │   │
 │   ├── hooks/                  ← Shared React hooks
 │   │   └── useRepository.ts   ← Generic repository hook
@@ -180,6 +181,7 @@ penny/
 | File | Returns | Purpose |
 |---|---|---|
 | `useRepository.ts` | `{ items, loading, error, save, remove, reload }` | Generic hook to load/write from any EncryptedRepository. Used in most feature pages. |
+| `useLoggedRepository.ts` | same shape as `useRepository` | Wraps `useRepository`, recording CREATE/UPDATE on save + DELETE on remove to the activity log, and firing an Undo toast (restore + reload). Single-entity modules adopt it with `{ entityType, summarize, diffFields? }`. |
 | `usePassphraseStrength.ts` | `{ score, ready }` | Lazy-loads zxcvbn and scores a passphrase (0–4). Used by onboarding setup and Change Passphrase. |
 | `useProfile.ts` | `{ profile, loading }` | The single profile record (or null). Used by FIRE, tax, health, retirement, and the profile editor to read dob/employmentType. |
 
@@ -203,13 +205,15 @@ Three files, one responsibility each:
 
 | File | Purpose |
 |---|---|
-| `schema.ts` | `PennyDatabase` extends `Dexie`. Defines v1→v3 migrations and all store definitions. Exports `db` singleton. |
+| `schema.ts` | `PennyDatabase` extends `Dexie`. Defines v1→v4 migrations and all store definitions. Exports `db` singleton. |
 | `repository.ts` | `EncryptedRepository<T>` class. Encrypts on `put()`, decrypts on `get()`/`getAll()`. Uses Master Key from keystore. |
-| `repositories.ts` | Pre-instantiated repositories for all 17 encrypted stores. Import from here — never instantiate directly in features. |
+| `repositories.ts` | Pre-instantiated repositories for all encrypted stores. Import from here — never instantiate directly in features. |
 | `types/index.ts` | TypeScript interfaces for all 40+ entity types. |
 | `defaultCategories.ts` | `ALL_DEFAULT_CATEGORIES`, `INTENT_GROUP_META`, `CATEGORY_MIGRATION_MAP`. |
 | `priceCache.ts` | Helpers for reading/writing the `price_cache` plain store with TTL support. |
 | `seedDemoData.ts` | Seeds realistic demo data (expenses, holdings, goals, accounts) after onboarding. |
+| `activityLog.ts` | Timeline service: `logActivity` (fire-and-forget + prune), `restoreActivity`, `restoreDeletionsSince`, `summarizeDiff`. |
+| `entityRegistry.ts` | `entityType → repo.put` map so `restoreActivity` re-inserts snapshots generically. |
 
 ### `src/core/ai-safety/`
 

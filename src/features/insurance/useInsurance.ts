@@ -1,11 +1,22 @@
 import { useMemo } from 'react';
 import { insurancePoliciesRepo } from '@/core/db/repositories';
-import { useRepository } from '@/hooks/useRepository';
+import type { InsurancePolicy } from '@/core/db/types';
+import { useLoggedRepository } from '@/hooks/useLoggedRepository';
 import { daysUntil } from '@/lib/date';
+
+const summarizePolicy = (p: InsurancePolicy) => `${p.type} policy: ${p.insurer}`;
 
 /** Loads insurance policies and derives premium total, expiring-soon count, and a renewal-sorted list. */
 export function useInsurance() {
-  const { items: policies, save: savePolicy, remove: removePolicy } = useRepository(insurancePoliciesRepo);
+  const {
+    items: policies,
+    save: savePolicy,
+    remove: removePolicy
+  } = useLoggedRepository(insurancePoliciesRepo, {
+    entityType: 'insurance',
+    summarize: summarizePolicy,
+    diffFields: ['annualPremium', 'renewalDate']
+  });
 
   const totalAnnualPremium = useMemo(() => policies.reduce((s, p) => s + p.annualPremium, 0), [policies]);
 
