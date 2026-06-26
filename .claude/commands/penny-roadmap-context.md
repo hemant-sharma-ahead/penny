@@ -19,6 +19,7 @@ All features listed in `docs/features/` are built and shipped. Before adding som
 **Branch:** `feat/pre-phase-1.5`
 
 **Tracks in order:**
+
 1. Track 5 — Documentation overhaul (in progress)
 2. Track 1 — Component extraction (`src/components/ui/` + `src/hooks/`)
 3. Track 2 — Onboarding v2 (DOB, employment type, username)
@@ -58,25 +59,26 @@ The username field in onboarding (Track 2) is **UI only** — no server call in 
 
 ## Architecture decisions already made — don't re-derive
 
-| Topic | Decision | Where documented |
-|---|---|---|
-| Backend platform | Cloudflare Workers + D1 + KV (not Supabase) | `docs/ROADMAP.md` |
-| Auth method | Phone OTP only (no email, no OAuth) | `docs/ROADMAP.md` |
-| Backup model | Option A — user-owned cloud (Google Drive/iCloud), no key escrow | `docs/ROADMAP.md` |
-| Group key exchange | Asymmetric: encrypt group key with recipient's public key | `docs/ROADMAP.md` |
-| Multi-group | A user can be in N groups; each group has independent Group Key | `docs/ROADMAP.md` |
-| Context switcher | Home screen dropdown — not a 6th bottom tab | `docs/ROADMAP.md` |
-| Sub-categories | Not needed — intentGroup = parent, ExpenseCategory = child, Hashtags = tags | `docs/ROADMAP.md` |
-| Category icons | ~80 curated SVGs replacing Tabler text-string (Pre-1.5 Track 3) | `docs/ROADMAP.md` |
-| React Native | Shared `src/core/` logic, RN-portable component props API | `docs/ROADMAP.md` |
-| AI categorisation | CF Worker → Anthropic. Local rules engine after correction learning | `docs/ROADMAP.md` |
-| PBKDF2 counts | 600K (passphrase→MK), 200K (PIN→KEK) — benchmark on mid-range Android (D1) | `docs/ROADMAP.md` |
+| Topic              | Decision                                                                    | Where documented  |
+| ------------------ | --------------------------------------------------------------------------- | ----------------- |
+| Backend platform   | Cloudflare Workers + D1 + KV (not Supabase)                                 | `docs/ROADMAP.md` |
+| Auth method        | Phone OTP only (no email, no OAuth)                                         | `docs/ROADMAP.md` |
+| Backup model       | Option A — user-owned cloud (Google Drive/iCloud), no key escrow            | `docs/ROADMAP.md` |
+| Group key exchange | Asymmetric: encrypt group key with recipient's public key                   | `docs/ROADMAP.md` |
+| Multi-group        | A user can be in N groups; each group has independent Group Key             | `docs/ROADMAP.md` |
+| Context switcher   | Home screen dropdown — not a 6th bottom tab                                 | `docs/ROADMAP.md` |
+| Sub-categories     | Not needed — intentGroup = parent, ExpenseCategory = child, Hashtags = tags | `docs/ROADMAP.md` |
+| Category icons     | ~80 curated SVGs replacing Tabler text-string (Pre-1.5 Track 3)             | `docs/ROADMAP.md` |
+| React Native       | Shared `src/core/` logic, RN-portable component props API                   | `docs/ROADMAP.md` |
+| AI categorisation  | CF Worker → Anthropic. Local rules engine after correction learning         | `docs/ROADMAP.md` |
+| PBKDF2 counts      | 600K (passphrase→MK), 200K (PIN→KEK) — benchmark on mid-range Android (D1)  | `docs/ROADMAP.md` |
 
 ---
 
 ## What the profile will have after Pre-Phase 1.5
 
 The `profile` store will gain these fields (Track 2):
+
 - `dob` — encrypted, used as 5-year age band in AI context, drives FIRE/NPS/EPF projections
 - `employmentType` — `'salaried' | 'self_employed' | 'business_owner' | 'student' | 'retired'`
 - `username` — optional string, Phase 1 UI-only, Phase 1.5 required for group invites

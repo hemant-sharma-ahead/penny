@@ -29,11 +29,11 @@ News RSS feeds are different:
 
 So we cannot fetch publisher RSS directly from the browser. Three delivery options:
 
-| Option                         | Backend?            | Privacy                              | Reliability            | Recommendation |
-| ------------------------------ | ------------------- | ------------------------------------ | ---------------------- | -------------- |
-| **A. Public RSS→JSON proxy**   | None (3rd-party)    | Feed URLs pass through a 3rd party\*  | Subject to rate limits | Fits "no backend" today |
-| **B. Cloudflare Worker**       | 1 Worker (we own)   | Best — we control it                 | Best                   | ✅ Best long-term |
-| **C. Direct fetch**            | None                | Best                                 | ❌ Fails on CORS        | Not viable |
+| Option                       | Backend?          | Privacy                              | Reliability            | Recommendation          |
+| ---------------------------- | ----------------- | ------------------------------------ | ---------------------- | ----------------------- |
+| **A. Public RSS→JSON proxy** | None (3rd-party)  | Feed URLs pass through a 3rd party\* | Subject to rate limits | Fits "no backend" today |
+| **B. Cloudflare Worker**     | 1 Worker (we own) | Best — we control it                 | Best                   | ✅ Best long-term       |
+| **C. Direct fetch**          | None              | Best                                 | ❌ Fails on CORS       | Not viable              |
 
 \* No personal data leaves the device — only which public news feeds are requested. No
 user identifiers, amounts, or financial data are ever involved in a news fetch.
@@ -49,12 +49,12 @@ in Phase 2 if proxy rate limits/reliability become a problem.
 
 ### Sources (candidate RSS feeds — verify URLs at build time)
 
-| Source      | Category            | Feed (candidate)                                                        |
-| ----------- | ------------------- | ---------------------------------------------------------------------- |
-| ET Markets  | Markets             | `economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms`         |
-| Mint        | Markets / Money     | `livemint.com/rss/markets`                                             |
-| RBI         | Regulatory          | `rbi.org.in/pressreleases_rss.xml`                                     |
-| SEBI        | Regulatory          | `sebi.gov.in/sebirss.xml`                                              |
+| Source     | Category        | Feed (candidate)                                               |
+| ---------- | --------------- | -------------------------------------------------------------- |
+| ET Markets | Markets         | `economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms` |
+| Mint       | Markets / Money | `livemint.com/rss/markets`                                     |
+| RBI        | Regulatory      | `rbi.org.in/pressreleases_rss.xml`                             |
+| SEBI       | Regulatory      | `sebi.gov.in/sebirss.xml`                                      |
 
 **Confirmed for v1:** all four sources above (ET Markets, Mint, RBI, SEBI). The list is
 data-driven, so more can be added later.
@@ -66,19 +66,19 @@ type NewsSourceId = 'et-markets' | 'mint' | 'rbi' | 'sebi';
 
 interface NewsSource {
   id: NewsSourceId;
-  label: string;       // "ET Markets"
+  label: string; // "ET Markets"
   category: 'markets' | 'regulatory';
   feedUrl: string;
-  color: string;       // accent for the source chip
+  color: string; // accent for the source chip
 }
 
 interface NewsItem {
-  id: string;          // hash of link (dedupe key)
+  id: string; // hash of link (dedupe key)
   sourceId: NewsSourceId;
   title: string;
-  link: string;        // open in new tab / external browser
+  link: string; // open in new tab / external browser
   publishedAt: number; // epoch ms
-  summary?: string;    // stripped, truncated description
+  summary?: string; // stripped, truncated description
 }
 ```
 
@@ -110,7 +110,7 @@ interface NewsItem {
 - Filter chips: All · Markets · Regulatory (or per-source).
 - No amounts/PII → privacy modes don't affect this screen (nothing to mask).
 - Tapping a headline opens the source link in a new tab (`target="_blank"
-  rel="noopener noreferrer"`) — link-out only, we never reproduce full article text
+rel="noopener noreferrer"`) — link-out only, we never reproduce full article text
   (copyright-safe: headline + short summary + attribution + link).
 
 ---
@@ -187,11 +187,11 @@ Fully on-device. No form submission, no backend.
 
 ## Open decisions
 
-| #         | Decision                                                              | Status |
-| --------- | -------------------------------------------------------------------- | ------ |
-| D-M14-1   | News transport: public RSS→JSON proxy (A) vs Cloudflare Worker (B)   | ✅ Resolved — Option A (public proxy), behind a swappable seam |
-| D-M14-1b  | Which specific proxy endpoint to use                                 | ✅ Resolved — AllOrigins (`api.allorigins.win`) raw passthrough; we parse the XML client-side with `DOMParser` |
-| D-M14-2   | Support email address + optional GitHub repo URL for feedback links  | ⚠️ Placeholder — `feedback@penny.app` for now, swap before release; GitHub URL TBD |
-| D-M14-3   | News surfacing: Home `TOOL_TILES`, Settings Modules grid, or both    | Open (default: both) |
+| #        | Decision                                                            | Status                                                                                                         |
+| -------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| D-M14-1  | News transport: public RSS→JSON proxy (A) vs Cloudflare Worker (B)  | ✅ Resolved — Option A (public proxy), behind a swappable seam                                                 |
+| D-M14-1b | Which specific proxy endpoint to use                                | ✅ Resolved — AllOrigins (`api.allorigins.win`) raw passthrough; we parse the XML client-side with `DOMParser` |
+| D-M14-2  | Support email address + optional GitHub repo URL for feedback links | ⚠️ Placeholder — `feedback@penny.app` for now, swap before release; GitHub URL TBD                             |
+| D-M14-3  | News surfacing: Home `TOOL_TILES`, Settings Modules grid, or both   | Open (default: both)                                                                                           |
 
 **Sources confirmed:** ET Markets, Mint, RBI, SEBI.
