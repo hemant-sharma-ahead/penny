@@ -1,4 +1,4 @@
-import { TextInput } from '@/components/ui';
+import { AmountInput } from '@/components/ui';
 
 interface ManualInputProps {
   label: string;
@@ -12,7 +12,7 @@ export function ManualInput({ label, value, onChange }: ManualInputProps) {
     <div className="flex items-center gap-2">
       <span className="text-xs flex-1 min-w-0 truncate text-secondary">{label}</span>
       <div className="flex-shrink-0 w-28">
-        <TextInput type="number" inputMode="decimal" prefix="₹" placeholder="0" value={value} onChange={onChange} />
+        <AmountInput placeholder="0" value={value} onChange={onChange} showWords={false} />
       </div>
     </div>
   );

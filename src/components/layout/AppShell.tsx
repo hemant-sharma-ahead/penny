@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
 import { SettingsDrawer } from './SettingsDrawer';
 import { PrivacyModeSwitcher } from '@/components/privacy/PrivacyModeSwitcher';
+import { RemindersBell } from '@/components/reminders/RemindersBell';
 import { PennyWordmark } from '@/components/ui/PennyLogo';
 
 export function AppShell() {
@@ -32,7 +33,10 @@ export function AppShell() {
             </button>
             <PennyWordmark height={24} />
           </div>
-          <PrivacyModeSwitcher />
+          <div className="flex items-center gap-1">
+            <RemindersBell />
+            <PrivacyModeSwitcher />
+          </div>
         </header>
 
         {/* Page content — tinted background so cards pop off it */}

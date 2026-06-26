@@ -281,6 +281,21 @@ export interface Hashtag {
   createdAt: number;
 }
 
+// ─── Merchant memory (Track 6) ──────────────────────────────────────────────
+// Remembers the category/account/payment last used for a given merchant so the
+// Add-transaction form can auto-fill on the next matching entry. Local precursor
+// to the Phase-2 AI categoriser. Encrypted store; id = `${type}::${normalizedDescription}`.
+export interface MerchantMemory {
+  id: string; // `${type}::${normalizedDescription}` — see core/expenses/merchantMemory.ts
+  description: string; // last raw (trimmed) description, for display
+  type: TransactionType;
+  categoryId: string;
+  accountId?: string;
+  paymentMode?: string;
+  usageCount: number;
+  updatedAt: number;
+}
+
 export type GoalRisk = 'conservative' | 'moderate' | 'aggressive';
 
 export interface Goal {

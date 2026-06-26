@@ -1,4 +1,4 @@
-import { TextInput, SelectInput, SegmentedControl } from '@/components/ui';
+import { TextInput, SelectInput, SegmentedControl, AmountInput } from '@/components/ui';
 import type { CompoundingFreq, FdResult, RdResult } from '@/core/fd/fdCalculations';
 
 interface FdFieldsProps {
@@ -93,14 +93,7 @@ export function FdFields({
       {fdSubType === 'fd' ? (
         /* FD-specific */
         <>
-          <TextInput
-            label="Principal amount (₹)"
-            type="number"
-            inputMode="decimal"
-            placeholder="0"
-            value={investedAmount}
-            onChange={setInvestedAmount}
-          />
+          <AmountInput label="Principal amount" placeholder="0" value={investedAmount} onChange={setInvestedAmount} />
           <div className="grid grid-cols-2 gap-3">
             <SelectInput
               label="Compounding"
@@ -120,10 +113,8 @@ export function FdFields({
       ) : (
         /* RD-specific */
         <div className="grid grid-cols-2 gap-3">
-          <TextInput
-            label="Monthly installment (₹)"
-            type="number"
-            inputMode="decimal"
+          <AmountInput
+            label="Monthly installment"
             placeholder="5000"
             value={investedAmount}
             onChange={setInvestedAmount}

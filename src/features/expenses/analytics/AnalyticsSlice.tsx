@@ -31,6 +31,9 @@ export function AnalyticsSlice({ expenses, categoryMap, mode }: AnalyticsSlicePr
     hashtagSummary,
     spendVelocity,
     annualData,
+    prevYearData,
+    annualSavings,
+    annualMovers,
     annualTotal,
     annualMax
   } = useExpenseAnalytics({
@@ -64,6 +67,9 @@ export function AnalyticsSlice({ expenses, categoryMap, mode }: AnalyticsSlicePr
         prevMonthData={prevMonthData}
         spendVelocity={spendVelocity}
         annualData={annualData}
+        prevYearData={prevYearData}
+        annualSavings={annualSavings}
+        annualMovers={annualMovers}
         annualTotal={annualTotal}
         annualMax={annualMax}
         eventsThisMonth={eventsThisMonth}

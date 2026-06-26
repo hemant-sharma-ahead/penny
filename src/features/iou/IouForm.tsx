@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { IouDirection, PersonalIou } from '@/core/db/types';
 import { epochToDateInput } from '@/lib/formatters';
-import { TextInput, OptionButton } from '@/components/ui';
+import { TextInput, OptionButton, AmountInput } from '@/components/ui';
 import { FormModal } from '@/components/shared';
 import { STATUS } from '@/lib/statusColors';
 
@@ -76,15 +76,7 @@ export function IouForm({ editing, onSave, onDelete, onClose, nowMs }: Props) {
         />
       </div>
 
-      <TextInput
-        label="Amount (₹)"
-        value={amount}
-        onChange={setAmount}
-        type="number"
-        inputMode="decimal"
-        placeholder="0"
-        autoFocus
-      />
+      <AmountInput label="Amount" value={amount} onChange={setAmount} placeholder="0" autoFocus />
 
       <TextInput
         label="Description"

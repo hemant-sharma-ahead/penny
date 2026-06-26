@@ -189,22 +189,45 @@ Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Conta
 | Track 2 | Identity, Account & Security — envelope encryption, onboarding v2 (DOB/employment/username + consent + back nav), change PIN/passphrase, PIN hardening (unified lockout, weak-PIN, once/day, opt-in wipe & lock-on-background), local identity + entitlement gate, full reset + config-gated cloud backup, DOB/employment downstream wiring, profile editor | ✅ Complete |
 | Track 3 | Expense category overhaul — in-picker category manager, visual icon picker (curated grid + searchable Tabler set), create/edit/rename/recolor, move transactions + delete-when-empty + category bulk, user-created parent groups (expense + income), anchored-popover `SelectInput`, transaction-list multi-select bulk edit (category / account+payment coupled) + delete | ✅ Complete |
 | Track 4 | Activity log → **Timeline**: encrypted `activity_log` store, all-module logging via `useLoggedRepository`/`logActivity`, Undo toasts + Recently Deleted restore, day-grouped feed, beautiful diffs, per-item history, tracking heatmap + streaks, privacy receipt, On this day, Chip-narrated Money Story, full-screen shareable Weekly Wrapped, milestone moments + confetti, search + action filters, restore points (checkpoint + restore-deletions-since) | ✅ Complete |
-| Track 6 | Expense productivity & power features — see backlog below | ⏳ Future |
+| Track 6 | Expense productivity & power features — see ordered steps below | 🚧 In progress |
+| Track 7 | Tax & calculators in context — tax footprint + calculator re-homing | ⏳ Future |
 
-### Track 6 backlog — expense productivity & power features
+### Track 6 — expense productivity & power features
 
-Captured 2026-06-25 after Track 3. All Phase-1 feasible (local-first, no backend). AI auto-categorisation stays a Phase-2/Chip item; local merchant memory is its Phase-1 stepping stone.
+Backlog captured 2026-06-25 after Track 3; scoped into ordered steps 2026-06-25. All Phase-1 feasible (local-first, no backend). AI auto-categorisation stays a Phase-2/Chip item; local merchant memory is its Phase-1 stepping stone. **Split transactions deferred to Phase 2** (needs a proper data-model design). The old Cash Flow view + the "safe to spend" idea are unified into a single **forecast engine** (Phase C).
 
-**Top 3 (highest leverage, on-brand):**
-- **Local merchant memory** — remember the last category/account/payment for a description/merchant and auto-fill on the next matching entry. Local precursor to the Phase-2 AI categoriser.
-- **Natural-language quick-add** — one input parsing `250 chai #office cash` → amount, category (via merchant memory), hashtag, payment mode. Pure local parser.
-- **"Safe to spend" / daily allowance** — surface a single actionable number from budgets + days left, not just charts.
+Each step runs the verification gate (type-check → lint → test/PII gate → visual) and the doc-update checklist before it's marked done.
 
-**Fast-entry polish:** amount-field calculator (`120+45`), duplicate/repeat a transaction, saved templates/favorites, swipe actions on rows (pairs with select mode), **always-grouped amount inputs** (Indian thousands separator shown live in the field, everywhere) with an **amount-in-words helper** beneath (e.g. `1,00,000` → "One Lakh").
+**Phase A — Input foundation**
+1. ✅ **`AmountInput` primitive** — live Indian thousands grouping in-field, inline calculator (`120+45`), amount-in-words helper beneath (`1,00,000` → "One Lakh"). Adopted across all money inputs (`tests/lib/amountToWords.test.ts`).
 
-**Distinct / India + PWA:** Web Share Target (share a GPay/PhonePe receipt or SMS text into Penny → local parser pre-fills), split transaction across categories, receipt photo attach (local, encrypted), cash-wallet reconcile.
+**Phase B — Fast capture**
+2. ✅ **Description-first reorder + local merchant memory** — Description is the first field in the Add form; encrypted `merchant_memory` store (schema v5) remembers last category/account/payment per merchant and offers a **tap-to-apply suggestion** beneath the field on the next match (nothing fills until tapped). One-time backfill from existing transaction history (`penny_merchant_memory_v1` flag) so it works on upgrade, not just for new saves. Pure helpers in `core/expenses/merchantMemory.ts` (`tests/expenses/merchantMemory.test.ts`). Local precursor to the Phase-2 AI categoriser.
+3. ~~Natural-language quick-add~~ — **skipped** (2026-06-25, user decision). Merchant memory already covers fast re-entry; revisit only if a parser proves worth it.
 
-**Smart-but-local insights:** recurring-pattern detection → suggest subscriptions/recurring rules, anomaly nudges ("Dining 40% over 3-month average"), monthly recap card.
+**Phase C — Forecast engine** (absorbs the old Cash Flow view + "safe to spend")
+4. ✅ **Net-balance forecast core** — `core/cashflow` projects total liquid balance forward: recurring income inflows alongside outflow events, running-balance series, lowest-balance warning against a **user-set buffer floor** (SettingsContext, default ₹5,000), and a **liquidity-based "safe to spend"** with **payday-aware framing**. Fixed the latent bug where recurring income was counted as an outflow. Shared `hooks/useForecast.ts` powers the rebuilt Cash Flow page (safe-to-spend hero, balance sparkline, breach banner, buffer editor, Week/Month/3M) and the safe-to-spend surfaces on Home + the Expenses header. Tests in `tests/cashflow/forecaster.test.ts`.
+5. ✅ **Recurring-income detection** — `core/cashflow/incomeDetector.ts` mirrors the subscription detector; `features/cashflow/useIncomeSuggestions.ts` surfaces a confirmable card on the Cash Flow page. Confirming marks the latest matching income transaction recurring (so a payday appears in the forecast); dismissals are remembered locally. Tests in `tests/cashflow/incomeDetector.test.ts`.
+6. ✅ **Recurring auto-post inbox** — `core/expenses/recurringDue.ts` (`computeDueRecurring` + `buildOccurrence`, tested) finds recurring series whose next occurrence is due; a "due to log" banner on the Transactions tab opens `RecurringInboxModal` to confirm (logs a real transaction via the normal save path) or skip. Closes the gap where recurring items were forecast-only. Wired through `useExpenses` (`dueRecurring`/`postRecurring`/`skipRecurring`).
+7. ✅ **In-app reminders** — a header **bell + badge** opens a Reminders panel of near-term outflows: overdue recurring bills + anything due in the next 7 days (EMIs, subscriptions, insurance, bills), grouped by urgency. Per-item actions: snooze (1d/3d/1w), mark done, **Log** (recurring bills → reuses the Step 6 occurrence builder), **Cancel** (subscriptions). Pure core `core/reminders/reminders.ts` (`buildReminders`/`reminderCounts`, tested); `hooks/useReminders.ts` holds snooze/done state. **Decision (2026-06-26):** in-app only — no notification/permission APIs. Real OS/scheduled/push reminders need a backend or unsupported/experimental APIs → **deferred to Phase 2**.
+
+**Phase D — Subscriptions upgrade**
+8. Price-hike detection · renewal calendar + annualized cost · manual add + trial-ending reminders · zombie/unused nudge.
+
+**Phase E — Polish + UX**
+9. ✅ **Tab reorder** — Analytics is now the first tab and the default landing for the Expenses module; order is Analytics · Transactions · Subscriptions · Budgets · IOU. (The add-transaction FAB lives on the Transactions tab.)
+10. Duplicate/repeat a transaction + saved templates/favorites; swipe actions on rows (pairs with the Track 3 select mode).
+11. Cash-wallet reconcile; receipt photo attach (local, encrypted).
+12. Anomaly nudges ("Dining 40% over 3-month average") + monthly recap card.
+
+**Explicitly out of Track 6:** split transactions (→ Phase 2), natural-language quick-add / Web Share Target / SMS-paste / voice quick-add / round-up-to-goal / PWA home-screen shortcut / merchant deep-dive / GST expense tagging (declined for now), AI auto-categorisation (→ Phase 2).
+
+### Track 7 — tax & calculators in context
+
+Captured 2026-06-25. Spun out of Track 6 so the expense track stays coherent. Tax-domain work on the existing Tax Awareness screen.
+
+1. **Tax footprint view** — reconcile the three numbers people never see together: **earn** (gross income → direct tax/TDS computed from income + regime + deductions → take-home), **spend** (total spend + an **estimated GST slice** via per-category effective rates, clearly labelled an estimate), **invest** (realised gains → capital-gains tax). Headline: "earned ₹X, kept ₹Y, paid ₹Z in total tax — A% direct, B% indirect, C% on gains."
+2. **Re-home tax calculators** — mount Old vs New Regime, HRA Exemption, and Capital Gains as tabs/sections inside the Tax screen; the searchable Calculators hub stays the global index. Principle: calculators live where you need them. Extends later to other domains (SIP/Lumpsum/FD near Portfolio, etc.).
 
 ### Track 1 rationale
 

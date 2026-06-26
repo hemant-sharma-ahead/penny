@@ -1,4 +1,4 @@
-import { Card, Button, TextInput, SelectInput, SegmentedControl, SectionLabel } from '@/components/ui';
+import { Card, Button, TextInput, SelectInput, SegmentedControl, SectionLabel, AmountInput } from '@/components/ui';
 import { PlannerResults } from './PlannerResults';
 import type { usePlanner } from './usePlanner';
 
@@ -19,15 +19,7 @@ export function PlannerTab({ planner, mode }: PlannerTabProps) {
         <div>
           <SectionLabel>Loan Basics</SectionLabel>
           <Card className="flex flex-col gap-3">
-            <TextInput
-              label="Principal"
-              prefix="₹"
-              type="number"
-              inputMode="decimal"
-              value={p.principal}
-              onChange={p.setPrincipal}
-              placeholder="e.g. 5000000"
-            />
+            <AmountInput label="Principal" value={p.principal} onChange={p.setPrincipal} placeholder="e.g. 5000000" />
             <div className="grid grid-cols-2 gap-3">
               <TextInput
                 label="Interest rate"
@@ -140,13 +132,11 @@ export function PlannerTab({ planner, mode }: PlannerTabProps) {
                   />
                 </div>
                 <div className="flex-1">
-                  <TextInput
+                  <AmountInput
                     value={r.amount}
                     onChange={(v) => p.updatePrepayRow(r.id, 'amount', v)}
-                    type="number"
-                    inputMode="decimal"
-                    prefix="₹"
                     placeholder="Amount"
+                    showWords={false}
                   />
                 </div>
                 <Button

@@ -46,6 +46,15 @@ const THEME_KEY = 'penny_settings_theme';
 const THEME_MIGRATED_KEY = 'penny_settings_theme_v2';
 export const DEFAULT_PRIVACY_KEY = 'penny_settings_default_privacy';
 const LOCK_ON_BACKGROUND_KEY = 'penny_settings_lock_on_background';
+const CASHFLOW_BUFFER_KEY = 'penny_settings_cashflow_buffer';
+
+/** Default safety cushion the cash-flow forecast keeps in reserve. */
+export const DEFAULT_CASHFLOW_BUFFER = 5000;
+
+function loadCashflowBuffer(): number {
+  const raw = Number(localStorage.getItem(CASHFLOW_BUFFER_KEY));
+  return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_CASHFLOW_BUFFER;
+}
 
 /** Read directly (no React) — used by the session gate's visibility listener. */
 export function loadLockOnBackground(): boolean {
@@ -102,11 +111,13 @@ interface SettingsContextValue {
   theme: Theme;
   defaultPrivacyMode: PrivacyMode;
   lockOnBackground: boolean;
+  cashflowBuffer: number;
   setModule: (key: keyof ModuleVisibility, visible: boolean) => void;
   setFontScale: (scale: FontScale) => void;
   setTheme: (theme: Theme) => void;
   setDefaultPrivacyMode: (mode: PrivacyMode) => void;
   setLockOnBackground: (value: boolean) => void;
+  setCashflowBuffer: (value: number) => void;
 }
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -117,6 +128,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(loadTheme);
   const [defaultPrivacyMode, setDefaultPrivacyModeState] = useState<PrivacyMode>(loadDefaultPrivacyMode);
   const [lockOnBackground, setLockOnBackgroundState] = useState<boolean>(loadLockOnBackground);
+  const [cashflowBuffer, setCashflowBufferState] = useState<number>(loadCashflowBuffer);
 
   useEffect(() => {
     const scale = FONT_SCALE_MAP[fontScale];
@@ -162,6 +174,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setLockOnBackgroundState(value);
   }, []);
 
+  const setCashflowBuffer = useCallback((value: number) => {
+    const safe = Number.isFinite(value) && value >= 0 ? Math.round(value) : 0;
+    localStorage.setItem(CASHFLOW_BUFFER_KEY, String(safe));
+    setCashflowBufferState(safe);
+  }, []);
+
   return (
     <SettingsContext.Provider
       value={{
@@ -170,11 +188,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         theme,
         defaultPrivacyMode,
         lockOnBackground,
+        cashflowBuffer,
         setModule,
         setFontScale,
         setTheme,
         setDefaultPrivacyMode,
-        setLockOnBackground
+        setLockOnBackground,
+        setCashflowBuffer
       }}
     >
       {children}

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { formatCurrency, formatCompact, toMonthYearKey } from '@/lib/formatters';
 import { STATUS, tint } from '@/lib/statusColors';
 import { ListContainer, SectionLabel } from '@/components/ui';
+import type { MonthPoint } from '@/core/expenses/annualAnalytics';
+import { AnnualChart } from './AnnualChart';
 
 // ── Local helpers ─────────────────────────────────────────────────────────────
 
@@ -179,7 +181,17 @@ interface AnalyticsTabProps {
   analyticsTotal: number;
   prevMonthData: Map<string, number>;
   spendVelocity: { daysElapsed: number; daysInMonth: number; projected: number } | null;
-  annualData: Array<{ month: string; label: string; total: number }>;
+  annualData: MonthPoint[];
+  prevYearData: MonthPoint[];
+  annualSavings: { income: number; expense: number; saved: number; rate: number };
+  annualMovers: Array<{
+    categoryId: string;
+    name: string;
+    color: string;
+    pct: number;
+    current: number;
+    average: number;
+  }>;
   annualTotal: number;
   annualMax: number;
   eventsThisMonth: Array<{
@@ -212,6 +224,9 @@ export function AnalyticsTab({
   prevMonthData,
   spendVelocity,
   annualData,
+  prevYearData,
+  annualSavings,
+  annualMovers,
   annualTotal,
   annualMax,
   eventsThisMonth,
@@ -304,58 +319,93 @@ export function AnalyticsTab({
       {/* ── Annual view ── */}
       {analyticsView === 'annual' && (
         <>
-          {annualTotal === 0 ? (
+          {annualTotal === 0 && annualSavings.income === 0 ? (
             <div className="p-10 text-center">
               <i className="ti ti-chart-bar text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
-              <p className="text-sm mt-3 text-tertiary">No expenses in {analyticsYear}.</p>
+              <p className="text-sm mt-3 text-tertiary">No activity in {analyticsYear}.</p>
             </div>
           ) : (
             <>
+              {/* Savings-rate headline */}
+              {annualSavings.income > 0 && (
+                <div className="surface rounded-2xl p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-tertiary uppercase tracking-wide">
+                      Saved in {analyticsYear}
+                    </p>
+                    <p
+                      className="text-lg font-bold"
+                      style={{ color: annualSavings.saved >= 0 ? STATUS.success : STATUS.danger }}
+                    >
+                      {mode === 'open' ? formatCurrency(annualSavings.saved) : '••••'}
+                    </p>
+                  </div>
+                  <div
+                    className="text-2xl font-bold tabular-nums"
+                    style={{ color: annualSavings.saved >= 0 ? STATUS.success : STATUS.danger }}
+                  >
+                    {Math.round(annualSavings.rate * 100)}%
+                  </div>
+                </div>
+              )}
+
+              {/* Income vs expense chart */}
               <div className="surface rounded-2xl p-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-tertiary uppercase tracking-wide">Total {analyticsYear}</p>
-                  <p className="text-base font-bold text-primary">
-                    {mode === 'open' ? formatCurrency(annualTotal) : '••••'}
+                  <p className="text-xs font-medium text-tertiary uppercase tracking-wide">Income vs spend</p>
+                  <p className="text-sm font-semibold text-primary">
+                    Spent {mode === 'open' ? formatCurrency(annualTotal) : '••••'}
                   </p>
                 </div>
-                {/* Bar chart */}
-                <div className="flex items-end gap-1 h-20">
-                  {annualData.map((m) => {
-                    const heightPct = annualMax > 0 ? Math.max((m.total / annualMax) * 100, m.total > 0 ? 5 : 0) : 0;
-                    const isCurrentMonth = m.month === toMonthYearKey();
-                    return (
-                      <button
-                        key={m.month}
-                        onClick={() => {
-                          onChangeSelectedMonth(m.month);
-                          onChangeAnalyticsView('monthly');
-                          onChangeExpandedGroup(null);
-                        }}
-                        disabled={m.total === 0}
-                        className="flex-1 flex flex-col items-center gap-0.5 group disabled:cursor-default"
-                        title={m.total > 0 ? `${m.label}: ${formatCurrency(m.total)}` : undefined}
-                      >
-                        <div className="w-full flex flex-col justify-end" style={{ height: '72px' }}>
-                          <div
-                            className="w-full rounded-t-sm transition-all group-hover:opacity-80"
-                            style={{
-                              height: `${heightPct}%`,
-                              backgroundColor: isCurrentMonth ? 'var(--color-primary)' : 'var(--color-primary)',
-                              opacity: isCurrentMonth ? 1 : 0.5
-                            }}
-                          />
-                        </div>
-                        <span className="text-[9px] text-tertiary">{m.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <AnnualChart
+                  series={annualData}
+                  prevYear={prevYearData}
+                  max={annualMax}
+                  mode={mode}
+                  onSelectMonth={(m) => {
+                    onChangeSelectedMonth(m);
+                    onChangeAnalyticsView('monthly');
+                    onChangeExpandedGroup(null);
+                  }}
+                />
               </div>
+
+              {/* Biggest movers */}
+              {annualMovers.length > 0 && (
+                <div>
+                  <SectionLabel>Biggest movers · last month</SectionLabel>
+                  <ListContainer>
+                    {annualMovers.map((mv) => {
+                      const up = mv.pct >= 0;
+                      return (
+                        <div key={mv.categoryId} className="flex items-center gap-3 px-4 py-3">
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: mv.color }} />
+                          <span className="text-sm font-medium text-primary flex-1">{mv.name}</span>
+                          <span
+                            className="text-sm font-semibold flex items-center gap-0.5"
+                            style={{ color: up ? STATUS.danger : STATUS.success }}
+                          >
+                            <i
+                              className={`ti ${up ? 'ti-arrow-up-right' : 'ti-arrow-down-right'}`}
+                              style={{ fontSize: 14 }}
+                              aria-hidden="true"
+                            />
+                            {Math.abs(Math.round(mv.pct * 100))}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </ListContainer>
+                  <p className="text-[11px] text-tertiary mt-1.5 px-1">vs your prior 3-month average</p>
+                </div>
+              )}
+
+              {/* Monthly breakdown */}
               <ListContainer>
                 {annualData
-                  .filter((m) => m.total > 0)
-                  .sort((a, b) => b.total - a.total)
-                  .map((m, i) => (
+                  .filter((m) => !m.projected && m.expense > 0)
+                  .sort((a, b) => b.month.localeCompare(a.month))
+                  .map((m) => (
                     <button
                       key={m.month}
                       onClick={() => {
@@ -365,10 +415,9 @@ export function AnalyticsTab({
                       }}
                       className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-2"
                     >
-                      <span className="text-xs text-tertiary w-4 flex-shrink-0">{i + 1}</span>
                       <span className="text-sm font-medium text-primary flex-1">{monthLabel(m.month)}</span>
                       <span className="text-sm font-semibold text-primary">
-                        {mode === 'open' ? formatCurrency(m.total) : '••••'}
+                        {mode === 'open' ? formatCurrency(m.expense) : '••••'}
                       </span>
                       <i className="ti ti-chevron-right text-tertiary" style={{ fontSize: 13 }} aria-hidden="true" />
                     </button>
@@ -396,6 +445,9 @@ export function AnalyticsTab({
                 </p>
                 <p className="text-sm font-semibold text-primary mt-0.5">
                   On track for {mode === 'open' ? formatCurrency(spendVelocity.projected) : '••••'} this month
+                </p>
+                <p className="text-[10px] text-tertiary mt-0.5">
+                  Projected at your current pace · excludes event spend
                 </p>
               </div>
               <div className="flex-shrink-0 flex flex-col items-end gap-1">

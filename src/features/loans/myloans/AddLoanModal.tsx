@@ -1,7 +1,7 @@
 import type { Liability } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
 import { EMI_LOAN_TYPES, getLoanMeta } from '@/core/loans/meta';
-import { Modal, Button, TextInput, OptionButton } from '@/components/ui';
+import { Modal, Button, TextInput, OptionButton, AmountInput } from '@/components/ui';
 import { useLoanForm } from './useLoanForm';
 
 interface AddLoanModalProps {
@@ -64,12 +64,10 @@ export function AddLoanModal({ saveLiability, onClose }: AddLoanModalProps) {
       />
 
       <div className="grid grid-cols-2 gap-3">
-        <TextInput
-          label="Outstanding (₹)"
+        <AmountInput
+          label="Outstanding"
           value={form.outstanding}
           onChange={form.setOutstanding}
-          type="number"
-          inputMode="decimal"
           placeholder="e.g. 2500000"
         />
         <TextInput

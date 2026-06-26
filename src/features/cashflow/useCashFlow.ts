@@ -1,82 +1,57 @@
-import { useEffect, useMemo, useState } from 'react';
-import { expensesRepo, insurancePoliciesRepo, liabilitiesRepo, subscriptionsRepo } from '@/core/db/repositories';
-import { forecastEvents } from '@/core/cashflow/forecaster';
+import { useMemo, useState } from 'react';
 import type { CashFlowEvent } from '@/core/cashflow/forecaster';
 import { CF_TYPES, getCashFlowMeta } from '@/core/cashflow/meta';
-import { startOfToday } from '@/lib/date';
-import type { Expense, InsurancePolicy, Liability, Subscription } from '@/core/db/types';
+import { toMonthYearKey } from '@/lib/date';
+import { useForecast } from '@/hooks/useForecast';
 
-export type Horizon = 'week' | 'month';
+export type Horizon = 'month' | 'quarter' | 'halfyear';
 
-const HORIZON_DAYS: Record<Horizon, number> = { week: 7, month: 31 };
+const HORIZON_DAYS: Record<Horizon, number> = { month: 31, quarter: 92, halfyear: 183 };
 
-interface LoadedData {
-  liabilities: Liability[];
-  subscriptions: Subscription[];
-  policies: InsurancePolicy[];
-  expenses: Expense[];
-}
-
-/** Loads the recurring-outflow sources, forecasts events for the horizon, and groups them by day. */
+/** Forecasts the balance for the chosen horizon and groups outflow events by month for the timeline. */
 export function useCashFlow() {
-  const [nowMs] = useState(() => Date.now());
-  const [horizon, setHorizon] = useState<Horizon>('month');
-  const [data, setData] = useState<LoadedData | null>(null);
+  const [horizon, setHorizon] = useState<Horizon>('quarter');
+  const { loading, nowMs, todayStart, startBalance, events, forecast, reload } = useForecast(HORIZON_DAYS[horizon]);
 
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      liabilitiesRepo.getAll(),
-      subscriptionsRepo.getAll(),
-      insurancePoliciesRepo.getAll(),
-      expensesRepo.getAll()
-    ])
-      .then(([liabilities, subscriptions, policies, expenses]) => {
-        if (!cancelled) setData({ liabilities, subscriptions, policies, expenses });
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // The timeline shows upcoming *payments* — income is reflected in the projection, not here.
+  const outflowEvents = useMemo(() => events.filter((e) => e.direction === 'out'), [events]);
 
-  const events = useMemo(
-    () =>
-      data
-        ? forecastEvents(
-            data.liabilities,
-            data.subscriptions,
-            data.policies,
-            data.expenses,
-            nowMs,
-            HORIZON_DAYS[horizon]
-          )
-        : ([] as CashFlowEvent[]),
-    [data, nowMs, horizon]
-  );
-
-  const todayStart = useMemo(() => startOfToday(nowMs), [nowMs]);
-
+  // Group upcoming payments by month (e.g. "2026-07") — cleaner than day-by-day;
+  // the individual due date is shown per row. outflowEvents are already sorted by
+  // dueMs, so each month's rows stay in date order.
   const grouped = useMemo(() => {
-    const map = new Map<number, CashFlowEvent[]>();
-    for (const e of events) {
-      const bucket = map.get(e.dueMs);
+    const map = new Map<string, CashFlowEvent[]>();
+    for (const e of outflowEvents) {
+      const key = toMonthYearKey(new Date(e.dueMs));
+      const bucket = map.get(key);
       if (bucket) bucket.push(e);
-      else map.set(e.dueMs, [e]);
+      else map.set(key, [e]);
     }
-    return Array.from(map.entries()).sort(([a], [b]) => a - b);
-  }, [events]);
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [outflowEvents]);
 
-  const total = useMemo(() => events.reduce((s, e) => s + e.amount, 0), [events]);
+  const total = useMemo(() => outflowEvents.reduce((s, e) => s + e.amount, 0), [outflowEvents]);
 
   const summaryParts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const e of events) counts[e.type] = (counts[e.type] ?? 0) + 1;
+    for (const e of outflowEvents) counts[e.type] = (counts[e.type] ?? 0) + 1;
     return CF_TYPES.filter((t) => (counts[t] ?? 0) > 0).map((t) => {
       const cnt = counts[t] ?? 0;
       return `${cnt} ${getCashFlowMeta(t).label.toLowerCase()}${cnt > 1 ? 's' : ''}`;
     });
-  }, [events]);
+  }, [outflowEvents]);
 
-  return { horizon, setHorizon, loading: data === null, grouped, total, summaryParts, todayStart };
+  return {
+    horizon,
+    setHorizon,
+    loading,
+    grouped,
+    total,
+    summaryParts,
+    todayStart,
+    startBalance,
+    forecast,
+    nowMs,
+    reload
+  };
 }

@@ -50,7 +50,7 @@ export function SetupCredentialsScreen() {
         createdAt: now,
         updatedAt: now
       });
-      await seedDemoData();
+      await seedDemoData(draft.employmentType ?? 'salaried');
       navigate(PATHS.app.home);
     } catch {
       setError('Setup failed. Please try again.');

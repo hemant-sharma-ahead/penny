@@ -31,6 +31,10 @@ export function ExpensesPage() {
     spendByCategory,
     txnCountByCategory,
     linkedCountByEventHashtag,
+    searchMerchant,
+    dueRecurring,
+    postRecurring,
+    skipRecurring,
     saveExpenseWithHashtags,
     patchExpenses,
     removeExpenses,
@@ -42,7 +46,7 @@ export function ExpensesPage() {
     createParentWithChildren
   } = useExpenses();
 
-  const [activeTab, setActiveTab] = useState<ExpensesTab>('transactions');
+  const [activeTab, setActiveTab] = useState<ExpensesTab>('analytics');
   const txnFilters = useTransactionFilters(expenses, categoryMap);
 
   const categoryManager: CategoryManager = {
@@ -70,11 +74,11 @@ export function ExpensesPage() {
       <TabStrip
         scrollable
         options={[
+          { value: 'analytics', label: 'Analytics' },
           { value: 'transactions', label: 'Transactions' },
           { value: 'subscriptions', label: 'Subscriptions' },
-          { value: 'iou', label: 'IOU' },
           { value: 'budgets', label: 'Budgets' },
-          { value: 'analytics', label: 'Analytics' }
+          { value: 'iou', label: 'IOU' }
         ]}
         value={activeTab}
         onChange={setActiveTab}
@@ -95,6 +99,10 @@ export function ExpensesPage() {
           onDeleteExpense={deleteExpense}
           onPatchExpenses={patchExpenses}
           onRemoveExpenses={removeExpenses}
+          searchMerchant={searchMerchant}
+          dueRecurring={dueRecurring}
+          onPostRecurring={postRecurring}
+          onSkipRecurring={skipRecurring}
           categoryManager={categoryManager}
         />
       )}

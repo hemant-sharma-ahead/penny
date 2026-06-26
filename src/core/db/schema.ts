@@ -14,6 +14,7 @@ import type {
   Holding,
   InsurancePolicy,
   Liability,
+  MerchantMemory,
   PersonalIou,
   PriceCache,
   PrivacyStat,
@@ -46,6 +47,7 @@ export class PennyDatabase extends Dexie {
   credit_profile!: EntityTable<CreditProfile, 'id'>;
   accounts!: EntityTable<Account, 'id'>;
   activity_log!: EntityTable<ActivityLog, 'id'>;
+  merchant_memory!: EntityTable<MerchantMemory, 'id'>;
 
   constructor() {
     super('penny');
@@ -87,6 +89,9 @@ export class PennyDatabase extends Dexie {
 
     // v4 — activity log for the Timeline (Pre-Phase 1.5, Track 4). Encrypted; id-only index.
     this.version(4).stores({ activity_log: 'id' });
+
+    // v5 — merchant memory for transaction auto-fill (Pre-Phase 1.5, Track 6). Encrypted; id-only index.
+    this.version(5).stores({ merchant_memory: 'id' });
   }
 }
 

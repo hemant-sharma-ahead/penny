@@ -6,6 +6,7 @@ import { useEventMode } from '@/context/EventModeContext';
 import type { Expense, ExpenseCategory } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
 import { monthLabel } from '@/lib/date';
+import { useForecast } from '@/hooks/useForecast';
 import { PATHS } from '@/router/paths';
 import { EventsModal } from './events/EventsModal';
 import { useEventEditor } from './events/useEventEditor';
@@ -31,6 +32,8 @@ export function ExpensesHeader({
   const navigate = useNavigate();
   const { mode } = usePrivacy();
   const { events, updateEvent } = useEventMode();
+  const { loading: forecastLoading, forecast } = useForecast();
+  const safeToSpend = Math.max(0, forecast.discretionary);
   const [nowMs] = useState(() => Date.now());
   const [showEventSheet, setShowEventSheet] = useState(false);
   const [showExportSheet, setShowExportSheet] = useState(false);
@@ -79,12 +82,31 @@ export function ExpensesHeader({
             {monthFilter ? monthLabel(monthFilter) : 'All transactions'}:{' '}
             <span className="font-medium text-primary">{mode === 'open' ? formatCurrency(filteredTotal) : '••••'}</span>
           </p>
-          {immersiveEvent && (
-            <span className="text-[10px] font-semibold flex items-center gap-1" style={{ color: immersiveEvent.color }}>
-              <i className="ti ti-plane" style={{ fontSize: 11 }} aria-hidden="true" />
-              Vacation On · {immersiveEvent.name}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {immersiveEvent && (
+              <span
+                className="text-[10px] font-semibold flex items-center gap-1"
+                style={{ color: immersiveEvent.color }}
+              >
+                <i className="ti ti-plane" style={{ fontSize: 11 }} aria-hidden="true" />
+                Vacation On · {immersiveEvent.name}
+              </span>
+            )}
+            {!forecastLoading && (
+              <button
+                onClick={() => navigate(PATHS.app.cashflow)}
+                className="flex items-center gap-1 rounded-full bg-surface-2 border border-theme px-2.5 py-1 text-[11px] font-medium text-secondary"
+                aria-label="View cash flow"
+              >
+                <i
+                  className="ti ti-wallet"
+                  style={{ fontSize: 12, color: 'var(--color-primary)' }}
+                  aria-hidden="true"
+                />
+                Safe: <span className="text-primary">{mode === 'open' ? formatCurrency(safeToSpend) : '••••'}</span>
+              </button>
+            )}
+          </div>
         </div>
       </PageHeader>
 

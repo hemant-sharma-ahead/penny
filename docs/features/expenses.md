@@ -6,6 +6,10 @@ The expense tracking module — the heart of Penny's day-to-day usage. You log e
 ## User-facing capabilities
 - Add, edit, and delete transactions of three types: expense (money out), income (money in), and transfer (between your own accounts)
 - Attach a merchant name, amount, category, date, account, notes, and free-form hashtags to every transaction
+- Enter amounts with live Indian thousands grouping, a built-in calculator (type `120+45`), and an amount-in-words helper beneath the field (`1,00,000` → "One Lakh")
+- Description is the first field in the Add form; as you type, Penny shows ranked type-ahead suggestions of remembered merchants beneath it (substring match). Each suggestion fills the merchant, category, account, and payment mode on tap — nothing changes until you tap. A merchant you've logged under more than one category surfaces as a separate suggestion per category, ranked by how often you use each.
+- View annual analytics: an income line over monthly expense bars, last-year ghost bars for context, a 3-month forward projection (faded), a savings-rate headline, biggest category movers vs your trailing average, and a per-month breakdown
+- A "due to log" inbox surfaces recurring items (rent, bills, SIPs, salary) whose next occurrence has fallen due; confirm to log the real transaction, or skip — it reappears when the next period falls due
 - Filter transactions by date range, category, hashtag, account, event, or transaction type — mix and match
 - View spending analytics: pie chart and bar chart by category, month-over-month comparison, and a spending trend line
 - Set monthly budgets per category and see real-time progress bars; receive alerts when you are close to or over budget

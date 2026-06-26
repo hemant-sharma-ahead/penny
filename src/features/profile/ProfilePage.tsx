@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button, PageHeader, TextInput, OptionButton, Banner } from '@/components/ui';
 import { profileRepo } from '@/core/db/repositories';
 import { logActivity } from '@/core/db/activityLog';
+import { reseedForEmployment } from '@/core/db/seedDemoData';
 import type { EmploymentType, Profile } from '@/core/db/types';
 import { EMPLOYMENT_OPTIONS } from '@/core/profile/employment';
 import { isValidUsername } from '@/core/profile/username';
@@ -47,6 +48,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
   const [employmentType, setEmploymentType] = useState<EmploymentType | undefined>(profile.employmentType);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [reseeded, setReseeded] = useState(false);
 
   const age = dob ? deriveAge(dob) : null;
   const dobValid = dob === '' || (age !== null && age >= 13 && age <= 120);
@@ -63,6 +65,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
   async function handleSave() {
     if (!canSave) return;
     setSaving(true);
+    const employmentChanged = employmentType !== profile.employmentType;
     await profileRepo.put({
       ...profile,
       displayName: fullName.trim(),
@@ -72,13 +75,21 @@ function ProfileEditor({ profile }: { profile: Profile }) {
       updatedAt: Date.now()
     });
     logActivity({ action: 'UPDATE', entityType: 'profile', entityId: profile.id, summary: 'Updated profile' });
+    // Refresh the sample data to match the new employment type — but only while
+    // it's still demo data the user hasn't built on (reseedForEmployment bails otherwise).
+    const didReseed = employmentChanged && employmentType ? await reseedForEmployment(employmentType) : false;
     setSaving(false);
     setSaved(true);
+    setReseeded(didReseed);
   }
 
   return (
     <div className="px-4 py-4 flex flex-col gap-4">
-      {saved && <Banner variant="success">Profile saved.</Banner>}
+      {saved && (
+        <Banner variant="success">
+          Profile saved.{reseeded ? ' Sample data refreshed to match your new profile.' : ''}
+        </Banner>
+      )}
 
       <TextInput label="Full name" required value={fullName} onChange={edited(setFullName)} placeholder="Your name" />
 

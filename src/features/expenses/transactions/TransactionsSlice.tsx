@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { SearchInput, DismissibleChip, Button, Modal, SelectInput, ConfirmDialog } from '@/components/ui';
 import { STATUS, tint } from '@/lib/statusColors';
 import type { ActiveEvent } from '@/context/EventModeContext';
-import type { Account, Expense, ExpenseCategory, Hashtag, TransactionType } from '@/core/db/types';
+import type { Account, Expense, ExpenseCategory, Hashtag, MerchantMemory, TransactionType } from '@/core/db/types';
 import { toMonthYearKey } from '@/lib/formatters';
 import { monthLabel } from '@/lib/date';
 import { TransactionsTab } from './TransactionsTab';
@@ -10,8 +10,10 @@ import { ExpenseForm } from './ExpenseForm';
 import { FilterModal } from './FilterModal';
 import { MonthPickerModal } from './MonthPickerModal';
 import { BulkAccountPaymentModal } from './BulkAccountPaymentModal';
+import { RecurringInboxModal } from './RecurringInboxModal';
 import type { useTransactionFilters } from './useTransactionFilters';
 import type { CategoryManager } from '../categories/types';
+import type { DueRecurring } from '@/core/expenses/recurringDue';
 
 interface TransactionsSliceProps {
   filters: ReturnType<typeof useTransactionFilters>;
@@ -30,6 +32,10 @@ interface TransactionsSliceProps {
     patch: Partial<Pick<Expense, 'categoryId' | 'accountId' | 'paymentMode'>>
   ) => Promise<void>;
   onRemoveExpenses: (ids: string[]) => Promise<void>;
+  searchMerchant: (type: TransactionType, query: string) => MerchantMemory[];
+  dueRecurring: DueRecurring[];
+  onPostRecurring: (d: DueRecurring) => Promise<void>;
+  onSkipRecurring: (d: DueRecurring) => void;
   categoryManager: CategoryManager;
 }
 
@@ -47,6 +53,10 @@ export function TransactionsSlice({
   onDeleteExpense,
   onPatchExpenses,
   onRemoveExpenses,
+  searchMerchant,
+  dueRecurring,
+  onPostRecurring,
+  onSkipRecurring,
   categoryManager
 }: TransactionsSliceProps) {
   const {
@@ -77,6 +87,7 @@ export function TransactionsSlice({
   const [showDial, setShowDial] = useState(false);
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [showTxnMonthPicker, setShowTxnMonthPicker] = useState(false);
+  const [showInbox, setShowInbox] = useState(false);
 
   // ── Multi-select / bulk operations ──
   const [selectMode, setSelectMode] = useState(false);
@@ -304,6 +315,23 @@ export function TransactionsSlice({
         </div>
       )}
 
+      {/* Recurring "due to log" inbox banner */}
+      {!selectMode && dueRecurring.length > 0 && (
+        <button
+          onClick={() => setShowInbox(true)}
+          className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 border-b border-theme text-left"
+          style={{ backgroundColor: tint(STATUS.info) }}
+        >
+          <i className="ti ti-clock-bolt" style={{ fontSize: 18, color: STATUS.info }} aria-hidden="true" />
+          <span className="flex-1 text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+            {dueRecurring.length} recurring {dueRecurring.length === 1 ? 'item' : 'items'} due to log
+          </span>
+          <span className="text-xs font-semibold" style={{ color: STATUS.info }}>
+            Review
+          </span>
+        </button>
+      )}
+
       {/* List */}
       <div className="flex-1 overflow-y-auto pb-24">
         <TransactionsTab
@@ -436,8 +464,20 @@ export function TransactionsSlice({
           initialType={initialTransactionType}
           onSave={handleSaveExpense}
           onDelete={handleDeleteExpense}
+          searchMerchant={searchMerchant}
           categoryManager={categoryManager}
           onClose={() => setShowForm(false)}
+        />
+      )}
+
+      {/* Recurring "due to log" inbox */}
+      {showInbox && (
+        <RecurringInboxModal
+          due={dueRecurring}
+          categoryMap={categoryMap}
+          onPost={onPostRecurring}
+          onSkip={onSkipRecurring}
+          onClose={() => setShowInbox(false)}
         />
       )}
 

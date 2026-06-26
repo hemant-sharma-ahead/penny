@@ -1,3 +1,4 @@
+export { AmountInput } from './AmountInput';
 export { Badge } from './Badge';
 export { Banner } from './Banner';
 export { Button } from './Button';

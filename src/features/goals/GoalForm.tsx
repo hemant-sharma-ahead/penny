@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Goal, GoalRisk } from '@/core/db/types';
 import { epochToDateInput } from '@/lib/formatters';
-import { TextInput, OptionButton } from '@/components/ui';
+import { TextInput, OptionButton, AmountInput } from '@/components/ui';
 import { FormModal } from '@/components/shared';
 
 interface Props {
@@ -72,23 +72,9 @@ export function GoalForm({ editing, onSave, onDelete, onClose }: Props) {
         autoFocus
       />
 
-      <TextInput
-        label="Target amount (₹)"
-        value={targetAmount}
-        onChange={setTargetAmount}
-        type="number"
-        inputMode="decimal"
-        placeholder="e.g. 500000"
-      />
+      <AmountInput label="Target amount" value={targetAmount} onChange={setTargetAmount} placeholder="e.g. 500000" />
 
-      <TextInput
-        label="Already saved (₹)"
-        value={currentAmount}
-        onChange={setCurrentAmount}
-        type="number"
-        inputMode="decimal"
-        placeholder="0"
-      />
+      <AmountInput label="Already saved" value={currentAmount} onChange={setCurrentAmount} placeholder="0" />
 
       <TextInput label="Target date" value={targetDate} onChange={setTargetDate} type="date" />
 

@@ -1,4 +1,4 @@
-import { Card, TextInput, Button, SegmentedControl } from '@/components/ui';
+import { Card, TextInput, Button, SegmentedControl, AmountInput } from '@/components/ui';
 import { formatCurrency, parseNumber } from '@/lib/formatters';
 import { useSipCalculator } from './useSipCalculator';
 
@@ -28,22 +28,8 @@ export function SipCalculatorTab() {
         </div>
 
         <Card className="flex flex-col gap-3">
-          <TextInput
-            label="Goal amount (₹)"
-            value={sip.target}
-            onChange={sip.setTarget}
-            type="number"
-            inputMode="decimal"
-            placeholder="e.g. 1000000"
-          />
-          <TextInput
-            label="Already saved (₹)"
-            value={sip.saved}
-            onChange={sip.setSaved}
-            type="number"
-            inputMode="decimal"
-            placeholder="0"
-          />
+          <AmountInput label="Goal amount" value={sip.target} onChange={sip.setTarget} placeholder="e.g. 1000000" />
+          <AmountInput label="Already saved" value={sip.saved} onChange={sip.setSaved} placeholder="0" />
           <TextInput
             label="Time horizon (years)"
             value={sip.years}

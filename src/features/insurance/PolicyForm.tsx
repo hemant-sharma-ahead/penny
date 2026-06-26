@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { InsurancePolicy, InsuranceType } from '@/core/db/types';
 import { epochToDateInput } from '@/lib/formatters';
-import { TextInput, OptionButton } from '@/components/ui';
+import { TextInput, OptionButton, AmountInput } from '@/components/ui';
 import { FormModal } from '@/components/shared';
 
 interface Props {
@@ -111,20 +111,16 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
       />
 
       <div className="grid grid-cols-2 gap-3">
-        <TextInput
-          label="Coverage amount (₹)"
+        <AmountInput
+          label="Coverage amount"
           value={coverageAmount}
           onChange={setCoverageAmount}
-          type="number"
-          inputMode="decimal"
           placeholder="e.g. 10000000"
         />
-        <TextInput
-          label="Annual premium (₹)"
+        <AmountInput
+          label="Annual premium"
           value={annualPremium}
           onChange={setAnnualPremium}
-          type="number"
-          inputMode="decimal"
           placeholder="e.g. 12000"
         />
       </div>

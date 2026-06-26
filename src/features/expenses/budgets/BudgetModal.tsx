@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, Button, TextInput, SelectInput } from '@/components/ui';
+import { Modal, Button, SelectInput, AmountInput } from '@/components/ui';
 import type { Budget, ExpenseCategory } from '@/core/db/types';
 import { toMonthYearKey } from '@/lib/formatters';
 
@@ -43,14 +43,7 @@ export function BudgetModal({
         placeholder="Select category"
         options={expenseCategories.map((c) => ({ value: c.id, label: c.name }))}
       />
-      <TextInput
-        label="Monthly limit (₹)"
-        type="number"
-        inputMode="decimal"
-        placeholder="e.g. 5000"
-        value={amount}
-        onChange={(val) => setAmount(val)}
-      />
+      <AmountInput label="Monthly limit" placeholder="e.g. 5000" value={amount} onChange={(val) => setAmount(val)} />
       <Button variant="primary" fullWidth onClick={handleSave}>
         Save budget
       </Button>

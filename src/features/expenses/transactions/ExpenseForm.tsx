@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Account, Expense, ExpenseCategory, Hashtag, TransactionType } from '@/core/db/types';
+import type { Account, Expense, ExpenseCategory, Hashtag, MerchantMemory, TransactionType } from '@/core/db/types';
 import type { ActiveEvent } from '@/context/EventModeContext';
 import { accountsRepo } from '@/core/db/repositories';
 import { epochToDateInput } from '@/lib/formatters';
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '@/router/paths';
-import { Modal, Button, Toggle, TextInput, SegmentedControl } from '@/components/ui';
+import { Modal, Button, Toggle, TextInput, SegmentedControl, AmountInput } from '@/components/ui';
 import { CategoryPickerModal } from '../categories/CategoryPickerModal';
 import type { CategoryManager } from '../categories/types';
 import { AccountChips } from './AccountChips';
@@ -21,6 +21,7 @@ interface Props {
   initialType?: TransactionType;
   onSave: (expense: Expense) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  searchMerchant: (type: TransactionType, query: string) => MerchantMemory[];
   categoryManager: CategoryManager;
   onClose: () => void;
 }
@@ -48,6 +49,7 @@ export function ExpenseForm({
   initialType,
   onSave,
   onDelete,
+  searchMerchant,
   categoryManager,
   onClose
 }: Props) {
@@ -70,6 +72,9 @@ export function ExpenseForm({
   const [intervalDays, setIntervalDays] = useState(String(editing?.recurringIntervalDays ?? 30));
   const [saving, setSaving] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  // Merchant memory: once the user picks a suggestion (or there's nothing useful),
+  // hide the type-ahead list until they edit the description again.
+  const [memPicked, setMemPicked] = useState(false);
 
   const initEditing = useRef(editing);
 
@@ -109,6 +114,33 @@ export function ExpenseForm({
     setCategoryId('');
     setPaymentMode('');
     setIsRecurring(false);
+    setMemPicked(false);
+  }
+
+  function handleDescriptionChange(value: string) {
+    setDescription(value);
+    setMemPicked(false); // re-open suggestions as the merchant text changes
+  }
+
+  // Merchant memory: ranked type-ahead matches for the current description text
+  // (one row per merchant+category). Nothing fills until the user taps a row.
+  const memSuggestions = useMemo(
+    () => (!editing && type !== 'transfer' && description.trim().length >= 2 ? searchMerchant(type, description) : []),
+    [editing, type, description, searchMerchant]
+  );
+  const showMemSuggestions = !memPicked && memSuggestions.length > 0;
+
+  function applyMemory(mem: MerchantMemory) {
+    setDescription(mem.description);
+    if (mem.categoryId) setCategoryId(mem.categoryId);
+    const memAccount = mem.accountId ? accounts.find((a) => a.id === mem.accountId) : undefined;
+    if (memAccount) {
+      setAccountId(memAccount.id);
+      setPaymentMode(couplePaymentToAccount(memAccount, mem.paymentMode ?? ''));
+    } else if (mem.paymentMode) {
+      setPaymentMode(couplePaymentToAccount(selectedAccount, mem.paymentMode));
+    }
+    setMemPicked(true);
   }
 
   const activeTags = parseTags(tagInput);
@@ -205,6 +237,47 @@ export function ExpenseForm({
           />
         )}
 
+        {/* ── Description (first field — offers a merchant memory suggestion) ── */}
+        <div>
+          <TextInput
+            label="Description"
+            type="text"
+            placeholder={type === 'transfer' ? 'e.g. Moving to savings' : 'What was this for?'}
+            value={description}
+            onChange={handleDescriptionChange}
+            autoFocus
+          />
+          {showMemSuggestions && (
+            <div className="mt-1.5 flex flex-col gap-1.5">
+              {memSuggestions.map((mem) => {
+                const cat = categories.find((c) => c.id === mem.categoryId);
+                const acct = accounts.find((a) => a.id === mem.accountId);
+                return (
+                  <button
+                    key={mem.id}
+                    type="button"
+                    onClick={() => applyMemory(mem)}
+                    className="w-full flex items-center gap-2 rounded-xl border border-theme bg-surface-2 px-3 py-2 text-left"
+                  >
+                    {cat && (
+                      <i className={`ti ${cat.icon}`} style={{ fontSize: 15, color: cat.color }} aria-hidden="true" />
+                    )}
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-xs font-medium text-primary truncate">{mem.description}</span>
+                      <span className="block text-[11px] text-tertiary truncate">
+                        {[cat?.name, acct?.name, mem.paymentMode?.toUpperCase()].filter(Boolean).join(' · ')}
+                      </span>
+                    </span>
+                    <span className="text-[11px] font-semibold flex-shrink-0" style={{ color: 'var(--color-primary)' }}>
+                      Use
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* ── Amount row: [Category chip] + [Amount] + [Date] ── */}
         <div className="flex gap-2 items-end">
           {/* Category chip (expense/income only) */}
@@ -245,15 +318,7 @@ export function ExpenseForm({
           )}
 
           <div className="flex-1 min-w-0">
-            <TextInput
-              label="Amount (₹)"
-              type="number"
-              inputMode="decimal"
-              placeholder="0"
-              value={amount}
-              onChange={setAmount}
-              autoFocus
-            />
+            <AmountInput label="Amount (₹)" placeholder="0" value={amount} onChange={setAmount} />
           </div>
 
           <div className="w-[142px] flex-shrink-0">
@@ -323,15 +388,6 @@ export function ExpenseForm({
             <PaymentModeChips value={paymentMode} onChange={setPaymentMode} selectedAccount={selectedAccount} />
           </div>
         </div>
-
-        {/* Description */}
-        <TextInput
-          label="Description"
-          type="text"
-          placeholder={type === 'transfer' ? 'e.g. Moving to savings' : 'What was this for?'}
-          value={description}
-          onChange={setDescription}
-        />
 
         {/* Active event chips (expense only) */}
         {type === 'expense' && activeEvents.length > 0 && (

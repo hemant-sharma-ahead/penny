@@ -1,6 +1,7 @@
 import { MarketStrip } from './MarketStrip';
 import { NetWorthCard } from './NetWorthCard';
 import { AccountsStrip } from './AccountsStrip';
+import { SafeToSpendCard } from './SafeToSpendCard';
 import { ToolsGrid } from './ToolsGrid';
 import { useHome } from './useHome';
 
@@ -26,6 +27,8 @@ export function HomePage() {
       <MarketStrip />
 
       {summary && summary.accountBalances.length > 0 && <AccountsStrip accounts={summary.accountBalances} />}
+
+      <SafeToSpendCard />
 
       <ToolsGrid />
     </div>

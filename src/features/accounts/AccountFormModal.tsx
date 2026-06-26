@@ -1,4 +1,4 @@
-import { Modal, Button, TextInput, Toggle, OptionButton } from '@/components/ui';
+import { Modal, Button, TextInput, Toggle, OptionButton, AmountInput } from '@/components/ui';
 import { ACCOUNT_TYPES, getAccountMeta } from '@/core/accounts/meta';
 import type { useAccountForm } from './useAccountForm';
 
@@ -59,14 +59,11 @@ export function AccountFormModal({ form, saving }: AccountFormModalProps) {
         autoFocus
       />
 
-      <TextInput
+      <AmountInput
         label={editing ? 'Opening balance' : 'Current balance'}
         value={state.openingBalance}
         onChange={(v) => patch({ openingBalance: v })}
-        type="number"
-        inputMode="decimal"
         placeholder="0"
-        prefix="₹"
         hint={
           state.type === 'credit_card'
             ? 'Enter outstanding amount owed (will show as negative balance)'

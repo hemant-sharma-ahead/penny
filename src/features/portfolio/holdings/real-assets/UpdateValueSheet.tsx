@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, Button, TextInput } from '@/components/ui';
+import { Modal, Button, AmountInput } from '@/components/ui';
 import type { Holding } from '@/core/db/types';
 export function UpdateValueSheet({
   holding,
@@ -34,10 +34,8 @@ export function UpdateValueSheet({
       <p className="text-xs text-tertiary -mt-2">{label}</p>
 
       <div>
-        <TextInput
-          label="Current market value (₹)"
-          type="number"
-          inputMode="decimal"
+        <AmountInput
+          label="Current market value"
           value={value}
           onChange={(val) => setValue(val)}
           placeholder="e.g. 650000"

@@ -1,4 +1,4 @@
-import { TextInput } from '@/components/ui';
+import { TextInput, AmountInput } from '@/components/ui';
 
 // Computes the PPF maturity label (15-year lock-in) from the account opening date.
 function ppfMaturityLabel(openingDateStr: string): { text: string } | null {
@@ -42,14 +42,7 @@ export function PpfFields({
         )}
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <TextInput
-          label="Annual contribution (₹)"
-          type="number"
-          inputMode="decimal"
-          placeholder="e.g. 150000"
-          value={ppfAnnual}
-          onChange={setPpfAnnual}
-        />
+        <AmountInput label="Annual contribution" placeholder="e.g. 150000" value={ppfAnnual} onChange={setPpfAnnual} />
         <TextInput
           label="Bank / Institution"
           hint="optional"

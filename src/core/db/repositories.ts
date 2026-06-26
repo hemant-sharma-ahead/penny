@@ -17,6 +17,7 @@ import type {
   Holding,
   InsurancePolicy,
   Liability,
+  MerchantMemory,
   PersonalIou,
   Profile,
   Subscription
@@ -39,3 +40,4 @@ export const personalIousRepo = new EncryptedRepository<PersonalIou>(db.personal
 export const creditProfileRepo = new EncryptedRepository<CreditProfile>(db.credit_profile as never);
 export const accountsRepo = new EncryptedRepository<Account>(db.accounts as never);
 export const activityLogRepo = new EncryptedRepository<ActivityLog>(db.activity_log as never);
+export const merchantMemoryRepo = new EncryptedRepository<MerchantMemory>(db.merchant_memory as never);

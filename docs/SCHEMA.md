@@ -347,6 +347,23 @@ restore points. Pruned to the newest ~500 entries.
 
 ---
 
+### `merchant_memory`
+
+Remembers the category/account/payment last used per merchant for Add-transaction auto-fill (Pre-Phase 1.5, Track 6). Encrypted; id-only index (Dexie v5). Local precursor to the Phase-2 AI categoriser. Written on every non-transfer save via `buildMemory`, and seeded once from existing transaction history via `buildMemoriesFromExpenses` (guarded by the `penny_merchant_memory_v1` localStorage flag). See `core/expenses/merchantMemory.ts`.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| id | string | `` `${type}::${normalizedDescription}` `` — namespaced so income/expense with the same merchant don't collide |
+| description | string | Last raw (trimmed) description, for display in the auto-fill hint |
+| type | `'expense' \| 'income' \| 'transfer'` | Transaction type the memory applies to (transfers are never stored) |
+| categoryId | string | Remembered category |
+| accountId | string? | Remembered account |
+| paymentMode | string? | Remembered payment mode |
+| usageCount | number | Incremented on each matching save |
+| updatedAt | number | Epoch ms |
+
+---
+
 ## Plain stores (no encryption)
 
 ### `price_cache`

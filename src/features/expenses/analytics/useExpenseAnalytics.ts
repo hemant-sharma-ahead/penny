@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { Budget, Expense, ExpenseCategory } from '@/core/db/types';
 import type { ActiveEvent } from '@/context/EventModeContext';
 import { normalizeHashtag } from '@/context/EventModeContext';
 import { buildParentCategoryMap, groupKey, groupMeta } from '@/core/expenses/categoryGroups';
+import { buildAnnualSeries, computeSavingsRate, biggestMovers } from '@/core/expenses/annualAnalytics';
 import { toMonthYearKey } from '@/lib/formatters';
 import { offsetMonth } from '@/lib/date';
 
@@ -171,25 +172,26 @@ export function useExpenseAnalytics({
     return { daysElapsed, daysInMonth, projected };
   }, [selectedMonth, analyticsTotal]);
 
-  const annualData = useMemo(() => {
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const months = Array.from({ length: 12 }, (_, i) => ({
-      month: `${analyticsYear}-${String(i + 1).padStart(2, '0')}`,
-      label: monthNames[i] ?? '',
-      total: 0
-    }));
-    for (const e of expenses) {
-      if (e.type && e.type !== 'expense') continue;
-      const d = new Date(e.date);
-      if (d.getFullYear() !== analyticsYear) continue;
-      const slot = months[d.getMonth()];
-      if (slot) slot.total += e.amount;
-    }
-    return months;
-  }, [expenses, analyticsYear]);
+  const [nowMs] = useState(() => Date.now());
 
-  const annualTotal = useMemo(() => annualData.reduce((s, m) => s + m.total, 0), [annualData]);
-  const annualMax = useMemo(() => Math.max(...annualData.map((m) => m.total), 1), [annualData]);
+  const annualData = useMemo(() => buildAnnualSeries(expenses, analyticsYear, nowMs), [expenses, analyticsYear, nowMs]);
+  const prevYearData = useMemo(
+    () => buildAnnualSeries(expenses, analyticsYear - 1, nowMs),
+    [expenses, analyticsYear, nowMs]
+  );
+  const annualSavings = useMemo(() => computeSavingsRate(annualData), [annualData]);
+  const annualMovers = useMemo(() => biggestMovers(expenses, categoryMap, nowMs, 3), [expenses, categoryMap, nowMs]);
+
+  // Actual-expense total this year (header), and a chart max spanning expense,
+  // income and last year's expense so all series share one scale.
+  const annualTotal = useMemo(
+    () => annualData.filter((m) => !m.projected).reduce((s, m) => s + m.expense, 0),
+    [annualData]
+  );
+  const annualMax = useMemo(
+    () => Math.max(1, ...annualData.map((m) => Math.max(m.expense, m.income)), ...prevYearData.map((m) => m.expense)),
+    [annualData, prevYearData]
+  );
 
   return {
     analyticsData,
@@ -199,6 +201,9 @@ export function useExpenseAnalytics({
     hashtagSummary,
     spendVelocity,
     annualData,
+    prevYearData,
+    annualSavings,
+    annualMovers,
     annualTotal,
     annualMax
   };

@@ -34,6 +34,7 @@ penny/
 │   │   ├── metals/             ← Gold/silver price client
 │   │   ├── nps/                ← NPS NAV client + lifecycle fund tables
 │   │   ├── portfolio/          ← PPF/EPF projections; holdingMappers (pure save logic), mfApiClient, stockApiClient, vehicleMeta
+│   │   ├── reminders/          ← buildReminders — near-term outflow reminders (Track 6, in-app)
 │   │   ├── session/            ← PIN session management + SessionGate
 │   │   ├── subscriptions/      ← 3-pass subscription detection
 │   │   ├── tax/                ← Tax calculations (LTCG/STCG/80C/80D)
@@ -73,6 +74,7 @@ penny/
 │   │
 │   ├── lib/                    ← Pure utilities
 │   │   ├── formatters.ts       ← Currency, date, compact number formatters + epochToDateInput
+│   │   ├── amountToWords.ts    ← Indian-system amount-in-words (crore/lakh) for AmountInput
 │   │   └── dateUtils.ts        ← Date key helpers (toDateKey, dateLabel, offsetMonth, monthLabel)
 │   │
 │   └── router/                 ← Routing config
@@ -159,6 +161,7 @@ penny/
 | `ConfirmDialog.tsx` | `isOpen` · `onClose` · `onConfirm` · `title` · `message` · `confirmLabel?` · `confirmVariant?` · `loading?` · `level?` 1/2/3 | Two-button confirmation dialog. Wraps `Modal` (default `level=2`/`z-70`) + two `Button`s. |
 | `FormField.tsx` | `label` · `required?` · `hint?` · `error?` | Label wrapper. Shows required star, hint text, or error (error takes priority over hint). |
 | `TextInput.tsx` | `label?` · `value` · `onChange(value)` · `error?` · `hint?` · `prefix?` · `suffix?` · `inputClassName?` | Controlled text input. `inputClassName` adds extra classes to the inner `<input>` element (e.g. `font-mono uppercase` for ticker inputs). When `label` is provided, wraps with `FormField`. |
+| `AmountInput.tsx` | `label?` · `value` (plain numeric string) · `onChange(value)` · `prefix?` (default `₹`) · `showWords?` · `error?` · `hint?` · `autoFocus?` | Money entry field. Live Indian-grouped display, inline calculator (`120+45`, safe hand-rolled evaluator — no `eval`), and an amount-in-words helper beneath (via `lib/amountToWords`). Groups on blur, shows raw draft while focused (no cursor jump). Use for all money inputs in place of a raw `TextInput type="number"`. |
 | `EmptyState.tsx` | `icon` · `title` · `description?` · `action?` | Icon + title + optional description + optional CTA button. Use for zero-data states. |
 | `TabStrip.tsx` | `options[]{value,label,icon?,count?}` · `value` · `onChange` · `scrollable?` | Underline-style tab strip. Generic over the tab value type. Horizontally scrollable when `scrollable=true`. |
 | `Badge.tsx` | `label` · `color?` · `variant?` solid/subtle · `size?` sm/md | Coloured pill. `subtle` variant uses `color` at 10% opacity background. |
@@ -184,6 +187,8 @@ penny/
 | `useLoggedRepository.ts` | same shape as `useRepository` | Wraps `useRepository`, recording CREATE/UPDATE on save + DELETE on remove to the activity log, and firing an Undo toast (restore + reload). Single-entity modules adopt it with `{ entityType, summarize, diffFields? }`. |
 | `usePassphraseStrength.ts` | `{ score, ready }` | Lazy-loads zxcvbn and scores a passphrase (0–4). Used by onboarding setup and Change Passphrase. |
 | `useProfile.ts` | `{ profile, loading }` | The single profile record (or null). Used by FIRE, tax, health, retirement, and the profile editor to read dob/employmentType. |
+| `useForecast.ts` | `{ loading, nowMs, todayStart, startBalance, events, forecast, dueRecurring, reload }` | Loads recurring-flow sources + accounts, computes current liquid balance, and projects it forward via `core/cashflow` (running balance, lowest point, buffer breach, liquidity-based safe-to-spend) plus the due-recurring set. Shared by the Cash Flow page, the safe-to-spend surfaces (Home, Expenses header), and reminders — lives here so features don't cross-import. |
+| `useReminders.ts` | `{ loading, nowMs, reminders, counts, snooze, markDone, log, cancelSub }` | Builds the header bell's in-app reminders from `useForecast` + `core/reminders`, holding snooze/done state in localStorage. Actions: snooze, mark done, log a due bill (reuses the recurring occurrence builder), cancel a subscription. |
 
 *(Track 1 adds: `useDisclosure.ts`, `useAsync.ts`)*
 
@@ -211,7 +216,7 @@ Three files, one responsibility each:
 | `types/index.ts` | TypeScript interfaces for all 40+ entity types. |
 | `defaultCategories.ts` | `ALL_DEFAULT_CATEGORIES`, `INTENT_GROUP_META`, `CATEGORY_MIGRATION_MAP`. |
 | `priceCache.ts` | Helpers for reading/writing the `price_cache` plain store with TTL support. |
-| `seedDemoData.ts` | Seeds realistic demo data (expenses, holdings, goals, accounts) after onboarding. |
+| `seedDemoData.ts` | Seeds realistic demo data (expenses, holdings, goals, accounts) after onboarding, tailored per `employmentType` via a per-persona config. Exports `seedDemoData(employmentType?)`, `clearDemoData()`, and `reseedForEmployment(employmentType)` (re-seeds for a new persona only if no real data exists). |
 | `activityLog.ts` | Timeline service: `logActivity` (fire-and-forget + prune), `restoreActivity`, `restoreDeletionsSince`, `summarizeDiff`. |
 | `entityRegistry.ts` | `entityType → repo.put` map so `restoreActivity` re-inserts snapshots generically. |
 
@@ -400,6 +405,9 @@ src/core/expenses/
   filterAndAggregate.ts    ← pure: grouping, category aggregation, calcTxnCountByCategory
   categoryGroups.ts        ← pure: groupKey / groupMeta / buildParentCategoryMap (parent-aware grouping)
   categoryIcons.ts         ← curated category icon set + shared CAT_COLORS palette
+  merchantMemory.ts        ← pure: normalizeMerchant / memoryKey / buildMemory (Track 6 auto-fill)
+  recurringDue.ts          ← pure: computeDueRecurring / buildOccurrence (Track 6 auto-post inbox)
+  annualAnalytics.ts       ← pure: buildAnnualSeries / computeSavingsRate / biggestMovers (annual income vs spend + projection)
 src/lib/
   dateUtils.ts             ← toDateKey, dateLabel, offsetMonth, monthLabel (pure, no React)
 ```

@@ -61,9 +61,11 @@ function matchInterval(days: number): number | null {
  * Pure function — no DB access.
  */
 export function detectSubscriptions(expenses: Expense[], nowMs: number): DetectedSubscription[] {
-  // Pass 1 — group by normalized description
+  // Pass 1 — group by normalized description (expenses only; income/transfers
+  // are never subscriptions — e.g. a monthly salary credit must not be detected)
   const groups = new Map<string, Expense[]>();
   for (const e of expenses) {
+    if ((e.type ?? 'expense') !== 'expense') continue;
     const key = normalize(e.description);
     if (!key) continue;
     const arr = groups.get(key) ?? [];

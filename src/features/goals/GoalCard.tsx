@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, TextInput, Button, ProgressRing } from '@/components/ui';
+import { Card, Button, ProgressRing, AmountInput } from '@/components/ui';
 import { formatCurrency, formatDate, parseNumber } from '@/lib/formatters';
 import { calcSipNeeded, monthsUntil } from '@/core/goals/sipCalculator';
 import { getRiskColor, getRiskReturn } from '@/core/goals/meta';
@@ -73,14 +73,7 @@ export function GoalCard({ goal, mode, onEdit, onContribute }: GoalCardProps) {
       {contributing ? (
         <div className="mt-3 flex gap-2">
           <div className="flex-1">
-            <TextInput
-              type="number"
-              inputMode="decimal"
-              placeholder="Amount (₹)"
-              value={amount}
-              onChange={setAmount}
-              autoFocus
-            />
+            <AmountInput placeholder="Amount" value={amount} onChange={setAmount} autoFocus />
           </div>
           <Button size="sm" onClick={submit}>
             Add

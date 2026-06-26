@@ -17,7 +17,11 @@ export function groupExpensesByDate(expenses: Expense[]): GroupedDay[] {
   }
   return Array.from(map.entries())
     .sort(([a], [b]) => b.localeCompare(a))
-    .map(([key, items]) => ({ label: dateLabel(key), items: [...items].sort((a, b) => b.date - a.date) }));
+    .map(([key, items]) => ({
+      label: dateLabel(key),
+      // Newest first; for same-day entries the most recently added shows on top.
+      items: [...items].sort((a, b) => b.date - a.date || b.createdAt - a.createdAt)
+    }));
 }
 
 export function calcSpendByCategory(expenses: Expense[], month: string = toMonthYearKey()): Map<string, number> {

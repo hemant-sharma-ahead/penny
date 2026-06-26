@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, TextInput, SegmentedControl, OptionButton } from '@/components/ui';
+import { Button, TextInput, SegmentedControl, OptionButton, AmountInput } from '@/components/ui';
 import { NPS_FUND_MANAGERS, LIFECYCLE_FUNDS } from '@/core/nps';
 import type { NpsChoiceType, NpsLifecycleFund, NpsPfmKey, NpsSchemeType } from '@/core/nps';
 import { NpsLifecycleDetail } from './NpsLifecycleDetail';
@@ -203,14 +203,7 @@ export function NpsFields({
           </div>
         </>
       )}
-      <TextInput
-        label="Monthly contribution (₹)"
-        type="number"
-        inputMode="decimal"
-        placeholder="0"
-        value={npsMonthly}
-        onChange={setNpsMonthly}
-      />
+      <AmountInput label="Monthly contribution" placeholder="0" value={npsMonthly} onChange={setNpsMonthly} />
 
       {showNpsSchedule && (
         <NpsLifecycleDetail

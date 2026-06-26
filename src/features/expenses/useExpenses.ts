@@ -1,10 +1,24 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { accountsRepo, budgetsRepo, expenseCategoriesRepo, expensesRepo, hashtagsRepo } from '@/core/db/repositories';
-import type { Expense, ExpenseCategory } from '@/core/db/types';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  accountsRepo,
+  budgetsRepo,
+  expenseCategoriesRepo,
+  expensesRepo,
+  hashtagsRepo,
+  merchantMemoryRepo
+} from '@/core/db/repositories';
+import type { Expense, ExpenseCategory, MerchantMemory, TransactionType } from '@/core/db/types';
 import { useRepository } from '@/hooks/useRepository';
 import { ALL_DEFAULT_CATEGORIES, CATEGORY_MIGRATION_MAP } from '@/core/db/defaultCategories';
 import { calcSpendByCategory, calcTxnCountByCategory } from '@/core/expenses/filterAndAggregate';
 import { buildParentCategoryMap } from '@/core/expenses/categoryGroups';
+import {
+  buildMemoriesFromExpenses,
+  buildMemory,
+  memoryKey,
+  searchMerchantMemories
+} from '@/core/expenses/merchantMemory';
+import { computeDueRecurring, buildOccurrence, type DueRecurring } from '@/core/expenses/recurringDue';
 import { normalizeHashtag } from '@/context/EventModeContext';
 import { logActivity, restoreActivity, summarizeDiff } from '@/core/db/activityLog';
 import { useToast } from '@/context/ToastContext';
@@ -15,6 +29,7 @@ export function useExpenses() {
   const { showToast } = useToast();
   const {
     items: expenses,
+    loading: expensesLoading,
     save: saveExpense,
     remove: removeExpense,
     reload: reloadExpenses
@@ -26,6 +41,7 @@ export function useExpenses() {
   } = useRepository(expenseCategoriesRepo);
   const { items: hashtags, save: saveHashtag } = useRepository(hashtagsRepo);
   const { items: accounts } = useRepository(accountsRepo);
+  const { items: merchantMemories, reload: reloadMerchantMemory } = useRepository(merchantMemoryRepo);
 
   // Category v2 migration: seeds default categories and patches any that lack intentGroup
   const seededRef = useRef(false);
@@ -63,6 +79,25 @@ export function useExpenses() {
       .catch(() => {});
   }, [categoriesLoading, categories, reloadCategories]);
 
+  // One-time merchant-memory backfill from existing transactions, so suggestions
+  // work immediately on upgrade. v2 re-keys records by merchant + category, so on
+  // migration we clear any v1 records and rebuild.
+  const backfilledRef = useRef(false);
+  useEffect(() => {
+    if (backfilledRef.current || expensesLoading) return;
+    backfilledRef.current = true;
+    if (localStorage.getItem('penny_merchant_memory_v2')) return;
+    (async () => {
+      const existing = await merchantMemoryRepo.getAll();
+      await Promise.all(existing.map((m) => merchantMemoryRepo.delete(m.id)));
+      const memories = buildMemoriesFromExpenses(expenses);
+      await Promise.all(memories.map((m) => merchantMemoryRepo.put(m)));
+      localStorage.setItem('penny_merchant_memory_v2', '1');
+      localStorage.removeItem('penny_merchant_memory_v1');
+      reloadMerchantMemory();
+    })().catch(() => {});
+  }, [expensesLoading, expenses, reloadMerchantMemory]);
+
   const expenseCategories = useMemo(
     () => categories.filter((c) => !c.isGroup && (!c.applicableTo || c.applicableTo === 'expense')),
     [categories]
@@ -71,6 +106,13 @@ export function useExpenses() {
   const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
   const parentCategoryMap = useMemo(() => buildParentCategoryMap(categories), [categories]);
   const accountMap = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
+  const merchantMemoryMap = useMemo(() => new Map(merchantMemories.map((m) => [m.id, m])), [merchantMemories]);
+
+  /** Type-ahead search of remembered merchants (ranked; one row per merchant+category). */
+  const searchMerchant = useCallback(
+    (type: TransactionType, query: string): MerchantMemory[] => searchMerchantMemories(merchantMemories, type, query),
+    [merchantMemories]
+  );
   const spendByCategory = useMemo(() => calcSpendByCategory(expenses), [expenses]);
   const txnCountByCategory = useMemo(() => calcTxnCountByCategory(expenses), [expenses]);
 
@@ -305,6 +347,15 @@ export function useExpenses() {
           await saveHashtag({ id: crypto.randomUUID(), name: tag, usageCount: 1, createdAt: Date.now() });
         }
       }
+      // Remember this merchant's category/account/payment for next-time suggestions.
+      const memory = buildMemory(
+        expense,
+        merchantMemoryMap.get(memoryKey(expense.type ?? 'expense', expense.description, expense.categoryId))
+      );
+      if (memory) {
+        await merchantMemoryRepo.put(memory);
+        reloadMerchantMemory();
+      }
       const diff = existing
         ? summarizeDiff(existing, expense, ['amount', 'categoryId', 'description', 'accountId', 'paymentMode', 'date'])
         : undefined;
@@ -316,8 +367,40 @@ export function useExpenses() {
         ...(diff ? { diff } : {})
       });
     },
-    [expenses, saveExpense, saveHashtag, hashtags]
+    [expenses, saveExpense, saveHashtag, hashtags, merchantMemoryMap, reloadMerchantMemory]
   );
+
+  // ── Recurring auto-post inbox ───────────────────────────────────────────────
+  // Recurring series are forecast-only; surface the ones whose next occurrence is
+  // due so the user can confirm and log the real transaction.
+  const [nowMs] = useState(() => Date.now());
+  const [dismissedDue, setDismissedDue] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem('penny_recurring_due_dismissed') ?? '[]') as string[]);
+    } catch {
+      return new Set();
+    }
+  });
+
+  const dueRecurring = useMemo(
+    () => computeDueRecurring(expenses, nowMs).filter((d) => !dismissedDue.has(`${d.key}:${d.dueMs}`)),
+    [expenses, nowMs, dismissedDue]
+  );
+
+  /** Log the due occurrence as a real transaction (advances the series). */
+  const postRecurring = useCallback(
+    (d: DueRecurring) => saveExpenseWithHashtags(buildOccurrence(d.template, d.dueMs)),
+    [saveExpenseWithHashtags]
+  );
+
+  /** Dismiss this due occurrence without logging it. */
+  const skipRecurring = useCallback((d: DueRecurring) => {
+    setDismissedDue((prev) => {
+      const next = new Set(prev).add(`${d.key}:${d.dueMs}`);
+      localStorage.setItem('penny_recurring_due_dismissed', JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
 
   return {
     expenses,
@@ -334,6 +417,10 @@ export function useExpenses() {
     spendByCategory,
     txnCountByCategory,
     linkedCountByEventHashtag,
+    searchMerchant,
+    dueRecurring,
+    postRecurring,
+    skipRecurring,
     saveExpenseWithHashtags,
     deleteExpense,
     patchExpenses,

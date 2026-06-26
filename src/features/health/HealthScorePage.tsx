@@ -1,4 +1,4 @@
-import { TextInput, SectionLabel, PageHeader } from '@/components/ui';
+import { SectionLabel, PageHeader, AmountInput } from '@/components/ui';
 import { tint } from '@/lib/statusColors';
 import { useHealthScore } from './useHealthScore';
 import { ScoreGauge } from './ScoreGauge';
@@ -30,10 +30,8 @@ export function HealthScorePage() {
             aria-hidden="true"
           />
           <div className="flex-1 min-w-0">
-            <TextInput
-              label="Monthly take-home income (₹)"
-              type="number"
-              inputMode="decimal"
+            <AmountInput
+              label="Monthly take-home income"
               placeholder="e.g. 80,000"
               value={monthlyIncome}
               onChange={setMonthlyIncome}

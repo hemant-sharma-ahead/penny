@@ -40,7 +40,7 @@ During the credentials setup screen, `securityManager.ts` initialises **envelope
 
 The `profile` store holds: `displayName` (= full name), `currency`, `locale`, `onboardingComplete`, and (Track 2) `dob`, `employmentType`, `username`, `userId`. The on-device keypair and the `plan`/entitlement marker are stored alongside (the keypair in the encrypted DB).
 
-Demo data is seeded by `seedDemoData.ts` immediately after onboarding completes if the user opts in.
+Demo data is seeded by `seedDemoData.ts` immediately after onboarding completes if the user opts in. The seed is **tailored to the chosen employment type** (`salaried | self_employed | business_owner | student | retired`): each persona gets a distinct, realistic income mix (salary vs. retainer + irregular invoices vs. business drawings vs. pocket money/part-time vs. pension/rental), scaled everyday spend, and a fitting set of holdings, liabilities, subscriptions, rent/SIP, and due bills. Calling `seedDemoData(employmentType)` with no argument defaults to `salaried`. If the user later changes employment on the Profile page while still on untouched demo data, `reseedForEmployment(employmentType)` wipes and re-seeds for the new persona (it bails out if any real, non-demo financial data has been created — detected via the activity log).
 
 **Downstream effects of date of birth (wired in Track 2):**
 - FIRE calculator pre-fills your current age from DOB (still editable)

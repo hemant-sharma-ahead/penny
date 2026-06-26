@@ -1,4 +1,4 @@
-import { TextInput } from '@/components/ui';
+import { TextInput, AmountInput } from '@/components/ui';
 import type { AssetClass } from '@/core/db/types';
 import type { SharedHoldingState } from './useSharedHoldingFields';
 
@@ -51,23 +51,14 @@ export function SharedValueFields({ assetClass, shared }: SharedFieldsProps) {
   return (
     <>
       {SHOW_AMOUNT.includes(assetClass) && (
-        <TextInput
-          label={amountLabel}
-          type="number"
-          inputMode="decimal"
-          placeholder="0"
-          value={investedAmount}
-          onChange={setInvestedAmount}
-        />
+        <AmountInput label={amountLabel} placeholder="0" value={investedAmount} onChange={setInvestedAmount} />
       )}
 
       {SHOW_CURRENT_VALUE.includes(assetClass) && (
         <div>
-          <TextInput
+          <AmountInput
             label={assetClass === 'property' ? 'Current market value (₹)' : 'Current value (₹)'}
             {...(assetClass !== 'property' && { hint: 'optional, fetched automatically for MF/stocks' })}
-            type="number"
-            inputMode="decimal"
             placeholder={assetClass === 'property' ? 'e.g. 6500000' : 'Leave blank to use invested amount'}
             value={currentValue}
             onChange={setCurrentValue}

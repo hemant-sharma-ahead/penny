@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { usePrivacy } from '@/context/PrivacyContext';
-import { Modal, Button, TextInput, SegmentedControl, DetailRow } from '@/components/ui';
+import { Modal, Button, TextInput, SegmentedControl, DetailRow, AmountInput } from '@/components/ui';
 import { epochToDateInput } from '@/lib/formatters';
 import { LIFECYCLE_FUNDS } from '@/core/nps';
 import type { NpsLifecycleFund } from '@/core/nps';
@@ -221,15 +221,7 @@ export function PpfTransactionSheet({
         )}
       </div>
 
-      <TextInput
-        label="Amount (₹)"
-        type="number"
-        inputMode="decimal"
-        placeholder="0"
-        value={txAmount}
-        onChange={(val) => setTxAmount(val)}
-        autoFocus
-      />
+      <AmountInput label="Amount" placeholder="0" value={txAmount} onChange={(val) => setTxAmount(val)} autoFocus />
 
       <TextInput
         label="Note (optional)"
@@ -672,42 +664,28 @@ export function EpfTransactionSheet({
       {isContribution ? (
         <div className="flex flex-col gap-3">
           <div className="grid grid-cols-2 gap-3">
-            <TextInput
-              label="Employee share (₹)"
-              type="number"
-              inputMode="decimal"
+            <AmountInput
+              label="Employee share"
               placeholder="0"
               value={empAmount}
               onChange={(val) => setEmpAmount(val)}
             />
-            <TextInput
-              label="Employer to EPF (₹)"
-              type="number"
-              inputMode="decimal"
+            <AmountInput
+              label="Employer to EPF"
               placeholder="0"
               value={emplrAmount}
               onChange={(val) => setEmplrAmount(val)}
             />
           </div>
-          <TextInput
+          <AmountInput
             label="EPS pension (₹) (optional — info only)"
-            type="number"
-            inputMode="decimal"
             placeholder="0"
             value={epsAmount}
             onChange={(val) => setEpsAmount(val)}
           />
         </div>
       ) : (
-        <TextInput
-          label="Amount (₹)"
-          type="number"
-          inputMode="decimal"
-          placeholder="0"
-          value={amount}
-          onChange={(val) => setAmount(val)}
-          autoFocus
-        />
+        <AmountInput label="Amount" placeholder="0" value={amount} onChange={(val) => setAmount(val)} autoFocus />
       )}
 
       <TextInput
@@ -789,10 +767,8 @@ export function EpfSalaryHikeSheet({
         autoFocus
       />
 
-      <TextInput
+      <AmountInput
         label="New basic + DA salary (₹/mo)"
-        type="number"
-        inputMode="decimal"
         placeholder={`Current: ₹${epfLatestSalary(emp).toLocaleString('en-IN')}`}
         value={hikeBasic}
         onChange={(val) => setHikeBasic(val)}
@@ -871,10 +847,8 @@ export function EpfEmployerSheet({
         autoFocus
       />
 
-      <TextInput
+      <AmountInput
         label="Basic + DA salary (₹/mo)"
-        type="number"
-        inputMode="decimal"
         placeholder="e.g. 35000"
         value={basic}
         onChange={(val) => setBasic(val)}

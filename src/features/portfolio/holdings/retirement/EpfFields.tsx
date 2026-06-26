@@ -1,4 +1,4 @@
-import { TextInput } from '@/components/ui';
+import { TextInput, AmountInput } from '@/components/ui';
 
 interface EpfFieldsProps {
   epfUan: string;
@@ -55,10 +55,8 @@ export function EpfFields({
         onChange={setEpfCompany}
       />
       <div className="grid grid-cols-2 gap-3">
-        <TextInput
+        <AmountInput
           label="Basic + DA (₹/mo)"
-          type="number"
-          inputMode="decimal"
           placeholder="e.g. 60000"
           value={epfBasicSalary}
           onChange={setEpfBasicSalary}
