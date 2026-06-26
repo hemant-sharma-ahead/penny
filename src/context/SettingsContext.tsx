@@ -47,6 +47,10 @@ const THEME_MIGRATED_KEY = 'penny_settings_theme_v2';
 export const DEFAULT_PRIVACY_KEY = 'penny_settings_default_privacy';
 const LOCK_ON_BACKGROUND_KEY = 'penny_settings_lock_on_background';
 const CASHFLOW_BUFFER_KEY = 'penny_settings_cashflow_buffer';
+const TAX_GROSS_INCOME_KEY = 'penny_settings_tax_gross_income';
+const TAX_DIRECT_KEY = 'penny_settings_tax_direct';
+const TAX_EPF_KEY = 'penny_settings_tax_epf';
+const TAX_STATUTORY_KEY = 'penny_settings_tax_statutory';
 
 /** Default safety cushion the cash-flow forecast keeps in reserve. */
 export const DEFAULT_CASHFLOW_BUFFER = 5000;
@@ -54,6 +58,14 @@ export const DEFAULT_CASHFLOW_BUFFER = 5000;
 function loadCashflowBuffer(): number {
   const raw = Number(localStorage.getItem(CASHFLOW_BUFFER_KEY));
   return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_CASHFLOW_BUFFER;
+}
+
+/** Optional manual tax-footprint overrides (null = derive automatically). */
+function loadOptionalAmount(key: string): number | null {
+  const raw = localStorage.getItem(key);
+  if (raw === null || raw === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
 /** Read directly (no React) — used by the session gate's visibility listener. */
@@ -112,12 +124,24 @@ interface SettingsContextValue {
   defaultPrivacyMode: PrivacyMode;
   lockOnBackground: boolean;
   cashflowBuffer: number;
+  /** Manual annual gross income for the tax footprint; null = derive from income transactions. */
+  taxGrossIncomeOverride: number | null;
+  /** Manual direct-tax correction for the tax footprint; null = use the computed estimate. */
+  taxDirectOverride: number | null;
+  /** Manual annual EPF/PF contribution; null = derive (12% of 50%-basic). */
+  taxEpfOverride: number | null;
+  /** Manual annual statutory levies (professional tax + LWF); null = default (~₹2,400). */
+  taxStatutoryOverride: number | null;
   setModule: (key: keyof ModuleVisibility, visible: boolean) => void;
   setFontScale: (scale: FontScale) => void;
   setTheme: (theme: Theme) => void;
   setDefaultPrivacyMode: (mode: PrivacyMode) => void;
   setLockOnBackground: (value: boolean) => void;
   setCashflowBuffer: (value: number) => void;
+  setTaxGrossIncomeOverride: (value: number | null) => void;
+  setTaxDirectOverride: (value: number | null) => void;
+  setTaxEpfOverride: (value: number | null) => void;
+  setTaxStatutoryOverride: (value: number | null) => void;
 }
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -129,6 +153,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [defaultPrivacyMode, setDefaultPrivacyModeState] = useState<PrivacyMode>(loadDefaultPrivacyMode);
   const [lockOnBackground, setLockOnBackgroundState] = useState<boolean>(loadLockOnBackground);
   const [cashflowBuffer, setCashflowBufferState] = useState<number>(loadCashflowBuffer);
+  const [taxGrossIncomeOverride, setTaxGrossIncomeOverrideState] = useState<number | null>(() =>
+    loadOptionalAmount(TAX_GROSS_INCOME_KEY)
+  );
+  const [taxDirectOverride, setTaxDirectOverrideState] = useState<number | null>(() =>
+    loadOptionalAmount(TAX_DIRECT_KEY)
+  );
+  const [taxEpfOverride, setTaxEpfOverrideState] = useState<number | null>(() => loadOptionalAmount(TAX_EPF_KEY));
+  const [taxStatutoryOverride, setTaxStatutoryOverrideState] = useState<number | null>(() =>
+    loadOptionalAmount(TAX_STATUTORY_KEY)
+  );
 
   useEffect(() => {
     const scale = FONT_SCALE_MAP[fontScale];
@@ -180,6 +214,50 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setCashflowBufferState(safe);
   }, []);
 
+  const setTaxGrossIncomeOverride = useCallback((value: number | null) => {
+    if (value === null || !Number.isFinite(value) || value < 0) {
+      localStorage.removeItem(TAX_GROSS_INCOME_KEY);
+      setTaxGrossIncomeOverrideState(null);
+    } else {
+      const safe = Math.round(value);
+      localStorage.setItem(TAX_GROSS_INCOME_KEY, String(safe));
+      setTaxGrossIncomeOverrideState(safe);
+    }
+  }, []);
+
+  const setTaxDirectOverride = useCallback((value: number | null) => {
+    if (value === null || !Number.isFinite(value) || value < 0) {
+      localStorage.removeItem(TAX_DIRECT_KEY);
+      setTaxDirectOverrideState(null);
+    } else {
+      const safe = Math.round(value);
+      localStorage.setItem(TAX_DIRECT_KEY, String(safe));
+      setTaxDirectOverrideState(safe);
+    }
+  }, []);
+
+  const setTaxEpfOverride = useCallback((value: number | null) => {
+    if (value === null || !Number.isFinite(value) || value < 0) {
+      localStorage.removeItem(TAX_EPF_KEY);
+      setTaxEpfOverrideState(null);
+    } else {
+      const safe = Math.round(value);
+      localStorage.setItem(TAX_EPF_KEY, String(safe));
+      setTaxEpfOverrideState(safe);
+    }
+  }, []);
+
+  const setTaxStatutoryOverride = useCallback((value: number | null) => {
+    if (value === null || !Number.isFinite(value) || value < 0) {
+      localStorage.removeItem(TAX_STATUTORY_KEY);
+      setTaxStatutoryOverrideState(null);
+    } else {
+      const safe = Math.round(value);
+      localStorage.setItem(TAX_STATUTORY_KEY, String(safe));
+      setTaxStatutoryOverrideState(safe);
+    }
+  }, []);
+
   return (
     <SettingsContext.Provider
       value={{
@@ -189,12 +267,20 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         defaultPrivacyMode,
         lockOnBackground,
         cashflowBuffer,
+        taxGrossIncomeOverride,
+        taxDirectOverride,
+        taxEpfOverride,
+        taxStatutoryOverride,
         setModule,
         setFontScale,
         setTheme,
         setDefaultPrivacyMode,
         setLockOnBackground,
-        setCashflowBuffer
+        setCashflowBuffer,
+        setTaxGrossIncomeOverride,
+        setTaxDirectOverride,
+        setTaxEpfOverride,
+        setTaxStatutoryOverride
       }}
     >
       {children}

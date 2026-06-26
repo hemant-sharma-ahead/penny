@@ -37,7 +37,7 @@ penny/
 │   │   ├── reminders/          ← buildReminders — near-term outflow reminders (Track 6, in-app)
 │   │   ├── session/            ← PIN session management + SessionGate
 │   │   ├── subscriptions/      ← 3-pass subscription detection
-│   │   ├── tax/                ← Tax calculations (LTCG/STCG/80C/80D)
+│   │   ├── tax/                ← Tax calc (LTCG/STCG/80C/80D) + Track 7 engine: indirectTaxRates (GST 2.0, dated history), categoryTaxMap, taxBandClassifier, indirectTax (with min/max range), regimeHistory (per-FY slabs 2017→2026), fy, incomeWaterfall, taxScenarios (X-ray), optimizer, itrAdvisor, taxFacts, assetTaxInfo (shared per-asset notes)
 │   │   └── vehicle/            ← Vehicle RC lookup
 │   │
 │   ├── features/               ← Feature modules (one per app section)
@@ -56,11 +56,12 @@ penny/
 │   │   ├── onboarding/         ← Onboarding flow (6 screens)
 │   │   ├── portfolio/          ← Portfolio (all asset classes)
 │   │   ├── subscriptions/      ← Subscription detection
-│   │   └── tax/                ← Tax awareness
+│   │   └── tax/                ← Tax awareness — 4 pillars: footprint/ (income waterfall + MoneyFlow + share/), explore/ (tax X-ray + rates/), optimize/ (suggestions + deductions/), calculators/ (Regime/HRA/gains/); + DidYouKnow
 │   │
 │   ├── components/             ← Shared UI (not feature-specific)
 │   │   ├── layout/             ← AppShell, BottomNav, SettingsDrawer
 │   │   ├── privacy/            ← MaskedValue, PrivacyBadge, PrivacyModeSwitcher
+│   │   ├── AssetTaxNote.tsx    ← Collapsible per-asset "Tax on this" note (Portfolio tabs; from core/tax/assetTaxInfo)
 │   │   └── ui/                 ← Shared primitives (Card, Modal, Button, etc.) — EXPANDING in Track 1
 │   │
 │   ├── context/                ← React context providers

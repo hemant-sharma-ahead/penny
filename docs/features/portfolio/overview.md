@@ -39,6 +39,9 @@ All encrypted reads go through `EncryptedRepository<T>` in `src/core/db/reposito
 - No net worth trend graph (month-over-month history is not stored).
 - No watchlist or price alert feature.
 
+## Contextual tax notes (Track 7)
+Each holdings sub-tab shows a compact, collapsible **"Tax on this"** note (`src/components/AssetTaxNote.tsx`) — FD/RD interest & TDS, equity LTCG/STCG, gold GST + cap-gains, property rental/LTCG/stamp duty, and NPS/PPF/EPF rules. Content is the single shared source `src/core/tax/assetTaxInfo.ts`, also reflected on the Tax Awareness screen, so the two never drift. Awareness only — not filing advice.
+
 ## Planned improvements
 - **Phase 2:** CAS PDF import via CDSL/CAMS for stocks and mutual funds.
 - **Phase 2:** EPFO passbook PDF import using PDF.js.

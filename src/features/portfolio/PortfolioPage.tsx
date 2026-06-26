@@ -5,12 +5,24 @@ import { usePortfolioHoldings, HOLDINGS_SUBTABS } from './usePortfolioHoldings';
 import type { HoldingsSubTab, HoldingsSubTabConfig } from './usePortfolioHoldings';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
 import { PageHeader } from '@/components/ui';
+import { AssetTaxNote } from '@/components/AssetTaxNote';
+import type { AssetTaxTopic } from '@/core/tax/assetTaxInfo';
 import { EquitySection } from './holdings/equity/EquitySection';
 import { FixedIncomeSection } from './holdings/fixed-income/FixedIncomeSection';
 import { PreciousMetalsSection } from './holdings/precious-metals/PreciousMetalsSection';
 import { RealAssetsSection } from './holdings/real-assets/RealAssetsSection';
 import { RetirementSection } from './holdings/retirement/RetirementSection';
 import { IpoTab } from './ipo/IpoTab';
+
+/** Which contextual tax note to show per holdings sub-tab. */
+const SUBTAB_TAX_TOPIC: Partial<Record<HoldingsSubTab, AssetTaxTopic>> = {
+  stocks: 'equity',
+  mf: 'equity',
+  fixed_income: 'fd',
+  precious_metals: 'gold',
+  real_assets: 'property',
+  retirement: 'retirement'
+};
 
 // ─── PortfolioPage ────────────────────────────────────────────────────────────
 
@@ -141,6 +153,13 @@ export function PortfolioPage() {
                 </div>
               ))}
             </div>
+
+            {/* Contextual tax-awareness note for this asset class */}
+            {SUBTAB_TAX_TOPIC[holdingsSubTab] && (
+              <div className="px-4 pt-3">
+                <AssetTaxNote topic={SUBTAB_TAX_TOPIC[holdingsSubTab] as AssetTaxTopic} />
+              </div>
+            )}
 
             {/* Sub-tab content */}
             {holdingsSubTab === 'retirement' ? (

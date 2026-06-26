@@ -96,6 +96,10 @@ Default and user-created categories for classifying expenses.
 
 > **Grouping (Track 3):** the picker/analytics/filters key off `groupKey(cat) = parentId ?? intentGroup ?? 'other'`; the header label/color comes from the parent record (custom groups) or `INTENT_GROUP_META` (fixed groups). No Dexie store/version change — `isGroup`/`parentId` ride inside the encrypted blob.
 
+> **Sin Goods intent group (Track 7):** a `sin_goods` intent group (in `INTENT_GROUP_META`) with two new default categories — `cat-alcohol` and `cat-tobacco`. These map to high-tax bands in the indirect-tax footprint. Existing users receive them via an **additive, non-destructive** re-seed in `useExpenses.ts` guarded by `penny_cats_v3` (inserts only missing default categories — never re-puts edited ones). No Dexie store/version change.
+
+> **Tax-footprint overrides (Track 7):** stored in `localStorage`, not Dexie — `penny_settings_tax_gross_income`, `penny_settings_tax_direct`, `penny_settings_tax_epf`, `penny_settings_tax_statutory` (optional manual gross-income, income-tax correction, EPF/PF, and professional-tax+LWF overrides for the income waterfall; absent = derive automatically). See `SettingsContext`.
+
 ---
 
 ### `budgets`

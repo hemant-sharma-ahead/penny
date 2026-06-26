@@ -81,6 +81,27 @@ export function useExpenses() {
       .catch(() => {});
   }, [categoriesLoading, categories, reloadCategories]);
 
+  // Additive default-category seeding (v3): inserts any default categories the user is missing
+  // (e.g. the Sin Goods categories added in Track 7) WITHOUT re-putting existing ones, so user
+  // edits to default categories are never clobbered. Re-runs once per version bump.
+  const catSeedRef = useRef(false);
+  useEffect(() => {
+    if (categoriesLoading || catSeedRef.current) return;
+    if (localStorage.getItem('penny_cats_v3')) {
+      catSeedRef.current = true;
+      return;
+    }
+    catSeedRef.current = true;
+    const existingIds = new Set(categories.map((c) => c.id));
+    const missing = ALL_DEFAULT_CATEGORIES.filter((c) => !existingIds.has(c.id));
+    Promise.all(missing.map((c) => expenseCategoriesRepo.put({ ...c, createdAt: Date.now() })))
+      .then(() => {
+        localStorage.setItem('penny_cats_v3', '1');
+        if (missing.length > 0) reloadCategories();
+      })
+      .catch(() => {});
+  }, [categoriesLoading, categories, reloadCategories]);
+
   // One-time merchant-memory backfill from existing transactions, so suggestions
   // work immediately on upgrade. v2 re-keys records by merchant + category, so on
   // migration we clear any v1 records and rebuild.

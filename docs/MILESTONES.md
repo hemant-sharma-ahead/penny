@@ -190,7 +190,7 @@ Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Conta
 | Track 3 | Expense category overhaul — in-picker category manager, visual icon picker (curated grid + searchable Tabler set), create/edit/rename/recolor, move transactions + delete-when-empty + category bulk, user-created parent groups (expense + income), anchored-popover `SelectInput`, transaction-list multi-select bulk edit (category / account+payment coupled) + delete | ✅ Complete |
 | Track 4 | Activity log → **Timeline**: encrypted `activity_log` store, all-module logging via `useLoggedRepository`/`logActivity`, Undo toasts + Recently Deleted restore, day-grouped feed, beautiful diffs, per-item history, tracking heatmap + streaks, privacy receipt, On this day, Chip-narrated Money Story, full-screen shareable Weekly Wrapped, milestone moments + confetti, search + action filters, restore points (checkpoint + restore-deletions-since) | ✅ Complete |
 | Track 6 | Expense productivity & power features — see ordered steps below | 🚧 In progress |
-| Track 7 | Tax & calculators in context — tax footprint + calculator re-homing | ⏳ Future |
+| Track 7 | Tax & calculators in context — tax footprint + calculator re-homing | ✅ Complete |
 
 ### Track 6 — expense productivity & power features
 
@@ -222,12 +222,30 @@ Each step runs the verification gate (type-check → lint → test/PII gate → 
 
 **Explicitly out of Track 6:** split transactions (→ Phase 2), natural-language quick-add / Web Share Target / SMS-paste / voice quick-add / round-up-to-goal / PWA home-screen shortcut / merchant deep-dive / GST expense tagging (declined for now), AI auto-categorisation (→ Phase 2).
 
-### Track 7 — tax & calculators in context
+### Track 7 — tax & calculators in context ✅
 
-Captured 2026-06-25. Spun out of Track 6 so the expense track stays coherent. Tax-domain work on the existing Tax Awareness screen.
+Captured 2026-06-25, completed 2026-06-26. Spun out of Track 6 so the expense track stays coherent. All work lives on the Tax Awareness screen — nothing added to Expenses/CashFlow/Portfolio views. The Tax screen now has six tabs: **Footprint · Deductions · Capital Gains · Rates · Regime · HRA**.
 
-1. **Tax footprint view** — reconcile the three numbers people never see together: **earn** (gross income → direct tax/TDS computed from income + regime + deductions → take-home), **spend** (total spend + an **estimated GST slice** via per-category effective rates, clearly labelled an estimate), **invest** (realised gains → capital-gains tax). Headline: "earned ₹X, kept ₹Y, paid ₹Z in total tax — A% direct, B% indirect, C% on gains."
-2. **Re-home tax calculators** — mount Old vs New Regime, HRA Exemption, and Capital Gains as tabs/sections inside the Tax screen; the searchable Calculators hub stays the global index. Principle: calculators live where you need them. Extends later to other domains (SIP/Lumpsum/FD near Portfolio, etc.).
+1. ✅ **Tax footprint view** — reconciles **earn** (gross income → estimated direct tax via `compareTaxRegimes` → take-home; income derived from FY income transactions / annualised recurring income, with manual gross-income + direct-tax overrides), **spend** (total spend → **estimated indirect tax** broken down by regime and rate band), **invest** (unrealised capital-gains tax proxy — "if sold today"). Headline: "earned ₹X, kept ₹Y, paid ₹Z in tax — A% direct, B% indirect, C% on gains." Pure assembler `core/tax/footprint.ts`; `features/tax/footprint/`.
+2. ✅ **Indirect-tax engine** — a time-versioned rate table (`core/tax/indirectTaxRates.ts`: GST 0/5/12/18/28 + fuel/alcohol/tobacco/vehicle/toll/exempt, each with `effectiveFrom`-dated entries and a markup/share basis), a category→band map (`categoryTaxMap.ts`), a description-keyword classifier (`taxBandClassifier.ts`) that catches **fuel hidden inside Transport**, **toll**, and **one-time vehicle/road-tax** purchases, and an aggregator (`indirectTax.ts`). Tax is backed out of tax-inclusive amounts at the rate in force on each transaction's date. Tested in `tests/tax/`.
+3. ✅ **Sin Goods categories** — new `sin_goods` intent group + `cat-alcohol`/`cat-tobacco` default categories; additive non-destructive re-seed (`penny_cats_v3`).
+4. ✅ **Rates awareness tab** — current GST slabs with examples, the non-GST levies explained, and a rate-change history — all driven by the same rate table.
+5. ✅ **Re-homed calculators** — Old vs New Regime and HRA Exemption mounted as tabs inside the Tax screen; the existing data-driven Capital Gains tab stays; the searchable Calculators hub remains the global index. Principle: calculators live where you need them. Extends later to other domains (SIP/Lumpsum/FD near Portfolio, etc.).
+
+**Estimates, not filings:** fuel/alcohol/tobacco/vehicle effective rates are approximations (vary by state/product); capital-gains tax is on unrealised gains; TDS is handled via the manual direct-tax correction rather than tracked.
+
+#### Expanded vision (2026-06-26) — Tax Awareness as the "every tax you pay" hub
+
+After v1, the screen was reframed into the one place to see every rupee of tax across earn/spend/save/invest/interest, across all years since 2017, with guidance on paying less — engaging, all in-screen. Built in six layers, reorganised into **four pillars** (Footprint · Explore · Optimize · Calc):
+
+1. **Rate & regime history** — `indirectTaxRates.ts` now models **GST 2.0** (22 Sep 2025: 12% & 28% retired → 5%/18%, new **40%** de-merit slab, individual insurance exempted) as *dated* changes; `regimeHistory.ts` holds per-FY direct-tax slabs/rebate/cess/surcharge **FY2017-18 → FY2026-27**; `compareTaxRegimes` is now FY-parameterised; `fy.ts` adds FY selection.
+2. **Income waterfall** (`incomeWaterfall.ts`) — gross → EPF → prof-tax/LWF → income tax → in-hand → spend/savings, reconciling *"of what you didn't save, how much was direct/indirect tax vs real spending"*; rebuilt `FootprintTab` + `MoneyFlow` visual; all inputs overridable.
+3. **Multi-FY switcher** — view any year back to FY2017-18; everything recomputes with that year's rates.
+4. **Tax X-ray Explorer** (`taxScenarios.ts` + `explore/`) — fuel, dining, property, vehicle, gold/silver, equity (STT/stamp/DP/GST), FD interest — every embedded levy, live.
+5. **Optimize** (`optimizer.ts`, `itrAdvisor.ts`) — regime recommendation, 80C/80D/NPS headroom, what-if simulator, 80G tiers, ITR-form helper; absorbs the Deductions tracker.
+6. **Engagement** — shareable on-device **Tax Story** card (`share/TaxStoryModal`) + rotating **"Did you know?"** cards (`taxFacts.ts`).
+
+Tests in `tests/tax/` cover the rate/regime history, FY helpers, income waterfall, scenarios, and optimizer/ITR logic.
 
 ### Track 1 rationale
 

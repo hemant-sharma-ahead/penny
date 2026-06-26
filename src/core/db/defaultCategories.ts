@@ -11,6 +11,7 @@ export const INTENT_GROUP_META: Record<string, IntentGroupMeta> = {
   health: { label: 'Health', color: '#10b981' },
   financial: { label: 'Financial', color: '#22c55e' },
   lifestyle: { label: 'Lifestyle', color: '#8b5cf6' },
+  sin_goods: { label: 'Sin Goods', color: '#b91c1c' },
   travel: { label: 'Travel', color: '#0ea5e9' },
   education: { label: 'Education', color: '#6366f1' },
   family_giving: { label: 'Family & Giving', color: '#ec4899' },
@@ -212,6 +213,27 @@ export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
     color: '#f43f5e',
     isDefault: true,
     intentGroup: 'lifestyle',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  // ── Sin Goods ────────────────────────────────────────────────────────────────
+  {
+    id: 'cat-alcohol',
+    name: 'Alcohol',
+    icon: 'ti-bottle',
+    color: '#b91c1c',
+    isDefault: true,
+    intentGroup: 'sin_goods',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-tobacco',
+    name: 'Tobacco',
+    icon: 'ti-flame',
+    color: '#7f1d1d',
+    isDefault: true,
+    intentGroup: 'sin_goods',
     applicableTo: 'expense',
     createdAt: 0
   },
@@ -550,6 +572,17 @@ export const CATEGORY_MIGRATION_MAP: Record<string, string> = {
   subscription: 'cat-subscriptions',
   gifts: 'cat-gifts',
   'gifts & donations': 'cat-gifts',
+  // Sin goods
+  alcohol: 'cat-alcohol',
+  liquor: 'cat-alcohol',
+  beer: 'cat-alcohol',
+  wine: 'cat-alcohol',
+  spirits: 'cat-alcohol',
+  'bar & alcohol': 'cat-alcohol',
+  tobacco: 'cat-tobacco',
+  cigarette: 'cat-tobacco',
+  cigarettes: 'cat-tobacco',
+  smoking: 'cat-tobacco',
   // Travel
   travel: 'cat-flights',
   flights: 'cat-flights',

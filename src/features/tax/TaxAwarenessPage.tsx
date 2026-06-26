@@ -5,14 +5,20 @@ import { useProfile } from '@/hooks/useProfile';
 import { deriveAge } from '@/lib/date';
 import { useTaxData } from './useTaxData';
 import { useTaxDeductions } from './deductions/useTaxDeductions';
-import { DeductionsTab } from './deductions/DeductionsTab';
-import { CapitalGainsTab } from './gains/CapitalGainsTab';
+import { useFootprint } from './footprint/useFootprint';
+import { FootprintTab } from './footprint/FootprintTab';
+import { ExploreTab } from './explore/ExploreTab';
+import { OptimizePillar } from './optimize/OptimizePillar';
+import { CalculatorsPillar } from './calculators/CalculatorsPillar';
+
+type TaxTab = 'footprint' | 'explore' | 'optimize' | 'calculators';
 
 export function TaxAwarenessPage() {
   const { summary } = useTaxData();
   const deductions = useTaxDeductions(summary);
   const { profile } = useProfile();
-  const [activeTab, setActiveTab] = useState<'deductions' | 'gains'>('deductions');
+  const footprintData = useFootprint(summary, deductions, profile);
+  const [activeTab, setActiveTab] = useState<TaxTab>('footprint');
 
   // Personalised, informational tax context from DOB + employment (no computation changes).
   const age = profile?.dob ? deriveAge(profile.dob) : null;
@@ -40,6 +46,7 @@ export function TaxAwarenessPage() {
   }
 
   const { fy } = summary;
+  const showNotes = (activeTab === 'footprint' || activeTab === 'optimize') && taxNotes.length > 0;
 
   return (
     <div className="flex flex-col h-full">
@@ -52,18 +59,20 @@ export function TaxAwarenessPage() {
         </div>
       </PageHeader>
 
-      {/* Tabs */}
+      {/* Tabs — four pillars */}
       <TabStrip
         options={[
-          { value: 'deductions', label: 'Deductions' },
-          { value: 'gains', label: 'Capital Gains' }
+          { value: 'footprint', label: 'Footprint', icon: 'ti-receipt-tax' },
+          { value: 'explore', label: 'Explore', icon: 'ti-scan' },
+          { value: 'optimize', label: 'Optimize', icon: 'ti-bulb' },
+          { value: 'calculators', label: 'Calc', icon: 'ti-calculator' }
         ]}
         value={activeTab}
         onChange={setActiveTab}
       />
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-24 flex flex-col gap-4">
-        {taxNotes.length > 0 && (
+        {showNotes && (
           <Banner variant="info">
             <ul className="flex flex-col gap-1">
               {taxNotes.map((note) => (
@@ -72,8 +81,17 @@ export function TaxAwarenessPage() {
             </ul>
           </Banner>
         )}
-        {activeTab === 'deductions' && <DeductionsTab summary={summary} deductions={deductions} />}
-        {activeTab === 'gains' && <CapitalGainsTab summary={summary} />}
+        {activeTab === 'footprint' && <FootprintTab data={footprintData} />}
+        {activeTab === 'explore' && <ExploreTab />}
+        {activeTab === 'optimize' && (
+          <OptimizePillar
+            summary={summary}
+            deductions={deductions}
+            profile={profile}
+            gross={footprintData.waterfall.gross}
+          />
+        )}
+        {activeTab === 'calculators' && <CalculatorsPillar summary={summary} />}
       </div>
     </div>
   );
