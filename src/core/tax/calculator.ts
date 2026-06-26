@@ -232,3 +232,37 @@ export function computeTaxSummary(
     totalOtherStcg: otherStcg.reduce((s, g) => s + Math.max(0, g.gain), 0)
   };
 }
+
+export const EQUITY_LTCG_RATE = 0.125;
+export const EQUITY_STCG_RATE = 0.2;
+export const OTHER_LTCG_RATE = 0.125;
+
+export interface CapitalGainsTax {
+  equityLtcgTax: number;
+  equityStcgTax: number;
+  otherLtcgTax: number;
+  /** LTCG tax across equity (post-exemption) + other assets. */
+  totalLtcgTax: number;
+  totalStcgTax: number;
+  /** Combined estimated tax shown in the summary (equity + other LTCG, equity STCG). */
+  totalTax: number;
+}
+
+/** Estimates capital-gains tax from the aggregated gain totals in a TaxSummary. */
+export function computeCapitalGainsTax(
+  s: Pick<TaxSummary, 'totalEquityLtcg' | 'totalEquityStcg' | 'totalOtherLtcg'>
+): CapitalGainsTax {
+  const equityLtcgTax = Math.max(0, s.totalEquityLtcg - EQUITY_LTCG_EXEMPTION) * EQUITY_LTCG_RATE;
+  const equityStcgTax = s.totalEquityStcg * EQUITY_STCG_RATE;
+  const otherLtcgTax = s.totalOtherLtcg * OTHER_LTCG_RATE;
+  const totalLtcgTax = equityLtcgTax + otherLtcgTax;
+  const totalStcgTax = equityStcgTax;
+  return {
+    equityLtcgTax,
+    equityStcgTax,
+    otherLtcgTax,
+    totalLtcgTax,
+    totalStcgTax,
+    totalTax: totalLtcgTax + totalStcgTax
+  };
+}

@@ -100,7 +100,7 @@ export function TaxRegimeCalculator() {
         <>
           <div className="grid grid-cols-2 gap-3">
             <RegimeColumn name="Old Regime" data={result.old} winner={result.recommended === 'old'} />
-            <RegimeColumn name="New Regime" data={result.new} winner={result.recommended === 'new'} />
+            {result.new && <RegimeColumn name="New Regime" data={result.new} winner={result.recommended === 'new'} />}
           </div>
 
           <div
@@ -125,15 +125,17 @@ export function TaxRegimeCalculator() {
             <AmountRow label="Total tax" amount={result.old.totalTax} accent />
           </ResultCard>
 
-          <ResultCard title="New regime breakdown">
-            <AmountRow label="Standard deduction" amount={result.new.standardDeduction} />
-            <AmountRow label="Taxable income" amount={result.new.taxableIncome} />
-            <AmountRow label="Tax before rebate" amount={result.new.taxBeforeRebate} />
-            {result.new.rebate > 0 && <AmountRow label="§87A rebate" amount={result.new.rebate} saving />}
-            {result.new.surcharge > 0 && <AmountRow label="Surcharge" amount={result.new.surcharge} />}
-            <AmountRow label="Cess (4%)" amount={result.new.cess} />
-            <AmountRow label="Total tax" amount={result.new.totalTax} accent />
-          </ResultCard>
+          {result.new && (
+            <ResultCard title="New regime breakdown">
+              <AmountRow label="Standard deduction" amount={result.new.standardDeduction} />
+              <AmountRow label="Taxable income" amount={result.new.taxableIncome} />
+              <AmountRow label="Tax before rebate" amount={result.new.taxBeforeRebate} />
+              {result.new.rebate > 0 && <AmountRow label="§87A rebate" amount={result.new.rebate} saving />}
+              {result.new.surcharge > 0 && <AmountRow label="Surcharge" amount={result.new.surcharge} />}
+              <AmountRow label="Cess (4%)" amount={result.new.cess} />
+              <AmountRow label="Total tax" amount={result.new.totalTax} accent />
+            </ResultCard>
+          )}
 
           <p className="text-[10px] text-tertiary leading-relaxed">
             Estimate for planning only. Excludes marginal relief on surcharge, special-rate incomes, and other edge

@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '@/router/paths';
 import { ChipAvatar } from '@/components/ui/ChipAvatar';
+import { Button } from '@/components/ui';
+import { OnboardingBack } from './OnboardingBack';
 
 const mockInsights = [
   {
@@ -24,7 +26,8 @@ export function ChipIntroScreen() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen flex flex-col bg-surface px-6 py-10">
+    <div className="relative min-h-screen flex flex-col bg-surface px-6 py-10">
+      <OnboardingBack to={PATHS.onboarding.privacyDemo} />
       <div className="flex-1 w-full max-w-sm mx-auto flex flex-col">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 drop-shadow-lg w-fit">
@@ -61,13 +64,9 @@ export function ChipIntroScreen() {
           </p>
         </div>
 
-        <button
-          onClick={() => navigate(PATHS.onboarding.simulatedDashboard)}
-          className="w-full py-3.5 rounded-xl font-medium text-white transition-opacity hover:opacity-90"
-          style={{ backgroundColor: 'var(--color-primary)' }}
-        >
+        <Button variant="primary" size="lg" fullWidth onClick={() => navigate(PATHS.onboarding.simulatedDashboard)}>
           See my dashboard
-        </button>
+        </Button>
       </div>
     </div>
   );

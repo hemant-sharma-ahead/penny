@@ -3,12 +3,14 @@ import { AppShell } from '@/components/layout/AppShell';
 import { AuthGuard } from './AuthGuard';
 import { PATHS } from './paths';
 
+import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
 import { SplashScreen } from '@/features/onboarding/SplashScreen';
 import { PrivacyPromiseScreen } from '@/features/onboarding/PrivacyPromiseScreen';
 import { SetupCredentialsScreen } from '@/features/onboarding/SetupCredentialsScreen';
 import { PrivacyDemoScreen } from '@/features/onboarding/PrivacyDemoScreen';
 import { ChipIntroScreen } from '@/features/onboarding/ChipIntroScreen';
 import { SimulatedDashboardScreen } from '@/features/onboarding/SimulatedDashboardScreen';
+import { LetUsKnowYouScreen } from '@/features/onboarding/LetUsKnowYouScreen';
 import { HomePage } from '@/features/home/HomePage';
 import { PortfolioPage } from '@/features/portfolio/PortfolioPage';
 import { ExpensesPage } from '@/features/expenses/ExpensesPage';
@@ -25,16 +27,26 @@ import { BackupPage } from '@/features/backup/BackupPage';
 import { ImportPage } from '@/features/import/ImportPage';
 import { AccountsPage } from '@/features/accounts/AccountsPage';
 import { CalculatorsPage } from '@/features/calculators/CalculatorsPage';
+import { ChangePinPage } from '@/features/security/ChangePinPage';
+import { ChangePassphrasePage } from '@/features/security/ChangePassphrasePage';
+import { ProfilePage } from '@/features/profile/ProfilePage';
+import { TimelinePage } from '@/features/activity/TimelinePage';
 
 export const router = createBrowserRouter([
   { index: true, element: <Navigate to={PATHS.onboarding.splash} replace /> },
 
-  { path: PATHS.onboarding.splash, element: <SplashScreen /> },
-  { path: PATHS.onboarding.privacyPromise, element: <PrivacyPromiseScreen /> },
-  { path: PATHS.onboarding.setupCredentials, element: <SetupCredentialsScreen /> },
-  { path: PATHS.onboarding.privacyDemo, element: <PrivacyDemoScreen /> },
-  { path: PATHS.onboarding.chipIntro, element: <ChipIntroScreen /> },
-  { path: PATHS.onboarding.simulatedDashboard, element: <SimulatedDashboardScreen /> },
+  {
+    element: <OnboardingLayout />,
+    children: [
+      { path: PATHS.onboarding.splash, element: <SplashScreen /> },
+      { path: PATHS.onboarding.privacyPromise, element: <PrivacyPromiseScreen /> },
+      { path: PATHS.onboarding.privacyDemo, element: <PrivacyDemoScreen /> },
+      { path: PATHS.onboarding.chipIntro, element: <ChipIntroScreen /> },
+      { path: PATHS.onboarding.simulatedDashboard, element: <SimulatedDashboardScreen /> },
+      { path: PATHS.onboarding.letUsKnowYou, element: <LetUsKnowYouScreen /> },
+      { path: PATHS.onboarding.setupCredentials, element: <SetupCredentialsScreen /> }
+    ]
+  },
 
   {
     element: <AuthGuard />,
@@ -58,7 +70,11 @@ export const router = createBrowserRouter([
           { path: PATHS.app.backup, element: <BackupPage /> },
           { path: PATHS.app.import, element: <ImportPage /> },
           { path: PATHS.app.accounts, element: <AccountsPage /> },
-          { path: PATHS.app.calculators, element: <CalculatorsPage /> }
+          { path: PATHS.app.calculators, element: <CalculatorsPage /> },
+          { path: PATHS.app.changePin, element: <ChangePinPage /> },
+          { path: PATHS.app.changePassphrase, element: <ChangePassphrasePage /> },
+          { path: PATHS.app.profile, element: <ProfilePage /> },
+          { path: PATHS.app.timeline, element: <TimelinePage /> }
         ]
       }
     ]

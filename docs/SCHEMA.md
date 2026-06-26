@@ -2,285 +2,413 @@
 
 All stores use Dexie.js (IndexedDB). All primary keys are UUIDs (not auto-increment — required for future cross-device sync).
 
-Encrypted stores use `EncryptedRepository<T>` which wraps Dexie and transparently encrypts fields on write and decrypts on read via the in-memory Master Key.
+Encrypted stores use `EncryptedRepository<T>`, which wraps Dexie and transparently encrypts fields on write and decrypts on read via the in-memory Master Key. Plain stores are written directly to IndexedDB with no encryption.
+
+**Store counts:** 19 active stores total — 17 encrypted + 2 plain.
+
+**Schema versions:**
+- v1: Initial 19 stores including `accounts`
+- v2: Added index on `accounts.id`
+- v3: Dropped `assets` store (superseded by `holdings` with `assetClass` field)
 
 ---
 
 ## Encrypted stores
 
 ### `profile`
+
+Single-record store. The user's identity and app preferences.
+
 | Field | Type | Notes |
 |-------|------|-------|
 | id | string (UUID) | Primary key |
-| profile_id | string | Always the single-user UUID |
-| age_band | string | e.g. "29–35" — never exact DOB |
-| monthly_income_band | string | e.g. "₹1L–2L" — one of 4 brackets |
-| risk_appetite | 'conservative' \| 'moderate' \| 'aggressive' | |
-| primary_goal | string | e.g. "Retirement" |
-| onboarding_complete | boolean | AuthGuard checks this |
-| privacy_mode | 'safe' \| 'privacy' \| 'open' | Persisted preference |
-| inactivity_lock_minutes | number | Default: 30 |
-| pin_last_changed_at | number | Unix timestamp — 21-day rotation |
-| created_at | number | Unix timestamp |
+| displayName | string | User's full name (also used as the display name) |
+| currency | `'INR'` | Always INR in Phase 1 |
+| locale | `'en-IN'` | Always en-IN in Phase 1 |
+| onboardingComplete | boolean | AuthGuard checks profile existence (field name is `onboardingComplete` in code) |
+| dob | string? | ISO date (YYYY-MM-DD) — Track 2. Encrypted; only a 5-year age band ever sent to AI |
+| employmentType | `'salaried' \| 'self_employed' \| 'business_owner' \| 'student' \| 'retired'`? | Track 2; gates EPF visibility, tax deductions, health benchmarks |
+| username | string? | Track 2; 3–20 lowercase alphanumeric/underscore. Local now; server-checked for uniqueness in Phase 1.5 |
+| userId | string? | Track 2; local identity id, "claimed" on the server at Phase 1.5 registration |
+| plan | `'free' \| 'pro'`? | Track 2; entitlement marker. Always effectively pro until pricing ships |
+
+> The on-device identity **keypair** and any `licenseToken` are stored in the encrypted DB alongside the profile (private key never leaves the device). Non-indexed fields → no Dexie migration.
+
+---
 
 ### `holdings`
+
+Every asset the user owns. Supersedes the old `assets` store (dropped in v3).
+
 | Field | Type | Notes |
 |-------|------|-------|
-| id | string (UUID) | PK |
-| profile_id | string | FK → profile |
-| type | 'mf' \| 'stock' \| 'fd' \| 'nps' \| 'ppf' \| 'gold' | |
-| name | string | Fund name or stock ticker |
-| units | number | For MF/stocks |
-| avg_cost | number | Per unit |
-| current_value | number | Updated from price cache |
-| purchase_date | number | Unix timestamp |
-| is_virtual | boolean | Simulated holding (onboarding demo) |
-| chip_score | number | 0–100, last Chip evaluation |
-| chip_score_breakdown | string | JSON: dimension scores |
-| chip_last_evaluated | number | Unix timestamp |
+| id | string (UUID) | Primary key |
+| assetClass | `'equity' \| 'mf' \| 'fd' \| 'nps' \| 'ppf' \| 'epf' \| 'gold' \| 'vehicle' \| 'property' \| 'other'` | Determines which UI and calculators apply |
+| name | string | Fund name, stock ticker, or descriptive name |
+| units | number? | For MF and equity holdings |
+| purchasePrice | number? | Per-unit cost for MF/equity; total cost for others |
+| currentValue | number? | Updated from price_cache or user input |
+| purchaseDate | number? | Epoch ms — used for LTCG/STCG calculation |
+| assetMeta | AssetMeta? | Type-specific metadata (see `docs/TSD.md` for shape per assetClass) |
+| note | string? | Free text |
+
+---
 
 ### `expenses`
+
+Every income, expense, and transfer transaction.
+
 | Field | Type | Notes |
 |-------|------|-------|
-| id | string (UUID) | PK |
-| profile_id | string | FK → profile |
-| amount | number | |
-| category_id | string | FK → expense_categories |
-| merchant | string | e.g. "Swiggy" (shown locally only, stripped for AI) |
-| notes | string | Free text, hashtags parsed from here |
-| date | number | Unix timestamp |
-| payment_method | string | |
-| is_recurring | boolean | |
-| subscription_id | string \| null | FK → subscriptions |
-| created_at | number | |
+| id | string (UUID) | Primary key |
+| amount | number | Always positive; `type` determines direction |
+| merchant | string | Shown locally only — stripped before any AI call |
+| categoryId | string | FK → expense_categories |
+| date | number | Epoch ms |
+| type | `'expense' \| 'income' \| 'transfer'` | |
+| notes | string? | Free text; hashtags are parsed from here |
+| hashtags | string[]? | Parsed tags e.g. `['emi', 'travel']` |
+| paymentMode | string? | e.g. `'UPI'`, `'credit_card'`, `'cash'` |
+| accountId | string? | FK → accounts (source account) |
+| toAccountId | string? | FK → accounts — transfers only |
+| eventId | string? | FK → hashtags where eventType is set |
+| recurringRuleId | string? | FK → subscriptions or internal rule |
+| isRecurring | boolean? | True if part of a confirmed recurring pattern |
+| receiptDataUrl | string? | Local receipt photo — compressed JPEG data URL (Track 6 Step 11). Encrypted at rest; never sent to AI. |
+
+---
 
 ### `expense_categories`
+
+Default and user-created categories for classifying expenses.
+
 | Field | Type | Notes |
 |-------|------|-------|
-| id | string (UUID) | PK |
-| profile_id | string | |
-| name | string | e.g. "Food", "EMI" |
-| icon | string | Tabler icon name |
-| parent_id | string \| null | Self-referencing for subcategories |
-| is_system | boolean | System defaults vs user-created |
-| color | string | Hex color for UI |
+| id | string (UUID) | Primary key |
+| name | string | e.g. `'Food'`, `'EMI'`, `'Entertainment'` |
+| icon | string | Tabler icon class (`ti-*`), chosen via the visual icon picker |
+| color | string | Hex color for UI chips and charts |
+| intentGroup | string? | Fixed intent-group key (`'daily_living'`, `'health'`, …) used to group **default** categories. See `INTENT_GROUP_META`. |
+| isDefault | boolean | System-provided defaults (editable, not deletable) vs user-created |
+| isGroup | boolean? | `true` ⇒ this record is a user-created **parent** (grouping header), not selectable for a transaction |
+| parentId | string? | For a custom leaf category, the id of its parent (`isGroup`) category. Takes precedence over `intentGroup` for grouping. |
+| applicableTo | 'expense' \| 'income' \| 'transfer'? | Defaults to `'expense'` |
+
+> **Grouping (Track 3):** the picker/analytics/filters key off `groupKey(cat) = parentId ?? intentGroup ?? 'other'`; the header label/color comes from the parent record (custom groups) or `INTENT_GROUP_META` (fixed groups). No Dexie store/version change — `isGroup`/`parentId` ride inside the encrypted blob.
+
+> **Sin Goods intent group (Track 7):** a `sin_goods` intent group (in `INTENT_GROUP_META`) with two new default categories — `cat-alcohol` and `cat-tobacco`. These map to high-tax bands in the indirect-tax footprint. Existing users receive them via an **additive, non-destructive** re-seed in `useExpenses.ts` guarded by `penny_cats_v3` (inserts only missing default categories — never re-puts edited ones). No Dexie store/version change.
+
+> **Tax-footprint overrides (Track 7):** stored in `localStorage`, not Dexie — `penny_settings_tax_gross_income`, `penny_settings_tax_direct`, `penny_settings_tax_epf`, `penny_settings_tax_statutory` (optional manual gross-income, income-tax correction, EPF/PF, and professional-tax+LWF overrides for the income waterfall; absent = derive automatically). See `SettingsContext`.
+
+---
 
 ### `budgets`
+
+Monthly spend limits per category.
+
 | Field | Type | Notes |
 |-------|------|-------|
-| id | string (UUID) | PK |
-| profile_id | string | |
-| category_id | string | FK → expense_categories |
-| monthly_limit | number | |
-| alert_at_pct | number | Default: 80 (alert at 80% used) |
-| month_year | string | "2026-06" format |
+| id | string (UUID) | Primary key |
+| categoryId | string | FK → expense_categories |
+| amount | number | Monthly limit in ₹ |
+| period | `'monthly'` | Only monthly budgets supported today |
+| startDate | number? | Epoch ms — when this budget rule began |
+
+---
 
 ### `hashtags`
+
+User-defined tags that can optionally represent events (vacations, trips, occasions).
+
 | Field | Type | Notes |
 |-------|------|-------|
-| id | string (UUID) | PK |
-| profile_id | string | |
-| tag | string | e.g. "emi", "tax", "travel" |
-| expense_ids | string[] | Array of expense UUIDs |
+| id | string (UUID) | Primary key |
+| name | string | e.g. `'goa-trip'`, `'emi'`, `'wedding'` |
+| usageCount | number | Incremented on each use |
+| lastUsed | number | Epoch ms |
+| eventType | `'vacation' \| 'background' \| null`? | Classifies the tag as a named event |
+| isActive | boolean? | Whether the event is ongoing |
+| startDate | number? | Epoch ms — event start |
+| endDate | number? | Epoch ms — event end |
+
+---
 
 ### `goals`
+
+Financial goals with SIP planning and progress tracking.
+
 | Field | Type | Notes |
 |-------|------|-------|
-| id | string (UUID) | PK |
-| profile_id | string | |
-| type | string | "Retirement", "House", "Emergency", "Education", etc. |
-| name | string | User-given name |
-| target_amount | number | |
-| target_date | number | Unix timestamp |
-| current_amount | number | Updated from holdings/assets |
-| risk_appetite | 'conservative' \| 'moderate' \| 'aggressive' | |
-| chip_required_sip | number | Chip-calculated monthly SIP |
-| created_at | number | |
+| id | string (UUID) | Primary key |
+| name | string | User-given name e.g. `'House Down Payment'` |
+| targetAmount | number | Goal target in ₹ |
+| currentAmount | number | Amount accumulated so far |
+| targetDate | number? | Epoch ms — deadline |
+| sipAmount | number? | Planned monthly SIP in ₹ |
+| sipFrequency | `'monthly' \| 'quarterly' \| 'yearly'`? | SIP cadence |
+| expectedReturn | number? | Annual return assumption (%) for corpus projection |
+| icon | string? | Tabler icon name |
+| color | string? | Hex color for UI card |
+
+---
 
 ### `goal_contributions`
-| Field | Type | Notes |
-|-------|------|-------|
-| id | string (UUID) | PK |
-| goal_id | string | FK → goals |
-| amount | number | |
-| date | number | Unix timestamp |
-| source | string | e.g. "MF SIP", "Manual" |
 
-### `assets`
+Individual contributions credited toward a goal.
+
 | Field | Type | Notes |
 |-------|------|-------|
-| id | string (UUID) | PK |
-| profile_id | string | |
-| type | 'property' \| 'vehicle' \| 'savings' \| 'other' | |
-| name | string | |
-| current_value | number | |
-| purchase_value | number | |
-| purchase_date | number | Unix timestamp |
-| last_valued_at | number | Unix timestamp |
+| id | string (UUID) | Primary key |
+| goalId | string | FK → goals |
+| amount | number | Contribution amount in ₹ |
+| date | number | Epoch ms |
+| note | string? | e.g. `'Bonus allocation'`, `'Annual SIP'` |
+
+---
 
 ### `liabilities`
-22-field store covering all 12 liability types.
+
+All debt obligations — loans, credit cards, BNPL, informal borrowings.
 
 | Field | Type | Notes |
 |-------|------|-------|
-| id | string (UUID) | PK |
-| profile_id | string | |
-| type | 'home_loan' \| 'car_loan' \| 'personal_loan' \| 'education_loan' \| 'credit_card' \| 'bnpl' \| 'gold_loan' \| 'lap' \| 'las' \| 'overdraft' \| 'informal' \| 'rental_deposit' | |
-| name | string | e.g. "HDFC Home Loan" (shown locally, generalised for AI) |
-| outstanding_amount | number | |
-| emi_amount | number | |
-| interest_rate | number | Annual % |
-| is_credit_reported | boolean | |
-| is_secured | boolean | |
-| is_revolving | boolean | For credit cards/OD |
-| original_principal | number \| null | For amortisation |
-| disbursement_date | number \| null | Unix timestamp |
-| tenure_months | number \| null | |
-| interest_type | 'fixed' \| 'floating' \| null | |
-| prepayment_penalty_pct | number \| null | |
-| credit_limit | number \| null | Revolving only |
-| payment_day | number \| null | EMI due date (1–31) |
-| last_statement_date | number \| null | |
-| next_due_date | number \| null | |
-| lender_name | string | Shown locally, generalised for AI |
-| created_at | number | |
-| updated_at | number | |
+| id | string (UUID) | Primary key |
+| type | `'home_loan' \| 'car_loan' \| 'personal_loan' \| 'business_loan' \| 'education_loan' \| 'two_wheeler_loan' \| 'gold_loan' \| 'credit_card' \| 'bnpl' \| 'family_loan' \| 'other'` | |
+| name | string | e.g. `'HDFC Home Loan'` — shown locally, generalised for AI |
+| principalAmount | number | Original loan amount |
+| currentBalance | number | Outstanding balance today |
+| interestRate | number? | Annual interest rate (%) |
+| emiAmount | number? | Monthly instalment in ₹ |
+| tenureMonths | number? | Total loan tenure |
+| startDate | number? | Epoch ms — disbursement date |
+| endDate | number? | Epoch ms — last EMI date |
+| lenderName | string? | e.g. `'HDFC Bank'` — shown locally, generalised for AI |
+| accountNumber | string? | Last 4 digits only — never full account number |
+| note | string? | Free text |
+
+---
 
 ### `insurance_policies`
+
+Life, health, vehicle, and other insurance policies.
+
 | Field | Type | Notes |
 |-------|------|-------|
-| id | string (UUID) | PK |
-| profile_id | string | |
-| type | 'health' \| 'life' \| 'term' \| 'vehicle' \| 'home' \| 'travel' \| 'other' | |
-| insurer | string | |
-| policy_number | string | Encrypted, never shown in logs |
-| coverage_amount | number | |
-| annual_premium | number | |
-| renewal_date | number | Unix timestamp |
-| nominees | string | Free text |
-| notes | string | |
+| id | string (UUID) | Primary key |
+| type | `'term_life' \| 'whole_life' \| 'endowment' \| 'ulip' \| 'health' \| 'vehicle' \| 'property' \| 'travel' \| 'other'` | |
+| name | string | Policy name or description |
+| insurer | string? | Insurer name e.g. `'LIC'`, `'Star Health'` |
+| policyNumber | string? | Encrypted — never shown in logs or sent to AI |
+| sumAssured | number? | Cover amount in ₹ |
+| premium | number? | Premium amount in ₹ |
+| premiumFrequency | `'monthly' \| 'quarterly' \| 'half-yearly' \| 'yearly'`? | Payment cadence |
+| startDate | number? | Epoch ms — policy start |
+| renewalDate | number? | Epoch ms — next renewal |
+| maturityDate | number? | Epoch ms — for endowment/ULIP |
+| nominees | string[]? | Nominee names — PII, never sent to AI |
+| note | string? | Free text |
+
+---
 
 ### `chip_insights`
+
+Cached AI-generated insights per module. Generated by `mockChip.ts` in Phase 1; will use Anthropic API in Phase 2.
+
 | Field | Type | Notes |
 |-------|------|-------|
-| id | string (UUID) | PK |
-| profile_id | string | |
-| module | 'portfolio' \| 'expenses' \| 'goals' \| 'insurance' \| 'net_worth' \| 'subscriptions' \| 'iou' \| 'credit' | |
-| insight_type | string | e.g. "underperforming_fund", "insurance_gap" |
-| headline | string | Plain-language, specific to user's data |
-| reasoning | string | 2–3 lines with numbers |
-| do_nothing_consequence | string | Always populated — ₹ consequence |
-| recommendation | string | |
-| alternative | string \| null | |
-| confidence | number | 0–1 |
-| urgency | 'high' \| 'medium' \| 'low' | |
-| chip_score_before | number \| null | |
-| requires_action | boolean | |
-| status | 'pending' \| 'approved' \| 'dismissed' \| 'snoozed' | |
-| created_at | number | |
+| id | string (UUID) | Primary key |
+| module | string | e.g. `'portfolio'`, `'expenses'`, `'goals'` |
+| insight | string | Plain-language headline for the user |
+| reasoning | string | 2–3 lines with supporting numbers |
+| doNothingConsequence | string | Always populated — ₹ cost of inaction |
+| confidence | `'low' \| 'medium' \| 'high'` | |
+| createdAt | number | Epoch ms |
+| version | number | Schema version of the insight format |
+
+---
 
 ### `ai_call_log`
+
+Audit trail of every AI call. Logged before the call is made.
+
 | Field | Type | Notes |
 |-------|------|-------|
-| id | string (UUID) | PK |
-| profile_id | string | |
-| logged_at | number | Unix timestamp — logged BEFORE the call |
-| model | string | e.g. "claude-sonnet-4-6" |
-| task_type | string | e.g. "portfolio_analysis", "conversation" |
-| anonymised_payload_summary | string | What was sent (categories only, no values) |
-| pii_scan_result | 'clean' \| 'flagged' | Result of PII scanner |
-| pii_flag_count | number | Should always be 0 |
-| input_tokens | number \| null | Filled after response |
-| output_tokens | number \| null | |
-| response_summary | string \| null | |
+| id | string (UUID) | Primary key |
+| module | string | Feature that initiated the call |
+| prompt | string | Anonymised prompt — no raw PII, only bands and categories |
+| tokensUsed | number? | Filled after response |
+| createdAt | number | Epoch ms — logged before the call |
+
+---
 
 ### `security`
+
+Single-record store. Holds the cryptographic material for **envelope encryption** (Track 2): a random DMK wrapped independently by the PIN and the passphrase. (Field names below are illustrative; the live code uses base64 strings — see `src/core/db/types/index.ts` `SecurityRecord`.)
+
 | Field | Type | Notes |
 |-------|------|-------|
-| id | string (UUID) | PK (single record) |
-| wrapped_master_key | string | AES-KW wrapped MK, base64 |
-| passphrase_salt | string | Base64, 32 bytes |
-| pin_salt | string | Base64, 32 bytes |
-| pbkdf2_iterations_mk | number | Default: 600000 |
-| pbkdf2_iterations_kek | number | Default: 200000 |
-| pin_hash | string | PBKDF2 hash for PIN verification (not the key) |
-| pin_last_changed_at | number | Unix timestamp |
-| failed_pin_attempts | number | 0–5, resets on success |
-| locked_until | number \| null | Unix timestamp for lockout expiry |
+| id | `'singleton'` | Fixed primary key — always one record |
+| mkSalt | string | Salt retained from the original MK derivation (migration) |
+| kekSalt | string | Salt for the PIN-derived KEK (PBKDF2, 200K iterations) |
+| encryptedMasterKey | string | DMK wrapped by the **PIN**-KEK (base64) |
+| encryptedMasterKeyByPassphrase | string? | **Track 2** — DMK wrapped by the **passphrase**-KEK (base64). Added lazily for migrated vaults; set at init for new ones |
+| passphraseKekSalt | string? | **Track 2** — salt for the passphrase-KEK (PBKDF2, 600K iterations) |
+| passphraseVerifier | string | Verifies the passphrase without unwrapping the DMK |
+| pinAttempts | number | Failed PIN attempts (shared across unlock / Open-mode / change-PIN); resets on success |
+| lockedUntil | number? | Epoch ms — exponential-backoff lockout expiry after 5 failed attempts |
+| pinChangedAt | number? | Epoch ms — drives the 21-day rotation reminder AND the once-per-24h change limit |
+| sessionExpiresAt | number? | Epoch ms — session/auto-lock expiry |
+| wipeAfterAttempts | number? | **Track 2** — opt-in: erase all data after this many consecutive failed PIN attempts (undefined = off) |
+
+Changing the passphrase or PIN re-derives the relevant KEK and re-wraps the **same** DMK — `encryptedMasterKey*` changes, the data does not.
+
+---
 
 ### `subscriptions`
+
+Recurring subscription services, confirmed or auto-detected.
+
 | Field | Type | Notes |
 |-------|------|-------|
-| id | string (UUID) | PK |
-| profile_id | string | |
-| name | string | e.g. "Netflix", "Spotify" (public, safe for AI) |
-| category | string | |
-| amount | number | |
-| currency | string | Default: "INR" |
-| billing_cycle | 'monthly' \| 'quarterly' \| 'annual' | |
-| billing_day | number | Day of month (1–31) |
-| next_billing_date | number | Unix timestamp |
-| trial_end_date | number \| null | Alert 7 days and 1 day before |
-| status | 'active' \| 'paused' \| 'cancelled' \| 'trial' | |
-| usage_last_detected | number \| null | Phase 2: SMS detection |
-| cancellation_difficulty | 'easy' \| 'medium' \| 'hard' | |
-| price_at_start | number | For creep detection |
-| detection_confidence | number | 0–1 |
-| confirmed_by_user | boolean | |
+| id | string (UUID) | Primary key |
+| name | string | e.g. `'Netflix'`, `'Spotify'` — public name, safe for AI |
+| amount | number | Subscription cost in ₹ |
+| frequency | `'monthly' \| 'yearly' \| 'weekly'` | Billing cycle |
+| categoryId | string? | FK → expense_categories |
+| nextDueDate | number? | Epoch ms — next charge date |
+| detectedAt | number | Epoch ms — when first detected or created |
+| confirmedByUser | boolean | True once user explicitly confirms this subscription |
+
+---
 
 ### `personal_ious`
+
+Money lent to or borrowed from people. Category 1 PII — `personName` is **never** sent to AI.
+
 | Field | Type | Notes |
 |-------|------|-------|
-| id | string (UUID) | PK |
-| profile_id | string | |
-| direction | 'lent' \| 'borrowed' | |
-| person_name | string | PII — NEVER sent to AI |
-| amount | number | |
-| date | number | Unix timestamp |
-| status | 'outstanding' \| 'partial' \| 'settled' | |
-| amount_returned | number | Default: 0 |
-| charge_interest | boolean | Opt-in opportunity cost calculation |
-| linked_expense_ids | string[] | |
-| linked_group_id | string \| null | Phase 1.5 |
-| notes | string | |
+| id | string (UUID) | Primary key |
+| personName | string | **PII — never sent to AI under any privacy mode** |
+| direction | `'lent' \| 'borrowed'` | From the user's perspective |
+| amount | number | Original amount in ₹ |
+| date | number | Epoch ms — when the IOU was created |
+| dueDate | number? | Epoch ms — expected repayment date |
+| description | string? | Free text context |
+| isSettled | boolean | True once fully repaid |
+
+---
 
 ### `credit_profile`
+
+User's credit bureau data. The raw report is encrypted and **never** sent to AI.
+
 | Field | Type | Notes |
 |-------|------|-------|
-| id | string (UUID) | PK |
-| profile_id | string | |
-| score | number | 300–900 |
-| bureau | string | e.g. "CIBIL" (generalised to "Bureau A" for AI) |
-| score_date | number | Unix timestamp |
-| payment_history_pct | number | % of on-time payments |
-| credit_utilisation_pct | number | Sent to AI as-is (not PII) |
-| credit_age_months | number | |
-| hard_enquiries_12m | number | |
-| chip_analysis | string \| null | Cached Chip advice |
-| raw_report_encrypted | string \| null | NEVER sent to AI — contains PAN and tradelines |
+| id | string (UUID) | Primary key |
+| score | number? | 300–900 credit score |
+| scoreRange | string? | e.g. `'750–799'` — banded form safe for AI |
+| reportDate | number? | Epoch ms — when the report was fetched |
+| summary | string? | Plain-language summary — safe for AI in banded form |
+| raw_report_encrypted | string? | Full bureau report — **NEVER sent to AI** — contains PAN and tradeline details |
+
+---
+
+### `accounts`
+
+Bank accounts, wallets, and cash holdings. Used as source/destination for expense transactions.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| id | string (UUID) | Primary key |
+| name | string | e.g. `'HDFC Savings'`, `'Cash Wallet'` |
+| type | `'savings' \| 'current' \| 'credit_card' \| 'cash' \| 'wallet'` | |
+| bankName | string? | e.g. `'HDFC Bank'` |
+| openingBalance | number? | Balance at time of account creation in Penny |
+| color | string? | Hex color for UI |
+| icon | string? | Tabler icon name |
+
+---
+
+### `activity_log`
+
+User-initiated data changes (Pre-Phase 1.5, Track 4). Encrypted; id-only index (Dexie v4). Powers the
+**Timeline**: undo/restore, per-item history, diffs, streaks, the privacy receipt, Money Story, and
+restore points. Pruned to the newest ~500 entries.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| id | string (UUID) | Primary key |
+| timestamp | number | Epoch ms |
+| action | `'CREATE' \| 'UPDATE' \| 'DELETE' \| 'MERGE' \| 'BULK_DELETE' \| 'BULK_MOVE' \| 'BULK_UPDATE' \| 'IMPORT' \| 'RESTORE' \| 'CHECKPOINT'` | |
+| entityType | string | e.g. `'expense'`, `'holding'`, `'goal'`, `'system'` (checkpoints) |
+| entityId | string | id of the affected record (or synthetic for bulk/checkpoint) |
+| summary | string | Human-readable, e.g. `'Deleted expense: Swiggy ₹340'` (₹ masked in UI outside Open mode) |
+| actor | string? | Who performed it; unused in Phase 1 (always self) — for the Phase 1.5 household feed |
+| snapshot | string? | JSON of the deleted record(s) — enables Undo / Recently Deleted restore |
+| diff | string? | JSON `{ field: [before, after] }` for UPDATE — beautiful diffs + future revert |
+| entityCount | number? | Records affected (bulk actions) |
+| restorePointId | string? | Groups entries under a named checkpoint (reserved for richer rewind) |
+| restored | boolean? | `true` once a deleted entry has been restored (hides it from Recently Deleted) |
+
+---
+
+### `merchant_memory`
+
+Remembers the category/account/payment last used per merchant for Add-transaction auto-fill (Pre-Phase 1.5, Track 6). Encrypted; id-only index (Dexie v5). Local precursor to the Phase-2 AI categoriser. Written on every non-transfer save via `buildMemory`, and seeded once from existing transaction history via `buildMemoriesFromExpenses` (guarded by the `penny_merchant_memory_v1` localStorage flag). See `core/expenses/merchantMemory.ts`.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| id | string | `` `${type}::${normalizedDescription}` `` — namespaced so income/expense with the same merchant don't collide |
+| description | string | Last raw (trimmed) description, for display in the auto-fill hint |
+| type | `'expense' \| 'income' \| 'transfer'` | Transaction type the memory applies to (transfers are never stored) |
+| categoryId | string | Remembered category |
+| accountId | string? | Remembered account |
+| paymentMode | string? | Remembered payment mode |
+| usageCount | number | Incremented on each matching save |
+| updatedAt | number | Epoch ms |
+
+---
+
+### `transaction_templates`
+
+User-saved quick-add presets/favorites (Pre-Phase 1.5, Track 6 Step 10). Encrypted; id-only index (Dexie v6). Tapped to prefill the Add form; created via "Save as template" in the form.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| id | string (UUID) | Primary key |
+| label | string | Chip label (≤24 chars), e.g. "Coffee" |
+| type | `'expense' \| 'income' \| 'transfer'` | Transaction type the template creates |
+| description | string | Prefilled description |
+| categoryId | string | Prefilled category |
+| amount | number? | Optional — omit to prompt on use |
+| accountId | string? | Prefilled account |
+| paymentMode | string? | Prefilled payment mode |
+| createdAt | number | Epoch ms |
 
 ---
 
 ## Plain stores (no encryption)
 
 ### `price_cache`
+
+Cached market prices fetched from external APIs. No personal data — safe to store unencrypted.
+
 | Field | Type | Notes |
 |-------|------|-------|
-| id | string | Ticker symbol or scheme code (PK) |
-| type | 'mf' \| 'stock' | |
-| name | string | Fund/company name |
-| price | number | Current NAV or LTP |
-| day_change_pct | number | |
-| source | 'mfapi' \| 'yahoo' | |
-| fetched_at | number | Unix timestamp |
+| key | string | Composite key e.g. `'mf_118834'`, `'stock_RELIANCE'` — primary key |
+| data | unknown | Raw API response JSON — shape varies by source |
+| updatedAt | number | Epoch ms — when this entry was last fetched |
+| ttlMs | number | How long this cache entry is valid (varies by asset class) |
+
+---
 
 ### `privacy_stats`
+
+Aggregated telemetry about AI calls made from this device. No personal data.
+
 | Field | Type | Notes |
 |-------|------|-------|
-| id | string | Always "stats" (single record) |
-| total_ai_calls | number | Lifetime count |
-| ai_calls_this_week | number | |
-| bytes_sent_to_anthropic | number | Approximate |
-| domain_calls | Record<string, number> | Per-domain call count |
-| days_since_install | number | |
-| last_updated | number | Unix timestamp |
+| domain | string | API domain e.g. `'api.anthropic.com'` — primary key |
+| callCount | number | Total calls made to this domain |
+| bytesSent | number | Approximate bytes sent to this domain |
+| lastCalledAt | number | Epoch ms — most recent call |

@@ -8,7 +8,7 @@ export interface ActiveEvent {
   subtype: EventSubtype;
   hashtag: string;
   startDate: number;
-  endDate?: number;
+  endDate?: number | undefined;
   autoTag: boolean;
   color: string;
 }

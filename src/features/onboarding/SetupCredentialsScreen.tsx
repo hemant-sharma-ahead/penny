@@ -1,13 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import zxcvbn from 'zxcvbn';
-import { initialize } from '@/core/crypto/securityManager';
+import { initialize, isWeakPin } from '@/core/crypto/securityManager';
+import { EncryptedRepository } from '@/core/db/repository';
+import { db } from '@/core/db/schema';
+import { seedDemoData } from '@/core/db/seedDemoData';
+import type { Profile } from '@/core/db/types';
+import { usePassphraseStrength } from '@/hooks/usePassphraseStrength';
 import { PATHS } from '@/router/paths';
-
-const strengthLabels = ['Very weak', 'Weak', 'Fair', 'Strong', 'Very strong'];
-const strengthColors = ['bg-red-400', 'bg-orange-400', 'bg-yellow-400', 'bg-emerald-400', 'bg-emerald-600'];
+import { Button, TextInput, PassphraseStrengthMeter } from '@/components/ui';
+import { useOnboardingDraft } from '@/context/OnboardingDraftContext';
+import { OnboardingBack } from './OnboardingBack';
 
 export function SetupCredentialsScreen() {
+  const draft = useOnboardingDraft();
   const [passphrase, setPassphrase] = useState('');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -16,11 +21,11 @@ export function SetupCredentialsScreen() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const strength = useMemo(() => (passphrase ? zxcvbn(passphrase) : null), [passphrase]);
-  const score: number = strength?.score ?? 0;
+  const { score } = usePassphraseStrength(passphrase);
 
   const pinMismatch = confirmPin.length === 6 && pin !== confirmPin;
-  const canProceed = score >= 3 && pin.length === 6 && pin === confirmPin && !loading;
+  const pinTooWeak = pin.length === 6 && isWeakPin(pin);
+  const canProceed = score >= 3 && pin.length === 6 && !pinTooWeak && pin === confirmPin && !loading;
 
   const handleCreate = async () => {
     if (!canProceed) return;
@@ -28,7 +33,25 @@ export function SetupCredentialsScreen() {
     setError('');
     try {
       await initialize(passphrase, pin);
-      navigate(PATHS.onboarding.privacyDemo);
+      // Encryption is now live — persist the collected profile + local identity, then seed demo data.
+      const now = Date.now();
+      const repo = new EncryptedRepository<Profile>(db.profile as never);
+      await repo.put({
+        id: crypto.randomUUID(),
+        displayName: draft.fullName?.trim() ?? '',
+        currency: 'INR',
+        locale: 'en-IN',
+        onboardingComplete: true,
+        userId: crypto.randomUUID(), // stable local identity anchor (claimed on the server in Phase 1.5)
+        username: draft.username || undefined,
+        dob: draft.dob || undefined,
+        employmentType: draft.employmentType,
+        plan: 'free',
+        createdAt: now,
+        updatedAt: now
+      });
+      await seedDemoData(draft.employmentType ?? 'salaried');
+      navigate(PATHS.app.home);
     } catch {
       setError('Setup failed. Please try again.');
       setLoading(false);
@@ -36,7 +59,8 @@ export function SetupCredentialsScreen() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-surface px-6 py-10">
+    <div className="relative min-h-screen flex flex-col bg-surface px-6 py-10">
+      <OnboardingBack to={PATHS.onboarding.letUsKnowYou} />
       <div className="flex-1 w-full max-w-sm mx-auto flex flex-col">
         <div className="mb-8 text-center">
           <div
@@ -71,54 +95,37 @@ export function SetupCredentialsScreen() {
           </div>
 
           {/* Strength meter */}
-          {passphrase.length > 0 && (
-            <div className="mt-2">
-              <div className="flex gap-1 mb-1">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    className={`h-1 flex-1 rounded-full transition-colors ${i <= score ? strengthColors[score] : 'bg-[var(--color-border)]'}`}
-                  />
-                ))}
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-secondary">{strengthLabels[score]}</span>
-                {score < 3 && <span className="text-xs text-amber-600">Need a stronger passphrase</span>}
-              </div>
-            </div>
-          )}
+          {passphrase.length > 0 && <PassphraseStrengthMeter score={score} />}
         </div>
 
         {/* PIN */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-secondary mb-1.5">6-digit PIN</label>
-          <input
+          <TextInput
+            label="6-digit PIN"
             type="password"
             inputMode="numeric"
             maxLength={6}
             value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+            onChange={(v) => setPin(v.replace(/\D/g, ''))}
             placeholder="For quick unlock"
-            className="input-surface w-full text-center tracking-widest border rounded-xl px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            aria-label="PIN"
+            inputClassName="text-center tracking-widest text-lg"
+            error={pinTooWeak ? 'Choose a less predictable PIN' : undefined}
           />
         </div>
 
         {/* Confirm PIN */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-secondary mb-1.5">Confirm PIN</label>
-          <input
+          <TextInput
+            label="Confirm PIN"
             type="password"
             inputMode="numeric"
             maxLength={6}
             value={confirmPin}
-            onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
+            onChange={(v) => setConfirmPin(v.replace(/\D/g, ''))}
             placeholder="Repeat your PIN"
-            className="input-surface w-full text-center tracking-widest border rounded-xl px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-[#00a86b]"
-            style={{ borderColor: pinMismatch ? '#ef4444' : undefined }}
-            aria-label="Confirm PIN"
+            inputClassName="text-center tracking-widest text-lg"
+            error={pinMismatch ? "PINs don't match" : undefined}
           />
-          {pinMismatch && <p className="text-xs text-red-500 mt-1">PINs don't match</p>}
         </div>
 
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 mb-6">
@@ -128,23 +135,18 @@ export function SetupCredentialsScreen() {
           </p>
         </div>
 
-        {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
+        {error && <p className="text-danger text-sm mb-4 text-center">{error}</p>}
 
-        <button
-          onClick={() => void handleCreate()}
+        <Button
+          variant="primary"
+          size="lg"
+          fullWidth
           disabled={!canProceed}
-          className="w-full py-3.5 rounded-xl font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
-          style={{ backgroundColor: 'var(--color-primary)' }}
+          loading={loading}
+          onClick={() => void handleCreate()}
         >
-          {loading ? (
-            <>
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Encrypting your vault…
-            </>
-          ) : (
-            'Create vault'
-          )}
-        </button>
+          {loading ? 'Encrypting your vault…' : 'Create vault'}
+        </Button>
 
         <p className="text-xs text-tertiary text-center mt-3">
           This takes a few seconds — we use 600,000 rounds of key derivation for your security.

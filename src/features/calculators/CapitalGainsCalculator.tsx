@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { calcCapitalGains, type CapitalAsset } from '@/core/calculators/capitalGains';
 import { formatPercent } from '@/lib/formatters';
+import { Banner } from '@/components/ui';
 import { LabeledInput, SegmentedToggle, ResultCard, ResultRow, AmountRow, HeroResult } from './CalcUI';
 
 const ASSET_OPTIONS: { value: CapitalAsset; label: string }[] = [
@@ -71,29 +72,19 @@ export function CapitalGainsCalculator() {
           />
 
           {/* Classification banner */}
-          <div
-            className="rounded-2xl p-4 flex items-center gap-3"
-            style={{
-              backgroundColor: result.isLongTerm ? '#10b9811a' : '#f59e0b1a',
-              border: `1px solid ${result.isLongTerm ? '#10b981' : '#f59e0b'}`
-            }}
+          <Banner
+            variant={result.isLongTerm ? 'success' : 'warning'}
+            icon={result.isLongTerm ? 'ti-clock-check' : 'ti-clock-bolt'}
           >
-            <i
-              className={`ti ${result.isLongTerm ? 'ti-clock-check' : 'ti-clock-bolt'}`}
-              style={{ fontSize: 20, color: result.isLongTerm ? '#10b981' : '#f59e0b' }}
-              aria-hidden="true"
-            />
-            <div className="min-w-0">
-              <p className="text-sm font-semibold" style={{ color: result.isLongTerm ? '#10b981' : '#f59e0b' }}>
-                {result.isLongTerm ? 'Long-term capital gain (LTCG)' : 'Short-term capital gain (STCG)'}
-              </p>
-              <p className="text-xs text-secondary mt-0.5">
-                {asset === 'debt'
-                  ? 'Debt gains are taxed at your slab rate regardless of holding period.'
-                  : `Long-term needs ${result.ltThresholdMonths} months held for this asset.`}
-              </p>
-            </div>
-          </div>
+            <p className="text-sm font-semibold">
+              {result.isLongTerm ? 'Long-term capital gain (LTCG)' : 'Short-term capital gain (STCG)'}
+            </p>
+            <p className="text-xs text-secondary mt-0.5">
+              {asset === 'debt'
+                ? 'Debt gains are taxed at your slab rate regardless of holding period.'
+                : `Long-term needs ${result.ltThresholdMonths} months held for this asset.`}
+            </p>
+          </Banner>
 
           <ResultCard title="Computation">
             <AmountRow label="Total gain" amount={result.gain} accent />

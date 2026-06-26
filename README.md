@@ -2,7 +2,7 @@
 
 **Chip in. Watch it grow.**
 
-Penny is a personal wealth management app that puts you — not advertisers — in control of your financial life. Built for India. Works entirely on your device.
+Penny is a privacy-first personal wealth management PWA built for India. Track your complete financial life — investments, expenses, retirement corpus, insurance, loans, and more — entirely on your device, with no data sent to our servers.
 
 ---
 
@@ -10,24 +10,30 @@ Penny is a personal wealth management app that puts you — not advertisers — 
 
 Most free finance apps contain 5–15 ad trackers and treat your spending data as inventory. Penny works differently:
 
-- **Zero trackers.** No Google Analytics, no Facebook pixels, no ad networks. Verified in-app.
+- **Zero trackers.** No Google Analytics, no Facebook pixels, no ad networks.
 - **Zero servers (Phase 1).** Your data never leaves your device. There is no Penny server that can be breached.
 - **AES-256 encryption.** Every record is encrypted with a key derived from your passphrase. We never see it.
-- **Three external domains, total.** `api.anthropic.com` (AI), `mfapi.in` (mutual fund data), `finance.yahoo.com` (stock prices). You can verify this yourself in DevTools.
+- **Public API calls only.** The app contacts a small set of public market data APIs (MFAPI.in, Yahoo Finance, investorgain.com, npsnav.in). No user data is ever sent to them — only public lookup parameters like stock tickers and scheme codes.
 
 ---
 
-## What Penny does
+## What Penny tracks
 
 | Module | What you get |
 |--------|-------------|
-| **Portfolio** | Track MF, stocks, FD, NPS, PPF, gold. Live NAV and prices. Chip scores each holding across 5 dimensions. |
-| **Expenses** | Categorise spending, set budgets, tag with #hashtags. Auto-detect subscriptions. |
-| **Net Worth & Goals** | Assets minus liabilities (12 types). Goal progress rings. On-device SIP and loan calculators. |
-| **Insurance** | Policy list with renewal alerts and coverage gap analysis. |
-| **Chip AI** | Your AI money coach. Proactive insights with rupee consequences. Context-aware chat on your anonymised data. |
-
-**Chip always shows its reasoning.** Every recommendation tells you what it looked at, what it found, and what happens if you do nothing — in rupees.
+| **Portfolio** | Stocks, Mutual Funds, NPS, PPF, EPF, FD/RD, Gold/Silver, Vehicles, Property. Live prices and NAVs. Gain/loss across all holdings. |
+| **IPO Tracker** | Live IPO lifecycle (Upcoming → Open → Closed → Listed). GMP, subscription multiples, listing gain. |
+| **Expenses** | Full transaction tracking (expenses, income, transfers). Category analytics, budgets, recurring rules, hashtag tagging. CSV import/export. |
+| **Accounts** | Multiple bank accounts, credit cards, cash. Live balances derived from all transactions. |
+| **Goals** | Set targets with target dates. SIP calculator. Progress rings. |
+| **Loans** | Amortization schedule, payoff planner (4 scenarios), XLSX export. |
+| **Insurance** | Policy list, renewal alerts, coverage overview. |
+| **IOUs** | Track money lent or borrowed. Ageing alerts. |
+| **Subscriptions** | 3-pass auto-detection of recurring expenses. |
+| **Financial Health Score** | 0–100 composite across 6 dimensions. Grade A–D. |
+| **Tax Awareness** | 80C/80D/24B tracking, LTCG/STCG capital gains, old vs new regime. |
+| **Cash Flow** | 30-day forward projection of income, expenses, and balance. |
+| **Chip AI** | AI money advisor (Phase 1: smart simulation. Phase 2: Claude AI). Every insight shows reasoning + "what if I do nothing?" in rupees. |
 
 ---
 
@@ -38,8 +44,8 @@ Switch anytime from the top bar:
 | Mode | What you see | Use when |
 |------|-------------|---------|
 | 🟡 **Safe** (default) | Amounts masked as •••• | Someone might glance at your screen |
-| 🟣 **Privacy** | Module names only, no amounts | Screen recording or sharing |
-| 🟢 **Open** | Everything visible | Your own private time |
+| 🟣 **Privacy** | Section names only, no amounts | Screen recording or sharing |
+| 🔴 **Open** | Everything visible, PIN required | Your own private time |
 
 **Peek:** Tap any masked value for a 5-second reveal without switching modes.
 
@@ -53,33 +59,50 @@ Penny is a Progressive Web App (PWA) — no app store needed.
 2. Tap **Add to Home Screen** (Safari) or **Install** (Chrome)
 3. Done. It works offline.
 
-> Phase 2 will bring native iOS and Android apps via the App Store.
+Phase 2 will bring native iOS and Android apps.
 
 ---
 
 ## How Chip AI works
 
-Chip reads an anonymised snapshot of your financial data — names stripped, amounts banded to ₹10K ranges, bank names replaced with "Bank A" — and gives you specific, actionable advice. You can read the exact anonymised payload in the **Privacy Centre** before and after every call.
+Chip reads an anonymised snapshot of your financial data — names stripped, amounts rounded to ₹10K bands, bank names replaced with "Bank A" — before any API call is made. The anonymisation is enforced in code, not policy, and tested in CI (`tests/pii-gate/piiGate.test.ts`).
 
-Chip never knows your name, PAN, Aadhaar, phone number, or account numbers. This is enforced in code, not policy, and tested in CI.
+Chip never knows your name, PAN, Aadhaar, phone number, account numbers, or exact amounts.
 
 ---
 
 ## Roadmap
 
-- **Phase 1** (current): Full app, all features, no AI, no account required
-- **Phase 1 + Chip**: AI advisor on anonymised local data
-- **Phase 1.5**: Shared expenses with family and trip groups (first account requirement)
-- **Phase 2**: Real data via RBI Account Aggregator, trade execution, native apps
-- **Phase 3**: Hindi/regional languages, crypto, international equities
+| Phase | What's included | Status |
+|---|---|---|
+| Phase 1 (M0–M15) | Full financial life tracking, zero backend, local-first | ✅ Complete |
+| Pre-Phase 1.5 | Documentation, component library, onboarding v2, category overhaul, activity log | 🚧 In progress |
+| Phase 1.5 | Groups & Household OS — shared expenses, family vaults, joint goals | ⏳ Next |
+| Phase 2 | Real Chip AI, cloud sync, native apps, CAS import, export PDF | ⏳ Future |
+| Phase 3 | Regional languages, crypto, international equities | ⏳ Future |
 
-See [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md) for the full roadmap.
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for full architecture decisions and [`docs/MILESTONES.md`](docs/MILESTONES.md) for step-by-step history.
+
+---
+
+## Documentation
+
+Full documentation lives in [`docs/`](docs/). Start at [`docs/README.md`](docs/README.md) for navigation.
+
+| File | What it covers |
+|------|---------------|
+| [`docs/BRD.md`](docs/BRD.md) | Product vision, target users, competitive positioning |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Codebase map, component inventory, architectural decisions |
+| [`docs/PRIVACY.md`](docs/PRIVACY.md) | PII definitions, anonymisation rules, encryption model |
+| [`docs/SCHEMA.md`](docs/SCHEMA.md) | All database stores and fields |
+| [`docs/features/`](docs/features/) | Per-feature documentation |
+| [`docs/WHATS_NEXT.md`](docs/WHATS_NEXT.md) | Future feature ideas — open for suggestions |
 
 ---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, architecture overview, and contribution guide.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for local setup, architecture overview, branching rules, and contribution guide.
 
 ---
 

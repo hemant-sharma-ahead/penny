@@ -1,7 +1,3 @@
-import { BlobWriter, TextReader, ZipWriter, configure } from '@zip.js/zip.js';
-
-// Disable Web Workers — the app CSP blocks blob worker URLs and CSV files are small enough to compress on the main thread
-configure({ useWebWorkers: false });
 import type { Expense, ExpenseCategory } from '@/core/db/types';
 
 function fmtDate(epoch: number): string {
@@ -49,6 +45,10 @@ function triggerDownload(blob: Blob, filename: string): void {
 
 // Downloads the CSV as an AES-256 password-protected ZIP (WinZip/7-Zip compatible)
 export async function downloadProtectedZip(csv: string, zipFilename: string, password: string): Promise<void> {
+  // Lazy-load zip.js only when the user exports — keeps it out of the initial bundle.
+  const { BlobWriter, TextReader, ZipWriter, configure } = await import('@zip.js/zip.js');
+  // Disable Web Workers — the app CSP blocks blob worker URLs and CSV files are small enough to compress on the main thread
+  configure({ useWebWorkers: false });
   const writer = new ZipWriter(new BlobWriter('application/zip'), {
     password,
     encryptionStrength: 3 // AES-256

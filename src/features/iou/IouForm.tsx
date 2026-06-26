@@ -1,5 +1,9 @@
 import { useState } from 'react';
 import type { IouDirection, PersonalIou } from '@/core/db/types';
+import { epochToDateInput } from '@/lib/formatters';
+import { TextInput, OptionButton, AmountInput } from '@/components/ui';
+import { FormModal } from '@/components/shared';
+import { STATUS } from '@/lib/statusColors';
 
 interface Props {
   editing: PersonalIou | null;
@@ -7,11 +11,6 @@ interface Props {
   onDelete: (id: string) => Promise<void>;
   onClose: () => void;
   nowMs: number;
-}
-
-function epochToDateInput(epochMs: number): string {
-  const d = new Date(epochMs);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export function IouForm({ editing, onSave, onDelete, onClose, nowMs }: Props) {
@@ -51,141 +50,52 @@ export function IouForm({ editing, onSave, onDelete, onClose, nowMs }: Props) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-60 flex items-center justify-center px-4"
-      style={{ paddingTop: 56, paddingBottom: 72 }}
+    <FormModal
+      title={editing ? 'Edit IOU' : 'Add IOU'}
+      onClose={onClose}
+      onSave={handleSave}
+      onDelete={editing ? handleDelete : undefined}
+      saving={saving}
+      saveLabel={editing ? 'Update' : direction === 'lent' ? 'I lent this' : 'I borrowed this'}
     >
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full max-w-[430px] rounded-2xl p-5 flex flex-col gap-4 max-h-full overflow-y-auto bg-surface">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold text-primary">{editing ? 'Edit IOU' : 'Add IOU'}</h3>
-          <button
-            onClick={onClose}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-tertiary"
-          >
-            <i className="ti ti-x" style={{ fontSize: 20 }} aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* Direction */}
-        <div className="grid grid-cols-2 gap-2">
-          {(['lent', 'borrowed'] as const).map((d) => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => setDirection(d)}
-              className="flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-colors"
-              style={
-                direction === d
-                  ? {
-                      borderColor: d === 'lent' ? '#10b981' : '#ef4444',
-                      backgroundColor: d === 'lent' ? '#f0fdf4' : '#fef2f2'
-                    }
-                  : { borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-secondary)' }
-              }
-            >
-              <i
-                className={`ti ${d === 'lent' ? 'ti-arrow-up' : 'ti-arrow-down'}`}
-                style={{
-                  fontSize: 16,
-                  color: direction === d ? (d === 'lent' ? '#10b981' : '#ef4444') : 'var(--color-text-tertiary)'
-                }}
-                aria-hidden="true"
-              />
-              <span
-                className="text-sm font-medium"
-                style={{
-                  color: direction === d ? (d === 'lent' ? '#10b981' : '#ef4444') : 'var(--color-text-secondary)'
-                }}
-              >
-                {d === 'lent' ? 'I lent' : 'I borrowed'}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* Amount */}
-        <div>
-          <label className="text-xs font-medium text-secondary">Amount (₹)</label>
-          <input
-            type="number"
-            inputMode="decimal"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-            placeholder="0"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            autoFocus
-          />
-        </div>
-
-        {/* Description */}
-        <div>
-          <label className="text-xs font-medium text-secondary">Description</label>
-          <input
-            type="text"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-            placeholder="e.g. Lunch split, cab fare, concert tickets"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-
-        {/* Date + Due date */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-medium text-secondary">Date</label>
-            <input
-              type="date"
-              className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-secondary">Due date (optional)</label>
-            <input
-              type="date"
-              className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Notes */}
-        <div>
-          <label className="text-xs font-medium text-secondary">Notes (optional)</label>
-          <input
-            type="text"
-            className="mt-1 w-full rounded-xl border px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00a86b] input-surface"
-            placeholder="Any context worth remembering"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-3 pt-1">
-          {editing && (
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="flex-1 py-3 rounded-xl border border-red-200 text-red-500 text-sm font-medium"
-            >
-              Delete
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="flex-1 py-3 rounded-xl text-white text-sm font-medium disabled:opacity-50"
-            style={{ backgroundColor: 'var(--color-primary)' }}
-          >
-            {saving ? 'Saving…' : editing ? 'Update' : direction === 'lent' ? 'I lent this' : 'I borrowed this'}
-          </button>
-        </div>
+      {/* Direction */}
+      <div className="grid grid-cols-2 gap-2">
+        <OptionButton
+          label="I lent"
+          icon="ti-arrow-up"
+          selected={direction === 'lent'}
+          onClick={() => setDirection('lent')}
+          color={STATUS.success}
+        />
+        <OptionButton
+          label="I borrowed"
+          icon="ti-arrow-down"
+          selected={direction === 'borrowed'}
+          onClick={() => setDirection('borrowed')}
+          color={STATUS.danger}
+        />
       </div>
-    </div>
+
+      <AmountInput label="Amount" value={amount} onChange={setAmount} placeholder="0" autoFocus />
+
+      <TextInput
+        label="Description"
+        value={description}
+        onChange={setDescription}
+        placeholder="e.g. Lunch split, cab fare, concert tickets"
+      />
+
+      <div className="grid grid-cols-2 gap-3">
+        <TextInput label="Date" value={date} onChange={setDate} type="date" />
+        <TextInput label="Due date (optional)" value={dueDate} onChange={setDueDate} type="date" />
+      </div>
+
+      <TextInput
+        label="Notes (optional)"
+        value={notes}
+        onChange={setNotes}
+        placeholder="Any context worth remembering"
+      />
+    </FormModal>
   );
 }

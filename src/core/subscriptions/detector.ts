@@ -11,6 +11,8 @@ export interface DetectedSubscription {
   priceCreep: boolean;
   dormant: boolean;
   estimatedMonthly: number;
+  firstAmount: number; // earliest observed charge — for price-hike detail
+  latestAmount: number; // most recent observed charge
 }
 
 // Known recurring intervals with tolerance (days)
@@ -61,9 +63,11 @@ function matchInterval(days: number): number | null {
  * Pure function — no DB access.
  */
 export function detectSubscriptions(expenses: Expense[], nowMs: number): DetectedSubscription[] {
-  // Pass 1 — group by normalized description
+  // Pass 1 — group by normalized description (expenses only; income/transfers
+  // are never subscriptions — e.g. a monthly salary credit must not be detected)
   const groups = new Map<string, Expense[]>();
   for (const e of expenses) {
+    if ((e.type ?? 'expense') !== 'expense') continue;
     const key = normalize(e.description);
     if (!key) continue;
     const arr = groups.get(key) ?? [];
@@ -125,7 +129,9 @@ export function detectSubscriptions(expenses: Expense[], nowMs: number): Detecte
       occurrenceCount: items.length,
       priceCreep,
       dormant,
-      estimatedMonthly: (detectedAmount / matched) * 30
+      estimatedMonthly: (detectedAmount / matched) * 30,
+      firstAmount,
+      latestAmount: lastAmount
     };
     if (trialEndsAt !== undefined) candidate.trialEndsAt = trialEndsAt;
     if (lastChargedAt !== undefined) candidate.lastChargedAt = lastChargedAt;

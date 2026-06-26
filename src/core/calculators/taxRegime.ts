@@ -1,47 +1,32 @@
-// Old vs New tax regime comparison — pure, on-device.
+// Old vs New tax regime comparison — pure, on-device. FY-parameterised: the slab tables, rebate
+// limits, standard deductions, cess and surcharge for each financial year live in
+// `core/tax/regimeHistory.ts`; this module applies them. Defaults to the latest modelled FY.
 //
-// Slabs and rules for FY 2025-26 (AY 2026-27), individuals below 60.
-//   - New regime: standard deduction ₹75,000; §87A rebate makes tax nil up to
-//     ₹12,00,000 taxable income; surcharge capped at 25%.
-//   - Old regime: standard deduction ₹50,000; §87A rebate makes tax nil up to
-//     ₹5,00,000 taxable income; allows Chapter VI-A deductions (80C/80D/24B/etc.).
-//   - Both: 4% health & education cess on (tax + surcharge).
-//
-// This is an estimate for planning. It does not model every edge case (marginal
-// relief on surcharge, special-rate incomes, etc.).
+// This is an estimate for planning. It does not model every edge case (marginal relief on
+// surcharge/rebate, special-rate incomes, etc.).
 
-export const TAX_FY_LABEL = 'FY 2025-26 (AY 2026-27)';
+import {
+  fyConfigFor,
+  LATEST_FY_START,
+  type FYTaxConfig,
+  type RegimeConfig,
+  type RegimeSlab
+} from '@/core/tax/regimeHistory';
 
-export const NEW_REGIME_STD_DEDUCTION = 75_000;
-export const OLD_REGIME_STD_DEDUCTION = 50_000;
-const NEW_REGIME_REBATE_LIMIT = 12_00_000;
-const OLD_REGIME_REBATE_LIMIT = 5_00_000;
-const CESS_RATE = 0.04;
+/** Default config — the latest financial year we model. */
+export const CURRENT_FY_CONFIG: FYTaxConfig = fyConfigFor(LATEST_FY_START);
 
-interface Slab {
-  upTo: number | null; // null = no upper bound
-  rate: number; // fraction, e.g. 0.05
-}
+export const TAX_FY_LABEL = CURRENT_FY_CONFIG.label;
+export const NEW_REGIME_STD_DEDUCTION = CURRENT_FY_CONFIG.new?.stdDeduction ?? 75_000;
+export const OLD_REGIME_STD_DEDUCTION = CURRENT_FY_CONFIG.old.stdDeduction;
 
-const NEW_REGIME_SLABS: Slab[] = [
-  { upTo: 4_00_000, rate: 0 },
-  { upTo: 8_00_000, rate: 0.05 },
-  { upTo: 12_00_000, rate: 0.1 },
-  { upTo: 16_00_000, rate: 0.15 },
-  { upTo: 20_00_000, rate: 0.2 },
-  { upTo: 24_00_000, rate: 0.25 },
-  { upTo: null, rate: 0.3 }
-];
-
-const OLD_REGIME_SLABS: Slab[] = [
-  { upTo: 2_50_000, rate: 0 },
-  { upTo: 5_00_000, rate: 0.05 },
-  { upTo: 10_00_000, rate: 0.2 },
-  { upTo: null, rate: 0.3 }
-];
+// Chapter VI-A statutory caps (stable across the modelled window).
+const CAP_80C = 1_50_000;
+const CAP_24B = 2_00_000;
+const CAP_NPS_80CCD_1B = 50_000;
 
 /** Progressive slab tax on a taxable income. */
-function slabTax(taxable: number, slabs: Slab[]): number {
+function slabTax(taxable: number, slabs: RegimeSlab[]): number {
   if (taxable <= 0) return 0;
   let tax = 0;
   let lower = 0;
@@ -57,13 +42,13 @@ function slabTax(taxable: number, slabs: Slab[]): number {
   return tax;
 }
 
-/** Surcharge on total income. New regime caps the top rate at 25%. */
-function surcharge(tax: number, totalIncome: number, regime: 'old' | 'new'): number {
+/** Surcharge on income, with the new regime capped at the FY's cap rate. */
+function surchargeAmount(tax: number, totalIncome: number, fy: FYTaxConfig, isNewRegime: boolean): number {
   let rate = 0;
-  if (totalIncome > 5_00_00_000) rate = regime === 'new' ? 0.25 : 0.37;
-  else if (totalIncome > 2_00_00_000) rate = 0.25;
-  else if (totalIncome > 1_00_00_000) rate = 0.15;
-  else if (totalIncome > 50_00_000) rate = 0.1;
+  for (const band of fy.surcharge) {
+    if (totalIncome > band.aboveIncome) rate = band.rate;
+  }
+  if (isNewRegime) rate = Math.min(rate, fy.newRegimeSurchargeCap);
   return tax * rate;
 }
 
@@ -93,26 +78,28 @@ export interface TaxRegimeInput {
 
 export interface TaxRegimeResult {
   old: RegimeBreakdown;
-  new: RegimeBreakdown;
+  /** Null for FYs before the new regime existed (pre FY2020-21). */
+  new: RegimeBreakdown | null;
   recommended: 'old' | 'new';
   savings: number; // tax saved by choosing the recommended regime
+  fyLabel: string;
 }
 
 function computeRegime(
   grossIncome: number,
-  standardDeduction: number,
+  config: RegimeConfig,
+  fy: FYTaxConfig,
+  isSalaried: boolean,
   otherDeductions: number,
-  slabs: Slab[],
-  rebateLimit: number,
-  regime: 'old' | 'new'
+  isNewRegime: boolean
 ): RegimeBreakdown {
+  const standardDeduction = isSalaried ? config.stdDeduction : 0;
   const taxableIncome = Math.max(0, grossIncome - standardDeduction - otherDeductions);
-  const taxBeforeRebate = slabTax(taxableIncome, slabs);
-  const rebate = taxableIncome <= rebateLimit ? taxBeforeRebate : 0;
+  const taxBeforeRebate = slabTax(taxableIncome, config.slabs);
+  const rebate = taxableIncome <= config.rebateLimit ? taxBeforeRebate : 0;
   const taxAfterRebate = taxBeforeRebate - rebate;
-  const sur = surcharge(taxAfterRebate, taxableIncome, regime);
-  const cess = (taxAfterRebate + sur) * CESS_RATE;
-  const totalTax = taxAfterRebate + sur + cess;
+  const surcharge = surchargeAmount(taxAfterRebate, taxableIncome, fy, isNewRegime);
+  const cess = (taxAfterRebate + surcharge) * fy.cessRate;
 
   return {
     grossIncome,
@@ -121,40 +108,35 @@ function computeRegime(
     taxableIncome,
     taxBeforeRebate,
     rebate,
-    surcharge: sur,
+    surcharge,
     cess,
-    totalTax
+    totalTax: taxAfterRebate + surcharge + cess
   };
 }
 
-export function compareTaxRegimes(input: TaxRegimeInput): TaxRegimeResult | null {
+export function compareTaxRegimes(input: TaxRegimeInput, fy: FYTaxConfig = CURRENT_FY_CONFIG): TaxRegimeResult | null {
   const { grossIncome, isSalaried } = input;
   if (grossIncome < 0) return null;
 
-  const oldStdDed = isSalaried ? OLD_REGIME_STD_DEDUCTION : 0;
-  const newStdDed = isSalaried ? NEW_REGIME_STD_DEDUCTION : 0;
-
   // Old regime totals the Chapter VI-A deductions (with their statutory caps).
   const cappedOtherDeductions =
-    Math.min(input.deduction80C, 1_50_000) +
+    Math.min(input.deduction80C, CAP_80C) +
     Math.max(0, input.deduction80D) +
-    Math.min(input.homeLoanInterest, 2_00_000) +
-    Math.min(input.nps80ccd1b, 50_000) +
+    Math.min(input.homeLoanInterest, CAP_24B) +
+    Math.min(input.nps80ccd1b, CAP_NPS_80CCD_1B) +
     Math.max(0, input.hraExemption) +
     Math.max(0, input.otherDeductions);
 
-  const oldBreakdown = computeRegime(
-    grossIncome,
-    oldStdDed,
-    cappedOtherDeductions,
-    OLD_REGIME_SLABS,
-    OLD_REGIME_REBATE_LIMIT,
-    'old'
-  );
-  const newBreakdown = computeRegime(grossIncome, newStdDed, 0, NEW_REGIME_SLABS, NEW_REGIME_REBATE_LIMIT, 'new');
+  const old = computeRegime(grossIncome, fy.old, fy, isSalaried, cappedOtherDeductions, false);
+  const newBreakdown = fy.new ? computeRegime(grossIncome, fy.new, fy, isSalaried, 0, true) : null;
 
-  const recommended = newBreakdown.totalTax <= oldBreakdown.totalTax ? 'new' : 'old';
-  const savings = Math.abs(oldBreakdown.totalTax - newBreakdown.totalTax);
+  const recommended: 'old' | 'new' = newBreakdown && newBreakdown.totalTax < old.totalTax ? 'new' : 'old';
+  const savings = newBreakdown ? Math.abs(old.totalTax - newBreakdown.totalTax) : 0;
 
-  return { old: oldBreakdown, new: newBreakdown, recommended, savings };
+  return { old, new: newBreakdown, recommended, savings, fyLabel: fy.label };
+}
+
+/** The tax under the recommended regime — convenience for callers that only need the figure. */
+export function recommendedRegimeTax(result: TaxRegimeResult): number {
+  return result.recommended === 'new' && result.new ? result.new.totalTax : result.old.totalTax;
 }

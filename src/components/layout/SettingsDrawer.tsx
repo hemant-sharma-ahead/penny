@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSettings, type FontScale, type ModuleVisibility, type Theme } from '@/context/SettingsContext';
 import { type PrivacyMode } from '@/context/PrivacyContext';
 import { clearDemoData, isDemoSeeded } from '@/core/db/seedDemoData';
+import { getWipeAfterAttempts, setWipeAfterAttempts, WIPE_THRESHOLD } from '@/core/crypto/securityManager';
+import { Toggle } from '@/components/ui';
 import { PATHS } from '@/router/paths';
 
 interface Props {
@@ -36,16 +38,39 @@ const FONT_SCALES: { value: FontScale; label: string }[] = [
 
 const THEMES: { value: Theme; label: string; icon: string }[] = [
   { value: 'light', label: 'Light', icon: 'ti-sun' },
-  { value: 'system', label: 'System', icon: 'ti-device-desktop' },
-  { value: 'dark', label: 'Dark', icon: 'ti-moon' }
+  { value: 'blue', label: 'Penny Blue', icon: 'ti-droplet' },
+  { value: 'dark', label: 'Dark', icon: 'ti-moon' },
+  { value: 'system', label: 'System', icon: 'ti-device-desktop' }
 ];
 
 export function SettingsDrawer({ open, onClose }: Props) {
   const navigate = useNavigate();
-  const { modules, fontScale, theme, defaultPrivacyMode, setModule, setFontScale, setTheme, setDefaultPrivacyMode } =
-    useSettings();
+  const {
+    modules,
+    fontScale,
+    theme,
+    defaultPrivacyMode,
+    lockOnBackground,
+    setModule,
+    setFontScale,
+    setTheme,
+    setDefaultPrivacyMode,
+    setLockOnBackground
+  } = useSettings();
   const [clearing, setClearing] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [wipeEnabled, setWipeEnabled] = useState(false);
+
+  // Load the (encrypted-record) wipe-after-attempts setting when the drawer opens.
+  useEffect(() => {
+    if (!open) return;
+    void getWipeAfterAttempts().then((n) => setWipeEnabled(n != null));
+  }, [open]);
+
+  const toggleWipe = (value: boolean) => {
+    setWipeEnabled(value);
+    void setWipeAfterAttempts(value);
+  };
 
   const handleClearSample = async () => {
     if (!confirmClear) {
@@ -84,6 +109,43 @@ export function SettingsDrawer({ open, onClose }: Props) {
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto">
+          {/* Account section */}
+          <section className="px-4 pt-4 pb-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wider mb-1 text-tertiary">Account</p>
+            <button
+              onClick={() => {
+                onClose();
+                navigate(PATHS.app.profile);
+              }}
+              className="flex items-center justify-between w-full py-2.5 text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-surface-2">
+                  <i className="ti ti-user text-secondary" style={{ fontSize: 15 }} aria-hidden="true" />
+                </div>
+                <span className="text-sm text-primary">Edit profile</span>
+              </div>
+              <i className="ti ti-chevron-right text-tertiary" style={{ fontSize: 16 }} aria-hidden="true" />
+            </button>
+            <button
+              onClick={() => {
+                onClose();
+                navigate(PATHS.app.timeline);
+              }}
+              className="flex items-center justify-between w-full py-2.5 text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-surface-2">
+                  <i className="ti ti-history text-secondary" style={{ fontSize: 15 }} aria-hidden="true" />
+                </div>
+                <span className="text-sm text-primary">Timeline</span>
+              </div>
+              <i className="ti ti-chevron-right text-tertiary" style={{ fontSize: 16 }} aria-hidden="true" />
+            </button>
+          </section>
+
+          <div className="mx-4 my-1 border-t border-theme" />
+
           {/* Modules section */}
           <section className="px-4 pt-4 pb-2">
             <p className="text-[11px] font-semibold uppercase tracking-wider mb-1 text-tertiary">Modules</p>
@@ -134,12 +196,12 @@ export function SettingsDrawer({ open, onClose }: Props) {
             <p className="text-[11px] font-semibold uppercase tracking-wider mb-3 text-tertiary">Display</p>
 
             <p className="text-xs mb-2 text-secondary">Theme</p>
-            <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="grid grid-cols-4 gap-2 mb-4">
               {THEMES.map((t) => (
                 <button
                   key={t.value}
                   onClick={() => setTheme(t.value)}
-                  className="flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-medium transition-colors"
+                  className="flex flex-col items-center gap-1 py-2 rounded-xl border font-medium transition-colors"
                   style={
                     theme === t.value
                       ? { backgroundColor: 'var(--color-primary)', color: '#fff', borderColor: 'var(--color-primary)' }
@@ -150,8 +212,8 @@ export function SettingsDrawer({ open, onClose }: Props) {
                         }
                   }
                 >
-                  <i className={`ti ${t.icon}`} style={{ fontSize: 18 }} aria-hidden="true" />
-                  {t.label}
+                  <i className={`ti ${t.icon}`} style={{ fontSize: 16 }} aria-hidden="true" />
+                  <span className="text-[10px] leading-tight text-center">{t.label}</span>
                 </button>
               ))}
             </div>
@@ -215,8 +277,8 @@ export function SettingsDrawer({ open, onClose }: Props) {
           <section className="px-4 py-4">
             <p className="text-[11px] font-semibold uppercase tracking-wider mb-3 text-tertiary">Security &amp; Data</p>
             {[
-              { icon: 'ti-lock', label: 'Change PIN', path: null },
-              { icon: 'ti-key', label: 'Change Passphrase', path: null },
+              { icon: 'ti-lock', label: 'Change PIN', path: PATHS.app.changePin },
+              { icon: 'ti-key', label: 'Change Passphrase', path: PATHS.app.changePassphrase },
               { icon: 'ti-database-export', label: 'Backup & Restore', path: PATHS.app.backup }
             ].map((item) => (
               <button
@@ -238,6 +300,35 @@ export function SettingsDrawer({ open, onClose }: Props) {
                 <i className="ti ti-chevron-right text-tertiary" style={{ fontSize: 16 }} aria-hidden="true" />
               </button>
             ))}
+
+            {/* Lock immediately when the app is backgrounded */}
+            <div className="flex items-center justify-between py-2.5">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-surface-2 shrink-0">
+                  <i className="ti ti-lock-square text-secondary" style={{ fontSize: 15 }} aria-hidden="true" />
+                </div>
+                <span className="text-sm text-primary">Lock when app is backgrounded</span>
+              </div>
+              <Toggle
+                value={lockOnBackground}
+                onChange={setLockOnBackground}
+                aria-label="Lock when app is backgrounded"
+              />
+            </div>
+
+            {/* Opt-in: erase all data after repeated failed PIN attempts */}
+            <div className="flex items-center justify-between py-2.5">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-surface-2 shrink-0">
+                  <i className="ti ti-trash-x text-danger" style={{ fontSize: 15 }} aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm text-primary">Erase data after {WIPE_THRESHOLD} failed attempts</p>
+                  <p className="text-[11px] text-tertiary leading-tight">Irreversible — there is no recovery</p>
+                </div>
+              </div>
+              <Toggle value={wipeEnabled} onChange={toggleWipe} aria-label="Erase data after failed attempts" />
+            </div>
           </section>
 
           {isDemoSeeded() && (

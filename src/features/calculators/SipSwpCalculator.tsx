@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { calcSipSwp } from '@/core/calculators/sipSwp';
 import { MaskedValue } from '@/components/privacy/MaskedValue';
 import { formatCurrency } from '@/lib/formatters';
+import { Banner } from '@/components/ui';
 import { LabeledInput, SegmentedToggle, ResultCard, AmountRow, HeroResult } from './CalcUI';
 
 function lastedLabel(months: number): string {
@@ -133,29 +134,16 @@ export function SipSwpCalculator() {
           {result.hasSwp && (
             <>
               {/* Outcome banner */}
-              <div
-                className="rounded-2xl p-4 flex items-start gap-3"
-                style={{
-                  backgroundColor: result.corpusDepleted ? '#ef44441a' : '#10b9811a',
-                  border: `1px solid ${result.corpusDepleted ? '#ef4444' : '#10b981'}`
-                }}
-              >
-                <i
-                  className={`ti ${result.corpusDepleted ? 'ti-alert-triangle' : 'ti-circle-check'}`}
-                  style={{ fontSize: 20, color: result.corpusDepleted ? '#ef4444' : '#10b981' }}
-                  aria-hidden="true"
-                />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold" style={{ color: result.corpusDepleted ? '#ef4444' : '#10b981' }}>
-                    {result.corpusDepleted ? 'Corpus runs out early' : 'Corpus lasts the full period'}
-                  </p>
-                  <p className="text-xs text-secondary mt-0.5">
-                    {result.corpusDepleted && result.monthsCorpusLasted != null
-                      ? `Your money lasts about ${lastedLabel(result.monthsCorpusLasted)} into a ${swpYears}-year plan. Trim withdrawals, raise returns, or invest longer.`
-                      : `After ${swpYears} years of withdrawals you still have a balance left.`}
-                  </p>
-                </div>
-              </div>
+              <Banner variant={result.corpusDepleted ? 'danger' : 'success'}>
+                <p className="text-sm font-semibold">
+                  {result.corpusDepleted ? 'Corpus runs out early' : 'Corpus lasts the full period'}
+                </p>
+                <p className="text-xs text-secondary mt-0.5">
+                  {result.corpusDepleted && result.monthsCorpusLasted != null
+                    ? `Your money lasts about ${lastedLabel(result.monthsCorpusLasted)} into a ${swpYears}-year plan. Trim withdrawals, raise returns, or invest longer.`
+                    : `After ${swpYears} years of withdrawals you still have a balance left.`}
+                </p>
+              </Banner>
 
               <ResultCard title="Withdrawal (SWP)">
                 <AmountRow label="Total withdrawn" amount={result.totalWithdrawn} accent />

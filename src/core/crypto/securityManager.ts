@@ -1,17 +1,27 @@
-// Three-key architecture:
-//   passphrase → Master Key (PBKDF2, 600K iterations) — used directly for data encryption
-//   PIN        → Key Encryption Key (PBKDF2, 200K iterations) — wraps/unwraps the MK
+// Envelope encryption (Track 2):
+//   A single random Data Master Key (DMK) encrypts all user data and never changes.
+//   It is wrapped independently by a passphrase-KEK (PBKDF2 600K) and a PIN-KEK
+//   (PBKDF2 200K). Changing a factor re-wraps the DMK only — data is never re-encrypted.
+//   The DMK lives in memory (non-extractable) only while unlocked.
 //
-// On initialize: MK derived from passphrase, KEK derived from PIN, MK wrapped with KEK.
-// On unlock: KEK re-derived from PIN, used to unwrap stored MK → loaded into keystore.
-// MK never touches disk in unwrapped form.
+// PIN policy: every PIN entry point (unlock, Open-mode re-auth, change-PIN check) shares
+// one attempt counter and the same 5-attempt exponential-backoff lockout. The PIN is
+// mandatory and can never be disabled. PIN changes are limited to once per 24h. Trivial
+// PINs are rejected. An opt-in policy erases all data after N consecutive failures.
 
 import { db } from '@/core/db/schema';
-import { deriveKey, deriveVerifier, generateSalt, unwrapKey, wrapKey } from './engine';
+import { decrypt, deriveKey, generateMasterKey, generateSalt, unwrapKey, wrapKey } from './engine';
 import { keystore } from './keystore';
+import { DAY_MS } from '@/lib/date';
+import type { SecurityRecord } from '@/core/db/types';
 
-const MK_ITERATIONS = 600_000;
-const KEK_ITERATIONS = 200_000;
+const MK_ITERATIONS = 600_000; // passphrase-KEK
+const KEK_ITERATIONS = 200_000; // PIN-KEK
+const SESSION_MS = 30 * 60 * 1000;
+const MAX_ATTEMPTS = 5;
+
+/** Default threshold for the opt-in "erase after N failed attempts" policy. */
+export const WIPE_THRESHOLD = 10;
 
 function bufferToBase64(buf: ArrayBuffer): string {
   return btoa(String.fromCharCode(...new Uint8Array(buf)));
@@ -30,84 +40,256 @@ function generateId(): string {
   return crypto.randomUUID();
 }
 
+async function firstRecord(): Promise<SecurityRecord | undefined> {
+  return (await db.security.toArray())[0];
+}
+
+// Verify a candidate data key by decrypting one existing encrypted row. Used to
+// confirm the passphrase during migration of a legacy (passphrase-derived) vault.
+async function keyDecryptsExistingData(key: CryptoKey): Promise<boolean> {
+  const rows = (await db.profile.toArray()) as { iv?: string; ciphertext?: string }[];
+  const row = rows[0];
+  if (!row?.iv || !row.ciphertext) return false; // nothing to verify against — fail closed
+  try {
+    await decrypt(key, base64ToBuffer(row.iv), base64ToBuffer(row.ciphertext));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ─── Weak-PIN policy ──────────────────────────────────────────────────────────
+
+const COMMON_WEAK_PINS = new Set(['123456', '654321', '121212', '112233', '123123', '696969', '789456']);
+
+/** True if the PIN is not 6 digits, all-same, a straight ascending/descending run, or a well-known weak value. */
+export function isWeakPin(pin: string): boolean {
+  if (!/^\d{6}$/.test(pin)) return true;
+  if (/^(\d)\1{5}$/.test(pin)) return true; // all the same digit
+  if ('0123456789'.includes(pin) || '9876543210'.includes(pin)) return true; // straight sequence
+  return COMMON_WEAK_PINS.has(pin);
+}
+
+// ─── Destructive wipe (opt-in anti-theft) ─────────────────────────────────────
+
+export async function wipeAllData(): Promise<void> {
+  await Promise.all(db.tables.map((t) => t.clear()));
+  keystore.lock();
+}
+
+export async function getWipeAfterAttempts(): Promise<number | null> {
+  const record = await firstRecord();
+  return record?.wipeAfterAttempts ?? null;
+}
+
+export async function setWipeAfterAttempts(enabled: boolean): Promise<void> {
+  const record = await firstRecord();
+  if (!record) return;
+  await db.security.update(record.id, {
+    wipeAfterAttempts: enabled ? WIPE_THRESHOLD : undefined,
+    updatedAt: Date.now()
+  } as object);
+}
+
+// ─── Shared PIN attempt (unified lockout across all entry points) ─────────────
+
+export interface PinCheckResult {
+  status: 'ok' | 'wrong_pin' | 'locked_out' | 'wiped';
+  attemptsRemaining: number;
+  lockedUntil: number | null;
+}
+
+async function consumePinAttempt(
+  pin: string,
+  extractable: boolean
+): Promise<{ result: PinCheckResult; dmk?: CryptoKey }> {
+  const record = await firstRecord();
+  if (!record) return { result: { status: 'wrong_pin', attemptsRemaining: MAX_ATTEMPTS, lockedUntil: null } };
+
+  const now = Date.now();
+  if (record.lockedUntil && record.lockedUntil > now) {
+    return { result: { status: 'locked_out', attemptsRemaining: 0, lockedUntil: record.lockedUntil } };
+  }
+
+  try {
+    const pinKek = await deriveKey(pin, base64ToBuffer(record.kekSalt), KEK_ITERATIONS);
+    const dmk = await unwrapKey(base64ToBuffer(record.encryptedMasterKey), pinKek, extractable);
+    await db.security.update(record.id, {
+      pinAttempts: 0,
+      lockedUntil: undefined,
+      lastPinVerifiedAt: now,
+      updatedAt: now
+    } as object);
+    return { result: { status: 'ok', attemptsRemaining: MAX_ATTEMPTS, lockedUntil: null }, dmk };
+  } catch {
+    const attempts = record.pinAttempts + 1;
+
+    // Opt-in anti-theft: erase everything after N consecutive failures.
+    if (record.wipeAfterAttempts && attempts >= record.wipeAfterAttempts) {
+      await wipeAllData();
+      return { result: { status: 'wiped', attemptsRemaining: 0, lockedUntil: null } };
+    }
+
+    const update: Partial<SecurityRecord> = { pinAttempts: attempts, updatedAt: now };
+    let lockedUntil: number | null = null;
+    if (attempts >= MAX_ATTEMPTS) {
+      const backoffMs = Math.min(5 * 60 * 1000 * Math.pow(2, attempts - MAX_ATTEMPTS), DAY_MS);
+      lockedUntil = now + backoffMs;
+      update.lockedUntil = lockedUntil;
+    }
+    await db.security.update(record.id, update as object);
+    return {
+      result: {
+        status: lockedUntil ? 'locked_out' : 'wrong_pin',
+        attemptsRemaining: Math.max(0, MAX_ATTEMPTS - attempts),
+        lockedUntil
+      }
+    };
+  }
+}
+
 // ─── Initialize (first-time setup) ───────────────────────────────────────────
 
 export async function initialize(passphrase: string, pin: string): Promise<void> {
-  const mkSalt = generateSalt();
   const kekSalt = generateSalt();
-  const verifierSalt = generateSalt();
+  const passphraseKekSalt = generateSalt();
 
-  const mk = await deriveKey(passphrase, mkSalt, MK_ITERATIONS, true);
-  const kek = await deriveKey(pin, kekSalt, KEK_ITERATIONS);
-  const encryptedMasterKey = await wrapKey(mk, kek);
-  const passphraseVerifier = await deriveVerifier(passphrase, verifierSalt);
+  const pinKek = await deriveKey(pin, kekSalt, KEK_ITERATIONS);
+  const passKek = await deriveKey(passphrase, passphraseKekSalt, MK_ITERATIONS);
 
-  // Re-derive MK as non-extractable for runtime use
-  const mkRuntime = await deriveKey(passphrase, mkSalt, MK_ITERATIONS, false);
-  keystore.setMasterKey(mkRuntime);
+  const dmk = await generateMasterKey(true); // extractable only long enough to wrap
+  const encryptedMasterKey = await wrapKey(dmk, pinKek);
+  const encryptedMasterKeyByPassphrase = await wrapKey(dmk, passKek);
+
+  keystore.setMasterKey(await unwrapKey(encryptedMasterKey, pinKek, false));
 
   const now = Date.now();
   await db.security.put({
     id: generateId(),
-    passphraseVerifier,
     encryptedMasterKey: bufferToBase64(encryptedMasterKey),
+    encryptedMasterKeyByPassphrase: bufferToBase64(encryptedMasterKeyByPassphrase),
     kekSalt: bufferToBase64(kekSalt),
-    mkSalt: bufferToBase64(mkSalt),
+    passphraseKekSalt: bufferToBase64(passphraseKekSalt),
     pinAttempts: 0,
     lastPinVerifiedAt: now,
     pinChangedAt: now,
-    sessionExpiresAt: now + 30 * 60 * 1000,
+    sessionExpiresAt: now + SESSION_MS,
     createdAt: now,
     updatedAt: now
   });
 }
 
-// ─── Unlock (subsequent sessions) ────────────────────────────────────────────
+// ─── Unlock with PIN ──────────────────────────────────────────────────────────
 
-export type UnlockResult = 'ok' | 'wrong_pin' | 'locked_out' | 'no_security_record';
+export type UnlockResult = 'ok' | 'wrong_pin' | 'locked_out' | 'wiped' | 'no_security_record';
 
 export async function unlock(pin: string): Promise<UnlockResult> {
-  const records = await db.security.toArray();
-  const record = records[0];
+  const record = await firstRecord();
   if (!record) return 'no_security_record';
 
-  const now = Date.now();
-
-  if (record.lockedUntil && record.lockedUntil > now) {
-    return 'locked_out';
-  }
-
-  try {
-    const kekSalt = base64ToBuffer(record.kekSalt);
-    const kek = await deriveKey(pin, kekSalt, KEK_ITERATIONS);
-    const encryptedMk = base64ToBuffer(record.encryptedMasterKey);
-    const mk = await unwrapKey(encryptedMk, kek);
-
-    keystore.setMasterKey(mk);
-
-    await db.security.update(record.id, {
-      pinAttempts: 0,
-      lockedUntil: undefined,
-      lastPinVerifiedAt: now,
-      sessionExpiresAt: now + 30 * 60 * 1000,
-      updatedAt: now
-    } as object);
-
+  const { result, dmk } = await consumePinAttempt(pin, false);
+  if (result.status === 'ok' && dmk) {
+    keystore.setMasterKey(dmk);
+    const now = Date.now();
+    await db.security.update(record.id, { sessionExpiresAt: now + SESSION_MS, updatedAt: now } as object);
     return 'ok';
-  } catch {
-    // Wrong PIN — increment attempt counter and apply lockout if needed
-    const attempts = record.pinAttempts + 1;
-    const update: Partial<typeof record> = { pinAttempts: attempts, updatedAt: now };
-
-    if (attempts >= 5) {
-      // Exponential backoff: 5min, 10min, 20min, 40min, …
-      const backoffMs = Math.min(5 * 60 * 1000 * Math.pow(2, attempts - 5), 24 * 60 * 60 * 1000);
-      update.lockedUntil = now + backoffMs;
-    }
-
-    await db.security.update(record.id, update);
-    return 'wrong_pin';
   }
+  return result.status;
+}
+
+// ─── Verify PIN (Open-mode re-auth) — shares the unified lockout ──────────────
+
+export async function verifyPin(pin: string): Promise<PinCheckResult> {
+  const { result } = await consumePinAttempt(pin, false);
+  return result;
+}
+
+// ─── Change PIN — re-wrap the DMK with a new PIN-KEK (no data re-encryption) ──
+
+export interface ChangePinResult {
+  status: 'ok' | 'wrong_pin' | 'locked_out' | 'wiped' | 'weak_pin' | 'too_soon' | 'no_security_record';
+  attemptsRemaining?: number;
+  lockedUntil?: number | null;
+  nextChangeAllowedAt?: number;
+}
+
+export async function changePin(currentPin: string, newPin: string): Promise<ChangePinResult> {
+  const record = await firstRecord();
+  if (!record) return { status: 'no_security_record' };
+
+  // Rate-limit: at most one PIN change per 24h.
+  if (record.pinChangedAt && Date.now() - record.pinChangedAt < DAY_MS) {
+    return { status: 'too_soon', nextChangeAllowedAt: record.pinChangedAt + DAY_MS };
+  }
+  if (isWeakPin(newPin)) return { status: 'weak_pin' };
+
+  // Verify the current PIN — this counts toward the unified lockout.
+  const { result, dmk } = await consumePinAttempt(currentPin, true);
+  if (result.status !== 'ok' || !dmk) {
+    return {
+      status: result.status === 'ok' ? 'wrong_pin' : result.status,
+      attemptsRemaining: result.attemptsRemaining,
+      lockedUntil: result.lockedUntil
+    };
+  }
+
+  const newKekSalt = generateSalt();
+  const newPinKek = await deriveKey(newPin, newKekSalt, KEK_ITERATIONS);
+  const rewrapped = await wrapKey(dmk, newPinKek);
+  keystore.setMasterKey(await unwrapKey(rewrapped, newPinKek, false));
+
+  const now = Date.now();
+  await db.security.update(record.id, {
+    encryptedMasterKey: bufferToBase64(rewrapped),
+    kekSalt: bufferToBase64(newKekSalt),
+    pinChangedAt: now,
+    pinAttempts: 0,
+    lockedUntil: undefined,
+    updatedAt: now
+  } as object);
+  return { status: 'ok' };
+}
+
+// ─── Change Passphrase — re-wrap the DMK with a new passphrase-KEK ────────────
+
+export type ChangePassphraseResult = 'ok' | 'wrong_passphrase' | 'no_security_record';
+
+export async function changePassphrase(
+  currentPassphrase: string,
+  newPassphrase: string
+): Promise<ChangePassphraseResult> {
+  const record = await firstRecord();
+  if (!record) return 'no_security_record';
+
+  let dmk: CryptoKey;
+  if (record.encryptedMasterKeyByPassphrase && record.passphraseKekSalt) {
+    try {
+      const oldPassKek = await deriveKey(currentPassphrase, base64ToBuffer(record.passphraseKekSalt), MK_ITERATIONS);
+      dmk = await unwrapKey(base64ToBuffer(record.encryptedMasterKeyByPassphrase), oldPassKek, true);
+    } catch {
+      return 'wrong_passphrase';
+    }
+  } else if (record.mkSalt) {
+    // Legacy vault — the DMK was derived from the passphrase; reconstruct and verify against real data.
+    const candidate = await deriveKey(currentPassphrase, base64ToBuffer(record.mkSalt), MK_ITERATIONS, true);
+    if (!(await keyDecryptsExistingData(candidate))) return 'wrong_passphrase';
+    dmk = candidate;
+  } else {
+    return 'wrong_passphrase';
+  }
+
+  const newPassphraseKekSalt = generateSalt();
+  const newPassKek = await deriveKey(newPassphrase, newPassphraseKekSalt, MK_ITERATIONS);
+  const rewrapped = await wrapKey(dmk, newPassKek);
+
+  const now = Date.now();
+  await db.security.update(record.id, {
+    encryptedMasterKeyByPassphrase: bufferToBase64(rewrapped),
+    passphraseKekSalt: bufferToBase64(newPassphraseKekSalt),
+    mkSalt: undefined, // legacy derivation no longer used once migrated
+    updatedAt: now
+  } as object);
+  return 'ok';
 }
 
 // ─── Lockout state ───────────────────────────────────────────────────────────
@@ -118,34 +300,25 @@ export interface LockoutState {
 }
 
 export async function getLockoutState(): Promise<LockoutState | null> {
-  const records = await db.security.toArray();
-  const record = records[0];
+  const record = await firstRecord();
   if (!record) return null;
-  return {
-    pinAttempts: record.pinAttempts,
-    lockedUntil: record.lockedUntil ?? null
-  };
+  return { pinAttempts: record.pinAttempts, lockedUntil: record.lockedUntil ?? null };
 }
 
 // ─── Session helpers ──────────────────────────────────────────────────────────
 
 export async function isSessionValid(): Promise<boolean> {
   if (!keystore.isUnlocked()) return false;
-  const records = await db.security.toArray();
-  const record = records[0];
+  const record = await firstRecord();
   if (!record?.sessionExpiresAt) return false;
   return record.sessionExpiresAt > Date.now();
 }
 
 export async function refreshSession(): Promise<void> {
-  const records = await db.security.toArray();
-  const record = records[0];
+  const record = await firstRecord();
   if (!record) return;
   const now = Date.now();
-  await db.security.update(record.id, {
-    sessionExpiresAt: now + 30 * 60 * 1000,
-    updatedAt: now
-  });
+  await db.security.update(record.id, { sessionExpiresAt: now + SESSION_MS, updatedAt: now });
 }
 
 export function lockSession(): void {
@@ -155,35 +328,15 @@ export function lockSession(): void {
 export async function isOnboardingComplete(): Promise<boolean> {
   const count = await db.security.count();
   if (count === 0) return false;
-  const records = await db.security.toArray();
-  const record = records[0];
+  const record = await firstRecord();
   if (!record) return false;
-  // Check profile store too
   const profileCount = await db.profile.count();
   return profileCount > 0;
 }
 
-// ─── PIN verification (read-only — no session state touched) ─────────────────
-
-export async function verifyPin(pin: string): Promise<boolean> {
-  const records = await db.security.toArray();
-  const record = records[0];
-  if (!record) return false;
-  try {
-    const kekSalt = base64ToBuffer(record.kekSalt);
-    const kek = await deriveKey(pin, kekSalt, KEK_ITERATIONS);
-    const encryptedMk = base64ToBuffer(record.encryptedMasterKey);
-    await unwrapKey(encryptedMk, kek);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export async function isPinRotationDue(): Promise<boolean> {
-  const records = await db.security.toArray();
-  const record = records[0];
+  const record = await firstRecord();
   if (!record?.pinChangedAt) return false;
-  const daysSinceChange = (Date.now() - record.pinChangedAt) / (1000 * 60 * 60 * 24);
+  const daysSinceChange = (Date.now() - record.pinChangedAt) / DAY_MS;
   return daysSinceChange >= 21;
 }

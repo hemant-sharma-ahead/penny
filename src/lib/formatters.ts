@@ -37,24 +37,21 @@ export function formatPercent(value: number, decimals = 1): string {
   return `${value.toFixed(decimals)}%`;
 }
 
-export function formatDate(epochMs: number): string {
-  return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }).format(
-    new Date(epochMs)
-  );
+/** Parses a numeric input string, returning 0 for empty/invalid values. */
+export function parseNumber(s: string): number {
+  return parseFloat(s) || 0;
 }
 
-export function formatDateShort(epochMs: number): string {
-  return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short' }).format(new Date(epochMs));
-}
-
-export function formatMonthYear(epochMs: number): string {
-  return new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' }).format(new Date(epochMs));
-}
-
-export function currentMonthYear(): string {
-  return new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' }).format(new Date());
-}
-
-export function toMonthYearKey(date: Date = new Date()): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-}
+// Date/time helpers live in ./date — re-exported here for backwards-compatible imports.
+// Prefer importing date utilities directly from '@/lib/date' in new code.
+export {
+  formatDate,
+  formatDateShort,
+  formatMonthsDuration,
+  toMonthYearKey,
+  epochToDateInput,
+  toDateKey,
+  dateLabel,
+  offsetMonth,
+  monthLabel
+} from './date';

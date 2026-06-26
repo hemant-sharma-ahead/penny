@@ -2,8 +2,8 @@
 @import '@fontsource/inter/500.css';
 @import 'tailwindcss';
 
-/* Enable dark: prefix — targets descendants of [data-theme=dark] on <body> */
-@custom-variant dark (&:where([data-theme=dark] *));
+/* Enable dark: prefix — targets descendants of any dark-ish theme (Penny Blue or true Dark) on <body> */
+@custom-variant dark (&:where([data-theme=blue] *, [data-theme=dark] *));
 
 :root {
   /* Brand */
@@ -33,10 +33,13 @@
   --color-border: #c7d8f0;
   --color-border-strong: #a5bfdf;
 
-  /* Status */
+  /* Status (semantic) — use text-success/danger/warning/info + bg-*-subtle utilities,
+     or the STATUS map / tint() helper in src/lib/statusColors.ts for inline styles & component props. */
+  --color-success: #10b981;
   --color-danger: #ef4444;
   --color-warning: #f59e0b;
-  --color-success: #10b981;
+  --color-info: #3b82f6;
+  --color-neutral: #64748b;
 
   /* Bottom nav height (used for scroll padding) */
   --bottom-nav-height: 64px;
@@ -64,11 +67,11 @@
   --color-mode-bg: #eff6ff;
 }
 
-/* ── Dark theme — Penny Dark (#1F3864) palette ── */
-[data-theme='dark'] {
+/* ── Penny Blue theme — navy brand palette (#1F3864) ── */
+[data-theme='blue'] {
   --color-surface: #1e3a6e; /* card / panel bg */
   --color-surface-secondary: #162f5a; /* slightly deeper */
-  --color-surface-tertiary: #1f3864; /* Penny Dark — body bg */
+  --color-surface-tertiary: #1f3864; /* Penny Blue — body bg */
   --color-text-primary: #e8f0fe;
   --color-text-secondary: #94a3b8;
   --color-text-tertiary: #64748b;
@@ -77,6 +80,21 @@
   --color-mode-accent: #00a86b;
   --color-mode-header-bg: #162f5a;
   --color-mode-bg: #1f3864;
+}
+
+/* ── Dark theme — neutral slate/black palette (OLED-friendly) ── */
+[data-theme='dark'] {
+  --color-surface: #161b22; /* card / panel bg */
+  --color-surface-secondary: #1c2128; /* slightly deeper */
+  --color-surface-tertiary: #0b0f14; /* body bg */
+  --color-text-primary: #e6edf3;
+  --color-text-secondary: #8b949e;
+  --color-text-tertiary: #6e7681;
+  --color-border: #2d333b;
+  --color-border-strong: #444c56;
+  --color-mode-accent: #00a86b;
+  --color-mode-header-bg: #161b22;
+  --color-mode-bg: #0b0f14;
 }
 
 /* ── Per-mode overrides (light) — applied via data-privacy-mode on <body> ── */
@@ -98,19 +116,22 @@
   --color-mode-bg: #fff1f2; /* red-50 */
 }
 
-/* ── Dark mode privacy overrides — higher specificity wins ── */
+/* ── Dark-ish theme (Penny Blue + Dark) privacy overrides — higher specificity wins ── */
+[data-theme='blue'][data-privacy-mode='safe'],
 [data-theme='dark'][data-privacy-mode='safe'] {
   --color-mode-accent: #f59e0b;
   --color-mode-header-bg: #2a1c08; /* dark amber */
   --color-mode-bg: #1e1508;
 }
 
+[data-theme='blue'][data-privacy-mode='privacy'],
 [data-theme='dark'][data-privacy-mode='privacy'] {
   --color-mode-accent: #7c3aed;
   --color-mode-header-bg: #1e1030; /* dark violet */
   --color-mode-bg: #170d25;
 }
 
+[data-theme='blue'][data-privacy-mode='open'],
 [data-theme='dark'][data-privacy-mode='open'] {
   --color-mode-accent: #dc2626;
   --color-mode-header-bg: #2d0a0a; /* dark red */
@@ -130,6 +151,9 @@
      border-theme / border-theme-strong
      surface       → bg-surface + 1px border  (card shorthand)
      input-surface → bg + text + border for <input>/<select>
+     text-success / text-danger / text-warning / text-info
+     bg-success-subtle / bg-danger-subtle / bg-warning-subtle / bg-info-subtle
+     (for component props / inline styles use STATUS + tint() from src/lib/statusColors.ts)
 
    Usage example:
      <div className="surface rounded-2xl p-4">
@@ -181,6 +205,34 @@
     color: var(--color-text-primary);
     border-color: var(--color-border);
   }
+
+  /* Status text colors */
+  .text-success {
+    color: var(--color-success);
+  }
+  .text-danger {
+    color: var(--color-danger);
+  }
+  .text-warning {
+    color: var(--color-warning);
+  }
+  .text-info {
+    color: var(--color-info);
+  }
+
+  /* Status subtle backgrounds — theme-aware translucent tints (composite over any surface) */
+  .bg-success-subtle {
+    background-color: color-mix(in srgb, var(--color-success) 12%, transparent);
+  }
+  .bg-danger-subtle {
+    background-color: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  }
+  .bg-warning-subtle {
+    background-color: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  }
+  .bg-info-subtle {
+    background-color: color-mix(in srgb, var(--color-info) 12%, transparent);
+  }
 }
 
 * {
@@ -224,4 +276,16 @@ button {
 ::-webkit-scrollbar-thumb {
   background: var(--color-border-strong);
   border-radius: 2px;
+}
+
+/* Confetti — Timeline milestone celebration */
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-12px) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(120px) rotate(360deg);
+    opacity: 0;
+  }
 }

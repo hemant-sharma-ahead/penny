@@ -5,7 +5,7 @@ export interface PriceCache {
   symbol: string;
   price: number;
   nav?: number;
-  previousClose?: number;
+  previousClose?: number | undefined;
   currency: string;
   fetchedAt: number; // epoch ms
 }
@@ -20,12 +20,24 @@ export interface PrivacyStat {
 
 // ─── Encrypted store types ────────────────────────────────────────────────────
 
+/** How the user earns — drives EPF visibility, tax deductions, and health benchmarks. */
+export type EmploymentType = 'salaried' | 'self_employed' | 'business_owner' | 'student' | 'retired';
+
+/** Local entitlement marker. Everyone is effectively full-access until pricing ships. */
+export type Plan = 'free' | 'pro';
+
 export interface Profile {
   id: string;
-  displayName: string;
+  displayName: string; // the user's full name (also used as the display name)
   currency: string; // default "INR"
   locale: string; // default "en-IN"
   onboardingComplete: boolean;
+  // ── Identity & attributes (Track 2) ──
+  userId?: string | undefined; // stable local identity anchor (UUID); "claimed" on the server at Phase 1.5 registration. Never keyed off the username string.
+  username?: string | undefined; // provisional, optional; 3–20 lowercase alphanumeric/underscore. Reserved on the server only at registration.
+  dob?: string | undefined; // ISO date (YYYY-MM-DD). Encrypted; only a 5-year age band is ever sent to the AI.
+  employmentType?: EmploymentType | undefined;
+  plan?: Plan | undefined; // entitlement state; defaults to 'free' (full access in Phase 1)
   createdAt: number;
   updatedAt: number;
 }
@@ -203,7 +215,8 @@ export interface ExpenseCategory {
   icon: string;
   color: string;
   isDefault: boolean;
-  parentId?: string; // subcategory prep — not used in UI yet
+  isGroup?: boolean; // true ⇒ a user-created parent/grouping header, not selectable for a transaction
+  parentId?: string; // for a leaf custom category, the id of its parent (isGroup) category
   intentGroup?: string; // e.g. 'daily_living', 'income', 'transfers'
   applicableTo?: 'expense' | 'income' | 'transfer'; // defaults to 'expense'
   createdAt: number;
@@ -231,6 +244,7 @@ export interface Expense {
   toAccountId?: string; // transfers only: destination account
   source?: TransactionSource; // omitted on legacy records = 'manual'
   sourceRef?: string; // dedup key: hash(date+amount+description) for import; bank ref for sync
+  receiptDataUrl?: string; // local encrypted receipt photo (compressed JPEG data URL); never sent to AI
   createdAt: number;
   updatedAt: number;
 }
@@ -265,6 +279,36 @@ export interface Hashtag {
   id: string;
   name: string; // without #
   usageCount: number;
+  createdAt: number;
+}
+
+// ─── Merchant memory (Track 6) ──────────────────────────────────────────────
+// Remembers the category/account/payment last used for a given merchant so the
+// Add-transaction form can auto-fill on the next matching entry. Local precursor
+// to the Phase-2 AI categoriser. Encrypted store; id = `${type}::${normalizedDescription}`.
+export interface MerchantMemory {
+  id: string; // `${type}::${normalizedDescription}` — see core/expenses/merchantMemory.ts
+  description: string; // last raw (trimmed) description, for display
+  type: TransactionType;
+  categoryId: string;
+  accountId?: string;
+  paymentMode?: string;
+  usageCount: number;
+  updatedAt: number;
+}
+
+// ─── Transaction templates (Track 6, Step 10) ───────────────────────────────
+// User-saved quick-add presets ("Coffee ₹120", "Auto fare") for one-tap entry.
+// Encrypted store; amount optional so a template can prompt for it on use.
+export interface TransactionTemplate {
+  id: string;
+  label: string; // chip label, e.g. "Coffee"
+  type: TransactionType;
+  description: string;
+  categoryId: string;
+  amount?: number;
+  accountId?: string;
+  paymentMode?: string;
   createdAt: number;
 }
 
@@ -314,11 +358,11 @@ export interface Liability {
   principalAmount: number;
   outstandingAmount: number;
   interestRate: number;
-  emiAmount?: number;
+  emiAmount?: number | undefined;
   emiDueDate?: number; // day of month 1-31
   startDate?: number;
   endDate?: number;
-  lenderName?: string;
+  lenderName?: string | undefined;
   prepaymentPenalty?: number; // percentage
   ltvRatio?: number; // for gold loan / LAP
   creditLimit?: number; // for credit card / OD
@@ -369,17 +413,52 @@ export interface AiCallLog {
   calledAt: number;
 }
 
+export type ActivityAction =
+  | 'CREATE'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'MERGE'
+  | 'BULK_DELETE'
+  | 'BULK_MOVE'
+  | 'BULK_UPDATE'
+  | 'IMPORT'
+  | 'RESTORE'
+  | 'CHECKPOINT';
+
+// Audit trail of user-initiated data changes (Pre-Phase 1.5, Track 4). Encrypted store.
+// Powers the Timeline: undo/restore, per-item history, diffs, streaks, and the privacy receipt.
+export interface ActivityLog {
+  id: string;
+  timestamp: number; // epoch ms
+  action: ActivityAction;
+  entityType: string; // e.g. 'expense', 'account', 'goal', 'holding'
+  entityId: string; // affected record id (or a synthetic id for bulk actions)
+  summary: string; // human-readable, e.g. 'Deleted expense: Swiggy ₹340'
+  actor?: string; // who performed it; unused in Phase 1 (always self) — powers the Phase 1.5 household feed
+  snapshot?: string; // JSON of the deleted record(s) — enables Undo / Recently Deleted restore
+  diff?: string; // JSON { field: [before, after] } for UPDATE — beautiful diffs + future revert
+  entityCount?: number; // number of records affected (bulk actions)
+  restorePointId?: string; // groups entries under a named checkpoint (restore points / rewind)
+  restored?: boolean; // true once a deleted entry has been restored (hides it from Recently Deleted)
+}
+
+// Envelope encryption (Track 2): a random Data Master Key (DMK) encrypts all data
+// and is wrapped independently by a PIN-derived KEK and a passphrase-derived KEK.
+// Changing a factor re-wraps the DMK only — data is never re-encrypted.
 export interface SecurityRecord {
   id: string;
-  passphraseVerifier: string; // PBKDF2-derived verifier, not the passphrase
-  encryptedMasterKey: string; // MK wrapped with KEK, base64
-  kekSalt: string; // base64
-  mkSalt: string; // base64
+  encryptedMasterKey: string; // DMK wrapped by the PIN-KEK, base64
+  kekSalt: string; // salt for the PIN-KEK, base64
+  encryptedMasterKeyByPassphrase?: string; // DMK wrapped by the passphrase-KEK, base64 (added lazily for migrated vaults)
+  passphraseKekSalt?: string; // salt for the passphrase-KEK, base64
+  mkSalt?: string; // legacy: salt the pre-envelope MK was derived from (used to verify the passphrase during migration)
+  passphraseVerifier?: string; // legacy, unused
   pinAttempts: number;
   lockedUntil?: number;
   lastPinVerifiedAt?: number;
   pinChangedAt?: number;
   sessionExpiresAt?: number;
+  wipeAfterAttempts?: number; // opt-in: erase all data after this many consecutive failed PIN attempts (undefined = off)
   createdAt: number;
   updatedAt: number;
 }

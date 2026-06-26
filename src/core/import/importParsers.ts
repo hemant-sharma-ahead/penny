@@ -11,6 +11,23 @@ export interface ParsedRow {
 
 export type ImportFormat = 'penny' | 'ynab' | 'cashew' | 'moneyview';
 
+export const IMPORT_FORMATS: ImportFormat[] = ['penny', 'ynab', 'cashew', 'moneyview'];
+
+export const FORMAT_LABELS: Record<ImportFormat, string> = {
+  penny: 'Penny CSV',
+  ynab: 'YNAB',
+  cashew: 'Cashew',
+  moneyview: 'MoneyView'
+};
+
+/** Human-readable expected column hint per format, shown on the upload step. */
+export const FORMAT_COLUMNS: Record<ImportFormat, string> = {
+  penny: 'Date, Amount, Description, Category, Type, PaymentMode, Tags, Notes',
+  ynab: 'Date, Payee, Memo, Outflow, Inflow (or Amount)',
+  cashew: 'Date, Title, Amount, Category, Account',
+  moneyview: 'Date, Description, Amount, Category'
+};
+
 // CSV line parser — handles double-quoted fields with escaped quotes
 function splitLine(line: string): string[] {
   const cols: string[] = [];

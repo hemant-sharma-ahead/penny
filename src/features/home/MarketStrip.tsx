@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { Button, Modal, Toggle } from '@/components/ui';
+import { STATUS } from '@/lib/statusColors';
 import {
   TICKER_CONFIGS,
   fetchMarketTickers,
@@ -40,13 +42,14 @@ export function MarketStrip() {
       <div>
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-medium text-tertiary">Markets</p>
-          <button
-            onClick={() => setManageOpen(true)}
-            className="text-xs font-medium"
+          <Button
+            variant="ghost"
+            size="sm"
             style={{ color: 'var(--color-primary)' }}
+            onClick={() => setManageOpen(true)}
           >
             Manage →
-          </button>
+          </Button>
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-0.5 -mx-4 px-4 scrollbar-none">
@@ -56,7 +59,8 @@ export function MarketStrip() {
               ))
             : tickers.map((t) => {
                 const up = t.changePct !== null && t.changePct >= 0;
-                const changeColor = t.changePct === null ? 'var(--color-text-tertiary)' : up ? '#16a34a' : '#dc2626';
+                const changeColor =
+                  t.changePct === null ? 'var(--color-text-tertiary)' : up ? STATUS.success : STATUS.danger;
                 return (
                   <div
                     key={t.id}
@@ -86,59 +90,25 @@ export function MarketStrip() {
 
       {/* Manage sheet */}
       {manageOpen && (
-        <div
-          className="fixed inset-0 z-60 flex items-center justify-center px-4"
-          style={{ paddingTop: 56, paddingBottom: 72 }}
-        >
-          <div className="absolute inset-0 bg-black/30" onClick={() => setManageOpen(false)} />
-          <div className="relative w-full max-w-[430px] bg-surface rounded-2xl flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-4 border-b border-theme">
-              <p className="text-base font-semibold text-primary">Market tickers</p>
-              <button
-                onClick={() => setManageOpen(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-2"
-              >
-                <i className="ti ti-x" style={{ fontSize: 18 }} aria-hidden="true" />
-              </button>
-            </div>
-
-            <div className="flex flex-col divide-y divide-theme overflow-y-auto">
-              {TICKER_CONFIGS.map((c) => {
-                const on = enabled.has(c.id);
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => toggleTicker(c.id)}
-                    className="flex items-center gap-3 px-4 py-3.5 text-left w-full active:bg-surface-2"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-primary">{c.label}</p>
-                      <p className="text-xs text-tertiary">{c.sublabel}</p>
-                    </div>
-                    <div
-                      className="w-10 h-6 rounded-full flex items-center transition-colors flex-shrink-0"
-                      style={{
-                        backgroundColor: on ? 'var(--color-primary)' : 'var(--color-border)',
-                        padding: '2px'
-                      }}
-                    >
-                      <div
-                        className="w-5 h-5 rounded-full bg-white transition-transform"
-                        style={{ transform: on ? 'translateX(16px)' : 'translateX(0)' }}
-                      />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="px-4 py-4 border-t border-theme">
-              <p className="text-[11px] text-tertiary text-center">
-                Prices refresh every 15 minutes · Indices, metals &amp; forex
-              </p>
-            </div>
+        <Modal onClose={() => setManageOpen(false)} title="Market tickers">
+          <div className="flex flex-col divide-y divide-[var(--color-border)] -mx-4">
+            {TICKER_CONFIGS.map((c) => {
+              const on = enabled.has(c.id);
+              return (
+                <div key={c.id} className="flex items-center gap-3 px-4 py-3.5">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-primary">{c.label}</p>
+                    <p className="text-xs text-tertiary">{c.sublabel}</p>
+                  </div>
+                  <Toggle value={on} onChange={() => toggleTicker(c.id)} />
+                </div>
+              );
+            })}
           </div>
-        </div>
+          <p className="text-[11px] text-tertiary text-center mt-4">
+            Prices refresh every 15 minutes · Indices, metals &amp; forex
+          </p>
+        </Modal>
       )}
     </>
   );

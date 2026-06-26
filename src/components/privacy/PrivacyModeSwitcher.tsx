@@ -46,13 +46,22 @@ export function PrivacyModeSwitcher() {
     if (pinInput.length !== 6) return;
     setVerifying(true);
     setPinError('');
-    const ok = await verifyPin(pinInput);
+    const res = await verifyPin(pinInput);
     setVerifying(false);
-    if (ok) {
+    if (res.status === 'ok') {
       setPinInput('');
       setStep('warning');
+    } else if (res.status === 'wiped') {
+      window.location.reload(); // data erased — app resets to onboarding
+    } else if (res.status === 'locked_out') {
+      setPinError('Too many attempts — try again later.');
+      setPinInput('');
     } else {
-      setPinError('Incorrect PIN');
+      setPinError(
+        res.attemptsRemaining > 0
+          ? `Incorrect PIN — ${res.attemptsRemaining} attempt${res.attemptsRemaining === 1 ? '' : 's'} left`
+          : 'Incorrect PIN'
+      );
       setPinInput('');
       pinInputRef.current?.focus();
     }

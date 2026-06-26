@@ -179,8 +179,9 @@ export async function fetchMarketTickers(ids: TickerId[]): Promise<TickerResult[
   const results = await Promise.all(ids.map((id) => fetchTicker(id)));
   return ids.flatMap((id, i) => {
     const config = TICKER_CONFIGS.find((c) => c.id === id);
-    if (!config) return [];
-    const { price, previousClose } = results[i];
+    const result = results[i];
+    if (!config || !result) return [];
+    const { price, previousClose } = result;
     const changePct =
       price !== null && previousClose !== null && previousClose !== 0
         ? ((price - previousClose) / previousClose) * 100
