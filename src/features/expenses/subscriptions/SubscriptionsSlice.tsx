@@ -8,8 +8,16 @@ interface SubscriptionsSliceProps {
 }
 
 export function SubscriptionsSlice({ expenses, mode }: SubscriptionsSliceProps) {
-  const { detectedSubs, activeSubs, subsMonthlyTotal, confirmSubscription, dismissSubscription, cancelSubscription } =
-    useSubscriptions(expenses);
+  const {
+    detectedSubs,
+    activeSubs,
+    subsMonthlyTotal,
+    subsAnnualTotal,
+    confirmSubscription,
+    dismissSubscription,
+    cancelSubscription,
+    addSubscription
+  } = useSubscriptions(expenses);
 
   return (
     <div className="flex-1 overflow-y-auto pb-24">
@@ -17,11 +25,13 @@ export function SubscriptionsSlice({ expenses, mode }: SubscriptionsSliceProps) 
         detected={detectedSubs}
         active={activeSubs}
         monthlyTotal={subsMonthlyTotal}
+        annualTotal={subsAnnualTotal}
         hasExpenses={expenses.length > 0}
         mode={mode}
         onConfirm={confirmSubscription}
         onDismiss={dismissSubscription}
         onCancel={cancelSubscription}
+        onAdd={addSubscription}
       />
     </div>
   );

@@ -35,6 +35,9 @@ export function ExpensesPage() {
     dueRecurring,
     postRecurring,
     skipRecurring,
+    templates,
+    saveTemplate,
+    removeTemplate,
     saveExpenseWithHashtags,
     patchExpenses,
     removeExpenses,
@@ -103,6 +106,9 @@ export function ExpensesPage() {
           dueRecurring={dueRecurring}
           onPostRecurring={postRecurring}
           onSkipRecurring={skipRecurring}
+          templates={templates}
+          onSaveTemplate={saveTemplate}
+          onRemoveTemplate={removeTemplate}
           categoryManager={categoryManager}
         />
       )}

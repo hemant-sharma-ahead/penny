@@ -74,6 +74,7 @@ Every income, expense, and transfer transaction.
 | eventId | string? | FK → hashtags where eventType is set |
 | recurringRuleId | string? | FK → subscriptions or internal rule |
 | isRecurring | boolean? | True if part of a confirmed recurring pattern |
+| receiptDataUrl | string? | Local receipt photo — compressed JPEG data URL (Track 6 Step 11). Encrypted at rest; never sent to AI. |
 
 ---
 
@@ -361,6 +362,24 @@ Remembers the category/account/payment last used per merchant for Add-transactio
 | paymentMode | string? | Remembered payment mode |
 | usageCount | number | Incremented on each matching save |
 | updatedAt | number | Epoch ms |
+
+---
+
+### `transaction_templates`
+
+User-saved quick-add presets/favorites (Pre-Phase 1.5, Track 6 Step 10). Encrypted; id-only index (Dexie v6). Tapped to prefill the Add form; created via "Save as template" in the form.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| id | string (UUID) | Primary key |
+| label | string | Chip label (≤24 chars), e.g. "Coffee" |
+| type | `'expense' \| 'income' \| 'transfer'` | Transaction type the template creates |
+| description | string | Prefilled description |
+| categoryId | string | Prefilled category |
+| amount | number? | Optional — omit to prompt on use |
+| accountId | string? | Prefilled account |
+| paymentMode | string? | Prefilled payment mode |
+| createdAt | number | Epoch ms |
 
 ---
 

@@ -11,6 +11,8 @@ export interface DetectedSubscription {
   priceCreep: boolean;
   dormant: boolean;
   estimatedMonthly: number;
+  firstAmount: number; // earliest observed charge — for price-hike detail
+  latestAmount: number; // most recent observed charge
 }
 
 // Known recurring intervals with tolerance (days)
@@ -127,7 +129,9 @@ export function detectSubscriptions(expenses: Expense[], nowMs: number): Detecte
       occurrenceCount: items.length,
       priceCreep,
       dormant,
-      estimatedMonthly: (detectedAmount / matched) * 30
+      estimatedMonthly: (detectedAmount / matched) * 30,
+      firstAmount,
+      latestAmount: lastAmount
     };
     if (trialEndsAt !== undefined) candidate.trialEndsAt = trialEndsAt;
     if (lastChargedAt !== undefined) candidate.lastChargedAt = lastChargedAt;

@@ -30,6 +30,8 @@ export function AnalyticsSlice({ expenses, categoryMap, mode }: AnalyticsSlicePr
     prevMonthData,
     hashtagSummary,
     spendVelocity,
+    recap,
+    anomalies,
     annualData,
     prevYearData,
     annualSavings,
@@ -66,6 +68,8 @@ export function AnalyticsSlice({ expenses, categoryMap, mode }: AnalyticsSlicePr
         analyticsTotal={analyticsTotal}
         prevMonthData={prevMonthData}
         spendVelocity={spendVelocity}
+        recap={recap}
+        anomalies={anomalies}
         annualData={annualData}
         prevYearData={prevYearData}
         annualSavings={annualSavings}

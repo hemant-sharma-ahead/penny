@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import type { Account, Expense, ExpenseCategory, Hashtag, MerchantMemory, TransactionType } from '@/core/db/types';
 import type { ActiveEvent } from '@/context/EventModeContext';
 import { accountsRepo } from '@/core/db/repositories';
@@ -11,17 +11,30 @@ import type { CategoryManager } from '../categories/types';
 import { AccountChips } from './AccountChips';
 import { PaymentModeChips } from './PaymentModeChips';
 import { couplePaymentToAccount } from './paymentModes';
+import { fileToReceiptDataUrl } from '@/lib/image';
 import { ItemHistory } from '../../activity/components/ItemHistory';
 
 interface Props {
   categories: ExpenseCategory[];
   hashtags: Hashtag[];
   editing: Expense | null;
+  /** Seeds a NEW transaction (duplicate / template) when not editing. */
+  prefill?: Partial<Expense> | null;
   activeEvents: ActiveEvent[];
   initialType?: TransactionType;
   onSave: (expense: Expense) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   searchMerchant: (type: TransactionType, query: string) => MerchantMemory[];
+  onDuplicate?: (expense: Expense) => void;
+  onSaveTemplate?: (t: {
+    label: string;
+    type: TransactionType;
+    description: string;
+    categoryId: string;
+    amount?: number;
+    accountId?: string;
+    paymentMode?: string;
+  }) => void;
   categoryManager: CategoryManager;
   onClose: () => void;
 }
@@ -45,26 +58,31 @@ export function ExpenseForm({
   categories,
   hashtags,
   editing,
+  prefill,
   activeEvents,
   initialType,
   onSave,
   onDelete,
   searchMerchant,
+  onDuplicate,
+  onSaveTemplate,
   categoryManager,
   onClose
 }: Props) {
   const navigate = useNavigate();
-  const [type, setType] = useState<TransactionType>(editing?.type ?? initialType ?? 'expense');
+  // Editing seeds from the record; a new entry may seed from a duplicate/template prefill.
+  const seed = editing ?? prefill ?? null;
+  const [type, setType] = useState<TransactionType>(seed?.type ?? initialType ?? 'expense');
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [accountId, setAccountId] = useState(editing?.accountId ?? '');
-  const [toAccountId, setToAccountId] = useState(editing?.toAccountId ?? '');
-  const [amount, setAmount] = useState(editing ? String(editing.amount) : '');
+  const [accountId, setAccountId] = useState(seed?.accountId ?? '');
+  const [toAccountId, setToAccountId] = useState(seed?.toAccountId ?? '');
+  const [amount, setAmount] = useState(seed?.amount != null ? String(seed.amount) : '');
   const [date, setDate] = useState(() => (editing ? epochToDateInput(editing.date) : epochToDateInput(Date.now())));
-  const [categoryId, setCategoryId] = useState(editing?.categoryId ?? '');
-  const [paymentMode, setPaymentMode] = useState(editing?.paymentMode ?? '');
-  const [description, setDescription] = useState(editing?.description ?? '');
+  const [categoryId, setCategoryId] = useState(seed?.categoryId ?? '');
+  const [paymentMode, setPaymentMode] = useState(seed?.paymentMode ?? '');
+  const [description, setDescription] = useState(seed?.description ?? '');
   const [tagInput, setTagInput] = useState(() => {
-    if (editing) return editing.hashtags.join(' ');
+    if (seed?.hashtags && seed.hashtags.length > 0) return seed.hashtags.join(' ') + (editing ? '' : ' ');
     const autoTags = activeEvents.filter((e) => e.autoTag).map((e) => e.hashtag.toLowerCase());
     return autoTags.length > 0 ? autoTags.join(' ') + ' ' : '';
   });
@@ -72,6 +90,9 @@ export function ExpenseForm({
   const [intervalDays, setIntervalDays] = useState(String(editing?.recurringIntervalDays ?? 30));
   const [saving, setSaving] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [templateSaved, setTemplateSaved] = useState(false);
+  const [receipt, setReceipt] = useState<string | undefined>(editing?.receiptDataUrl);
+  const receiptInputRef = useRef<HTMLInputElement>(null);
   // Merchant memory: once the user picks a suggestion (or there's nothing useful),
   // hide the type-ahead list until they edit the description again.
   const [memPicked, setMemPicked] = useState(false);
@@ -185,6 +206,7 @@ export function ExpenseForm({
       type,
       ...(accountId && { accountId }),
       ...(type === 'transfer' && toAccountId ? { toAccountId } : {}),
+      ...(receipt && { receiptDataUrl: receipt }),
       source: editing?.source ?? 'manual',
       createdAt: editing?.createdAt ?? now,
       updatedAt: now
@@ -197,6 +219,30 @@ export function ExpenseForm({
   function goToAccounts() {
     onClose();
     navigate(PATHS.app.accounts);
+  }
+
+  const canTemplate = type !== 'transfer' && description.trim().length > 0 && categoryId.length > 0;
+
+  async function handleReceiptPick(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setReceipt(await fileToReceiptDataUrl(file));
+  }
+
+  function handleSaveTemplate() {
+    if (!onSaveTemplate || !canTemplate) return;
+    const amt = parseFloat(amount);
+    onSaveTemplate({
+      label: description.trim().slice(0, 24),
+      type,
+      description: description.trim(),
+      categoryId,
+      ...(!isNaN(amt) && amt > 0 ? { amount: amt } : {}),
+      ...(accountId && { accountId }),
+      ...(paymentMode && { paymentMode })
+    });
+    setTemplateSaved(true);
   }
 
   const typeMeta = TYPE_META[type];
@@ -440,6 +486,37 @@ export function ExpenseForm({
           </div>
         )}
 
+        {/* Receipt photo (local, encrypted) */}
+        {type !== 'transfer' && (
+          <div>
+            <label className="text-xs font-medium text-secondary">Receipt</label>
+            <input
+              ref={receiptInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => void handleReceiptPick(e)}
+            />
+            {receipt ? (
+              <div className="mt-1 flex items-center gap-3">
+                <img src={receipt} alt="Receipt" className="w-14 h-14 rounded-lg object-cover border border-theme" />
+                <Button variant="ghost" size="sm" icon="ti-eye" onClick={() => window.open(receipt, '_blank')}>
+                  View
+                </Button>
+                <Button variant="ghost" size="sm" icon="ti-trash" onClick={() => setReceipt(undefined)}>
+                  Remove
+                </Button>
+              </div>
+            ) : (
+              <div className="mt-1">
+                <Button variant="secondary" size="sm" icon="ti-camera" onClick={() => receiptInputRef.current?.click()}>
+                  Attach receipt
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Recurring toggle */}
         <div className={`grid gap-3 ${isRecurring ? 'grid-cols-2' : 'grid-cols-1'}`}>
           <div>
@@ -465,6 +542,28 @@ export function ExpenseForm({
             </div>
           )}
         </div>
+
+        {/* Secondary actions: duplicate (editing) + save-as-template */}
+        {(editing || canTemplate) && (
+          <div className="flex flex-wrap gap-2 border-t border-theme pt-3">
+            {editing && onDuplicate && (
+              <Button variant="ghost" size="sm" icon="ti-copy" onClick={() => onDuplicate(editing)}>
+                Duplicate
+              </Button>
+            )}
+            {onSaveTemplate && canTemplate && (
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={templateSaved ? 'ti-check' : 'ti-star'}
+                onClick={handleSaveTemplate}
+                disabled={templateSaved}
+              >
+                {templateSaved ? 'Saved as template' : 'Save as template'}
+              </Button>
+            )}
+          </div>
+        )}
       </Modal>
 
       {/* ── Category picker + manager — nested modal (z-70, above form) ── */}

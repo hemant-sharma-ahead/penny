@@ -89,5 +89,42 @@ export function useAccounts() {
     [accounts, showToast]
   );
 
-  return { accounts, txns, saving, totalBalance, saveAccount, deleteAccount };
+  /**
+   * Reconcile an account to its real-world balance by posting a balancing
+   * adjustment transaction (income for a surplus, expense for a shortfall).
+   */
+  const reconcileAccount = useCallback(
+    async (account: Account, actualBalance: number) => {
+      const current = computeBalance(account.id, account.openingBalance, txns);
+      const diff = Math.round((actualBalance - current) * 100) / 100;
+      if (Math.abs(diff) < 1) return; // already matches
+      const now = Date.now();
+      const surplus = diff > 0;
+      const adj: Expense = {
+        id: crypto.randomUUID(),
+        amount: Math.abs(diff),
+        categoryId: surplus ? 'cat-inc-other' : 'cat-other',
+        description: 'Balance reconciliation',
+        date: now,
+        hashtags: [],
+        isRecurring: false,
+        type: surplus ? 'income' : 'expense',
+        accountId: account.id,
+        source: 'manual',
+        createdAt: now,
+        updatedAt: now
+      };
+      await expensesRepo.put(adj);
+      setTxns((prev) => [...prev, adj]);
+      logActivity({
+        action: 'CREATE',
+        entityType: 'expense',
+        entityId: adj.id,
+        summary: `Reconciled ${account.name}: ${surplus ? '+' : '−'}₹${Math.abs(diff)}`
+      });
+    },
+    [txns]
+  );
+
+  return { accounts, txns, saving, totalBalance, saveAccount, deleteAccount, reconcileAccount };
 }

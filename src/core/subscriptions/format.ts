@@ -18,6 +18,28 @@ export function toMonthly(amount: number, intervalDays: number): number {
   return (amount / intervalDays) * 30;
 }
 
+/** Equivalent annual cost for a billing interval. */
+export function toAnnual(amount: number, intervalDays: number): number {
+  return (amount / intervalDays) * 365;
+}
+
+const DAY_MS = 86_400_000;
+
+/** Next renewal/charge date projected from the last charge, or null if unknown. */
+export function nextRenewal(sub: { intervalDays: number; lastChargedAt?: number }, nowMs: number): number | null {
+  if (!sub.lastChargedAt || sub.intervalDays <= 0) return null;
+  const todayStart = new Date(nowMs).setHours(0, 0, 0, 0);
+  let next = sub.lastChargedAt;
+  while (next < todayStart) next += sub.intervalDays * DAY_MS;
+  return next;
+}
+
+/** A confirmed subscription looks unused/zombie if it hasn't charged in 2+ intervals. */
+export function isDormant(sub: { intervalDays: number; lastChargedAt?: number }, nowMs: number): boolean {
+  if (!sub.lastChargedAt || sub.intervalDays <= 0) return false;
+  return nowMs - sub.lastChargedAt > sub.intervalDays * 2 * DAY_MS;
+}
+
 /** Stable identity key for a subscription (merchant + interval), used to de-dupe detections. */
 export function subKey(s: { merchantCategory: string; intervalDays: number }): string {
   return `${s.merchantCategory}:${s.intervalDays}`;

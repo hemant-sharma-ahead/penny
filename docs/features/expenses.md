@@ -9,7 +9,11 @@ The expense tracking module — the heart of Penny's day-to-day usage. You log e
 - Enter amounts with live Indian thousands grouping, a built-in calculator (type `120+45`), and an amount-in-words helper beneath the field (`1,00,000` → "One Lakh")
 - Description is the first field in the Add form; as you type, Penny shows ranked type-ahead suggestions of remembered merchants beneath it (substring match). Each suggestion fills the merchant, category, account, and payment mode on tap — nothing changes until you tap. A merchant you've logged under more than one category surfaces as a separate suggestion per category, ranked by how often you use each.
 - View annual analytics: an income line over monthly expense bars, last-year ghost bars for context, a 3-month forward projection (faded), a savings-rate headline, biggest category movers vs your trailing average, and a per-month breakdown
+- Monthly analytics surfaces **anomaly nudges** (a category spending notably above its trailing-3-month average) and a **recap card** (spent, net, vs-last-month, transactions, top category)
 - A "due to log" inbox surfaces recurring items (rent, bills, SIPs, salary) whose next occurrence has fallen due; confirm to log the real transaction, or skip — it reappears when the next period falls due
+- Duplicate a transaction (from the edit form) and save any transaction as a reusable **template/favorite** — saved templates appear as one-tap chips above the transactions list (`transaction_templates` store)
+- Swipe a transaction row left to reveal quick **Copy / Delete** actions; tap to edit
+- Attach a **receipt photo** to a transaction — compressed and stored locally (encrypted); a paperclip marks rows that have one
 - Filter transactions by date range, category, hashtag, account, event, or transaction type — mix and match
 - View spending analytics: pie chart and bar chart by category, month-over-month comparison, and a spending trend line
 - Set monthly budgets per category and see real-time progress bars; receive alerts when you are close to or over budget

@@ -244,6 +244,7 @@ export interface Expense {
   toAccountId?: string; // transfers only: destination account
   source?: TransactionSource; // omitted on legacy records = 'manual'
   sourceRef?: string; // dedup key: hash(date+amount+description) for import; bank ref for sync
+  receiptDataUrl?: string; // local encrypted receipt photo (compressed JPEG data URL); never sent to AI
   createdAt: number;
   updatedAt: number;
 }
@@ -294,6 +295,21 @@ export interface MerchantMemory {
   paymentMode?: string;
   usageCount: number;
   updatedAt: number;
+}
+
+// ─── Transaction templates (Track 6, Step 10) ───────────────────────────────
+// User-saved quick-add presets ("Coffee ₹120", "Auto fare") for one-tap entry.
+// Encrypted store; amount optional so a template can prompt for it on use.
+export interface TransactionTemplate {
+  id: string;
+  label: string; // chip label, e.g. "Coffee"
+  type: TransactionType;
+  description: string;
+  categoryId: string;
+  amount?: number;
+  accountId?: string;
+  paymentMode?: string;
+  createdAt: number;
 }
 
 export type GoalRisk = 'conservative' | 'moderate' | 'aggressive';

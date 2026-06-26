@@ -1,5 +1,7 @@
 import { formatCurrency } from '@/lib/formatters';
+import { STATUS } from '@/lib/statusColors';
 import type { Account, Expense, ExpenseCategory } from '@/core/db/types';
+import { SwipeableRow } from './SwipeableRow';
 
 interface TransactionsTabProps {
   grouped: { label: string; items: Expense[] }[];
@@ -7,6 +9,8 @@ interface TransactionsTabProps {
   accountMap: Map<string, Account>;
   mode: 'open' | 'safe' | 'privacy';
   onEdit: (expense: Expense) => void;
+  onDelete?: (id: string) => void;
+  onDuplicate?: (expense: Expense) => void;
   selectMode?: boolean;
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
@@ -18,6 +22,8 @@ export function TransactionsTab({
   accountMap,
   mode,
   onEdit,
+  onDelete,
+  onDuplicate,
   selectMode = false,
   selectedIds,
   onToggleSelect
@@ -55,13 +61,8 @@ export function TransactionsTab({
                 : undefined;
               const accLine = [acc?.name, pmLabel ? `(${pmLabel})` : undefined].filter(Boolean).join(' ');
               const isSel = selectedIds?.has(txn.id) ?? false;
-              return (
-                <button
-                  key={txn.id}
-                  onClick={() => (selectMode ? onToggleSelect?.(txn.id) : onEdit(txn))}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-theme"
-                  style={selectMode && isSel ? { backgroundColor: 'var(--color-surface-secondary)' } : undefined}
-                >
+              const rowInner = (
+                <>
                   {selectMode && (
                     <i
                       className={`ti ${isSel ? 'ti-circle-check-filled' : 'ti-circle'} flex-shrink-0`}
@@ -76,7 +77,16 @@ export function TransactionsTab({
                     <i className={`ti ${icon}`} style={{ fontSize: 18, color: iconColor }} aria-hidden="true" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate text-primary">{txn.description}</p>
+                    <p className="text-sm font-medium truncate text-primary">
+                      {txn.description}
+                      {txn.receiptDataUrl && (
+                        <i
+                          className="ti ti-paperclip ml-1 text-tertiary"
+                          style={{ fontSize: 12 }}
+                          aria-label="Has receipt"
+                        />
+                      )}
+                    </p>
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       {txnType === 'expense' && cat && <span className="text-[10px] text-tertiary">{cat.name}</span>}
                       {txnType === 'income' && (
@@ -109,7 +119,38 @@ export function TransactionsTab({
                       </span>
                     )}
                   </div>
-                </button>
+                </>
+              );
+
+              // Select mode: plain tappable button (tap toggles selection).
+              if (selectMode) {
+                return (
+                  <button
+                    key={txn.id}
+                    onClick={() => onToggleSelect?.(txn.id)}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-theme"
+                    style={isSel ? { backgroundColor: 'var(--color-surface-secondary)' } : undefined}
+                  >
+                    {rowInner}
+                  </button>
+                );
+              }
+
+              // Normal mode: swipe-left to reveal Duplicate / Delete; tap to edit.
+              const actions = [
+                ...(onDuplicate
+                  ? [{ icon: 'ti-copy', label: 'Copy', color: STATUS.info, onClick: () => onDuplicate(txn) }]
+                  : []),
+                ...(onDelete
+                  ? [{ icon: 'ti-trash', label: 'Delete', color: STATUS.danger, onClick: () => onDelete(txn.id) }]
+                  : [])
+              ];
+              return (
+                <SwipeableRow key={txn.id} actions={actions} onTap={() => onEdit(txn)}>
+                  <div className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-theme">
+                    {rowInner}
+                  </div>
+                </SwipeableRow>
               );
             })}
           </div>

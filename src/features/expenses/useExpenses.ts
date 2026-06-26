@@ -5,9 +5,10 @@ import {
   expenseCategoriesRepo,
   expensesRepo,
   hashtagsRepo,
-  merchantMemoryRepo
+  merchantMemoryRepo,
+  transactionTemplatesRepo
 } from '@/core/db/repositories';
-import type { Expense, ExpenseCategory, MerchantMemory, TransactionType } from '@/core/db/types';
+import type { Expense, ExpenseCategory, MerchantMemory, TransactionTemplate, TransactionType } from '@/core/db/types';
 import { useRepository } from '@/hooks/useRepository';
 import { ALL_DEFAULT_CATEGORIES, CATEGORY_MIGRATION_MAP } from '@/core/db/defaultCategories';
 import { calcSpendByCategory, calcTxnCountByCategory } from '@/core/expenses/filterAndAggregate';
@@ -42,6 +43,7 @@ export function useExpenses() {
   const { items: hashtags, save: saveHashtag } = useRepository(hashtagsRepo);
   const { items: accounts } = useRepository(accountsRepo);
   const { items: merchantMemories, reload: reloadMerchantMemory } = useRepository(merchantMemoryRepo);
+  const { items: templates, save: saveTemplateRepo, remove: removeTemplate } = useRepository(transactionTemplatesRepo);
 
   // Category v2 migration: seeds default categories and patches any that lack intentGroup
   const seededRef = useRef(false);
@@ -393,6 +395,13 @@ export function useExpenses() {
     [saveExpenseWithHashtags]
   );
 
+  /** Save a quick-add template (favorite). */
+  const saveTemplate = useCallback(
+    (t: Omit<TransactionTemplate, 'id' | 'createdAt'>) =>
+      saveTemplateRepo({ ...t, id: crypto.randomUUID(), createdAt: Date.now() }),
+    [saveTemplateRepo]
+  );
+
   /** Dismiss this due occurrence without logging it. */
   const skipRecurring = useCallback((d: DueRecurring) => {
     setDismissedDue((prev) => {
@@ -421,6 +430,9 @@ export function useExpenses() {
     dueRecurring,
     postRecurring,
     skipRecurring,
+    templates,
+    saveTemplate,
+    removeTemplate,
     saveExpenseWithHashtags,
     deleteExpense,
     patchExpenses,

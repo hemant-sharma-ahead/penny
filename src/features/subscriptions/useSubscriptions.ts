@@ -3,7 +3,13 @@ import { subscriptionsRepo } from '@/core/db/repositories';
 import type { Expense, Subscription } from '@/core/db/types';
 import { useLoggedRepository } from '@/hooks/useLoggedRepository';
 import { detectSubscriptions, type DetectedSubscription } from '@/core/subscriptions/detector';
-import { subKey } from '@/core/subscriptions/format';
+import { subKey, toAnnual, nextRenewal } from '@/core/subscriptions/format';
+
+/** Fields the user supplies when adding a subscription by hand. */
+export type ManualSubscription = Pick<
+  Subscription,
+  'merchantCategory' | 'detectedAmount' | 'intervalDays' | 'status' | 'lastChargedAt' | 'trialEndsAt'
+>;
 
 const summarizeSubscription = (s: Subscription) => `subscription: ${s.merchantCategory}`;
 
@@ -22,10 +28,22 @@ export function useSubscriptions(expenses: Expense[]) {
     return candidates.filter((c) => !storedKeys.has(subKey(c)));
   }, [expenses, stored, nowMs]);
 
-  const activeSubs = useMemo(() => stored.filter((s) => s.confirmedByUser && s.status !== 'cancelled'), [stored]);
+  // Active subs ordered by their next renewal (soonest first) — a renewal calendar.
+  const activeSubs = useMemo(
+    () =>
+      stored
+        .filter((s) => s.confirmedByUser && s.status !== 'cancelled')
+        .sort((a, b) => (nextRenewal(a, nowMs) ?? Infinity) - (nextRenewal(b, nowMs) ?? Infinity)),
+    [stored, nowMs]
+  );
 
   const subsMonthlyTotal = useMemo(
     () => activeSubs.reduce((sum, s) => sum + (s.detectedAmount / s.intervalDays) * 30, 0),
+    [activeSubs]
+  );
+
+  const subsAnnualTotal = useMemo(
+    () => activeSubs.reduce((sum, s) => sum + toAnnual(s.detectedAmount, s.intervalDays), 0),
     [activeSubs]
   );
 
@@ -73,13 +91,35 @@ export function useSubscriptions(expenses: Expense[]) {
     [saveSubscription, nowMs]
   );
 
+  /** Add a subscription by hand (confirmed, tracked immediately). */
+  const addSubscription = useCallback(
+    (input: ManualSubscription) => {
+      const sub: Subscription = {
+        id: crypto.randomUUID(),
+        merchantCategory: input.merchantCategory,
+        detectedAmount: input.detectedAmount,
+        intervalDays: input.intervalDays,
+        status: input.status,
+        confirmedByUser: true,
+        createdAt: nowMs,
+        updatedAt: nowMs,
+        ...(input.lastChargedAt !== undefined && { lastChargedAt: input.lastChargedAt }),
+        ...(input.trialEndsAt !== undefined && { trialEndsAt: input.trialEndsAt })
+      };
+      saveSubscription(sub).catch(() => {});
+    },
+    [saveSubscription, nowMs]
+  );
+
   return {
     stored,
     detectedSubs,
     activeSubs,
     subsMonthlyTotal,
+    subsAnnualTotal,
     confirmSubscription,
     dismissSubscription,
-    cancelSubscription
+    cancelSubscription,
+    addSubscription
   };
 }

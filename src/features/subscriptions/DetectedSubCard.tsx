@@ -36,6 +36,14 @@ export function DetectedSubCard({ candidate: c, mode, onConfirm, onDismiss }: De
         )}
       </p>
 
+      {c.priceCreep && c.latestAmount > c.firstAmount && mode === 'open' && (
+        <p className="text-xs text-warning">
+          <i className="ti ti-trending-up" style={{ fontSize: 12 }} aria-hidden="true" /> Price rose{' '}
+          {formatCurrency(c.firstAmount)} → {formatCurrency(c.latestAmount)} (+
+          {Math.round(((c.latestAmount - c.firstAmount) / c.firstAmount) * 100)}%)
+        </p>
+      )}
+
       <div className="flex gap-2">
         <Button variant="primary" size="sm" fullWidth icon="ti-check" onClick={() => onConfirm(c)}>
           Confirm

@@ -4,6 +4,7 @@ import type { ActiveEvent } from '@/context/EventModeContext';
 import { normalizeHashtag } from '@/context/EventModeContext';
 import { buildParentCategoryMap, groupKey, groupMeta } from '@/core/expenses/categoryGroups';
 import { buildAnnualSeries, computeSavingsRate, biggestMovers } from '@/core/expenses/annualAnalytics';
+import { monthlyRecap, computeAnomalies } from '@/core/expenses/monthlyInsights';
 import { toMonthYearKey } from '@/lib/formatters';
 import { offsetMonth } from '@/lib/date';
 
@@ -193,6 +194,27 @@ export function useExpenseAnalytics({
     [annualData, prevYearData]
   );
 
+  // Monthly recap + anomaly nudges — same event-excluded basis as the rest of the
+  // monthly view (event-tagged expenses don't count toward category run-rates).
+  const recap = useMemo(
+    () =>
+      monthlyRecap(expenses, categoryMap, selectedMonth, (e) =>
+        e.hashtags.some((t) => allEventHashtags.has(normalizeHashtag(t)))
+      ),
+    [expenses, categoryMap, selectedMonth, allEventHashtags]
+  );
+  const anomalies = useMemo(
+    () =>
+      computeAnomalies(
+        expenses,
+        categoryMap,
+        selectedMonth,
+        (e) => e.hashtags.some((t) => allEventHashtags.has(normalizeHashtag(t))),
+        nowMs
+      ),
+    [expenses, categoryMap, selectedMonth, allEventHashtags, nowMs]
+  );
+
   return {
     analyticsData,
     analyticsTotal,
@@ -200,6 +222,8 @@ export function useExpenseAnalytics({
     prevMonthData,
     hashtagSummary,
     spendVelocity,
+    recap,
+    anomalies,
     annualData,
     prevYearData,
     annualSavings,

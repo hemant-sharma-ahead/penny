@@ -34,8 +34,8 @@ export function AppShell() {
             <PennyWordmark height={24} />
           </div>
           <div className="flex items-center gap-1">
-            <RemindersBell />
             <PrivacyModeSwitcher />
+            <RemindersBell />
           </div>
         </header>
 

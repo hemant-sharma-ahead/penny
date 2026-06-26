@@ -10,65 +10,94 @@ interface Props {
   onSelectMonth: (month: string) => void;
 }
 
-const W = 360;
-const H = 96; // plot height
+const COL = 54; // px per month column (chart scrolls horizontally)
+const TOP = 18; // headroom for value labels
+const PLOT = 78; // bar plot height
+const BOTTOM = 18; // month-label row
+const H = TOP + PLOT + BOTTOM;
 
 /**
  * Annual combined chart: faint previous-year expense bars behind this year's
- * expense bars, with an income line overlaid. Projected (future) months render
- * lighter with a dashed income segment.
+ * expense bars + an income line. Values sit above each bar (Open mode); columns
+ * are tappable to open that month, and the chart scrolls horizontally.
  */
 export function AnnualChart({ series, prevYear, max, mode, onSelectMonth }: Props) {
   const n = series.length;
-  const slot = W / n;
-  const bw = slot * 0.42;
-  const y = (v: number) => H - (Math.max(0, v) / max) * H;
-  const cx = (i: number) => i * slot + slot / 2;
+  const W = n * COL;
+  const open = mode === 'open';
+  const bw = COL * 0.46;
+  const y = (v: number) => TOP + PLOT - (Math.max(0, v) / max) * PLOT;
+  const cx = (i: number) => i * COL + COL / 2;
 
   const firstProjected = series.findIndex((p) => p.projected);
-  const actualPts = series.filter((p) => !p.projected).map((p, i) => `${cx(i).toFixed(1)},${y(p.income).toFixed(1)}`);
-  // Dashed segment links the last actual month into the projected tail.
   const projStart = firstProjected === -1 ? n : firstProjected;
+  const actualPts = series
+    .map((p, i) => ({ p, i }))
+    .filter(({ i }) => i < projStart)
+    .map(({ p, i }) => `${cx(i).toFixed(1)},${y(p.income).toFixed(1)}`);
   const projPts = series
     .map((p, i) => ({ p, i }))
     .filter(({ i }) => i >= projStart - 1 && projStart > 0)
     .map(({ p, i }) => `${cx(i).toFixed(1)},${y(p.income).toFixed(1)}`);
 
   return (
-    <div>
-      <svg viewBox={`0 0 ${W} ${H + 4}`} width="100%" height={H + 4} aria-label="Income vs expense by month">
-        {/* Bars */}
+    <div className="overflow-x-auto scrollbar-none -mx-1 px-1">
+      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} aria-label="Income vs expense by month">
         {series.map((p, i) => {
           const prev = prevYear[i];
           const center = cx(i);
+          const tappable = !p.projected && (p.expense > 0 || p.income > 0);
           return (
             <g key={p.month}>
-              {/* Last-year ghost expense bar */}
               {prev && prev.expense > 0 && (
                 <rect
-                  x={center - bw / 2 + bw * 0.18}
+                  x={center - bw / 2 + bw * 0.2}
                   y={y(prev.expense)}
                   width={bw}
-                  height={H - y(prev.expense)}
-                  rx={1.5}
+                  height={TOP + PLOT - y(prev.expense)}
+                  rx={2}
                   fill="var(--color-text-tertiary)"
                   opacity={0.16}
                 />
               )}
-              {/* This-year expense bar */}
               <rect
                 x={center - bw / 2}
                 y={y(p.expense)}
                 width={bw}
-                height={H - y(p.expense)}
-                rx={1.5}
+                height={TOP + PLOT - y(p.expense)}
+                rx={2}
                 fill="var(--color-primary)"
                 opacity={p.projected ? 0.28 : 0.7}
               />
+              {open && p.expense > 0 && (
+                <text
+                  x={center}
+                  y={y(p.expense) - 4}
+                  textAnchor="middle"
+                  fontSize={8.5}
+                  fill="var(--color-text-secondary)"
+                >
+                  {formatCompact(p.expense).replace('₹', '')}
+                </text>
+              )}
+              <text x={center} y={H - 5} textAnchor="middle" fontSize={9} fill="var(--color-text-tertiary)">
+                {p.label}
+              </text>
+              {/* Full-column tap target → open that month */}
+              {tappable && (
+                <rect
+                  x={i * COL}
+                  y={0}
+                  width={COL}
+                  height={H}
+                  fill="transparent"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => onSelectMonth(p.month)}
+                />
+              )}
             </g>
           );
         })}
-        {/* Income line — solid (actual) + dashed (projected) */}
         {actualPts.length > 1 && (
           <polyline
             points={actualPts.join(' ')}
@@ -93,33 +122,13 @@ export function AnnualChart({ series, prevYear, max, mode, onSelectMonth }: Prop
             key={`d-${p.month}`}
             cx={cx(i)}
             cy={y(p.income)}
-            r={1.6}
+            r={1.8}
             fill={STATUS.success}
             opacity={p.projected ? 0.5 : 1}
           />
         ))}
       </svg>
 
-      {/* Month labels (tappable → drill into the month) */}
-      <div className="flex">
-        {series.map((p) => (
-          <button
-            key={p.month}
-            onClick={() => onSelectMonth(p.month)}
-            disabled={p.projected || (p.expense === 0 && p.income === 0)}
-            className="flex-1 text-[9px] text-tertiary disabled:cursor-default"
-            title={
-              mode === 'open'
-                ? `${p.label}: spend ${formatCompact(p.expense)} · income ${formatCompact(p.income)}`
-                : undefined
-            }
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Legend */}
       <div className="flex items-center justify-center gap-3 mt-2 text-[10px] text-tertiary">
         <span className="flex items-center gap-1">
           <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: 'var(--color-primary)', opacity: 0.7 }} />
@@ -136,7 +145,7 @@ export function AnnualChart({ series, prevYear, max, mode, onSelectMonth }: Prop
           />
           Last year
         </span>
-        <span className="opacity-70">· faded = projected</span>
+        <span className="opacity-70">· tap a month · faded = projected</span>
       </div>
     </div>
   );

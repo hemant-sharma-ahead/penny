@@ -2,7 +2,15 @@ import { useMemo, useState } from 'react';
 import { SearchInput, DismissibleChip, Button, Modal, SelectInput, ConfirmDialog } from '@/components/ui';
 import { STATUS, tint } from '@/lib/statusColors';
 import type { ActiveEvent } from '@/context/EventModeContext';
-import type { Account, Expense, ExpenseCategory, Hashtag, MerchantMemory, TransactionType } from '@/core/db/types';
+import type {
+  Account,
+  Expense,
+  ExpenseCategory,
+  Hashtag,
+  MerchantMemory,
+  TransactionTemplate,
+  TransactionType
+} from '@/core/db/types';
 import { toMonthYearKey } from '@/lib/formatters';
 import { monthLabel } from '@/lib/date';
 import { TransactionsTab } from './TransactionsTab';
@@ -36,6 +44,9 @@ interface TransactionsSliceProps {
   dueRecurring: DueRecurring[];
   onPostRecurring: (d: DueRecurring) => Promise<void>;
   onSkipRecurring: (d: DueRecurring) => void;
+  templates: TransactionTemplate[];
+  onSaveTemplate: (t: Omit<TransactionTemplate, 'id' | 'createdAt'>) => Promise<void> | void;
+  onRemoveTemplate: (id: string) => Promise<void> | void;
   categoryManager: CategoryManager;
 }
 
@@ -57,6 +68,9 @@ export function TransactionsSlice({
   dueRecurring,
   onPostRecurring,
   onSkipRecurring,
+  templates,
+  onSaveTemplate,
+  onRemoveTemplate,
   categoryManager
 }: TransactionsSliceProps) {
   const {
@@ -83,6 +97,7 @@ export function TransactionsSlice({
 
   const [showForm, setShowForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [prefill, setPrefill] = useState<Partial<Expense> | null>(null);
   const [initialTransactionType, setInitialTransactionType] = useState<TransactionType>('expense');
   const [showDial, setShowDial] = useState(false);
   const [showFilterSheet, setShowFilterSheet] = useState(false);
@@ -155,23 +170,59 @@ export function TransactionsSlice({
   function openAdd(type: TransactionType = 'expense') {
     setInitialTransactionType(type);
     setEditingExpense(null);
+    setPrefill(null);
     setShowDial(false);
     setShowForm(true);
   }
 
+  /** Open Add prefilled from a duplicate or a saved template. */
+  function openPrefilled(p: Partial<Expense>) {
+    setEditingExpense(null);
+    setPrefill(p);
+    setInitialTransactionType(p.type ?? 'expense');
+    setShowDial(false);
+    setShowForm(true);
+  }
+
+  function handleDuplicate(e: Expense) {
+    const { id: _id, createdAt: _c, updatedAt: _u, date: _d, ...rest } = e;
+    void _id;
+    void _c;
+    void _u;
+    void _d;
+    openPrefilled(rest);
+  }
+
+  function applyTemplate(t: TransactionTemplate) {
+    openPrefilled({
+      type: t.type,
+      description: t.description,
+      categoryId: t.categoryId,
+      ...(t.amount !== undefined && { amount: t.amount }),
+      ...(t.accountId && { accountId: t.accountId }),
+      ...(t.paymentMode && { paymentMode: t.paymentMode })
+    });
+  }
+
   function openEdit(expense: Expense) {
+    setPrefill(null);
     setEditingExpense(expense);
     setShowForm(true);
   }
 
+  function closeForm() {
+    setShowForm(false);
+    setPrefill(null);
+  }
+
   async function handleSaveExpense(expense: Expense) {
     await onSaveExpense(expense);
-    setShowForm(false);
+    closeForm();
   }
 
   async function handleDeleteExpense(id: string) {
     await onDeleteExpense(id);
-    setShowForm(false);
+    closeForm();
   }
 
   const hasChipFilters =
@@ -315,6 +366,33 @@ export function TransactionsSlice({
         </div>
       )}
 
+      {/* Saved templates — one-tap quick add */}
+      {!selectMode && templates.length > 0 && (
+        <div className="flex-shrink-0 flex gap-2 overflow-x-auto px-4 py-2 border-b border-theme scrollbar-none">
+          {templates.map((t) => (
+            <span
+              key={t.id}
+              className="flex-shrink-0 flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full bg-surface-2 border border-theme"
+            >
+              <button
+                onClick={() => applyTemplate(t)}
+                className="text-xs font-medium text-primary flex items-center gap-1"
+              >
+                <i className="ti ti-star" style={{ fontSize: 12, color: 'var(--color-primary)' }} aria-hidden="true" />
+                {t.label}
+              </button>
+              <button
+                onClick={() => void onRemoveTemplate(t.id)}
+                className="w-4 h-4 flex items-center justify-center rounded-full text-tertiary hover:text-primary"
+                aria-label={`Remove template ${t.label}`}
+              >
+                <i className="ti ti-x" style={{ fontSize: 11 }} aria-hidden="true" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Recurring "due to log" inbox banner */}
       {!selectMode && dueRecurring.length > 0 && (
         <button
@@ -340,6 +418,8 @@ export function TransactionsSlice({
           accountMap={accountMap}
           mode={mode}
           onEdit={openEdit}
+          onDelete={onDeleteExpense}
+          onDuplicate={handleDuplicate}
           selectMode={selectMode}
           selectedIds={selected}
           onToggleSelect={toggleSelect}
@@ -460,13 +540,16 @@ export function TransactionsSlice({
           categories={categories}
           hashtags={hashtags}
           editing={editingExpense}
+          prefill={prefill}
           activeEvents={events}
           initialType={initialTransactionType}
           onSave={handleSaveExpense}
           onDelete={handleDeleteExpense}
           searchMerchant={searchMerchant}
+          onDuplicate={handleDuplicate}
+          onSaveTemplate={onSaveTemplate}
           categoryManager={categoryManager}
-          onClose={() => setShowForm(false)}
+          onClose={closeForm}
         />
       )}
 

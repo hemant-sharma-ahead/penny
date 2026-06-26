@@ -6,10 +6,13 @@ The subscriptions module automatically detects recurring charges in your transac
 ## User-facing capabilities
 - See a list of automatically detected recurring expenses, pulled from your transaction history
 - Confirm a detected subscription to add it to your tracked list, or dismiss it if the detection is wrong
-- Manually add a subscription that was not detected automatically
-- See each subscription's name, amount, frequency, and projected next due date
-- View the total monthly subscription cost across all active subscriptions
-- Edit or remove any subscription from your list
+- **Manually add** a subscription (name, amount, billing interval, last charged, free-trial toggle) — for anything not auto-detected
+- See each subscription's name, amount, frequency, **next renewal date** ("renews in N days"), and **annualised cost** (₹X/yr)
+- Active subscriptions are ordered by next renewal — a lightweight renewal calendar
+- View the total **monthly and yearly** subscription cost across all active subscriptions
+- **Price-hike detail** on detected subscriptions (₹old → ₹new, +X%) when a charge has crept up
+- **Unused/zombie nudge** — active subscriptions not charged in 2+ billing cycles surface a "looks unused — cancelling saves ₹X/yr" banner
+- Cancel any subscription from your list (and renewal charges already appear in the header Reminders bell within 7 days)
 
 ## How it works
 The detection algorithm in `detector.ts` runs a 3-pass analysis over the `expenses` store:

@@ -20,7 +20,8 @@ import type {
   PrivacyStat,
   Profile,
   SecurityRecord,
-  Subscription
+  Subscription,
+  TransactionTemplate
 } from './types';
 
 export class PennyDatabase extends Dexie {
@@ -48,6 +49,7 @@ export class PennyDatabase extends Dexie {
   accounts!: EntityTable<Account, 'id'>;
   activity_log!: EntityTable<ActivityLog, 'id'>;
   merchant_memory!: EntityTable<MerchantMemory, 'id'>;
+  transaction_templates!: EntityTable<TransactionTemplate, 'id'>;
 
   constructor() {
     super('penny');
@@ -92,6 +94,9 @@ export class PennyDatabase extends Dexie {
 
     // v5 — merchant memory for transaction auto-fill (Pre-Phase 1.5, Track 6). Encrypted; id-only index.
     this.version(5).stores({ merchant_memory: 'id' });
+
+    // v6 — saved transaction templates/favorites (Pre-Phase 1.5, Track 6 Step 10). Encrypted; id-only index.
+    this.version(6).stores({ transaction_templates: 'id' });
   }
 }
 

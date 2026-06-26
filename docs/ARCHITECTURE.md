@@ -408,6 +408,7 @@ src/core/expenses/
   merchantMemory.ts        ← pure: normalizeMerchant / memoryKey / buildMemory (Track 6 auto-fill)
   recurringDue.ts          ← pure: computeDueRecurring / buildOccurrence (Track 6 auto-post inbox)
   annualAnalytics.ts       ← pure: buildAnnualSeries / computeSavingsRate / biggestMovers (annual income vs spend + projection)
+  monthlyInsights.ts       ← pure: monthlyRecap / computeAnomalies (Track 6 recap card + anomaly nudges)
 src/lib/
   dateUtils.ts             ← toDateKey, dateLabel, offsetMonth, monthLabel (pure, no React)
 ```

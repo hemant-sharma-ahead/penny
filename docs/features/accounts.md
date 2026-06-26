@@ -12,6 +12,7 @@ The accounts module manages all your bank accounts, cash on hand, and digital wa
 - Log income transactions (salary, freelance income, dividends, rental income, any money coming in) directly from the expenses module
 - See all your accounts in the scrollable accounts strip on the Home dashboard for a quick balance overview
 - Edit account details (name, bank, colour, icon) at any time; delete accounts that are no longer active
+- **Reconcile** a cash or wallet account to its real-world balance — enter the actual amount and Penny posts a balancing income/expense ("Balance reconciliation") so the tracked balance matches reality
 
 ## How it works
 Account records are stored in the encrypted `accounts` Dexie store with fields: name, type, bankName, openingBalance, color, and icon.

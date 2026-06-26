@@ -9,8 +9,16 @@ import { SubscriptionsView } from './SubscriptionsView';
 export function SubscriptionsPage() {
   const { mode } = usePrivacy();
   const { items: expenses } = useRepository(expensesRepo);
-  const { detectedSubs, activeSubs, subsMonthlyTotal, confirmSubscription, dismissSubscription, cancelSubscription } =
-    useSubscriptions(expenses);
+  const {
+    detectedSubs,
+    activeSubs,
+    subsMonthlyTotal,
+    subsAnnualTotal,
+    confirmSubscription,
+    dismissSubscription,
+    cancelSubscription,
+    addSubscription
+  } = useSubscriptions(expenses);
 
   return (
     <div className="flex flex-col h-full">
@@ -28,11 +36,13 @@ export function SubscriptionsPage() {
           detected={detectedSubs}
           active={activeSubs}
           monthlyTotal={subsMonthlyTotal}
+          annualTotal={subsAnnualTotal}
           hasExpenses={expenses.length > 0}
           mode={mode}
           onConfirm={confirmSubscription}
           onDismiss={dismissSubscription}
           onCancel={cancelSubscription}
+          onAdd={addSubscription}
         />
       </div>
     </div>

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { formatCurrency, formatCompact, toMonthYearKey } from '@/lib/formatters';
 import { STATUS, tint } from '@/lib/statusColors';
-import { ListContainer, SectionLabel } from '@/components/ui';
+import { ListContainer, SectionLabel, Banner } from '@/components/ui';
 import type { MonthPoint } from '@/core/expenses/annualAnalytics';
+import type { MonthlyRecap, Anomaly } from '@/core/expenses/monthlyInsights';
 import { AnnualChart } from './AnnualChart';
 
 // ── Local helpers ─────────────────────────────────────────────────────────────
@@ -17,6 +18,17 @@ function monthLabel(m: string): string {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const [y, mo] = m.split('-');
   return `${months[(parseInt(mo ?? '1', 10) - 1) % 12] ?? ''} ${y ?? ''}`.trim();
+}
+
+function RecapStat({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] text-tertiary uppercase tracking-wide">{label}</p>
+      <p className="text-sm font-semibold truncate" style={{ color: color ?? 'var(--color-text-primary)' }}>
+        {value}
+      </p>
+    </div>
+  );
 }
 
 // ── Month picker modal ────────────────────────────────────────────────────────
@@ -181,6 +193,8 @@ interface AnalyticsTabProps {
   analyticsTotal: number;
   prevMonthData: Map<string, number>;
   spendVelocity: { daysElapsed: number; daysInMonth: number; projected: number } | null;
+  recap: MonthlyRecap;
+  anomalies: Anomaly[];
   annualData: MonthPoint[];
   prevYearData: MonthPoint[];
   annualSavings: { income: number; expense: number; saved: number; rate: number };
@@ -223,6 +237,8 @@ export function AnalyticsTab({
   analyticsTotal,
   prevMonthData,
   spendVelocity,
+  recap,
+  anomalies,
   annualData,
   prevYearData,
   annualSavings,
@@ -400,29 +416,7 @@ export function AnalyticsTab({
                 </div>
               )}
 
-              {/* Monthly breakdown */}
-              <ListContainer>
-                {annualData
-                  .filter((m) => !m.projected && m.expense > 0)
-                  .sort((a, b) => b.month.localeCompare(a.month))
-                  .map((m) => (
-                    <button
-                      key={m.month}
-                      onClick={() => {
-                        onChangeSelectedMonth(m.month);
-                        onChangeAnalyticsView('monthly');
-                        onChangeExpandedGroup(null);
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-2"
-                    >
-                      <span className="text-sm font-medium text-primary flex-1">{monthLabel(m.month)}</span>
-                      <span className="text-sm font-semibold text-primary">
-                        {mode === 'open' ? formatCurrency(m.expense) : '••••'}
-                      </span>
-                      <i className="ti ti-chevron-right text-tertiary" style={{ fontSize: 13 }} aria-hidden="true" />
-                    </button>
-                  ))}
-              </ListContainer>
+              <p className="text-[11px] text-center text-tertiary">Tap any month in the chart to open its details.</p>
             </>
           )}
         </>
@@ -463,6 +457,55 @@ export function AnalyticsTab({
                 <p className="text-[10px] text-tertiary">
                   {Math.round((spendVelocity.daysElapsed / spendVelocity.daysInMonth) * 100)}% of month
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* Anomaly nudges */}
+          {anomalies.map((a) => (
+            <Banner key={a.categoryId} variant="warning" icon="ti-flame">
+              <strong>{a.name}</strong> is {Math.round(a.pct * 100)}% over your average
+              {mode === 'open' && ` (${formatCurrency(a.amount)} vs ~${formatCurrency(a.average)})`}.
+            </Banner>
+          ))}
+
+          {/* Monthly recap card */}
+          {(recap.expense > 0 || recap.income > 0) && (
+            <div className="surface rounded-2xl p-4 flex flex-col gap-2.5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-tertiary">
+                  {monthLabel(recap.month)} recap
+                </p>
+                {recap.deltaPct !== null && (
+                  <span
+                    className="text-xs font-semibold flex items-center gap-0.5"
+                    style={{ color: recap.deltaPct > 0 ? STATUS.danger : STATUS.success }}
+                  >
+                    <i
+                      className={`ti ${recap.deltaPct > 0 ? 'ti-arrow-up-right' : 'ti-arrow-down-right'}`}
+                      style={{ fontSize: 13 }}
+                      aria-hidden="true"
+                    />
+                    {Math.abs(Math.round(recap.deltaPct * 100))}% vs last month
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-y-2">
+                <RecapStat label="Spent" value={mode === 'open' ? formatCurrency(recap.expense) : '••••'} />
+                <RecapStat
+                  label="Net"
+                  value={mode === 'open' ? formatCurrency(recap.net) : '••••'}
+                  color={recap.net >= 0 ? STATUS.success : STATUS.danger}
+                />
+                <RecapStat label="Transactions" value={String(recap.txnCount)} />
+                {recap.topCategory && (
+                  <RecapStat
+                    label="Top category"
+                    value={
+                      recap.topCategory.name + (mode === 'open' ? ` · ${formatCompact(recap.topCategory.amount)}` : '')
+                    }
+                  />
+                )}
               </div>
             </div>
           )}

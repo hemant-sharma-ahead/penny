@@ -212,13 +212,13 @@ Each step runs the verification gate (type-check → lint → test/PII gate → 
 7. ✅ **In-app reminders** — a header **bell + badge** opens a Reminders panel of near-term outflows: overdue recurring bills + anything due in the next 7 days (EMIs, subscriptions, insurance, bills), grouped by urgency. Per-item actions: snooze (1d/3d/1w), mark done, **Log** (recurring bills → reuses the Step 6 occurrence builder), **Cancel** (subscriptions). Pure core `core/reminders/reminders.ts` (`buildReminders`/`reminderCounts`, tested); `hooks/useReminders.ts` holds snooze/done state. **Decision (2026-06-26):** in-app only — no notification/permission APIs. Real OS/scheduled/push reminders need a backend or unsupported/experimental APIs → **deferred to Phase 2**.
 
 **Phase D — Subscriptions upgrade**
-8. Price-hike detection · renewal calendar + annualized cost · manual add + trial-ending reminders · zombie/unused nudge.
+8. ✅ **Subscriptions upgrade** — active subs show **next renewal** + **annualised cost** and are ordered by renewal (a renewal calendar); **monthly + yearly** totals; **manual add** form (`SubscriptionForm`, trial toggle); **zombie/unused nudge** banner (`isDormant`, not charged in 2+ cycles → annual saving); **price-hike detail** on detected subs (detector exposes first/latest amount → ₹old → ₹new, +X%). Renewal/trial *reminders* already flow through the Step 7 bell. Pure helpers in `core/subscriptions/format.ts` (`toAnnual`/`nextRenewal`/`isDormant`, tested) + `detector.ts` price fields (tested).
 
 **Phase E — Polish + UX**
 9. ✅ **Tab reorder** — Analytics is now the first tab and the default landing for the Expenses module; order is Analytics · Transactions · Subscriptions · Budgets · IOU. (The add-transaction FAB lives on the Transactions tab.)
-10. Duplicate/repeat a transaction + saved templates/favorites; swipe actions on rows (pairs with the Track 3 select mode).
-11. Cash-wallet reconcile; receipt photo attach (local, encrypted).
-12. Anomaly nudges ("Dining 40% over 3-month average") + monthly recap card.
+10. ✅ **Duplicate + templates + swipe** — Duplicate from the edit form (via a `prefill` path on `ExpenseForm`); **save-as-template** + one-tap template chips on the Transactions tab (encrypted `transaction_templates` store, schema v6); **swipe-left** rows (`SwipeableRow`, pointer-based with `touch-action: pan-y`) reveal Copy / Delete, tap to edit. Disabled in select mode.
+11. ✅ **Cash-wallet reconcile + receipt attach** — cash/wallet accounts get a Reconcile action (`useAccounts.reconcileAccount` posts a balancing income/expense to match a counted balance; `ReconcileModal`). Transactions can carry a **receipt photo** — picked, compressed to a JPEG data URL (`lib/image.ts`), stored encrypted on the `Expense` (`receiptDataUrl`, never sent to AI); paperclip indicator on rows.
+12. ✅ **Anomaly nudges + monthly recap** — `core/expenses/monthlyInsights.ts` (`computeAnomalies` + `monthlyRecap`, pure, event-exclusion injected, tested). Anomaly banners on the monthly Analytics view ("Dining 42% over your average", trailing-3-month avg pro-rated for the partial current month) + a recap card (spent, net, vs-last-month, transactions, top category).
 
 **Explicitly out of Track 6:** split transactions (→ Phase 2), natural-language quick-add / Web Share Target / SMS-paste / voice quick-add / round-up-to-goal / PWA home-screen shortcut / merchant deep-dive / GST expense tagging (declined for now), AI auto-categorisation (→ Phase 2).
 
