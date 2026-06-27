@@ -1,12 +1,16 @@
 # Expenses
 
 ## What it is
+
 The expense tracking module — the heart of Penny's day-to-day usage. You log every financial transaction here: money spent, money received, and money moved between your accounts. Over time, Penny builds a detailed picture of where your money goes, surfaced through analytics, budgets, and Chip insights.
 
 ## User-facing capabilities
+
 - Add, edit, and delete transactions of three types: expense (money out), income (money in), and transfer (between your own accounts)
 - Attach a merchant name, amount, category, date, account, notes, and free-form hashtags to every transaction
 - Enter amounts with live Indian thousands grouping, a built-in calculator (type `120+45`), and an amount-in-words helper beneath the field (`1,00,000` → "One Lakh")
+- The **Add/Edit screen** leads with a large **hero amount** in the transaction-type colour (expense red · income green · transfer blue), a type switch up top, **category + date chips**, the **account** and **Paid via** icon rows, and circular icons for **Tags / Receipt / Lent-or-Borrowed / Recurring** that expand inline on tap. Description holds first focus. Saving without a required field (**amount, description, category**) highlights the missing one.
+- Transactions render as a **day-grouped timeline** — a continuous left rail with category-coloured dots, newest first; same-day items order by the **time they were entered** (`Expense.date` now carries the time-of-day)
 - Description is the first field in the Add form; as you type, Penny shows ranked type-ahead suggestions of remembered merchants beneath it (substring match). Each suggestion fills the merchant, category, account, and payment mode on tap — nothing changes until you tap. A merchant you've logged under more than one category surfaces as a separate suggestion per category, ranked by how often you use each.
 - View annual analytics: an income line over monthly expense bars, last-year ghost bars for context, a 3-month forward projection (faded), a savings-rate headline, biggest category movers vs your trailing average, and a per-month breakdown
 - Monthly analytics surfaces **anomaly nudges** (a category spending notably above its trailing-3-month average) and a **recap card** (spent, net, vs-last-month, transactions, top category)
@@ -16,7 +20,8 @@ The expense tracking module — the heart of Penny's day-to-day usage. You log e
 - Attach a **receipt photo** to a transaction — compressed and stored locally (encrypted); a paperclip marks rows that have one
 - Filter transactions by date range, category, hashtag, account, event, or transaction type — mix and match
 - View spending analytics: pie chart and bar chart by category, month-over-month comparison, and a spending trend line
-- Set monthly budgets per category and see real-time progress bars; receive alerts when you are close to or over budget
+- Set monthly budgets per category — opened from the **🎯 budget icon in the Transactions toolbar** (centred modal), not a separate tab — and see real-time progress bars; receive alerts when close to or over budget
+- Mark an expense **Lent to** / an income **Borrowed from** a person to seed an IOU ledger entry; conversely, recording from the IOU screen creates the matching expense/income on a chosen account (see the IOU feature doc)
 - Import transactions from a Penny CSV template, YNAB export, Cashew export, or MoneyView export — with a 3-step review UI before anything is saved
 - Export all or a date-filtered slice of your transactions as an AES-256 password-protected ZIP file containing a CSV
 - Set up recurring transaction rules (subscriptions, EMIs, salary, rent) with frequencies: daily, weekly, bi-weekly, monthly, quarterly, half-yearly, or yearly
@@ -27,6 +32,7 @@ The expense tracking module — the heart of Penny's day-to-day usage. You log e
 - Select multiple transactions in the Transactions tab (the list-check button → tap rows) and bulk-update them: change **category**, change **account + payment mode together** (coupled like the entry form — a cash account forces the cash mode), or **delete** the selection
 
 ## How it works
+
 Transactions are stored in the encrypted `expenses` Dexie store. Each record includes: amount, merchant, categoryId, date, type (expense/income/transfer), hashtags array, accountId, toAccountId (for transfers), eventId, recurringRuleId, and an isRecurring flag.
 
 The category system has three levels: intentGroup (parent group), ExpenseCategory (child category), and hashtags (free-form tags). Default categories are seeded from `defaultCategories.ts` at first run.
@@ -38,12 +44,24 @@ Account balances are derived, not stored — every balance is calculated from th
 Import parsers in `importParsers.ts` normalise transactions from four formats into Penny's internal schema before the review step. Export produces a ZIP (using zip.js) with AES-256 encryption; the password is chosen by the user at export time.
 
 The feature is organised as **vertical slices** (mirroring portfolio): `ExpensesPage.tsx` is a thin
-shell that renders `ExpensesHeader` + a tab strip and dispatches to one self-contained slice per tab
-(`transactions/`, `budgets/`, `analytics/`, `subscriptions/`, `iou/`). Each slice owns its own state,
-modals, and FAB. Shared expense data comes from `useExpenses`; the IOU tab reuses `src/features/iou/`
-(`useIou`, `IouListView`, `IouCard`) so it stays in sync with the standalone `/app/iou` route.
+shell that renders `ExpensesHeader` + a tab strip and dispatches to one self-contained slice per tab.
+Tabs are **Transactions (default) · Analytics · Subscriptions · IOU**; **Budgets** is no longer a tab —
+it opens as a centred modal from the 🎯 icon in the Transactions toolbar (`BudgetsSlice overlay`).
+Each slice owns its own state, modals, and FAB. Shared expense data comes from `useExpenses`; the IOU
+tab reuses `src/features/iou/` (`useIou`, `IouView`) so it stays in sync with the standalone `/app/iou`
+route. The transactions list is `TransactionsTab` — a day-grouped **timeline** on a single uniform
+background (`SwipeableRow` foreground uses `bg-surface-3`); same-day ordering is by full timestamp
+(`b.date - a.date || b.createdAt - a.createdAt`), with `lib/date.dateInputToEpoch` stamping the
+time-of-day on form save.
+
+**IOU ↔ transactions:** an expense/income can seed an IOU entry (`useExpenses.seedIouFromExpense` +
+`core/iou/expenseLink`), and the IOU screen can create the matching expense/income — linked both ways
+by `LedgerEntry.linkedTxnId`, so deleting either side cascades. Because the IOU screen writes through
+separate repo instances, it broadcasts `penny:txn-changed` (`hooks/useTxnRefresh`); `useExpenses`,
+`useForecast`, `useHome`, and `useAccounts` listen and reload so balances/forecast/net-worth stay live.
 
 Key files:
+
 - `src/features/expenses/ExpensesPage.tsx` — thin shell: header + tab strip → slice components
 - `src/features/expenses/transactions/` — transactions slice: filter bar, list, `ExpenseForm`, filter hook
 - `src/features/expenses/analytics/` — analytics slice + `useExpenseAnalytics` derivations
@@ -58,18 +76,20 @@ Key files:
 - `src/core/db/defaultCategories.ts` — seed categories and intent groups
 
 ## Current limitations
+
 - No SMS parsing or bank statement auto-import — all transactions must be entered manually or imported via CSV/export file
-- No photo receipt attachment
 - Category icons use the Tabler webfont; the picker exposes a curated grid + search rather than arbitrary SVG uploads
 - Bulk operations exist for categories (category manager) and individual transactions (Transactions tab select mode → change category, change account + payment mode together, or delete); the account+payment editor enforces the same coupling as the entry form, and only the fields you set are written. Bulk edits don't change a transaction's type.
 - Icon search requires the index to load (lazy fetch); offline, only the curated icon grid is available
 - Analytics charts are month-based; custom arbitrary date range analytics are not yet supported
 
 ## Planned improvements
+
 - Phase 2: AI auto-categorisation — when you type a merchant name, Chip suggests the category based on your history and a merchant database (via a Cloudflare Worker, never raw data)
 - Phase 2: Bank statement PDF import — upload a PDF statement and Penny parses transactions automatically
 
 ## Ideas welcome
+
 - Which banks' PDF statement formats would be most useful to support first?
 - Should there be a "split transaction" feature (one payment split across multiple categories)?
 - Would you find a weekly digest view (spending by week, not month) useful?

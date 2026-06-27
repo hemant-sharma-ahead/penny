@@ -125,6 +125,7 @@ penny/
 ```
 
 **Rule enforced by ESLint:**
+
 - `@anthropic-ai/sdk` → only from `src/core/ai-safety/anthropicClient.ts`
 - `dexie` → only from `src/core/db/`
 - Feature modules → no cross-feature imports
@@ -135,46 +136,46 @@ penny/
 
 ### `src/components/layout/`
 
-| File | Props | Purpose |
-|---|---|---|
-| `AppShell.tsx` | `children` | Sticky 48px header (logo + privacy badge), scrollable page area, 64px bottom nav, settings drawer overlay |
-| `BottomNav.tsx` | — | 5-tab nav: Home, Portfolio, Chip (FAB centre), Expenses, Goals. Respects SettingsContext module visibility. |
+| File                 | Props               | Purpose                                                                                                               |
+| -------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `AppShell.tsx`       | `children`          | Sticky 48px header (logo + privacy badge), scrollable page area, 64px bottom nav, settings drawer overlay             |
+| `BottomNav.tsx`      | —                   | 5-tab nav: Home, Portfolio, Chip (FAB centre), Expenses, Goals. Respects SettingsContext module visibility.           |
 | `SettingsDrawer.tsx` | `isOpen`, `onClose` | Side drawer: module toggles, theme picker, font scale slider, default privacy mode, security actions, demo data clear |
 
 ### `src/components/privacy/`
 
-| File | Props | Purpose |
-|---|---|---|
-| `MaskedValue.tsx` | `value`, `className?` | Shows `••••` in safe/privacy modes. Tap to peek for 5 seconds in safe mode. |
-| `PrivacyBadge.tsx` | — | Coloured badge (amber/violet/red) showing current mode. Tappable to open switcher. |
-| `PrivacyModeSwitcher.tsx` | `isOpen`, `onClose` | 3-segment toggle. PIN modal fires when switching to Open mode. |
+| File                      | Props                 | Purpose                                                                            |
+| ------------------------- | --------------------- | ---------------------------------------------------------------------------------- |
+| `MaskedValue.tsx`         | `value`, `className?` | Shows `••••` in safe/privacy modes. Tap to peek for 5 seconds in safe mode.        |
+| `PrivacyBadge.tsx`        | —                     | Coloured badge (amber/violet/red) showing current mode. Tappable to open switcher. |
+| `PrivacyModeSwitcher.tsx` | `isOpen`, `onClose`   | 3-segment toggle. PIN modal fires when switching to Open mode.                     |
 
 ### `src/components/ui/`
 
-| File | Key Props | Purpose |
-|---|---|---|
-| `ChipAvatar.tsx` | — | Chip AI avatar SVG |
-| `PennyLogo.tsx` | — | Penny coin + wordmark SVG |
-| `Card.tsx` | `padding?` xs/sm/md/lg · `radius?` md/lg · `onClick?` · `className?` | Surface card. Padding tiers: xs=p-3, sm=p-3.5, md=p-4 (default), lg=p-5. Renders `<button>` when `onClick` is provided. Layout classes allowed via `className`; never pass colour/spacing overrides. |
-| `Modal.tsx` | `onClose` · `title?` · `footer?` · `size?` sm/md · `nested?` · `level?` 1/2/3 · `scrollable?` | Fixed-overlay centred modal. `nested=true` bumps to `z-70`; `level={3}` → `z-80` (third-tier, e.g. category editors above the picker). Always uses `paddingTop:56, paddingBottom:72` so header + nav remain visible. |
-| `Button.tsx` | `variant` primary/secondary/danger/ghost · `size?` sm/md/lg · `loading?` · `icon?` · `fullWidth?` · `color?` · `style?` | All interactive buttons. `color` overrides background with a runtime hex value. `style` merges with variant styles for one-off positioning (e.g. FAB `bottom`/`right`). Primary/danger use CSS vars; secondary/ghost use semantic tokens. |
-| `OptionButton.tsx` | `label` · `selected` · `onClick` · `icon?` · `description?` · `color?` · `disabled?` · `compact?` | Bordered option selector. Default: horizontal card (icon left, label right, `w-full`). `compact=true`: vertical tile (icon above, label below, no `w-full`) for use in 3–4-column grids (policy types, account types, asset classes). `color` defaults to `--color-primary`. |
-| `ConfirmDialog.tsx` | `isOpen` · `onClose` · `onConfirm` · `title` · `message` · `confirmLabel?` · `confirmVariant?` · `loading?` · `level?` 1/2/3 | Two-button confirmation dialog. Wraps `Modal` (default `level=2`/`z-70`) + two `Button`s. |
-| `FormField.tsx` | `label` · `required?` · `hint?` · `error?` | Label wrapper. Shows required star, hint text, or error (error takes priority over hint). |
-| `TextInput.tsx` | `label?` · `value` · `onChange(value)` · `error?` · `hint?` · `prefix?` · `suffix?` · `inputClassName?` | Controlled text input. `inputClassName` adds extra classes to the inner `<input>` element (e.g. `font-mono uppercase` for ticker inputs). When `label` is provided, wraps with `FormField`. |
-| `AmountInput.tsx` | `label?` · `value` (plain numeric string) · `onChange(value)` · `prefix?` (default `₹`) · `showWords?` · `error?` · `hint?` · `autoFocus?` | Money entry field. Live Indian-grouped display, inline calculator (`120+45`, safe hand-rolled evaluator — no `eval`), and an amount-in-words helper beneath (via `lib/amountToWords`). Groups on blur, shows raw draft while focused (no cursor jump). Use for all money inputs in place of a raw `TextInput type="number"`. |
-| `EmptyState.tsx` | `icon` · `title` · `description?` · `action?` | Icon + title + optional description + optional CTA button. Use for zero-data states. |
-| `TabStrip.tsx` | `options[]{value,label,icon?,count?}` · `value` · `onChange` · `scrollable?` | Underline-style tab strip. Generic over the tab value type. Horizontally scrollable when `scrollable=true`. |
-| `Badge.tsx` | `label` · `color?` · `variant?` solid/subtle · `size?` sm/md | Coloured pill. `subtle` variant uses `color` at 10% opacity background. |
-| `PageHeader.tsx` | `title` · `subtitle?` · `leading?` · `actions?` · `children?` · `className?` | Standard page header: `px-4 pt-4 pb-3` bottom-bordered block. `leading` (e.g. back button) sits left of the title, `actions` right-aligned, `subtitle` renders as a `text-sm text-secondary` line, `children` is a full-width slot below the title row. Use at the top of every feature page. |
-| `SectionLabel.tsx` | `children` · `className?` | Small uppercase `text-tertiary` label titling a section between cards/lists. Spacing is caller-controlled via `className` (default `mb-2`; pass `-mb-2` when the parent supplies a gap). |
-| `PassphraseStrengthMeter.tsx` | `score` 0–4 | Five-bar zxcvbn strength meter + label. Used by onboarding setup and Change Passphrase. |
-| `ListContainer.tsx` | `children` · `className?` | Bordered rounded `surface` that hairline-divides its direct children (`divide-[var(--color-border)]`). Standard wrapper for grouped list rows (accounts, transactions, previews). |
-| `ProgressBar.tsx` | `value` 0–100 · `color?` · `size?` xs/sm/md · `animate?` | Horizontal fill bar. Clamps value to 0–100. |
-| `SegmentedControl.tsx` | `options[]{value,label,icon?,color?}` · `value` · `onChange` · `cols?` | 2–4 option radio group. Active option fills with `color` (default `--color-primary`). Background: `bg-surface-2`. |
-| `SelectInput.tsx` | `label?` · `value` · `onChange(value)` · `options[]{value,label}` · `placeholder?` · `required?` · `disabled?` · `error?` · `hint?` | Custom dropdown: styled trigger + portal-rendered listbox anchored directly below the field (flips above when space is tight). Renders to `document.body` at `z-index:90` so it escapes modal `overflow` clipping and stacks above `z-80` modals; dismisses on outside-click/Escape; repositions on scroll/resize. Wraps `FormField` when `label` provided. |
-| `Toggle.tsx` | `value` · `onChange(value)` · `disabled?` · `aria-label?` | iOS-style sliding boolean switch. Active: `--color-primary`; inactive: `--color-surface-3`. |
-| `index.ts` | — | Barrel export for all ui components. Import shared primitives from `@/components/ui` (never deep-import the file). |
+| File                          | Key Props                                                                                                                                  | Purpose                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ChipAvatar.tsx`              | —                                                                                                                                          | Chip AI avatar SVG                                                                                                                                                                                                                                                                                                                                          |
+| `PennyLogo.tsx`               | —                                                                                                                                          | Penny coin + wordmark SVG                                                                                                                                                                                                                                                                                                                                   |
+| `Card.tsx`                    | `padding?` xs/sm/md/lg · `radius?` md/lg · `onClick?` · `className?`                                                                       | Surface card. Padding tiers: xs=p-3, sm=p-3.5, md=p-4 (default), lg=p-5. Renders `<button>` when `onClick` is provided. Layout classes allowed via `className`; never pass colour/spacing overrides.                                                                                                                                                        |
+| `Modal.tsx`                   | `onClose` · `title?` · `footer?` · `size?` sm/md · `nested?` · `level?` 1/2/3 · `scrollable?`                                              | Fixed-overlay centred modal. `nested=true` bumps to `z-70`; `level={3}` → `z-80` (third-tier, e.g. category editors above the picker). Always uses `paddingTop:56, paddingBottom:72` so header + nav remain visible.                                                                                                                                        |
+| `Button.tsx`                  | `variant` primary/secondary/danger/ghost · `size?` sm/md/lg · `loading?` · `icon?` · `fullWidth?` · `color?` · `style?`                    | All interactive buttons. `color` overrides background with a runtime hex value. `style` merges with variant styles for one-off positioning (e.g. FAB `bottom`/`right`). Primary/danger use CSS vars; secondary/ghost use semantic tokens.                                                                                                                   |
+| `OptionButton.tsx`            | `label` · `selected` · `onClick` · `icon?` · `description?` · `color?` · `disabled?` · `compact?`                                          | Bordered option selector. Default: horizontal card (icon left, label right, `w-full`). `compact=true`: vertical tile (icon above, label below, no `w-full`) for use in 3–4-column grids (policy types, account types, asset classes). `color` defaults to `--color-primary`.                                                                                |
+| `ConfirmDialog.tsx`           | `isOpen` · `onClose` · `onConfirm` · `title` · `message` · `confirmLabel?` · `confirmVariant?` · `loading?` · `level?` 1/2/3               | Two-button confirmation dialog. Wraps `Modal` (default `level=2`/`z-70`) + two `Button`s.                                                                                                                                                                                                                                                                   |
+| `FormField.tsx`               | `label` · `required?` · `hint?` · `error?`                                                                                                 | Label wrapper. Shows required star, hint text, or error (error takes priority over hint).                                                                                                                                                                                                                                                                   |
+| `TextInput.tsx`               | `label?` · `value` · `onChange(value)` · `error?` · `hint?` · `prefix?` · `suffix?` · `inputClassName?`                                    | Controlled text input. `inputClassName` adds extra classes to the inner `<input>` element (e.g. `font-mono uppercase` for ticker inputs). When `label` is provided, wraps with `FormField`.                                                                                                                                                                 |
+| `AmountInput.tsx`             | `label?` · `value` (plain numeric string) · `onChange(value)` · `prefix?` (default `₹`) · `showWords?` · `error?` · `hint?` · `autoFocus?` | Money entry field. Live Indian-grouped display, inline calculator (`120+45`, safe hand-rolled evaluator — no `eval`), and an amount-in-words helper beneath (via `lib/amountToWords`). Groups on blur, shows raw draft while focused (no cursor jump). Use for all money inputs in place of a raw `TextInput type="number"`.                                |
+| `EmptyState.tsx`              | `icon` · `title` · `description?` · `action?`                                                                                              | Icon + title + optional description + optional CTA button. Use for zero-data states.                                                                                                                                                                                                                                                                        |
+| `TabStrip.tsx`                | `options[]{value,label,icon?,count?}` · `value` · `onChange` · `scrollable?`                                                               | Underline-style tab strip. Generic over the tab value type. Horizontally scrollable when `scrollable=true`.                                                                                                                                                                                                                                                 |
+| `Badge.tsx`                   | `label` · `color?` · `variant?` solid/subtle · `size?` sm/md                                                                               | Coloured pill. `subtle` variant uses `color` at 10% opacity background.                                                                                                                                                                                                                                                                                     |
+| `PageHeader.tsx`              | `title` · `subtitle?` · `leading?` · `actions?` · `children?` · `className?`                                                               | Standard page header: `px-4 pt-4 pb-3` bottom-bordered block. `leading` (e.g. back button) sits left of the title, `actions` right-aligned, `subtitle` renders as a `text-sm text-secondary` line, `children` is a full-width slot below the title row. Use at the top of every feature page.                                                               |
+| `SectionLabel.tsx`            | `children` · `className?`                                                                                                                  | Small uppercase `text-tertiary` label titling a section between cards/lists. Spacing is caller-controlled via `className` (default `mb-2`; pass `-mb-2` when the parent supplies a gap).                                                                                                                                                                    |
+| `PassphraseStrengthMeter.tsx` | `score` 0–4                                                                                                                                | Five-bar zxcvbn strength meter + label. Used by onboarding setup and Change Passphrase.                                                                                                                                                                                                                                                                     |
+| `ListContainer.tsx`           | `children` · `className?`                                                                                                                  | Bordered rounded `surface` that hairline-divides its direct children (`divide-[var(--color-border)]`). Standard wrapper for grouped list rows (accounts, transactions, previews).                                                                                                                                                                           |
+| `ProgressBar.tsx`             | `value` 0–100 · `color?` · `size?` xs/sm/md · `animate?`                                                                                   | Horizontal fill bar. Clamps value to 0–100.                                                                                                                                                                                                                                                                                                                 |
+| `SegmentedControl.tsx`        | `options[]{value,label,icon?,color?}` · `value` · `onChange` · `cols?`                                                                     | 2–4 option radio group. Active option fills with `color` (default `--color-primary`). Background: `bg-surface-2`.                                                                                                                                                                                                                                           |
+| `SelectInput.tsx`             | `label?` · `value` · `onChange(value)` · `options[]{value,label}` · `placeholder?` · `required?` · `disabled?` · `error?` · `hint?`        | Custom dropdown: styled trigger + portal-rendered listbox anchored directly below the field (flips above when space is tight). Renders to `document.body` at `z-index:90` so it escapes modal `overflow` clipping and stacks above `z-80` modals; dismisses on outside-click/Escape; repositions on scroll/resize. Wraps `FormField` when `label` provided. |
+| `Toggle.tsx`                  | `value` · `onChange(value)` · `disabled?` · `aria-label?`                                                                                  | iOS-style sliding boolean switch. Active: `--color-primary`; inactive: `--color-surface-3`.                                                                                                                                                                                                                                                                 |
+| `index.ts`                    | —                                                                                                                                          | Barrel export for all ui components. Import shared primitives from `@/components/ui` (never deep-import the file).                                                                                                                                                                                                                                          |
 
 ---
 
@@ -182,16 +183,17 @@ penny/
 
 ### `src/hooks/`
 
-| File | Returns | Purpose |
-|---|---|---|
-| `useRepository.ts` | `{ items, loading, error, save, remove, reload }` | Generic hook to load/write from any EncryptedRepository. Used in most feature pages. |
-| `useLoggedRepository.ts` | same shape as `useRepository` | Wraps `useRepository`, recording CREATE/UPDATE on save + DELETE on remove to the activity log, and firing an Undo toast (restore + reload). Single-entity modules adopt it with `{ entityType, summarize, diffFields? }`. |
-| `usePassphraseStrength.ts` | `{ score, ready }` | Lazy-loads zxcvbn and scores a passphrase (0–4). Used by onboarding setup and Change Passphrase. |
-| `useProfile.ts` | `{ profile, loading }` | The single profile record (or null). Used by FIRE, tax, health, retirement, and the profile editor to read dob/employmentType. |
-| `useForecast.ts` | `{ loading, nowMs, todayStart, startBalance, events, forecast, dueRecurring, reload }` | Loads recurring-flow sources + accounts, computes current liquid balance, and projects it forward via `core/cashflow` (running balance, lowest point, buffer breach, liquidity-based safe-to-spend) plus the due-recurring set. Shared by the Cash Flow page, the safe-to-spend surfaces (Home, Expenses header), and reminders — lives here so features don't cross-import. |
-| `useReminders.ts` | `{ loading, nowMs, reminders, counts, snooze, markDone, log, cancelSub }` | Builds the header bell's in-app reminders from `useForecast` + `core/reminders`, holding snooze/done state in localStorage. Actions: snooze, mark done, log a due bill (reuses the recurring occurrence builder), cancel a subscription. |
+| File                       | Returns                                                                                | Purpose                                                                                                                                                                                                                                                                                                                                                                      |
+| -------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useRepository.ts`         | `{ items, loading, error, save, remove, reload }`                                      | Generic hook to load/write from any EncryptedRepository. Used in most feature pages.                                                                                                                                                                                                                                                                                         |
+| `useLoggedRepository.ts`   | same shape as `useRepository`                                                          | Wraps `useRepository`, recording CREATE/UPDATE on save + DELETE on remove to the activity log, and firing an Undo toast (restore + reload). Single-entity modules adopt it with `{ entityType, summarize, diffFields? }`.                                                                                                                                                    |
+| `usePassphraseStrength.ts` | `{ score, ready }`                                                                     | Lazy-loads zxcvbn and scores a passphrase (0–4). Used by onboarding setup and Change Passphrase.                                                                                                                                                                                                                                                                             |
+| `useProfile.ts`            | `{ profile, loading }`                                                                 | The single profile record (or null). Used by FIRE, tax, health, retirement, and the profile editor to read dob/employmentType.                                                                                                                                                                                                                                               |
+| `useForecast.ts`           | `{ loading, nowMs, todayStart, startBalance, events, forecast, dueRecurring, reload }` | Loads recurring-flow sources + accounts, computes current liquid balance, and projects it forward via `core/cashflow` (running balance, lowest point, buffer breach, liquidity-based safe-to-spend) plus the due-recurring set. Shared by the Cash Flow page, the safe-to-spend surfaces (Home, Expenses header), and reminders — lives here so features don't cross-import. |
+| `useReminders.ts`          | `{ loading, nowMs, reminders, counts, snooze, markDone, log, cancelSub }`              | Builds the header bell's in-app reminders from `useForecast` + `core/reminders`, holding snooze/done state in localStorage. Actions: snooze, mark done, log a due bill (reuses the recurring occurrence builder), cancel a subscription.                                                                                                                                     |
+| `useTxnRefresh.ts`         | `notifyTxnChanged()` + `useTxnRefresh(reload)`                                         | Cross-instance live-refresh for transactions/balances. The IOU screen writes expenses through separate repo instances and calls `notifyTxnChanged()` (a `penny:txn-changed` window event); `useExpenses`, `useForecast`, `useHome`, and `useAccounts` subscribe via `useTxnRefresh` so lists, balances, forecast, and net worth reload live.                                 |
 
-*(Track 1 adds: `useDisclosure.ts`, `useAsync.ts`)*
+_(Track 1 adds: `useDisclosure.ts`, `useAsync.ts`)_
 
 ---
 
@@ -201,56 +203,70 @@ penny/
 
 Three files, one responsibility each:
 
-| File | Purpose |
-|---|---|
-| `engine.ts` | Pure crypto: `deriveKey()`, `encrypt()`, `decrypt()`, `wrapKey()`, `unwrapKey()`, `generateSalt()`, `deriveVerifier()`. Only file that calls `window.crypto.subtle`. |
-| `keystore.ts` | In-memory Master Key holder. `setMasterKey()`, `getMasterKey()`, `isUnlocked()`, `lock()`. Never writes to storage. |
-| `securityManager.ts` | Orchestrates auth lifecycle: `initialize()`, `unlock()`, `verifyPin()`, `isOnboardingComplete()`, `isPinRotationDue()`. Reads/writes the `security` Dexie store. |
+| File                 | Purpose                                                                                                                                                              |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `engine.ts`          | Pure crypto: `deriveKey()`, `encrypt()`, `decrypt()`, `wrapKey()`, `unwrapKey()`, `generateSalt()`, `deriveVerifier()`. Only file that calls `window.crypto.subtle`. |
+| `keystore.ts`        | In-memory Master Key holder. `setMasterKey()`, `getMasterKey()`, `isUnlocked()`, `lock()`. Never writes to storage.                                                  |
+| `securityManager.ts` | Orchestrates auth lifecycle: `initialize()`, `unlock()`, `verifyPin()`, `isOnboardingComplete()`, `isPinRotationDue()`. Reads/writes the `security` Dexie store.     |
 
 ### `src/core/db/`
 
-| File | Purpose |
-|---|---|
-| `schema.ts` | `PennyDatabase` extends `Dexie`. Defines v1→v4 migrations and all store definitions. Exports `db` singleton. |
-| `repository.ts` | `EncryptedRepository<T>` class. Encrypts on `put()`, decrypts on `get()`/`getAll()`. Uses Master Key from keystore. |
-| `repositories.ts` | Pre-instantiated repositories for all encrypted stores. Import from here — never instantiate directly in features. |
-| `types/index.ts` | TypeScript interfaces for all 40+ entity types. |
-| `defaultCategories.ts` | `ALL_DEFAULT_CATEGORIES`, `INTENT_GROUP_META`, `CATEGORY_MIGRATION_MAP`. |
-| `priceCache.ts` | Helpers for reading/writing the `price_cache` plain store with TTL support. |
-| `seedDemoData.ts` | Seeds realistic demo data (expenses, holdings, goals, accounts) after onboarding, tailored per `employmentType` via a per-persona config. Exports `seedDemoData(employmentType?)`, `clearDemoData()`, and `reseedForEmployment(employmentType)` (re-seeds for a new persona only if no real data exists). |
-| `activityLog.ts` | Timeline service: `logActivity` (fire-and-forget + prune), `restoreActivity`, `restoreDeletionsSince`, `summarizeDiff`. |
-| `entityRegistry.ts` | `entityType → repo.put` map so `restoreActivity` re-inserts snapshots generically. |
+| File                   | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema.ts`            | `PennyDatabase` extends `Dexie`. Defines v1→v7 migrations and all store definitions. Exports `db` singleton. (v7 adds `persons` + `ledger_entries` for the IOU ledger.)                                                                                                                                                                                                                                                                                                                                   |
+| `repository.ts`        | `EncryptedRepository<T>` class. Encrypts on `put()`, decrypts on `get()`/`getAll()`. Uses Master Key from keystore.                                                                                                                                                                                                                                                                                                                                                                                       |
+| `repositories.ts`      | Pre-instantiated repositories for all encrypted stores. Import from here — never instantiate directly in features.                                                                                                                                                                                                                                                                                                                                                                                        |
+| `types/index.ts`       | TypeScript interfaces for all 40+ entity types.                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `defaultCategories.ts` | `ALL_DEFAULT_CATEGORIES`, `INTENT_GROUP_META`, `CATEGORY_MIGRATION_MAP`.                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `priceCache.ts`        | Helpers for reading/writing the `price_cache` plain store with TTL support.                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `seedDemoData.ts`      | Seeds a realistic **multi-year (Jan 2017 → today)** demo dataset after onboarding, tailored per `employmentType` via a per-persona config. Salary steps through a career arc (`SALARY_ARC`/`salaryFor`, aligned to the EPF employer history) with April/July hikes; the latest 12 months are fully detailed, older months carry the core recurring rows (scaled back by a ~5%/yr `grow()` factor). Exports `seedDemoData(employmentType?)`, `clearDemoData()`, and `reseedForEmployment(employmentType)`. |
+| `activityLog.ts`       | Timeline service: `logActivity` (fire-and-forget + prune), `restoreActivity` (restores `snapshot` + any other-type `cascade` records — atomic combined Undo), `restoreDeletionsSince`, `summarizeDiff`.                                                                                                                                                                                                                                                                                                   |
+| `entityRegistry.ts`    | `entityType → repo.put` map so `restoreActivity` re-inserts snapshots (and cascade records) generically.                                                                                                                                                                                                                                                                                                                                                                                                  |
+
+### `src/core/iou/`
+
+Pure, unit-tested logic for the person-centric IOU ledger (Phase 1.5 Track 1). No React/repo access.
+
+| File             | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ledger.ts`      | Balance math: `signedAmount`, `netBalance`, `balanceByPerson`, `totalOwedToYou`/`totalYouOwe`, `isSettled`, `overdueEntries`.                                                                                                                                                                                                                                                                                                  |
+| `expenseLink.ts` | Both-way reconcile. `reconcileExpenseLink` (expense→IOU) — given an expense's existing seeded entries + a new intent, returns `{toPut, toDelete}`. `reconcileLinkedTxn` (IOU→transaction) — given the existing linked Expense + new intent, returns `{put?, deleteId?}` so editing an IOU entry re-syncs its transaction and toggling the link off deletes it. Types `ExpenseIouIntent`/`ExpenseSeedIntent`/`LinkedTxnIntent`. |
+| `aiLabels.ts`    | `assignOrdinalLabels` — the single sanctioned path for putting IOU people into AI context (names → "Person N").                                                                                                                                                                                                                                                                                                                |
+| `migration.ts`   | `parsePersonName` + `migrateLegacyIous` — legacy `personal_ious` → persons/ledger entries (run by `useIou`, flag `penny_iou_v2`).                                                                                                                                                                                                                                                                                              |
+
+IOU UI lives in `src/features/iou/` (`IouView` shared by `/app/iou` and the Expenses → IOU tab;
+`PersonListView`, `PersonLedgerView`, `EntryForm`, `SettleUpModal`, `PersonForm`, `PersonPicker`).
 
 ### `src/core/ai-safety/`
 
-| File | Purpose |
-|---|---|
+| File                  | Purpose                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------- |
 | `buildUserContext.ts` | Only path to the Anthropic API. Strips/bands/generalises PII. Returns `UserContext` struct. |
-| `piiScanner.ts` | Regex-based PII scanner. Used by the CI gate. |
-| `mockChip.ts` | Phase 1 Chip simulation. All Phase 1 Chip responses come from here. |
+| `piiScanner.ts`       | Regex-based PII scanner. Used by the CI gate.                                               |
+| `mockChip.ts`         | Phase 1 Chip simulation. All Phase 1 Chip responses come from here.                         |
 
 ---
 
 ## External APIs
 
-| API | Used for | Client file | Cache TTL |
-|---|---|---|---|
-| MFAPI.in | MF search, NAV, scheme metadata | `src/core/db/priceCache.ts` | 24h |
-| Yahoo Finance (unofficial) | Stock search, live price | `src/core/db/priceCache.ts` | 15 min |
-| investorgain.com (webnodejs) | IPO data (all 4 tabs), GMP, subscription | `src/core/ipo/ipoClient.ts` | 30 min |
-| npsnav.in | NPS fund NAV | `src/core/nps/npsClient.ts` | 24h |
-| vahandetails.com | Vehicle RC lookup, depreciation | `src/core/vehicle/rcClient.ts` | 30 days |
-| Market data (indices/forex) | Sensex, Nifty, Gold, Silver, USD-INR, Crude | `src/core/market/marketDataClient.ts` | 15 min |
+| API                          | Used for                                    | Client file                           | Cache TTL |
+| ---------------------------- | ------------------------------------------- | ------------------------------------- | --------- |
+| MFAPI.in                     | MF search, NAV, scheme metadata             | `src/core/db/priceCache.ts`           | 24h       |
+| Yahoo Finance (unofficial)   | Stock search, live price                    | `src/core/db/priceCache.ts`           | 15 min    |
+| investorgain.com (webnodejs) | IPO data (all 4 tabs), GMP, subscription    | `src/core/ipo/ipoClient.ts`           | 30 min    |
+| npsnav.in                    | NPS fund NAV                                | `src/core/nps/npsClient.ts`           | 24h       |
+| vahandetails.com             | Vehicle RC lookup, depreciation             | `src/core/vehicle/rcClient.ts`        | 30 days   |
+| Market data (indices/forex)  | Sensex, Nifty, Gold, Silver, USD-INR, Crude | `src/core/market/marketDataClient.ts` | 15 min    |
 
 ---
 
 ## Context providers
 
-| Context | Stored in | Key values |
-|---|---|---|
-| `PrivacyContext` | React state + localStorage | `mode: PrivacyMode`, `setMode()`, `maskValue()`, `canUseAI()` |
-| `SettingsContext` | localStorage | `moduleVisibility`, `fontScale`, `theme`, `defaultPrivacyMode`, `setModule()` |
-| `EventModeContext` | Dexie (`hashtags` store) | `activeEvent`, `addEvent()`, `stopEvent()`, `promoteHashtagToEvent()` |
+| Context            | Stored in                  | Key values                                                                    |
+| ------------------ | -------------------------- | ----------------------------------------------------------------------------- |
+| `PrivacyContext`   | React state + localStorage | `mode: PrivacyMode`, `setMode()`, `maskValue()`, `canUseAI()`                 |
+| `SettingsContext`  | localStorage               | `moduleVisibility`, `fontScale`, `theme`, `defaultPrivacyMode`, `setModule()` |
+| `EventModeContext` | Dexie (`hashtags` store)   | `activeEvent`, `addEvent()`, `stopEvent()`, `promoteHashtagToEvent()`         |
 
 ---
 
@@ -290,20 +306,20 @@ Three files, one responsibility each:
 
 ## Build & tooling
 
-| Tool | Version | Purpose |
-|---|---|---|
-| Vite | 8.x | Dev server + build bundler |
-| TypeScript | 6.x (strict) | Type checking — `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` |
-| Tailwind CSS | 4.x | Utility CSS — semantic tokens defined in `src/index.css` |
-| Dexie | 4.x | IndexedDB wrapper with Dexie Table typing |
-| VitePWA | — | Service Worker, Workbox, PWA manifest |
-| Vitest | 4.x | Unit + integration tests |
-| ESLint | 10.x | Lint + architecture enforcement |
-| Prettier | 3.x | Code formatting |
-| Husky + lint-staged | — | Pre-commit hooks |
-| xlsx | 0.18.x | XLSX export (loans amortization) |
-| zip.js | 2.8.x | AES-256 password-protected ZIP export |
-| zxcvbn | 4.x | Passphrase strength estimation |
+| Tool                | Version      | Purpose                                                                            |
+| ------------------- | ------------ | ---------------------------------------------------------------------------------- |
+| Vite                | 8.x          | Dev server + build bundler                                                         |
+| TypeScript          | 6.x (strict) | Type checking — `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` |
+| Tailwind CSS        | 4.x          | Utility CSS — semantic tokens defined in `src/index.css`                           |
+| Dexie               | 4.x          | IndexedDB wrapper with Dexie Table typing                                          |
+| VitePWA             | —            | Service Worker, Workbox, PWA manifest                                              |
+| Vitest              | 4.x          | Unit + integration tests                                                           |
+| ESLint              | 10.x         | Lint + architecture enforcement                                                    |
+| Prettier            | 3.x          | Code formatting                                                                    |
+| Husky + lint-staged | —            | Pre-commit hooks                                                                   |
+| xlsx                | 0.18.x       | XLSX export (loans amortization)                                                   |
+| zip.js              | 2.8.x        | AES-256 password-protected ZIP export                                              |
+| zxcvbn              | 4.x          | Passphrase strength estimation                                                     |
 
 ---
 
@@ -345,6 +361,7 @@ Every feature module follows a strict three-layer pattern. This was established 
 ### Example: Expenses feature (before vs after Track 1B)
 
 **Before (wrong — everything in one file):**
+
 ```
 src/features/expenses/
   ExpensesPage.tsx    ← 3,130 lines: calculations + state + data fetching + UI
@@ -352,6 +369,7 @@ src/features/expenses/
 ```
 
 **After Track 1B (correct):**
+
 ```
 src/features/expenses/
   useExpenses.ts         ← domain hook: load txns/categories/accounts, seeding, derived maps
@@ -370,6 +388,7 @@ src/core/expenses/
 `ExpensesPage` is a thin shell (~95 lines): calls `useExpenses` + `useTransactionFilters`, renders
 `<ExpensesHeader>` + the tab strip, and dispatches to one self-contained slice per tab. Each slice
 owns its own UI state, modals, and FAB — no central modal orchestration.
+
 ```
 src/features/expenses/
   ExpensesPage.tsx         ← thin shell: header + tab strip → <XSlice>
@@ -456,62 +475,77 @@ Bridge functions that read UI state then call a hook mutation live in the page.
 
 ### React Native portability by layer
 
-| Layer | RN effort | Why |
-|---|---|---|
-| `src/core/` | Zero changes | Pure TypeScript, no browser deps |
-| Feature hooks (`use{Name}.ts`) | Zero changes | React hooks work identically in RN |
-| Feature UI (`{Name}Page.tsx`) | Swap component implementations | Pages call `<Card>`, `<Modal>` — not Tailwind directly |
-| `src/components/ui/` | Create `*.native.tsx` variants | Same props API, different renderer |
-| `src/core/db/` | Replace Dexie with SQLite | Isolated behind EncryptedRepository interface |
-| `src/core/crypto/` | Replace Web Crypto with RN crypto | Isolated in engine.ts |
+| Layer                          | RN effort                         | Why                                                    |
+| ------------------------------ | --------------------------------- | ------------------------------------------------------ |
+| `src/core/`                    | Zero changes                      | Pure TypeScript, no browser deps                       |
+| Feature hooks (`use{Name}.ts`) | Zero changes                      | React hooks work identically in RN                     |
+| Feature UI (`{Name}Page.tsx`)  | Swap component implementations    | Pages call `<Card>`, `<Modal>` — not Tailwind directly |
+| `src/components/ui/`           | Create `*.native.tsx` variants    | Same props API, different renderer                     |
+| `src/core/db/`                 | Replace Dexie with SQLite         | Isolated behind EncryptedRepository interface          |
+| `src/core/crypto/`             | Replace Web Crypto with RN crypto | Isolated in engine.ts                                  |
 
 ---
 
 ## Key architectural decisions
 
 ### Decision: UUID primary keys everywhere
+
 **Rationale:** Auto-increment integers break when syncing data across devices — gaps, conflicts. UUID PKs let two devices add records independently and merge without collision. Sync-readiness from day 1, even before Phase 1.5 backend arrives.
 
 ### Decision: EncryptedRepository pattern (never raw Dexie from features)
+
 **Rationale:** Centralises encryption/decryption. Any feature that calls `db.expenses.toArray()` directly bypasses encryption. ESLint rule enforces the boundary. Adding a new encrypted field is a one-line change in the repository config, not a scattered change across all feature files.
 
 ### Decision: Three-key architecture (passphrase → MK, PIN → KEK)
+
 **Rationale:** Separates two concerns: the Master Key (long-term, derived from passphrase, hard to brute force at 600K PBKDF2 iterations) and the Key Encryption Key (daily use, derived from PIN, fast to unlock at 200K iterations). This means: fast daily unlock via PIN, but changing the PIN doesn't require re-encrypting all data (just the wrapped MK).
 
 ### Decision: Master Key in memory only
+
 **Rationale:** The most critical security property. An attacker with access to IndexedDB (e.g. via another browser extension) can only see ciphertext. The MK never touches persistent storage — it lives in `keystore.ts` in the JS heap, cleared on session expiry.
 
 ### Decision: Feature module isolation (no cross-feature imports)
+
 **Rationale:** Keeps each feature independently testable and understandable. Prevents the "everything imports everything" antipattern. Also necessary for React Native migration — each feature can be ported independently since it only depends on `core/`.
 
 ### Decision: buildUserContext() as the only Anthropic path
+
 **Rationale:** The PII pipeline cannot be bypassed by accident. Any developer who wants to call the Anthropic API must go through `buildUserContext()`, which enforces all PII stripping rules. The `@anthropic-ai/sdk` import restriction in ESLint makes it impossible to call the SDK from anywhere else.
 
 ### Decision: Cloudflare Workers + D1 + KV (not Supabase)
+
 **Rationale (Phase 1.5):** We're already on Cloudflare Pages. D1 is SQLite at the edge — sufficient for the identity/membership data (users, groups, group_members). Supabase would add a new vendor and its PostgreSQL row-level security model is overcomplicated for our needs. D1 + KV keeps everything on one platform and under the generous Cloudflare free tier.
 
 ### Decision: Phone OTP auth (no email, no OAuth)
+
 **Rationale (Phase 1.5):** No inbox to phish. No Google/Apple dependency for OAuth. SMS OTP is universally understood in India. Fits the privacy-first positioning — we don't need to know your email.
 
 ### Decision: Client-side encryption only, user-owned cloud backup
+
 **Rationale (Phase 2):** Option A (no key escrow). The strongest possible privacy promise: we cannot decrypt your data even if legally compelled. Backup goes to the user's Google Drive / iCloud as an encrypted blob — we never touch it. Users who lose their passphrase lose their data. This is the stated tradeoff (communicated in onboarding).
 
 ### Decision: Envelope encryption (random DMK), not passphrase-derived MK
-**Rationale (Track 2):** Deriving the Master Key directly from the passphrase makes the data key *be* the passphrase — so changing the passphrase forces re-encrypting every record (slow, corruption-prone). Switching to a random **Data Master Key** wrapped independently by a passphrase-KEK and a PIN-KEK (the standard "envelope" / key-wrapping pattern) means changing any factor is just a re-wrap — instant, no data re-encryption — and adding biometric later is just another wrapping slot. The DMK is non-extractable and in memory only while unlocked. Full re-encryption was rejected: in a local-only app a DMK leak implies device compromise (plaintext already exposed), so key-rotation buys ~nothing. Changing the passphrase requires the current passphrase. See `docs/ROADMAP.md` → *Pre-Phase 1.5 Track 2*.
+
+**Rationale (Track 2):** Deriving the Master Key directly from the passphrase makes the data key _be_ the passphrase — so changing the passphrase forces re-encrypting every record (slow, corruption-prone). Switching to a random **Data Master Key** wrapped independently by a passphrase-KEK and a PIN-KEK (the standard "envelope" / key-wrapping pattern) means changing any factor is just a re-wrap — instant, no data re-encryption — and adding biometric later is just another wrapping slot. The DMK is non-extractable and in memory only while unlocked. Full re-encryption was rejected: in a local-only app a DMK leak implies device compromise (plaintext already exposed), so key-rotation buys ~nothing. Changing the passphrase requires the current passphrase. See `docs/ROADMAP.md` → _Pre-Phase 1.5 Track 2_.
 
 ### Decision: Local identity now, server registration later
+
 **Rationale (Track 2):** Create `userId` + `username` + an on-device keypair locally at onboarding with no backend. Phone+OTP server registration is an optional Phase 1.5 upgrade that "claims" the existing local identity — so groups/cloud-sync arrive with **no data migration**, while Phase 1 stays backendless and SMS-free.
 
 ### Decision: Always-on entitlement gate for pricing-readiness
+
 **Rationale (Track 2):** Route would-be-paid features (e.g. cloud backup) through a single `entitlement` check that currently always returns pro/true. Enabling pricing later (store receipts on native, offline-verifiable signed license tokens on web) swaps the entitlement source without touching feature code and without storing user data.
 
 ### Decision: React Native for mobile (not Capacitor)
+
 **Rationale (Phase 2):** Capacitor wraps the web app in a WebView — performance is constrained by CSS rendering and JavaScript layout. React Native renders to native components. The component extraction in Pre-Phase 1.5 (semantic variant props, no Tailwind className in feature files) makes the migration mechanical: swap component implementations, keep all business logic and `src/core/`.
 
 ### Decision: Domain hooks, not page-god-hooks
+
 **Rationale:** A single hook that owns everything for a page (all useState, all effects, all form state, all mutations) violates SRP, is hard to test, and returns 20+ values with unclear cohesion. Instead: each hook has one domain responsibility (data loading + mutations for one entity). Form fields, modal toggles, and selection state (`editing`, `deletingId`) stay in the page component — they're local UI state, not business state. Bridge functions that read UI state and call a domain mutation (e.g. `handleSave` reads the form, then calls `saveAccount(form, editing)`) also stay in the page. Complex pages compose multiple focused hooks (e.g. `ExpensesPage` calls `useExpenses`, `useSubscriptions`, `useIou`, `useBudgets`). Each domain hook exports ≤10 values and is independently testable with `renderHook`.
 
 ### Decision: `src/features/` not `src/pages/`
+
 **Rationale:** The React community uses `pages/` for file-based routing. We use client-side routing manually, and each folder contains more than just a page (form, hook, types). `features/` better describes self-contained feature modules.
 
 ---

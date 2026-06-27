@@ -70,10 +70,7 @@ describe('groupMeta', () => {
 
 describe('buildParentCategoryMap', () => {
   it('includes only categories flagged isGroup', () => {
-    const map = buildParentCategoryMap([
-      cat({ id: 'catgrp-1', isGroup: true }),
-      cat({ id: 'cat-leaf' })
-    ]);
+    const map = buildParentCategoryMap([cat({ id: 'catgrp-1', isGroup: true }), cat({ id: 'cat-leaf' })]);
     expect(map.has('catgrp-1')).toBe(true);
     expect(map.has('cat-leaf')).toBe(false);
   });

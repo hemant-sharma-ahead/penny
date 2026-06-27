@@ -13,8 +13,10 @@ import type {
   Hashtag,
   Holding,
   InsurancePolicy,
+  LedgerEntry,
   Liability,
   MerchantMemory,
+  Person,
   PersonalIou,
   PriceCache,
   PrivacyStat,
@@ -50,6 +52,8 @@ export class PennyDatabase extends Dexie {
   activity_log!: EntityTable<ActivityLog, 'id'>;
   merchant_memory!: EntityTable<MerchantMemory, 'id'>;
   transaction_templates!: EntityTable<TransactionTemplate, 'id'>;
+  persons!: EntityTable<Person, 'id'>;
+  ledger_entries!: EntityTable<LedgerEntry, 'id'>;
 
   constructor() {
     super('penny');
@@ -97,6 +101,12 @@ export class PennyDatabase extends Dexie {
 
     // v6 — saved transaction templates/favorites (Pre-Phase 1.5, Track 6 Step 10). Encrypted; id-only index.
     this.version(6).stores({ transaction_templates: 'id' });
+
+    // v7 — person-centric IOU ledger (Phase 1.5 Track 1). Encrypted; id-only index.
+    // No .upgrade(): encrypted stores can't be transformed here (the hook runs pre-unlock and sees
+    // only ciphertext). Legacy `personal_ious` → persons/ledger_entries migration is a post-unlock
+    // backfill in useIou.ts (flag `penny_iou_v2`); `personal_ious` is kept for one release.
+    this.version(7).stores({ persons: 'id', ledger_entries: 'id' });
   }
 }
 

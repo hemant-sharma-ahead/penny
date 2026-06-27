@@ -55,10 +55,7 @@ describe('detectRecurringIncome', () => {
 
   it('does not match irregular gaps', () => {
     const got = detectRecurringIncome(
-      [
-        income({ description: 'Freelance', date: NOW - 50 * DAY }),
-        income({ description: 'Freelance', date: NOW })
-      ],
+      [income({ description: 'Freelance', date: NOW - 50 * DAY }), income({ description: 'Freelance', date: NOW })],
       NOW
     );
     expect(got).toHaveLength(0); // 50-day gap matches no canonical cadence

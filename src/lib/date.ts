@@ -35,6 +35,22 @@ export function toDateKey(epochMs: number): string {
 /** Alias of {@link toDateKey} for the date-input use-site. */
 export const epochToDateInput = toDateKey;
 
+/**
+ * Convert a date-input value ('YYYY-MM-DD') to an epoch timestamp that includes the current
+ * time-of-day — so multiple entries on the same day order by when they were entered, not by a
+ * shared midnight. When editing, pass the record's existing timestamp: if the calendar day is
+ * unchanged, it's preserved verbatim (so its position doesn't jump); if the day changed, the new
+ * day takes the current time-of-day.
+ */
+export function dateInputToEpoch(dateStr: string, existingMs?: number): number {
+  if (existingMs !== undefined && toDateKey(existingMs) === dateStr) return existingMs;
+  const base = new Date(dateStr);
+  if (isNaN(base.getTime())) return Date.now();
+  const now = new Date();
+  base.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+  return base.getTime();
+}
+
 /** `YYYY-MM` month key. */
 export function toMonthYearKey(date: Date = new Date()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;

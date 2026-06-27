@@ -1,18 +1,22 @@
 # Backup & Restore
 
 ## What it is
+
 A way to export all your Penny data as a single encrypted file you control, and restore it on the same or a new device. Optionally, the same encrypted file can be synced to your own Google Drive. There is no Penny server in the loop — backups live wherever you put them.
 
 ## User-facing capabilities
+
 - **Export backup** — downloads a `.penny` file containing everything (expenses, goals, portfolio, settings, and the security record), encrypted with your passphrase.
 - **Restore from backup** — pick a `.penny` file, enter your passphrase, and replace the current data. The session re-locks afterwards so you re-enter your PIN.
 - **Back up to Google Drive** — uploads the same encrypted `.penny` to your own Google Drive (a private app folder). Shown only when the deployment has Drive configured (see below); otherwise the option is disabled with a note to use the file export.
 - **Reset Penny** — erases everything on the device and returns to onboarding. Irreversible unless you have a backup (no key escrow).
 
 ## How it works
+
 The backup bundle is encrypted with the **Data Master Key (DMK)**; the file header (v2 format) carries the DMK **wrapped by your passphrase**, so restore re-derives the passphrase key, unwraps the DMK, and decrypts. Older **v1** files (from the pre-envelope model) still restore. Nothing is decryptable without the passphrase — not by Google, not by us.
 
 Key files:
+
 - `src/core/backup/backupManager.ts` — `exportBackup()` / `importBackup()` (file format, encrypt/decrypt, bulk restore)
 - `src/core/backup/cloudBackup.ts` — Google Drive provider (GIS + Drive REST `appDataFolder`), `isCloudBackupConfigured()`
 - `src/features/backup/BackupPage.tsx` — the UI (export, restore, cloud, reset)
@@ -40,15 +44,18 @@ Drive backup is a **build-time, per-deployment** setting — not something an en
 > The Drive code path is implemented but untested until a real client ID + CSP are in place. The manual `.penny` export/import works regardless.
 
 ## Current limitations
+
 - No automatic/scheduled backups — export and Drive upload are manual.
 - No iCloud (native only — Phase 2).
 - Restore replaces all data; there is no selective/merge restore.
 - A lost passphrase means a backup cannot be decrypted — by design (no escrow).
 
 ## Planned improvements
+
 - Phase 1.5+: behind-the-entitlement-gate option to make cloud backup a paid feature (the gate already exists in `core/entitlement`).
 - Phase 2: iCloud backup on native apps; optional scheduled auto-backup.
 
 ## Ideas welcome
+
 - Should we nudge users to back up after they've entered a meaningful amount of data?
 - Is Google Drive the right first cloud target for India, or should Drive + a generic "download to file" cover most needs until native?

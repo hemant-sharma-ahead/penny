@@ -8,6 +8,7 @@ import {
 } from '@/core/db/repositories';
 import { forecastEvents, projectBalance, type BalanceForecast, type CashFlowEvent } from '@/core/cashflow/forecaster';
 import { computeDueRecurring, type DueRecurring } from '@/core/expenses/recurringDue';
+import { useTxnRefresh } from '@/hooks/useTxnRefresh';
 import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { useSettings } from '@/context/SettingsContext';
 import { startOfToday } from '@/lib/date';
@@ -47,6 +48,7 @@ export function useForecast(horizonDays = 31): ForecastResult {
   const [data, setData] = useState<LoadedData | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
+  useTxnRefresh(reload);
 
   useEffect(() => {
     let cancelled = false;

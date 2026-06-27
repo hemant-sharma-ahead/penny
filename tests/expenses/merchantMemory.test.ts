@@ -103,10 +103,38 @@ describe('buildMemoriesFromExpenses', () => {
 
 describe('searchMerchantMemories', () => {
   const memories: MerchantMemory[] = [
-    { id: 'expense::dine out::cat-dining', description: 'Dine out', type: 'expense', categoryId: 'cat-dining', usageCount: 12, updatedAt: 2 },
-    { id: 'expense::dine out::cat-other', description: 'Dine out', type: 'expense', categoryId: 'cat-other', usageCount: 2, updatedAt: 1 },
-    { id: 'expense::swiggy::cat-food', description: 'Swiggy', type: 'expense', categoryId: 'cat-food', usageCount: 5, updatedAt: 3 },
-    { id: 'income::salary::cat-inc', description: 'Salary', type: 'income', categoryId: 'cat-inc', usageCount: 9, updatedAt: 4 }
+    {
+      id: 'expense::dine out::cat-dining',
+      description: 'Dine out',
+      type: 'expense',
+      categoryId: 'cat-dining',
+      usageCount: 12,
+      updatedAt: 2
+    },
+    {
+      id: 'expense::dine out::cat-other',
+      description: 'Dine out',
+      type: 'expense',
+      categoryId: 'cat-other',
+      usageCount: 2,
+      updatedAt: 1
+    },
+    {
+      id: 'expense::swiggy::cat-food',
+      description: 'Swiggy',
+      type: 'expense',
+      categoryId: 'cat-food',
+      usageCount: 5,
+      updatedAt: 3
+    },
+    {
+      id: 'income::salary::cat-inc',
+      description: 'Salary',
+      type: 'income',
+      categoryId: 'cat-inc',
+      usageCount: 9,
+      updatedAt: 4
+    }
   ];
 
   it('substring-matches and ranks by usage, returning both mappings of a merchant', () => {

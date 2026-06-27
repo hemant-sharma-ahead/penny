@@ -8,9 +8,11 @@ import type {
   ExpenseCategory,
   Hashtag,
   MerchantMemory,
+  Person,
   TransactionTemplate,
   TransactionType
 } from '@/core/db/types';
+import type { ExpenseSeedIntent } from '@/core/iou/expenseLink';
 import { toMonthYearKey } from '@/lib/formatters';
 import { monthLabel } from '@/lib/date';
 import { TransactionsTab } from './TransactionsTab';
@@ -35,6 +37,10 @@ interface TransactionsSliceProps {
   mode: 'open' | 'safe' | 'privacy';
   onSaveExpense: (e: Expense) => Promise<void>;
   onDeleteExpense: (id: string) => Promise<void>;
+  iouPersons: Person[];
+  onSeedIou: (expenseId: string, intent: ExpenseSeedIntent | null) => Promise<void>;
+  iouLinkByTxn: Map<string, { personName: string }>;
+  onOpenBudgets: () => void;
   onPatchExpenses: (
     ids: string[],
     patch: Partial<Pick<Expense, 'categoryId' | 'accountId' | 'paymentMode'>>
@@ -62,6 +68,10 @@ export function TransactionsSlice({
   mode,
   onSaveExpense,
   onDeleteExpense,
+  iouPersons,
+  onSeedIou,
+  iouLinkByTxn,
+  onOpenBudgets,
   onPatchExpenses,
   onRemoveExpenses,
   searchMerchant,
@@ -273,7 +283,7 @@ export function TransactionsSlice({
                 </button>
               )}
             </button>
-            <SearchInput value={search} onChange={setSearch} className="flex-1" />
+            <SearchInput value={search} onChange={setSearch} className="flex-1 min-w-0" />
             <button
               onClick={() => setShowFilterSheet(true)}
               className="relative flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl border border-theme bg-surface-2 text-secondary"
@@ -296,6 +306,13 @@ export function TransactionsSlice({
               aria-label="Select transactions"
             >
               <i className="ti ti-list-check" style={{ fontSize: 18 }} aria-hidden="true" />
+            </button>
+            <button
+              onClick={onOpenBudgets}
+              className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl border border-theme bg-surface-2 text-secondary"
+              aria-label="Open budgets"
+            >
+              <i className="ti ti-target-arrow" style={{ fontSize: 18 }} aria-hidden="true" />
             </button>
           </div>
 
@@ -411,7 +428,7 @@ export function TransactionsSlice({
       )}
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto pb-24">
+      <div className="flex-1 overflow-y-auto pb-24 bg-surface-3">
         <TransactionsTab
           grouped={grouped}
           categoryMap={categoryMap}
@@ -545,6 +562,9 @@ export function TransactionsSlice({
           initialType={initialTransactionType}
           onSave={handleSaveExpense}
           onDelete={handleDeleteExpense}
+          iouPersons={iouPersons}
+          onSeedIou={onSeedIou}
+          linkedIou={editingExpense ? iouLinkByTxn.get(editingExpense.id) : undefined}
           searchMerchant={searchMerchant}
           onDuplicate={handleDuplicate}
           onSaveTemplate={onSaveTemplate}

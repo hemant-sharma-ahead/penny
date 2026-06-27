@@ -54,7 +54,13 @@ describe('computeDueRecurring', () => {
     const due = computeDueRecurring(
       [
         e({ description: 'Coffee', date: NOW - 90 * DAY }), // not recurring
-        e({ description: 'To savings', type: 'transfer', date: NOW - 90 * DAY, isRecurring: true, recurringIntervalDays: 30 })
+        e({
+          description: 'To savings',
+          type: 'transfer',
+          date: NOW - 90 * DAY,
+          isRecurring: true,
+          recurringIntervalDays: 30
+        })
       ],
       NOW
     );
@@ -64,10 +70,25 @@ describe('computeDueRecurring', () => {
 
 describe('buildOccurrence', () => {
   it('copies template fields, dates it to the due day, and clears recurring', () => {
-    const template = e({ description: 'Mobile bill', amount: 799, isRecurring: true, recurringIntervalDays: 30, accountId: 'acc-1', paymentMode: 'upi' });
+    const template = e({
+      description: 'Mobile bill',
+      amount: 799,
+      isRecurring: true,
+      recurringIntervalDays: 30,
+      accountId: 'acc-1',
+      paymentMode: 'upi'
+    });
     const dueMs = NOW - 3 * DAY;
     const posted = buildOccurrence(template, dueMs);
-    expect(posted).toMatchObject({ description: 'Mobile bill', amount: 799, accountId: 'acc-1', paymentMode: 'upi', isRecurring: false, date: dueMs, source: 'manual' });
+    expect(posted).toMatchObject({
+      description: 'Mobile bill',
+      amount: 799,
+      accountId: 'acc-1',
+      paymentMode: 'upi',
+      isRecurring: false,
+      date: dueMs,
+      source: 'manual'
+    });
     expect(posted.recurringIntervalDays).toBeUndefined();
     expect(posted.id).not.toBe(template.id);
   });

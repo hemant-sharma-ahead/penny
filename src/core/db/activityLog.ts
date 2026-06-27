@@ -15,6 +15,7 @@ export interface LogActivityInput {
   summary: string;
   actor?: string;
   snapshot?: string;
+  cascade?: string;
   diff?: string;
   entityCount?: number;
   restorePointId?: string;
@@ -59,6 +60,12 @@ export async function restoreActivity(logId: string): Promise<boolean> {
   const data: unknown = JSON.parse(entry.snapshot);
   const records = Array.isArray(data) ? data : [data];
   await Promise.all(records.map((r) => put(r)));
+  // Restore any records of other entity types that were cascade-deleted alongside this one
+  // (e.g. the IOU ledger entries an expense seeded), so a single Undo is atomic.
+  if (entry.cascade) {
+    const cascade = JSON.parse(entry.cascade) as Array<{ entityType: string; record: unknown }>;
+    await Promise.all(cascade.map(({ entityType, record }) => RESTORE_PUT[entityType]?.(record)));
+  }
   await activityLogRepo.put({ ...entry, restored: true });
   return true;
 }

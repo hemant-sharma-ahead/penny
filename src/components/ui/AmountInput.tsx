@@ -18,6 +18,10 @@ interface AmountInputProps {
   prefix?: string;
   /** Show the live amount-in-words helper line beneath the field. Defaults to true. */
   showWords?: boolean;
+  /** Hero style: large, centered, borderless, accent-coloured number with words beneath (no box). */
+  hero?: boolean;
+  /** Number colour in hero mode (e.g. the transaction-type accent). Ignored when `error` is set. */
+  accentColor?: string;
 }
 
 /** Characters permitted while typing — digits, decimal, and calculator operators. */
@@ -141,7 +145,9 @@ export function AmountInput({
   disabled,
   autoFocus,
   prefix = '₹',
-  showWords = true
+  showWords = true,
+  hero = false,
+  accentColor
 }: AmountInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const caretRef = useRef<number | null>(null);
@@ -219,6 +225,43 @@ export function AmountInput({
       {words}
     </p>
   ) : null;
+
+  if (hero) {
+    const heroColor = error ? 'var(--color-danger)' : (accentColor ?? 'var(--color-text-primary)');
+    return (
+      <div className="flex flex-col items-center gap-1">
+        <div className="flex items-baseline justify-center gap-1.5">
+          <span style={{ color: 'var(--color-text-tertiary)', fontSize: 26, fontWeight: 600 }}>{prefix}</span>
+          <input
+            ref={inputRef}
+            type="text"
+            inputMode="decimal"
+            value={text}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            placeholder={placeholder}
+            disabled={disabled}
+            autoFocus={autoFocus}
+            aria-label="Amount"
+            className="bg-transparent border-0 text-center p-0 leading-none focus:outline-none"
+            style={{
+              width: `${Math.max((text || placeholder || '0').length, 1) + 0.5}ch`,
+              fontSize: 42,
+              fontWeight: 700,
+              color: heroColor
+            }}
+          />
+        </div>
+        {error ? (
+          <p className="text-xs text-center" style={{ color: 'var(--color-danger)' }}>
+            {error}
+          </p>
+        ) : (
+          helper
+        )}
+      </div>
+    );
+  }
 
   if (!label) {
     return (

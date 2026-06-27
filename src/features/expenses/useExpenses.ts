@@ -5,11 +5,22 @@ import {
   expenseCategoriesRepo,
   expensesRepo,
   hashtagsRepo,
+  ledgerEntriesRepo,
   merchantMemoryRepo,
+  personsRepo,
   transactionTemplatesRepo
 } from '@/core/db/repositories';
-import type { Expense, ExpenseCategory, MerchantMemory, TransactionTemplate, TransactionType } from '@/core/db/types';
+import type {
+  Expense,
+  ExpenseCategory,
+  MerchantMemory,
+  Person,
+  TransactionTemplate,
+  TransactionType
+} from '@/core/db/types';
+import { reconcileExpenseLink, type ExpenseIouIntent, type ExpenseSeedIntent } from '@/core/iou/expenseLink';
 import { useRepository } from '@/hooks/useRepository';
+import { useTxnRefresh, notifyTxnChanged } from '@/hooks/useTxnRefresh';
 import { ALL_DEFAULT_CATEGORIES, CATEGORY_MIGRATION_MAP } from '@/core/db/defaultCategories';
 import { calcSpendByCategory, calcTxnCountByCategory } from '@/core/expenses/filterAndAggregate';
 import { buildParentCategoryMap } from '@/core/expenses/categoryGroups';
@@ -42,6 +53,16 @@ export function useExpenses() {
   } = useRepository(expenseCategoriesRepo);
   const { items: hashtags, save: saveHashtag } = useRepository(hashtagsRepo);
   const { items: accounts } = useRepository(accountsRepo);
+  const { items: persons, reload: reloadPersons } = useRepository<Person>(personsRepo);
+  const { items: ledgerEntries, reload: reloadLedger } = useRepository(ledgerEntriesRepo);
+
+  // The IOU screen writes expenses/ledger entries through separate repo instances; reload on its signal.
+  const refreshTxnData = useCallback(() => {
+    reloadExpenses();
+    reloadLedger();
+    reloadPersons();
+  }, [reloadExpenses, reloadLedger, reloadPersons]);
+  useTxnRefresh(refreshTxnData);
   const { items: merchantMemories, reload: reloadMerchantMemory } = useRepository(merchantMemoryRepo);
   const { items: templates, save: saveTemplateRepo, remove: removeTemplate } = useRepository(transactionTemplatesRepo);
 
@@ -232,18 +253,28 @@ export function useExpenses() {
     [expenses, reloadExpenses, showToast]
   );
 
-  /** Delete a single transaction, with Undo. */
+  /** Delete a single transaction, with Undo. Cascade-deletes linked IOU entries and restores both atomically. */
   const deleteExpense = useCallback(
     async (id: string) => {
       const exp = expenses.find((e) => e.id === id);
       await removeExpense(id);
+      // Cascade-delete any IOU ledger entries linked to this transaction.
+      const linkedEntries = (await ledgerEntriesRepo.getAll()).filter((le) => le.linkedTxnId === id);
+      for (const le of linkedEntries) await ledgerEntriesRepo.delete(le.id);
+      if (linkedEntries.length > 0) {
+        reloadLedger();
+        notifyTxnChanged();
+      }
       if (!exp) return;
       const logId = logActivity({
         action: 'DELETE',
         entityType: 'expense',
         entityId: id,
         summary: expenseSummary('Deleted', exp),
-        snapshot: JSON.stringify(exp)
+        snapshot: JSON.stringify(exp),
+        ...(linkedEntries.length > 0
+          ? { cascade: JSON.stringify(linkedEntries.map((le) => ({ entityType: 'ledgerEntry', record: le }))) }
+          : {})
       });
       showToast({
         message: `Deleted ${exp.description}`,
@@ -251,10 +282,14 @@ export function useExpenses() {
         onAction: async () => {
           await restoreActivity(logId);
           reloadExpenses();
+          if (linkedEntries.length > 0) {
+            reloadLedger();
+            notifyTxnChanged();
+          }
         }
       });
     },
-    [expenses, removeExpense, reloadExpenses, showToast]
+    [expenses, removeExpense, reloadExpenses, reloadLedger, showToast]
   );
 
   /** Delete a custom, empty category and any budgets attached to it. No-op for defaults or non-empty. */
@@ -393,6 +428,71 @@ export function useExpenses() {
     [expenses, saveExpense, saveHashtag, hashtags, merchantMemoryMap, reloadMerchantMemory]
   );
 
+  // Resolve a typed name to an existing (case-insensitive) or freshly created person.
+  const getOrCreatePerson = useCallback(
+    async (name: string): Promise<Person> => {
+      const trimmed = name.trim();
+      const existing = persons.find((p) => p.name.toLowerCase() === trimmed.toLowerCase());
+      if (existing && !existing.isArchived) return existing;
+      const now = Date.now();
+      const person: Person = existing
+        ? { ...existing, isArchived: false, updatedAt: now }
+        : { id: crypto.randomUUID(), name: trimmed, createdAt: now, updatedAt: now };
+      await personsRepo.put(person);
+      logActivity({
+        action: existing ? 'UPDATE' : 'CREATE',
+        entityType: 'person',
+        entityId: person.id,
+        summary: `${existing ? 'Updated' : 'Added'} person: ${person.name}`
+      });
+      return person;
+    },
+    [persons]
+  );
+
+  // Seed / reconcile the IOU ledger entry an expense produces. Called by the form after the
+  // expense is saved; pure reconcile logic lives in core/iou/expenseLink.
+  const seedIouFromExpense = useCallback(
+    async (expenseId: string, intent: ExpenseSeedIntent | null) => {
+      const all = await ledgerEntriesRepo.getAll();
+      let resolved: ExpenseIouIntent | null = null;
+      if (intent && intent.personName.trim() && intent.amount > 0) {
+        const person = await getOrCreatePerson(intent.personName);
+        resolved = {
+          personId: person.id,
+          kind: intent.kind,
+          amount: intent.amount,
+          date: intent.date,
+          ...(intent.description ? { description: intent.description } : {})
+        };
+      }
+      const { toPut, toDelete } = reconcileExpenseLink(expenseId, all, resolved, Date.now());
+      for (const entry of toPut) {
+        await ledgerEntriesRepo.put(entry);
+        logActivity({
+          action: 'CREATE',
+          entityType: 'ledgerEntry',
+          entityId: entry.id,
+          summary: `${entry.kind} ₹${entry.amount} (from expense)`
+        });
+      }
+      for (const delId of toDelete) await ledgerEntriesRepo.delete(delId);
+    },
+    [getOrCreatePerson]
+  );
+
+  // For the edit form: which transactions have an expense-seeded IOU entry, and with whom.
+  const iouLinkByTxn = useMemo(() => {
+    const nameById = new Map(persons.map((p) => [p.id, p.name]));
+    const map = new Map<string, { personName: string }>();
+    for (const e of ledgerEntries) {
+      if (e.origin === 'expense' && e.linkedTxnId) {
+        map.set(e.linkedTxnId, { personName: nameById.get(e.personId) ?? 'Someone' });
+      }
+    }
+    return map;
+  }, [ledgerEntries, persons]);
+
   // ── Recurring auto-post inbox ───────────────────────────────────────────────
   // Recurring series are forecast-only; surface the ones whose next occurrence is
   // due so the user can confirm and log the real transaction.
@@ -456,6 +556,9 @@ export function useExpenses() {
     removeTemplate,
     saveExpenseWithHashtags,
     deleteExpense,
+    persons,
+    seedIouFromExpense,
+    iouLinkByTxn,
     patchExpenses,
     removeExpenses,
     saveCategory,

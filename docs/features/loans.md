@@ -1,9 +1,11 @@
 # Loans
 
 ## What it is
+
 The loans module tracks all your borrowings and lets you model different repayment strategies without any commitment. You can see exactly how much interest you will pay over the life of each loan, and then explore "what if" scenarios — extra payments, balance transfers, step-up EMIs — to find the fastest and cheapest path to debt freedom.
 
 ## User-facing capabilities
+
 - View all active loans in one place: current outstanding balance, monthly EMI, interest rate, and tenure remaining
 - See the full amortisation schedule for any loan — a month-by-month table showing principal paid, interest paid, and remaining balance for every single EMI
 - Use the Payoff Planner to model repayment scenarios without changing your actual loan data:
@@ -15,6 +17,7 @@ The loans module tracks all your borrowings and lets you model different repayme
 - Add, edit, and delete loans of 12 types: Home loan, Car loan, Personal loan, Business loan, Education loan, Two-wheeler loan, Gold loan, Credit card revolving, Buy Now Pay Later (BNPL), Family/friend loan, Other
 
 ## How it works
+
 Loans are stored in the encrypted `liabilities` Dexie store with 22 fields, including: type, name, principalAmount, currentBalance, interestRate, emiAmount, startDate, endDate, and lenderName.
 
 The amortisation schedule is generated entirely on-device by `amortization.ts` using the standard reducing-balance method. For each month it calculates: interest = currentBalance × (annualRate / 12), principal = EMI − interest, newBalance = currentBalance − principal.
@@ -30,6 +33,7 @@ The feature follows the **vertical-slice** pattern: `LoanScenariosPage.tsx` is a
 purely in `core/loans/planExport.ts` so only the `writeFile` call is web-specific.
 
 Key files:
+
 - `src/features/loans/LoanScenariosPage.tsx` — thin shell: header + tab strip → MyLoansTab | PlannerTab
 - `src/features/loans/myloans/` — loan list + `AddLoanModal` + `useLoanForm`
 - `src/features/loans/planner/` — `PlannerTab` + `PlannerResults` + `usePlanner` (amortization derivation)
@@ -38,6 +42,7 @@ Key files:
 - `src/core/loans/meta.ts` — loan-type metadata (label/icon/colour); `planExport.ts` — pure export builder
 
 ## Current limitations
+
 - Loan balances must be updated manually; there is no automatic sync with lenders
 - No support for floating-rate loans where the interest rate changes mid-tenure (e.g. home loans linked to repo rate)
 - Credit card revolving balance does not integrate with the minimum payment calculation
@@ -45,10 +50,12 @@ Key files:
 - No alert when a loan EMI payment date is approaching
 
 ## Planned improvements
+
 - Phase 2: Prepayment opportunity alert — when Chip detects a large surplus (e.g. a bonus in your income), it will suggest the optimal prepayment amount and show the interest saving
 - Phase 2: Credit score impact simulation — model how paying off a loan or reducing utilisation might affect your credit score
 
 ## Ideas welcome
+
 - Would a floating-rate scenario tool be useful (e.g. "what if my rate goes up by 0.5%")?
 - Should the Payoff Planner allow combining multiple scenarios (e.g. extra monthly EMI + one lump sum prepayment)?
 - Would a "debt avalanche vs debt snowball" comparison across all your loans be helpful?

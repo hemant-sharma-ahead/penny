@@ -20,7 +20,7 @@ Projects your **total liquid balance** forward and answers two questions: "how m
 
 **Pure engine — `src/core/cashflow/forecaster.ts`:**
 
-1. **`forecastEvents`** projects dated events across the horizon, emitting **every occurrence** that falls within it (so a 3-month view shows monthly rent/EMI/subscriptions in each month): loan EMIs (monthly on `emiDueDate` until `endDate`), subscriptions (from `lastChargedAt` stepping `intervalDays`), insurance renewals (`renewalDate`), recurring expenses (out) and **recurring income** (in). Each event carries a `direction` (`'in' | 'out'`). Transfers are skipped (net-zero across own liquid accounts). A recurring series is logged every period, so each (type + merchant) is **collapsed to its most recent occurrence** before projecting — otherwise every historical row would project into duplicate events, which means **recurring series must share a stable description** across months (the demo seed does this; per-month suffixes would break it). A charge tracked *both* as a confirmed subscription and as recurring expenses would be counted twice, so the two shouldn't overlap (the demo seed keeps subscription-backed expense rows non-recurring).
+1. **`forecastEvents`** projects dated events across the horizon, emitting **every occurrence** that falls within it (so a 3-month view shows monthly rent/EMI/subscriptions in each month): loan EMIs (monthly on `emiDueDate` until `endDate`), subscriptions (from `lastChargedAt` stepping `intervalDays`), insurance renewals (`renewalDate`), recurring expenses (out) and **recurring income** (in). Each event carries a `direction` (`'in' | 'out'`). Transfers are skipped (net-zero across own liquid accounts). A recurring series is logged every period, so each (type + merchant) is **collapsed to its most recent occurrence** before projecting — otherwise every historical row would project into duplicate events, which means **recurring series must share a stable description** across months (the demo seed does this; per-month suffixes would break it). A charge tracked _both_ as a confirmed subscription and as recurring expenses would be counted twice, so the two shouldn't overlap (the demo seed keeps subscription-backed expense rows non-recurring).
 
 2. **`projectBalance`** starts from the current liquid balance and walks day-by-day to the horizon end, accumulating signed deltas into a running-balance series. It derives the **lowest** point, the first **buffer-breach** day, total in/out, **net flow**, the **next payday** (`nextIncomeMs`), and a liquidity-based **safe-to-spend**: `currentBalance − committedOutflowsUntilPayday − buffer`, divided by the days remaining in that window (until payday, else month-end).
 
@@ -29,6 +29,7 @@ Projects your **total liquid balance** forward and answers two questions: "how m
 **Recurring-income detection — `src/core/cashflow/incomeDetector.ts`:** `detectRecurringIncome` mirrors the subscription detector — groups income transactions by normalized description, matches the median gap to a canonical cadence, and returns candidates with the next projected payday. `useIncomeSuggestions` filters out income already marked recurring + locally dismissed ones; confirming marks the latest matching transaction recurring and reloads the forecast.
 
 **Key files:**
+
 - `src/core/cashflow/forecaster.ts` — `forecastEvents` + `projectBalance` (pure, tested in `tests/cashflow/forecaster.test.ts`); `meta.ts` — event-type icon/colour/label
 - `src/core/cashflow/incomeDetector.ts` — `detectRecurringIncome` (pure, tested in `tests/cashflow/incomeDetector.test.ts`)
 - `src/hooks/useForecast.ts` — loads sources + accounts, computes the start balance, runs the engine, exposes `reload`; shared by the page and surfaces
@@ -45,7 +46,7 @@ Projects your **total liquid balance** forward and answers two questions: "how m
 ## Current limitations
 
 - Income counts as a projected inflow once marked recurring (the detector suggests this when a pattern exists, but a single payslip or irregular income won't be detected). Without a projected payday, safe-to-spend uses the more conservative month-end window.
-- Variable day-to-day spending is not averaged into the projection — only confirmed recurring flows and dated commitments are modelled. The safe-to-spend number is what's left *after* commitments, not a predicted spend curve.
+- Variable day-to-day spending is not averaged into the projection — only confirmed recurring flows and dated commitments are modelled. The safe-to-spend number is what's left _after_ commitments, not a predicted spend curve.
 - Per-account attribution isn't modelled — the projection is over total liquid balance, so it can't yet warn that one specific account runs dry while another has cash.
 - Subscription/EMI debit dates can vary by 1–2 days from the projected date.
 - Credit-card bill lump-sum payments and SIP debits aren't projected as outflows.

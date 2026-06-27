@@ -1,7 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
-import { accountsRepo, expensesRepo, holdingsRepo, liabilitiesRepo } from '@/core/db/repositories';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { accountsRepo, expensesRepo, holdingsRepo, ledgerEntriesRepo, liabilitiesRepo } from '@/core/db/repositories';
 import type { Holding, Liability } from '@/core/db/types';
 import { computeBalance } from '@/core/accounts/balanceCalculator';
+import { signedAmount } from '@/core/iou/ledger';
+import { useTxnRefresh } from '@/hooks/useTxnRefresh';
 import { toMonthYearKey } from '@/lib/formatters';
 
 export interface AccountBalance {
@@ -29,6 +31,8 @@ export interface HomeSummary {
   holdings: Holding[];
   liabilities: Liability[];
   creditCardAccounts: CreditCardAccount[];
+  /** Net IOU: (owed to you) − (you owe). Positive = a receivable asset; negative = a payable liability. */
+  netIou: number;
 }
 
 export interface AssetGroup {
@@ -52,17 +56,22 @@ const HOLDING_META: Record<string, { label: string; short: string; color: string
 const ASSET_CLASS_ORDER = ['mf', 'stock', 'fd', 'nps', 'ppf', 'epf', 'gold', 'vehicle', 'property', 'other'];
 const FALLBACK_HOLDING_META = { label: 'Other', short: 'Other', color: '#6b7280', icon: 'ti-dots' };
 const LIQUID_META = { label: 'Liquid Funds', short: 'Liquid', color: '#06b6d4', icon: 'ti-building-bank' };
+const IOU_META = { label: 'Owed to You', short: 'IOU', color: '#14b8a6', icon: 'ti-users' };
 
 async function loadSummary(): Promise<HomeSummary> {
-  const [liabilities, expenses, holdings, accs] = await Promise.all([
+  const [liabilities, expenses, holdings, accs, ledgerEntries] = await Promise.all([
     liabilitiesRepo.getAll(),
     expensesRepo.getAll(),
     holdingsRepo.getAll(),
-    accountsRepo.getAll()
+    accountsRepo.getAll(),
+    ledgerEntriesRepo.getAll()
   ]);
 
   const totalPortfolio = holdings.reduce((s, h) => s + (h.currentValue ?? h.investedAmount), 0);
   const totalLiabilitiesAmt = liabilities.reduce((s, l) => s + l.outstandingAmount, 0);
+  // Net IOU: lent (asset) − borrowed (liability), net of settlements. Offsets the cash movement
+  // that lend/borrow transactions make, so net worth stays correct end-to-end.
+  const netIou = ledgerEntries.reduce((s, e) => s + signedAmount(e), 0);
 
   const thisMonth = toMonthYearKey();
   const monthlyExpenses = expenses
@@ -92,31 +101,29 @@ async function loadSummary(): Promise<HomeSummary> {
   const totalAssets = totalPortfolio + Math.max(0, liquidFunds);
 
   return {
-    netWorth: totalAssets - totalLiabilitiesAmt - totalCcOutstanding,
+    netWorth: totalAssets - totalLiabilitiesAmt - totalCcOutstanding + netIou,
     monthlyExpenses,
     accountBalances,
     totalPortfolio,
     liquidFunds: Math.max(0, liquidFunds),
     holdings,
     liabilities,
-    creditCardAccounts
+    creditCardAccounts,
+    netIou
   };
 }
 
 export function useHome() {
   const [summary, setSummary] = useState<HomeSummary | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const reload = useCallback(() => {
     loadSummary()
-      .then((s) => {
-        if (!cancelled) setSummary(s);
-      })
+      .then((s) => setSummary(s))
       .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => reload(), [reload]);
+  useTxnRefresh(reload);
 
   const assetGroups = useMemo<AssetGroup[]>(() => {
     if (!summary) return [];
@@ -131,6 +138,10 @@ export function useHome() {
     ASSET_CLASS_ORDER.filter((ac) => (map.get(ac) ?? 0) > 0).forEach((ac) => {
       groups.push({ ac, value: map.get(ac) ?? 0, meta: HOLDING_META[ac] ?? FALLBACK_HOLDING_META });
     });
+    // Net positive IOU is a receivable asset; a net payable is folded into liabilities instead.
+    if (summary.netIou > 0) {
+      groups.push({ ac: 'iou', value: summary.netIou, meta: IOU_META });
+    }
     return groups;
   }, [summary]);
 
@@ -139,7 +150,9 @@ export function useHome() {
   const totalLiabilities = useMemo(
     () =>
       (summary?.liabilities?.reduce((s, l) => s + l.outstandingAmount, 0) ?? 0) +
-      (summary?.creditCardAccounts?.reduce((s, c) => s + c.outstanding, 0) ?? 0),
+      (summary?.creditCardAccounts?.reduce((s, c) => s + c.outstanding, 0) ?? 0) +
+      // A net payable (you owe more than you're owed) counts as a liability.
+      Math.max(0, -(summary?.netIou ?? 0)),
     [summary]
   );
 

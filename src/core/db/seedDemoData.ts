@@ -11,8 +11,9 @@ import type {
   GoalContribution,
   Holding,
   InsurancePolicy,
+  LedgerEntry,
   Liability,
-  PersonalIou,
+  Person,
   PpfTransaction,
   Subscription
 } from './types';
@@ -27,8 +28,9 @@ import {
   goalsRepo,
   holdingsRepo,
   insurancePoliciesRepo,
+  ledgerEntriesRepo,
   liabilitiesRepo,
-  personalIousRepo,
+  personsRepo,
   subscriptionsRepo
 } from './repositories';
 import { db } from './schema';
@@ -45,6 +47,22 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
   const DAY = 86_400_000;
   const ago = (d: number) => now - d * DAY;
   const from = (d: number) => now + d * DAY;
+
+  // Multi-year history span (Track 1 closing deliverable): seed continuous data from Jan 2017 → today
+  // so cash-flow, net-worth, and tax screens render years of real history and shake out bugs across
+  // every screen. The most recent DETAILED_MONTHS are fully detailed; older months carry only the
+  // core recurring rows (salary, rent, SIP, bills, staples) — keeps the seed a sane size while still
+  // giving genuine multi-year depth.
+  const nowYear = new Date(now).getFullYear();
+  const nowMonth = new Date(now).getMonth();
+  const monthsAgoOf = (ms: number) => {
+    const d = new Date(ms);
+    return (nowYear - d.getFullYear()) * 12 + (nowMonth - d.getMonth());
+  };
+  const HISTORY_MONTHS = monthsAgoOf(new Date(2017, 0, 1).getTime()); // ≈ 113 as of mid-2026
+  const DETAILED_MONTHS = 12;
+  // Older history is cheaper (≈5%/yr inflation): scales a present-day amount back `mb` months.
+  const grow = (amount: number, mb: number) => Math.max(1, Math.round(amount * Math.pow(1 / 1.05, mb / 12)));
 
   // ── Expense categories ─────────────────────────────────────────────────────
   const cats: Record<string, ExpenseCategory> = {
@@ -208,15 +226,17 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
   // Small deterministic month-to-month wobble so totals look organic but stay stable.
   const wobble = (mb: number) => (mb * 137) % 1800;
 
-  for (let mb = 8; mb >= 0; mb--) {
+  for (let mb = HISTORY_MONTHS; mb >= 0; mb--) {
     const recurring = mb === 0 ? { isRecurring: true, recurringIntervalDays: 30 } : {};
     // For the current month, don't seed rows dated in the future.
     const due = (day: number) => mb !== 0 || day <= TODAY_DOM;
+    // Older months carry only the core recurring rows + staples; recent months get full detail.
+    const detailed = mb < DETAILED_MONTHS;
 
     // Rent — stable description, recurring on current month only. Omitted for personas without rent.
     if (persona.rent && due(3)) {
       expenses.push(
-        exp(daysAgoOn(mb, 3), persona.rent.amount, 'rent', persona.rent.description, ['emi'], {
+        exp(daysAgoOn(mb, 3), grow(persona.rent.amount, mb), 'rent', persona.rent.description, ['emi'], {
           accountId: SAVINGS,
           paymentMode: 'net',
           ...recurring
@@ -233,6 +253,45 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
         })
       );
     }
+    // Utilities — varies, not recurring.
+    if (due(7)) {
+      expenses.push(
+        exp(daysAgoOn(mb, 7), grow(scale(1800), mb) + (wobble(mb) % 500), 'utilities', 'Electricity & water bill', [], {
+          accountId: SAVINGS,
+          paymentMode: 'upi'
+        })
+      );
+    }
+    // Groceries — monthly staple (kept across all history).
+    if (due(9)) {
+      expenses.push(
+        exp(daysAgoOn(mb, 9), grow(scale(4800), mb) + wobble(mb), 'groceries', 'Monthly grocery run', [], {
+          accountId: CC,
+          paymentMode: 'card'
+        })
+      );
+    }
+    // Dining staple (kept across all history).
+    if (due(12)) {
+      expenses.push(
+        exp(daysAgoOn(mb, 12), grow(scale(1200), mb) + (wobble(mb) % 2600), 'dining', 'Weekend dining out', [], {
+          accountId: CC,
+          paymentMode: 'card'
+        })
+      );
+    }
+    // Transport staple (kept across all history).
+    if (due(15)) {
+      expenses.push(
+        exp(daysAgoOn(mb, 15), grow(scale(900), mb) + (wobble(mb) % 1200), 'transport', 'Cabs & fuel', [], {
+          accountId: CASH,
+          paymentMode: 'cash'
+        })
+      );
+    }
+
+    if (!detailed) continue; // older months stop here — keeps the multi-year seed a sane size
+
     // Extra recurring expense (e.g. co-working) — stable description, recurring on current month only.
     if (persona.extraRecurringExpense && due(4)) {
       const e = persona.extraRecurringExpense;
@@ -241,15 +300,6 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
           accountId: SAVINGS,
           paymentMode: 'net',
           ...recurring
-        })
-      );
-    }
-    // Utilities — varies, not recurring.
-    if (due(7)) {
-      expenses.push(
-        exp(daysAgoOn(mb, 7), scale(1800) + (wobble(mb) % 500), 'utilities', 'Electricity & water bill', [], {
-          accountId: SAVINGS,
-          paymentMode: 'upi'
         })
       );
     }
@@ -273,15 +323,7 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
         })
       );
     }
-    // Groceries — two rows.
-    if (due(9)) {
-      expenses.push(
-        exp(daysAgoOn(mb, 9), scale(4800) + wobble(mb), 'groceries', 'Monthly grocery run', [], {
-          accountId: CC,
-          paymentMode: 'card'
-        })
-      );
-    }
+    // Quick-commerce groceries — second grocery row (recent months only).
     if (due(20)) {
       expenses.push(
         exp(daysAgoOn(mb, 20), scale(2200) + (wobble(mb) % 1200), 'groceries', 'Quick commerce top-ups', [], {
@@ -290,29 +332,12 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
         })
       );
     }
-    // Dining — two rows.
-    if (due(12)) {
-      expenses.push(
-        exp(daysAgoOn(mb, 12), scale(1200) + (wobble(mb) % 2600), 'dining', 'Weekend dining out', [], {
-          accountId: CC,
-          paymentMode: 'card'
-        })
-      );
-    }
+    // Food-delivery dining — second dining row (recent months only).
     if (due(24)) {
       expenses.push(
         exp(daysAgoOn(mb, 24), scale(700) + (wobble(mb) % 900), 'dining', 'Swiggy & Zomato orders', [], {
           accountId: CC,
           paymentMode: 'card'
-        })
-      );
-    }
-    // Transport.
-    if (due(15)) {
-      expenses.push(
-        exp(daysAgoOn(mb, 15), scale(900) + (wobble(mb) % 1200), 'transport', 'Cabs & fuel', [], {
-          accountId: CASH,
-          paymentMode: 'cash'
         })
       );
     }
@@ -532,43 +557,194 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
   const subscriptions = persona.subscriptions({ ago });
   await Promise.all(subscriptions.map((sub) => subscriptionsRepo.put(sub)));
 
-  // ── IOUs ──────────────────────────────────────────────────────────────────
-  const ious: PersonalIou[] = [
+  // ── IOUs (person-centric ledger) ────────────────────────────────────────────
+  // Showcases every Track-1 surface: owed-to-you, you-owe, settled history,
+  // overdue, partial settlement, and an expense-seeded entry ("from expense").
+  const ledgerPersons: Person[] = [
+    { id: 'demo-person-rohan', name: 'Rohan Mehra', createdAt: ago(60), updatedAt: ago(3) },
+    { id: 'demo-person-asha', name: 'Asha Verma', createdAt: ago(40), updatedAt: ago(12) },
+    { id: 'demo-person-karthik', name: 'Karthik Rao', createdAt: ago(50), updatedAt: ago(5) },
+    { id: 'demo-person-priya', name: 'Priya Nair', createdAt: ago(30), updatedAt: ago(20) },
+    // Older relationships with multi-year, fully-settled history.
+    { id: 'demo-person-vivek', name: 'Vivek Iyer', createdAt: ago(1400), updatedAt: ago(900) },
+    { id: 'demo-person-meera', name: 'Meera Joshi', createdAt: ago(1100), updatedAt: ago(60) }
+  ];
+  await Promise.all(ledgerPersons.map((p) => personsRepo.put(p)));
+
+  // A demo expense that seeds an IOU entry (renders the "from expense" badge in the ledger).
+  const splitExpense: Expense = {
+    id: 'demo-exp-iou-dinner',
+    amount: 2400,
+    categoryId: 'cat-food',
+    description: 'Dinner at Toit (split with Rohan)',
+    date: ago(6),
+    hashtags: [],
+    isRecurring: false,
+    type: 'expense',
+    source: 'manual',
+    createdAt: ago(6),
+    updatedAt: ago(6)
+  };
+  await expensesRepo.put(splitExpense);
+
+  const ledgerEntries: LedgerEntry[] = [
+    // Rohan — net +₹7,700 owes you (two loans, a part payment, and a split from the dinner expense)
     {
-      id: 'demo-iou-1',
-      direction: 'lent',
+      id: 'demo-le-rohan-1',
+      personId: 'demo-person-rohan',
+      kind: 'lent',
       amount: 3000,
-      description: 'Shared grocery run — will settle end of month',
       date: ago(45),
-      isSettled: false,
-      notes: '#sample',
+      description: 'Shared grocery run',
+      origin: 'manual',
       createdAt: ago(45),
       updatedAt: ago(45)
     },
     {
-      id: 'demo-iou-2',
-      direction: 'lent',
+      id: 'demo-le-rohan-2',
+      personId: 'demo-person-rohan',
+      kind: 'lent',
       amount: 8500,
-      description: 'Emergency — medical bill cover',
       date: ago(8),
-      isSettled: false,
-      notes: '#sample',
+      description: 'Medical bill cover',
+      origin: 'manual',
       createdAt: ago(8),
       updatedAt: ago(8)
     },
     {
-      id: 'demo-iou-3',
-      direction: 'borrowed',
+      id: 'demo-le-rohan-3',
+      personId: 'demo-person-rohan',
+      kind: 'settlement',
+      amount: 5000,
+      date: ago(3),
+      settleDirection: 'they_paid_you',
+      description: 'Part payment',
+      origin: 'manual',
+      createdAt: ago(3),
+      updatedAt: ago(3)
+    },
+    {
+      id: 'demo-le-rohan-4',
+      personId: 'demo-person-rohan',
+      kind: 'lent',
+      amount: 1200,
+      date: ago(6),
+      description: 'Dinner at Toit (your half)',
+      origin: 'expense',
+      linkedTxnId: 'demo-exp-iou-dinner',
+      createdAt: ago(6),
+      updatedAt: ago(6)
+    },
+    // Asha — you owe ₹2,000
+    {
+      id: 'demo-le-asha-1',
+      personId: 'demo-person-asha',
+      kind: 'borrowed',
       amount: 2000,
-      description: 'Borrowed for cab fare when wallet was empty',
       date: ago(12),
-      isSettled: false,
-      notes: '#sample',
+      description: 'Cab fare when wallet was empty',
+      origin: 'manual',
       createdAt: ago(12),
       updatedAt: ago(12)
+    },
+    // Karthik — settled up (loan fully repaid)
+    {
+      id: 'demo-le-karthik-1',
+      personId: 'demo-person-karthik',
+      kind: 'lent',
+      amount: 1500,
+      date: ago(40),
+      description: 'Movie tickets',
+      origin: 'manual',
+      createdAt: ago(40),
+      updatedAt: ago(40)
+    },
+    {
+      id: 'demo-le-karthik-2',
+      personId: 'demo-person-karthik',
+      kind: 'settlement',
+      amount: 1500,
+      date: ago(5),
+      settleDirection: 'they_paid_you',
+      origin: 'manual',
+      createdAt: ago(5),
+      updatedAt: ago(5)
+    },
+    // Priya — owes ₹4,000, overdue (due date passed)
+    {
+      id: 'demo-le-priya-1',
+      personId: 'demo-person-priya',
+      kind: 'lent',
+      amount: 4000,
+      date: ago(30),
+      dueDate: ago(10),
+      description: 'Concert tickets',
+      origin: 'manual',
+      createdAt: ago(30),
+      updatedAt: ago(30)
+    },
+    // Vivek — old, fully settled (a lend repaid in two parts years ago)
+    {
+      id: 'demo-le-vivek-1',
+      personId: 'demo-person-vivek',
+      kind: 'lent',
+      amount: 12000,
+      date: ago(1380),
+      description: 'Bike down-payment help',
+      origin: 'manual',
+      createdAt: ago(1380),
+      updatedAt: ago(1380)
+    },
+    {
+      id: 'demo-le-vivek-2',
+      personId: 'demo-person-vivek',
+      kind: 'settlement',
+      amount: 6000,
+      date: ago(1200),
+      settleDirection: 'they_paid_you',
+      description: 'First instalment',
+      origin: 'manual',
+      createdAt: ago(1200),
+      updatedAt: ago(1200)
+    },
+    {
+      id: 'demo-le-vivek-3',
+      personId: 'demo-person-vivek',
+      kind: 'settlement',
+      amount: 6000,
+      date: ago(905),
+      settleDirection: 'they_paid_you',
+      description: 'Cleared the rest',
+      origin: 'manual',
+      createdAt: ago(905),
+      updatedAt: ago(905)
+    },
+    // Meera — long-running on-and-off, currently you owe ₹1,500 (borrowed, partly repaid over the years)
+    {
+      id: 'demo-le-meera-1',
+      personId: 'demo-person-meera',
+      kind: 'borrowed',
+      amount: 5000,
+      date: ago(1050),
+      description: 'Flight ticket she booked',
+      origin: 'manual',
+      createdAt: ago(1050),
+      updatedAt: ago(1050)
+    },
+    {
+      id: 'demo-le-meera-2',
+      personId: 'demo-person-meera',
+      kind: 'settlement',
+      amount: 3500,
+      date: ago(700),
+      settleDirection: 'you_paid_them',
+      description: 'Paid most of it back',
+      origin: 'manual',
+      createdAt: ago(700),
+      updatedAt: ago(700)
     }
   ];
-  await Promise.all(ious.map((i) => personalIousRepo.put(i)));
+  await Promise.all(ledgerEntries.map((e) => ledgerEntriesRepo.put(e)));
 
   // ── Liabilities ───────────────────────────────────────────────────────────
   const liabilities = persona.liabilities({ ago, from });
@@ -664,7 +840,7 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
   await Promise.all(accounts.map((a) => accountsRepo.put(a)));
 
   // ── Income transactions ───────────────────────────────────────────────────
-  const incomeExpenses: Expense[] = persona.income({ monthAnchor, ago });
+  const incomeExpenses: Expense[] = persona.income({ monthAnchor, ago, historyMonths: HISTORY_MONTHS });
   await Promise.all(incomeExpenses.map((e) => expensesRepo.put(e)));
 
   // ── Transfer transactions ─────────────────────────────────────────────────
@@ -721,6 +897,37 @@ const SAVINGS_ACC = 'demo-acc-hdfc-savings';
 interface IncomeCtx {
   monthAnchor: (monthsBack: number, day: number) => number;
   ago: (d: number) => number;
+  /** How many months of history to seed (Jan 2017 → today). */
+  historyMonths: number;
+}
+
+// Net monthly salary credit across the career arc, aligned to the EPF employer history seeded below
+// (Wipro → Infosys → TCS). Company 1 hikes each April, company 2 each July, company 3 each April.
+const SALARY_ARC: Array<{ from: string; net: number }> = [
+  { from: '2017-01', net: 45000 }, // Wipro
+  { from: '2017-04', net: 49000 },
+  { from: '2018-04', net: 53000 },
+  { from: '2019-04', net: 76000 }, // → Infosys (switch bump); July hikes
+  { from: '2019-07', net: 82000 },
+  { from: '2020-07', net: 89000 },
+  { from: '2021-07', net: 97000 },
+  { from: '2022-07', net: 106000 },
+  { from: '2023-10', net: 110000 }, // → TCS (switch); April hikes
+  { from: '2024-04', net: 115000 },
+  { from: '2025-04', net: 118000 },
+  { from: '2026-04', net: 120000 } // current run-rate — matches the live recurring salary row
+];
+
+/** Net monthly salary for the month containing `ms`, per the career arc above. */
+function salaryFor(ms: number): number {
+  const d = new Date(ms);
+  const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  let net = SALARY_ARC[0]?.net ?? 45000;
+  for (const seg of SALARY_ARC) {
+    if (seg.from <= key) net = seg.net;
+    else break;
+  }
+  return net;
 }
 interface AssetCtx {
   ago: (d: number) => number;
@@ -1073,20 +1280,36 @@ const PERSONAS: Record<EmploymentType, PersonaConfig> = {
       { desc: 'Mobile postpaid bill', amount: 799 },
       { desc: 'Broadband bill', amount: 1199 }
     ],
-    income: ({ monthAnchor, ago }) => {
+    income: ({ monthAnchor, ago, historyMonths }) => {
       const rows: Expense[] = [];
-      for (let mb = 8; mb >= 0; mb--) {
+      // Monthly salary credit across the whole career arc — stable description so the forecaster
+      // collapses it into one series; amount steps with role/CTC + annual hikes; recurring only now.
+      for (let mb = historyMonths; mb >= 0; mb--) {
+        const anchor = monthAnchor(mb, 1);
         rows.push(
-          incomeRow(`demo-income-salary-${mb}`, 120000, 'cat-inc-salary', 'Monthly salary credit', monthAnchor(mb, 1), {
+          incomeRow(`demo-income-salary-${mb}`, salaryFor(anchor), 'cat-inc-salary', 'Monthly salary credit', anchor, {
             recurring: mb === 0
           })
         );
+        // Annual Diwali bonus (~0.6× a month's salary) every October — seasonal income spikes.
+        if (new Date(anchor).getMonth() === 9) {
+          const bonusAnchor = monthAnchor(mb, 15);
+          rows.push(
+            incomeRow(
+              `demo-income-bonus-${mb}`,
+              Math.round(salaryFor(bonusAnchor) * 0.6),
+              'cat-inc-salary',
+              'Diwali bonus',
+              bonusAnchor
+            )
+          );
+        }
       }
+      // A recent one-off freelance project (suggestible, NOT recurring).
       rows.push(
         incomeRow('demo-income-freelance', 35000, 'cat-inc-freelance', 'Website redesign project', ago(20), {
           hashtags: ['freelance']
-        }),
-        incomeRow('demo-income-diwali-bonus', 60000, 'cat-inc-salary', 'Diwali bonus', monthAnchor(8, 15))
+        })
       );
       return rows;
     },
@@ -1121,10 +1344,10 @@ const PERSONAS: Record<EmploymentType, PersonaConfig> = {
       { desc: 'Mobile postpaid bill', amount: 799 },
       { desc: 'Broadband bill', amount: 1199 }
     ],
-    income: ({ monthAnchor }) => {
+    income: ({ monthAnchor, historyMonths }) => {
       const rows: Expense[] = [];
       // Recurring monthly retainer — stable description, recurring on current month only.
-      for (let mb = 8; mb >= 0; mb--) {
+      for (let mb = historyMonths; mb >= 0; mb--) {
         rows.push(
           incomeRow(
             `demo-income-retainer-${mb}`,
@@ -1197,10 +1420,10 @@ const PERSONAS: Record<EmploymentType, PersonaConfig> = {
       { desc: 'Mobile postpaid bill', amount: 999 },
       { desc: 'Broadband bill', amount: 1499 }
     ],
-    income: ({ monthAnchor }) => {
+    income: ({ monthAnchor, historyMonths }) => {
       const rows: Expense[] = [];
       // Business drawings — recurring monthly, stable description.
-      for (let mb = 8; mb >= 0; mb--) {
+      for (let mb = historyMonths; mb >= 0; mb--) {
         rows.push(
           incomeRow(`demo-income-drawings-${mb}`, 150000, 'cat-inc-other', 'Business drawings', monthAnchor(mb, 1), {
             recurring: mb === 0
@@ -1280,9 +1503,9 @@ const PERSONAS: Record<EmploymentType, PersonaConfig> = {
     gymHistory: { amount: 500, description: 'Neighbourhood gym' },
     amazonPrime: false,
     dueBills: [{ desc: 'Mobile prepaid recharge', amount: 299 }],
-    income: ({ monthAnchor }) => {
+    income: ({ monthAnchor, historyMonths }) => {
       const rows: Expense[] = [];
-      for (let mb = 8; mb >= 0; mb--) {
+      for (let mb = historyMonths; mb >= 0; mb--) {
         rows.push(
           incomeRow(`demo-income-pocket-${mb}`, 8000, 'cat-inc-gift', 'Pocket money', monthAnchor(mb, 1), {
             recurring: mb === 0
@@ -1360,10 +1583,10 @@ const PERSONAS: Record<EmploymentType, PersonaConfig> = {
       { desc: 'Mobile postpaid bill', amount: 699 },
       { desc: 'Electricity bill', amount: 1400 }
     ],
-    income: ({ monthAnchor }) => {
+    income: ({ monthAnchor, historyMonths }) => {
       const rows: Expense[] = [];
       // Pension — recurring monthly, stable description.
-      for (let mb = 8; mb >= 0; mb--) {
+      for (let mb = historyMonths; mb >= 0; mb--) {
         rows.push(
           incomeRow(`demo-income-pension-${mb}`, 45000, 'cat-inc-other', 'Pension credit', monthAnchor(mb, 1), {
             recurring: mb === 0
@@ -1459,6 +1682,8 @@ async function wipeDemoData(): Promise<void> {
     db.chip_insights.clear(),
     db.subscriptions.clear(),
     db.personal_ious.clear(),
+    db.persons.clear(),
+    db.ledger_entries.clear(),
     db.accounts.clear(),
     db.merchant_memory.clear()
   ]);
@@ -1467,6 +1692,7 @@ async function wipeDemoData(): Promise<void> {
   localStorage.removeItem('penny_cats_v2');
   // Clear dismissal / one-time-init markers so a re-seed surfaces inbox suggestions cleanly.
   localStorage.removeItem('penny_merchant_memory_v1');
+  localStorage.removeItem('penny_iou_v2');
   localStorage.removeItem('penny_recurring_due_dismissed');
   localStorage.removeItem('penny_income_suggestions_dismissed');
 }

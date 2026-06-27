@@ -29,6 +29,7 @@ A composite financial health score (0–100) that measures how well-structured y
 6. **Savings rate (20 pts)** — Monthly net savings divided by monthly income. Target is above 20%. Scales linearly up to that threshold.
 
 **Key files:**
+
 - `src/core/health/scorer.ts` — `computeHealthScore()` and `deriveInputs()` functions
 - `src/features/health/HealthScorePage.tsx` — thin composition: income input + gauge + breakdown
 - `src/features/health/useHealthScore.ts` — loads the 5-repo snapshot, derives inputs, owns income state
@@ -56,4 +57,4 @@ A composite financial health score (0–100) that measures how well-structured y
 
 - Should the score weight components differently based on life stage (e.g. a 25-year-old needs to weight savings rate more heavily than insurance)?
 - What's the right threshold for "on track" for a goal — strict linear, or should early-stage goals get more lenient treatment?
-- Should the score penalise *over-concentration* in a single asset class (e.g. 90% in equity), or only reward diversification?
+- Should the score penalise _over-concentration_ in a single asset class (e.g. 90% in equity), or only reward diversification?

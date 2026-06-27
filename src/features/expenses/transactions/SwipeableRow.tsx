@@ -56,27 +56,30 @@ export function SwipeableRow({ actions, onTap, children, className = '' }: Props
 
   return (
     <div className="relative overflow-hidden">
-      {/* Revealed actions (behind) */}
-      <div className="absolute inset-y-0 right-0 flex">
-        {actions.map((a) => (
-          <button
-            key={a.label}
-            onClick={() => {
-              a.onClick();
-              setTx(0);
-            }}
-            className="flex flex-col items-center justify-center gap-0.5 text-white text-[10px] font-medium"
-            style={{ width: ACTION_W, backgroundColor: a.color }}
-            aria-label={a.label}
-          >
-            <i className={`ti ${a.icon}`} style={{ fontSize: 18 }} aria-hidden="true" />
-            {a.label}
-          </button>
-        ))}
-      </div>
-      {/* Foreground content */}
+      {/* Revealed actions (behind) — only mounted while swiping/open, so no 1px sliver leaks at rest. */}
+      {tx < 0 && (
+        <div className="absolute inset-y-0 right-0 flex">
+          {actions.map((a) => (
+            <button
+              key={a.label}
+              onClick={() => {
+                a.onClick();
+                setTx(0);
+              }}
+              className="flex flex-col items-center justify-center gap-0.5 text-white text-[10px] font-medium"
+              style={{ width: ACTION_W, backgroundColor: a.color }}
+              aria-label={a.label}
+            >
+              <i className={`ti ${a.icon}`} style={{ fontSize: 18 }} aria-hidden="true" />
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {/* Foreground content — uses the page background so the list reads as one uniform surface.
+          w-full guarantees it fully covers the action buttons behind it at rest. */}
       <div
-        className={`relative bg-surface ${className}`}
+        className={`relative w-full bg-surface-3 ${className}`}
         style={{
           transform: `translateX(${tx}px)`,
           transition: dragging ? 'none' : 'transform 0.2s',
