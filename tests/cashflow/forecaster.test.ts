@@ -103,7 +103,13 @@ describe('forecastEvents — recurring income vs expense direction', () => {
 
 describe('projectBalance', () => {
   it('projects a running balance, lowest point, and net flow', () => {
-    const f = projectBalance(10000, [out('a', 5000, day(2)), inc('s', 30000, day(10)), out('b', 3000, day(15))], NOW, 31, 2000);
+    const f = projectBalance(
+      10000,
+      [out('a', 5000, day(2)), inc('s', 30000, day(10)), out('b', 3000, day(15))],
+      NOW,
+      31,
+      2000
+    );
     expect(f.startBalance).toBe(10000);
     expect(f.totalOut).toBe(8000);
     expect(f.totalIn).toBe(30000);

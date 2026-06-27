@@ -5,16 +5,17 @@
 The one place to see every rupee of tax that leaves your pocket — on what you **earn, spend, save, invest and earn as interest** — across any financial year since 2017, and to learn how to pay less. It does not file taxes; it builds awareness and shows where to act.
 
 **Four pillars** (`TaxAwarenessPage` `TabStrip`), each with a sub-strip where useful:
+
 - **Footprint** — the income waterfall + money-flow visual + shareable Tax Story + FY switcher.
 - **Explore** — the "tax X-ray" of everyday money moves + the GST/levy rate reference & history.
-- **Optimize** — tax-saving *Suggestions* (headroom, regime, 80G, what-if, ITR helper) + the detailed *Deductions* tracker.
+- **Optimize** — tax-saving _Suggestions_ (headroom, regime, 80G, what-if, ITR helper) + the detailed _Deductions_ tracker.
 - **Calc** — Regime · HRA · Capital Gains calculators in one place. (The global Calculators hub at `/app/calculators` remains the searchable index.)
 
 Models **GST 2.0** (22 Sep 2025: 12% & 28% retired → mostly 5%/18%, new 40% de-merit slab, insurance exempted) and **per-FY direct-tax slabs FY2017-18 → FY2026-27**, applying the rate/slab in force for the selected year.
 
 ## User-facing capabilities
 
-- **Income waterfall (Footprint)** — derives gross from logged income (editable) and flows it down: −EPF/PF → −professional tax/LWF → −income tax → **in-hand** → spend vs savings. Answers *"of the money you didn't save, how much was direct tax, how much indirect, how much real spending."* A **money-flow bar** shows how every rupee of gross splits four ways (saved / direct tax / indirect tax / real spend). Every input is overridable; overspending (spending from savings/credit) is flagged.
+- **Income waterfall (Footprint)** — derives gross from logged income (editable) and flows it down: −EPF/PF → −professional tax/LWF → −income tax → **in-hand** → spend vs savings. Answers _"of the money you didn't save, how much was direct tax, how much indirect, how much real spending."_ A **money-flow bar** shows how every rupee of gross splits four ways (saved / direct tax / indirect tax / real spend). Every input is overridable; overspending (spending from savings/credit) is flagged.
 - **FY switcher** — view any financial year back to FY2017-18; income, indirect tax and direct tax recompute with that year's rates/slabs.
 - **Shareable "Tax Story"** — a full-screen, on-device card ("you paid ₹X tax — Y% of what you didn't save"); **"Did you know?"** awareness cards seeded on Footprint & Explore.
 - **Tax X-ray (Explore)** — pick a money move (fuel, dining, property, vehicle, gold/silver, equity buy/sell, FD interest) and see every embedded levy and charge, with a live amount input. Plus the GST/levy **rate reference** (current slabs, retired slabs, non-GST levies) and a **rate-change history**.
@@ -57,6 +58,7 @@ Models **GST 2.0** (22 Sep 2025: 12% & 28% retired → mostly 5%/18%, new 40% de
 - **Income source** `src/core/tax/footprint.ts` — `sumFyIncome()` / `annualiseRecurringIncome()` derive gross income.
 
 **Direct tax, history & advisory (Track 7 expansion):**
+
 - `src/core/tax/regimeHistory.ts` — per-FY config (old + new regime slabs, std deduction, §87A rebate, cess, surcharge) FY2017-18 → FY2026-27; `fyConfigFor()`.
 - `src/core/calculators/taxRegime.ts` — FY-parameterised `compareTaxRegimes(input, fyConfig?)` + `recommendedRegimeTax()`.
 - `src/core/tax/fy.ts` — FY selection helpers (`selectableFYs`, `fyWindow`, `shortFYLabel`).
@@ -67,6 +69,7 @@ Models **GST 2.0** (22 Sep 2025: 12% & 28% retired → mostly 5%/18%, new 40% de
 - `src/core/tax/taxFacts.ts` — "Did you know?" content.
 
 **Key files:**
+
 - `src/core/tax/calculator.ts` — deduction/capital-gains logic (incl. `computeCapitalGainsTax`)
 - `src/features/tax/TaxAwarenessPage.tsx` — thin shell: header (FY info) + 4-pillar `TabStrip`
 - `src/features/tax/footprint/` — `FootprintTab` + `useFootprint` (FY-aware) + `MoneyFlow` + `share/TaxStoryModal`

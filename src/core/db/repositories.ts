@@ -16,8 +16,10 @@ import type {
   Hashtag,
   Holding,
   InsurancePolicy,
+  LedgerEntry,
   Liability,
   MerchantMemory,
+  Person,
   PersonalIou,
   Profile,
   Subscription,
@@ -38,6 +40,8 @@ export const chipInsightsRepo = new EncryptedRepository<ChipInsight>(db.chip_ins
 export const aiCallLogRepo = new EncryptedRepository<AiCallLog>(db.ai_call_log as never);
 export const subscriptionsRepo = new EncryptedRepository<Subscription>(db.subscriptions as never);
 export const personalIousRepo = new EncryptedRepository<PersonalIou>(db.personal_ious as never);
+export const personsRepo = new EncryptedRepository<Person>(db.persons as never);
+export const ledgerEntriesRepo = new EncryptedRepository<LedgerEntry>(db.ledger_entries as never);
 export const creditProfileRepo = new EncryptedRepository<CreditProfile>(db.credit_profile as never);
 export const accountsRepo = new EncryptedRepository<Account>(db.accounts as never);
 export const activityLogRepo = new EncryptedRepository<ActivityLog>(db.activity_log as never);

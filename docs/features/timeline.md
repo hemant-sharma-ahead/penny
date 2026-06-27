@@ -74,6 +74,7 @@ Key files:
 Track 4 is complete; these are candidate follow-ups, not yet built.
 
 **Highest value (reuses existing data):**
+
 - **Revert an edit** — UPDATE entries already store a before/after `diff`; add a "revert" that restores the
   prior field values. Completes the undo story (today only deletes are undoable).
 - **Tappable heatmap → jump to day** — make Story heatmap cells interactive: tap → land on that day in the
@@ -82,12 +83,14 @@ Track 4 is complete; these are candidate follow-ups, not yet built.
   entity-type and date-range filters.
 
 **Smaller polish:**
+
 - **Bulk restore** ("Restore all") in Recently Deleted.
 - **Per-item history everywhere** — currently only on the expense editor; add to account/goal/holding edit
   screens (`ItemHistory` is already reusable).
 - **Include the Timeline in the encrypted export**; a "year in review" later.
 
 **Phase 1.5 / Phase 2 (by design):**
+
 - Phase 1.5: populate `actor` for the **household activity feed** (who changed what).
 - Phase 2: richer Chip narration via real AI; **whole-app point-in-time rewind** (needs a periodic
   full-snapshot foundation — the current log can't reconstruct historical state for pre-existing data);

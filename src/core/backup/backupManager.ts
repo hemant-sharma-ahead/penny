@@ -42,6 +42,8 @@ const BACKUP_STORES = [
   'ai_call_log',
   'subscriptions',
   'personal_ious',
+  'persons',
+  'ledger_entries',
   'credit_profile'
 ] as const;
 

@@ -4,6 +4,7 @@ import type { Account, AccountType, Expense } from '@/core/db/types';
 import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { logActivity, restoreActivity, summarizeDiff } from '@/core/db/activityLog';
 import { useToast } from '@/context/ToastContext';
+import { useTxnRefresh } from '@/hooks/useTxnRefresh';
 
 export interface AccountInput {
   name: string;
@@ -20,12 +21,15 @@ export function useAccounts() {
   const [saving, setSaving] = useState(false);
   const { showToast } = useToast();
 
-  useEffect(() => {
+  const reload = useCallback(() => {
     Promise.all([accountsRepo.getAll(), expensesRepo.getAll()]).then(([accs, exps]) => {
       setAccounts(accs.filter((a) => !a.isArchived).sort((a, b) => a.createdAt - b.createdAt));
       setTxns(exps);
     });
   }, []);
+
+  useEffect(() => reload(), [reload]);
+  useTxnRefresh(reload);
 
   const totalBalance = useMemo(
     () =>

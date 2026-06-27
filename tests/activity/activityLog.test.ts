@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '@/core/db/schema';
-import { activityLogRepo, expensesRepo } from '@/core/db/repositories';
+import { activityLogRepo, expensesRepo, ledgerEntriesRepo } from '@/core/db/repositories';
 import { restoreActivity, summarizeDiff } from '@/core/db/activityLog';
 import { deriveKey, generateSalt } from '@/core/crypto/engine';
 import { keystore } from '@/core/crypto/keystore';
-import type { ActivityLog, Expense } from '@/core/db/types';
+import type { ActivityLog, Expense, LedgerEntry } from '@/core/db/types';
 
 async function setupKeystore() {
   const salt = generateSalt();
@@ -35,11 +35,24 @@ describe('summarizeDiff', () => {
   });
 });
 
+const linkedEntry: LedgerEntry = {
+  id: 'le-cascade-1',
+  personId: 'p1',
+  kind: 'lent',
+  amount: 340,
+  date: 1_700_000_000_000,
+  origin: 'expense',
+  linkedTxnId: expense.id,
+  createdAt: 1_700_000_000_000,
+  updatedAt: 1_700_000_000_000
+};
+
 describe('restoreActivity', () => {
   beforeEach(async () => {
     await setupKeystore();
     await db.activity_log.clear();
     await db.expenses.clear();
+    await db.ledger_entries.clear();
   });
 
   it('re-inserts a single snapshotted record and marks the entry restored', async () => {
@@ -75,6 +88,24 @@ describe('restoreActivity', () => {
 
     await restoreActivity('log-2');
     expect((await expensesRepo.getAll()).map((e) => e.id).sort()).toEqual(['exp-restore-1', 'exp-restore-2']);
+  });
+
+  it('restores cascade records of another entity type alongside the primary (combined undo)', async () => {
+    await activityLogRepo.put({
+      id: 'log-cascade',
+      timestamp: Date.now(),
+      action: 'DELETE',
+      entityType: 'expense',
+      entityId: expense.id,
+      summary: 'Deleted expense: Swiggy ₹340',
+      snapshot: JSON.stringify(expense),
+      cascade: JSON.stringify([{ entityType: 'ledgerEntry', record: linkedEntry }])
+    });
+
+    const ok = await restoreActivity('log-cascade');
+    expect(ok).toBe(true);
+    expect(await expensesRepo.get(expense.id)).toEqual(expense);
+    expect(await ledgerEntriesRepo.get(linkedEntry.id)).toEqual(linkedEntry);
   });
 
   it('is a no-op for an already-restored entry', async () => {

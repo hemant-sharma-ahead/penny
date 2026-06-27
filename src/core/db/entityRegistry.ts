@@ -9,8 +9,10 @@ import {
   goalsRepo,
   holdingsRepo,
   insurancePoliciesRepo,
+  ledgerEntriesRepo,
   liabilitiesRepo,
   personalIousRepo,
+  personsRepo,
   subscriptionsRepo
 } from './repositories';
 import type {
@@ -22,7 +24,9 @@ import type {
   GoalContribution,
   Holding,
   InsurancePolicy,
+  LedgerEntry,
   Liability,
+  Person,
   PersonalIou,
   Subscription
 } from './types';
@@ -39,5 +43,7 @@ export const RESTORE_PUT: Record<string, (record: unknown) => Promise<void>> = {
   insurance: (r) => insurancePoliciesRepo.put(r as InsurancePolicy),
   liability: (r) => liabilitiesRepo.put(r as Liability),
   iou: (r) => personalIousRepo.put(r as PersonalIou),
+  person: (r) => personsRepo.put(r as Person),
+  ledgerEntry: (r) => ledgerEntriesRepo.put(r as LedgerEntry),
   subscription: (r) => subscriptionsRepo.put(r as Subscription)
 };

@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
-import type { Account, Expense, ExpenseCategory, Hashtag, MerchantMemory, TransactionType } from '@/core/db/types';
+import type {
+  Account,
+  Expense,
+  ExpenseCategory,
+  Hashtag,
+  MerchantMemory,
+  Person,
+  TransactionType
+} from '@/core/db/types';
+import type { ExpenseSeedIntent } from '@/core/iou/expenseLink';
 import type { ActiveEvent } from '@/context/EventModeContext';
 import { accountsRepo } from '@/core/db/repositories';
 import { epochToDateInput } from '@/lib/formatters';
+import { dateInputToEpoch } from '@/lib/date';
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '@/router/paths';
-import { Modal, Button, Toggle, TextInput, SegmentedControl, AmountInput } from '@/components/ui';
+import { Modal, Button, TextInput, SegmentedControl, AmountInput } from '@/components/ui';
 import { CategoryPickerModal } from '../categories/CategoryPickerModal';
 import type { CategoryManager } from '../categories/types';
 import { AccountChips } from './AccountChips';
@@ -24,6 +34,12 @@ interface Props {
   initialType?: TransactionType;
   onSave: (expense: Expense) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  /** Existing IOU people (for the optional Split/IOU suggestions). */
+  iouPersons?: Person[];
+  /** Seeds an IOU ledger entry from a new expense (lent to / borrowed from someone). */
+  onSeedIou?: (expenseId: string, intent: ExpenseSeedIntent | null) => Promise<void>;
+  /** When editing: the existing expense-seeded IOU link for this transaction (so it can be shown/removed). */
+  linkedIou?: { personName: string } | null | undefined;
   searchMerchant: (type: TransactionType, query: string) => MerchantMemory[];
   onDuplicate?: (expense: Expense) => void;
   onSaveTemplate?: (t: {
@@ -52,6 +68,45 @@ function parseTags(raw: string): string[] {
     .filter(Boolean);
 }
 
+// A circular icon button with a caption below — the secondary-action style (Tags / Receipt / Lent / Repeat).
+function ExtraCircle({
+  icon,
+  label,
+  active,
+  accent,
+  onClick
+}: {
+  icon: string;
+  label: string;
+  active: boolean;
+  accent: string;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" onClick={onClick} className="flex flex-col items-center gap-1.5" style={{ flex: '0 0 64px' }}>
+      <span
+        className="w-11 h-11 rounded-full flex items-center justify-center border transition-colors"
+        style={{
+          borderColor: active ? accent : 'var(--color-border)',
+          backgroundColor: active ? `${accent}1f` : 'var(--color-surface-secondary)'
+        }}
+      >
+        <i
+          className={`ti ${icon}`}
+          style={{ fontSize: 18, color: active ? accent : 'var(--color-text-tertiary)' }}
+          aria-hidden="true"
+        />
+      </span>
+      <span
+        className="text-[10px] font-medium leading-none"
+        style={{ color: active ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)' }}
+      >
+        {label}
+      </span>
+    </button>
+  );
+}
+
 // ── Main form ──────────────────────────────────────────────────────────────────
 
 export function ExpenseForm({
@@ -63,6 +118,9 @@ export function ExpenseForm({
   initialType,
   onSave,
   onDelete,
+  iouPersons,
+  onSeedIou,
+  linkedIou,
   searchMerchant,
   onDuplicate,
   onSaveTemplate,
@@ -96,6 +154,23 @@ export function ExpenseForm({
   // Merchant memory: once the user picks a suggestion (or there's nothing useful),
   // hide the type-ahead list until they edit the description again.
   const [memPicked, setMemPicked] = useState(false);
+
+  // Validation highlighting on submit.
+  const [errors, setErrors] = useState<{ amount?: boolean; desc?: boolean; cat?: boolean }>({});
+
+  // Secondary-field disclosure (circular icons). Open if the field already has content on load.
+  const initialTags = parseTags(tagInput);
+  const [showTags, setShowTags] = useState(initialTags.length > 0);
+  const [showReceipt, setShowReceipt] = useState(!!editing?.receiptDataUrl);
+
+  // Optional IOU link (new expense/income only): an expense can be "lent to" someone (they owe you),
+  // an income can be "borrowed from" someone (you owe them). The transaction itself is the money
+  // movement; this seeds the matching IOU ledger entry. Direction follows the transaction type.
+  const [iouEnabled, setIouEnabled] = useState(!!linkedIou);
+  const [iouPerson, setIouPerson] = useState(linkedIou?.personName ?? '');
+  const iouKind: 'lent' | 'borrowed' = type === 'income' ? 'borrowed' : 'lent';
+  // Shown for new AND editing expense/income — editing prefills from the existing link so it can be changed or removed.
+  const showIouSection = !!onSeedIou && (type === 'expense' || type === 'income');
 
   const initEditing = useRef(editing);
 
@@ -136,11 +211,13 @@ export function ExpenseForm({
     setPaymentMode('');
     setIsRecurring(false);
     setMemPicked(false);
+    setErrors({});
   }
 
   function handleDescriptionChange(value: string) {
     setDescription(value);
     setMemPicked(false); // re-open suggestions as the merchant text changes
+    if (errors.desc) setErrors((e) => ({ ...e, desc: false }));
   }
 
   // Merchant memory: ranked type-ahead matches for the current description text
@@ -162,6 +239,7 @@ export function ExpenseForm({
       setPaymentMode(couplePaymentToAccount(selectedAccount, mem.paymentMode));
     }
     setMemPicked(true);
+    setErrors((e) => ({ ...e, desc: false, cat: false }));
   }
 
   const activeTags = parseTags(tagInput);
@@ -189,8 +267,16 @@ export function ExpenseForm({
 
   function handleSave() {
     const amt = parseFloat(amount);
-    if (isNaN(amt) || amt <= 0 || !description.trim()) return;
-    if (type !== 'transfer' && !categoryId) return;
+    const nextErrors = {
+      amount: isNaN(amt) || amt <= 0,
+      desc: !description.trim(),
+      cat: type !== 'transfer' && !categoryId
+    };
+    if (nextErrors.amount || nextErrors.desc || nextErrors.cat) {
+      setErrors(nextErrors);
+      return;
+    }
+    setErrors({});
     setSaving(true);
     const now = Date.now();
     const base: Expense = {
@@ -198,7 +284,7 @@ export function ExpenseForm({
       amount: amt,
       categoryId: type === 'transfer' ? 'cat-tr-bank' : categoryId,
       description: description.trim(),
-      date: new Date(date).getTime(),
+      date: dateInputToEpoch(date, editing?.date),
       hashtags: type === 'transfer' ? [] : parseTags(tagInput),
       isRecurring,
       ...(isRecurring && { recurringIntervalDays: parseInt(intervalDays, 10) || 30 }),
@@ -211,7 +297,14 @@ export function ExpenseForm({
       createdAt: editing?.createdAt ?? now,
       updatedAt: now
     };
+    const iouIntent: ExpenseSeedIntent | null =
+      showIouSection && iouEnabled && iouPerson.trim()
+        ? { personName: iouPerson.trim(), kind: iouKind, amount: amt, date: base.date, description: base.description }
+        : null;
+
     onSave(base)
+      // Reconcile the IOU link on every expense/income save: creates, updates, or (when toggled off) removes it.
+      .then(() => (onSeedIou && showIouSection ? onSeedIou(base.id, iouIntent) : undefined))
       .catch(() => {})
       .finally(() => setSaving(false));
   }
@@ -228,6 +321,7 @@ export function ExpenseForm({
     e.target.value = '';
     if (!file) return;
     setReceipt(await fileToReceiptDataUrl(file));
+    setShowReceipt(true);
   }
 
   function handleSaveTemplate() {
@@ -246,52 +340,113 @@ export function ExpenseForm({
   }
 
   const typeMeta = TYPE_META[type];
+  const accent = typeMeta.color;
   const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
   const titleText = editing ? `Edit ${typeLabel}` : `Add ${typeLabel}`;
-  const saveText = saving ? 'Saving…' : editing ? 'Update' : `Add ${typeLabel}`;
+  const saveText = saving
+    ? 'Saving…'
+    : editing
+      ? `Update ${typeLabel.toLowerCase()}`
+      : `Add ${typeLabel.toLowerCase()}`;
+
+  const dateLabel = (() => {
+    const d = new Date(date);
+    return isNaN(d.getTime()) ? 'Pick date' : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  })();
+
+  const chipClass =
+    'flex-1 min-w-0 flex items-center justify-between gap-2 rounded-xl border bg-surface-2 px-3 py-3 text-sm font-medium';
 
   return (
     <>
-      {/* ── Main form modal ── */}
       <Modal
         onClose={onClose}
-        title={titleText}
         scrollable
         footer={
-          <div className="flex gap-3">
-            {editing && (
-              <Button variant="danger" fullWidth onClick={() => editing && onDelete(editing.id).catch(() => {})}>
-                Delete
+          <div className="flex flex-col gap-2.5">
+            <div className="flex gap-3">
+              {editing && (
+                <Button variant="danger" onClick={() => editing && onDelete(editing.id).catch(() => {})}>
+                  Delete
+                </Button>
+              )}
+              <Button variant="primary" fullWidth loading={saving} onClick={handleSave}>
+                {saveText}
               </Button>
+            </div>
+            {(editing || canTemplate) && (
+              <div className="flex justify-center gap-5">
+                {editing && onDuplicate && (
+                  <Button variant="ghost" size="sm" icon="ti-copy" onClick={() => onDuplicate(editing)}>
+                    Duplicate
+                  </Button>
+                )}
+                {onSaveTemplate && canTemplate && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={templateSaved ? 'ti-check' : 'ti-bookmark'}
+                    onClick={handleSaveTemplate}
+                    disabled={templateSaved}
+                  >
+                    {templateSaved ? 'Saved as template' : 'Save as template'}
+                  </Button>
+                )}
+              </div>
             )}
-            <Button color={typeMeta.color} fullWidth loading={saving} onClick={handleSave}>
-              {saveText}
-            </Button>
           </div>
         }
       >
-        {/* Type selector (only when adding new) */}
-        {!editing && (
-          <SegmentedControl
-            options={[
-              { value: 'expense' as const, label: 'Expense', icon: 'ti-arrow-down-circle', color: '#ef4444' },
-              { value: 'income' as const, label: 'Income', icon: 'ti-arrow-up-circle', color: '#10b981' },
-              { value: 'transfer' as const, label: 'Transfer', icon: 'ti-arrows-exchange', color: '#3b82f6' }
-            ]}
-            value={type}
-            onChange={handleTypeChange}
-          />
-        )}
+        {/* Header: close + type switch (adding) / title (editing) */}
+        <div className="flex items-center gap-2 -mt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-tertiary hover:bg-surface-2 -ml-1 flex-shrink-0"
+          >
+            <i className="ti ti-x" style={{ fontSize: 18 }} aria-hidden="true" />
+          </button>
+          {editing ? (
+            <h3 className="text-base font-semibold text-primary">{titleText}</h3>
+          ) : (
+            <div className="flex-1">
+              <SegmentedControl
+                options={[
+                  { value: 'expense' as const, label: 'Expense', icon: 'ti-arrow-down-circle', color: '#ef4444' },
+                  { value: 'income' as const, label: 'Income', icon: 'ti-arrow-up-circle', color: '#10b981' },
+                  { value: 'transfer' as const, label: 'Transfer', icon: 'ti-arrows-exchange', color: '#3b82f6' }
+                ]}
+                value={type}
+                onChange={handleTypeChange}
+              />
+            </div>
+          )}
+        </div>
 
-        {/* ── Description (first field — offers a merchant memory suggestion) ── */}
+        {/* Hero amount */}
+        <AmountInput
+          hero
+          accentColor={accent}
+          value={amount}
+          onChange={(v) => {
+            setAmount(v);
+            if (errors.amount) setErrors((e) => ({ ...e, amount: false }));
+          }}
+          error={errors.amount ? 'Enter an amount' : undefined}
+          autoFocus={false}
+        />
+
+        {/* Description (first focus) + merchant suggestions */}
         <div>
-          <TextInput
-            label="Description"
+          <input
             type="text"
+            autoFocus
+            className="input-surface border w-full rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+            style={errors.desc ? { borderColor: 'var(--color-danger)' } : undefined}
             placeholder={type === 'transfer' ? 'e.g. Moving to savings' : 'What was this for?'}
             value={description}
-            onChange={handleDescriptionChange}
-            autoFocus
+            onChange={(e) => handleDescriptionChange(e.target.value)}
           />
           {showMemSuggestions && (
             <div className="mt-1.5 flex flex-col gap-1.5">
@@ -324,55 +479,68 @@ export function ExpenseForm({
           )}
         </div>
 
-        {/* ── Amount row: [Category chip] + [Amount] + [Date] ── */}
-        <div className="flex gap-2 items-end">
-          {/* Category chip (expense/income only) */}
+        {/* Category + Date chips */}
+        <div className="flex gap-2.5">
           {type !== 'transfer' && (
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[10px] font-medium text-secondary">Category</span>
-              <button
-                type="button"
-                onClick={() => setShowCategoryPicker(true)}
-                className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl border-2 transition-colors w-[68px]"
-                style={{
-                  minHeight: '58px',
-                  borderColor: selectedCat ? selectedCat.color : 'var(--color-border)',
-                  backgroundColor: 'var(--color-surface-secondary)'
-                }}
-              >
-                {selectedCat ? (
-                  <i
-                    className={`ti ${selectedCat.icon}`}
-                    style={{ fontSize: 18, color: selectedCat.color }}
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <i
-                    className="ti ti-layout-grid-add"
-                    style={{ fontSize: 18, color: 'var(--color-text-tertiary)' }}
-                    aria-hidden="true"
-                  />
-                )}
+            <button
+              type="button"
+              onClick={() => setShowCategoryPicker(true)}
+              className={chipClass}
+              style={{
+                borderColor: errors.cat
+                  ? 'var(--color-danger)'
+                  : selectedCat
+                    ? selectedCat.color
+                    : 'var(--color-border)'
+              }}
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <i
+                  className={`ti ${selectedCat ? selectedCat.icon : 'ti-layout-grid-add'}`}
+                  style={{ fontSize: 17, color: selectedCat ? selectedCat.color : 'var(--color-text-tertiary)' }}
+                  aria-hidden="true"
+                />
                 <span
-                  className="text-[8px] font-medium text-center leading-tight line-clamp-2 break-words w-full"
-                  style={{ color: selectedCat ? 'var(--color-text-secondary)' : 'var(--color-text-tertiary)' }}
+                  className="truncate"
+                  style={{ color: selectedCat ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)' }}
                 >
-                  {selectedCat?.name ?? 'Select'}
+                  {selectedCat?.name ?? 'Select category'}
                 </span>
-              </button>
-            </div>
+              </span>
+              <i
+                className="ti ti-chevron-down text-tertiary flex-shrink-0"
+                style={{ fontSize: 15 }}
+                aria-hidden="true"
+              />
+            </button>
           )}
-
-          <div className="flex-1 min-w-0">
-            <AmountInput label="Amount (₹)" placeholder="0" value={amount} onChange={setAmount} />
-          </div>
-
-          <div className="w-[142px] flex-shrink-0">
-            <TextInput label="Date" type="date" value={date} onChange={setDate} />
+          <div className="relative flex-1 min-w-0">
+            <div className={chipClass} style={{ borderColor: 'var(--color-border)' }}>
+              <span className="flex items-center gap-2 min-w-0">
+                <i
+                  className="ti ti-calendar"
+                  style={{ fontSize: 16, color: 'var(--color-text-secondary)' }}
+                  aria-hidden="true"
+                />
+                <span className="truncate text-primary">{dateLabel}</span>
+              </span>
+              <i
+                className="ti ti-chevron-down text-tertiary flex-shrink-0"
+                style={{ fontSize: 15 }}
+                aria-hidden="true"
+              />
+            </div>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              aria-label="Date"
+            />
           </div>
         </div>
 
-        {/* ── Account section ── */}
+        {/* Account */}
         {type === 'transfer' ? (
           accounts.length === 0 ? (
             <Button
@@ -427,46 +595,57 @@ export function ExpenseForm({
           </div>
         )}
 
-        {/* ── Payment mode ── */}
-        <div>
-          <label className="text-xs font-medium text-secondary">Payment mode</label>
-          <div className="mt-1">
-            <PaymentModeChips value={paymentMode} onChange={setPaymentMode} selectedAccount={selectedAccount} />
-          </div>
-        </div>
-
-        {/* Active event chips (expense only) */}
-        {type === 'expense' && activeEvents.length > 0 && (
+        {/* Paid via */}
+        {type !== 'transfer' && (
           <div>
-            <label className="text-xs font-medium text-secondary">Active events</label>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {activeEvents.map((ev) => {
-                const isTagged = activeTags.includes(ev.hashtag.toLowerCase());
-                return (
-                  <button
-                    key={ev.id}
-                    type="button"
-                    onClick={() => toggleEventTag(ev)}
-                    className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border-2 transition-colors"
-                    style={
-                      isTagged
-                        ? { borderColor: ev.color, backgroundColor: `${ev.color}18`, color: ev.color }
-                        : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
-                    }
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
-                    {ev.name}
-                    {ev.autoTag && !isTagged && <span className="text-[9px] opacity-60">auto</span>}
-                  </button>
-                );
-              })}
+            <label className="text-xs font-medium text-secondary">Paid via</label>
+            <div className="mt-1">
+              <PaymentModeChips value={paymentMode} onChange={setPaymentMode} selectedAccount={selectedAccount} />
             </div>
           </div>
         )}
 
-        {/* Tags (expense/income) */}
-        {type !== 'transfer' && (
-          <div>
+        {/* Secondary actions — circular icon bar */}
+        <div className="flex gap-2 justify-center pt-1">
+          {type !== 'transfer' && (
+            <ExtraCircle
+              icon="ti-hash"
+              label="Tags"
+              active={showTags || activeTags.length > 0}
+              accent={accent}
+              onClick={() => setShowTags((v) => !v)}
+            />
+          )}
+          {type !== 'transfer' && (
+            <ExtraCircle
+              icon="ti-camera"
+              label="Receipt"
+              active={showReceipt || !!receipt}
+              accent={accent}
+              onClick={() => setShowReceipt((v) => !v)}
+            />
+          )}
+          {showIouSection && (
+            <ExtraCircle
+              icon="ti-users"
+              label={iouKind === 'lent' ? 'Lent' : 'Borrowed'}
+              active={iouEnabled}
+              accent={accent}
+              onClick={() => setIouEnabled((v) => !v)}
+            />
+          )}
+          <ExtraCircle
+            icon="ti-repeat"
+            label="Repeat"
+            active={isRecurring}
+            accent={accent}
+            onClick={() => setIsRecurring((v) => !v)}
+          />
+        </div>
+
+        {/* Tags panel */}
+        {type !== 'transfer' && showTags && (
+          <div className="rounded-xl border border-theme bg-surface-3 p-3 flex flex-col gap-2">
             <TextInput
               label="Tags"
               type="text"
@@ -475,7 +654,7 @@ export function ExpenseForm({
               onChange={setTagInput}
             />
             {tagSuggestions.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1">
                 {tagSuggestions.map((s) => (
                   <Button key={s.id} variant="secondary" size="sm" onClick={() => applyTagSuggestion(s.name)}>
                     #{s.name}
@@ -483,13 +662,36 @@ export function ExpenseForm({
                 ))}
               </div>
             )}
+            {type === 'expense' && activeEvents.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {activeEvents.map((ev) => {
+                  const isTagged = activeTags.includes(ev.hashtag.toLowerCase());
+                  return (
+                    <button
+                      key={ev.id}
+                      type="button"
+                      onClick={() => toggleEventTag(ev)}
+                      className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border-2 transition-colors"
+                      style={
+                        isTagged
+                          ? { borderColor: ev.color, backgroundColor: `${ev.color}18`, color: ev.color }
+                          : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
+                      }
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
+                      {ev.name}
+                      {ev.autoTag && !isTagged && <span className="text-[9px] opacity-60">auto</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Receipt photo (local, encrypted) */}
-        {type !== 'transfer' && (
-          <div>
-            <label className="text-xs font-medium text-secondary">Receipt</label>
+        {/* Receipt panel */}
+        {type !== 'transfer' && showReceipt && (
+          <div className="rounded-xl border border-theme bg-surface-3 p-3">
             <input
               ref={receiptInputRef}
               type="file"
@@ -498,7 +700,7 @@ export function ExpenseForm({
               onChange={(e) => void handleReceiptPick(e)}
             />
             {receipt ? (
-              <div className="mt-1 flex items-center gap-3">
+              <div className="flex items-center gap-3">
                 <img src={receipt} alt="Receipt" className="w-14 h-14 rounded-lg object-cover border border-theme" />
                 <Button variant="ghost" size="sm" icon="ti-eye" onClick={() => window.open(receipt, '_blank')}>
                   View
@@ -508,65 +710,60 @@ export function ExpenseForm({
                 </Button>
               </div>
             ) : (
-              <div className="mt-1">
-                <Button variant="secondary" size="sm" icon="ti-camera" onClick={() => receiptInputRef.current?.click()}>
-                  Attach receipt
-                </Button>
-              </div>
+              <Button variant="secondary" size="sm" icon="ti-camera" onClick={() => receiptInputRef.current?.click()}>
+                Attach receipt
+              </Button>
             )}
           </div>
         )}
 
-        {/* Recurring toggle */}
-        <div className={`grid gap-3 ${isRecurring ? 'grid-cols-2' : 'grid-cols-1'}`}>
-          <div>
-            <label className="text-xs font-medium text-secondary">Recurring</label>
-            <div className="mt-1 flex items-center justify-between rounded-xl border border-theme px-3 py-3">
-              <span className="text-xs text-tertiary">Bills, EMIs</span>
-              <Toggle value={isRecurring} onChange={setIsRecurring} aria-label="Toggle recurring" />
-            </div>
+        {/* Lent / Borrowed panel */}
+        {showIouSection && iouEnabled && (
+          <div className="rounded-xl border border-theme bg-surface-3 p-3 flex flex-col gap-2">
+            <input
+              className="input-surface w-full rounded-xl px-3 py-2.5 text-sm"
+              value={iouPerson}
+              onChange={(e) => setIouPerson(e.target.value)}
+              placeholder="Person's name"
+              list="iou-person-suggestions"
+            />
+            <datalist id="iou-person-suggestions">
+              {(iouPersons ?? [])
+                .filter((p) => !p.isArchived)
+                .map((p) => (
+                  <option key={p.id} value={p.name} />
+                ))}
+            </datalist>
+            <p className="text-xs text-tertiary">
+              {iouKind === 'lent'
+                ? "Adds a they-owe-you entry to this person's ledger."
+                : "Adds a you-owe-them entry to this person's ledger."}
+            </p>
           </div>
-          {isRecurring && (
+        )}
+
+        {/* Recurring panel */}
+        {isRecurring && (
+          <div className="rounded-xl border border-theme bg-surface-3 p-3">
             <TextInput
-              label="Every (days)"
+              label="Repeat every (days)"
               type="number"
               inputMode="numeric"
               value={intervalDays}
               onChange={setIntervalDays}
             />
-          )}
+          </div>
+        )}
 
-          {editing && (
-            <div className="border-t border-theme pt-3">
-              <ItemHistory entityId={editing.id} />
-            </div>
-          )}
-        </div>
-
-        {/* Secondary actions: duplicate (editing) + save-as-template */}
-        {(editing || canTemplate) && (
-          <div className="flex flex-wrap gap-2 border-t border-theme pt-3">
-            {editing && onDuplicate && (
-              <Button variant="ghost" size="sm" icon="ti-copy" onClick={() => onDuplicate(editing)}>
-                Duplicate
-              </Button>
-            )}
-            {onSaveTemplate && canTemplate && (
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={templateSaved ? 'ti-check' : 'ti-star'}
-                onClick={handleSaveTemplate}
-                disabled={templateSaved}
-              >
-                {templateSaved ? 'Saved as template' : 'Save as template'}
-              </Button>
-            )}
+        {/* History (editing) */}
+        {editing && (
+          <div className="border-t border-theme pt-3">
+            <ItemHistory entityId={editing.id} />
           </div>
         )}
       </Modal>
 
-      {/* ── Category picker + manager — nested modal (z-70, above form) ── */}
+      {/* Category picker — nested modal (z-70, above form) */}
       {showCategoryPicker && type !== 'transfer' && (
         <CategoryPickerModal
           type={type}
@@ -575,6 +772,7 @@ export function ExpenseForm({
           manager={categoryManager}
           onSelect={(id) => {
             setCategoryId(id);
+            setErrors((e) => ({ ...e, cat: false }));
             setShowCategoryPicker(false);
           }}
           onClose={() => setShowCategoryPicker(false)}

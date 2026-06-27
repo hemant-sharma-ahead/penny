@@ -28,17 +28,20 @@ PIN (4–8 digits, user sets on first launch)
 ```
 
 **What lives in IndexedDB** (`security` store):
+
 - `mkSalt` — 16-byte salt for MK derivation
-- `kekSalt` — 16-byte salt for KEK derivation  
+- `kekSalt` — 16-byte salt for KEK derivation
 - `wrappedMk` — Master Key wrapped with KEK (AES-KW)
 - `mkVerifier` — HMAC of a known string with MK (used to verify unlock without decrypting all data)
 - `pinRotationDate` — epoch ms of last PIN change
 
 **What lives in memory only:**
+
 - Master Key (in `src/core/crypto/keystore.ts` JS heap)
 - KEK (computed during unlock, used once, then discarded)
 
 **What is never stored anywhere:**
+
 - Plaintext passphrase
 - Plaintext PIN
 - Master Key in any persistent form
@@ -46,6 +49,7 @@ PIN (4–8 digits, user sets on first launch)
 ### Per-record encryption
 
 Each encrypted record is independently encrypted with the Master Key:
+
 - Algorithm: AES-256-GCM
 - IV: 12-byte random, generated fresh per write
 - Auth tag: 128-bit (GCM default), ensures integrity
@@ -56,6 +60,7 @@ Only the fields listed in the `EncryptedRepository` configuration are encrypted.
 ### PIN lockout
 
 Exponential backoff on failed PIN attempts:
+
 - 1st fail: warn, continue
 - 2nd fail: warn
 - 3rd fail: 30-second lockout
@@ -95,7 +100,7 @@ privacy_stats
   lastCalledAt: number
 ```
 
-#### Encrypted stores (fields marked with * are encrypted)
+#### Encrypted stores (fields marked with \* are encrypted)
 
 ```
 profile
@@ -362,6 +367,7 @@ The mock returns simulated insights without any API call. This lets us design th
 ### Phase 2: Real mode (planned)
 
 When `CHIP_MODE = 'real'`:
+
 1. User action triggers a Chip request (from ChipPage or via an insight button on any module page)
 2. `buildUserContext(module)` assembles an anonymised context struct (see PII pipeline below)
 3. The context is sent to `anthropicClient.ts` which calls `claude-sonnet-4-6`
@@ -371,13 +377,14 @@ When `CHIP_MODE = 'real'`:
 ### Chip insight requirements
 
 Every insight must contain all four fields:
+
 ```ts
 interface ChipInsight {
-  module: string              // which area (portfolio / expenses / goals / loans / etc.)
-  insight: string             // the recommendation
-  reasoning: string           // data points behind it
-  doNothingConsequence: string // "what happens if I ignore this?" — in rupees where possible
-  confidence: 'low' | 'medium' | 'high'
+  module: string; // which area (portfolio / expenses / goals / loans / etc.)
+  insight: string; // the recommendation
+  reasoning: string; // data points behind it
+  doNothingConsequence: string; // "what happens if I ignore this?" — in rupees where possible
+  confidence: 'low' | 'medium' | 'high';
 }
 ```
 
@@ -385,13 +392,13 @@ The `doNothingConsequence` field is the most important field. A Chip insight wit
 
 ### Chip model settings (Phase 2)
 
-| Setting | Value | Rationale |
-|---|---|---|
-| Model | `claude-sonnet-4-6` | Best balance of quality + cost for financial analysis |
-| Temperature (analysis) | 0.3 | Low variance — financial advice must be consistent |
-| Temperature (conversation) | 0.7 | Slightly warmer for natural chat responses |
-| Max tokens (analysis) | 1200 | Full insight with reasoning |
-| Max tokens (conversation) | 800 | Concise chat responses |
+| Setting                    | Value               | Rationale                                             |
+| -------------------------- | ------------------- | ----------------------------------------------------- |
+| Model                      | `claude-sonnet-4-6` | Best balance of quality + cost for financial analysis |
+| Temperature (analysis)     | 0.3                 | Low variance — financial advice must be consistent    |
+| Temperature (conversation) | 0.7                 | Slightly warmer for natural chat responses            |
+| Max tokens (analysis)      | 1200                | Full insight with reasoning                           |
+| Max tokens (conversation)  | 800                 | Concise chat responses                                |
 
 ---
 
@@ -452,27 +459,33 @@ Only flag as subscription if the pattern repeats at least 3 times. One-off payme
 ## Financial calculators (core implementations)
 
 ### FD maturity — compound interest
+
 ```
 P × (1 + r/n)^(n×t)
 ```
+
 Where: P = principal, r = annual interest rate (decimal), n = compounding frequency per year, t = tenure in years.
 
 Implemented in `src/core/fd/fdCalculations.ts:calcFdMaturity()`.
 
 ### RD maturity — iterative quarterly (Indian bank standard)
+
 Each monthly instalment earns interest from its deposit date to maturity. Compounded quarterly. Sum of all instalments + interest.
 
 Implemented in `src/core/fd/fdCalculations.ts:calcRdMaturity()`.
 
 ### Loan EMI — standard formula
+
 ```
 EMI = P × r × (1+r)^n / ((1+r)^n - 1)
 ```
+
 Where: P = principal, r = monthly rate (annual/12), n = tenure in months.
 
 Implemented in `src/core/loans/calculator.ts:calcEmi()`.
 
 ### EPF retirement projection
+
 - Takes employment history (company, basicSalary, fromDate, toDate)
 - Applies salary hike groups to project future contributions
 - Employee contribution: 12% of basic
@@ -483,6 +496,7 @@ Implemented in `src/core/loans/calculator.ts:calcEmi()`.
 Implemented inline in `src/features/portfolio/PortfolioPage.tsx` EPF tab section.
 
 ### NPS corpus projection
+
 - Takes current corpus, allocation across equity/corporate/govt
 - Uses historical returns: equity 12%, corporate 7%, govt 7%
 - Lifecycle adjustment: allocation auto-shifts based on age (LC-75: max equity till 35, then reduces)
@@ -495,11 +509,13 @@ Implemented in NPS section of PortfolioPage + `src/core/nps/npsLifecycle.ts`.
 ## Amortization utility
 
 Standard reducing-balance amortization:
+
 - Month-by-month: interest = balance × (annual_rate / 12)
 - Principal paid = EMI − interest
 - Balance next month = balance − principal_paid
 
 Scenarios calculated on-device:
+
 1. Standard EMI schedule
 2. Prepayment lump sum (reduce tenure)
 3. Extra monthly EMI (reduce tenure)
@@ -515,14 +531,14 @@ Implemented in `src/core/loans/amortization.ts`.
 
 6 components, 0–100 composite. Implemented in `src/core/health/scorer.ts`.
 
-| Component | Weight | What it measures |
-|---|---|---|
-| Diversification | 20% | Asset class spread (equity, debt, real estate, gold) |
-| Emergency fund | 20% | Liquid savings vs monthly expense multiple (target: 6×) |
-| Insurance coverage | 20% | Sum assured vs income × 10 (term), health cover existence |
-| Debt management | 20% | EMI/income ratio (target: <40%), credit card utilisation |
-| Goal progress | 20% | Goals on track vs off track ratio |
-| Savings rate | 20% | Monthly savings / monthly income (target: >20%) |
+| Component          | Weight | What it measures                                          |
+| ------------------ | ------ | --------------------------------------------------------- |
+| Diversification    | 20%    | Asset class spread (equity, debt, real estate, gold)      |
+| Emergency fund     | 20%    | Liquid savings vs monthly expense multiple (target: 6×)   |
+| Insurance coverage | 20%    | Sum assured vs income × 10 (term), health cover existence |
+| Debt management    | 20%    | EMI/income ratio (target: <40%), credit card utilisation  |
+| Goal progress      | 20%    | Goals on track vs off track ratio                         |
+| Savings rate       | 20%    | Monthly savings / monthly income (target: >20%)           |
 
 Grade bands: 90–100 = A+, 80–89 = A, 70–79 = B, 60–69 = C, <60 = D.
 
@@ -535,6 +551,7 @@ Implemented in `src/core/cashflow/forecaster.ts`.
 **Inputs:** Last 3 months of expense transactions, recurring expense rules, account balances.
 
 **Algorithm:**
+
 1. Identify confirmed recurring items (expenses with `isRecurring: true` or detected subscription)
 2. Project income: last 3 months average income, adjusted for known recurring income dates
 3. Project expenses: confirmed recurring + estimated variable (last 3 months average by category)
@@ -549,6 +566,7 @@ Implemented in `src/core/cashflow/forecaster.ts`.
 Live data from `webnodejs.investorgain.com`. No auth required.
 
 **4 tabs:**
+
 - **Upcoming** — announces, price band not set yet
 - **Open** — accepting applications, shows GMP + subscription multiples (live)
 - **Closed** — allotment pending

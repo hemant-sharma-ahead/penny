@@ -10,18 +10,18 @@ A searchable hub of financial calculators. Each calculator has a pure-logic core
 
 ## Calculators (10)
 
-| #   | Calculator             | id              | What it does                                                                      | Logic source                          |
-| --- | ---------------------- | --------------- | --------------------------------------------------------------------------------- | ------------------------------------- |
-| 1   | FIRE                   | `fire`          | Corpus to retire early + years/age to financial independence (inflation-adjusted) | New (`fire.ts`)                       |
-| 2   | Old vs New Tax Regime  | `tax-regime`    | Compares income tax under both regimes, FY 2025-26 (slabs, deductions, 87A, cess) | New (`taxRegime.ts`)                  |
-| 3   | HRA Exemption          | `hra`           | Section 10(13A) exemption — least of the three statutory amounts                  | New (`hra.ts`)                        |
-| 4   | SIP & SWP Planner      | `sip-swp`       | Step-up SIP accumulation → SWP drawdown; corpus survival + year-by-year schedule  | New (`sipSwp.ts`)                     |
-| 5   | FD / RD Maturity       | `fd-rd`         | Fixed & recurring deposit maturity + interest, all compounding frequencies        | ♻️ `src/core/fd/fdCalculations.ts`   |
-| 6   | Lumpsum & CAGR         | `lumpsum`       | Future value of a one-time investment, or annualised return (CAGR) from start/end | New (`lumpsum.ts`)                    |
-| 7   | Capital Gains Tax      | `capital-gains` | LTCG / STCG on equity, debt, gold, property — Budget 2024 rules + 4% cess         | New (`capitalGains.ts`)              |
-| 8   | Gratuity               | `gratuity`      | Payment of Gratuity Act: 15/26 formula, ₹20L cap, 5-year eligibility flag         | New (`gratuity.ts`)                  |
-| 9   | Sukanya Samriddhi      | `ssy`           | Girl-child scheme: 21-year maturity, deposits stop after year 15, passbook        | New (`ssy.ts`)                       |
-| 10  | Inflation / Future Cost| `inflation`     | Future cost of today's money + purchasing-power erosion                           | New (`inflation.ts`)                 |
+| #   | Calculator              | id              | What it does                                                                      | Logic source                       |
+| --- | ----------------------- | --------------- | --------------------------------------------------------------------------------- | ---------------------------------- |
+| 1   | FIRE                    | `fire`          | Corpus to retire early + years/age to financial independence (inflation-adjusted) | New (`fire.ts`)                    |
+| 2   | Old vs New Tax Regime   | `tax-regime`    | Compares income tax under both regimes, FY 2025-26 (slabs, deductions, 87A, cess) | New (`taxRegime.ts`)               |
+| 3   | HRA Exemption           | `hra`           | Section 10(13A) exemption — least of the three statutory amounts                  | New (`hra.ts`)                     |
+| 4   | SIP & SWP Planner       | `sip-swp`       | Step-up SIP accumulation → SWP drawdown; corpus survival + year-by-year schedule  | New (`sipSwp.ts`)                  |
+| 5   | FD / RD Maturity        | `fd-rd`         | Fixed & recurring deposit maturity + interest, all compounding frequencies        | ♻️ `src/core/fd/fdCalculations.ts` |
+| 6   | Lumpsum & CAGR          | `lumpsum`       | Future value of a one-time investment, or annualised return (CAGR) from start/end | New (`lumpsum.ts`)                 |
+| 7   | Capital Gains Tax       | `capital-gains` | LTCG / STCG on equity, debt, gold, property — Budget 2024 rules + 4% cess         | New (`capitalGains.ts`)            |
+| 8   | Gratuity                | `gratuity`      | Payment of Gratuity Act: 15/26 formula, ₹20L cap, 5-year eligibility flag         | New (`gratuity.ts`)                |
+| 9   | Sukanya Samriddhi       | `ssy`           | Girl-child scheme: 21-year maturity, deposits stop after year 15, passbook        | New (`ssy.ts`)                     |
+| 10  | Inflation / Future Cost | `inflation`     | Future cost of today's money + purchasing-power erosion                           | New (`inflation.ts`)               |
 
 **Dropped during build:** PPF Maturity and NPS Corpus — NPS/PPF/EPF are already tracked
 live in the Portfolio module, so standalone calculators were redundant.

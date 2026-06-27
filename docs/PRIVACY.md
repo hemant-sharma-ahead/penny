@@ -34,16 +34,17 @@ wrapped form is stored in IndexedDB — never the bare DMK:
   (biometric/device key — Phase 2 native — another wrapping slot)
 ```
 
-Any factor unwraps the *same* DMK. **Changing the passphrase or PIN only re-wraps the DMK — data is never re-encrypted** — and the old wrapping is deleted so the old secret stops working. Changing the passphrase **requires the current passphrase**.
+Any factor unwraps the _same_ DMK. **Changing the passphrase or PIN only re-wraps the DMK — data is never re-encrypted** — and the old wrapping is deleted so the old secret stops working. Changing the passphrase **requires the current passphrase**.
 
 **Critical invariants:**
+
 - The DMK **never** exists in persistent storage — only in memory (non-extractable) during an active session.
 - The DMK is random — it reveals nothing about any chosen secret.
 - If the passphrase is lost, data is permanently unrecoverable. No key escrow. This is by design.
 - Session clears the DMK from memory after PIN timeout.
 - Backup (.penny file / cloud) carries the DMK wrapped by the backup passphrase — we store the key nowhere.
 
-> Supersedes the earlier "passphrase-derived Master Key" model. Existing vaults migrate without re-encryption: the old MK simply becomes the opaque DMK. See `docs/ROADMAP.md` → *Pre-Phase 1.5 Track 2*.
+> Supersedes the earlier "passphrase-derived Master Key" model. Existing vaults migrate without re-encryption: the old MK simply becomes the opaque DMK. See `docs/ROADMAP.md` → _Pre-Phase 1.5 Track 2_.
 
 ---
 
@@ -62,37 +63,38 @@ Any factor unwraps the *same* DMK. **Changing the passphrase or PIN only re-wrap
 
 These are never included in any AI context.
 
-| Data point | Treatment |
-|---|---|
-| Full name | Removed |
-| Phone number | Removed |
-| Email address | Removed |
-| PAN number | Removed |
-| Aadhaar number | Removed |
-| Passport number | Removed |
-| Driving licence number | Removed |
-| Vehicle RC number | Removed |
-| IOU person names | Replaced with "Person 1", "Person 2", etc. (ordinal, not consistent across sessions) |
-| Account numbers (bank) | Removed |
-| Demat account number | Removed |
-| UPI ID | Removed |
+| Data point             | Treatment                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------ |
+| Full name              | Removed                                                                              |
+| Phone number           | Removed                                                                              |
+| Email address          | Removed                                                                              |
+| PAN number             | Removed                                                                              |
+| Aadhaar number         | Removed                                                                              |
+| Passport number        | Removed                                                                              |
+| Driving licence number | Removed                                                                              |
+| Vehicle RC number      | Removed                                                                              |
+| IOU person names       | Replaced with "Person 1", "Person 2", etc. (ordinal, not consistent across sessions) |
+| Account numbers (bank) | Removed                                                                              |
+| Demat account number   | Removed                                                                              |
+| UPI ID                 | Removed                                                                              |
 
 ### Category 2 — Financial identifiers (stripped or generalised)
 
-| Data point | Treatment |
-|---|---|
-| Bank name | Replaced with generic "Bank A", "Bank B" |
-| Lender name (loan) | Replaced with "Lender A", "Lender B" |
-| Insurance company name | Replaced with "Insurer A", "Insurer B" |
-| Employer name | Replaced with "Company A" (current), "Previous Company" (old) |
-| MF fund house name | Allowed (public information, no PII) |
-| Stock ticker/symbol | Allowed (public information, no PII) |
-| Property address | Removed entirely |
-| Vehicle make/model | Removed; asset type only ("Vehicle") |
+| Data point             | Treatment                                                     |
+| ---------------------- | ------------------------------------------------------------- |
+| Bank name              | Replaced with generic "Bank A", "Bank B"                      |
+| Lender name (loan)     | Replaced with "Lender A", "Lender B"                          |
+| Insurance company name | Replaced with "Insurer A", "Insurer B"                        |
+| Employer name          | Replaced with "Company A" (current), "Previous Company" (old) |
+| MF fund house name     | Allowed (public information, no PII)                          |
+| Stock ticker/symbol    | Allowed (public information, no PII)                          |
+| Property address       | Removed entirely                                              |
+| Vehicle make/model     | Removed; asset type only ("Vehicle")                          |
 
 ### Category 3 — Amounts (banded to ₹10,000 granularity)
 
 Raw amounts are never sent. They're banded into rounded ranges:
+
 - ₹850 → "₹0–10K"
 - ₹23,400 → "₹20–30K"
 - ₹1,87,000 → "₹1.8–1.9L"
@@ -102,14 +104,14 @@ The banding logic is in `buildUserContext()`. The AI sees approximate financial 
 
 ### Category 4 — Sensitive personal facts
 
-| Data point | Treatment |
-|---|---|
-| Date of birth | Sent as 5-year age band only: "29–34" (not exact date, not exact age) |
-| Health conditions (insurance) | Policy type only ("Health insurance") — no diagnosis, no condition details |
-| Medical expenses | Category only ("Healthcare") — no merchant names, no amount details |
-| Salary | Banded to ₹10K (Category 3 treatment) |
-| Credit score | Sent as range: "700–750" |
-| Credit tradeline details | `raw_report_encrypted` field from `credit_profile` store is **never sent** — contains PAN and full tradelines |
+| Data point                    | Treatment                                                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Date of birth                 | Sent as 5-year age band only: "29–34" (not exact date, not exact age)                                         |
+| Health conditions (insurance) | Policy type only ("Health insurance") — no diagnosis, no condition details                                    |
+| Medical expenses              | Category only ("Healthcare") — no merchant names, no amount details                                           |
+| Salary                        | Banded to ₹10K (Category 3 treatment)                                                                         |
+| Credit score                  | Sent as range: "700–750"                                                                                      |
+| Credit tradeline details      | `raw_report_encrypted` field from `credit_profile` store is **never sent** — contains PAN and full tradelines |
 
 ---
 
@@ -138,11 +140,11 @@ Three modes control what's visible on-screen. These are independent of encryptio
 type PrivacyMode = 'safe' | 'privacy' | 'open';
 ```
 
-| Mode | Display | Colour | Default |
-|---|---|---|---|
-| `safe` | Amounts masked as •••• | Amber (#f59e0b) | Yes |
-| `privacy` | Module names only, no amounts | Violet (#7c3aed) | No |
-| `open` | All data visible | Red (#dc2626) | No |
+| Mode      | Display                       | Colour           | Default |
+| --------- | ----------------------------- | ---------------- | ------- |
+| `safe`    | Amounts masked as ••••        | Amber (#f59e0b)  | Yes     |
+| `privacy` | Module names only, no amounts | Violet (#7c3aed) | No      |
+| `open`    | All data visible              | Red (#dc2626)    | No      |
 
 **Switching to `open` mode requires PIN verification.** This is a deliberate friction point — Open mode shows all data on screen, which is a shoulder-surfing risk.
 
@@ -163,6 +165,7 @@ Plus the new stores added in later milestones:
 ### Plain stores (IndexedDB, no encryption)
 
 Two stores contain no PII and are not encrypted:
+
 - `price_cache` — market prices, MF NAVs, IPO data (all public data)
 - `privacy_stats` — aggregate usage counts (no per-transaction data)
 
@@ -185,6 +188,7 @@ In Phase 1, there is **no backend server.** The app is a static PWA hosted on Cl
 The only network calls are to third-party APIs (MFAPI.in, Yahoo Finance, investorgain.com, etc.) and these receive only public lookup parameters — stock tickers, MF scheme codes, IPO listing names. No user data.
 
 In Phase 1.5+, the backend architecture is designed so the server sees only:
+
 - Hashed phone number (never plaintext)
 - Username (public — used for invites)
 - Public key (for group key exchange)
@@ -197,6 +201,7 @@ See `docs/ROADMAP.md` for the Phase 1.5 backend design.
 ## Backup model (Track 2)
 
 The encrypted backup exports a `.penny` file containing every encrypted store (raw rows) plus the security record. The bundle is encrypted with the **DMK**; the file header carries the DMK **wrapped by the passphrase** (v2) so restore can recover it. Properties:
+
 - Encrypted on-device before it leaves; neither Google nor we can read it.
 - Restored by entering the **passphrase** → unwrap the DMK → decrypt → bulk-restore → session re-locks (re-enter PIN). Old **v1** files (legacy passphrase-derived MK) still restore.
 - **Never stored by Penny.** Two destinations:
@@ -210,6 +215,7 @@ The encrypted backup exports a `.penny` file containing every encrypted store (r
 ## IOU privacy
 
 Person names in the IOU tracker are Category 1 PII. They are:
+
 - Stored encrypted in the `personal_ious` store
 - Never sent to the Anthropic API
 - In AI context, referred to as "Person 1", "Person 2" — ordinal labels that are not consistent across sessions (so the AI cannot correlate IOU relationships over time)
@@ -219,6 +225,7 @@ Person names in the IOU tracker are Category 1 PII. They are:
 ## Credit profile privacy
 
 The `credit_profile` store has two fields:
+
 - `summary` — human-readable summary (score range, account count, etc.) — may be sent to AI in banded form
 - `raw_report_encrypted` — full bureau report data including PAN and tradelines — **never sent to AI, never shown outside the credit profile screen**
 

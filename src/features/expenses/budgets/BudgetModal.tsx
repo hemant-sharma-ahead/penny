@@ -9,6 +9,8 @@ interface BudgetModalProps {
   existingBudget?: Budget | undefined;
   onSave: (budget: Budget) => void;
   onClose: () => void;
+  /** Stack above another modal (when Budgets is opened as an overlay). */
+  nested?: boolean | undefined;
 }
 
 export function BudgetModal({
@@ -16,7 +18,8 @@ export function BudgetModal({
   initialCategoryId,
   existingBudget,
   onSave,
-  onClose
+  onClose,
+  nested
 }: BudgetModalProps) {
   const [categoryId, setCategoryId] = useState(initialCategoryId);
   const [amount, setAmount] = useState(existingBudget ? String(existingBudget.limitAmount) : '');
@@ -35,7 +38,7 @@ export function BudgetModal({
   }
 
   return (
-    <Modal onClose={onClose} title="Set Budget" size="sm">
+    <Modal onClose={onClose} title="Set Budget" size="sm" nested={nested}>
       <SelectInput
         label="Category"
         value={categoryId}

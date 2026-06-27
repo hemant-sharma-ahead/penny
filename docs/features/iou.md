@@ -1,45 +1,87 @@
 # IOU (Lend & Borrow)
 
 ## What it is
-The IOU module tracks informal money that flows between you and friends or family — money you have lent to someone, or money you have borrowed from someone. It gives you a clear picture of who owes you what, what you owe others, and flags amounts that have been outstanding for a long time.
+
+The IOU module is a **person-centric running ledger** for informal money between you and friends or
+family. Each person you transact with has their own ledger; Penny derives a single **net balance**
+per person ("Rohan owes you ₹7,700", "you owe Asha ₹2,000", "settled up") from all the lends,
+borrows, and (partial) repayments recorded against them. It's the privacy-first, offline base of a
+Splitwise-style experience — a pairwise (you ↔ one person) ledger now, generalising to N-party group
+splits in Phase 1.5 Track E.
 
 ## User-facing capabilities
-- Log money you lent to someone: name of the person, amount, date, a description of what it was for, and an optional due date
-- Log money you borrowed from someone: same details, from the other direction
-- See separate views for "Lent" (people who owe you) and "Borrowed" (people you owe)
-- See the net position at a glance: total amount lent vs total amount borrowed
-- Mark any IOU as settled when the money is returned
-- Get ageing alerts that highlight IOUs outstanding for more than 30, 60, or 90 days — so long-forgotten debts do not slip through
-- Filter by status (outstanding vs settled) and sort by amount or date
+
+- A **list of people** with their derived net balance, sorted owed-to-you first, settled last
+- Drill into a person to see their **full running ledger** (every lend / borrow / repayment, newest first)
+- Log a lend or borrow: person (type-ahead with "Create '<name>'"), amount, what-for, date, optional due date
+- **Settle up** with partial or full repayments — record what was actually paid (no `isSettled` flag;
+  the person is "settled" when the net reaches zero). Over-payments are allowed and flip the balance.
+- **A lend/borrow is one event with two views** — real money movement _and_ who-owes-whom:
+  - **Lent = an Expense** (money out of an account) + a "they owe you" entry. From the Expense modal,
+    toggle "Lent this to someone"; from the IOU screen, you're asked to record the matching expense.
+  - **Borrowed = an Income** (money in) + a "you owe them" entry. From the Income modal, toggle
+    "Borrowed this from someone"; from the IOU screen, you're asked to record the matching income.
+  - **Settle-up** records the repayment movement too (income if they paid you, expense if you paid them).
+  - All prompts default ON with the account pre-filled; deleting either the transaction or the ledger
+    entry cascades to the other (`linkedTxnId`), and a single **Undo restores both atomically**.
+  - **Editing re-syncs both ways:** editing the expense reconciles its IOU entry, and editing a manual
+    IOU entry (amount / date / account / lent⇄borrowed) re-syncs its linked transaction — toggling the
+    link off deletes the transaction. (Expense-seeded entries are owned by their expense — edit there.)
+- **Net worth reflects it:** net lent is a receivable asset, net borrowed a payable liability — which
+  offsets the cash movement so your net worth stays correct end-to-end.
+- Overdue highlighting when a lend/borrow's due date has passed
+- Totals strip: total owed to you vs total you owe
+
+> **Settle-up never touches money.** Penny stores no UPI VPA and generates no payee QR — the actual
+> payment happens in whatever UPI/bank app you already trust; Penny only records the settlement.
 
 ## How it works
-IOU records are stored in the encrypted `personal_ious` Dexie store. Each record contains: personName, direction ('lent' or 'borrowed'), amount, date, dueDate, description, and isSettled.
 
-Person names are Category 1 PII — they are encrypted at rest and are **never sent to Chip AI**. When the AI needs context about IOUs, person names are replaced with ordinal labels ("Person 1", "Person 2") that are assigned fresh each session and are not consistent across sessions. This means Chip can reason about the amounts and timing without ever learning the identity of the people involved.
+Two encrypted Dexie stores (v7), accessed only via `EncryptedRepository`:
 
-Ageing is calculated at read time by comparing each outstanding IOU's date against today and bucketing into 30/60/90-day bands.
+- **`persons`** — the counterparty (name + optional phone/notes). Name/phone are **Category 1 PII**.
+- **`ledger_entries`** — `lent` / `borrowed` / `settlement` rows referencing a `personId`.
 
-IOU presentation and logic are shared between the standalone `/app/iou` route and the Expenses → IOU
-tab: both consume the `useIou` domain hook and render the same `IouListView` / `IouCard` components,
-so the two surfaces stay visually and behaviourally in sync.
+Net balance is **derived, never stored** (`core/iou/ledger.ts`): lent `+`, borrowed `−`, settlement
+per `settleDirection`. A balance under ₹1 is treated as settled for labels only (exact amounts are
+always stored).
+
+Person names are **never sent raw to AI**. `core/iou/aiLabels.ts` (`assignOrdinalLabels`) maps person
+ids to session-scoped ordinal labels ("Person 1", "Person 2") — the single enforcement point for any
+future AI context.
+
+**Migration:** legacy flat `personal_ious` records migrate to the new model via a one-time,
+post-unlock backfill (`useIou.ts`, flag `penny_iou_v2`) — encrypted stores can't use a Dexie
+`.upgrade()`. Names are parsed from the old free-text description (leading token, else an "Unmatched"
+bucket; full text preserved); a settled legacy IOU becomes its lend/borrow plus a matching settlement
+so the derived net reproduces the old state. Pure logic in `core/iou/migration.ts`.
+
+The same experience powers the standalone `/app/iou` route and the Expenses → IOU tab via the shared
+`IouView` component (privacy mode read internally).
 
 Key files:
-- `src/features/iou/IouPage.tsx` — standalone route: header totals + shared list + form
-- `src/features/iou/useIou.ts` — domain hook: IOU CRUD + sorted/derived lists (active/history/totals/overdue)
-- `src/features/iou/IouListView.tsx` / `IouCard.tsx` — shared list body + row card (used by both surfaces)
-- `src/features/iou/IouForm.tsx` — add/edit IOU form
+
+- `src/features/iou/IouView.tsx` — full interactive experience (list → ledger → add/edit/settle)
+- `src/features/iou/useIou.ts` — domain hook: persons + ledger entries, derived balances, migration
+- `src/features/iou/PersonListView.tsx` / `PersonLedgerView.tsx` — list + per-person ledger
+- `src/features/iou/EntryForm.tsx` / `SettleUpModal.tsx` / `PersonForm.tsx` / `PersonPicker.tsx`
+- `src/core/iou/` — `ledger.ts` (balance math), `expenseLink.ts` (both-way reconcile: `reconcileExpenseLink` expense→IOU + `reconcileLinkedTxn` IOU→transaction), `aiLabels.ts`, `migration.ts`
 
 ## Current limitations
-- No split tracking — if you paid for a group dinner and are tracking what multiple people owe you, each person needs a separate IOU entry
-- No partial settlement — an IOU is either fully outstanding or fully settled; there is no way to mark a partial repayment
-- Person names are not linked to contacts or group members — they are free-text only
-- No push notification or reminder for due dates
+
+- Pairwise only — multi-party group splits (uneven shares / who-paid) arrive in Phase 1.5 Track E
+- Loans recorded as Expense/Income appear in normal spend/income analytics (no separate category, by
+  design) — net worth is corrected via the IOU receivable/payable, but cash-flow shows the movement
+- IOU→transaction uses a default category (`cat-other` / `cat-inc-other`); edit the transaction to refine
+- Person names are local free text — not yet linked to real group members (`linkedMemberId` reserved)
+- No push/OS reminders for due dates (in-app only)
 
 ## Planned improvements
-- Phase 1.5: Link IOUs to household group members — when a person named in an IOU is also a member of your household group, Penny can link them by @username so settlements can be coordinated within the app
-- Phase 1.5: Group IOU settlement flow — for group trips or shared expenses, settle up with multiple people in a single flow
+
+- Phase 1.5 Track E: link a person to a real group member (`linkedMemberId`) so two ledgers reconcile
+- Phase 1.5 Track E: N-party split engine (shared expense → shares → who-paid → multi-party settle)
 
 ## Ideas welcome
-- Should partial settlements be supported (e.g. "they paid back ₹2,000 of the ₹5,000 they owe")?
-- Would a group-split calculator (like Splitwise) be a useful addition to this module?
-- Should Penny send a reminder notification when a due date is approaching?
+
+- Should expense→IOU seeding support uneven splits (not just even/full) before groups land?
+- Would a per-person "remind me" (in-app) for overdue balances be useful?

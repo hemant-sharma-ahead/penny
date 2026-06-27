@@ -1,9 +1,11 @@
 # Portfolio Overview
 
 ## What it is
+
 Portfolio is Penny's comprehensive asset tracking module. It gives you a single view of your net worth across every asset class an Indian investor might own — stocks, mutual funds, retirement accounts, fixed deposits, gold/silver, vehicles, and property — all in one encrypted, privacy-first place. Net worth is calculated as the sum of all holdings (assets) plus bank account balances, minus all liabilities.
 
 ## User-facing capabilities
+
 - View your total net worth at a glance on the Portfolio home screen.
 - Browse holdings across six asset sub-tabs: Stocks, Mutual Funds, Retirement (NPS/PPF/EPF), Fixed Income (FD/RD), Metals (Gold/Silver), and Real Assets (Vehicles/Property).
 - Track open and upcoming IPOs with live GMP and subscription data on the IPO tab.
@@ -12,9 +14,11 @@ Portfolio is Penny's comprehensive asset tracking module. It gives you a single 
 - All data is stored locally and encrypted — nothing leaves your device.
 
 ## How it works
+
 **Data model:** All assets are stored in a single `holdings` Dexie store. The `assetClass` field discriminates the type (e.g. `'equity'`, `'mf'`, `'nps'`, `'ppf'`, `'epf'`, `'fd'`, `'gold'`). Each record carries a free-form `assetMeta` JSON field for type-specific data (e.g. stock symbol, scheme code, EPF employer list).
 
 **Net worth formula:**
+
 ```
 Net worth = SUM(holdings.currentValue) + SUM(accounts.balance) − SUM(liabilities.currentBalance)
 ```
@@ -28,27 +32,32 @@ save logic is pure (`core/portfolio/holdingMappers.ts` + `vehicleMeta.ts`, unit-
 APIs in `core/portfolio/*Client.ts`. See `docs/ARCHITECTURE.md` and `penny-standards.md`.
 
 **Sub-tabs:**
+
 - Holdings tab with 6 nested sub-tabs: Stocks, MF, Retirement, Fixed Income, Metals, Real Assets
 - IPO tracker tab
 
 All encrypted reads go through `EncryptedRepository<T>` in `src/core/db/repository.ts`. Direct Dexie access is not permitted from feature code.
 
 ## Current limitations
+
 - Manual entry only — no broker, demat, or bank auto-sync in Phase 1.
 - No CAS (Consolidated Account Statement) PDF import yet.
 - No net worth trend graph (month-over-month history is not stored).
 - No watchlist or price alert feature.
 
 ## Contextual tax notes (Track 7)
+
 Each holdings sub-tab shows a compact, collapsible **"Tax on this"** note (`src/components/AssetTaxNote.tsx`) — FD/RD interest & TDS, equity LTCG/STCG, gold GST + cap-gains, property rental/LTCG/stamp duty, and NPS/PPF/EPF rules. Content is the single shared source `src/core/tax/assetTaxInfo.ts`, also reflected on the Tax Awareness screen, so the two never drift. Awareness only — not filing advice.
 
 ## Planned improvements
+
 - **Phase 2:** CAS PDF import via CDSL/CAMS for stocks and mutual funds.
 - **Phase 2:** EPFO passbook PDF import using PDF.js.
 - **Phase 2:** Net worth trend line graph using stored monthly snapshots.
 - **Phase 2:** Watchlist with price alerts for stocks and MFs.
 
 ## Ideas welcome
+
 - What asset classes are missing from your portfolio that Penny doesn't track yet?
 - How would you prefer to visualise net worth over time — line graph, bar chart, or a breakdown by asset class?
 - Are there integrations (broker APIs, bank feeds, EPFO, NSDL) that would save you the most time if automated?

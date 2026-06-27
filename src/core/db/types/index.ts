@@ -436,6 +436,7 @@ export interface ActivityLog {
   summary: string; // human-readable, e.g. 'Deleted expense: Swiggy ₹340'
   actor?: string; // who performed it; unused in Phase 1 (always self) — powers the Phase 1.5 household feed
   snapshot?: string; // JSON of the deleted record(s) — enables Undo / Recently Deleted restore
+  cascade?: string; // JSON [{ entityType, record }] of other-type records deleted alongside (e.g. an expense's linked IOU entries) — restored together for atomic Undo
   diff?: string; // JSON { field: [before, after] } for UPDATE — beautiful diffs + future revert
   entityCount?: number; // number of records affected (bulk actions)
   restorePointId?: string; // groups entries under a named checkpoint (restore points / rewind)
@@ -480,6 +481,11 @@ export interface Subscription {
 
 export type IouDirection = 'lent' | 'borrowed';
 
+/**
+ * @deprecated Legacy flat IOU record (Phase 1). Superseded by {@link Person} + {@link LedgerEntry}
+ * (Phase 1.5 Track 1). Retained only for the one-time `penny_iou_v2` migration backfill and for
+ * restoring legacy backups; do not create new records of this shape.
+ */
 export interface PersonalIou {
   id: string;
   direction: IouDirection;
@@ -490,6 +496,58 @@ export interface PersonalIou {
   isSettled: boolean;
   settledAt?: number;
   notes?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
+ * A counterparty in the IOU ledger. Name/phone are Category 1 PII — encrypted at rest and never
+ * sent raw to AI (use {@link assignOrdinalLabels}). A person is a pairwise relationship (you ↔ them);
+ * net balance is derived from their {@link LedgerEntry} rows, never stored.
+ */
+export interface Person {
+  id: string;
+  name: string;
+  phone?: string;
+  notes?: string;
+  /** Future group-sync hook (Phase 1.5 Track E): links this local person to a real group member. */
+  linkedMemberId?: string;
+  /** Soft-archive when a person still has ledger entries but should drop off the active list. */
+  isArchived?: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type LedgerKind = 'lent' | 'borrowed' | 'settlement';
+export type SettleDirection = 'they_paid_you' | 'you_paid_them';
+export type LedgerOrigin = 'manual' | 'expense' | 'migration';
+
+/**
+ * One entry in a person's running ledger. `amount` is always positive; the sign of its
+ * contribution to the net balance derives from `kind` (lent `+`, borrowed `−`) and, for
+ * settlements, from `settleDirection`. Partial settlement is a first-class `settlement` entry —
+ * there is no `isSettled` boolean; a person is "settled" when their derived net ≈ 0.
+ */
+export interface LedgerEntry {
+  id: string;
+  personId: string;
+  kind: LedgerKind;
+  amount: number;
+  date: number;
+  dueDate?: number;
+  description?: string;
+  notes?: string;
+  /** settlement-only: who paid whom. */
+  settleDirection?: SettleDirection;
+  origin: LedgerOrigin;
+  /**
+   * The account transaction (Expense for lent / you-paid-them, Income for borrowed / they-paid-you)
+   * recording this entry's real money movement, if any. Linked both ways — deleting either the
+   * transaction or this entry cascades to the other.
+   */
+  linkedTxnId?: string;
+  /** future group-sync hook (Phase 1.5 Track E): the server-side id once this entry syncs. */
+  remoteId?: string;
   createdAt: number;
   updatedAt: number;
 }

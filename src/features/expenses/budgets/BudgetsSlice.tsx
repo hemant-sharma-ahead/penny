@@ -8,9 +8,11 @@ interface BudgetsSliceProps {
   expenseCategories: ExpenseCategory[];
   spendByCategory: Map<string, number>;
   mode: 'open' | 'safe' | 'privacy';
+  /** True when rendered inside a Modal (drops the tab scroll wrapper; nests the inner form). */
+  overlay?: boolean;
 }
 
-export function BudgetsSlice({ expenseCategories, spendByCategory, mode }: BudgetsSliceProps) {
+export function BudgetsSlice({ expenseCategories, spendByCategory, mode, overlay }: BudgetsSliceProps) {
   const { saveBudget, monthBudgets } = useBudgets();
   const [showBudgetForm, setShowBudgetForm] = useState(false);
   const [initialCategoryId, setInitialCategoryId] = useState('');
@@ -28,17 +30,19 @@ export function BudgetsSlice({ expenseCategories, spendByCategory, mode }: Budge
       .catch(() => {});
   }
 
+  const tab = (
+    <BudgetsTab
+      expenseCategories={expenseCategories}
+      spendByCategory={spendByCategory}
+      monthBudgets={monthBudgets}
+      mode={mode}
+      onOpenBudget={openBudgetForm}
+    />
+  );
+
   return (
     <>
-      <div className="flex-1 overflow-y-auto pb-24">
-        <BudgetsTab
-          expenseCategories={expenseCategories}
-          spendByCategory={spendByCategory}
-          monthBudgets={monthBudgets}
-          mode={mode}
-          onOpenBudget={openBudgetForm}
-        />
-      </div>
+      {overlay ? tab : <div className="flex-1 overflow-y-auto pb-24">{tab}</div>}
 
       {showBudgetForm && (
         <BudgetModal
@@ -47,6 +51,7 @@ export function BudgetsSlice({ expenseCategories, spendByCategory, mode }: Budge
           existingBudget={existingBudget}
           onSave={handleSaveBudget}
           onClose={() => setShowBudgetForm(false)}
+          nested={overlay}
         />
       )}
     </>

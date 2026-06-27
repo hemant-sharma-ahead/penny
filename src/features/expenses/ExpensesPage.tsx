@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { TabStrip } from '@/components/ui';
+import { TabStrip, Modal } from '@/components/ui';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useEventMode } from '@/context/EventModeContext';
 import { useExpenses } from './useExpenses';
@@ -12,7 +12,7 @@ import { SubscriptionsSlice } from './subscriptions/SubscriptionsSlice';
 import { IouSlice } from './iou/IouSlice';
 import type { CategoryManager } from './categories/types';
 
-type ExpensesTab = 'transactions' | 'subscriptions' | 'iou' | 'budgets' | 'analytics';
+type ExpensesTab = 'transactions' | 'subscriptions' | 'iou' | 'analytics';
 
 export function ExpensesPage() {
   const { mode } = usePrivacy();
@@ -39,6 +39,9 @@ export function ExpensesPage() {
     saveTemplate,
     removeTemplate,
     saveExpenseWithHashtags,
+    seedIouFromExpense,
+    persons,
+    iouLinkByTxn,
     patchExpenses,
     removeExpenses,
     saveCategory,
@@ -49,7 +52,8 @@ export function ExpensesPage() {
     createParentWithChildren
   } = useExpenses();
 
-  const [activeTab, setActiveTab] = useState<ExpensesTab>('analytics');
+  const [activeTab, setActiveTab] = useState<ExpensesTab>('transactions');
+  const [showBudgets, setShowBudgets] = useState(false);
   const txnFilters = useTransactionFilters(expenses, categoryMap);
 
   const categoryManager: CategoryManager = {
@@ -77,10 +81,9 @@ export function ExpensesPage() {
       <TabStrip
         scrollable
         options={[
-          { value: 'analytics', label: 'Analytics' },
           { value: 'transactions', label: 'Transactions' },
+          { value: 'analytics', label: 'Analytics' },
           { value: 'subscriptions', label: 'Subscriptions' },
-          { value: 'budgets', label: 'Budgets' },
           { value: 'iou', label: 'IOU' }
         ]}
         value={activeTab}
@@ -100,6 +103,10 @@ export function ExpensesPage() {
           mode={mode}
           onSaveExpense={saveExpenseWithHashtags}
           onDeleteExpense={deleteExpense}
+          onOpenBudgets={() => setShowBudgets(true)}
+          iouPersons={persons}
+          onSeedIou={seedIouFromExpense}
+          iouLinkByTxn={iouLinkByTxn}
           onPatchExpenses={patchExpenses}
           onRemoveExpenses={removeExpenses}
           searchMerchant={searchMerchant}
@@ -115,13 +122,15 @@ export function ExpensesPage() {
 
       {activeTab === 'subscriptions' && <SubscriptionsSlice expenses={expenses} mode={mode} />}
 
-      {activeTab === 'iou' && <IouSlice mode={mode} />}
-
-      {activeTab === 'budgets' && (
-        <BudgetsSlice expenseCategories={expenseCategories} spendByCategory={spendByCategory} mode={mode} />
-      )}
+      {activeTab === 'iou' && <IouSlice />}
 
       {activeTab === 'analytics' && <AnalyticsSlice expenses={expenses} categoryMap={categoryMap} mode={mode} />}
+
+      {showBudgets && (
+        <Modal title="Budgets" onClose={() => setShowBudgets(false)} scrollable>
+          <BudgetsSlice expenseCategories={expenseCategories} spendByCategory={spendByCategory} mode={mode} overlay />
+        </Modal>
+      )}
     </div>
   );
 }

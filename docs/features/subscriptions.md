@@ -1,9 +1,11 @@
 # Subscriptions
 
 ## What it is
+
 The subscriptions module automatically detects recurring charges in your transaction history — streaming services, app subscriptions, gym memberships, insurance premiums — and surfaces them as a managed list. You can see exactly how much you spend on subscriptions each month, confirm or dismiss each detected item, and add ones that were not auto-detected.
 
 ## User-facing capabilities
+
 - See a list of automatically detected recurring expenses, pulled from your transaction history
 - Confirm a detected subscription to add it to your tracked list, or dismiss it if the detection is wrong
 - **Manually add** a subscription (name, amount, billing interval, last charged, free-trial toggle) — for anything not auto-detected
@@ -15,6 +17,7 @@ The subscriptions module automatically detects recurring charges in your transac
 - Cancel any subscription from your list (and renewal charges already appear in the header Reminders bell within 7 days)
 
 ## How it works
+
 The detection algorithm in `detector.ts` runs a 3-pass analysis over the `expenses` store:
 
 1. **Frequency clustering**: Expenses are grouped by merchant name. For each merchant, the algorithm checks whether the time intervals between consecutive transactions are regular — specifically, whether they cluster within ±3 days of a target period (e.g. 30 days for monthly, 365 days for annual).
@@ -32,23 +35,27 @@ the Expenses → Subscriptions tab: both consume the `useSubscriptions` hook and
 `SubscriptionsView` / `DetectedSubCard` / `ActiveSubCard` components, so the two surfaces stay in sync.
 
 Key files:
+
 - `src/features/subscriptions/SubscriptionsPage.tsx` — standalone route: header + shared `SubscriptionsView`
 - `src/features/subscriptions/useSubscriptions.ts` — detection + confirm/dismiss/cancel (used by both surfaces)
 - `src/features/subscriptions/SubscriptionsView.tsx` / `DetectedSubCard.tsx` / `ActiveSubCard.tsx` — shared UI
 - `src/core/subscriptions/detector.ts` — 3-pass detection algorithm; `format.ts` — display/interval/monthly helpers
 
 ## Current limitations
+
 - Detection runs on transaction history already in Penny — it cannot detect subscriptions charged to accounts whose transactions have not been imported
 - The algorithm uses merchant name as the grouping key; transactions from the same service logged under slightly different merchant names (e.g. "Netflix" vs "NETFLIX.COM") may not be grouped correctly
 - Annual subscriptions require at least 3 years of transaction history to be auto-detected reliably
 - No way to see the history of past subscription charges linked to a detected subscription
 
 ## Planned improvements
+
 - Phase 2: Push notifications for upcoming subscription renewals — get an alert a few days before a subscription is due to charge
 - Phase 2: Subscription cost trend — Chip shows you how your total monthly subscription spend has grown over time ("Your subscriptions grew from ₹2,400 to ₹3,800 in 6 months")
 - Phase 2: Cancel guidance — for popular services, a direct link to the cancellation page when you want to stop a subscription
 
 ## Ideas welcome
+
 - Should subscriptions be linkable to a specific account so you can track which card or account is being charged?
 - Would a "subscriptions I forgot about" highlight (inactive services with recent charges) be useful?
 - Should Penny flag when a subscription amount increases compared to previous months?

@@ -3,6 +3,7 @@
 ## Local setup
 
 ### Prerequisites
+
 - Node 20+ (see `.nvmrc`)
 - npm 10+
 
@@ -20,9 +21,11 @@ App runs at `http://localhost:5173`. DevTools → 390px viewport to see the mobi
 There are no environment variables required for Phase 1 development. All features run on mock/simulated data locally.
 
 For Phase 1 + Chip (AI), create `.env.local`:
+
 ```
 VITE_ANTHROPIC_API_KEY=sk-ant-...
 ```
+
 This key is only used in development. In the shipped app, users supply their own API key during onboarding (stored encrypted with their passphrase).
 
 ---
@@ -44,6 +47,7 @@ src/
 ```
 
 **Architecture rules enforced by ESLint:**
+
 - `@anthropic-ai/sdk` may only be imported from `src/core/ai-safety/anthropicClient.ts`
 - `dexie` may only be imported from `src/core/db/`
 - Feature modules must not cross-import from other features — only from `core/`, `components/`, `context/`, `hooks/`, `lib/`
@@ -54,6 +58,7 @@ src/
 ## The encryption boundary
 
 **Never access Dexie tables directly from feature code.** Always go through `EncryptedRepository<T>` in `src/core/db/repository.ts`. This ensures:
+
 1. All writes are encrypted before hitting IndexedDB
 2. All reads are decrypted transparently
 3. The session key is checked on every access
@@ -79,17 +84,17 @@ The CI gate (`tests/pii-gate/piiGate.test.ts`) will fail the build if any PII es
 
 ## Scripts
 
-| Script | What it does |
-|--------|-------------|
-| `npm run dev` | Start Vite dev server |
-| `npm run build` | TypeScript check + Vite build |
-| `npm run lint` | ESLint on `src/` |
-| `npm run lint:fix` | ESLint auto-fix |
-| `npm run format` | Prettier write on `src/` |
-| `npm run format:check` | Prettier check (used in CI) |
-| `npm run type-check` | `tsc --noEmit` |
-| `npm run test` | Vitest |
-| `npm run test:ci` | Vitest (CI mode, fails fast) |
+| Script                 | What it does                  |
+| ---------------------- | ----------------------------- |
+| `npm run dev`          | Start Vite dev server         |
+| `npm run build`        | TypeScript check + Vite build |
+| `npm run lint`         | ESLint on `src/`              |
+| `npm run lint:fix`     | ESLint auto-fix               |
+| `npm run format`       | Prettier write on `src/`      |
+| `npm run format:check` | Prettier check (used in CI)   |
+| `npm run type-check`   | `tsc --noEmit`                |
+| `npm run test`         | Vitest                        |
+| `npm run test:ci`      | Vitest (CI mode, fails fast)  |
 
 ---
 
@@ -117,6 +122,7 @@ Run them in this order. Fix failures before committing. Never use `--no-verify` 
 ## Commit conventions
 
 Each completed step or track gets its own commit. Format:
+
 ```
 feat(scope): step X — short description
 feat(scope): short description
@@ -127,6 +133,7 @@ test: test additions
 ```
 
 **Milestone commit examples:**
+
 ```
 feat(pre-1.5): track 5 — documentation overhaul
 feat(m16): step 1 — groups data model and Dexie store
@@ -146,16 +153,16 @@ fix(expenses): category merge not updating transaction count
 
 ## Key documents
 
-| File | What it covers |
-|------|---------------|
-| `CLAUDE.md` | Orientation: project identity, rules, milestone status, key files |
-| `CONTRIBUTING.md` | This file — branching, commits, CI, PR rules |
-| `docs/README.md` | Documentation index — navigate all docs from here |
-| `docs/BRD.md` | Product vision, users, competitive positioning, phase plan |
-| `docs/ARCHITECTURE.md` | Codebase map (dirs, components, hooks) + architectural decision log |
-| `docs/SCHEMA.md` | All Dexie stores with field definitions |
-| `docs/PRIVACY.md` | PII definitions, anonymisation rules, privacy architecture |
-| `docs/ROADMAP.md` | Phase 1.5/2/3 scope, backend design, architectural decisions |
-| `docs/MILESTONES.md` | Full milestone history — M0 through current, all steps |
-| `docs/features/` | Per-feature documentation — what's built, data model, planned improvements |
+| File                                  | What it covers                                                             |
+| ------------------------------------- | -------------------------------------------------------------------------- |
+| `CLAUDE.md`                           | Orientation: project identity, rules, milestone status, key files          |
+| `CONTRIBUTING.md`                     | This file — branching, commits, CI, PR rules                               |
+| `docs/README.md`                      | Documentation index — navigate all docs from here                          |
+| `docs/BRD.md`                         | Product vision, users, competitive positioning, phase plan                 |
+| `docs/ARCHITECTURE.md`                | Codebase map (dirs, components, hooks) + architectural decision log        |
+| `docs/SCHEMA.md`                      | All Dexie stores with field definitions                                    |
+| `docs/PRIVACY.md`                     | PII definitions, anonymisation rules, privacy architecture                 |
+| `docs/ROADMAP.md`                     | Phase 1.5/2/3 scope, backend design, architectural decisions               |
+| `docs/MILESTONES.md`                  | Full milestone history — M0 through current, all steps                     |
+| `docs/features/`                      | Per-feature documentation — what's built, data model, planned improvements |
 | `.claude/commands/penny-standards.md` | Best practices skill — loaded at the start of every implementation session |

@@ -37,9 +37,9 @@ describe('classifyTaxBand', () => {
   });
 
   it('falls back to the intent group for unmapped custom categories', () => {
-    expect(classifyTaxBand({ categoryId: 'cat-custom-xyz', description: 'thing' }, cat('cat-custom-xyz', 'lifestyle'))).toBe(
-      'gst-18'
-    );
+    expect(
+      classifyTaxBand({ categoryId: 'cat-custom-xyz', description: 'thing' }, cat('cat-custom-xyz', 'lifestyle'))
+    ).toBe('gst-18');
   });
 
   it('falls back to the default band when nothing matches', () => {
