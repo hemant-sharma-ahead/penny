@@ -25,11 +25,7 @@ const index = Object.values(raw)
   .map((icon) => ({
     n: icon.name,
     t: Array.from(
-      new Set(
-        (icon.tags ?? [])
-          .map((tag) => String(tag).toLowerCase().trim())
-          .filter((tag) => tag.length > 0)
-      )
+      new Set((icon.tags ?? []).map((tag) => String(tag).toLowerCase().trim()).filter((tag) => tag.length > 0))
     )
   }))
   .sort((a, b) => a.n.localeCompare(b.n));

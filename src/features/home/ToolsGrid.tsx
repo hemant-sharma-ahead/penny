@@ -14,7 +14,8 @@ const TOOL_TILES: { label: string; icon: string; path: string; color: string; mo
     moduleKey: 'health'
   },
   { label: 'Tax', icon: 'ti-receipt-tax', path: PATHS.app.tax, color: '#8b5cf6', moduleKey: 'tax' },
-  { label: 'Cash Flow', icon: 'ti-trending-down', path: PATHS.app.cashflow, color: '#14b8a6', moduleKey: 'cashflow' }
+  { label: 'Cash Flow', icon: 'ti-trending-down', path: PATHS.app.cashflow, color: '#14b8a6', moduleKey: 'cashflow' },
+  { label: 'News', icon: 'ti-news', path: PATHS.app.news, color: '#f59e0b', moduleKey: 'news' }
 ];
 
 export function ToolsGrid() {

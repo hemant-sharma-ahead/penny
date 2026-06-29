@@ -7,16 +7,19 @@ Use this when building UI. All shared components live in `src/components/ui/`. A
 ## Available components
 
 ### `Card`
+
 ```tsx
 import { Card } from '@/components/ui';
 
 <Card padding="md" onClick={handleClick}>
   {/* content */}
-</Card>
+</Card>;
 ```
+
 Props: `padding?: 'sm' | 'md' | 'lg'` (default `md`), `onClick?`, `className?` (layout overrides only — never styling).
 
 ### `Modal`
+
 ```tsx
 import { Modal } from '@/components/ui';
 
@@ -24,11 +27,13 @@ import { Modal } from '@/components/ui';
   {/* form content */}
 </Modal>
 ```
+
 Props: `isOpen`, `onClose`, `title?`, `children`, `footer?`, `size?: 'sm' | 'md' | 'lg'` (default `md`).
 
 The Modal handles centring between the header and bottom nav automatically — it applies `paddingTop: 56, paddingBottom: 72` on the overlay. Never recreate this manually.
 
 ### `Button`
+
 ```tsx
 import { Button } from '@/components/ui';
 
@@ -36,9 +41,11 @@ import { Button } from '@/components/ui';
 <Button variant="danger" onClick={handleDelete} icon="trash">Delete</Button>
 <Button variant="ghost" onClick={onClose}>Cancel</Button>
 ```
+
 Props: `variant: 'primary' | 'secondary' | 'danger' | 'ghost'`, `size?: 'sm' | 'md' | 'lg'`, `icon?` (Tabler icon name), `loading?`, `disabled?`, `fullWidth?`.
 
 ### `ConfirmDialog`
+
 ```tsx
 import { ConfirmDialog } from '@/components/ui';
 
@@ -50,11 +57,13 @@ import { ConfirmDialog } from '@/components/ui';
   message="This cannot be undone."
   confirmLabel="Delete"
   confirmVariant="danger"
-/>
+/>;
 ```
+
 Always use for destructive actions. Never show a plain `window.confirm()`.
 
 ### `TextInput`
+
 ```tsx
 import { TextInput } from '@/components/ui';
 
@@ -66,23 +75,25 @@ import { TextInput } from '@/components/ui';
   inputMode="decimal"
   prefix="₹"
   error={errors.amount}
-/>
+/>;
 ```
+
 Handles label, error state, prefix/suffix, and `input-surface` styling internally.
 
 ### `FormField`
+
 ```tsx
 import { FormField } from '@/components/ui';
 
 <FormField label="Category" required error={errors.category} hint="Choose the closest match">
-  <select className="input-surface ...">
-    {/* options */}
-  </select>
-</FormField>
+  <select className="input-surface ...">{/* options */}</select>
+</FormField>;
 ```
+
 Use when the child is a custom control (select, date picker, custom input) that can't use `TextInput`.
 
 ### `SegmentedControl`
+
 ```tsx
 import { SegmentedControl } from '@/components/ui';
 
@@ -90,14 +101,15 @@ import { SegmentedControl } from '@/components/ui';
   options={[
     { value: 'expense', label: 'Expense' },
     { value: 'income', label: 'Income' },
-    { value: 'transfer', label: 'Transfer' },
+    { value: 'transfer', label: 'Transfer' }
   ]}
   value={type}
   onChange={setType}
-/>
+/>;
 ```
 
 ### `Badge`
+
 ```tsx
 import { Badge } from '@/components/ui';
 
@@ -106,6 +118,7 @@ import { Badge } from '@/components/ui';
 ```
 
 ### `EmptyState`
+
 ```tsx
 import { EmptyState } from '@/components/ui';
 
@@ -113,23 +126,30 @@ import { EmptyState } from '@/components/ui';
   icon="wallet"
   title="No expenses yet"
   description="Tap + to add your first expense"
-  action={<Button variant="primary" onClick={openForm}>Add Expense</Button>}
-/>
+  action={
+    <Button variant="primary" onClick={openForm}>
+      Add Expense
+    </Button>
+  }
+/>;
 ```
 
 ### `SectionHeader`
+
 ```tsx
 import { SectionHeader } from '@/components/ui';
 
-<SectionHeader title="This Month" subtitle="June 2026" action={<Button variant="ghost">See all</Button>} />
+<SectionHeader title="This Month" subtitle="June 2026" action={<Button variant="ghost">See all</Button>} />;
 ```
 
 ### `IconChip`
+
 ```tsx
 import { IconChip } from '@/components/ui';
 
-<IconChip icon="shopping-cart" label="Shopping" selected={selected} onClick={handleSelect} color="blue" />
+<IconChip icon="shopping-cart" label="Shopping" selected={selected} onClick={handleSelect} color="blue" />;
 ```
+
 Used for category chips, filter chips, and tag chips.
 
 ---
@@ -137,23 +157,23 @@ Used for category chips, filter chips, and tag chips.
 ## Privacy components
 
 ### `MaskedValue`
+
 ```tsx
 import { MaskedValue } from '@/components/privacy/MaskedValue';
 
-<MaskedValue value={formatCurrency(expense.amount)} />
+<MaskedValue value={formatCurrency(expense.amount)} />;
 ```
+
 Shows `••••` in safe/privacy mode, actual value in open mode. Always wrap financial amounts with this.
 
 ### `PrivacyAwareText`
+
 ```tsx
 import { PrivacyAwareText } from '@/components/privacy/PrivacyAwareText';
 
-<PrivacyAwareText
-  value={account.name}
-  sensitivityLevel="medium"
-  fallback="Account"
-/>
+<PrivacyAwareText value={account.name} sensitivityLevel="medium" fallback="Account" />;
 ```
+
 Use for non-numeric values that should still be masked (account names, merchant names).
 
 ---
@@ -161,14 +181,17 @@ Use for non-numeric values that should still be masked (account names, merchant 
 ## Hooks
 
 ### `useDisclosure`
+
 ```ts
 import { useDisclosure } from '@/hooks/useDisclosure';
 
 const { isOpen, open, close, toggle } = useDisclosure();
 ```
+
 Replaces all `useState(false)` modal toggle patterns.
 
 ### `useAsync`
+
 ```ts
 import { useAsync } from '@/hooks/useAsync';
 

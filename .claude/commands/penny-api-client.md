@@ -21,6 +21,7 @@ Use this when adding a new external data source (live prices, external service, 
 ## File placement
 
 Create `src/core/{feature}/{name}Client.ts`. Examples:
+
 - `src/core/ipo/ipoClient.ts`
 - `src/core/portfolio/mfClient.ts`
 - `src/core/portfolio/yahooClient.ts`
@@ -104,7 +105,9 @@ export function useLiveData(param: string) {
     setLoading(false);
   }, [param]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   return { data, loading, lastUpdated, refresh };
 }
@@ -117,20 +120,20 @@ export function useLiveData(param: string) {
 If the domain is new, add it to the `Content-Security-Policy` in `vite.config.ts`:
 
 ```ts
-"connect-src 'self' https://new-api-domain.com"
+"connect-src 'self' https://new-api-domain.com";
 ```
 
 ---
 
 ## Existing clients to reference
 
-| Client | File | API | TTL |
-|---|---|---|---|
-| MFAPI.in (NAV + search) | `src/core/portfolio/mfClient.ts` | `api.mfapi.in` | 24h |
-| Yahoo Finance (stocks) | `src/core/portfolio/yahooClient.ts` | `query.yahoofinance.com` | 15min |
-| IPO data | `src/core/ipo/ipoClient.ts` | `webnodejs.investorgain.com` | 30min |
-| NPS NAV | `src/core/assets/npsNavClient.ts` | `npsnav.in` | 24h |
-| Vehicle RC | `src/core/assets/vehicleClient.ts` | `vahandetails.com` | 30 days (staleness) |
+| Client                  | File                                | API                          | TTL                 |
+| ----------------------- | ----------------------------------- | ---------------------------- | ------------------- |
+| MFAPI.in (NAV + search) | `src/core/portfolio/mfClient.ts`    | `api.mfapi.in`               | 24h                 |
+| Yahoo Finance (stocks)  | `src/core/portfolio/yahooClient.ts` | `query.yahoofinance.com`     | 15min               |
+| IPO data                | `src/core/ipo/ipoClient.ts`         | `webnodejs.investorgain.com` | 30min               |
+| NPS NAV                 | `src/core/assets/npsNavClient.ts`   | `npsnav.in`                  | 24h                 |
+| Vehicle RC              | `src/core/assets/vehicleClient.ts`  | `vahandetails.com`           | 30 days (staleness) |
 
 ---
 

@@ -31,6 +31,8 @@ import { ChangePinPage } from '@/features/security/ChangePinPage';
 import { ChangePassphrasePage } from '@/features/security/ChangePassphrasePage';
 import { ProfilePage } from '@/features/profile/ProfilePage';
 import { TimelinePage } from '@/features/activity/TimelinePage';
+import { NewsPage } from '@/features/news/NewsPage';
+import { FeedbackPage } from '@/features/feedback/FeedbackPage';
 
 export const router = createBrowserRouter([
   { index: true, element: <Navigate to={PATHS.onboarding.splash} replace /> },
@@ -74,7 +76,9 @@ export const router = createBrowserRouter([
           { path: PATHS.app.changePin, element: <ChangePinPage /> },
           { path: PATHS.app.changePassphrase, element: <ChangePassphrasePage /> },
           { path: PATHS.app.profile, element: <ProfilePage /> },
-          { path: PATHS.app.timeline, element: <TimelinePage /> }
+          { path: PATHS.app.timeline, element: <TimelinePage /> },
+          { path: PATHS.app.news, element: <NewsPage /> },
+          { path: PATHS.app.feedback, element: <FeedbackPage /> }
         ]
       }
     ]

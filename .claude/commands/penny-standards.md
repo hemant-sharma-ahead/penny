@@ -67,7 +67,7 @@ Invoke this at the start of any implementation task on Penny. These rules apply 
 
 2. **`noUncheckedIndexedAccess` is on.** Always handle the case where an array index or record key returns `undefined`.
 
-3. **`exactOptionalPropertyTypes` is on.** Prefer omitting an optional property over passing `undefined`. When a prop/field is *legitimately* assigned from a possibly-undefined computed value (e.g. `currentValue: parseFloat(x) || undefined`, or a UI prop like `hint`/`error`/`bg` that may be absent), declare it `prop?: T | undefined` at the definition rather than forcing every call site into a conditional spread. Conversely, in a component's own `Props` interface, an optional prop that callers may pass explicitly-undefined must be `?: T | undefined` or `tsc -b` (TS2375) fails.
+3. **`exactOptionalPropertyTypes` is on.** Prefer omitting an optional property over passing `undefined`. When a prop/field is _legitimately_ assigned from a possibly-undefined computed value (e.g. `currentValue: parseFloat(x) || undefined`, or a UI prop like `hint`/`error`/`bg` that may be absent), declare it `prop?: T | undefined` at the definition rather than forcing every call site into a conditional spread. Conversely, in a component's own `Props` interface, an optional prop that callers may pass explicitly-undefined must be `?: T | undefined` or `tsc -b` (TS2375) fails.
 
 4. **No implicit returns** in functions that return a value. Every code path must explicitly return.
 
@@ -152,6 +152,7 @@ Layer 3: src/features/{name}/{Name}Page.tsx — Thin UI. Calls hook. Calls share
 ```
 
 **Layer 1 — Core logic rules:**
+
 - Must be pure TypeScript functions with no side effects
 - No `useState`, no `useEffect`, no JSX, no `className`
 - No browser APIs (`window`, `document`, `fetch`, `localStorage`)
@@ -159,6 +160,7 @@ Layer 3: src/features/{name}/{Name}Page.tsx — Thin UI. Calls hook. Calls share
 - If it does a calculation or data transformation → it belongs here
 
 **Layer 2 — Feature hook rules:**
+
 - One domain hook per feature: `useAccounts`, `useExpenses`, `useGoals`, etc.
 - Complex features use multiple focused hooks — one per domain (e.g. `useExpenses`, `useSubscriptions`, `useIou`, `useBudgets` — all called from `ExpensesPage`)
 - Imports from `src/core/` for calculations — never recalculates inline
@@ -167,12 +169,14 @@ Layer 3: src/features/{name}/{Name}Page.tsx — Thin UI. Calls hook. Calls share
 - No JSX ever — if you're writing `return <div>`, you're in the wrong file
 
 **Layer 2 — What belongs in the hook:**
+
 - All `useEffect` for data loading (repo calls)
 - All `useCallback` mutations (create/update/delete) — async, repo-dependent
 - All `useMemo` derived values that depend on fetched data (totals, filtered lists, aggregations)
 - Loading and saving flags (paired with the async work they describe)
 
 **Layer 2 — What stays in the page (NOT the hook):**
+
 - Form field state (`const [form, setForm] = useState(DEFAULT_FORM)`) — it's local UI state
 - Modal open/close state (`showForm`, `deletingId`, `expandedId`) — UI interaction
 - Which item is being edited/selected — selection is a UI concern
@@ -181,6 +185,7 @@ Layer 3: src/features/{name}/{Name}Page.tsx — Thin UI. Calls hook. Calls share
 - Bridge functions that read UI state then call a hook mutation (e.g. `handleSave` reads form fields then calls `saveAccount(form, editing)`) — they need both worlds
 
 **Layer 3 — Thin page rules:**
+
 - Calls domain hook(s) for all data and mutations
 - Manages its own UI state (forms, modals, selections) — see above
 - Calls shared components (`<Card>`, `<Modal>`, `<Button>`) for all UI primitives
@@ -189,7 +194,7 @@ Layer 3: src/features/{name}/{Name}Page.tsx — Thin UI. Calls hook. Calls share
 
 **Layer 3 — Feature decomposition rules (within the feature folder):**
 
-When a page grows beyond ~400 lines, decompose it. The decomposition lives *inside the feature folder* — these sub-components are not generic enough for `src/components/shared/`.
+When a page grows beyond ~400 lines, decompose it. The decomposition lives _inside the feature folder_ — these sub-components are not generic enough for `src/components/shared/`.
 
 Split out in this order of priority:
 
@@ -202,6 +207,7 @@ Split out in this order of priority:
 4. **Pure helpers** → `src/lib/` (not the feature folder). Date utilities, formatters, calculators — anything with zero React belongs in `lib/` so it's importable anywhere and testable in isolation.
 
 A well-decomposed page's `return` block should look like:
+
 ```tsx
 return (
   <div>
@@ -234,6 +240,7 @@ features/portfolio/
 ```
 
 Rules:
+
 - **Each category folder is a complete slice.** Cards + section + modal(s) + field-groups + class
   hooks + class-only helpers live together. The page just routes to the active `<XSection>`.
 - **`<XSection holdings mode onSave onRemove>` owns its own add/edit** modal state and "+" button —
@@ -248,6 +255,7 @@ Rules:
   grepping importers before placing a file.
 
 **The RN portability test:**
+
 - Layer 1: zero changes for RN — pure TypeScript
 - Layer 2: zero changes for RN — React hooks work identically
 - Layer 3: swap `Modal.tsx` → `Modal.native.tsx` — feature page itself unchanged
@@ -257,10 +265,13 @@ Rules:
 ## Anti-patterns — never do these
 
 **Anti-pattern 1: Logic in component files**
+
 ```tsx
 // WRONG — calculation inside component
-const totalSpend = useMemo(() =>
-  expenses.reduce((sum, e) => e.type === 'expense' ? sum + e.amount : sum, 0), [expenses]);
+const totalSpend = useMemo(
+  () => expenses.reduce((sum, e) => (e.type === 'expense' ? sum + e.amount : sum), 0),
+  [expenses]
+);
 
 // RIGHT — import from core
 import { totalExpenseAmount } from '@/core/expenses/filterAndAggregate';
@@ -268,10 +279,13 @@ const totalSpend = useMemo(() => totalExpenseAmount(expenses), [expenses]);
 ```
 
 **Anti-pattern 2: Data fetching in page components**
+
 ```tsx
 // WRONG — repo call in page
 const [expenses, setExpenses] = useState<Expense[]>([]);
-useEffect(() => { expensesRepo.getAll().then(setExpenses); }, []);
+useEffect(() => {
+  expensesRepo.getAll().then(setExpenses);
+}, []);
 
 // RIGHT — in feature hook
 // useExpenses.ts exports { expenses, isLoading, createExpense, ... }
@@ -279,9 +293,12 @@ const { expenses, isLoading } = useExpenses();
 ```
 
 **Anti-pattern 3: Duplicate utility functions across files**
+
 ```tsx
 // WRONG — same function in 4 files
-function epochToDateInput(ms: number) { return new Date(ms).toISOString().slice(0, 10); }
+function epochToDateInput(ms: number) {
+  return new Date(ms).toISOString().slice(0, 10);
+}
 
 // RIGHT — one place
 import { epochToDateInput } from '@/lib/formatters';
@@ -291,6 +308,7 @@ import { epochToDateInput } from '@/lib/formatters';
 A file over 400 lines that contains both UI and logic is a code smell. Split it.
 
 **Anti-pattern 5: Parent holding modal state**
+
 ```tsx
 // WRONG — parent owns the modal's internal form state
 const [exportRange, setExportRange] = useState('this_month');
@@ -303,6 +321,7 @@ const [exporting, setExporting] = useState(false);
 ```
 
 **Anti-pattern 6: Prop-drilling instead of direct hook consumption**
+
 ```tsx
 // WRONG — parent fetches events and threads them down as props
 const { events, pastEvents, addEvent, stopEvent } = useEventMode();
@@ -316,6 +335,7 @@ const { events, pastEvents, addEvent, stopEvent } = useEventMode();
 ```
 
 **Anti-pattern 7: Live-threaded filter setters**
+
 ```tsx
 // WRONG — 6 setter props for a buffered filter modal
 <FilterModal
@@ -329,6 +349,7 @@ const { events, pastEvents, addEvent, stopEvent } = useEventMode();
 ```
 
 **Anti-pattern 8: A `shared/` folder that isn't actually shared**
+
 ```
 // WRONG — every per-class field/hook dumped into one shared/ bucket
 holdings/shared/fields/{Mf,Fd,Nps,…}Fields.tsx   ← each used by exactly ONE category
@@ -338,6 +359,7 @@ holdings/shared/hooks/useFdPreview.ts            ← used only by fixed-income
 holdings/fixed-income/FdFields.tsx  holdings/fixed-income/useFdPreview.ts
 holdings/shared/SharedHoldingFields.tsx          ← genuinely used by all categories
 ```
+
 Before placing a file in `shared/`, grep its importers. One importing folder → it lives there.
 
 ---
@@ -358,10 +380,10 @@ Before placing a file in `shared/`, grep its importers. One importing folder →
 Refactor when you observe any of these signals. They are not suggestions — they indicate the code has already crossed a line.
 
 **Signal 1: The file exceeds 400 lines of JSX/logic**
-Anything over 400 lines in a page or 200 lines in a form is carrying too much. Count *only* what's in the file — if the file is large because it duplicates logic that should be in `core/` or `lib/`, extract that first.
+Anything over 400 lines in a page or 200 lines in a form is carrying too much. Count _only_ what's in the file — if the file is large because it duplicates logic that should be in `core/` or `lib/`, extract that first.
 
 **Signal 2: A modal has 5+ state variables in the parent**
-If `showExportSheet`, `exportRange`, `exportFrom`, `exportTo`, `exportPassword`, `exporting` all live in the *parent*, the modal is not self-contained. State that only exists while a modal is open belongs inside the modal.
+If `showExportSheet`, `exportRange`, `exportFrom`, `exportTo`, `exportPassword`, `exporting` all live in the _parent_, the modal is not self-contained. State that only exists while a modal is open belongs inside the modal.
 
 **Signal 3: You are passing 4+ props that are only used inside one child**
 When you find yourself writing `<Child a={a} setA={setA} b={b} setB={setB} c={c} setC={setC}`, that child should own that state instead. Pass the initial value and an `onApply` callback.
@@ -376,6 +398,7 @@ If the analytics tab content is 600 lines and the page's own state/handlers are 
 `epochToDateInput`, `toDateKey`, `monthLabel` — if you see these appearing in more than one place, they belong in `src/lib/`. The second copy is the signal, not the first.
 
 **When NOT to refactor:**
+
 - A component is 250 lines but reads clearly — leave it. Line count is a proxy, not the goal.
 - You are in the middle of a feature delivery — refactor before or after, not during.
 - The component is stable and has no active development — the cost of refactoring with no feature value is usually not worth it.
@@ -386,6 +409,7 @@ If the analytics tab content is 600 lines and the page's own state/handlers are 
 ## What Chip always shows
 
 Every Chip insight must have all four fields populated:
+
 1. **Reasoning** — data points behind the recommendation
 2. **"What if I do nothing?"** — consequence in rupees (most important field)
 3. **Module tag** — which area it relates to

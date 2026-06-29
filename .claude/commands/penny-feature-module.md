@@ -41,6 +41,7 @@ multi-domain pages" in `penny-standards.md`, and `src/features/portfolio/` as th
 ### 2. Dexie store (if new)
 
 Add the new store to `src/core/db/schema.ts`:
+
 ```ts
 // Add to PennyDatabase class
 newStore: Table<NewStoreType, string>;
@@ -55,10 +56,11 @@ newStore: Table<NewStoreType, string>;
 Add the TypeScript interface to `src/core/db/types/index.ts`.
 
 Add a repository instance to `src/core/db/repositories.ts`:
+
 ```ts
 export const newStoreRepo = new EncryptedRepository<NewStoreType>(
   db.newStore,
-  ['sensitiveField1', 'sensitiveField2'],  // fields to encrypt
+  ['sensitiveField1', 'sensitiveField2'] // fields to encrypt
 );
 ```
 
@@ -81,6 +83,7 @@ Do not create sub-folders unless the feature is large enough to warrant it.
 ### 4. Route wiring
 
 Add the route to `src/router/index.tsx`:
+
 ```tsx
 {
   path: '/app/new-module',
@@ -115,7 +118,7 @@ export function NewModulePage() {
         <EmptyState icon="icon-name" title="No items yet" description="Add your first item" />
       ) : (
         <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-3">
-          {items.map(item => (
+          {items.map((item) => (
             <Card key={item.id} onClick={() => handleEdit(item)}>
               {/* card content */}
             </Card>
@@ -139,7 +142,7 @@ export function useNewModule() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    newStoreRepo.getAll().then(data => {
+    newStoreRepo.getAll().then((data) => {
       setItems(data);
       setIsLoading(false);
     });
@@ -148,7 +151,7 @@ export function useNewModule() {
   const createItem = useCallback(async (data: Omit<NewItemType, 'id'>) => {
     const item: NewItemType = { id: crypto.randomUUID(), ...data };
     await newStoreRepo.add(item);
-    setItems(prev => [item, ...prev]);
+    setItems((prev) => [item, ...prev]);
     return item;
   }, []);
 
@@ -161,9 +164,10 @@ export function useNewModule() {
 ### 7. Privacy layer
 
 Wrap any amounts or sensitive fields with `<MaskedValue>`:
+
 ```tsx
 import { MaskedValue } from '@/components/privacy/MaskedValue';
-<MaskedValue value={formatCurrency(item.amount)} />
+<MaskedValue value={formatCurrency(item.amount)} />;
 ```
 
 Use `usePrivacy()` to check the current mode if you need conditional rendering.
@@ -197,7 +201,14 @@ const logId = logActivity({
   summary: `Deleted myThing: ${item.name}`,
   snapshot: JSON.stringify(item) // enables restore
 });
-showToast({ message: `Deleted ${item.name}`, actionLabel: 'Undo', onAction: async () => { await restoreActivity(logId); reload(); } });
+showToast({
+  message: `Deleted ${item.name}`,
+  actionLabel: 'Undo',
+  onAction: async () => {
+    await restoreActivity(logId);
+    reload();
+  }
+});
 ```
 
 Do **not** log system/side-effect writes (seeding, migrations, price cache, hashtags).
