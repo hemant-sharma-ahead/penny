@@ -37,3 +37,11 @@ workbox-*.js
 public/tablerIconIndex.json
 
 .claude/worktrees/
+
+# Capacitor native projects — generated from the web build (dist/) by
+# `npx cap add <platform>`. Treated as build output (like dist/): regenerate
+# locally, don't commit. The source of truth is capacitor.config.ts + deps.
+# NOTE: native customisations (icons, splash, AndroidManifest, signing) would
+# NOT be tracked while these are ignored — revisit if/when we customise them.
+/android/
+/ios/
