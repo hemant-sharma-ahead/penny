@@ -303,6 +303,7 @@ Each group has its own **Group Key** (AES-256), completely independent of person
 - Desktop layout (≥768px breakpoint, sidebar nav)
 - Push notifications (EMI reminders, insurance renewals, goal milestones)
 - Watchlist (stocks + MFs with price alerts)
+- **Persistent storage on native (Capacitor) builds** — Penny never calls `navigator.storage.persist()`, so a WebView's IndexedDB (which holds the encrypted vault) is "best-effort" and could be evicted by the OS under storage pressure. Before shipping native apps, request persistence on boot and verify it's granted on real devices. Verification steps in [ANDROID_EMULATOR.md → Storage durability on device](ANDROID_EMULATOR.md#storage-durability-on-device-phase-2-to-do).
 
 ---
 

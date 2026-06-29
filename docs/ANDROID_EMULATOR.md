@@ -265,6 +265,44 @@ Now click any text field and type directly. `⌘V` pastes, `Esc` = Back, `Return
 
 ---
 
+## Storage durability on device (Phase 2 to-do)
+
+Penny's entire vault — the encrypted profile and all financial data — lives in **IndexedDB** inside the WebView. The app **does not currently call `navigator.storage.persist()`**, so that storage is "best-effort": Android may evict it when the device is low on space, which would silently wipe a user's local data. This is fine for trying the app out, but **must be addressed before shipping native apps** (tracked in [ROADMAP.md → Other Phase 2 items](ROADMAP.md#other-phase-2-items)).
+
+The intended fix (Phase 2) is to request persistence on boot:
+
+```ts
+if (navigator.storage?.persist) {
+  const granted = await navigator.storage.persist(); // true = won't be evicted
+}
+```
+
+### How to verify it on a device/emulator
+
+You inspect the live WebView with Chrome DevTools over `adb`:
+
+1. With the app running, open **`chrome://inspect/#devices`** in desktop Chrome.
+   (USB debugging must be on for a physical phone; emulators appear automatically.)
+2. Under the device, find the **`com.penny.app`** WebView → click **inspect**.
+3. In the DevTools **Console**, run:
+
+   ```js
+   await navigator.storage.persisted();   // is storage already persistent? (likely false today)
+   await navigator.storage.persist();     // request it — returns true if granted
+   await navigator.storage.estimate();    // { usage, quota } in bytes
+   ```
+
+4. Or use the **Application** tab → **Storage** to see the persistence state and per-store usage, and to confirm the `db.profile` / `db.security` IndexedDB stores hold records after onboarding.
+
+### Quick "does my data survive?" checks (no DevTools)
+
+- **App restart:** complete onboarding → `adb shell am force-stop com.penny.app` → relaunch. You should hit the **PIN unlock** screen (data present), not the privacy-promise onboarding.
+- **Cache vs data:** Android **Settings → Apps → Penny → Storage** — *Clear cache* must NOT remove your vault; *Clear storage/data* WILL (it deletes IndexedDB). Use this to confirm what a real wipe looks like.
+
+> Note: data does **not** transfer between the dev browser (`http://localhost:5173`) and the native app (`https://localhost`) — IndexedDB and localStorage are per-origin, so the app always starts as a fresh, empty vault. Onboard inside the app to populate it (which also seeds the demo data).
+
+---
+
 ## iOS
 
 iOS native builds require **Xcode** (Mac App Store) plus `npx cap add ios`. Until then, iOS users can try Penny as a PWA: open the deployed site in Safari → **Share → Add to Home Screen**.
