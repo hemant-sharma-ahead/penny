@@ -10,6 +10,7 @@ This is the navigation guide for all Penny documentation. Start here.
 | ---------------------------------------------------------- | ----------------------------------------- |
 | Understand the project identity, rules, and current status | [`CLAUDE.md`](../CLAUDE.md)               |
 | Set up your development environment                        | [`CONTRIBUTING.md`](../CONTRIBUTING.md)   |
+| Run the app on an Android emulator (from scratch)          | [`docs/ANDROID_EMULATOR.md`](ANDROID_EMULATOR.md) |
 | Understand the full product vision and requirements        | [`docs/BRD.md`](BRD.md)                   |
 | Understand the encryption and privacy architecture         | [`docs/TSD.md`](TSD.md)                   |
 | Look up a specific Dexie store's fields                    | [`docs/SCHEMA.md`](SCHEMA.md)             |
@@ -38,6 +39,7 @@ This is the navigation guide for all Penny documentation. Start here.
 | [`docs/MILESTONES.md`](MILESTONES.md)     | Full step-by-step history — M0 through Pre-Phase 1.5, all steps and statuses                        |
 | [`docs/ROADMAP.md`](ROADMAP.md)           | Phase 1.5/2/3 scope, backend design (Cloudflare Workers + D1 + KV), auth, encryption, decisions     |
 | [`docs/WHATS_NEXT.md`](WHATS_NEXT.md)     | Future feature ideas: life events, AI categorisation, improvements across all modules               |
+| [`docs/ANDROID_EMULATOR.md`](ANDROID_EMULATOR.md) | Step-by-step: wrap Penny with Capacitor and run it on an Android emulator via Android Studio   |
 
 ### Feature docs
 
