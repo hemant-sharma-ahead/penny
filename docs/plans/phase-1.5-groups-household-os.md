@@ -1,10 +1,13 @@
 # Phase 1.5 — Groups & Household OS (Master Plan)
 
 > **Status:** In progress. Approved 2026-06-26.
-> **Track 1 (IOU pairwise ledger): ✅ complete** (2026-06-27) — core (2026-06-26) plus the three
-> deferred follow-ups: both-way edit re-sync (`reconcileLinkedTxn`), combined undo via the activity-log
-> `cascade` field, and the full multi-year (Jan 2017 → today) career-arc demo seed. **Next:** Track A
-> (API Proxy worker). Per-track status in [`docs/MILESTONES.md`](../MILESTONES.md) / [`docs/ROADMAP.md`](../ROADMAP.md).
+> **Track 1 (IOU pairwise ledger): ✅ complete** (2026-06-27). **Track A (API Proxy worker): ✅ deployed**
+> → `penny-api-proxy.hesh.workers.dev`. **Track B (client crypto additions): ✅ complete** (2026-07-01) —
+> ECDSA/ECDH P-256 device keypairs (`engine.ts` + `identityKeys.ts`, lazy at claim), new encrypted stores
+> `device_keys`/`group_keys`/`sync_cursor` (Dexie v8, in `BACKUP_STORES`), and non-destructive
+> `mergeBundle()` (LWW on `updatedAt`, upsert-only). **Wrapping keypair = ECDH P-256.** **Next:** Track C
+> (Auth/Identity worker + claim flow). Per-track status in [`docs/MILESTONES.md`](../MILESTONES.md) /
+> [`docs/ROADMAP.md`](../ROADMAP.md).
 
 ## Context
 
@@ -31,25 +34,34 @@ This plan supersedes parts of `docs/ROADMAP.md` (which still specifies phone+OTP
 - Phone OTP costs money (SMS gateways) and is maximal PII — both contradict the product.
 - Identity = on-device keypair + existing `Profile.userId` (UUID, already generated at
   onboarding) + a self-chosen `username`.
-- **Username is mandatory from Phase 1** (frictionless: auto-suggested from display name,
-  live format validation, copy = "your sharing handle; we'll confirm it's free when you set
-  up sharing"). Uniqueness is **deferred to claim time** (no server in Phase 1). Rationale:
-  identity continuity (claim becomes a pure relabel), low privacy cost (a self-chosen handle
-  is not real-world PII). Username = public invite handle + recovery lookup; it can **never
-  decrypt anything**.
+- **Username is optional in Phase 1** (as built — auto-suggested from display name, live
+  format validation, copy = "your sharing handle; we'll confirm it's free when you set up
+  sharing"). Uniqueness is **deferred to claim time** (no server in Phase 1). Rationale:
+  the permanent anchor is `userId` (UUID) — nothing keys off the username string, so claim is
+  a pure relabel; making it optional shrinks the local-vs-server collision surface and adds no
+  onboarding friction. Username = public invite/sharing handle; it can **never decrypt
+  anything**.
 
-**Recovery / multi-device — server-blind blob (primary) + Drive (secondary).**
+**Recovery / multi-device — Model B (user-owned Drive/iCloud only; we store nothing personal).**
 
-- Server stores the user's **encrypted keystore + data blob** (byte-identical to the
-  existing v2 `.penny` export) keyed by `userId`, looked up by `username`. Server holds
-  ciphertext only; the passphrase is the sole decryption secret.
+> **Superseded (2026-06-27):** the original Model A below (server-blind blob in our R2 as the
+> primary copy) is replaced by **Model B**. Canonical: [`docs/BACKEND_STRATEGY.md`](../BACKEND_STRATEGY.md) §5.
+
+- **Personal backup/recovery lives in the user's own Google Drive/iCloud only.** The encrypted
+  `.penny` blob (byte-identical to the v2 export — carries all data + receipts + the device
+  keypair + every Group Key) is uploaded to the user's own cloud on a schedule. **Our servers
+  store nothing personal.**
 - **Multi-device (still have a device):** QR device-pairing — old device wraps the DMK to
   the new device over an ECDH channel. No passphrase re-entry, no PII.
-- **Recover from nothing (app deleted, reinstalled months later):** username → pull inert
-  blob → enter passphrase → DMK + device private key + **every Group Key** restored (Group
-  Keys live inside the encrypted blob). Server membership table says which groups; app
-  re-pulls and decrypts each. **No re-invite, no re-handshake, no rejoin** — groups reappear.
-- Drive backup stays as an optional user-owned second copy / escape hatch.
+- **Recover from nothing (app deleted, reinstalled months later):** sign into the user's own
+  Drive/iCloud → pull the encrypted blob → enter passphrase → DMK + device private key +
+  **every Group Key** restored. The server's tiny membership table says which groups the user
+  is in; the app re-pulls and decrypts each group's events. **No re-invite, no re-handshake,
+  no rejoin** — groups reappear (server holds membership; Drive holds the keys/history — the
+  WhatsApp split). Recovery is therefore the user's responsibility (Drive must have been
+  enabled); this is the deliberate Model B cost/privacy trade vs Model A's automatic safety net.
+- **Optional hybrid (not the default):** the server-blind blob remains available as an
+  **entitlement-gated convenience** for users who won't enable Drive — off by default, opt-in.
 
 **Groups.**
 
@@ -105,8 +117,10 @@ _Why Workers, not a Node server we build & deploy ourselves:_
 
 ### Decisions that changed the roadmap
 
-`docs/ROADMAP.md` (Phase 1.5 Auth/Backend sections) still says phone+OTP and `phone_hash`.
-Reconcile it to keypair challenge/response + username lookup + no PII as part of Track A.
+**Reconciled (2026-07-01).** `docs/ROADMAP.md` no longer says phone+OTP / `phone_hash`; its
+Auth/Backend sections now describe keypair challenge/response + **optional** username + **Model B**
+(user-owned Drive/iCloud backup, server stores nothing personal). Canonical backend decisions live
+in [`docs/BACKEND_STRATEGY.md`](../BACKEND_STRATEGY.md).
 
 ---
 
@@ -148,9 +162,11 @@ Encrypted stores **cannot** use a Dexie `.upgrade()` callback (it runs pre-unloc
   we deliberately do not store payment handles.
 - New `LedgerEntry`: `{ id, personId, kind: 'lent'|'borrowed'|'settlement', amount (always
 positive), date, dueDate?, description?, notes?, settleDirection?: 'they_paid_you'|
-'you_paid_them', origin: 'manual'|'expense'|'migration', sourceExpenseId?,
-linkedIncomeId?, remoteId?, ... }`. `linkedIncomeId` ties a settlement to the optional
-  income/transfer it created; `remoteId` is the future group-sync hook.
+'you_paid_them', origin: 'manual'|'expense'|'migration', linkedTxnId?, remoteId?, ... }`.
+  **As built:** a single bidirectional `linkedTxnId` (not the originally-planned separate
+  `sourceExpenseId` + `linkedIncomeId`) links the entry to its real-money transaction — the
+  seeding expense for expense-origin entries, or the optional income/transfer created when
+  settling a received IOU; `remoteId` is the future group-sync hook.
 - Keep `PersonalIou` for migration/restore typing. **Partial settlement is a first-class
   `settlement` entry — no `isSettled` boolean.** A person is "settled" when derived net ≈ 0.
 
@@ -193,7 +209,7 @@ linkedIncomeId?, remoteId?, ... }`. `linkedIncomeId` ties a settlement to the op
 
 - Optional collapsible "Split / IOU" section: `PersonPicker` + amount + mode (_lent to /
   borrowed from / split with / paid on behalf of_). Centered modal, no bottom sheet.
-- On create: seed `LedgerEntry`(s) with `sourceExpenseId` + `origin:'expense'`.
+- On create: seed `LedgerEntry`(s) with `linkedTxnId` (the expense id) + `origin:'expense'`.
 - On edit: reconcile via `expenseLink.ts` (upsert/delete to match new intent).
 - On delete: cascade-delete seeded entries; extend the existing delete snapshot to include
   them so a single Undo restores expense + entries atomically.
@@ -206,7 +222,7 @@ linkedIncomeId?, remoteId?, ... }`. `linkedIncomeId` ties a settlement to the op
   `settlement` entry. **No VPA, no QR, no payment provider.**
 - If settling a _received_ IOU (they paid you), offer a checkbox "Also record this as income"
   → creates a linked income (or transfer) in the expenses module via the shared linkage
-  helper, stamping `linkedIncomeId`. Editing/deleting the settlement reconciles that entry too.
+  helper, stamping `linkedTxnId`. Editing/deleting the settlement reconciles that entry too.
 
 ### UI — `src/features/iou/` (reuse existing component library; no bottom sheets)
 
@@ -254,34 +270,53 @@ exercising every Phase 1 + Pre-1.5 + Track 1 surface, to shake out bugs and pres
 
 ---
 
-## Track A — API Proxy Worker (DETAILED — ships first)
+## Track A — API Proxy Worker (DETAILED — ✅ shipped & deployed)
 
-**Purpose.** Stateless proxy + tiered cache for external APIs (Yahoo Finance market data,
-MFAPI NAV, vahandetails vehicle lookups); fixes CORS; **collapses N user calls into 1 upstream
-call** via a shared cache.
+> **As built (2026-07-01)** → `penny-api-proxy.hesh.workers.dev` (`workers/api-proxy/`). The
+> endpoint scheme below reflects the deployed worker, which differs from this section's original
+> design (per-symbol routes `/market/:symbol` etc.). See also [`docs/MILESTONES.md`](../MILESTONES.md)
+> → Track A.
 
-**Endpoints (examples).** `/market/:symbol`, `/mf/:scheme`, `/vehicle/:regno`; all accept
-`?refresh=1` to force a cache-bypass (rate-limited).
+**Purpose.** Stateless proxy + tiered cache for external APIs (Yahoo Finance, MFAPI NAV, NPS,
+IPO/investorgain, vahandetails vehicle lookups); fixes CORS; **collapses N user calls into 1
+upstream call** via a shared cache.
+
+**Endpoints (as built).**
+
+- **Prefix passthrough** — `GET /yf/*`, `/mfapi/*`, `/nps/*`, `/ig/*`: transparent proxy of the
+  known upstreams, KV-cached with TTLs mirroring the client (Yahoo 15 min, MF NAV 24 h). The
+  client swaps only the base URL — no per-endpoint route on the worker.
+- **`GET /market`** — a **global, Cron-refreshed market snapshot** (ticker strip), edge-cached
+  (`caches.default`) + KV-backed. **New decision (not in the original design):** global market
+  data is served from one shared snapshot, not a per-user/per-symbol proxy call — decoupling
+  upstream volume from user count. Client fetches it once via `MARKET_SNAPSHOT`.
+- **`GET /vehicle/:regno`** — semantic endpoint with a **permanent D1 cache** + smart Vahan queue
+  (below). `?refresh=1` forces a rate-limited bypass.
+- **`GET /health`** — liveness.
 
 **Tiered cache (the core of the scale story).**
 
-- **KV with TTL** for volatile data: market 15 min, MF NAV 24 h (mirrors existing TTLs).
-- **D1/R2 persistent** for effectively-immutable data: **vehicle details keyed by registration
+- **KV with TTL** for volatile passthrough data (market 15 min, MF NAV 24 h).
+- **D1 persistent** for effectively-immutable data: **vehicle details keyed by registration
   number, cached permanently** (make/model/registration date don't change). First lookup of a
   reg number = one upstream call; everyone else — _and the same user deleting and re-adding_ —
-  is a **cache hit, zero upstream calls.**
-- **Force-refresh** (`?refresh=1`, behind an explicit "Refresh" button): bypasses cache, but
-  rate-limited per resource (e.g. once per vehicle per ~90 days) and, for Vahan, confined to its
-  working morning window. If the daily budget is exhausted, **queue it, serve cached, refresh in
-  the background**; a morning Cron drains the queue. Net Vahan upstream calls ≈ globally-new reg
-  numbers per day — **independent of user count** (survives the 1000/day free limit at scale).
-- Per-IP rate limits via KV.
+  is a **cache hit, zero upstream calls.** (Personal blobs use R2 in later tracks; vehicle cache is D1.)
+- **Force-refresh** (`?refresh=1`, behind an explicit "Refresh" button): bypasses cache, but for
+  Vahan is confined to a working window and a **~900-call/day budget**. On a miss outside the
+  budget/window (or on failure) the reg is **queued (deduped), cached served, refreshed in the
+  background**; a **Cron (06:00 / 08:30 / 11:30 IST)** drains the queue and refreshes the market
+  snapshot. Net Vahan upstream calls ≈ globally-new reg numbers per day — **independent of user
+  count** (survives the ~1000/day free limit at scale).
+- **Per-IP rate limits** via KV.
 
-**Client wiring.** `VITE_YF_PROXY` already exists (`src/core/db/priceCache.ts`); add a
-`VITE_API_PROXY` base and route MF/vehicle lookups through it. No app-logic change.
+**Client wiring (as built).** Base-URL swap via `src/core/net/apiBase.ts` reading `VITE_API_PROXY`;
+market strip reads `MARKET_SNAPSHOT`. **Unset = today's direct behavior** (app stays fully usable
+with no backend). No app-logic change.
 
-**Deploy.** Wrangler, `dev`/`staging`/`prod` envs; this worker is the deploy template for B–E.
-Reconcile `docs/ROADMAP.md` off phone+OTP here.
+**Deploy.** Wrangler, `dev`/`staging`/`prod` envs; **deployed** with KV `CACHE` + D1 `penny_proxy`
+(APAC), Cron `*/15`. This worker is the **deploy template for B–E**. Auth model reconciled off
+phone+OTP in `docs/ROADMAP.md` here. **Deferred (post-close):** merchant-dictionary endpoint,
+edge Cache API layering.
 
 ---
 
@@ -455,8 +490,9 @@ backend; the Worker-served dictionary refresh is the only backend piece.
 
 ## Documentation to update (per project discipline)
 
-- `docs/ROADMAP.md` — replace phone+OTP with keypair/username/server-blind model; record
-  IOU-first sequencing, group-key/recovery design, settle-up-without-payment decision.
+- `docs/ROADMAP.md` — replace phone+OTP with the keypair/optional-username/**Model B** model
+  (user-owned Drive/iCloud backup, server stores nothing personal); record IOU-first sequencing,
+  group-key/recovery design, settle-up-without-payment decision.
 - `docs/features/iou.md` — pairwise ledger, partial settle, expense-seeding, settle→income.
 - `docs/SCHEMA.md` — `persons`, `ledger_entries` (Track 1); `device_keys`, `group_keys`,
   `sync_cursor` (later tracks).

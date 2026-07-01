@@ -5,6 +5,8 @@
 const PBKDF2_HASH = 'SHA-256';
 const AES_KEY_LENGTH = 256;
 const GCM_IV_LENGTH = 12; // bytes — 96-bit IV recommended for AES-GCM
+const EC_CURVE = 'P-256'; // NIST P-256 for both signing (ECDSA) and wrapping (ECDH)
+const ECDSA_HASH = 'SHA-256';
 
 // ─── Key derivation ───────────────────────────────────────────────────────────
 
@@ -88,6 +90,74 @@ export async function unwrapKey(
     { name: 'AES-GCM', length: AES_KEY_LENGTH },
     extractable,
     ['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']
+  );
+}
+
+// ─── Asymmetric keys (device identity — Phase 1.5 Track B) ─────────────────────
+// Two P-256 keypairs per device:
+//   • signing (ECDSA)  — authenticates requests to the sync/groups workers by signing
+//                        nonce||method||path||bodyHash (Track C). Verified server-side.
+//   • wrapping (ECDH)  — receives the DMK during device pairing (Track C) and Group Keys
+//                        during grants (Track E), via an ECDH-derived AES-GCM KEK.
+// Generated extractable so both JWKs can be persisted (DMK-encrypted at rest) and ride
+// recovery; the same trade-off the DMK itself uses.
+
+export function generateSigningKeypair(extractable = true): Promise<CryptoKeyPair> {
+  return crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: EC_CURVE }, extractable, ['sign', 'verify']);
+}
+
+export function generateWrappingKeypair(extractable = true): Promise<CryptoKeyPair> {
+  // Only the private key carries usages for ECDH; the public key has none.
+  return crypto.subtle.generateKey({ name: 'ECDH', namedCurve: EC_CURVE }, extractable, ['deriveKey', 'deriveBits']);
+}
+
+export function sign(privateKey: CryptoKey, data: BufferSource): Promise<ArrayBuffer> {
+  return crypto.subtle.sign({ name: 'ECDSA', hash: ECDSA_HASH }, privateKey, data);
+}
+
+export function verify(publicKey: CryptoKey, signature: BufferSource, data: BufferSource): Promise<boolean> {
+  return crypto.subtle.verify({ name: 'ECDSA', hash: ECDSA_HASH }, publicKey, signature, data);
+}
+
+// ─── JWK export / import ────────────────────────────────────────────────────────
+// JWK is the persisted form for asymmetric keys (stored DMK-encrypted, uploaded as public).
+
+export function exportJwk(key: CryptoKey): Promise<JsonWebKey> {
+  return crypto.subtle.exportKey('jwk', key) as Promise<JsonWebKey>;
+}
+
+export function importSigningPublicJwk(jwk: JsonWebKey, extractable = false): Promise<CryptoKey> {
+  return crypto.subtle.importKey('jwk', jwk, { name: 'ECDSA', namedCurve: EC_CURVE }, extractable, ['verify']);
+}
+
+export function importSigningPrivateJwk(jwk: JsonWebKey, extractable = false): Promise<CryptoKey> {
+  return crypto.subtle.importKey('jwk', jwk, { name: 'ECDSA', namedCurve: EC_CURVE }, extractable, ['sign']);
+}
+
+export function importWrappingPublicJwk(jwk: JsonWebKey, extractable = false): Promise<CryptoKey> {
+  // A public ECDH key has no key usages.
+  return crypto.subtle.importKey('jwk', jwk, { name: 'ECDH', namedCurve: EC_CURVE }, extractable, []);
+}
+
+export function importWrappingPrivateJwk(jwk: JsonWebKey, extractable = false): Promise<CryptoKey> {
+  return crypto.subtle.importKey('jwk', jwk, { name: 'ECDH', namedCurve: EC_CURVE }, extractable, [
+    'deriveKey',
+    'deriveBits'
+  ]);
+}
+
+// ─── ECDH shared KEK ────────────────────────────────────────────────────────────
+// Derives an AES-256-GCM key-encryption-key from our wrapping private key + a peer's
+// wrapping public key. Both sides derive the identical KEK, then wrapKey/unwrapKey the
+// payload (DMK or Group Key). Used by Tracks C (device pairing) and E (group grants).
+
+export function deriveSharedWrappingKey(privateKey: CryptoKey, peerPublicKey: CryptoKey): Promise<CryptoKey> {
+  return crypto.subtle.deriveKey(
+    { name: 'ECDH', public: peerPublicKey },
+    privateKey,
+    { name: 'AES-GCM', length: AES_KEY_LENGTH },
+    false,
+    ['wrapKey', 'unwrapKey', 'encrypt', 'decrypt']
   );
 }
 

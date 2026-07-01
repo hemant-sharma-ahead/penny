@@ -44,10 +44,18 @@ const BACKUP_STORES = [
   'personal_ious',
   'persons',
   'ledger_entries',
-  'credit_profile'
+  'credit_profile',
+  'device_keys',
+  'group_keys',
+  'sync_cursor'
 ] as const;
 
 type BackupStore = (typeof BACKUP_STORES)[number];
+
+// Stores merged by mergeBundle (non-destructive sync/recovery pulls). Excludes 'security':
+// auth state (PIN/DMK wrapping) is device-specific and must never be silently overwritten by
+// a pull — the destructive importBackup owns security for explicit recover-from-nothing.
+const MERGE_STORES = BACKUP_STORES.filter((name) => name !== 'security');
 
 interface BackupFileV1 {
   version: 1;
@@ -160,4 +168,92 @@ export async function importBackup(fileText: string, passphrase: string): Promis
 
   // Lock session — user must re-enter their original PIN after restore.
   lockSession();
+}
+
+// ─── Non-destructive merge (Phase 1.5 Track B) ─────────────────────────────────
+// Used by sync/recovery pulls once the vault is already unlocked. Unlike importBackup
+// (clear + bulkPut, destructive), mergeBundle upserts with last-write-wins on updatedAt and
+// never clears — so a pull can't clobber changes made locally since the blob was written.
+
+interface EncryptedRow {
+  id: string;
+  iv: string;
+  ciphertext: string;
+}
+
+interface TimestampedRecord {
+  id: string;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export interface MergeStats {
+  applied: number;
+  skipped: number;
+  perStore: Record<string, { applied: number; skipped: number }>;
+}
+
+/**
+ * Last-write-wins decision, pure and I/O-free. Incoming wins if there is no local record, or
+ * if its timestamp is at least as recent. Falls back to createdAt for the stores that lack
+ * updatedAt, then to 0. Ties favour incoming (idempotent re-merge of the same blob is a no-op).
+ */
+export function shouldApplyIncoming(local: TimestampedRecord | undefined, incoming: TimestampedRecord): boolean {
+  if (!local) return true;
+  const localTs = local.updatedAt ?? local.createdAt ?? 0;
+  const incomingTs = incoming.updatedAt ?? incoming.createdAt ?? 0;
+  return incomingTs >= localTs;
+}
+
+async function decryptRow(mk: CryptoKey, row: EncryptedRow): Promise<TimestampedRecord> {
+  const plaintext = await decrypt(mk, base64ToBuffer(row.iv), base64ToBuffer(row.ciphertext));
+  return JSON.parse(new TextDecoder().decode(plaintext)) as TimestampedRecord;
+}
+
+async function encryptRow(mk: CryptoKey, record: TimestampedRecord): Promise<EncryptedRow> {
+  const { iv, ciphertext } = await encrypt(mk, new TextEncoder().encode(JSON.stringify(record)));
+  return { id: record.id, iv: bufferToBase64(iv), ciphertext: bufferToBase64(ciphertext) };
+}
+
+/**
+ * Merge an incoming bundle's records into the local vault non-destructively. The bundle carries
+ * encrypted rows (same shape exportBackup produces); same-user blobs share the DMK, so rows
+ * decrypt with the local key. For each row: LWW via {@link shouldApplyIncoming}, preserving the
+ * local createdAt when the incoming record wins. Upsert-only — it cannot observe remote deletes
+ * (delete tombstones arrive with the activity-log delta sync in Track D). Requires an unlocked session.
+ */
+export async function mergeBundle(bundle: { stores: Record<string, unknown[]> }): Promise<MergeStats> {
+  const mk = keystore.getMasterKey(); // throws if session not active
+  const stats: MergeStats = { applied: 0, skipped: 0, perStore: {} };
+
+  for (const name of MERGE_STORES) {
+    const rows = (bundle.stores[name] as EncryptedRow[] | undefined) ?? [];
+    const perStore = { applied: 0, skipped: 0 };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const table = (db as any)[name] as {
+      get(id: string): Promise<EncryptedRow | undefined>;
+      put(row: EncryptedRow): Promise<unknown>;
+    };
+
+    for (const row of rows) {
+      const incoming = await decryptRow(mk, row);
+      const localRow = await table.get(row.id);
+      const local = localRow ? await decryptRow(mk, localRow) : undefined;
+
+      if (shouldApplyIncoming(local, incoming)) {
+        // Keep the earliest createdAt so provenance survives the merge.
+        const merged = local?.createdAt !== undefined ? { ...incoming, createdAt: local.createdAt } : incoming;
+        await table.put(await encryptRow(mk, merged));
+        perStore.applied++;
+      } else {
+        perStore.skipped++;
+      }
+    }
+
+    stats.perStore[name] = perStore;
+    stats.applied += perStore.applied;
+    stats.skipped += perStore.skipped;
+  }
+
+  return stats;
 }

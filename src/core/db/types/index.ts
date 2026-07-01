@@ -561,3 +561,51 @@ export interface CreditProfile {
   createdAt: number;
   updatedAt: number;
 }
+
+// ─── Sync / identity crypto (Phase 1.5 Track B) ────────────────────────────────
+// These stores hold the client-side cryptographic material the backend tracks (C/D/E)
+// depend on. All are DMK-encrypted like every other store and ride recovery via BACKUP_STORES.
+
+export type DeviceKeyKind = 'sign' | 'wrap';
+
+/**
+ * This device's identity keypair, one record per kind (`id` = kind). `sign` is an ECDSA P-256
+ * keypair (authenticates worker requests); `wrap` is an ECDH P-256 keypair (receives the DMK
+ * during device pairing and Group Keys during grants). Generated lazily at claim.
+ */
+export interface DeviceKey {
+  id: string; // = kind ('sign' | 'wrap')
+  kind: DeviceKeyKind;
+  publicJwk: JsonWebKey;
+  privateJwk: JsonWebKey;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
+ * A per-group AES-256-GCM key at a given rotation epoch. `id` is composite `${groupId}:${keyEpoch}`
+ * so every epoch coexists — a long-offline member can still decrypt old-epoch events after a
+ * key rotation (Phase 1.5 Track E).
+ */
+export interface GroupKey {
+  id: string; // composite `${groupId}:${keyEpoch}`
+  groupId: string;
+  keyEpoch: number;
+  jwk: JsonWebKey; // AES-256-GCM Group Key
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
+ * Bookmarks the sync position for a scope so pulls resume where they left off.
+ * `version` drives optimistic concurrency on the personal blob; `seq` tracks the group-event
+ * sequence (Phase 1.5 Track E).
+ */
+export interface SyncCursor {
+  id: string; // = scope
+  scope: string; // e.g. 'personal-blob', `group:${groupId}`
+  version?: number;
+  seq?: number;
+  createdAt: number;
+  updatedAt: number;
+}

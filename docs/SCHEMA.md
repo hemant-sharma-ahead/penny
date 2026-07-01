@@ -421,6 +421,51 @@ User-saved quick-add presets/favorites (Pre-Phase 1.5, Track 6 Step 10). Encrypt
 
 ---
 
+## Sync / identity crypto stores (Phase 1.5 Track B)
+
+Client-side cryptographic material the backend tracks (C/D/E) depend on. All are DMK-encrypted like every other store and ride recovery via `BACKUP_STORES`. Added in Dexie v8; id-only index; populated lazily post-unlock at claim (start empty — no backfill).
+
+### `device_keys`
+
+This device's identity keypairs — one record per kind (`id` = kind). `sign` is an ECDSA P-256 keypair (authenticates worker requests by signing `nonce||method||path||bodyHash`); `wrap` is an ECDH P-256 keypair (receives the DMK during device pairing and Group Keys during grants). Managed via `src/core/crypto/identityKeys.ts`.
+
+| Field      | Type               | Notes                                            |
+| ---------- | ------------------ | ------------------------------------------------ |
+| id         | `'sign' \| 'wrap'` | Primary key = kind                               |
+| kind       | `'sign' \| 'wrap'` | ECDSA signing key vs ECDH wrapping key           |
+| publicJwk  | JsonWebKey         | Public half — uploaded to the worker at register |
+| privateJwk | JsonWebKey         | Private half — never leaves the device           |
+| createdAt  | number             | Epoch ms                                         |
+| updatedAt  | number             | Epoch ms                                         |
+
+### `group_keys`
+
+Per-group AES-256-GCM keys at a given rotation epoch. Composite `id` (`${groupId}:${keyEpoch}`) keeps every epoch so a long-offline member can still decrypt old-epoch events after a rotation (Track E).
+
+| Field     | Type       | Notes                              |
+| --------- | ---------- | ---------------------------------- |
+| id        | string     | Composite `${groupId}:${keyEpoch}` |
+| groupId   | string     | The group this key belongs to      |
+| keyEpoch  | number     | Rotation epoch                     |
+| jwk       | JsonWebKey | AES-256-GCM Group Key              |
+| createdAt | number     | Epoch ms                           |
+| updatedAt | number     | Epoch ms                           |
+
+### `sync_cursor`
+
+Bookmarks the sync position per scope so pulls resume where they left off.
+
+| Field     | Type    | Notes                                                    |
+| --------- | ------- | -------------------------------------------------------- |
+| id        | string  | Primary key = scope                                      |
+| scope     | string  | e.g. `'personal-blob'`, `group:${groupId}`               |
+| version   | number? | Optimistic-concurrency version for the personal blob (D) |
+| seq       | number? | Group-event sequence (Track E)                           |
+| createdAt | number  | Epoch ms                                                 |
+| updatedAt | number  | Epoch ms                                                 |
+
+---
+
 ## Plain stores (no encryption)
 
 ### `price_cache`

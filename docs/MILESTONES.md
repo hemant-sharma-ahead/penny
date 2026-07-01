@@ -6,24 +6,24 @@ Complete record of every milestone, step, and status from M0 to present. See [`d
 
 ## Phase 1 milestones
 
-| Milestone                            | Status                    |
-| ------------------------------------ | ------------------------- |
-| M0: Repo + tooling + docs            | ✅ Complete               |
-| M1: Running skeleton (5-tab layout)  | ✅ Complete               |
-| M2: Crypto + DB layer                | ✅ Complete               |
-| M3: CI PII gate                      | ✅ Complete               |
-| M4: Onboarding flow                  | ✅ Complete               |
-| M5: Feature modules (no AI)          | ✅ Complete               |
-| M6: PWA + responsive polish          | ✅ Complete               |
-| M7: Hardening                        | ✅ Complete               |
-| M8: Phase 1 polish                   | ✅ Complete               |
-| M9: Income, transfers & cash         | ✅ Complete               |
-| M10: IPO tracker + GMP               | ✅ Complete               |
-| M11: Extended asset tracking         | ✅ Complete               |
-| M12: Portfolio enhancements          | ✅ Complete               |
-| M13: Financial calculators           | ✅ Complete               |
-| M14: Finance news + Contact/Feedback | 🚧 In progress (Pankhuri) |
-| M15: UI polish + feature refinements | ✅ Complete               |
+| Milestone                            | Status      |
+| ------------------------------------ | ----------- |
+| M0: Repo + tooling + docs            | ✅ Complete |
+| M1: Running skeleton (5-tab layout)  | ✅ Complete |
+| M2: Crypto + DB layer                | ✅ Complete |
+| M3: CI PII gate                      | ✅ Complete |
+| M4: Onboarding flow                  | ✅ Complete |
+| M5: Feature modules (no AI)          | ✅ Complete |
+| M6: PWA + responsive polish          | ✅ Complete |
+| M7: Hardening                        | ✅ Complete |
+| M8: Phase 1 polish                   | ✅ Complete |
+| M9: Income, transfers & cash         | ✅ Complete |
+| M10: IPO tracker + GMP               | ✅ Complete |
+| M11: Extended asset tracking         | ✅ Complete |
+| M12: Portfolio enhancements          | ✅ Complete |
+| M13: Financial calculators           | ✅ Complete |
+| M14: Finance news + Contact/Feedback | ✅ Complete |
+| M15: UI polish + feature refinements | ✅ Complete |
 
 ---
 
@@ -152,7 +152,7 @@ See git log for M12 step details. Key deliverables: MF/stock search with live pr
 
 ---
 
-## M14 (in progress — Pankhuri)
+## M14 (✅ Complete — Pankhuri)
 
 Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Contact/Feedback (mailto: deep-link)
 
@@ -280,14 +280,14 @@ blob, no PII); recovery/multi-device via username lookup + passphrase + QR devic
 Cloudflare Workers + D1 + R2 + KV backend (API Proxy ships first); **settle-up records a
 ledger entry only — Penny never touches the money flow** (no stored VPA/QR).
 
-| Track   | Feature                                                                                                                                                                                          | Backend? | Status                                                                    |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | ------------------------------------------------------------------------- |
-| Track 1 | IOU pairwise-ledger redesign — Person entity, per-person running balance, partial settlement, expense-seeding, settle→income linkage, both-way edit re-sync, combined undo, multi-year demo seed | No       | ✅ Complete (2026-06-27) — see notes below                                |
-| Track A | API Proxy worker — passthrough + tiered cache for Yahoo/MFAPI/NPS/IPO, market Cron-snapshot, permanent D1 cache + morning queue for vahandetails, CORS, N→1                                       | Yes      | ✅ Complete (deployed 2026-07-01) — see notes |
-| Track B | Client crypto additions — identity keypairs, `device_keys`/`group_keys` stores, non-destructive merge restore                                                                                    | No       | ⏳ Planned                                                                |
-| Track C | Auth/Identity worker + claim flow — D1 users/devices, signed challenge/response, recover-from-nothing, R2 blob store                                                                             | Yes      | ⏳ Planned                                                                |
-| Track D | Sync layer — `core/sync/` cursor + optimistic personal-blob sync over the activity log                                                                                                           | Yes      | ⏳ Planned                                                                |
-| Track E | Groups worker + N-party split engine + group UX — invites/key-grants/events, context switcher, leave + key rotation                                                                              | Yes      | ⏳ Planned                                                                |
+| Track   | Feature                                                                                                                                                                                          | Backend? | Status                                        |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | --------------------------------------------- |
+| Track 1 | IOU pairwise-ledger redesign — Person entity, per-person running balance, partial settlement, expense-seeding, settle→income linkage, both-way edit re-sync, combined undo, multi-year demo seed | No       | ✅ Complete (2026-06-27) — see notes below    |
+| Track A | API Proxy worker — passthrough + tiered cache for Yahoo/MFAPI/NPS/IPO, market Cron-snapshot, permanent D1 cache + morning queue for vahandetails, CORS, N→1                                      | Yes      | ✅ Complete (deployed 2026-07-01) — see notes |
+| Track B | Client crypto additions — ECDSA/ECDH P-256 identity keypairs (lazy at claim), `device_keys`/`group_keys`/`sync_cursor` stores (Dexie v8), non-destructive `mergeBundle()` restore                | No       | ✅ Complete (2026-07-01) — see notes below    |
+| Track C | Auth/Identity worker + claim flow — D1 users/devices, signed challenge/response, recover-from-nothing, R2 blob store                                                                             | Yes      | ⏳ Planned                                    |
+| Track D | Sync layer — `core/sync/` cursor + optimistic personal-blob sync over the activity log                                                                                                           | Yes      | ⏳ Planned                                    |
+| Track E | Groups worker + N-party split engine + group UX — invites/key-grants/events, context switcher, leave + key rotation                                                                              | Yes      | ⏳ Planned                                    |
 
 **Track A — API Proxy Worker (2026-06-27):** first backend track; the deploy template for B–E.
 A Cloudflare Worker (`workers/api-proxy/`) **transparently proxies + caches** the external finance
@@ -310,7 +310,23 @@ per-user worker call. Step 9: **deployed** — KV `CACHE` + D1 `penny_proxy` (AP
 live smoke tests passed (`/health`, `/market`, `/yf` MISS→HIT, `/mfapi`, `/vehicle` queued, CORS 204);
 app baked with `VITE_API_PROXY`. This is the **deploy template for Tracks B–E**. **Deferred
 (post-close):** merchant-dictionary endpoint (with the categorization track), edge Cache API layering.
-**Next: Track B** (client crypto additions).
+
+**Track B — Client Crypto Additions (2026-07-01):** built the client-side cryptographic
+primitives Tracks C–E depend on, entirely offline. `engine.ts` gains asymmetric device-identity
+primitives — **ECDSA P-256** signing + **ECDH P-256** wrapping keypairs, `sign`/`verify`, JWK
+export/import, and `deriveSharedWrappingKey` (ECDH → AES-GCM KEK). New `src/core/crypto/identityKeys.ts`
+orchestrates the keypair lifecycle: `ensureIdentityKeys()` is **lazy + idempotent** (called at
+claim in Track C — not wired into onboarding here), plus `getSigningKeypair`/`getWrappingKeypair`/
+`getPublicJwks`. Three new DMK-encrypted stores (Dexie **v8**, in `BACKUP_STORES` so they ride
+recovery): `device_keys` (id = kind), `group_keys` (composite `groupId:epoch` id — keeps rotation
+history), `sync_cursor`. `backupManager.ts` adds non-destructive **`mergeBundle()`** (LWW on
+`updatedAt`, preserves local `createdAt`, upsert-only) + the pure `shouldApplyIncoming()` helper;
+destructive `importBackup` unchanged and `security` is excluded from merge. **Decision:** wrapping
+keypair = ECDH P-256. **Limitation:** whole-blob merge can't observe remote deletes — delete
+tombstones arrive with the activity-log delta sync in Track D. Gate green (type-check, lint,
+**304 tests** incl. new `tests/crypto/identityKeys.test.ts` + `tests/backup/mergeBundle.test.ts`).
+**Out of scope (deferred):** `'sync'` entitlement + `claim.ts` wiring (Track C); delta sync (Track D).
+**Next: Track C** (Auth/Identity worker + claim flow).
 
 **Track 1.1 — IOU ↔ transactions + net worth (2026-06-26):** a lend/borrow is now one event with two
 views. **Lent = an Expense** (money out) + "they owe you"; **Borrowed = an Income** (money in) + "you
