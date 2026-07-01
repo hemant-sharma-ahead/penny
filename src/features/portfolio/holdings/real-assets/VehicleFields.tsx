@@ -8,6 +8,7 @@ interface VehicleFieldsProps {
   vehicleFetching: boolean;
   vehicleFetchError: string;
   setVehicleFetchError: (v: string) => void;
+  vehicleNotice: string;
   vehicleRcSnapshot: RcDetails | null;
   setVehicleRcSnapshot: (v: RcDetails | null) => void;
   lookup: () => void;
@@ -21,6 +22,7 @@ export function VehicleFields({
   vehicleFetching,
   vehicleFetchError,
   setVehicleFetchError,
+  vehicleNotice,
   vehicleRcSnapshot,
   setVehicleRcSnapshot,
   lookup
@@ -53,6 +55,12 @@ export function VehicleFields({
           </button>
         </div>
         {vehicleFetchError && <p className="text-[11px] text-red-500 mt-1">{vehicleFetchError}</p>}
+        {vehicleNotice && (
+          <p className="text-[11px] mt-1 flex items-start gap-1 text-info">
+            <i className="ti ti-clock-hour-4 mt-px" aria-hidden="true" />
+            <span>{vehicleNotice}</span>
+          </p>
+        )}
       </div>
 
       {/* Fetched RC details preview */}

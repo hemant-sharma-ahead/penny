@@ -352,8 +352,8 @@ new `'sync'` entitlement in `src/core/entitlement/` so it can later become paid.
 (store ciphertext grants); append/fetch `group_events`. All authorized by signed challenge +
 membership check.
 
-**Key exchange & rotation.** Invite carries only `SHA-256(secret)` + TTL + max_uses; the
-**raw secret lives only in the link/QR**; Group Key is _not_ in the invite. On redeem the
+**Key exchange & rotation.** Invite carries only `SHA-256(secret)` + TTL + max*uses; the
+**raw secret lives only in the link/QR**; Group Key is \_not* in the invite. On redeem the
 invitee uploads its public key; any admin then wraps the current Group Key to that public key
 into `group_key_grants`. On member-leave: bump `key_epoch`, re-wrap the new key to each
 remaining member (fresh grants) — a long-offline member fetches all grants up to the latest

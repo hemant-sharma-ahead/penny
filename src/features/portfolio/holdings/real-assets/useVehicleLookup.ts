@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Holding } from '@/core/db/types';
-import { fetchVehicleData } from '@/core/vehicle/rcClient';
+import { fetchVehicleData, VehicleQueuedError } from '@/core/vehicle/rcClient';
 import type { ChallanSummary, RcDetails } from '@/core/vehicle/rcClient';
 import { rcDetailsFromMeta } from '@/core/portfolio/vehicleMeta';
 
@@ -20,6 +20,8 @@ export function useVehicleLookup(editing: Holding | null, autofill: VehicleAutof
   const [vehicleRegInput, setVehicleRegInput] = useState(editing?.assetMeta?.vehicleRegNumber ?? '');
   const [vehicleFetching, setVehicleFetching] = useState(false);
   const [vehicleFetchError, setVehicleFetchError] = useState('');
+  // A non-error notice — e.g. the proxy queued the lookup for tomorrow morning.
+  const [vehicleNotice, setVehicleNotice] = useState('');
   const [vehicleChallanSnapshot, setVehicleChallanSnapshot] = useState<ChallanSummary | null>(null);
   const [vehicleRcSnapshot, setVehicleRcSnapshot] = useState<RcDetails | null>(() =>
     rcDetailsFromMeta(editing?.assetMeta)
@@ -28,6 +30,7 @@ export function useVehicleLookup(editing: Holding | null, autofill: VehicleAutof
   async function lookup() {
     setVehicleFetching(true);
     setVehicleFetchError('');
+    setVehicleNotice('');
     try {
       const { rc, challans } = await fetchVehicleData(vehicleRegInput.trim());
       setVehicleRcSnapshot(rc);
@@ -48,7 +51,8 @@ export function useVehicleLookup(editing: Holding | null, autofill: VehicleAutof
         }
       }
     } catch (e) {
-      setVehicleFetchError(e instanceof Error ? e.message : 'Could not fetch vehicle details');
+      if (e instanceof VehicleQueuedError) setVehicleNotice(e.message);
+      else setVehicleFetchError(e instanceof Error ? e.message : 'Could not fetch vehicle details');
     } finally {
       setVehicleFetching(false);
     }
@@ -60,6 +64,7 @@ export function useVehicleLookup(editing: Holding | null, autofill: VehicleAutof
     vehicleFetching,
     vehicleFetchError,
     setVehicleFetchError,
+    vehicleNotice,
     vehicleRcSnapshot,
     setVehicleRcSnapshot,
     vehicleChallanSnapshot,

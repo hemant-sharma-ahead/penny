@@ -1,13 +1,11 @@
 import { db } from './schema';
 import type { PriceCache } from './types';
+import { MFAPI_BASE, YF_BASE } from '@/core/net/apiBase';
 
 const PRICE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-// In dev, Vite proxies /api/yf → query1.finance.yahoo.com (bypasses CORS).
-// In production, set VITE_YF_PROXY to a CORS-enabled Cloudflare Worker URL.
-export const YF_BASE: string =
-  (import.meta.env.VITE_YF_PROXY as string | undefined) ??
-  (import.meta.env.DEV ? '/api/yf' : 'https://query1.finance.yahoo.com');
+// Base URLs (proxy-aware) live in core/net/apiBase. Re-exported here for existing importers.
+export { YF_BASE };
 
 export function isPriceFresh(entry: PriceCache): boolean {
   return Date.now() - entry.fetchedAt < PRICE_TTL_MS;
@@ -40,7 +38,7 @@ export async function fetchMfNav(schemeCode: string): Promise<number | null> {
   if (cached && isPriceFresh(cached)) return cached.price;
 
   try {
-    const res = await fetch(`https://api.mfapi.in/mf/${schemeCode}`);
+    const res = await fetch(`${MFAPI_BASE}/mf/${schemeCode}`);
     if (!res.ok) return null;
     const json = (await res.json()) as MfApiResponse;
     const navStr = json.data[0]?.nav;

@@ -1,6 +1,33 @@
-// vahandetails.com — public API (key is hardcoded in their own frontend bundle)
+// vahandetails.com — public API (key is hardcoded in their own frontend bundle).
+// When VITE_API_PROXY is set, lookups go through the Penny API Proxy Worker (CORS + permanent cache
+// + a morning queue for the rate-limited upstream); otherwise the client POSTs directly, as before.
+import { VEHICLE_PROXY } from '@/core/net/apiBase';
+
 const BASE = 'https://backend.vahandetails.com/api';
 const HEADERS = { 'Content-Type': 'application/json', 'x-api-key': 'Test_1234' };
+
+/** Raised when the proxy has queued a vehicle lookup for the next morning's Cron drain. */
+export class VehicleQueuedError extends Error {
+  readonly etaMorningIST: string | undefined;
+  constructor(message: string, etaMorningIST?: string) {
+    super(message);
+    this.name = 'VehicleQueuedError';
+    this.etaMorningIST = etaMorningIST;
+  }
+}
+
+/** Raw vahandetails RC payload (subset we read). All fields are optional strings. */
+type RawRcData = Record<string, string | undefined>;
+interface RawRcResponse {
+  status?: unknown;
+  data?: RawRcData;
+  message?: string;
+}
+interface RawChallanResponse {
+  data?: unknown;
+  challans?: unknown;
+  summary?: Record<string, number | undefined>;
+}
 
 export interface RcDetails {
   regNumber: string;
@@ -88,14 +115,7 @@ function parseManuLabel(manuMonthYr: string | null | undefined): string {
   return monthLabel ? `${monthLabel} ${year}` : year;
 }
 
-export async function fetchRcDetails(regNumber: string): Promise<RcDetails> {
-  const res = await fetch(`${BASE}/get-rc-details`, {
-    method: 'POST',
-    headers: HEADERS,
-    body: JSON.stringify({ rc_number: regNumber.toUpperCase().replace(/\s+/g, '') })
-  });
-  if (!res.ok) throw new Error(`RC fetch failed: ${res.status}`);
-  const json = await res.json();
+function parseRc(json: RawRcResponse, regNumber: string): RcDetails {
   if (!json.status || !json.data) throw new Error(json.message ?? 'Vehicle not found');
 
   const d = json.data;
@@ -135,15 +155,7 @@ export async function fetchRcDetails(regNumber: string): Promise<RcDetails> {
   };
 }
 
-export async function fetchChallans(regNumber: string): Promise<ChallanSummary> {
-  const res = await fetch(`${BASE}/get-challans-details`, {
-    method: 'POST',
-    headers: HEADERS,
-    body: JSON.stringify({ rc_number: regNumber.toUpperCase().replace(/\s+/g, '') })
-  });
-  if (!res.ok) throw new Error(`Challan fetch failed: ${res.status}`);
-  const json = await res.json();
-
+function parseChallans(json: RawChallanResponse): ChallanSummary {
   // Parse individual challan records from data array
   const rawRecords: unknown[] = Array.isArray(json.data)
     ? json.data
@@ -180,7 +192,63 @@ export async function fetchChallans(regNumber: string): Promise<ChallanSummary> 
   };
 }
 
+const normReg = (reg: string) => reg.toUpperCase().replace(/\s+/g, '');
+const emptyChallans = (): ChallanSummary => ({
+  total: 0,
+  pending: 0,
+  paid: 0,
+  disposed: 0,
+  pendingAmount: 0,
+  records: [],
+  fetchedAt: Date.now()
+});
+
+export async function fetchRcDetails(regNumber: string): Promise<RcDetails> {
+  const res = await fetch(`${BASE}/get-rc-details`, {
+    method: 'POST',
+    headers: HEADERS,
+    body: JSON.stringify({ rc_number: normReg(regNumber) })
+  });
+  if (!res.ok) throw new Error(`RC fetch failed: ${res.status}`);
+  return parseRc((await res.json()) as RawRcResponse, regNumber);
+}
+
+export async function fetchChallans(regNumber: string): Promise<ChallanSummary> {
+  const res = await fetch(`${BASE}/get-challans-details`, {
+    method: 'POST',
+    headers: HEADERS,
+    body: JSON.stringify({ rc_number: normReg(regNumber) })
+  });
+  if (!res.ok) throw new Error(`Challan fetch failed: ${res.status}`);
+  return parseChallans((await res.json()) as RawChallanResponse);
+}
+
+/**
+ * Fetch RC + challans for a registration number. Through the API proxy when configured (which may
+ * return a `queued` status → {@link VehicleQueuedError}); otherwise two direct POSTs as before.
+ */
 export async function fetchVehicleData(regNumber: string): Promise<{ rc: RcDetails; challans: ChallanSummary }> {
+  if (VEHICLE_PROXY) {
+    const res = await fetch(`${VEHICLE_PROXY}/${encodeURIComponent(normReg(regNumber))}`);
+    if (!res.ok) throw new Error(`Vehicle fetch failed: ${res.status}`);
+    const body = (await res.json()) as {
+      queued?: boolean;
+      message?: string;
+      etaMorningIST?: string;
+      data?: { rc?: RawRcResponse; challans?: RawChallanResponse };
+    };
+    if (body.queued && !body.data) {
+      throw new VehicleQueuedError(
+        body.message ?? 'Queued — details will arrive tomorrow morning.',
+        body.etaMorningIST
+      );
+    }
+    if (!body.data?.rc) throw new Error('Vehicle not found');
+    return {
+      rc: parseRc(body.data.rc, regNumber),
+      challans: body.data.challans ? parseChallans(body.data.challans) : emptyChallans()
+    };
+  }
   const [rc, challans] = await Promise.all([fetchRcDetails(regNumber), fetchChallans(regNumber)]);
   return { rc, challans };
 }
