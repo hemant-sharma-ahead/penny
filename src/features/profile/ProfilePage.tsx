@@ -7,8 +7,10 @@ import { reseedForEmployment } from '@/core/db/seedDemoData';
 import type { EmploymentType, Profile } from '@/core/db/types';
 import { EMPLOYMENT_OPTIONS } from '@/core/profile/employment';
 import { isValidUsername } from '@/core/profile/username';
+import { hasEntitlement } from '@/core/entitlement/entitlement';
 import { deriveAge } from '@/lib/date';
 import { useProfile } from '@/hooks/useProfile';
+import { AccountSyncSection } from './AccountSyncSection';
 
 export function ProfilePage() {
   const navigate = useNavigate();
@@ -141,6 +143,9 @@ function ProfileEditor({ profile }: { profile: Profile }) {
       >
         {saving ? 'Saving…' : 'Save changes'}
       </Button>
+
+      {/* Account claim / sync — dark until the 'sync' entitlement is enabled (Track C). */}
+      {hasEntitlement('sync') && <AccountSyncSection />}
     </div>
   );
 }

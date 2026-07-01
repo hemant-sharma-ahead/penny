@@ -31,6 +31,7 @@ Single-record store. The user's identity and app preferences.
 | employmentType     | `'salaried' \| 'self_employed' \| 'business_owner' \| 'student' \| 'retired'`? | Track 2; gates EPF visibility, tax deductions, health benchmarks                                       |
 | username           | string?                                                                        | Track 2; 3–20 lowercase alphanumeric/underscore. Local now; server-checked for uniqueness in Phase 1.5 |
 | userId             | string?                                                                        | Track 2; local identity id, "claimed" on the server at Phase 1.5 registration                          |
+| deviceId           | string?                                                                        | Phase 1.5 Track C; random UUID for this device, assigned at account claim. Rides backup/recovery       |
 | plan               | `'free' \| 'pro'`?                                                             | Track 2; entitlement marker. Always effectively pro until pricing ships                                |
 
 > The on-device identity **keypair** and any `licenseToken` are stored in the encrypted DB alongside the profile (private key never leaves the device). Non-indexed fields → no Dexie migration.
@@ -463,6 +464,20 @@ Bookmarks the sync position per scope so pulls resume where they left off.
 | seq       | number? | Group-event sequence (Track E)                           |
 | createdAt | number  | Epoch ms                                                 |
 | updatedAt | number  | Epoch ms                                                 |
+
+---
+
+## Server-side tables (NOT Dexie — Cloudflare D1)
+
+These live in the **auth worker's D1 database** (`workers/auth/`, Phase 1.5 Track C), not in the
+on-device IndexedDB. Identity metadata only — **no financial data, no PII, no personal blob (Model B)**.
+Canonical schema: [`workers/auth/migrations/0001_init.sql`](../workers/auth/migrations/0001_init.sql).
+
+- **`users`** — `user_id` (PK = client `Profile.userId`), `username` (UNIQUE, nullable), `signing_key`
+  (account ECDSA public JWK), `kdf_salt?` (unused by Model B recovery), `created_at`, `updated_at`.
+- **`devices`** — `device_id` (PK), `user_id`, `signing_key` (device ECDSA public JWK — verifies its
+  signed requests), `wrapping_key` (device ECDH public JWK — receives DMK/group keys later), `label`,
+  `created_at`, `revoked_at`.
 
 ---
 

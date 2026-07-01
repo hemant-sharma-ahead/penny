@@ -26,3 +26,10 @@ export const VEHICLE_PROXY: string | null = PROXY ? `${PROXY}/vehicle` : null;
 /** Market snapshot endpoint (one Cron-refreshed JSON for the whole ticker strip), or null when no
  *  backend is configured (client falls back to per-ticker fetches). */
 export const MARKET_SNAPSHOT: string | null = PROXY ? `${PROXY}/market` : null;
+
+/** Auth/Identity worker base (Phase 1.5 Track C). Prefers a dedicated `VITE_AUTH_PROXY` (the
+ *  penny-auth worker's own URL on `*.workers.dev`), falling back to `${VITE_API_PROXY}/auth` for the
+ *  future single-gateway (custom-domain) routing. Null when no backend is configured — account claim
+ *  / sync is then unavailable and the app stays fully usable offline. */
+const AUTH = (import.meta.env.VITE_AUTH_PROXY as string | undefined)?.replace(/\/$/, '');
+export const AUTH_BASE: string | null = AUTH ?? (PROXY ? `${PROXY}/auth` : null);

@@ -1,0 +1,42 @@
+# Penny Auth/Identity Worker — Cloudflare config (Phase 1.5 Track C).
+# Fill the <PLACEHOLDER> ids during setup (see README.md). Default (top-level) bindings are used by
+# `wrangler dev` and the default deploy; [env.staging] / [env.production] override for those envs.
+
+name = "penny-auth"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+
+# KV: single-use challenge nonces (60s TTL) + per-IP / per-username rate-limit counters.
+# Create with: wrangler kv namespace create CACHE   → paste the id below.
+kv_namespaces = [
+  { binding = "CACHE", id = "<DEV_KV_ID>" }
+]
+
+# D1: identity metadata only — users + devices. No financial data, no PII, no personal blob (Model B).
+# Create with: wrangler d1 create penny_auth   → paste the database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "penny_auth"
+database_id = "<DEV_D1_ID>"
+
+# ─────────────────────────── staging ───────────────────────────
+[env.staging]
+name = "penny-auth-staging"
+kv_namespaces = [
+  { binding = "CACHE", id = "<STAGING_KV_ID>" }
+]
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "penny_auth_staging"
+database_id = "<STAGING_D1_ID>"
+
+# ─────────────────────────── production ───────────────────────────
+[env.production]
+name = "penny-auth-prod"
+kv_namespaces = [
+  { binding = "CACHE", id = "<PROD_KV_ID>" }
+]
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "penny_auth_prod"
+database_id = "<PROD_D1_ID>"

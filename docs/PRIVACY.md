@@ -192,8 +192,10 @@ In Phase 1.5+, the backend (Cloudflare Workers + D1 + R2) is designed so the ser
 
 - **No phone number, no email — no PII.** (Phone + OTP was dropped; the earlier "hashed phone" design is gone.)
 - **Optional** username (public — a self-chosen sharing handle; it can never decrypt anything). The permanent identity anchor is `userId` (a UUID), not the username.
-- Device public keys (signing + wrapping — for request auth and group key exchange).
+- Device public keys (signing + wrapping) + a random `deviceId`. **Registration (Track C) uploads only the public JWKs** — the private keys never leave the device.
 - Group-membership metadata (which `userId`s are in which group) + per-group **encrypted event ciphertext** (server cannot decrypt) + **key-grant ciphertext** relayed between members.
+
+**Request authentication (Track C).** Authenticated calls are signed: the device signs `nonce‖method‖path‖sha256(body)` with its private signing key, and the worker verifies against the stored public key using a single-use nonce. **No password or passphrase is ever sent** — the passphrase never leaves the device.
 
 **The server never stores a personal backup blob (Model B).** Personal data lives on-device and in the user's **own Google Drive/iCloud** — see the Backup model section below. See `docs/BACKEND_STRATEGY.md` §5 and `docs/ROADMAP.md` for the full Phase 1.5 backend design.
 

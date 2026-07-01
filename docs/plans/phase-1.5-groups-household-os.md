@@ -5,9 +5,14 @@
 > → `penny-api-proxy.hesh.workers.dev`. **Track B (client crypto additions): ✅ complete** (2026-07-01) —
 > ECDSA/ECDH P-256 device keypairs (`engine.ts` + `identityKeys.ts`, lazy at claim), new encrypted stores
 > `device_keys`/`group_keys`/`sync_cursor` (Dexie v8, in `BACKUP_STORES`), and non-destructive
-> `mergeBundle()` (LWW on `updatedAt`, upsert-only). **Wrapping keypair = ECDH P-256.** **Next:** Track C
-> (Auth/Identity worker + claim flow). Per-track status in [`docs/MILESTONES.md`](../MILESTONES.md) /
-> [`docs/ROADMAP.md`](../ROADMAP.md).
+> `mergeBundle()` (LWW on `updatedAt`, upsert-only). **Wrapping keypair = ECDH P-256.**
+> **Track C (Auth/Identity worker + claim flow): ✅ complete** (2026-07-01) — new `workers/auth/` worker
+> (D1 `users` + `devices`; `/username/check`, `/register`, `/challenge`, signed `/whoami` + `/device`;
+> nonce||method||path||bodyHash signed-request auth), client `src/core/identity/` (`signedFetch` + `claim`),
+> `AUTH_BASE`, `Profile.deviceId`, and a **`sync` entitlement dark by default**. **Model B: server stores
+> `users`+`devices` only — no `user_blobs`/R2, no server recover endpoint.** Auth foundation only (QR/ECDH
+> pairing UX deferred). **Next:** Track D (Sync layer). Per-track status in
+> [`docs/MILESTONES.md`](../MILESTONES.md) / [`docs/ROADMAP.md`](../ROADMAP.md).
 
 ## Context
 
@@ -335,31 +340,43 @@ edge Cache API layering.
 
 ---
 
-## Track C — Auth/Identity Worker + Claim Flow (DETAILED)
+## Track C — Auth/Identity Worker + Claim Flow (DETAILED — ✅ as built)
 
-**D1:** `users(user_id PK, username UNIQUE, public_key, kdf_salt, created_at, updated_at)`,
-`devices(device_id PK, user_id, public_key, label, revoked_at)`,
-`user_blobs(user_id, blob_kind, r2_key, version, size_bytes, updated_at, PK(user_id,blob_kind))`.
-**R2:** `keystore/{user_id}` = the v2 `.penny` blob (inert without passphrase).
-**KV:** `challenge:{nonce}` (60s), `rl:*` rate-limit counters.
+> **As built (2026-07-01), reconciled to Model B.** The server stores **identity metadata only** —
+> `users` + `devices`. There is **no `user_blobs` table, no R2 personal blob, and no server
+> `recover?username→blob` endpoint** (the original Model-A design below is superseded). Personal
+> backup/recovery is the user's own Drive/iCloud (Track B `mergeBundle` + the Drive path); the server
+> only records group membership so groups reappear on recovery (Track E). See
+> [`docs/BACKEND_STRATEGY.md`](../BACKEND_STRATEGY.md) §5.
 
-**Endpoints.** `POST /username/check`; `POST /register {user_id, username, public_key,
-kdf_salt}` (first-claim-wins via UNIQUE); `GET /challenge?user_id`; `PUT/GET /blob` (signed);
-`GET /recover?username` (rate-limited; returns `kdf_salt` + blob bytes/URL only).
+**Worker** `workers/auth/` (built from the Track A template — Wrangler `dev`/`staging`/`prod`, KV, D1).
 
-**Device auth without PII (the crux).** Steady state: client signs `nonce||method||path||
-bodyHash` with the device private key; worker verifies against stored public key. **Recovery
-bootstrap:** a fresh device has no key and we refuse OTP — so blob _reads_ are deliberately
-inert (rate-limited `username→blob` serving ciphertext worthless without the passphrase),
-while all _writes_/group actions require a passphrase-recovered key signature. **The passphrase
-is the bootstrap authenticator and never leaves the device.** Anti-brute-force: KV per-username
+**D1** (`migrations/0001_init.sql`): `users(user_id PK, username UNIQUE nullable, signing_key,
+kdf_salt?, created_at, updated_at)`, `devices(device_id PK, user_id, signing_key, wrapping_key,
+label, created_at, revoked_at)`. **KV:** `challenge:{nonce}` (60s TTL, single-use), `rl:*` counters.
 
-- per-IP exponential backoff, uniform post-limit responses, optional Turnstile/PoW, and the
-  600K-PBKDF2 wall per guess.
+**Endpoints.** `POST /username/check` → `{available}`; `POST /register {user_id, username?,
+signing_key, device_id, device_signing_key, device_wrapping_key, kdf_salt?}` (first-claim-wins via
+UNIQUE; idempotent per `user_id`); `GET /challenge?user_id`; **signed** `GET /whoami` and `POST
+/device` (add a device). The router tolerates an optional `/auth` path prefix.
 
-**Client `claim.ts`.** generate keypairs (Track B) → `username/check` → `register` → initial
-`PUT /blob`. **Zero data migration** (userId was the anchor since onboarding). Gate behind a
-new `'sync'` entitlement in `src/core/entitlement/` so it can later become paid.
+**Device auth without PII (the crux).** A signed request carries `x-penny-{user,device,nonce,sig}`;
+the worker consumes the single-use nonce from KV, loads the device's public key, and verifies an
+ECDSA P-256 signature over `nonce\nMETHOD\npath\nsha256(body)`. No passwords/passphrase ever reach
+the server. Anti-brute-force: per-IP + per-username KV fixed-window limits, uniform responses.
+
+**Client `src/core/identity/`.** `signedFetch(path, init)` — the single choke point for
+authenticated worker calls (challenge → sign → attach headers), reused by Tracks D/E. `claim.ts` —
+`ensureIdentityKeys()` (Track B) → `username/check` → `register` (with `Profile.userId` + a new
+`device_id`) → persist `username`/`deviceId` on the profile → confirm via signed `/whoami`. Base URL
+`AUTH_BASE` (`VITE_AUTH_PROXY`, falling back to `${VITE_API_PROXY}/auth`). **Zero data migration**
+(userId was the anchor since onboarding). Gated behind the new **`'sync'` entitlement (dark by
+default** — readiness-gated on Track D, flip on for beta/canary). Claim UI is a gated
+"Account & Sync" section in `ProfilePage`.
+
+**Deferred (later step/track):** the full QR + ECDH DMK-handoff device-pairing **UX** (the
+`deriveSharedWrappingKey` primitive already exists from Track B); the optional entitlement-gated
+server-blind hybrid blob.
 
 ---
 

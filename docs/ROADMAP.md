@@ -2,7 +2,7 @@
 
 This document records the product roadmap for Phase 1.5, 2, and 3, along with the key architectural decisions made for each phase. Decisions are recorded here so they don't need to be re-derived in future sessions.
 
-**Last updated:** 2026-07-01 (Track B — client crypto additions: ECDH/ECDSA device keypairs, `device_keys`/`group_keys`/`sync_cursor` stores, non-destructive `mergeBundle`)
+**Last updated:** 2026-07-01 (Track C — auth/identity worker `workers/auth/` + client claim flow: `users`/`devices` D1, signed-request auth, `sync` entitlement dark by default; Model B — no personal blob on server)
 
 > **Phase 1.5 detailed plan:** [`docs/plans/phase-1.5-groups-household-os.md`](plans/phase-1.5-groups-household-os.md);
 > Track A detail: [`docs/plans/phase-1.5-track-A-api-proxy.md`](plans/phase-1.5-track-A-api-proxy.md).
@@ -20,13 +20,13 @@ This document records the product roadmap for Phase 1.5, 2, and 3, along with th
 
 ## Phase boundaries
 
-| Phase            | Scope                                                                                                                                     | Status                                                                                   |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Phase 1 (M0–M15) | Full financial life tracking, zero paid APIs, zero backend, local-first encrypted                                                         | ✅ Complete                                                                              |
-| Pre-Phase 1.5    | Documentation overhaul, component extraction, onboarding v2, category overhaul, activity log, expense power features, tax-in-context      | ✅ Complete                                                                              |
-| Phase 1.5        | Groups & Household OS — shared expenses, family vaults, joint goals, household net worth ([plan](plans/phase-1.5-groups-household-os.md)) | 🚧 In progress (Tracks 1 ✅, A API Proxy ✅ deployed, B client crypto ✅; next: Track C) |
-| Phase 2          | Chip real AI, AI auto-categorisation, export PDF/HTML, cloud sync, native apps, desktop layout                                            | ⏳ Future                                                                                |
-| Phase 3          | Regional languages, crypto/Web3, international equities, advanced AI advisor                                                              | ⏳ Future                                                                                |
+| Phase            | Scope                                                                                                                                     | Status                                                                                                       |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Phase 1 (M0–M15) | Full financial life tracking, zero paid APIs, zero backend, local-first encrypted                                                         | ✅ Complete                                                                                                  |
+| Pre-Phase 1.5    | Documentation overhaul, component extraction, onboarding v2, category overhaul, activity log, expense power features, tax-in-context      | ✅ Complete                                                                                                  |
+| Phase 1.5        | Groups & Household OS — shared expenses, family vaults, joint goals, household net worth ([plan](plans/phase-1.5-groups-household-os.md)) | 🚧 In progress (Tracks 1 ✅, A API Proxy ✅ deployed, B client crypto ✅, C auth/identity ✅; next: Track D) |
+| Phase 2          | Chip real AI, AI auto-categorisation, export PDF/HTML, cloud sync, native apps, desktop layout                                            | ⏳ Future                                                                                                    |
+| Phase 3          | Regional languages, crypto/Web3, international equities, advanced AI advisor                                                              | ⏳ Future                                                                                                    |
 
 ---
 
@@ -175,12 +175,12 @@ When a group is created with a named person that already exists in personal IOUs
 
 ### Four Workers (deployed independently)
 
-| Worker                | Ships in             | Purpose                                                                                                                                                                                                                                              |
-| --------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **API Proxy**         | Phase 1.5 Track A ✅ | Passthrough + tiered cache for Yahoo / MFAPI / NPS / IPO, market Cron-snapshot, permanent D1 cache & morning queue for vahandetails — fixes CORS, collapses N→1 (`workers/api-proxy/`). **Deployed 2026-07-01** → `penny-api-proxy.hesh.workers.dev` |
-| **Auth/Identity**     | Phase 1.5 Track C    | Keypair challenge/response, optional-username availability + registration, public-key storage; **personal backup/recovery is the user's own Drive/iCloud (Model B) — no personal blob on our server** (**no phone, no OTP**)                         |
-| **Groups**            | Phase 1.5 Track E    | Group creation, member management, encrypted shared event ledger, key exchange + rotation                                                                                                                                                            |
-| **AI Categorisation** | Phase 2              | Anthropic API proxy, PII stripping, transaction → category suggestion                                                                                                                                                                                |
+| Worker                | Ships in             | Purpose                                                                                                                                                                                                                                                                                                                                                              |
+| --------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **API Proxy**         | Phase 1.5 Track A ✅ | Passthrough + tiered cache for Yahoo / MFAPI / NPS / IPO, market Cron-snapshot, permanent D1 cache & morning queue for vahandetails — fixes CORS, collapses N→1 (`workers/api-proxy/`). **Deployed 2026-07-01** → `penny-api-proxy.hesh.workers.dev`                                                                                                                 |
+| **Auth/Identity** ✅  | Phase 1.5 Track C    | **Built (`workers/auth/`)** — keypair challenge/response signed-request auth, optional-username availability + registration, `users`+`devices` public-key storage; client `signedFetch` + `claim`, `sync` entitlement dark by default. **Personal backup/recovery is the user's own Drive/iCloud (Model B) — no personal blob on our server** (**no phone, no OTP**) |
+| **Groups**            | Phase 1.5 Track E    | Group creation, member management, encrypted shared event ledger, key exchange + rotation                                                                                                                                                                                                                                                                            |
+| **AI Categorisation** | Phase 2              | Anthropic API proxy, PII stripping, transaction → category suggestion                                                                                                                                                                                                                                                                                                |
 
 ### D1 database schema (server-side — no financial data ever, no PII)
 

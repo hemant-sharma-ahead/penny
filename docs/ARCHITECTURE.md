@@ -268,6 +268,16 @@ vehicle client surfaces the worker's `queued` response via `VehicleQueuedError`.
 [`docs/plans/phase-1.5-track-A-api-proxy.md`](plans/phase-1.5-track-A-api-proxy.md) and
 [`workers/api-proxy/README.md`](../workers/api-proxy/README.md).
 
+**Auth/Identity (`workers/auth/` + `src/core/identity/`, Phase 1.5 Track C):** a second worker
+(`penny-auth`) stores identity metadata only — D1 `users` + `devices` (public keys, optional
+username). **Model B: no personal blob on the server** (personal backup is the user's own
+Drive/iCloud). The client layer: `apiBase.ts` resolves `AUTH_BASE` (`VITE_AUTH_PROXY`, else
+`${VITE_API_PROXY}/auth`); `signedFetch.ts` is the single choke point for authenticated calls
+(challenge → ECDSA-sign `nonce\nMETHOD\npath\nsha256(body)` → `x-penny-*` headers), reused by Tracks
+D/E; `claim.ts` runs the register/claim flow (consumes Track B's `ensureIdentityKeys`). All gated
+behind the **`sync` entitlement (dark by default)**. See
+[`workers/auth/README.md`](../workers/auth/README.md).
+
 ---
 
 ## Context providers

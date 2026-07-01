@@ -280,14 +280,14 @@ blob, no PII); recovery/multi-device via username lookup + passphrase + QR devic
 Cloudflare Workers + D1 + R2 + KV backend (API Proxy ships first); **settle-up records a
 ledger entry only — Penny never touches the money flow** (no stored VPA/QR).
 
-| Track   | Feature                                                                                                                                                                                          | Backend? | Status                                        |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | --------------------------------------------- |
-| Track 1 | IOU pairwise-ledger redesign — Person entity, per-person running balance, partial settlement, expense-seeding, settle→income linkage, both-way edit re-sync, combined undo, multi-year demo seed | No       | ✅ Complete (2026-06-27) — see notes below    |
-| Track A | API Proxy worker — passthrough + tiered cache for Yahoo/MFAPI/NPS/IPO, market Cron-snapshot, permanent D1 cache + morning queue for vahandetails, CORS, N→1                                      | Yes      | ✅ Complete (deployed 2026-07-01) — see notes |
-| Track B | Client crypto additions — ECDSA/ECDH P-256 identity keypairs (lazy at claim), `device_keys`/`group_keys`/`sync_cursor` stores (Dexie v8), non-destructive `mergeBundle()` restore                | No       | ✅ Complete (2026-07-01) — see notes below    |
-| Track C | Auth/Identity worker + claim flow — D1 users/devices, signed challenge/response, recover-from-nothing, R2 blob store                                                                             | Yes      | ⏳ Planned                                    |
-| Track D | Sync layer — `core/sync/` cursor + optimistic personal-blob sync over the activity log                                                                                                           | Yes      | ⏳ Planned                                    |
-| Track E | Groups worker + N-party split engine + group UX — invites/key-grants/events, context switcher, leave + key rotation                                                                              | Yes      | ⏳ Planned                                    |
+| Track   | Feature                                                                                                                                                                                                 | Backend? | Status                                        |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------- |
+| Track 1 | IOU pairwise-ledger redesign — Person entity, per-person running balance, partial settlement, expense-seeding, settle→income linkage, both-way edit re-sync, combined undo, multi-year demo seed        | No       | ✅ Complete (2026-06-27) — see notes below    |
+| Track A | API Proxy worker — passthrough + tiered cache for Yahoo/MFAPI/NPS/IPO, market Cron-snapshot, permanent D1 cache + morning queue for vahandetails, CORS, N→1                                             | Yes      | ✅ Complete (deployed 2026-07-01) — see notes |
+| Track B | Client crypto additions — ECDSA/ECDH P-256 identity keypairs (lazy at claim), `device_keys`/`group_keys`/`sync_cursor` stores (Dexie v8), non-destructive `mergeBundle()` restore                       | No       | ✅ Complete (2026-07-01) — see notes below    |
+| Track C | Auth/Identity worker + claim flow — `workers/auth/` (D1 users/devices), signed challenge/response auth, client `signedFetch`/`claim`, `sync` entitlement (dark). Model B: no personal blob/R2 on server | Yes      | ✅ Complete (2026-07-01) — see notes below    |
+| Track D | Sync layer — `core/sync/` cursor + optimistic personal-blob sync over the activity log                                                                                                                  | Yes      | ⏳ Planned                                    |
+| Track E | Groups worker + N-party split engine + group UX — invites/key-grants/events, context switcher, leave + key rotation                                                                                     | Yes      | ⏳ Planned                                    |
 
 **Track A — API Proxy Worker (2026-06-27):** first backend track; the deploy template for B–E.
 A Cloudflare Worker (`workers/api-proxy/`) **transparently proxies + caches** the external finance
@@ -327,6 +327,23 @@ tombstones arrive with the activity-log delta sync in Track D. Gate green (type-
 **304 tests** incl. new `tests/crypto/identityKeys.test.ts` + `tests/backup/mergeBundle.test.ts`).
 **Out of scope (deferred):** `'sync'` entitlement + `claim.ts` wiring (Track C); delta sync (Track D).
 **Next: Track C** (Auth/Identity worker + claim flow).
+
+**Track C — Auth/Identity Worker + Claim Flow (2026-07-01):** the first per-user backend, built from
+the Track A template. New **`workers/auth/`** worker: D1 **`users` + `devices`** (identity metadata
+only — **Model B: no `user_blobs`, no R2 personal blob, no server recover endpoint**; personal
+recovery is the user's own Drive/iCloud). Endpoints `POST /username/check`, `POST /register`
+(first-claim-wins username, idempotent per userId), `GET /challenge` (single-use KV nonce, 60s), and
+**signed** `GET /whoami` + `POST /device`. Signed-request auth verifies an ECDSA P-256 signature over
+`nonce\nMETHOD\npath\nsha256(body)` against the device's stored public key — **no passwords/passphrase
+ever reach the server**; per-IP + per-username KV rate-limits. Pure logic in `src/lib/` (unit-tested).
+Client **`src/core/identity/`**: `signedFetch` (the reusable authenticated-call choke point for D/E)
+and `claim` (ensureIdentityKeys → username check → register → persist `Profile.deviceId`/username →
+confirm via `/whoami`); `AUTH_BASE` via `VITE_AUTH_PROXY` (falls back to `${VITE_API_PROXY}/auth`).
+New **`sync` entitlement is dark by default** (readiness-gated on Track D, not pricing) — the gated
+"Account & Sync" claim UI in `ProfilePage` is invisible in normal builds. **Auth foundation only** —
+QR/ECDH device-pairing UX deferred. Gate green (type-check, lint, **317 tests** incl.
+`tests/worker/auth.test.ts` + `tests/identity/claim.test.ts`; `workers/auth` type-checks). Cloudflare
+provisioning + deploy is **user-run** (see `workers/auth/README.md`). **Next: Track D** (Sync layer).
 
 **Track 1.1 — IOU ↔ transactions + net worth (2026-06-26):** a lend/borrow is now one event with two
 views. **Lent = an Expense** (money out) + "they owe you"; **Borrowed = an Income** (money in) + "you

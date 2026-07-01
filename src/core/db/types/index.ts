@@ -35,6 +35,7 @@ export interface Profile {
   // ── Identity & attributes (Track 2) ──
   userId?: string | undefined; // stable local identity anchor (UUID); "claimed" on the server at Phase 1.5 registration. Never keyed off the username string.
   username?: string | undefined; // provisional, optional; 3–20 lowercase alphanumeric/underscore. Reserved on the server only at registration.
+  deviceId?: string | undefined; // random UUID for this device, assigned when the account is claimed (Phase 1.5 Track C). Rides backup/recovery.
   dob?: string | undefined; // ISO date (YYYY-MM-DD). Encrypted; only a 5-year age band is ever sent to the AI.
   employmentType?: EmploymentType | undefined;
   plan?: Plan | undefined; // entitlement state; defaults to 'free' (full access in Phase 1)
