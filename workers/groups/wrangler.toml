@@ -1,0 +1,72 @@
+# Penny Groups Worker — Cloudflare config (Phase 1.5 Track E).
+# Fill the <PLACEHOLDER> ids during setup (see README.md). Default (top-level) bindings are used by
+# `wrangler dev` and the default deploy; [env.staging] / [env.production] override for those envs.
+
+name = "penny-groups"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+
+# KV: single-use challenge nonces (60s TTL) + per-IP rate-limit counters. Separate from the auth
+# worker's KV — the groups worker issues its own challenges via GET /challenge.
+# Create with: wrangler kv namespace create CACHE   → paste the id below.
+kv_namespaces = [
+  { binding = "CACHE", id = "<DEV_KV_ID>" }
+]
+
+# D1 (groups): the group metadata + membership + invites + key-grants + event index. Ciphertext-only
+# (enc_name; event bodies in R2). No plaintext financial data, no PII (Model B).
+# Create with: wrangler d1 create penny_groups   → paste the database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "penny_groups"
+database_id = "<DEV_D1_ID>"
+
+# D1 (auth): the penny_auth database, bound READ-ONLY for device signing-key lookup during signed-
+# request verification. Reuses Track C's `devices` table — the groups worker never writes it.
+# Use the same database_id as workers/auth/wrangler.toml.
+[[d1_databases]]
+binding = "AUTH_DB"
+database_name = "penny_auth"
+database_id = "<AUTH_D1_ID>"
+
+# R2: group event bodies — `gevent/{group_id}/{seq}` = AES-GCM(GroupKey_epoch, eventJson). Ciphertext
+# only. Create with: wrangler r2 bucket create penny-groups-events   → paste the name below.
+[[r2_buckets]]
+binding = "EVENTS"
+bucket_name = "penny-groups-events"
+
+# ─────────────────────────── staging ───────────────────────────
+[env.staging]
+name = "penny-groups-staging"
+kv_namespaces = [
+  { binding = "CACHE", id = "<STAGING_KV_ID>" }
+]
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "penny_groups_staging"
+database_id = "<STAGING_D1_ID>"
+[[env.staging.d1_databases]]
+binding = "AUTH_DB"
+database_name = "penny_auth_staging"
+database_id = "<STAGING_AUTH_D1_ID>"
+[[env.staging.r2_buckets]]
+binding = "EVENTS"
+bucket_name = "penny-groups-events-staging"
+
+# ─────────────────────────── production ───────────────────────────
+[env.production]
+name = "penny-groups-prod"
+kv_namespaces = [
+  { binding = "CACHE", id = "<PROD_KV_ID>" }
+]
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "penny_groups_prod"
+database_id = "<PROD_D1_ID>"
+[[env.production.d1_databases]]
+binding = "AUTH_DB"
+database_name = "penny_auth_prod"
+database_id = "<PROD_AUTH_D1_ID>"
+[[env.production.r2_buckets]]
+binding = "EVENTS"
+bucket_name = "penny-groups-events-prod"

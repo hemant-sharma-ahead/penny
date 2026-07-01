@@ -40,12 +40,17 @@ function bufferToBase64(buf: ArrayBuffer): string {
 }
 
 /**
- * Fetch an auth-worker endpoint with a signed request. `path` is relative to AUTH_BASE (e.g.
- * '/whoami'); a string `init.body` is hashed into the signature. Requires an unlocked session with
- * a claimed account (userId + deviceId + device signing key).
+ * Fetch a worker endpoint with a signed request. `path` is relative to `base` (default AUTH_BASE);
+ * pass GROUPS_BASE for the groups worker (Track E). The nonce is obtained from the SAME worker's
+ * `/challenge`, since each worker validates nonces in its own KV. A string `init.body` is hashed into
+ * the signature. Requires an unlocked session with a claimed account (userId + deviceId + signing key).
  */
-export async function signedFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  if (!AUTH_BASE) throw new SyncNotConfiguredError();
+export async function signedFetch(
+  path: string,
+  init: RequestInit = {},
+  base: string | null = AUTH_BASE
+): Promise<Response> {
+  if (!base) throw new SyncNotConfiguredError();
 
   const profile = (await profileRepo.getAll())[0];
   const userId = profile?.userId;
@@ -55,13 +60,13 @@ export async function signedFetch(path: string, init: RequestInit = {}): Promise
   const signing = await getSigningKeypair();
   if (!signing) throw new NotClaimedError('Device identity keys missing');
 
-  // 1. Obtain a single-use nonce bound to this user.
-  const challengeRes = await fetch(`${AUTH_BASE}/challenge?user_id=${encodeURIComponent(userId)}`);
+  // 1. Obtain a single-use nonce bound to this user, from the target worker.
+  const challengeRes = await fetch(`${base}/challenge?user_id=${encodeURIComponent(userId)}`);
   if (!challengeRes.ok) throw new Error(`Challenge request failed: ${challengeRes.status}`);
   const { nonce } = (await challengeRes.json()) as { nonce: string };
 
   // 2. Sign nonce||method||path||bodyHash over the ACTUAL request pathname.
-  const url = `${AUTH_BASE}${path}`;
+  const url = `${base}${path}`;
   const method = (init.method ?? 'GET').toUpperCase();
   const bodyText = typeof init.body === 'string' ? init.body : '';
   const bodyHash = await sha256Hex(bodyText);

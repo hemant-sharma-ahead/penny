@@ -47,7 +47,10 @@ const BACKUP_STORES = [
   'credit_profile',
   'device_keys',
   'group_keys',
-  'sync_cursor'
+  'sync_cursor',
+  'groups',
+  'group_members',
+  'group_events'
 ] as const;
 
 type BackupStore = (typeof BACKUP_STORES)[number];

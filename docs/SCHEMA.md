@@ -470,6 +470,66 @@ Bookmarks the sync position per scope so pulls resume where they left off.
 
 ---
 
+## Groups & Household OS (Phase 1.5 Track E)
+
+Local **decrypted mirrors** of the server-relayed (ciphertext-only, Model B) group data. Balances are
+never stored — they are **derived by folding `group_events`** (event-sourced projection). Added in Dexie
+v9; id-only index; DMK-encrypted like every other store and ride recovery via `BACKUP_STORES`. Populated
+post-unlock via the groups worker (`workers/groups/`). Per-group AES keys live in `group_keys` (Track B).
+
+### `groups`
+
+A group the user belongs to. `role`/`status` are **this user's own** membership.
+
+| Field             | Type    | Notes                                              |
+| ----------------- | ------- | -------------------------------------------------- |
+| id                | string  | Primary key = server `group_id`                    |
+| type              | string  | `family` \| `trip` \| `roommates` \| `other`       |
+| name              | string  | Decrypted group name (server stores `enc_name`)    |
+| role              | string  | `owner` \| `admin` \| `member` (this user)         |
+| status            | string  | `active` \| `closed`                               |
+| ownerId           | string  | `userId` of the owner                              |
+| keyEpoch          | number  | Current Group-Key rotation epoch                   |
+| historyVisibility | string  | `full` \| `from_join`                              |
+| joinedAt          | number  | Epoch ms                                           |
+| createdAt         | number  | Epoch ms                                           |
+| updatedAt         | number  | Epoch ms                                           |
+
+### `group_members`
+
+| Field          | Type    | Notes                                                   |
+| -------------- | ------- | ------------------------------------------------------- |
+| id             | string  | Composite `${groupId}:${userId}`                        |
+| groupId        | string  | FK → `groups.id`                                        |
+| userId         | string  | Member's account `userId`                               |
+| displayName    | string  | Decrypted display name                                  |
+| role           | string  | `owner` \| `admin` \| `member`                          |
+| status         | string  | `active` \| `left` \| `muted` (mute is local-only)      |
+| linkedPersonId | string? | Bridges to a local `Person` (reuses Track 1 IOU)        |
+| joinedAt       | number  | Epoch ms                                                |
+| leftAt         | number? | Epoch ms                                                |
+| createdAt      | number  | Epoch ms                                                |
+| updatedAt      | number  | Epoch ms                                                |
+
+### `group_events`
+
+Append-only shared ledger (local mirror of the R2 event blobs). Balances fold over these.
+
+| Field     | Type    | Notes                                                                       |
+| --------- | ------- | --------------------------------------------------------------------------- |
+| id        | string  | Primary key = `eventId` (client UUID)                                       |
+| groupId   | string  | FK → `groups.id`                                                            |
+| seq       | number? | Server-assigned total order (undefined until synced)                        |
+| lamport   | number  | Client logical clock (tie-break)                                            |
+| authorId  | string  | `userId` of the author                                                      |
+| keyEpoch  | number  | Group-Key epoch the payload was encrypted under                             |
+| type      | string  | `shared_expense`/`expense_edit`/`expense_delete`/`settlement`/`member_*`/`group_*` |
+| payload   | unknown | Type-specific (e.g. payer/participants/split); decrypted from the epoch key |
+| createdAt | number  | Epoch ms                                                                    |
+| updatedAt | number  | Epoch ms                                                                    |
+
+---
+
 ## Server-side tables (NOT Dexie — Cloudflare D1)
 
 These live in the **auth worker's D1 database** (`workers/auth/`, Phase 1.5 Track C), not in the
@@ -481,6 +541,22 @@ Canonical schema: [`workers/auth/migrations/0001_init.sql`](../workers/auth/migr
 - **`devices`** — `device_id` (PK), `user_id`, `signing_key` (device ECDSA public JWK — verifies its
   signed requests), `wrapping_key` (device ECDH public JWK — receives DMK/group keys later), `label`,
   `created_at`, `revoked_at`.
+
+The **groups worker's D1** (`workers/groups/`, Phase 1.5 Track E) holds group metadata + membership +
+the event index — **ciphertext only** (encrypted name, wrapped key grants; event bodies in R2). It binds
+the auth D1 read-only (`AUTH_DB`) for device-key lookup during signature verification. Canonical schema:
+[`workers/groups/migrations/0001_init.sql`](../workers/groups/migrations/0001_init.sql).
+
+- **`groups`** — `group_id` (PK), `type`, `enc_name` (AES-GCM ciphertext), `owner_id`, `key_epoch`,
+  `history_visibility`, `status`, `created_at`, `updated_at`.
+- **`group_members`** — PK(`group_id`,`user_id`), `role`, `status`, `joined_at`, `left_at`.
+- **`invites`** — `token_hash` (PK, `SHA-256(secret)`), `group_id`, `role`, `expires_at`, `max_uses`,
+  `uses`, `revoked`, `created_by`, `created_at`. The raw secret lives only in the share link/QR.
+- **`group_key_grants`** — PK(`group_id`,`user_id`,`key_epoch`), `wrapped_key` (opaque ciphertext
+  envelope: granter's wrapping public JWK + the wrapped Group Key), `created_at`.
+- **`group_events`** — PK(`group_id`,`seq`), `event_id` (client UUID, idempotency), `author_id`,
+  `key_epoch`, `r2_key`, `lamport`, `created_at`. Event bodies: R2 `gevent/{group_id}/{seq}` =
+  `AES-GCM(GroupKey_epoch, eventJson)`.
 
 ---
 

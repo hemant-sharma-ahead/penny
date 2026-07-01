@@ -287,7 +287,7 @@ ledger entry only — Penny never touches the money flow** (no stored VPA/QR).
 | Track B | Client crypto additions — ECDSA/ECDH P-256 identity keypairs (lazy at claim), `device_keys`/`group_keys`/`sync_cursor` stores (Dexie v8), non-destructive `mergeBundle()` restore                           | No       | ✅ Complete (2026-07-01) — see notes below    |
 | Track C | Auth/Identity worker + claim flow — `workers/auth/` (D1 users/devices), signed challenge/response auth, client `signedFetch`/`claim`, `sync` entitlement (dark). Model B: no personal blob/R2 on server     | Yes      | ✅ Complete (2026-07-01) — see notes below    |
 | Track D | Automatic backup + multi-device sync — `core/sync/` provider abstraction (Drive live, iCloud dormant, OPFS daily floor), `backupEngine` + `mergeBundle`, destination chooser UI (Model B, user's own cloud) | Yes      | ✅ Complete (2026-07-01) — see notes below    |
-| Track E | Groups worker + N-party split engine + group UX — invites/key-grants/events, context switcher, leave + key rotation                                                                                         | Yes      | ⏳ Planned                                    |
+| Track E | Groups worker + N-party split engine + group UX — invites/key-grants/events, context switcher, leave + key rotation                                                                                         | Yes      | 🚧 In progress — E1 ✅ (worker + crypto)      |
 
 **Track A — API Proxy Worker (2026-06-27):** first backend track; the deploy template for B–E.
 A Cloudflare Worker (`workers/api-proxy/`) **transparently proxies + caches** the external finance
@@ -362,6 +362,25 @@ claim required; the on-device daily backup is always on. Gate green (type-check,
 incl. `tests/sync/*`, `tests/backup/openBundleWithDmk`, `tests/lib/debounce`). Cloud is **user-run**
 (Drive needs `VITE_GOOGLE_CLIENT_ID` + CSP). **Deferred:** the native shell that activates iCloud;
 encrypted delta; etag CAS. **Next: native bring-up (iCloud) / Track E** (Groups).
+
+**Track E — Groups & Household OS · E1: worker + group crypto + client wiring (2026-07-01):** the third
+per-user backend (`workers/groups/` — `penny-groups`), mirroring the Track C template. **Model B /
+ciphertext-only:** D1 holds group metadata + membership + invites + wrapped key-grants + an event index
+(five tables in `migrations/0001_init.sql`); event bodies live in **R2** as `gevent/{group_id}/{seq}` =
+`AES-GCM(GroupKey_epoch, eventJson)`; the server never sees the group name (`enc_name`), member names,
+financial data, or Group Keys. Routes (`src/index.ts`) — create/get group · invite create/redeem/revoke
+(stores only `SHA-256(secret)`) · members + member changes (leave/remove/set_role) · key-grant relay +
+fetch · event append→R2/fetch · settle-close/reopen — each **signed (challenge/response) + membership/
+role-checked**. Signature verification reads the device signing key from the **auth D1 bound read-only
+(`AUTH_DB`)**; the worker issues its own `/challenge` nonces in its own KV. Client: `core/groups/keys.ts`
+(per-epoch Group-Key gen; `wrapGroupKeyFor`/`unwrapGroupKey` grants via Track B `deriveSharedWrappingKey`;
+`encryptForGroup`/`decryptFromGroup`), `core/groups/groupsClient.ts` (endpoint wrappers), `GROUPS_BASE`
+(`apiBase.ts`) + a `base` param on `signedFetch` so the choke point is reused. Local mirrors in **Dexie
+v9** (`groups`/`group_members`/`group_events`) + repos + `BACKUP_STORES` (ride recovery). Tests:
+`tests/worker/groups.test.ts` (roles/invites/visibility/signature) + `tests/groups/keys.test.ts` (grant +
+event round-trips). Gate green (worker `type-check`, app `tsc`, lint, **355 tests**). **Not deployed**
+(user-run — see `workers/groups/README.md`); behind the **`sync` entitlement (dark)**. **Next: E2**
+(create/invite/join/membership UX).
 
 **Track 1.1 — IOU ↔ transactions + net worth (2026-06-26):** a lend/borrow is now one event with two
 views. **Lent = an Expense** (money out) + "they owe you"; **Borrowed = an Income** (money in) + "you

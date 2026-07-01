@@ -14,7 +14,10 @@ import type {
   ExpenseCategory,
   Goal,
   GoalContribution,
+  Group,
+  GroupEvent,
   GroupKey,
+  GroupMember,
   Hashtag,
   Holding,
   InsurancePolicy,
@@ -53,3 +56,6 @@ export const transactionTemplatesRepo = new EncryptedRepository<TransactionTempl
 export const deviceKeysRepo = new EncryptedRepository<DeviceKey>(db.device_keys as never);
 export const groupKeysRepo = new EncryptedRepository<GroupKey>(db.group_keys as never);
 export const syncCursorRepo = new EncryptedRepository<SyncCursor>(db.sync_cursor as never);
+export const groupsRepo = new EncryptedRepository<Group>(db.groups as never);
+export const groupMembersRepo = new EncryptedRepository<GroupMember>(db.group_members as never);
+export const groupEventsRepo = new EncryptedRepository<GroupEvent>(db.group_events as never);

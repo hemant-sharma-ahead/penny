@@ -290,6 +290,20 @@ debounce. Destination + status UI in `features/backup/AutoBackupCard.tsx`; `core
 is now a thin adapter over `googleDriveProvider`. Gated by the free `cloud_backup` entitlement (no
 account claim required).
 
+**Groups & Household OS (`workers/groups/` + `src/core/groups/`, Phase 1.5 Track E — E1):** a third
+worker (`penny-groups`) relays **ciphertext-only** shared-ledger data (Model B) — D1 (`groups`,
+`group_members`, `invites`, `group_key_grants`, `group_events` index) + R2 (event bodies
+`gevent/{group_id}/{seq}` = `AES-GCM(GroupKey, eventJson)`) + KV (its own `/challenge` nonces). It binds
+the auth D1 read-only (`AUTH_DB`) to look up device signing/wrapping keys, then verifies the same signed
+request as Track C **plus a membership/role check**. The client layer: `apiBase.ts` resolves
+`GROUPS_BASE` (`VITE_GROUPS_PROXY`, else `${VITE_API_PROXY}/groups`); `signedFetch` gained a `base`
+param so the groups worker reuses the choke point; `core/groups/keys.ts` generates the per-epoch
+**Group Key**, wraps it to a member's ECDH key as a grant (Track B `deriveSharedWrappingKey`) and
+encrypts/decrypts event bodies; `core/groups/groupsClient.ts` wraps the worker endpoints. Local mirrors
+in Dexie **v9** (`groups`/`group_members`/`group_events`). Behind the **`sync` entitlement (dark)**;
+group UX (create/invite/join/split/settle) lands in E2–E5. See
+[`workers/groups/README.md`](../workers/groups/README.md).
+
 ---
 
 ## Context providers

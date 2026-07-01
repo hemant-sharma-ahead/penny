@@ -11,7 +11,10 @@ import type {
   ExpenseCategory,
   Goal,
   GoalContribution,
+  Group,
+  GroupEvent,
   GroupKey,
+  GroupMember,
   Hashtag,
   Holding,
   InsurancePolicy,
@@ -60,6 +63,9 @@ export class PennyDatabase extends Dexie {
   device_keys!: EntityTable<DeviceKey, 'id'>;
   group_keys!: EntityTable<GroupKey, 'id'>;
   sync_cursor!: EntityTable<SyncCursor, 'id'>;
+  groups!: EntityTable<Group, 'id'>;
+  group_members!: EntityTable<GroupMember, 'id'>;
+  group_events!: EntityTable<GroupEvent, 'id'>;
 
   constructor() {
     super('penny');
@@ -118,6 +124,12 @@ export class PennyDatabase extends Dexie {
     // and sync cursors. Encrypted; id-only index. No .upgrade() (encrypted; runs pre-unlock).
     // Start empty and are populated post-unlock at claim, so no backfill is needed.
     this.version(8).stores({ device_keys: 'id', group_keys: 'id', sync_cursor: 'id' });
+
+    // v9 — Groups & Household OS (Phase 1.5 Track E): local decrypted mirrors of the server-relayed
+    // group data (groups the user belongs to, their members, and the append-only shared-ledger events).
+    // Encrypted; id-only index. No .upgrade() (encrypted; runs pre-unlock). Populated post-unlock via
+    // the groups worker, so no backfill is needed.
+    this.version(9).stores({ groups: 'id', group_members: 'id', group_events: 'id' });
   }
 }
 

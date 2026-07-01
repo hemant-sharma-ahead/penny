@@ -33,3 +33,10 @@ export const MARKET_SNAPSHOT: string | null = PROXY ? `${PROXY}/market` : null;
  *  / sync is then unavailable and the app stays fully usable offline. */
 const AUTH = (import.meta.env.VITE_AUTH_PROXY as string | undefined)?.replace(/\/$/, '');
 export const AUTH_BASE: string | null = AUTH ?? (PROXY ? `${PROXY}/auth` : null);
+
+/** Groups worker base (Phase 1.5 Track E). Prefers a dedicated `VITE_GROUPS_PROXY` (the penny-groups
+ *  worker's own URL on `*.workers.dev`), falling back to `${VITE_API_PROXY}/groups` for the future
+ *  single-gateway routing. Null when no backend is configured — groups are then unavailable and the
+ *  app stays fully usable offline. */
+const GROUPS = (import.meta.env.VITE_GROUPS_PROXY as string | undefined)?.replace(/\/$/, '');
+export const GROUPS_BASE: string | null = GROUPS ?? (PROXY ? `${PROXY}/groups` : null);

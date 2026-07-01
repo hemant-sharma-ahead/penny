@@ -18,8 +18,10 @@
 > chosen, a `backupEngine` (debounced push on change + periodic pull + `mergeBundle`), `openBundleWithDmk`,
 > `SyncProvider`/`useBackupStatus`, and a **Backup destination chooser** + status UI. **Whole-blob;
 > pull-merge-before-push + LWW.** Gated by the free `cloud_backup` entitlement (no claim required).
-> **Next:** native bring-up (activates iCloud) / Track E (Groups). Per-track status in
-> [`docs/MILESTONES.md`](../MILESTONES.md) / [`docs/ROADMAP.md`](../ROADMAP.md).
+> **Track E (Groups & Household OS): 🚧 in progress — E1 ✅** (groups worker + group crypto + client wiring +
+> Dexie v9); the last feature track. Detailed sub-phase plan (E1→E5) + **Stage F closeout** in
+> [`phase-1.5-track-E-groups.md`](phase-1.5-track-E-groups.md). **Next:** E2 (create/invite/join/membership).
+> Per-track status in [`docs/MILESTONES.md`](../MILESTONES.md) / [`docs/ROADMAP.md`](../ROADMAP.md).
 
 ## Context
 
@@ -414,6 +416,14 @@ server-blind hybrid blob.
 ---
 
 ## Track E — Groups Worker + Split Engine + Group UX (DETAILED)
+
+> **📝 Detailed, approved (not started) plan:** [`phase-1.5-track-E-groups.md`](phase-1.5-track-E-groups.md)
+> — the last feature track, sequenced as sub-phases **E1→E5** (worker+crypto → create/invite/join/membership
+> → N-party split engine + shared-expense composer → group sync + context switcher + dashboards + settle/close
+> → trip↔group linkage + per-item share + cash-negative guard + seed fix), followed by **Stage F — the
+> Phase 1.5 closeout** (full end-to-end testing incl. real backup, UI/design-consistency polish, iCloud native
+> activation, and a planning conversation on further additions before Phase 1.5 is closed). The section below
+> is the original outline; the linked doc supersedes it.
 
 **D1:** `groups(group_id PK, type, enc_name, owner_id, key_epoch, ...)`,
 `group_members(group_id, user_id, role, joined_at, left_at, PK(group_id,user_id))`,

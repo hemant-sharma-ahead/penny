@@ -613,3 +613,74 @@ export interface SyncCursor {
   createdAt: number;
   updatedAt: number;
 }
+
+// ─── Groups & Household OS (Phase 1.5 Track E) ─────────────────────────────────
+// Local decrypted mirrors of the server-relayed (ciphertext-only, Model B) group data. Balances are
+// never stored — they are derived by folding {@link GroupEvent} rows (event-sourced projection).
+// All three stores are DMK-encrypted like every other store and ride recovery via BACKUP_STORES.
+
+export type GroupType = 'family' | 'trip' | 'roommates' | 'other';
+export type GroupStatus = 'active' | 'closed';
+/** `full` = a joiner can decrypt all prior epochs; `from_join` = only the epoch active at join onward. */
+export type GroupHistoryVisibility = 'full' | 'from_join';
+export type GroupRole = 'owner' | 'admin' | 'member';
+export type GroupMemberStatus = 'active' | 'left' | 'muted';
+
+/** A group the user belongs to (local mirror). `role`/`status` are this user's own membership. */
+export interface Group {
+  id: string; // = server group_id
+  type: GroupType;
+  name: string;
+  role: GroupRole;
+  status: GroupStatus;
+  ownerId: string;
+  keyEpoch: number;
+  historyVisibility: GroupHistoryVisibility;
+  joinedAt: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** A member of a group. `linkedPersonId` bridges to a local {@link Person} (reuses Track 1 IOU). */
+export interface GroupMember {
+  id: string; // composite `${groupId}:${userId}`
+  groupId: string;
+  userId: string;
+  displayName: string;
+  role: GroupRole;
+  status: GroupMemberStatus;
+  linkedPersonId?: string;
+  joinedAt: number;
+  leftAt?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type GroupEventType =
+  | 'shared_expense'
+  | 'expense_edit'
+  | 'expense_delete'
+  | 'settlement'
+  | 'member_joined'
+  | 'member_left'
+  | 'group_closed'
+  | 'group_reopened';
+
+/**
+ * One entry in a group's append-only shared ledger (local mirror of the R2 event blob). `seq` is the
+ * server-assigned total order (undefined until synced); `lamport` is the client logical clock used to
+ * break ties. Balances fold over these — see `src/core/groups/split.ts`. `payload` is type-specific
+ * (e.g. a `shared_expense` carries payer/participants/split); it is decrypted from the epoch GroupKey.
+ */
+export interface GroupEvent {
+  id: string; // = eventId (client-generated UUID)
+  groupId: string;
+  seq?: number;
+  lamport: number;
+  authorId: string;
+  keyEpoch: number;
+  type: GroupEventType;
+  payload: unknown;
+  createdAt: number;
+  updatedAt: number;
+}
