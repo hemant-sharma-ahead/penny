@@ -456,14 +456,17 @@ Per-group AES-256-GCM keys at a given rotation epoch. Composite `id` (`${groupId
 
 Bookmarks the sync position per scope so pulls resume where they left off.
 
-| Field     | Type    | Notes                                                    |
-| --------- | ------- | -------------------------------------------------------- |
-| id        | string  | Primary key = scope                                      |
-| scope     | string  | e.g. `'personal-blob'`, `group:${groupId}`               |
-| version   | number? | Optimistic-concurrency version for the personal blob (D) |
-| seq       | number? | Group-event sequence (Track E)                           |
-| createdAt | number  | Epoch ms                                                 |
-| updatedAt | number  | Epoch ms                                                 |
+| Field        | Type    | Notes                                                                      |
+| ------------ | ------- | -------------------------------------------------------------------------- |
+| id           | string  | Primary key = scope                                                        |
+| scope        | string  | e.g. `'personal-blob'`, `group:${groupId}`                                 |
+| version      | number? | Optimistic-concurrency version (reserved)                                  |
+| seq          | number? | Group-event sequence (Track E)                                             |
+| remoteTag    | string? | Track D: the cloud file's change token (Drive `headRevisionId`/mtime)      |
+| pushedAt     | number? | Track D: latest activity timestamp included in the last successful push    |
+| lastBackupAt | number? | Track D: epoch ms of the last successful backup (cloud upload or snapshot) |
+| createdAt    | number  | Epoch ms                                                                   |
+| updatedAt    | number  | Epoch ms                                                                   |
 
 ---
 

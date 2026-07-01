@@ -2,7 +2,7 @@
 
 This document records the product roadmap for Phase 1.5, 2, and 3, along with the key architectural decisions made for each phase. Decisions are recorded here so they don't need to be re-derived in future sessions.
 
-**Last updated:** 2026-07-01 (Track C — auth/identity worker `workers/auth/` + client claim flow: `users`/`devices` D1, signed-request auth, `sync` entitlement dark by default; Model B — no personal blob on server)
+**Last updated:** 2026-07-01 (Track D — automatic backup + multi-device sync to the user's own cloud: provider abstraction (Drive live, iCloud dormant until native), OPFS daily floor, `backupEngine` + `mergeBundle`, whole-blob pull-merge-before-push LWW; Model B)
 
 > **Phase 1.5 detailed plan:** [`docs/plans/phase-1.5-groups-household-os.md`](plans/phase-1.5-groups-household-os.md);
 > Track A detail: [`docs/plans/phase-1.5-track-A-api-proxy.md`](plans/phase-1.5-track-A-api-proxy.md).
@@ -20,13 +20,13 @@ This document records the product roadmap for Phase 1.5, 2, and 3, along with th
 
 ## Phase boundaries
 
-| Phase            | Scope                                                                                                                                     | Status                                                                                                       |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Phase 1 (M0–M15) | Full financial life tracking, zero paid APIs, zero backend, local-first encrypted                                                         | ✅ Complete                                                                                                  |
-| Pre-Phase 1.5    | Documentation overhaul, component extraction, onboarding v2, category overhaul, activity log, expense power features, tax-in-context      | ✅ Complete                                                                                                  |
-| Phase 1.5        | Groups & Household OS — shared expenses, family vaults, joint goals, household net worth ([plan](plans/phase-1.5-groups-household-os.md)) | 🚧 In progress (Tracks 1 ✅, A API Proxy ✅ deployed, B client crypto ✅, C auth/identity ✅; next: Track D) |
-| Phase 2          | Chip real AI, AI auto-categorisation, export PDF/HTML, cloud sync, native apps, desktop layout                                            | ⏳ Future                                                                                                    |
-| Phase 3          | Regional languages, crypto/Web3, international equities, advanced AI advisor                                                              | ⏳ Future                                                                                                    |
+| Phase            | Scope                                                                                                                                     | Status                                                                                                                                           |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Phase 1 (M0–M15) | Full financial life tracking, zero paid APIs, zero backend, local-first encrypted                                                         | ✅ Complete                                                                                                                                      |
+| Pre-Phase 1.5    | Documentation overhaul, component extraction, onboarding v2, category overhaul, activity log, expense power features, tax-in-context      | ✅ Complete                                                                                                                                      |
+| Phase 1.5        | Groups & Household OS — shared expenses, family vaults, joint goals, household net worth ([plan](plans/phase-1.5-groups-household-os.md)) | 🚧 In progress (Tracks 1 ✅, A API Proxy ✅ deployed, B client crypto ✅, C auth/identity ✅, D backup+sync ✅; next: native bring-up / Track E) |
+| Phase 2          | Chip real AI, AI auto-categorisation, export PDF/HTML, cloud sync, native apps, desktop layout                                            | ⏳ Future                                                                                                                                        |
+| Phase 3          | Regional languages, crypto/Web3, international equities, advanced AI advisor                                                              | ⏳ Future                                                                                                                                        |
 
 ---
 

@@ -11,7 +11,14 @@
 > nonce||method||path||bodyHash signed-request auth), client `src/core/identity/` (`signedFetch` + `claim`),
 > `AUTH_BASE`, `Profile.deviceId`, and a **`sync` entitlement dark by default**. **Model B: server stores
 > `users`+`devices` only — no `user_blobs`/R2, no server recover endpoint.** Auth foundation only (QR/ECDH
-> pairing UX deferred). **Next:** Track D (Sync layer). Per-track status in
+> pairing UX deferred).
+> **Track D (Automatic backup + multi-device sync): ✅ complete** (2026-07-01) — Model B to the user's
+> **own cloud**: a provider abstraction (`src/core/sync/providers/` — Google Drive live on web; iCloud
+> **code-complete but dormant** until native), an on-device **OPFS daily backup** floor when no cloud is
+> chosen, a `backupEngine` (debounced push on change + periodic pull + `mergeBundle`), `openBundleWithDmk`,
+> `SyncProvider`/`useBackupStatus`, and a **Backup destination chooser** + status UI. **Whole-blob;
+> pull-merge-before-push + LWW.** Gated by the free `cloud_backup` entitlement (no claim required).
+> **Next:** native bring-up (activates iCloud) / Track E (Groups). Per-track status in
 > [`docs/MILESTONES.md`](../MILESTONES.md) / [`docs/ROADMAP.md`](../ROADMAP.md).
 
 ## Context
@@ -380,14 +387,29 @@ server-blind hybrid blob.
 
 ---
 
-## Track D — Sync Layer (DETAILED)
+## Track D — Automatic Backup + Multi-Device Sync (DETAILED — ✅ as built, Model B)
 
-- `src/core/sync/`: a `sync_cursor`-backed engine. On meaningful change (debounced), re-export
-  the v2 blob and `PUT /blob` with `If-Match: version` (optimistic concurrency via
-  `user_blobs.version`); on 409, pull → `mergeBundle()` (non-destructive) → re-PUT.
-- Hooks the existing activity log (`src/core/db/activityLog.ts`) as the change signal.
-- Start **whole-blob**; graduate to **encrypted delta** (ship activity-log entries since cursor)
-  once blob size warrants. Edge Cache API for cacheable GETs to cut Worker invocations.
+> **As built (2026-07-01), reconciled to Model B.** No server `PUT /blob`/`If-Match`/409 — the blob
+> lives in the user's **own cloud**; conflict resolution is Track B `mergeBundle` (LWW). The original
+> server-sync design below is superseded.
+
+- **Provider abstraction** `src/core/sync/providers/` — a `CloudProvider` interface (`isAvailable`,
+  `ensureConnected`, `remoteTag`, `pull`, `push`). `googleDriveProvider` (live on web; silent-token +
+  quota detection + `headRevisionId` change tag), `icloudProvider` (**code-complete but dormant** —
+  `isAvailable()` false until the Capacitor native shell provides the bridge), and `localBackup` (OPFS
+  daily on-device snapshots — the floor when no cloud target is chosen).
+- **`backupEngine`** (`src/core/sync/`) — `sync_cursor`-backed (`'personal-blob'`; `remoteTag`/
+  `pushedAt`/`lastBackupAt`). On debounced change (activity-log `subscribeActivity`) + a daily timer +
+  periodic/foreground/online: cloud target → `remoteTag` diff ⇒ `pull` → `openBundleWithDmk` →
+  `mergeBundle`; dirty or daily-due ⇒ `exportBackup` → `push`. Local/none → daily OPFS snapshot. Pure
+  branching in `decide.ts`. `SyncProvider` (mounted in the unlocked `AppShell`) starts/stops it and
+  exposes `useBackupStatus`.
+- **Concurrency:** whole-blob; **pull-merge-before-push + LWW** (trade-offs + alternatives — etag CAS,
+  event log — recorded in the approved plan file). **Gating:** free `cloud_backup` entitlement; the
+  on-device daily backup is always on; account claim (Track C) is **not** required for personal sync.
+- **UI:** a Backup destination chooser (This device · Drive · iCloud[disabled off-native]) + status
+  (backed-up time / syncing / offline / quota-full / reconnect) + "Back up now", with benefit copy.
+- **Deferred:** the native shell that activates iCloud; encrypted delta; etag CAS; edge Cache API.
 
 ---
 

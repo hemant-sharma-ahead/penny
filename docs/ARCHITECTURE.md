@@ -278,6 +278,18 @@ D/E; `claim.ts` runs the register/claim flow (consumes Track B's `ensureIdentity
 behind the **`sync` entitlement (dark by default)**. See
 [`workers/auth/README.md`](../workers/auth/README.md).
 
+**Automatic backup + sync (`src/core/sync/`, Phase 1.5 Track D, Model B):** backs up/syncs the
+encrypted `.penny` blob to the user's **own cloud** (nothing on our servers). A **provider abstraction**
+`providers/` (`CloudProvider`): `googleDriveProvider` (web, live), `icloudProvider` (**dormant** until
+the Capacitor native shell — `src/core/platform/` `isNative()`/`isApple()`), and `localBackup` (OPFS
+daily on-device floor). `backupEngine.ts` (pure `decide.ts` + `sync_cursor`) pushes on debounced change
+(the new `activityLog` `subscribeActivity` emitter) + a daily timer, and pulls periodically →
+`backupManager.openBundleWithDmk` → `mergeBundle` (LWW). `SyncProvider.tsx` (mounted in the unlocked
+`AppShell`) runs the engine and exposes `useBackupStatus`; `src/lib/debounce.ts` backs the change
+debounce. Destination + status UI in `features/backup/AutoBackupCard.tsx`; `core/backup/cloudBackup.ts`
+is now a thin adapter over `googleDriveProvider`. Gated by the free `cloud_backup` entitlement (no
+account claim required).
+
 ---
 
 ## Context providers

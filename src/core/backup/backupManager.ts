@@ -257,3 +257,39 @@ export async function mergeBundle(bundle: { stores: Record<string, unknown[]> })
 
   return stats;
 }
+
+/** Thrown when a blob can't be opened with the current DMK — it belongs to a different vault and
+ *  needs an explicit passphrase restore (importBackup), not a background merge. */
+export class ForeignBlobError extends Error {
+  constructor() {
+    super('Backup blob is not decryptable with the current key');
+    this.name = 'ForeignBlobError';
+  }
+}
+
+/**
+ * Open a `.penny` file to its inner bundle (`{stores}`) using the in-memory DMK — no passphrase.
+ * For same-user same-DMK blobs (background sync pulls); feed the result to {@link mergeBundle}.
+ * Throws {@link ForeignBlobError} when the DMK can't decrypt it (a different vault). Requires an
+ * unlocked session.
+ */
+export async function openBundleWithDmk(fileText: string): Promise<{ stores: Record<string, unknown[]> }> {
+  const mk = keystore.getMasterKey(); // throws if session not active
+  let file: BackupFile;
+  try {
+    file = JSON.parse(fileText) as BackupFile;
+  } catch {
+    throw new Error('Invalid backup file — could not parse JSON');
+  }
+  let plaintext: ArrayBuffer;
+  try {
+    plaintext = await decrypt(mk, base64ToBuffer(file.iv), base64ToBuffer(file.ciphertext));
+  } catch {
+    throw new ForeignBlobError();
+  }
+  const bundle = JSON.parse(new TextDecoder().decode(plaintext)) as {
+    exportedAt: number;
+    stores: Record<string, unknown[]>;
+  };
+  return { stores: bundle.stores };
+}

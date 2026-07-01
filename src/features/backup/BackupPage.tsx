@@ -5,6 +5,7 @@ import { wipeAllData } from '@/core/crypto/securityManager';
 import { hasEntitlement } from '@/core/entitlement/entitlement';
 import { Card, TextInput, Button, ConfirmDialog } from '@/components/ui';
 import { STATUS } from '@/lib/statusColors';
+import { AutoBackupCard } from './AutoBackupCard';
 
 type ExportState = 'idle' | 'exporting' | 'done' | 'error';
 type ImportState = 'idle' | 'importing' | 'done' | 'error';
@@ -114,6 +115,9 @@ export function BackupPage() {
   return (
     <div className="px-4 pt-4 pb-6 flex flex-col gap-5">
       <h2 className="text-xl font-semibold text-primary">Backup & Restore</h2>
+
+      {/* Automatic backup + sync (Track D) */}
+      <AutoBackupCard />
 
       {/* Export card */}
       <Card padding="lg" className="flex flex-col gap-4">

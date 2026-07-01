@@ -607,6 +607,9 @@ export interface SyncCursor {
   scope: string; // e.g. 'personal-blob', `group:${groupId}`
   version?: number;
   seq?: number;
+  remoteTag?: string; // Track D: the cloud file's change token (Drive headRevisionId / mtime) at last sync
+  pushedAt?: number; // Track D: latest activity timestamp included in the last successful push
+  lastBackupAt?: number; // Track D: epoch ms of the last successful backup (cloud upload or local snapshot)
   createdAt: number;
   updatedAt: number;
 }

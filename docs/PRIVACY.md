@@ -213,6 +213,8 @@ The encrypted backup exports a `.penny` file containing every encrypted store (r
 
 **Phase 1.5 (Model B):** the user's own Drive/iCloud becomes the **primary** recovery path — our servers store **no personal blob**. On a fresh device, recovery is: sign into Drive/iCloud → pull the encrypted `.penny` blob (which carries the data + device keypair + every Group Key) → enter passphrase; the server's membership table then says which groups to re-pull. Groups reappear from **server membership**, personal history from **Drive** (the WhatsApp split). A `mergeBundle()` (non-destructive, last-write-wins) merges pulls without clobbering local changes. See `docs/BACKEND_STRATEGY.md` §5.
 
+**Track D — automatic backup:** backup runs automatically (debounced on change + daily). It uploads only the **already-encrypted** `.penny` blob to the user's **own** Google Drive (`drive.appdata` scope) or iCloud — never to our servers, and readable by no one without the passphrase. When no cloud destination is chosen, a **daily on-device OPFS snapshot** is kept (same-origin — a convenience safeguard, not disaster recovery; the UI recommends cloud). Background pulls decrypt with the in-memory DMK (`openBundleWithDmk`); a blob from a different vault is refused (`ForeignBlobError`), never silently merged.
+
 **Full reset:** "Erase all data" wipes every local store and the encryption keys, returning to onboarding. Irreversible without a backup — no escrow.
 
 ---

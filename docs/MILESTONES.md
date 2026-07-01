@@ -280,14 +280,14 @@ blob, no PII); recovery/multi-device via username lookup + passphrase + QR devic
 Cloudflare Workers + D1 + R2 + KV backend (API Proxy ships first); **settle-up records a
 ledger entry only — Penny never touches the money flow** (no stored VPA/QR).
 
-| Track   | Feature                                                                                                                                                                                                 | Backend? | Status                                        |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------- |
-| Track 1 | IOU pairwise-ledger redesign — Person entity, per-person running balance, partial settlement, expense-seeding, settle→income linkage, both-way edit re-sync, combined undo, multi-year demo seed        | No       | ✅ Complete (2026-06-27) — see notes below    |
-| Track A | API Proxy worker — passthrough + tiered cache for Yahoo/MFAPI/NPS/IPO, market Cron-snapshot, permanent D1 cache + morning queue for vahandetails, CORS, N→1                                             | Yes      | ✅ Complete (deployed 2026-07-01) — see notes |
-| Track B | Client crypto additions — ECDSA/ECDH P-256 identity keypairs (lazy at claim), `device_keys`/`group_keys`/`sync_cursor` stores (Dexie v8), non-destructive `mergeBundle()` restore                       | No       | ✅ Complete (2026-07-01) — see notes below    |
-| Track C | Auth/Identity worker + claim flow — `workers/auth/` (D1 users/devices), signed challenge/response auth, client `signedFetch`/`claim`, `sync` entitlement (dark). Model B: no personal blob/R2 on server | Yes      | ✅ Complete (2026-07-01) — see notes below    |
-| Track D | Sync layer — `core/sync/` cursor + optimistic personal-blob sync over the activity log                                                                                                                  | Yes      | ⏳ Planned                                    |
-| Track E | Groups worker + N-party split engine + group UX — invites/key-grants/events, context switcher, leave + key rotation                                                                                     | Yes      | ⏳ Planned                                    |
+| Track   | Feature                                                                                                                                                                                                     | Backend? | Status                                        |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------- |
+| Track 1 | IOU pairwise-ledger redesign — Person entity, per-person running balance, partial settlement, expense-seeding, settle→income linkage, both-way edit re-sync, combined undo, multi-year demo seed            | No       | ✅ Complete (2026-06-27) — see notes below    |
+| Track A | API Proxy worker — passthrough + tiered cache for Yahoo/MFAPI/NPS/IPO, market Cron-snapshot, permanent D1 cache + morning queue for vahandetails, CORS, N→1                                                 | Yes      | ✅ Complete (deployed 2026-07-01) — see notes |
+| Track B | Client crypto additions — ECDSA/ECDH P-256 identity keypairs (lazy at claim), `device_keys`/`group_keys`/`sync_cursor` stores (Dexie v8), non-destructive `mergeBundle()` restore                           | No       | ✅ Complete (2026-07-01) — see notes below    |
+| Track C | Auth/Identity worker + claim flow — `workers/auth/` (D1 users/devices), signed challenge/response auth, client `signedFetch`/`claim`, `sync` entitlement (dark). Model B: no personal blob/R2 on server     | Yes      | ✅ Complete (2026-07-01) — see notes below    |
+| Track D | Automatic backup + multi-device sync — `core/sync/` provider abstraction (Drive live, iCloud dormant, OPFS daily floor), `backupEngine` + `mergeBundle`, destination chooser UI (Model B, user's own cloud) | Yes      | ✅ Complete (2026-07-01) — see notes below    |
+| Track E | Groups worker + N-party split engine + group UX — invites/key-grants/events, context switcher, leave + key rotation                                                                                         | Yes      | ⏳ Planned                                    |
 
 **Track A — API Proxy Worker (2026-06-27):** first backend track; the deploy template for B–E.
 A Cloudflare Worker (`workers/api-proxy/`) **transparently proxies + caches** the external finance
@@ -344,6 +344,24 @@ New **`sync` entitlement is dark by default** (readiness-gated on Track D, not p
 QR/ECDH device-pairing UX deferred. Gate green (type-check, lint, **317 tests** incl.
 `tests/worker/auth.test.ts` + `tests/identity/claim.test.ts`; `workers/auth` type-checks). Cloudflare
 provisioning + deploy is **user-run** (see `workers/auth/README.md`). **Next: Track D** (Sync layer).
+
+**Track D — Automatic Backup + Multi-Device Sync (2026-07-01):** reframed to Model B — backup/sync to
+the user's **own cloud**, our servers store nothing (no `PUT /blob`). A **provider abstraction**
+(`src/core/sync/providers/`): `googleDriveProvider` (live on web — silent token so no surprise popup,
+`403 storageQuotaExceeded` → `QuotaExceededError`, `headRevisionId` change tag), `icloudProvider`
+(**code-complete but dormant** — `isAvailable()` false until the Capacitor native shell provides the
+bridge), and `localBackup` (OPFS dated snapshots — the **daily on-device floor** when no cloud is
+chosen). `backupManager.openBundleWithDmk` opens a blob with the in-memory DMK (no passphrase) for
+background pulls (`ForeignBlobError` for a different-vault blob). **`backupEngine`** (pure `decide.ts` +
+`sync_cursor` `remoteTag`/`pushedAt`/`lastBackupAt`) pushes on debounced change (activity-log
+`subscribeActivity`) + a daily timer, pulls periodically/on-foreground and `mergeBundle`s (LWW). Mounted
+via `SyncProvider` in the unlocked `AppShell`; `useBackupStatus` drives an `AutoBackupCard` (destination
+chooser + status + "Back up now" + benefit copy). **Whole-blob; pull-merge-before-push + LWW**
+(trade-offs/alternatives recorded in the plan). **Gating:** free `cloud_backup` entitlement — no account
+claim required; the on-device daily backup is always on. Gate green (type-check, lint, **339 tests**
+incl. `tests/sync/*`, `tests/backup/openBundleWithDmk`, `tests/lib/debounce`). Cloud is **user-run**
+(Drive needs `VITE_GOOGLE_CLIENT_ID` + CSP). **Deferred:** the native shell that activates iCloud;
+encrypted delta; etag CAS. **Next: native bring-up (iCloud) / Track E** (Groups).
 
 **Track 1.1 — IOU ↔ transactions + net worth (2026-06-26):** a lend/borrow is now one event with two
 views. **Lent = an Expense** (money out) + "they owe you"; **Borrowed = an Income** (money in) + "you
