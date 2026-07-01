@@ -24,6 +24,7 @@ export function VehicleModal({ editing, onSave, onDelete, onClose }: VehicleModa
     vehicleFetching,
     vehicleFetchError,
     setVehicleFetchError,
+    vehicleNotice,
     vehicleRcSnapshot,
     setVehicleRcSnapshot,
     vehicleChallanSnapshot,
@@ -90,6 +91,7 @@ export function VehicleModal({ editing, onSave, onDelete, onClose }: VehicleModa
         vehicleFetching={vehicleFetching}
         vehicleFetchError={vehicleFetchError}
         setVehicleFetchError={setVehicleFetchError}
+        vehicleNotice={vehicleNotice}
         vehicleRcSnapshot={vehicleRcSnapshot}
         setVehicleRcSnapshot={setVehicleRcSnapshot}
         lookup={lookup}

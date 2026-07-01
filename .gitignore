@@ -28,6 +28,14 @@ dist-ssr
 .env.local
 .env.*.local
 
+# Cloudflare Workers (workers/*) — local dev state + local secrets. Never commit.
+.wrangler/
+.dev.vars
+.dev.vars.*
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
 # PWA generated files
 dev-dist/
 sw.js

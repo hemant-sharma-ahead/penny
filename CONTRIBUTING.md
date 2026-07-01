@@ -18,15 +18,32 @@ App runs at `http://localhost:5173`. DevTools → 390px viewport to see the mobi
 
 ### Environment variables
 
-There are no environment variables required for Phase 1 development. All features run on mock/simulated data locally.
+`VITE_*` vars are **build-time** — Vite bakes them into the client bundle at `npm run build` (nothing
+is read at runtime), loaded from `.env` files by precedence. **You usually don't need to set anything**
+— the app runs fully on local/simulated data, and a committed default already points at the backend.
 
-For Phase 1 + Chip (AI), create `.env.local`:
+What's in the repo:
 
-```
-VITE_ANTHROPIC_API_KEY=sk-ant-...
-```
+- **`.env.example`** — documents every supported var. Copy any you need into `.env.local`.
+- **`.env.production`** _(committed, non-secret)_ — shared production defaults. It sets `VITE_API_PROXY`
+  to the deployed **API Proxy Worker**, so `npm run build` (web **and** the Android/iOS wrap)
+  automatically routes market / NAV / vehicle data through it. You don't need to touch this.
+- **`.env.local`** _(gitignored)_ — your personal overrides. Examples:
+  - Point at a **local** worker: `VITE_API_PROXY=http://localhost:8787` (after `cd workers/api-proxy && npm run dev`).
+  - Leave `VITE_API_PROXY` **unset** to force direct, no-backend calls.
+  - Dev Chip key (optional): `VITE_ANTHROPIC_API_KEY=sk-ant-...` — dev only; the shipped app uses the
+    user's own key, entered at onboarding and stored encrypted with their passphrase.
 
-This key is only used in development. In the shipped app, users supply their own API key during onboarding (stored encrypted with their passphrase).
+> **Never put secrets in a `VITE_*` var** — they're public in the shipped bundle. Real server-side
+> secrets (e.g. the Vahan key) live in `wrangler secret`, not in any env file.
+
+**Backend worker (optional):** the API Proxy Worker lives in [`workers/api-proxy/`](workers/api-proxy/README.md)
+— run it locally with `wrangler dev` or deploy it (see its README). Its local dev state (`.wrangler/`)
+is gitignored and regenerated per machine; you never commit or ship it.
+
+**Run on an Android emulator:** see [`docs/ANDROID_EMULATOR.md`](docs/ANDROID_EMULATOR.md). The native
+app wraps the built `dist/`, so whatever `VITE_API_PROXY` is baked at `npm run build` is what the
+emulator uses (the committed `.env.production` default makes live data work out of the box).
 
 ---
 

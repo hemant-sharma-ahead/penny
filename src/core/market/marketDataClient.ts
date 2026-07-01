@@ -1,5 +1,6 @@
 import { db } from '@/core/db/schema';
 import { YF_BASE } from '@/core/db/priceCache';
+import { MFAPI_BASE, MARKET_SNAPSHOT } from '@/core/net/apiBase';
 import type { PriceCache } from '@/core/db/types';
 
 const MARKET_TTL_MS = 15 * 60 * 1000; // 15 minutes
@@ -135,7 +136,7 @@ async function fetchMfTicker(schemeCode: string, cacheKey: string, multiplier = 
   if (cached && isFresh(cached)) return cached;
 
   try {
-    const res = await fetch(`https://api.mfapi.in/mf/${schemeCode}`);
+    const res = await fetch(`${MFAPI_BASE}/mf/${schemeCode}`);
     if (!res.ok) return null;
     const json = (await res.json()) as MfApiResponse;
     const navStr0 = json.data[0]?.nav;
@@ -175,17 +176,83 @@ async function fetchTicker(id: TickerId): Promise<{ price: number | null; previo
   };
 }
 
+/** Pure: assemble a TickerResult (with change %) from a config + a price pair. */
+export function buildTickerResult(
+  config: TickerConfig,
+  price: number | null,
+  previousClose: number | null
+): TickerResult {
+  const changePct =
+    price !== null && previousClose !== null && previousClose !== 0
+      ? ((price - previousClose) / previousClose) * 100
+      : null;
+  return { ...config, price, previousClose, changePct };
+}
+
+interface SnapshotTicker {
+  price: number | null;
+  previousClose: number | null;
+  currency: string;
+}
+interface MarketSnapshot {
+  updatedAt: number;
+  tickers: Record<string, SnapshotTicker>;
+}
+
+/**
+ * When the API proxy is configured, fetch the whole ticker strip as ONE Cron-refreshed snapshot
+ * (instead of N per-ticker upstream calls). Honors the same 15-min Dexie cache, so an already-fresh
+ * cache skips the network. Returns null on any failure so the caller can fall back to per-ticker.
+ */
+async function fetchFromSnapshot(ids: TickerId[]): Promise<TickerResult[] | null> {
+  if (!MARKET_SNAPSHOT) return null;
+  const cached = await Promise.all(ids.map((id) => db.price_cache.get(`market:${id}`)));
+  if (cached.every((e) => e && isFresh(e))) {
+    return ids.flatMap((id, i) => {
+      const config = TICKER_CONFIGS.find((c) => c.id === id);
+      const e = cached[i];
+      return config && e ? [buildTickerResult(config, e.price, e.previousClose ?? null)] : [];
+    });
+  }
+  try {
+    const res = await fetch(MARKET_SNAPSHOT);
+    if (!res.ok) return null;
+    const snap = (await res.json()) as MarketSnapshot;
+    const now = Date.now();
+    await Promise.all(
+      Object.entries(snap.tickers).map(([id, t]) =>
+        t.price === null
+          ? Promise.resolve()
+          : db.price_cache.put({
+              id: `market:${id}`,
+              symbol: id,
+              price: t.price,
+              previousClose: t.previousClose ?? undefined,
+              currency: t.currency,
+              fetchedAt: now
+            })
+      )
+    );
+    return ids.flatMap((id) => {
+      const config = TICKER_CONFIGS.find((c) => c.id === id);
+      const t = snap.tickers[id];
+      return config ? [buildTickerResult(config, t?.price ?? null, t?.previousClose ?? null)] : [];
+    });
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchMarketTickers(ids: TickerId[]): Promise<TickerResult[]> {
+  // Proxy configured → one snapshot call; fall through to per-ticker on any failure / no backend.
+  const fromSnapshot = await fetchFromSnapshot(ids);
+  if (fromSnapshot) return fromSnapshot;
+
   const results = await Promise.all(ids.map((id) => fetchTicker(id)));
   return ids.flatMap((id, i) => {
     const config = TICKER_CONFIGS.find((c) => c.id === id);
     const result = results[i];
     if (!config || !result) return [];
-    const { price, previousClose } = result;
-    const changePct =
-      price !== null && previousClose !== null && previousClose !== 0
-        ? ((price - previousClose) / previousClose) * 100
-        : null;
-    return [{ ...config, price, previousClose, changePct }];
+    return [buildTickerResult(config, result.price, result.previousClose)];
   });
 }

@@ -1,0 +1,22 @@
+{
+  "name": "penny-api-proxy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Penny API Proxy Worker — transparent passthrough + tiered cache for external finance APIs (Phase 1.5 Track A).",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:prod": "wrangler deploy --env production",
+    "type-check": "tsc --noEmit",
+    "db:migrate:local": "wrangler d1 migrations apply penny_proxy --local",
+    "db:migrate:remote": "wrangler d1 migrations apply penny_proxy --remote",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240117.0",
+    "typescript": "~6.0.2",
+    "wrangler": "^3.0.0"
+  }
+}

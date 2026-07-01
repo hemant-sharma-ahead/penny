@@ -17,7 +17,9 @@ export const ALLOWED_DOMAINS = [
   'query.yahoofinance.com',
   'webnodejs.investorgain.com',
   'npsnav.in',
-  'backend.vahandetails.com'
+  'backend.vahandetails.com',
+  // Penny API Proxy Worker (Phase 1.5 Track A) — fronts the above hosts when VITE_API_PROXY is set.
+  'workers.dev'
 ];
 
 export interface PiiScanResult {

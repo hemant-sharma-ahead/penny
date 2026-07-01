@@ -2,12 +2,14 @@
 
 This document records the product roadmap for Phase 1.5, 2, and 3, along with the key architectural decisions made for each phase. Decisions are recorded here so they don't need to be re-derived in future sessions.
 
-**Last updated:** 2026-06-26 (Phase 1.5 planning session)
+**Last updated:** 2026-06-27 (Track A — API Proxy; auth model reconciled off phone+OTP)
 
-> **Phase 1.5 detailed plan:** [`docs/plans/phase-1.5-groups-household-os.md`](plans/phase-1.5-groups-household-os.md).
-> That plan supersedes the phone+OTP auth design recorded in the Phase 1.5 sections below
-> (replaced by on-device keypair + username lookup + server-blind blob, **no PII**). The
-> sections below are retained for history pending reconciliation in Track A.
+> **Phase 1.5 detailed plan:** [`docs/plans/phase-1.5-groups-household-os.md`](plans/phase-1.5-groups-household-os.md);
+> Track A detail: [`docs/plans/phase-1.5-track-A-api-proxy.md`](plans/phase-1.5-track-A-api-proxy.md).
+> **Auth reconciled (Track A, 2026-06-27):** phone + OTP is **dropped**. Identity is an on-device
+> keypair + a self-chosen `username` + the existing `Profile.userId`; recovery is a server-blind
+> encrypted blob looked up by username; **no phone, no OTP, no PII**. The auth/encryption sections
+> below have been updated to match (the parent plan is authoritative).
 
 ---
 
@@ -17,7 +19,7 @@ This document records the product roadmap for Phase 1.5, 2, and 3, along with th
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | Phase 1 (M0–M15) | Full financial life tracking, zero paid APIs, zero backend, local-first encrypted                                                         | ✅ Complete                                                                |
 | Pre-Phase 1.5    | Documentation overhaul, component extraction, onboarding v2, category overhaul, activity log, expense power features, tax-in-context      | ✅ Complete                                                                |
-| Phase 1.5        | Groups & Household OS — shared expenses, family vaults, joint goals, household net worth ([plan](plans/phase-1.5-groups-household-os.md)) | 🚧 In progress (Track 1 IOU ledger ✅ complete; next: Track A — API Proxy) |
+| Phase 1.5        | Groups & Household OS — shared expenses, family vaults, joint goals, household net worth ([plan](plans/phase-1.5-groups-household-os.md)) | 🚧 In progress (Track 1 ✅; Track A API Proxy ✅ deployed; next: Track B) |
 | Phase 2          | Chip real AI, AI auto-categorisation, export PDF/HTML, cloud sync, native apps, desktop layout                                            | ⏳ Future                                                                  |
 | Phase 3          | Regional languages, crypto/Web3, international equities, advanced AI advisor                                                              | ⏳ Future                                                                  |
 
@@ -150,6 +152,11 @@ When a group is created with a named person that already exists in personal IOUs
 
 ## Phase 1.5 — Backend Architecture
 
+> **Scale + storage strategy:** [`docs/BACKEND_STRATEGY.md`](BACKEND_STRATEGY.md) — the 10M-user cost
+> model, the global-data-via-CDN vs per-user-via-Worker rule, the Capacitor deployment model, and the
+> proposal to keep **personal data/receipts in the user's own Drive/iCloud (store nothing on our
+> servers)**. Read it before building Tracks C–E.
+
 ### Platform decision: Cloudflare Workers + D1 + KV
 
 **Chosen over Supabase because:**
@@ -163,66 +170,80 @@ When a group is created with a named person that already exists in personal IOUs
 
 ### Four Workers (deployed independently)
 
-| Worker                | Ships in                                                  | Purpose                                                                              |
-| --------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| **API Proxy**         | Phase 1.5 start (or earlier if CORS bugs become blocking) | Proxy for Yahoo Finance, vahandetails.com, market data — fixes CORS, adds KV caching |
-| **Auth**              | Phase 1.5                                                 | Phone OTP, username availability check, user registration, public key storage        |
-| **Groups**            | Phase 1.5                                                 | Group creation, member management, encrypted shared data blobs, key exchange         |
-| **AI Categorisation** | Phase 2                                                   | Anthropic API proxy, PII stripping, transaction → category suggestion                |
+| Worker                | Ships in             | Purpose                                                                                                                                                             |
+| --------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **API Proxy**         | Phase 1.5 Track A ✅ | Passthrough + tiered cache for Yahoo / MFAPI / NPS / IPO, market Cron-snapshot, permanent D1 cache & morning queue for vahandetails — fixes CORS, collapses N→1 (`workers/api-proxy/`). **Deployed 2026-07-01** → `penny-api-proxy.hesh.workers.dev` |
+| **Auth/Identity**     | Phase 1.5 Track C    | Keypair challenge/response, username availability + registration, public-key + server-blind encrypted-blob storage, recover-from-nothing (**no phone, no OTP**)     |
+| **Groups**            | Phase 1.5 Track E    | Group creation, member management, encrypted shared event ledger, key exchange + rotation                                                                           |
+| **AI Categorisation** | Phase 2              | Anthropic API proxy, PII stripping, transaction → category suggestion                                                                                               |
 
-### D1 database schema (server-side — no financial data ever)
+### D1 database schema (server-side — no financial data ever, no PII)
 
 ```sql
-users          -- id, phone_hash, username, public_key, created_at
-groups         -- id, type (couple|family|flatmates|custom), name, owner_id, created_at
-group_members  -- group_id, user_id, role (owner|admin|member), joined_at, left_at
-group_data     -- id, group_id, encrypted_blob, data_type, updated_at
-username_idx   -- username → user_id (for availability check + invite lookup)
+-- Auth/Identity (Track C):
+users          -- user_id PK, username UNIQUE, public_key, kdf_salt, created_at, updated_at  (NO phone_hash)
+devices        -- device_id PK, user_id, public_key, label, revoked_at
+user_blobs     -- user_id, blob_kind, r2_key, version, size_bytes, updated_at  (server-blind ciphertext)
+-- Groups (Track E):
+groups         -- group_id PK, type, enc_name, owner_id, key_epoch, created_at
+group_members  -- group_id, user_id, role, joined_at, left_at
+group_events   -- group_id, seq, event_id, author_id, key_epoch, r2_key  (encrypted event ledger)
+-- API Proxy (Track A) — vehicle permanent cache + queue + budget:
+vehicle_cache  -- regno PK, data, fetched_at
+vehicle_queue  -- regno PK, requested_at, attempts, last_attempt_at
+vahan_budget   -- day PK (IST), used
 ```
 
 ### KV cache keys
 
-| Key pattern           | TTL    | Purpose                                     |
-| --------------------- | ------ | ------------------------------------------- |
-| `market:{ticker}`     | 15 min | Sensex, Nifty, Gold, Silver, USD-INR, Crude |
-| `mf_nav:{schemeCode}` | 24h    | MFAPI.in NAV responses                      |
-| `otp:{phone_hash}`    | 5 min  | OTP verification codes                      |
-| `username:{name}`     | 5 min  | Username availability check results         |
+| Key pattern              | TTL      | Purpose                                  |
+| ------------------------ | -------- | ---------------------------------------- |
+| `proxy:yf:{path}{query}` | 15 min   | Yahoo market/stock passthrough (Track A) |
+| `proxy:mfapi:{path}`     | 24h / 1h | MFAPI NAV (24h) / search (1h)            |
+| `proxy:nps:{path}`       | 1wk / 1h | NPS scheme list (1wk) / NAV (1h)         |
+| `proxy:ig:{path}{query}` | 15 min   | IPO / GMP passthrough                    |
+| `rl:{ip}:{bucket}`       | 60 s     | Per-IP rate-limit counter                |
+| `username:{name}`        | 5 min    | Username availability check (Track C)    |
 
 ---
 
 ## Phase 1.5 — Authentication
 
-### Approach: Phone number + OTP
+### Approach: on-device keypair + username (NO phone, NO OTP)
 
-**Chosen because:**
+Phone + OTP was **dropped** (Track A reconciliation): SMS gateways cost money and a phone number is
+maximal PII — both contradict the product. Identity is instead:
 
-- No email required — no inbox to phish
-- No OAuth — no Google/Apple dependency
-- SMS OTP is universally understood in India
-- Fits the privacy-first positioning
+- an on-device **keypair** (signing + wrapping) generated lazily at claim time,
+- the existing **`Profile.userId`** (UUID, generated at onboarding), and
+- a self-chosen **`username`** (the public sharing handle; it can never decrypt anything).
+
+**Chosen because:** zero PII, zero per-message cost, identity continuity (claiming is a pure relabel),
+and it keeps the app fully usable offline.
 
 ### What the server stores
 
-- Phone number: **hashed** (SHA-256 + server-side salt) — never plaintext
-- Username: plaintext (it's public — used for invites)
-- Public key: user's RSA/EC public key (for group key exchange)
+- **No phone number, no email.** No PII.
+- Username: plaintext (it's public — used for invites + recovery lookup)
+- Public key(s): the device's signing/wrapping public keys (for auth + group key exchange)
+- A **server-blind encrypted blob** (the v2 `.penny` export) keyed by `user_id` — ciphertext only
 
 ### Username rules
 
 - 3–20 characters, lowercase alphanumeric + underscore only
-- Unique across all users
-- Real-time availability check during onboarding (Cloudflare Worker query)
-- Suggestions shown when taken (append numbers, variations)
-- Optional in Phase 1 (field exists in profile), **required** when joining/creating a group in Phase 1.5
+- **Mandatory from Phase 1** (auto-suggested from display name; live format validation)
+- Uniqueness is **deferred to claim time** (no server in Phase 1) — claiming confirms it's free
 
-### Registration flow
+### Auth flow (no OTP)
 
-1. Enter phone number → OTP sent → OTP verified
-2. Choose username (with live availability feedback)
-3. App generates public/private keypair on-device
-4. Private key stored in user's encrypted local DB (protected by Master Key)
-5. Public key uploaded to server — used by others to encrypt group keys for this user
+1. Choose username (format-validated locally; uniqueness confirmed at claim).
+2. App generates the keypair on-device; the private key lives in the encrypted local DB (DMK-protected).
+3. **Register/claim:** upload `user_id`, `username`, public key, `kdf_salt`.
+4. **Steady state:** each request is signed (`nonce‖method‖path‖bodyHash`) with the device key; the
+   worker verifies against the stored public key.
+5. **Recover-from-nothing:** `username` → pull the inert encrypted blob → enter passphrase → DMK +
+   device key + every Group Key restored. The passphrase is the only decryption secret and never
+   leaves the device. (Detail in the parent plan, Track C.)
 
 ---
 
@@ -239,7 +260,7 @@ username_idx   -- username → user_id (for availability check + invite lookup)
 
 - Personal data backed up as an **encrypted blob** to **Google Drive / iCloud** (user's choice)
 - We never touch the backup file — it lives in the user's own cloud storage
-- Restore: new device → OTP auth → enter passphrase → download backup from Drive → decrypt on-device
+- Restore: new device → username lookup → enter passphrase → download backup (server-blind blob or Drive) → decrypt on-device
 - This is the same model as WhatsApp backups — users understand it
 
 ### Household / group key exchange

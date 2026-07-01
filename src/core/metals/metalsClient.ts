@@ -4,6 +4,7 @@
 // Data updates once daily after market close — acceptable for net-worth tracking.
 
 import { db } from '@/core/db/schema';
+import { MFAPI_BASE } from '@/core/net/apiBase';
 
 const GOLD_SCHEME = '140088';
 const SILVER_SCHEME = '149758';
@@ -16,7 +17,7 @@ interface MfApiLatestResponse {
 
 async function fetchNav(schemeCode: string): Promise<number | null> {
   try {
-    const res = await fetch(`https://api.mfapi.in/mf/${schemeCode}/latest`);
+    const res = await fetch(`${MFAPI_BASE}/mf/${schemeCode}/latest`);
     if (!res.ok) return null;
     const json = (await res.json()) as MfApiLatestResponse;
     if (json.status !== 'SUCCESS' || !json.data?.[0]?.nav) return null;

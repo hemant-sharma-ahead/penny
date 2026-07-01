@@ -1,5 +1,6 @@
 // MFAPI.in client — mutual-fund search and scheme metadata.
 // CORS-friendly, no API key. NAV fetching lives in core/db/priceCache.ts.
+import { MFAPI_BASE } from '@/core/net/apiBase';
 
 export interface MfSearchResult {
   schemeCode: string;
@@ -15,7 +16,7 @@ export interface MfSchemeDetail {
 // Searches schemes by name. Returns up to 8 matches; empty array on any failure.
 export async function searchMfSchemes(query: string): Promise<MfSearchResult[]> {
   try {
-    const res = await fetch(`https://api.mfapi.in/mf/search?q=${encodeURIComponent(query)}`);
+    const res = await fetch(`${MFAPI_BASE}/mf/search?q=${encodeURIComponent(query)}`);
     if (!res.ok) return [];
     const json = (await res.json()) as MfSearchResult[];
     return json.slice(0, 8);
@@ -31,7 +32,7 @@ export async function fetchMfSchemeDetail(schemeCode: string): Promise<MfSchemeD
     interface MfDetailResp {
       meta?: { fund_house?: string; scheme_category?: string; scheme_type?: string };
     }
-    const res = await fetch(`https://api.mfapi.in/mf/${schemeCode}`);
+    const res = await fetch(`${MFAPI_BASE}/mf/${schemeCode}`);
     if (!res.ok) return null;
     const json = (await res.json()) as MfDetailResp;
     const m = json.meta;

@@ -1,0 +1,51 @@
+# Penny API Proxy Worker — Cloudflare config.
+# Fill the <PLACEHOLDER> ids during setup (see README.md). Default (top-level) bindings are used by
+# `wrangler dev` and the default deploy; [env.staging] / [env.production] override for those envs.
+
+name = "penny-api-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+
+# KV: volatile passthrough cache + per-IP rate-limit counters.
+# Create with: wrangler kv namespace create CACHE   → paste the id below.
+kv_namespaces = [
+  { binding = "CACHE", id = "b99b4f35a1714357ac1072604a7fc8a7" }
+]
+
+# D1: permanent vehicle cache + queue + daily Vahan budget.
+# Create with: wrangler d1 create penny_proxy   → paste the database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "penny_proxy"
+database_id = "cac3c471-c6ec-42e4-bf71-06f88b8f43e3"
+
+# Cron (every 15 min): refresh the global market snapshot + drain the vehicle queue (the drain
+# self-guards to the Vahan morning window, so it only acts 06:00–12:00 IST).
+[triggers]
+crons = ["*/15 * * * *"]
+
+# ─────────────────────────── staging ───────────────────────────
+[env.staging]
+name = "penny-api-proxy-staging"
+kv_namespaces = [
+  { binding = "CACHE", id = "<STAGING_KV_ID>" }
+]
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "penny_proxy_staging"
+database_id = "<STAGING_D1_ID>"
+[env.staging.triggers]
+crons = ["*/15 * * * *"]
+
+# ─────────────────────────── production ───────────────────────────
+[env.production]
+name = "penny-api-proxy-prod"
+kv_namespaces = [
+  { binding = "CACHE", id = "<PROD_KV_ID>" }
+]
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "penny_proxy_prod"
+database_id = "<PROD_D1_ID>"
+[env.production.triggers]
+crons = ["*/15 * * * *"]

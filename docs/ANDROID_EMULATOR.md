@@ -114,6 +114,11 @@ npx cap add android      # creates the native android/ project and copies dist/ 
 
 `cap add android` also runs an initial Gradle sync (~1 min the first time).
 
+> **Live data works out of the box:** `npm run build` bakes `VITE_API_PROXY` from the committed
+> `.env.production` (the deployed API Proxy Worker), so market / NAV / vehicle data loads in the
+> emulator. To point the wrap at a **local** worker instead, set `VITE_API_PROXY=http://localhost:8787`
+> in `.env.local` before building; leave it unset there to force direct, no-backend calls.
+
 > **The `android/` folder is git-ignored** (treated as generated build output, like `dist/`). What's committed is the source of truth: `capacitor.config.ts` and the `@capacitor/*` deps in `package.json`. So on a **fresh clone** you must regenerate it — run the two commands above (`npm run build && npx cap add android`) before building. Native customisations (icons, splash, manifest, signing) aren't tracked while `android/` is ignored.
 
 ---
@@ -256,7 +261,7 @@ Now click any text field and type directly. `⌘V` pastes, `Esc` = Back, `Return
 
 | Symptom | Fix |
 | ------- | --- |
-| **Live market data / prices don't load** | Expected. Prices come from external APIs proxied through a Cloudflare Worker (Phase 1.5 Track A) that isn't deployed yet. All local-first features (onboarding, encryption, portfolio/expense/goal entry) work offline. See [BACKEND_STRATEGY.md](BACKEND_STRATEGY.md). |
+| **Live market data / prices don't load** | Prices are served via the deployed API Proxy Worker (Phase 1.5 Track A), whose URL is baked in from the committed `.env.production` at `npm run build`. Make sure you built from the repo root (so `.env.production` is picked up) and that `VITE_API_PROXY` isn't emptied by a `.env.local` override. All local-first features work offline regardless. See [BACKEND_STRATEGY.md](BACKEND_STRATEGY.md). |
 | `adb: no devices/emulators found` | Boot the AVD first (Device Manager ▶, or `emulator -avd penny_pixel`), then `adb wait-for-device`. |
 | App installs but drops back to the launcher | Launch explicitly: `adb shell am start -n com.penny.app/.MainActivity`. |
 | Gradle can't find a JDK (terminal builds) | `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`, or just build from inside Android Studio. |

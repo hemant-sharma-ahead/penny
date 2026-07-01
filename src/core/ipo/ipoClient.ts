@@ -9,12 +9,13 @@ import type {
   RawIpoResponse,
   RawIpoRow
 } from './ipoTypes';
+import { IG_BASE } from '@/core/net/apiBase';
 
 // Update every April when the Indian financial year rolls over (FY starts April 1).
 const IPO_API_YEAR = '2026';
 const IPO_API_FY = '2026-27';
 
-const BASE_URL = 'https://webnodejs.investorgain.com/cloud/report/data-read';
+const BASE_URL = `${IG_BASE}/cloud/report/data-read`;
 const CACHE_KEY = 'penny_ipo_cache';
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
@@ -132,7 +133,7 @@ export async function fetchIpoSubscription(id: number): Promise<IpoSubDetail | n
   const cached = subCache.get(id);
   if (cached) return cached;
   try {
-    const res = await fetch(`https://webnodejs.investorgain.com/cloud/ipo/ipo-subscription-read/${id}`);
+    const res = await fetch(`${IG_BASE}/cloud/ipo/ipo-subscription-read/${id}`);
     if (!res.ok) return null;
     const json = (await res.json()) as { data?: { ipoBiddingData?: RawSubRow[] } };
     const raw = json.data?.ipoBiddingData;

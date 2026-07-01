@@ -1,7 +1,8 @@
 import type { NpsNavDetail, NpsPfmKey, NpsSchemeEntry, NpsSchemeType } from './npsTypes';
 import { NPS_FUND_MANAGERS } from './npsTypes';
+import { NPS_BASE } from '@/core/net/apiBase';
 
-const BASE_URL = 'https://npsnav.in/api';
+const BASE_URL = NPS_BASE;
 const SCHEMES_CACHE_KEY = 'penny_nps_schemes';
 const SCHEMES_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 1 week — scheme list rarely changes
 

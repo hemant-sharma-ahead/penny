@@ -280,14 +280,37 @@ blob, no PII); recovery/multi-device via username lookup + passphrase + QR devic
 Cloudflare Workers + D1 + R2 + KV backend (API Proxy ships first); **settle-up records a
 ledger entry only — Penny never touches the money flow** (no stored VPA/QR).
 
-| Track   | Feature                                                                                                                                                                                          | Backend? | Status                                     |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | ------------------------------------------ |
-| Track 1 | IOU pairwise-ledger redesign — Person entity, per-person running balance, partial settlement, expense-seeding, settle→income linkage, both-way edit re-sync, combined undo, multi-year demo seed | No       | ✅ Complete (2026-06-27) — see notes below |
-| Track A | API Proxy worker — market/MF/vehicle proxy, tiered cache (collapses external calls N→1), CORS                                                                                                    | Yes      | ⏳ Planned                                 |
-| Track B | Client crypto additions — identity keypairs, `device_keys`/`group_keys` stores, non-destructive merge restore                                                                                    | No       | ⏳ Planned                                 |
-| Track C | Auth/Identity worker + claim flow — D1 users/devices, signed challenge/response, recover-from-nothing, R2 blob store                                                                             | Yes      | ⏳ Planned                                 |
-| Track D | Sync layer — `core/sync/` cursor + optimistic personal-blob sync over the activity log                                                                                                           | Yes      | ⏳ Planned                                 |
-| Track E | Groups worker + N-party split engine + group UX — invites/key-grants/events, context switcher, leave + key rotation                                                                              | Yes      | ⏳ Planned                                 |
+| Track   | Feature                                                                                                                                                                                          | Backend? | Status                                                                    |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | ------------------------------------------------------------------------- |
+| Track 1 | IOU pairwise-ledger redesign — Person entity, per-person running balance, partial settlement, expense-seeding, settle→income linkage, both-way edit re-sync, combined undo, multi-year demo seed | No       | ✅ Complete (2026-06-27) — see notes below                                |
+| Track A | API Proxy worker — passthrough + tiered cache for Yahoo/MFAPI/NPS/IPO, market Cron-snapshot, permanent D1 cache + morning queue for vahandetails, CORS, N→1                                       | Yes      | ✅ Complete (deployed 2026-07-01) — see notes |
+| Track B | Client crypto additions — identity keypairs, `device_keys`/`group_keys` stores, non-destructive merge restore                                                                                    | No       | ⏳ Planned                                                                |
+| Track C | Auth/Identity worker + claim flow — D1 users/devices, signed challenge/response, recover-from-nothing, R2 blob store                                                                             | Yes      | ⏳ Planned                                                                |
+| Track D | Sync layer — `core/sync/` cursor + optimistic personal-blob sync over the activity log                                                                                                           | Yes      | ⏳ Planned                                                                |
+| Track E | Groups worker + N-party split engine + group UX — invites/key-grants/events, context switcher, leave + key rotation                                                                              | Yes      | ⏳ Planned                                                                |
+
+**Track A — API Proxy Worker (2026-06-27):** first backend track; the deploy template for B–E.
+A Cloudflare Worker (`workers/api-proxy/`) **transparently proxies + caches** the external finance
+APIs — `GET /yf/* /mfapi/* /nps/* /ig/*` (KV TTLs mirroring the client) — fixing CORS and collapsing
+N user calls into 1 upstream. `GET /vehicle/:regno` adds a **permanent D1 cache** + the **smart Vahan
+queue**: on a cache miss outside the budget/window (or on failure) the reg is queued (deduped) and the
+user gets a friendly _"by tomorrow morning"_ response; a **Cron** (06:00/08:30/11:30 IST) drains the
+queue within a 900-call/day budget and the first success serves everyone — net upstream ≈ globally-new
+regs/day. Per-IP KV rate-limit + `/health`. Clients route through `VITE_API_PROXY` (base-URL swap via
+`core/net/apiBase.ts`); **unset = exactly today's direct behavior** (app stays fully usable with no
+backend). Pure worker logic is unit-tested in the main gate (`tests/worker/`, 20 tests). The worker is
+`wrangler dev`-ready; **actual Cloudflare deploy is user-run** — step-by-step in
+[`workers/api-proxy/README.md`](../workers/api-proxy/README.md). Auth design **reconciled off
+phone+OTP** in `docs/ROADMAP.md` (keypair + username + server-blind, no PII). Gate green (type-check,
+lint, 268 tests, build). **Track A completed + deployed 2026-07-01.** Step 8: the **market ticker
+strip** now serves from a **Cron-refreshed KV snapshot** (`GET /market`, edge-cached; client fetches
+once via `MARKET_SNAPSHOT`, falls back to per-ticker with no backend) — global data is no longer a
+per-user worker call. Step 9: **deployed** — KV `CACHE` + D1 `penny_proxy` (APAC) created, D1 migrated
+(local + remote), `wrangler deploy` → **`penny-api-proxy.hesh.workers.dev`**, Cron `*/15` live; local +
+live smoke tests passed (`/health`, `/market`, `/yf` MISS→HIT, `/mfapi`, `/vehicle` queued, CORS 204);
+app baked with `VITE_API_PROXY`. This is the **deploy template for Tracks B–E**. **Deferred
+(post-close):** merchant-dictionary endpoint (with the categorization track), edge Cache API layering.
+**Next: Track B** (client crypto additions).
 
 **Track 1.1 — IOU ↔ transactions + net worth (2026-06-26):** a lend/borrow is now one event with two
 views. **Lent = an Expense** (money out) + "they owe you"; **Borrowed = an Income** (money in) + "you

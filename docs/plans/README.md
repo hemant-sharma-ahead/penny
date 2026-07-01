@@ -15,6 +15,7 @@ track/step breakdown, and a verification section.
 
 ## Index
 
-| Plan                                                                  | Phase     | Status                        |
-| --------------------------------------------------------------------- | --------- | ----------------------------- |
-| [Phase 1.5 — Groups & Household OS](phase-1.5-groups-household-os.md) | Phase 1.5 | In progress (Track 1 ✅ core) |
+| Plan                                                                   | Phase     | Status                            |
+| ---------------------------------------------------------------------- | --------- | --------------------------------- |
+| [Phase 1.5 — Groups & Household OS](phase-1.5-groups-household-os.md)  | Phase 1.5 | In progress (Track 1 ✅ complete) |
+| [Phase 1.5 Track A — API Proxy Worker](phase-1.5-track-A-api-proxy.md) | Phase 1.5 | ✅ Complete (deployed 2026-07-01)  |

@@ -258,6 +258,15 @@ IOU UI lives in `src/features/iou/` (`IouView` shared by `/app/iou` and the Expe
 | vahandetails.com             | Vehicle RC lookup, depreciation             | `src/core/vehicle/rcClient.ts`        | 30 days   |
 | Market data (indices/forex)  | Sensex, Nifty, Gold, Silver, USD-INR, Crude | `src/core/market/marketDataClient.ts` | 15 min    |
 
+**Base-URL resolution (`src/core/net/apiBase.ts`):** every client reads its host from here. When
+`VITE_API_PROXY` is set, all of the above route through the **API Proxy Worker** (`workers/api-proxy/`,
+Phase 1.5 Track A) for CORS + shared caching; when unset, calls go direct (Yahoo via the Vite dev
+proxy) — the app stays fully usable with no backend. The worker passthrough-caches Yahoo/MFAPI/NPS/IPO
+in KV and keeps a **permanent D1 cache + morning queue** for the rate-limited vahandetails API; the
+vehicle client surfaces the worker's `queued` response via `VehicleQueuedError`. See
+[`docs/plans/phase-1.5-track-A-api-proxy.md`](plans/phase-1.5-track-A-api-proxy.md) and
+[`workers/api-proxy/README.md`](../workers/api-proxy/README.md).
+
 ---
 
 ## Context providers
@@ -516,9 +525,14 @@ Bridge functions that read UI state then call a hook mutation live in the page.
 
 **Rationale (Phase 1.5):** We're already on Cloudflare Pages. D1 is SQLite at the edge — sufficient for the identity/membership data (users, groups, group_members). Supabase would add a new vendor and its PostgreSQL row-level security model is overcomplicated for our needs. D1 + KV keeps everything on one platform and under the generous Cloudflare free tier.
 
-### Decision: Phone OTP auth (no email, no OAuth)
+### Decision: Keypair + username auth (NO phone, NO OTP, NO email) — reconciled 2026-06-27
 
-**Rationale (Phase 1.5):** No inbox to phish. No Google/Apple dependency for OAuth. SMS OTP is universally understood in India. Fits the privacy-first positioning — we don't need to know your email.
+**Rationale (Phase 1.5, Track A reconciliation):** phone + OTP was **dropped** — SMS gateways cost
+money and a phone number is maximal PII, both contradicting the product. Identity is an on-device
+keypair + a self-chosen `username` + the existing `Profile.userId`; recovery is a server-blind
+encrypted blob looked up by username; the passphrase is the only decryption secret. **No PII reaches
+the server.** (Superseded the earlier "Phone OTP auth" decision; see `docs/ROADMAP.md` → Authentication
+and the parent plan → Track C.)
 
 ### Decision: Client-side encryption only, user-owned cloud backup
 
