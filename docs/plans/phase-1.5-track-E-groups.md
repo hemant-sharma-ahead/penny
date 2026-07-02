@@ -233,7 +233,17 @@ design.
   read-only (archive banner); **reopen** re-enables activity. Closed-group edits are blocked in the UI +
   guarded in the event appender.
 
-### E5 — Trip↔group linkage + per-item share + cash guard + seed
+### E5 — Trip↔group linkage + per-item share + cash guard + seed 🚧 (spine ✅)
+
+> **E5a done (spine):** `balanceCalculator.projectedBalance` + shared `delta()` (the cash-negative guard
+> math), `Expense`/`Goal.shareWith?`, `ActiveEvent.linkedGroupId?`, and `groupsService.shareExpenseToGroup`
+> (mirror a personal expense into a group as an equal-split `shared_expense`, ciphertext-only). Tests:
+> `tests/accounts/balanceCalculator.test.ts` + groupsService share test.
+> **Remaining E5 UI/seed (Stage-F bring-up, verified with the deployed worker):** the cash-negative
+> **warning banner** in `ExpenseForm` (uses `projectedBalance`), the **"Share with a group"** row +
+> **share-later** action, the **vacation→group link** + prefilled composer, and demo **seed fixtures**
+> (a Trip + Family group; ensure demo cash never goes negative). Deferred deliberately — these are the
+> group-facing surfaces best built + reviewed against a live worker rather than shipped blind.
 
 - **Event→group link:** add `linkedGroupId?` to `ActiveEvent` (`EventModeContext`). While a linked event is
   active, the **Add** action opens the **group composer** prefilled (that group · all members · equal
