@@ -200,9 +200,15 @@ design.
 > local event → push), `pushPending` (encrypt + append un-synced events, record server seq), `pullGroupEvents`
 > (fetch since cursor → decrypt with epoch key → **LWW-on-updatedAt** merge, skip epochs without a grant),
 > `syncGroup`, plus `groupBalances` (folds via `split.ts`) and `groupFeed` (tombstone-aware). Cursor scope
-> `group:${groupId}`. **Remaining E4 (UI, next): `GroupContext` + header context switcher + group dashboard +
-> shared-expense composer (wires `split.ts`) + settle-up + settle/close** — visual surfaces, reviewed against
-> the deployed worker (no RTL in the test setup).
+> `group:${groupId}`.
+>
+> **E4b done (read UI):** `src/context/GroupContext.tsx` (`GroupProvider`/`useGroupContext` — active
+> Personal|group scope, persisted), `features/groups/ContextSwitcher.tsx` (header context bar + menu,
+> gated on `hasEntitlement('sync')`), `CreateGroupModal`/`JoinGroupModal` (wire `groupsService`),
+> `GroupDashboard` (your balance, members + per-member balances, shared-expense feed; best-effort
+> `syncGroup` on open). Mounted in `AppShell`; Home re-scopes to the dashboard when a group is active.
+> **Remaining E4c (write UI, next): shared-expense composer (wires `split.ts`) + settle-up + members/invite
+> management + settle & close** — visual surfaces, reviewed against the deployed worker (no RTL in tests).
 
 - **Group event sync** (`src/core/groups/groupSync.ts`) — mirrors the Track D engine pattern: append local
   events to R2 via the worker, pull `events?since=cursor.seq`, decrypt with the epoch Group Key, fold into

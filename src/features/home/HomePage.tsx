@@ -4,9 +4,15 @@ import { GlanceHeader } from './GlanceHeader';
 import { AccountsStrip } from './AccountsStrip';
 import { ToolsGrid } from './ToolsGrid';
 import { useHome } from './useHome';
+import { useGroupContext } from '@/context/GroupContext';
+import { GroupDashboard } from '@/features/groups/GroupDashboard';
 
 export function HomePage() {
+  const { activeGroup } = useGroupContext();
   const { summary, assetGroups, totalAssets, totalLiabilities } = useHome();
+
+  // When a group is the active context, Home becomes that group's dashboard.
+  if (activeGroup) return <GroupDashboard group={activeGroup} />;
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
