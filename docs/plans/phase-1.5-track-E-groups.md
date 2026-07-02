@@ -77,6 +77,56 @@ expense_delete | settlement | member_joined | member_left | group_closed | group
 
 ---
 
+## Architecture decision (E1): cross-worker device-key lookup via `AUTH_DB`
+
+**Decision (2026-07-01, approved).** The groups worker (`penny-groups`) reads the auth worker's D1
+`devices` table through a **second, read-only D1 binding, `AUTH_DB`**, to (a) verify a request's device
+signature and (b) fetch a member's ECDH wrapping public key when relaying a key-grant. It issues its
+**own** `/challenge` nonces in its **own** KV; it never writes `AUTH_DB`.
+
+**Why this is needed.** Every group route is authenticated by the same signed challenge as Track C, which
+requires the caller's **device signing public key** — and that key lives only in the auth worker's
+`devices` table (Track C, Model B). Grants additionally need the recipient's **wrapping public key**, also
+in `devices`. So the groups worker must reach identity data it does not own.
+
+**Alternatives considered, and why not (for now):**
+
+| Option                                                                 | Why not chosen                                                                                                                                                                                                                    |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A. One shared D1** (put group tables in `penny_auth`)                | Couples two domains into one schema, one migration history, one blast radius. Harder to reason about, back up, or split later. We want group data (which can grow large: events) isolated from small, sensitive identity metadata. |
+| **B. Service binding / internal `fetch`** groups → auth to verify     | Adds a network hop + a second failure mode on every request, and needs a secured internal "verify device" endpoint. More moving parts than a DB read. Viable later if the workers must live in separate accounts/regions.        |
+| **C. Denormalize** — copy device keys into the groups D1 at claim     | Two sources of truth for identity; revocation + re-key must now fan out and stay consistent. Silent staleness = an auth bug. Rejected.                                                                                            |
+| **D. Trust a client-supplied device pubkey (TOFU)**                    | Defeats server-verified identity — anyone could mint a key. A no-go for the auth boundary.                                                                                                                                        |
+
+**Chosen: `AUTH_DB` read binding.** D1 databases can be bound to multiple Workers, so this is a
+one-line config with no runtime hop and a **single source of truth** for identity (revocation is always
+respected because we read the live `devices` row).
+
+**Complications / things to watch (the reason this record exists):**
+
+1. **Schema coupling.** The groups worker now depends on these `devices` columns as a contract:
+   `device_id, user_id, signing_key, wrapping_key, revoked_at`. A rename/drop in the auth worker breaks
+   groups. Treat those columns as a shared interface; changes to them require touching both workers.
+2. **Migration ownership.** Only the **auth** worker owns/writes `penny_auth`. The groups worker must
+   never run migrations against `AUTH_DB` — its own migrations target `penny_groups` only.
+3. **Read-only is by convention, not enforced.** D1 has no read-only binding mode. The invariant is kept
+   by code review + the fact the groups worker has zero write statements against `AUTH_DB`
+   (`groupsStore.ts` only `SELECT`s from it: `getDeviceSigningKey`, `getUserWrappingKey`).
+4. **No cross-DB joins.** D1 can't join across the two databases, so the members list does N per-member
+   wrapping-key lookups. Fine at household scale; revisit (batch/`IN`, or cache) if groups get large.
+5. **Per-env wiring.** Each env (`dev`/`staging`/`production`) must bind the **matching** `penny_auth`
+   database id in `wrangler.toml` — a mismatch would verify against the wrong identity store.
+6. **Separate nonce KVs are deliberate.** The groups worker validates its own challenges; nonces are not
+   shared with the auth worker. This keeps the workers independent at the cost of one extra `/challenge`
+   round-trip when a client talks to both.
+
+**Revisit triggers.** Move to **Option B (service binding / internal verify endpoint)** if we ever need
+the workers in separate Cloudflare accounts/regions, a hard identity/data isolation boundary, or if the
+`devices` read pattern becomes a hotspot. Until any of those, the read binding is the simplest correct
+design.
+
+---
+
 ## Sub-phases
 
 ### E1 — Groups worker + group crypto (server + key exchange) ✅

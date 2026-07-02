@@ -54,6 +54,15 @@ ships that bundle inside the app binary. Two rules keep this from biting:
 3. **Version the API path** (`/v1/…`, `/v2/…`). Old store binaries keep hitting `/v1`; new ones use
    `/v2`. Never break a contract an installed binary depends on.
 
+### Worker-to-worker identity lookup (groups → auth, Track E)
+
+The groups worker (`penny-groups`) verifies the same signed request as the auth worker but needs the
+caller's device signing key — which lives only in the auth worker's D1. We bind that D1 into the groups
+worker **read-only** (`AUTH_DB`) rather than sharing one database, calling auth over the network, or
+duplicating keys. Full rationale, alternatives, and complications (schema coupling, migration ownership,
+read-only-by-convention, revisit triggers) are recorded in
+[`plans/phase-1.5-track-E-groups.md`](plans/phase-1.5-track-E-groups.md) → "Architecture decision (E1)".
+
 ### CORS / native
 
 The worker returns `Access-Control-Allow-Origin: *` (public, read-only data), which covers browser
