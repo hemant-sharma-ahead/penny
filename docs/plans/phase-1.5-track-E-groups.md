@@ -46,7 +46,7 @@ This is large, so it ships as **sequenced sub-phases E1→E5**, each independent
 
 ## Data model
 
-**Server (new `workers/groups/` worker — mirrors the Track A/C template; D1 + R2 + KV).**
+**Server (new `workers/groups/` worker — mirrors the Track A/C template; D1 + KV; event bodies inline in D1).**
 
 ```sql
 groups(group_id PK, type, enc_name, owner_id, key_epoch, history_visibility, status, created_at, updated_at)
@@ -56,7 +56,8 @@ group_key_grants(group_id, user_id, key_epoch, wrapped_key, PK(group_id,user_id,
 group_events(group_id, seq, event_id, author_id, key_epoch, r2_key, lamport, PK(group_id,seq))
 ```
 
-R2: `gevent/{group_id}/{seq}` = `AES-GCM(GroupKey_epoch, eventJson)` — ciphertext only.
+Event body: `group_events.ciphertext` = `AES-GCM(GroupKey_epoch, eventJson)` — ciphertext only, stored
+inline in D1 (no R2; the blobs are tiny — revisit R2 only if large payloads like receipts are added).
 All endpoints authorized by `signedFetch`'s signed challenge **+ a membership check**.
 
 **Client (new encrypted Dexie stores, schema v9 — id-only, like the Track B stores):**

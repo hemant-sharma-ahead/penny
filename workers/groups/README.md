@@ -3,7 +3,7 @@
 Shared-ledger relay for **Groups & Household OS**. Lets claimed accounts create groups, invite/join
 members, relay wrapped Group-Key grants, and append/fetch group events. **Model B / ciphertext-only:**
 the server never sees the group name (`enc_name`), member names, financial data, or Group Keys. Event
-bodies live in R2 as `AES-GCM(GroupKey_epoch, eventJson)`; grants are wrapped to a member's ECDH key.
+bodies are stored inline in D1 (`group_events.ciphertext` = `AES-GCM(GroupKey_epoch, eventJson)`); grants are wrapped to a member's ECDH key.
 
 Mirrors the Track A (`workers/api-proxy/`) and Track C (`workers/auth/`) templates.
 
@@ -33,7 +33,7 @@ The client uses `signedFetch(path, init, GROUPS_BASE)` — the same choke point 
 | `POST /group/:id/member`     | self / admin/owner  | `leave` \| `remove` \| `set_role`                   |
 | `POST /group/:id/grant`      | admin/owner         | Relay wrapped Group-Key grant(s) to a member        |
 | `GET  /group/:id/grants`     | member              | Fetch my wrapped grants (unwrap locally)            |
-| `POST /group/:id/events`     | member (active)     | Append event ciphertext → R2, server assigns `seq`  |
+| `POST /group/:id/events`     | member (active)     | Append event ciphertext (inline in D1), assigns `seq`|
 | `GET  /group/:id/events?since`| member             | Fetch events after `seq`                            |
 | `POST /group/:id/close`      | admin/owner         | Settle & close → events frozen; bumps epoch         |
 | `POST /group/:id/reopen`     | admin/owner         | Reopen a closed group                               |
@@ -44,23 +44,25 @@ The client uses `signedFetch(path, init, GROUPS_BASE)` — the same choke point 
 ```bash
 cd workers/groups
 npm install
+npx wrangler login                            # once, if not already authenticated
 
-# KV (nonces + rate limit)
-wrangler kv namespace create CACHE            # → paste id into wrangler.toml
+# KV: reuse the existing api-proxy namespace (already set in wrangler.toml). No new namespace needed.
 
-# D1 (groups) + apply migration
-wrangler d1 create penny_groups               # → paste database_id into wrangler.toml
+# D1 (groups) — dedicated database:
+npx wrangler d1 create penny_groups           # → paste database_id into the DB binding
 npm run db:migrate:remote
 
-# Bind the EXISTING auth D1 read-only (device signing/wrapping keys)
-#   copy penny_auth's database_id from workers/auth/wrangler.toml into the AUTH_DB binding
+# AUTH_DB: bind the auth worker's penny_auth D1 read-only (device signing/wrapping-key lookup).
+#   copy penny_auth's database_id from workers/auth/wrangler.toml into the AUTH_DB binding.
 
-# R2 (event bodies)
-wrangler r2 bucket create penny-groups-events
+# (No R2 — event bodies are stored inline in D1's group_events.ciphertext.)
 
 npm run type-check
 npm run deploy                                # → penny-groups.<subdomain>.workers.dev
 ```
+
+> Always invoke the CLI as **`npx wrangler …`** — it's a local devDependency, so a bare `wrangler`
+> gives “command not found” unless you've installed it globally (`npm i -g wrangler`).
 
 Then set the client env: `VITE_GROUPS_PROXY=https://penny-groups.<subdomain>.workers.dev`
 (falls back to `${VITE_API_PROXY}/groups` for future single-gateway routing).

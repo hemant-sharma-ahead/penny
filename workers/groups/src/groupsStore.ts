@@ -29,7 +29,7 @@ export interface EventRow {
   event_id: string;
   author_id: string;
   key_epoch: number;
-  r2_key: string;
+  ciphertext: string; // base64(iv||AES-GCM ciphertext) — opaque to the server, stored inline in D1
   lamport: number;
   created_at: number;
 }
@@ -192,10 +192,11 @@ export async function listGrantsForUser(
 
 // ─── Events ──────────────────────────────────────────────────────────────────────
 
-/** Append an event with a server-assigned monotonic seq. Idempotent on (group_id, event_id). */
+/** Append an event with a server-assigned monotonic seq. Idempotent on (group_id, event_id).
+ *  The encrypted body is stored inline in D1 (`ciphertext`) — no R2 needed for these small blobs. */
 export async function appendEvent(
   db: D1Database,
-  e: { groupId: string; eventId: string; authorId: string; keyEpoch: number; r2Key: (seq: number) => string; lamport: number; now: number }
+  e: { groupId: string; eventId: string; authorId: string; keyEpoch: number; ciphertext: string; lamport: number; now: number }
 ): Promise<{ seq: number; deduped: boolean }> {
   const existing = await db
     .prepare('SELECT seq FROM group_events WHERE group_id = ? AND event_id = ?')
@@ -210,10 +211,10 @@ export async function appendEvent(
   const seq = (max?.m ?? 0) + 1;
   await db
     .prepare(
-      'INSERT INTO group_events (group_id, seq, event_id, author_id, key_epoch, r2_key, lamport, created_at) ' +
+      'INSERT INTO group_events (group_id, seq, event_id, author_id, key_epoch, ciphertext, lamport, created_at) ' +
         'VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     )
-    .bind(e.groupId, seq, e.eventId, e.authorId, e.keyEpoch, e.r2Key(seq), e.lamport, e.now)
+    .bind(e.groupId, seq, e.eventId, e.authorId, e.keyEpoch, e.ciphertext, e.lamport, e.now)
     .run();
   return { seq, deduped: false };
 }

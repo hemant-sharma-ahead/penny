@@ -49,7 +49,6 @@ export interface Env {
   CACHE: KVNamespace;
   DB: D1Database;
   AUTH_DB: D1Database;
-  EVENTS: R2Bucket;
 }
 
 const NONCE_TTL_SEC = 60;
@@ -331,16 +330,15 @@ async function handleAppendEvents(req: Request, env: Env, url: URL, groupId: str
     const ciphertext = str(ev.ciphertext); // base64(iv||AES-GCM ciphertext) — opaque to the server
     if (!eventId || !keyEpoch || !ciphertext) continue;
 
-    const { seq, deduped } = await appendEvent(env.DB, {
+    const { seq } = await appendEvent(env.DB, {
       groupId,
       eventId,
       authorId: auth.userId,
       keyEpoch,
-      r2Key: (s) => `gevent/${groupId}/${s}`,
+      ciphertext,
       lamport,
       now
     });
-    if (!deduped) await env.EVENTS.put(`gevent/${groupId}/${seq}`, ciphertext);
     assigned.push({ event_id: eventId, seq });
   }
   return json({ ok: true, assigned });
@@ -354,21 +352,15 @@ async function handleGetEvents(req: Request, env: Env, url: URL, groupId: string
 
   const since = parseInt(url.searchParams.get('since') ?? '0', 10) || 0;
   const rows = await listEventsSince(env.DB, groupId, since);
-  const events = await Promise.all(
-    rows.map(async (r) => {
-      const obj = await env.EVENTS.get(r.r2_key);
-      const ciphertext = obj ? await obj.text() : null;
-      return {
-        seq: r.seq,
-        event_id: r.event_id,
-        author_id: r.author_id,
-        key_epoch: r.key_epoch,
-        lamport: r.lamport,
-        created_at: r.created_at,
-        ciphertext
-      };
-    })
-  );
+  const events = rows.map((r) => ({
+    seq: r.seq,
+    event_id: r.event_id,
+    author_id: r.author_id,
+    key_epoch: r.key_epoch,
+    lamport: r.lamport,
+    created_at: r.created_at,
+    ciphertext: r.ciphertext
+  }));
   return json({ events });
 }
 

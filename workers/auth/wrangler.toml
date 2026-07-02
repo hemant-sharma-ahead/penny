@@ -7,17 +7,19 @@ main = "src/index.ts"
 compatibility_date = "2024-09-23"
 
 # KV: single-use challenge nonces (60s TTL) + per-IP / per-username rate-limit counters.
-# Create with: wrangler kv namespace create CACHE   → paste the id below.
+# KV REUSES the existing api-proxy namespace — nonce/rate-limit keys are prefixed (`challenge:`, `rl:`)
+# so they can't collide with the market/vehicle cache. (Create a dedicated one if you'd rather.)
 kv_namespaces = [
-  { binding = "CACHE", id = "<DEV_KV_ID>" }
+  { binding = "CACHE", id = "b99b4f35a1714357ac1072604a7fc8a7" }
 ]
 
 # D1: identity metadata only — users + devices. No financial data, no PII, no personal blob (Model B).
+# DEDICATED database (kept separate from the api-proxy cache + groups for clean scaling/isolation).
 # Create with: wrangler d1 create penny_auth   → paste the database_id below.
 [[d1_databases]]
 binding = "DB"
 database_name = "penny_auth"
-database_id = "<DEV_D1_ID>"
+database_id = "a560b193-d080-4cc1-a833-745646cea782"
 
 # ─────────────────────────── staging ───────────────────────────
 [env.staging]

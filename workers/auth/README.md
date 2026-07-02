@@ -41,8 +41,9 @@ cd workers/auth
 npm install
 npx wrangler login
 
-# Create resources (dev first), paste the printed ids into wrangler.toml:
-npx wrangler kv namespace create CACHE      # → <DEV_KV_ID>
+# KV: reuse the existing api-proxy namespace (already set in wrangler.toml — nonce/rate-limit keys are
+# prefixed, so no collision with the market/vehicle cache). Or create a dedicated one and paste its id.
+# D1: dedicated database (kept separate from the api-proxy cache + groups). Paste the id into wrangler.toml:
 npx wrangler d1 create penny_auth           # → <DEV_D1_ID>
 
 # Apply the D1 schema:

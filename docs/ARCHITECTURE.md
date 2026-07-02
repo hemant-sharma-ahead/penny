@@ -292,8 +292,9 @@ account claim required).
 
 **Groups & Household OS (`workers/groups/` + `src/core/groups/`, Phase 1.5 Track E — E1):** a third
 worker (`penny-groups`) relays **ciphertext-only** shared-ledger data (Model B) — D1 (`groups`,
-`group_members`, `invites`, `group_key_grants`, `group_events` index) + R2 (event bodies
-`gevent/{group_id}/{seq}` = `AES-GCM(GroupKey, eventJson)`) + KV (its own `/challenge` nonces). It binds
+`group_members`, `invites`, `group_key_grants`, `group_events` — with the encrypted event body stored
+inline in `group_events.ciphertext` = `AES-GCM(GroupKey, eventJson)`; no R2 needed) + KV (its own
+`/challenge` nonces). It binds
 the auth D1 read-only (`AUTH_DB`) to look up device signing/wrapping keys, then verifies the same signed
 request as Track C **plus a membership/role check**. The client layer: `apiBase.ts` resolves
 `GROUPS_BASE` (`VITE_GROUPS_PROXY`, else `${VITE_API_PROXY}/groups`); `signedFetch` gained a `base`

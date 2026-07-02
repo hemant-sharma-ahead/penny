@@ -513,7 +513,7 @@ A group the user belongs to. `role`/`status` are **this user's own** membership.
 
 ### `group_events`
 
-Append-only shared ledger (local mirror of the R2 event blobs). Balances fold over these.
+Append-only shared ledger (local mirror of the server's event rows). Balances fold over these.
 
 | Field     | Type    | Notes                                                                       |
 | --------- | ------- | --------------------------------------------------------------------------- |
@@ -543,7 +543,7 @@ Canonical schema: [`workers/auth/migrations/0001_init.sql`](../workers/auth/migr
   `created_at`, `revoked_at`.
 
 The **groups worker's D1** (`workers/groups/`, Phase 1.5 Track E) holds group metadata + membership +
-the event index — **ciphertext only** (encrypted name, wrapped key grants; event bodies in R2). It binds
+the events — **ciphertext only** (encrypted name, wrapped key grants; event bodies stored inline). It binds
 the auth D1 read-only (`AUTH_DB`) for device-key lookup during signature verification. Canonical schema:
 [`workers/groups/migrations/0001_init.sql`](../workers/groups/migrations/0001_init.sql).
 
@@ -555,8 +555,8 @@ the auth D1 read-only (`AUTH_DB`) for device-key lookup during signature verific
 - **`group_key_grants`** — PK(`group_id`,`user_id`,`key_epoch`), `wrapped_key` (opaque ciphertext
   envelope: granter's wrapping public JWK + the wrapped Group Key), `created_at`.
 - **`group_events`** — PK(`group_id`,`seq`), `event_id` (client UUID, idempotency), `author_id`,
-  `key_epoch`, `r2_key`, `lamport`, `created_at`. Event bodies: R2 `gevent/{group_id}/{seq}` =
-  `AES-GCM(GroupKey_epoch, eventJson)`.
+  `key_epoch`, `ciphertext`, `lamport`, `created_at`. Event body = `ciphertext` column =
+  `AES-GCM(GroupKey_epoch, eventJson)`, stored inline in D1 (no R2 — the blobs are tiny).
 
 ---
 
