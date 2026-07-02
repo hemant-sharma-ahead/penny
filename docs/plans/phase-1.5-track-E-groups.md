@@ -1,14 +1,71 @@
 # Phase 1.5 — Track E: Groups & Household OS (DETAILED)
 
-> **Status:** 🚧 In progress. **E1 ✅ (worker + group crypto + client wiring)** — `workers/groups/`
-> (D1 + R2 + KV, five tables, signed + membership-checked routes; device signing/wrapping keys read from
-> the auth D1), `src/core/groups/keys.ts` (Group Key gen + ECDH-wrapped grants + event enc/dec via Track B
-> `deriveSharedWrappingKey`), `src/core/groups/groupsClient.ts` (`signedFetch`-based, `GROUPS_BASE`), Dexie
-> v9 (`groups`/`group_members`/`group_events`). Not yet deployed. **Next: E2** (create/invite/join/membership).
-> This is the **last feature track** of Phase 1.5, followed by the **Stage F closeout** (below). Sub-phases
-> ship one at a time (E1→E5), each behind the `sync` entitlement so `main` stays shippable.
+> **Status:** 🚧 Feature-complete + deployed, verification pending. **E1–E4 ✅**, **E5 core ✅**
+> (cash guard, share-with-group, seed cash fix); **workers deployed**; `sync` env-gated + Groups gated on a
+> claimed username. **Remaining:** E5 tail (vacation→group link, share-later, demo group fixtures) + Stage F.
+> Detailed per-sub-phase notes are in the E1–E5 sections below.
 > Authoritative per-track status: [`docs/MILESTONES.md`](../MILESTONES.md) / [`docs/ROADMAP.md`](../ROADMAP.md).
 > Parent plan: [`phase-1.5-groups-household-os.md`](phase-1.5-groups-household-os.md) → "Track E".
+
+---
+
+## ▶ Resume here (session handoff)
+
+**What's live / built (all committed, `main` green — build + worker type-check + lint + 404 tests):**
+
+- **Workers deployed** to `*.hesh.workers.dev`: `penny-auth` (Track C) + `penny-groups` (Track E).
+  Infra: **reuse** the api-proxy **KV**; **dedicated D1s** `penny_auth` + `penny_groups` (groups binds
+  `penny_auth` read-only as `AUTH_DB`); **no R2** — event ciphertext is stored inline in
+  `group_events.ciphertext`.
+- **Client, end-to-end code-complete:** E1 worker+crypto, E2 lifecycle service, E3 split engine, E4 sync
+  engine + context switcher + dashboard + composer + settle + members, E5 cash-negative guard +
+  share-with-group + seed cash fix.
+- **Gating:** `hasEntitlement('sync')` is driven by **`VITE_ENABLE_SYNC`** (set in `.env.local` +
+  `.env.production`). Claiming a **username is required** (Phase-1.5 opt-in); Groups appear only once
+  claimed — until then the context switcher shows a "Claim a username to use Groups" CTA → Profile.
+
+**⚠️ Do this first next session (required):** the deployed `penny-groups` predates the R2→inline-D1
+change, so **re-deploy it**:
+```bash
+cd workers/groups && npm run db:migrate:remote   # applies 0002 (r2_key → ciphertext)
+npm run deploy                                    # redeploy without the R2 binding
+```
+
+**Then — nothing here has been exercised against the live stack yet. Manual verification (do this):**
+```bash
+npm run dev     # .env.local: VITE_ENABLE_SYNC=1 + the three *_PROXY URLs
+```
+1. **Claim** — Profile → "Claim your account" → pick a username (required). Exercises `penny-auth`:
+   register → `GET /challenge` → signed `/whoami`. Expect "Account claimed as @name".
+2. **Create group** — context bar (top) → "Create a group" → land on the group dashboard.
+3. **Add shared expense** — Add → amount/category/participants/split (Equal, then Unequal/%/Shares);
+   the live breakdown must reconcile → Save. Appears in the feed; balances update.
+4. **Settle up** — pick a member → records a settlement; balances move toward ₹0.
+5. **Settle & close** (⚙ → Settle & close) → dashboard locks; **Reopen** re-enables.
+6. **Invite → join** — ⚙ → Create invite link → open on a **2nd browser profile** (same DMK for a
+   quick test, or a separate claimed account) → Join → an admin device grants the key → name/feed decrypt.
+7. **Cash guard** — add a cash-account expense larger than its balance → soft amber warning, save still allowed.
+8. **Share with a group** — a personal expense's "Share with a group" picker → appears in the group feed
+   as an equal split; the personal txn still records the full amount.
+9. **Model B check** — DevTools → Network: group name (`enc_name`) + event bodies (`ciphertext`) are
+   opaque; invites send only `SHA-256(secret)`.
+
+**If it fails:** likely spots are CORS (worker `cors.ts` allows the origin), signed-request 401
+(nonce/clock/`AUTH_DB` device lookup), or grant/unwrap (key epoch). Capture the failing request +
+response and hand it to the next session.
+
+**Then build the E5 tail (deferred to verify against the live worker):**
+
+1. **Vacation→group link** — `ActiveEvent.linkedGroupId` UI: link/create a group from an active event;
+   while linked, the Add flow opens the group composer prefilled (that group · all members · equal).
+2. **Share-later** — a "Share with a group" action on an existing transaction row (reuses
+   `shareExpenseToGroup`).
+3. **Demo group fixtures** — seed a Trip + Family group (local `groups`/`group_members`/`group_events` +
+   a `group_keys` entry) so the dashboard demos richly in a preview build.
+
+**Then: Stage F closeout** (see the bottom of this doc).
+
+---
 
 ## Context
 

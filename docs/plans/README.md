@@ -17,6 +17,6 @@ track/step breakdown, and a verification section.
 
 | Plan                                                                     | Phase     | Status                                                           |
 | ------------------------------------------------------------------------ | --------- | ---------------------------------------------------------------- |
-| [Phase 1.5 — Groups & Household OS](phase-1.5-groups-household-os.md)    | Phase 1.5 | In progress (Tracks 1 ✅, A ✅, B ✅, C ✅, D ✅; Track E 🚧 E1 ✅) |
+| [Phase 1.5 — Groups & Household OS](phase-1.5-groups-household-os.md)    | Phase 1.5 | In progress (Tracks 1 ✅, A ✅, B ✅, C ✅, D ✅; Track E 🚧 feature-complete + deployed) |
 | [Phase 1.5 Track A — API Proxy Worker](phase-1.5-track-A-api-proxy.md)   | Phase 1.5 | ✅ Complete (deployed 2026-07-01)                                |
-| [Phase 1.5 Track E — Groups & Household OS](phase-1.5-track-E-groups.md) | Phase 1.5 | 🚧 In progress — E1 ✅ (worker + crypto); next E2 (+ Stage F)    |
+| [Phase 1.5 Track E — Groups & Household OS](phase-1.5-track-E-groups.md) | Phase 1.5 | 🚧 E1–E4 ✅, E5 core ✅, deployed; verification + E5 tail + Stage F pending (see "▶ Resume here") |

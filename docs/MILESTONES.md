@@ -287,7 +287,7 @@ ledger entry only — Penny never touches the money flow** (no stored VPA/QR).
 | Track B | Client crypto additions — ECDSA/ECDH P-256 identity keypairs (lazy at claim), `device_keys`/`group_keys`/`sync_cursor` stores (Dexie v8), non-destructive `mergeBundle()` restore                           | No       | ✅ Complete (2026-07-01) — see notes below    |
 | Track C | Auth/Identity worker + claim flow — `workers/auth/` (D1 users/devices), signed challenge/response auth, client `signedFetch`/`claim`, `sync` entitlement (dark). Model B: no personal blob/R2 on server     | Yes      | ✅ Complete (2026-07-01) — see notes below    |
 | Track D | Automatic backup + multi-device sync — `core/sync/` provider abstraction (Drive live, iCloud dormant, OPFS daily floor), `backupEngine` + `mergeBundle`, destination chooser UI (Model B, user's own cloud) | Yes      | ✅ Complete (2026-07-01) — see notes below    |
-| Track E | Groups worker + N-party split engine + group UX — invites/key-grants/events, context switcher, leave + key rotation                                                                                         | Yes      | 🚧 In progress — E1 ✅ (worker + crypto)      |
+| Track E | Groups worker + N-party split engine + group UX — invites/key-grants/events, context switcher, leave + key rotation                                                                                         | Yes      | 🚧 E1–E4 ✅, E5 core ✅, deployed; verify + E5 tail + Stage F pending |
 
 **Track A — API Proxy Worker (2026-06-27):** first backend track; the deploy template for B–E.
 A Cloudflare Worker (`workers/api-proxy/`) **transparently proxies + caches** the external finance
