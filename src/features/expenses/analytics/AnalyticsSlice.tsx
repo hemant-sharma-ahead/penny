@@ -10,9 +10,10 @@ interface AnalyticsSliceProps {
   expenses: Expense[];
   categoryMap: Map<string, ExpenseCategory>;
   mode: 'open' | 'safe' | 'privacy';
+  iouLinkedTxnIds: Set<string>;
 }
 
-export function AnalyticsSlice({ expenses, categoryMap, mode }: AnalyticsSliceProps) {
+export function AnalyticsSlice({ expenses, categoryMap, mode, iouLinkedTxnIds }: AnalyticsSliceProps) {
   const { events, pastEvents, allEventHashtags, promoteHashtagToEvent } = useEventMode();
   const { budgets } = useBudgets();
 
@@ -26,6 +27,9 @@ export function AnalyticsSlice({ expenses, categoryMap, mode }: AnalyticsSlicePr
   const {
     analyticsData,
     analyticsTotal,
+    monthTotal,
+    setAsideData,
+    setAsideTotal,
     eventsThisMonth,
     prevMonthData,
     hashtagSummary,
@@ -46,7 +50,8 @@ export function AnalyticsSlice({ expenses, categoryMap, mode }: AnalyticsSlicePr
     analyticsYear,
     events,
     pastEvents,
-    allEventHashtags
+    allEventHashtags,
+    iouLinkedTxnIds
   });
 
   return (
@@ -66,6 +71,9 @@ export function AnalyticsSlice({ expenses, categoryMap, mode }: AnalyticsSlicePr
         onChangeShowAnalyticsMonthPicker={setShowAnalyticsMonthPicker}
         analyticsData={analyticsData}
         analyticsTotal={analyticsTotal}
+        monthTotal={monthTotal}
+        setAsideData={setAsideData}
+        setAsideTotal={setAsideTotal}
         prevMonthData={prevMonthData}
         spendVelocity={spendVelocity}
         recap={recap}

@@ -382,6 +382,47 @@ event round-trips). Gate green (worker `type-check`, app `tsc`, lint, **355 test
 (user-run — see `workers/groups/README.md`); behind the **`sync` entitlement (dark)**. **Next: E2**
 (create/invite/join/membership UX).
 
+**Track E — Spending-clarity refinement (categories + analytics, 2026-07-02):** ahead of the group UX,
+a taxonomy/analytics pass so "other" money never pollutes everyday spend. Added a **Legal** intent group
+(11 categories: Advocate/Court/Stamp/Notary/Filing/Affidavit/Typing/Exemption/Legal-Transport/Legal-Food/
+Misc) — seeded as defaults, back-filled to existing users via the additive `penny_cats_v4` seed, and wired
+into the Tax Footprint bands (`categoryTaxMap.ts`: advocate/court/govt fees exempt, ancillary spend taxed).
+Introduced a **daily-routine vs set-aside** split: `INTENT_GROUP_META` gains a `routine` flag +
+`isRoutineGroup()`; the Analytics donut + "Daily-routine spending" list now show only routine groups, while
+**Travel, Family & Giving, Legal, Financial, Other, and money lent (IOU-linked, any category)** are
+summarised in a separate **"Set aside"** card (lending under a synthetic *Lending & IOU* bucket). Recap /
+anomalies / velocity / prev-month all run on the routine basis; event-tagged vacation spend stays excluded
+as before. Family support stays a plain category (`cat-family-support`) — **no IOU-model change** (user's
+call). `useExpenses` exposes `iouLinkedTxnIds`; threaded through `ExpensesPage → AnalyticsSlice →
+useExpenseAnalytics`. Also fixed a **duplicate-category** bug: the demo seed had minted a parallel
+`demo-cat-*` set (Groceries/Rent/Transport/Medical/Investments/…) that shadowed the real defaults, so
+the picker showed each staple twice. The seed now reuses the real defaults (`ALL_DEFAULT_CATEGORIES` +
+a key→default-id map in `dedupeDemoCategories.ts`), and a one-time, once-flagged
+(`penny_demo_cats_deduped`) migration heals already-seeded databases — remapping expenses/budgets/
+templates/merchant-memory off the legacy ids and deleting the orphaned demo categories (meaning
+preserved). Gate green (tsc, lint, **366 tests** incl. `tests/expenses/categoryTaxonomy` +
+`tests/db/dedupeDemoCategories`).
+
+Follow-up polish: the Analytics monthly view now leads with an **all-inclusive "Total spent this month"**
+(`monthTotal` = daily-routine + set-aside + events) above the routine breakdown; **Travel** gains Trip
+Prep / Trip Shopping / Fuel (fuel tax band) / Vehicle Service and **Education** gains Transportation Fee /
+School Trip / Competition (additive seed bumped to `penny_cats_v5`, tax bands wired); and two default
+icons that were blank in the shipped webfont — **Food on Trip** (`ti-fork`→`ti-tools-kitchen-2`) and
+**Savings Transfer** (`ti-piggy-bank`→`ti-pig-money`) — are fixed, guarded by a webfont-icon regression
+test. Because definition edits don't reach already-seeded records, two once-flagged migrations were added
+in `dedupeDemoCategories.ts`: `repairCategoryIcons` (patches webfont-missing icons in place) and
+`reconcileDefaultCategories` (applies name/group changes only when the stored value still matches the old
+default, so user edits aren't clobbered).
+
+Category taxonomy round 2 (2026-07-02): **Daily Living** gains everyday **Fuel** + **Salon & Grooming**;
+the travel Fuel is renamed **Trip Fuel** (kept); **Home & Utilities** gains **Home Services**; a new
+set-aside **Renovation** intent group ships 8 categories (Materials, Labour & Contractor, Furniture,
+Fixtures & Fittings, Painting, Interior & Design, Appliances, Other); **Education** gains Transportation
+Fee / School Trip / Competition; **Income** splits **Dividends** and **Interest** and adds **Capital
+Gains**, **Bonus & Incentive**, **Reimbursements**. Tax-footprint bands wired for all new expense
+categories (Fuel/Trip Fuel → fuel band; Salon/Home Services/Renovation → GST 18%); additive seed bumped
+to `penny_cats_v6`; migration-map aliases added. Gate green (tsc, lint, **377 tests**).
+
 **Track 1.1 — IOU ↔ transactions + net worth (2026-06-26):** a lend/borrow is now one event with two
 views. **Lent = an Expense** (money out) + "they owe you"; **Borrowed = an Income** (money in) + "you
 owe them" — fixing the earlier bug where Borrowed sat on the Expense form. From the IOU screen, creating

@@ -3,22 +3,41 @@ import type { ExpenseCategory } from './types';
 export interface IntentGroupMeta {
   label: string;
   color: string;
+  /**
+   * Whether this group counts toward "daily-routine" living spend (the main category analytics).
+   * `false` marks a group as **set aside** — one-off / support / non-routine spend (travel, family
+   * support, legal, financial moves) that is summarised separately so a trip or a lawsuit never
+   * distorts the everyday spending picture. Defaults to routine (true) when omitted.
+   */
+  routine?: boolean;
 }
 
 export const INTENT_GROUP_META: Record<string, IntentGroupMeta> = {
   daily_living: { label: 'Daily Living', color: '#ef4444' },
   home_utilities: { label: 'Home & Utilities', color: '#3b82f6' },
+  renovation: { label: 'Renovation', color: '#b45309', routine: false },
   health: { label: 'Health', color: '#10b981' },
-  financial: { label: 'Financial', color: '#22c55e' },
+  financial: { label: 'Financial', color: '#22c55e', routine: false },
   lifestyle: { label: 'Lifestyle', color: '#8b5cf6' },
   sin_goods: { label: 'Sin Goods', color: '#b91c1c' },
-  travel: { label: 'Travel', color: '#0ea5e9' },
+  travel: { label: 'Travel', color: '#0ea5e9', routine: false },
   education: { label: 'Education', color: '#6366f1' },
-  family_giving: { label: 'Family & Giving', color: '#ec4899' },
-  other: { label: 'Other', color: '#6b7280' },
-  income: { label: 'Income', color: '#10b981' },
-  transfers: { label: 'Transfers', color: '#3b82f6' }
+  family_giving: { label: 'Family & Giving', color: '#ec4899', routine: false },
+  legal: { label: 'Legal', color: '#475569', routine: false },
+  other: { label: 'Other', color: '#6b7280', routine: false },
+  income: { label: 'Income', color: '#10b981', routine: false },
+  transfers: { label: 'Transfers', color: '#3b82f6', routine: false }
 };
+
+/**
+ * Whether a spending group belongs in the main "daily-routine" analytics. Known set-aside intent
+ * groups (routine === false) are separated out; everything else — routine intent groups AND
+ * user-created parent groups (whose key isn't an intent group) — counts as daily routine.
+ */
+export function isRoutineGroup(groupKey: string): boolean {
+  const meta = INTENT_GROUP_META[groupKey];
+  return meta ? meta.routine !== false : true;
+}
 
 export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
   // ── Daily Living ─────────────────────────────────────────────────────────────
@@ -47,6 +66,26 @@ export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
     name: 'Transport',
     icon: 'ti-car',
     color: '#f59e0b',
+    isDefault: true,
+    intentGroup: 'daily_living',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-fuel',
+    name: 'Fuel',
+    icon: 'ti-gas-station',
+    color: '#f59e0b',
+    isDefault: true,
+    intentGroup: 'daily_living',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-salon',
+    name: 'Salon & Grooming',
+    icon: 'ti-scissors',
+    color: '#ec4899',
     isDefault: true,
     intentGroup: 'daily_living',
     applicableTo: 'expense',
@@ -100,6 +139,97 @@ export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
     color: '#78716c',
     isDefault: true,
     intentGroup: 'home_utilities',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-home-services',
+    name: 'Home Services',
+    icon: 'ti-air-conditioning',
+    color: '#06b6d4',
+    isDefault: true,
+    intentGroup: 'home_utilities',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  // ── Renovation ───────────────────────────────────────────────────────────────
+  {
+    id: 'cat-reno-materials',
+    name: 'Materials',
+    icon: 'ti-wall',
+    color: '#b45309',
+    isDefault: true,
+    intentGroup: 'renovation',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-reno-labour',
+    name: 'Labour & Contractor',
+    icon: 'ti-hammer',
+    color: '#92400e',
+    isDefault: true,
+    intentGroup: 'renovation',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-reno-furniture',
+    name: 'Furniture',
+    icon: 'ti-sofa',
+    color: '#a16207',
+    isDefault: true,
+    intentGroup: 'renovation',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-reno-fixtures',
+    name: 'Fixtures & Fittings',
+    icon: 'ti-bulb',
+    color: '#ca8a04',
+    isDefault: true,
+    intentGroup: 'renovation',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-reno-painting',
+    name: 'Painting',
+    icon: 'ti-brush',
+    color: '#d97706',
+    isDefault: true,
+    intentGroup: 'renovation',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-reno-interior',
+    name: 'Interior & Design',
+    icon: 'ti-ruler-2',
+    color: '#c2410c',
+    isDefault: true,
+    intentGroup: 'renovation',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-reno-appliances',
+    name: 'Appliances',
+    icon: 'ti-wash-machine',
+    color: '#78716c',
+    isDefault: true,
+    intentGroup: 'renovation',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-reno-other',
+    name: 'Other Renovation',
+    icon: 'ti-tools',
+    color: '#6b7280',
+    isDefault: true,
+    intentGroup: 'renovation',
     applicableTo: 'expense',
     createdAt: 0
   },
@@ -168,7 +298,7 @@ export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
   {
     id: 'cat-savings',
     name: 'Savings Transfer',
-    icon: 'ti-piggy-bank',
+    icon: 'ti-pig-money',
     color: '#22c55e',
     isDefault: true,
     intentGroup: 'financial',
@@ -271,8 +401,48 @@ export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
   {
     id: 'cat-trip-food',
     name: 'Food on Trip',
-    icon: 'ti-fork',
+    icon: 'ti-tools-kitchen-2',
     color: '#ef4444',
+    isDefault: true,
+    intentGroup: 'travel',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-trip-prep',
+    name: 'Trip Prep',
+    icon: 'ti-luggage',
+    color: '#0ea5e9',
+    isDefault: true,
+    intentGroup: 'travel',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-trip-shopping',
+    name: 'Trip Shopping',
+    icon: 'ti-shopping-bag',
+    color: '#8b5cf6',
+    isDefault: true,
+    intentGroup: 'travel',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-trip-fuel',
+    name: 'Trip Fuel',
+    icon: 'ti-gas-station',
+    color: '#0ea5e9',
+    isDefault: true,
+    intentGroup: 'travel',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-vehicle-service',
+    name: 'Vehicle Service',
+    icon: 'ti-tools',
+    color: '#78716c',
     isDefault: true,
     intentGroup: 'travel',
     applicableTo: 'expense',
@@ -304,6 +474,36 @@ export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
     name: 'School Fees',
     icon: 'ti-certificate',
     color: '#8b5cf6',
+    isDefault: true,
+    intentGroup: 'education',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-edu-transport',
+    name: 'Transportation Fee',
+    icon: 'ti-bus',
+    color: '#f59e0b',
+    isDefault: true,
+    intentGroup: 'education',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-edu-trip',
+    name: 'School Trip',
+    icon: 'ti-backpack',
+    color: '#10b981',
+    isDefault: true,
+    intentGroup: 'education',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-edu-competition',
+    name: 'Competition',
+    icon: 'ti-trophy',
+    color: '#f97316',
     isDefault: true,
     intentGroup: 'education',
     applicableTo: 'expense',
@@ -347,6 +547,117 @@ export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
     color: '#22c55e',
     isDefault: true,
     intentGroup: 'family_giving',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  // ── Legal ────────────────────────────────────────────────────────────────────
+  {
+    id: 'cat-legal-advocate',
+    name: 'Advocate Fee',
+    icon: 'ti-gavel',
+    color: '#475569',
+    isDefault: true,
+    intentGroup: 'legal',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-legal-court',
+    name: 'Court Fee',
+    icon: 'ti-building-bank',
+    color: '#334155',
+    isDefault: true,
+    intentGroup: 'legal',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-legal-stamp',
+    name: 'Stamp Duty',
+    icon: 'ti-license',
+    color: '#64748b',
+    isDefault: true,
+    intentGroup: 'legal',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-legal-notary',
+    name: 'Notary Charges',
+    icon: 'ti-stamp',
+    color: '#6366f1',
+    isDefault: true,
+    intentGroup: 'legal',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-legal-filing',
+    name: 'Filing & Documentation',
+    icon: 'ti-files',
+    color: '#0ea5e9',
+    isDefault: true,
+    intentGroup: 'legal',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-legal-affidavit',
+    name: 'Affidavit Charges',
+    icon: 'ti-file-text',
+    color: '#8b5cf6',
+    isDefault: true,
+    intentGroup: 'legal',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-legal-typing',
+    name: 'Typing & Printing',
+    icon: 'ti-printer',
+    color: '#78716c',
+    isDefault: true,
+    intentGroup: 'legal',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-legal-exemption',
+    name: 'Exemption Fee',
+    icon: 'ti-file-certificate',
+    color: '#f59e0b',
+    isDefault: true,
+    intentGroup: 'legal',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-legal-transport',
+    name: 'Legal Transport',
+    icon: 'ti-car',
+    color: '#f97316',
+    isDefault: true,
+    intentGroup: 'legal',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-legal-food',
+    name: 'Legal Food & Refreshments',
+    icon: 'ti-cup',
+    color: '#ef4444',
+    isDefault: true,
+    intentGroup: 'legal',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
+  {
+    id: 'cat-legal-misc',
+    name: 'Other Legal Fees',
+    icon: 'ti-scale',
+    color: '#6b7280',
+    isDefault: true,
+    intentGroup: 'legal',
     applicableTo: 'expense',
     createdAt: 0
   },
@@ -396,9 +707,49 @@ export const DEFAULT_INCOME_CATEGORIES: ExpenseCategory[] = [
   },
   {
     id: 'cat-inc-dividends',
-    name: 'Dividends & Interest',
+    name: 'Dividends',
     icon: 'ti-chart-bar',
     color: '#22c55e',
+    isDefault: true,
+    intentGroup: 'income',
+    applicableTo: 'income',
+    createdAt: 0
+  },
+  {
+    id: 'cat-inc-interest',
+    name: 'Interest',
+    icon: 'ti-percentage',
+    color: '#16a34a',
+    isDefault: true,
+    intentGroup: 'income',
+    applicableTo: 'income',
+    createdAt: 0
+  },
+  {
+    id: 'cat-inc-capital-gains',
+    name: 'Capital Gains',
+    icon: 'ti-trending-up',
+    color: '#10b981',
+    isDefault: true,
+    intentGroup: 'income',
+    applicableTo: 'income',
+    createdAt: 0
+  },
+  {
+    id: 'cat-inc-bonus',
+    name: 'Bonus & Incentive',
+    icon: 'ti-award',
+    color: '#f59e0b',
+    isDefault: true,
+    intentGroup: 'income',
+    applicableTo: 'income',
+    createdAt: 0
+  },
+  {
+    id: 'cat-inc-reimbursement',
+    name: 'Reimbursements',
+    icon: 'ti-receipt-refund',
+    color: '#0ea5e9',
     isDefault: true,
     intentGroup: 'income',
     applicableTo: 'income',
@@ -515,8 +866,9 @@ export const CATEGORY_MIGRATION_MAP: Record<string, string> = {
   // Transport
   transport: 'cat-transport',
   transportation: 'cat-transport',
-  fuel: 'cat-transport',
-  petrol: 'cat-transport',
+  fuel: 'cat-fuel',
+  petrol: 'cat-fuel',
+  diesel: 'cat-fuel',
   commute: 'cat-transport',
   'auto & transport': 'cat-transport',
   auto: 'cat-transport',
@@ -546,6 +898,23 @@ export const CATEGORY_MIGRATION_MAP: Record<string, string> = {
   fitness: 'cat-fitness',
   gym: 'cat-fitness',
   'personal care': 'cat-personal-care',
+  salon: 'cat-salon',
+  haircut: 'cat-salon',
+  barber: 'cat-salon',
+  spa: 'cat-salon',
+  'home services': 'cat-home-services',
+  'home service': 'cat-home-services',
+  'ac service': 'cat-home-services',
+  'pest control': 'cat-home-services',
+  plumber: 'cat-home-services',
+  electrician: 'cat-home-services',
+  renovation: 'cat-reno-other',
+  remodeling: 'cat-reno-other',
+  'renovation materials': 'cat-reno-materials',
+  contractor: 'cat-reno-labour',
+  furniture: 'cat-reno-furniture',
+  painting: 'cat-reno-painting',
+  interior: 'cat-reno-interior',
   beauty: 'cat-personal-care',
   grooming: 'cat-personal-care',
   // Financial
@@ -593,6 +962,13 @@ export const CATEGORY_MIGRATION_MAP: Record<string, string> = {
   accommodation: 'cat-hotels',
   stay: 'cat-hotels',
   'local travel': 'cat-local-travel',
+  'trip prep': 'cat-trip-prep',
+  'trip shopping': 'cat-trip-shopping',
+  'trip food': 'cat-trip-food',
+  'vehicle service': 'cat-vehicle-service',
+  'bike service': 'cat-vehicle-service',
+  'car service': 'cat-vehicle-service',
+  servicing: 'cat-vehicle-service',
   // Education
   education: 'cat-tuition',
   tuition: 'cat-tuition',
@@ -600,6 +976,10 @@ export const CATEGORY_MIGRATION_MAP: Record<string, string> = {
   books: 'cat-books',
   school: 'cat-school-fees',
   'school fees': 'cat-school-fees',
+  'transportation fee': 'cat-edu-transport',
+  'transport fee': 'cat-edu-transport',
+  'school trip': 'cat-edu-trip',
+  competition: 'cat-edu-competition',
   // Family & Giving
   family: 'cat-family-support',
   'family support': 'cat-family-support',
@@ -608,6 +988,22 @@ export const CATEGORY_MIGRATION_MAP: Record<string, string> = {
   donations: 'cat-charity',
   occasions: 'cat-occasions',
   'gifts & occasions': 'cat-occasions',
+  // Legal
+  legal: 'cat-legal-misc',
+  'legal fees': 'cat-legal-misc',
+  advocate: 'cat-legal-advocate',
+  'advocate fee': 'cat-legal-advocate',
+  lawyer: 'cat-legal-advocate',
+  'lawyer fee': 'cat-legal-advocate',
+  'court fee': 'cat-legal-court',
+  court: 'cat-legal-court',
+  'stamp duty': 'cat-legal-stamp',
+  stamp: 'cat-legal-stamp',
+  notary: 'cat-legal-notary',
+  affidavit: 'cat-legal-affidavit',
+  'typing & printing': 'cat-legal-typing',
+  printing: 'cat-legal-typing',
+  'exemption fee': 'cat-legal-exemption',
   // Income
   salary: 'cat-inc-salary',
   income: 'cat-inc-other',
@@ -615,10 +1011,16 @@ export const CATEGORY_MIGRATION_MAP: Record<string, string> = {
   freelance: 'cat-inc-freelance',
   rental: 'cat-inc-rental',
   dividends: 'cat-inc-dividends',
-  interest: 'cat-inc-dividends',
+  interest: 'cat-inc-interest',
+  'capital gains': 'cat-inc-capital-gains',
+  ltcg: 'cat-inc-capital-gains',
+  stcg: 'cat-inc-capital-gains',
+  bonus: 'cat-inc-bonus',
+  incentive: 'cat-inc-bonus',
   cashback: 'cat-inc-cashback',
   refund: 'cat-inc-cashback',
-  reimbursement: 'cat-inc-cashback',
+  reimbursement: 'cat-inc-reimbursement',
+  reimbursements: 'cat-inc-reimbursement',
   // Transfers
   transfer: 'cat-tr-bank',
   'bank transfer': 'cat-tr-bank',

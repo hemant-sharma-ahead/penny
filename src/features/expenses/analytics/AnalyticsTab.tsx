@@ -191,6 +191,9 @@ interface AnalyticsTabProps {
     budgetTotal: number;
   }>;
   analyticsTotal: number;
+  monthTotal: number;
+  setAsideData: Array<{ group: string; amount: number; label: string; color: string; icon: string }>;
+  setAsideTotal: number;
   prevMonthData: Map<string, number>;
   spendVelocity: { daysElapsed: number; daysInMonth: number; projected: number } | null;
   recap: MonthlyRecap;
@@ -235,6 +238,9 @@ export function AnalyticsTab({
   onChangeShowAnalyticsMonthPicker,
   analyticsData,
   analyticsTotal,
+  monthTotal,
+  setAsideData,
+  setAsideTotal,
   prevMonthData,
   spendVelocity,
   recap,
@@ -423,13 +429,30 @@ export function AnalyticsTab({
       )}
 
       {/* ── Monthly view ── */}
-      {analyticsView === 'monthly' && analyticsData.length === 0 ? (
+      {analyticsView === 'monthly' &&
+      analyticsData.length === 0 &&
+      setAsideData.length === 0 &&
+      eventsThisMonth.length === 0 ? (
         <div className="p-10 text-center">
           <i className="ti ti-chart-donut text-tertiary" style={{ fontSize: 44 }} aria-hidden="true" />
           <p className="text-sm mt-3 text-tertiary">No expenses in {monthLabel(selectedMonth)}.</p>
         </div>
       ) : analyticsView === 'monthly' ? (
         <>
+          {/* All-inclusive month total — daily-routine + set aside + events */}
+          <div className="surface rounded-xl p-4">
+            <p className="text-xs text-secondary">Total spent · {monthLabel(selectedMonth)}</p>
+            <p className="text-2xl font-bold text-primary mt-0.5">
+              {mode === 'open' ? formatCurrency(monthTotal) : '••••'}
+            </p>
+            <p className="text-[11px] text-tertiary mt-1">
+              Daily-routine {mode === 'open' ? formatCompact(analyticsTotal) : '••••'} · Set aside{' '}
+              {mode === 'open' ? formatCompact(setAsideTotal) : '••••'}
+              {monthTotal - analyticsTotal - setAsideTotal > 0 &&
+                ` · Events ${mode === 'open' ? formatCompact(monthTotal - analyticsTotal - setAsideTotal) : '••••'}`}
+            </p>
+          </div>
+
           {/* Spend velocity — current month only */}
           {spendVelocity && (
             <div className="surface rounded-xl p-3.5 flex items-center gap-4">
@@ -510,26 +533,28 @@ export function AnalyticsTab({
             </div>
           )}
 
-          {/* Donut */}
-          <div className="surface rounded-2xl p-4 flex items-center gap-4">
-            <div className="flex-shrink-0">
-              <IntentDonut segments={analyticsData} total={analyticsTotal} />
+          {/* Donut — daily-routine groups only */}
+          {analyticsData.length > 0 && (
+            <div className="surface rounded-2xl p-4 flex items-center gap-4">
+              <div className="flex-shrink-0">
+                <IntentDonut segments={analyticsData} total={analyticsTotal} />
+              </div>
+              <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                {analyticsData.slice(0, 5).map((seg) => (
+                  <div key={seg.group} className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
+                    <span className="text-xs text-secondary truncate flex-1">{seg.label}</span>
+                    <span className="text-xs font-medium text-primary flex-shrink-0">
+                      {mode === 'open' ? formatCompact(seg.amount) : '••••'}
+                    </span>
+                  </div>
+                ))}
+                {analyticsData.length > 5 && (
+                  <p className="text-[10px] text-tertiary mt-0.5">+{analyticsData.length - 5} more groups</p>
+                )}
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-              {analyticsData.slice(0, 5).map((seg) => (
-                <div key={seg.group} className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
-                  <span className="text-xs text-secondary truncate flex-1">{seg.label}</span>
-                  <span className="text-xs font-medium text-primary flex-shrink-0">
-                    {mode === 'open' ? formatCompact(seg.amount) : '••••'}
-                  </span>
-                </div>
-              ))}
-              {analyticsData.length > 5 && (
-                <p className="text-[10px] text-tertiary mt-0.5">+{analyticsData.length - 5} more groups</p>
-              )}
-            </div>
-          </div>
+          )}
 
           {/* Events — above groups, only when present */}
           {eventsThisMonth.length > 0 && (
@@ -585,144 +610,178 @@ export function AnalyticsTab({
             </>
           )}
 
-          {/* Groups — compact rows, detail on expand */}
-          <SectionLabel className="-mb-2">Spending groups</SectionLabel>
-          <ListContainer>
-            {analyticsData.map((seg) => {
-              const pct = analyticsTotal > 0 ? (seg.amount / analyticsTotal) * 100 : 0;
-              const prevAmount = prevMonthData.get(seg.group) ?? 0;
-              const delta = prevAmount > 0 ? Math.round(((seg.amount - prevAmount) / prevAmount) * 100) : null;
-              const overBudget = seg.budgetTotal > 0 && seg.amount > seg.budgetTotal;
-              const isExpanded = expandedGroup === seg.group;
-
-              return (
-                <div key={seg.group}>
-                  {/* Compact row */}
-                  <button
-                    className="w-full px-4 py-3 flex items-center gap-3 text-left"
-                    onClick={() => onChangeExpandedGroup(isExpanded ? null : seg.group)}
-                  >
-                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
-                    <span className="text-sm font-medium text-primary flex-1 truncate">
-                      {seg.label} <span className="font-normal text-tertiary text-xs">({Math.round(pct)}%)</span>
-                    </span>
-                    {delta !== null && (
-                      <span
-                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
-                        style={{
-                          color: delta > 0 ? STATUS.danger : STATUS.success,
-                          backgroundColor: delta > 0 ? tint(STATUS.danger) : tint(STATUS.success)
-                        }}
-                      >
-                        {delta > 0 ? '↑' : '↓'}
-                        {Math.abs(delta)}%
-                      </span>
-                    )}
-                    {overBudget && (
-                      <span
-                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
-                        style={{ color: STATUS.danger, backgroundColor: tint(STATUS.danger) }}
-                      >
-                        over
-                      </span>
-                    )}
-                    <span className="text-sm font-semibold text-primary flex-shrink-0">
-                      {mode === 'open' ? (
-                        seg.budgetTotal > 0 ? (
-                          <>
-                            {formatCurrency(seg.amount)}{' '}
-                            <span className="text-xs font-normal text-tertiary">
-                              of {formatCurrency(seg.budgetTotal)}
-                            </span>
-                          </>
-                        ) : (
-                          formatCurrency(seg.amount)
-                        )
-                      ) : (
-                        '••••'
-                      )}
-                    </span>
-                    <i
-                      className={`ti ${isExpanded ? 'ti-chevron-up' : 'ti-chevron-down'} flex-shrink-0`}
-                      style={{ fontSize: 13, color: 'var(--color-text-tertiary)' }}
-                      aria-hidden="true"
-                    />
-                  </button>
-
-                  {/* Expanded detail */}
-                  {isExpanded && (
-                    <div className="px-4 pb-3 bg-surface-2 border-t border-theme">
-                      {/* Category drill-down */}
-                      <div className="mt-1 flex flex-col gap-1">
-                        {seg.cats.map((cat) => {
-                          const catPct = seg.amount > 0 ? (cat.amount / seg.amount) * 100 : 0;
-                          const catBudgetPct = cat.budgetLimit
-                            ? Math.min((cat.amount / cat.budgetLimit) * 100, 100)
-                            : 0;
-                          const catOver = !!cat.budgetLimit && cat.amount > cat.budgetLimit;
-                          return (
-                            <div
-                              key={cat.catId}
-                              className="flex flex-col gap-1 py-2 border-t border-theme first:border-t-0"
-                            >
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
-                                  style={{ backgroundColor: `${cat.color}20` }}
-                                >
-                                  <i
-                                    className={`ti ${cat.icon}`}
-                                    style={{ fontSize: 11, color: cat.color }}
-                                    aria-hidden="true"
-                                  />
-                                </div>
-                                <span className="text-xs text-secondary flex-1 truncate">{cat.name}</span>
-                                <span className="text-xs font-semibold text-primary flex-shrink-0">
-                                  {mode === 'open' ? (
-                                    cat.budgetLimit !== undefined ? (
-                                      <>
-                                        {formatCurrency(cat.amount)}{' '}
-                                        <span className="font-normal text-tertiary">
-                                          of {formatCurrency(cat.budgetLimit)}
-                                        </span>
-                                      </>
-                                    ) : (
-                                      formatCurrency(cat.amount)
-                                    )
-                                  ) : (
-                                    '••••'
-                                  )}
-                                </span>
-                              </div>
-                              {/* One bar: budget if set, share-within-group if not */}
-                              {cat.budgetLimit !== undefined ? (
-                                <div className="h-1 rounded-full bg-surface-3">
-                                  <div
-                                    className="h-1 rounded-full"
-                                    style={{
-                                      width: `${catBudgetPct}%`,
-                                      backgroundColor: catOver ? STATUS.danger : STATUS.success
-                                    }}
-                                  />
-                                </div>
-                              ) : (
-                                <div className="h-1 rounded-full bg-surface-3">
-                                  <div
-                                    className="h-1 rounded-full"
-                                    style={{ width: `${catPct}%`, backgroundColor: cat.color }}
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+          {/* Set aside — non-routine spend (travel, family support, legal, financial, lending),
+              summarised on its own so it never distorts the daily-routine picture. */}
+          {setAsideData.length > 0 && (
+            <>
+              <SectionLabel className="-mb-2">Set aside · not daily-routine</SectionLabel>
+              <ListContainer>
+                {setAsideData.map((seg) => (
+                  <div key={seg.group} className="px-4 py-3 flex items-center gap-3">
+                    <div
+                      className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: `${seg.color}20` }}
+                    >
+                      <i className={`ti ${seg.icon}`} style={{ fontSize: 14, color: seg.color }} aria-hidden="true" />
                     </div>
-                  )}
+                    <span className="text-sm font-medium text-primary flex-1 truncate">{seg.label}</span>
+                    <span className="text-sm font-semibold text-primary flex-shrink-0">
+                      {mode === 'open' ? formatCurrency(seg.amount) : '••••'}
+                    </span>
+                  </div>
+                ))}
+                <div className="px-4 py-2.5 flex items-center gap-3 bg-surface-2 border-t border-theme">
+                  <span className="text-xs text-secondary flex-1">Total set aside</span>
+                  <span className="text-xs font-semibold text-secondary flex-shrink-0">
+                    {mode === 'open' ? formatCurrency(setAsideTotal) : '••••'}
+                  </span>
                 </div>
-              );
-            })}
-          </ListContainer>
+              </ListContainer>
+            </>
+          )}
+
+          {/* Groups — compact rows, detail on expand */}
+          {analyticsData.length > 0 && (
+            <>
+              <SectionLabel className="-mb-2">Daily-routine spending</SectionLabel>
+              <ListContainer>
+                {analyticsData.map((seg) => {
+                  const pct = analyticsTotal > 0 ? (seg.amount / analyticsTotal) * 100 : 0;
+                  const prevAmount = prevMonthData.get(seg.group) ?? 0;
+                  const delta = prevAmount > 0 ? Math.round(((seg.amount - prevAmount) / prevAmount) * 100) : null;
+                  const overBudget = seg.budgetTotal > 0 && seg.amount > seg.budgetTotal;
+                  const isExpanded = expandedGroup === seg.group;
+
+                  return (
+                    <div key={seg.group}>
+                      {/* Compact row */}
+                      <button
+                        className="w-full px-4 py-3 flex items-center gap-3 text-left"
+                        onClick={() => onChangeExpandedGroup(isExpanded ? null : seg.group)}
+                      >
+                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
+                        <span className="text-sm font-medium text-primary flex-1 truncate">
+                          {seg.label} <span className="font-normal text-tertiary text-xs">({Math.round(pct)}%)</span>
+                        </span>
+                        {delta !== null && (
+                          <span
+                            className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                            style={{
+                              color: delta > 0 ? STATUS.danger : STATUS.success,
+                              backgroundColor: delta > 0 ? tint(STATUS.danger) : tint(STATUS.success)
+                            }}
+                          >
+                            {delta > 0 ? '↑' : '↓'}
+                            {Math.abs(delta)}%
+                          </span>
+                        )}
+                        {overBudget && (
+                          <span
+                            className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                            style={{ color: STATUS.danger, backgroundColor: tint(STATUS.danger) }}
+                          >
+                            over
+                          </span>
+                        )}
+                        <span className="text-sm font-semibold text-primary flex-shrink-0">
+                          {mode === 'open' ? (
+                            seg.budgetTotal > 0 ? (
+                              <>
+                                {formatCurrency(seg.amount)}{' '}
+                                <span className="text-xs font-normal text-tertiary">
+                                  of {formatCurrency(seg.budgetTotal)}
+                                </span>
+                              </>
+                            ) : (
+                              formatCurrency(seg.amount)
+                            )
+                          ) : (
+                            '••••'
+                          )}
+                        </span>
+                        <i
+                          className={`ti ${isExpanded ? 'ti-chevron-up' : 'ti-chevron-down'} flex-shrink-0`}
+                          style={{ fontSize: 13, color: 'var(--color-text-tertiary)' }}
+                          aria-hidden="true"
+                        />
+                      </button>
+
+                      {/* Expanded detail */}
+                      {isExpanded && (
+                        <div className="px-4 pb-3 bg-surface-2 border-t border-theme">
+                          {/* Category drill-down */}
+                          <div className="mt-1 flex flex-col gap-1">
+                            {seg.cats.map((cat) => {
+                              const catPct = seg.amount > 0 ? (cat.amount / seg.amount) * 100 : 0;
+                              const catBudgetPct = cat.budgetLimit
+                                ? Math.min((cat.amount / cat.budgetLimit) * 100, 100)
+                                : 0;
+                              const catOver = !!cat.budgetLimit && cat.amount > cat.budgetLimit;
+                              return (
+                                <div
+                                  key={cat.catId}
+                                  className="flex flex-col gap-1 py-2 border-t border-theme first:border-t-0"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
+                                      style={{ backgroundColor: `${cat.color}20` }}
+                                    >
+                                      <i
+                                        className={`ti ${cat.icon}`}
+                                        style={{ fontSize: 11, color: cat.color }}
+                                        aria-hidden="true"
+                                      />
+                                    </div>
+                                    <span className="text-xs text-secondary flex-1 truncate">{cat.name}</span>
+                                    <span className="text-xs font-semibold text-primary flex-shrink-0">
+                                      {mode === 'open' ? (
+                                        cat.budgetLimit !== undefined ? (
+                                          <>
+                                            {formatCurrency(cat.amount)}{' '}
+                                            <span className="font-normal text-tertiary">
+                                              of {formatCurrency(cat.budgetLimit)}
+                                            </span>
+                                          </>
+                                        ) : (
+                                          formatCurrency(cat.amount)
+                                        )
+                                      ) : (
+                                        '••••'
+                                      )}
+                                    </span>
+                                  </div>
+                                  {/* One bar: budget if set, share-within-group if not */}
+                                  {cat.budgetLimit !== undefined ? (
+                                    <div className="h-1 rounded-full bg-surface-3">
+                                      <div
+                                        className="h-1 rounded-full"
+                                        style={{
+                                          width: `${catBudgetPct}%`,
+                                          backgroundColor: catOver ? STATUS.danger : STATUS.success
+                                        }}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="h-1 rounded-full bg-surface-3">
+                                      <div
+                                        className="h-1 rounded-full"
+                                        style={{ width: `${catPct}%`, backgroundColor: cat.color }}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </ListContainer>
+            </>
+          )}
 
           {/* Non-event hashtag summary — with promote action */}
           {hashtagSummary.length > 0 && (

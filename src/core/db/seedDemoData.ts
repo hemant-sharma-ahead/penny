@@ -6,7 +6,6 @@ import type {
   EpfEmployer,
   EpfTransaction,
   Expense,
-  ExpenseCategory,
   Goal,
   GoalContribution,
   Holding,
@@ -34,6 +33,8 @@ import {
   subscriptionsRepo
 } from './repositories';
 import { db } from './schema';
+import { ALL_DEFAULT_CATEGORIES } from './defaultCategories';
+import { DEMO_CAT_DEFAULT_ID, type DemoCatKey } from './dedupeDemoCategories';
 
 export const DEMO_SEED_KEY = 'penny_demo_seeded';
 export const isDemoSeeded = () => localStorage.getItem(DEMO_SEED_KEY) === '1';
@@ -65,115 +66,12 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
   const grow = (amount: number, mb: number) => Math.max(1, Math.round(amount * Math.pow(1 / 1.05, mb / 12)));
 
   // ── Expense categories ─────────────────────────────────────────────────────
-  const cats: Record<string, ExpenseCategory> = {
-    groceries: {
-      id: 'demo-cat-groceries',
-      name: 'Groceries',
-      icon: 'ti-shopping-cart',
-      color: '#10b981',
-      isDefault: true,
-      intentGroup: 'daily_living',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    },
-    dining: {
-      id: 'demo-cat-dining',
-      name: 'Dining & Café',
-      icon: 'ti-coffee',
-      color: '#f59e0b',
-      isDefault: true,
-      intentGroup: 'daily_living',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    },
-    transport: {
-      id: 'demo-cat-transport',
-      name: 'Transport',
-      icon: 'ti-car',
-      color: '#3b82f6',
-      isDefault: true,
-      intentGroup: 'daily_living',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    },
-    utilities: {
-      id: 'demo-cat-utilities',
-      name: 'Utilities',
-      icon: 'ti-bolt',
-      color: '#6366f1',
-      isDefault: true,
-      intentGroup: 'home_utilities',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    },
-    rent: {
-      id: 'demo-cat-rent',
-      name: 'Rent',
-      icon: 'ti-home',
-      color: '#ec4899',
-      isDefault: true,
-      intentGroup: 'home_utilities',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    },
-    medical: {
-      id: 'demo-cat-medical',
-      name: 'Medical',
-      icon: 'ti-heart-plus',
-      color: '#ef4444',
-      isDefault: true,
-      intentGroup: 'health',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    },
-    shopping: {
-      id: 'demo-cat-shopping',
-      name: 'Shopping',
-      icon: 'ti-shirt',
-      color: '#8b5cf6',
-      isDefault: true,
-      intentGroup: 'lifestyle',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    },
-    entertainment: {
-      id: 'demo-cat-entertainment',
-      name: 'Entertainment',
-      icon: 'ti-device-tv',
-      color: '#f97316',
-      isDefault: true,
-      intentGroup: 'lifestyle',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    },
-    investments: {
-      id: 'demo-cat-investments',
-      name: 'Investments',
-      icon: 'ti-chart-line',
-      color: '#00a86b',
-      isDefault: true,
-      intentGroup: 'financial',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    },
-    other: {
-      id: 'demo-cat-other',
-      name: 'Other',
-      icon: 'ti-dots-circle-horizontal',
-      color: '#94a3b8',
-      isDefault: true,
-      intentGroup: 'other',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    }
-  };
-  await Promise.all(Object.values(cats).map((c) => expenseCategoriesRepo.put(c)));
+  // Reuse the REAL default categories (seeded idempotently by id) instead of a parallel `demo-cat-*`
+  // set — otherwise the picker shows every staple twice (Groceries, Rent, Transport…). Demo rows
+  // reference default ids through `catId`; the key→default map lives in dedupeDemoCategories.ts.
+  await Promise.all(ALL_DEFAULT_CATEGORIES.map((c) => expenseCategoriesRepo.put({ ...c })));
 
-  const catId = (key: keyof typeof cats): string => {
-    const cat = cats[key];
-    if (!cat) throw new Error(`Unknown category key: ${key}`);
-    return cat.id;
-  };
+  const catId = (key: DemoCatKey): string => DEMO_CAT_DEFAULT_ID[key];
 
   // ── Expenses ───────────────────────────────────────────────────────────────
   const CC = 'demo-acc-hdfc-cc';
@@ -183,7 +81,7 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
   const exp = (
     daysAgo: number,
     amount: number,
-    catKey: keyof typeof cats,
+    catKey: DemoCatKey,
     description: string,
     hashtags: string[] = [],
     extra?: Partial<Expense>

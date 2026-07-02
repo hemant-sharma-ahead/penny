@@ -42,6 +42,7 @@ export function ExpensesPage() {
     seedIouFromExpense,
     persons,
     iouLinkByTxn,
+    iouLinkedTxnIds,
     patchExpenses,
     removeExpenses,
     saveCategory,
@@ -124,7 +125,9 @@ export function ExpensesPage() {
 
       {activeTab === 'iou' && <IouSlice />}
 
-      {activeTab === 'analytics' && <AnalyticsSlice expenses={expenses} categoryMap={categoryMap} mode={mode} />}
+      {activeTab === 'analytics' && (
+        <AnalyticsSlice expenses={expenses} categoryMap={categoryMap} mode={mode} iouLinkedTxnIds={iouLinkedTxnIds} />
+      )}
 
       {showBudgets && (
         <Modal title="Budgets" onClose={() => setShowBudgets(false)} scrollable>
