@@ -9,6 +9,8 @@ import { profileRepo, groupsRepo, groupMembersRepo } from '@/core/db/repositorie
 import { NotClaimedError } from '@/core/identity/signedFetch';
 import type { Group, GroupHistoryVisibility, GroupMember, GroupRole, GroupType } from '@/core/db/types';
 import * as api from './groupsClient';
+import { appendGroupEvent } from './groupSync';
+import { equalSplit } from './split';
 import {
   decryptFromGroup,
   encryptForGroup,
@@ -262,6 +264,33 @@ export async function reopenGroup(groupId: string): Promise<void> {
   const group = await groupsRepo.get(groupId);
   if (group)
     await groupsRepo.put({ ...group, status: res.status === 'closed' ? 'closed' : 'active', updatedAt: Date.now() });
+}
+
+// ─── Personal → group share (Track E, E5) ──────────────────────────────────────
+
+/**
+ * Share a personal expense into a group as an equal-split `shared_expense` (the lightweight
+ * "Share with a group" path from the personal Expense form, and the trip↔group flow). The payer is
+ * you; participants default to all active members. Returns the mirrored event's id so the caller can
+ * store it on the personal expense's `shareWith` link.
+ */
+export async function shareExpenseToGroup(
+  groupId: string,
+  input: { amount: number; description: string; categoryId?: string; participants?: string[] }
+): Promise<string> {
+  const userId = await currentUserId();
+  const active = (await groupMembersRepo.getAll()).filter((m) => m.groupId === groupId && m.status === 'active');
+  const participants = input.participants?.length ? input.participants : active.map((m) => m.userId);
+  const expenseId = crypto.randomUUID();
+  await appendGroupEvent(groupId, 'shared_expense', {
+    expenseId,
+    amount: input.amount,
+    payer: userId,
+    shares: equalSplit(input.amount, participants),
+    description: input.description,
+    ...(input.categoryId ? { categoryId: input.categoryId } : {})
+  });
+  return expenseId;
 }
 
 // ─── Local reads ────────────────────────────────────────────────────────────────

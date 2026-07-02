@@ -32,18 +32,31 @@ vi.mock('@/core/groups/groupsClient', () => ({
   rotateGroup: async (groupId: string, encName: string) => {
     (calls.rotateGroup ??= []).push({ groupId, encName });
     return { ok: true, key_epoch: 2 };
+  },
+  appendEvents: async (_groupId: string, events: { eventId: string }[]) => {
+    (calls.appendEvents ??= []).push(events);
+    return { ok: true, assigned: events.map((e, i) => ({ event_id: e.eventId, seq: i + 1 })) };
   }
 }));
 
 import { db } from '@/core/db/schema';
 import { keystore } from '@/core/crypto/keystore';
 import { initialize } from '@/core/crypto/securityManager';
-import { profileRepo, groupsRepo, groupMembersRepo } from '@/core/db/repositories';
-import { createGroup, createInvite, redeemInvite, rotateGroupKey } from '@/core/groups/groupsService';
+import { profileRepo, groupsRepo, groupMembersRepo, groupEventsRepo } from '@/core/db/repositories';
+import { createGroup, createInvite, redeemInvite, rotateGroupKey, shareExpenseToGroup } from '@/core/groups/groupsService';
 import { loadGroupKey, decryptFromGroup } from '@/core/groups/keys';
+import { groupBalances } from '@/core/groups/groupSync';
 
 async function reset() {
-  await Promise.all([db.security.clear(), db.profile.clear(), db.groups.clear(), db.group_members.clear(), db.group_keys.clear()]);
+  await Promise.all([
+    db.security.clear(),
+    db.profile.clear(),
+    db.groups.clear(),
+    db.group_members.clear(),
+    db.group_keys.clear(),
+    db.group_events.clear(),
+    db.sync_cursor.clear()
+  ]);
   keystore.lock();
   await initialize('correct horse battery staple', '123456');
   const now = Date.now();
@@ -122,5 +135,44 @@ describe('groupsService.rotateGroupKey', () => {
     expect(newKey).toBeDefined();
     const sent = calls.rotateGroup?.[0] as { encName: string };
     expect(await decryptFromGroup(newKey!, sent.encName)).toBe('Flat 402');
+  });
+});
+
+describe('groupsService.shareExpenseToGroup', () => {
+  beforeEach(reset);
+
+  it('appends an equal-split shared_expense paid by me, mirrored ciphertext-only', async () => {
+    await createGroup({ name: 'Goa Trip', type: 'trip', historyVisibility: 'from_join' });
+    // Add a second member so the split is 2-way.
+    const now = Date.now();
+    await groupMembersRepo.put({
+      id: 'g1:b',
+      groupId: 'g1',
+      userId: 'b',
+      displayName: 'Rohit',
+      role: 'member',
+      status: 'active',
+      joinedAt: now,
+      createdAt: now,
+      updatedAt: now
+    });
+
+    await shareExpenseToGroup('g1', { amount: 1000, description: 'Dinner' });
+
+    // A shared_expense event was created locally, split equally, paid by me.
+    const events = (await groupEventsRepo.getAll()).filter((e) => e.type === 'shared_expense');
+    expect(events).toHaveLength(1);
+    const payload = events[0]!.payload as { payer: string; shares: Record<string, number>; amount: number };
+    expect(payload.payer).toBe('u1');
+    expect(payload.shares).toEqual({ u1: 500, b: 500 });
+
+    // Pushed to the server as ciphertext (no plaintext description on the wire).
+    const pushed = calls.appendEvents?.[0] as { ciphertext: string }[];
+    expect(pushed[0]?.ciphertext).not.toContain('Dinner');
+
+    // Balances fold correctly: I'm owed my counterpart's share.
+    const bal = await groupBalances('g1');
+    expect(bal.u1).toBeCloseTo(500, 5);
+    expect(bal.b).toBeCloseTo(-500, 5);
   });
 });

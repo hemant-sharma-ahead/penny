@@ -11,6 +11,9 @@ export interface ActiveEvent {
   endDate?: number | undefined;
   autoTag: boolean;
   color: string;
+  /** Group this trip/event is linked to (Phase 1.5 Track E). When set, the Add flow can open the
+   *  group shared-expense composer prefilled and split expenses with companions. */
+  linkedGroupId?: string | undefined;
 }
 
 interface EventModeContextValue {

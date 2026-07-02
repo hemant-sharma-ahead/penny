@@ -246,6 +246,9 @@ export interface Expense {
   source?: TransactionSource; // omitted on legacy records = 'manual'
   sourceRef?: string; // dedup key: hash(date+amount+description) for import; bank ref for sync
   receiptDataUrl?: string; // local encrypted receipt photo (compressed JPEG data URL); never sent to AI
+  /** Groups this transaction is shared into (Phase 1.5 Track E). Each id also has a mirrored group
+   *  `shared_expense` event; this keeps the personal↔group link so shares can be shown/undone. */
+  shareWith?: string[];
   createdAt: number;
   updatedAt: number;
 }
@@ -325,6 +328,8 @@ export interface Goal {
   sipAmount?: number;
   icon?: string;
   notes?: string;
+  /** Groups this goal is shared into (Phase 1.5 Track E) — joint/household goals. */
+  shareWith?: string[];
   createdAt: number;
   updatedAt: number;
 }
