@@ -382,6 +382,17 @@ event round-trips). Gate green (worker `type-check`, app `tsc`, lint, **355 test
 (user-run — see `workers/groups/README.md`); behind the **`sync` entitlement (dark)**. **Next: E2**
 (create/invite/join/membership UX).
 
+**Track E — E3 split engine + E2 service layer (2026-07-02):** **E3** `src/core/groups/split.ts` (pure,
+13 tests) — `computeShares` (equal/unequal/percent/shares, integer-paise so every split reconciles),
+`foldGroupBalances` (event-sourced net per member; edits supersede, deletes tombstone, settlements move
+money), `whoOwesWhom` (greedy minimal transfers). **E2** `src/core/groups/groupsService.ts` — orchestrates
+worker + crypto + local mirror: `createGroup` (encrypt name → create → persist key + local group/owner),
+`createInvite`/`buildJoinLink`/`parseJoinSecret` (secret only in the link; server stores only the hash),
+`redeemInvite` (join + `awaitingKey`), `syncGroupKeys` (pull grants → unwrap → decrypt name),
+`grantKeysToMembers`, `setMemberRole`/`leaveGroup`/`removeMemberAndRotate`/`rotateGroupKey`. New worker
+endpoint `POST /group/:id/rotate` (epoch bump + re-encrypt name on leave). Group UX (create/join/composer/
+dashboard) wires in E4 with the context switcher. Gate green (app+worker tsc, lint, **394 tests**).
+
 **Track E — Spending-clarity refinement (categories + analytics, 2026-07-02):** ahead of the group UX,
 a taxonomy/analytics pass so "other" money never pollutes everyday spend. Added a **Legal** intent group
 (11 categories: Advocate/Court/Stamp/Notary/Filing/Affidavit/Typing/Exemption/Legal-Transport/Legal-Food/

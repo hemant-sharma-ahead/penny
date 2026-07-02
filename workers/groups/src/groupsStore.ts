@@ -78,6 +78,10 @@ export async function setGroupStatus(db: D1Database, groupId: string, status: st
   await db.prepare('UPDATE groups SET status = ?, updated_at = ? WHERE group_id = ?').bind(status, now, groupId).run();
 }
 
+export async function setGroupEncName(db: D1Database, groupId: string, encName: string, now: number): Promise<void> {
+  await db.prepare('UPDATE groups SET enc_name = ?, updated_at = ? WHERE group_id = ?').bind(encName, now, groupId).run();
+}
+
 export async function bumpGroupEpoch(db: D1Database, groupId: string, now: number): Promise<number> {
   await db
     .prepare('UPDATE groups SET key_epoch = key_epoch + 1, updated_at = ? WHERE group_id = ?')

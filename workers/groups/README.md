@@ -37,6 +37,7 @@ The client uses `signedFetch(path, init, GROUPS_BASE)` — the same choke point 
 | `GET  /group/:id/events?since`| member             | Fetch events after `seq`                            |
 | `POST /group/:id/close`      | admin/owner         | Settle & close → events frozen; bumps epoch         |
 | `POST /group/:id/reopen`     | admin/owner         | Reopen a closed group                               |
+| `POST /group/:id/rotate`     | admin/owner         | Bump Group-Key epoch + re-encrypt name (on leave)   |
 
 ## Setup
 

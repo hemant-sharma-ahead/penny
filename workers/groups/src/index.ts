@@ -38,6 +38,7 @@ import {
   listMembers,
   putGrant,
   revokeInvite,
+  setGroupEncName,
   setGroupStatus,
   setMemberRole,
   setMemberStatus,
@@ -87,6 +88,7 @@ export default {
         if (req.method === 'GET' && seg[2] === 'events') return await handleGetEvents(req, env, url, groupId);
         if (req.method === 'POST' && seg[2] === 'close') return await handleClose(req, env, url, groupId, 'closed');
         if (req.method === 'POST' && seg[2] === 'reopen') return await handleClose(req, env, url, groupId, 'active');
+        if (req.method === 'POST' && seg[2] === 'rotate') return await handleRotate(req, env, url, groupId);
       }
     } catch (err) {
       return json({ error: 'server_error', message: err instanceof Error ? err.message : 'unknown' }, 500);
@@ -380,6 +382,25 @@ async function handleClose(req: Request, env: Env, url: URL, groupId: string, st
   // A close/reopen bumps the epoch on close so post-close membership can't decrypt new activity later.
   if (status === 'closed') await bumpGroupEpoch(env.DB, groupId, Date.now());
   return json({ ok: true, status });
+}
+
+/**
+ * Rotate the Group Key epoch (after a member leaves). The client generates the new key, re-wraps it to
+ * the remaining members (separate /grant calls), and — because a joiner on `from_join` visibility can't
+ * read a name encrypted under an old epoch — sends the group name re-encrypted under the new key.
+ */
+async function handleRotate(req: Request, env: Env, url: URL, groupId: string): Promise<Response> {
+  const bodyText = await req.text();
+  const auth = await authenticate(req, env, url, bodyText);
+  if ('error' in auth) return auth.error;
+  const me = await requireRole(env, groupId, auth.userId, canManageMembers);
+  if ('error' in me) return me.error;
+
+  const now = Date.now();
+  const keyEpoch = await bumpGroupEpoch(env.DB, groupId, now);
+  const encName = str(safeParse(bodyText)?.enc_name);
+  if (encName) await setGroupEncName(env.DB, groupId, encName, now);
+  return json({ ok: true, key_epoch: keyEpoch });
 }
 
 // ─── Auth + membership helpers ─────────────────────────────────────────────────

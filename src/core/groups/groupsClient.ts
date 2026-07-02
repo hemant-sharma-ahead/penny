@@ -78,6 +78,11 @@ export function reopenGroup(groupId: string): Promise<{ ok: true; status: string
   return groupsFetch(`/group/${groupId}/reopen`, jsonBody({})).then(ok);
 }
 
+/** Rotate the Group-Key epoch (after a member leaves). `encName` re-encrypts the name under the new key. */
+export function rotateGroup(groupId: string, encName: string): Promise<{ ok: true; key_epoch: number }> {
+  return groupsFetch(`/group/${groupId}/rotate`, jsonBody({ enc_name: encName })).then(ok);
+}
+
 // ─── Invites ──────────────────────────────────────────────────────────────────
 
 /** Hex SHA-256 of the raw invite secret — only this hash is sent to the server (secret stays in the link). */

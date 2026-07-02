@@ -152,7 +152,17 @@ design.
   epochs per `historyVisibility` (`full` → all prior epochs; `from_join` → current epoch onward).
 - Client `src/core/groups/groupsClient.ts` — `signedFetch`-based calls for the above.
 
-### E2 — Create / invite / join / membership
+### E2 — Create / invite / join / membership ✅ (service layer)
+
+> **Done (service + worker; UI wiring lands in E4 with the context switcher).** `src/core/groups/
+> groupsService.ts` orchestrates worker + crypto + local mirror: `createGroup` (generate key → encrypt
+> name → server create → persist key + local `groups`/owner `group_members`), `createInvite`/`buildJoinLink`/
+> `parseJoinSecret` (secret in link, only `SHA-256` on the server), `redeemInvite` (join + local mirror,
+> `awaitingKey` until the grant arrives), `syncGroupKeys` (pull grants → unwrap → decrypt name),
+> `grantKeysToMembers` (admin wraps the key to every active member per history-visibility),
+> `setMemberRole`/`leaveGroup`/`removeMemberAndRotate`/`rotateGroupKey`. New worker endpoint
+> `POST /group/:id/rotate` (epoch bump + re-encrypt name on leave). Tests: `tests/groups/groupsService.test.ts`
+> (name is ciphertext on the wire; invite sends only the hash; redeem awaits key; rotation re-keys).
 
 - **Create group:** name + type (Family/Trip/Roommates/Other) + `historyVisibility` → server `create`,
   generate + self-grant the Group Key, write local `groups` + owner `group_members`.
@@ -163,7 +173,12 @@ design.
   member can change their own status (leave/mute); admins manage others. Leaving → key rotation so they
   can't read new events.
 
-### E3 — N-party split engine (pure) + shared-expense composer
+### E3 — N-party split engine (pure) + shared-expense composer 🚧 (split engine ✅)
+
+> **`split.ts` done** (pure, 13 tests): `computeShares` (equal/unequal/percent/shares, integer-paise,
+> always reconciles), `foldGroupBalances` (event-sourced net per member; edits supersede, deletes
+> tombstone, settlements move money), `whoOwesWhom` (greedy minimal transfers). Composer + settle-up UI
+> land with the group surfaces in E4.
 
 - **`src/core/groups/split.ts`** (pure, unit-tested — generalizes `iou/ledger.ts`):
   `computeShares(total, method, participants)` for **equal / unequal(exact) / percent / shares** (validates
