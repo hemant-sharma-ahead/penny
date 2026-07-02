@@ -13,12 +13,17 @@ export type Feature = 'cloud_backup' | 'sync';
 // Phase 1: every shipped feature is free. This is the single place to flip a feature to paid later
 // (then derive the answer from the stored plan / verified license token).
 //
-// `sync` is intentionally OFF here — it's READINESS-gated, not pricing-gated: account claim + the
-// sync/groups UI stay dark until Track D delivers real sync value. Flip this to true to enable an
-// opt-in beta / % canary. (Track C builds the claim flow behind this gate.)
+// `sync` is the **Phase 1.5 launch switch** — it gates the account-claim offer (and everything that
+// depends on a claimed account: backup-sync + Groups). It's READINESS-gated, not pricing-gated, and is
+// controlled by an env flag so it can be shipped OFF and turned on per-deploy without a code change:
+//   VITE_ENABLE_SYNC=1  → Phase 1.5 on (claim offer appears; claimed users get Groups)
+//   unset / anything else → Phase 1 only (fully on-device, no backend)
+// (Groups themselves additionally require a claimed username — see the claim flow / GroupContext.)
+const SYNC_ENABLED = import.meta.env.VITE_ENABLE_SYNC === '1' || import.meta.env.VITE_ENABLE_SYNC === 'true';
+
 const FREE_IN_PHASE_1: Record<Feature, boolean> = {
   cloud_backup: true,
-  sync: false
+  sync: SYNC_ENABLED
 };
 
 /** Whether the current user may use a feature. */

@@ -62,11 +62,12 @@ export function ExpensesPage() {
   const [showBudgets, setShowBudgets] = useState(false);
   const txnFilters = useTransactionFilters(expenses, categoryMap);
 
-  // "Share with a group" from the entry form (Track E) — dark until the sync entitlement is on.
-  const { groups } = useGroupContext();
-  const shareGroups = hasEntitlement('sync')
-    ? groups.filter((g) => g.status === 'active').map((g) => ({ id: g.id, name: g.name }))
-    : [];
+  // "Share with a group" from the entry form (Track E) — only for a claimed (username) account.
+  const { groups, claimed } = useGroupContext();
+  const shareGroups =
+    hasEntitlement('sync') && claimed
+      ? groups.filter((g) => g.status === 'active').map((g) => ({ id: g.id, name: g.name }))
+      : [];
   const handleShareToGroup = (expense: Expense, groupId: string): Promise<void> =>
     shareExpenseToGroup(groupId, {
       amount: expense.amount,

@@ -69,7 +69,7 @@ function ClaimModal({ onClose, onClaimed }: { onClose: () => void; onClaimed: (u
   const [claiming, setClaiming] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
-  const formatValid = username === '' || isValidUsername(username);
+  const formatValid = isValidUsername(username);
 
   function onUsernameChange(v: string) {
     setUsername(v.toLowerCase());
@@ -94,14 +94,14 @@ function ClaimModal({ onClose, onClaimed }: { onClose: () => void; onClaimed: (u
     };
   }, [username]);
 
-  const canClaim = !claiming && formatValid && (username === '' || available === true);
+  const canClaim = !claiming && formatValid && available === true;
 
   async function handleClaim() {
     setClaiming(true);
     setError(undefined);
     try {
-      await claimAccount(username || undefined);
-      onClaimed(username || undefined);
+      await claimAccount(username);
+      onClaimed(username);
     } catch (err) {
       setError(
         err instanceof UsernameTakenError
@@ -132,11 +132,11 @@ function ClaimModal({ onClose, onClaimed }: { onClose: () => void; onClaimed: (u
     >
       {error && <Banner variant="danger">{error}</Banner>}
       <p className="text-[13px] text-secondary">
-        Your username is a public sharing handle — it can never decrypt your data. You can also claim without one and
-        add it later.
+        Pick a username — it's your public sharing handle for Groups (it can never decrypt your data). Claiming it turns
+        on backup & sharing for this account.
       </p>
       <TextInput
-        label="Username (optional)"
+        label="Username"
         value={username}
         onChange={onUsernameChange}
         placeholder="e.g. aarav_s"

@@ -426,6 +426,16 @@ withdrawal + higher cash opening so the Cash Wallet never goes negative (guarded
 share-later row action, demo group fixtures — deferred to the **Stage-F bring-up** with the live worker.
 Gate: build + lint + **404 tests**.
 
+**Track E — Phase 1.5 enablement + deploy (2026-07-02):** auth + groups workers **deployed**
+(`penny-auth`/`penny-groups` on `*.hesh.workers.dev`), reusing the api-proxy KV + dedicated D1s, R2
+dropped (event ciphertext inline in D1). The `sync` entitlement is now the **env-driven Phase-1.5 launch
+switch** — `hasEntitlement('sync')` reads `VITE_ENABLE_SYNC` (ship off, flip on per-deploy; no code
+change). Groups additionally require a **claimed username**: the claim modal now makes the username
+required (was optional — the Phase-1 artifact), `GroupContext` exposes `claimed`/`username`, and the
+context switcher shows a **"Claim a username to use Groups"** CTA (→ Profile) until claimed; the
+"Share with a group" entry is gated the same way. `.env.example` documents the flag; `.env.local`
+(dev) + `.env.production` set it on. Gate: build (sync on) + worker type-check + lint + **404 tests**.
+
 **Track E — Spending-clarity refinement (categories + analytics, 2026-07-02):** ahead of the group UX,
 a taxonomy/analytics pass so "other" money never pollutes everyday spend. Added a **Legal** intent group
 (11 categories: Advocate/Court/Stamp/Notary/Filing/Affidavit/Typing/Exemption/Legal-Transport/Legal-Food/

@@ -3,8 +3,8 @@
 // AppShell so it can read the encrypted `groups` mirror. Behind the dark `sync` entitlement in the UI.
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { useRepository } from '@/hooks/useRepository';
-import { groupsRepo } from '@/core/db/repositories';
-import type { Group } from '@/core/db/types';
+import { groupsRepo, profileRepo } from '@/core/db/repositories';
+import type { Group, Profile } from '@/core/db/types';
 
 const LS_KEY = 'penny_group_context';
 type ContextId = 'personal' | string;
@@ -14,6 +14,9 @@ interface GroupContextValue {
   activeGroup: Group | undefined;
   groups: Group[];
   loading: boolean;
+  /** True once the account is claimed WITH a username — the prerequisite for using Groups (Phase 1.5). */
+  claimed: boolean;
+  username: string | undefined;
   setContext: (ctx: ContextId) => void;
   refresh: () => void;
 }
@@ -22,7 +25,13 @@ const GroupContext = createContext<GroupContextValue | null>(null);
 
 export function GroupProvider({ children }: { children: ReactNode }) {
   const { items: groups, loading, reload } = useRepository<Group>(groupsRepo);
+  const { items: profiles } = useRepository<Profile>(profileRepo);
   const [selected, setSelected] = useState<ContextId>(() => localStorage.getItem(LS_KEY) || 'personal');
+
+  const profile = profiles[0];
+  const username = profile?.username;
+  // Groups require a claimed account WITH a username (the public sharing handle).
+  const claimed = Boolean(profile?.deviceId && username);
 
   const setContext = useCallback((ctx: ContextId) => {
     setSelected(ctx);
@@ -38,8 +47,8 @@ export function GroupProvider({ children }: { children: ReactNode }) {
     selected === 'personal' ? 'personal' : activeGroup || loading ? selected : 'personal';
 
   const value = useMemo<GroupContextValue>(
-    () => ({ activeContext, activeGroup, groups, loading, setContext, refresh: reload }),
-    [activeContext, activeGroup, groups, loading, setContext, reload]
+    () => ({ activeContext, activeGroup, groups, loading, claimed, username, setContext, refresh: reload }),
+    [activeContext, activeGroup, groups, loading, claimed, username, setContext, reload]
   );
 
   return <GroupContext.Provider value={value}>{children}</GroupContext.Provider>;

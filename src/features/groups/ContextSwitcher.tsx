@@ -17,7 +17,7 @@ const TYPE_ICON: Record<string, string> = {
  * to switch or create/join. Rendered only when the `sync` entitlement is on (dark by default).
  */
 export function ContextSwitcher() {
-  const { activeContext, activeGroup, groups, setContext } = useGroupContext();
+  const { activeContext, activeGroup, groups, claimed, setContext } = useGroupContext();
   const [open, setOpen] = useState(false);
   const [modal, setModal] = useState<'create' | 'join' | null>(null);
   const navigate = useNavigate();
@@ -78,26 +78,42 @@ export function ContextSwitcher() {
                   onClick={() => choose(g.id)}
                 />
               ))}
-              <button
-                type="button"
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-[var(--color-primary)] border-t border-theme"
-                onClick={() => {
-                  setOpen(false);
-                  setModal('create');
-                }}
-              >
-                <i className="ti ti-plus" style={{ fontSize: 16 }} aria-hidden="true" /> Create a group
-              </button>
-              <button
-                type="button"
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-[var(--color-primary)] border-t border-theme"
-                onClick={() => {
-                  setOpen(false);
-                  setModal('join');
-                }}
-              >
-                <i className="ti ti-link" style={{ fontSize: 16 }} aria-hidden="true" /> Join with a link
-              </button>
+              {!claimed ? (
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-[var(--color-primary)] border-t border-theme text-left"
+                  onClick={() => {
+                    setOpen(false);
+                    navigate(PATHS.app.profile);
+                  }}
+                >
+                  <i className="ti ti-user-plus" style={{ fontSize: 16 }} aria-hidden="true" /> Claim a username to use
+                  Groups
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-[var(--color-primary)] border-t border-theme"
+                    onClick={() => {
+                      setOpen(false);
+                      setModal('create');
+                    }}
+                  >
+                    <i className="ti ti-plus" style={{ fontSize: 16 }} aria-hidden="true" /> Create a group
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-[var(--color-primary)] border-t border-theme"
+                    onClick={() => {
+                      setOpen(false);
+                      setModal('join');
+                    }}
+                  >
+                    <i className="ti ti-link" style={{ fontSize: 16 }} aria-hidden="true" /> Join with a link
+                  </button>
+                </>
+              )}
             </div>
           </>
         )}
