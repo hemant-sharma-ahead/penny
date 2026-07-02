@@ -1,9 +1,14 @@
 import { useState } from 'react';
 import { NEWS_SOURCES } from '@/core/news/newsClient';
 import type { NewsSourceId } from '@/core/news/newsTypes';
+import type { SentimentLabel } from '@/core/sentiment';
 import { useNews } from './useNews';
+import { useNewsSentiment } from './useNewsSentiment';
+import { SentimentChip } from './SentimentChip';
+import { NewsMoodGauge } from './NewsMoodGauge';
 
 type FilterId = 'all' | 'markets' | 'regulatory';
+type SentimentFilter = 'all' | SentimentLabel;
 
 function relativeTime(epochMs: number): string {
   const diff = Date.now() - epochMs;
@@ -27,13 +32,22 @@ const FILTER_CHIPS: { id: FilterId; label: string }[] = [
   { id: 'regulatory', label: 'Regulatory' }
 ];
 
+const SENTIMENT_CHIPS: { id: SentimentFilter; label: string; icon?: string }[] = [
+  { id: 'all', label: 'All tones' },
+  { id: 'positive', label: 'Positive', icon: 'ti-trending-up' },
+  { id: 'negative', label: 'Negative', icon: 'ti-trending-down' }
+];
+
 export function NewsPage() {
   const { items, loading, error, refresh } = useNews();
+  const { scoredById, mood } = useNewsSentiment(items);
   const [filter, setFilter] = useState<FilterId>('all');
+  const [sentiment, setSentiment] = useState<SentimentFilter>('all');
 
   const visible = items.filter((item) => {
-    if (filter === 'all') return true;
-    return SOURCE_MAP[item.sourceId]?.category === filter;
+    if (filter !== 'all' && SOURCE_MAP[item.sourceId]?.category !== filter) return false;
+    if (sentiment !== 'all' && scoredById.get(item.id)?.label !== sentiment) return false;
+    return true;
   });
 
   return (
@@ -58,8 +72,8 @@ export function NewsPage() {
         </button>
       </div>
 
-      {/* Filter chips */}
-      <div className="flex gap-2 px-4 pb-3 overflow-x-auto">
+      {/* Source-category filter */}
+      <div className="flex gap-2 px-4 pb-2 overflow-x-auto">
         {FILTER_CHIPS.map((chip) => (
           <button
             key={chip.id}
@@ -71,6 +85,25 @@ export function NewsPage() {
                 : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
             }
           >
+            {chip.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Sentiment (news-tone) filter */}
+      <div className="flex gap-2 px-4 pb-3 overflow-x-auto">
+        {SENTIMENT_CHIPS.map((chip) => (
+          <button
+            key={chip.id}
+            onClick={() => setSentiment(chip.id)}
+            className="flex-shrink-0 inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-colors"
+            style={
+              sentiment === chip.id
+                ? { backgroundColor: 'var(--color-primary)', color: '#fff', borderColor: 'var(--color-primary)' }
+                : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
+            }
+          >
+            {chip.icon && <i className={`ti ${chip.icon}`} style={{ fontSize: 13 }} aria-hidden="true" />}
             {chip.label}
           </button>
         ))}
@@ -99,8 +132,15 @@ export function NewsPage() {
           </div>
         )}
 
-        {!loading && !error && visible.length === 0 && (
-          <div className="flex flex-col items-center justify-center gap-3 pt-16 text-center">
+        {/* News-mood gauge — reflects all fetched headlines (not the filtered subset) */}
+        {!error && items.length > 0 && (
+          <div className="mb-3">
+            <NewsMoodGauge mood={mood} />
+          </div>
+        )}
+
+        {!loading && !error && visible.length === 0 && items.length > 0 && (
+          <div className="flex flex-col items-center justify-center gap-3 pt-10 text-center">
             <i className="ti ti-news-off text-tertiary" style={{ fontSize: 36 }} aria-hidden="true" />
             <p className="text-sm text-tertiary">No headlines for this filter</p>
           </div>
@@ -110,6 +150,7 @@ export function NewsPage() {
           <div className="flex flex-col gap-2">
             {visible.map((item) => {
               const src = SOURCE_MAP[item.sourceId];
+              const scored = scoredById.get(item.id);
               return (
                 <a
                   key={item.id}
@@ -118,14 +159,17 @@ export function NewsPage() {
                   rel="noopener noreferrer"
                   className="surface rounded-2xl p-4 flex flex-col gap-2 active:opacity-70 transition-opacity no-underline"
                 >
-                  {/* Source chip + time */}
+                  {/* Source chip + sentiment + time */}
                   <div className="flex items-center justify-between gap-2">
-                    <span
-                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                      style={{ backgroundColor: `${src?.color ?? '#6b7280'}1a`, color: src?.color ?? '#6b7280' }}
-                    >
-                      {src?.label ?? item.sourceId}
-                    </span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span
+                        className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: `${src?.color ?? '#6b7280'}1a`, color: src?.color ?? '#6b7280' }}
+                      >
+                        {src?.label ?? item.sourceId}
+                      </span>
+                      {scored && <SentimentChip label={scored.label} />}
+                    </div>
                     <span className="text-[10px] text-tertiary flex-shrink-0">{relativeTime(item.publishedAt)}</span>
                   </div>
 

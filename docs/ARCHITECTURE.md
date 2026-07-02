@@ -237,6 +237,24 @@ Pure, unit-tested logic for the person-centric IOU ledger (Phase 1.5 Track 1). N
 IOU UI lives in `src/features/iou/` (`IouView` shared by `/app/iou` and the Expenses → IOU tab;
 `PersonListView`, `PersonLedgerView`, `EntryForm`, `SettleUpModal`, `PersonForm`, `PersonPicker`).
 
+### `src/core/sentiment/`
+
+Pure, unit-tested, **on-device, no-AI** news sentiment engine (news-sentiment Phase A). Lexicon + rules
+only — descriptive/informational, never a recommendation or forecast. See
+[`docs/features/news-sentiment.md`](features/news-sentiment.md) and
+[`docs/MARKET_SENTIMENT_RESEARCH.md`](MARKET_SENTIMENT_RESEARCH.md).
+
+| File               | Purpose                                                                                                          |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `normalize.ts`     | `tokenize` — lowercase + split a headline into word tokens (keeps contractions for negation).                    |
+| `lexicon.ts`       | Bundled finance-tuned word lists: `POSITIVE`/`NEGATIVE` (weighted), `INTENSIFIERS`, `NEGATORS`, `EFFECT_WINDOW`. |
+| `scoreHeadline.ts` | `scoreHeadline(text)` → `{ score, label, matched[] }` with VADER-style negation + intensifier windows.           |
+| `aggregate.ts`     | `computeMood(scored[])` → `MoodSummary` (positive/negative/neutral counts + descriptive skew label).             |
+| `types.ts`         | `SentimentLabel`, `ScoredHeadline`, `MatchedTerm`, `MoodSummary`.                                                |
+
+Sentiment UI lives in `src/features/news/` (`useNewsSentiment` hook, `SentimentChip`, `NewsMoodGauge`),
+scoring the headlines already fetched by the news module — no new network calls, no AI, no PII.
+
 ### `src/core/ai-safety/`
 
 | File                  | Purpose                                                                                     |
