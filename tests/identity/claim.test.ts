@@ -78,7 +78,7 @@ describe('claimAccount', () => {
     );
 
     const out = await claimAccount('aarav_s');
-    expect(out).toEqual({ user_id: 'user-uuid-1', username: 'aarav_s' });
+    expect(out).toEqual({ userId: 'user-uuid-1', username: 'aarav_s' });
 
     // Register payload carries the identity anchor + public JWKs + a device id.
     const jwks = await getPublicJwks();

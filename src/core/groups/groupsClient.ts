@@ -8,12 +8,22 @@ import { signedFetch, SyncNotConfiguredError } from '@/core/identity/signedFetch
 import type { GroupHistoryVisibility, GroupRole, GroupType } from '@/core/db/types';
 import type { GroupKeyGrant } from './keys';
 
-function groupsFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  if (!GROUPS_BASE) throw new SyncNotConfiguredError();
-  return signedFetch(path, init, GROUPS_BASE);
+/** A non-2xx response from the groups worker, carrying the worker's error code. */
+export class GroupsApiError extends Error {
+  readonly status: number;
+  readonly code: string;
+  constructor(status: number, code: string, message?: string) {
+    super(message ?? code);
+    this.name = 'GroupsApiError';
+    this.status = status;
+    this.code = code;
+  }
 }
 
-async function ok<T>(res: Response): Promise<T> {
+/** Signed request to the groups worker, parsed as `T`. Throws {@link GroupsApiError} on non-2xx. */
+async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
+  if (!GROUPS_BASE) throw new SyncNotConfiguredError();
+  const res = await signedFetch(path, init, GROUPS_BASE);
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
     throw new GroupsApiError(res.status, body.error ?? 'request_failed', body.message);
@@ -21,19 +31,7 @@ async function ok<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
-/** A non-2xx response from the groups worker, carrying the worker's error code. */
-export class GroupsApiError extends Error {
-  constructor(
-    public status: number,
-    public code: string,
-    message?: string
-  ) {
-    super(message ?? code);
-    this.name = 'GroupsApiError';
-  }
-}
-
-function jsonBody(data: unknown): RequestInit {
+function post(data: unknown): RequestInit {
   return { method: 'POST', body: JSON.stringify(data) };
 }
 
@@ -56,31 +54,27 @@ export function createGroup(input: {
   encName: string;
   historyVisibility: GroupHistoryVisibility;
 }): Promise<{ ok: true; group_id: string; key_epoch: number }> {
-  return groupsFetch(
+  return req(
     '/group',
-    jsonBody({
-      type: input.type,
-      enc_name: input.encName,
-      history_visibility: input.historyVisibility
-    })
-  ).then(ok);
+    post({ type: input.type, enc_name: input.encName, history_visibility: input.historyVisibility })
+  );
 }
 
 export function getGroup(groupId: string): Promise<GroupMeta> {
-  return groupsFetch(`/group/${groupId}`).then(ok);
+  return req(`/group/${groupId}`);
 }
 
 export function closeGroup(groupId: string): Promise<{ ok: true; status: string }> {
-  return groupsFetch(`/group/${groupId}/close`, jsonBody({})).then(ok);
+  return req(`/group/${groupId}/close`, post({}));
 }
 
 export function reopenGroup(groupId: string): Promise<{ ok: true; status: string }> {
-  return groupsFetch(`/group/${groupId}/reopen`, jsonBody({})).then(ok);
+  return req(`/group/${groupId}/reopen`, post({}));
 }
 
 /** Rotate the Group-Key epoch (after a member leaves). `encName` re-encrypts the name under the new key. */
 export function rotateGroup(groupId: string, encName: string): Promise<{ ok: true; key_epoch: number }> {
-  return groupsFetch(`/group/${groupId}/rotate`, jsonBody({ enc_name: encName })).then(ok);
+  return req(`/group/${groupId}/rotate`, post({ enc_name: encName }));
 }
 
 // ─── Invites ──────────────────────────────────────────────────────────────────
@@ -95,23 +89,18 @@ export function createInvite(
   groupId: string,
   input: { tokenHash: string; role: GroupRole; expiresAt: number; maxUses: number }
 ): Promise<{ ok: true }> {
-  return groupsFetch(
+  return req(
     `/group/${groupId}/invite`,
-    jsonBody({
-      token_hash: input.tokenHash,
-      role: input.role,
-      expires_at: input.expiresAt,
-      max_uses: input.maxUses
-    })
-  ).then(ok);
+    post({ token_hash: input.tokenHash, role: input.role, expires_at: input.expiresAt, max_uses: input.maxUses })
+  );
 }
 
 export function redeemInvite(tokenHash: string): Promise<GroupMeta & { ok: true }> {
-  return groupsFetch('/invite/redeem', jsonBody({ token_hash: tokenHash })).then(ok);
+  return req('/invite/redeem', post({ token_hash: tokenHash }));
 }
 
 export function revokeInvite(groupId: string, tokenHash: string): Promise<{ ok: true }> {
-  return groupsFetch('/invite/revoke', jsonBody({ group_id: groupId, token_hash: tokenHash })).then(ok);
+  return req('/invite/revoke', post({ group_id: groupId, token_hash: tokenHash }));
 }
 
 // ─── Members ────────────────────────────────────────────────────────────────────
@@ -126,19 +115,19 @@ export interface ServerMember {
 }
 
 export function listMembers(groupId: string): Promise<{ members: ServerMember[] }> {
-  return groupsFetch(`/group/${groupId}/members`).then(ok);
+  return req(`/group/${groupId}/members`);
 }
 
 export function leaveGroup(groupId: string): Promise<{ ok: true }> {
-  return groupsFetch(`/group/${groupId}/member`, jsonBody({ action: 'leave' })).then(ok);
+  return req(`/group/${groupId}/member`, post({ action: 'leave' }));
 }
 
 export function removeMember(groupId: string, userId: string): Promise<{ ok: true }> {
-  return groupsFetch(`/group/${groupId}/member`, jsonBody({ action: 'remove', user_id: userId })).then(ok);
+  return req(`/group/${groupId}/member`, post({ action: 'remove', user_id: userId }));
 }
 
 export function setMemberRole(groupId: string, userId: string, role: GroupRole): Promise<{ ok: true }> {
-  return groupsFetch(`/group/${groupId}/member`, jsonBody({ action: 'set_role', user_id: userId, role })).then(ok);
+  return req(`/group/${groupId}/member`, post({ action: 'set_role', user_id: userId, role }));
 }
 
 // ─── Key grants ───────────────────────────────────────────────────────────────
@@ -149,20 +138,18 @@ export function sendGrants(
   userId: string,
   grants: { keyEpoch: number; grant: GroupKeyGrant }[]
 ): Promise<{ ok: true }> {
-  return groupsFetch(
+  return req(
     `/group/${groupId}/grant`,
-    jsonBody({
+    post({
       user_id: userId,
       grants: grants.map((g) => ({ key_epoch: g.keyEpoch, wrapped_key: JSON.stringify(g.grant) }))
     })
-  ).then(ok);
+  );
 }
 
 /** Fetch my wrapped grants; each `grant` parses back into a {@link GroupKeyGrant} for unwrapping. */
 export async function fetchMyGrants(groupId: string): Promise<{ keyEpoch: number; grant: GroupKeyGrant }[]> {
-  const res = await groupsFetch(`/group/${groupId}/grants`).then((r) =>
-    ok<{ grants: { key_epoch: number; wrapped_key: string }[] }>(r)
-  );
+  const res = await req<{ grants: { key_epoch: number; wrapped_key: string }[] }>(`/group/${groupId}/grants`);
   return res.grants.map((g) => ({ keyEpoch: g.key_epoch, grant: JSON.parse(g.wrapped_key) as GroupKeyGrant }));
 }
 
@@ -189,9 +176,9 @@ export function appendEvents(
   groupId: string,
   events: OutgoingEvent[]
 ): Promise<{ ok: true; assigned: { event_id: string; seq: number }[] }> {
-  return groupsFetch(
+  return req(
     `/group/${groupId}/events`,
-    jsonBody({
+    post({
       events: events.map((e) => ({
         event_id: e.eventId,
         key_epoch: e.keyEpoch,
@@ -199,9 +186,9 @@ export function appendEvents(
         ciphertext: e.ciphertext
       }))
     })
-  ).then(ok);
+  );
 }
 
 export function fetchEvents(groupId: string, sinceSeq = 0): Promise<{ events: IncomingEvent[] }> {
-  return groupsFetch(`/group/${groupId}/events?since=${sinceSeq}`).then(ok);
+  return req(`/group/${groupId}/events?since=${sinceSeq}`);
 }

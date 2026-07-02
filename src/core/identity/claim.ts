@@ -17,9 +17,11 @@ export interface ClaimState {
 
 /** Thrown when the chosen username is already registered to another user. */
 export class UsernameTakenError extends Error {
-  constructor(public username: string) {
+  readonly username: string;
+  constructor(username: string) {
     super(`Username @${username} is already taken`);
     this.name = 'UsernameTakenError';
+    this.username = username;
   }
 }
 
@@ -85,5 +87,5 @@ export async function claimAccount(username?: string): Promise<{ userId: string;
   const whoami = await signedFetch('/whoami');
   if (!whoami.ok) throw new Error(`Post-claim /whoami failed: ${whoami.status}`);
 
-  return out;
+  return { userId: out.user_id, username: out.username };
 }

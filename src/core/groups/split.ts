@@ -63,7 +63,7 @@ function apportion(totalPaise: number, keys: string[], weights: number[]): Recor
   for (const r of raw) out[r.k] = r.floor;
   for (let j = 0; j < leftover; j++) {
     const target = order[j % order.length];
-    if (target) out[target.k] += 1;
+    if (target) out[target.k] = (out[target.k] ?? 0) + 1;
   }
   return out;
 }

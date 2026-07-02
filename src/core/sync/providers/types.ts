@@ -20,16 +20,20 @@ export interface CloudProvider {
 
 /** The active provider ran out of cloud storage — the engine surfaces a notification. */
 export class QuotaExceededError extends Error {
-  constructor(public providerId: CloudProviderId) {
+  readonly providerId: CloudProviderId;
+  constructor(providerId: CloudProviderId) {
     super(`${providerId} storage is full`);
     this.name = 'QuotaExceededError';
+    this.providerId = providerId;
   }
 }
 
 /** The provider needs interactive re-authorization; background sync must not force a popup. */
 export class NeedsConsentError extends Error {
-  constructor(public providerId: CloudProviderId) {
+  readonly providerId: CloudProviderId;
+  constructor(providerId: CloudProviderId) {
     super(`${providerId} needs reconnection`);
     this.name = 'NeedsConsentError';
+    this.providerId = providerId;
   }
 }
