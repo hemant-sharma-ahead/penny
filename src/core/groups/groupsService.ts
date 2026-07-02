@@ -248,6 +248,22 @@ export async function rotateGroupKey(groupId: string): Promise<number> {
   return res.key_epoch;
 }
 
+/** Settle & close (owner/admin): freeze the group's ledger. Reflected locally so the UI locks Add/Settle. */
+export async function closeGroup(groupId: string): Promise<void> {
+  const res = await api.closeGroup(groupId);
+  const group = await groupsRepo.get(groupId);
+  if (group)
+    await groupsRepo.put({ ...group, status: res.status === 'closed' ? 'closed' : 'active', updatedAt: Date.now() });
+}
+
+/** Reopen a closed group. */
+export async function reopenGroup(groupId: string): Promise<void> {
+  const res = await api.reopenGroup(groupId);
+  const group = await groupsRepo.get(groupId);
+  if (group)
+    await groupsRepo.put({ ...group, status: res.status === 'closed' ? 'closed' : 'active', updatedAt: Date.now() });
+}
+
 // ─── Local reads ────────────────────────────────────────────────────────────────
 
 export async function listLocalGroups(): Promise<Group[]> {

@@ -402,6 +402,18 @@ shared-expenses/settlements. Cursor scope `group:${groupId}`. This completes the
 Track E (worker + crypto + service + split + sync all tested); the remaining E4 work is the **UI**
 (context switcher, dashboard, composer, settle) + **E5**. Gate green (tsc, lint, **398 tests**).
 
+**Track E — E4 UI complete (2026-07-02):** **E4b** `src/context/GroupContext.tsx` (active Personal|group
+scope) + `ContextSwitcher` (header bar, gated on `hasEntitlement('sync')`) + `CreateGroupModal`/
+`JoinGroupModal` + `GroupDashboard` (your balance, members, feed); Home re-scopes to the dashboard when a
+group is active. **E4c** `SharedExpenseComposer` (Equal/Unequal/%/Shares with a live breakdown via
+`split.ts` → `shared_expense` event), `SettleUpGroupModal` (→ `settlement`), `GroupMembersModal` (roles,
+invite link, leave, settle & close/reopen); `groupsService.closeGroup`/`reopenGroup`. All behind the dark
+`sync` entitlement. **Also fixed the production build** (`npm run build` = `tsc -b` with `erasableSyntaxOnly`,
+which the dev `tsc --noEmit` doesn't enforce and which had been red since Track C/D): typed `req<T>` client
+helper (was `.then(ok)` → `unknown`), error classes assign fields instead of param-property constructors
+(`groupsClient`/`claim`/`sync providers`), `split` index guard. **Build green + lint + 398 tests.** Remaining:
+**E5** (trip↔group link, per-item share, cash-negative guard, seed).
+
 **Track E — Spending-clarity refinement (categories + analytics, 2026-07-02):** ahead of the group UX,
 a taxonomy/analytics pass so "other" money never pollutes everyday spend. Added a **Legal** intent group
 (11 categories: Advocate/Court/Stamp/Notary/Filing/Affidavit/Typing/Exemption/Legal-Transport/Legal-Food/

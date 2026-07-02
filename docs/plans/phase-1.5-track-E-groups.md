@@ -194,7 +194,16 @@ design.
   records a linked income/transfer locally (reuse `reconcileLinkedTxn`) and/or the personal IOU via
   `linkedPersonId`. No UPI VPA, no payee QR (unchanged privacy stance).
 
-### E4 — Group sync + context switcher + dashboards + settle/close 🚧 (sync engine ✅)
+### E4 — Group sync + context switcher + dashboards + settle/close ✅
+
+> **E4c done (write UI):** `SharedExpenseComposer` (amount · description · category chips · payer ·
+> participants · Equal/Unequal/%/Shares split with a live breakdown via `split.ts`; appends a
+> `shared_expense` event), `SettleUpGroupModal` (counterpart + amount + direction → `settlement` event,
+> balance-prefilled), `GroupMembersModal` (members + roles, invite-link generation, leave, settle &
+> close/reopen). Wired into `GroupDashboard` (Add / Settle / settings). `groupsService` gained
+> `closeGroup`/`reopenGroup`. Also greened the **production build** (`tsc -b`, `erasableSyntaxOnly`): the
+> `.then(ok)` pattern → typed `req<T>` in `groupsClient`, error-class field assignment (no param
+> properties) across `groupsClient`/`claim`/`sync providers`, `split` index guard.
 
 > **Sync engine done** (`src/core/groups/groupSync.ts`, 4 tests): `appendGroupEvent` (encrypt payload →
 > local event → push), `pushPending` (encrypt + append un-synced events, record server seq), `pullGroupEvents`

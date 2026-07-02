@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
-import { ListContainer, SectionLabel, EmptyState } from '@/components/ui';
+import { ListContainer, SectionLabel, EmptyState, Button } from '@/components/ui';
 import { formatCurrency } from '@/lib/formatters';
 import { profileRepo, groupMembersRepo } from '@/core/db/repositories';
 import { groupBalances, groupFeed, syncGroup } from '@/core/groups/groupSync';
 import type { Group, GroupEvent, GroupMember } from '@/core/db/types';
+import { SharedExpenseComposer } from './SharedExpenseComposer';
+import { SettleUpGroupModal } from './SettleUpGroupModal';
+import { GroupMembersModal } from './GroupMembersModal';
 
 const TYPE_ICON: Record<string, string> = {
   family: 'ti-home',
@@ -26,6 +29,10 @@ export function GroupDashboard({ group }: { group: Group }) {
   const [feed, setFeed] = useState<GroupEvent[]>([]);
   const [myId, setMyId] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState<'add' | 'settle' | 'members' | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const bump = () => setRefreshKey((k) => k + 1);
+  const closed = group.status === 'closed';
 
   useEffect(() => {
     let cancelled = false;
@@ -48,7 +55,7 @@ export function GroupDashboard({ group }: { group: Group }) {
     return () => {
       cancelled = true;
     };
-  }, [group.id]);
+  }, [group.id, refreshKey]);
 
   const myNet = myId ? (balances[myId] ?? 0) : 0;
   const nameFor = (userId: string) => members.find((m) => m.userId === userId)?.displayName ?? 'Member';
@@ -67,13 +74,21 @@ export function GroupDashboard({ group }: { group: Group }) {
             aria-hidden="true"
           />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h2 className="text-lg font-semibold text-primary truncate">{group.name || 'Group'}</h2>
           <p className="text-xs text-tertiary">
             {members.length} member{members.length === 1 ? '' : 's'}
-            {group.status === 'closed' && ' · closed'}
+            {closed && ' · closed'}
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setModal('members')}
+          className="w-9 h-9 grid place-items-center rounded-lg text-secondary hover:bg-surface-2"
+          aria-label="Group settings"
+        >
+          <i className="ti ti-settings" style={{ fontSize: 19 }} aria-hidden="true" />
+        </button>
       </div>
 
       {/* Your balance */}
@@ -88,6 +103,22 @@ export function GroupDashboard({ group }: { group: Group }) {
           {Math.abs(myNet) < 1 ? 'all settled up' : myNet > 0 ? "you're owed" : 'you owe'}
         </p>
       </div>
+
+      {/* Actions */}
+      {closed ? (
+        <p className="text-center text-xs text-tertiary -mt-1">
+          This group is settled &amp; closed — reopen it from settings to add more.
+        </p>
+      ) : (
+        <div className="flex gap-2">
+          <Button onClick={() => setModal('add')} className="flex-1">
+            <i className="ti ti-plus" aria-hidden="true" /> Add expense
+          </Button>
+          <Button variant="ghost" onClick={() => setModal('settle')} className="flex-1">
+            Settle up
+          </Button>
+        </div>
+      )}
 
       {/* Members */}
       <div>
@@ -118,7 +149,11 @@ export function GroupDashboard({ group }: { group: Group }) {
         {loading ? (
           <p className="text-sm text-tertiary px-1">Loading…</p>
         ) : feed.length === 0 ? (
-          <EmptyState icon="ti-receipt" title="No shared expenses yet" hint="Add one to start splitting costs." />
+          <EmptyState
+            icon="ti-receipt"
+            title="No shared expenses yet"
+            description="Add one to start splitting costs."
+          />
         ) : (
           <ListContainer>
             {feed.map((e) => (
@@ -127,6 +162,10 @@ export function GroupDashboard({ group }: { group: Group }) {
           </ListContainer>
         )}
       </div>
+
+      {modal === 'add' && <SharedExpenseComposer group={group} onClose={() => setModal(null)} onSaved={bump} />}
+      {modal === 'settle' && <SettleUpGroupModal group={group} onClose={() => setModal(null)} onSaved={bump} />}
+      {modal === 'members' && <GroupMembersModal group={group} onClose={() => setModal(null)} onChanged={bump} />}
     </div>
   );
 }
