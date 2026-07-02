@@ -414,6 +414,18 @@ helper (was `.then(ok)` → `unknown`), error classes assign fields instead of p
 (`groupsClient`/`claim`/`sync providers`), `split` index guard. **Build green + lint + 398 tests.** Remaining:
 **E5** (trip↔group link, per-item share, cash-negative guard, seed).
 
+**Track E — E5 spine + cash guard + share-to-group + seed cash fix (2026-07-02):** **E5a** —
+`balanceCalculator.projectedBalance`, `Expense`/`Goal.shareWith?`, `ActiveEvent.linkedGroupId?`,
+`groupsService.shareExpenseToGroup` (equal-split mirror). **E5b** — **cash-negative guard**: a soft,
+non-blocking warning banner in `ExpenseForm` when a **cash** account would drop below ₹0 (`accountBalances`
+from `useExpenses` → `ExpensesPage` → `TransactionsSlice` → form); **"Share with a group"** picker in
+`ExpenseForm` (expense type, sync-entitled) mirroring an equal-split `shared_expense` + recording
+`shareWith` (add-time and edit-to-share). **E5c** — demo seed adds a monthly ATM withdrawal + pre-trip
+withdrawal + higher cash opening so the Cash Wallet never goes negative (guarded by
+`tests/db/seedCash.test.ts`; `seedDemoData` made `window`-safe). Remaining E5 — vacation→group link UI,
+share-later row action, demo group fixtures — deferred to the **Stage-F bring-up** with the live worker.
+Gate: build + lint + **404 tests**.
+
 **Track E — Spending-clarity refinement (categories + analytics, 2026-07-02):** ahead of the group UX,
 a taxonomy/analytics pass so "other" money never pollutes everyday spend. Added a **Legal** intent group
 (11 categories: Advocate/Court/Stamp/Notary/Filing/Affidavit/Typing/Exemption/Legal-Transport/Legal-Food/

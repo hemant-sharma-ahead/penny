@@ -233,17 +233,22 @@ design.
   read-only (archive banner); **reopen** re-enables activity. Closed-group edits are blocked in the UI +
   guarded in the event appender.
 
-### E5 — Trip↔group linkage + per-item share + cash guard + seed 🚧 (spine ✅)
+### E5 — Trip↔group linkage + per-item share + cash guard + seed 🚧 (spine + guard + share + seed-fix ✅)
 
-> **E5a done (spine):** `balanceCalculator.projectedBalance` + shared `delta()` (the cash-negative guard
-> math), `Expense`/`Goal.shareWith?`, `ActiveEvent.linkedGroupId?`, and `groupsService.shareExpenseToGroup`
-> (mirror a personal expense into a group as an equal-split `shared_expense`, ciphertext-only). Tests:
+> **E5a (spine) ✅:** `balanceCalculator.projectedBalance` + shared `delta()`, `Expense`/`Goal.shareWith?`,
+> `ActiveEvent.linkedGroupId?`, `groupsService.shareExpenseToGroup` (equal-split mirror). Tests in
 > `tests/accounts/balanceCalculator.test.ts` + groupsService share test.
-> **Remaining E5 UI/seed (Stage-F bring-up, verified with the deployed worker):** the cash-negative
-> **warning banner** in `ExpenseForm` (uses `projectedBalance`), the **"Share with a group"** row +
-> **share-later** action, the **vacation→group link** + prefilled composer, and demo **seed fixtures**
-> (a Trip + Family group; ensure demo cash never goes negative). Deferred deliberately — these are the
-> group-facing surfaces best built + reviewed against a live worker rather than shipped blind.
+> **E5b (UI) ✅ (core):** **cash-negative guard** — a soft, non-blocking warning `Banner` in `ExpenseForm`
+> when a **cash** account would go < 0 (uses `projectedBalance`; `accountBalances` threaded from
+> `useExpenses`); **"Share with a group"** picker in `ExpenseForm` (expense type, sync-entitled) → mirrors
+> an equal-split `shared_expense` via `shareExpenseToGroup` and stores `shareWith` on the expense (covers
+> both add-time and edit-to-share).
+> **E5c (seed) ✅ (cash fix):** demo seed now adds a monthly ATM cash withdrawal + a pre-trip withdrawal
+> and raises the cash opening, so the **Cash Wallet never goes negative** (guarded by
+> `tests/db/seedCash.test.ts`); `seedDemoData` made SSR/test-safe (`window` guard).
+> **Remaining (Stage-F bring-up, verified with the deployed worker):** the **vacation→group link** UI
+> (`linkedGroupId`) + prefilled composer, **share-later** row action, and **demo group fixtures** (a Trip +
+> Family group) — deferred as group-facing surfaces best reviewed against a live worker.
 
 - **Event→group link:** add `linkedGroupId?` to `ActiveEvent` (`EventModeContext`). While a linked event is
   active, the **Add** action opens the **group composer** prefilled (that group · all members · equal

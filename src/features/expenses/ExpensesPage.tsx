@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { TabStrip, Modal } from '@/components/ui';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useEventMode } from '@/context/EventModeContext';
+import { useGroupContext } from '@/context/GroupContext';
+import { hasEntitlement } from '@/core/entitlement/entitlement';
+import { shareExpenseToGroup } from '@/core/groups/groupsService';
+import type { Expense } from '@/core/db/types';
 import { useExpenses } from './useExpenses';
 import { ExpensesHeader } from './ExpensesHeader';
 import { useTransactionFilters } from './transactions/useTransactionFilters';
@@ -43,6 +47,7 @@ export function ExpensesPage() {
     persons,
     iouLinkByTxn,
     iouLinkedTxnIds,
+    accountBalances,
     patchExpenses,
     removeExpenses,
     saveCategory,
@@ -56,6 +61,18 @@ export function ExpensesPage() {
   const [activeTab, setActiveTab] = useState<ExpensesTab>('transactions');
   const [showBudgets, setShowBudgets] = useState(false);
   const txnFilters = useTransactionFilters(expenses, categoryMap);
+
+  // "Share with a group" from the entry form (Track E) — dark until the sync entitlement is on.
+  const { groups } = useGroupContext();
+  const shareGroups = hasEntitlement('sync')
+    ? groups.filter((g) => g.status === 'active').map((g) => ({ id: g.id, name: g.name }))
+    : [];
+  const handleShareToGroup = (expense: Expense, groupId: string): Promise<void> =>
+    shareExpenseToGroup(groupId, {
+      amount: expense.amount,
+      description: expense.description,
+      categoryId: expense.categoryId
+    }).then(() => undefined);
 
   const categoryManager: CategoryManager = {
     parentCategoryMap,
@@ -108,6 +125,9 @@ export function ExpensesPage() {
           iouPersons={persons}
           onSeedIou={seedIouFromExpense}
           iouLinkByTxn={iouLinkByTxn}
+          accountBalances={accountBalances}
+          shareGroups={shareGroups}
+          onShareToGroup={handleShareToGroup}
           onPatchExpenses={patchExpenses}
           onRemoveExpenses={removeExpenses}
           searchMerchant={searchMerchant}

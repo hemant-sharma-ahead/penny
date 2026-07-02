@@ -11,11 +11,12 @@ import type {
 import type { ExpenseSeedIntent } from '@/core/iou/expenseLink';
 import type { ActiveEvent } from '@/context/EventModeContext';
 import { accountsRepo } from '@/core/db/repositories';
-import { epochToDateInput } from '@/lib/formatters';
+import { epochToDateInput, formatCurrency } from '@/lib/formatters';
 import { dateInputToEpoch } from '@/lib/date';
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '@/router/paths';
-import { Modal, Button, TextInput, SegmentedControl, AmountInput } from '@/components/ui';
+import { Modal, Button, TextInput, SegmentedControl, AmountInput, Banner } from '@/components/ui';
+import { projectedBalance } from '@/core/accounts/balanceCalculator';
 import { CategoryPickerModal } from '../categories/CategoryPickerModal';
 import type { CategoryManager } from '../categories/types';
 import { AccountChips } from './AccountChips';
@@ -31,6 +32,12 @@ interface Props {
   /** Seeds a NEW transaction (duplicate / template) when not editing. */
   prefill?: Partial<Expense> | null;
   activeEvents: ActiveEvent[];
+  /** Current balance per account id — powers the soft cash-negative guard (Track E). */
+  accountBalances?: Record<string, number>;
+  /** Groups the user can share this expense into (Track E; empty when not sync-entitled). */
+  shareGroups?: { id: string; name: string }[];
+  /** Mirror this expense into a group as an equal-split shared expense. */
+  onShareToGroup?: (expense: Expense, groupId: string) => Promise<void>;
   initialType?: TransactionType;
   onSave: (expense: Expense) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -115,6 +122,9 @@ export function ExpenseForm({
   editing,
   prefill,
   activeEvents,
+  accountBalances,
+  shareGroups = [],
+  onShareToGroup,
   initialType,
   onSave,
   onDelete,
@@ -168,6 +178,9 @@ export function ExpenseForm({
   // movement; this seeds the matching IOU ledger entry. Direction follows the transaction type.
   const [iouEnabled, setIouEnabled] = useState(!!linkedIou);
   const [iouPerson, setIouPerson] = useState(linkedIou?.personName ?? '');
+  // Optional per-item "Share with a group" (Track E). Only offered for expenses when sync-entitled.
+  const [shareGroupId, setShareGroupId] = useState(editing?.shareWith?.[0] ?? '');
+  const showShareSection = !!onShareToGroup && shareGroups.length > 0 && type === 'expense';
   const iouKind: 'lent' | 'borrowed' = type === 'income' ? 'borrowed' : 'lent';
   // Shown for new AND editing expense/income — editing prefills from the existing link so it can be changed or removed.
   const showIouSection = !!onSeedIou && (type === 'expense' || type === 'income');
@@ -194,6 +207,24 @@ export function ExpenseForm({
   );
 
   const selectedAccount = useMemo(() => accounts.find((a) => a.id === accountId), [accounts, accountId]);
+
+  // Soft cash-negative guard (Track E): warn (non-blocking) when this entry would drive a CASH account
+  // below ₹0 — usually a missed cash withdrawal or the wrong account. Save is still allowed.
+  const cashWarningBalance = useMemo(() => {
+    const amt = Number(amount) || 0;
+    if (!accountBalances || amt <= 0 || !selectedAccount || selectedAccount.type !== 'cash') return null;
+    if (type === 'income') return null; // income only increases the balance
+    // Base excludes this entry's own current effect when editing, so it isn't double-counted.
+    let base = accountBalances[selectedAccount.id] ?? selectedAccount.openingBalance;
+    if (editing) base -= projectedBalance(selectedAccount.id, 0, [], editing);
+    const projected = projectedBalance(selectedAccount.id, base, [], {
+      accountId,
+      toAccountId,
+      amount: amt,
+      type
+    });
+    return projected < 0 ? projected : null;
+  }, [accountBalances, amount, selectedAccount, type, accountId, toAccountId, editing]);
 
   function handleAccountSelect(id: string) {
     setAccountId(id);
@@ -293,10 +324,18 @@ export function ExpenseForm({
       ...(accountId && { accountId }),
       ...(type === 'transfer' && toAccountId ? { toAccountId } : {}),
       ...(receipt && { receiptDataUrl: receipt }),
+      ...(showShareSection && shareGroupId
+        ? { shareWith: [shareGroupId] }
+        : editing?.shareWith
+          ? { shareWith: editing.shareWith }
+          : {}),
       source: editing?.source ?? 'manual',
       createdAt: editing?.createdAt ?? now,
       updatedAt: now
     };
+    // Only mirror to the group when the link is newly added (avoid duplicate shared events on edit).
+    const shareGroupTarget =
+      showShareSection && shareGroupId && !editing?.shareWith?.includes(shareGroupId) ? shareGroupId : null;
     const iouIntent: ExpenseSeedIntent | null =
       showIouSection && iouEnabled && iouPerson.trim()
         ? { personName: iouPerson.trim(), kind: iouKind, amount: amt, date: base.date, description: base.description }
@@ -305,6 +344,8 @@ export function ExpenseForm({
     onSave(base)
       // Reconcile the IOU link on every expense/income save: creates, updates, or (when toggled off) removes it.
       .then(() => (onSeedIou && showIouSection ? onSeedIou(base.id, iouIntent) : undefined))
+      // Mirror into the group as an equal-split shared expense when newly shared.
+      .then(() => (onShareToGroup && shareGroupTarget ? onShareToGroup(base, shareGroupTarget) : undefined))
       .catch(() => {})
       .finally(() => setSaving(false));
   }
@@ -436,6 +477,13 @@ export function ExpenseForm({
           error={errors.amount ? 'Enter an amount' : undefined}
           autoFocus={false}
         />
+
+        {cashWarningBalance !== null && (
+          <Banner variant="warning">
+            This makes {selectedAccount?.name ?? 'Cash'} go to {formatCurrency(cashWarningBalance)} — did you miss a
+            cash withdrawal or pick the wrong account? You can still save.
+          </Banner>
+        )}
 
         {/* Description (first focus) + merchant suggestions */}
         <div>
@@ -738,6 +786,33 @@ export function ExpenseForm({
               {iouKind === 'lent'
                 ? "Adds a they-owe-you entry to this person's ledger."
                 : "Adds a you-owe-them entry to this person's ledger."}
+            </p>
+          </div>
+        )}
+
+        {/* Share with a group (Track E) */}
+        {showShareSection && (
+          <div className="rounded-xl border border-theme bg-surface-3 p-3 flex flex-col gap-2">
+            <label className="text-xs font-medium text-secondary flex items-center gap-1.5">
+              <i className="ti ti-users-group" aria-hidden="true" /> Share with a group
+            </label>
+            <select
+              className="input-surface w-full rounded-xl px-3 py-2.5 text-sm"
+              value={shareGroupId}
+              onChange={(e) => setShareGroupId(e.target.value)}
+              disabled={!!editing?.shareWith?.length}
+            >
+              <option value="">Keep personal</option>
+              {shareGroups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-tertiary">
+              {editing?.shareWith?.length
+                ? 'Already shared to a group.'
+                : 'Also adds this as an equal split in the group. Your account still records the full amount.'}
             </p>
           </div>
         )}

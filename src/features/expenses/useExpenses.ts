@@ -24,6 +24,7 @@ import { useTxnRefresh, notifyTxnChanged } from '@/hooks/useTxnRefresh';
 import { ALL_DEFAULT_CATEGORIES, CATEGORY_MIGRATION_MAP } from '@/core/db/defaultCategories';
 import { dedupeDemoCategories, reconcileDefaultCategories, repairCategoryIcons } from '@/core/db/dedupeDemoCategories';
 import { calcSpendByCategory, calcTxnCountByCategory } from '@/core/expenses/filterAndAggregate';
+import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { buildParentCategoryMap } from '@/core/expenses/categoryGroups';
 import {
   buildMemoriesFromExpenses,
@@ -567,6 +568,13 @@ export function useExpenses() {
     return ids;
   }, [ledgerEntries]);
 
+  // Current balance per account — powers the cash-negative guard in the entry form (Track E, E5).
+  const accountBalances = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const a of accounts) map[a.id] = computeBalance(a.id, a.openingBalance, expenses);
+    return map;
+  }, [accounts, expenses]);
+
   // ── Recurring auto-post inbox ───────────────────────────────────────────────
   // Recurring series are forecast-only; surface the ones whose next occurrence is
   // due so the user can confirm and log the real transaction.
@@ -634,6 +642,7 @@ export function useExpenses() {
     seedIouFromExpense,
     iouLinkByTxn,
     iouLinkedTxnIds,
+    accountBalances,
     patchExpenses,
     removeExpenses,
     saveCategory,

@@ -178,6 +178,19 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
         })
       );
     }
+    // Monthly ATM cash withdrawal (savings → cash) so the cash account never runs negative — a real
+    // person tops up cash before spending it. Sized a little above the monthly cash spend below.
+    if (due(16)) {
+      expenses.push(
+        exp(daysAgoOn(mb, 16), grow(scale(2500), mb), 'other', 'ATM cash withdrawal', [], {
+          type: 'transfer',
+          accountId: SAVINGS,
+          toAccountId: CASH,
+          categoryId: 'cat-tr-bank',
+          paymentMode: 'net'
+        })
+      );
+    }
     // Transport staple (kept across all history).
     if (due(15)) {
       expenses.push(
@@ -285,6 +298,14 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
   // Leh Ladakh vacation (current month) — explicit ago()-based dates so the
   // demo-event-leh past event (ago 9 → ago 4) keeps matching these rows.
   expenses.push(
+    // Pull cash for the trip up front so the trip's cash spends below never drive Cash negative.
+    exp(10, scale(12000), 'other', 'ATM withdrawal for trip', ['leh-ladakh', 'vacation'], {
+      type: 'transfer',
+      accountId: SAVINGS,
+      toAccountId: CASH,
+      categoryId: 'cat-tr-bank',
+      paymentMode: 'net'
+    }),
     exp(9, scale(18500), 'transport', 'IndiGo flights — DEL-IXL return', ['leh-ladakh', 'vacation'], {
       accountId: SAVINGS,
       paymentMode: 'card'
@@ -693,8 +714,8 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
     }
   ];
   localStorage.setItem('penny_past_events', JSON.stringify(demoPastEvents));
-  // Notify EventModeProvider (already mounted) to re-sync from localStorage
-  window.dispatchEvent(new CustomEvent('penny-events-updated'));
+  // Notify EventModeProvider (already mounted) to re-sync from localStorage (browser only).
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('penny-events-updated'));
 
   // ── Accounts ─────────────────────────────────────────────────────────────
   const accounts: Account[] = [
@@ -726,7 +747,7 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
       id: 'demo-acc-cash',
       name: 'Cash Wallet',
       type: 'cash',
-      openingBalance: 5000,
+      openingBalance: 8000,
       color: '#10b981',
       icon: 'ti-cash',
       includeInNetWorth: true,

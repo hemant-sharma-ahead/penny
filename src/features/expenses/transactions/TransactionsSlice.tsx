@@ -40,6 +40,9 @@ interface TransactionsSliceProps {
   iouPersons: Person[];
   onSeedIou: (expenseId: string, intent: ExpenseSeedIntent | null) => Promise<void>;
   iouLinkByTxn: Map<string, { personName: string }>;
+  accountBalances: Record<string, number>;
+  shareGroups: { id: string; name: string }[];
+  onShareToGroup: (expense: Expense, groupId: string) => Promise<void>;
   onOpenBudgets: () => void;
   onPatchExpenses: (
     ids: string[],
@@ -71,6 +74,9 @@ export function TransactionsSlice({
   iouPersons,
   onSeedIou,
   iouLinkByTxn,
+  accountBalances,
+  shareGroups,
+  onShareToGroup,
   onOpenBudgets,
   onPatchExpenses,
   onRemoveExpenses,
@@ -559,6 +565,9 @@ export function TransactionsSlice({
           editing={editingExpense}
           prefill={prefill}
           activeEvents={events}
+          accountBalances={accountBalances}
+          shareGroups={shareGroups}
+          onShareToGroup={onShareToGroup}
           initialType={initialTransactionType}
           onSave={handleSaveExpense}
           onDelete={handleDeleteExpense}
