@@ -194,7 +194,15 @@ design.
   records a linked income/transfer locally (reuse `reconcileLinkedTxn`) and/or the personal IOU via
   `linkedPersonId`. No UPI VPA, no payee QR (unchanged privacy stance).
 
-### E4 — Group sync + context switcher + dashboards + settle/close
+### E4 — Group sync + context switcher + dashboards + settle/close 🚧 (sync engine ✅)
+
+> **Sync engine done** (`src/core/groups/groupSync.ts`, 4 tests): `appendGroupEvent` (encrypt payload →
+> local event → push), `pushPending` (encrypt + append un-synced events, record server seq), `pullGroupEvents`
+> (fetch since cursor → decrypt with epoch key → **LWW-on-updatedAt** merge, skip epochs without a grant),
+> `syncGroup`, plus `groupBalances` (folds via `split.ts`) and `groupFeed` (tombstone-aware). Cursor scope
+> `group:${groupId}`. **Remaining E4 (UI, next): `GroupContext` + header context switcher + group dashboard +
+> shared-expense composer (wires `split.ts`) + settle-up + settle/close** — visual surfaces, reviewed against
+> the deployed worker (no RTL in the test setup).
 
 - **Group event sync** (`src/core/groups/groupSync.ts`) — mirrors the Track D engine pattern: append local
   events to R2 via the worker, pull `events?since=cursor.seq`, decrypt with the epoch Group Key, fold into

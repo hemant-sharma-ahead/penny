@@ -393,6 +393,15 @@ worker + crypto + local mirror: `createGroup` (encrypt name → create → persi
 endpoint `POST /group/:id/rotate` (epoch bump + re-encrypt name on leave). Group UX (create/join/composer/
 dashboard) wires in E4 with the context switcher. Gate green (app+worker tsc, lint, **394 tests**).
 
+**Track E — E4 sync engine (2026-07-02):** `src/core/groups/groupSync.ts` (4 tests) mirrors the shared
+ledger between device and worker (ciphertext-only). `appendGroupEvent` (encrypt payload → local event →
+push), `pushPending` (encrypt + append un-synced events, record server `seq`), `pullGroupEvents` (fetch
+since cursor → decrypt with the epoch key → **last-writer-wins on `updatedAt`**, skips epochs lacking a
+grant, tombstone-aware), `syncGroup`; `groupBalances` folds via `split.ts`, `groupFeed` lists live
+shared-expenses/settlements. Cursor scope `group:${groupId}`. This completes the **data/logic spine** of
+Track E (worker + crypto + service + split + sync all tested); the remaining E4 work is the **UI**
+(context switcher, dashboard, composer, settle) + **E5**. Gate green (tsc, lint, **398 tests**).
+
 **Track E — Spending-clarity refinement (categories + analytics, 2026-07-02):** ahead of the group UX,
 a taxonomy/analytics pass so "other" money never pollutes everyday spend. Added a **Legal** intent group
 (11 categories: Advocate/Court/Stamp/Notary/Filing/Affidavit/Typing/Exemption/Legal-Transport/Legal-Food/
