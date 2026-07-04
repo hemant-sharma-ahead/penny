@@ -72,9 +72,11 @@ export function forecastEvents(
     }
   }
 
-  // Subscriptions — every charge from lastChargedAt forward within the horizon
+  // Subscriptions — every charge from lastChargedAt forward within the horizon. Only CONFIRMED
+  // subscriptions count: unconfirmed ones are hidden from the Subscriptions tab, so they must not
+  // silently drive the projection (otherwise Cash Flow shows a payment the user can't see or manage).
   for (const s of subscriptions) {
-    if (s.status === 'cancelled' || s.intervalDays <= 0 || !s.lastChargedAt) continue;
+    if (!s.confirmedByUser || s.status === 'cancelled' || s.intervalDays <= 0 || !s.lastChargedAt) continue;
     for (const dueMs of occurrencesWithin(s.lastChargedAt, s.intervalDays, todayStart, horizonEnd)) {
       events.push({
         id: `sub-${s.id}-${dueMs}`,

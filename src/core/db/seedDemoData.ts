@@ -30,6 +30,7 @@ import {
   ledgerEntriesRepo,
   liabilitiesRepo,
   personsRepo,
+  profileRepo,
   subscriptionsRepo
 } from './repositories';
 import { db } from './schema';
@@ -40,6 +41,15 @@ import { seedGroupFixtures } from './seedGroupFixtures';
 
 export const DEMO_SEED_KEY = 'penny_demo_seeded';
 export const isDemoSeeded = () => localStorage.getItem(DEMO_SEED_KEY) === '1';
+
+/**
+ * Persist the "sample data present" marker on the profile too, so it rides the encrypted backup and the
+ * "Clear sample data" option survives a restore (the localStorage flag is device-local and isn't restored).
+ */
+async function setProfileDemoFlag(seeded: boolean): Promise<void> {
+  const profile = (await profileRepo.getAll())[0];
+  if (profile) await profileRepo.put({ ...profile, demoSeeded: seeded, updatedAt: Date.now() });
+}
 
 export async function seedDemoData(employmentType: EmploymentType = 'salaried'): Promise<void> {
   if (isDemoSeeded()) return;
@@ -803,6 +813,7 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
   await Promise.all(transfers.map((t) => expensesRepo.put(t)));
 
   localStorage.setItem(DEMO_SEED_KEY, '1');
+  await setProfileDemoFlag(true);
 }
 
 // ─── Per-persona configuration ──────────────────────────────────────────────
@@ -1626,6 +1637,7 @@ async function wipeDemoData(): Promise<void> {
   localStorage.removeItem('penny_iou_v2');
   localStorage.removeItem('penny_recurring_due_dismissed');
   localStorage.removeItem('penny_income_suggestions_dismissed');
+  await setProfileDemoFlag(false);
 }
 
 // Clears all seeded demo data — resets financial tables to empty, keeps profile + security

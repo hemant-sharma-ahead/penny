@@ -663,8 +663,9 @@ export function TransactionsSlice({
         onClose={() => setConfirmBulkDelete(false)}
         onConfirm={() => void handleBulkDelete()}
         title="Delete transactions"
-        message={`Delete ${selected.size} transaction${selected.size === 1 ? '' : 's'}? This cannot be undone.`}
+        message={`Delete ${selected.size} transaction${selected.size === 1 ? '' : 's'}? You can undo right after.`}
         confirmLabel="Delete"
+        confirmVariant="danger"
         loading={bulkBusy}
       />
     </>

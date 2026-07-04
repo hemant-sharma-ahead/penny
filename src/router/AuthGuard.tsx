@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { isOnboardingComplete, isPinRotationDue, isSessionValid } from '@/core/crypto/securityManager';
 import { SessionGate } from '@/core/session/SessionGate';
+import { IdentityReconciler } from '@/features/onboarding/IdentityReconciler';
 import { PATHS } from './paths';
 
 type CheckState = 'checking' | 'needs_onboarding' | 'ready';
@@ -51,7 +52,9 @@ export function AuthGuard() {
 
   return (
     <SessionGate onNeedsOnboarding={() => setState('needs_onboarding')} showRotationBanner={rotationDue}>
-      <Outlet />
+      <IdentityReconciler>
+        <Outlet />
+      </IdentityReconciler>
     </SessionGate>
   );
 }

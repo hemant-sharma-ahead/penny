@@ -136,7 +136,7 @@ export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabiliti
                       ac === 'liquid'
                         ? navigate(PATHS.app.accounts)
                         : ac === 'iou'
-                          ? navigate(PATHS.app.iou)
+                          ? navigate(PATHS.app.expenses, { state: { tab: 'iou' } })
                           : navigate(PATHS.app.portfolio, { state: { holdingsSubTab: assetSubTab(ac) } })
                     }
                     className="w-full flex items-center gap-3 py-2 text-left"
@@ -177,7 +177,7 @@ export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabiliti
                 <div className="flex flex-col">
                   {summary.netIou < 0 && (
                     <button
-                      onClick={() => navigate(PATHS.app.iou)}
+                      onClick={() => navigate(PATHS.app.expenses, { state: { tab: 'iou' } })}
                       className="w-full flex items-center gap-3 py-2 text-left"
                     >
                       <IconBadge icon="ti-users" color={STATUS.danger} bg="var(--color-danger-subtle)" size="sm" />

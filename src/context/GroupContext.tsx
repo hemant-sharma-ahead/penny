@@ -1,9 +1,10 @@
 // Which "context" the app is scoped to — Personal (the default) or a specific group. Switching to a
 // group re-scopes Home to that group's dashboard (Phase 1.5 Track E, E4). Mounted inside the unlocked
 // AppShell so it can read the encrypted `groups` mirror. Behind the dark `sync` entitlement in the UI.
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRepository } from '@/hooks/useRepository';
 import { groupsRepo, profileRepo } from '@/core/db/repositories';
+import { PROFILE_UPDATED_EVENT } from '@/core/identity/claim';
 import type { Group, Profile } from '@/core/db/types';
 
 const LS_KEY = 'penny_group_context';
@@ -25,8 +26,20 @@ const GroupContext = createContext<GroupContextValue | null>(null);
 
 export function GroupProvider({ children }: { children: ReactNode }) {
   const { items: groups, loading, reload } = useRepository<Group>(groupsRepo);
-  const { items: profiles } = useRepository<Profile>(profileRepo);
+  const { items: profiles, reload: reloadProfile } = useRepository<Profile>(profileRepo);
   const [selected, setSelected] = useState<ContextId>(() => localStorage.getItem(LS_KEY) || 'personal');
+
+  // useRepository isn't live, so re-read the profile when a claim/reclaim/handle-change fires the event —
+  // otherwise `claimed` stays false here after an in-app claim (the Groups card would keep saying "Claim
+  // to create"). Also refresh groups, since claiming unlocks them.
+  useEffect(() => {
+    const onProfileChange = () => {
+      reloadProfile();
+      reload();
+    };
+    window.addEventListener(PROFILE_UPDATED_EVENT, onProfileChange);
+    return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onProfileChange);
+  }, [reloadProfile, reload]);
 
   const profile = profiles[0];
   const username = profile?.username;

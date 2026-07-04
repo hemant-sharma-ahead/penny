@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { TabStrip, Modal } from '@/components/ui';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useEventMode } from '@/context/EventModeContext';
@@ -58,7 +59,10 @@ export function ExpensesPage() {
     createParentWithChildren
   } = useExpenses();
 
-  const [activeTab, setActiveTab] = useState<ExpensesTab>('transactions');
+  // Allow deep-links (e.g. the Net Worth → IOU tap) to open a specific tab via navigation state.
+  const location = useLocation();
+  const initialTab = (location.state as { tab?: ExpensesTab } | null)?.tab ?? 'transactions';
+  const [activeTab, setActiveTab] = useState<ExpensesTab>(initialTab);
   const [showBudgets, setShowBudgets] = useState(false);
   const txnFilters = useTransactionFilters(expenses, categoryMap);
 

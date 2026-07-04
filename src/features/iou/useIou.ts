@@ -93,6 +93,16 @@ export function useIou() {
 
   const balances = useMemo(() => balanceByPerson(ledgerEntries), [ledgerEntries]);
 
+  // Header totals must match the visible list, which hides archived persons. balanceByPerson still
+  // includes archived persons' entries (kept for ledger integrity on delete), so filter to active
+  // persons before summing — otherwise "deleting" everyone leaves a phantom Owed/You-owe total.
+  const activeBalances = useMemo(() => {
+    const shown = new Set(persons.filter((p) => !p.isArchived).map((p) => p.id));
+    const active = new Map<string, number>();
+    for (const [personId, net] of balances) if (shown.has(personId)) active.set(personId, net);
+    return active;
+  }, [balances, persons]);
+
   const personsWithBalance = useMemo<PersonWithBalance[]>(
     () =>
       persons
@@ -113,8 +123,8 @@ export function useIou() {
     [persons, entriesByPerson, balances, nowMs]
   );
 
-  const totalOwedToYou = useMemo(() => sumOwedToYou(balances), [balances]);
-  const totalYouOwe = useMemo(() => sumYouOwe(balances), [balances]);
+  const totalOwedToYou = useMemo(() => sumOwedToYou(activeBalances), [activeBalances]);
+  const totalYouOwe = useMemo(() => sumYouOwe(activeBalances), [activeBalances]);
   const overdueCount = useMemo(() => personsWithBalance.filter((p) => p.overdue).length, [personsWithBalance]);
 
   const entriesFor = useCallback(
@@ -173,6 +183,15 @@ export function useIou() {
     [saveEntry]
   );
 
+  /** Un-archive a soft-archived person (restore them to the active list). */
+  const restorePerson = useCallback(
+    async (personId: string) => {
+      const person = persons.find((p) => p.id === personId);
+      if (person) await savePerson({ ...person, isArchived: false, updatedAt: Date.now() });
+    },
+    [persons, savePerson]
+  );
+
   /** Delete a person if they have no entries; otherwise soft-archive to preserve ledger integrity. */
   const removePerson = useCallback(
     async (personId: string) => {
@@ -199,6 +218,7 @@ export function useIou() {
     getOrCreatePerson,
     savePerson,
     removePerson,
+    restorePerson,
     addEntry: saveEntry,
     saveEntry,
     removeEntry,

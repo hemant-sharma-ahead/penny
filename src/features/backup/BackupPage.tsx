@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { exportBackup, importBackup } from '@/core/backup/backupManager';
 import { googleDriveBackup, isCloudBackupConfigured } from '@/core/backup/cloudBackup';
 import { wipeAllData } from '@/core/crypto/securityManager';
-import { deregisterAccount } from '@/core/identity/claim';
+import { deregisterAccount, getClaimState } from '@/core/identity/claim';
 import { hasEntitlement } from '@/core/entitlement/entitlement';
 import { Card, TextInput, Button, ConfirmDialog, PageHeader } from '@/components/ui';
 import { STATUS } from '@/lib/statusColors';
@@ -109,13 +109,33 @@ export function BackupPage() {
 
   // ── Full reset ────────────────────────────────────────────────────────────────
   const [showReset, setShowReset] = useState(false);
+  // Set when deregister fails for a claimed account — we warn before wiping so the user can retry online
+  // instead of silently orphaning their username (Track F, F2a).
+  const [orphanWarnUser, setOrphanWarnUser] = useState<string | null>(null);
 
-  async function handleReset() {
-    // Deregister from the server first (while we still hold the keys) so the username is released and no
-    // orphaned record is left behind. Best-effort — the server's inactivity GC is the backstop.
-    await deregisterAccount().catch(() => undefined);
+  async function performWipe() {
+    setOrphanWarnUser(null);
     await wipeAllData();
     window.location.href = '/'; // → router redirects to onboarding
+  }
+
+  async function handleReset() {
+    setShowReset(false);
+    // Nothing to release if this device never claimed an account — wipe straight away.
+    const claim = await getClaimState();
+    if (!claim.claimed) {
+      await performWipe();
+      return;
+    }
+    // Deregister from the server first (while we still hold the keys) so the username is released and no
+    // orphaned record is left behind. If it fails (offline / server error), DON'T silently wipe — warn,
+    // because after the wipe the username stays reserved to a dead account and can't be reclaimed here.
+    try {
+      await deregisterAccount();
+      await performWipe();
+    } catch {
+      setOrphanWarnUser(claim.username ?? '');
+    }
   }
 
   return (
@@ -319,6 +339,18 @@ export function BackupPage() {
           title="Erase everything?"
           message="All data on this device — expenses, goals, portfolio, settings, and your encryption keys — will be permanently deleted and you'll return to onboarding. This cannot be undone."
           confirmLabel="Erase all data"
+          confirmVariant="danger"
+        />
+
+        <ConfirmDialog
+          isOpen={orphanWarnUser !== null}
+          onClose={() => setOrphanWarnUser(null)}
+          onConfirm={() => void performWipe()}
+          title="Couldn't release your username"
+          message={`We couldn't reach the server to free ${
+            orphanWarnUser ? `@${orphanWarnUser}` : 'your username'
+          }. If you erase now, it may stay reserved to this account and can't be reclaimed later without restoring a backup. Try again when you're online, or erase anyway.`}
+          confirmLabel="Erase anyway"
           confirmVariant="danger"
         />
       </div>

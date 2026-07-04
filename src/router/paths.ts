@@ -7,7 +7,9 @@ export const PATHS = {
     privacyDemo: '/onboarding/privacy-demo',
     chipIntro: '/onboarding/chip-intro',
     simulatedDashboard: '/onboarding/simulated-dashboard',
-    letUsKnowYou: '/onboarding/let-us-know-you'
+    letUsKnowYou: '/onboarding/let-us-know-you',
+    start: '/onboarding/start',
+    account: '/onboarding/account'
   },
   app: {
     root: '/app',
@@ -17,7 +19,6 @@ export const PATHS = {
     goals: '/app/goals',
     insurance: '/app/insurance',
     subscriptions: '/app/subscriptions',
-    iou: '/app/iou',
     loans: '/app/loans',
     tax: '/app/tax',
     cashflow: '/app/cashflow',

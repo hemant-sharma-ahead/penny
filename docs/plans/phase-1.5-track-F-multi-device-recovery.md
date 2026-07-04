@@ -1,9 +1,11 @@
 # Phase 1.5 Track F — Multi-Device, Account Sync & Recovery (plan + living doc)
 
-> **Status:** 🚧 In progress. **Phantom-claim bug fixed** (2026-07-04). Design settled around **three
-> recovery surfaces** — restore-on-reinstall (F2), username+passphrase **SRP** reclaim (F3), device
-> pairing/QR (F4) — all still to build. This is the **living reference** for how a Penny account moves
-> across devices, how groups and personal data sync, and what happens on erase/recovery.
+> **Status:** 🚧 In progress. **F1 ✅** (phantom-claim fix) · **F2 ✅** (recovery hardening + restore-on-
+> reinstall) · **F3 ✅** (username+passphrase reclaim, Ed25519 challenge) — all build + worker type-check +
+> 408 tests green; **browser + live-worker verification pending**, and worker needs deploy + migration
+> `0003`. Deferred: group recovery after reclaim (list-my-groups + re-grant). **Next: F4 device pairing/QR
+> — discuss before starting.** This is the **living reference** for how a Penny account moves across
+> devices, how groups and personal data sync, and what happens on erase/recovery.
 >
 > **Update discipline:** append a dated entry to the **Progress Log** (bottom) at every step, and keep the
 > **Status** line + the row in [`docs/plans/README.md`](README.md) / [`docs/ROADMAP.md`](../ROADMAP.md) in
@@ -125,9 +127,12 @@ And three things sync on their own once set up:
 | Honest `claimed` state (phantom-claim fix) | ✅ Fixed 2026-07-04 (this track) |
 | **Device pairing client UX (Flow 2)** | ❌ Missing — the main Track F feature |
 | DMK-grant relay endpoint (for pairing) | ❌ Missing — small worker addition |
-| Deregister-failure surfacing + restore-to-reclaim | ❌ Missing — recovery hardening |
-| Restore-on-reinstall onboarding branch | ❌ Missing (F2) — backup bundle already carries identity, verified |
-| SRP verifier + username/passphrase reclaim | ❌ Missing (F3) — proof of ownership; WhatsApp parity |
+| Deregister-failure surfacing on erase | ✅ F2 (2026-07-04) — warns before orphaning a claimed handle |
+| Mandatory username at onboarding (sync builds) | ✅ F2 (2026-07-04) |
+| Backup nudge after claim | ✅ F2 (2026-07-04) — warns when no off-device backup |
+| Restore-on-reinstall onboarding branch | ✅ F2 (2026-07-04) — `RestoreAccountScreen`, reuses `importBackup` |
+| Passphrase reclaim (Ed25519 verifier + `/recover/*`) | ✅ F3 (2026-07-04) — proof of ownership; WhatsApp parity |
+| Group recovery after reclaim (list-my-groups + re-grant) | ⏸ Deferred (F3 follow-up / Track E) — identity+membership return, keys/content don't |
 | Groups-side cleanup on account delete | ❌ Missing — orphaned `group_members`/grants |
 | Server-side E2EE data blob (restore-all-from-passphrase) | ⏳ Deferred — reverses own-Drive Model B, storage cost |
 | Live personal-data sync | ⏳ Phase 2 (see below) |
@@ -209,18 +214,41 @@ servers. Legitimate, but costed — **not** something SRP gives for free. Deferr
 
 1. **F1 — Phantom-claim fix** ✅ *(done 2026-07-04)*
    Demo no longer fakes a claim; `claimed` is honest; demo groups stay viewable, New/Join route to claim.
-2. **F2 — Recovery hardening + restore-on-reinstall** (recovery surface #1)
-   - Mandatory username at onboarding; prominent/near-default backup setup right after a claim.
-   - **Restore-on-reinstall onboarding branch** ("Been here before? Restore your account") — re-imports the
-     backup so the same `userId`/keys/DMK/data/group-keys return and reclaim is idempotent.
-   - Surface deregister failure on erase (don't swallow silently) with a clear message.
-   - (Stretch) groups-side cleanup on account delete.
-3. **F3 — Username + passphrase reclaim (SRP)** (recovery surface #2 — WhatsApp parity)
-   - Auth worker: SRP-style verifier stored per account (never the passphrase / no password-equivalent);
-     reclaim endpoint that verifies then binds a new device under the **existing** `userId`.
-   - Client: reclaim flow (enter username + passphrase) → recover `userId` → rejoin groups → co-member
-     re-grants group keys. Recovers identity + membership (not personal data — that needs a backup).
-   - Keep `userId` internal + stable; username = mutable public handle mapped to it.
+2. **F2 — Recovery hardening + restore-on-reinstall** (recovery surface #1) — ✅ *(build + 404 tests green; browser verification pending)*
+   - ✅ **Deregister-failure surfacing** (`BackupPage`): a claimed account that can't reach the server on
+     erase gets a "Couldn't release your username" warning (Erase anyway / cancel-and-retry) instead of a
+     silent orphan.
+   - ✅ **Mandatory username at onboarding** (sync builds): `LetUsKnowYouScreen` requires a valid handle when
+     `hasEntitlement('sync')`. (The server *claim* itself stays on Profile — reworked in F3.)
+   - ✅ **Backup nudge after claim** (`ProfilePage`): a claimed account with no OFF-device backup
+     (`getBackupTarget()` not `google-drive`/`icloud`) sees a warning banner → "Set up backup".
+   - ✅ **Account-start flow** (mockup `docs/mockups/proposals/onboarding-account-start-v2.html`, approved):
+     Preview Dashboard "Set up my account" → **Screen A** `AccountStartScreen` (`/onboarding/start`, three
+     cards: Start fresh / Restore / Reclaim) → tap a card → **Screen B** `AccountRecoveryScreen`
+     (`/onboarding/account`, segmented tabs with that tab pre-selected). New tab → Let-us-know-you (+ seed);
+     Restore tab → Drive/file `importBackup` (everything back, **no re-claim, no seed**); Reclaim tab → F3.
+     (`RestoreAccountScreen`/`ReclaimAccountScreen` consolidated into Screen B and removed.)
+   - ✅ **Handle recovery after restore** (`IdentityReconciler` in `AuthGuard`, `ChooseHandleScreen` ④):
+     Restore sets `RECONCILE_FLAG`; post-unlock the reconciler runs `/whoami` → if the account was
+     deregistered it re-registers the restored identity → if the old handle is now taken it surfaces ④
+     (pick a new handle; data/keys untouched). Covers the erased-with-backup case.
+   - ⏸ *(Deferred stretch)* groups-side cleanup on account delete — cross-worker design (auth→groups call
+     vs groups GC); revisit with F3/F4.
+3. **F3 — Username + passphrase reclaim (scheme A: Ed25519 challenge)** (recovery surface #2 — WhatsApp parity) — ✅ *(build + worker type-check + 408 tests green; browser + live-worker verification pending)*
+   - ✅ Auth worker: per-account recovery verifier (Ed25519 **public** key + salt; never the passphrase /
+     no password-equivalent). `POST /recover/start` (salt + nonce) + `POST /recover/finish` (verify signed
+     nonce → bind new device under the **existing** `userId`). Migration `0003_recovery.sql`.
+   - ✅ Client crypto: `core/identity/recovery.ts` — deterministic Ed25519 keypair from
+     `PBKDF2(passphrase, salt)`; sign/verify round-trip unit-tested.
+   - ✅ Verifier uploaded at claim (`claim.ts` ← `securityManager.getRecoveryVerifier()`); derived at
+     `initialize()`, re-derived on `changePassphrase` + re-uploaded (`ChangePassphrasePage`).
+   - ✅ `reclaimAccount()` + `ReclaimAccountScreen` (`/onboarding/reclaim`, from the restore screen):
+     fresh vault → prove ownership → adopt the old `userId`. Wipes the half-vault on failure.
+   - ✅ `userId` stays internal + stable; username = public handle mapped to it.
+   - ⏸ *(Deferred)* **group recovery after reclaim** — reclaim restores identity + server-side membership,
+     but the client has no local group mirror and there's **no "list my groups" server call** yet; plus
+     group *keys* need a co-member re-grant. Both extend Track E (list-my-groups sync + auto re-grant) and
+     are tracked there / as an F3 follow-up. Personal data still needs a backup.
 4. **F4 — Device pairing (Flow 2 / QR)** (recovery surface #3)
    - Worker: small DMK-grant relay (post + fetch-once), reuse signed `POST /device`.
    - Client: pairing handshake UX (B shows code/QR → A registers B + grants DMK → B unwraps, becomes a
@@ -300,3 +328,59 @@ Each step: build-green + behind the `sync` gate so `main` stays shippable; commi
   deferred. Added "Identity & recovery design" section; restructured the plan into three recovery surfaces
   (restore-on-reinstall F2, SRP reclaim F3, device pairing F4); updated inventory + open questions. No code
   changed.
+- **2026-07-04 — F2 implemented (recovery hardening + restore-on-reinstall).** Four changes, build + 404
+  tests green (browser verification pending): (a) **deregister-failure surfacing** — `BackupPage.handleReset`
+  now checks `getClaimState()`, and on a claimed account whose `deregisterAccount()` throws it shows a
+  "Couldn't release your username" dialog (Erase anyway / cancel-to-retry) instead of silently orphaning it;
+  (b) **mandatory username** at onboarding on sync builds (`LetUsKnowYouScreen`, gated on
+  `hasEntitlement('sync')`); (c) **post-claim backup nudge** (`ProfilePage`) shown when a claimed account
+  has no off-device backup target; (d) **restore-on-reinstall** — new `RestoreAccountScreen`
+  (`/onboarding/restore`, Drive or file via `importBackup`) reachable from a "Been here before?" link on
+  `PrivacyPromiseScreen`; after restore it hard-navs to `/app` so the AuthGuard/SessionGate shows unlock.
+  Deferred the groups-side account-delete cleanup (stretch) pending a cross-worker design pass. Next: F3 (SRP).
+- **2026-07-04 — F3 implemented (passphrase reclaim; scheme A — Ed25519 challenge).** User chose scheme A
+  over textbook SRP-6a (Web-Crypto-native, no hand-rolled modexp, same security). Build + worker
+  type-check + 408 tests green (incl. 4 new Ed25519 round-trip tests). **Worker:** migration
+  `0003_recovery.sql` adds `recovery_salt` + `recovery_pubkey`; `upsertUser` COALESCEs them (a plain
+  re-register never wipes a verifier); `/register` stores them; new `POST /recover/start`
+  (returns salt + single-use nonce) + `POST /recover/finish` (verifies an Ed25519 signature over
+  `recover\\n{username}\\n{nonce}`, then binds the new device under the existing `userId`); rate-limited;
+  no handle enumeration (unknown vs unrecoverable both 404). **Client:** `core/identity/recovery.ts`
+  derives a deterministic Ed25519 keypair from `PBKDF2(passphrase, salt)` (600k, independent of the DMK
+  KDF); `securityManager.initialize`/`changePassphrase` derive + store the verifier; `claim.ts` uploads it
+  and adds `reclaimAccount()`; `ReclaimAccountScreen` (`/onboarding/reclaim`, linked from the restore
+  screen) sets up a fresh vault → proves ownership → adopts the old `userId`, wiping the half-vault on
+  failure. **Security properties:** server stores only a public key (DB-leak/replay safe); proof binds
+  username+nonce; offline brute-force bounded by the 600k KDF. **Deferred:** group recovery after reclaim
+  (no "list my groups" call yet + key re-grant) — extends Track E. **Still to do before shipping:** deploy
+  the auth worker + apply migration `0003`; browser + live-worker verification (F5).
+- **2026-07-04 — Onboarding flow rework (F2/F3 finalize).** Per user feedback, moved the returning-user
+  entry OFF the Privacy-Promise screen and made it a proper branch **after the Preview Dashboard**
+  (`SimulatedDashboardScreen`): "Set up my account" (new user → Let-us-know-you → Set-up-vault → seed) vs
+  "Already have an account? Restore or reclaim it" → restore screen. Rationale: the Let-us-know-you +
+  Set-up-vault + seed screens are new-user-only; a restore brings profile/data/groups back from the backup
+  (no seed, no re-claim), and reclaim (no backup) is the passphrase path off the restore screen. Fixed the
+  restore screen's back target to the preview. Build + lint green.
+- **2026-07-04 — Account-start flow v2 built (mockup approved).** Two mockups
+  (`onboarding-account-start-v1/v2.html`); user approved v2. Implemented the full A→B→④ flow: **Screen A**
+  `AccountStartScreen` (three cards) → **Screen B** `AccountRecoveryScreen` (segmented New/Restore/Reclaim
+  tabs, pre-selected from the tapped card; consolidates + replaces the standalone Restore/Reclaim screens)
+  → **Screen ④** `ChooseHandleScreen` for the "handle taken after a deregistered account was restored"
+  case, driven by `IdentityReconciler` (mounted in `AuthGuard`, runs post-unlock off `RECONCILE_FLAG`:
+  `/whoami` → re-register restored identity → on `UsernameTakenError` show ④). New-card copy now names the
+  erased-with-nothing-to-restore case. Scenario matrix (reinstall / no-backup / erased+backup /
+  erased+no-backup) all covered. Preview CTA now → Screen A. Build + repo-lint + 408 tests green; browser
+  verification pending.
+- **2026-07-04 — Claim reactivity bug fixed + claim-at-onboarding.** User reported the Home Groups card
+  still said "Claim to create" after a successful Profile claim (server `penny_auth` row confirmed). Root
+  cause: `useRepository` is a one-shot load (not live), so `GroupContext` kept the stale pre-claim profile
+  (no `deviceId`) → `claimed` false. Fix: `claimAccount`/`reclaimAccount` now dispatch a
+  `penny-profile-updated` event (mirrors `penny-events-updated`), and `GroupContext` reloads the profile +
+  groups on it → the card/switcher update live after an in-app claim. Also: **new users now claim at
+  onboarding** (`SetupCredentialsScreen`, sync builds, best-effort) so a fresh account is real immediately,
+  with a **username availability check** on `LetUsKnowYouScreen` to avoid a taken handle failing the claim.
+  Build + repo-lint + 408 tests green.
+- **2026-07-04 — Backup export "Maximum call stack size exceeded" fixed.** `bufferToBase64` in
+  `backupManager.ts` spread the entire encrypted-DB ciphertext into `String.fromCharCode(...)`, overflowing
+  the argument stack on a real (non-empty) vault — blocking export, and therefore the restore-flow test.
+  Now chunked (32KB). Import side was already loop-based. Build + 408 tests green.

@@ -7,6 +7,16 @@ export interface UserRow {
   kdf_salt: string | null;
   created_at: number;
   updated_at: number;
+  // Track F (F3): passphrase-recovery verifier — public Ed25519 key + the KDF salt. Nullable.
+  recovery_salt: string | null;
+  recovery_pubkey: string | null;
+}
+
+/** Recovery lookup by handle: the userId + verifier for a username, or null if unknown/unrecoverable. */
+export interface RecoveryRow {
+  user_id: string;
+  recovery_salt: string | null;
+  recovery_pubkey: string | null;
 }
 
 export interface DeviceRow {
@@ -35,16 +45,38 @@ export async function userIdForUsername(db: D1Database, username: string): Promi
 /** Upsert a user by user_id (idempotent re-register / relabel). Caller guarantees username is free. */
 export async function upsertUser(
   db: D1Database,
-  u: { userId: string; username: string | null; signingKey: string; kdfSalt: string | null; now: number }
+  u: {
+    userId: string;
+    username: string | null;
+    signingKey: string;
+    kdfSalt: string | null;
+    now: number;
+    // Track F (F3): pass to set/update the recovery verifier. Omit/null → keep any existing verifier
+    // (COALESCE), so a plain re-register never wipes a user's recovery key.
+    recoverySalt?: string | null;
+    recoveryPubkey?: string | null;
+  }
 ): Promise<void> {
   await db
     .prepare(
-      'INSERT INTO users (user_id, username, signing_key, kdf_salt, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ' +
+      'INSERT INTO users (user_id, username, signing_key, kdf_salt, recovery_salt, recovery_pubkey, created_at, updated_at) ' +
+        'VALUES (?, ?, ?, ?, ?, ?, ?, ?) ' +
         'ON CONFLICT(user_id) DO UPDATE SET username = excluded.username, signing_key = excluded.signing_key, ' +
-        'kdf_salt = excluded.kdf_salt, updated_at = excluded.updated_at'
+        'kdf_salt = excluded.kdf_salt, ' +
+        'recovery_salt = COALESCE(excluded.recovery_salt, users.recovery_salt), ' +
+        'recovery_pubkey = COALESCE(excluded.recovery_pubkey, users.recovery_pubkey), ' +
+        'updated_at = excluded.updated_at'
     )
-    .bind(u.userId, u.username, u.signingKey, u.kdfSalt, u.now, u.now)
+    .bind(u.userId, u.username, u.signingKey, u.kdfSalt, u.recoverySalt ?? null, u.recoveryPubkey ?? null, u.now, u.now)
     .run();
+}
+
+/** Recovery verifier + userId for a username (Track F, F3). Null if the handle is unknown. */
+export function getRecoveryByUsername(db: D1Database, username: string): Promise<RecoveryRow | null> {
+  return db
+    .prepare('SELECT user_id, recovery_salt, recovery_pubkey FROM users WHERE username = ?')
+    .bind(username)
+    .first<RecoveryRow>();
 }
 
 export function getDevice(db: D1Database, deviceId: string): Promise<DeviceRow | null> {

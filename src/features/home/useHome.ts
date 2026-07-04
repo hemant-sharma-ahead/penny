@@ -1,5 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { accountsRepo, expensesRepo, holdingsRepo, ledgerEntriesRepo, liabilitiesRepo } from '@/core/db/repositories';
+import {
+  accountsRepo,
+  expensesRepo,
+  holdingsRepo,
+  ledgerEntriesRepo,
+  liabilitiesRepo,
+  personsRepo
+} from '@/core/db/repositories';
 import type { Holding, Liability } from '@/core/db/types';
 import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { signedAmount } from '@/core/iou/ledger';
@@ -59,19 +66,23 @@ const LIQUID_META = { label: 'Liquid Funds', short: 'Liquid', color: '#06b6d4', 
 const IOU_META = { label: 'Owed to You', short: 'IOU', color: '#14b8a6', icon: 'ti-users' };
 
 async function loadSummary(): Promise<HomeSummary> {
-  const [liabilities, expenses, holdings, accs, ledgerEntries] = await Promise.all([
+  const [liabilities, expenses, holdings, accs, ledgerEntries, persons] = await Promise.all([
     liabilitiesRepo.getAll(),
     expensesRepo.getAll(),
     holdingsRepo.getAll(),
     accountsRepo.getAll(),
-    ledgerEntriesRepo.getAll()
+    ledgerEntriesRepo.getAll(),
+    personsRepo.getAll()
   ]);
 
   const totalPortfolio = holdings.reduce((s, h) => s + (h.currentValue ?? h.investedAmount), 0);
   const totalLiabilitiesAmt = liabilities.reduce((s, l) => s + l.outstandingAmount, 0);
   // Net IOU: lent (asset) − borrowed (liability), net of settlements. Offsets the cash movement
-  // that lend/borrow transactions make, so net worth stays correct end-to-end.
-  const netIou = ledgerEntries.reduce((s, e) => s + signedAmount(e), 0);
+  // that lend/borrow transactions make, so net worth stays correct end-to-end. Only count entries for
+  // ACTIVE persons — deleting an IOU soft-archives the person (entries kept for integrity), and archived
+  // balances must not linger in net worth (matches the IOU tab totals).
+  const activePersonIds = new Set(persons.filter((p) => !p.isArchived).map((p) => p.id));
+  const netIou = ledgerEntries.reduce((s, e) => (activePersonIds.has(e.personId) ? s + signedAmount(e) : s), 0);
 
   const thisMonth = toMonthYearKey();
   const monthlyExpenses = expenses

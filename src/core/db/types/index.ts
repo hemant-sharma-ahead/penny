@@ -45,6 +45,7 @@ export interface Profile {
   homeOwner?: boolean | undefined;
   riskAppetite?: GoalRisk | undefined;
   plan?: Plan | undefined; // entitlement state; defaults to 'free' (full access in Phase 1)
+  demoSeeded?: boolean | undefined; // true while sample/demo data is present. Rides backup, so the "Clear sample data" option survives restore (unlike the device-local localStorage flag).
   createdAt: number;
   updatedAt: number;
 }
@@ -466,6 +467,10 @@ export interface SecurityRecord {
   kekSalt: string; // salt for the PIN-KEK, base64
   encryptedMasterKeyByPassphrase?: string; // DMK wrapped by the passphrase-KEK, base64 (added lazily for migrated vaults)
   passphraseKekSalt?: string; // salt for the passphrase-KEK, base64
+  // Track F (F3): passphrase-recovery verifier material. Both non-secret (a salt + a PUBLIC key), kept
+  // here so claim can upload them; re-derived when the passphrase changes. See core/identity/recovery.ts.
+  recoverySalt?: string; // salt for the recovery keypair KDF, base64
+  recoveryPublicJwk?: string; // Ed25519 recovery PUBLIC key, JSON string
   mkSalt?: string; // legacy: salt the pre-envelope MK was derived from (used to verify the passphrase during migration)
   passphraseVerifier?: string; // legacy, unused
   pinAttempts: number;

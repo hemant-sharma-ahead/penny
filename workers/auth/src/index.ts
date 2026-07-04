@@ -6,11 +6,12 @@
 import { json, preflight } from './cors';
 import { isRateLimited } from './ratelimit';
 import { isValidUsername } from './lib/username';
-import { sha256Hex, verifyRequestSignature } from './lib/auth';
+import { sha256Hex, verifyRecoverySignature, verifyRequestSignature } from './lib/auth';
 import {
   deleteAccount,
   deleteStaleUsers,
   getDevice,
+  getRecoveryByUsername,
   getUser,
   touchUser,
   upsertDevice,
@@ -50,6 +51,8 @@ export default {
       if (req.method === 'GET' && route === '/whoami') return await handleWhoami(req, env, url);
       if (req.method === 'POST' && route === '/device') return await handleAddDevice(req, env, url);
       if (req.method === 'DELETE' && route === '/account') return await handleDeleteAccount(req, env, url);
+      if (req.method === 'POST' && route === '/recover/start') return await handleRecoverStart(req, env, ip);
+      if (req.method === 'POST' && route === '/recover/finish') return await handleRecoverFinish(req, env, ip);
     } catch (err) {
       // Never leak internals or PII.
       return json({ error: 'server_error', message: err instanceof Error ? err.message : 'unknown' }, 500);
@@ -103,7 +106,10 @@ async function handleRegister(req: Request, env: Env, ip: string): Promise<Respo
     username: username || null,
     signingKey,
     kdfSalt: str(body.kdf_salt) || null,
-    now
+    now,
+    // Track F (F3): the passphrase-recovery verifier (public key + salt). Optional — omit → keep existing.
+    recoverySalt: str(body.recovery_salt) || null,
+    recoveryPubkey: str(body.recovery_pubkey) || null
   });
   await upsertDevice(env.DB, {
     deviceId,
@@ -165,6 +171,75 @@ async function handleDeleteAccount(req: Request, env: Env, url: URL): Promise<Re
   if ('error' in auth) return auth.error;
   await deleteAccount(env.DB, auth.userId);
   return json({ ok: true });
+}
+
+// ─── Passphrase recovery (Track F, F3, scheme A) ─────────────────────────────────
+// Unsigned (the reclaiming device has no registered keys yet). Ownership is proved in /recover/finish
+// by signing a fresh nonce with the passphrase-derived recovery key — replay-safe, DB-leak-safe.
+const RECOVER_NONCE_TTL_SEC = 120;
+
+/** Begin a reclaim: return the recovery salt + a single-use nonce for the handle (if recoverable). */
+async function handleRecoverStart(req: Request, env: Env, ip: string): Promise<Response> {
+  if (await isRateLimited(env.CACHE, `rec:${ip}`, 20, 60)) return json({ error: 'rate_limited' }, 429);
+  const body = safeParse(await req.text());
+  const username = str(body?.username);
+  if (!username) return json({ error: 'bad_request', message: 'username required' }, 400);
+
+  const rec = await getRecoveryByUsername(env.DB, username);
+  // No verifier on file (unknown handle, or claimed before recovery existed) → can't reclaim by passphrase.
+  // Don't distinguish the two cases to avoid handle enumeration.
+  if (!rec || !rec.recovery_salt || !rec.recovery_pubkey) {
+    return json({ error: 'not_recoverable' }, 404);
+  }
+
+  const nonce = crypto.randomUUID();
+  await env.CACHE.put(`recover:${nonce}`, username, { expirationTtl: RECOVER_NONCE_TTL_SEC });
+  return json({ recovery_salt: rec.recovery_salt, nonce, ttl: RECOVER_NONCE_TTL_SEC });
+}
+
+/** Finish a reclaim: verify the signed nonce, then bind the new device under the existing userId. */
+async function handleRecoverFinish(req: Request, env: Env, ip: string): Promise<Response> {
+  if (await isRateLimited(env.CACHE, `rec:${ip}`, 20, 60)) return json({ error: 'rate_limited' }, 429);
+  const body = safeParse(await req.text());
+  const username = str(body?.username);
+  const nonce = str(body?.nonce);
+  const signatureB64 = str(body?.signature);
+  const deviceId = str(body?.device_id);
+  const deviceSigningKey = str(body?.device_signing_key);
+  const deviceWrappingKey = str(body?.device_wrapping_key);
+  if (!username || !nonce || !signatureB64 || !deviceId || !deviceSigningKey || !deviceWrappingKey) {
+    return json({ error: 'bad_request', message: 'missing required fields' }, 400);
+  }
+
+  // Single-use nonce bound to this handle; deleted on read so a captured signature can't be replayed.
+  const nonceKey = `recover:${nonce}`;
+  const nonceUser = await env.CACHE.get(nonceKey);
+  if (nonceUser === null || nonceUser !== username) {
+    return json({ error: 'unauthorized', message: 'invalid or expired nonce' }, 401);
+  }
+  await env.CACHE.delete(nonceKey);
+
+  const rec = await getRecoveryByUsername(env.DB, username);
+  if (!rec || !rec.recovery_pubkey) return json({ error: 'not_recoverable' }, 404);
+  const publicJwk = safeParse(rec.recovery_pubkey) as JsonWebKey | null;
+  const ok =
+    publicJwk !== null && (await verifyRecoverySignature({ publicJwk, signatureB64, username, nonce }));
+  if (!ok) return json({ error: 'unauthorized', message: 'bad signature' }, 401);
+
+  // Proof accepted: register the reclaiming device under the recovered account's existing userId, so
+  // group memberships (keyed by userId) still apply. The client then re-derives its DMK from the
+  // passphrase-backed backup and gets group keys re-granted by a co-member (E2EE — server can't help).
+  const now = Date.now();
+  await upsertDevice(env.DB, {
+    deviceId,
+    userId: rec.user_id,
+    signingKey: deviceSigningKey,
+    wrappingKey: deviceWrappingKey,
+    label: str(body?.label) || null,
+    now
+  });
+  await touchUser(env.DB, rec.user_id, now).catch(() => undefined);
+  return json({ ok: true, user_id: rec.user_id, username });
 }
 
 // ─── Signed-request verification ─────────────────────────────────────────────────

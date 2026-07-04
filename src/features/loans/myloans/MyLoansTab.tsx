@@ -3,7 +3,7 @@ import type { Liability } from '@/core/db/types';
 import { formatCurrency, formatMonthsDuration } from '@/lib/formatters';
 import { deriveTenureMonths } from '@/core/loans/amortization';
 import { getLoanMeta } from '@/core/loans/meta';
-import { Card, Button, EmptyState, DetailRow, Badge } from '@/components/ui';
+import { Card, Button, EmptyState, DetailRow, Badge, ConfirmDialog } from '@/components/ui';
 import { ListRow } from '@/components/shared';
 import { AddLoanModal } from './AddLoanModal';
 
@@ -11,6 +11,7 @@ interface MyLoansTabProps {
   emiLoans: Liability[];
   mode: 'open' | 'safe' | 'privacy';
   saveLiability: (l: Liability) => Promise<unknown>;
+  deleteLiability: (id: string) => Promise<unknown>;
   onPlanLoan: (l: Liability) => void;
 }
 
@@ -20,8 +21,10 @@ function estimatedMonthsLeft(l: Liability): number | null {
   return null;
 }
 
-export function MyLoansTab({ emiLoans, mode, saveLiability, onPlanLoan }: MyLoansTabProps) {
+export function MyLoansTab({ emiLoans, mode, saveLiability, deleteLiability, onPlanLoan }: MyLoansTabProps) {
   const [showAddLoan, setShowAddLoan] = useState(false);
+  const [editLoan, setEditLoan] = useState<Liability | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Liability | null>(null);
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-3">
@@ -50,7 +53,25 @@ export function MyLoansTab({ emiLoans, mode, saveLiability, onPlanLoan }: MyLoan
                   iconSize="sm"
                   title={<p className="text-sm font-semibold text-primary leading-tight">{l.name}</p>}
                   subtitle={l.lenderName ? <p className="text-xs text-tertiary">{l.lenderName}</p> : undefined}
-                  right={<Badge label={meta.label} color={meta.color} size="sm" rounded="md" />}
+                  right={
+                    <div className="flex items-center gap-0.5">
+                      <Badge label={meta.label} color={meta.color} size="sm" rounded="md" />
+                      <Button
+                        variant="ghost"
+                        icon="ti-pencil"
+                        aria-label={`Edit ${l.name}`}
+                        className="w-8 h-8 rounded-lg text-tertiary hover:text-primary"
+                        onClick={() => setEditLoan(l)}
+                      />
+                      <Button
+                        variant="ghost"
+                        icon="ti-trash"
+                        aria-label={`Delete ${l.name}`}
+                        className="w-8 h-8 rounded-lg text-tertiary hover:text-danger"
+                        onClick={() => setDeleteTarget(l)}
+                      />
+                    </div>
+                  }
                 />
 
                 <div className="flex flex-col gap-1.5 mt-3">
@@ -88,7 +109,29 @@ export function MyLoansTab({ emiLoans, mode, saveLiability, onPlanLoan }: MyLoan
         </div>
       )}
 
-      {showAddLoan && <AddLoanModal saveLiability={saveLiability} onClose={() => setShowAddLoan(false)} />}
+      {(showAddLoan || editLoan) && (
+        <AddLoanModal
+          saveLiability={saveLiability}
+          loan={editLoan ?? undefined}
+          onClose={() => {
+            setShowAddLoan(false);
+            setEditLoan(null);
+          }}
+        />
+      )}
+
+      <ConfirmDialog
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) void deleteLiability(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+        title="Delete this loan?"
+        message={`"${deleteTarget?.name ?? ''}" will be removed. You can undo right after.`}
+        confirmLabel="Delete"
+        confirmVariant="danger"
+      />
     </div>
   );
 }

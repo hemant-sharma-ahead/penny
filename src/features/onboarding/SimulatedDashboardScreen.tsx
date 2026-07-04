@@ -64,8 +64,8 @@ export function SimulatedDashboardScreen() {
           </p>
         </div>
 
-        <Button variant="primary" size="lg" fullWidth onClick={() => navigate(PATHS.onboarding.letUsKnowYou)}>
-          Continue
+        <Button variant="primary" size="lg" fullWidth onClick={() => navigate(PATHS.onboarding.start)}>
+          Set up my account
         </Button>
       </div>
     </div>

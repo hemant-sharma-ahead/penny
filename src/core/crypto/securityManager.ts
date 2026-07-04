@@ -11,6 +11,7 @@
 
 import { db } from '@/core/db/schema';
 import { decrypt, deriveKey, generateMasterKey, generateSalt, unwrapKey, wrapKey } from './engine';
+import { deriveRecoveryKeypair } from '@/core/identity/recovery';
 import { keystore } from './keystore';
 import { DAY_MS } from '@/lib/date';
 import type { SecurityRecord } from '@/core/db/types';
@@ -163,6 +164,11 @@ export async function initialize(passphrase: string, pin: string): Promise<void>
 
   keystore.setMasterKey(await unwrapKey(encryptedMasterKey, pinKek, false));
 
+  // Track F (F3): derive the passphrase-recovery keypair now (we hold the passphrase here) and stash the
+  // salt + PUBLIC key so claim can register it as the account's recovery verifier.
+  const recoverySalt = generateSalt(16);
+  const { publicJwk: recoveryPublicJwk } = await deriveRecoveryKeypair(passphrase, recoverySalt);
+
   const now = Date.now();
   await db.security.put({
     id: generateId(),
@@ -170,6 +176,8 @@ export async function initialize(passphrase: string, pin: string): Promise<void>
     encryptedMasterKeyByPassphrase: bufferToBase64(encryptedMasterKeyByPassphrase),
     kekSalt: bufferToBase64(kekSalt),
     passphraseKekSalt: bufferToBase64(passphraseKekSalt),
+    recoverySalt: bufferToBase64(recoverySalt),
+    recoveryPublicJwk: JSON.stringify(recoveryPublicJwk),
     pinAttempts: 0,
     lastPinVerifiedAt: now,
     pinChangedAt: now,
@@ -177,6 +185,16 @@ export async function initialize(passphrase: string, pin: string): Promise<void>
     createdAt: now,
     updatedAt: now
   });
+}
+
+/**
+ * The account's passphrase-recovery verifier (salt + PUBLIC key), or null if this vault predates the
+ * feature. Uploaded to the server by the claim flow (Track F, F3). Non-secret — safe to hand out.
+ */
+export async function getRecoveryVerifier(): Promise<{ recoverySalt: string; recoveryPublicJwk: string } | null> {
+  const record = await firstRecord();
+  if (!record?.recoverySalt || !record?.recoveryPublicJwk) return null;
+  return { recoverySalt: record.recoverySalt, recoveryPublicJwk: record.recoveryPublicJwk };
 }
 
 // ─── Unlock with PIN ──────────────────────────────────────────────────────────
@@ -282,10 +300,18 @@ export async function changePassphrase(
   const newPassKek = await deriveKey(newPassphrase, newPassphraseKekSalt, MK_ITERATIONS);
   const rewrapped = await wrapKey(dmk, newPassKek);
 
+  // Track F (F3): the recovery keypair is derived from the passphrase, so a change re-derives it. We
+  // update the LOCAL verifier here; a claimed account must re-upload it to the server (the caller does
+  // this via claimAccount() after a successful change — see ChangePassphrasePage).
+  const newRecoverySalt = generateSalt(16);
+  const { publicJwk: newRecoveryPublicJwk } = await deriveRecoveryKeypair(newPassphrase, newRecoverySalt);
+
   const now = Date.now();
   await db.security.update(record.id, {
     encryptedMasterKeyByPassphrase: bufferToBase64(rewrapped),
     passphraseKekSalt: bufferToBase64(newPassphraseKekSalt),
+    recoverySalt: bufferToBase64(newRecoverySalt),
+    recoveryPublicJwk: JSON.stringify(newRecoveryPublicJwk),
     mkSalt: undefined, // legacy derivation no longer used once migrated
     updatedAt: now
   } as object);

@@ -295,8 +295,18 @@ export function useExpenses() {
     async (expenseIds: string[]) => {
       const ids = new Set(expenseIds);
       const removed = expenses.filter((e) => ids.has(e.id));
+      // Cascade-delete any IOU ledger entries linked to these transactions (parity with single delete),
+      // so bulk-deleting IOU-seeded expenses doesn't leave orphaned ledger entries.
+      const linkedEntries = (await ledgerEntriesRepo.getAll()).filter(
+        (le) => le.linkedTxnId !== undefined && ids.has(le.linkedTxnId)
+      );
       await Promise.all(expenseIds.map((id) => expensesRepo.delete(id)));
+      for (const le of linkedEntries) await ledgerEntriesRepo.delete(le.id);
       reloadExpenses();
+      if (linkedEntries.length > 0) {
+        reloadLedger();
+        notifyTxnChanged();
+      }
       const first = removed[0];
       if (!first) return;
       const label = `${removed.length} transaction${removed.length === 1 ? '' : 's'}`;
@@ -306,7 +316,10 @@ export function useExpenses() {
         entityId: first.id,
         summary: `Deleted ${label}`,
         snapshot: JSON.stringify(removed),
-        entityCount: removed.length
+        entityCount: removed.length,
+        ...(linkedEntries.length > 0
+          ? { cascade: JSON.stringify(linkedEntries.map((le) => ({ entityType: 'ledgerEntry', record: le }))) }
+          : {})
       });
       showToast({
         message: `Deleted ${label}`,
@@ -314,10 +327,14 @@ export function useExpenses() {
         onAction: async () => {
           await restoreActivity(logId);
           reloadExpenses();
+          if (linkedEntries.length > 0) {
+            reloadLedger();
+            notifyTxnChanged();
+          }
         }
       });
     },
-    [expenses, reloadExpenses, showToast]
+    [expenses, reloadExpenses, reloadLedger, showToast]
   );
 
   /** Delete a single transaction, with Undo. Cascade-deletes linked IOU entries and restores both atomically. */

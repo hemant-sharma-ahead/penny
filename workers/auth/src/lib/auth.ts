@@ -51,3 +51,29 @@ export async function verifyRequestSignature(params: {
     return false;
   }
 }
+
+/** The exact byte string a recovery (reclaim) signature covers — binds the proof to the handle + nonce. */
+export function buildRecoveryString(username: string, nonce: string): string {
+  return ['recover', username, nonce].join('\n');
+}
+
+/**
+ * Verify an Ed25519 signature over buildRecoveryString(...) against a user's stored recovery public
+ * JWK (Track F, F3, scheme A). The client re-derives the keypair from KDF(passphrase, recovery_salt),
+ * so a valid signature proves knowledge of the passphrase without the server ever seeing it. Returns
+ * false (never throws) on any malformed input.
+ */
+export async function verifyRecoverySignature(params: {
+  publicJwk: JsonWebKey;
+  signatureB64: string;
+  username: string;
+  nonce: string;
+}): Promise<boolean> {
+  try {
+    const key = await crypto.subtle.importKey('jwk', params.publicJwk, { name: 'Ed25519' }, false, ['verify']);
+    const data = new TextEncoder().encode(buildRecoveryString(params.username, params.nonce));
+    return await crypto.subtle.verify({ name: 'Ed25519' }, key, base64ToBuffer(params.signatureB64), data);
+  } catch {
+    return false;
+  }
+}

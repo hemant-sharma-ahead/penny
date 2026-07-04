@@ -4,6 +4,8 @@ import { initialize, isWeakPin } from '@/core/crypto/securityManager';
 import { EncryptedRepository } from '@/core/db/repository';
 import { db } from '@/core/db/schema';
 import { seedDemoData } from '@/core/db/seedDemoData';
+import { claimAccount } from '@/core/identity/claim';
+import { hasEntitlement } from '@/core/entitlement/entitlement';
 import type { Profile } from '@/core/db/types';
 import { usePassphraseStrength } from '@/hooks/usePassphraseStrength';
 import { PATHS } from '@/router/paths';
@@ -50,6 +52,12 @@ export function SetupCredentialsScreen() {
         createdAt: now,
         updatedAt: now
       });
+      // Claim the chosen handle on the server so the account is real from the start (sync builds) — sets
+      // deviceId + uploads the recovery verifier, so Groups work immediately. Best-effort: offline just
+      // defers it (Profile shows a Claim button). Availability was checked on the previous screen.
+      if (hasEntitlement('sync') && draft.username) {
+        await claimAccount(draft.username).catch(() => undefined);
+      }
       await seedDemoData(draft.employmentType ?? 'salaried');
       navigate(PATHS.app.home);
     } catch {

@@ -7,15 +7,18 @@ import { useLoanForm } from './useLoanForm';
 interface AddLoanModalProps {
   saveLiability: (l: Liability) => Promise<unknown>;
   onClose: () => void;
+  /** When set, the modal edits this loan instead of adding a new one. */
+  loan?: Liability | undefined;
 }
 
-export function AddLoanModal({ saveLiability, onClose }: AddLoanModalProps) {
-  const form = useLoanForm(saveLiability, onClose);
+export function AddLoanModal({ saveLiability, onClose, loan }: AddLoanModalProps) {
+  const form = useLoanForm(saveLiability, onClose, loan);
+  const editing = Boolean(loan);
 
   return (
     <Modal
       onClose={onClose}
-      title="Add Loan"
+      title={editing ? 'Edit Loan' : 'Add Loan'}
       scrollable
       footer={
         <div className="flex gap-2">
@@ -23,7 +26,7 @@ export function AddLoanModal({ saveLiability, onClose }: AddLoanModalProps) {
             Cancel
           </Button>
           <Button variant="primary" fullWidth onClick={form.save} disabled={!form.canSave} loading={form.saving}>
-            {form.saving ? 'Saving…' : 'Save Loan'}
+            {form.saving ? 'Saving…' : editing ? 'Update Loan' : 'Save Loan'}
           </Button>
         </div>
       }

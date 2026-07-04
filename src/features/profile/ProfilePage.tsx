@@ -11,6 +11,8 @@ import { hasEntitlement } from '@/core/entitlement/entitlement';
 import { deriveAge, deriveAgeBand } from '@/lib/date';
 import { fileToReceiptDataUrl } from '@/lib/image';
 import { checkUsername, claimAccount, UsernameTakenError } from '@/core/identity/claim';
+import { getBackupTarget } from '@/core/sync/backupPrefs';
+import { PATHS } from '@/router/paths';
 import { useProfile } from '@/hooks/useProfile';
 
 export function ProfilePage() {
@@ -77,37 +79,58 @@ function Field({
 const flatInput =
   'w-full bg-transparent border-none p-0 text-[15px] text-primary focus:outline-none placeholder:text-tertiary';
 
-/** A compact single-select pill group (tap the active one again to clear). */
-function Pills({
+/** A compact inline row: icon + label on the left, a control on the right (Life & household layout). */
+function LifeRow({
+  icon,
+  label,
+  alignTop,
+  children
+}: {
+  icon: string;
+  label: string;
+  alignTop?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={`flex ${alignTop ? 'items-start' : 'items-center'} justify-between gap-3 py-3 border-t border-theme`}
+    >
+      <span className="text-[13px] font-medium text-secondary flex items-center gap-2 flex-shrink-0">
+        <i className={`ti ${icon} text-tertiary`} style={{ fontSize: 17 }} aria-hidden="true" />
+        {label}
+      </span>
+      {children}
+    </div>
+  );
+}
+
+/** Compact segmented control (tap the active segment again to clear — these fields are optional). */
+function Seg({
   options,
   value,
   onChange
 }: {
   options: { value: string; label: string }[];
   value: string | undefined;
-  onChange: (v: string) => void;
+  onChange: (v: string | undefined) => void;
 }) {
   return (
-    <div className="flex gap-2">
+    <span className="inline-flex bg-surface-2 border border-theme rounded-lg p-0.5 gap-0.5">
       {options.map((o) => {
         const on = value === o.value;
         return (
           <button
             key={o.value}
             type="button"
-            onClick={() => onChange(o.value)}
-            className="flex-1 py-2 rounded-xl text-xs font-bold border transition-colors"
-            style={
-              on
-                ? { backgroundColor: 'var(--color-primary)', color: '#fff', borderColor: 'var(--color-primary)' }
-                : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
-            }
+            onClick={() => onChange(on ? undefined : o.value)}
+            className={`text-[11.5px] font-semibold px-2.5 py-1.5 rounded-md transition-colors ${on ? 'bg-surface shadow-sm' : ''}`}
+            style={{ color: on ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}
           >
             {o.label}
           </button>
         );
       })}
-    </div>
+    </span>
   );
 }
 
@@ -116,6 +139,7 @@ function SectionLabel({ children }: { children: ReactNode }) {
 }
 
 function ProfileEditor({ profile }: { profile: Profile }) {
+  const navigate = useNavigate();
   const syncOn = hasEntitlement('sync');
 
   const [avatarDataUrl, setAvatarDataUrl] = useState(profile.avatarDataUrl ?? '');
@@ -265,6 +289,12 @@ function ProfileEditor({ profile }: { profile: Profile }) {
 
   const initial = (fullName.trim() || username || '?').charAt(0).toUpperCase();
   const heroHandle = [claimed && username ? `@${username}` : null, planLabel].filter(Boolean).join(' · ');
+  // A claimed account is only recoverable with an OFF-device backup (Drive/iCloud). 'local'/null don't
+  // survive reinstall or iOS storage eviction — so nudge the user to set one up right after they claim
+  // (Track F, F2c). The nudge is dismissible per session so it isn't nagging.
+  const backupTarget = getBackupTarget();
+  const backupIsRecoverable = backupTarget === 'google-drive' || backupTarget === 'icloud';
+  const showBackupNudge = syncOn && claimed && !backupIsRecoverable;
 
   return (
     <div className="px-4 py-4 flex flex-col">
@@ -450,6 +480,22 @@ function ProfileEditor({ profile }: { profile: Profile }) {
           : 'A provisional handle — confirmed on the server when you enable sharing later.'}
       </p>
 
+      {showBackupNudge && (
+        <div className="mt-3">
+          <Banner variant="warning">
+            <div className="flex flex-col gap-2">
+              <span>
+                Turn on cloud backup so you can recover your account if you reinstall or switch devices. Without it,
+                your data and this handle can't be restored.
+              </span>
+              <Button variant="primary" className="self-start" onClick={() => navigate(PATHS.app.backup)}>
+                Set up backup
+              </Button>
+            </div>
+          </Banner>
+        </div>
+      )}
+
       {/* Employment */}
       <SectionLabel>Employment</SectionLabel>
       <div className="grid grid-cols-5 gap-2.5">
@@ -494,15 +540,13 @@ function ProfileEditor({ profile }: { profile: Profile }) {
       {/* Life & household — opt-in; unlocks personalized life-stage goals & guidance */}
       <SectionLabel>Life &amp; household</SectionLabel>
       <Card>
-        <div className="py-3">
-          <p className="text-[11px] text-tertiary leading-relaxed">
-            Optional — add these to unlock <b className="text-secondary">personalized goals</b> (a child's education
-            corpus, the right cover, a retirement target). Stored encrypted on your device; only a 5-year age band ever
-            reaches Chip.
-          </p>
-        </div>
-        <Field label="Relationship">
-          <Pills
+        <p className="text-[11px] text-tertiary leading-relaxed py-3">
+          Optional — add these to unlock <b className="text-secondary">personalized goals</b> (a child's education
+          corpus, the right cover, a retirement target). Stored encrypted on your device; only a 5-year age band ever
+          reaches Chip.
+        </p>
+        <LifeRow icon="ti-heart" label="Relationship">
+          <Seg
             options={[
               { value: 'single', label: 'Single' },
               { value: 'married', label: 'Married' }
@@ -510,12 +554,12 @@ function ProfileEditor({ profile }: { profile: Profile }) {
             value={maritalStatus}
             onChange={(v) => {
               setSaved(false);
-              setMaritalStatus(maritalStatus === v ? undefined : (v as 'single' | 'married'));
+              setMaritalStatus(v as 'single' | 'married' | undefined);
             }}
           />
-        </Field>
-        <Field label="Home">
-          <Pills
+        </LifeRow>
+        <LifeRow icon="ti-home" label="Home">
+          <Seg
             options={[
               { value: 'own', label: 'Own' },
               { value: 'rent', label: 'Rent' }
@@ -523,32 +567,30 @@ function ProfileEditor({ profile }: { profile: Profile }) {
             value={homeOwner === undefined ? undefined : homeOwner ? 'own' : 'rent'}
             onChange={(v) => {
               setSaved(false);
-              const next = v === 'own';
-              setHomeOwner(homeOwner === next ? undefined : next);
+              setHomeOwner(v === undefined ? undefined : v === 'own');
             }}
           />
-        </Field>
-        <Field label="Risk appetite">
-          <Pills
+        </LifeRow>
+        <LifeRow icon="ti-chart-line" label="Risk appetite">
+          <Seg
             options={[
-              { value: 'conservative', label: 'Conservative' },
-              { value: 'moderate', label: 'Moderate' },
-              { value: 'aggressive', label: 'Aggressive' }
+              { value: 'conservative', label: 'Low' },
+              { value: 'moderate', label: 'Med' },
+              { value: 'aggressive', label: 'High' }
             ]}
             value={riskAppetite}
             onChange={(v) => {
               setSaved(false);
-              setRiskAppetite(riskAppetite === v ? undefined : (v as GoalRisk));
+              setRiskAppetite(v as GoalRisk | undefined);
             }}
           />
-        </Field>
-        <Field label="Children (birth years)">
-          <div className="flex flex-wrap items-center gap-1.5">
+        </LifeRow>
+        <LifeRow icon="ti-baby-carriage" label="Children" alignTop>
+          <div className="flex flex-wrap items-center justify-end gap-1.5 max-w-[220px]">
             {children.map((yr, i) => (
               <span
                 key={`${yr}-${i}`}
-                className="inline-flex items-center gap-1 text-xs font-semibold rounded-full pl-2.5 pr-1.5 py-1"
-                style={{ backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-secondary)' }}
+                className="inline-flex items-center gap-1 text-xs font-semibold rounded-full pl-2.5 pr-1.5 py-1 bg-surface-2 text-secondary"
               >
                 {yr}
                 <button
@@ -574,8 +616,8 @@ function ProfileEditor({ profile }: { profile: Profile }) {
                 }
               }}
               inputMode="numeric"
-              placeholder="e.g. 2018"
-              className="w-20 bg-transparent border-b border-theme text-sm text-primary focus:outline-none placeholder:text-tertiary py-0.5"
+              placeholder="+ year"
+              className="w-16 bg-transparent border-b border-theme text-sm text-primary text-right focus:outline-none placeholder:text-tertiary py-0.5"
             />
             {childYear.length === 4 && (
               <button
@@ -588,7 +630,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
               </button>
             )}
           </div>
-        </Field>
+        </LifeRow>
       </Card>
 
       <Button

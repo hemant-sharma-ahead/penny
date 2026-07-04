@@ -367,7 +367,7 @@ export function SettingsPage() {
           danger
           trailing={<Toggle value={wipeEnabled} onChange={toggleWipe} aria-label="Erase after failed attempts" />}
         />
-        {isDemoSeeded() && (
+        {(profile?.demoSeeded || isDemoSeeded()) && (
           <button
             type="button"
             onClick={() => void handleClearSample()}

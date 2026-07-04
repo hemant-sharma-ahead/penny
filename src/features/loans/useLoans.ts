@@ -9,7 +9,11 @@ export { EMI_LOAN_TYPES };
 const summarizeLiability = (l: Liability) => `loan: ${l.name}`;
 
 export function useLoans() {
-  const { items: liabilities, save: saveLiability } = useLoggedRepository(liabilitiesRepo, {
+  const {
+    items: liabilities,
+    save: saveLiability,
+    remove: deleteLiability
+  } = useLoggedRepository(liabilitiesRepo, {
     entityType: 'liability',
     summarize: summarizeLiability,
     diffFields: ['outstandingAmount', 'principalAmount']
@@ -17,5 +21,5 @@ export function useLoans() {
 
   const emiLoans = useMemo(() => liabilities.filter((l) => EMI_LOAN_TYPES.includes(l.type)), [liabilities]);
 
-  return { liabilities, saveLiability, emiLoans };
+  return { liabilities, saveLiability, deleteLiability, emiLoans };
 }

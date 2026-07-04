@@ -11,7 +11,7 @@ import { usePlanner } from './planner/usePlanner';
 export function LoanScenariosPage() {
   const navigate = useNavigate();
   const { mode } = usePrivacy();
-  const { saveLiability, emiLoans } = useLoans();
+  const { saveLiability, deleteLiability, emiLoans } = useLoans();
   const planner = usePlanner();
   const [activeTab, setActiveTab] = useState<'myloans' | 'planner'>('myloans');
 
@@ -48,7 +48,13 @@ export function LoanScenariosPage() {
       </div>
 
       {activeTab === 'myloans' && (
-        <MyLoansTab emiLoans={emiLoans} mode={mode} saveLiability={saveLiability} onPlanLoan={handlePlanLoan} />
+        <MyLoansTab
+          emiLoans={emiLoans}
+          mode={mode}
+          saveLiability={saveLiability}
+          deleteLiability={deleteLiability}
+          onPlanLoan={handlePlanLoan}
+        />
       )}
 
       {activeTab === 'planner' && <PlannerTab planner={planner} mode={mode} />}

@@ -76,7 +76,15 @@ interface BackupFileV2 {
 type BackupFile = BackupFileV1 | BackupFileV2;
 
 function bufferToBase64(buf: ArrayBuffer): string {
-  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+  // Chunked to avoid "Maximum call stack size exceeded": spreading a full backup's ciphertext (all
+  // encrypted data) into String.fromCharCode blows the argument stack. 32KB chunks stay well within limits.
+  const bytes = new Uint8Array(buf);
+  const CHUNK = 0x8000;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
 }
 
 function base64ToBuffer(b64: string): ArrayBuffer {
