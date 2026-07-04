@@ -19,7 +19,6 @@ export const PATHS = {
     subscriptions: '/app/subscriptions',
     iou: '/app/iou',
     loans: '/app/loans',
-    health: '/app/health',
     tax: '/app/tax',
     cashflow: '/app/cashflow',
     chip: '/app/chip',
@@ -30,6 +29,7 @@ export const PATHS = {
     changePin: '/app/change-pin',
     changePassphrase: '/app/change-passphrase',
     profile: '/app/profile',
+    settings: '/app/settings',
     timeline: '/app/timeline',
     news: '/app/news',
     feedback: '/app/feedback'

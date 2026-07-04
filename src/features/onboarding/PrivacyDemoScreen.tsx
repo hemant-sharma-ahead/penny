@@ -102,8 +102,8 @@ export function PrivacyDemoScreen() {
 
         <div className="surface rounded-xl px-4 py-3 mb-8">
           <p className="text-xs text-secondary leading-relaxed">
-            Every record is encrypted with a unique key derived from your passphrase. Even if someone extracted your
-            device storage, this is all they would see.
+            Every record is encrypted with a random key that never leaves your device — and that key is itself locked by
+            your passphrase. Even if someone extracted your device storage, this is all they would see.
           </p>
         </div>
 

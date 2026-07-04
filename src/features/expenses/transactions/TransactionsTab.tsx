@@ -11,6 +11,8 @@ interface TransactionsTabProps {
   onEdit: (expense: Expense) => void;
   onDelete?: (id: string) => void;
   onDuplicate?: (expense: Expense) => void;
+  /** Share-later (Track E): opens the group picker for an as-yet-unshared expense. */
+  onShare?: ((expense: Expense) => void) | undefined;
   selectMode?: boolean;
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
@@ -24,6 +26,7 @@ export function TransactionsTab({
   onEdit,
   onDelete,
   onDuplicate,
+  onShare,
   selectMode = false,
   selectedIds,
   onToggleSelect
@@ -89,6 +92,13 @@ export function TransactionsTab({
                         aria-label="Has receipt"
                       />
                     )}
+                    {(txn.shareWith?.length ?? 0) > 0 && (
+                      <i
+                        className="ti ti-users-group ml-1"
+                        style={{ fontSize: 12, color: 'var(--color-primary)' }}
+                        aria-label="Shared with a group"
+                      />
+                    )}
                   </p>
                   <p className="text-[11.5px] text-tertiary truncate mt-0.5">
                     {subtitle}
@@ -130,9 +140,20 @@ export function TransactionsTab({
             // Normal mode: timeline rail + dot live INSIDE the row (above the swipe row's bg);
             // stacked per-row segments form a continuous rail. Swipe-left → Copy/Delete; tap → edit.
             const isLastRowOverall = gi === grouped.length - 1 && ti === group.items.length - 1;
+            const isShared = (txn.shareWith?.length ?? 0) > 0;
             const actions = [
               ...(onDuplicate
                 ? [{ icon: 'ti-copy', label: 'Copy', color: STATUS.info, onClick: () => onDuplicate(txn) }]
+                : []),
+              ...(onShare && txnType === 'expense' && !isShared
+                ? [
+                    {
+                      icon: 'ti-users-group',
+                      label: 'Share',
+                      color: 'var(--color-primary)',
+                      onClick: () => onShare(txn)
+                    }
+                  ]
                 : []),
               ...(onDelete
                 ? [{ icon: 'ti-trash', label: 'Delete', color: STATUS.danger, onClick: () => onDelete(txn.id) }]
@@ -140,7 +161,14 @@ export function TransactionsTab({
             ];
             return (
               <SwipeableRow key={txn.id} actions={actions} onTap={() => onEdit(txn)}>
-                <div className="relative w-full flex items-center gap-3 pl-10 pr-4 py-3 text-left">
+                <div
+                  className="relative w-full flex items-center gap-3 pl-10 pr-4 py-3 text-left"
+                  style={
+                    isShared
+                      ? { backgroundColor: 'color-mix(in srgb, var(--color-primary) 6%, transparent)' }
+                      : undefined
+                  }
+                >
                   {/* rail segment for this row */}
                   <span
                     className="absolute w-px"

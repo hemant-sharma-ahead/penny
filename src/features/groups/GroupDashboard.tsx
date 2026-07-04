@@ -30,6 +30,7 @@ export function GroupDashboard({ group }: { group: Group }) {
   const [myId, setMyId] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<'add' | 'settle' | 'members' | null>(null);
+  const [settleWith, setSettleWith] = useState<string | undefined>();
   const [refreshKey, setRefreshKey] = useState(0);
   const bump = () => setRefreshKey((k) => k + 1);
   const closed = group.status === 'closed';
@@ -114,7 +115,14 @@ export function GroupDashboard({ group }: { group: Group }) {
           <Button onClick={() => setModal('add')} className="flex-1">
             <i className="ti ti-plus" aria-hidden="true" /> Add expense
           </Button>
-          <Button variant="ghost" onClick={() => setModal('settle')} className="flex-1">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setSettleWith(undefined);
+              setModal('settle');
+            }}
+            className="flex-1"
+          >
             Settle up
           </Button>
         </div>
@@ -137,6 +145,18 @@ export function GroupDashboard({ group }: { group: Group }) {
                   {m.role !== 'member' && <span className="text-[11px] text-tertiary font-normal"> · {m.role}</span>}
                 </span>
                 <span className={`text-xs font-semibold ${label.cls}`}>{label.text}</span>
+                {!closed && m.userId !== myId && Math.abs(balances[m.userId] ?? 0) >= 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettleWith(m.userId);
+                      setModal('settle');
+                    }}
+                    className="text-[11px] font-medium border border-theme rounded-lg px-2 py-1 text-secondary hover:text-primary flex-shrink-0"
+                  >
+                    Settle up
+                  </button>
+                )}
               </div>
             );
           })}
@@ -164,7 +184,14 @@ export function GroupDashboard({ group }: { group: Group }) {
       </div>
 
       {modal === 'add' && <SharedExpenseComposer group={group} onClose={() => setModal(null)} onSaved={bump} />}
-      {modal === 'settle' && <SettleUpGroupModal group={group} onClose={() => setModal(null)} onSaved={bump} />}
+      {modal === 'settle' && (
+        <SettleUpGroupModal
+          group={group}
+          initialCounterpart={settleWith}
+          onClose={() => setModal(null)}
+          onSaved={bump}
+        />
+      )}
       {modal === 'members' && <GroupMembersModal group={group} onClose={() => setModal(null)} onChanged={bump} />}
     </div>
   );

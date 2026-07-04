@@ -70,12 +70,18 @@ export function SetupCredentialsScreen() {
             <i className="ti ti-lock-square text-white" style={{ fontSize: 28 }} aria-hidden="true" />
           </div>
           <h2 className="text-2xl font-semibold text-primary mb-2">Set up your vault</h2>
-          <p className="text-sm text-secondary">Your passphrase encrypts everything. It never leaves your device.</p>
+          <p className="text-sm text-secondary">
+            A random key encrypts everything; your passphrase locks that key and never leaves your device.
+          </p>
         </div>
 
         {/* Passphrase */}
         <div className="mb-5">
-          <label className="block text-sm font-medium text-secondary mb-1.5">Passphrase</label>
+          <label className="block text-sm font-medium text-secondary mb-1">Passphrase</label>
+          <p className="text-xs text-tertiary mb-2">
+            Your master key — it locks everything and is the only way to recover your data. Make it strong and
+            memorable.
+          </p>
           <div className="relative">
             <input
               type={showPassphrase ? 'text' : 'password'}
@@ -96,10 +102,18 @@ export function SetupCredentialsScreen() {
 
           {/* Strength meter */}
           {passphrase.length > 0 && <PassphraseStrengthMeter score={score} />}
+
+          {/* Passphrase-specific warning — sits with the field it's about. */}
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 mt-3">
+            <p className="text-xs text-amber-600 leading-relaxed">
+              <strong>Important:</strong> If you forget your passphrase, your data can't be recovered — there's no
+              backdoor or key escrow, by design.
+            </p>
+          </div>
         </div>
 
         {/* PIN */}
-        <div className="mb-4">
+        <div className="mb-1">
           <TextInput
             label="6-digit PIN"
             type="password"
@@ -112,6 +126,9 @@ export function SetupCredentialsScreen() {
             error={pinTooWeak ? 'Choose a less predictable PIN' : undefined}
           />
         </div>
+        <p className="text-xs text-tertiary mb-4">
+          A quick shortcut to unlock on this device — your passphrase stays your real protection.
+        </p>
 
         {/* Confirm PIN */}
         <div className="mb-6">
@@ -128,13 +145,6 @@ export function SetupCredentialsScreen() {
           />
         </div>
 
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 mb-6">
-          <p className="text-xs text-amber-600 leading-relaxed">
-            <strong>Important:</strong> If you forget your passphrase, your data cannot be recovered. There is no key
-            escrow, by design.
-          </p>
-        </div>
-
         {error && <p className="text-danger text-sm mb-4 text-center">{error}</p>}
 
         <Button
@@ -149,7 +159,11 @@ export function SetupCredentialsScreen() {
         </Button>
 
         <p className="text-xs text-tertiary text-center mt-3">
-          This takes a few seconds — we use 600,000 rounds of key derivation for your security.
+          Setup runs 600,000 rounds of key derivation on your passphrase — that's why it takes a moment.
+        </p>
+        <p className="text-xs text-tertiary text-center mt-2">
+          You can change your passphrase or PIN anytime in Settings — it re-locks your data instantly, without
+          re-encrypting it.
         </p>
       </div>
     </div>

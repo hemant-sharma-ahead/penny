@@ -21,6 +21,7 @@ import { FilterModal } from './FilterModal';
 import { MonthPickerModal } from './MonthPickerModal';
 import { BulkAccountPaymentModal } from './BulkAccountPaymentModal';
 import { RecurringInboxModal } from './RecurringInboxModal';
+import { ShareToGroupModal } from './ShareToGroupModal';
 import type { useTransactionFilters } from './useTransactionFilters';
 import type { CategoryManager } from '../categories/types';
 import type { DueRecurring } from '@/core/expenses/recurringDue';
@@ -42,7 +43,9 @@ interface TransactionsSliceProps {
   iouLinkByTxn: Map<string, { personName: string }>;
   accountBalances: Record<string, number>;
   shareGroups: { id: string; name: string }[];
-  onShareToGroup: (expense: Expense, groupId: string) => Promise<void>;
+  onShareToGroup: (expense: Expense, groupId: string, participants?: string[]) => Promise<void>;
+  /** Share-later (Track E): shares an existing transaction into a group and marks it as shared. */
+  onShareLater: (expense: Expense, groupId: string) => Promise<void>;
   onOpenBudgets: () => void;
   onPatchExpenses: (
     ids: string[],
@@ -77,6 +80,7 @@ export function TransactionsSlice({
   accountBalances,
   shareGroups,
   onShareToGroup,
+  onShareLater,
   onOpenBudgets,
   onPatchExpenses,
   onRemoveExpenses,
@@ -113,6 +117,7 @@ export function TransactionsSlice({
 
   const [showForm, setShowForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [sharingExpense, setSharingExpense] = useState<Expense | null>(null);
   const [prefill, setPrefill] = useState<Partial<Expense> | null>(null);
   const [initialTransactionType, setInitialTransactionType] = useState<TransactionType>('expense');
   const [showDial, setShowDial] = useState(false);
@@ -443,6 +448,7 @@ export function TransactionsSlice({
           onEdit={openEdit}
           onDelete={onDeleteExpense}
           onDuplicate={handleDuplicate}
+          onShare={shareGroups.length > 0 ? setSharingExpense : undefined}
           selectMode={selectMode}
           selectedIds={selected}
           onToggleSelect={toggleSelect}
@@ -579,6 +585,16 @@ export function TransactionsSlice({
           onSaveTemplate={onSaveTemplate}
           categoryManager={categoryManager}
           onClose={closeForm}
+        />
+      )}
+
+      {/* Share-later picker (Track E) */}
+      {sharingExpense && shareGroups.length > 0 && (
+        <ShareToGroupModal
+          expense={sharingExpense}
+          groups={shareGroups}
+          onShare={onShareLater}
+          onClose={() => setSharingExpense(null)}
         />
       )}
 

@@ -26,6 +26,8 @@ export interface HealthScore {
 
 export interface DerivedInputs {
   liquidAssets: number;
+  /** Emergency buffer used for scoring — the greater of liquid assets or an Emergency-fund goal's saved amount. */
+  emergencyBuffer: number;
   avgMonthlyExpenses: number;
   monthlyEmiObligations: number;
   hasLifeInsurance: boolean;
@@ -75,6 +77,14 @@ export function deriveInputs(
     return s;
   }, 0);
 
+  // Emergency buffer: connect the Goals module. An "Emergency fund" goal's saved amount counts toward the
+  // buffer, so contributing to it improves the score (the greater of liquid assets or the goal's balance —
+  // avoids double-counting the amount the goal was seeded with).
+  const emergencyGoalSaved = goals
+    .filter((g) => /emergency/i.test(g.name))
+    .reduce((max, g) => Math.max(max, g.currentAmount), 0);
+  const emergencyBuffer = Math.max(liquidAssets, emergencyGoalSaved);
+
   // Insurance coverage
   const hasLifeInsurance = policies.some((p) => p.type === 'term' || p.type === 'life');
   const hasHealthInsurance = policies.some((p) => p.type === 'health');
@@ -101,6 +111,7 @@ export function deriveInputs(
 
   return {
     liquidAssets,
+    emergencyBuffer,
     avgMonthlyExpenses,
     monthlyEmiObligations,
     hasLifeInsurance,
@@ -123,13 +134,18 @@ function status(earned: number, max: number, hasData: boolean): ComponentStatus 
 }
 
 // Target emergency-fund months by employment type — irregular incomes need a bigger buffer.
-const EMERGENCY_FUND_TARGET: Record<EmploymentType, number> = {
+export const EMERGENCY_FUND_TARGET: Record<EmploymentType, number> = {
   salaried: 6,
   self_employed: 12,
   business_owner: 12,
   student: 3,
   retired: 6
 };
+
+/** Recommended emergency-fund months for an employment type (default 6). */
+export function emergencyFundMonths(employmentType?: EmploymentType): number {
+  return employmentType ? EMERGENCY_FUND_TARGET[employmentType] : 6;
+}
 
 function emergencyFundComponent(
   liquidAssets: number,
@@ -296,7 +312,7 @@ export function computeHealthScore(
   employmentType?: EmploymentType
 ): HealthScore {
   const components: ScoreComponent[] = [
-    emergencyFundComponent(inputs.liquidAssets, inputs.avgMonthlyExpenses, employmentType),
+    emergencyFundComponent(inputs.emergencyBuffer, inputs.avgMonthlyExpenses, employmentType),
     savingsRateComponent(monthlyIncome, inputs.avgMonthlyExpenses),
     debtIncomeComponent(inputs.monthlyEmiObligations, monthlyIncome),
     insuranceComponent(inputs.hasLifeInsurance, inputs.hasHealthInsurance),

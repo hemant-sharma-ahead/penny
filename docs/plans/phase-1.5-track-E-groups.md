@@ -54,14 +54,50 @@ npm run dev     # .env.local: VITE_ENABLE_SYNC=1 + the three *_PROXY URLs
 (nonce/clock/`AUTH_DB` device lookup), or grant/unwrap (key epoch). Capture the failing request +
 response and hand it to the next session.
 
-**Then build the E5 tail (deferred to verify against the live worker):**
+**E5 tail — implemented (build + lint green; browser verification pending):**
 
-1. **Vacation→group link** — `ActiveEvent.linkedGroupId` UI: link/create a group from an active event;
-   while linked, the Add flow opens the group composer prefilled (that group · all members · equal).
-2. **Share-later** — a "Share with a group" action on an existing transaction row (reuses
-   `shareExpenseToGroup`).
-3. **Demo group fixtures** — seed a Trip + Family group (local `groups`/`group_members`/`group_events` +
-   a `group_keys` entry) so the dashboard demos richly in a preview build.
+1. **Vacation→group link** ✅ — `VacationGroupLink` in [`EventsModal.tsx`](../../src/features/expenses/events/EventsModal.tsx):
+   active vacations offer "Create '<trip>' group" or link an existing one (`updateEvent → linkedGroupId`);
+   shown only when sync-entitled + claimed. While linked, [`ExpenseForm`](../../src/features/expenses/transactions/ExpenseForm.tsx)
+   **prefills the "Share with a group" selection** to that group for new expenses (chosen over swapping in
+   the group composer: matches mockup screens 8/11 and records the personal cash-out **and** the group
+   split in one save — more mockup-faithful and less cluttered than a context switch).
+2. **Share-later** ✅ — a "Share" swipe action on unshared expense rows ([`TransactionsTab`](../../src/features/expenses/transactions/TransactionsTab.tsx))
+   opens a focused [`ShareToGroupModal`](../../src/features/expenses/transactions/ShareToGroupModal.tsx);
+   `handleShareLater` appends the group event (`shareExpenseToGroup`) + marks the txn `shareWith` (row gets
+   a subtle group tint + group icon). (App uses swipe actions, not a ⋮ menu — kept consistent.)
+3. **Demo group fixtures** ✅ — [`seedGroupFixtures.ts`](../../src/core/db/seedGroupFixtures.ts), called
+   from `seedDemoData` when `hasEntitlement('sync')`. Writes groups/members/events/keys to the local
+   encrypted mirror (balances fold locally; **local-only — not server-registered**, so the dashboards/
+   feeds/balances demo richly but adding *new* expenses to a demo group won't round-trip to a worker).
+   Seeds a demo *claimed* identity on the demo persona so Groups surface. Covers the full scenario matrix:
+   - **Family group** — multiple household members; ongoing shared expenses, some outstanding balances.
+   - **Spouse group** — 2 members, a running set of shared transactions.
+   - **Closed + fully-settled trip** — e.g. "Leh–Ladakh": events settled to ₹0, `status:'closed'`
+     (exercises the archive/reopen path and settle-to-₹0 balances).
+   - **Ongoing trip group(s)** — open balances, mixed split methods (equal / unequal / % / shares).
+   - **Renovation event** (personal Event, not necessarily a group) + an **upcoming vacation Event linked
+     to a group** with a few **prep transactions across multiple members** (exercises vacation→group link
+     + `linkedGroupId` + analytics exclusion, screens 10–11).
+   Fixtures must honour the design conditions in [`../mockups/phase-1.5-track-E-groups.html`](../mockups/phase-1.5-track-E-groups.html)
+   (record-to-account default, groups≠IOU separation, trip spend out of category analytics).
+
+**Mockup-fidelity realignment (done; build + lint green — a full audit against all 11 mockup screens):**
+
+- **Composer (screen 4)** — reuses the Expense `CategoryPickerModal` (made `manager` optional → select-only),
+  reordered Amount→Category→Description→Paid by→Split→method.
+- **Account bridge (screens 4 & 6)** — new [`accountBridge.ts`](../../src/core/groups/accountBridge.ts)
+  `recordGroupAccountTxn`; the composer (cash-out, when you're payer) and settle-up (cash-in/out + Note field)
+  now record the real personal txn, marked `shareWith` the group (the sole, opt-in crossover to personal money).
+- **Share-with-group panel (screen 8)** — rebuilt into toggle (off by default / auto-on for a linked trip) →
+  group → participant avatars → live "₹X each · you're owed ₹Y"; participants flow through `onShareToGroup`.
+- **Home Groups card (screen 1)** — [`HomeGroupsCard.tsx`](../../src/features/groups/HomeGroupsCard.tsx) +
+  shared [`useGroupSummaries.ts`](../../src/features/groups/useGroupSummaries.ts) (per-group balance/counts/members).
+- **Context switcher (screens 2–3)** — per-group balance pills in the menu + member avatar stack on the bar.
+- **Smaller items** — Members "Share invite" (Web Share/clipboard); IOU separateness note (screen 7);
+  dashboard per-member "Settle up" chip (screen 3, prefills settle-up).
+- **Deferred:** Members **QR code** (screen 5) — needs a *local* QR lib (an external QR service would leak the
+  invite secret, violating Model B). Revisit as a dependency decision.
 
 **Then: Stage F closeout** (see the bottom of this doc).
 

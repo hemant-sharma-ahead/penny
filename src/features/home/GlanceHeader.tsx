@@ -60,64 +60,62 @@ export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabiliti
 
   return (
     <>
-      {/* Two-stat header */}
-      <div className="flex rounded-[18px] overflow-hidden surface mb-3">
-        <button
-          type="button"
-          onClick={() => setDetailOpen(true)}
-          className="flex-1 px-4 py-3.5 text-left active:bg-surface-2"
-        >
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">Net worth</p>
-          <p className="text-[24px] font-bold tracking-tight text-primary leading-tight mt-0.5">
-            {open ? formatCurrency(summary.netWorth) : '••••'}
-          </p>
-          <p className="text-[11px] text-tertiary mt-0.5 flex items-center gap-1">
-            View breakdown <i className="ti ti-chevron-right" style={{ fontSize: 12 }} aria-hidden="true" />
-          </p>
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate(PATHS.app.cashflow)}
-          className="flex-1 px-4 py-3.5 text-left border-l border-theme active:bg-surface-2"
-        >
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">Safe to spend</p>
-          <p
-            className="text-[24px] font-bold tracking-tight leading-tight mt-0.5"
-            style={{ color: breached ? STATUS.danger : 'var(--color-primary)' }}
-          >
-            {open ? formatCurrency(safe) : '••••'}
-          </p>
-          <p className="text-[11px] text-tertiary mt-0.5 truncate">{safeSub}</p>
-        </button>
-      </div>
-
-      {/* Slim asset bar + assets/liabilities line */}
-      {open && totalAssets > 0 && (
-        <>
-          <div className="flex rounded-full overflow-hidden mb-1.5" style={{ height: 6, gap: 2 }}>
-            {assetGroups.map(({ ac, value, meta }) => (
-              <div key={ac} style={{ flex: value / totalAssets, backgroundColor: meta.color }} />
-            ))}
-          </div>
+      {/* Money hero — net worth + safe-to-spend, with the assets/liabilities bar inside the same card */}
+      <div className="rounded-[18px] overflow-hidden surface mb-4">
+        <div className="flex">
           <button
             type="button"
             onClick={() => setDetailOpen(true)}
-            className="w-full flex items-center justify-between text-[11px] text-tertiary mb-4"
+            className="flex-1 px-4 py-3.5 text-left active:bg-surface-2"
           >
-            <span>
-              Assets <span className="text-secondary font-medium">{formatCompact(totalAssets)}</span>
-            </span>
-            {totalLiabilities > 0 && (
-              <span>
-                Liabilities{' '}
-                <span className="font-medium" style={{ color: STATUS.danger }}>
-                  −{formatCompact(totalLiabilities)}
-                </span>
-              </span>
-            )}
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">Net worth</p>
+            <p className="text-[24px] font-bold tracking-tight text-primary leading-tight mt-0.5">
+              {open ? formatCurrency(summary.netWorth) : '••••'}
+            </p>
+            <p className="text-[11px] text-tertiary mt-0.5 flex items-center gap-1">
+              View breakdown <i className="ti ti-chevron-right" style={{ fontSize: 12 }} aria-hidden="true" />
+            </p>
           </button>
-        </>
-      )}
+          <button
+            type="button"
+            onClick={() => navigate(PATHS.app.cashflow)}
+            className="flex-1 px-4 py-3.5 text-left border-l border-theme active:bg-surface-2"
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">Safe to spend</p>
+            <p
+              className="text-[24px] font-bold tracking-tight leading-tight mt-0.5"
+              style={{ color: breached ? STATUS.danger : 'var(--color-primary)' }}
+            >
+              {open ? formatCurrency(safe) : '••••'}
+            </p>
+            <p className="text-[11px] text-tertiary mt-0.5 truncate">{safeSub}</p>
+          </button>
+        </div>
+
+        {/* Slim asset bar + assets/liabilities line — inside the card */}
+        {open && totalAssets > 0 && (
+          <button type="button" onClick={() => setDetailOpen(true)} className="w-full px-4 pb-3.5 pt-0 text-left">
+            <div className="flex rounded-full overflow-hidden mb-1.5" style={{ height: 6, gap: 2 }}>
+              {assetGroups.map(({ ac, value, meta }) => (
+                <div key={ac} style={{ flex: value / totalAssets, backgroundColor: meta.color }} />
+              ))}
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-tertiary">
+              <span>
+                Assets <span className="text-secondary font-medium">{formatCompact(totalAssets)}</span>
+              </span>
+              {totalLiabilities > 0 && (
+                <span>
+                  Liabilities{' '}
+                  <span className="font-medium" style={{ color: STATUS.danger }}>
+                    −{formatCompact(totalLiabilities)}
+                  </span>
+                </span>
+              )}
+            </div>
+          </button>
+        )}
+      </div>
 
       {detailOpen && (
         <Modal onClose={() => setDetailOpen(false)} title="Net worth" scrollable>

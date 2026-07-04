@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useToast } from '@/context/ToastContext';
+import { useGroupContext } from '@/context/GroupContext';
+import { hasEntitlement } from '@/core/entitlement/entitlement';
 import { accountsRepo, expensesRepo, ledgerEntriesRepo } from '@/core/db/repositories';
 import { logActivity, restoreActivity } from '@/core/db/activityLog';
 import type { Account, Expense, LedgerEntry, Person } from '@/core/db/types';
@@ -24,6 +26,9 @@ interface EntryFormState {
 /** Full interactive IOU experience (list → ledger → add/edit/settle). Shared by IouPage + IouSlice. */
 export function IouView() {
   const { mode } = usePrivacy();
+  const { groups, claimed } = useGroupContext();
+  // Clarify the separation only when Groups are actually in use (screen 7).
+  const showGroupNote = hasEntitlement('sync') && claimed && groups.length > 0;
   const { showToast } = useToast();
   const {
     persons,
@@ -154,6 +159,13 @@ export function IouView() {
   return (
     <>
       <div className="flex-1 overflow-y-auto pb-24 flex flex-col">
+        {showGroupNote && (
+          <p className="px-4 py-2.5 text-[11px] text-tertiary border-b border-theme flex items-start gap-1.5">
+            <i className="ti ti-info-circle mt-0.5 flex-shrink-0" aria-hidden="true" />
+            Your <b className="font-semibold text-secondary">personal</b> IOUs. Group balances live in each group — kept
+            separate on purpose.
+          </p>
+        )}
         {(totalOwedToYou > 0 || totalYouOwe > 0) && (
           <div className="flex gap-4 px-4 py-3 border-b border-theme">
             {totalOwedToYou > 0 && (

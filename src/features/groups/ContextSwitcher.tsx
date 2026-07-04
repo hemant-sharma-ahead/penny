@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '@/router/paths';
+import { formatCurrency } from '@/lib/formatters';
 import { useGroupContext } from '@/context/GroupContext';
+import { useGroupSummaries } from './useGroupSummaries';
 import { CreateGroupModal } from './CreateGroupModal';
 import { JoinGroupModal } from './JoinGroupModal';
 
@@ -18,11 +20,13 @@ const TYPE_ICON: Record<string, string> = {
  */
 export function ContextSwitcher() {
   const { activeContext, activeGroup, groups, claimed, setContext } = useGroupContext();
+  const { summaries } = useGroupSummaries(groups);
   const [open, setOpen] = useState(false);
   const [modal, setModal] = useState<'create' | 'join' | null>(null);
   const navigate = useNavigate();
 
   const inGroup = activeContext !== 'personal' && activeGroup;
+  const activeMembers = inGroup && activeGroup ? (summaries[activeGroup.id]?.members ?? []) : [];
 
   function choose(ctx: 'personal' | string) {
     setContext(ctx);
@@ -59,6 +63,24 @@ export function ContextSwitcher() {
           />
         </button>
 
+        {/* Member avatar stack — a quick "who's in this group" cue (screen 3). */}
+        {inGroup && activeMembers.length > 0 && (
+          <div className="flex items-center flex-shrink-0" aria-hidden="true">
+            {activeMembers.slice(0, 4).map((m, i) => (
+              <span
+                key={m.userId}
+                className="w-6 h-6 rounded-full grid place-items-center text-[10px] font-semibold text-white ring-2 ring-[var(--color-surface)]"
+                style={{ backgroundColor: 'var(--color-mode-accent, #6366f1)', marginLeft: i === 0 ? 0 : -8 }}
+              >
+                {(m.displayName || '?').charAt(0).toUpperCase()}
+              </span>
+            ))}
+            {activeMembers.length > 4 && (
+              <span className="text-[10px] text-tertiary ml-1">+{activeMembers.length - 4}</span>
+            )}
+          </div>
+        )}
+
         {open && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden="true" />
@@ -76,6 +98,7 @@ export function ContextSwitcher() {
                   label={g.name || 'Group'}
                   active={g.id === activeContext}
                   onClick={() => choose(g.id)}
+                  right={<BalancePill net={summaries[g.id]?.myNet ?? 0} />}
                 />
               ))}
               {!claimed ? (
@@ -129,12 +152,14 @@ function MenuRow({
   icon,
   label,
   active,
-  onClick
+  onClick,
+  right
 }: {
   icon: string;
   label: string;
   active: boolean;
   onClick: () => void;
+  right?: ReactNode;
 }) {
   return (
     <button
@@ -146,7 +171,23 @@ function MenuRow({
         <i className={`ti ${icon} text-secondary`} style={{ fontSize: 13 }} aria-hidden="true" />
       </span>
       <span className="flex-1 truncate text-primary">{label}</span>
-      {active && <i className="ti ti-check text-[var(--color-primary)]" style={{ fontSize: 15 }} aria-hidden="true" />}
+      {active ? (
+        <i className="ti ti-check text-[var(--color-primary)]" style={{ fontSize: 15 }} aria-hidden="true" />
+      ) : (
+        right
+      )}
     </button>
+  );
+}
+
+/** Compact per-group balance pill for the switcher menu (positive = you're owed). */
+function BalancePill({ net }: { net: number }) {
+  if (Math.abs(net) < 1) return <span className="text-xs text-tertiary flex-shrink-0">₹0</span>;
+  const owed = net > 0;
+  return (
+    <span className={`text-xs font-semibold flex-shrink-0 ${owed ? 'text-success' : 'text-danger'}`}>
+      {owed ? '+' : '−'}
+      {formatCurrency(Math.abs(net))}
+    </span>
   );
 }

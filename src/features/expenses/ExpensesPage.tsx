@@ -68,12 +68,20 @@ export function ExpensesPage() {
     hasEntitlement('sync') && claimed
       ? groups.filter((g) => g.status === 'active').map((g) => ({ id: g.id, name: g.name }))
       : [];
-  const handleShareToGroup = (expense: Expense, groupId: string): Promise<void> =>
+  const handleShareToGroup = (expense: Expense, groupId: string, participants?: string[]): Promise<void> =>
     shareExpenseToGroup(groupId, {
       amount: expense.amount,
       description: expense.description,
-      categoryId: expense.categoryId
+      categoryId: expense.categoryId,
+      ...(participants?.length ? { participants } : {})
     }).then(() => undefined);
+
+  // Share-later (screen 9): the personal transaction already exists — add the group event and mark the
+  // transaction as shared (drives the row tint + prevents re-sharing). The personal amount is untouched.
+  const handleShareLater = async (expense: Expense, groupId: string): Promise<void> => {
+    await handleShareToGroup(expense, groupId);
+    await saveExpense({ ...expense, shareWith: [...(expense.shareWith ?? []), groupId], updatedAt: Date.now() });
+  };
 
   const categoryManager: CategoryManager = {
     parentCategoryMap,
@@ -129,6 +137,7 @@ export function ExpensesPage() {
           accountBalances={accountBalances}
           shareGroups={shareGroups}
           onShareToGroup={handleShareToGroup}
+          onShareLater={handleShareLater}
           onPatchExpenses={patchExpenses}
           onRemoveExpenses={removeExpenses}
           searchMerchant={searchMerchant}

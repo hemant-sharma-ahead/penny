@@ -37,7 +37,13 @@ export interface Profile {
   username?: string | undefined; // provisional, optional; 3–20 lowercase alphanumeric/underscore. Reserved on the server only at registration.
   deviceId?: string | undefined; // random UUID for this device, assigned when the account is claimed (Phase 1.5 Track C). Rides backup/recovery.
   dob?: string | undefined; // ISO date (YYYY-MM-DD). Encrypted; only a 5-year age band is ever sent to the AI.
+  avatarDataUrl?: string | undefined; // optional profile photo (compressed data URL); encrypted at rest, never leaves the device.
   employmentType?: EmploymentType | undefined;
+  // ── Life & household (opt-in, encrypted) — powers personalized life-stage goals & guidance ──
+  maritalStatus?: 'single' | 'married' | undefined;
+  children?: number[] | undefined; // dependents' birth years (drives education-corpus timelines)
+  homeOwner?: boolean | undefined;
+  riskAppetite?: GoalRisk | undefined;
   plan?: Plan | undefined; // entitlement state; defaults to 'free' (full access in Phase 1)
   createdAt: number;
   updatedAt: number;
@@ -330,6 +336,8 @@ export interface Goal {
   notes?: string;
   /** Groups this goal is shared into (Phase 1.5 Track E) — joint/household goals. */
   shareWith?: string[];
+  /** How the goal was created. `suggested` = created from a Home advisor "Set as goal" nudge. */
+  source?: 'manual' | 'suggested';
   createdAt: number;
   updatedAt: number;
 }

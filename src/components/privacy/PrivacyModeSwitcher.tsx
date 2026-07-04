@@ -2,23 +2,19 @@ import { useState, useRef, useEffect } from 'react';
 import { usePrivacy, type PrivacyMode } from '@/context/PrivacyContext';
 import { verifyPin } from '@/core/crypto/securityManager';
 
-const SEGMENTS: { mode: PrivacyMode; label: string }[] = [
-  { mode: 'safe', label: 'Safe' },
-  { mode: 'privacy', label: 'Private' },
-  { mode: 'open', label: 'Open' }
-];
-
-const MODE_COLORS: Record<PrivacyMode, { active: string }> = {
-  safe: { active: 'bg-amber-500' },
-  privacy: { active: 'bg-violet-600' },
-  open: { active: 'bg-red-600' }
+const MODE: Record<PrivacyMode, { label: string; icon: string; color: string }> = {
+  safe: { label: 'Safe', icon: 'ti-eye-off', color: 'var(--color-safe)' },
+  privacy: { label: 'Private', icon: 'ti-shield-lock', color: 'var(--color-privacy)' },
+  open: { label: 'Open', icon: 'ti-eye', color: 'var(--color-open)' }
 };
+const MODE_ORDER: PrivacyMode[] = ['safe', 'privacy', 'open'];
 
 type Step = null | 'pin' | 'warning';
 
 export function PrivacyModeSwitcher() {
   const { mode, setMode } = usePrivacy();
   const [step, setStep] = useState<Step>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
   const [verifying, setVerifying] = useState(false);
@@ -31,7 +27,18 @@ export function PrivacyModeSwitcher() {
     }
   }, [step]);
 
-  const handleSegmentTap = (target: PrivacyMode) => {
+  // Dismiss the mode menu on Escape (outside-click handled by the backdrop).
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenuOpen(false);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [menuOpen]);
+
+  const active = MODE[mode];
+
+  const handleSelect = (target: PrivacyMode) => {
+    setMenuOpen(false);
     if (target === mode) return;
     if (target === 'open') {
       setPinInput('');
@@ -80,24 +87,52 @@ export function PrivacyModeSwitcher() {
 
   return (
     <>
-      {/* 3-segment toggle */}
-      <div className="flex items-center rounded-lg overflow-hidden p-0.5 gap-0.5 border border-theme bg-surface-2">
-        {SEGMENTS.map(({ mode: seg, label }) => {
-          const isActive = mode === seg;
-          return (
-            <button
-              key={seg}
-              onClick={() => handleSegmentTap(seg)}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                isActive ? `${MODE_COLORS[seg].active} text-white shadow-sm` : 'text-tertiary hover:text-secondary'
-              }`}
-              aria-pressed={isActive}
-              aria-label={`${label} mode`}
+      {/* Mode-tinted icon button + dropdown */}
+      <div className="relative">
+        <button
+          onClick={() => setMenuOpen((o) => !o)}
+          className="w-8 h-8 rounded-full grid place-items-center transition-colors"
+          style={{ backgroundColor: `color-mix(in srgb, ${active.color} 14%, transparent)`, color: active.color }}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          aria-label={`Privacy mode: ${active.label}. Tap to change.`}
+        >
+          <i className={`ti ${active.icon}`} style={{ fontSize: 17 }} aria-hidden="true" />
+        </button>
+
+        {menuOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+            <div
+              role="menu"
+              className="absolute right-0 top-full mt-2 z-50 w-40 bg-surface border border-theme rounded-xl shadow-2xl overflow-hidden"
             >
-              {label}
-            </button>
-          );
-        })}
+              {MODE_ORDER.map((m) => {
+                const { label, icon, color } = MODE[m];
+                const isActive = mode === m;
+                return (
+                  <button
+                    key={m}
+                    role="menuitemradio"
+                    aria-checked={isActive}
+                    onClick={() => handleSelect(m)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-left ${isActive ? 'bg-surface-2' : ''}`}
+                  >
+                    <i className={`ti ${icon}`} style={{ fontSize: 16, color }} aria-hidden="true" />
+                    <span className="flex-1 text-primary">{label}</span>
+                    {isActive && (
+                      <i
+                        className="ti ti-check text-[var(--color-primary)]"
+                        style={{ fontSize: 15 }}
+                        aria-hidden="true"
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
 
       {/* PIN modal — centered */}

@@ -3,9 +3,11 @@ import { Modal, Button, TextInput } from '@/components/ui';
 import { useToast } from '@/context/ToastContext';
 import { parseJoinSecret, redeemInvite, syncGroupKeys } from '@/core/groups/groupsService';
 import { useGroupContext } from '@/context/GroupContext';
+import { useServerActionError } from './useServerActionError';
 
 export function JoinGroupModal({ onClose }: { onClose: () => void }) {
   const { showToast } = useToast();
+  const onError = useServerActionError();
   const { setContext, refresh } = useGroupContext();
   const [link, setLink] = useState('');
   const [joining, setJoining] = useState(false);
@@ -23,8 +25,7 @@ export function JoinGroupModal({ onClose }: { onClose: () => void }) {
       showToast({ message: awaitingKey ? 'Joined — waiting for the group key' : 'Joined the group' });
       onClose();
     } catch (err) {
-      showToast({ message: err instanceof Error ? err.message : 'Could not join — check the invite link' });
-      setJoining(false);
+      if (!onError(err, 'Could not join — check the invite link')) setJoining(false);
     }
   }
 

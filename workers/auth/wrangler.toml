@@ -21,6 +21,12 @@ binding = "DB"
 database_name = "penny_auth"
 database_id = "a560b193-d080-4cc1-a833-745646cea782"
 
+# Inactivity GC (account lifecycle) — daily sweep reclaiming accounts/usernames with no authenticated
+# activity for INACTIVE_TTL_DAYS (see src/index.ts). Backstop for lost devices; deregister-on-erase is
+# the primary path. (Must sit AFTER the top-level bindings — a table header ends the top-level keys.)
+[triggers]
+crons = ["0 3 * * *"]
+
 # ─────────────────────────── staging ───────────────────────────
 [env.staging]
 name = "penny-auth-staging"

@@ -35,6 +35,8 @@ import {
 import { db } from './schema';
 import { ALL_DEFAULT_CATEGORIES } from './defaultCategories';
 import { DEMO_CAT_DEFAULT_ID, type DemoCatKey } from './dedupeDemoCategories';
+import { hasEntitlement } from '@/core/entitlement/entitlement';
+import { seedGroupFixtures } from './seedGroupFixtures';
 
 export const DEMO_SEED_KEY = 'penny_demo_seeded';
 export const isDemoSeeded = () => localStorage.getItem(DEMO_SEED_KEY) === '1';
@@ -716,6 +718,10 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
   localStorage.setItem('penny_past_events', JSON.stringify(demoPastEvents));
   // Notify EventModeProvider (already mounted) to re-sync from localStorage (browser only).
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('penny-events-updated'));
+
+  // Groups & Household OS demo (Track E) — only when the sync feature is enabled for this build.
+  // Seeds Family/spouse/closed-trip/ongoing-trip groups + links the Leh & Goa events to their groups.
+  if (hasEntitlement('sync')) await seedGroupFixtures(now);
 
   // ── Accounts ─────────────────────────────────────────────────────────────
   const accounts: Account[] = [
@@ -1604,10 +1610,16 @@ async function wipeDemoData(): Promise<void> {
     db.persons.clear(),
     db.ledger_entries.clear(),
     db.accounts.clear(),
-    db.merchant_memory.clear()
+    db.merchant_memory.clear(),
+    // Track E group fixtures
+    db.groups.clear(),
+    db.group_members.clear(),
+    db.group_events.clear(),
+    db.group_keys.clear()
   ]);
   localStorage.removeItem(DEMO_SEED_KEY);
   localStorage.removeItem('penny_past_events');
+  localStorage.removeItem('penny_active_events');
   localStorage.removeItem('penny_cats_v2');
   // Clear dismissal / one-time-init markers so a re-seed surfaces inbox suggestions cleanly.
   localStorage.removeItem('penny_merchant_memory_v1');

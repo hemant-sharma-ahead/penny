@@ -1,7 +1,5 @@
-import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
-import { SettingsDrawer } from './SettingsDrawer';
 import { PrivacyModeSwitcher } from '@/components/privacy/PrivacyModeSwitcher';
 import { RemindersBell } from '@/components/reminders/RemindersBell';
 import { PennyWordmark } from '@/components/ui/PennyLogo';
@@ -9,9 +7,10 @@ import { SyncProvider } from '@/core/sync/SyncProvider';
 import { GroupProvider } from '@/context/GroupContext';
 import { ContextSwitcher } from '@/features/groups/ContextSwitcher';
 import { hasEntitlement } from '@/core/entitlement/entitlement';
+import { PATHS } from '@/router/paths';
 
 export function AppShell() {
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <SyncProvider>
@@ -31,7 +30,7 @@ export function AppShell() {
             >
               <div className="flex items-center gap-3 min-w-0">
                 <button
-                  onClick={() => setSettingsOpen(true)}
+                  onClick={() => navigate(PATHS.app.settings)}
                   className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:text-primary hover:bg-surface-2 -ml-1 flex-shrink-0"
                   aria-label="Open settings"
                 >
@@ -61,8 +60,6 @@ export function AppShell() {
 
             <BottomNav />
           </div>
-
-          <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         </div>
       </GroupProvider>
     </SyncProvider>

@@ -85,8 +85,9 @@ describe('claimAccount', () => {
     expect(registerBody).toMatchObject({
       user_id: 'user-uuid-1',
       username: 'aarav_s',
-      device_signing_key: jwks!.signing,
-      device_wrapping_key: jwks!.wrapping
+      // claim.ts sends the keys as JSON strings (worker stores verbatim + safeParse()s back).
+      device_signing_key: JSON.stringify(jwks!.signing),
+      device_wrapping_key: JSON.stringify(jwks!.wrapping)
     });
     expect(typeof registerBody!.device_id).toBe('string');
 

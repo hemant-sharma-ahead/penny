@@ -10,29 +10,21 @@ export type ResolvedTheme = 'light' | 'blue' | 'dark';
 export interface ModuleVisibility {
   portfolio: boolean;
   goals: boolean;
-  insurance: boolean;
   subscriptions: boolean;
   iou: boolean;
-  loans: boolean;
-  health: boolean;
-  tax: boolean;
-  cashflow: boolean;
   backup: boolean;
   news: boolean;
+  calc: boolean;
 }
 
 const DEFAULT_MODULES: ModuleVisibility = {
   portfolio: true,
   goals: true,
-  insurance: true,
   subscriptions: true,
   iou: true,
-  loans: true,
-  health: true,
-  tax: true,
-  cashflow: true,
   backup: true,
-  news: true
+  news: true,
+  calc: true
 };
 
 const FONT_SCALE_MAP: Record<FontScale, number> = {

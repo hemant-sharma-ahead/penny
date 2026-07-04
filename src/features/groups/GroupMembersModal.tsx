@@ -12,6 +12,7 @@ import {
   setMemberRole
 } from '@/core/groups/groupsService';
 import type { Group, GroupMember } from '@/core/db/types';
+import { useServerActionError } from './useServerActionError';
 
 export function GroupMembersModal({
   group,
@@ -23,6 +24,7 @@ export function GroupMembersModal({
   onChanged: () => void;
 }) {
   const { showToast } = useToast();
+  const onError = useServerActionError();
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [myId, setMyId] = useState<string | undefined>();
   const [inviteLink, setInviteLink] = useState('');
@@ -53,7 +55,7 @@ export function GroupMembersModal({
       await reload();
       onChanged();
     } catch (err) {
-      showToast({ message: err instanceof Error ? err.message : 'Something went wrong' });
+      onError(err);
     } finally {
       setBusy(false);
     }
@@ -122,9 +124,22 @@ export function GroupMembersModal({
               <i className="ti ti-user-plus" aria-hidden="true" /> Create invite link
             </Button>
             {inviteLink && (
-              <div className="mt-2 text-[11px] text-secondary break-all bg-surface-2 rounded-lg px-3 py-2">
-                {inviteLink}
-                <p className="text-tertiary mt-1">Copied — expires in 7 days. The group key is never in the link.</p>
+              <div className="mt-2 flex flex-col gap-2">
+                <div className="text-[11px] text-secondary break-all bg-surface-2 rounded-lg px-3 py-2">
+                  {inviteLink}
+                  <p className="text-tertiary mt-1">Copied — expires in 7 days. The group key is never in the link.</p>
+                </div>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    const shareData = { title: `Join ${group.name || 'my group'} on Penny`, url: inviteLink };
+                    if (navigator.share) void navigator.share(shareData).catch(() => undefined);
+                    else void navigator.clipboard?.writeText(inviteLink).catch(() => undefined);
+                  }}
+                  className="w-full"
+                >
+                  <i className="ti ti-share" aria-hidden="true" /> Share invite
+                </Button>
               </div>
             )}
           </div>

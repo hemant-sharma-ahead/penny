@@ -289,3 +289,27 @@ button {
     opacity: 0;
   }
 }
+
+/* Continuous market-ticker marquee (Home). The track holds the items twice; translating by -50%
+   loops seamlessly. Pauses on hover; respects reduced-motion. */
+@keyframes penny-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: penny-marquee 32s linear infinite;
+}
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
+}

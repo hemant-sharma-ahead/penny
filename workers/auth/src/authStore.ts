@@ -51,6 +51,30 @@ export function getDevice(db: D1Database, deviceId: string): Promise<DeviceRow |
   return db.prepare('SELECT * FROM devices WHERE device_id = ?').bind(deviceId).first<DeviceRow>();
 }
 
+/** Bump a user's liveness timestamp (best-effort) so the inactivity GC can spare active accounts. */
+export async function touchUser(db: D1Database, userId: string, now: number): Promise<void> {
+  await db.prepare('UPDATE users SET last_seen = ? WHERE user_id = ?').bind(now, userId).run();
+}
+
+/** Delete an account and all its devices (releases the username). Used by deregister-on-erase + GC. */
+export async function deleteAccount(db: D1Database, userId: string): Promise<void> {
+  await db.batch([
+    db.prepare('DELETE FROM devices WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM users WHERE user_id = ?').bind(userId)
+  ]);
+}
+
+/** Garbage-collect accounts with no authenticated activity since `cutoffMs`. Returns how many were removed. */
+export async function deleteStaleUsers(db: D1Database, cutoffMs: number): Promise<number> {
+  const stale = await db
+    .prepare('SELECT user_id FROM users WHERE COALESCE(last_seen, updated_at) < ?')
+    .bind(cutoffMs)
+    .all<{ user_id: string }>();
+  const ids = (stale.results ?? []).map((r) => r.user_id);
+  for (const userId of ids) await deleteAccount(db, userId);
+  return ids.length;
+}
+
 /** Upsert a device by device_id (idempotent — re-register updates its keys/label). */
 export async function upsertDevice(
   db: D1Database,

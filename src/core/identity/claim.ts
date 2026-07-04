@@ -31,6 +31,18 @@ export async function getClaimState(): Promise<ClaimState> {
   return { claimed: Boolean(profile?.deviceId), username: profile?.username, deviceId: profile?.deviceId };
 }
 
+/**
+ * Deregister this account from the server: deletes the user + its devices, releasing the username
+ * (deregister-on-erase). Call this while the device still holds its keys — i.e. BEFORE wiping data.
+ * Best-effort: throws on failure so the caller can decide, but callers typically ignore it (the
+ * server's inactivity GC reclaims the record if this couldn't run).
+ */
+export async function deregisterAccount(): Promise<void> {
+  if (!AUTH_BASE) return;
+  const res = await signedFetch('/account', { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Deregister failed: ${res.status}`);
+}
+
 /** Server-side availability check for a username. Format is validated locally first. */
 export async function checkUsername(username: string): Promise<{ available: boolean; reason?: string }> {
   if (!AUTH_BASE) throw new SyncNotConfiguredError();
@@ -66,10 +78,12 @@ export async function claimAccount(username?: string): Promise<{ userId: string;
     body: JSON.stringify({
       user_id: profile.userId,
       username: username || undefined,
-      signing_key: jwks.signing, // account-level key = this (first) device's signing key
+      // Keys travel as JSON strings (the worker stores them verbatim and safeParse()s them back;
+      // matches the group-grant convention in groupsClient.ts).
+      signing_key: JSON.stringify(jwks.signing), // account-level key = this (first) device's signing key
       device_id: deviceId,
-      device_signing_key: jwks.signing,
-      device_wrapping_key: jwks.wrapping
+      device_signing_key: JSON.stringify(jwks.signing),
+      device_wrapping_key: JSON.stringify(jwks.wrapping)
     })
   });
   if (res.status === 409) throw new UsernameTakenError(username ?? '');

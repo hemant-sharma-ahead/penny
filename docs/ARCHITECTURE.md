@@ -2,7 +2,9 @@
 
 This document describes the codebase structure, every directory and its purpose, and the key architectural decisions with their rationale.
 
-**Last updated:** June 2026 (Pre-Phase 1.5)
+**Last updated:** July 2026 (Phase 1.5)
+
+> **UI design guidance lives in [`docs/DESIGN_GUIDELINES.md`](DESIGN_GUIDELINES.md)** — ethos, patterns, themes, colours, and the mockup workflow. This doc covers code structure & architecture only.
 
 ---
 

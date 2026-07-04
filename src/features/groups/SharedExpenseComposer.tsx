@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Button, TextInput, AmountInput, SegmentedControl } from '@/components/ui';
+import { Modal, Button, TextInput, AmountInput, SegmentedControl, SelectInput } from '@/components/ui';
 import { useToast } from '@/context/ToastContext';
 import { formatCurrency } from '@/lib/formatters';
-import { profileRepo, groupMembersRepo, expenseCategoriesRepo } from '@/core/db/repositories';
+import { profileRepo, groupMembersRepo, expenseCategoriesRepo, accountsRepo } from '@/core/db/repositories';
 import { appendGroupEvent } from '@/core/groups/groupSync';
 import { computeShares, type SplitMethod } from '@/core/groups/split';
-import type { ExpenseCategory, Group, GroupMember } from '@/core/db/types';
+import { recordGroupAccountTxn } from '@/core/groups/accountBridge';
+import { CategoryPickerModal } from '@/features/expenses/categories/CategoryPickerModal';
+import type { Account, ExpenseCategory, Group, GroupMember } from '@/core/db/types';
+import { useServerActionError } from './useServerActionError';
 
 const METHODS: { value: SplitMethod; label: string }[] = [
   { value: 'equal', label: 'Equal' },
@@ -43,8 +46,10 @@ export function SharedExpenseComposer({
   onSaved: () => void;
 }) {
   const { showToast } = useToast();
+  const onError = useServerActionError();
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [myId, setMyId] = useState<string | undefined>();
 
   const [amount, setAmount] = useState('');
@@ -55,21 +60,34 @@ export function SharedExpenseComposer({
   const [method, setMethod] = useState<SplitMethod>('equal');
   const [values, setValues] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  // Account bridge (screen 4): record the real cash-out to your account. ON by default; only meaningful
+  // when YOU are the payer (you fronted the money).
+  const [recordToAccount, setRecordToAccount] = useState(true);
+  const [accountId, setAccountId] = useState('');
+
+  const selectedCat = categories.find((c) => c.id === categoryId);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([groupMembersRepo.getAll(), expenseCategoriesRepo.getAll(), profileRepo.getAll()]).then(
-      ([allMembers, cats, profile]) => {
-        if (cancelled) return;
-        const active = allMembers.filter((m) => m.groupId === group.id && m.status === 'active');
-        const me = profile[0]?.userId;
-        setMembers(active);
-        setCategories(cats.filter((c) => (c.applicableTo ?? 'expense') === 'expense' && !c.isGroup));
-        setMyId(me);
-        setPayer(me && active.some((m) => m.userId === me) ? me : (active[0]?.userId ?? ''));
-        setParticipants(new Set(active.map((m) => m.userId)));
-      }
-    );
+    Promise.all([
+      groupMembersRepo.getAll(),
+      expenseCategoriesRepo.getAll(),
+      profileRepo.getAll(),
+      accountsRepo.getAll()
+    ]).then(([allMembers, cats, profile, accs]) => {
+      if (cancelled) return;
+      const active = allMembers.filter((m) => m.groupId === group.id && m.status === 'active');
+      const me = profile[0]?.userId;
+      const liveAccounts = accs.filter((a) => !a.isArchived);
+      setMembers(active);
+      setCategories(cats.filter((c) => (c.applicableTo ?? 'expense') === 'expense' && !c.isGroup));
+      setAccounts(liveAccounts);
+      setMyId(me);
+      setPayer(me && active.some((m) => m.userId === me) ? me : (active[0]?.userId ?? ''));
+      setParticipants(new Set(active.map((m) => m.userId)));
+      setAccountId(liveAccounts[0]?.id ?? '');
+    });
     return () => {
       cancelled = true;
     };
@@ -107,12 +125,22 @@ export function SharedExpenseComposer({
         description: description.trim(),
         categoryId: categoryId || undefined
       });
+      // Bridge: if you fronted the money and opted in, record the real cash-out on your account.
+      if (recordToAccount && payer === myId && accountId) {
+        await recordGroupAccountTxn({
+          moneyIn: false,
+          amount: total,
+          accountId,
+          description: description.trim() || 'Shared expense',
+          categoryId: categoryId || undefined,
+          groupId: group.id
+        });
+      }
       showToast({ message: 'Shared expense added' });
       onSaved();
       onClose();
     } catch (err) {
-      showToast({ message: err instanceof Error ? err.message : 'Could not add the expense' });
-      setSaving(false);
+      if (!onError(err, 'Could not add the expense')) setSaving(false);
     }
   }
 
@@ -129,40 +157,34 @@ export function SharedExpenseComposer({
     >
       <div className="flex flex-col gap-4">
         <AmountInput value={amount} onChange={setAmount} placeholder="0" autoFocus />
+
+        {/* Category — reuses the same picker as the personal Expense popup (screen 4 symmetry). */}
+        <div>
+          <label className="text-xs font-medium text-secondary mb-1.5 block">Category</label>
+          <button
+            type="button"
+            onClick={() => setShowCategoryPicker(true)}
+            className="input-surface border w-full rounded-xl px-3 py-2.5 text-sm flex items-center gap-2"
+            style={{ borderColor: selectedCat ? selectedCat.color : 'var(--color-border)' }}
+          >
+            <i
+              className={`ti ${selectedCat ? selectedCat.icon : 'ti-layout-grid-add'}`}
+              style={{ fontSize: 18, color: selectedCat ? selectedCat.color : 'var(--color-text-tertiary)' }}
+              aria-hidden="true"
+            />
+            <span className={selectedCat ? 'text-primary font-medium' : 'text-tertiary'}>
+              {selectedCat?.name ?? 'Select category'}
+            </span>
+            <i className="ti ti-chevron-right ml-auto text-tertiary" style={{ fontSize: 15 }} aria-hidden="true" />
+          </button>
+        </div>
+
         <TextInput
           label="Description"
           value={description}
           onChange={setDescription}
           placeholder="e.g. Beach shack dinner"
         />
-
-        {categories.length > 0 && (
-          <div>
-            <label className="text-xs font-medium text-secondary mb-1.5 block">Category</label>
-            <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
-              {categories.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setCategoryId(categoryId === c.id ? '' : c.id)}
-                  className={`flex flex-col items-center gap-1 w-[56px] flex-shrink-0 ${categoryId === c.id ? '' : 'opacity-70'}`}
-                >
-                  <span
-                    className="w-9 h-9 rounded-lg grid place-items-center text-white"
-                    style={{
-                      backgroundColor: c.color,
-                      outline: categoryId === c.id ? '2px solid var(--color-primary)' : 'none',
-                      outlineOffset: 1
-                    }}
-                  >
-                    <i className={`ti ${c.icon}`} style={{ fontSize: 17 }} aria-hidden="true" />
-                  </span>
-                  <span className="text-[9px] text-secondary truncate max-w-full">{c.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div>
           <label className="text-xs font-medium text-secondary mb-1.5 block">Paid by</label>
@@ -233,7 +255,49 @@ export function SharedExpenseComposer({
             </div>
           </div>
         </div>
+
+        {/* Account bridge (screen 4) — record the real cash-out you fronted. Only when you're the payer. */}
+        {payer === myId && accounts.length > 0 && (
+          <div className="rounded-xl border border-theme p-3 flex flex-col gap-2">
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <i
+                className="ti ti-building-bank"
+                style={{ color: 'var(--color-primary)', fontSize: 18 }}
+                aria-hidden="true"
+              />
+              <span className="text-sm text-secondary flex-1">
+                Record {total > 0 ? formatCurrency(total) : '₹0'} out of account
+              </span>
+              <input
+                type="checkbox"
+                checked={recordToAccount}
+                onChange={(e) => setRecordToAccount(e.target.checked)}
+                className="w-4 h-4 accent-[var(--color-primary)]"
+              />
+            </label>
+            {recordToAccount && (
+              <SelectInput
+                value={accountId}
+                onChange={setAccountId}
+                options={accounts.map((a) => ({ value: a.id, label: a.name }))}
+              />
+            )}
+          </div>
+        )}
       </div>
+
+      {showCategoryPicker && (
+        <CategoryPickerModal
+          type="expense"
+          categories={categories}
+          selectedId={categoryId}
+          onSelect={(id) => {
+            setCategoryId(id);
+            setShowCategoryPicker(false);
+          }}
+          onClose={() => setShowCategoryPicker(false)}
+        />
+      )}
     </Modal>
   );
 }

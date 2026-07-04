@@ -13,8 +13,22 @@ interface Props {
   selectedId: string;
   onSelect: (id: string) => void;
   onClose: () => void;
-  manager: CategoryManager;
+  /** Category CRUD. Omit for a select-only picker (e.g. the group shared-expense composer) — the
+   *  "Manage" affordance is then hidden. */
+  manager?: CategoryManager;
 }
+
+/** Select-only fallback so the picker can be reused without threading the full manager. */
+const NOOP_MANAGER: CategoryManager = {
+  parentCategoryMap: new Map(),
+  txnCountByCategory: new Map(),
+  saveCategory: async () => undefined,
+  moveTransactions: async () => undefined,
+  deleteCategory: async () => undefined,
+  saveParent: async () => undefined,
+  deleteParent: async () => undefined,
+  createParentWithChildren: async () => undefined
+};
 
 interface RenderedGroup {
   key: string;
@@ -27,6 +41,7 @@ interface RenderedGroup {
 type Editor = { kind: 'category'; editing?: ExpenseCategory } | { kind: 'parent'; editing?: ExpenseCategory };
 
 export function CategoryPickerModal({ type, categories, selectedId, onSelect, onClose, manager }: Props) {
+  const canManage = !!manager;
   const {
     parentCategoryMap,
     txnCountByCategory,
@@ -36,7 +51,7 @@ export function CategoryPickerModal({ type, categories, selectedId, onSelect, on
     saveParent: onSaveParent,
     deleteParent: onDeleteParent,
     createParentWithChildren: onCreateParentWithChildren
-  } = manager;
+  } = manager ?? NOOP_MANAGER;
   const [mode, setMode] = useState<'select' | 'manage'>('select');
   const [multiSelect, setMultiSelect] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -155,9 +170,11 @@ export function CategoryPickerModal({ type, categories, selectedId, onSelect, on
           {mode === 'select' ? (
             <>
               <span className="text-[11px] text-tertiary">Tap to pick</span>
-              <Button variant="ghost" size="sm" icon="ti-settings" onClick={() => setMode('manage')}>
-                Manage
-              </Button>
+              {canManage && (
+                <Button variant="ghost" size="sm" icon="ti-settings" onClick={() => setMode('manage')}>
+                  Manage
+                </Button>
+              )}
             </>
           ) : multiSelect ? (
             <>

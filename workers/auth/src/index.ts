@@ -7,7 +7,16 @@ import { json, preflight } from './cors';
 import { isRateLimited } from './ratelimit';
 import { isValidUsername } from './lib/username';
 import { sha256Hex, verifyRequestSignature } from './lib/auth';
-import { getDevice, getUser, upsertDevice, upsertUser, userIdForUsername } from './authStore';
+import {
+  deleteAccount,
+  deleteStaleUsers,
+  getDevice,
+  getUser,
+  touchUser,
+  upsertDevice,
+  upsertUser,
+  userIdForUsername
+} from './authStore';
 
 export interface Env {
   CACHE: KVNamespace;
@@ -15,6 +24,10 @@ export interface Env {
 }
 
 const NONCE_TTL_SEC = 60;
+// Inactivity GC: reclaim accounts/usernames with no authenticated activity for this long (lost-device
+// backstop — the deterministic path is deregister-on-erase). Deregister-on-erase covers the common case.
+const INACTIVE_TTL_DAYS = 365;
+const DAY_MS = 86_400_000;
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
@@ -36,12 +49,19 @@ export default {
       if (req.method === 'GET' && route === '/challenge') return await handleChallenge(url, env);
       if (req.method === 'GET' && route === '/whoami') return await handleWhoami(req, env, url);
       if (req.method === 'POST' && route === '/device') return await handleAddDevice(req, env, url);
+      if (req.method === 'DELETE' && route === '/account') return await handleDeleteAccount(req, env, url);
     } catch (err) {
       // Never leak internals or PII.
       return json({ error: 'server_error', message: err instanceof Error ? err.message : 'unknown' }, 500);
     }
 
     return json({ error: 'not_found' }, 404);
+  },
+
+  // Inactivity garbage-collection (Cron) — reclaim orphaned accounts/usernames whose device keys are
+  // permanently lost (no deregister-on-erase, no backup, no other device).
+  async scheduled(_event: ScheduledController, env: Env): Promise<void> {
+    await deleteStaleUsers(env.DB, Date.now() - INACTIVE_TTL_DAYS * DAY_MS);
   }
 };
 
@@ -139,6 +159,14 @@ async function handleAddDevice(req: Request, env: Env, url: URL): Promise<Respon
   return json({ ok: true, device_id: deviceId });
 }
 
+/** Deregister this account: delete the user + all its devices, releasing the username. Signed. */
+async function handleDeleteAccount(req: Request, env: Env, url: URL): Promise<Response> {
+  const auth = await authenticate(req, env, url, '');
+  if ('error' in auth) return auth.error;
+  await deleteAccount(env.DB, auth.userId);
+  return json({ ok: true });
+}
+
 // ─── Signed-request verification ─────────────────────────────────────────────────
 
 interface AuthOk {
@@ -188,6 +216,9 @@ async function authenticate(req: Request, env: Env, url: URL, bodyText: string):
       bodyHash
     }));
   if (!ok) return { error: json({ error: 'unauthorized', message: 'bad signature' }, 401) };
+
+  // Liveness for the inactivity GC (best-effort — never fail the request on this).
+  await touchUser(env.DB, userId, Date.now()).catch(() => undefined);
 
   return { userId };
 }

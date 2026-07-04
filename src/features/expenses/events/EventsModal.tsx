@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { Modal, Button, TextInput, Card, Banner } from '@/components/ui';
 import { useEventMode, EVENT_COLORS, toEventHashtag, normalizeHashtag } from '@/context/EventModeContext';
 import type { ActiveEvent, EventSubtype } from '@/context/EventModeContext';
+import { useGroupContext } from '@/context/GroupContext';
+import { useToast } from '@/context/ToastContext';
+import { hasEntitlement } from '@/core/entitlement/entitlement';
+import { createGroup } from '@/core/groups/groupsService';
 import { epochToDateInput, daysBetween } from '@/lib/date';
 
 interface EventsModalProps {
@@ -277,34 +281,37 @@ export function EventsModal({ onClose, linkedCountByEventHashtag, nowMs, onReque
                 </div>
               </div>
             ) : (
-              <Card key={ev.id} padding="xs" radius="md" className="flex items-center gap-3">
-                <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-primary truncate">{ev.name}</p>
-                  <p className="text-[10px] text-tertiary">
-                    #{ev.hashtag} · {ev.subtype === 'immersive' ? 'Vacation' : 'Event'} ·{' '}
-                    {ev.endDate ? `ends ${new Date(ev.endDate).toLocaleDateString('en-IN')}` : 'Ongoing'}
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setEditingEvent(ev);
-                    setEditEventName(ev.name);
-                    setEditEventColor(ev.color);
-                    setEditEventStartDate(epochToDateInput(ev.startDate));
-                    setEditEventEndDate(ev.endDate ? epochToDateInput(ev.endDate) : '');
-                  }}
-                  className="text-xs text-secondary border border-theme rounded-lg px-2.5 py-1 flex-shrink-0"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => stopEvent(ev.id)}
-                  className="text-xs text-danger border border-red-200 rounded-lg px-2.5 py-1 flex-shrink-0"
-                >
-                  Stop
-                </button>
-              </Card>
+              <div key={ev.id} className="flex flex-col gap-1.5">
+                <Card padding="xs" radius="md" className="flex items-center gap-3">
+                  <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-primary truncate">{ev.name}</p>
+                    <p className="text-[10px] text-tertiary">
+                      #{ev.hashtag} · {ev.subtype === 'immersive' ? 'Vacation' : 'Event'} ·{' '}
+                      {ev.endDate ? `ends ${new Date(ev.endDate).toLocaleDateString('en-IN')}` : 'Ongoing'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditingEvent(ev);
+                      setEditEventName(ev.name);
+                      setEditEventColor(ev.color);
+                      setEditEventStartDate(epochToDateInput(ev.startDate));
+                      setEditEventEndDate(ev.endDate ? epochToDateInput(ev.endDate) : '');
+                    }}
+                    className="text-xs text-secondary border border-theme rounded-lg px-2.5 py-1 flex-shrink-0"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => stopEvent(ev.id)}
+                    className="text-xs text-danger border border-red-200 rounded-lg px-2.5 py-1 flex-shrink-0"
+                  >
+                    Stop
+                  </button>
+                </Card>
+                {ev.subtype === 'immersive' && <VacationGroupLink ev={ev} />}
+              </div>
             )
           )}
         </div>
@@ -442,5 +449,106 @@ export function EventsModal({ onClose, linkedCountByEventHashtag, nowMs, onReque
         </div>
       )}
     </Modal>
+  );
+}
+
+/**
+ * Vacation → group link (Track E, screens 10–11). For an active vacation, offer to create a group
+ * named after the trip or link an existing one. While linked, the Add flow defaults new expenses to
+ * split with that group (see ExpenseForm), and trip spend stays out of category analytics via the
+ * event hashtag. Only shown when Groups are usable (sync-entitled + claimed account).
+ */
+function VacationGroupLink({ ev }: { ev: ActiveEvent }) {
+  const { updateEvent } = useEventMode();
+  const { groups, claimed, refresh } = useGroupContext();
+  const { showToast } = useToast();
+  const [picking, setPicking] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  if (!hasEntitlement('sync') || !claimed) return null;
+
+  const linked = ev.linkedGroupId ? groups.find((g) => g.id === ev.linkedGroupId) : undefined;
+  const linkableGroups = groups.filter((g) => g.status === 'active');
+
+  // Already linked → show the link + an unlink affordance.
+  if (ev.linkedGroupId) {
+    return (
+      <div
+        className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
+        style={{ backgroundColor: 'color-mix(in srgb, var(--color-primary) 8%, transparent)' }}
+      >
+        <i className="ti ti-link" style={{ color: 'var(--color-primary)' }} aria-hidden="true" />
+        <span className="text-secondary">
+          Splitting with <b className="text-primary">{linked?.name ?? 'group'}</b>
+        </span>
+        <button
+          onClick={() => updateEvent(ev.id, { linkedGroupId: undefined })}
+          className="ml-auto text-tertiary hover:text-danger"
+        >
+          Unlink
+        </button>
+      </div>
+    );
+  }
+
+  if (!picking) {
+    return (
+      <button
+        onClick={() => setPicking(true)}
+        className="flex items-center gap-2 rounded-lg border border-dashed border-theme px-3 py-2 text-xs text-secondary hover:text-primary"
+      >
+        <i className="ti ti-users-group" aria-hidden="true" /> Link a group — split trip costs with companions
+      </button>
+    );
+  }
+
+  async function createAndLink() {
+    setBusy(true);
+    try {
+      const g = await createGroup({ name: ev.name, type: 'trip', historyVisibility: 'full' });
+      refresh();
+      updateEvent(ev.id, { linkedGroupId: g.id });
+      showToast({ message: `Linked to ${g.name}` });
+      setPicking(false);
+    } catch (err) {
+      showToast({ message: err instanceof Error ? err.message : 'Could not create the group' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
+      <button
+        onClick={() => void createAndLink()}
+        disabled={busy}
+        className="flex items-center gap-2 text-xs font-medium disabled:opacity-50"
+        style={{ color: 'var(--color-primary)' }}
+      >
+        <i className="ti ti-plus" aria-hidden="true" /> Create “{ev.name}” group
+      </button>
+      {linkableGroups.length > 0 && (
+        <>
+          <p className="text-[10px] text-tertiary">Or link an existing group</p>
+          <div className="flex flex-wrap gap-1.5">
+            {linkableGroups.map((g) => (
+              <button
+                key={g.id}
+                onClick={() => {
+                  updateEvent(ev.id, { linkedGroupId: g.id });
+                  setPicking(false);
+                }}
+                className="text-xs border border-theme rounded-lg px-2.5 py-1 text-secondary hover:text-primary"
+              >
+                {g.name}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      <button onClick={() => setPicking(false)} className="text-[11px] text-tertiary self-start">
+        Cancel
+      </button>
+    </div>
   );
 }

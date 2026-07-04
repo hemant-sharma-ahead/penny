@@ -4,6 +4,7 @@ import { useToast } from '@/context/ToastContext';
 import { createGroup } from '@/core/groups/groupsService';
 import type { GroupHistoryVisibility, GroupType } from '@/core/db/types';
 import { useGroupContext } from '@/context/GroupContext';
+import { useServerActionError } from './useServerActionError';
 
 const TYPES: { value: GroupType; label: string }[] = [
   { value: 'family', label: 'Family' },
@@ -14,6 +15,7 @@ const TYPES: { value: GroupType; label: string }[] = [
 
 export function CreateGroupModal({ onClose }: { onClose: () => void }) {
   const { showToast } = useToast();
+  const onError = useServerActionError();
   const { setContext, refresh } = useGroupContext();
   const [name, setName] = useState('');
   const [type, setType] = useState<GroupType>('trip');
@@ -31,8 +33,7 @@ export function CreateGroupModal({ onClose }: { onClose: () => void }) {
       showToast({ message: `Created “${group.name}”` });
       onClose();
     } catch (err) {
-      showToast({ message: err instanceof Error ? err.message : 'Could not create the group' });
-      setSaving(false);
+      if (!onError(err, 'Could not create the group')) setSaving(false);
     }
   }
 

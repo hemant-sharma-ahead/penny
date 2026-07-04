@@ -17,14 +17,21 @@ export function MarketTicker() {
   const [loading, setLoading] = useState(() => loadEnabledTickers().size > 0);
   const [manageOpen, setManageOpen] = useState(false);
 
+  // Re-fetch whenever the enabled set changes (so toggling a ticker updates the strip immediately).
+  // All state writes happen in the async callback to avoid synchronous setState in an effect.
   useEffect(() => {
-    const mountIds = TICKER_CONFIGS.filter((c) => loadEnabledTickers().has(c.id)).map((c) => c.id);
-    if (mountIds.length === 0) return;
-    fetchMarketTickers(mountIds)
-      .then(setTickers)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    const ids = TICKER_CONFIGS.filter((c) => enabled.has(c.id)).map((c) => c.id);
+    let cancelled = false;
+    const p = ids.length ? fetchMarketTickers(ids) : Promise.resolve<TickerResult[]>([]);
+    p.then((r) => {
+      if (cancelled) return;
+      setTickers(r);
+      setLoading(false);
+    }).catch(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
 
   function toggleTicker(id: TickerId) {
     setEnabled((prev) => {
@@ -36,34 +43,48 @@ export function MarketTicker() {
     });
   }
 
-  if (!loading && tickers.length === 0 && enabled.size === 0) return null;
+  // Drop a just-disabled ticker instantly (before the re-fetch resolves).
+  const shown = tickers.filter((t) => enabled.has(t.id));
+
+  if (!loading && shown.length === 0 && enabled.size === 0) return null;
 
   return (
     <>
       <div className="surface rounded-xl flex items-center pr-1">
-        <div className="flex-1 flex items-center gap-4 overflow-x-auto scrollbar-none px-3 py-2">
-          {loading
-            ? Array.from({ length: 4 }).map((_, i) => (
+        <div className="flex-1 overflow-hidden px-3 py-2">
+          {loading ? (
+            <div className="flex items-center gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="flex-shrink-0 w-20 h-4 rounded bg-surface-2 animate-pulse" />
-              ))
-            : tickers.map((t) => {
-                const up = t.changePct !== null && t.changePct >= 0;
-                const changeColor =
-                  t.changePct === null ? 'var(--color-text-tertiary)' : up ? STATUS.success : STATUS.danger;
-                return (
-                  <div key={t.id} className="flex-shrink-0 flex items-center gap-1.5 text-[12px] whitespace-nowrap">
-                    <span className="font-semibold text-secondary">{t.label}</span>
-                    <span className="font-semibold text-primary tabular-nums">
-                      {t.price !== null ? t.formatValue(t.price) : '—'}
-                    </span>
-                    {t.changePct !== null && (
-                      <span className="font-medium tabular-nums" style={{ color: changeColor }}>
-                        {up ? '▲' : '▼'} {Math.abs(t.changePct).toFixed(2)}%
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
+              ))}
+            </div>
+          ) : (
+            // Items rendered twice inside the marquee track so the -50% translate loops seamlessly.
+            <div className="marquee-track">
+              {[0, 1].map((copy) => (
+                <div key={copy} className="flex items-center gap-6 pr-6" aria-hidden={copy === 1}>
+                  {shown.map((t) => {
+                    const up = t.changePct !== null && t.changePct >= 0;
+                    const changeColor =
+                      t.changePct === null ? 'var(--color-text-tertiary)' : up ? STATUS.success : STATUS.danger;
+                    return (
+                      <div key={`${copy}-${t.id}`} className="flex items-center gap-1.5 text-[12px] whitespace-nowrap">
+                        <span className="font-semibold text-secondary">{t.label}</span>
+                        <span className="font-semibold text-primary tabular-nums">
+                          {t.price !== null ? t.formatValue(t.price) : '—'}
+                        </span>
+                        {t.changePct !== null && (
+                          <span className="font-medium tabular-nums" style={{ color: changeColor }}>
+                            {up ? '▲' : '▼'} {Math.abs(t.changePct).toFixed(2)}%
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <button
           type="button"
