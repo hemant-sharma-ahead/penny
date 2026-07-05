@@ -1,9 +1,11 @@
 # Account Lifecycle & Recovery (plan)
 
-> **Status:** 🚧 Partial. **Deregister-on-erase + inactivity GC + claim-error UX = implemented** (this
-> session; auth worker needs deploy + migration `0002`). **Account recovery (restore-identity + device
-> pairing) = future** — the root fix for "I lost my device/reset and can't get my handle back."
-> Related: [`docs/BACKEND_STRATEGY.md`](../BACKEND_STRATEGY.md), Track C (auth), Track D (backup).
+> **Status:** 🚧 Deregister-on-erase + inactivity GC + claim-error UX = implemented (auth worker migration
+> `0002`). **Account recovery is now delivered under [Track F](phase-1.5-track-F-multi-device-recovery.md)** —
+> restore-on-reinstall (F2) + passphrase reclaim (F3) are built; device pairing (F4) is next. **Read the
+> Track F plan for the current recovery model + status; this doc remains the reference for the recovery
+> *worker mechanics* (deregister, inactivity GC, TTL decisions).**
+> Related: [`docs/BACKEND_STRATEGY.md`](../BACKEND_STRATEGY.md), Track C (auth), Track D (backup), Track F.
 
 ---
 

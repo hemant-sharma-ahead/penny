@@ -18,6 +18,8 @@ This is the navigation guide for all Penny documentation. Start here.
 | Find a file or understand how the codebase is structured   | [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) |
 | See every milestone and step ever shipped                  | [`docs/MILESTONES.md`](MILESTONES.md)     |
 | Understand Phase 1.5/2/3 plans and architecture decisions  | [`docs/ROADMAP.md`](ROADMAP.md)           |
+| Design or adjust any screen (UI rules, patterns, tokens)   | [`docs/DESIGN_GUIDELINES.md`](DESIGN_GUIDELINES.md) |
+| Read a detailed phase/track plan (why/what/how)            | [`docs/plans/`](plans/)                   |
 | Understand a specific feature in depth                     | [`docs/features/`](features/)             |
 | See ideas for new features and future improvements         | [`docs/WHATS_NEXT.md`](WHATS_NEXT.md)     |
 
@@ -38,8 +40,13 @@ This is the navigation guide for all Penny documentation. Start here.
 | [`docs/SCHEMA.md`](SCHEMA.md)             | All 19+ Dexie stores with every field, type, and description                                        |
 | [`docs/MILESTONES.md`](MILESTONES.md)     | Full step-by-step history — M0 through Pre-Phase 1.5, all steps and statuses                        |
 | [`docs/ROADMAP.md`](ROADMAP.md)           | Phase 1.5/2/3 scope, backend design (Cloudflare Workers + D1 + KV), auth, encryption, decisions     |
-| [`docs/WHATS_NEXT.md`](WHATS_NEXT.md)     | Future feature ideas: life events, AI categorisation, improvements across all modules               |
+| [`docs/DESIGN_GUIDELINES.md`](DESIGN_GUIDELINES.md) | **Single source of truth for UI design** — ethos, layout/modal rules, patterns, themes, tokens, mockup workflow |
+| [`docs/BACKEND_STRATEGY.md`](BACKEND_STRATEGY.md) | Model B backend strategy: what the server stores (nothing personal), scale rules, backup/recovery |
+| [`docs/plans/`](plans/)                   | Detailed approved phase/track plans (why/what/how, step breakdowns) — see [`plans/README.md`](plans/README.md) for the index |
+| [`docs/ACCOUNT_RECOVERY_QA.md`](ACCOUNT_RECOVERY_QA.md) | Plain-language Q&A that shaped the account-lifecycle & recovery model (companion to the Track F plan) |
+| [`docs/WHATS_NEXT.md`](WHATS_NEXT.md)     | Future feature ideas (thinking space) — not a status tracker                                         |
 | [`docs/ANDROID_EMULATOR.md`](ANDROID_EMULATOR.md) | Step-by-step: wrap Penny with Capacitor and run it on an Android emulator via Android Studio   |
+| `docs/M13_CALCULATORS.md`, `docs/M14_NEWS_FEEDBACK.md` | Historical milestone notes (calculators; news + feedback) — superseded by feature docs |
 
 ### Feature docs
 
@@ -68,6 +75,8 @@ Each feature file follows a standard template: **What it is → User-facing capa
 | [`features/tax-awareness.md`](features/tax-awareness.md)                   | Tax: 80C/80D/24B, LTCG/STCG, FY tracker                                          |
 | [`features/cash-flow.md`](features/cash-flow.md)                           | Cash flow: forecast engine, recurring detection, week/month view                 |
 | [`features/events.md`](features/events.md)                                 | Events system, recurring transactions, vacation guard                            |
+| [`features/backup.md`](features/backup.md)                                 | Backup, restore, erase, and passphrase-based account recovery (Model B)          |
+| [`features/timeline.md`](features/timeline.md)                             | Activity timeline: story vs log tabs, recently-deleted, undo/restore             |
 
 ### Skill files (Claude sessions)
 

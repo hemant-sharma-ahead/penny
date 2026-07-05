@@ -29,6 +29,7 @@ penny/
 │   │   ├── fd/                 ← FD/RD maturity calculation
 │   │   ├── goals/              ← sipCalculator.ts — SIP needed + monthsUntil
 │   │   ├── health/             ← Financial health score engine
+│   │   ├── identity/           ← Account claim/reclaim, signed-request auth, passphrase recovery (Track C/F)
 │   │   ├── import/             ← CSV import parsers
 │   │   ├── ipo/                ← IPO data client + types + hook
 │   │   ├── loans/              ← Loan/EMI calculators
@@ -55,13 +56,13 @@ penny/
 │   │   ├── insurance/          ← Insurance policies
 │   │   ├── iou/                ← IOU tracker
 │   │   ├── loans/              ← Loan scenarios
-│   │   ├── onboarding/         ← Onboarding flow (6 screens)
+│   │   ├── onboarding/         ← Onboarding + account start/recovery/reconcile screens
 │   │   ├── portfolio/          ← Portfolio (all asset classes)
 │   │   ├── subscriptions/      ← Subscription detection
 │   │   └── tax/                ← Tax awareness — 4 pillars: footprint/ (income waterfall + MoneyFlow + share/), explore/ (tax X-ray + rates/), optimize/ (suggestions + deductions/), calculators/ (Regime/HRA/gains/); + DidYouKnow
 │   │
 │   ├── components/             ← Shared UI (not feature-specific)
-│   │   ├── layout/             ← AppShell, BottomNav, SettingsDrawer
+│   │   ├── layout/             ← AppShell, BottomNav
 │   │   ├── privacy/            ← MaskedValue, PrivacyBadge, PrivacyModeSwitcher
 │   │   ├── AssetTaxNote.tsx    ← Collapsible per-asset "Tax on this" note (Portfolio tabs; from core/tax/assetTaxInfo)
 │   │   └── ui/                 ← Shared primitives (Card, Modal, Button, etc.) — EXPANDING in Track 1
@@ -140,9 +141,8 @@ penny/
 
 | File                 | Props               | Purpose                                                                                                               |
 | -------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `AppShell.tsx`       | `children`          | Sticky 48px header (logo + privacy badge), scrollable page area, 64px bottom nav, settings drawer overlay             |
+| `AppShell.tsx`       | `children`          | Sticky 48px header (logo + privacy badge), scrollable page area, 64px bottom nav                                       |
 | `BottomNav.tsx`      | —                   | 5-tab nav: Home, Portfolio, Chip (FAB centre), Expenses, Goals. Respects SettingsContext module visibility.           |
-| `SettingsDrawer.tsx` | `isOpen`, `onClose` | Side drawer: module toggles, theme picker, font scale slider, default privacy mode, security actions, demo data clear |
 
 ### `src/components/privacy/`
 
@@ -237,7 +237,8 @@ Pure, unit-tested logic for the person-centric IOU ledger (Phase 1.5 Track 1). N
 | `aiLabels.ts`    | `assignOrdinalLabels` — the single sanctioned path for putting IOU people into AI context (names → "Person N").                                                                                                                                                                                                                                                                                                                |
 | `migration.ts`   | `parsePersonName` + `migrateLegacyIous` — legacy `personal_ious` → persons/ledger entries (run by `useIou`, flag `penny_iou_v2`).                                                                                                                                                                                                                                                                                              |
 
-IOU UI lives in `src/features/iou/` (`IouView` shared by `/app/iou` and the Expenses → IOU tab;
+IOU UI lives in `src/features/iou/` (`IouView` rendered in the Expenses → IOU tab — the standalone
+`/app/iou` route + `PATHS.app.iou` were removed; the Net Worth IOU tap now navigates to that tab;
 `PersonListView`, `PersonLedgerView`, `EntryForm`, `SettleUpModal`, `PersonForm`, `PersonPicker`).
 
 ### `src/core/ai-safety/`
@@ -270,13 +271,19 @@ vehicle client surfaces the worker's `queued` response via `VehicleQueuedError`.
 [`docs/plans/phase-1.5-track-A-api-proxy.md`](plans/phase-1.5-track-A-api-proxy.md) and
 [`workers/api-proxy/README.md`](../workers/api-proxy/README.md).
 
-**Auth/Identity (`workers/auth/` + `src/core/identity/`, Phase 1.5 Track C):** a second worker
+**Auth/Identity (`workers/auth/` + `src/core/identity/`, Phase 1.5 Track C + Track F recovery):** a second worker
 (`penny-auth`) stores identity metadata only — D1 `users` + `devices` (public keys, optional
 username). **Model B: no personal blob on the server** (personal backup is the user's own
 Drive/iCloud). The client layer: `apiBase.ts` resolves `AUTH_BASE` (`VITE_AUTH_PROXY`, else
 `${VITE_API_PROXY}/auth`); `signedFetch.ts` is the single choke point for authenticated calls
 (challenge → ECDSA-sign `nonce\nMETHOD\npath\nsha256(body)` → `x-penny-*` headers), reused by Tracks
-D/E; `claim.ts` runs the register/claim flow (consumes Track B's `ensureIdentityKeys`). All gated
+D/E; `claim.ts` runs the register/claim flow (consumes Track B's `ensureIdentityKeys`) and also
+exports `reclaimAccount()` (username+passphrase handle reclaim) and `PROFILE_UPDATED_EVENT`
+(dispatched on claim/reclaim so non-reactive consumers like `GroupContext` refresh); `recovery.ts`
+(**Track F/F3, scheme A**) derives a deterministic Ed25519 keypair from `PBKDF2(passphrase, salt)`
+and signs the reclaim challenge — the server stores only the public key. The auth worker adds
+`POST /recover/start` + `POST /recover/finish` (Ed25519 verifier) and migration
+`migrations/0003_recovery.sql` (adds `users.recovery_salt` + `users.recovery_pubkey`). All gated
 behind the **`sync` entitlement (dark by default)**. See
 [`workers/auth/README.md`](../workers/auth/README.md).
 
@@ -326,10 +333,13 @@ group UX (create/invite/join/split/settle) lands in E2–E5. See
 /onboarding/
   splash                 → SplashScreen
   privacy-promise        → PrivacyPromiseScreen
-  setup                  → SetupCredentialsScreen (passphrase + PIN)
   privacy-demo           → PrivacyDemoScreen
   chip-intro             → ChipIntroScreen
-  simulated-dashboard    → SimulatedDashboardScreen
+  simulated-dashboard    → SimulatedDashboardScreen (Preview Dashboard)
+  let-us-know-you        → LetUsKnowYouScreen
+  setup                  → SetupCredentialsScreen (passphrase + PIN)
+  start                  → AccountStartScreen (Start fresh / Restore / Reclaim)
+  account                → AccountRecoveryScreen (segmented new / restore / reclaim)
 
 /app/ (all behind AuthGuard → AppShell)
   home                   → HomePage
@@ -338,7 +348,6 @@ group UX (create/invite/join/split/settle) lands in E2–E5. See
   goals                  → GoalsPage
   insurance              → InsurancePage
   subscriptions          → SubscriptionsPage
-  iou                    → IouPage
   loans                  → LoanScenariosPage
   health                 → HealthScorePage
   tax                    → TaxAwarenessPage
@@ -350,6 +359,14 @@ group UX (create/invite/join/split/settle) lands in E2–E5. See
 ```
 
 `AuthGuard` checks: onboarding completion → session unlock → PIN rotation due → passes through.
+
+**Onboarding flow:** Splash → Privacy Promise → Privacy Demo → Chip Intro → Preview Dashboard →
+(Set up my account) `AccountStartScreen` → `AccountRecoveryScreen` (new tab → Let-us-know-you →
+set-up-vault; restore / reclaim tabs). On sync builds a username is mandatory and the account is
+**claimed during onboarding**. Two screens sit outside the route table: `ChooseHandleScreen`
+(shown after a restore when a deregistered account's old handle is taken) and `IdentityReconciler`
+(mounted in `AuthGuard` — on a restore it re-verifies via `/whoami`, re-registers the restored
+identity, and surfaces `ChooseHandleScreen` if the handle was taken).
 
 ---
 
@@ -463,12 +480,12 @@ src/features/expenses/
     EventsModal.tsx        ← create/edit/stop/reactivate events; calls useEventMode() directly
     useEventEditor.ts      ← edit-event flow incl. out-of-range unlink confirmation
   iou/
-    IouSlice.tsx           ← summary strip + shared IouListView + FAB + IouForm
+    IouSlice.tsx           ← renders the shared <IouView> from src/features/iou/
 
-src/features/iou/          ← IOU is shared between the /app/iou route and the expenses IOU tab
-  useIou.ts                ← domain hook: IOU CRUD + sorted/derived lists (used by both)
-  IouCard.tsx · IouListView.tsx ← shared presentation (ListRow + DueDateBadge)
-  IouPage.tsx · IouForm.tsx
+src/features/iou/          ← IOU UI, rendered in the Expenses → IOU tab (no standalone route)
+  useIou.ts                ← domain hook: IOU CRUD + sorted/derived lists
+  IouView.tsx              ← tab entry point (PersonListView ⇄ PersonLedgerView)
+  PersonListView.tsx · PersonLedgerView.tsx · EntryForm.tsx · SettleUpModal.tsx · PersonForm.tsx · PersonPicker.tsx
 
 src/core/expenses/
   filterAndAggregate.ts    ← pure: grouping, category aggregation, calcTxnCountByCategory
@@ -616,7 +633,6 @@ main.tsx
               └─► AuthGuard
                     └─► AppShell
                           ├─► BottomNav
-                          ├─► SettingsDrawer
                           └─► <feature pages>
                                 ├─► src/core/<domain>
                                 │     └─► src/core/db/repositories

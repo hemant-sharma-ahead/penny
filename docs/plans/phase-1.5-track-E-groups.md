@@ -1,9 +1,12 @@
 # Phase 1.5 — Track E: Groups & Household OS (DETAILED)
 
-> **Status:** 🚧 Feature-complete + deployed, verification pending. **E1–E4 ✅**, **E5 core ✅**
-> (cash guard, share-with-group, seed cash fix); **workers deployed**; `sync` env-gated + Groups gated on a
-> claimed username. **Remaining:** E5 tail (vacation→group link, share-later, demo group fixtures) + Stage F.
-> Detailed per-sub-phase notes are in the E1–E5 sections below.
+> **Status:** 🚧 Feature-complete + deployed; **end-to-end live verification still pending**. **E1–E5 ✅**
+> + **E5 tail ✅** (cash guard, share-with-group, seed cash fix, vacation→group link, share-later, demo
+> fixtures); **workers deployed** (`penny-groups` re-deployed post R2→inline-D1); `sync` env-gated + Groups
+> gated on a claimed username. The **phantom-claim bug is fixed under [Track F](phase-1.5-track-F-multi-device-recovery.md) F1**
+> (demo no longer fakes a claim), so the claim state is honest for verification. **Remaining:** the live
+> verification pass (see "▶ Resume here") + Stage F closeout. Note: **group recovery *after* a reclaim**
+> (list-my-groups sync + key re-grant) is a Track F follow-up tracked there.
 > Authoritative per-track status: [`docs/MILESTONES.md`](../MILESTONES.md) / [`docs/ROADMAP.md`](../ROADMAP.md).
 > Parent plan: [`phase-1.5-groups-household-os.md`](phase-1.5-groups-household-os.md) → "Track E".
 
@@ -24,14 +27,15 @@
   `.env.production`). Claiming a **username is required** (Phase-1.5 opt-in); Groups appear only once
   claimed — until then the context switcher shows a "Claim a username to use Groups" CTA → Profile.
 
-**⚠️ Do this first next session (required):** the deployed `penny-groups` predates the R2→inline-D1
-change, so **re-deploy it**:
+**⚠️ Do this first next session (required):** `penny-groups` has been re-deployed (R2→inline-D1). The
+remaining deploy step is for **Track F/F3 recovery** — the **auth** worker needs a redeploy + migration
+`0003` before passphrase reclaim + post-restore handle reconciliation can be verified live:
 ```bash
-cd workers/groups && npm run db:migrate:remote   # applies 0002 (r2_key → ciphertext)
-npm run deploy                                    # redeploy without the R2 binding
+cd workers/auth && npm run db:migrate:remote   # applies 0003 (recovery_salt + recovery_pubkey)
+npm run deploy
 ```
 
-**Then — nothing here has been exercised against the live stack yet. Manual verification (do this):**
+**Then — the group flows haven't been exercised against the live stack yet. Manual verification (do this):**
 ```bash
 npm run dev     # .env.local: VITE_ENABLE_SYNC=1 + the three *_PROXY URLs
 ```

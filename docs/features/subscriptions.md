@@ -26,9 +26,16 @@ The detection algorithm in `detector.ts` runs a 3-pass analysis over the `expens
 
 3. **Minimum recurrence**: At least 3 occurrences are required before a merchant is proposed as a subscription. This prevents one-off or two-off coincidences from being flagged.
 
-Detected candidates are stored in the `subscriptions` Dexie store with `confirmedByUser: false`. Once confirmed, this flag is set to true and the subscription appears in the main tracked list. Dismissed candidates are removed from the store.
+Detected candidates are **computed on the fly** by `detectSubscriptions` inside the `useSubscriptions` hook (exposed as `detectedSubs`) — they are **not** persisted to the store. A record is only written to the `subscriptions` Dexie store when the user acts on a candidate:
 
-Key fields per subscription: name, amount, frequency, categoryId, nextDueDate, detectedAt, confirmedByUser.
+- **Confirm** writes a record with `confirmedByUser: true` — it then appears in the tracked (active) list.
+- **Dismiss** writes a **tombstone** record (`status: 'cancelled'`, `confirmedByUser: false`). Nothing is removed; the tombstone exists so that candidate's key is filtered out of future detection runs (via `subKey` / the `storedKeys` set), so a dismissed item stops resurfacing.
+
+`activeSubs` = stored records where `confirmedByUser === true` **and** `status !== 'cancelled'`, sorted by soonest next renewal (a lightweight renewal calendar). Cancelled and unconfirmed records are excluded from the active list.
+
+**Cash-flow interaction:** only **confirmed** subscriptions drive the Cash Flow balance projection — detected/unconfirmed candidates do not, so a subscription won't affect safe-to-spend until the user confirms it.
+
+Key fields per `Subscription` record: `merchantCategory` (generalised, not the raw merchant name), `detectedAmount`, `intervalDays`, `status`, `trialEndsAt` (optional), `lastChargedAt` (optional), `confirmedByUser`, `createdAt`, `updatedAt`.
 
 Subscription logic and presentation are shared between the standalone `/app/subscriptions` route and
 the Expenses → Subscriptions tab: both consume the `useSubscriptions` hook and render the same
@@ -37,9 +44,11 @@ the Expenses → Subscriptions tab: both consume the `useSubscriptions` hook and
 Key files:
 
 - `src/features/subscriptions/SubscriptionsPage.tsx` — standalone route: header + shared `SubscriptionsView`
-- `src/features/subscriptions/useSubscriptions.ts` — detection + confirm/dismiss/cancel (used by both surfaces)
+- `src/features/subscriptions/useSubscriptions.ts` — on-the-fly detection (`detectedSubs`) + confirm/dismiss/cancel + manual `addSubscription` (used by both surfaces)
 - `src/features/subscriptions/SubscriptionsView.tsx` / `DetectedSubCard.tsx` / `ActiveSubCard.tsx` — shared UI
-- `src/core/subscriptions/detector.ts` — 3-pass detection algorithm; `format.ts` — display/interval/monthly helpers
+- `src/features/subscriptions/SubscriptionForm.tsx` — the manual "add a subscription" form
+- `src/features/expenses/subscriptions/SubscriptionsSlice.tsx` — the Expenses → Subscriptions tab surface (IOU-tab-style), consuming the same hook and shared components
+- `src/core/subscriptions/detector.ts` — 3-pass detection algorithm; `format.ts` — display/interval/monthly helpers (`subKey`, `nextRenewal`, `toAnnual`)
 
 ## Current limitations
 

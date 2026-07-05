@@ -514,3 +514,50 @@ green (type-check, lint, 235 tests, build). **Deferred follow-ups (a)–(c) all 
 Adjacent (groups-independent): deterministic **rules-based categorization engine** (on-device,
 reusing `merchant_memory`) + Worker-served merchant dictionary, the foundation for future
 text/voice quick-add — AI is a fallback, not the primary path. See the plan.
+
+**Track E — E5 tail + phantom-claim fix (2026-07-04):** E5 tail landed (vacation→group link in
+`EventsModal`, share-later `ShareToGroupModal` swipe action, demo group fixtures `seedGroupFixtures.ts`)
+plus a mockup-fidelity realignment (composer reuses the expense `CategoryPickerModal`; `accountBridge.ts`
+records the real personal txn on cash-out/settle; Home Groups card `HomeGroupsCard` + `useGroupSummaries`).
+**Phantom-claim bug fixed (Track F/F1):** `seedGroupFixtures` had stamped a fake `deviceId`/`username` so
+`claimed` read true without a server registration or device keys — Create/Join surfaced but every signed
+call failed. Fix: the demo no longer fakes a claim (so `deviceId` is set only by a real `claimAccount()`),
+and `HomeGroupsCard` surfaces groups for *viewing* when unclaimed with New/Join → "Claim to create". Groups
+are feature-complete + deployed; end-to-end live verification still pending.
+
+**Track F — Multi-Device, Sync & Recovery (2026-07-04/05):** the recovery model, built on the realization
+that uninstall/reinstall (and iOS's ~7-day storage eviction) drop normal users into an orphaned-handle
+state, so recovery is load-bearing. Plan + rationale: [`docs/plans/phase-1.5-track-F-multi-device-recovery.md`](plans/phase-1.5-track-F-multi-device-recovery.md).
+Three recovery surfaces, one shared key-grant mechanism:
+
+- **F1 — phantom-claim fix** ✅ (see above).
+- **F2 — recovery hardening + restore-on-reinstall + account-start flow** ✅: deregister-failure surfacing
+  on erase (warns before orphaning a claimed handle); **mandatory username at onboarding** (sync builds) +
+  live availability check; **claim at onboarding** (`SetupCredentialsScreen` calls `claimAccount`);
+  post-claim backup nudge; **account-start flow** — Preview → `AccountStartScreen` (Screen A: Start
+  fresh / Restore / Reclaim cards) → `AccountRecoveryScreen` (Screen B: segmented new/restore/reclaim
+  tabs); restore-on-reinstall via `importBackup`; **handle-recovery** (`ChooseHandleScreen`) driven by
+  `IdentityReconciler` (in `AuthGuard`) — post-restore `/whoami` → re-register → pick a new handle if the
+  old one was taken. (Consolidated + removed the interim `RestoreAccountScreen`/`ReclaimAccountScreen`.)
+- **F3 — passphrase reclaim (Ed25519 challenge, scheme A over textbook SRP)** ✅: auth worker recovery
+  verifier (public Ed25519 key + salt, migration `0003_recovery.sql`) + `POST /recover/start` +
+  `POST /recover/finish`; client `src/core/identity/recovery.ts` (deterministic keypair from
+  `PBKDF2(passphrase, salt)`) + `reclaimAccount()`; verifier derived at `initialize()`/`changePassphrase`
+  and uploaded at claim. Server stores only a public key (DB-leak/replay safe). **Auth worker needs
+  redeploy + migration `0003` before live verification.** Key principle captured: SRP is *authentication*,
+  not *decryption* — it recovers identity + group membership, never encryption keys (those need a backup or
+  a co-member re-grant).
+- **F4 device pairing / QR = next** (discuss before building; server `/device` + ECDH grants exist).
+  **Deferred:** group recovery after reclaim (list-my-groups + re-grant), groups-side account-delete cleanup.
+
+Also fixed a claim-reactivity bug (`claimAccount`/`reclaimAccount` emit `penny-profile-updated` so
+`GroupContext` refreshes) and a backup-export stack overflow (chunked base64 in `backupManager`).
+
+**Adjacent UI/data fixes (2026-07-04/05):** Profile **Life & Household** redesigned as compact inline rows
+(`LifeRow`/`Seg`); **Loans** gained per-loan edit + delete (`useLoans.deleteLiability`, `AddLoanModal`
+edit mode); **IOU** delete now soft-archives with an **Archived** section (view/restore/purge) and totals +
+net worth **exclude archived persons**; **Net Worth** IOU tap routes to the Expenses IOU tab (standalone
+`/app/iou` + `IouPage` removed); **Settings** "Clear sample data" marker persisted on the profile
+(`demoSeeded`) so it survives restore; bulk transaction delete fixed (correct "undo" copy + cascade linked
+IOU ledger entries); **Cash Flow** forecaster only projects **confirmed** subscriptions. Gate green across
+these (build + lint + **408 tests**).

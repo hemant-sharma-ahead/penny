@@ -33,6 +33,7 @@ Single-record store. The user's identity and app preferences.
 | userId             | string?                                                                        | Track 2; local identity id, "claimed" on the server at Phase 1.5 registration                          |
 | deviceId           | string?                                                                        | Phase 1.5 Track C; random UUID for this device, assigned at account claim. Rides backup/recovery       |
 | plan               | `'free' \| 'pro'`?                                                             | Track 2; entitlement marker. Always effectively pro until pricing ships                                |
+| demoSeeded         | boolean?                                                                       | true while sample/demo data is present. Persisted here (in addition to the localStorage `penny_demo_seeded` flag) so it rides the encrypted backup and the "Clear sample data" option survives a restore |
 
 > The on-device identity **keypair** and any `licenseToken` are stored in the encrypted DB alongside the profile (private key never leaves the device). Non-indexed fields → no Dexie migration.
 
@@ -255,6 +256,8 @@ Single-record store. Holds the cryptographic material for **envelope encryption*
 | encryptedMasterKey             | string        | DMK wrapped by the **PIN**-KEK (base64)                                                                                  |
 | encryptedMasterKeyByPassphrase | string?       | **Track 2** — DMK wrapped by the **passphrase**-KEK (base64). Added lazily for migrated vaults; set at init for new ones |
 | passphraseKekSalt              | string?       | **Track 2** — salt for the passphrase-KEK (PBKDF2, 600K iterations)                                                      |
+| recoverySalt                   | string?       | **Track F (F3)** — base64 salt fed into PBKDF2(passphrase) to derive the account's Ed25519 passphrase-recovery keypair. Non-secret. |
+| recoveryPublicJwk              | string?       | **Track F (F3)** — the Ed25519 recovery PUBLIC key (JWK, JSON string). Uploaded at claim as the server-side recovery verifier; re-derived on passphrase change. Non-secret. |
 | passphraseVerifier             | string        | Verifies the passphrase without unwrapping the DMK                                                                       |
 | pinAttempts                    | number        | Failed PIN attempts (shared across unlock / Open-mode / change-PIN); resets on success                                   |
 | lockedUntil                    | number?       | Epoch ms — exponential-backoff lockout expiry after 5 failed attempts                                                    |

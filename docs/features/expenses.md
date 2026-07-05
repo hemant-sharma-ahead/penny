@@ -52,8 +52,9 @@ shell that renders `ExpensesHeader` + a tab strip and dispatches to one self-con
 Tabs are **Transactions (default) · Analytics · Subscriptions · IOU**; **Budgets** is no longer a tab —
 it opens as a centred modal from the 🎯 icon in the Transactions toolbar (`BudgetsSlice overlay`).
 Each slice owns its own state, modals, and FAB. Shared expense data comes from `useExpenses`; the IOU
-tab reuses `src/features/iou/` (`useIou`, `IouView`) so it stays in sync with the standalone `/app/iou`
-route. The transactions list is `TransactionsTab` — a day-grouped **timeline** on a single uniform
+tab reuses `src/features/iou/` (`useIou`, `IouView`) via `IouSlice` — IOU has no standalone route (the
+former `/app/iou` page was removed; the Home Net Worth IOU line opens this tab). The transactions list is
+`TransactionsTab` — a day-grouped **timeline** on a single uniform
 background (`SwipeableRow` foreground uses `bg-surface-3`); same-day ordering is by full timestamp
 (`b.date - a.date || b.createdAt - a.createdAt`), with `lib/date.dateInputToEpoch` stamping the
 time-of-day on form save.

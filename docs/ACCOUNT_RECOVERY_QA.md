@@ -1,3 +1,14 @@
+# Account Recovery — Plain-language Q&A (design discussion)
+
+> This is the raw, layman-terms discussion that shaped Penny's account-lifecycle & recovery model
+> (erase/reinstall/reclaim, why the username isn't a login, why recovery is essential, SRP vs Ed25519,
+> auth ≠ decryption). Kept deliberately as an accessible walkthrough. **The canonical, current design +
+> status lives in [`plans/phase-1.5-track-F-multi-device-recovery.md`](plans/phase-1.5-track-F-multi-device-recovery.md)**
+> (recovery model) and [`plans/account-lifecycle-recovery.md`](plans/account-lifecycle-recovery.md)
+> (worker mechanics). If those and this doc ever disagree, the plans win.
+
+---
+
 => So, I have reset the data and then completed the onboarding flow and the app correctly says not claimed. I was able to claim the username. What happens now if
 
 1. I do a reset again with erase all data.
