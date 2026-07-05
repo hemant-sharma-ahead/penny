@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePrivacy } from '@/context/PrivacyContext';
 import type { InsurancePolicy } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
@@ -9,6 +10,7 @@ import { CoverageSummary } from './CoverageSummary';
 import { PolicyForm } from './PolicyForm';
 
 export function InsurancePage() {
+  const navigate = useNavigate();
   const { mode } = usePrivacy();
   const { policies, savePolicy, removePolicy, totalAnnualPremium, expiringCount, sorted } = useInsurance();
 
@@ -19,6 +21,15 @@ export function InsurancePage() {
     <div className="flex flex-col h-full">
       <PageHeader
         title="Insurance"
+        leading={
+          <Button
+            variant="ghost"
+            icon="ti-arrow-left"
+            aria-label="Back"
+            className="w-8 h-8 rounded-lg hover:text-primary"
+            onClick={() => navigate(-1)}
+          />
+        }
         subtitle={
           policies.length > 0
             ? `${policies.length} ${policies.length === 1 ? 'policy' : 'policies'} · ${mode === 'open' ? formatCurrency(totalAnnualPremium) : '••••'}/yr`

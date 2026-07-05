@@ -21,6 +21,18 @@ export interface LogActivityInput {
   restorePointId?: string;
 }
 
+// ─── Change signal ──────────────────────────────────────────────────────────
+// A tiny synchronous emitter so background services (e.g. the Track D backup engine) can react to
+// "meaningful change" without polling. Generic — no dependency on any consumer.
+type ActivityListener = (entry: ActivityLog) => void;
+const listeners = new Set<ActivityListener>();
+
+/** Subscribe to activity entries as they're logged. Returns an unsubscribe function. */
+export function subscribeActivity(listener: ActivityListener): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
 /** Record an activity entry. Returns the new id synchronously (for Undo wiring); writes in the background. */
 export function logActivity(input: LogActivityInput): string {
   const id = crypto.randomUUID();
@@ -31,6 +43,14 @@ export function logActivity(input: LogActivityInput): string {
     .catch(() => {
       /* logging must never disrupt the user action */
     });
+  // Notify subscribers synchronously; a listener must never throw into the caller.
+  for (const listener of listeners) {
+    try {
+      listener(entry);
+    } catch {
+      /* a broken listener must not disrupt the user action */
+    }
+  }
   return id;
 }
 

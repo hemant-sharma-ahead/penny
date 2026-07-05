@@ -3,6 +3,7 @@ import type { Budget, Expense, ExpenseCategory } from '@/core/db/types';
 import type { ActiveEvent } from '@/context/EventModeContext';
 import { normalizeHashtag } from '@/context/EventModeContext';
 import { buildParentCategoryMap, groupKey, groupMeta } from '@/core/expenses/categoryGroups';
+import { isRoutineGroup } from '@/core/db/defaultCategories';
 import { buildAnnualSeries, computeSavingsRate, biggestMovers } from '@/core/expenses/annualAnalytics';
 import { monthlyRecap, computeAnomalies } from '@/core/expenses/monthlyInsights';
 import { toMonthYearKey } from '@/lib/formatters';
@@ -17,7 +18,12 @@ interface Args {
   events: ActiveEvent[];
   pastEvents: ActiveEvent[];
   allEventHashtags: Set<string>;
+  /** Transactions that back an IOU ledger entry — treated as non-routine (set aside), not daily-living. */
+  iouLinkedTxnIds: Set<string>;
 }
+
+/** Synthetic set-aside group for money lent (IOU-linked), independent of the txn's own category. */
+const IOU_LENDING_GROUP = 'iou_lending';
 
 /**
  * Derives every analytics aggregation for the Analytics tab: per-intent-group spend with
@@ -32,7 +38,8 @@ export function useExpenseAnalytics({
   analyticsYear,
   events,
   pastEvents,
-  allEventHashtags
+  allEventHashtags,
+  iouLinkedTxnIds
 }: Args) {
   const analyticsMonthBudgets = useMemo(
     () => budgets.filter((b) => b.monthYear === selectedMonth),
@@ -41,12 +48,25 @@ export function useExpenseAnalytics({
 
   const parentCategoryMap = useMemo(() => buildParentCategoryMap([...categoryMap.values()]), [categoryMap]);
 
+  // Classify each in-month expense into a bucket: 'event' (shown separately), 'lending' (IOU-linked),
+  // a set-aside intent group, or a daily-routine group. Events are excluded from both breakdowns
+  // (they have their own card); lending + set-aside groups feed the "Set aside" summary.
+  const classify = useMemo(() => {
+    return (e: Expense): { kind: 'event' | 'routine' | 'setAside'; group: string } => {
+      if (e.hashtags.some((t) => allEventHashtags.has(normalizeHashtag(t)))) return { kind: 'event', group: '' };
+      if (iouLinkedTxnIds.has(e.id)) return { kind: 'setAside', group: IOU_LENDING_GROUP };
+      const cat = categoryMap.get(e.categoryId);
+      const group = cat ? groupKey(cat) : 'other';
+      return { kind: isRoutineGroup(group) ? 'routine' : 'setAside', group };
+    };
+  }, [allEventHashtags, iouLinkedTxnIds, categoryMap]);
+
   const analyticsData = useMemo(() => {
     const byGroup = new Map<string, { amount: number; categories: Map<string, number> }>();
     for (const e of expenses) {
       if (toMonthYearKey(new Date(e.date)) !== selectedMonth) continue;
       if (e.type && e.type !== 'expense') continue;
-      if (e.hashtags.some((t) => allEventHashtags.has(normalizeHashtag(t)))) continue;
+      if (classify(e).kind !== 'routine') continue;
       const cat = categoryMap.get(e.categoryId);
       const group = cat ? groupKey(cat) : 'other';
       const slot = byGroup.get(group) ?? { amount: 0, categories: new Map<string, number>() };
@@ -82,7 +102,31 @@ export function useExpenseAnalytics({
         };
       })
       .sort((a, b) => b.amount - a.amount);
-  }, [expenses, categoryMap, parentCategoryMap, selectedMonth, analyticsMonthBudgets, allEventHashtags]);
+  }, [expenses, categoryMap, parentCategoryMap, selectedMonth, analyticsMonthBudgets, classify]);
+
+  // "Set aside" — non-routine spend (travel, family support, legal, financial moves) + money lent,
+  // summarised separately so it never distorts the daily-living picture. One row per bucket.
+  const setAsideData = useMemo(() => {
+    const byGroup = new Map<string, number>();
+    for (const e of expenses) {
+      if (toMonthYearKey(new Date(e.date)) !== selectedMonth) continue;
+      if (e.type && e.type !== 'expense') continue;
+      const c = classify(e);
+      if (c.kind !== 'setAside') continue;
+      byGroup.set(c.group, (byGroup.get(c.group) ?? 0) + e.amount);
+    }
+    return Array.from(byGroup.entries())
+      .map(([group, amount]) => {
+        if (group === IOU_LENDING_GROUP) {
+          return { group, amount, label: 'Lending & IOU', color: '#64748b', icon: 'ti-arrow-up-right' };
+        }
+        const meta = groupMeta(group, parentCategoryMap);
+        return { group, amount, label: meta.label, color: meta.color, icon: 'ti-bookmark' };
+      })
+      .sort((a, b) => b.amount - a.amount);
+  }, [expenses, selectedMonth, classify, parentCategoryMap]);
+
+  const setAsideTotal = useMemo(() => setAsideData.reduce((s, seg) => s + seg.amount, 0), [setAsideData]);
 
   const eventsThisMonth = useMemo(() => {
     const allEvents = [...events, ...pastEvents];
@@ -132,19 +176,31 @@ export function useExpenseAnalytics({
 
   const analyticsTotal = useMemo(() => analyticsData.reduce((s, seg) => s + seg.amount, 0), [analyticsData]);
 
+  // All-inclusive total for the month: daily-routine + set-aside + event spend (every expense-type
+  // transaction), so the header shows the true "everything" figure alongside the routine breakdown.
+  const monthTotal = useMemo(() => {
+    let total = 0;
+    for (const e of expenses) {
+      if (toMonthYearKey(new Date(e.date)) !== selectedMonth) continue;
+      if (e.type && e.type !== 'expense') continue;
+      total += e.amount;
+    }
+    return total;
+  }, [expenses, selectedMonth]);
+
   const prevMonthData = useMemo(() => {
     const pm = offsetMonth(selectedMonth, -1);
     const byGroup = new Map<string, number>();
     for (const e of expenses) {
       if (toMonthYearKey(new Date(e.date)) !== pm) continue;
       if (e.type && e.type !== 'expense') continue;
-      if (e.hashtags.some((t) => allEventHashtags.has(normalizeHashtag(t)))) continue;
+      if (classify(e).kind !== 'routine') continue;
       const cat = categoryMap.get(e.categoryId);
       const group = cat ? groupKey(cat) : 'other';
       byGroup.set(group, (byGroup.get(group) ?? 0) + e.amount);
     }
     return byGroup;
-  }, [expenses, categoryMap, selectedMonth, allEventHashtags]);
+  }, [expenses, categoryMap, selectedMonth, classify]);
 
   const hashtagSummary = useMemo(() => {
     const byTag = new Map<string, number>();
@@ -197,27 +253,20 @@ export function useExpenseAnalytics({
   // Monthly recap + anomaly nudges — same event-excluded basis as the rest of the
   // monthly view (event-tagged expenses don't count toward category run-rates).
   const recap = useMemo(
-    () =>
-      monthlyRecap(expenses, categoryMap, selectedMonth, (e) =>
-        e.hashtags.some((t) => allEventHashtags.has(normalizeHashtag(t)))
-      ),
-    [expenses, categoryMap, selectedMonth, allEventHashtags]
+    () => monthlyRecap(expenses, categoryMap, selectedMonth, (e) => classify(e).kind !== 'routine'),
+    [expenses, categoryMap, selectedMonth, classify]
   );
   const anomalies = useMemo(
-    () =>
-      computeAnomalies(
-        expenses,
-        categoryMap,
-        selectedMonth,
-        (e) => e.hashtags.some((t) => allEventHashtags.has(normalizeHashtag(t))),
-        nowMs
-      ),
-    [expenses, categoryMap, selectedMonth, allEventHashtags, nowMs]
+    () => computeAnomalies(expenses, categoryMap, selectedMonth, (e) => classify(e).kind !== 'routine', nowMs),
+    [expenses, categoryMap, selectedMonth, classify, nowMs]
   );
 
   return {
     analyticsData,
     analyticsTotal,
+    monthTotal,
+    setAsideData,
+    setAsideTotal,
     eventsThisMonth,
     prevMonthData,
     hashtagSummary,

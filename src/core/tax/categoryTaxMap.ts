@@ -11,11 +11,14 @@ export const CATEGORY_BAND: Record<string, TaxBandId> = {
   'cat-food': 'gst-5', // restaurant GST is 5% (no ITC)
   'cat-transport': 'gst-5', // cabs/autos 5% (fuel/toll split out by the classifier)
   'cat-household': 'gst-18',
+  'cat-fuel': 'fuel', // petrol/diesel — excise + VAT (the fuel band)
+  'cat-salon': 'gst-18', // salon/grooming services
   // Home & utilities
   'cat-rent': 'exempt', // residential rent — no GST
   'cat-bills': 'gst-18', // electricity is exempt, but telecom/piped utilities ~18%
   'cat-internet': 'gst-18',
   'cat-maintenance': 'gst-18',
+  'cat-home-services': 'gst-18',
   // Health
   'cat-health': 'gst-5', // medicines 5–12%; consultations exempt → ~5% blended
   'cat-fitness': 'gst-18',
@@ -35,6 +38,10 @@ export const CATEGORY_BAND: Record<string, TaxBandId> = {
   'cat-hotels': 'gst-5', // most room tariffs ≤ ₹7,500 → 5% post-GST-2.0
   'cat-local-travel': 'gst-5',
   'cat-trip-food': 'gst-5',
+  'cat-trip-prep': 'gst-18', // pre-trip shopping/gear
+  'cat-trip-shopping': 'gst-18',
+  'cat-trip-fuel': 'fuel', // road-trip fuel — excise + VAT (the fuel band)
+  'cat-vehicle-service': 'gst-18',
   // Education — exempt
   'cat-tuition': 'exempt',
   'cat-books': 'exempt',
@@ -47,6 +54,19 @@ export const CATEGORY_BAND: Record<string, TaxBandId> = {
   // Sin goods (new categories — Track 7)
   'cat-alcohol': 'alcohol',
   'cat-tobacco': 'tobacco',
+  // Legal — advocate services to individuals + court/govt fees are GST-exempt; only the
+  // ancillary spend (printing, transport, food) carries GST.
+  'cat-legal-advocate': 'exempt',
+  'cat-legal-court': 'exempt',
+  'cat-legal-stamp': 'exempt', // state stamp duty — a levy, not GST
+  'cat-legal-notary': 'exempt',
+  'cat-legal-filing': 'exempt',
+  'cat-legal-affidavit': 'exempt',
+  'cat-legal-exemption': 'exempt',
+  'cat-legal-typing': 'gst-18',
+  'cat-legal-transport': 'gst-5',
+  'cat-legal-food': 'gst-5',
+  'cat-legal-misc': 'gst-18',
   // Other
   'cat-other': 'gst-18'
 };
@@ -55,12 +75,14 @@ export const CATEGORY_BAND: Record<string, TaxBandId> = {
 export const INTENT_GROUP_BAND: Record<string, TaxBandId> = {
   daily_living: 'gst-5',
   home_utilities: 'gst-18',
+  renovation: 'gst-18', // materials/labour/furniture ~18% (some at 28%)
   health: 'gst-5',
   financial: 'exempt',
   lifestyle: 'gst-18',
   travel: 'gst-5',
   education: 'exempt',
   family_giving: 'exempt',
+  legal: 'gst-18', // ancillary legal spend defaults to 18%; core fees are mapped exempt per-category
   sin_goods: 'alcohol',
   other: 'gst-18'
 };

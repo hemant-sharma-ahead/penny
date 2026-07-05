@@ -1,0 +1,62 @@
+# Penny Groups Worker — Cloudflare config (Phase 1.5 Track E).
+# Fill the <PLACEHOLDER> ids during setup (see README.md). Default (top-level) bindings are used by
+# `wrangler dev` and the default deploy; [env.staging] / [env.production] override for those envs.
+
+name = "penny-groups"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+
+# KV REUSES the existing api-proxy namespace (issues its own `challenge:` nonces + `rl:` counters —
+# prefixed, so no collision with the market/vehicle cache). Create a dedicated one if you'd rather.
+kv_namespaces = [
+  { binding = "CACHE", id = "b99b4f35a1714357ac1072604a7fc8a7" }
+]
+
+# D1 (groups): the group metadata + membership + invites + key-grants + event index. Ciphertext-only
+# (enc_name; event bodies in R2). No plaintext financial data, no PII (Model B). DEDICATED database.
+# Create with: wrangler d1 create penny_groups   → paste the database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "penny_groups"
+database_id = "e31971af-7f93-4fd9-aeb0-72c93d9018d8"
+
+# D1 (auth): the penny_auth database, bound READ-ONLY for device signing-key lookup during signed-
+# request verification. Reuses Track C's `devices` table — the groups worker never writes it.
+# Use the SAME database_id as workers/auth/wrangler.toml's DB binding.
+[[d1_databases]]
+binding = "AUTH_DB"
+database_name = "penny_auth"
+database_id = "a560b193-d080-4cc1-a833-745646cea782"
+
+# Event bodies (AES-GCM ciphertext) are stored INLINE in D1 (group_events.ciphertext) — small blobs,
+# so no R2 bucket is needed. (Revisit R2 only if large payloads like receipts are ever added.)
+
+# ─────────────────────────── staging ───────────────────────────
+[env.staging]
+name = "penny-groups-staging"
+kv_namespaces = [
+  { binding = "CACHE", id = "<STAGING_KV_ID>" }
+]
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "penny_groups_staging"
+database_id = "<STAGING_D1_ID>"
+[[env.staging.d1_databases]]
+binding = "AUTH_DB"
+database_name = "penny_auth_staging"
+database_id = "<STAGING_AUTH_D1_ID>"
+
+# ─────────────────────────── production ───────────────────────────
+[env.production]
+name = "penny-groups-prod"
+kv_namespaces = [
+  { binding = "CACHE", id = "<PROD_KV_ID>" }
+]
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "penny_groups_prod"
+database_id = "<PROD_D1_ID>"
+[[env.production.d1_databases]]
+binding = "AUTH_DB"
+database_name = "penny_auth_prod"
+database_id = "<PROD_AUTH_D1_ID>"

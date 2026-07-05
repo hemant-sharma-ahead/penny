@@ -56,8 +56,8 @@ export default defineConfig([
     }
   },
   {
-    // Context files intentionally export both a Provider component and a hook
-    files: ['src/context/*.tsx'],
+    // Provider files intentionally export both a Provider component and a hook
+    files: ['src/context/*.tsx', 'src/core/sync/SyncProvider.tsx'],
     rules: {
       'react-refresh/only-export-components': 'off'
     }

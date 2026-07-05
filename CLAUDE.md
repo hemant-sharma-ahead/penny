@@ -17,16 +17,16 @@ This file is read at the start of every Claude Code session. It provides orienta
 
 ## Current milestone status
 
-| Milestone                                                                              | Status                                                                   |
-| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| M0–M12: Foundation through portfolio enhancements                                      | ✅ Complete                                                              |
-| M13: Financial calculators                                                             | ✅ Complete                                                              |
-| M14: Finance news + Contact/Feedback                                                   | ✅ Complete                                                              |
-| M15: UI polish + feature refinements                                                   | ✅ Complete                                                              |
-| **Pre-Phase 1.5: Tracks 5, 1A–1E, 2, 3, 4, 6, 7 ✅ (Track 6 Step 3 skipped)**          | ✅ Complete                                                              |
-| Phase 1.5: Groups & Household OS — [plan](docs/plans/phase-1.5-groups-household-os.md) | 🚧 In progress (Track 1 ✅; Track A API Proxy ✅ deployed → `penny-api-proxy.hesh.workers.dev`; next: Track B. Backend strategy: [docs/BACKEND_STRATEGY.md](docs/BACKEND_STRATEGY.md)) |
-| Phase 2: Chip AI, native apps, cloud sync                                              | ⏳ Future                                                                |
-| Phase 3: Regional languages, crypto, international equities                            | ⏳ Future                                                                |
+| Milestone                                                                              | Status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M0–M12: Foundation through portfolio enhancements                                      | ✅ Complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| M13: Financial calculators                                                             | ✅ Complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| M14: Finance news + Contact/Feedback                                                   | ✅ Complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| M15: UI polish + feature refinements                                                   | ✅ Complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **Pre-Phase 1.5: Tracks 5, 1A–1E, 2, 3, 4, 6, 7 ✅ (Track 6 Step 3 skipped)**          | ✅ Complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Phase 1.5: Groups & Household OS — [plan](docs/plans/phase-1.5-groups-household-os.md) | 🚧 In progress. **Track 1 ✅** (pairwise IOU). **A ✅** API proxy (`penny-api-proxy`). **B ✅** client crypto (`device_keys`/`group_keys`/`sync_cursor`, `mergeBundle`). **C ✅** auth/identity (`workers/auth/`, signed-request auth, `signedFetch`/`claim`). **D ✅** backup+sync (`src/core/sync/`: Drive live, iCloud dormant, OPFS floor; Model B — user's own cloud). **E ✅ feature-complete + deployed, end-to-end verification pending** — E1–E5 + E5 tail (worker+crypto, lifecycle, split, sync, context switcher/dashboard/composer/settle/members, cash guard, share-with-group, vacation→group link, share-later, demo fixtures); `workers/groups/` deployed (reuses api-proxy KV; dedicated `penny_auth`/`penny_groups` D1s; **no R2** — event ciphertext inline in D1). `sync` is **env-gated** (`VITE_ENABLE_SYNC`); Groups require a **claimed username**. **Track F — Multi-Device, Sync & Recovery 🚧** ([plan](docs/plans/phase-1.5-track-F-multi-device-recovery.md)): **F1 ✅** phantom-claim fix (demo no longer fakes a claim; `claimed` honest); **F2 ✅** recovery hardening + restore-on-reinstall + account-start flow (Preview → Screen A cards → Screen B tabs → handle-recovery; mandatory username + claim at onboarding; deregister-failure surfacing); **F3 ✅** passphrase reclaim (Ed25519 challenge; auth worker `/recover/*` + migration `0003` — **worker needs redeploy+migrate before live verify**); **F4 device pairing/QR = next (discuss first)**; deferred: group-recovery-after-reclaim, groups-side account-delete cleanup. **Remaining before Phase 1.5 done: Track E live verification + F4 + Stage F closeout.** Resume/test: [track-E plan](docs/plans/phase-1.5-track-E-groups.md) "▶ Resume here"; recovery model: [track-F plan](docs/plans/phase-1.5-track-F-multi-device-recovery.md). Backend: [docs/BACKEND_STRATEGY.md](docs/BACKEND_STRATEGY.md). |
+| Phase 2: Chip AI, native apps, cloud sync                                              | ⏳ Future                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Phase 3: Regional languages, crypto, international equities                            | ⏳ Future                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 Full step-by-step milestone history → [`docs/MILESTONES.md`](docs/MILESTONES.md)
 Phase 1.5/2/3 architecture decisions → [`docs/ROADMAP.md`](docs/ROADMAP.md)
@@ -54,51 +54,11 @@ Never disable these rules with `eslint-disable` comments.
 
 ---
 
-## UI / Modal design principles
+## UI design
 
-- **No bottom sheets.** All modals must appear centred between the app header and bottom nav.
-- **Always visible header + nav.** Use `paddingTop: 56, paddingBottom: 72` on fixed overlays.
-- **Horizontal margin.** Use `px-4` on overlay, `max-w-[430px]` on card.
-- **Scrollable body.** Long content scrolls inside the card (`overflow-y-auto flex-1`).
-- **Z-index ladder:** bottom nav `z-50` → app header `z-40` → modals `z-60` → nested modals `z-70` → third-tier modals `z-80` (e.g. category/parent editors opened from the category picker). `Modal`/`ConfirmDialog` accept `level={1|2|3}`.
+**All UI design lives in [`docs/DESIGN_GUIDELINES.md`](docs/DESIGN_GUIDELINES.md)** — the single source of truth: design ethos, navigation/layout & modal rules, reusable patterns (identity hero, in-field labels, icon-tile selector, grouped cards, danger zone), themes, design tokens, semantic theme/status colour utilities, and the mockup proposal workflow. **Read it before designing or adjusting any screen**, and add new patterns/rules there as they emerge — keep design guidance in that one doc, not scattered here.
 
----
-
-## Design tokens
-
-```css
---color-primary: #00a86b; /* Penny green */
---color-safe: #f59e0b; /* Amber — Safe mode */
---color-privacy: #7c3aed; /* Violet — Privacy mode */
---color-open: #dc2626; /* Red — Open mode */
-```
-
-## Themes
-
-Four visual themes, set via `data-theme` on `<body>` (managed by `SettingsContext`, see `src/index.css`):
-**Light** · **Penny Blue** (navy `#1F3864` brand palette — `data-theme=blue`) · **Dark** (neutral slate/black) · **System** (resolves the OS preference to Light or true Dark — never Penny Blue, which is a deliberate manual pick). The legacy `dark` setting (which was the navy palette) auto-migrates to `blue` once on load.
-
-## Semantic theme utilities (never use hardcoded Tailwind colours)
-
-| Class            | What it does                                       |
-| ---------------- | -------------------------------------------------- |
-| `bg-surface`     | Card / panel background                            |
-| `bg-surface-2`   | Slightly deeper background                         |
-| `bg-surface-3`   | Body / page background                             |
-| `text-primary`   | Primary text                                       |
-| `text-secondary` | Secondary / label text                             |
-| `text-tertiary`  | Muted / placeholder text                           |
-| `border-theme`   | Standard border color                              |
-| `surface`        | Shorthand: `bg-surface` + `1px solid border-theme` |
-| `input-surface`  | Input bg + text + border-color                     |
-
-## Status colors (never hardcode `#10b981`/`#ef4444`/`#f59e0b`/`#3b82f6`)
-
-Semantic status tokens: `--color-success` / `--color-danger` / `--color-warning` / `--color-info` / `--color-neutral`.
-
-- **Classes:** `text-success|danger|warning|info` and `bg-{success|danger|warning|info}-subtle` (theme-aware via `color-mix`).
-- **Props / inline styles:** `STATUS` map + `tint()` (subtle bg) + `ink()` (readable on-tint text) from [`src/lib/statusColors.ts`](src/lib/statusColors.ts).
-- **Pills → `<Badge color={STATUS.x}>`. Alert callouts → `<Banner variant="warning">`.** Domain/brand colors (category/asset/type accents) stay as data in `core/*/meta.ts`.
+Non-negotiables at a glance: centred modals (no bottom sheets); full-screen single-scroll over hidden tabs; a back button on every sub-page; **semantic tokens only — never hardcoded colours** (domain/brand accents excepted, as data in `core/*/meta.ts`).
 
 ## Shared utilities
 
@@ -149,6 +109,7 @@ After completing any implementation step:
 1. **Update `docs/features/<module>.md`** if the feature's capabilities, data model, or limitations changed
 2. **Update `docs/SCHEMA.md`** if any Dexie store fields were added, changed, or removed
 3. **Update `docs/ARCHITECTURE.md`** if new files, directories, hooks, or components were added
+   - **Update `docs/DESIGN_GUIDELINES.md`** if a UI design pattern, rule, theme, or colour token was introduced or changed (it's the single source of truth for UI design — keep it there, not scattered)
 4. **Sync status everywhere it's tracked** when a phase / track / step / module status changes — the `CLAUDE.md` milestone table, the matching row in `docs/MILESTONES.md` and `docs/ROADMAP.md`, and the **Status** line of the relevant plan in [`docs/plans/`](docs/plans/) (+ its index row). These must never disagree.
 5. **Update `.claude/commands/penny-standards.md`** if new non-negotiable rules apply
 6. **Update `docs/ROADMAP.md`** if any architectural decisions were made or changed
@@ -165,6 +126,7 @@ Never mark a step as complete without checking this list.
 | Product vision, users, competitive positioning                          | [`docs/BRD.md`](docs/BRD.md)                                                           |
 | Full database schema with all fields                                    | [`docs/SCHEMA.md`](docs/SCHEMA.md)                                                     |
 | Privacy rules, PII definitions                                          | [`docs/PRIVACY.md`](docs/PRIVACY.md)                                                   |
+| **UI design** — ethos, patterns, themes, colours, mockup workflow       | [`docs/DESIGN_GUIDELINES.md`](docs/DESIGN_GUIDELINES.md)                               |
 | Codebase map, component inventory, decision log                         | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                                         |
 | Phase 1.5/2/3 plans + backend decisions                                 | [`docs/ROADMAP.md`](docs/ROADMAP.md)                                                   |
 | **Detailed approved phase/track plans** (why/what/how, step breakdowns) | [`docs/plans/`](docs/plans/)                                                           |

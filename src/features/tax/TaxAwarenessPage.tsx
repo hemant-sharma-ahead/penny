@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { TabStrip, Badge, PageHeader, Banner } from '@/components/ui';
+import { useNavigate } from 'react-router-dom';
+import { TabStrip, Badge, PageHeader, Banner, Button } from '@/components/ui';
 import { STATUS } from '@/lib/statusColors';
 import { useProfile } from '@/hooks/useProfile';
 import { deriveAge } from '@/lib/date';
@@ -14,6 +15,16 @@ import { CalculatorsPillar } from './calculators/CalculatorsPillar';
 type TaxTab = 'footprint' | 'explore' | 'optimize' | 'calculators';
 
 export function TaxAwarenessPage() {
+  const navigate = useNavigate();
+  const back = (
+    <Button
+      variant="ghost"
+      icon="ti-arrow-left"
+      aria-label="Back"
+      className="w-8 h-8 rounded-lg hover:text-primary"
+      onClick={() => navigate(-1)}
+    />
+  );
   const { summary } = useTaxData();
   const deductions = useTaxDeductions(summary);
   const { profile } = useProfile();
@@ -37,7 +48,7 @@ export function TaxAwarenessPage() {
   if (!summary) {
     return (
       <div className="flex flex-col h-full">
-        <PageHeader title="Tax Awareness" />
+        <PageHeader title="Tax Awareness" leading={back} />
         <div className="flex-1 flex items-center justify-center">
           <p className="text-sm text-tertiary">Loading…</p>
         </div>
@@ -50,7 +61,7 @@ export function TaxAwarenessPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <PageHeader title="Tax Awareness">
+      <PageHeader title="Tax Awareness" leading={back}>
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-xs text-secondary">{fy.label}</span>
           <span style={{ color: 'var(--color-border-strong)' }}>·</span>

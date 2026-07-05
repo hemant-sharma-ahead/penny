@@ -1,7 +1,10 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, TextInput, OptionButton } from '@/components/ui';
 import { EMPLOYMENT_OPTIONS } from '@/core/profile/employment';
 import { isValidUsername } from '@/core/profile/username';
+import { hasEntitlement } from '@/core/entitlement/entitlement';
+import { checkUsername } from '@/core/identity/claim';
 import { deriveAge } from '@/lib/date';
 import { PATHS } from '@/router/paths';
 import { useOnboardingDraft } from '@/context/OnboardingDraftContext';
@@ -12,10 +15,35 @@ export function LetUsKnowYouScreen() {
   // Drive inputs straight from the draft so going back/forward preserves everything.
   const { fullName = '', username = '', dob = '', employmentType, setDraft } = useOnboardingDraft();
 
+  // On sync builds the username is the account handle (recovery anchor + sharing), so it's mandatory and
+  // gets claimed at vault setup — so we check availability here to avoid a taken handle failing the claim.
+  // On Phase-1-only builds it's cosmetic and stays optional.
+  const usernameRequired = hasEntitlement('sync');
+  const [availability, setAvailability] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
+
   const age = dob ? deriveAge(dob) : null;
   const dobValid = age !== null && age >= 13 && age <= 120;
-  const usernameValid = username === '' || isValidUsername(username);
-  const canContinue = fullName.trim().length > 0 && dobValid && !!employmentType && usernameValid;
+  const usernameFilled = username.trim().length > 0;
+  const usernameValid = usernameRequired ? isValidUsername(username) : username === '' || isValidUsername(username);
+  // Allow 'idle' (e.g. offline — the claim is best-effort) but block a known-taken or mid-check handle.
+  const usernameOk = usernameValid && (!usernameRequired || (availability !== 'taken' && availability !== 'checking'));
+  const canContinue = fullName.trim().length > 0 && dobValid && !!employmentType && usernameOk;
+
+  // Debounced availability check (sync builds). State is only set inside the timeout / onChange.
+  useEffect(() => {
+    if (!usernameRequired || !isValidUsername(username)) return;
+    let cancelled = false;
+    const t = setTimeout(() => {
+      setAvailability('checking');
+      void checkUsername(username)
+        .then((r) => !cancelled && setAvailability(r.available ? 'available' : 'taken'))
+        .catch(() => !cancelled && setAvailability('idle'));
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [username, usernameRequired]);
 
   const handleContinue = () => {
     if (canContinue) navigate(PATHS.onboarding.setupCredentials);
@@ -48,12 +76,30 @@ export function LetUsKnowYouScreen() {
           />
 
           <TextInput
-            label="Username (optional)"
+            label={usernameRequired ? 'Username' : 'Username (optional)'}
+            required={usernameRequired}
             value={username}
-            onChange={(v) => setDraft({ username: v.toLowerCase() })}
+            onChange={(v) => {
+              setDraft({ username: v.toLowerCase() });
+              setAvailability('idle');
+            }}
             placeholder="e.g. aarav_s"
-            error={!usernameValid ? '3–20 lowercase letters, numbers, or _' : undefined}
-            hint="You'll confirm this when you set up household sharing later."
+            error={
+              usernameFilled && !usernameValid
+                ? '3–20 lowercase letters, numbers, or _'
+                : usernameRequired && availability === 'taken'
+                  ? 'That handle is taken — try another'
+                  : undefined
+            }
+            hint={
+              usernameRequired
+                ? availability === 'checking'
+                  ? 'Checking availability…'
+                  : availability === 'available'
+                    ? '✓ Available'
+                    : 'Your unique handle — how others find you for sharing, and how you recover your account.'
+                : "You'll confirm this when you set up household sharing later."
+            }
           />
 
           <div>

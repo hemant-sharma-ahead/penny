@@ -22,7 +22,9 @@ import { reconcileExpenseLink, type ExpenseIouIntent, type ExpenseSeedIntent } f
 import { useRepository } from '@/hooks/useRepository';
 import { useTxnRefresh, notifyTxnChanged } from '@/hooks/useTxnRefresh';
 import { ALL_DEFAULT_CATEGORIES, CATEGORY_MIGRATION_MAP } from '@/core/db/defaultCategories';
+import { dedupeDemoCategories, reconcileDefaultCategories, repairCategoryIcons } from '@/core/db/dedupeDemoCategories';
 import { calcSpendByCategory, calcTxnCountByCategory } from '@/core/expenses/filterAndAggregate';
+import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { buildParentCategoryMap } from '@/core/expenses/categoryGroups';
 import {
   buildMemoriesFromExpenses,
@@ -122,6 +124,71 @@ export function useExpenses() {
       })
       .catch(() => {});
   }, [categoriesLoading, categories, reloadCategories]);
+
+  // Additive default-category seeding (v5): inserts the Track E category additions — the Legal intent
+  // group, plus new Travel (Trip Prep/Shopping, Fuel, Vehicle Service) and Education (Transportation
+  // Fee, School Trip, Competition) categories. Same non-clobbering, once-per-version pattern as v3.
+  const catSeedV5Ref = useRef(false);
+  useEffect(() => {
+    if (categoriesLoading || catSeedV5Ref.current) return;
+    if (localStorage.getItem('penny_cats_v6')) {
+      catSeedV5Ref.current = true;
+      return;
+    }
+    catSeedV5Ref.current = true;
+    const existingIds = new Set(categories.map((c) => c.id));
+    const missing = ALL_DEFAULT_CATEGORIES.filter((c) => !existingIds.has(c.id));
+    Promise.all(missing.map((c) => expenseCategoriesRepo.put({ ...c, createdAt: Date.now() })))
+      .then(() => {
+        localStorage.setItem('penny_cats_v6', '1');
+        if (missing.length > 0) reloadCategories();
+      })
+      .catch(() => {});
+  }, [categoriesLoading, categories, reloadCategories]);
+
+  // One-time cleanup: databases seeded before the demo seed reused the real defaults carry duplicate
+  // `demo-cat-*` categories. Remap their references to the canonical default and delete them, so the
+  // picker stops showing each staple twice. Runs once, only when a legacy demo category is present.
+  const demoDedupeRef = useRef(false);
+  useEffect(() => {
+    if (categoriesLoading || demoDedupeRef.current) return;
+    if (localStorage.getItem('penny_demo_cats_deduped')) {
+      demoDedupeRef.current = true;
+      return;
+    }
+    demoDedupeRef.current = true;
+    const hasLegacy = categories.some((c) => c.id.startsWith('demo-cat-'));
+    if (!hasLegacy) {
+      localStorage.setItem('penny_demo_cats_deduped', '1');
+      return;
+    }
+    dedupeDemoCategories()
+      .then(({ remapped }) => {
+        localStorage.setItem('penny_demo_cats_deduped', '1');
+        reloadCategories();
+        if (remapped > 0) reloadExpenses();
+      })
+      .catch(() => {});
+  }, [categoriesLoading, categories, reloadCategories, reloadExpenses]);
+
+  // One-time icon repair: heals default categories seeded with icons that are absent from the shipped
+  // webfont (they render blank) — e.g. Savings Transfer (ti-piggy-bank), Food on Trip (ti-fork).
+  // Definition changes don't reach already-seeded records, so patch them in place.
+  const iconRepairRef = useRef(false);
+  useEffect(() => {
+    if (categoriesLoading || iconRepairRef.current) return;
+    if (localStorage.getItem('penny_cat_icons_v1')) {
+      iconRepairRef.current = true;
+      return;
+    }
+    iconRepairRef.current = true;
+    Promise.all([repairCategoryIcons(), reconcileDefaultCategories()])
+      .then(([fixed, reconciled]) => {
+        localStorage.setItem('penny_cat_icons_v1', '1');
+        if (fixed > 0 || reconciled > 0) reloadCategories();
+      })
+      .catch(() => {});
+  }, [categoriesLoading, reloadCategories]);
 
   // One-time merchant-memory backfill from existing transactions, so suggestions
   // work immediately on upgrade. v2 re-keys records by merchant + category, so on
@@ -228,8 +295,18 @@ export function useExpenses() {
     async (expenseIds: string[]) => {
       const ids = new Set(expenseIds);
       const removed = expenses.filter((e) => ids.has(e.id));
+      // Cascade-delete any IOU ledger entries linked to these transactions (parity with single delete),
+      // so bulk-deleting IOU-seeded expenses doesn't leave orphaned ledger entries.
+      const linkedEntries = (await ledgerEntriesRepo.getAll()).filter(
+        (le) => le.linkedTxnId !== undefined && ids.has(le.linkedTxnId)
+      );
       await Promise.all(expenseIds.map((id) => expensesRepo.delete(id)));
+      for (const le of linkedEntries) await ledgerEntriesRepo.delete(le.id);
       reloadExpenses();
+      if (linkedEntries.length > 0) {
+        reloadLedger();
+        notifyTxnChanged();
+      }
       const first = removed[0];
       if (!first) return;
       const label = `${removed.length} transaction${removed.length === 1 ? '' : 's'}`;
@@ -239,7 +316,10 @@ export function useExpenses() {
         entityId: first.id,
         summary: `Deleted ${label}`,
         snapshot: JSON.stringify(removed),
-        entityCount: removed.length
+        entityCount: removed.length,
+        ...(linkedEntries.length > 0
+          ? { cascade: JSON.stringify(linkedEntries.map((le) => ({ entityType: 'ledgerEntry', record: le }))) }
+          : {})
       });
       showToast({
         message: `Deleted ${label}`,
@@ -247,10 +327,14 @@ export function useExpenses() {
         onAction: async () => {
           await restoreActivity(logId);
           reloadExpenses();
+          if (linkedEntries.length > 0) {
+            reloadLedger();
+            notifyTxnChanged();
+          }
         }
       });
     },
-    [expenses, reloadExpenses, showToast]
+    [expenses, reloadExpenses, reloadLedger, showToast]
   );
 
   /** Delete a single transaction, with Undo. Cascade-deletes linked IOU entries and restores both atomically. */
@@ -493,6 +577,21 @@ export function useExpenses() {
     return map;
   }, [ledgerEntries, persons]);
 
+  // Every transaction that backs an IOU ledger entry (lent/borrowed/settlement, any origin).
+  // Analytics treats these as non-routine — lending isn't daily-living consumption.
+  const iouLinkedTxnIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const e of ledgerEntries) if (e.linkedTxnId) ids.add(e.linkedTxnId);
+    return ids;
+  }, [ledgerEntries]);
+
+  // Current balance per account — powers the cash-negative guard in the entry form (Track E, E5).
+  const accountBalances = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const a of accounts) map[a.id] = computeBalance(a.id, a.openingBalance, expenses);
+    return map;
+  }, [accounts, expenses]);
+
   // ── Recurring auto-post inbox ───────────────────────────────────────────────
   // Recurring series are forecast-only; surface the ones whose next occurrence is
   // due so the user can confirm and log the real transaction.
@@ -559,6 +658,8 @@ export function useExpenses() {
     persons,
     seedIouFromExpense,
     iouLinkByTxn,
+    iouLinkedTxnIds,
+    accountBalances,
     patchExpenses,
     removeExpenses,
     saveCategory,

@@ -21,6 +21,7 @@ import { FilterModal } from './FilterModal';
 import { MonthPickerModal } from './MonthPickerModal';
 import { BulkAccountPaymentModal } from './BulkAccountPaymentModal';
 import { RecurringInboxModal } from './RecurringInboxModal';
+import { ShareToGroupModal } from './ShareToGroupModal';
 import type { useTransactionFilters } from './useTransactionFilters';
 import type { CategoryManager } from '../categories/types';
 import type { DueRecurring } from '@/core/expenses/recurringDue';
@@ -40,6 +41,11 @@ interface TransactionsSliceProps {
   iouPersons: Person[];
   onSeedIou: (expenseId: string, intent: ExpenseSeedIntent | null) => Promise<void>;
   iouLinkByTxn: Map<string, { personName: string }>;
+  accountBalances: Record<string, number>;
+  shareGroups: { id: string; name: string }[];
+  onShareToGroup: (expense: Expense, groupId: string, participants?: string[]) => Promise<void>;
+  /** Share-later (Track E): shares an existing transaction into a group and marks it as shared. */
+  onShareLater: (expense: Expense, groupId: string) => Promise<void>;
   onOpenBudgets: () => void;
   onPatchExpenses: (
     ids: string[],
@@ -71,6 +77,10 @@ export function TransactionsSlice({
   iouPersons,
   onSeedIou,
   iouLinkByTxn,
+  accountBalances,
+  shareGroups,
+  onShareToGroup,
+  onShareLater,
   onOpenBudgets,
   onPatchExpenses,
   onRemoveExpenses,
@@ -107,6 +117,7 @@ export function TransactionsSlice({
 
   const [showForm, setShowForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [sharingExpense, setSharingExpense] = useState<Expense | null>(null);
   const [prefill, setPrefill] = useState<Partial<Expense> | null>(null);
   const [initialTransactionType, setInitialTransactionType] = useState<TransactionType>('expense');
   const [showDial, setShowDial] = useState(false);
@@ -437,6 +448,7 @@ export function TransactionsSlice({
           onEdit={openEdit}
           onDelete={onDeleteExpense}
           onDuplicate={handleDuplicate}
+          onShare={shareGroups.length > 0 ? setSharingExpense : undefined}
           selectMode={selectMode}
           selectedIds={selected}
           onToggleSelect={toggleSelect}
@@ -559,6 +571,9 @@ export function TransactionsSlice({
           editing={editingExpense}
           prefill={prefill}
           activeEvents={events}
+          accountBalances={accountBalances}
+          shareGroups={shareGroups}
+          onShareToGroup={onShareToGroup}
           initialType={initialTransactionType}
           onSave={handleSaveExpense}
           onDelete={handleDeleteExpense}
@@ -570,6 +585,16 @@ export function TransactionsSlice({
           onSaveTemplate={onSaveTemplate}
           categoryManager={categoryManager}
           onClose={closeForm}
+        />
+      )}
+
+      {/* Share-later picker (Track E) */}
+      {sharingExpense && shareGroups.length > 0 && (
+        <ShareToGroupModal
+          expense={sharingExpense}
+          groups={shareGroups}
+          onShare={onShareLater}
+          onClose={() => setSharingExpense(null)}
         />
       )}
 
@@ -638,8 +663,9 @@ export function TransactionsSlice({
         onClose={() => setConfirmBulkDelete(false)}
         onConfirm={() => void handleBulkDelete()}
         title="Delete transactions"
-        message={`Delete ${selected.size} transaction${selected.size === 1 ? '' : 's'}? This cannot be undone.`}
+        message={`Delete ${selected.size} transaction${selected.size === 1 ? '' : 's'}? You can undo right after.`}
         confirmLabel="Delete"
+        confirmVariant="danger"
         loading={bulkBusy}
       />
     </>

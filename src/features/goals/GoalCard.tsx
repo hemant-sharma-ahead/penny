@@ -36,7 +36,20 @@ export function GoalCard({ goal, mode, onEdit, onContribute }: GoalCardProps) {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold truncate text-primary">{goal.name}</p>
+            <p className="text-sm font-semibold truncate text-primary flex items-center gap-1.5">
+              {goal.name}
+              {goal.source === 'suggested' && (
+                <span
+                  className="inline-flex items-center gap-0.5 text-[9px] font-bold rounded-full px-1.5 py-0.5 flex-shrink-0"
+                  style={{
+                    color: 'var(--color-primary)',
+                    backgroundColor: 'color-mix(in srgb, var(--color-primary) 12%, transparent)'
+                  }}
+                >
+                  <i className="ti ti-sparkles" style={{ fontSize: 9 }} aria-hidden="true" /> Suggested
+                </span>
+              )}
+            </p>
             <Button
               variant="ghost"
               icon="ti-pencil"

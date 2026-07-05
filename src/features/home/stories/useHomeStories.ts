@@ -16,7 +16,7 @@ const WEEK_GRAD = 'linear-gradient(160deg,#00C47D,#007A4D)';
 const DAY_GRAD = 'linear-gradient(160deg,#6366f1,#3b82f6)';
 const STREAK_GRAD = 'linear-gradient(160deg,#f59e0b,#d97706)';
 const INSIGHT_GRAD = 'linear-gradient(160deg,#8b5cf6,#6d28d9)';
-const TAX_GRAD = 'linear-gradient(160deg,#14b8a6,#0f766e)';
+const TIMELINE_GRAD = 'linear-gradient(160deg,#0ea5e9,#0369a1)';
 
 const MODULE_PATH: Record<string, string> = {
   EXPENSES: PATHS.app.expenses,
@@ -180,20 +180,23 @@ export function useHomeStories(): Story[] {
       });
     }
 
-    // 5 ── Tax story (teaser → full story on the Tax page) ────────────────────
-    const fyStart = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
-    stories.push({
-      id: 'tax',
-      label: 'Tax story',
-      emoji: '🧾',
-      gradient: TAX_GRAD,
-      freshnessKey: `tax:${fyStart}`,
-      slides: [
-        { big: '🧾', caption: 'Your tax story', sub: 'Every rupee you pay in tax — direct and indirect' },
-        { big: '🔍', caption: 'See where your money really goes this financial year' }
-      ],
-      cta: { label: 'See my full tax story →', onClick: () => navigate(PATHS.app.tax) }
-    });
+    // 5 ── Timeline (recent activity → full Timeline page) ────────────────────
+    // Tax now surfaces as an actionable guidance quick-win (Home advisor), not a story.
+    const recent = entries.filter((e) => e.entityType !== 'system').slice(0, 4);
+    if (recent.length > 0) {
+      stories.push({
+        id: 'timeline',
+        label: 'Timeline',
+        emoji: '🕘',
+        gradient: TIMELINE_GRAD,
+        freshnessKey: `timeline:${recent[0]?.timestamp ?? 0}`,
+        slides: [
+          { big: '🕘', caption: 'Your timeline', sub: "Everything you've tracked — undo or restore anytime" },
+          ...recent.map((e) => ({ big: '•', caption: maskAmounts(e.summary, mode) }))
+        ],
+        cta: { label: 'Open timeline →', onClick: () => navigate(PATHS.app.timeline) }
+      });
+    }
 
     return stories;
   }, [activity, insights, mode, navigate, now]);

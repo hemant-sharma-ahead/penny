@@ -1,7 +1,12 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { TabStrip, Modal } from '@/components/ui';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useEventMode } from '@/context/EventModeContext';
+import { useGroupContext } from '@/context/GroupContext';
+import { hasEntitlement } from '@/core/entitlement/entitlement';
+import { shareExpenseToGroup } from '@/core/groups/groupsService';
+import type { Expense } from '@/core/db/types';
 import { useExpenses } from './useExpenses';
 import { ExpensesHeader } from './ExpensesHeader';
 import { useTransactionFilters } from './transactions/useTransactionFilters';
@@ -42,6 +47,8 @@ export function ExpensesPage() {
     seedIouFromExpense,
     persons,
     iouLinkByTxn,
+    iouLinkedTxnIds,
+    accountBalances,
     patchExpenses,
     removeExpenses,
     saveCategory,
@@ -52,9 +59,33 @@ export function ExpensesPage() {
     createParentWithChildren
   } = useExpenses();
 
-  const [activeTab, setActiveTab] = useState<ExpensesTab>('transactions');
+  // Allow deep-links (e.g. the Net Worth → IOU tap) to open a specific tab via navigation state.
+  const location = useLocation();
+  const initialTab = (location.state as { tab?: ExpensesTab } | null)?.tab ?? 'transactions';
+  const [activeTab, setActiveTab] = useState<ExpensesTab>(initialTab);
   const [showBudgets, setShowBudgets] = useState(false);
   const txnFilters = useTransactionFilters(expenses, categoryMap);
+
+  // "Share with a group" from the entry form (Track E) — only for a claimed (username) account.
+  const { groups, claimed } = useGroupContext();
+  const shareGroups =
+    hasEntitlement('sync') && claimed
+      ? groups.filter((g) => g.status === 'active').map((g) => ({ id: g.id, name: g.name }))
+      : [];
+  const handleShareToGroup = (expense: Expense, groupId: string, participants?: string[]): Promise<void> =>
+    shareExpenseToGroup(groupId, {
+      amount: expense.amount,
+      description: expense.description,
+      categoryId: expense.categoryId,
+      ...(participants?.length ? { participants } : {})
+    }).then(() => undefined);
+
+  // Share-later (screen 9): the personal transaction already exists — add the group event and mark the
+  // transaction as shared (drives the row tint + prevents re-sharing). The personal amount is untouched.
+  const handleShareLater = async (expense: Expense, groupId: string): Promise<void> => {
+    await handleShareToGroup(expense, groupId);
+    await saveExpense({ ...expense, shareWith: [...(expense.shareWith ?? []), groupId], updatedAt: Date.now() });
+  };
 
   const categoryManager: CategoryManager = {
     parentCategoryMap,
@@ -107,6 +138,10 @@ export function ExpensesPage() {
           iouPersons={persons}
           onSeedIou={seedIouFromExpense}
           iouLinkByTxn={iouLinkByTxn}
+          accountBalances={accountBalances}
+          shareGroups={shareGroups}
+          onShareToGroup={handleShareToGroup}
+          onShareLater={handleShareLater}
           onPatchExpenses={patchExpenses}
           onRemoveExpenses={removeExpenses}
           searchMerchant={searchMerchant}
@@ -124,7 +159,9 @@ export function ExpensesPage() {
 
       {activeTab === 'iou' && <IouSlice />}
 
-      {activeTab === 'analytics' && <AnalyticsSlice expenses={expenses} categoryMap={categoryMap} mode={mode} />}
+      {activeTab === 'analytics' && (
+        <AnalyticsSlice expenses={expenses} categoryMap={categoryMap} mode={mode} iouLinkedTxnIds={iouLinkedTxnIds} />
+      )}
 
       {showBudgets && (
         <Modal title="Budgets" onClose={() => setShowBudgets(false)} scrollable>

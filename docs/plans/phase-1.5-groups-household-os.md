@@ -1,10 +1,27 @@
 # Phase 1.5 — Groups & Household OS (Master Plan)
 
 > **Status:** In progress. Approved 2026-06-26.
-> **Track 1 (IOU pairwise ledger): ✅ complete** (2026-06-27) — core (2026-06-26) plus the three
-> deferred follow-ups: both-way edit re-sync (`reconcileLinkedTxn`), combined undo via the activity-log
-> `cascade` field, and the full multi-year (Jan 2017 → today) career-arc demo seed. **Next:** Track A
-> (API Proxy worker). Per-track status in [`docs/MILESTONES.md`](../MILESTONES.md) / [`docs/ROADMAP.md`](../ROADMAP.md).
+> **Track 1 (IOU pairwise ledger): ✅ complete** (2026-06-27). **Track A (API Proxy worker): ✅ deployed**
+> → `penny-api-proxy.hesh.workers.dev`. **Track B (client crypto additions): ✅ complete** (2026-07-01) —
+> ECDSA/ECDH P-256 device keypairs (`engine.ts` + `identityKeys.ts`, lazy at claim), new encrypted stores
+> `device_keys`/`group_keys`/`sync_cursor` (Dexie v8, in `BACKUP_STORES`), and non-destructive
+> `mergeBundle()` (LWW on `updatedAt`, upsert-only). **Wrapping keypair = ECDH P-256.**
+> **Track C (Auth/Identity worker + claim flow): ✅ complete** (2026-07-01) — new `workers/auth/` worker
+> (D1 `users` + `devices`; `/username/check`, `/register`, `/challenge`, signed `/whoami` + `/device`;
+> nonce||method||path||bodyHash signed-request auth), client `src/core/identity/` (`signedFetch` + `claim`),
+> `AUTH_BASE`, `Profile.deviceId`, and a **`sync` entitlement dark by default**. **Model B: server stores
+> `users`+`devices` only — no `user_blobs`/R2, no server recover endpoint.** Auth foundation only (QR/ECDH
+> pairing UX deferred).
+> **Track D (Automatic backup + multi-device sync): ✅ complete** (2026-07-01) — Model B to the user's
+> **own cloud**: a provider abstraction (`src/core/sync/providers/` — Google Drive live on web; iCloud
+> **code-complete but dormant** until native), an on-device **OPFS daily backup** floor when no cloud is
+> chosen, a `backupEngine` (debounced push on change + periodic pull + `mergeBundle`), `openBundleWithDmk`,
+> `SyncProvider`/`useBackupStatus`, and a **Backup destination chooser** + status UI. **Whole-blob;
+> pull-merge-before-push + LWW.** Gated by the free `cloud_backup` entitlement (no claim required).
+> **Track E (Groups & Household OS): 🚧 in progress — E1 ✅** (groups worker + group crypto + client wiring +
+> Dexie v9); the last feature track. Detailed sub-phase plan (E1→E5) + **Stage F closeout** in
+> [`phase-1.5-track-E-groups.md`](phase-1.5-track-E-groups.md). **Next:** E2 (create/invite/join/membership).
+> Per-track status in [`docs/MILESTONES.md`](../MILESTONES.md) / [`docs/ROADMAP.md`](../ROADMAP.md).
 
 ## Context
 
@@ -31,25 +48,34 @@ This plan supersedes parts of `docs/ROADMAP.md` (which still specifies phone+OTP
 - Phone OTP costs money (SMS gateways) and is maximal PII — both contradict the product.
 - Identity = on-device keypair + existing `Profile.userId` (UUID, already generated at
   onboarding) + a self-chosen `username`.
-- **Username is mandatory from Phase 1** (frictionless: auto-suggested from display name,
-  live format validation, copy = "your sharing handle; we'll confirm it's free when you set
-  up sharing"). Uniqueness is **deferred to claim time** (no server in Phase 1). Rationale:
-  identity continuity (claim becomes a pure relabel), low privacy cost (a self-chosen handle
-  is not real-world PII). Username = public invite handle + recovery lookup; it can **never
-  decrypt anything**.
+- **Username is optional in Phase 1** (as built — auto-suggested from display name, live
+  format validation, copy = "your sharing handle; we'll confirm it's free when you set up
+  sharing"). Uniqueness is **deferred to claim time** (no server in Phase 1). Rationale:
+  the permanent anchor is `userId` (UUID) — nothing keys off the username string, so claim is
+  a pure relabel; making it optional shrinks the local-vs-server collision surface and adds no
+  onboarding friction. Username = public invite/sharing handle; it can **never decrypt
+  anything**.
 
-**Recovery / multi-device — server-blind blob (primary) + Drive (secondary).**
+**Recovery / multi-device — Model B (user-owned Drive/iCloud only; we store nothing personal).**
 
-- Server stores the user's **encrypted keystore + data blob** (byte-identical to the
-  existing v2 `.penny` export) keyed by `userId`, looked up by `username`. Server holds
-  ciphertext only; the passphrase is the sole decryption secret.
+> **Superseded (2026-06-27):** the original Model A below (server-blind blob in our R2 as the
+> primary copy) is replaced by **Model B**. Canonical: [`docs/BACKEND_STRATEGY.md`](../BACKEND_STRATEGY.md) §5.
+
+- **Personal backup/recovery lives in the user's own Google Drive/iCloud only.** The encrypted
+  `.penny` blob (byte-identical to the v2 export — carries all data + receipts + the device
+  keypair + every Group Key) is uploaded to the user's own cloud on a schedule. **Our servers
+  store nothing personal.**
 - **Multi-device (still have a device):** QR device-pairing — old device wraps the DMK to
   the new device over an ECDH channel. No passphrase re-entry, no PII.
-- **Recover from nothing (app deleted, reinstalled months later):** username → pull inert
-  blob → enter passphrase → DMK + device private key + **every Group Key** restored (Group
-  Keys live inside the encrypted blob). Server membership table says which groups; app
-  re-pulls and decrypts each. **No re-invite, no re-handshake, no rejoin** — groups reappear.
-- Drive backup stays as an optional user-owned second copy / escape hatch.
+- **Recover from nothing (app deleted, reinstalled months later):** sign into the user's own
+  Drive/iCloud → pull the encrypted blob → enter passphrase → DMK + device private key +
+  **every Group Key** restored. The server's tiny membership table says which groups the user
+  is in; the app re-pulls and decrypts each group's events. **No re-invite, no re-handshake,
+  no rejoin** — groups reappear (server holds membership; Drive holds the keys/history — the
+  WhatsApp split). Recovery is therefore the user's responsibility (Drive must have been
+  enabled); this is the deliberate Model B cost/privacy trade vs Model A's automatic safety net.
+- **Optional hybrid (not the default):** the server-blind blob remains available as an
+  **entitlement-gated convenience** for users who won't enable Drive — off by default, opt-in.
 
 **Groups.**
 
@@ -105,8 +131,10 @@ _Why Workers, not a Node server we build & deploy ourselves:_
 
 ### Decisions that changed the roadmap
 
-`docs/ROADMAP.md` (Phase 1.5 Auth/Backend sections) still says phone+OTP and `phone_hash`.
-Reconcile it to keypair challenge/response + username lookup + no PII as part of Track A.
+**Reconciled (2026-07-01).** `docs/ROADMAP.md` no longer says phone+OTP / `phone_hash`; its
+Auth/Backend sections now describe keypair challenge/response + **optional** username + **Model B**
+(user-owned Drive/iCloud backup, server stores nothing personal). Canonical backend decisions live
+in [`docs/BACKEND_STRATEGY.md`](../BACKEND_STRATEGY.md).
 
 ---
 
@@ -148,9 +176,11 @@ Encrypted stores **cannot** use a Dexie `.upgrade()` callback (it runs pre-unloc
   we deliberately do not store payment handles.
 - New `LedgerEntry`: `{ id, personId, kind: 'lent'|'borrowed'|'settlement', amount (always
 positive), date, dueDate?, description?, notes?, settleDirection?: 'they_paid_you'|
-'you_paid_them', origin: 'manual'|'expense'|'migration', sourceExpenseId?,
-linkedIncomeId?, remoteId?, ... }`. `linkedIncomeId` ties a settlement to the optional
-  income/transfer it created; `remoteId` is the future group-sync hook.
+'you_paid_them', origin: 'manual'|'expense'|'migration', linkedTxnId?, remoteId?, ... }`.
+  **As built:** a single bidirectional `linkedTxnId` (not the originally-planned separate
+  `sourceExpenseId` + `linkedIncomeId`) links the entry to its real-money transaction — the
+  seeding expense for expense-origin entries, or the optional income/transfer created when
+  settling a received IOU; `remoteId` is the future group-sync hook.
 - Keep `PersonalIou` for migration/restore typing. **Partial settlement is a first-class
   `settlement` entry — no `isSettled` boolean.** A person is "settled" when derived net ≈ 0.
 
@@ -193,7 +223,7 @@ linkedIncomeId?, remoteId?, ... }`. `linkedIncomeId` ties a settlement to the op
 
 - Optional collapsible "Split / IOU" section: `PersonPicker` + amount + mode (_lent to /
   borrowed from / split with / paid on behalf of_). Centered modal, no bottom sheet.
-- On create: seed `LedgerEntry`(s) with `sourceExpenseId` + `origin:'expense'`.
+- On create: seed `LedgerEntry`(s) with `linkedTxnId` (the expense id) + `origin:'expense'`.
 - On edit: reconcile via `expenseLink.ts` (upsert/delete to match new intent).
 - On delete: cascade-delete seeded entries; extend the existing delete snapshot to include
   them so a single Undo restores expense + entries atomically.
@@ -206,7 +236,7 @@ linkedIncomeId?, remoteId?, ... }`. `linkedIncomeId` ties a settlement to the op
   `settlement` entry. **No VPA, no QR, no payment provider.**
 - If settling a _received_ IOU (they paid you), offer a checkbox "Also record this as income"
   → creates a linked income (or transfer) in the expenses module via the shared linkage
-  helper, stamping `linkedIncomeId`. Editing/deleting the settlement reconciles that entry too.
+  helper, stamping `linkedTxnId`. Editing/deleting the settlement reconciles that entry too.
 
 ### UI — `src/features/iou/` (reuse existing component library; no bottom sheets)
 
@@ -254,34 +284,53 @@ exercising every Phase 1 + Pre-1.5 + Track 1 surface, to shake out bugs and pres
 
 ---
 
-## Track A — API Proxy Worker (DETAILED — ships first)
+## Track A — API Proxy Worker (DETAILED — ✅ shipped & deployed)
 
-**Purpose.** Stateless proxy + tiered cache for external APIs (Yahoo Finance market data,
-MFAPI NAV, vahandetails vehicle lookups); fixes CORS; **collapses N user calls into 1 upstream
-call** via a shared cache.
+> **As built (2026-07-01)** → `penny-api-proxy.hesh.workers.dev` (`workers/api-proxy/`). The
+> endpoint scheme below reflects the deployed worker, which differs from this section's original
+> design (per-symbol routes `/market/:symbol` etc.). See also [`docs/MILESTONES.md`](../MILESTONES.md)
+> → Track A.
 
-**Endpoints (examples).** `/market/:symbol`, `/mf/:scheme`, `/vehicle/:regno`; all accept
-`?refresh=1` to force a cache-bypass (rate-limited).
+**Purpose.** Stateless proxy + tiered cache for external APIs (Yahoo Finance, MFAPI NAV, NPS,
+IPO/investorgain, vahandetails vehicle lookups); fixes CORS; **collapses N user calls into 1
+upstream call** via a shared cache.
+
+**Endpoints (as built).**
+
+- **Prefix passthrough** — `GET /yf/*`, `/mfapi/*`, `/nps/*`, `/ig/*`: transparent proxy of the
+  known upstreams, KV-cached with TTLs mirroring the client (Yahoo 15 min, MF NAV 24 h). The
+  client swaps only the base URL — no per-endpoint route on the worker.
+- **`GET /market`** — a **global, Cron-refreshed market snapshot** (ticker strip), edge-cached
+  (`caches.default`) + KV-backed. **New decision (not in the original design):** global market
+  data is served from one shared snapshot, not a per-user/per-symbol proxy call — decoupling
+  upstream volume from user count. Client fetches it once via `MARKET_SNAPSHOT`.
+- **`GET /vehicle/:regno`** — semantic endpoint with a **permanent D1 cache** + smart Vahan queue
+  (below). `?refresh=1` forces a rate-limited bypass.
+- **`GET /health`** — liveness.
 
 **Tiered cache (the core of the scale story).**
 
-- **KV with TTL** for volatile data: market 15 min, MF NAV 24 h (mirrors existing TTLs).
-- **D1/R2 persistent** for effectively-immutable data: **vehicle details keyed by registration
+- **KV with TTL** for volatile passthrough data (market 15 min, MF NAV 24 h).
+- **D1 persistent** for effectively-immutable data: **vehicle details keyed by registration
   number, cached permanently** (make/model/registration date don't change). First lookup of a
   reg number = one upstream call; everyone else — _and the same user deleting and re-adding_ —
-  is a **cache hit, zero upstream calls.**
-- **Force-refresh** (`?refresh=1`, behind an explicit "Refresh" button): bypasses cache, but
-  rate-limited per resource (e.g. once per vehicle per ~90 days) and, for Vahan, confined to its
-  working morning window. If the daily budget is exhausted, **queue it, serve cached, refresh in
-  the background**; a morning Cron drains the queue. Net Vahan upstream calls ≈ globally-new reg
-  numbers per day — **independent of user count** (survives the 1000/day free limit at scale).
-- Per-IP rate limits via KV.
+  is a **cache hit, zero upstream calls.** (Personal blobs use R2 in later tracks; vehicle cache is D1.)
+- **Force-refresh** (`?refresh=1`, behind an explicit "Refresh" button): bypasses cache, but for
+  Vahan is confined to a working window and a **~900-call/day budget**. On a miss outside the
+  budget/window (or on failure) the reg is **queued (deduped), cached served, refreshed in the
+  background**; a **Cron (06:00 / 08:30 / 11:30 IST)** drains the queue and refreshes the market
+  snapshot. Net Vahan upstream calls ≈ globally-new reg numbers per day — **independent of user
+  count** (survives the ~1000/day free limit at scale).
+- **Per-IP rate limits** via KV.
 
-**Client wiring.** `VITE_YF_PROXY` already exists (`src/core/db/priceCache.ts`); add a
-`VITE_API_PROXY` base and route MF/vehicle lookups through it. No app-logic change.
+**Client wiring (as built).** Base-URL swap via `src/core/net/apiBase.ts` reading `VITE_API_PROXY`;
+market strip reads `MARKET_SNAPSHOT`. **Unset = today's direct behavior** (app stays fully usable
+with no backend). No app-logic change.
 
-**Deploy.** Wrangler, `dev`/`staging`/`prod` envs; this worker is the deploy template for B–E.
-Reconcile `docs/ROADMAP.md` off phone+OTP here.
+**Deploy.** Wrangler, `dev`/`staging`/`prod` envs; **deployed** with KV `CACHE` + D1 `penny_proxy`
+(APAC), Cron `*/15`. This worker is the **deploy template for B–E**. Auth model reconciled off
+phone+OTP in `docs/ROADMAP.md` here. **Deferred (post-close):** merchant-dictionary endpoint,
+edge Cache API layering.
 
 ---
 
@@ -300,46 +349,81 @@ Reconcile `docs/ROADMAP.md` off phone+OTP here.
 
 ---
 
-## Track C — Auth/Identity Worker + Claim Flow (DETAILED)
+## Track C — Auth/Identity Worker + Claim Flow (DETAILED — ✅ as built)
 
-**D1:** `users(user_id PK, username UNIQUE, public_key, kdf_salt, created_at, updated_at)`,
-`devices(device_id PK, user_id, public_key, label, revoked_at)`,
-`user_blobs(user_id, blob_kind, r2_key, version, size_bytes, updated_at, PK(user_id,blob_kind))`.
-**R2:** `keystore/{user_id}` = the v2 `.penny` blob (inert without passphrase).
-**KV:** `challenge:{nonce}` (60s), `rl:*` rate-limit counters.
+> **As built (2026-07-01), reconciled to Model B.** The server stores **identity metadata only** —
+> `users` + `devices`. There is **no `user_blobs` table, no R2 personal blob, and no server
+> `recover?username→blob` endpoint** (the original Model-A design below is superseded). Personal
+> backup/recovery is the user's own Drive/iCloud (Track B `mergeBundle` + the Drive path); the server
+> only records group membership so groups reappear on recovery (Track E). See
+> [`docs/BACKEND_STRATEGY.md`](../BACKEND_STRATEGY.md) §5.
 
-**Endpoints.** `POST /username/check`; `POST /register {user_id, username, public_key,
-kdf_salt}` (first-claim-wins via UNIQUE); `GET /challenge?user_id`; `PUT/GET /blob` (signed);
-`GET /recover?username` (rate-limited; returns `kdf_salt` + blob bytes/URL only).
+**Worker** `workers/auth/` (built from the Track A template — Wrangler `dev`/`staging`/`prod`, KV, D1).
 
-**Device auth without PII (the crux).** Steady state: client signs `nonce||method||path||
-bodyHash` with the device private key; worker verifies against stored public key. **Recovery
-bootstrap:** a fresh device has no key and we refuse OTP — so blob _reads_ are deliberately
-inert (rate-limited `username→blob` serving ciphertext worthless without the passphrase),
-while all _writes_/group actions require a passphrase-recovered key signature. **The passphrase
-is the bootstrap authenticator and never leaves the device.** Anti-brute-force: KV per-username
+**D1** (`migrations/0001_init.sql`): `users(user_id PK, username UNIQUE nullable, signing_key,
+kdf_salt?, created_at, updated_at)`, `devices(device_id PK, user_id, signing_key, wrapping_key,
+label, created_at, revoked_at)`. **KV:** `challenge:{nonce}` (60s TTL, single-use), `rl:*` counters.
 
-- per-IP exponential backoff, uniform post-limit responses, optional Turnstile/PoW, and the
-  600K-PBKDF2 wall per guess.
+**Endpoints.** `POST /username/check` → `{available}`; `POST /register {user_id, username?,
+signing_key, device_id, device_signing_key, device_wrapping_key, kdf_salt?}` (first-claim-wins via
+UNIQUE; idempotent per `user_id`); `GET /challenge?user_id`; **signed** `GET /whoami` and `POST
+/device` (add a device). The router tolerates an optional `/auth` path prefix.
 
-**Client `claim.ts`.** generate keypairs (Track B) → `username/check` → `register` → initial
-`PUT /blob`. **Zero data migration** (userId was the anchor since onboarding). Gate behind a
-new `'sync'` entitlement in `src/core/entitlement/` so it can later become paid.
+**Device auth without PII (the crux).** A signed request carries `x-penny-{user,device,nonce,sig}`;
+the worker consumes the single-use nonce from KV, loads the device's public key, and verifies an
+ECDSA P-256 signature over `nonce\nMETHOD\npath\nsha256(body)`. No passwords/passphrase ever reach
+the server. Anti-brute-force: per-IP + per-username KV fixed-window limits, uniform responses.
+
+**Client `src/core/identity/`.** `signedFetch(path, init)` — the single choke point for
+authenticated worker calls (challenge → sign → attach headers), reused by Tracks D/E. `claim.ts` —
+`ensureIdentityKeys()` (Track B) → `username/check` → `register` (with `Profile.userId` + a new
+`device_id`) → persist `username`/`deviceId` on the profile → confirm via signed `/whoami`. Base URL
+`AUTH_BASE` (`VITE_AUTH_PROXY`, falling back to `${VITE_API_PROXY}/auth`). **Zero data migration**
+(userId was the anchor since onboarding). Gated behind the new **`'sync'` entitlement (dark by
+default** — readiness-gated on Track D, flip on for beta/canary). Claim UI is a gated
+"Account & Sync" section in `ProfilePage`.
+
+**Deferred (later step/track):** the full QR + ECDH DMK-handoff device-pairing **UX** (the
+`deriveSharedWrappingKey` primitive already exists from Track B); the optional entitlement-gated
+server-blind hybrid blob.
 
 ---
 
-## Track D — Sync Layer (DETAILED)
+## Track D — Automatic Backup + Multi-Device Sync (DETAILED — ✅ as built, Model B)
 
-- `src/core/sync/`: a `sync_cursor`-backed engine. On meaningful change (debounced), re-export
-  the v2 blob and `PUT /blob` with `If-Match: version` (optimistic concurrency via
-  `user_blobs.version`); on 409, pull → `mergeBundle()` (non-destructive) → re-PUT.
-- Hooks the existing activity log (`src/core/db/activityLog.ts`) as the change signal.
-- Start **whole-blob**; graduate to **encrypted delta** (ship activity-log entries since cursor)
-  once blob size warrants. Edge Cache API for cacheable GETs to cut Worker invocations.
+> **As built (2026-07-01), reconciled to Model B.** No server `PUT /blob`/`If-Match`/409 — the blob
+> lives in the user's **own cloud**; conflict resolution is Track B `mergeBundle` (LWW). The original
+> server-sync design below is superseded.
+
+- **Provider abstraction** `src/core/sync/providers/` — a `CloudProvider` interface (`isAvailable`,
+  `ensureConnected`, `remoteTag`, `pull`, `push`). `googleDriveProvider` (live on web; silent-token +
+  quota detection + `headRevisionId` change tag), `icloudProvider` (**code-complete but dormant** —
+  `isAvailable()` false until the Capacitor native shell provides the bridge), and `localBackup` (OPFS
+  daily on-device snapshots — the floor when no cloud target is chosen).
+- **`backupEngine`** (`src/core/sync/`) — `sync_cursor`-backed (`'personal-blob'`; `remoteTag`/
+  `pushedAt`/`lastBackupAt`). On debounced change (activity-log `subscribeActivity`) + a daily timer +
+  periodic/foreground/online: cloud target → `remoteTag` diff ⇒ `pull` → `openBundleWithDmk` →
+  `mergeBundle`; dirty or daily-due ⇒ `exportBackup` → `push`. Local/none → daily OPFS snapshot. Pure
+  branching in `decide.ts`. `SyncProvider` (mounted in the unlocked `AppShell`) starts/stops it and
+  exposes `useBackupStatus`.
+- **Concurrency:** whole-blob; **pull-merge-before-push + LWW** (trade-offs + alternatives — etag CAS,
+  event log — recorded in the approved plan file). **Gating:** free `cloud_backup` entitlement; the
+  on-device daily backup is always on; account claim (Track C) is **not** required for personal sync.
+- **UI:** a Backup destination chooser (This device · Drive · iCloud[disabled off-native]) + status
+  (backed-up time / syncing / offline / quota-full / reconnect) + "Back up now", with benefit copy.
+- **Deferred:** the native shell that activates iCloud; encrypted delta; etag CAS; edge Cache API.
 
 ---
 
 ## Track E — Groups Worker + Split Engine + Group UX (DETAILED)
+
+> **📝 Detailed, approved (not started) plan:** [`phase-1.5-track-E-groups.md`](phase-1.5-track-E-groups.md)
+> — the last feature track, sequenced as sub-phases **E1→E5** (worker+crypto → create/invite/join/membership
+> → N-party split engine + shared-expense composer → group sync + context switcher + dashboards + settle/close
+> → trip↔group linkage + per-item share + cash-negative guard + seed fix), followed by **Stage F — the
+> Phase 1.5 closeout** (full end-to-end testing incl. real backup, UI/design-consistency polish, iCloud native
+> activation, and a planning conversation on further additions before Phase 1.5 is closed). The section below
+> is the original outline; the linked doc supersedes it.
 
 **D1:** `groups(group_id PK, type, enc_name, owner_id, key_epoch, ...)`,
 `group_members(group_id, user_id, role, joined_at, left_at, PK(group_id,user_id))`,
@@ -455,8 +539,9 @@ backend; the Worker-served dictionary refresh is the only backend piece.
 
 ## Documentation to update (per project discipline)
 
-- `docs/ROADMAP.md` — replace phone+OTP with keypair/username/server-blind model; record
-  IOU-first sequencing, group-key/recovery design, settle-up-without-payment decision.
+- `docs/ROADMAP.md` — replace phone+OTP with the keypair/optional-username/**Model B** model
+  (user-owned Drive/iCloud backup, server stores nothing personal); record IOU-first sequencing,
+  group-key/recovery design, settle-up-without-payment decision.
 - `docs/features/iou.md` — pairwise ledger, partial settle, expense-seeding, settle→income.
 - `docs/SCHEMA.md` — `persons`, `ledger_entries` (Track 1); `device_keys`, `group_keys`,
   `sync_cursor` (later tracks).

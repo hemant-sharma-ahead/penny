@@ -6,7 +6,6 @@ import type {
   EpfEmployer,
   EpfTransaction,
   Expense,
-  ExpenseCategory,
   Goal,
   GoalContribution,
   Holding,
@@ -31,12 +30,26 @@ import {
   ledgerEntriesRepo,
   liabilitiesRepo,
   personsRepo,
+  profileRepo,
   subscriptionsRepo
 } from './repositories';
 import { db } from './schema';
+import { ALL_DEFAULT_CATEGORIES } from './defaultCategories';
+import { DEMO_CAT_DEFAULT_ID, type DemoCatKey } from './dedupeDemoCategories';
+import { hasEntitlement } from '@/core/entitlement/entitlement';
+import { seedGroupFixtures } from './seedGroupFixtures';
 
 export const DEMO_SEED_KEY = 'penny_demo_seeded';
 export const isDemoSeeded = () => localStorage.getItem(DEMO_SEED_KEY) === '1';
+
+/**
+ * Persist the "sample data present" marker on the profile too, so it rides the encrypted backup and the
+ * "Clear sample data" option survives a restore (the localStorage flag is device-local and isn't restored).
+ */
+async function setProfileDemoFlag(seeded: boolean): Promise<void> {
+  const profile = (await profileRepo.getAll())[0];
+  if (profile) await profileRepo.put({ ...profile, demoSeeded: seeded, updatedAt: Date.now() });
+}
 
 export async function seedDemoData(employmentType: EmploymentType = 'salaried'): Promise<void> {
   if (isDemoSeeded()) return;
@@ -65,115 +78,12 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
   const grow = (amount: number, mb: number) => Math.max(1, Math.round(amount * Math.pow(1 / 1.05, mb / 12)));
 
   // ── Expense categories ─────────────────────────────────────────────────────
-  const cats: Record<string, ExpenseCategory> = {
-    groceries: {
-      id: 'demo-cat-groceries',
-      name: 'Groceries',
-      icon: 'ti-shopping-cart',
-      color: '#10b981',
-      isDefault: true,
-      intentGroup: 'daily_living',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    },
-    dining: {
-      id: 'demo-cat-dining',
-      name: 'Dining & Café',
-      icon: 'ti-coffee',
-      color: '#f59e0b',
-      isDefault: true,
-      intentGroup: 'daily_living',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    },
-    transport: {
-      id: 'demo-cat-transport',
-      name: 'Transport',
-      icon: 'ti-car',
-      color: '#3b82f6',
-      isDefault: true,
-      intentGroup: 'daily_living',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    },
-    utilities: {
-      id: 'demo-cat-utilities',
-      name: 'Utilities',
-      icon: 'ti-bolt',
-      color: '#6366f1',
-      isDefault: true,
-      intentGroup: 'home_utilities',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    },
-    rent: {
-      id: 'demo-cat-rent',
-      name: 'Rent',
-      icon: 'ti-home',
-      color: '#ec4899',
-      isDefault: true,
-      intentGroup: 'home_utilities',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    },
-    medical: {
-      id: 'demo-cat-medical',
-      name: 'Medical',
-      icon: 'ti-heart-plus',
-      color: '#ef4444',
-      isDefault: true,
-      intentGroup: 'health',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    },
-    shopping: {
-      id: 'demo-cat-shopping',
-      name: 'Shopping',
-      icon: 'ti-shirt',
-      color: '#8b5cf6',
-      isDefault: true,
-      intentGroup: 'lifestyle',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    },
-    entertainment: {
-      id: 'demo-cat-entertainment',
-      name: 'Entertainment',
-      icon: 'ti-device-tv',
-      color: '#f97316',
-      isDefault: true,
-      intentGroup: 'lifestyle',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    },
-    investments: {
-      id: 'demo-cat-investments',
-      name: 'Investments',
-      icon: 'ti-chart-line',
-      color: '#00a86b',
-      isDefault: true,
-      intentGroup: 'financial',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    },
-    other: {
-      id: 'demo-cat-other',
-      name: 'Other',
-      icon: 'ti-dots-circle-horizontal',
-      color: '#94a3b8',
-      isDefault: true,
-      intentGroup: 'other',
-      applicableTo: 'expense',
-      createdAt: ago(90)
-    }
-  };
-  await Promise.all(Object.values(cats).map((c) => expenseCategoriesRepo.put(c)));
+  // Reuse the REAL default categories (seeded idempotently by id) instead of a parallel `demo-cat-*`
+  // set — otherwise the picker shows every staple twice (Groceries, Rent, Transport…). Demo rows
+  // reference default ids through `catId`; the key→default map lives in dedupeDemoCategories.ts.
+  await Promise.all(ALL_DEFAULT_CATEGORIES.map((c) => expenseCategoriesRepo.put({ ...c })));
 
-  const catId = (key: keyof typeof cats): string => {
-    const cat = cats[key];
-    if (!cat) throw new Error(`Unknown category key: ${key}`);
-    return cat.id;
-  };
+  const catId = (key: DemoCatKey): string => DEMO_CAT_DEFAULT_ID[key];
 
   // ── Expenses ───────────────────────────────────────────────────────────────
   const CC = 'demo-acc-hdfc-cc';
@@ -183,7 +93,7 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
   const exp = (
     daysAgo: number,
     amount: number,
-    catKey: keyof typeof cats,
+    catKey: DemoCatKey,
     description: string,
     hashtags: string[] = [],
     extra?: Partial<Expense>
@@ -277,6 +187,19 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
         exp(daysAgoOn(mb, 12), grow(scale(1200), mb) + (wobble(mb) % 2600), 'dining', 'Weekend dining out', [], {
           accountId: CC,
           paymentMode: 'card'
+        })
+      );
+    }
+    // Monthly ATM cash withdrawal (savings → cash) so the cash account never runs negative — a real
+    // person tops up cash before spending it. Sized a little above the monthly cash spend below.
+    if (due(16)) {
+      expenses.push(
+        exp(daysAgoOn(mb, 16), grow(scale(2500), mb), 'other', 'ATM cash withdrawal', [], {
+          type: 'transfer',
+          accountId: SAVINGS,
+          toAccountId: CASH,
+          categoryId: 'cat-tr-bank',
+          paymentMode: 'net'
         })
       );
     }
@@ -387,6 +310,14 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
   // Leh Ladakh vacation (current month) — explicit ago()-based dates so the
   // demo-event-leh past event (ago 9 → ago 4) keeps matching these rows.
   expenses.push(
+    // Pull cash for the trip up front so the trip's cash spends below never drive Cash negative.
+    exp(10, scale(12000), 'other', 'ATM withdrawal for trip', ['leh-ladakh', 'vacation'], {
+      type: 'transfer',
+      accountId: SAVINGS,
+      toAccountId: CASH,
+      categoryId: 'cat-tr-bank',
+      paymentMode: 'net'
+    }),
     exp(9, scale(18500), 'transport', 'IndiGo flights — DEL-IXL return', ['leh-ladakh', 'vacation'], {
       accountId: SAVINGS,
       paymentMode: 'card'
@@ -795,8 +726,12 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
     }
   ];
   localStorage.setItem('penny_past_events', JSON.stringify(demoPastEvents));
-  // Notify EventModeProvider (already mounted) to re-sync from localStorage
-  window.dispatchEvent(new CustomEvent('penny-events-updated'));
+  // Notify EventModeProvider (already mounted) to re-sync from localStorage (browser only).
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('penny-events-updated'));
+
+  // Groups & Household OS demo (Track E) — only when the sync feature is enabled for this build.
+  // Seeds Family/spouse/closed-trip/ongoing-trip groups + links the Leh & Goa events to their groups.
+  if (hasEntitlement('sync')) await seedGroupFixtures(now);
 
   // ── Accounts ─────────────────────────────────────────────────────────────
   const accounts: Account[] = [
@@ -828,7 +763,7 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
       id: 'demo-acc-cash',
       name: 'Cash Wallet',
       type: 'cash',
-      openingBalance: 5000,
+      openingBalance: 8000,
       color: '#10b981',
       icon: 'ti-cash',
       includeInNetWorth: true,
@@ -878,6 +813,7 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
   await Promise.all(transfers.map((t) => expensesRepo.put(t)));
 
   localStorage.setItem(DEMO_SEED_KEY, '1');
+  await setProfileDemoFlag(true);
 }
 
 // ─── Per-persona configuration ──────────────────────────────────────────────
@@ -1685,16 +1621,23 @@ async function wipeDemoData(): Promise<void> {
     db.persons.clear(),
     db.ledger_entries.clear(),
     db.accounts.clear(),
-    db.merchant_memory.clear()
+    db.merchant_memory.clear(),
+    // Track E group fixtures
+    db.groups.clear(),
+    db.group_members.clear(),
+    db.group_events.clear(),
+    db.group_keys.clear()
   ]);
   localStorage.removeItem(DEMO_SEED_KEY);
   localStorage.removeItem('penny_past_events');
+  localStorage.removeItem('penny_active_events');
   localStorage.removeItem('penny_cats_v2');
   // Clear dismissal / one-time-init markers so a re-seed surfaces inbox suggestions cleanly.
   localStorage.removeItem('penny_merchant_memory_v1');
   localStorage.removeItem('penny_iou_v2');
   localStorage.removeItem('penny_recurring_due_dismissed');
   localStorage.removeItem('penny_income_suggestions_dismissed');
+  await setProfileDemoFlag(false);
 }
 
 // Clears all seeded demo data — resets financial tables to empty, keeps profile + security

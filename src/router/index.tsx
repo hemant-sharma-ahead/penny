@@ -11,15 +11,15 @@ import { PrivacyDemoScreen } from '@/features/onboarding/PrivacyDemoScreen';
 import { ChipIntroScreen } from '@/features/onboarding/ChipIntroScreen';
 import { SimulatedDashboardScreen } from '@/features/onboarding/SimulatedDashboardScreen';
 import { LetUsKnowYouScreen } from '@/features/onboarding/LetUsKnowYouScreen';
+import { AccountStartScreen } from '@/features/onboarding/AccountStartScreen';
+import { AccountRecoveryScreen } from '@/features/onboarding/AccountRecoveryScreen';
 import { HomePage } from '@/features/home/HomePage';
 import { PortfolioPage } from '@/features/portfolio/PortfolioPage';
 import { ExpensesPage } from '@/features/expenses/ExpensesPage';
 import { GoalsPage } from '@/features/goals/GoalsPage';
 import { InsurancePage } from '@/features/insurance/InsurancePage';
 import { SubscriptionsPage } from '@/features/subscriptions/SubscriptionsPage';
-import { IouPage } from '@/features/iou/IouPage';
 import { LoanScenariosPage } from '@/features/loans/LoanScenariosPage';
-import { HealthScorePage } from '@/features/health/HealthScorePage';
 import { TaxAwarenessPage } from '@/features/tax/TaxAwarenessPage';
 import { CashFlowPage } from '@/features/cashflow/CashFlowPage';
 import { ChipPage } from '@/features/chip/ChipPage';
@@ -30,6 +30,7 @@ import { CalculatorsPage } from '@/features/calculators/CalculatorsPage';
 import { ChangePinPage } from '@/features/security/ChangePinPage';
 import { ChangePassphrasePage } from '@/features/security/ChangePassphrasePage';
 import { ProfilePage } from '@/features/profile/ProfilePage';
+import { SettingsPage } from '@/features/settings/SettingsPage';
 import { TimelinePage } from '@/features/activity/TimelinePage';
 import { NewsPage } from '@/features/news/NewsPage';
 import { FeedbackPage } from '@/features/feedback/FeedbackPage';
@@ -46,7 +47,9 @@ export const router = createBrowserRouter([
       { path: PATHS.onboarding.chipIntro, element: <ChipIntroScreen /> },
       { path: PATHS.onboarding.simulatedDashboard, element: <SimulatedDashboardScreen /> },
       { path: PATHS.onboarding.letUsKnowYou, element: <LetUsKnowYouScreen /> },
-      { path: PATHS.onboarding.setupCredentials, element: <SetupCredentialsScreen /> }
+      { path: PATHS.onboarding.setupCredentials, element: <SetupCredentialsScreen /> },
+      { path: PATHS.onboarding.start, element: <AccountStartScreen /> },
+      { path: PATHS.onboarding.account, element: <AccountRecoveryScreen /> }
     ]
   },
 
@@ -63,9 +66,7 @@ export const router = createBrowserRouter([
           { path: PATHS.app.goals, element: <GoalsPage /> },
           { path: PATHS.app.insurance, element: <InsurancePage /> },
           { path: PATHS.app.subscriptions, element: <SubscriptionsPage /> },
-          { path: PATHS.app.iou, element: <IouPage /> },
           { path: PATHS.app.loans, element: <LoanScenariosPage /> },
-          { path: PATHS.app.health, element: <HealthScorePage /> },
           { path: PATHS.app.tax, element: <TaxAwarenessPage /> },
           { path: PATHS.app.cashflow, element: <CashFlowPage /> },
           { path: PATHS.app.chip, element: <ChipPage /> },
@@ -76,6 +77,7 @@ export const router = createBrowserRouter([
           { path: PATHS.app.changePin, element: <ChangePinPage /> },
           { path: PATHS.app.changePassphrase, element: <ChangePassphrasePage /> },
           { path: PATHS.app.profile, element: <ProfilePage /> },
+          { path: PATHS.app.settings, element: <SettingsPage /> },
           { path: PATHS.app.timeline, element: <TimelinePage /> },
           { path: PATHS.app.news, element: <NewsPage /> },
           { path: PATHS.app.feedback, element: <FeedbackPage /> }

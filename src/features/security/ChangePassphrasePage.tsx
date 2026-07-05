@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, PageHeader, TextInput, Banner, PassphraseStrengthMeter } from '@/components/ui';
 import { changePassphrase } from '@/core/crypto/securityManager';
+import { claimAccount, getClaimState } from '@/core/identity/claim';
 import { usePassphraseStrength } from '@/hooks/usePassphraseStrength';
 import { PATHS } from '@/router/paths';
 
@@ -25,6 +26,10 @@ export function ChangePassphrasePage() {
     setError('');
     const result = await changePassphrase(current, next);
     if (result === 'ok') {
+      // The passphrase-recovery verifier is passphrase-derived, so a change re-derives it. Re-upload it
+      // for a claimed account so future reclaims match the new passphrase (best-effort — Track F, F3).
+      const claim = await getClaimState();
+      if (claim.claimed && claim.username) await claimAccount(claim.username).catch(() => undefined);
       setDone(true);
       setTimeout(() => navigate(PATHS.app.home), 1200);
     } else if (result === 'wrong_passphrase') {

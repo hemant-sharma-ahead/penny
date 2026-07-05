@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Groups (Track E) UI mockup</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --primary: #00a86b;
+        --indigo: #6366f1; /* Goa Trip accent */
+        --teal: #0ea5e9; /* Family accent */
+        --amber: #f59e0b;
+        --danger: #dc2626;
+        --success: #16a34a;
+        --ink: #0f172a;
+        --sec: #475569;
+        --ter: #94a3b8;
+        --bg: #f1f5f9;
+        --surface: #ffffff;
+        --surface2: #f8fafc;
+        --border: #e2e8f0;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #e6ebf1;
+        color: var(--ink);
+        -webkit-font-smoothing: antialiased;
+      }
+      h1.page-title { text-align: center; margin: 28px 16px 4px; font-size: 22px; }
+      p.page-sub { text-align: center; margin: 0 16px 24px; color: var(--sec); font-size: 14px; }
+      .gallery {
+        display: flex; flex-wrap: wrap; gap: 40px 28px;
+        justify-content: center; align-items: flex-start;
+        padding: 20px 20px 80px;
+      }
+      .frame-wrap { width: 340px; }
+      .caption { margin-top: 12px; font-size: 12.5px; color: var(--sec); line-height: 1.5; }
+      .caption b { color: var(--ink); }
+      /* ---- phone frame ---- */
+      .phone {
+        width: 340px; height: 720px; background: var(--bg);
+        border-radius: 34px; border: 10px solid #0f172a;
+        overflow: hidden; position: relative; display: flex; flex-direction: column;
+        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+      }
+      .status-bar { height: 26px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 11px; color: var(--sec); background: var(--surface); }
+      /* ---- header ---- */
+      .hdr { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface); border-bottom: 2px solid var(--primary); }
+      .hdr .left { display: flex; align-items: center; gap: 10px; }
+      .wordmark { font-weight: 800; font-size: 17px; letter-spacing: -0.3px; }
+      .wordmark span { color: var(--primary); }
+      .hdr i { font-size: 19px; color: var(--sec); }
+      .hdr .right { display: flex; gap: 12px; }
+      .badge-priv { color: var(--indigo); }
+      /* ---- context bar (the key element) ---- */
+      .ctxbar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; }
+      .ctxbar .dot { width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; color: #fff; font-size: 13px; }
+      .ctxbar .chev { margin-left: auto; color: var(--ter); }
+      .ctxbar.group { background: color-mix(in srgb, var(--indigo) 12%, #fff); border-bottom: 1px solid color-mix(in srgb, var(--indigo) 30%, #fff); }
+      .ctxbar .avatars { display: flex; margin-left: auto; }
+      .ctxbar .avatars .av { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; margin-left: -7px; display: grid; place-items: center; font-size: 10px; color: #fff; font-weight: 700; }
+      /* ---- body ---- */
+      .body { flex: 1; overflow-y: auto; padding: 14px; }
+      .body::-webkit-scrollbar { width: 0; }
+      .greet { font-size: 19px; font-weight: 700; margin: 2px 0 12px; }
+      .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px; margin-bottom: 14px; }
+      .card-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+      .card-h .t { font-size: 14px; font-weight: 700; }
+      .card-h .a { font-size: 12.5px; color: var(--primary); font-weight: 600; display: flex; align-items: center; gap: 3px; }
+      .muted { color: var(--ter); font-size: 12px; }
+      .sec { color: var(--sec); }
+      /* net glance */
+      .glance { display: flex; gap: 10px; }
+      .glance .g { flex: 1; background: var(--surface2); border-radius: 12px; padding: 10px 12px; }
+      .glance .g .l { font-size: 11px; color: var(--sec); }
+      .glance .g .v { font-size: 16px; font-weight: 800; margin-top: 2px; }
+      .pos { color: var(--success); } .neg { color: var(--danger); }
+      /* group tile */
+      .gtile { display: flex; align-items: center; gap: 11px; padding: 10px; border-radius: 12px; }
+      .gtile:hover { background: var(--surface2); }
+      .gtile + .gtile { border-top: 1px solid var(--border); border-radius: 0; }
+      .gicon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff; font-size: 19px; flex-shrink: 0; }
+      .gtile .nm { font-weight: 600; font-size: 14px; }
+      .gtile .mt { font-size: 11.5px; color: var(--ter); margin-top: 1px; }
+      .gtile .bal { margin-left: auto; text-align: right; font-size: 13px; font-weight: 700; }
+      .gtile .bal small { display: block; font-size: 10px; font-weight: 500; color: var(--ter); }
+      /* member rows */
+      .mrow { display: flex; align-items: center; gap: 11px; padding: 9px 0; }
+      .mrow + .mrow { border-top: 1px solid var(--border); }
+      .av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+      .mrow .nm { font-weight: 600; font-size: 13.5px; }
+      .mrow .rl { font-size: 11px; color: var(--ter); }
+      .mrow .bal { margin-left: auto; text-align: right; font-size: 13px; font-weight: 700; }
+      .chip { font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--border); color: var(--sec); }
+      /* feed */
+      .feed .frow { display: flex; align-items: center; gap: 11px; padding: 10px 0; }
+      .feed .frow + .frow { border-top: 1px solid var(--border); }
+      .catic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: #fff; font-size: 17px; flex-shrink: 0; }
+      .feed .tt { font-weight: 600; font-size: 13.5px; }
+      .feed .sub { font-size: 11.5px; color: var(--ter); margin-top: 1px; }
+      .feed .amt { margin-left: auto; text-align: right; font-weight: 700; font-size: 13.5px; }
+      .feed .amt small { display: block; font-size: 10px; font-weight: 500; color: var(--ter); }
+      /* buttons */
+      .btnrow { display: flex; gap: 10px; margin-top: 4px; }
+      .btn { flex: 1; text-align: center; padding: 11px; border-radius: 12px; font-weight: 700; font-size: 13.5px; border: none; }
+      .btn-primary { background: var(--indigo); color: #fff; }
+      .btn-ghost { background: var(--surface); border: 1px solid var(--border); color: var(--ink); }
+      .btn-green { background: var(--primary); color: #fff; }
+      /* bottom nav */
+      .nav { display: flex; align-items: center; justify-content: space-around; height: 60px; background: var(--surface); border-top: 2px solid var(--primary); }
+      .nav .n { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; color: var(--ter); flex: 1; }
+      .nav .n.active { color: var(--primary); }
+      .nav .n i { font-size: 21px; }
+      .nav .fab { width: 48px; height: 48px; border-radius: 50%; background: var(--primary); color: #fff; display: grid; place-items: center; font-size: 22px; box-shadow: 0 6px 14px rgba(0,168,107,.4); }
+      /* dropdown menu */
+      .menu { position: absolute; top: 96px; left: 12px; right: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 16px 40px rgba(15,23,42,.22); overflow: hidden; z-index: 5; }
+      .menu .mi { display: flex; align-items: center; gap: 11px; padding: 12px 14px; font-size: 13.5px; font-weight: 600; }
+      .menu .mi + .mi { border-top: 1px solid var(--border); }
+      .menu .mi.sel { background: color-mix(in srgb, var(--primary) 8%, #fff); }
+      .menu .mi .bal { margin-left: auto; font-size: 12px; font-weight: 700; }
+      .menu .mi.new { color: var(--primary); }
+      .scrim { position: absolute; inset: 0; background: rgba(15,23,42,.25); z-index: 4; }
+      /* modal (composer/settle) */
+      .modal { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 12px; z-index: 6; }
+      .sheet { width: 100%; background: var(--surface); border-radius: 20px; padding: 16px; max-height: 92%; overflow-y: auto; box-shadow: 0 20px 50px rgba(15,23,42,.3); }
+      .sheet::-webkit-scrollbar { width: 0; }
+      .sheet h3 { margin: 2px 0 14px; font-size: 16px; }
+      .amount-in { text-align: center; font-size: 34px; font-weight: 800; padding: 6px 0 2px; }
+      .amount-in span { color: var(--ter); }
+      .field { margin-bottom: 13px; }
+      .field .lbl { font-size: 11.5px; font-weight: 600; color: var(--sec); margin-bottom: 6px; }
+      .inp { border: 1px solid var(--border); border-radius: 11px; padding: 10px 12px; font-size: 13.5px; color: var(--sec); display: flex; align-items: center; gap: 8px; }
+      .cat-pick { display: flex; align-items: center; gap: 9px; border: 1px solid var(--border); border-radius: 11px; padding: 9px 11px; }
+      .cat-pick .catic { width: 30px; height: 30px; font-size: 15px; border-radius: 8px; }
+      .avpick { display: flex; gap: 8px; flex-wrap: wrap; }
+      .avpick .p { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 48px; }
+      .avpick .p .av { width: 38px; height: 38px; }
+      .avpick .p .nm { font-size: 10px; color: var(--sec); }
+      .avpick .p.off .av { opacity: .3; }
+      .avpick .p.off .nm { color: var(--ter); }
+      .avpick .p .tick { position: relative; }
+      .avpick .p .tick::after { content: '\ea5e'; font-family: 'tabler-icons'; position: absolute; right: -2px; bottom: -2px; background: var(--success); color: #fff; width: 15px; height: 15px; border-radius: 50%; font-size: 9px; display: grid; place-items: center; border: 2px solid #fff; }
+      .seg { display: flex; background: var(--surface2); border-radius: 11px; padding: 3px; }
+      .seg .s { flex: 1; text-align: center; padding: 8px; font-size: 12.5px; font-weight: 600; color: var(--sec); border-radius: 9px; }
+      .seg .s.active { background: var(--surface); color: var(--indigo); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+      .breakdown { margin-top: 10px; background: var(--surface2); border-radius: 11px; padding: 4px 12px; }
+      .breakdown .br { display: flex; align-items: center; padding: 8px 0; font-size: 12.5px; }
+      .breakdown .br + .br { border-top: 1px solid var(--border); }
+      .breakdown .br .nm { color: var(--sec); }
+      .breakdown .br .v { margin-left: auto; font-weight: 700; }
+      .breakdown .rec { text-align: center; font-size: 11px; color: var(--success); font-weight: 600; padding: 6px 0 2px; }
+      .toggle { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 11px; padding: 10px 12px; font-size: 12.5px; }
+      .toggle .sw { margin-left: auto; width: 38px; height: 22px; background: var(--primary); border-radius: 999px; position: relative; }
+      .toggle .sw::after { content: ''; position: absolute; right: 2px; top: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; }
+      .qr { width: 130px; height: 130px; margin: 6px auto 10px; border-radius: 14px; background:
+        repeating-linear-gradient(90deg,#0f172a 0 8px,#fff 8px 16px),
+        repeating-linear-gradient(0deg,#0f172a 0 8px,transparent 8px 16px);
+        opacity: .85; }
+      .linkrow { display: flex; align-items: center; gap: 8px; border: 1px dashed var(--border); border-radius: 11px; padding: 10px 12px; font-size: 11.5px; color: var(--sec); }
+      /* tab strip */
+      .tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); }
+      .tabs .tb { flex: 1; text-align: center; padding: 11px 6px; font-size: 13px; font-weight: 600; color: var(--ter); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+      .tabs .tb.active { color: var(--primary); border-bottom-color: var(--primary); }
+      .note { background: color-mix(in srgb, var(--amber) 12%, #fff); border: 1px solid color-mix(in srgb, var(--amber) 35%, #fff); color: #92610a; border-radius: 11px; padding: 9px 11px; font-size: 11.5px; margin-bottom: 12px; display: flex; gap: 8px; }
+      .banner-closed { background: color-mix(in srgb, var(--ter) 18%, #fff); border-radius: 11px; padding: 9px 11px; font-size: 11.5px; color: var(--sec); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+      .legend { max-width: 900px; margin: 0 auto 30px; background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 18px 22px; }
+      .legend h2 { margin: 0 0 10px; font-size: 16px; }
+      .legend ul { margin: 0; padding-left: 18px; color: var(--sec); font-size: 13.5px; line-height: 1.7; }
+      .legend b { color: var(--ink); }
+    </style>
+  </head>
+  <body>
+    <h1 class="page-title">Penny — Groups &amp; Household OS · UI mockup (Track E)</h1>
+    <p class="page-sub">Static prototype for direction only — not the real app. Scroll to see each surface; captions say what lives where.</p>
+
+    <div class="legend">
+      <h2>The model, in one paragraph</h2>
+      <ul>
+        <li><b>Groups are their own world.</b> A group (Goa Trip, Family) keeps its own shared ledger and balances — <b>fully separate from your personal IOU</b>. The same person can be a private IOU contact <i>and</i> a trip member without the two mixing.</li>
+        <li><b>You step into a group</b> via a slim <b>context bar</b> under the header. It tints to the group's colour + shows member avatars, so you always know whether you're in Personal or a group.</li>
+        <li><b>Nav never changes</b> — still Home · Portfolio · Chip · Expenses · Goals. <b>Personal IOU stays a tab inside Expenses.</b> Groups are reached from a <b>Groups card on Home</b> and the context switcher.</li>
+        <li><b>Adding a shared expense reuses the category picker</b> you already like, then adds who-paid + participants + a split method (Equal by default, power on demand).</li>
+      </ul>
+    </div>
+
+    <div class="gallery">
+      <!-- 1. HOME (personal) with Groups card -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="hdr">
+            <div class="left"><i class="ti ti-menu-2"></i><div class="wordmark">Pen<span>ny</span></div></div>
+            <div class="right"><i class="ti ti-shield-lock badge-priv"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="ctxbar">
+            <div class="dot" style="background:var(--primary)"><i class="ti ti-user" style="color:#fff;font-size:12px"></i></div>
+            Personal
+            <i class="ti ti-chevron-down chev"></i>
+          </div>
+          <div class="body">
+            <div class="greet">Good evening, Aarav 👋</div>
+            <div class="glance">
+              <div class="g"><div class="l">Net worth</div><div class="v">₹18.4L</div></div>
+              <div class="g"><div class="l">This month</div><div class="v neg">−₹42,300</div></div>
+            </div>
+            <div style="height:14px"></div>
+            <div class="card">
+              <div class="card-h"><div class="t">Groups</div><div class="a"><i class="ti ti-plus"></i> New / Join</div></div>
+              <div class="gtile">
+                <div class="gicon" style="background:var(--indigo)"><i class="ti ti-plane"></i></div>
+                <div><div class="nm">Goa Trip</div><div class="mt">4 members · 12 expenses</div></div>
+                <div class="bal pos">+₹3,200<small>you're owed</small></div>
+              </div>
+              <div class="gtile">
+                <div class="gicon" style="background:var(--teal)"><i class="ti ti-home"></i></div>
+                <div><div class="nm">Family</div><div class="mt">3 members · 28 expenses</div></div>
+                <div class="bal neg">−₹1,450<small>you owe</small></div>
+              </div>
+              <div class="gtile">
+                <div class="gicon" style="background:#8b5cf6"><i class="ti ti-users"></i></div>
+                <div><div class="nm">Flat 402</div><div class="mt">3 members · settled</div></div>
+                <div class="bal sec">₹0<small>settled up</small></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-h"><div class="t">Accounts</div><div class="a">Manage</div></div>
+              <div class="muted">HDFC ····4821 · ₹2,14,900 &nbsp;•&nbsp; Cash · ₹6,200</div>
+            </div>
+          </div>
+          <div class="nav">
+            <div class="n active"><i class="ti ti-home"></i>Home</div>
+            <div class="n"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="n"><div class="fab"><i class="ti ti-sparkles"></i></div></div>
+            <div class="n"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="n"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+        <div class="caption"><b>1 · Home (Personal).</b> New <b>Groups card</b> lists each group with your balance. The <b>context bar</b> reads "Personal". Tap a group tile → its dashboard.</div>
+      </div>
+
+      <!-- 2. CONTEXT SWITCHER open -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="hdr">
+            <div class="left"><i class="ti ti-menu-2"></i><div class="wordmark">Pen<span>ny</span></div></div>
+            <div class="right"><i class="ti ti-shield-lock badge-priv"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="ctxbar">
+            <div class="dot" style="background:var(--primary)"><i class="ti ti-user" style="color:#fff;font-size:12px"></i></div>
+            Personal
+            <i class="ti ti-chevron-up chev"></i>
+          </div>
+          <div class="scrim"></div>
+          <div class="menu">
+            <div class="mi sel"><div class="dot" style="width:26px;height:26px;background:var(--primary)"><i class="ti ti-user" style="color:#fff"></i></div> Personal <i class="ti ti-check" style="margin-left:auto;color:var(--primary)"></i></div>
+            <div class="mi"><div class="dot" style="width:26px;height:26px;background:var(--indigo)"><i class="ti ti-plane" style="color:#fff"></i></div> Goa Trip <span class="bal pos">+₹3,200</span></div>
+            <div class="mi"><div class="dot" style="width:26px;height:26px;background:var(--teal)"><i class="ti ti-home" style="color:#fff"></i></div> Family <span class="bal neg">−₹1,450</span></div>
+            <div class="mi"><div class="dot" style="width:26px;height:26px;background:#8b5cf6"><i class="ti ti-users" style="color:#fff"></i></div> Flat 402 <span class="bal sec">₹0</span></div>
+            <div class="mi new"><i class="ti ti-plus" style="font-size:18px;margin:0 4px"></i> Create or join a group</div>
+          </div>
+          <div class="body"><div class="greet" style="opacity:.4">Good evening, Aarav 👋</div></div>
+          <div class="nav">
+            <div class="n active"><i class="ti ti-home"></i>Home</div>
+            <div class="n"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="n"><div class="fab"><i class="ti ti-sparkles"></i></div></div>
+            <div class="n"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="n"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+        <div class="caption"><b>2 · Context switcher.</b> Tapping the context bar drops a menu: Personal + every group (with balances) + Create/Join. Pick one → the whole app re-scopes to it.</div>
+      </div>
+
+      <!-- 3. GROUP DASHBOARD -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="hdr" style="border-bottom-color:var(--indigo)">
+            <div class="left"><i class="ti ti-menu-2"></i><div class="wordmark">Pen<span>ny</span></div></div>
+            <div class="right"><i class="ti ti-shield-lock badge-priv"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="ctxbar group">
+            <div class="dot" style="background:var(--indigo)"><i class="ti ti-plane" style="color:#fff;font-size:12px"></i></div>
+            Goa Trip
+            <i class="ti ti-chevron-down" style="color:var(--indigo);margin-left:4px"></i>
+            <div class="avatars">
+              <div class="av" style="background:#6366f1">A</div>
+              <div class="av" style="background:#ec4899">R</div>
+              <div class="av" style="background:#f59e0b">M</div>
+              <div class="av" style="background:#10b981">S</div>
+            </div>
+          </div>
+          <div class="body">
+            <div class="card" style="text-align:center">
+              <div class="muted">Your balance in this group</div>
+              <div style="font-size:30px;font-weight:800;color:var(--success);margin:4px 0">+₹3,200</div>
+              <div class="muted">you're owed overall</div>
+            </div>
+            <div class="card">
+              <div class="card-h"><div class="t">Members</div><div class="a"><i class="ti ti-user-plus"></i> Invite</div></div>
+              <div class="mrow"><div class="av" style="background:#ec4899">R</div><div><div class="nm">Rohit</div><div class="rl">owes you</div></div><div class="bal pos">+₹1,600</div></div>
+              <div class="mrow"><div class="av" style="background:#f59e0b">M</div><div><div class="nm">Meera</div><div class="rl">owes you</div></div><div class="bal pos">+₹1,600</div></div>
+              <div class="mrow"><div class="av" style="background:#10b981">S</div><div><div class="nm">Sanjay</div><div class="rl">settled</div></div><span class="chip">Settle up</span></div>
+            </div>
+            <div class="card feed">
+              <div class="card-h"><div class="t">Shared expenses</div><div class="a">All</div></div>
+              <div class="frow"><div class="catic" style="background:#22c55e"><i class="ti ti-basket"></i></div><div><div class="tt">Beach shack dinner</div><div class="sub">You paid · split 4 ways</div></div><div class="amt">₹4,800<small>₹1,200 each</small></div></div>
+              <div class="frow"><div class="catic" style="background:#6366f1"><i class="ti ti-car"></i></div><div><div class="tt">Cab to Anjuna</div><div class="sub">Rohit paid · split 4 ways</div></div><div class="amt">₹1,600<small>₹400 each</small></div></div>
+              <div class="frow"><div class="catic" style="background:#0ea5e9"><i class="ti ti-bed"></i></div><div><div class="tt">Airbnb (2 nights)</div><div class="sub">You paid · unequal</div></div><div class="amt">₹12,000<small>varies</small></div></div>
+            </div>
+            <div class="btnrow">
+              <button class="btn btn-primary"><i class="ti ti-plus"></i> Add expense</button>
+              <button class="btn btn-ghost">Settle up</button>
+            </div>
+          </div>
+          <div class="nav">
+            <div class="n active" style="color:var(--indigo)"><i class="ti ti-home"></i>Home</div>
+            <div class="n"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="n"><div class="fab" style="background:var(--indigo);box-shadow:0 6px 14px rgba(99,102,241,.4)"><i class="ti ti-sparkles"></i></div></div>
+            <div class="n"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="n"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+        <div class="caption"><b>3 · Group dashboard</b> (Home while in a group). Coloured header + avatars = you're clearly in "Goa Trip". Group net, per-member balances with a <b>Settle up</b> chip, the shared feed, and Add / Settle.</div>
+      </div>
+
+      <!-- 4. SHARED EXPENSE COMPOSER -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="hdr" style="border-bottom-color:var(--indigo)">
+            <div class="left"><i class="ti ti-menu-2"></i><div class="wordmark">Pen<span>ny</span></div></div>
+            <div class="right"><i class="ti ti-shield-lock badge-priv"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="ctxbar group"><div class="dot" style="background:var(--indigo)"><i class="ti ti-plane" style="color:#fff;font-size:12px"></i></div>Goa Trip<i class="ti ti-chevron-down" style="color:var(--indigo)"></i></div>
+          <div class="scrim"></div>
+          <div class="modal">
+            <div class="sheet">
+              <h3>Add shared expense</h3>
+              <div class="amount-in"><span>₹</span>4,800</div>
+              <div class="field"><div class="lbl">Category</div>
+                <div class="cat-pick"><div class="catic" style="background:#22c55e"><i class="ti ti-basket"></i></div><div style="font-weight:600;font-size:13.5px">Food &amp; Dining</div><i class="ti ti-chevron-right" style="margin-left:auto;color:var(--ter)"></i></div>
+              </div>
+              <div class="field"><div class="lbl">Description</div><div class="inp">Beach shack dinner</div></div>
+              <div class="field"><div class="lbl">Paid by</div>
+                <div class="avpick"><div class="p"><div class="av tick" style="background:#6366f1">A</div><div class="nm">You</div></div><div class="p off"><div class="av" style="background:#ec4899">R</div><div class="nm">Rohit</div></div><div class="p off"><div class="av" style="background:#f59e0b">M</div><div class="nm">Meera</div></div><div class="p off"><div class="av" style="background:#10b981">S</div><div class="nm">Sanjay</div></div></div>
+              </div>
+              <div class="field"><div class="lbl">Split between</div>
+                <div class="avpick"><div class="p"><div class="av tick" style="background:#6366f1">A</div><div class="nm">You</div></div><div class="p"><div class="av tick" style="background:#ec4899">R</div><div class="nm">Rohit</div></div><div class="p"><div class="av tick" style="background:#f59e0b">M</div><div class="nm">Meera</div></div><div class="p"><div class="av tick" style="background:#10b981">S</div><div class="nm">Sanjay</div></div></div>
+              </div>
+              <div class="field"><div class="lbl">Split method</div>
+                <div class="seg"><div class="s active">Equal</div><div class="s">Unequal</div><div class="s">%</div><div class="s">Shares</div></div>
+                <div class="breakdown">
+                  <div class="br"><div class="nm">You</div><div class="v">₹1,200</div></div>
+                  <div class="br"><div class="nm">Rohit</div><div class="v">₹1,200</div></div>
+                  <div class="br"><div class="nm">Meera</div><div class="v">₹1,200</div></div>
+                  <div class="br"><div class="nm">Sanjay</div><div class="v">₹1,200</div></div>
+                  <div class="rec"><i class="ti ti-circle-check"></i> Reconciles to ₹4,800</div>
+                </div>
+              </div>
+              <div class="field"><div class="toggle"><i class="ti ti-building-bank" style="color:var(--primary)"></i><div>Record ₹4,800 out of account<div style="margin-top:5px"><span class="chip" style="border-color:var(--primary);color:var(--primary)">HDFC ····4821 <i class="ti ti-chevron-down"></i></span></div></div><div class="sw"></div></div></div>
+              <button class="btn btn-primary" style="width:100%">Save shared expense</button>
+            </div>
+          </div>
+        </div>
+        <div class="caption"><b>4 · Shared-expense composer.</b> Reuses your <b>category picker</b>. Who-paid + split-between are avatar taps; split defaults to <b>Equal</b> (power methods one tap away) with a live breakdown that must reconcile. Optional toggle records the real cash-out to your account.</div>
+      </div>
+
+      <!-- 5. MEMBERS / INVITE -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="hdr" style="border-bottom-color:var(--indigo)"><div class="left"><i class="ti ti-arrow-left"></i><div class="wordmark">Goa Trip</div></div><div class="right"><i class="ti ti-dots-vertical"></i></div></div>
+          <div class="body">
+            <div class="card">
+              <div class="card-h"><div class="t">Members · 4</div></div>
+              <div class="mrow"><div class="av" style="background:#6366f1">A</div><div><div class="nm">You</div><div class="rl">Owner</div></div><i class="ti ti-crown" style="margin-left:auto;color:var(--amber)"></i></div>
+              <div class="mrow"><div class="av" style="background:#ec4899">R</div><div><div class="nm">Rohit</div><div class="rl">Admin</div></div><i class="ti ti-dots" style="margin-left:auto;color:var(--ter)"></i></div>
+              <div class="mrow"><div class="av" style="background:#f59e0b">M</div><div><div class="nm">Meera</div><div class="rl">Member</div></div><i class="ti ti-dots" style="margin-left:auto;color:var(--ter)"></i></div>
+              <div class="mrow"><div class="av" style="background:#10b981">S</div><div><div class="nm">Sanjay</div><div class="rl">Member</div></div><i class="ti ti-dots" style="margin-left:auto;color:var(--ter)"></i></div>
+            </div>
+            <div class="card" style="text-align:center">
+              <div class="card-h" style="justify-content:center"><div class="t">Invite to Goa Trip</div></div>
+              <div class="qr"></div>
+              <div class="linkrow"><i class="ti ti-link"></i> app.penny.in/join#Goa…7f3a <i class="ti ti-copy" style="margin-left:auto;color:var(--primary)"></i></div>
+              <div class="muted" style="margin-top:8px">Link expires in 7 days · anyone with it can join</div>
+              <button class="btn btn-primary" style="width:100%;margin-top:12px"><i class="ti ti-share"></i> Share invite</button>
+            </div>
+            <div class="banner-closed"><i class="ti ti-shield-lock"></i> Only the invite secret unlocks the group's key — Penny's servers never see it.</div>
+          </div>
+        </div>
+        <div class="caption"><b>5 · Members &amp; invite.</b> Roles (owner/admin/member), invite via <b>link + QR</b> (secret lives only in the link). Redeeming joins the group; an admin then grants the encryption key behind the scenes.</div>
+      </div>
+
+      <!-- 6. SETTLE UP -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="hdr" style="border-bottom-color:var(--indigo)"><div class="left"><i class="ti ti-menu-2"></i><div class="wordmark">Pen<span>ny</span></div></div><div class="right"><i class="ti ti-bell"></i></div></div>
+          <div class="ctxbar group"><div class="dot" style="background:var(--indigo)"><i class="ti ti-plane" style="color:#fff;font-size:12px"></i></div>Goa Trip</div>
+          <div class="scrim"></div>
+          <div class="modal">
+            <div class="sheet">
+              <h3>Settle up with Rohit</h3>
+              <div class="mrow" style="justify-content:center;gap:10px;border:none"><div class="av" style="background:#ec4899">R</div><div><div class="nm">Rohit owes you</div><div class="rl">across 12 shared expenses</div></div></div>
+              <div class="amount-in"><span>₹</span>1,600</div>
+              <div class="field"><div class="lbl">Direction</div><div class="seg"><div class="s active">They paid you</div><div class="s">You paid them</div></div></div>
+              <div class="field"><div class="lbl">Note (optional)</div><div class="inp">UPI on 12 Jul</div></div>
+              <div class="field"><div class="toggle"><i class="ti ti-building-bank" style="color:var(--primary)"></i><div>Record ₹1,600 <b>into</b> account<div style="margin-top:5px"><span class="chip" style="border-color:var(--primary);color:var(--primary)">HDFC ····4821 <i class="ti ti-chevron-down"></i></span></div></div><div class="sw"></div></div></div>
+              <div class="banner-closed"><i class="ti ti-info-circle"></i> This settles the balance inside Goa Trip only. It does <b>not</b> touch your personal IOU ledger.</div>
+              <button class="btn btn-primary" style="width:100%">Record settlement</button>
+            </div>
+          </div>
+        </div>
+        <div class="caption"><b>6 · Settle up.</b> Same partial-settlement mechanics as IOU. Optional toggle records the real money-in to your account — <b>the only bridge to your personal side</b>, and it's opt-in. Group balances never spill into personal IOU.</div>
+      </div>
+
+      <!-- 7. EXPENSES with IOU tab -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="hdr"><div class="left"><i class="ti ti-menu-2"></i><div class="wordmark">Pen<span>ny</span></div></div><div class="right"><i class="ti ti-shield-lock badge-priv"></i><i class="ti ti-bell"></i></div></div>
+          <div class="ctxbar"><div class="dot" style="background:var(--primary)"><i class="ti ti-user" style="color:#fff;font-size:12px"></i></div>Personal<i class="ti ti-chevron-down chev"></i></div>
+          <div class="tabs"><div class="tb">Transactions</div><div class="tb">Subscriptions</div><div class="tb active">IOU</div><div class="tb">Analytics</div></div>
+          <div class="body">
+            <div class="note"><i class="ti ti-info-circle"></i> Your <b>personal</b> IOUs. Group balances live in each group — kept separate on purpose.</div>
+            <div class="glance"><div class="g"><div class="l">Owed to you</div><div class="v pos">₹5,400</div></div><div class="g"><div class="l">You owe</div><div class="v neg">₹800</div></div></div>
+            <div style="height:12px"></div>
+            <div class="card">
+              <div class="mrow"><div class="av" style="background:#ec4899">R</div><div><div class="nm">Rohit</div><div class="rl">personal · lent for concert</div></div><div class="bal pos">+₹2,000</div></div>
+              <div class="mrow"><div class="av" style="background:#0ea5e9">P</div><div><div class="nm">Priya</div><div class="rl">personal · split cab</div></div><div class="bal pos">+₹3,400</div></div>
+              <div class="mrow"><div class="av" style="background:#64748b">V</div><div><div class="nm">Vikram</div><div class="rl">personal · borrowed</div></div><div class="bal neg">−₹800</div></div>
+            </div>
+            <button class="btn btn-green" style="width:100%"><i class="ti ti-plus"></i> Add IOU</button>
+          </div>
+          <div class="nav">
+            <div class="n"><i class="ti ti-home"></i>Home</div>
+            <div class="n"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="n"><div class="fab"><i class="ti ti-sparkles"></i></div></div>
+            <div class="n active"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="n"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+        <div class="caption"><b>7 · Personal IOU stays put</b> — a tab inside Expenses, unchanged. Note that "Rohit" here (personal) is <b>independent</b> of Rohit-in-Goa-Trip. Same human, separate ledgers, on purpose.</div>
+      </div>
+
+      <!-- 8. PERSONAL EXPENSE POPUP with Share-with-group -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="hdr"><div class="left"><i class="ti ti-menu-2"></i><div class="wordmark">Pen<span>ny</span></div></div><div class="right"><i class="ti ti-shield-lock badge-priv"></i><i class="ti ti-bell"></i></div></div>
+          <div class="ctxbar"><div class="dot" style="background:var(--primary)"><i class="ti ti-user" style="color:#fff;font-size:12px"></i></div>Personal<i class="ti ti-chevron-down chev"></i></div>
+          <div class="scrim"></div>
+          <div class="modal">
+            <div class="sheet">
+              <h3>Add transaction</h3>
+              <div class="seg" style="margin-bottom:14px"><div class="s" style="color:var(--primary)">Expense</div><div class="s">Income</div><div class="s">Transfer</div></div>
+              <div class="amount-in"><span>₹</span>4,800</div>
+              <div class="field"><div class="lbl">Category</div><div class="cat-pick"><div class="catic" style="background:#22c55e"><i class="ti ti-basket"></i></div><div style="font-weight:600;font-size:13.5px">Food &amp; Dining</div><i class="ti ti-chevron-right" style="margin-left:auto;color:var(--ter)"></i></div></div>
+              <div class="field"><div class="lbl">Account</div><div class="inp"><i class="ti ti-building-bank"></i> HDFC ····4821 <i class="ti ti-chevron-down" style="margin-left:auto"></i></div></div>
+              <div class="field"><div class="toggle" style="border-color:var(--indigo)"><i class="ti ti-users-group" style="color:var(--indigo)"></i> Share with a group <div class="sw" style="background:var(--indigo)"></div></div>
+                <div style="border:1px solid color-mix(in srgb,var(--indigo) 30%,#fff);border-top:none;border-radius:0 0 11px 11px;padding:11px;margin-top:-6px;background:color-mix(in srgb,var(--indigo) 5%,#fff)">
+                  <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><span class="chip" style="border-color:var(--indigo);color:var(--indigo)"><i class="ti ti-plane"></i> Goa Trip <i class="ti ti-chevron-down"></i></span><span class="muted">split equally</span></div>
+                  <div class="avpick"><div class="p"><div class="av tick" style="background:#6366f1">A</div><div class="nm">You</div></div><div class="p"><div class="av tick" style="background:#ec4899">R</div><div class="nm">Rohit</div></div><div class="p"><div class="av tick" style="background:#f59e0b">M</div><div class="nm">Meera</div></div><div class="p"><div class="av tick" style="background:#10b981">S</div><div class="nm">Sanjay</div></div></div>
+                  <div class="breakdown" style="margin-top:10px"><div class="br"><div class="nm">₹1,200 each</div><div class="v" style="color:var(--indigo)">you're owed ₹3,600</div></div></div>
+                </div>
+              </div>
+              <button class="btn btn-green" style="width:100%">Save · records cash-out &amp; shares to group</button>
+            </div>
+          </div>
+        </div>
+        <div class="caption"><b>8 · Two-way from the Expense popup.</b> A normal <b>personal</b> expense gains one row — <b>"Share with a group"</b>. On → pick the group + split. Saving does both: the real ₹4,800 leaves your account (personal txn) <i>and</i> a shared expense appears in Goa Trip. Off by default in Personal, so it never gets in the way.</div>
+      </div>
+
+      <!-- 9. SHARE LATER (forgot at creation) -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="hdr"><div class="left"><i class="ti ti-menu-2"></i><div class="wordmark">Pen<span>ny</span></div></div><div class="right"><i class="ti ti-shield-lock badge-priv"></i><i class="ti ti-bell"></i></div></div>
+          <div class="ctxbar"><div class="dot" style="background:var(--primary)"><i class="ti ti-user" style="color:#fff;font-size:12px"></i></div>Personal<i class="ti ti-chevron-down chev"></i></div>
+          <div class="tabs"><div class="tb active">Transactions</div><div class="tb">Subscriptions</div><div class="tb">IOU</div><div class="tb">Analytics</div></div>
+          <div class="body">
+            <div class="card feed" style="padding-top:4px">
+              <div class="frow"><div class="catic" style="background:#22c55e"><i class="ti ti-basket"></i></div><div><div class="tt">Beach shack dinner</div><div class="sub">HDFC · today</div></div><div class="amt neg">−₹4,800</div></div>
+              <div class="frow" style="background:color-mix(in srgb,var(--indigo) 7%,#fff);margin:0 -8px;padding:10px 8px;border-radius:10px"><div class="catic" style="background:#0ea5e9"><i class="ti ti-bed"></i></div><div><div class="tt">Airbnb booking</div><div class="sub">HDFC · yesterday</div></div><i class="ti ti-dots-vertical" style="margin-left:auto;color:var(--indigo)"></i></div>
+              <div class="frow"><div class="catic" style="background:#6366f1"><i class="ti ti-car"></i></div><div><div class="tt">Airport cab</div><div class="sub">Cash · yesterday</div></div><div class="amt neg">−₹900</div></div>
+            </div>
+          </div>
+          <div class="scrim"></div>
+          <div class="modal" style="align-items:center">
+            <div class="sheet" style="max-width:250px">
+              <div class="menu" style="position:static;box-shadow:none;border:none">
+                <div class="mi"><i class="ti ti-pencil"></i> Edit</div>
+                <div class="mi sel" style="color:var(--indigo);background:color-mix(in srgb,var(--indigo) 8%,#fff)"><i class="ti ti-users-group"></i> Share with a group <i class="ti ti-chevron-right" style="margin-left:auto"></i></div>
+                <div class="mi"><i class="ti ti-copy"></i> Duplicate</div>
+                <div class="mi" style="color:var(--danger)"><i class="ti ti-trash"></i> Delete</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="caption"><b>9 · Forgot to share? Share later.</b> Any transaction's ⋮ menu has <b>"Share with a group"</b> → opens the same group + split picker as screen 8. The transaction stays in your personal list; a linked shared expense is added to the group. Shared rows get a subtle group tint so you can spot them.</div>
+      </div>
+
+      <!-- 10. VACATION MODE — link / create group -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="hdr" style="border-bottom-color:var(--indigo)"><div class="left"><i class="ti ti-menu-2"></i><div class="wordmark">Pen<span>ny</span></div></div><div class="right"><i class="ti ti-bell"></i></div></div>
+          <div class="ctxbar" style="background:color-mix(in srgb,#ec4899 12%,#fff);border-bottom-color:color-mix(in srgb,#ec4899 30%,#fff)"><div class="dot" style="background:#ec4899"><i class="ti ti-plane-departure" style="color:#fff;font-size:12px"></i></div>#GoaTrip · vacation mode<span class="chip" style="margin-left:auto;border-color:#ec4899;color:#ec4899">immersive</span></div>
+          <div class="scrim"></div>
+          <div class="modal">
+            <div class="sheet">
+              <h3>Share this trip's costs?</h3>
+              <p class="muted" style="margin:-6px 0 14px;line-height:1.5">You're in <b>#GoaTrip</b> vacation mode. Link a group so expenses you log here split with your travel companions — and stay out of your everyday category analytics.</p>
+              <div class="card" style="margin-bottom:10px;border-color:var(--indigo)">
+                <div class="gtile" style="padding:2px"><div class="gicon" style="background:var(--indigo)"><i class="ti ti-plus"></i></div><div><div class="nm" style="color:var(--indigo)">Create "Goa Trip" group</div><div class="mt">new · invite companions after</div></div><i class="ti ti-chevron-right" style="margin-left:auto;color:var(--ter)"></i></div>
+              </div>
+              <div class="lbl" style="font-size:11.5px;font-weight:600;color:var(--sec);margin:12px 2px 8px">Or link an existing group</div>
+              <div class="card" style="padding:6px 12px">
+                <div class="gtile" style="padding:8px 2px"><div class="gicon" style="background:var(--teal);width:34px;height:34px;font-size:16px"><i class="ti ti-home"></i></div><div><div class="nm">Family</div><div class="mt">3 members</div></div><i class="ti ti-link" style="margin-left:auto;color:var(--primary)"></i></div>
+                <div class="gtile" style="padding:8px 2px;border-top:1px solid var(--border);border-radius:0"><div class="gicon" style="background:#8b5cf6;width:34px;height:34px;font-size:16px"><i class="ti ti-users"></i></div><div><div class="nm">Flat 402</div><div class="mt">3 members</div></div><i class="ti ti-link" style="margin-left:auto;color:var(--primary)"></i></div>
+              </div>
+              <button class="btn btn-ghost" style="width:100%;margin-top:12px">Not now — keep trip expenses personal</button>
+            </div>
+          </div>
+        </div>
+        <div class="caption"><b>10 · Vacation → group link.</b> Starting/continuing a vacation offers to <b>create a group named after the trip</b> or <b>link an existing one</b>. Once linked, the trip hashtag (#GoaTrip) and the group travel together. Declining keeps everything personal.</div>
+      </div>
+
+      <!-- 11. VACATION active — analytics stays clean -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="hdr"><div class="left"><i class="ti ti-menu-2"></i><div class="wordmark">Pen<span>ny</span></div></div><div class="right"><i class="ti ti-shield-lock badge-priv"></i><i class="ti ti-bell"></i></div></div>
+          <div class="ctxbar"><div class="dot" style="background:var(--primary)"><i class="ti ti-user" style="color:#fff;font-size:12px"></i></div>Personal<i class="ti ti-chevron-down chev"></i></div>
+          <div class="tabs"><div class="tb">Transactions</div><div class="tb">Subscriptions</div><div class="tb">IOU</div><div class="tb active">Analytics</div></div>
+          <div class="body">
+            <div class="card">
+              <div class="muted" style="font-size:11px">Total spent · this month</div>
+              <div style="font-size:24px;font-weight:800;margin-top:2px">₹51,900</div>
+              <div class="muted" style="font-size:10.5px;margin-top:3px">Daily-routine ₹28.5K · Set aside ₹5K · Events ₹18.4K</div>
+            </div>
+            <div class="card">
+              <div class="card-h"><div class="t">Daily-routine · by category</div></div>
+              <div style="font-size:11.5px;color:var(--sec)">
+                <div style="display:flex;align-items:center;gap:8px;margin:7px 0"><span style="width:9px;height:9px;border-radius:2px;background:#22c55e"></span>Daily Living<span style="margin-left:auto;font-weight:700;color:var(--ink)">₹14,200</span></div>
+                <div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden"><span style="display:block;width:62%;height:100%;background:#22c55e"></span></div>
+                <div style="display:flex;align-items:center;gap:8px;margin:11px 0 7px"><span style="width:9px;height:9px;border-radius:2px;background:#6366f1"></span>Transport<span style="margin-left:auto;font-weight:700;color:var(--ink)">₹5,400</span></div>
+                <div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden"><span style="display:block;width:24%;height:100%;background:#6366f1"></span></div>
+                <div style="display:flex;align-items:center;gap:8px;margin:11px 0 7px"><span style="width:9px;height:9px;border-radius:2px;background:#0ea5e9"></span>Home &amp; Bills<span style="margin-left:auto;font-weight:700;color:var(--ink)">₹8,900</span></div>
+                <div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden"><span style="display:block;width:40%;height:100%;background:#0ea5e9"></span></div>
+              </div>
+            </div>
+            <div class="card" style="border-color:color-mix(in srgb,#ec4899 35%,#fff)">
+              <div class="card-h"><div class="t" style="display:flex;align-items:center;gap:6px"><i class="ti ti-plane" style="color:#ec4899"></i> Trips &amp; events</div><div class="muted">not in categories</div></div>
+              <div class="gtile" style="padding:2px"><div class="gicon" style="background:#ec4899;width:34px;height:34px;font-size:16px"><i class="ti ti-plane"></i></div><div><div class="nm">Goa Trip</div><div class="mt">linked group · 12 expenses</div></div><div class="bal" style="margin-left:auto">₹18,400<small>your share ₹6,200</small></div></div>
+            </div>
+            <div class="note"><i class="ti ti-info-circle"></i> Trip &amp; event spending is summarised here <b>separately</b> and kept out of your daily-living categories — so a vacation never distorts your normal spending picture.</div>
+          </div>
+        </div>
+        <div class="caption"><b>11 · Analytics stays clean.</b> This is <b>already how events work</b> today (event-tagged txns are excluded from category spend). Group-linked trip expenses inherit it: your category bars stay "normal", and the trip is summarised on its own — answering your analytics concern directly.</div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <h2>Decisions locked (this round)</h2>
+      <ul>
+        <li><b>Record-to-account = ON by default, with an account chooser</b> (screens 4, 6, 8). Your bank/cash balance stays live; you can switch which account or turn it off per transaction.</li>
+        <li><b>Context re-scoping</b> (screens 1→3): the whole app steps into the group; Home becomes the group dashboard.</li>
+        <li><b>Group-tinted centre FAB</b> while inside a group (screen 3).</li>
+        <li><b>Groups ≠ personal IOU</b> — never cross-reflected (your correction). A person can be in both, kept separate.</li>
+        <li><b>Trip/event spending stays out of category analytics</b> (screen 11) — this already exists for events; group-linked trips inherit it.</li>
+      </ul>
+      <h2 style="margin-top:18px">The two-way flow, summarised</h2>
+      <ul>
+        <li><b>From a group</b> (screen 4): add a shared expense → optional real cash-out to your account.</li>
+        <li><b>From personal</b> (screen 8): a "Share with a group" row on the normal popup → records your cash-out <i>and</i> adds the shared expense to the group in one save.</li>
+        <li><b>After the fact</b> (screen 9): any transaction's ⋮ → "Share with a group".</li>
+        <li><b>In a vacation</b> (screens 10–11): link/create a group; expenses split with companions and stay out of daily-living analytics via the trip hashtag.</li>
+        <li><b>The only bridge to personal money</b> is the opt-in account record (cash-out on spend, cash-in on settle). Balances/"who owes whom" never leak into the personal IOU ledger.</li>
+      </ul>
+    </div>
+  </body>
+</html>

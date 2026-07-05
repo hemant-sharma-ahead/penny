@@ -35,9 +35,17 @@ export interface Profile {
   // ── Identity & attributes (Track 2) ──
   userId?: string | undefined; // stable local identity anchor (UUID); "claimed" on the server at Phase 1.5 registration. Never keyed off the username string.
   username?: string | undefined; // provisional, optional; 3–20 lowercase alphanumeric/underscore. Reserved on the server only at registration.
+  deviceId?: string | undefined; // random UUID for this device, assigned when the account is claimed (Phase 1.5 Track C). Rides backup/recovery.
   dob?: string | undefined; // ISO date (YYYY-MM-DD). Encrypted; only a 5-year age band is ever sent to the AI.
+  avatarDataUrl?: string | undefined; // optional profile photo (compressed data URL); encrypted at rest, never leaves the device.
   employmentType?: EmploymentType | undefined;
+  // ── Life & household (opt-in, encrypted) — powers personalized life-stage goals & guidance ──
+  maritalStatus?: 'single' | 'married' | undefined;
+  children?: number[] | undefined; // dependents' birth years (drives education-corpus timelines)
+  homeOwner?: boolean | undefined;
+  riskAppetite?: GoalRisk | undefined;
   plan?: Plan | undefined; // entitlement state; defaults to 'free' (full access in Phase 1)
+  demoSeeded?: boolean | undefined; // true while sample/demo data is present. Rides backup, so the "Clear sample data" option survives restore (unlike the device-local localStorage flag).
   createdAt: number;
   updatedAt: number;
 }
@@ -245,6 +253,9 @@ export interface Expense {
   source?: TransactionSource; // omitted on legacy records = 'manual'
   sourceRef?: string; // dedup key: hash(date+amount+description) for import; bank ref for sync
   receiptDataUrl?: string; // local encrypted receipt photo (compressed JPEG data URL); never sent to AI
+  /** Groups this transaction is shared into (Phase 1.5 Track E). Each id also has a mirrored group
+   *  `shared_expense` event; this keeps the personal↔group link so shares can be shown/undone. */
+  shareWith?: string[];
   createdAt: number;
   updatedAt: number;
 }
@@ -324,6 +335,10 @@ export interface Goal {
   sipAmount?: number;
   icon?: string;
   notes?: string;
+  /** Groups this goal is shared into (Phase 1.5 Track E) — joint/household goals. */
+  shareWith?: string[];
+  /** How the goal was created. `suggested` = created from a Home advisor "Set as goal" nudge. */
+  source?: 'manual' | 'suggested';
   createdAt: number;
   updatedAt: number;
 }
@@ -452,6 +467,10 @@ export interface SecurityRecord {
   kekSalt: string; // salt for the PIN-KEK, base64
   encryptedMasterKeyByPassphrase?: string; // DMK wrapped by the passphrase-KEK, base64 (added lazily for migrated vaults)
   passphraseKekSalt?: string; // salt for the passphrase-KEK, base64
+  // Track F (F3): passphrase-recovery verifier material. Both non-secret (a salt + a PUBLIC key), kept
+  // here so claim can upload them; re-derived when the passphrase changes. See core/identity/recovery.ts.
+  recoverySalt?: string; // salt for the recovery keypair KDF, base64
+  recoveryPublicJwk?: string; // Ed25519 recovery PUBLIC key, JSON string
   mkSalt?: string; // legacy: salt the pre-envelope MK was derived from (used to verify the passphrase during migration)
   passphraseVerifier?: string; // legacy, unused
   pinAttempts: number;
@@ -558,6 +577,128 @@ export interface CreditProfile {
   bureau?: string; // "CIBIL" | "Experian" | "Equifax" — generalised
   fetchedAt?: number;
   mostImpactfulAction?: string; // Chip suggestion, not raw bureau data
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ─── Sync / identity crypto (Phase 1.5 Track B) ────────────────────────────────
+// These stores hold the client-side cryptographic material the backend tracks (C/D/E)
+// depend on. All are DMK-encrypted like every other store and ride recovery via BACKUP_STORES.
+
+export type DeviceKeyKind = 'sign' | 'wrap';
+
+/**
+ * This device's identity keypair, one record per kind (`id` = kind). `sign` is an ECDSA P-256
+ * keypair (authenticates worker requests); `wrap` is an ECDH P-256 keypair (receives the DMK
+ * during device pairing and Group Keys during grants). Generated lazily at claim.
+ */
+export interface DeviceKey {
+  id: string; // = kind ('sign' | 'wrap')
+  kind: DeviceKeyKind;
+  publicJwk: JsonWebKey;
+  privateJwk: JsonWebKey;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
+ * A per-group AES-256-GCM key at a given rotation epoch. `id` is composite `${groupId}:${keyEpoch}`
+ * so every epoch coexists — a long-offline member can still decrypt old-epoch events after a
+ * key rotation (Phase 1.5 Track E).
+ */
+export interface GroupKey {
+  id: string; // composite `${groupId}:${keyEpoch}`
+  groupId: string;
+  keyEpoch: number;
+  jwk: JsonWebKey; // AES-256-GCM Group Key
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
+ * Bookmarks the sync position for a scope so pulls resume where they left off.
+ * `version` drives optimistic concurrency on the personal blob; `seq` tracks the group-event
+ * sequence (Phase 1.5 Track E).
+ */
+export interface SyncCursor {
+  id: string; // = scope
+  scope: string; // e.g. 'personal-blob', `group:${groupId}`
+  version?: number;
+  seq?: number;
+  remoteTag?: string; // Track D: the cloud file's change token (Drive headRevisionId / mtime) at last sync
+  pushedAt?: number; // Track D: latest activity timestamp included in the last successful push
+  lastBackupAt?: number; // Track D: epoch ms of the last successful backup (cloud upload or local snapshot)
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ─── Groups & Household OS (Phase 1.5 Track E) ─────────────────────────────────
+// Local decrypted mirrors of the server-relayed (ciphertext-only, Model B) group data. Balances are
+// never stored — they are derived by folding {@link GroupEvent} rows (event-sourced projection).
+// All three stores are DMK-encrypted like every other store and ride recovery via BACKUP_STORES.
+
+export type GroupType = 'family' | 'trip' | 'roommates' | 'other';
+export type GroupStatus = 'active' | 'closed';
+/** `full` = a joiner can decrypt all prior epochs; `from_join` = only the epoch active at join onward. */
+export type GroupHistoryVisibility = 'full' | 'from_join';
+export type GroupRole = 'owner' | 'admin' | 'member';
+export type GroupMemberStatus = 'active' | 'left' | 'muted';
+
+/** A group the user belongs to (local mirror). `role`/`status` are this user's own membership. */
+export interface Group {
+  id: string; // = server group_id
+  type: GroupType;
+  name: string;
+  role: GroupRole;
+  status: GroupStatus;
+  ownerId: string;
+  keyEpoch: number;
+  historyVisibility: GroupHistoryVisibility;
+  joinedAt: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** A member of a group. `linkedPersonId` bridges to a local {@link Person} (reuses Track 1 IOU). */
+export interface GroupMember {
+  id: string; // composite `${groupId}:${userId}`
+  groupId: string;
+  userId: string;
+  displayName: string;
+  role: GroupRole;
+  status: GroupMemberStatus;
+  linkedPersonId?: string;
+  joinedAt: number;
+  leftAt?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type GroupEventType =
+  | 'shared_expense'
+  | 'expense_edit'
+  | 'expense_delete'
+  | 'settlement'
+  | 'member_joined'
+  | 'member_left'
+  | 'group_closed'
+  | 'group_reopened';
+
+/**
+ * One entry in a group's append-only shared ledger (local mirror of the R2 event blob). `seq` is the
+ * server-assigned total order (undefined until synced); `lamport` is the client logical clock used to
+ * break ties. Balances fold over these — see `src/core/groups/split.ts`. `payload` is type-specific
+ * (e.g. a `shared_expense` carries payer/participants/split); it is decrypted from the epoch GroupKey.
+ */
+export interface GroupEvent {
+  id: string; // = eventId (client-generated UUID)
+  groupId: string;
+  seq?: number;
+  lamport: number;
+  authorId: string;
+  keyEpoch: number;
+  type: GroupEventType;
+  payload: unknown;
   createdAt: number;
   updatedAt: number;
 }

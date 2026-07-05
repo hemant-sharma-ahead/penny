@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useSettings } from '@/context/SettingsContext';
 import { formatCurrency } from '@/lib/formatters';
@@ -64,6 +65,7 @@ function BalanceSparkline({ forecast, buffer }: { forecast: BalanceForecast; buf
 }
 
 export function CashFlowPage() {
+  const navigate = useNavigate();
   const { mode } = usePrivacy();
   const { cashflowBuffer, setCashflowBuffer } = useSettings();
   const {
@@ -99,7 +101,16 @@ export function CashFlowPage() {
   return (
     <div className="px-4 pt-4 pb-6 flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-primary">Cash Flow</h2>
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="ghost"
+            icon="ti-arrow-left"
+            aria-label="Back"
+            className="w-8 h-8 rounded-lg hover:text-primary -ml-1"
+            onClick={() => navigate(-1)}
+          />
+          <h2 className="text-xl font-semibold text-primary">Cash Flow</h2>
+        </div>
         <div className="w-44">
           <SegmentedControl
             options={[

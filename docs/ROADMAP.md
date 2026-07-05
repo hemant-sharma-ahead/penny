@@ -2,26 +2,31 @@
 
 This document records the product roadmap for Phase 1.5, 2, and 3, along with the key architectural decisions made for each phase. Decisions are recorded here so they don't need to be re-derived in future sessions.
 
-**Last updated:** 2026-06-27 (Track A — API Proxy; auth model reconciled off phone+OTP)
+**Last updated:** 2026-07-05 (Track E ✅ feature-complete + deployed (E1–E5 + tail); **Track F — Multi-Device, Sync & Recovery** F1–F3 done: phantom-claim fix, recovery hardening + restore-on-reinstall + account-start flow, passphrase reclaim (Ed25519). Auth worker needs redeploy + migration `0003`. Pending: Track E end-to-end verification + F4 device pairing + Stage F. Plans: `docs/plans/phase-1.5-track-E-groups.md` (groups) + `docs/plans/phase-1.5-track-F-multi-device-recovery.md` (recovery model))
 
 > **Phase 1.5 detailed plan:** [`docs/plans/phase-1.5-groups-household-os.md`](plans/phase-1.5-groups-household-os.md);
 > Track A detail: [`docs/plans/phase-1.5-track-A-api-proxy.md`](plans/phase-1.5-track-A-api-proxy.md).
 > **Auth reconciled (Track A, 2026-06-27):** phone + OTP is **dropped**. Identity is an on-device
-> keypair + a self-chosen `username` + the existing `Profile.userId`; recovery is a server-blind
-> encrypted blob looked up by username; **no phone, no OTP, no PII**. The auth/encryption sections
-> below have been updated to match (the parent plan is authoritative).
+> keypair + an **optional** self-chosen `username` + the existing `Profile.userId`; **no phone, no
+> OTP, no PII**.
+> **Backup reconciled to Model B (2026-06-27, canonical [`docs/BACKEND_STRATEGY.md`](BACKEND_STRATEGY.md) §5):**
+> personal backup/recovery lives in the **user's own Google Drive/iCloud only — our servers store
+> nothing personal**; the server keeps only tiny identity + group-membership metadata and per-group
+> ciphertext. This supersedes the earlier "server-blind personal blob in our R2" (Model A) wording;
+> some Track C/D architecture sub-sections below may still show the older phrasing (the parent plan +
+> BACKEND_STRATEGY are authoritative).
 
 ---
 
 ## Phase boundaries
 
-| Phase            | Scope                                                                                                                                     | Status                                                                     |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Phase 1 (M0–M15) | Full financial life tracking, zero paid APIs, zero backend, local-first encrypted                                                         | ✅ Complete                                                                |
-| Pre-Phase 1.5    | Documentation overhaul, component extraction, onboarding v2, category overhaul, activity log, expense power features, tax-in-context      | ✅ Complete                                                                |
-| Phase 1.5        | Groups & Household OS — shared expenses, family vaults, joint goals, household net worth ([plan](plans/phase-1.5-groups-household-os.md)) | 🚧 In progress (Track 1 ✅; Track A API Proxy ✅ deployed; next: Track B) |
-| Phase 2          | Chip real AI, AI auto-categorisation, export PDF/HTML, cloud sync, native apps, desktop layout                                            | ⏳ Future                                                                  |
-| Phase 3          | Regional languages, crypto/Web3, international equities, advanced AI advisor                                                              | ⏳ Future                                                                  |
+| Phase            | Scope                                                                                                                                     | Status                                                                                                                                           |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Phase 1 (M0–M15) | Full financial life tracking, zero paid APIs, zero backend, local-first encrypted                                                         | ✅ Complete                                                                                                                                      |
+| Pre-Phase 1.5    | Documentation overhaul, component extraction, onboarding v2, category overhaul, activity log, expense power features, tax-in-context      | ✅ Complete                                                                                                                                      |
+| Phase 1.5        | Groups & Household OS — shared expenses, family vaults, joint goals, household net worth ([plan](plans/phase-1.5-groups-household-os.md)) | 🚧 In progress (Tracks 1 ✅, A ✅, B ✅, C ✅, D ✅, E ✅ deployed; **Track F** 🚧 F1–F3 ✅, F4 next). Remaining: Track E live verification + F4 + Stage F |
+| Phase 2          | Chip real AI, AI auto-categorisation, export PDF/HTML, cloud sync, native apps, desktop layout                                            | ⏳ Future                                                                                                                                        |
+| Phase 3          | Regional languages, crypto/Web3, international equities, advanced AI advisor                                                              | ⏳ Future                                                                                                                                        |
 
 ---
 
@@ -170,24 +175,27 @@ When a group is created with a named person that already exists in personal IOUs
 
 ### Four Workers (deployed independently)
 
-| Worker                | Ships in             | Purpose                                                                                                                                                             |
-| --------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **API Proxy**         | Phase 1.5 Track A ✅ | Passthrough + tiered cache for Yahoo / MFAPI / NPS / IPO, market Cron-snapshot, permanent D1 cache & morning queue for vahandetails — fixes CORS, collapses N→1 (`workers/api-proxy/`). **Deployed 2026-07-01** → `penny-api-proxy.hesh.workers.dev` |
-| **Auth/Identity**     | Phase 1.5 Track C    | Keypair challenge/response, username availability + registration, public-key + server-blind encrypted-blob storage, recover-from-nothing (**no phone, no OTP**)     |
-| **Groups**            | Phase 1.5 Track E    | Group creation, member management, encrypted shared event ledger, key exchange + rotation                                                                           |
-| **AI Categorisation** | Phase 2              | Anthropic API proxy, PII stripping, transaction → category suggestion                                                                                               |
+| Worker                | Ships in             | Purpose                                                                                                                                                                                                                                                                                                                                                              |
+| --------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **API Proxy**         | Phase 1.5 Track A ✅ | Passthrough + tiered cache for Yahoo / MFAPI / NPS / IPO, market Cron-snapshot, permanent D1 cache & morning queue for vahandetails — fixes CORS, collapses N→1 (`workers/api-proxy/`). **Deployed 2026-07-01** → `penny-api-proxy.hesh.workers.dev`                                                                                                                 |
+| **Auth/Identity** ✅  | Phase 1.5 Track C + F | **Built (`workers/auth/`)** — keypair challenge/response signed-request auth, username availability + registration, `users`+`devices` public-key storage; client `signedFetch` + `claim`. **Track F adds passphrase recovery:** a per-account Ed25519 recovery verifier (public key + salt, migration `0003`) + `POST /recover/start`/`/recover/finish` for username+passphrase reclaim. **Personal backup/recovery is the user's own Drive/iCloud (Model B) — no personal blob on our server** (**no phone, no OTP**). Auth worker needs redeploy + migration `0003` for the recovery endpoints |
+| **Groups** 🚧 deployed | Phase 1.5 Track E    | Group creation, member management, encrypted shared event ledger, key exchange + rotation. **E1–E5 ✅ + E5 tail ✅, workers deployed** — ciphertext-only relay (event bodies inline in D1, no R2), signed + membership/role-checked routes, per-epoch Group Key with ECDH-wrapped grants, split engine + sync engine + full group UX (switcher/dashboard/composer/settle/members), cash guard, share-with-group, vacation→group link, share-later, demo fixtures. `sync` env-gated; Groups need a claimed username. Pending: **end-to-end live verification** + Stage F                            |
+| **Multi-device & recovery** 🚧 | Phase 1.5 Track F | Recovery model on top of C/D/E ([plan](plans/phase-1.5-track-F-multi-device-recovery.md)). **F1 ✅** phantom-claim fix; **F2 ✅** recovery hardening + restore-on-reinstall + account-start flow (Screen A cards → Screen B tabs → handle-recovery; mandatory username + claim at onboarding); **F3 ✅** passphrase reclaim (Ed25519). Three recovery surfaces: restore-on-reinstall, username+passphrase reclaim, **device pairing/QR (F4, next)**. Deferred: group-recovery-after-reclaim, groups-side account-delete cleanup |
+| **AI Categorisation** | Phase 2              | Anthropic API proxy, PII stripping, transaction → category suggestion                                                                                                                                                                                                                                                                                                |
 
 ### D1 database schema (server-side — no financial data ever, no PII)
 
 ```sql
 -- Auth/Identity (Track C):
-users          -- user_id PK, username UNIQUE, public_key, kdf_salt, created_at, updated_at  (NO phone_hash)
+users          -- user_id PK, username UNIQUE (optional/nullable), public_key, kdf_salt, created_at, updated_at  (NO phone, NO phone_hash)
 devices        -- device_id PK, user_id, public_key, label, revoked_at
-user_blobs     -- user_id, blob_kind, r2_key, version, size_bytes, updated_at  (server-blind ciphertext)
--- Groups (Track E):
+-- NOTE (Model B): NO user_blobs table. The personal .penny blob lives in the user's OWN
+-- Google Drive/iCloud — our servers store NOTHING personal. Recovery = sign into Drive → pull blob.
+-- Groups (Track E) — shared group data DOES relay through the server (WhatsApp split: membership +
+-- ciphertext on server; personal history in Drive):
 groups         -- group_id PK, type, enc_name, owner_id, key_epoch, created_at
 group_members  -- group_id, user_id, role, joined_at, left_at
-group_events   -- group_id, seq, event_id, author_id, key_epoch, r2_key  (encrypted event ledger)
+group_events   -- group_id, seq, event_id, author_id, key_epoch, r2_key  (encrypted event ledger — group ciphertext only)
 -- API Proxy (Track A) — vehicle permanent cache + queue + budget:
 vehicle_cache  -- regno PK, data, fetched_at
 vehicle_queue  -- regno PK, requested_at, attempts, last_attempt_at
@@ -224,26 +232,31 @@ and it keeps the app fully usable offline.
 ### What the server stores
 
 - **No phone number, no email.** No PII.
-- Username: plaintext (it's public — used for invites + recovery lookup)
+- Username: plaintext (it's public — used for invites/sharing)
 - Public key(s): the device's signing/wrapping public keys (for auth + group key exchange)
-- A **server-blind encrypted blob** (the v2 `.penny` export) keyed by `user_id` — ciphertext only
+- **No personal blob by default (Model B).** The `.penny` export lives in the user's own
+  Drive/iCloud; our servers store only identity + group-membership metadata and per-group
+  ciphertext. (An **optional, entitlement-gated** server-blind blob remains available as a
+  convenience for users who won't enable Drive — off by default.)
 
 ### Username rules
 
 - 3–20 characters, lowercase alphanumeric + underscore only
-- **Mandatory from Phase 1** (auto-suggested from display name; live format validation)
+- **Optional in Phase 1** (auto-suggested from display name; live format validation). The permanent
+  anchor is `userId` (UUID) — nothing keys off the username string.
 - Uniqueness is **deferred to claim time** (no server in Phase 1) — claiming confirms it's free
 
 ### Auth flow (no OTP)
 
-1. Choose username (format-validated locally; uniqueness confirmed at claim).
+1. Choose username (optional; format-validated locally; uniqueness confirmed at claim).
 2. App generates the keypair on-device; the private key lives in the encrypted local DB (DMK-protected).
 3. **Register/claim:** upload `user_id`, `username`, public key, `kdf_salt`.
 4. **Steady state:** each request is signed (`nonce‖method‖path‖bodyHash`) with the device key; the
    worker verifies against the stored public key.
-5. **Recover-from-nothing:** `username` → pull the inert encrypted blob → enter passphrase → DMK +
-   device key + every Group Key restored. The passphrase is the only decryption secret and never
-   leaves the device. (Detail in the parent plan, Track C.)
+5. **Recover-from-nothing (Model B):** sign into the user's own Drive/iCloud → pull the encrypted
+   `.penny` blob → enter passphrase → DMK + device key + every Group Key restored; the server's
+   membership table says which groups to re-pull. The passphrase is the only decryption secret and
+   never leaves the device. (Detail in the parent plan, Track C + `docs/BACKEND_STRATEGY.md` §5.)
 
 ---
 
@@ -260,8 +273,8 @@ and it keeps the app fully usable offline.
 
 - Personal data backed up as an **encrypted blob** to **Google Drive / iCloud** (user's choice)
 - We never touch the backup file — it lives in the user's own cloud storage
-- Restore: new device → username lookup → enter passphrase → download backup (server-blind blob or Drive) → decrypt on-device
-- This is the same model as WhatsApp backups — users understand it
+- Restore: new device → sign into the user's own Drive/iCloud → download the encrypted blob → enter passphrase → decrypt on-device (the server's membership table then says which groups to re-pull)
+- This is the same model as WhatsApp backups — users understand it (server holds membership; Drive holds the personal blob + keys)
 
 ### Household / group key exchange
 
@@ -279,7 +292,7 @@ Each group has its own **Group Key** (AES-256), completely independent of person
 
 **Shared expenses** are encrypted with the Group Key before leaving the device. Server stores ciphertext blobs only.
 
-**What the server can see:** User identities (hashed phone, username), group membership graph, ciphertext blobs. Never financial data.
+**What the server can see:** User identities (public key + optional username — **no phone, no PII**), group membership graph, and per-group ciphertext events. **No personal blob (Model B — it's in the user's own Drive/iCloud).** Never financial data.
 
 ---
 

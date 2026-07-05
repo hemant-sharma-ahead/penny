@@ -3,6 +3,7 @@ import type {
   Account,
   Expense,
   ExpenseCategory,
+  GroupMember,
   Hashtag,
   MerchantMemory,
   Person,
@@ -10,12 +11,13 @@ import type {
 } from '@/core/db/types';
 import type { ExpenseSeedIntent } from '@/core/iou/expenseLink';
 import type { ActiveEvent } from '@/context/EventModeContext';
-import { accountsRepo } from '@/core/db/repositories';
-import { epochToDateInput } from '@/lib/formatters';
+import { accountsRepo, groupMembersRepo, profileRepo } from '@/core/db/repositories';
+import { epochToDateInput, formatCurrency } from '@/lib/formatters';
 import { dateInputToEpoch } from '@/lib/date';
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '@/router/paths';
-import { Modal, Button, TextInput, SegmentedControl, AmountInput } from '@/components/ui';
+import { Modal, Button, TextInput, SegmentedControl, AmountInput, Banner, SelectInput } from '@/components/ui';
+import { projectedBalance } from '@/core/accounts/balanceCalculator';
 import { CategoryPickerModal } from '../categories/CategoryPickerModal';
 import type { CategoryManager } from '../categories/types';
 import { AccountChips } from './AccountChips';
@@ -31,6 +33,12 @@ interface Props {
   /** Seeds a NEW transaction (duplicate / template) when not editing. */
   prefill?: Partial<Expense> | null;
   activeEvents: ActiveEvent[];
+  /** Current balance per account id — powers the soft cash-negative guard (Track E). */
+  accountBalances?: Record<string, number>;
+  /** Groups the user can share this expense into (Track E; empty when not sync-entitled). */
+  shareGroups?: { id: string; name: string }[];
+  /** Mirror this expense into a group as an equal-split shared expense (optionally among a subset). */
+  onShareToGroup?: ((expense: Expense, groupId: string, participants?: string[]) => Promise<void>) | undefined;
   initialType?: TransactionType;
   onSave: (expense: Expense) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -115,6 +123,9 @@ export function ExpenseForm({
   editing,
   prefill,
   activeEvents,
+  accountBalances,
+  shareGroups = [],
+  onShareToGroup,
   initialType,
   onSave,
   onDelete,
@@ -168,6 +179,36 @@ export function ExpenseForm({
   // movement; this seeds the matching IOU ledger entry. Direction follows the transaction type.
   const [iouEnabled, setIouEnabled] = useState(!!linkedIou);
   const [iouPerson, setIouPerson] = useState(linkedIou?.personName ?? '');
+  // Optional per-item "Share with a group" (Track E, screen 8). Off by default in Personal; auto-on when
+  // a linked vacation is active (screens 10–11) so logging an expense splits with companions in one save.
+  const linkedTripGroupId = activeEvents.find((e) => e.subtype === 'immersive' && e.linkedGroupId)?.linkedGroupId;
+  const defaultShareGroupId =
+    editing?.shareWith?.[0] ??
+    (linkedTripGroupId && shareGroups.some((g) => g.id === linkedTripGroupId) ? linkedTripGroupId : '');
+  const [shareEnabled, setShareEnabled] = useState(!!defaultShareGroupId);
+  const [shareGroupId, setShareGroupId] = useState(defaultShareGroupId);
+  const [shareMembers, setShareMembers] = useState<GroupMember[]>([]);
+  const [shareParticipants, setShareParticipants] = useState<Set<string>>(new Set());
+  const [myUserId, setMyUserId] = useState<string | undefined>();
+  const alreadyShared = !!editing?.shareWith?.length;
+  const showShareSection = !!onShareToGroup && shareGroups.length > 0 && type === 'expense';
+
+  // Load the selected group's active members (for the participant avatars + "you're owed" preview).
+  // No-op while sharing is off / no group picked — the members UI is gated on `shareEnabled` anyway.
+  useEffect(() => {
+    if (!shareEnabled || !shareGroupId) return;
+    let cancelled = false;
+    void Promise.all([groupMembersRepo.getAll(), profileRepo.getAll()]).then(([all, profile]) => {
+      if (cancelled) return;
+      const active = all.filter((m) => m.groupId === shareGroupId && m.status === 'active');
+      setShareMembers(active);
+      setMyUserId(profile[0]?.userId);
+      setShareParticipants(new Set(active.map((m) => m.userId)));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [shareEnabled, shareGroupId]);
   const iouKind: 'lent' | 'borrowed' = type === 'income' ? 'borrowed' : 'lent';
   // Shown for new AND editing expense/income — editing prefills from the existing link so it can be changed or removed.
   const showIouSection = !!onSeedIou && (type === 'expense' || type === 'income');
@@ -194,6 +235,24 @@ export function ExpenseForm({
   );
 
   const selectedAccount = useMemo(() => accounts.find((a) => a.id === accountId), [accounts, accountId]);
+
+  // Soft cash-negative guard (Track E): warn (non-blocking) when this entry would drive a CASH account
+  // below ₹0 — usually a missed cash withdrawal or the wrong account. Save is still allowed.
+  const cashWarningBalance = useMemo(() => {
+    const amt = Number(amount) || 0;
+    if (!accountBalances || amt <= 0 || !selectedAccount || selectedAccount.type !== 'cash') return null;
+    if (type === 'income') return null; // income only increases the balance
+    // Base excludes this entry's own current effect when editing, so it isn't double-counted.
+    let base = accountBalances[selectedAccount.id] ?? selectedAccount.openingBalance;
+    if (editing) base -= projectedBalance(selectedAccount.id, 0, [], editing);
+    const projected = projectedBalance(selectedAccount.id, base, [], {
+      accountId,
+      toAccountId,
+      amount: amt,
+      type
+    });
+    return projected < 0 ? projected : null;
+  }, [accountBalances, amount, selectedAccount, type, accountId, toAccountId, editing]);
 
   function handleAccountSelect(id: string) {
     setAccountId(id);
@@ -293,10 +352,21 @@ export function ExpenseForm({
       ...(accountId && { accountId }),
       ...(type === 'transfer' && toAccountId ? { toAccountId } : {}),
       ...(receipt && { receiptDataUrl: receipt }),
+      ...(showShareSection && shareEnabled && shareGroupId
+        ? { shareWith: [shareGroupId] }
+        : editing?.shareWith
+          ? { shareWith: editing.shareWith }
+          : {}),
       source: editing?.source ?? 'manual',
       createdAt: editing?.createdAt ?? now,
       updatedAt: now
     };
+    // Only mirror to the group when the link is newly added (avoid duplicate shared events on edit).
+    const shareGroupTarget =
+      showShareSection && shareEnabled && shareGroupId && !editing?.shareWith?.includes(shareGroupId)
+        ? shareGroupId
+        : null;
+    const shareParticipantIds = shareParticipants.size > 0 ? [...shareParticipants] : undefined;
     const iouIntent: ExpenseSeedIntent | null =
       showIouSection && iouEnabled && iouPerson.trim()
         ? { personName: iouPerson.trim(), kind: iouKind, amount: amt, date: base.date, description: base.description }
@@ -305,6 +375,10 @@ export function ExpenseForm({
     onSave(base)
       // Reconcile the IOU link on every expense/income save: creates, updates, or (when toggled off) removes it.
       .then(() => (onSeedIou && showIouSection ? onSeedIou(base.id, iouIntent) : undefined))
+      // Mirror into the group as an equal-split shared expense when newly shared.
+      .then(() =>
+        onShareToGroup && shareGroupTarget ? onShareToGroup(base, shareGroupTarget, shareParticipantIds) : undefined
+      )
       .catch(() => {})
       .finally(() => setSaving(false));
   }
@@ -436,6 +510,13 @@ export function ExpenseForm({
           error={errors.amount ? 'Enter an amount' : undefined}
           autoFocus={false}
         />
+
+        {cashWarningBalance !== null && (
+          <Banner variant="warning">
+            This makes {selectedAccount?.name ?? 'Cash'} go to {formatCurrency(cashWarningBalance)} — did you miss a
+            cash withdrawal or pick the wrong account? You can still save.
+          </Banner>
+        )}
 
         {/* Description (first focus) + merchant suggestions */}
         <div>
@@ -739,6 +820,101 @@ export function ExpenseForm({
                 ? "Adds a they-owe-you entry to this person's ledger."
                 : "Adds a you-owe-them entry to this person's ledger."}
             </p>
+          </div>
+        )}
+
+        {/* Share with a group (Track E, screen 8) — toggle → group + split-between + live "you're owed". */}
+        {showShareSection && (
+          <div className="rounded-xl border border-theme p-3 flex flex-col gap-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <i
+                className="ti ti-users-group"
+                style={{ color: 'var(--color-primary)', fontSize: 18 }}
+                aria-hidden="true"
+              />
+              <span className="text-sm font-medium text-secondary flex-1">Share with a group</span>
+              <input
+                type="checkbox"
+                checked={shareEnabled}
+                disabled={alreadyShared}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setShareEnabled(on);
+                  if (on && !shareGroupId && shareGroups[0]) setShareGroupId(shareGroups[0].id);
+                }}
+                className="w-4 h-4 accent-[var(--color-primary)]"
+              />
+            </label>
+
+            {shareEnabled && (
+              <>
+                <SelectInput
+                  value={shareGroupId}
+                  onChange={setShareGroupId}
+                  disabled={alreadyShared}
+                  options={shareGroups.map((g) => ({ value: g.id, label: g.name }))}
+                />
+
+                {alreadyShared ? (
+                  <p className="text-xs text-tertiary">Already shared to a group.</p>
+                ) : shareMembers.length > 0 ? (
+                  (() => {
+                    const amt = Number(amount) || 0;
+                    const n = shareParticipants.size || shareMembers.length;
+                    const perHead = n > 0 ? amt / n : 0;
+                    const youIn = myUserId ? shareParticipants.has(myUserId) : true;
+                    const youOwed = amt - (youIn ? perHead : 0);
+                    return (
+                      <>
+                        <div className="flex gap-1 overflow-x-auto scrollbar-none">
+                          {shareMembers.map((m) => {
+                            const on = shareParticipants.has(m.userId);
+                            return (
+                              <button
+                                key={m.userId}
+                                type="button"
+                                onClick={() =>
+                                  setShareParticipants((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(m.userId)) next.delete(m.userId);
+                                    else next.add(m.userId);
+                                    return next;
+                                  })
+                                }
+                                className="flex flex-col items-center gap-1 w-[48px] flex-shrink-0"
+                                style={{ opacity: on ? 1 : 0.4 }}
+                              >
+                                <span
+                                  className={`w-8 h-8 rounded-full grid place-items-center text-[11px] font-semibold text-white ${on ? 'ring-2 ring-[var(--color-primary)] ring-offset-1' : ''}`}
+                                  style={{ backgroundColor: 'var(--color-mode-accent, #6366f1)' }}
+                                >
+                                  {(m.userId === myUserId ? 'You' : m.displayName).charAt(0).toUpperCase()}
+                                </span>
+                                <span className="text-[9px] text-secondary truncate max-w-full">
+                                  {m.userId === myUserId ? 'You' : m.displayName}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-secondary">{formatCurrency(perHead)} each · split equally</span>
+                          {youOwed > 0.99 && (
+                            <span className="font-semibold" style={{ color: 'var(--color-primary)' }}>
+                              you're owed {formatCurrency(youOwed)}
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()
+                ) : (
+                  <p className="text-xs text-tertiary">
+                    Records the full amount on your account and adds an equal split to the group.
+                  </p>
+                )}
+              </>
+            )}
           </div>
         )}
 

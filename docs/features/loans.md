@@ -14,11 +14,12 @@ The loans module tracks all your borrowings and lets you model different repayme
   - **Step-up EMI**: model increasing your EMI by a percentage each year (e.g. +5% annually as your salary grows)
   - **Balance transfer**: enter a new interest rate and processing fee to see the net saving of refinancing your loan
 - Download a complete amortisation schedule as an Excel (XLSX) file for offline reference or sharing with a CA
-- Add, edit, and delete loans of 12 types: Home loan, Car loan, Personal loan, Business loan, Education loan, Two-wheeler loan, Gold loan, Credit card revolving, Buy Now Pay Later (BNPL), Family/friend loan, Other
+- Add, edit, and delete EMI-bearing loans. The loan tracker and its Add/Edit modal cover the six EMI loan types (`EMI_LOAN_TYPES`): Home loan, Car loan, Personal loan, Education loan, Gold loan, and Loan Against Property (LAP). (The wider `liabilities` store also models non-EMI borrowings — credit card, BNPL, LAS, overdraft, informal loans, rental deposit — but those are managed elsewhere, not in the loan planner.)
+- **Edit** any tracked loan (the Add/Edit modal opens pre-filled) or **delete** it — deletion asks for confirmation, then shows an Undo toast so an accidental removal can be reversed
 
 ## How it works
 
-Loans are stored in the encrypted `liabilities` Dexie store with 22 fields, including: type, name, principalAmount, currentBalance, interestRate, emiAmount, startDate, endDate, and lenderName.
+Loans are stored in the encrypted `liabilities` Dexie store. The `Liability` record has 18 fields, including: type, name, principalAmount, `outstandingAmount` (the remaining balance), interestRate, emiAmount, `emiDueDate` (day-of-month the EMI falls due), startDate, endDate, and lenderName. The cash-flow forecaster keys its monthly EMI projection off `emiDueDate`.
 
 The amortisation schedule is generated entirely on-device by `amortization.ts` using the standard reducing-balance method. For each month it calculates: interest = currentBalance × (annualRate / 12), principal = EMI − interest, newBalance = currentBalance − principal.
 
@@ -32,10 +33,16 @@ The feature follows the **vertical-slice** pattern: `LoanScenariosPage.tsx` is a
 `TextInput`/`SelectInput` components (no hand-rolled dropdowns), and the spreadsheet payload is built
 purely in `core/loans/planExport.ts` so only the `writeFile` call is web-specific.
 
+`MyLoansTab` renders each loan with pencil (edit) and trash (delete) actions. Editing reopens
+`AddLoanModal` in edit mode — `useLoanForm` pre-fills from the existing loan and saves in place.
+Deleting routes through a `ConfirmDialog`, then calls `deleteLiability` (exposed by `useLoans`, backed
+by `useLoggedRepository`) so the removal is logged and reversible via an Undo toast.
+
 Key files:
 
 - `src/features/loans/LoanScenariosPage.tsx` — thin shell: header + tab strip → MyLoansTab | PlannerTab
-- `src/features/loans/myloans/` — loan list + `AddLoanModal` + `useLoanForm`
+- `src/features/loans/useLoans.ts` — repository hook: `saveLiability` + `deleteLiability` (logged/undoable) + `emiLoans` filter
+- `src/features/loans/myloans/` — `MyLoansTab` (list + per-loan edit/delete) + `AddLoanModal` (add & edit) + `useLoanForm`
 - `src/features/loans/planner/` — `PlannerTab` + `PlannerResults` + `usePlanner` (amortization derivation)
 - `src/core/loans/calculator.ts` — EMI calculation and scenario modelling
 - `src/core/loans/amortization.ts` — month-by-month schedule generation

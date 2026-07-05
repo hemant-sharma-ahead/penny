@@ -1,0 +1,123 @@
+// D1 queries for the auth worker — users + devices. Schema in migrations/0001_init.sql.
+
+export interface UserRow {
+  user_id: string;
+  username: string | null;
+  signing_key: string;
+  kdf_salt: string | null;
+  created_at: number;
+  updated_at: number;
+  // Track F (F3): passphrase-recovery verifier — public Ed25519 key + the KDF salt. Nullable.
+  recovery_salt: string | null;
+  recovery_pubkey: string | null;
+}
+
+/** Recovery lookup by handle: the userId + verifier for a username, or null if unknown/unrecoverable. */
+export interface RecoveryRow {
+  user_id: string;
+  recovery_salt: string | null;
+  recovery_pubkey: string | null;
+}
+
+export interface DeviceRow {
+  device_id: string;
+  user_id: string;
+  signing_key: string;
+  wrapping_key: string;
+  label: string | null;
+  created_at: number;
+  revoked_at: number | null;
+}
+
+export function getUser(db: D1Database, userId: string): Promise<UserRow | null> {
+  return db.prepare('SELECT * FROM users WHERE user_id = ?').bind(userId).first<UserRow>();
+}
+
+/** The user_id currently holding a username, or null if free. Used for availability + claim races. */
+export async function userIdForUsername(db: D1Database, username: string): Promise<string | null> {
+  const row = await db
+    .prepare('SELECT user_id FROM users WHERE username = ?')
+    .bind(username)
+    .first<{ user_id: string }>();
+  return row?.user_id ?? null;
+}
+
+/** Upsert a user by user_id (idempotent re-register / relabel). Caller guarantees username is free. */
+export async function upsertUser(
+  db: D1Database,
+  u: {
+    userId: string;
+    username: string | null;
+    signingKey: string;
+    kdfSalt: string | null;
+    now: number;
+    // Track F (F3): pass to set/update the recovery verifier. Omit/null → keep any existing verifier
+    // (COALESCE), so a plain re-register never wipes a user's recovery key.
+    recoverySalt?: string | null;
+    recoveryPubkey?: string | null;
+  }
+): Promise<void> {
+  await db
+    .prepare(
+      'INSERT INTO users (user_id, username, signing_key, kdf_salt, recovery_salt, recovery_pubkey, created_at, updated_at) ' +
+        'VALUES (?, ?, ?, ?, ?, ?, ?, ?) ' +
+        'ON CONFLICT(user_id) DO UPDATE SET username = excluded.username, signing_key = excluded.signing_key, ' +
+        'kdf_salt = excluded.kdf_salt, ' +
+        'recovery_salt = COALESCE(excluded.recovery_salt, users.recovery_salt), ' +
+        'recovery_pubkey = COALESCE(excluded.recovery_pubkey, users.recovery_pubkey), ' +
+        'updated_at = excluded.updated_at'
+    )
+    .bind(u.userId, u.username, u.signingKey, u.kdfSalt, u.recoverySalt ?? null, u.recoveryPubkey ?? null, u.now, u.now)
+    .run();
+}
+
+/** Recovery verifier + userId for a username (Track F, F3). Null if the handle is unknown. */
+export function getRecoveryByUsername(db: D1Database, username: string): Promise<RecoveryRow | null> {
+  return db
+    .prepare('SELECT user_id, recovery_salt, recovery_pubkey FROM users WHERE username = ?')
+    .bind(username)
+    .first<RecoveryRow>();
+}
+
+export function getDevice(db: D1Database, deviceId: string): Promise<DeviceRow | null> {
+  return db.prepare('SELECT * FROM devices WHERE device_id = ?').bind(deviceId).first<DeviceRow>();
+}
+
+/** Bump a user's liveness timestamp (best-effort) so the inactivity GC can spare active accounts. */
+export async function touchUser(db: D1Database, userId: string, now: number): Promise<void> {
+  await db.prepare('UPDATE users SET last_seen = ? WHERE user_id = ?').bind(now, userId).run();
+}
+
+/** Delete an account and all its devices (releases the username). Used by deregister-on-erase + GC. */
+export async function deleteAccount(db: D1Database, userId: string): Promise<void> {
+  await db.batch([
+    db.prepare('DELETE FROM devices WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM users WHERE user_id = ?').bind(userId)
+  ]);
+}
+
+/** Garbage-collect accounts with no authenticated activity since `cutoffMs`. Returns how many were removed. */
+export async function deleteStaleUsers(db: D1Database, cutoffMs: number): Promise<number> {
+  const stale = await db
+    .prepare('SELECT user_id FROM users WHERE COALESCE(last_seen, updated_at) < ?')
+    .bind(cutoffMs)
+    .all<{ user_id: string }>();
+  const ids = (stale.results ?? []).map((r) => r.user_id);
+  for (const userId of ids) await deleteAccount(db, userId);
+  return ids.length;
+}
+
+/** Upsert a device by device_id (idempotent — re-register updates its keys/label). */
+export async function upsertDevice(
+  db: D1Database,
+  d: { deviceId: string; userId: string; signingKey: string; wrappingKey: string; label: string | null; now: number }
+): Promise<void> {
+  await db
+    .prepare(
+      'INSERT INTO devices (device_id, user_id, signing_key, wrapping_key, label, created_at) VALUES (?, ?, ?, ?, ?, ?) ' +
+        'ON CONFLICT(device_id) DO UPDATE SET signing_key = excluded.signing_key, ' +
+        'wrapping_key = excluded.wrapping_key, label = excluded.label'
+    )
+    .bind(d.deviceId, d.userId, d.signingKey, d.wrappingKey, d.label, d.now)
+    .run();
+}

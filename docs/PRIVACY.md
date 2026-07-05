@@ -1,7 +1,7 @@
 # Penny — Privacy & PII Rules
 
-**Version:** 1.1+  
-**Last updated:** June 2026
+**Version:** 1.2+  
+**Last updated:** July 2026 (Phase 1.5 group/household privacy — Tracks B–E; Model B backup)
 
 This document defines what is and isn't PII in Penny, how each category is handled when sent to Chip AI, and the overall privacy architecture.
 
@@ -74,6 +74,7 @@ These are never included in any AI context.
 | Driving licence number | Removed                                                                              |
 | Vehicle RC number      | Removed                                                                              |
 | IOU person names       | Replaced with "Person 1", "Person 2", etc. (ordinal, not consistent across sessions) |
+| Group member names     | Replaced with ordinal labels (same rule as IOU names) — Phase 1.5 Tracks B–E         |
 | Account numbers (bank) | Removed                                                                              |
 | Demat account number   | Removed                                                                              |
 | UPI ID                 | Removed                                                                              |
@@ -159,8 +160,8 @@ The default mode can be changed in Settings. The privacy badge in the header sho
 All 17 primary stores are encrypted:
 `profile`, `holdings`, `expenses`, `expense_categories`, `budgets`, `hashtags`, `goals`, `goal_contributions`, `assets`, `liabilities`, `insurance_policies`, `chip_insights`, `ai_call_log`, `security`, `subscriptions`, `personal_ious`, `credit_profile`
 
-Plus the new stores added in later milestones:
-`accounts`, `activity_log` (added in Pre-Phase 1.5)
+Plus the stores added in later milestones (see `docs/SCHEMA.md` for the authoritative list):
+`accounts`, `activity_log`, `merchant_memory`, `transaction_templates` (Pre-Phase 1.5); `persons`, `ledger_entries` (Phase 1.5 Track 1); `device_keys`, `group_keys`, `sync_cursor` (Phase 1.5 Track B — device keypairs, per-group keys, sync cursors; private key material is DMK-encrypted like everything else).
 
 ### Plain stores (IndexedDB, no encryption)
 
@@ -187,14 +188,16 @@ In Phase 1, there is **no backend server.** The app is a static PWA hosted on Cl
 
 The only network calls are to third-party APIs (MFAPI.in, Yahoo Finance, investorgain.com, etc.) and these receive only public lookup parameters — stock tickers, MF scheme codes, IPO listing names. No user data.
 
-In Phase 1.5+, the backend architecture is designed so the server sees only:
+In Phase 1.5+, the backend (Cloudflare Workers + D1 + R2) is designed so the server sees only:
 
-- Hashed phone number (never plaintext)
-- Username (public — used for invites)
-- Public key (for group key exchange)
-- Encrypted ciphertext blobs (for group data sync — server cannot decrypt)
+- **No phone number, no email — no PII.** (Phone + OTP was dropped; the earlier "hashed phone" design is gone.)
+- **Optional** username (public — a self-chosen sharing handle; it can never decrypt anything). The permanent identity anchor is `userId` (a UUID), not the username.
+- Device public keys (signing + wrapping) + a random `deviceId`. **Registration (Track C) uploads only the public JWKs** — the private keys never leave the device.
+- Group-membership metadata (which `userId`s are in which group) + per-group **encrypted event ciphertext** (server cannot decrypt) + **key-grant ciphertext** relayed between members.
 
-See `docs/ROADMAP.md` for the Phase 1.5 backend design.
+**Request authentication (Track C).** Authenticated calls are signed: the device signs `nonce‖method‖path‖sha256(body)` with its private signing key, and the worker verifies against the stored public key using a single-use nonce. **No password or passphrase is ever sent** — the passphrase never leaves the device.
+
+**The server never stores a personal backup blob (Model B).** Personal data lives on-device and in the user's **own Google Drive/iCloud** — see the Backup model section below. See `docs/BACKEND_STRATEGY.md` §5 and `docs/ROADMAP.md` for the full Phase 1.5 backend design.
 
 ---
 
@@ -208,6 +211,10 @@ The encrypted backup exports a `.penny` file containing every encrypted store (r
   - **Manual file** — user downloads the `.penny` and keeps it themselves.
   - **Google Drive (cloud)** — uploaded to the user's own Drive `appDataFolder`. Routed through the entitlement gate; **inert until a Google client ID + matching CSP entries are configured** (until then the UI is disabled).
 
+**Phase 1.5 (Model B):** the user's own Drive/iCloud becomes the **primary** recovery path — our servers store **no personal blob**. On a fresh device, recovery is: sign into Drive/iCloud → pull the encrypted `.penny` blob (which carries the data + device keypair + every Group Key) → enter passphrase; the server's membership table then says which groups to re-pull. Groups reappear from **server membership**, personal history from **Drive** (the WhatsApp split). A `mergeBundle()` (non-destructive, last-write-wins) merges pulls without clobbering local changes. See `docs/BACKEND_STRATEGY.md` §5.
+
+**Track D — automatic backup:** backup runs automatically (debounced on change + daily). It uploads only the **already-encrypted** `.penny` blob to the user's **own** Google Drive (`drive.appdata` scope) or iCloud — never to our servers, and readable by no one without the passphrase. When no cloud destination is chosen, a **daily on-device OPFS snapshot** is kept (same-origin — a convenience safeguard, not disaster recovery; the UI recommends cloud). Background pulls decrypt with the in-memory DMK (`openBundleWithDmk`); a blob from a different vault is refused (`ForeignBlobError`), never silently merged.
+
 **Full reset:** "Erase all data" wipes every local store and the encryption keys, returning to onboarding. Irreversible without a backup — no escrow.
 
 ---
@@ -219,6 +226,46 @@ Person names in the IOU tracker are Category 1 PII. They are:
 - Stored encrypted in the `personal_ious` store
 - Never sent to the Anthropic API
 - In AI context, referred to as "Person 1", "Person 2" — ordinal labels that are not consistent across sessions (so the AI cannot correlate IOU relationships over time)
+
+---
+
+## Group & household privacy (Phase 1.5 — Tracks B–E)
+
+Groups/sharing are an **additive, opt-in layer**. The offline single-user app stays fully usable with no backend, and nothing here weakens the local encryption model. The privacy design:
+
+### Device identity keys (Track B)
+
+- Each synced device holds two **P-256 keypairs** — an **ECDSA signing** key (authenticates requests to the workers) and an **ECDH wrapping** key (receives the DMK during device pairing and Group Keys during grants). Stored in the `device_keys` store.
+- **Private keys never leave the device in plaintext.** They are DMK-encrypted at rest like all other data and only their **public** halves are uploaded to the server.
+- Keys are generated **lazily at claim** — a purely local, offline user never generates them, so there is no identity footprint until the user opts into sharing.
+
+### Per-group encryption (Tracks B/E)
+
+- Each group has its own random **AES-256-GCM Group Key** (`group_keys` store). A user can be in many groups; **each group's data is independently encrypted** — a compromise of one group key never exposes another.
+- **Key exchange happens between members' public keys.** The server relays only **ciphertext key-grants** — it never sees a Group Key.
+- **Key rotation on member-leave:** the epoch is bumped and the new key re-wrapped to remaining members; a **departed member cannot decrypt events created after they left**. (Old epochs are retained so a long-offline member can still decrypt historical events — hence the composite `groupId:epoch` id.)
+
+### The multi-group sharing boundary (Track E)
+
+- **Per-item share = a group selector, not a boolean.** Every expense/goal/IOU defaults to **Personal**; the user explicitly pushes an item to one or more groups.
+- An item shared to "Trip" is **invisible to "Family"** and invisible to Personal-only views on other devices. This per-item selector is the privacy boundary between contexts.
+
+### Group member names & AI
+
+- Real member names (and any linked `Person` name/phone) are **Category 1 PII** — the same rule as IOU person names. They are **never sent raw to Chip**; the ordinal-label rule (`assignOrdinalLabels` — "Person 1/2/…", not stable across sessions) is the single enforcement point and covers group members too.
+
+### Settle-up stores no payment handles
+
+- Penny stores **no UPI VPA** and generates **no payee QR**. Settling is only a **recorded ledger entry**; the actual payment happens in whatever UPI app the user already trusts. This is a deliberate privacy choice — we don't hold payment identifiers.
+
+### Invites
+
+- An invite carries only `SHA-256(secret)` + TTL + optional `max_uses` on the server; the **raw secret lives only in the link/QR** (shared over WhatsApp), and the **Group Key is never in the invite**. Invites are one-time-use by default and revocable.
+
+### What the server can and cannot see (Model B)
+
+- **Can see:** device public keys, an optional public username, the group-membership graph (which `userId`s share a group), and per-group **encrypted** event + key-grant ciphertext.
+- **Cannot see:** any financial data, any personal backup blob (that's in the user's **own Drive/iCloud**), any Group Key or plaintext, any name/phone/amount. No phone, no PII.
 
 ---
 

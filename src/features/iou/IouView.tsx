@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { usePrivacy } from '@/context/PrivacyContext';
 import { useToast } from '@/context/ToastContext';
-import { accountsRepo, expensesRepo, ledgerEntriesRepo } from '@/core/db/repositories';
+import { useGroupContext } from '@/context/GroupContext';
+import { hasEntitlement } from '@/core/entitlement/entitlement';
+import { accountsRepo, expensesRepo, ledgerEntriesRepo, personsRepo } from '@/core/db/repositories';
 import { logActivity, restoreActivity } from '@/core/db/activityLog';
 import type { Account, Expense, LedgerEntry, Person } from '@/core/db/types';
 import { reconcileLinkedTxn } from '@/core/iou/expenseLink';
@@ -21,9 +23,12 @@ interface EntryFormState {
   editing?: LedgerEntry;
 }
 
-/** Full interactive IOU experience (list → ledger → add/edit/settle). Shared by IouPage + IouSlice. */
+/** Full interactive IOU experience (list → ledger → add/edit/settle). Rendered as the Expenses IOU tab (IouSlice). */
 export function IouView() {
   const { mode } = usePrivacy();
+  const { groups, claimed } = useGroupContext();
+  // Clarify the separation only when Groups are actually in use (screen 7).
+  const showGroupNote = hasEntitlement('sync') && claimed && groups.length > 0;
   const { showToast } = useToast();
   const {
     persons,
@@ -37,9 +42,11 @@ export function IouView() {
     getOrCreatePerson,
     savePerson,
     removePerson,
+    restorePerson,
     saveEntry,
     settle,
     reloadEntries,
+    reloadPersons,
     nowMs
   } = useIou();
   const { items: accounts } = useRepository<Account>(accountsRepo);
@@ -49,6 +56,7 @@ export function IouView() {
   const [entryForm, setEntryForm] = useState<EntryFormState | null>(null);
   const [settlePerson, setSettlePerson] = useState<Person | null>(null);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   const openPerson = openPersonId ? (persons.find((p) => p.id === openPersonId) ?? null) : null;
 
@@ -151,9 +159,55 @@ export function IouView() {
     setSettlePerson(null);
   }
 
+  // ── Archived persons (soft-archived on delete; kept for ledger integrity) ────────────
+  const archivedPersons = persons.filter((p) => p.isArchived);
+
+  // Permanently delete an archived person: drop their ledger entries + any linked cash transactions,
+  // then the person — with one Undo that restores all of it (cascade), mirroring deleteEntryAndTxn.
+  async function purgePerson(person: Person) {
+    const entries = ledgerEntries.filter((e) => e.personId === person.id);
+    const linkedTxns = entries
+      .map((e) => (e.linkedTxnId ? (expenses.find((x) => x.id === e.linkedTxnId) ?? null) : null))
+      .filter((x): x is Expense => x !== null);
+    await Promise.all(entries.map((e) => ledgerEntriesRepo.delete(e.id)));
+    await Promise.all(linkedTxns.map((t) => expensesRepo.delete(t.id)));
+    await personsRepo.delete(person.id);
+    reloadEntries();
+    reloadPersons();
+    if (linkedTxns.length) notifyTxnChanged();
+    const logId = logActivity({
+      action: 'DELETE',
+      entityType: 'person',
+      entityId: person.id,
+      summary: `Deleted ${person.name}`,
+      snapshot: JSON.stringify(person),
+      cascade: JSON.stringify([
+        ...entries.map((e) => ({ entityType: 'ledgerEntry', record: e })),
+        ...linkedTxns.map((t) => ({ entityType: 'expense', record: t }))
+      ])
+    });
+    showToast({
+      message: `Deleted ${person.name}`,
+      actionLabel: 'Undo',
+      onAction: async () => {
+        await restoreActivity(logId);
+        reloadEntries();
+        reloadPersons();
+        if (linkedTxns.length) notifyTxnChanged();
+      }
+    });
+  }
+
   return (
     <>
       <div className="flex-1 overflow-y-auto pb-24 flex flex-col">
+        {showGroupNote && (
+          <p className="px-4 py-2.5 text-[11px] text-tertiary border-b border-theme flex items-start gap-1.5">
+            <i className="ti ti-info-circle mt-0.5 flex-shrink-0" aria-hidden="true" />
+            Your <b className="font-semibold text-secondary">personal</b> IOUs. Group balances live in each group — kept
+            separate on purpose.
+          </p>
+        )}
         {(totalOwedToYou > 0 || totalYouOwe > 0) && (
           <div className="flex gap-4 px-4 py-3 border-b border-theme">
             {totalOwedToYou > 0 && (
@@ -170,6 +224,56 @@ export function IouView() {
         )}
 
         <PersonListView persons={personsWithBalance} overdueCount={overdueCount} mode={mode} onOpen={setOpenPersonId} />
+
+        {archivedPersons.length > 0 && (
+          <div className="mt-2 border-t border-theme">
+            <button
+              type="button"
+              onClick={() => setShowArchived((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 text-xs font-semibold text-tertiary"
+            >
+              <span>Archived ({archivedPersons.length})</span>
+              <i className={`ti ti-chevron-${showArchived ? 'up' : 'down'}`} aria-hidden="true" />
+            </button>
+            {showArchived && (
+              <div className="flex flex-col">
+                {archivedPersons.map((p) => {
+                  const net = netFor(p.id);
+                  return (
+                    <div key={p.id} className="flex items-center gap-2 px-4 py-2.5 border-t border-theme">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-primary truncate">{p.name}</p>
+                        {Math.abs(net) >= 1 && (
+                          <p className={`text-[11px] ${net > 0 ? 'text-success' : 'text-danger'}`}>
+                            {mode === 'open'
+                              ? net > 0
+                                ? `owes you ${formatCurrency(net)}`
+                                : `you owe ${formatCurrency(-net)}`
+                              : '••••'}
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        className="text-xs font-bold text-[var(--color-primary)]"
+                        onClick={() => void restorePerson(p.id)}
+                      >
+                        Restore
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        icon="ti-trash"
+                        aria-label={`Delete ${p.name} permanently`}
+                        className="w-8 h-8 text-tertiary hover:text-danger"
+                        onClick={() => void purgePerson(p)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <Button

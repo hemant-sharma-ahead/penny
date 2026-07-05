@@ -3,19 +3,11 @@ import { useSettings, type ModuleVisibility } from '@/context/SettingsContext';
 import { PATHS } from '@/router/paths';
 import { Card, IconBadge } from '@/components/ui';
 
+// Home tools now = News + Calculators only. Insurance & Loans → money stat card; Cash Flow → Safe-to-spend;
+// Health → folded into Home (advisor); Tax → a line in the money stat card.
 const TOOL_TILES: { label: string; icon: string; path: string; color: string; moduleKey: keyof ModuleVisibility }[] = [
-  { label: 'Insurance', icon: 'ti-shield', path: PATHS.app.insurance, color: '#3b82f6', moduleKey: 'insurance' },
-  { label: 'Loans', icon: 'ti-calculator', path: PATHS.app.loans, color: '#06b6d4', moduleKey: 'loans' },
-  {
-    label: 'Health Score',
-    icon: 'ti-heart-rate-monitor',
-    path: PATHS.app.health,
-    color: '#ec4899',
-    moduleKey: 'health'
-  },
-  { label: 'Tax', icon: 'ti-receipt-tax', path: PATHS.app.tax, color: '#8b5cf6', moduleKey: 'tax' },
-  { label: 'Cash Flow', icon: 'ti-trending-down', path: PATHS.app.cashflow, color: '#14b8a6', moduleKey: 'cashflow' },
-  { label: 'News', icon: 'ti-news', path: PATHS.app.news, color: '#f59e0b', moduleKey: 'news' }
+  { label: 'News', icon: 'ti-news', path: PATHS.app.news, color: '#f59e0b', moduleKey: 'news' },
+  { label: 'Calculators', icon: 'ti-math-function', path: PATHS.app.calculators, color: '#f97316', moduleKey: 'calc' }
 ];
 
 export function ToolsGrid() {

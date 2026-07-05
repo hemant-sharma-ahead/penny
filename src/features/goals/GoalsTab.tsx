@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button, EmptyState } from '@/components/ui';
 import { GoalCard } from './GoalCard';
 import { GoalForm } from './GoalForm';
+import { SuggestedGoals } from './SuggestedGoals';
 import type { Goal } from './useGoals';
 
 interface GoalsTabProps {
@@ -22,6 +23,9 @@ export function GoalsTab({ goals, mode, saveGoal, removeGoal }: GoalsTabProps) {
   return (
     <>
       <div className="flex-1 overflow-y-auto pb-24">
+        <div className="px-4 pt-4">
+          <SuggestedGoals goals={goals} />
+        </div>
         {goals.length === 0 ? (
           <div className="px-4 py-6">
             <EmptyState icon="ti-target" title="No goals yet" description="Tap + to set your first savings goal." />

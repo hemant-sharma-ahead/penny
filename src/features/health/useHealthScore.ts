@@ -55,5 +55,15 @@ export function useHealthScore() {
     [derived, income, employmentType]
   );
 
-  return { healthScore, monthlyIncome, setMonthlyIncome, incomeNeeded: income <= 0 };
+  const hasEmergencyGoal = (data?.goals ?? []).some((g) => /emergency/i.test(g.name));
+
+  return {
+    healthScore,
+    derived,
+    employmentType,
+    hasEmergencyGoal,
+    monthlyIncome,
+    setMonthlyIncome,
+    incomeNeeded: income <= 0
+  };
 }

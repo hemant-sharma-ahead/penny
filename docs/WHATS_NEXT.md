@@ -6,46 +6,21 @@ If you have ideas or feedback, open a GitHub issue referencing the relevant `doc
 
 ---
 
-## In progress (Phase 1, M13 — Calculators)
+> **This is a future-ideas thinking space, not a status tracker.** For what's actually built / in
+> progress, see the authoritative sources: [`CLAUDE.md`](../CLAUDE.md) (milestone table),
+> [`docs/MILESTONES.md`](MILESTONES.md) (full history), [`docs/ROADMAP.md`](ROADMAP.md) (phase scope +
+> decisions), and [`docs/plans/`](plans/). As of 2026-07-05: Phase 1 (M0–M15) ✅, Pre-Phase 1.5 ✅, and
+> Phase 1.5 Groups (Track E) is deployed + Track F recovery (F1–F3) is done — remaining Phase 1.5 work is
+> Track E live verification, Track F4 (device pairing/QR), and the Stage F closeout.
 
-These are being built now by the M13 team:
+## Phase 1.5 — remaining (Groups & Household OS)
 
-- **FIRE calculator** — Financial Independence, Retire Early. Input: current corpus, savings rate, target monthly spend in retirement. Output: target corpus, years to FIRE, monthly savings needed.
-- **HRA exemption calculator** — Which of the three HRA exemption rules gives maximum benefit. Helps salaried employees know how much rent to claim.
-- **PPF maturity calculator** — 40-year projection with annual deposit variations, partial withdrawals, loan against PPF.
-- **NPS corpus calculator** — Age-adjusted projection with lifecycle allocation, expected returns by asset class, pension estimate at 60.
-- **Step-up SIP calculator** — SIP with annual percentage increase. Shows how a 10% annual step-up compares to flat SIP.
-- **Old vs new tax regime comparison** — Side-by-side based on actual income, investments (80C/80D/24B). Shows breakeven point.
+Most of Groups & Household OS is built (see the trackers above). Still to do within Phase 1.5:
 
----
-
-## Near term (Phase 1, M14 — News & Contact)
-
-- **Finance news feed** — RSS headlines from ET Markets, Mint, RBI, SEBI. Shows title + summary + link-out. No content stored. Filter by topic (markets, IPOs, RBI/SEBI, personal finance).
-- **Contact/Feedback page** — mailto: deep-link to `support@penny.app`. Feedback form captured via email, no backend.
-
----
-
-## Pre-Phase 1.5 (in progress)
-
-- **Shared component library** (`src/components/ui/`) — Card, Modal, Button, TextInput, etc. Consistency + React Native migration readiness.
-- **Onboarding v2** — Add DOB (for FIRE/NPS/EPF projections), employment type (gates EPF/tax modules), username (for future household invites).
-- **Expense category management** — Rename, merge, delete categories. Visual icon picker (~80 curated SVGs). Bulk transaction operations.
-- **Activity log** — Every create/update/delete logged locally. Foundation for undo (Phase 2) and household activity feed (Phase 1.5).
-
----
-
-## Phase 1.5 (Groups & Household OS)
-
-See `docs/ROADMAP.md` for full technical design.
-
-- **Household groups** — Couple, Family, Flatmates, Custom. A user can be in multiple groups. Home screen context switcher.
-- **Shared expenses** — Add expenses to a group, split bills, track who owes whom.
-- **Joint goals** — Goals visible to all group members, joint contributions.
-- **Optional net worth visibility** — For Couple/Family groups, each member can opt in to showing their net worth to the group.
-- **Group dashboard** — Merged view: joint net worth, shared expenses summary, shared goals progress.
-- **Group key exchange** — Invite by @username. Group key exchanged via public-key crypto.
-- **Leave group flow** — Settlement summary → frozen read-only archive → export or delete.
+- **Device pairing / QR (Track F4)** — link a second device / "Penny on laptop"; reuses the ECDH grant machinery. To be designed before building.
+- **Group recovery after reclaim** — list-my-groups sync + co-member key re-grant so a reclaimed account can decrypt group history without a backup (deferred Track F follow-up).
+- **Stage F closeout** — combined household net-worth view + the remaining Phase-1.5 polish drawn up after Track E/F land.
+- **Server-side E2EE data blob** (optional, Phase 2-ish) — store the passphrase-wrapped DMK + encrypted data so username+passphrase can restore *everything* without the user's own cloud (reverses own-Drive Model B + reopens storage cost — a deliberate, costed decision).
 
 ---
 

@@ -1,0 +1,22 @@
+{
+  "name": "penny-groups",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Penny Groups Worker — shared-ledger relay for Groups & Household OS (Phase 1.5 Track E). Stores ciphertext-only group events + identity metadata; never plaintext financial data (Model B).",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:prod": "wrangler deploy --env production",
+    "type-check": "tsc --noEmit",
+    "db:migrate:local": "wrangler d1 migrations apply penny_groups --local",
+    "db:migrate:remote": "wrangler d1 migrations apply penny_groups --remote",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240117.0",
+    "typescript": "~6.0.2",
+    "wrangler": "^3.0.0"
+  }
+}

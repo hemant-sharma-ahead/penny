@@ -6,24 +6,24 @@ Complete record of every milestone, step, and status from M0 to present. See [`d
 
 ## Phase 1 milestones
 
-| Milestone                            | Status                    |
-| ------------------------------------ | ------------------------- |
-| M0: Repo + tooling + docs            | ✅ Complete               |
-| M1: Running skeleton (5-tab layout)  | ✅ Complete               |
-| M2: Crypto + DB layer                | ✅ Complete               |
-| M3: CI PII gate                      | ✅ Complete               |
-| M4: Onboarding flow                  | ✅ Complete               |
-| M5: Feature modules (no AI)          | ✅ Complete               |
-| M6: PWA + responsive polish          | ✅ Complete               |
-| M7: Hardening                        | ✅ Complete               |
-| M8: Phase 1 polish                   | ✅ Complete               |
-| M9: Income, transfers & cash         | ✅ Complete               |
-| M10: IPO tracker + GMP               | ✅ Complete               |
-| M11: Extended asset tracking         | ✅ Complete               |
-| M12: Portfolio enhancements          | ✅ Complete               |
-| M13: Financial calculators           | ✅ Complete               |
-| M14: Finance news + Contact/Feedback | 🚧 In progress (Pankhuri) |
-| M15: UI polish + feature refinements | ✅ Complete               |
+| Milestone                            | Status      |
+| ------------------------------------ | ----------- |
+| M0: Repo + tooling + docs            | ✅ Complete |
+| M1: Running skeleton (5-tab layout)  | ✅ Complete |
+| M2: Crypto + DB layer                | ✅ Complete |
+| M3: CI PII gate                      | ✅ Complete |
+| M4: Onboarding flow                  | ✅ Complete |
+| M5: Feature modules (no AI)          | ✅ Complete |
+| M6: PWA + responsive polish          | ✅ Complete |
+| M7: Hardening                        | ✅ Complete |
+| M8: Phase 1 polish                   | ✅ Complete |
+| M9: Income, transfers & cash         | ✅ Complete |
+| M10: IPO tracker + GMP               | ✅ Complete |
+| M11: Extended asset tracking         | ✅ Complete |
+| M12: Portfolio enhancements          | ✅ Complete |
+| M13: Financial calculators           | ✅ Complete |
+| M14: Finance news + Contact/Feedback | ✅ Complete |
+| M15: UI polish + feature refinements | ✅ Complete |
 
 ---
 
@@ -152,7 +152,7 @@ See git log for M12 step details. Key deliverables: MF/stock search with live pr
 
 ---
 
-## M14 (in progress — Pankhuri)
+## M14 (✅ Complete — Pankhuri)
 
 Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Contact/Feedback (mailto: deep-link)
 
@@ -280,14 +280,14 @@ blob, no PII); recovery/multi-device via username lookup + passphrase + QR devic
 Cloudflare Workers + D1 + R2 + KV backend (API Proxy ships first); **settle-up records a
 ledger entry only — Penny never touches the money flow** (no stored VPA/QR).
 
-| Track   | Feature                                                                                                                                                                                          | Backend? | Status                                                                    |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | ------------------------------------------------------------------------- |
-| Track 1 | IOU pairwise-ledger redesign — Person entity, per-person running balance, partial settlement, expense-seeding, settle→income linkage, both-way edit re-sync, combined undo, multi-year demo seed | No       | ✅ Complete (2026-06-27) — see notes below                                |
-| Track A | API Proxy worker — passthrough + tiered cache for Yahoo/MFAPI/NPS/IPO, market Cron-snapshot, permanent D1 cache + morning queue for vahandetails, CORS, N→1                                       | Yes      | ✅ Complete (deployed 2026-07-01) — see notes |
-| Track B | Client crypto additions — identity keypairs, `device_keys`/`group_keys` stores, non-destructive merge restore                                                                                    | No       | ⏳ Planned                                                                |
-| Track C | Auth/Identity worker + claim flow — D1 users/devices, signed challenge/response, recover-from-nothing, R2 blob store                                                                             | Yes      | ⏳ Planned                                                                |
-| Track D | Sync layer — `core/sync/` cursor + optimistic personal-blob sync over the activity log                                                                                                           | Yes      | ⏳ Planned                                                                |
-| Track E | Groups worker + N-party split engine + group UX — invites/key-grants/events, context switcher, leave + key rotation                                                                              | Yes      | ⏳ Planned                                                                |
+| Track   | Feature                                                                                                                                                                                                     | Backend? | Status                                        |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------- |
+| Track 1 | IOU pairwise-ledger redesign — Person entity, per-person running balance, partial settlement, expense-seeding, settle→income linkage, both-way edit re-sync, combined undo, multi-year demo seed            | No       | ✅ Complete (2026-06-27) — see notes below    |
+| Track A | API Proxy worker — passthrough + tiered cache for Yahoo/MFAPI/NPS/IPO, market Cron-snapshot, permanent D1 cache + morning queue for vahandetails, CORS, N→1                                                 | Yes      | ✅ Complete (deployed 2026-07-01) — see notes |
+| Track B | Client crypto additions — ECDSA/ECDH P-256 identity keypairs (lazy at claim), `device_keys`/`group_keys`/`sync_cursor` stores (Dexie v8), non-destructive `mergeBundle()` restore                           | No       | ✅ Complete (2026-07-01) — see notes below    |
+| Track C | Auth/Identity worker + claim flow — `workers/auth/` (D1 users/devices), signed challenge/response auth, client `signedFetch`/`claim`, `sync` entitlement (dark). Model B: no personal blob/R2 on server     | Yes      | ✅ Complete (2026-07-01) — see notes below    |
+| Track D | Automatic backup + multi-device sync — `core/sync/` provider abstraction (Drive live, iCloud dormant, OPFS daily floor), `backupEngine` + `mergeBundle`, destination chooser UI (Model B, user's own cloud) | Yes      | ✅ Complete (2026-07-01) — see notes below    |
+| Track E | Groups worker + N-party split engine + group UX — invites/key-grants/events, context switcher, leave + key rotation                                                                                         | Yes      | 🚧 E1–E4 ✅, E5 core ✅, deployed; verify + E5 tail + Stage F pending |
 
 **Track A — API Proxy Worker (2026-06-27):** first backend track; the deploy template for B–E.
 A Cloudflare Worker (`workers/api-proxy/`) **transparently proxies + caches** the external finance
@@ -310,7 +310,172 @@ per-user worker call. Step 9: **deployed** — KV `CACHE` + D1 `penny_proxy` (AP
 live smoke tests passed (`/health`, `/market`, `/yf` MISS→HIT, `/mfapi`, `/vehicle` queued, CORS 204);
 app baked with `VITE_API_PROXY`. This is the **deploy template for Tracks B–E**. **Deferred
 (post-close):** merchant-dictionary endpoint (with the categorization track), edge Cache API layering.
-**Next: Track B** (client crypto additions).
+
+**Track B — Client Crypto Additions (2026-07-01):** built the client-side cryptographic
+primitives Tracks C–E depend on, entirely offline. `engine.ts` gains asymmetric device-identity
+primitives — **ECDSA P-256** signing + **ECDH P-256** wrapping keypairs, `sign`/`verify`, JWK
+export/import, and `deriveSharedWrappingKey` (ECDH → AES-GCM KEK). New `src/core/crypto/identityKeys.ts`
+orchestrates the keypair lifecycle: `ensureIdentityKeys()` is **lazy + idempotent** (called at
+claim in Track C — not wired into onboarding here), plus `getSigningKeypair`/`getWrappingKeypair`/
+`getPublicJwks`. Three new DMK-encrypted stores (Dexie **v8**, in `BACKUP_STORES` so they ride
+recovery): `device_keys` (id = kind), `group_keys` (composite `groupId:epoch` id — keeps rotation
+history), `sync_cursor`. `backupManager.ts` adds non-destructive **`mergeBundle()`** (LWW on
+`updatedAt`, preserves local `createdAt`, upsert-only) + the pure `shouldApplyIncoming()` helper;
+destructive `importBackup` unchanged and `security` is excluded from merge. **Decision:** wrapping
+keypair = ECDH P-256. **Limitation:** whole-blob merge can't observe remote deletes — delete
+tombstones arrive with the activity-log delta sync in Track D. Gate green (type-check, lint,
+**304 tests** incl. new `tests/crypto/identityKeys.test.ts` + `tests/backup/mergeBundle.test.ts`).
+**Out of scope (deferred):** `'sync'` entitlement + `claim.ts` wiring (Track C); delta sync (Track D).
+**Next: Track C** (Auth/Identity worker + claim flow).
+
+**Track C — Auth/Identity Worker + Claim Flow (2026-07-01):** the first per-user backend, built from
+the Track A template. New **`workers/auth/`** worker: D1 **`users` + `devices`** (identity metadata
+only — **Model B: no `user_blobs`, no R2 personal blob, no server recover endpoint**; personal
+recovery is the user's own Drive/iCloud). Endpoints `POST /username/check`, `POST /register`
+(first-claim-wins username, idempotent per userId), `GET /challenge` (single-use KV nonce, 60s), and
+**signed** `GET /whoami` + `POST /device`. Signed-request auth verifies an ECDSA P-256 signature over
+`nonce\nMETHOD\npath\nsha256(body)` against the device's stored public key — **no passwords/passphrase
+ever reach the server**; per-IP + per-username KV rate-limits. Pure logic in `src/lib/` (unit-tested).
+Client **`src/core/identity/`**: `signedFetch` (the reusable authenticated-call choke point for D/E)
+and `claim` (ensureIdentityKeys → username check → register → persist `Profile.deviceId`/username →
+confirm via `/whoami`); `AUTH_BASE` via `VITE_AUTH_PROXY` (falls back to `${VITE_API_PROXY}/auth`).
+New **`sync` entitlement is dark by default** (readiness-gated on Track D, not pricing) — the gated
+"Account & Sync" claim UI in `ProfilePage` is invisible in normal builds. **Auth foundation only** —
+QR/ECDH device-pairing UX deferred. Gate green (type-check, lint, **317 tests** incl.
+`tests/worker/auth.test.ts` + `tests/identity/claim.test.ts`; `workers/auth` type-checks). Cloudflare
+provisioning + deploy is **user-run** (see `workers/auth/README.md`). **Next: Track D** (Sync layer).
+
+**Track D — Automatic Backup + Multi-Device Sync (2026-07-01):** reframed to Model B — backup/sync to
+the user's **own cloud**, our servers store nothing (no `PUT /blob`). A **provider abstraction**
+(`src/core/sync/providers/`): `googleDriveProvider` (live on web — silent token so no surprise popup,
+`403 storageQuotaExceeded` → `QuotaExceededError`, `headRevisionId` change tag), `icloudProvider`
+(**code-complete but dormant** — `isAvailable()` false until the Capacitor native shell provides the
+bridge), and `localBackup` (OPFS dated snapshots — the **daily on-device floor** when no cloud is
+chosen). `backupManager.openBundleWithDmk` opens a blob with the in-memory DMK (no passphrase) for
+background pulls (`ForeignBlobError` for a different-vault blob). **`backupEngine`** (pure `decide.ts` +
+`sync_cursor` `remoteTag`/`pushedAt`/`lastBackupAt`) pushes on debounced change (activity-log
+`subscribeActivity`) + a daily timer, pulls periodically/on-foreground and `mergeBundle`s (LWW). Mounted
+via `SyncProvider` in the unlocked `AppShell`; `useBackupStatus` drives an `AutoBackupCard` (destination
+chooser + status + "Back up now" + benefit copy). **Whole-blob; pull-merge-before-push + LWW**
+(trade-offs/alternatives recorded in the plan). **Gating:** free `cloud_backup` entitlement — no account
+claim required; the on-device daily backup is always on. Gate green (type-check, lint, **339 tests**
+incl. `tests/sync/*`, `tests/backup/openBundleWithDmk`, `tests/lib/debounce`). Cloud is **user-run**
+(Drive needs `VITE_GOOGLE_CLIENT_ID` + CSP). **Deferred:** the native shell that activates iCloud;
+encrypted delta; etag CAS. **Next: native bring-up (iCloud) / Track E** (Groups).
+
+**Track E — Groups & Household OS · E1: worker + group crypto + client wiring (2026-07-01):** the third
+per-user backend (`workers/groups/` — `penny-groups`), mirroring the Track C template. **Model B /
+ciphertext-only:** D1 holds group metadata + membership + invites + wrapped key-grants + an event index
+(five tables in `migrations/0001_init.sql`); event bodies live in **R2** as `gevent/{group_id}/{seq}` =
+`AES-GCM(GroupKey_epoch, eventJson)`; the server never sees the group name (`enc_name`), member names,
+financial data, or Group Keys. Routes (`src/index.ts`) — create/get group · invite create/redeem/revoke
+(stores only `SHA-256(secret)`) · members + member changes (leave/remove/set_role) · key-grant relay +
+fetch · event append→R2/fetch · settle-close/reopen — each **signed (challenge/response) + membership/
+role-checked**. Signature verification reads the device signing key from the **auth D1 bound read-only
+(`AUTH_DB`)**; the worker issues its own `/challenge` nonces in its own KV. Client: `core/groups/keys.ts`
+(per-epoch Group-Key gen; `wrapGroupKeyFor`/`unwrapGroupKey` grants via Track B `deriveSharedWrappingKey`;
+`encryptForGroup`/`decryptFromGroup`), `core/groups/groupsClient.ts` (endpoint wrappers), `GROUPS_BASE`
+(`apiBase.ts`) + a `base` param on `signedFetch` so the choke point is reused. Local mirrors in **Dexie
+v9** (`groups`/`group_members`/`group_events`) + repos + `BACKUP_STORES` (ride recovery). Tests:
+`tests/worker/groups.test.ts` (roles/invites/visibility/signature) + `tests/groups/keys.test.ts` (grant +
+event round-trips). Gate green (worker `type-check`, app `tsc`, lint, **355 tests**). **Not deployed**
+(user-run — see `workers/groups/README.md`); behind the **`sync` entitlement (dark)**. **Next: E2**
+(create/invite/join/membership UX).
+
+**Track E — E3 split engine + E2 service layer (2026-07-02):** **E3** `src/core/groups/split.ts` (pure,
+13 tests) — `computeShares` (equal/unequal/percent/shares, integer-paise so every split reconciles),
+`foldGroupBalances` (event-sourced net per member; edits supersede, deletes tombstone, settlements move
+money), `whoOwesWhom` (greedy minimal transfers). **E2** `src/core/groups/groupsService.ts` — orchestrates
+worker + crypto + local mirror: `createGroup` (encrypt name → create → persist key + local group/owner),
+`createInvite`/`buildJoinLink`/`parseJoinSecret` (secret only in the link; server stores only the hash),
+`redeemInvite` (join + `awaitingKey`), `syncGroupKeys` (pull grants → unwrap → decrypt name),
+`grantKeysToMembers`, `setMemberRole`/`leaveGroup`/`removeMemberAndRotate`/`rotateGroupKey`. New worker
+endpoint `POST /group/:id/rotate` (epoch bump + re-encrypt name on leave). Group UX (create/join/composer/
+dashboard) wires in E4 with the context switcher. Gate green (app+worker tsc, lint, **394 tests**).
+
+**Track E — E4 sync engine (2026-07-02):** `src/core/groups/groupSync.ts` (4 tests) mirrors the shared
+ledger between device and worker (ciphertext-only). `appendGroupEvent` (encrypt payload → local event →
+push), `pushPending` (encrypt + append un-synced events, record server `seq`), `pullGroupEvents` (fetch
+since cursor → decrypt with the epoch key → **last-writer-wins on `updatedAt`**, skips epochs lacking a
+grant, tombstone-aware), `syncGroup`; `groupBalances` folds via `split.ts`, `groupFeed` lists live
+shared-expenses/settlements. Cursor scope `group:${groupId}`. This completes the **data/logic spine** of
+Track E (worker + crypto + service + split + sync all tested); the remaining E4 work is the **UI**
+(context switcher, dashboard, composer, settle) + **E5**. Gate green (tsc, lint, **398 tests**).
+
+**Track E — E4 UI complete (2026-07-02):** **E4b** `src/context/GroupContext.tsx` (active Personal|group
+scope) + `ContextSwitcher` (header bar, gated on `hasEntitlement('sync')`) + `CreateGroupModal`/
+`JoinGroupModal` + `GroupDashboard` (your balance, members, feed); Home re-scopes to the dashboard when a
+group is active. **E4c** `SharedExpenseComposer` (Equal/Unequal/%/Shares with a live breakdown via
+`split.ts` → `shared_expense` event), `SettleUpGroupModal` (→ `settlement`), `GroupMembersModal` (roles,
+invite link, leave, settle & close/reopen); `groupsService.closeGroup`/`reopenGroup`. All behind the dark
+`sync` entitlement. **Also fixed the production build** (`npm run build` = `tsc -b` with `erasableSyntaxOnly`,
+which the dev `tsc --noEmit` doesn't enforce and which had been red since Track C/D): typed `req<T>` client
+helper (was `.then(ok)` → `unknown`), error classes assign fields instead of param-property constructors
+(`groupsClient`/`claim`/`sync providers`), `split` index guard. **Build green + lint + 398 tests.** Remaining:
+**E5** (trip↔group link, per-item share, cash-negative guard, seed).
+
+**Track E — E5 spine + cash guard + share-to-group + seed cash fix (2026-07-02):** **E5a** —
+`balanceCalculator.projectedBalance`, `Expense`/`Goal.shareWith?`, `ActiveEvent.linkedGroupId?`,
+`groupsService.shareExpenseToGroup` (equal-split mirror). **E5b** — **cash-negative guard**: a soft,
+non-blocking warning banner in `ExpenseForm` when a **cash** account would drop below ₹0 (`accountBalances`
+from `useExpenses` → `ExpensesPage` → `TransactionsSlice` → form); **"Share with a group"** picker in
+`ExpenseForm` (expense type, sync-entitled) mirroring an equal-split `shared_expense` + recording
+`shareWith` (add-time and edit-to-share). **E5c** — demo seed adds a monthly ATM withdrawal + pre-trip
+withdrawal + higher cash opening so the Cash Wallet never goes negative (guarded by
+`tests/db/seedCash.test.ts`; `seedDemoData` made `window`-safe). Remaining E5 — vacation→group link UI,
+share-later row action, demo group fixtures — deferred to the **Stage-F bring-up** with the live worker.
+Gate: build + lint + **404 tests**.
+
+**Track E — Phase 1.5 enablement + deploy (2026-07-02):** auth + groups workers **deployed**
+(`penny-auth`/`penny-groups` on `*.hesh.workers.dev`), reusing the api-proxy KV + dedicated D1s, R2
+dropped (event ciphertext inline in D1). The `sync` entitlement is now the **env-driven Phase-1.5 launch
+switch** — `hasEntitlement('sync')` reads `VITE_ENABLE_SYNC` (ship off, flip on per-deploy; no code
+change). Groups additionally require a **claimed username**: the claim modal now makes the username
+required (was optional — the Phase-1 artifact), `GroupContext` exposes `claimed`/`username`, and the
+context switcher shows a **"Claim a username to use Groups"** CTA (→ Profile) until claimed; the
+"Share with a group" entry is gated the same way. `.env.example` documents the flag; `.env.local`
+(dev) + `.env.production` set it on. Gate: build (sync on) + worker type-check + lint + **404 tests**.
+
+**Track E — Spending-clarity refinement (categories + analytics, 2026-07-02):** ahead of the group UX,
+a taxonomy/analytics pass so "other" money never pollutes everyday spend. Added a **Legal** intent group
+(11 categories: Advocate/Court/Stamp/Notary/Filing/Affidavit/Typing/Exemption/Legal-Transport/Legal-Food/
+Misc) — seeded as defaults, back-filled to existing users via the additive `penny_cats_v4` seed, and wired
+into the Tax Footprint bands (`categoryTaxMap.ts`: advocate/court/govt fees exempt, ancillary spend taxed).
+Introduced a **daily-routine vs set-aside** split: `INTENT_GROUP_META` gains a `routine` flag +
+`isRoutineGroup()`; the Analytics donut + "Daily-routine spending" list now show only routine groups, while
+**Travel, Family & Giving, Legal, Financial, Other, and money lent (IOU-linked, any category)** are
+summarised in a separate **"Set aside"** card (lending under a synthetic *Lending & IOU* bucket). Recap /
+anomalies / velocity / prev-month all run on the routine basis; event-tagged vacation spend stays excluded
+as before. Family support stays a plain category (`cat-family-support`) — **no IOU-model change** (user's
+call). `useExpenses` exposes `iouLinkedTxnIds`; threaded through `ExpensesPage → AnalyticsSlice →
+useExpenseAnalytics`. Also fixed a **duplicate-category** bug: the demo seed had minted a parallel
+`demo-cat-*` set (Groceries/Rent/Transport/Medical/Investments/…) that shadowed the real defaults, so
+the picker showed each staple twice. The seed now reuses the real defaults (`ALL_DEFAULT_CATEGORIES` +
+a key→default-id map in `dedupeDemoCategories.ts`), and a one-time, once-flagged
+(`penny_demo_cats_deduped`) migration heals already-seeded databases — remapping expenses/budgets/
+templates/merchant-memory off the legacy ids and deleting the orphaned demo categories (meaning
+preserved). Gate green (tsc, lint, **366 tests** incl. `tests/expenses/categoryTaxonomy` +
+`tests/db/dedupeDemoCategories`).
+
+Follow-up polish: the Analytics monthly view now leads with an **all-inclusive "Total spent this month"**
+(`monthTotal` = daily-routine + set-aside + events) above the routine breakdown; **Travel** gains Trip
+Prep / Trip Shopping / Fuel (fuel tax band) / Vehicle Service and **Education** gains Transportation Fee /
+School Trip / Competition (additive seed bumped to `penny_cats_v5`, tax bands wired); and two default
+icons that were blank in the shipped webfont — **Food on Trip** (`ti-fork`→`ti-tools-kitchen-2`) and
+**Savings Transfer** (`ti-piggy-bank`→`ti-pig-money`) — are fixed, guarded by a webfont-icon regression
+test. Because definition edits don't reach already-seeded records, two once-flagged migrations were added
+in `dedupeDemoCategories.ts`: `repairCategoryIcons` (patches webfont-missing icons in place) and
+`reconcileDefaultCategories` (applies name/group changes only when the stored value still matches the old
+default, so user edits aren't clobbered).
+
+Category taxonomy round 2 (2026-07-02): **Daily Living** gains everyday **Fuel** + **Salon & Grooming**;
+the travel Fuel is renamed **Trip Fuel** (kept); **Home & Utilities** gains **Home Services**; a new
+set-aside **Renovation** intent group ships 8 categories (Materials, Labour & Contractor, Furniture,
+Fixtures & Fittings, Painting, Interior & Design, Appliances, Other); **Education** gains Transportation
+Fee / School Trip / Competition; **Income** splits **Dividends** and **Interest** and adds **Capital
+Gains**, **Bonus & Incentive**, **Reimbursements**. Tax-footprint bands wired for all new expense
+categories (Fuel/Trip Fuel → fuel band; Salon/Home Services/Renovation → GST 18%); additive seed bumped
+to `penny_cats_v6`; migration-map aliases added. Gate green (tsc, lint, **377 tests**).
 
 **Track 1.1 — IOU ↔ transactions + net worth (2026-06-26):** a lend/borrow is now one event with two
 views. **Lent = an Expense** (money out) + "they owe you"; **Borrowed = an Income** (money in) + "you
@@ -349,3 +514,50 @@ green (type-check, lint, 235 tests, build). **Deferred follow-ups (a)–(c) all 
 Adjacent (groups-independent): deterministic **rules-based categorization engine** (on-device,
 reusing `merchant_memory`) + Worker-served merchant dictionary, the foundation for future
 text/voice quick-add — AI is a fallback, not the primary path. See the plan.
+
+**Track E — E5 tail + phantom-claim fix (2026-07-04):** E5 tail landed (vacation→group link in
+`EventsModal`, share-later `ShareToGroupModal` swipe action, demo group fixtures `seedGroupFixtures.ts`)
+plus a mockup-fidelity realignment (composer reuses the expense `CategoryPickerModal`; `accountBridge.ts`
+records the real personal txn on cash-out/settle; Home Groups card `HomeGroupsCard` + `useGroupSummaries`).
+**Phantom-claim bug fixed (Track F/F1):** `seedGroupFixtures` had stamped a fake `deviceId`/`username` so
+`claimed` read true without a server registration or device keys — Create/Join surfaced but every signed
+call failed. Fix: the demo no longer fakes a claim (so `deviceId` is set only by a real `claimAccount()`),
+and `HomeGroupsCard` surfaces groups for *viewing* when unclaimed with New/Join → "Claim to create". Groups
+are feature-complete + deployed; end-to-end live verification still pending.
+
+**Track F — Multi-Device, Sync & Recovery (2026-07-04/05):** the recovery model, built on the realization
+that uninstall/reinstall (and iOS's ~7-day storage eviction) drop normal users into an orphaned-handle
+state, so recovery is load-bearing. Plan + rationale: [`docs/plans/phase-1.5-track-F-multi-device-recovery.md`](plans/phase-1.5-track-F-multi-device-recovery.md).
+Three recovery surfaces, one shared key-grant mechanism:
+
+- **F1 — phantom-claim fix** ✅ (see above).
+- **F2 — recovery hardening + restore-on-reinstall + account-start flow** ✅: deregister-failure surfacing
+  on erase (warns before orphaning a claimed handle); **mandatory username at onboarding** (sync builds) +
+  live availability check; **claim at onboarding** (`SetupCredentialsScreen` calls `claimAccount`);
+  post-claim backup nudge; **account-start flow** — Preview → `AccountStartScreen` (Screen A: Start
+  fresh / Restore / Reclaim cards) → `AccountRecoveryScreen` (Screen B: segmented new/restore/reclaim
+  tabs); restore-on-reinstall via `importBackup`; **handle-recovery** (`ChooseHandleScreen`) driven by
+  `IdentityReconciler` (in `AuthGuard`) — post-restore `/whoami` → re-register → pick a new handle if the
+  old one was taken. (Consolidated + removed the interim `RestoreAccountScreen`/`ReclaimAccountScreen`.)
+- **F3 — passphrase reclaim (Ed25519 challenge, scheme A over textbook SRP)** ✅: auth worker recovery
+  verifier (public Ed25519 key + salt, migration `0003_recovery.sql`) + `POST /recover/start` +
+  `POST /recover/finish`; client `src/core/identity/recovery.ts` (deterministic keypair from
+  `PBKDF2(passphrase, salt)`) + `reclaimAccount()`; verifier derived at `initialize()`/`changePassphrase`
+  and uploaded at claim. Server stores only a public key (DB-leak/replay safe). **Auth worker needs
+  redeploy + migration `0003` before live verification.** Key principle captured: SRP is *authentication*,
+  not *decryption* — it recovers identity + group membership, never encryption keys (those need a backup or
+  a co-member re-grant).
+- **F4 device pairing / QR = next** (discuss before building; server `/device` + ECDH grants exist).
+  **Deferred:** group recovery after reclaim (list-my-groups + re-grant), groups-side account-delete cleanup.
+
+Also fixed a claim-reactivity bug (`claimAccount`/`reclaimAccount` emit `penny-profile-updated` so
+`GroupContext` refreshes) and a backup-export stack overflow (chunked base64 in `backupManager`).
+
+**Adjacent UI/data fixes (2026-07-04/05):** Profile **Life & Household** redesigned as compact inline rows
+(`LifeRow`/`Seg`); **Loans** gained per-loan edit + delete (`useLoans.deleteLiability`, `AddLoanModal`
+edit mode); **IOU** delete now soft-archives with an **Archived** section (view/restore/purge) and totals +
+net worth **exclude archived persons**; **Net Worth** IOU tap routes to the Expenses IOU tab (standalone
+`/app/iou` + `IouPage` removed); **Settings** "Clear sample data" marker persisted on the profile
+(`demoSeeded`) so it survives restore; bulk transaction delete fixed (correct "undo" copy + cascade linked
+IOU ledger entries); **Cash Flow** forecaster only projects **confirmed** subscriptions. Gate green across
+these (build + lint + **408 tests**).

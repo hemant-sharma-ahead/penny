@@ -9,10 +9,15 @@ import type {
   Budget,
   ChipInsight,
   CreditProfile,
+  DeviceKey,
   Expense,
   ExpenseCategory,
   Goal,
   GoalContribution,
+  Group,
+  GroupEvent,
+  GroupKey,
+  GroupMember,
   Hashtag,
   Holding,
   InsurancePolicy,
@@ -23,6 +28,7 @@ import type {
   PersonalIou,
   Profile,
   Subscription,
+  SyncCursor,
   TransactionTemplate
 } from './types';
 
@@ -47,3 +53,9 @@ export const accountsRepo = new EncryptedRepository<Account>(db.accounts as neve
 export const activityLogRepo = new EncryptedRepository<ActivityLog>(db.activity_log as never);
 export const merchantMemoryRepo = new EncryptedRepository<MerchantMemory>(db.merchant_memory as never);
 export const transactionTemplatesRepo = new EncryptedRepository<TransactionTemplate>(db.transaction_templates as never);
+export const deviceKeysRepo = new EncryptedRepository<DeviceKey>(db.device_keys as never);
+export const groupKeysRepo = new EncryptedRepository<GroupKey>(db.group_keys as never);
+export const syncCursorRepo = new EncryptedRepository<SyncCursor>(db.sync_cursor as never);
+export const groupsRepo = new EncryptedRepository<Group>(db.groups as never);
+export const groupMembersRepo = new EncryptedRepository<GroupMember>(db.group_members as never);
+export const groupEventsRepo = new EncryptedRepository<GroupEvent>(db.group_events as never);

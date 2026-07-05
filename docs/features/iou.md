@@ -56,13 +56,28 @@ post-unlock backfill (`useIou.ts`, flag `penny_iou_v2`) — encrypted stores can
 bucket; full text preserved); a settled legacy IOU becomes its lend/borrow plus a matching settlement
 so the derived net reproduces the old state. Pure logic in `core/iou/migration.ts`.
 
-The same experience powers the standalone `/app/iou` route and the Expenses → IOU tab via the shared
-`IouView` component (privacy mode read internally).
+The experience is delivered by the shared `IouView` component (privacy mode read internally), rendered
+**only as the Expenses → IOU tab** (via `IouSlice`). There is no longer a standalone `/app/iou` route —
+it and `IouPage.tsx` were removed. The Net Worth "IOU" line on Home navigates to the Expenses IOU tab
+(`GlanceHeader` → `PATHS.app.expenses` with `state: { tab: 'iou' }`).
+
+**Soft-archive on delete.** Deleting a person who still has ledger entries **soft-archives** them
+(`isArchived`) rather than hard-deleting, so their history stays intact (`useIou.removePerson`; a person
+with no entries is hard-deleted). `IouView` shows a collapsible **"Archived (n)"** section where you can
+**Restore** (`restorePerson`) or **permanently delete** (`purgePerson`) an archived person — the purge
+cascades their ledger entries and any linked cash transactions, all reversible with a single **Undo**
+(mirrors `deleteEntryAndTxn`). Logging a new lend/borrow for an archived name **revives** them
+(`getOrCreatePerson` un-archives a matching person).
+
+**Totals and Net Worth exclude archived persons.** The "Owed to you" / "You owe" strip is computed from
+`activeBalances` (`useIou` filters `!isArchived`), and Home's `netIou` sums only `activePersonIds`
+(`useHome` filters `!isArchived`) — so archiving someone removes them from every headline number while
+keeping their record recoverable.
 
 Key files:
 
-- `src/features/iou/IouView.tsx` — full interactive experience (list → ledger → add/edit/settle)
-- `src/features/iou/useIou.ts` — domain hook: persons + ledger entries, derived balances, migration
+- `src/features/iou/IouView.tsx` — full interactive experience (list → ledger → add/edit/settle), Archived section (`restorePerson` / `purgePerson` with cascade + Undo); rendered via `src/features/expenses/iou/IouSlice.tsx` as the Expenses IOU tab
+- `src/features/iou/useIou.ts` — domain hook: persons + ledger entries, derived `activeBalances` (excludes archived), migration, and `removePerson` (soft-archive vs. hard-delete) / `restorePerson` / `getOrCreatePerson` (revives archived)
 - `src/features/iou/PersonListView.tsx` / `PersonLedgerView.tsx` — list + per-person ledger
 - `src/features/iou/EntryForm.tsx` / `SettleUpModal.tsx` / `PersonForm.tsx` / `PersonPicker.tsx`
 - `src/core/iou/` — `ledger.ts` (balance math), `expenseLink.ts` (both-way reconcile: `reconcileExpenseLink` expense→IOU + `reconcileLinkedTxn` IOU→transaction), `aiLabels.ts`, `migration.ts`

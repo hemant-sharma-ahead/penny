@@ -6,10 +6,15 @@ import type {
   Budget,
   ChipInsight,
   CreditProfile,
+  DeviceKey,
   Expense,
   ExpenseCategory,
   Goal,
   GoalContribution,
+  Group,
+  GroupEvent,
+  GroupKey,
+  GroupMember,
   Hashtag,
   Holding,
   InsurancePolicy,
@@ -23,6 +28,7 @@ import type {
   Profile,
   SecurityRecord,
   Subscription,
+  SyncCursor,
   TransactionTemplate
 } from './types';
 
@@ -54,6 +60,12 @@ export class PennyDatabase extends Dexie {
   transaction_templates!: EntityTable<TransactionTemplate, 'id'>;
   persons!: EntityTable<Person, 'id'>;
   ledger_entries!: EntityTable<LedgerEntry, 'id'>;
+  device_keys!: EntityTable<DeviceKey, 'id'>;
+  group_keys!: EntityTable<GroupKey, 'id'>;
+  sync_cursor!: EntityTable<SyncCursor, 'id'>;
+  groups!: EntityTable<Group, 'id'>;
+  group_members!: EntityTable<GroupMember, 'id'>;
+  group_events!: EntityTable<GroupEvent, 'id'>;
 
   constructor() {
     super('penny');
@@ -107,6 +119,17 @@ export class PennyDatabase extends Dexie {
     // only ciphertext). Legacy `personal_ious` → persons/ledger_entries migration is a post-unlock
     // backfill in useIou.ts (flag `penny_iou_v2`); `personal_ious` is kept for one release.
     this.version(7).stores({ persons: 'id', ledger_entries: 'id' });
+
+    // v8 — sync/identity crypto stores (Phase 1.5 Track B): device keypairs, per-group keys,
+    // and sync cursors. Encrypted; id-only index. No .upgrade() (encrypted; runs pre-unlock).
+    // Start empty and are populated post-unlock at claim, so no backfill is needed.
+    this.version(8).stores({ device_keys: 'id', group_keys: 'id', sync_cursor: 'id' });
+
+    // v9 — Groups & Household OS (Phase 1.5 Track E): local decrypted mirrors of the server-relayed
+    // group data (groups the user belongs to, their members, and the append-only shared-ledger events).
+    // Encrypted; id-only index. No .upgrade() (encrypted; runs pre-unlock). Populated post-unlock via
+    // the groups worker, so no backfill is needed.
+    this.version(9).stores({ groups: 'id', group_members: 'id', group_events: 'id' });
   }
 }
 

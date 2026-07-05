@@ -45,6 +45,8 @@ Invoke this at the start of any implementation task on Penny. These rules apply 
 
 7. **PIN policy (Track 2).** The PIN is **mandatory** — never add a way to disable it. Every PIN entry point (unlock, Open-mode re-auth, change-PIN check) must route through the shared attempt counter so they share **one** 5-attempt exponential-backoff lockout — never add a PIN check that bypasses it. Reject trivial PINs with `isWeakPin()`. PIN changes are limited to once per 24h. Show "attempts remaining" on a failed entry. The opt-in "erase after N failed attempts" wipe is off by default.
 
+8. **Group data is ciphertext-only on the server (Track E, Model B).** Anything a group relays — the group **name**, all shared-ledger **event bodies** — must be encrypted with the per-epoch **Group Key** via `src/core/groups/keys.ts` (`encryptForGroup`) **before** it leaves the device; the worker only ever stores/returns opaque blobs (`enc_name`, R2 ciphertext, wrapped key-grants). **Never send a plaintext group name, amount, description, or member name to `workers/groups/`.** Share the Group Key only by wrapping it to a member's ECDH key (`wrapGroupKeyFor` → a grant); never put a raw Group Key or the raw invite secret in a request body (invites send only `SHA-256(secret)`). All group calls go through `groupsClient.ts` / `signedFetch(…, GROUPS_BASE)` — never `fetch` the worker directly.
+
 ---
 
 ## Architecture non-negotiables
