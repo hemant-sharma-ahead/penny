@@ -6,10 +6,10 @@ This is the navigation guide for all Penny documentation. Start here.
 
 ## Quick orientation
 
-| If you want to…                                            | Read…                                     |
-| ---------------------------------------------------------- | ----------------------------------------- |
-| Understand the project identity, rules, and current status | [`CLAUDE.md`](../CLAUDE.md)               |
-| Set up your development environment                        | [`CONTRIBUTING.md`](../CONTRIBUTING.md)   |
+| If you want to…                                            | Read…                                             |
+| ---------------------------------------------------------- | ------------------------------------------------- |
+| Understand the project identity, rules, and current status | [`CLAUDE.md`](../CLAUDE.md)                       |
+| Set up your development environment                        | [`CONTRIBUTING.md`](../CONTRIBUTING.md)           |
 | Run the app on an Android emulator (from scratch)          | [`docs/ANDROID_EMULATOR.md`](ANDROID_EMULATOR.md) |
 | Understand the full product vision and requirements        | [`docs/BRD.md`](BRD.md)                   |
 | Understand the encryption and privacy architecture         | [`docs/TSD.md`](TSD.md)                   |
@@ -77,6 +77,7 @@ Each feature file follows a standard template: **What it is → User-facing capa
 | [`features/events.md`](features/events.md)                                 | Events system, recurring transactions, vacation guard                            |
 | [`features/backup.md`](features/backup.md)                                 | Backup, restore, erase, and passphrase-based account recovery (Model B)          |
 | [`features/timeline.md`](features/timeline.md)                             | Activity timeline: story vs log tabs, recently-deleted, undo/restore             |
+| [`features/news-sentiment.md`](features/news-sentiment.md)                 | On-device, no-AI news sentiment: headline tone chips + "news mood" gauge         |
 
 ### Skill files (Claude sessions)
 
