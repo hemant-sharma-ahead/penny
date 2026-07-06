@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PageHeader, Button, Toggle } from '@/components/ui';
+import { PageHeader, Button, Toggle, ConfirmDialog } from '@/components/ui';
 import { useProfile } from '@/hooks/useProfile';
 import {
   useSettings,
@@ -10,7 +10,7 @@ import {
   type Theme
 } from '@/context/SettingsContext';
 import { type PersistedPrivacyMode } from '@/context/PrivacyContext';
-import { clearDemoData, isDemoSeeded } from '@/core/db/seedDemoData';
+import { wipeDemoData, isDemoSeeded } from '@/core/db/seedDemoData';
 import { getWipeAfterAttempts, setWipeAfterAttempts, WIPE_THRESHOLD } from '@/core/crypto/securityManager';
 import { PATHS } from '@/router/paths';
 
@@ -138,8 +138,8 @@ export function SettingsPage() {
     setLockOnBackground
   } = useSettings();
   const [wipeEnabled, setWipeEnabled] = useState(false);
-  const [clearing, setClearing] = useState(false);
-  const [confirmClear, setConfirmClear] = useState(false);
+  const [exiting, setExiting] = useState(false);
+  const [confirmExit, setConfirmExit] = useState(false);
 
   useEffect(() => {
     void getWipeAfterAttempts().then((n) => setWipeEnabled(n != null));
@@ -150,14 +150,14 @@ export function SettingsPage() {
     void setWipeAfterAttempts(value);
   };
 
-  const handleClearSample = async () => {
-    if (!confirmClear) {
-      setConfirmClear(true);
-      return;
-    }
-    setClearing(true);
-    await clearDemoData();
-    navigate(PATHS.app.home);
+  // Only ever shown while still on the throwaway Demo Mode vault (see the render guard below) — so
+  // this must hand off to the same real-setup sequence as DemoModeBanner's "Exit Demo Mode", not just
+  // wipe the data. Otherwise the user is left permanently on the known demo PIN/passphrase with no
+  // profile details, having never been asked to set real credentials.
+  const handleExitDemoMode = async () => {
+    setExiting(true);
+    await wipeDemoData();
+    navigate(PATHS.onboarding.letUsKnowYou, { state: { fromDemoMode: true } });
   };
 
   const name = profile?.displayName?.trim() || 'Your account';
@@ -411,19 +411,27 @@ export function SettingsPage() {
         {(profile?.demoSeeded || isDemoSeeded()) && (
           <button
             type="button"
-            onClick={() => void handleClearSample()}
-            disabled={clearing}
+            onClick={() => setConfirmExit(true)}
+            disabled={exiting}
             className="w-full mt-3 py-3 rounded-xl text-sm font-bold border transition-colors disabled:opacity-40"
-            style={
-              confirmClear
-                ? { backgroundColor: 'var(--color-danger)', color: '#fff', borderColor: 'var(--color-danger)' }
-                : { backgroundColor: 'transparent', color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }
-            }
+            style={{ backgroundColor: 'transparent', color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
           >
-            {clearing ? 'Clearing…' : confirmClear ? 'Tap again to confirm' : 'Clear sample data'}
+            Exit Demo Mode
           </button>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmExit}
+        onClose={() => setConfirmExit(false)}
+        onConfirm={() => void handleExitDemoMode()}
+        title="Ready to make it yours?"
+        message="We'll clear this sample data and walk you through setting up your real account — your accounts, a few personal details, and your own PIN and passphrase."
+        confirmLabel="Continue"
+        cancelLabel="Not yet"
+        confirmVariant="primary"
+        loading={exiting}
+      />
     </div>
   );
 }

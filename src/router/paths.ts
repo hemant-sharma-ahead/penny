@@ -9,7 +9,11 @@ export const PATHS = {
     simulatedDashboard: '/onboarding/simulated-dashboard',
     letUsKnowYou: '/onboarding/let-us-know-you',
     start: '/onboarding/start',
-    account: '/onboarding/account'
+    account: '/onboarding/account',
+    demoVault: '/onboarding/demo-vault',
+    lifeHousehold: '/onboarding/life-household',
+    addAccounts: '/onboarding/add-accounts',
+    backupSetup: '/onboarding/backup-setup'
   },
   app: {
     root: '/app',

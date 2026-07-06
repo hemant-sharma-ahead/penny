@@ -262,6 +262,64 @@ export async function initialize(passphrase: string, pin: string): Promise<void>
   });
 }
 
+// ─── Demo Mode — throwaway vault + exit re-key ────────────────────────────────
+
+/** Fixed, known credentials for the "Explore with Demo Data" vault — shown on-screen, never secret.
+ *  Never run through isWeakPin (that only gates user-chosen PINs) — trivial on purpose since there's
+ *  nothing to protect and nothing to remember; both are cleared the moment Demo Mode is exited. */
+export const DEMO_PIN = '123456';
+export const DEMO_PASSPHRASE = 'penny123456';
+
+export type ExitDemoModeResult = 'ok' | 'weak_pin' | 'no_security_record';
+
+/** Re-keys a Demo Mode vault (created moments earlier with DEMO_PIN/DEMO_PASSPHRASE) to the user's real
+ *  credentials in one step, when they exit Demo Mode. Deliberately bypasses the once/24h throttle that
+ *  changePin/changePassphrase enforce — that throttle protects a real, in-use vault from credential-
+ *  cycling abuse, which doesn't apply to a vault that's seconds old and about to have all its data wiped.
+ *  Re-wraps the SAME DMK for both new KEKs (mirrors initialize(), minus generating a fresh DMK — nothing
+ *  encrypted under this one survives the exit anyway). */
+export async function exitDemoMode(newPassphrase: string, newPin: string): Promise<ExitDemoModeResult> {
+  if (isWeakPin(newPin)) return 'weak_pin';
+  const record = await firstRecord();
+  if (!record) return 'no_security_record';
+
+  const dmk = await unwrapDmkWithPassphrase(DEMO_PASSPHRASE, record, true);
+
+  const newKekSalt = generateSalt();
+  const newPassphraseKekSalt = generateSalt();
+  const newPinKek = await deriveKey(newPin, newKekSalt, KEK_ITERATIONS);
+  const newPassKek = await deriveKey(newPassphrase, newPassphraseKekSalt, MK_ITERATIONS);
+  const rewrappedByPin = await wrapKey(dmk, newPinKek);
+  const rewrappedByPassphrase = await wrapKey(dmk, newPassKek);
+
+  keystore.setMasterKey(await unwrapKey(rewrappedByPin, newPinKek, false));
+
+  // Track F (F3): recovery keypair is passphrase-derived, so a new passphrase means a new keypair —
+  // same as changePassphrase. A claimed account re-uploads it via claimAccount() after this resolves.
+  const newRecoverySalt = generateSalt(16);
+  const { publicJwk: newRecoveryPublicJwk } = await deriveRecoveryKeypair(newPassphrase, newRecoverySalt);
+
+  const now = Date.now();
+  await db.security.update(record.id, {
+    encryptedMasterKey: bufferToBase64(rewrappedByPin),
+    kekSalt: bufferToBase64(newKekSalt),
+    encryptedMasterKeyByPassphrase: bufferToBase64(rewrappedByPassphrase),
+    passphraseKekSalt: bufferToBase64(newPassphraseKekSalt),
+    recoverySalt: bufferToBase64(newRecoverySalt),
+    recoveryPublicJwk: JSON.stringify(newRecoveryPublicJwk),
+    mkSalt: undefined,
+    pinChangedAt: now,
+    passphraseChangedAt: now,
+    pinAttempts: 0,
+    lockedUntil: undefined,
+    passphraseAttempts: 0,
+    passphraseLockedUntil: undefined,
+    sessionExpiresAt: now + SESSION_MS,
+    updatedAt: now
+  } as object);
+  return 'ok';
+}
+
 /**
  * The account's passphrase-recovery verifier (salt + PUBLIC key), or null if this vault predates the
  * feature. Uploaded to the server by the claim flow (Track F, F3). Non-secret — safe to hand out.

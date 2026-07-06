@@ -13,6 +13,10 @@ import { SimulatedDashboardScreen } from '@/features/onboarding/SimulatedDashboa
 import { LetUsKnowYouScreen } from '@/features/onboarding/LetUsKnowYouScreen';
 import { AccountStartScreen } from '@/features/onboarding/AccountStartScreen';
 import { AccountRecoveryScreen } from '@/features/onboarding/AccountRecoveryScreen';
+import { DemoVaultScreen } from '@/features/onboarding/DemoVaultScreen';
+import { LifeHouseholdScreen } from '@/features/onboarding/LifeHouseholdScreen';
+import { AddAccountsScreen } from '@/features/onboarding/AddAccountsScreen';
+import { BackupSetupScreen } from '@/features/onboarding/BackupSetupScreen';
 import { HomePage } from '@/features/home/HomePage';
 import { PortfolioPage } from '@/features/portfolio/PortfolioPage';
 import { ExpensesPage } from '@/features/expenses/ExpensesPage';
@@ -50,7 +54,11 @@ export const router = createBrowserRouter([
       { path: PATHS.onboarding.letUsKnowYou, element: <LetUsKnowYouScreen /> },
       { path: PATHS.onboarding.setupCredentials, element: <SetupCredentialsScreen /> },
       { path: PATHS.onboarding.start, element: <AccountStartScreen /> },
-      { path: PATHS.onboarding.account, element: <AccountRecoveryScreen /> }
+      { path: PATHS.onboarding.account, element: <AccountRecoveryScreen /> },
+      { path: PATHS.onboarding.demoVault, element: <DemoVaultScreen /> },
+      { path: PATHS.onboarding.lifeHousehold, element: <LifeHouseholdScreen /> },
+      { path: PATHS.onboarding.addAccounts, element: <AddAccountsScreen /> },
+      { path: PATHS.onboarding.backupSetup, element: <BackupSetupScreen /> }
     ]
   },
 

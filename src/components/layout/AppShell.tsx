@@ -2,6 +2,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
 import { PrivacyModeSwitcher } from '@/components/privacy/PrivacyModeSwitcher';
 import { RemindersBell } from '@/components/reminders/RemindersBell';
+import { DemoModeBanner } from '@/components/demo/DemoModeBanner';
 import { PennyWordmark } from '@/components/ui/PennyLogo';
 import { SyncProvider } from '@/core/sync/SyncProvider';
 import { GroupProvider } from '@/context/GroupContext';
@@ -27,6 +28,8 @@ export function AppShell() {
             className="relative w-full max-w-[430px] min-h-screen shadow-xl flex flex-col"
             style={{ backgroundColor: 'var(--color-mode-bg, #f8fafc)' }}
           >
+            {!pinResetForced && <DemoModeBanner />}
+
             {/* Header — tinted bg + 2px solid mode-color bottom border */}
             <header
               className="flex items-center justify-between px-4 py-3 sticky top-0 z-40 transition-colors duration-300"

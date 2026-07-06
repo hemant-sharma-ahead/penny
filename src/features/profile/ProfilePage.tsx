@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, PageHeader, Banner } from '@/components/ui';
+import { Button, PageHeader, Banner, LifeRow, OptionalSeg } from '@/components/ui';
 import { profileRepo } from '@/core/db/repositories';
 import { logActivity } from '@/core/db/activityLog';
 import { reseedForEmployment } from '@/core/db/seedDemoData';
@@ -78,61 +78,6 @@ function Field({
 
 const flatInput =
   'w-full bg-transparent border-none p-0 text-[15px] text-primary focus:outline-none placeholder:text-tertiary';
-
-/** A compact inline row: icon + label on the left, a control on the right (Life & household layout). */
-function LifeRow({
-  icon,
-  label,
-  alignTop,
-  children
-}: {
-  icon: string;
-  label: string;
-  alignTop?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <div
-      className={`flex ${alignTop ? 'items-start' : 'items-center'} justify-between gap-3 py-3 border-t border-theme`}
-    >
-      <span className="text-[13px] font-medium text-secondary flex items-center gap-2 flex-shrink-0">
-        <i className={`ti ${icon} text-tertiary`} style={{ fontSize: 17 }} aria-hidden="true" />
-        {label}
-      </span>
-      {children}
-    </div>
-  );
-}
-
-/** Compact segmented control (tap the active segment again to clear — these fields are optional). */
-function Seg({
-  options,
-  value,
-  onChange
-}: {
-  options: { value: string; label: string }[];
-  value: string | undefined;
-  onChange: (v: string | undefined) => void;
-}) {
-  return (
-    <span className="inline-flex bg-surface-2 border border-theme rounded-lg p-0.5 gap-0.5">
-      {options.map((o) => {
-        const on = value === o.value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            onClick={() => onChange(on ? undefined : o.value)}
-            className={`text-[11.5px] font-semibold px-2.5 py-1.5 rounded-md transition-colors ${on ? 'bg-surface shadow-sm' : ''}`}
-            style={{ color: on ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </span>
-  );
-}
 
 function SectionLabel({ children }: { children: ReactNode }) {
   return <p className="text-[11px] font-semibold uppercase tracking-wide text-tertiary mt-5 mb-2">{children}</p>;
@@ -546,7 +491,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
           reaches Chip.
         </p>
         <LifeRow icon="ti-heart" label="Relationship">
-          <Seg
+          <OptionalSeg
             options={[
               { value: 'single', label: 'Single' },
               { value: 'married', label: 'Married' }
@@ -559,7 +504,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
           />
         </LifeRow>
         <LifeRow icon="ti-home" label="Home">
-          <Seg
+          <OptionalSeg
             options={[
               { value: 'own', label: 'Own' },
               { value: 'rent', label: 'Rent' }
@@ -572,7 +517,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
           />
         </LifeRow>
         <LifeRow icon="ti-chart-line" label="Risk appetite">
-          <Seg
+          <OptionalSeg
             options={[
               { value: 'conservative', label: 'Low' },
               { value: 'moderate', label: 'Med' },

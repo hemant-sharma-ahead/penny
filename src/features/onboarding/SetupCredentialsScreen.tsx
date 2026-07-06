@@ -1,18 +1,26 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { initialize, isWeakPin } from '@/core/crypto/securityManager';
+import { exitDemoMode, initialize, isWeakPin } from '@/core/crypto/securityManager';
 import { EncryptedRepository } from '@/core/db/repository';
 import { db } from '@/core/db/schema';
-import { seedDemoData } from '@/core/db/seedDemoData';
+import { accountsRepo } from '@/core/db/repositories';
+import { ACCOUNT_TYPE_META } from '@/core/accounts/meta';
 import { claimAccount } from '@/core/identity/claim';
 import { hasEntitlement } from '@/core/entitlement/entitlement';
-import type { Profile } from '@/core/db/types';
+import type { Account, Profile } from '@/core/db/types';
 import { usePassphraseStrength } from '@/hooks/usePassphraseStrength';
 import { PATHS } from '@/router/paths';
 import { Button, TextInput, PassphraseStrengthMeter } from '@/components/ui';
 import { useOnboardingDraft } from '@/context/OnboardingDraftContext';
 import { OnboardingBack } from './OnboardingBack';
 
+/**
+ * The final "real vault" step — reached either fresh (Account Start → "Start fresh" → Let us know you →
+ * …) or via Exit Demo Mode. Same fields/flow either way, per design: a brand-new user never sees a
+ * "current credential" prompt. Under the hood the two paths diverge — fresh calls initialize(); exiting
+ * Demo Mode re-keys the already-unlocked demo vault via exitDemoMode(), which also makes the demo
+ * PIN/passphrase stop working immediately (old wrapping deleted, same as any other re-wrap).
+ */
 export function SetupCredentialsScreen() {
   const draft = useOnboardingDraft();
   const [passphrase, setPassphrase] = useState('');
@@ -29,37 +37,75 @@ export function SetupCredentialsScreen() {
   const pinTooWeak = pin.length === 6 && isWeakPin(pin);
   const canProceed = score >= 3 && pin.length === 6 && !pinTooWeak && pin === confirmPin && !loading;
 
+  async function writeProfileAndAccounts() {
+    const now = Date.now();
+    const repo = new EncryptedRepository<Profile>(db.profile as never);
+
+    // Exiting Demo Mode: the profile record already exists (written blank by DemoVaultScreen) — update
+    // it in place rather than creating a second one. Fresh setup: create it now, same as always.
+    const existing = draft.fromDemoMode ? (await repo.getAll())[0] : undefined;
+    await repo.put({
+      id: existing?.id ?? crypto.randomUUID(),
+      displayName: draft.fullName?.trim() ?? '',
+      currency: 'INR',
+      locale: 'en-IN',
+      onboardingComplete: true,
+      userId: existing?.userId ?? crypto.randomUUID(),
+      username: draft.username || undefined,
+      dob: draft.dob || undefined,
+      employmentType: draft.employmentType,
+      maritalStatus: draft.maritalStatus,
+      children: draft.children?.length ? draft.children : undefined,
+      homeOwner: draft.homeOwner,
+      riskAppetite: draft.riskAppetite,
+      plan: 'free',
+      demoSeeded: false,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now
+    });
+
+    for (const acc of draft.accountsToCreate ?? []) {
+      const meta = ACCOUNT_TYPE_META[acc.type];
+      const account: Account = {
+        id: crypto.randomUUID(),
+        name: acc.name,
+        type: acc.type,
+        openingBalance: acc.openingBalance,
+        color: meta.color,
+        icon: meta.icon,
+        includeInNetWorth: acc.type !== 'credit_card',
+        isArchived: false,
+        createdAt: now,
+        updatedAt: now
+      };
+      await accountsRepo.put(account);
+    }
+
+    // Claim the chosen handle on the server so the account is real from the start (sync builds) — sets
+    // deviceId + uploads the recovery verifier, so Groups work immediately. Best-effort: offline just
+    // defers it (Profile shows a Claim button). Availability was checked on the Let us know you screen.
+    if (hasEntitlement('sync') && draft.username) {
+      await claimAccount(draft.username).catch(() => undefined);
+    }
+  }
+
   const handleCreate = async () => {
     if (!canProceed) return;
     setLoading(true);
     setError('');
     try {
-      await initialize(passphrase, pin);
-      // Encryption is now live — persist the collected profile + local identity, then seed demo data.
-      const now = Date.now();
-      const repo = new EncryptedRepository<Profile>(db.profile as never);
-      await repo.put({
-        id: crypto.randomUUID(),
-        displayName: draft.fullName?.trim() ?? '',
-        currency: 'INR',
-        locale: 'en-IN',
-        onboardingComplete: true,
-        userId: crypto.randomUUID(), // stable local identity anchor (claimed on the server in Phase 1.5)
-        username: draft.username || undefined,
-        dob: draft.dob || undefined,
-        employmentType: draft.employmentType,
-        plan: 'free',
-        createdAt: now,
-        updatedAt: now
-      });
-      // Claim the chosen handle on the server so the account is real from the start (sync builds) — sets
-      // deviceId + uploads the recovery verifier, so Groups work immediately. Best-effort: offline just
-      // defers it (Profile shows a Claim button). Availability was checked on the previous screen.
-      if (hasEntitlement('sync') && draft.username) {
-        await claimAccount(draft.username).catch(() => undefined);
+      if (draft.fromDemoMode) {
+        const result = await exitDemoMode(passphrase, pin);
+        if (result !== 'ok') {
+          setError('Setup failed. Please try again.');
+          setLoading(false);
+          return;
+        }
+      } else {
+        await initialize(passphrase, pin);
       }
-      await seedDemoData(draft.employmentType ?? 'salaried');
-      navigate(PATHS.app.home);
+      await writeProfileAndAccounts();
+      navigate(draft.backupChoice === 'google-drive' ? PATHS.app.backup : PATHS.app.home);
     } catch {
       setError('Setup failed. Please try again.');
       setLoading(false);
@@ -68,7 +114,7 @@ export function SetupCredentialsScreen() {
 
   return (
     <div className="relative min-h-screen flex flex-col bg-surface px-6 py-10">
-      <OnboardingBack to={PATHS.onboarding.letUsKnowYou} />
+      <OnboardingBack to={PATHS.onboarding.backupSetup} />
       <div className="flex-1 w-full max-w-sm mx-auto flex flex-col">
         <div className="mb-8 text-center">
           <div
@@ -79,7 +125,8 @@ export function SetupCredentialsScreen() {
           </div>
           <h2 className="text-2xl font-semibold text-primary mb-2">Set up your vault</h2>
           <p className="text-sm text-secondary">
-            A random key encrypts everything; your passphrase locks that key and never leaves your device.
+            This is the one that matters — a random key encrypts everything, and your passphrase is the only way to
+            recover it.
           </p>
         </div>
 
@@ -115,7 +162,7 @@ export function SetupCredentialsScreen() {
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 mt-3">
             <p className="text-xs text-amber-600 leading-relaxed">
               <strong>Important:</strong> If you forget your passphrase, your data can't be recovered — there's no
-              backdoor or key escrow, by design.
+              backdoor or key escrow, by design. Write it down somewhere safe.
             </p>
           </div>
         </div>
@@ -163,7 +210,7 @@ export function SetupCredentialsScreen() {
           loading={loading}
           onClick={() => void handleCreate()}
         >
-          {loading ? 'Encrypting your vault…' : 'Create vault'}
+          {loading ? 'Encrypting your vault…' : 'Create my vault'}
         </Button>
 
         <p className="text-xs text-tertiary text-center mt-3">

@@ -1602,9 +1602,10 @@ function defaultSubscriptions(ago: (d: number) => number): Subscription[] {
   ];
 }
 
-// Wipes all seeded financial tables + demo localStorage markers, but does NOT
-// reload. Shared by clearDemoData (reloads after) and reseedForEmployment (re-seeds after).
-async function wipeDemoData(): Promise<void> {
+// Wipes all seeded financial tables + demo localStorage markers, but does NOT reload or navigate —
+// callers decide what happens next. Used by reseedForEmployment (re-seeds after), by SettingsPage's
+// "Exit Demo Mode" and DemoModeBanner (both hand off to the real-setup sequence afterward).
+export async function wipeDemoData(): Promise<void> {
   await Promise.all([
     db.expenses.clear(),
     db.expense_categories.clear(),
@@ -1638,12 +1639,6 @@ async function wipeDemoData(): Promise<void> {
   localStorage.removeItem('penny_recurring_due_dismissed');
   localStorage.removeItem('penny_income_suggestions_dismissed');
   await setProfileDemoFlag(false);
-}
-
-// Clears all seeded demo data — resets financial tables to empty, keeps profile + security
-export async function clearDemoData(): Promise<void> {
-  await wipeDemoData();
-  window.location.reload();
 }
 
 // Re-seed demo data for a new employment type — used when the user changes
