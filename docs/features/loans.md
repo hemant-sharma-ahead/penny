@@ -23,6 +23,8 @@ Loans are stored in the encrypted `liabilities` Dexie store. The `Liability` rec
 
 The amortisation schedule is generated entirely on-device by `amortization.ts` using the standard reducing-balance method. For each month it calculates: interest = currentBalance × (annualRate / 12), principal = EMI − interest, newBalance = currentBalance − principal.
 
+Amounts respect `usePrivacy().shouldMask(!safeModeVisibility.loans)` — Open never masks, Privacy always masks, Safe masks loan amounts only if the "Loans" toggle in Settings → Safe Mode is switched off (visible by default). Loans don't have per-item categories, so this is a single module-wide toggle rather than per-loan.
+
 Payoff scenarios are computed in `calculator.ts` without modifying stored data — they run the amortisation algorithm forward with the modified parameters and report the difference in total interest paid and tenure. This makes scenario modelling completely safe and reversible.
 
 The XLSX export uses a spreadsheet library to produce a formatted workbook with one sheet per loan, including a header row with loan details and a data table of the full schedule.

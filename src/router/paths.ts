@@ -29,6 +29,7 @@ export const PATHS = {
     calculators: '/app/calculators',
     changePin: '/app/change-pin',
     changePassphrase: '/app/change-passphrase',
+    safeMode: '/app/safe-mode',
     profile: '/app/profile',
     settings: '/app/settings',
     timeline: '/app/timeline',

@@ -182,6 +182,9 @@ export function ExpenseForm({
   // Optional per-item "Share with a group" (Track E, screen 8). Off by default in Personal; auto-on when
   // a linked vacation is active (screens 10–11) so logging an expense splits with companions in one save.
   const linkedTripGroupId = activeEvents.find((e) => e.subtype === 'immersive' && e.linkedGroupId)?.linkedGroupId;
+  // Vacation Mode soft default for the category picker: lead with Travel picks + a "why" note, but
+  // never restrict — every other group stays reachable by scrolling.
+  const activeVacationEvent = activeEvents.find((e) => e.subtype === 'immersive');
   const defaultShareGroupId =
     editing?.shareWith?.[0] ??
     (linkedTripGroupId && shareGroups.some((g) => g.id === linkedTripGroupId) ? linkedTripGroupId : '');
@@ -471,20 +474,12 @@ export function ExpenseForm({
           </div>
         }
       >
-        {/* Header: close + type switch (adding) / title (editing) */}
+        {/* Header: type switch (adding) / title (editing), left — close, right */}
         <div className="flex items-center gap-2 -mt-1">
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-tertiary hover:bg-surface-2 -ml-1 flex-shrink-0"
-          >
-            <i className="ti ti-x" style={{ fontSize: 18 }} aria-hidden="true" />
-          </button>
           {editing ? (
-            <h3 className="text-base font-semibold text-primary">{titleText}</h3>
+            <h3 className="text-base font-semibold text-primary flex-1">{titleText}</h3>
           ) : (
-            <div className="flex-1">
+            <div className="w-64">
               <SegmentedControl
                 options={[
                   { value: 'expense' as const, label: 'Expense', icon: 'ti-arrow-down-circle', color: '#ef4444' },
@@ -496,6 +491,14 @@ export function ExpenseForm({
               />
             </div>
           )}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-tertiary hover:bg-surface-2 -mr-1 ml-auto flex-shrink-0"
+          >
+            <i className="ti ti-x" style={{ fontSize: 18 }} aria-hidden="true" />
+          </button>
         </div>
 
         {/* Hero amount */}
@@ -946,6 +949,7 @@ export function ExpenseForm({
           categories={categories}
           selectedId={categoryId}
           manager={categoryManager}
+          activeVacationEvent={activeVacationEvent ? { name: activeVacationEvent.name } : undefined}
           onSelect={(id) => {
             setCategoryId(id);
             setErrors((e) => ({ ...e, cat: false }));

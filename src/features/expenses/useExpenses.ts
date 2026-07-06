@@ -21,6 +21,7 @@ import type {
 import { reconcileExpenseLink, type ExpenseIouIntent, type ExpenseSeedIntent } from '@/core/iou/expenseLink';
 import { useRepository } from '@/hooks/useRepository';
 import { useTxnRefresh, notifyTxnChanged } from '@/hooks/useTxnRefresh';
+import { useCategoriesRefresh } from '@/hooks/useDataRefresh';
 import { ALL_DEFAULT_CATEGORIES, CATEGORY_MIGRATION_MAP } from '@/core/db/defaultCategories';
 import { dedupeDemoCategories, reconcileDefaultCategories, repairCategoryIcons } from '@/core/db/dedupeDemoCategories';
 import { calcSpendByCategory, calcTxnCountByCategory } from '@/core/expenses/filterAndAggregate';
@@ -65,6 +66,8 @@ export function useExpenses() {
     reloadPersons();
   }, [reloadExpenses, reloadLedger, reloadPersons]);
   useTxnRefresh(refreshTxnData);
+  // Settings → Safe Mode edits categories through a separately-mounted repo instance; reload here too.
+  useCategoriesRefresh(reloadCategories);
   const { items: merchantMemories, reload: reloadMerchantMemory } = useRepository(merchantMemoryRepo);
   const { items: templates, save: saveTemplateRepo, remove: removeTemplate } = useRepository(transactionTemplatesRepo);
 

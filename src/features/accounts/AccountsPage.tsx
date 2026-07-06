@@ -9,7 +9,7 @@ import { AccountFormModal } from './AccountFormModal';
 
 export function AccountsPage() {
   const navigate = useNavigate();
-  const { mode } = usePrivacy();
+  const { shouldMask } = usePrivacy();
   const { accounts, txns, saving, totalBalance, saveAccount, deleteAccount, reconcileAccount } = useAccounts();
   const form = useAccountForm(saveAccount);
 
@@ -41,7 +41,7 @@ export function AccountsPage() {
         accounts={accounts}
         txns={txns}
         totalBalance={totalBalance}
-        mode={mode}
+        shouldMask={shouldMask}
         onAdd={form.openAdd}
         onEdit={form.openEdit}
         deleteAccount={deleteAccount}

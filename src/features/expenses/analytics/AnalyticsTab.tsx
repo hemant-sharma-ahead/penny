@@ -219,7 +219,7 @@ interface AnalyticsTabProps {
     cats: Array<{ catId: string; name: string; icon: string; color: string; amount: number }>;
   }>;
   hashtagSummary: Array<{ tag: string; amount: number }>;
-  mode: 'open' | 'safe' | 'privacy';
+  masked: boolean;
   promoteHashtagToEvent: (tag: string) => void;
 }
 
@@ -253,7 +253,7 @@ export function AnalyticsTab({
   annualMax,
   eventsThisMonth,
   hashtagSummary,
-  mode,
+  masked,
   promoteHashtagToEvent
 }: AnalyticsTabProps) {
   return (
@@ -359,7 +359,7 @@ export function AnalyticsTab({
                       className="text-lg font-bold"
                       style={{ color: annualSavings.saved >= 0 ? STATUS.success : STATUS.danger }}
                     >
-                      {mode === 'open' ? formatCurrency(annualSavings.saved) : '••••'}
+                      {!masked ? formatCurrency(annualSavings.saved) : '••••'}
                     </p>
                   </div>
                   <div
@@ -376,14 +376,14 @@ export function AnalyticsTab({
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium text-tertiary uppercase tracking-wide">Income vs spend</p>
                   <p className="text-sm font-semibold text-primary">
-                    Spent {mode === 'open' ? formatCurrency(annualTotal) : '••••'}
+                    Spent {!masked ? formatCurrency(annualTotal) : '••••'}
                   </p>
                 </div>
                 <AnnualChart
                   series={annualData}
                   prevYear={prevYearData}
                   max={annualMax}
-                  mode={mode}
+                  masked={masked}
                   onSelectMonth={(m) => {
                     onChangeSelectedMonth(m);
                     onChangeAnalyticsView('monthly');
@@ -442,14 +442,12 @@ export function AnalyticsTab({
           {/* All-inclusive month total — daily-routine + set aside + events */}
           <div className="surface rounded-xl p-4">
             <p className="text-xs text-secondary">Total spent · {monthLabel(selectedMonth)}</p>
-            <p className="text-2xl font-bold text-primary mt-0.5">
-              {mode === 'open' ? formatCurrency(monthTotal) : '••••'}
-            </p>
+            <p className="text-2xl font-bold text-primary mt-0.5">{!masked ? formatCurrency(monthTotal) : '••••'}</p>
             <p className="text-[11px] text-tertiary mt-1">
-              Daily-routine {mode === 'open' ? formatCompact(analyticsTotal) : '••••'} · Set aside{' '}
-              {mode === 'open' ? formatCompact(setAsideTotal) : '••••'}
+              Daily-routine {!masked ? formatCompact(analyticsTotal) : '••••'} · Set aside{' '}
+              {!masked ? formatCompact(setAsideTotal) : '••••'}
               {monthTotal - analyticsTotal - setAsideTotal > 0 &&
-                ` · Events ${mode === 'open' ? formatCompact(monthTotal - analyticsTotal - setAsideTotal) : '••••'}`}
+                ` · Events ${!masked ? formatCompact(monthTotal - analyticsTotal - setAsideTotal) : '••••'}`}
             </p>
           </div>
 
@@ -461,7 +459,7 @@ export function AnalyticsTab({
                   {spendVelocity.daysElapsed} of {spendVelocity.daysInMonth} days elapsed
                 </p>
                 <p className="text-sm font-semibold text-primary mt-0.5">
-                  On track for {mode === 'open' ? formatCurrency(spendVelocity.projected) : '••••'} this month
+                  On track for {!masked ? formatCurrency(spendVelocity.projected) : '••••'} this month
                 </p>
                 <p className="text-[10px] text-tertiary mt-0.5">
                   Projected at your current pace · excludes event spend
@@ -488,7 +486,7 @@ export function AnalyticsTab({
           {anomalies.map((a) => (
             <Banner key={a.categoryId} variant="warning" icon="ti-flame">
               <strong>{a.name}</strong> is {Math.round(a.pct * 100)}% over your average
-              {mode === 'open' && ` (${formatCurrency(a.amount)} vs ~${formatCurrency(a.average)})`}.
+              {!masked && ` (${formatCurrency(a.amount)} vs ~${formatCurrency(a.average)})`}.
             </Banner>
           ))}
 
@@ -514,19 +512,17 @@ export function AnalyticsTab({
                 )}
               </div>
               <div className="grid grid-cols-2 gap-y-2">
-                <RecapStat label="Spent" value={mode === 'open' ? formatCurrency(recap.expense) : '••••'} />
+                <RecapStat label="Spent" value={!masked ? formatCurrency(recap.expense) : '••••'} />
                 <RecapStat
                   label="Net"
-                  value={mode === 'open' ? formatCurrency(recap.net) : '••••'}
+                  value={!masked ? formatCurrency(recap.net) : '••••'}
                   color={recap.net >= 0 ? STATUS.success : STATUS.danger}
                 />
                 <RecapStat label="Transactions" value={String(recap.txnCount)} />
                 {recap.topCategory && (
                   <RecapStat
                     label="Top category"
-                    value={
-                      recap.topCategory.name + (mode === 'open' ? ` · ${formatCompact(recap.topCategory.amount)}` : '')
-                    }
+                    value={recap.topCategory.name + (!masked ? ` · ${formatCompact(recap.topCategory.amount)}` : '')}
                   />
                 )}
               </div>
@@ -545,7 +541,7 @@ export function AnalyticsTab({
                     <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
                     <span className="text-xs text-secondary truncate flex-1">{seg.label}</span>
                     <span className="text-xs font-medium text-primary flex-shrink-0">
-                      {mode === 'open' ? formatCompact(seg.amount) : '••••'}
+                      {!masked ? formatCompact(seg.amount) : '••••'}
                     </span>
                   </div>
                 ))}
@@ -571,7 +567,7 @@ export function AnalyticsTab({
                       <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
                       <span className="text-sm font-medium text-primary flex-1 truncate">{ev.name}</span>
                       <span className="text-sm font-semibold text-primary flex-shrink-0">
-                        {mode === 'open' ? formatCurrency(ev.amount) : '••••'}
+                        {!masked ? formatCurrency(ev.amount) : '••••'}
                       </span>
                       <i
                         className={`ti ${isExpanded ? 'ti-chevron-up' : 'ti-chevron-down'} flex-shrink-0`}
@@ -598,7 +594,7 @@ export function AnalyticsTab({
                             </div>
                             <span className="text-xs text-secondary flex-1 truncate">{cat.name}</span>
                             <span className="text-xs font-semibold text-primary flex-shrink-0">
-                              {mode === 'open' ? formatCurrency(cat.amount) : '••••'}
+                              {!masked ? formatCurrency(cat.amount) : '••••'}
                             </span>
                           </div>
                         ))}
@@ -626,14 +622,14 @@ export function AnalyticsTab({
                     </div>
                     <span className="text-sm font-medium text-primary flex-1 truncate">{seg.label}</span>
                     <span className="text-sm font-semibold text-primary flex-shrink-0">
-                      {mode === 'open' ? formatCurrency(seg.amount) : '••••'}
+                      {!masked ? formatCurrency(seg.amount) : '••••'}
                     </span>
                   </div>
                 ))}
                 <div className="px-4 py-2.5 flex items-center gap-3 bg-surface-2 border-t border-theme">
                   <span className="text-xs text-secondary flex-1">Total set aside</span>
                   <span className="text-xs font-semibold text-secondary flex-shrink-0">
-                    {mode === 'open' ? formatCurrency(setAsideTotal) : '••••'}
+                    {!masked ? formatCurrency(setAsideTotal) : '••••'}
                   </span>
                 </div>
               </ListContainer>
@@ -684,7 +680,7 @@ export function AnalyticsTab({
                           </span>
                         )}
                         <span className="text-sm font-semibold text-primary flex-shrink-0">
-                          {mode === 'open' ? (
+                          {!masked ? (
                             seg.budgetTotal > 0 ? (
                               <>
                                 {formatCurrency(seg.amount)}{' '}
@@ -735,7 +731,7 @@ export function AnalyticsTab({
                                     </div>
                                     <span className="text-xs text-secondary flex-1 truncate">{cat.name}</span>
                                     <span className="text-xs font-semibold text-primary flex-shrink-0">
-                                      {mode === 'open' ? (
+                                      {!masked ? (
                                         cat.budgetLimit !== undefined ? (
                                           <>
                                             {formatCurrency(cat.amount)}{' '}
@@ -793,7 +789,7 @@ export function AnalyticsTab({
                     #{tag}
                   </span>
                   <span className="text-sm font-semibold text-primary flex-shrink-0">
-                    {mode === 'open' ? formatCurrency(amount) : '••••'}
+                    {!masked ? formatCurrency(amount) : '••••'}
                   </span>
                   <button
                     onClick={() => promoteHashtagToEvent(tag)}

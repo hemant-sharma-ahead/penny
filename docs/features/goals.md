@@ -22,6 +22,8 @@ Goals are stored in the encrypted `goals` Dexie store. Each goal record tracks: 
 
 Contributions are stored separately in the encrypted `goal_contributions` store, linked to a goal by ID. The `currentAmount` on the goal record is updated each time a contribution is logged.
 
+Amounts respect `usePrivacy().shouldMask(!safeModeVisibility.goals)` — Safe Mode hides goal amounts only if the "Goals" toggle in Settings → Safe Mode is switched off (visible by default); Privacy always masks; Open never does. A single module-wide toggle, not per-goal.
+
 The SIP calculator uses the standard future value of a series formula: it works backwards from the target corpus to calculate the required monthly investment given the expected return rate and time horizon. The calculation happens entirely on-device.
 
 Chip's projection insight reads the average monthly contribution rate from the contribution history and extrapolates linearly to estimate when the goal will be reached, flagging if the current pace falls short of the target date.

@@ -42,11 +42,13 @@ interface Props {
 /** Light, minimal Home header: the two numbers that matter most (net worth + safe-to-spend),
  *  a slim asset bar, and a tap-through to the full breakdown. */
 export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabilities }: Props) {
-  const { mode } = usePrivacy();
+  const { shouldMask } = usePrivacy();
   const navigate = useNavigate();
   const { loading: forecastLoading, forecast } = useForecast();
   const [detailOpen, setDetailOpen] = useState(false);
-  const open = mode === 'open';
+  // Net worth is an aggregate, not a specific sensitive item — Safe Mode keeps it visible;
+  // only Privacy Mode hides it (same as everywhere else "sensitive" defaults to false).
+  const open = !shouldMask(false);
 
   const safe = Math.max(0, forecast.discretionary);
   const breached = forecast.bufferBreachMs !== null;

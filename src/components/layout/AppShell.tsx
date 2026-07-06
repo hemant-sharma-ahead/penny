@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
 import { PrivacyModeSwitcher } from '@/components/privacy/PrivacyModeSwitcher';
 import { RemindersBell } from '@/components/reminders/RemindersBell';
@@ -11,6 +11,13 @@ import { PATHS } from '@/router/paths';
 
 export function AppShell() {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Forced PIN reset (reached via SessionGate's "Forgot PIN?" after exhausting attempts) must be
+  // genuinely non-dismissible — hide the two chrome elements that would otherwise let someone
+  // navigate away without finishing it. ChangePinPage itself blocks the browser back button.
+  const pinResetForced =
+    location.pathname === PATHS.app.changePin &&
+    !!(location.state as { forcedPinReset?: boolean } | null)?.forcedPinReset;
 
   return (
     <SyncProvider>
@@ -29,13 +36,15 @@ export function AppShell() {
               }}
             >
               <div className="flex items-center gap-3 min-w-0">
-                <button
-                  onClick={() => navigate(PATHS.app.settings)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:text-primary hover:bg-surface-2 -ml-1 flex-shrink-0"
-                  aria-label="Open settings"
-                >
-                  <i className="ti ti-menu-2" style={{ fontSize: 20 }} aria-hidden="true" />
-                </button>
+                {!pinResetForced && (
+                  <button
+                    onClick={() => navigate(PATHS.app.settings)}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:text-primary hover:bg-surface-2 -ml-1 flex-shrink-0"
+                    aria-label="Open settings"
+                  >
+                    <i className="ti ti-menu-2" style={{ fontSize: 20 }} aria-hidden="true" />
+                  </button>
+                )}
                 <PennyWordmark height={24} />
               </div>
               <div className="flex items-center gap-1">
@@ -58,7 +67,7 @@ export function AppShell() {
               <Outlet />
             </main>
 
-            <BottomNav />
+            {!pinResetForced && <BottomNav />}
           </div>
         </div>
       </GroupProvider>

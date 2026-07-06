@@ -19,13 +19,13 @@ export function PreciousMetalCard({
   spotGold,
   spotSilver,
   onEdit,
-  mode
+  masked
 }: {
   holding: Holding;
   spotGold: number | null;
   spotSilver: number | null;
   onEdit: () => void;
-  mode: string;
+  masked: boolean;
 }) {
   const meta = holding.assetMeta ?? {};
   const isGold = meta.metalType !== 'silver';
@@ -77,10 +77,10 @@ export function PreciousMetalCard({
       <div className="flex items-end justify-between">
         <div>
           <p className="text-[10px] text-secondary">Current value</p>
-          <p className="text-lg font-bold text-primary">{mode === 'open' ? formatCurrency(currentValue) : '••••'}</p>
-          {mode === 'open' && <p className="text-[10px] text-secondary mt-0.5">Cost: {formatCurrency(costBasis)}</p>}
+          <p className="text-lg font-bold text-primary">{!masked ? formatCurrency(currentValue) : '••••'}</p>
+          {!masked && <p className="text-[10px] text-secondary mt-0.5">Cost: {formatCurrency(costBasis)}</p>}
         </div>
-        {mode === 'open' && (
+        {!masked && (
           <div className="text-right">
             <p
               className="text-sm font-semibold"

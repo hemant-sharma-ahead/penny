@@ -35,7 +35,8 @@ interface TransactionsSliceProps {
   hashtags: Hashtag[];
   events: ActiveEvent[];
   pastEvents: ActiveEvent[];
-  mode: 'open' | 'safe' | 'privacy';
+  /** Resolves Safe/Privacy/Open masking for a given item's sensitivity (e.g. a category's `hideInSafeMode`). */
+  shouldMask: (sensitive: boolean | undefined) => boolean;
   onSaveExpense: (e: Expense) => Promise<void>;
   onDeleteExpense: (id: string) => Promise<void>;
   iouPersons: Person[];
@@ -71,7 +72,7 @@ export function TransactionsSlice({
   hashtags,
   events,
   pastEvents,
-  mode,
+  shouldMask,
   onSaveExpense,
   onDeleteExpense,
   iouPersons,
@@ -444,7 +445,7 @@ export function TransactionsSlice({
           grouped={grouped}
           categoryMap={categoryMap}
           accountMap={accountMap}
-          mode={mode}
+          shouldMask={shouldMask}
           onEdit={openEdit}
           onDelete={onDeleteExpense}
           onDuplicate={handleDuplicate}

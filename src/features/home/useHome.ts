@@ -11,6 +11,7 @@ import type { Holding, Liability } from '@/core/db/types';
 import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { signedAmount } from '@/core/iou/ledger';
 import { useTxnRefresh } from '@/hooks/useTxnRefresh';
+import { useAccountsRefresh } from '@/hooks/useDataRefresh';
 import { toMonthYearKey } from '@/lib/formatters';
 
 export interface AccountBalance {
@@ -19,6 +20,7 @@ export interface AccountBalance {
   balance: number;
   color: string;
   icon: string;
+  hideInSafeMode?: boolean;
 }
 
 export interface CreditCardAccount {
@@ -97,7 +99,8 @@ async function loadSummary(): Promise<HomeSummary> {
       name: acc.name,
       balance: computeBalance(acc.id, acc.openingBalance, expenses),
       color: acc.color,
-      icon: acc.icon
+      icon: acc.icon,
+      ...(acc.hideInSafeMode !== undefined ? { hideInSafeMode: acc.hideInSafeMode } : {})
     }));
 
   const liquidAccs = accs.filter((a) => a.includeInNetWorth && !a.isArchived);
@@ -135,6 +138,8 @@ export function useHome() {
 
   useEffect(() => reload(), [reload]);
   useTxnRefresh(reload);
+  // Settings → Safe Mode edits accounts through a separately-mounted repo instance; reload here too.
+  useAccountsRefresh(reload);
 
   const assetGroups = useMemo<AssetGroup[]>(() => {
     if (!summary) return [];

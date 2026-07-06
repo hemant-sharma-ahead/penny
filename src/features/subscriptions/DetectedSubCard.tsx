@@ -6,19 +6,19 @@ import type { DetectedSubscription } from '@/core/subscriptions/detector';
 
 interface DetectedSubCardProps {
   candidate: DetectedSubscription;
-  mode: 'open' | 'safe' | 'privacy';
+  masked: boolean;
   onConfirm: (c: DetectedSubscription) => void;
   onDismiss: (c: DetectedSubscription) => void;
 }
 
-export function DetectedSubCard({ candidate: c, mode, onConfirm, onDismiss }: DetectedSubCardProps) {
+export function DetectedSubCard({ candidate: c, masked, onConfirm, onDismiss }: DetectedSubCardProps) {
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-primary truncate">{displayName(c.merchantCategory)}</p>
           <p className="text-xs text-secondary mt-0.5">
-            {mode === 'open' ? formatCurrency(c.detectedAmount) : '••••'} · {intervalLabel(c.intervalDays)}
+            {!masked ? formatCurrency(c.detectedAmount) : '••••'} · {intervalLabel(c.intervalDays)}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -36,7 +36,7 @@ export function DetectedSubCard({ candidate: c, mode, onConfirm, onDismiss }: De
         )}
       </p>
 
-      {c.priceCreep && c.latestAmount > c.firstAmount && mode === 'open' && (
+      {c.priceCreep && c.latestAmount > c.firstAmount && !masked && (
         <p className="text-xs text-warning">
           <i className="ti ti-trending-up" style={{ fontSize: 12 }} aria-hidden="true" /> Price rose{' '}
           {formatCurrency(c.firstAmount)} → {formatCurrency(c.latestAmount)} (+

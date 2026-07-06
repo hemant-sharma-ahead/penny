@@ -11,14 +11,14 @@ import { MfModal } from './MfModal';
 interface EquitySectionProps {
   holdings: Holding[];
   assetClass: Extract<AssetClass, 'stock' | 'mf'>;
-  mode: string;
+  masked: boolean;
   onSave: (holding: Holding) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
 }
 
 // Stocks / Mutual-funds slice: groups holdings by symbol/scheme with expandable
 // lots, and owns its add (FAB) + edit modal.
-export function EquitySection({ holdings, assetClass, mode, onSave, onRemove }: EquitySectionProps) {
+export function EquitySection({ holdings, assetClass, masked, onSave, onRemove }: EquitySectionProps) {
   const [expandedSymbols, setExpandedSymbols] = useState<Set<string>>(new Set());
   const [form, setForm] = useState<{ editing: Holding | null } | null>(null);
 
@@ -129,13 +129,13 @@ export function EquitySection({ holdings, assetClass, mode, onSave, onRemove }: 
                               )}
                             </div>
                             <p className="text-sm font-semibold text-primary flex-shrink-0">
-                              {mode === 'open' ? formatCurrency(totalCurrent) : '••••'}
+                              {!masked ? formatCurrency(totalCurrent) : '••••'}
                             </p>
                           </div>
                           <div className="flex items-baseline justify-between gap-2 mt-0.5">
                             {companyName ? <p className="text-xs text-secondary truncate">{companyName}</p> : <span />}
                             <p className="text-xs font-medium flex-shrink-0" style={{ color: totalGainColor }}>
-                              {mode === 'open'
+                              {!masked
                                 ? `${totalGain >= 0 ? '+' : '−'}${formatCurrency(Math.abs(totalGain))} · ${totalGain >= 0 ? '+' : ''}${formatPercent(totalGainPct)}`
                                 : '••••'}
                             </p>
@@ -147,7 +147,7 @@ export function EquitySection({ holdings, assetClass, mode, onSave, onRemove }: 
                                 <span className="text-[9px] text-tertiary">·</span>
                                 <span className="text-[10px] text-tertiary">
                                   Avg{' '}
-                                  {mode === 'open'
+                                  {!masked
                                     ? `₹${weightedAvg.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
                                     : '••••'}
                                 </span>
@@ -157,7 +157,7 @@ export function EquitySection({ holdings, assetClass, mode, onSave, onRemove }: 
                               <>
                                 <span className="text-[9px] text-tertiary">·</span>
                                 <span className="text-[10px] font-medium" style={{ color: meta.color }}>
-                                  {mode === 'open'
+                                  {!masked
                                     ? `₹${livePrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
                                     : '••••'}
                                   <span className="ml-0.5 opacity-60 text-[9px]">live</span>
@@ -202,7 +202,7 @@ export function EquitySection({ holdings, assetClass, mode, onSave, onRemove }: 
                                     <span className="text-tertiary">
                                       {' '}
                                       · Avg{' '}
-                                      {mode === 'open'
+                                      {!masked
                                         ? `₹${lot.avgCostPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
                                         : '••••'}
                                     </span>
@@ -211,7 +211,7 @@ export function EquitySection({ holdings, assetClass, mode, onSave, onRemove }: 
                               </div>
                               <div className="text-right flex-shrink-0">
                                 <p className="text-xs font-medium text-primary">
-                                  {mode === 'open' ? formatCurrency(lotCurrent) : '••••'}
+                                  {!masked ? formatCurrency(lotCurrent) : '••••'}
                                 </p>
                                 <p className="text-[10px]" style={{ color: lotGainColor }}>
                                   {lotGain >= 0 ? '+' : '−'}
@@ -283,7 +283,7 @@ export function EquitySection({ holdings, assetClass, mode, onSave, onRemove }: 
                               )}
                             </div>
                             <p className="text-sm font-semibold text-primary flex-shrink-0">
-                              {mode === 'open' ? formatCurrency(totalCurrent) : '••••'}
+                              {!masked ? formatCurrency(totalCurrent) : '••••'}
                             </p>
                           </div>
                           <div className="flex items-baseline justify-between gap-2 mt-0.5">
@@ -296,7 +296,7 @@ export function EquitySection({ holdings, assetClass, mode, onSave, onRemove }: 
                               <span />
                             )}
                             <p className="text-xs font-medium flex-shrink-0" style={{ color: gainColor }}>
-                              {mode === 'open'
+                              {!masked
                                 ? `${mfGain >= 0 ? '+' : '−'}${formatCurrency(Math.abs(mfGain))} · ${mfGain >= 0 ? '+' : ''}${formatPercent(mfGainPct)}`
                                 : '••••'}
                             </p>
@@ -308,7 +308,7 @@ export function EquitySection({ holdings, assetClass, mode, onSave, onRemove }: 
                                 <span className="text-[9px] text-tertiary">·</span>
                                 <span className="text-[10px] text-tertiary">
                                   Avg NAV{' '}
-                                  {mode === 'open'
+                                  {!masked
                                     ? `₹${weightedAvg.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
                                     : '••••'}
                                 </span>
@@ -319,7 +319,7 @@ export function EquitySection({ holdings, assetClass, mode, onSave, onRemove }: 
                                 <span className="text-[9px] text-tertiary">·</span>
                                 <span className="text-[10px] font-medium" style={{ color: meta.color }}>
                                   NAV{' '}
-                                  {mode === 'open'
+                                  {!masked
                                     ? `₹${liveNav.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
                                     : '••••'}
                                   <span className="ml-0.5 opacity-60 text-[9px]">live</span>
@@ -364,7 +364,7 @@ export function EquitySection({ holdings, assetClass, mode, onSave, onRemove }: 
                                     <span className="text-tertiary">
                                       {' '}
                                       · Avg NAV{' '}
-                                      {mode === 'open'
+                                      {!masked
                                         ? `₹${lot.avgCostPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
                                         : '••••'}
                                     </span>
@@ -373,7 +373,7 @@ export function EquitySection({ holdings, assetClass, mode, onSave, onRemove }: 
                               </div>
                               <div className="text-right flex-shrink-0">
                                 <p className="text-xs font-medium text-primary">
-                                  {mode === 'open' ? formatCurrency(lotCurrent) : '••••'}
+                                  {!masked ? formatCurrency(lotCurrent) : '••••'}
                                 </p>
                                 <p className="text-[10px]" style={{ color: lotGainColor }}>
                                   {lotGain >= 0 ? '+' : '−'}

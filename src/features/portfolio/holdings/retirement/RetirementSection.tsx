@@ -15,14 +15,14 @@ const NO_EPF_PROMPT = new Set<EmploymentType>(['self_employed', 'business_owner'
 
 interface RetirementSectionProps {
   holdings: Holding[];
-  mode: string;
+  masked: boolean;
   onSave: (holding: Holding) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
 }
 
 // Retirement slice: always shows the three fixed NPS / PPF / EPF cards (tracked or
 // untracked) and owns its add/edit modals plus the NPS lifecycle-schedule sheet.
-export function RetirementSection({ holdings, mode, onSave, onRemove }: RetirementSectionProps) {
+export function RetirementSection({ holdings, masked, onSave, onRemove }: RetirementSectionProps) {
   const [form, setForm] = useState<{ ac: RetClass; editing: Holding | null } | null>(null);
   const [scheduleHolding, setScheduleHolding] = useState<Holding | null>(null);
 
@@ -50,7 +50,7 @@ export function RetirementSection({ holdings, mode, onSave, onRemove }: Retireme
               onEdit={() => setForm({ ac, editing: h })}
               onSave={onSave}
               onViewSchedule={() => setScheduleHolding(h)}
-              mode={mode}
+              masked={masked}
             />
           );
         }

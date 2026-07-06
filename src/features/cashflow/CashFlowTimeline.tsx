@@ -15,10 +15,10 @@ function formatRowDate(dueMs: number, todayStart: number): string {
 interface CashFlowTimelineProps {
   grouped: [string, CashFlowEvent[]][]; // [monthKey "YYYY-MM", events]
   todayStart: number;
-  mode: 'open' | 'safe' | 'privacy';
+  masked: boolean;
 }
 
-export function CashFlowTimeline({ grouped, todayStart, mode }: CashFlowTimelineProps) {
+export function CashFlowTimeline({ grouped, todayStart, masked }: CashFlowTimelineProps) {
   return (
     <div className="flex flex-col gap-4">
       {grouped.map(([monthKey, monthEvents]) => (
@@ -27,7 +27,7 @@ export function CashFlowTimeline({ grouped, todayStart, mode }: CashFlowTimeline
             <span className="text-xs font-semibold uppercase tracking-wide text-secondary">{monthLabel(monthKey)}</span>
             <div className="flex-1 h-px bg-surface-2 border-t border-theme" />
             <span className="text-xs text-tertiary">
-              {mode === 'open' ? formatCurrency(monthEvents.reduce((s, e) => s + e.amount, 0)) : '••••'}
+              {!masked ? formatCurrency(monthEvents.reduce((s, e) => s + e.amount, 0)) : '••••'}
             </span>
           </div>
           <div className="flex flex-col gap-2">
@@ -43,7 +43,7 @@ export function CashFlowTimeline({ grouped, todayStart, mode }: CashFlowTimeline
                     </p>
                   </div>
                   <span className="text-sm font-semibold shrink-0 text-primary">
-                    {mode === 'open' ? formatCurrency(event.amount) : '••••'}
+                    {!masked ? formatCurrency(event.amount) : '••••'}
                   </span>
                 </Card>
               );

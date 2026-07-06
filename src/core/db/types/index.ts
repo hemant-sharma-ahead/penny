@@ -228,6 +228,8 @@ export interface ExpenseCategory {
   intentGroup?: string; // e.g. 'daily_living', 'income', 'transfers'
   applicableTo?: 'expense' | 'income' | 'transfer'; // defaults to 'expense'
   createdAt: number;
+  /** Safe Mode masks this category's amounts (transactions, budgets, analytics rows); undefined/false = visible. */
+  hideInSafeMode?: boolean;
 }
 
 // Transaction direction — all new records should set this explicitly; legacy records implicitly 'expense'
@@ -275,6 +277,8 @@ export interface Account {
   isArchived: boolean;
   createdAt: number;
   updatedAt: number;
+  /** Safe Mode masks this account's balance; undefined/false = visible. */
+  hideInSafeMode?: boolean;
 }
 
 export interface Budget {
@@ -477,6 +481,15 @@ export interface SecurityRecord {
   lockedUntil?: number;
   lastPinVerifiedAt?: number;
   pinChangedAt?: number;
+  // Forgot-PIN recovery: a SEPARATE attempt counter/lockout for passphrase verification, shared by
+  // unlockWithPassphrase() and resetPinWithPassphrase() — kept independent of pinAttempts/lockedUntil so
+  // exhausting one factor never blocks the other (that would trap a user who forgot their PIN and is
+  // trying to use the escape hatch). A successful passphrase verification resets pinAttempts/lockedUntil.
+  passphraseAttempts?: number;
+  passphraseLockedUntil?: number;
+  // Rate-limits changePassphrase() to once/24h, same policy as pinChangedAt. Not checked by
+  // resetPinWithPassphrase (an emergency recovery path, not a routine passphrase change).
+  passphraseChangedAt?: number;
   sessionExpiresAt?: number;
   wipeAfterAttempts?: number; // opt-in: erase all data after this many consecutive failed PIN attempts (undefined = off)
   createdAt: number;

@@ -5,7 +5,7 @@ import { nowMs } from '@/features/portfolio/holdings/shared/helpers';
 
 // View card for a Recurring Deposit — monthly installment, rate, months-completed
 // progress and projected maturity.
-export function RdCard({ holding, onEdit, mode }: { holding: Holding; onEdit: () => void; mode: string }) {
+export function RdCard({ holding, onEdit, masked }: { holding: Holding; onEdit: () => void; masked: boolean }) {
   const meta = holding.assetMeta ?? {};
   const monthlyInstallment = meta.rdMonthlyInstallment ?? holding.investedAmount;
   const rate = holding.interestRate ?? 0;
@@ -84,11 +84,11 @@ export function RdCard({ holding, onEdit, mode }: { holding: Holding; onEdit: ()
         <div>
           <p className="text-[10px] text-tertiary mb-0.5">Monthly</p>
           <p className="text-sm font-semibold text-primary tabular-nums">
-            {mode === 'open' ? `₹${monthlyInstallment.toLocaleString('en-IN')}/mo` : '••••'}
+            {!masked ? `₹${monthlyInstallment.toLocaleString('en-IN')}/mo` : '••••'}
           </p>
           {result && (
             <p className="text-[10px] text-tertiary mt-0.5">
-              Deposited: {mode === 'open' ? `₹${result.totalDeposited.toLocaleString('en-IN')}` : '••••'}
+              Deposited: {!masked ? `₹${result.totalDeposited.toLocaleString('en-IN')}` : '••••'}
             </p>
           )}
         </div>
@@ -98,7 +98,7 @@ export function RdCard({ holding, onEdit, mode }: { holding: Holding; onEdit: ()
               {result.isMatured ? 'Maturity amount' : 'Projected maturity'}
             </p>
             <p className="text-lg font-bold tabular-nums" style={{ color: '#10b981' }}>
-              {mode === 'open' ? `₹${result.maturityAmount.toLocaleString('en-IN')}` : '••••'}
+              {!masked ? `₹${result.maturityAmount.toLocaleString('en-IN')}` : '••••'}
             </p>
             <p className="text-[9px] font-medium" style={{ color: '#10b981' }}>
               +₹{result.totalInterest.toLocaleString('en-IN')} interest

@@ -11,14 +11,30 @@ const MODE_ORDER: PrivacyMode[] = ['safe', 'privacy', 'open'];
 
 type Step = null | 'pin' | 'warning';
 
+function formatCountdown(ms: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
 export function PrivacyModeSwitcher() {
-  const { mode, setMode } = usePrivacy();
+  const { mode, setMode, openModeExpiresAt } = usePrivacy();
   const [step, setStep] = useState<Step>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
   const [verifying, setVerifying] = useState(false);
   const pinInputRef = useRef<HTMLInputElement>(null);
+  const [tickNow, setTickNow] = useState(() => Date.now());
+
+  // Live countdown while an Open-mode window is active — ticks every second so the badge stays accurate.
+  useEffect(() => {
+    if (!openModeExpiresAt) return;
+    const id = setInterval(() => setTickNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [openModeExpiresAt]);
+  const openCountdown = openModeExpiresAt ? formatCountdown(openModeExpiresAt - tickNow) : null;
 
   useEffect(() => {
     if (step === 'pin') {
@@ -95,10 +111,18 @@ export function PrivacyModeSwitcher() {
           style={{ backgroundColor: `color-mix(in srgb, ${active.color} 14%, transparent)`, color: active.color }}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
-          aria-label={`Privacy mode: ${active.label}. Tap to change.`}
+          aria-label={`Privacy mode: ${active.label}${openCountdown ? `, reverts in ${openCountdown}` : ''}. Tap to change.`}
         >
           <i className={`ti ${active.icon}`} style={{ fontSize: 17 }} aria-hidden="true" />
         </button>
+        {openCountdown && (
+          <span
+            className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 text-[8px] font-bold px-1 rounded-full whitespace-nowrap"
+            style={{ backgroundColor: 'var(--color-open)', color: '#fff' }}
+          >
+            {openCountdown}
+          </span>
+        )}
 
         {menuOpen && (
           <>

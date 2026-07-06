@@ -23,7 +23,10 @@ const ACTION_FILTERS: { value: ActionFilter; label: string; actions: ActivityAct
 
 export function TimelinePage() {
   const navigate = useNavigate();
-  const { mode } = usePrivacy();
+  const { shouldMask } = usePrivacy();
+  // Activity log mixes entries from every module without a live category/account reference to
+  // resolve — treated as an aggregate/audit view: visible in Safe, hidden only in Privacy.
+  const masked = shouldMask(false);
   const { entries, grouped, recentlyDeleted, loading, reload, restore } = useActivityLog();
   const { showToast } = useToast();
   const [tab, setTab] = useState<TimelineTab>('story');
@@ -115,7 +118,7 @@ export function TimelinePage() {
               description="Start tracking and Chip will narrate your week."
             />
           ) : (
-            <MoneyStory entries={entries} mode={mode} />
+            <MoneyStory entries={entries} masked={masked} />
           )
         ) : tab === 'timeline' ? (
           grouped.length === 0 ? (
@@ -184,7 +187,7 @@ export function TimelinePage() {
                             <div className="flex-1 border-t border-dashed border-theme" />
                           </div>
                         ) : (
-                          <ActivityRow key={e.id} entry={e} mode={mode} />
+                          <ActivityRow key={e.id} entry={e} masked={masked} />
                         )
                       )}
                     </ListContainer>
@@ -207,7 +210,7 @@ export function TimelinePage() {
                 <ActivityRow
                   key={e.id}
                   entry={e}
-                  mode={mode}
+                  masked={masked}
                   onRestore={(id) => void handleRestore(id)}
                   restoring={restoringId === e.id}
                 />

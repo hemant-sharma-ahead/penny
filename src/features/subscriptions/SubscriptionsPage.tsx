@@ -1,4 +1,5 @@
 import { usePrivacy } from '@/context/PrivacyContext';
+import { useSettings } from '@/context/SettingsContext';
 import { expensesRepo } from '@/core/db/repositories';
 import { useRepository } from '@/hooks/useRepository';
 import { formatCurrency } from '@/lib/formatters';
@@ -7,7 +8,9 @@ import { useSubscriptions } from './useSubscriptions';
 import { SubscriptionsView } from './SubscriptionsView';
 
 export function SubscriptionsPage() {
-  const { mode } = usePrivacy();
+  const { shouldMask } = usePrivacy();
+  const { safeModeVisibility } = useSettings();
+  const masked = shouldMask(!safeModeVisibility.subscriptions);
   const { items: expenses } = useRepository(expensesRepo);
   const {
     detectedSubs,
@@ -25,9 +28,7 @@ export function SubscriptionsPage() {
       <PageHeader
         title="Subscriptions"
         subtitle={
-          activeSubs.length > 0
-            ? `${mode === 'open' ? formatCurrency(subsMonthlyTotal) : '••••'}/month total`
-            : undefined
+          activeSubs.length > 0 ? `${masked ? '••••' : formatCurrency(subsMonthlyTotal)}/month total` : undefined
         }
       />
 
@@ -38,7 +39,7 @@ export function SubscriptionsPage() {
           monthlyTotal={subsMonthlyTotal}
           annualTotal={subsAnnualTotal}
           hasExpenses={expenses.length > 0}
-          mode={mode}
+          masked={masked}
           onConfirm={confirmSubscription}
           onDismiss={dismissSubscription}
           onCancel={cancelSubscription}

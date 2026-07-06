@@ -30,13 +30,17 @@ export function VehicleDetailModal({
   onClose,
   onEdit,
   onSave,
-  mode
+  mode,
+  masked
 }: {
   holding: Holding;
   onClose: () => void;
   onEdit: () => void;
   onSave: (updated: Holding) => Promise<void>;
+  /** Real PrivacyMode — PII rows below stay hidden outside Open regardless of Safe Mode. */
   mode: string;
+  /** Portfolio Safe Mode toggle applied — amount fields only. */
+  masked: boolean;
 }) {
   const meta = holding.assetMeta ?? {};
   const [showUpdateSheet, setShowUpdateSheet] = useState(false);
@@ -123,7 +127,7 @@ export function VehicleDetailModal({
             <div className="rounded-xl p-3" style={{ backgroundColor: 'var(--color-surface-secondary)' }}>
               <p className="text-[10px] text-tertiary mb-0.5">Current value</p>
               <p className="text-base font-bold text-primary tabular-nums">
-                {mode === 'open' ? (currentVal > 0 ? `₹${currentVal.toLocaleString('en-IN')}` : '—') : '••••'}
+                {masked ? '••••' : currentVal > 0 ? `₹${currentVal.toLocaleString('en-IN')}` : '—'}
               </p>
               {stale && (
                 <p className="text-[9px] mt-0.5 font-medium" style={{ color: '#f59e0b' }}>
@@ -134,11 +138,11 @@ export function VehicleDetailModal({
             <div className="rounded-xl p-3" style={{ backgroundColor: 'var(--color-surface-secondary)' }}>
               <p className="text-[10px] text-tertiary mb-0.5">Purchase price</p>
               <p className="text-base font-bold text-primary tabular-nums">
-                {mode === 'open'
-                  ? holding.investedAmount > 0
+                {masked
+                  ? '••••'
+                  : holding.investedAmount > 0
                     ? `₹${holding.investedAmount.toLocaleString('en-IN')}`
-                    : '—'
-                  : '••••'}
+                    : '—'}
               </p>
               {gainPct !== null && (
                 <p className={`text-[9px] mt-0.5 font-medium ${gainPct >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
@@ -267,7 +271,7 @@ export function VehicleDetailModal({
                             className="text-sm font-bold tabular-nums shrink-0"
                             style={{ color: isPending ? '#ef4444' : 'var(--color-text-primary)' }}
                           >
-                            {mode === 'open' ? `₹${c.amount.toLocaleString('en-IN')}` : '••••'}
+                            {masked ? '••••' : `₹${c.amount.toLocaleString('en-IN')}`}
                           </p>
                         </div>
                         {/* Detail rows — always shown, — when absent */}
@@ -335,7 +339,7 @@ export function VehicleDetailModal({
                       mode={mode}
                       label="Pending amount"
                       value={
-                        mode === 'open' && meta.vehicleChallanPendingAmount
+                        !masked && meta.vehicleChallanPendingAmount
                           ? `₹${meta.vehicleChallanPendingAmount.toLocaleString('en-IN')}`
                           : '••••'
                       }

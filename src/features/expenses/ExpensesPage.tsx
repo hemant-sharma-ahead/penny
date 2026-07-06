@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { TabStrip, Modal } from '@/components/ui';
 import { usePrivacy } from '@/context/PrivacyContext';
+import { useSettings } from '@/context/SettingsContext';
 import { useEventMode } from '@/context/EventModeContext';
 import { useGroupContext } from '@/context/GroupContext';
 import { hasEntitlement } from '@/core/entitlement/entitlement';
@@ -20,7 +21,8 @@ import type { CategoryManager } from './categories/types';
 type ExpensesTab = 'transactions' | 'subscriptions' | 'iou' | 'analytics';
 
 export function ExpensesPage() {
-  const { mode } = usePrivacy();
+  const { shouldMask } = usePrivacy();
+  const { safeModeVisibility } = useSettings();
   const { events, pastEvents } = useEventMode();
   const {
     expenses,
@@ -131,7 +133,7 @@ export function ExpensesPage() {
           hashtags={hashtags}
           events={events}
           pastEvents={pastEvents}
-          mode={mode}
+          shouldMask={shouldMask}
           onSaveExpense={saveExpenseWithHashtags}
           onDeleteExpense={deleteExpense}
           onOpenBudgets={() => setShowBudgets(true)}
@@ -155,17 +157,29 @@ export function ExpensesPage() {
         />
       )}
 
-      {activeTab === 'subscriptions' && <SubscriptionsSlice expenses={expenses} mode={mode} />}
+      {activeTab === 'subscriptions' && (
+        <SubscriptionsSlice expenses={expenses} masked={shouldMask(!safeModeVisibility.subscriptions)} />
+      )}
 
       {activeTab === 'iou' && <IouSlice />}
 
       {activeTab === 'analytics' && (
-        <AnalyticsSlice expenses={expenses} categoryMap={categoryMap} mode={mode} iouLinkedTxnIds={iouLinkedTxnIds} />
+        <AnalyticsSlice
+          expenses={expenses}
+          categoryMap={categoryMap}
+          masked={shouldMask(false)}
+          iouLinkedTxnIds={iouLinkedTxnIds}
+        />
       )}
 
       {showBudgets && (
         <Modal title="Budgets" onClose={() => setShowBudgets(false)} scrollable>
-          <BudgetsSlice expenseCategories={expenseCategories} spendByCategory={spendByCategory} mode={mode} overlay />
+          <BudgetsSlice
+            expenseCategories={expenseCategories}
+            spendByCategory={spendByCategory}
+            shouldMask={shouldMask}
+            overlay
+          />
         </Modal>
       )}
     </div>

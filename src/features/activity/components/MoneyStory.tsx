@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import type { ActivityLog } from '@/core/db/types';
-import type { PrivacyMode } from '@/context/PrivacyContext';
 import { ChipAvatar } from '@/components/ui/ChipAvatar';
 import { narrateDay, weeklyStats } from '@/core/activity/narrate';
 import { TrackingHeatmap } from './TrackingHeatmap';
@@ -10,7 +9,7 @@ import { WrappedModal } from './WrappedModal';
 
 interface Props {
   entries: ActivityLog[];
-  mode: PrivacyMode;
+  masked: boolean;
 }
 
 interface Tile {
@@ -19,7 +18,7 @@ interface Tile {
 }
 
 /** Story tab: Chip narration + a compact 2×2 week grid + streak heatmap + On this day. */
-export function MoneyStory({ entries, mode }: Props) {
+export function MoneyStory({ entries, masked }: Props) {
   const story = useMemo(() => narrateDay(entries), [entries]);
   const week = useMemo(() => weeklyStats(entries), [entries]);
   const [showWrapped, setShowWrapped] = useState(false);
@@ -79,7 +78,7 @@ export function MoneyStory({ entries, mode }: Props) {
       )}
 
       <TrackingHeatmap entries={entries} />
-      <OnThisDay entries={entries} mode={mode} />
+      <OnThisDay entries={entries} masked={masked} />
 
       {showWrapped && <WrappedModal entries={entries} onClose={() => setShowWrapped(false)} />}
     </div>

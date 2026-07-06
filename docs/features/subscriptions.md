@@ -41,6 +41,8 @@ Subscription logic and presentation are shared between the standalone `/app/subs
 the Expenses → Subscriptions tab: both consume the `useSubscriptions` hook and render the same
 `SubscriptionsView` / `DetectedSubCard` / `ActiveSubCard` components, so the two surfaces stay in sync.
 
+Amounts respect `usePrivacy().shouldMask(!safeModeVisibility.subscriptions)` — Safe Mode hides subscription amounts only if the "Subscriptions" toggle in Settings → Safe Mode is switched off (visible by default); Privacy always masks; Open never does. Both entry points compute this independently since they don't share a parent component.
+
 Key files:
 
 - `src/features/subscriptions/SubscriptionsPage.tsx` — standalone route: header + shared `SubscriptionsView`

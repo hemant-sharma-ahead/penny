@@ -7,12 +7,12 @@ import { useBudgets } from './useBudgets';
 interface BudgetsSliceProps {
   expenseCategories: ExpenseCategory[];
   spendByCategory: Map<string, number>;
-  mode: 'open' | 'safe' | 'privacy';
+  shouldMask: (sensitive: boolean | undefined) => boolean;
   /** True when rendered inside a Modal (drops the tab scroll wrapper; nests the inner form). */
   overlay?: boolean;
 }
 
-export function BudgetsSlice({ expenseCategories, spendByCategory, mode, overlay }: BudgetsSliceProps) {
+export function BudgetsSlice({ expenseCategories, spendByCategory, shouldMask, overlay }: BudgetsSliceProps) {
   const { saveBudget, monthBudgets } = useBudgets();
   const [showBudgetForm, setShowBudgetForm] = useState(false);
   const [initialCategoryId, setInitialCategoryId] = useState('');
@@ -35,7 +35,7 @@ export function BudgetsSlice({ expenseCategories, spendByCategory, mode, overlay
       expenseCategories={expenseCategories}
       spendByCategory={spendByCategory}
       monthBudgets={monthBudgets}
-      mode={mode}
+      shouldMask={shouldMask}
       onOpenBudget={openBudgetForm}
     />
   );

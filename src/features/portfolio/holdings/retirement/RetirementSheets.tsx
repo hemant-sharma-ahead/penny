@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { usePrivacy } from '@/context/PrivacyContext';
+import { useSettings } from '@/context/SettingsContext';
 import { Modal, Button, TextInput, SegmentedControl, DetailRow, AmountInput } from '@/components/ui';
 import { epochToDateInput } from '@/lib/formatters';
 import { LIFECYCLE_FUNDS } from '@/core/nps';
@@ -270,7 +271,9 @@ export function EpfAllTransactionsSheet({
   onAddTransaction: () => void;
   onClose: () => void;
 }) {
-  const { mode } = usePrivacy();
+  const { shouldMask } = usePrivacy();
+  const { safeModeVisibility } = useSettings();
+  const masked = shouldMask(!safeModeVisibility.portfolio);
   const [filter, setFilter] = useState<'all' | 'interest' | 'transfer'>('all');
   const [selectedMonth, setSelectedMonth] = useState<EpfMonthEntry | null>(null);
 
@@ -397,7 +400,7 @@ export function EpfAllTransactionsSheet({
                 {filter === 'all' && group.months.length > 0 && (
                   <p className="text-[10px] text-tertiary tabular-nums">
                     {group.months.length} months
-                    {mode === 'open' && ` · ₹${(group.totalEmployee + group.totalEmployerEpf).toLocaleString('en-IN')}`}
+                    {!masked && ` · ₹${(group.totalEmployee + group.totalEmployerEpf).toLocaleString('en-IN')}`}
                   </p>
                 )}
               </div>
@@ -434,7 +437,7 @@ export function EpfAllTransactionsSheet({
                       className="text-xs font-bold tabular-nums flex-shrink-0"
                       style={{ color: EPF_TX_COLORS[tx.type] }}
                     >
-                      {mode === 'open' ? `₹${(tx.amount ?? 0).toLocaleString('en-IN')}` : '••••'}
+                      {!masked ? `₹${(tx.amount ?? 0).toLocaleString('en-IN')}` : '••••'}
                     </p>
                   </div>
                 ))}
@@ -462,7 +465,7 @@ export function EpfAllTransactionsSheet({
                       <p className="text-[10px] text-tertiary">{entry.companyName}</p>
                     </div>
                     <div className="text-right flex-shrink-0 flex items-center gap-1.5">
-                      {mode === 'open' ? (
+                      {!masked ? (
                         <div className="text-right">
                           <p className="text-xs font-semibold text-primary tabular-nums">
                             ₹{(entry.empAmount + entry.eplrEpfAmount).toLocaleString('en-IN')}
@@ -517,19 +520,19 @@ export function EpfAllTransactionsSheet({
             <div className="flex flex-col gap-1.5">
               <DetailRow
                 label="Employee contribution"
-                value={mode === 'open' ? `₹${selectedMonth.empAmount.toLocaleString('en-IN')}` : '••••'}
+                value={!masked ? `₹${selectedMonth.empAmount.toLocaleString('en-IN')}` : '••••'}
                 size="md"
               />
               <DetailRow
                 label="Employer → EPF (3.67%)"
-                value={mode === 'open' ? `₹${selectedMonth.eplrEpfAmount.toLocaleString('en-IN')}` : '••••'}
+                value={!masked ? `₹${selectedMonth.eplrEpfAmount.toLocaleString('en-IN')}` : '••••'}
                 size="md"
               />
               <DetailRow
                 label="Employer → EPS (8.33%)"
                 value={
                   <span style={{ color: '#94a3b8' }}>
-                    {mode === 'open' ? `₹${selectedMonth.epsAmount.toLocaleString('en-IN')}` : '••••'}
+                    {!masked ? `₹${selectedMonth.epsAmount.toLocaleString('en-IN')}` : '••••'}
                   </span>
                 }
                 size="md"
@@ -537,7 +540,7 @@ export function EpfAllTransactionsSheet({
               <DetailRow
                 label={<span className="font-semibold">Total to EPF</span>}
                 value={
-                  mode === 'open'
+                  !masked
                     ? `₹${(selectedMonth.empAmount + selectedMonth.eplrEpfAmount).toLocaleString('en-IN')}`
                     : '••••'
                 }

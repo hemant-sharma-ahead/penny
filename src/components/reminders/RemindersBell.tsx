@@ -22,13 +22,16 @@ function dueLabel(r: Reminder, todayMs: number): string {
 }
 
 export function RemindersBell() {
-  const { mode } = usePrivacy();
+  const { shouldMask } = usePrivacy();
   const { nowMs, reminders, counts, snooze, markDone, log, cancelSub } = useReminders();
   const [open, setOpen] = useState(false);
   const [snoozeFor, setSnoozeFor] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const money = (n: number) => (mode === 'open' ? formatCurrency(n) : '••••');
+  // Reminders mix bills/EMIs/subscriptions from different modules without a live category/account
+  // reference here — treated as an aggregate view: visible in Safe, hidden only in Privacy.
+  const masked = shouldMask(false);
+  const money = (n: number) => (masked ? '••••' : formatCurrency(n));
 
   const runAction = async (r: Reminder, fn: (r: Reminder) => Promise<void>) => {
     setBusyId(r.id);

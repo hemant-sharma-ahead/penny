@@ -6,10 +6,10 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 interface PlannerTabProps {
   planner: ReturnType<typeof usePlanner>;
-  mode: 'open' | 'safe' | 'privacy';
+  masked: boolean;
 }
 
-export function PlannerTab({ planner, mode }: PlannerTabProps) {
+export function PlannerTab({ planner, masked }: PlannerTabProps) {
   const p = planner;
 
   return (
@@ -156,7 +156,7 @@ export function PlannerTab({ planner, mode }: PlannerTabProps) {
         </div>
 
         {/* Results */}
-        {p.isValid && p.result.rows.length > 0 && <PlannerResults planner={planner} mode={mode} />}
+        {p.isValid && p.result.rows.length > 0 && <PlannerResults planner={planner} masked={masked} />}
 
         {!p.isValid && (
           <div className="flex flex-col items-center justify-center py-10 text-center">

@@ -96,12 +96,17 @@ Default and user-created categories for classifying expenses.
 | isGroup      | boolean?                             | `true` ⇒ this record is a user-created **parent** (grouping header), not selectable for a transaction                    |
 | parentId     | string?                              | For a custom leaf category, the id of its parent (`isGroup`) category. Takes precedence over `intentGroup` for grouping. |
 | applicableTo | 'expense' \| 'income' \| 'transfer'? | Defaults to `'expense'`                                                                                                  |
+| hideInSafeMode | boolean? | Safe Mode masks this category's amounts (transactions, budgets); explicit `true`/`false` always wins, `undefined` falls back to the intent-group default — see `isHiddenInSafeMode()` in `core/expenses/categoryGroups.ts`. Set from Settings → Safe Mode. |
 
 > **Grouping (Track 3):** the picker/analytics/filters key off `groupKey(cat) = parentId ?? intentGroup ?? 'other'`; the header label/color comes from the parent record (custom groups) or `INTENT_GROUP_META` (fixed groups). No Dexie store/version change — `isGroup`/`parentId` ride inside the encrypted blob.
 
 > **Sin Goods intent group (Track 7):** a `sin_goods` intent group (in `INTENT_GROUP_META`) with two new default categories — `cat-alcohol` and `cat-tobacco`. These map to high-tax bands in the indirect-tax footprint. Existing users receive them via an **additive, non-destructive** re-seed in `useExpenses.ts` guarded by `penny_cats_v3` (inserts only missing default categories — never re-puts edited ones). No Dexie store/version change.
 
 > **Tax-footprint overrides (Track 7):** stored in `localStorage`, not Dexie — `penny_settings_tax_gross_income`, `penny_settings_tax_direct`, `penny_settings_tax_epf`, `penny_settings_tax_statutory` (optional manual gross-income, income-tax correction, EPF/PF, and professional-tax+LWF overrides for the income waterfall; absent = derive automatically). See `SettingsContext`.
+
+> **Safe Mode visibility:** per-category (`hideInSafeMode` above) and per-account (`accounts.hideInSafeMode`) flags cover Expenses/Income/Accounts. Loans, IOU, Portfolio, Goals, Insurance, and Subscriptions don't have a natural per-item category to hang a flag on, so they use simple module-level toggles stored in `localStorage` under `penny_settings_safe_mode_visibility` (`SafeModeVisibility` in `SettingsContext` — `loans`/`iou`/`portfolio`/`goals`/`insurance`/`subscriptions`; these already store "visible" directly, default `true`). `usePrivacy().shouldMask(sensitive)` is the single source of truth: Open never masks, Privacy always masks, Safe masks only when `sensitive` is true. Aggregates (totals, net worth, "Total spent this month", the cash-flow forecast, the Activity Timeline) always pass `sensitive: false` — Safe Mode's premise is that the big picture stays visible and only specific flagged items hide.
+>
+> **Category defaults are smart, not blank.** An explicit `hideInSafeMode` on a category always wins; when it's `undefined`, `isHiddenInSafeMode()` (`core/expenses/categoryGroups.ts`) falls back to a per-intent-group default — `income`, `transfers`, `family_giving`, `legal`, `sin_goods`, and `financial` default **hidden**; every other default category (daily living, home & utilities, lifestyle, etc.) and any custom category default **visible**. The Settings → Safe Mode toggle matches the field directly (ON = hidden, `hideInSafeMode: true`). Accounts have no group concept and simply default visible (`undefined` → shown).
 
 ---
 
@@ -262,6 +267,9 @@ Single-record store. Holds the cryptographic material for **envelope encryption*
 | pinAttempts                    | number        | Failed PIN attempts (shared across unlock / Open-mode / change-PIN); resets on success                                   |
 | lockedUntil                    | number?       | Epoch ms — exponential-backoff lockout expiry after 5 failed attempts                                                    |
 | pinChangedAt                   | number?       | Epoch ms — drives the 21-day rotation reminder AND the once-per-24h change limit                                         |
+| passphraseAttempts             | number?       | **Track F** — failed passphrase-verification attempts (Forgot-PIN unlock + PIN reset). Separate from `pinAttempts` so exhausting one factor never locks out the other; resets on success |
+| passphraseLockedUntil          | number?       | **Track F** — epoch ms — exponential-backoff lockout expiry for `passphraseAttempts`                                                                    |
+| passphraseChangedAt            | number?       | **Track F** — epoch ms — once-per-24h throttle for `changePassphrase`; not checked by the emergency `resetPinWithPassphrase` path                        |
 | sessionExpiresAt               | number?       | Epoch ms — session/auto-lock expiry                                                                                      |
 | wipeAfterAttempts              | number?       | **Track 2** — opt-in: erase all data after this many consecutive failed PIN attempts (undefined = off)                   |
 
@@ -363,6 +371,7 @@ Bank accounts, wallets, and cash holdings. Used as source/destination for expens
 | openingBalance | number?                                                         | Balance at time of account creation in Penny |
 | color          | string?                                                         | Hex color for UI                             |
 | icon           | string?                                                         | Tabler icon name                             |
+| hideInSafeMode | boolean?                                                        | Safe Mode masks this account's balance; undefined/false = visible. Set from Settings → Safe Mode. |
 
 ---
 

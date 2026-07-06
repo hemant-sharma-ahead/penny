@@ -60,6 +60,10 @@ Onboarding lives in `src/features/onboarding/` as a set of screen components rou
 
 During the credentials setup screen, `securityManager.ts` initialises **envelope encryption** (Track 2): a random Data Master Key (DMK) encrypts all data, and the DMK is independently wrapped by a passphrase-derived KEK (PBKDF2 600,000 iterations) and a PIN-derived KEK (PBKDF2 200,000 iterations). The DMK lives in memory only (non-extractable) and is cleared on session expiry. Changing the passphrase or PIN only re-wraps the DMK — data is never re-encrypted. Nothing is ever stored in plaintext.
 
+**Forgot PIN (local security hardening, 2026-07).** PIN and passphrase verification keep independent attempt counters/lockouts (`pinAttempts`/`lockedUntil` vs. `passphraseAttempts`/`passphraseLockedUntil`) so exhausting one factor never blocks the other. `SessionGate` shows a "Forgot PIN?" link only once PIN attempts are exhausted; it verifies the passphrase (`unlockWithPassphrase`) and routes to `ChangePinPage` in a non-dismissible, forced mode (`resetPinWithPassphrase`) that requires the passphrase again to set the new PIN. A user can also reach the passphrase route from `ChangePinPage` directly, without having exhausted PIN attempts — that path is dismissible. `changePassphrase()` and `changePin()` are each throttled to once per 24h; the emergency `resetPinWithPassphrase` path is not, since it's a recovery escape hatch, not a routine change.
+
+**Open mode is always temporary.** `PrivacyContext` never starts in `'open'` — `defaultPrivacyMode` (persisted in `SettingsContext`) only ever resolves to Safe or Privacy. Switching to Open (via the PIN + warning confirmation in `PrivacyModeSwitcher`) arms an auto-revert timer for `openModeDurationMinutes` (1/5/10/15/30, default 1, configurable in Settings) and reverts immediately on backgrounding/`visibilitychange` — it can never be left on indefinitely, even if `defaultPrivacyMode` is somehow set to it.
+
 The `profile` store holds: `displayName` (= full name), `currency`, `locale`, `onboardingComplete`, and (Track 2) `dob`, `employmentType`, `username`, `userId`. The on-device keypair and the `plan`/entitlement marker are stored alongside (the keypair in the encrypted DB).
 
 Demo data is seeded by `seedDemoData.ts` immediately after onboarding completes if the user opts in. The seed is **tailored to the chosen employment type** (`salaried | self_employed | business_owner | student | retired`): each persona gets a distinct, realistic income mix (salary vs. retainer + irregular invoices vs. business drawings vs. pocket money/part-time vs. pension/rental), scaled everyday spend, and a fitting set of holdings, liabilities, subscriptions, rent/SIP, and due bills. Calling `seedDemoData(employmentType)` with no argument defaults to `salaried`. If the user later changes employment on the Profile page while still on untouched demo data, `reseedForEmployment(employmentType)` wipes and re-seeds for the new persona (it bails out if any real, non-demo financial data has been created — detected via the activity log).
@@ -88,6 +92,9 @@ Key files:
 - `src/core/identity/recovery.ts` — passphrase-derived Ed25519 recovery keypair (`deriveRecoveryKeypair`, `signRecoveryChallenge`)
 - `src/core/entitlement/entitlement.ts` — the `sync` entitlement gate (env-driven) that makes username mandatory + triggers the server claim
 - `src/core/db/seedDemoData.ts` — demo data population called post-onboarding (new-user path only)
+- `src/core/session/SessionGate.tsx` — PIN unlock, attempts-remaining, "Forgot PIN?" (post-lockout) → passphrase recovery sub-flow
+- `src/features/security/ChangePinPage.tsx` / `ChangePassphrasePage.tsx` — in-app change flows + forced/non-dismissible reset-via-passphrase mode
+- `src/context/PrivacyContext.tsx` / `src/context/SettingsContext.tsx` — Open-mode auto-revert timer + `openModeDurationMinutes` setting
 
 ## Current limitations
 
@@ -99,6 +106,7 @@ Key files:
 
 - **Track 2 (done):** Onboarding v2 — combined "Let us know you" screen (full name, username, DOB, employment) after the dashboard preview; Change Passphrase + Change PIN (envelope re-wrap, current passphrase required); re-auth to enter Open mode; cloud backup to the user's own Google Drive; a full-reset path.
 - **Phase 1.5 (done):** server-backed identity — the handle is claimed during onboarding (`claimAccount`), plus passphrase reclaim + post-restore reconcile (see _Restore & reclaim_ above)
+- **Local security hardening (done, 2026-07):** Forgot-PIN recovery via passphrase (independent attempt lockouts, forced non-dismissible PIN reset) + Open mode made strictly temporary (auto-revert timer + configurable duration, never a persistent launch state)
 - Phase 2: Biometric auth (Face ID / Touch ID) — an extra DMK wrapping slot, native apps
 - Phase 2: Cloud backup to iCloud (native); push notifications
 

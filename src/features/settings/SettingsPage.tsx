@@ -2,8 +2,14 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader, Button, Toggle } from '@/components/ui';
 import { useProfile } from '@/hooks/useProfile';
-import { useSettings, type FontScale, type ModuleVisibility, type Theme } from '@/context/SettingsContext';
-import { type PrivacyMode } from '@/context/PrivacyContext';
+import {
+  useSettings,
+  OPEN_MODE_DURATIONS,
+  type FontScale,
+  type ModuleVisibility,
+  type Theme
+} from '@/context/SettingsContext';
+import { type PersistedPrivacyMode } from '@/context/PrivacyContext';
 import { clearDemoData, isDemoSeeded } from '@/core/db/seedDemoData';
 import { getWipeAfterAttempts, setWipeAfterAttempts, WIPE_THRESHOLD } from '@/core/crypto/securityManager';
 import { PATHS } from '@/router/paths';
@@ -36,11 +42,11 @@ const FONT_SCALES: { value: FontScale; label: string; px: number }[] = [
   { value: 'xl', label: 'A++', px: 24 }
 ];
 
-// Icons + colours mirror the header's PrivacyModeSwitcher — keep the two in sync.
-const PRIVACY_MODES: { mode: PrivacyMode; label: string; icon: string; color: string }[] = [
+// Icons + colours mirror the header's PrivacyModeSwitcher — keep the two in sync. Open is deliberately
+// excluded here — it can never be a persisted default, only a temporary elevation (see PrivacyContext).
+const PRIVACY_MODES: { mode: PersistedPrivacyMode; label: string; icon: string; color: string }[] = [
   { mode: 'safe', label: 'Safe', icon: 'ti-eye-off', color: 'var(--color-safe)' },
-  { mode: 'privacy', label: 'Private', icon: 'ti-shield-lock', color: 'var(--color-privacy)' },
-  { mode: 'open', label: 'Open', icon: 'ti-eye', color: 'var(--color-open)' }
+  { mode: 'privacy', label: 'Private', icon: 'ti-shield-lock', color: 'var(--color-privacy)' }
 ];
 
 /** Miniature palette preview for a theme swatch (brand palette = domain data, kept inline). */
@@ -122,11 +128,13 @@ export function SettingsPage() {
     fontScale,
     theme,
     defaultPrivacyMode,
+    openModeDurationMinutes,
     lockOnBackground,
     setModule,
     setFontScale,
     setTheme,
     setDefaultPrivacyMode,
+    setOpenModeDurationMinutes,
     setLockOnBackground
   } = useSettings();
   const [wipeEnabled, setWipeEnabled] = useState(false);
@@ -317,6 +325,39 @@ export function SettingsPage() {
             );
           })}
         </div>
+
+        <p className="text-xs text-secondary mt-4 mb-2">
+          Open mode duration — how long "Open" lasts before it auto-reverts. Open is never a starting state; it's always
+          a temporary switch (from the header) that resets on its own, on backgrounding, or on relaunch.
+        </p>
+        <div className="flex gap-1.5">
+          {OPEN_MODE_DURATIONS.map((minutes) => {
+            const on = openModeDurationMinutes === minutes;
+            return (
+              <button
+                key={minutes}
+                type="button"
+                onClick={() => setOpenModeDurationMinutes(minutes)}
+                className="flex-1 py-2 rounded-xl text-xs font-bold border transition-colors"
+                style={
+                  on
+                    ? { backgroundColor: 'var(--color-open)', color: '#fff', borderColor: 'var(--color-open)' }
+                    : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
+                }
+              >
+                {minutes}m
+              </button>
+            );
+          })}
+        </div>
+
+        <Row
+          icon="ti-eye-off"
+          label="Manage Safe Mode visibility"
+          sub="Choose what stays hidden in Safe Mode"
+          onClick={() => navigate(PATHS.app.safeMode)}
+          trailing={<Chevron />}
+        />
 
         {/* Security */}
         <SectionLabel>Security</SectionLabel>

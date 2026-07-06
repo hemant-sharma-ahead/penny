@@ -12,9 +12,11 @@ Money Story, Weekly Wrapped), and living proof of the privacy promise.
 - **Undo** after any delete — a toast with "Undo" restores the record (single and bulk deletes, e.g. the
   Track-3 "delete 47 transactions").
 - **Recently Deleted** tab — restore deleted items later from a snapshot bin.
-- **Timeline** feed — every change grouped by day, with action icons and times; ₹ amounts are masked
-  outside Open privacy mode.
-- **Beautiful diffs** — edits show friendly before→after chips (values shown only in Open mode).
+- **Timeline** feed — every change grouped by day, with action icons and times; ₹ amounts are masked in
+  Privacy mode only (Safe and Open both show them — the log mixes entries from every module without a
+  live category/account reference to resolve per-item Safe Mode sensitivity, so it's treated as an
+  aggregate view; see `docs/ARCHITECTURE.md` → Context providers).
+- **Beautiful diffs** — edits show friendly before→after chips (hidden in Privacy mode only).
 - **Per-item history** — the expense edit form shows that record's own change story.
 - **Tracking streak + heatmap** — a GitHub-style activity grid with current/longest streak.
 - **Privacy receipt** — "N changes today, all stayed on your device."

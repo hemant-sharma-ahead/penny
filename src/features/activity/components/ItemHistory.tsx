@@ -15,7 +15,8 @@ function when(ts: number): string {
 
 /** Compact change history for a single record (its own story), shown on edit screens. */
 export function ItemHistory({ entityId }: Props) {
-  const { mode } = usePrivacy();
+  const { shouldMask } = usePrivacy();
+  const masked = shouldMask(false);
   const [entries, setEntries] = useState<ActivityLog[]>([]);
 
   useEffect(() => {
@@ -40,7 +41,9 @@ export function ItemHistory({ entityId }: Props) {
           return (
             <div key={e.id} className="flex items-center gap-2">
               <i className={`ti ${meta.icon}`} style={{ fontSize: 13, color: meta.color }} aria-hidden="true" />
-              <span className="text-[11px] text-secondary flex-1 min-w-0 truncate">{maskAmounts(e.summary, mode)}</span>
+              <span className="text-[11px] text-secondary flex-1 min-w-0 truncate">
+                {maskAmounts(e.summary, masked)}
+              </span>
               <span className="text-[10px] text-tertiary flex-shrink-0">{when(e.timestamp)}</span>
             </div>
           );

@@ -6,7 +6,7 @@ interface Props {
   series: MonthPoint[]; // 12 months, this year
   prevYear: MonthPoint[]; // 12 months, last year (for ghost bars)
   max: number;
-  mode: 'open' | 'safe' | 'privacy';
+  masked: boolean;
   onSelectMonth: (month: string) => void;
 }
 
@@ -18,13 +18,13 @@ const H = TOP + PLOT + BOTTOM;
 
 /**
  * Annual combined chart: faint previous-year expense bars behind this year's
- * expense bars + an income line. Values sit above each bar (Open mode); columns
+ * expense bars + an income line. Values sit above each bar (unmasked); columns
  * are tappable to open that month, and the chart scrolls horizontally.
  */
-export function AnnualChart({ series, prevYear, max, mode, onSelectMonth }: Props) {
+export function AnnualChart({ series, prevYear, max, masked, onSelectMonth }: Props) {
   const n = series.length;
   const W = n * COL;
-  const open = mode === 'open';
+  const open = !masked;
   const bw = COL * 0.46;
   const y = (v: number) => TOP + PLOT - (Math.max(0, v) / max) * PLOT;
   const cx = (i: number) => i * COL + COL / 2;

@@ -66,7 +66,7 @@ function BalanceSparkline({ forecast, buffer }: { forecast: BalanceForecast; buf
 
 export function CashFlowPage() {
   const navigate = useNavigate();
-  const { mode } = usePrivacy();
+  const { shouldMask } = usePrivacy();
   const { cashflowBuffer, setCashflowBuffer } = useSettings();
   const {
     horizon,
@@ -87,7 +87,10 @@ export function CashFlowPage() {
   const [showBuffer, setShowBuffer] = useState(false);
   const [bufferDraft, setBufferDraft] = useState(String(cashflowBuffer));
 
-  const open = mode === 'open';
+  // Cash-flow forecast is an aggregate projection, not a specific sensitive item — visible in Safe Mode,
+  // hidden only in Privacy Mode (same treatment as Home's net worth).
+  const masked = shouldMask(false);
+  const open = !masked;
   const money = (n: number) => (open ? formatCurrency(n) : '••••');
   const horizonLabel = HORIZON_LABEL[horizon] ?? 'this month';
 
@@ -231,7 +234,7 @@ export function CashFlowPage() {
               {money(total)} · {summaryParts.join(' · ')}
             </span>
           </div>
-          <CashFlowTimeline grouped={grouped} todayStart={todayStart} mode={mode} />
+          <CashFlowTimeline grouped={grouped} todayStart={todayStart} masked={masked} />
         </div>
       )}
 

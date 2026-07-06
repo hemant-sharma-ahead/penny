@@ -56,7 +56,9 @@ post-unlock backfill (`useIou.ts`, flag `penny_iou_v2`) — encrypted stores can
 bucket; full text preserved); a settled legacy IOU becomes its lend/borrow plus a matching settlement
 so the derived net reproduces the old state. Pure logic in `core/iou/migration.ts`.
 
-The experience is delivered by the shared `IouView` component (privacy mode read internally), rendered
+The experience is delivered by the shared `IouView` component (privacy mode read internally via
+`shouldMask(!safeModeVisibility.iou)` — Safe Mode hides IOU amounts only if the "IOU" toggle in Settings →
+Safe Mode is switched off; visible by default), rendered
 **only as the Expenses → IOU tab** (via `IouSlice`). There is no longer a standalone `/app/iou` route —
 it and `IouPage.tsx` were removed. The Net Worth "IOU" line on Home navigates to the Expenses IOU tab
 (`GlanceHeader` → `PATHS.app.expenses` with `state: { tab: 'iou' }`).

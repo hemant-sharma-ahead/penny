@@ -12,14 +12,18 @@ type RealAssetClass = Extract<AssetClass, 'vehicle' | 'property' | 'other'>;
 
 interface RealAssetsSectionProps {
   holdings: Holding[];
+  /** Real PrivacyMode — vehicle PII fields (reg number, owner name, address, policy number, …)
+   *  stay hidden outside Open mode regardless of the Portfolio Safe Mode toggle. */
   mode: string;
+  /** Portfolio Safe Mode toggle applied — amount fields only. */
+  masked: boolean;
   onSave: (holding: Holding) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
 }
 
 // Real Assets slice: vehicles / property / other cards, each owning its detail &
 // value-update sheets, plus this section's own add/edit modals.
-export function RealAssetsSection({ holdings, mode, onSave, onRemove }: RealAssetsSectionProps) {
+export function RealAssetsSection({ holdings, mode, masked, onSave, onRemove }: RealAssetsSectionProps) {
   const [form, setForm] = useState<{ ac: RealAssetClass; editing: Holding | null } | null>(null);
 
   const vehicles = holdings.filter((h) => h.assetClass === 'vehicle');
@@ -74,6 +78,7 @@ export function RealAssetsSection({ holdings, mode, onSave, onRemove }: RealAsse
                 onEdit={() => setForm({ ac: 'vehicle', editing: h })}
                 onSave={onSave}
                 mode={mode}
+                masked={masked}
               />
             ))}
           </div>
@@ -116,7 +121,7 @@ export function RealAssetsSection({ holdings, mode, onSave, onRemove }: RealAsse
                 holding={h}
                 onEdit={() => setForm({ ac: 'property', editing: h })}
                 onSave={onSave}
-                mode={mode}
+                masked={masked}
               />
             ))}
           </div>
@@ -152,9 +157,9 @@ export function RealAssetsSection({ holdings, mode, onSave, onRemove }: RealAsse
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-sm font-semibold text-primary">
-                      {mode === 'open' ? `₹${currentVal.toLocaleString('en-IN')}` : '••••'}
+                      {masked ? '••••' : `₹${currentVal.toLocaleString('en-IN')}`}
                     </p>
-                    {mode === 'open' && (
+                    {!masked && (
                       <p className={`text-[10px] font-medium ${gain >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                         {gain >= 0 ? '+' : ''}
                         {gainPct.toFixed(1)}%

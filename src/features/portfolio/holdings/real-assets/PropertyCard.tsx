@@ -7,12 +7,12 @@ export function PropertyCard({
   holding,
   onEdit,
   onSave,
-  mode
+  masked
 }: {
   holding: Holding;
   onEdit: () => void;
   onSave: (updated: Holding) => Promise<void>;
-  mode: string;
+  masked: boolean;
 }) {
   const [showUpdateSheet, setShowUpdateSheet] = useState(false);
   const meta = holding.assetMeta ?? {};
@@ -66,7 +66,7 @@ export function PropertyCard({
           <div>
             <p className="text-[10px] text-tertiary mb-0.5">Current value</p>
             <p className="text-lg font-bold text-primary tabular-nums">
-              {mode === 'open' ? `₹${currentVal.toLocaleString('en-IN')}` : '••••'}
+              {!masked ? `₹${currentVal.toLocaleString('en-IN')}` : '••••'}
             </p>
           </div>
           <div className="text-right">

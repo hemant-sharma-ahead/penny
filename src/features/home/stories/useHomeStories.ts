@@ -64,7 +64,10 @@ function currentStreak(entries: ActivityLog[], nowMs: number): number {
  */
 export function useHomeStories(): Story[] {
   const navigate = useNavigate();
-  const { mode } = usePrivacy();
+  const { shouldMask } = usePrivacy();
+  // Stories mix activity log + insights from every module without a live category/account
+  // reference here — treated as an aggregate view: visible in Safe, hidden only in Privacy.
+  const masked = shouldMask(false);
   const [now] = useState(() => Date.now());
   const { items: activity } = useRepository(activityLogRepo);
   const { items: insights } = useRepository(chipInsightsRepo);
@@ -128,7 +131,7 @@ export function useHomeStories(): Story[] {
           { big: '📅', caption: 'On this day…', sub: 'A look back at the same date in past years' },
           ...memories.map((e) => ({
             big: String(new Date(e.timestamp).getFullYear()),
-            caption: maskAmounts(e.summary, mode)
+            caption: maskAmounts(e.summary, masked)
           }))
         ]
       });
@@ -162,8 +165,8 @@ export function useHomeStories(): Story[] {
     const first = liveInsights[0];
     if (first) {
       const slides = liveInsights.flatMap((i) => {
-        const cards = [{ big: '💡', caption: maskAmounts(i.headline, mode) }];
-        if (i.consequence) cards.push({ big: '⚠️', caption: maskAmounts(i.consequence, mode) });
+        const cards = [{ big: '💡', caption: maskAmounts(i.headline, masked) }];
+        if (i.consequence) cards.push({ big: '⚠️', caption: maskAmounts(i.consequence, masked) });
         return cards;
       });
       stories.push({
@@ -192,12 +195,12 @@ export function useHomeStories(): Story[] {
         freshnessKey: `timeline:${recent[0]?.timestamp ?? 0}`,
         slides: [
           { big: '🕘', caption: 'Your timeline', sub: "Everything you've tracked — undo or restore anytime" },
-          ...recent.map((e) => ({ big: '•', caption: maskAmounts(e.summary, mode) }))
+          ...recent.map((e) => ({ big: '•', caption: maskAmounts(e.summary, masked) }))
         ],
         cta: { label: 'Open timeline →', onClick: () => navigate(PATHS.app.timeline) }
       });
     }
 
     return stories;
-  }, [activity, insights, mode, navigate, now]);
+  }, [activity, insights, masked, navigate, now]);
 }
