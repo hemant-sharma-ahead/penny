@@ -7,8 +7,9 @@ tells you, at a glance, whether today's headlines lean positive, negative, or ne
 headline the same way. It is **informational only**: it describes the news, it does **not** recommend
 trades or predict the market. (Design rationale + legal framing: [`docs/MARKET_SENTIMENT_RESEARCH.md`](../MARKET_SENTIMENT_RESEARCH.md).)
 
-This page covers **Phase A** (headline sentiment + news-mood gauge). Personalization (news about the
-stocks you own) and a lexicon-refresh backend are planned for later phases.
+This page covers **Phase A** (headline sentiment + news-mood gauge) and **Phase B — F3** ("your
+holdings in the news"). A per-stock strip in Portfolio (F4) and a lexicon-refresh backend are planned
+for later phases.
 
 ## User-facing capabilities
 
@@ -18,6 +19,9 @@ stocks you own) and a lexicon-refresh backend are planned for later phases.
   disclaimer.
 - **Filter by tone** — an "All / Positive / Negative" filter alongside the existing Markets/Regulatory
   source filter.
+- **Your holdings in the news** (Phase B) — a section that surfaces headlines mentioning the stocks you
+  actually own, each tagged with the headline's tone. Recency-ordered (not "top picks"), informational
+  only. Appears only when you hold stocks and some are in the news.
 
 ## How it works
 
@@ -31,12 +35,17 @@ stocks you own) and a lexicon-refresh backend are planned for later phases.
     intensifier windows, and returns `{ score, label, matched[] }` (matched terms power an
     explainable "why" later).
   - `aggregate.ts` — `computeMood(scored[])` → counts + a descriptive `skew` label.
+  - `entityDictionary.ts` — bundled NSE/BSE company → `{ symbol, name, sector, aliases }` (Phase B).
+  - `tagEntities.ts` — `tagEntities(title)` → the companies a headline mentions (word-boundary,
+    longest-alias-first so "SBI Life" doesn't also match bare "SBI").
 - `src/features/news/`:
   - `useNewsSentiment(items)` — memoized: scores each headline + computes the mood.
-  - `SentimentChip.tsx`, `NewsMoodGauge.tsx` — presentational, using the semantic status tokens
-    (`STATUS`/`tint`/`ink`).
-- **No PII, no data leaves the device.** News is public; scoring is local. Honors the `no-console`/PII
-  and semantic-color rules.
+  - `useHoldingsInNews(items)` (Phase B) — reads the user's stock holdings once via `holdingsRepo`,
+    tags each headline, and returns the headlines mentioning an owned stock (recency-ordered).
+  - `SentimentChip.tsx`, `NewsMoodGauge.tsx`, `HoldingsInNews.tsx` — presentational, using the semantic
+    status tokens (`STATUS`/`tint`/`ink`).
+- **No PII, no data leaves the device.** News is public; scoring + holdings cross-reference are local.
+  Honors the `no-console`/PII and semantic-color rules.
 
 ## Current limitations
 
@@ -44,16 +53,16 @@ stocks you own) and a lexicon-refresh backend are planned for later phases.
 - **Headlines only** (title, not article body); short text loses sarcasm/nuance and mixed signals
   ("beat estimates but guidance weak").
 - **Lexicon coverage is finite** — unusual phrasing or new terms may score neutral.
-- **No entity/ticker tagging yet** — it can't yet tell you _which_ of your stocks a headline is about
-  (Phase B).
+- **Entity dictionary is a starter set** (~50 widely-held names) — a headline about a stock outside the
+  list, or referred to only by an unlisted alias, won't be tagged to your holdings yet.
 - Accuracy is roughly **65–75%** on clear-cut headlines, lower on nuanced ones — intentionally surfaced
   as a soft flag, never a number to act on.
 
 ## Planned improvements
 
-- **Phase B — personalization:** entity dictionary (company/alias → NSE symbol + sector); "your
-  holdings in the news today"; a per-stock "In the news" strip in Portfolio; a Home mood card.
-  _(Per-stock sentiment labels need a SEBI legal check first — see the research doc §1.1.)_
+- **Phase B (remaining):** a per-stock "In the news" strip on a stock's detail in Portfolio (F4), and a
+  Home surface. _(A per-stock aggregate sentiment verdict needs a SEBI legal check first — see the
+  research doc §1.1; the shipped F3 avoids this by showing only each headline's own tone, recency-ordered.)_
 - **Phase C:** pair the mood with the real index move (descriptive, not predictive); refresh the lexicon
   from the API-proxy worker (`/sentiment-lexicon`, like the merchant dictionary); a local thumbs-up/down
   feedback loop; sector heatmap.
