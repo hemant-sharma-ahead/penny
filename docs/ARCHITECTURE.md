@@ -38,6 +38,7 @@ penny/
 │   │   ├── nps/                ← NPS NAV client + lifecycle fund tables
 │   │   ├── portfolio/          ← PPF/EPF projections; holdingMappers (pure save logic), mfApiClient, stockApiClient, vehicleMeta
 │   │   ├── reminders/          ← buildReminders — near-term outflow reminders (Track 6, in-app)
+│   │   ├── sentiment/          ← On-device, no-AI news sentiment (lexicon+rules, entity tagging)
 │   │   ├── session/            ← PIN session management + SessionGate
 │   │   ├── subscriptions/      ← 3-pass subscription detection
 │   │   ├── tax/                ← Tax calc (LTCG/STCG/80C/80D) + Track 7 engine: indirectTaxRates (GST 2.0, dated history), categoryTaxMap, taxBandClassifier, indirectTax (with min/max range), regimeHistory (per-FY slabs 2017→2026), fy, incomeWaterfall, taxScenarios (X-ray), optimizer, itrAdvisor, taxFacts, assetTaxInfo (shared per-asset notes)
@@ -56,6 +57,7 @@ penny/
 │   │   ├── insurance/          ← Insurance policies
 │   │   ├── iou/                ← IOU tracker
 │   │   ├── loans/              ← Loan scenarios
+│   │   ├── news/               ← Finance news + on-device sentiment (chips, mood gauge, holdings-in-news)
 │   │   ├── onboarding/         ← Onboarding + account start/recovery/reconcile screens
 │   │   ├── portfolio/          ← Portfolio (all asset classes)
 │   │   ├── subscriptions/      ← Subscription detection
@@ -139,10 +141,10 @@ penny/
 
 ### `src/components/layout/`
 
-| File                 | Props               | Purpose                                                                                                               |
-| -------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `AppShell.tsx`       | `children`          | Sticky 48px header (logo + privacy badge), scrollable page area, 64px bottom nav                                       |
-| `BottomNav.tsx`      | —                   | 5-tab nav: Home, Portfolio, Chip (FAB centre), Expenses, Goals. Respects SettingsContext module visibility.           |
+| File            | Props      | Purpose                                                                                                     |
+| --------------- | ---------- | ----------------------------------------------------------------------------------------------------------- |
+| `AppShell.tsx`  | `children` | Sticky 48px header (logo + privacy badge), scrollable page area, 64px bottom nav                            |
+| `BottomNav.tsx` | —          | 5-tab nav: Home, Portfolio, Chip (FAB centre), Expenses, Goals. Respects SettingsContext module visibility. |
 
 ### `src/components/privacy/`
 
@@ -243,21 +245,25 @@ IOU UI lives in `src/features/iou/` (`IouView` rendered in the Expenses → IOU 
 
 ### `src/core/sentiment/`
 
-Pure, unit-tested, **on-device, no-AI** news sentiment engine (news-sentiment Phase A). Lexicon + rules
-only — descriptive/informational, never a recommendation or forecast. See
+Pure, unit-tested, **on-device, no-AI** news sentiment engine (news-sentiment Phase A + B). Lexicon +
+rules only — descriptive/informational, never a recommendation or forecast. See
 [`docs/features/news-sentiment.md`](features/news-sentiment.md) and
 [`docs/MARKET_SENTIMENT_RESEARCH.md`](MARKET_SENTIMENT_RESEARCH.md).
 
-| File               | Purpose                                                                                                          |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| `normalize.ts`     | `tokenize` — lowercase + split a headline into word tokens (keeps contractions for negation).                    |
-| `lexicon.ts`       | Bundled finance-tuned word lists: `POSITIVE`/`NEGATIVE` (weighted), `INTENSIFIERS`, `NEGATORS`, `EFFECT_WINDOW`. |
-| `scoreHeadline.ts` | `scoreHeadline(text)` → `{ score, label, matched[] }` with VADER-style negation + intensifier windows.           |
-| `aggregate.ts`     | `computeMood(scored[])` → `MoodSummary` (positive/negative/neutral counts + descriptive skew label).             |
-| `types.ts`         | `SentimentLabel`, `ScoredHeadline`, `MatchedTerm`, `MoodSummary`.                                                |
+| File                  | Purpose                                                                                                          |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `normalize.ts`        | `tokenize` — lowercase + split a headline into word tokens (keeps contractions for negation).                    |
+| `lexicon.ts`          | Bundled finance-tuned word lists: `POSITIVE`/`NEGATIVE` (weighted), `INTENSIFIERS`, `NEGATORS`, `EFFECT_WINDOW`. |
+| `scoreHeadline.ts`    | `scoreHeadline(text)` → `{ score, label, matched[] }` with VADER-style negation + intensifier windows.           |
+| `aggregate.ts`        | `computeMood(scored[])` → `MoodSummary` (positive/negative/neutral counts + descriptive skew label).             |
+| `entityDictionary.ts` | Bundled NSE/BSE company → `{ symbol, name, sector, aliases }` (Phase B). Starter set of widely-held names.       |
+| `tagEntities.ts`      | `tagEntities(text)` → `EntityMatch[]` — companies a headline mentions (word-boundary, longest-alias-first).      |
+| `types.ts`            | `SentimentLabel`, `ScoredHeadline`, `MatchedTerm`, `MoodSummary`.                                                |
 
-Sentiment UI lives in `src/features/news/` (`useNewsSentiment` hook, `SentimentChip`, `NewsMoodGauge`),
-scoring the headlines already fetched by the news module — no new network calls, no AI, no PII.
+Sentiment UI lives in `src/features/news/`: `useNewsSentiment` (scoring + mood), `SentimentChip`,
+`NewsMoodGauge`, and — Phase B — `useHoldingsInNews` + `HoldingsInNews` ("your holdings in the news":
+cross-references `holdingsRepo` stock holdings with tagged headlines, recency-ordered). All score the
+headlines already fetched by the news module — no new network calls, no AI, no PII.
 
 ### `src/core/ai-safety/`
 
