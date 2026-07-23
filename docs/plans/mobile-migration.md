@@ -1,13 +1,14 @@
 # Penny → React Native Migration Plan (living doc)
 
-> **Status:** 🚧 In progress. **Track 0 ✅** (repo restructuring). **Track 1 ✅** (Expo app skeleton).
-> **Track 2 ✅** (storage + crypto adapter swap: `expo-sqlite` adapter, `react-native-quick-crypto`
-> polyfill, `AuthGuard` now calls real `@penny/core` functions; verified via bundle inspection for both
-> platforms + a cross-engine crypto test-vector suite run under Web Crypto — **on-device verification
-> against the real `react-native-quick-crypto` runtime, and the PBKDF2 timing re-benchmark, are still owed**
-> since this dev environment is headless). **Track 3 (core UI component library port) = next.** Full
-> context: [`CLAUDE.md`](../../CLAUDE.md), architecture details in [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md),
-> SQL schema mapping: [`docs/SCHEMA.md`](../SCHEMA.md), how to run it: [`docs/RUNNING_MOBILE.md`](../RUNNING_MOBILE.md).
+> **Status:** 🚧 In progress. **Track 0 ✅ + Track 1 ✅ + Track 2 ✅** (repo restructuring, Expo app
+> skeleton, storage + crypto adapters — on-device crypto/storage verification still owed, headless dev
+> environment). **Track 3 ✅** (core UI component library: all ~28 `components/ui/` ported to NativeWind +
+> View/Text/Pressable, `Icon`/color-utility/theme-color infra built, a `ComponentGalleryScreen` wired as
+> the reachable screen for visual verification once a device/simulator exists). **Track 4
+> (feature-by-feature migration, pilot: Subscriptions) = next.** Full context: [`CLAUDE.md`](../../CLAUDE.md),
+> architecture details in [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md), design-pattern notes in
+> [`docs/DESIGN_GUIDELINES.md`](../DESIGN_GUIDELINES.md), SQL schema mapping: [`docs/SCHEMA.md`](../SCHEMA.md),
+> how to run it: [`docs/RUNNING_MOBILE.md`](../RUNNING_MOBILE.md).
 >
 > **Update discipline:** append a dated entry to the **Progress Log** (bottom) at every track, and keep
 > the **Status** line + `CLAUDE.md`'s milestone table + `docs/ROADMAP.md`'s React Native row in sync.
@@ -76,9 +77,11 @@ crypto test-vector suite — see the Progress Log for exactly what could and cou
 headless dev environment. From this track on, device testing needs an EAS development build (Expo Go
 doesn't support `expo-sqlite`/`react-native-quick-crypto`) — see `docs/RUNNING_MOBILE.md`.
 
-### Track 3 — Core UI component library port
-~30 shared components rebuilt as NativeWind + View/Text/Pressable in `apps/mobile/src/components/`, preserving
-prop APIs and the centered-modal-only rule.
+### Track 3 — Core UI component library port — ✅ done
+All ~28 `components/ui/` rebuilt as NativeWind + View/Text/Pressable in `apps/mobile/src/components/ui/`,
+preserving prop APIs (RN naming aside) and the centered-modal-only rule. `components/layout/` (`AppShell`/
+`BottomNav`) intentionally not ported 1:1 — React Navigation's `RootNavigator`/`MainTabs` (Track 1) is the RN
+equivalent. See the Progress Log for the icon/color/theme infra this needed and what got verified.
 
 ### Track 4 — Feature-by-feature migration
 Pilot: **Subscriptions** (smallest fully-shipped module). Then Insurance/Loans/IOU → Goals → Accounts → Home →
@@ -275,3 +278,70 @@ defines the actual parity bar for retiring legacy web.
     real mid-range Android device; an actual on-device SQLite read/write smoke test; the backup-bundle
     cross-engine round-trip and seeded-demo-data cross-platform comparison the plan calls for. **All of
     these require the user's own device/simulator** — flagged explicitly rather than assumed passing.
+
+### 2026-07-23 — Track 3 complete
+
+- **Icon infra:** `apps/mobile/src/components/Icon.tsx` resolves the web app's `ti-*` Tabler-webfont-class
+  convention to `@tabler/icons-react-native` SVG components via a name-transform lookup (`ti-alert-triangle`
+  → `IconAlertTriangle`), so every caller across the whole app — hundreds of distinct icon names in feature
+  code, not just these 28 files — keeps using the exact same strings when its screen is ported in Track 4.
+  Installed `@tabler/icons-react-native` + `react-native-svg`. Known tradeoff, accepted for now: dynamic
+  name lookup means the whole icon set bundles (no per-icon tree-shaking) — revisit only if bundle size
+  becomes a real problem (Track 6 territory).
+- **Color infra:** `apps/mobile/src/lib/color.ts` reimplements web's `tint()`/`ink()` (which use CSS
+  `color-mix()` — a string RN's style engine can't parse) with real hex math. `tint()` maps directly to
+  RN's native `rgba()` alpha support (mathematically the same translucent-over-background effect); `ink()`
+  does real channel blending since both its inputs are opaque. `apps/mobile/src/theme/useThemeColors.ts`
+  resolves real hex from the active theme (via `packages/core/src/theme/tokens.ts`) for every place a web
+  component used a `var(--color-*)` string as a prop default or inline style.
+- **Real bug caught and fixed before it spread everywhere:** Track 1's `tailwind.config.js` named the
+  brand-accent color `primary`, but web's `text-primary`/`bg-surface`/etc. utilities mean something else
+  entirely (`text-primary` = *text* color, not brand green) — verified against `apps/web-legacy/src/
+  index.css`'s actual utility definitions before porting a single component, and the Tailwind color-key
+  vocabulary was rewritten to reproduce the exact same class names (`surface`, `surface-2`, `surface-3`,
+  `primary`/`secondary`/`tertiary` as *text* tokens, `theme`/`theme-strong` as border tokens) web already
+  uses — a silent miscoloring bug across all 28 components, caught early instead of discovered late.
+- **DRY extraction during the port, not a duplication:** `AmountInput`'s parsing/grouping/inline-calculator
+  logic (sanitize, Indian-grouping, a hand-rolled calculator evaluator) was pure math duplicated only inside
+  web's `AmountInput.tsx`. Extracted to `packages/core/src/lib/amountInput.ts`; both platforms' `AmountInput`
+  now import the same functions (web's file shrank by ~100 lines, behavior unchanged, existing tests still
+  pass). `caretAfter` (DOM caret-position math) stayed web-only — RN's `TextInput` has no equivalent live
+  selection-restoration hook, so the mobile port skips it (a minor, accepted UX simplification, not a
+  functional gap: the value/`onChange` contract is identical).
+- **`Modal`/`SelectInput` — the two components needing a real redesign, not a mechanical port:** `Modal`
+  uses RN's own `Modal` (transparent + fade) with a full-screen dim backdrop and a centred card — matching
+  the "centred, never a bottom sheet" rule without a portal library (no DOM to portal into) or a third-party
+  bottom-sheet package; `level`/`nested` stacking props were dropped since RN's `Modal` is already a
+  separate native layer. `SelectInput` (web: a DOM-positioned dropdown panel via `createPortal`, measuring
+  the trigger's bounding rect) has no RN equivalent — reimplemented as the same centred `Modal` with an
+  option list, consistent with the same design rule. Documented in `docs/DESIGN_GUIDELINES.md`.
+- **`components/layout/` (`AppShell`/`BottomNav`) deliberately not ported 1:1** — both depend on
+  not-yet-ported features (`PrivacyModeSwitcher`, `RemindersBell`, `DemoModeBanner`, `SyncProvider`/
+  `GroupProvider`, `ContextSwitcher`, the entitlement-gated group switcher). React Navigation's
+  `RootNavigator`/`MainTabs` (Track 1) is the real RN equivalent of routing-as-chrome; `MainTabs.tsx` was
+  updated to match `BottomNav`'s icon/color/order for visual parity (using the new `Icon` component and
+  `ChipAvatar`). A custom elevated-FAB button style for the Chip tab was attempted, then deliberately backed
+  out — spreading tab-bar props onto a plain `View` doesn't wire touch handling correctly, and this
+  environment has no way to test that live; deferred to Track 6 polish rather than ship unverified.
+- **Small other findings:** `DetailRow`/`StatBox`'s `tabular-nums` (CSS font-variant-numeric) has no simple
+  RN equivalent — dropped, cosmetic only. `SegmentedControl`'s `cols` prop (CSS Grid column count) dropped —
+  RN has no grid primitive; always lays out as one flex-wrap row now. `FormField`'s error text used web's
+  `--color-open` (privacy-mode red, not yet ported to `theme/tokens.ts`) — substituted `theme.danger` (same
+  visual intent, flagged in a code comment).
+- **Verification tool built, not just a smoke test:** `apps/mobile/src/screens/ComponentGalleryScreen.tsx`
+  renders every ported component with representative props. Wired as the actually-reachable screen for now
+  (`RootNavigator`'s `needs_onboarding` branch, since real onboarding UI doesn't exist until Track 4) —
+  doubles as this track's bundle-resolution check *and* the tool for the plan's "visual checklist per
+  component against the 4 themes" step once a device/simulator is available. Deleted the Track 1
+  `OnboardingStubScreen.tsx` it superseded.
+- **Verification:**
+  - `tsc -b` (whole workspace), `eslint`, `prettier --check`: all clean.
+  - Full `pnpm test`: 401 + 0 + 39 tests, all still passing (the `AmountInput` DRY extraction didn't change
+    behavior — same functions, just relocated).
+  - `apps/web-legacy` production build: still succeeds after the `AmountInput` refactor.
+  - **Real bundle verification, not just type-checking:** exported the full component gallery for both iOS
+    (7737 modules) and web (6814 modules) via `expo export:embed` — zero import/resolution errors across all
+    28 components, the `Icon`/`react-native-svg`/NativeWind infra, and the theme hook.
+  - **Not done, genuinely can't be done here:** actual visual/pixel verification on a device or simulator —
+    this environment is headless. `ComponentGalleryScreen` exists specifically so this is a fast, complete
+    check once Xcode/an emulator is available; flagged for the user's review pass, not assumed to look right.

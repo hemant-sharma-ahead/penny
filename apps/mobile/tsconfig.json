@@ -9,7 +9,8 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../../packages/core/src/*"]
+      "@/*": ["../../packages/core/src/*"],
+      "~/*": ["./src/*"]
     },
     // Mirrors Metro's platform-extension resolution (schema.native.ts, installCrypto.native.ts/.web.ts)
     // so `tsc` picks the same file Metro would for a bare `./foo` import, instead of erroring when no

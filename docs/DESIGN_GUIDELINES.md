@@ -39,6 +39,8 @@ The product direction is: _appealing, minimalistic, modern, inviting, user-frien
 - **Scrollable body** — long content scrolls inside the card (`overflow-y-auto flex-1`).
 - **Z-index ladder:** bottom nav `z-50` → app header `z-40` → modals `z-60` → nested modals `z-70` → third-tier modals `z-80` (e.g. category/parent editors opened from the category picker). `Modal` / `ConfirmDialog` accept `level={1|2|3}`.
 
+**On `apps/mobile` (React Native, since Track 3 of the mobile migration):** the same "centred, never a bottom sheet" rule is implemented with RN's own `Modal` component (transparent + fade animation) plus a full-screen dim `Pressable` backdrop and a centred card — not a portal library (there's no DOM to portal into) and not a third-party bottom-sheet package. The `paddingTop: 56, paddingBottom: 72` gap and `level`/z-index ladder aren't needed on RN: `Modal` is already a separate native layer above everything, and multiple open modals stack in mount order automatically, so `apps/mobile/src/components/ui/Modal.tsx` dropped the `level`/`nested` props entirely. `SelectInput`'s dropdown (a DOM-positioned portal panel on web, measuring the trigger's bounding rect) is reimplemented as the same centred `Modal` with an option list on RN, for the same reason — there's no equivalent anchored-popover primitive, and reaching for one would violate "no bottom sheets" in spirit anyway.
+
 ---
 
 ## 3. Reusable UI patterns (the building blocks)
