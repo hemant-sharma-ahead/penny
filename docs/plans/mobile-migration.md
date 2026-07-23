@@ -1,11 +1,13 @@
 # Penny → React Native Migration Plan (living doc)
 
-> **Status:** 🚧 In progress. **Track 0 ✅** (repo restructuring). **Track 1 ✅** (Expo app skeleton:
-> `apps/mobile` created, NativeWind + dynamic 3-palette theming, React Navigation shell, stubbed AuthGuard,
-> `docs/RUNNING_MOBILE.md` written; verified via web export + `tsc -b`/eslint/full test suite — **manual
-> on-device/simulator check still owed**, not yet committed). **Track 2 (storage + crypto adapter swap) =
-> next.** Full context: [`CLAUDE.md`](../../CLAUDE.md), architecture details in
-> [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md), how to run it: [`docs/RUNNING_MOBILE.md`](../RUNNING_MOBILE.md).
+> **Status:** 🚧 In progress. **Track 0 ✅** (repo restructuring). **Track 1 ✅** (Expo app skeleton).
+> **Track 2 ✅** (storage + crypto adapter swap: `expo-sqlite` adapter, `react-native-quick-crypto`
+> polyfill, `AuthGuard` now calls real `@penny/core` functions; verified via bundle inspection for both
+> platforms + a cross-engine crypto test-vector suite run under Web Crypto — **on-device verification
+> against the real `react-native-quick-crypto` runtime, and the PBKDF2 timing re-benchmark, are still owed**
+> since this dev environment is headless). **Track 3 (core UI component library port) = next.** Full
+> context: [`CLAUDE.md`](../../CLAUDE.md), architecture details in [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md),
+> SQL schema mapping: [`docs/SCHEMA.md`](../SCHEMA.md), how to run it: [`docs/RUNNING_MOBILE.md`](../RUNNING_MOBILE.md).
 >
 > **Update discipline:** append a dated entry to the **Progress Log** (bottom) at every track, and keep
 > the **Status** line + `CLAUDE.md`'s milestone table + `docs/ROADMAP.md`'s React Native row in sync.
@@ -66,11 +68,13 @@ stack+tabs, `AuthGuard` state machine **stubbed** (see below — not yet wired t
 Runs in plain Expo Go + web (no native modules yet). `docs/RUNNING_MOBILE.md` written. Details in the
 Progress Log below.
 
-### Track 2 — Storage + crypto adapter swap (highest risk)
+### Track 2 — Storage + crypto adapter swap (highest risk) — ✅ done (on-device check owed)
 `expo-sqlite` adapter (SQL DDL reimplementing the Dexie v1–v9 migration history) + `react-native-quick-crypto`
-polyfill install. Verified via shared crypto test vectors, a cross-engine backup-bundle round-trip, and reused
-Vitest assertions against the new adapter. From this track on, device testing needs an EAS development build
-(Expo Go doesn't support these native modules).
+polyfill install. `AuthGuard` now calls the real `@penny/core` securityManager functions instead of Track 1's
+stub. Verified via bundle inspection (confirms the platform split actually works, not just "should") and a
+crypto test-vector suite — see the Progress Log for exactly what could and couldn't be verified in this
+headless dev environment. From this track on, device testing needs an EAS development build (Expo Go
+doesn't support `expo-sqlite`/`react-native-quick-crypto`) — see `docs/RUNNING_MOBILE.md`.
 
 ### Track 3 — Core UI component library port
 ~30 shared components rebuilt as NativeWind + View/Text/Pressable in `apps/mobile/src/components/`, preserving
@@ -209,3 +213,65 @@ defines the actual parity bar for retiring legacy web.
     no `@penny/core` logic.
   - **Not yet done:** an actual on-device/simulator/Expo-Go visual check (this environment is headless —
     only the web export could be verified here). Flagged for the user's end-of-migration review pass.
+
+### 2026-07-23 — Track 2 complete (on-device verification still owed)
+
+- **Storage adapter:** `packages/core/src/core/db/store.ts` defines `RowStore<T>` (`get/put/toArray/delete/
+  count/update/clear` — verified this is the *complete* set of methods every call site in the codebase
+  actually uses, including `db.security`'s `.update()` partial-merge and `.tables` array used by
+  `wipeAllData()`, and `db.price_cache`'s plain get/put, not just the encrypted-store path). Narrowed
+  `EncryptedRepository`'s constructor from Dexie's `Table` to `RowStore<EncryptedRecord>` — type-only change,
+  zero behavior change on web.
+- `packages/core/src/core/db/schema.native.ts`: an `expo-sqlite` implementation of the same `db` shape,
+  every store as `(id TEXT PRIMARY KEY, data TEXT)` holding `JSON.stringify(row)` (no per-table column
+  schemas needed — every row was already JSON-serializable under Dexie too), plus a `_migrations` table
+  replaying the Dexie v1–v9 history as additive `CREATE TABLE` statements. Full mapping documented in
+  `docs/SCHEMA.md` → "Mobile (React Native) storage engine".
+- **Real per-platform typed properties**, not a blanket `Record<string, RowStore<unknown>>`: caught during
+  verification that collapsing to `unknown` broke `securityManager.ts`'s `SecurityRecord` typing and its
+  `db.tables.map((t) => t.clear())` call (Dexie's `.tables` array, used by `wipeAllData()` — a real method
+  I'd missed on the first pass by only grepping the *encrypted*-store call sites, not `db.security`'s direct
+  usage). Fixed by giving `schema.native.ts`'s `db` object the same explicit named properties `schema.ts`'s
+  Dexie class has, plus a `tables` array built from the same instances.
+- **Crypto polyfill:** `react-native-quick-crypto` (+ its `react-native-nitro-modules`/`react-native-quick-
+  base64` peers) installed in `apps/mobile`. Its `install()` call is NOT unconditional in `index.ts` — it's
+  split into `src/polyfills/installCrypto.native.ts` (calls `install()`) / `.web.ts` (no-op), the same
+  Metro-platform-resolution pattern as `schema.native.ts`, because an unconditional import would have tried
+  to bundle a native-only module into the web target and broken it.
+- `AuthGuard.tsx` now imports and calls the real `isOnboardingComplete`/`isSessionValid`/`isPinRotationDue`
+  from `@penny/core/crypto/securityManager` (Track 1's stub is gone).
+- **Real finding that simplified scope vs. the plan:** React Native has shipped native `atob`/`btoa`
+  globals since RN 0.74; `apps/mobile` is on RN 0.86. The plan's assumed base64-helper abstraction
+  (`packages/core/src/lib/base64.ts`) turned out to be unnecessary — `repository.ts`'s existing `atob`/
+  `btoa` calls needed zero changes. Documented here rather than silently building an abstraction nobody needs.
+- **Cleaner package exports:** added `./theme/*`, `./lib/*`, `./crypto/*`, `./identity/*`, `./session/*`,
+  `./db/*` to `packages/core/package.json`'s `exports` map (in addition to the general `./*` fallback) so
+  consumers don't have to write the awkward double-nested `@penny/core/core/crypto/securityManager` (a side
+  effect of Track 0 keeping the `core/` folder nesting for its path-alias shortcut).
+- **A second real cross-package-resolution gap found and fixed** (same class of issue as Track 0's
+  `EncryptedRepository` narrowing, now hitting `apps/mobile` specifically): `securityManager.ts` uses
+  `packages/core`'s own internal `@/*` alias, but since `apps/mobile` now imports it via genuine package
+  resolution (not Track 0's raw-path shortcut), TypeScript resolves that file's imports using *whichever
+  program included it* — so `apps/mobile/tsconfig.json` needed the same `@/*` → `packages/core/src/*` alias
+  defined too. Also needed `moduleSuffixes: [".native", ""]` so `tsc` mirrors Metro's platform-file
+  resolution instead of erroring on bare imports that only have `.native.ts`/`.web.ts` variants.
+- **Verification — what was and wasn't possible in this headless dev environment (being explicit, per the
+  plan's own honesty principle):**
+  - ✅ **Bundle inspection** (the strongest check available here): exported real iOS, Android-equivalent,
+    and web bundles via `expo export:embed`, then grepped the unminified output. iOS bundle: SQLite adapter
+    markers (`_migrations`, `INSERT OR REPLACE INTO`) present, `PennyDatabase`/Dexie completely absent, 129
+    hits for the quick-crypto/Nitro module. Web bundle: the reverse — Dexie/`PennyDatabase` present, zero
+    real quick-crypto inclusion. This is a real, verified confirmation of the platform split working, not
+    an inference from reading the code.
+  - ✅ **Crypto test vectors** (`packages/core/tests/crypto/crossEngineVectors.test.ts`, 3 new tests, 401
+    total now passing): fixed PBKDF2 derivation, a fixed-key/fixed-IV AES-256-GCM round-trip, and the
+    deterministic Ed25519-from-passphrase recovery keypair — all computed and asserted against Node's Web
+    Crypto (what `apps/web-legacy` effectively runs). ECDSA deliberately excluded from fixed-vector testing
+    since P-256 ECDSA isn't deterministic without RFC 6979.
+  - ✅ `tsc -b` (whole workspace), `eslint`, `prettier --check`, full `pnpm test`: all clean.
+  - ❌ **Not done, genuinely can't be done here:** running the actual `react-native-quick-crypto` Nitro
+    module (requires a real device/simulator — it's native code, not something Node/Vitest can execute) to
+    confirm the same fixed vectors reproduce identically; the PBKDF2 600K/200K timing re-benchmark on a
+    real mid-range Android device; an actual on-device SQLite read/write smoke test; the backup-bundle
+    cross-engine round-trip and seeded-demo-data cross-platform comparison the plan calls for. **All of
+    these require the user's own device/simulator** — flagged explicitly rather than assumed passing.

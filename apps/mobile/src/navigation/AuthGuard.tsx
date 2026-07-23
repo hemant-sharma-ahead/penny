@@ -1,22 +1,15 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { View, ActivityIndicator } from 'react-native';
+import { isOnboardingComplete, isPinRotationDue, isSessionValid } from '@penny/core/crypto/securityManager';
 
 type CheckState = 'checking' | 'needs_onboarding' | 'ready';
 
 /**
- * Track 1 stub — mirrors apps/web-legacy/src/router/AuthGuard.tsx's 3-state machine
- * (checking → needs_onboarding → ready), but does NOT call the real
- * `isOnboardingComplete`/`isSessionValid`/`isPinRotationDue` from @penny/core's securityManager yet:
- * those currently run against the Dexie/IndexedDB schema, which has no React Native equivalent until
- * Track 2 ships the expo-sqlite adapter. Wiring the real calls here would try to bundle `dexie` into
- * Metro and fail immediately. Replace `checkStub()` with the real calls in Track 2.
+ * Mirrors apps/web-legacy/src/router/AuthGuard.tsx's 3-state machine (checking → needs_onboarding →
+ * ready), now calling the real @penny/core securityManager functions — this only became possible once
+ * Track 2 shipped the expo-sqlite adapter (schema.native.ts); before that, these calls would have tried
+ * to bundle Dexie/IndexedDB into Metro and crashed immediately (see Track 1's stub version in git history).
  */
-function checkStub(): Promise<{ onboarded: boolean; rotationDue: boolean }> {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve({ onboarded: false, rotationDue: false }), 300);
-  });
-}
-
 interface Props {
   children: (rotationDue: boolean) => ReactNode;
   onNeedsOnboarding: () => ReactNode;
@@ -28,15 +21,24 @@ export function AuthGuard({ children, onNeedsOnboarding }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    checkStub().then(({ onboarded, rotationDue: due }) => {
-      if (cancelled) return;
-      if (!onboarded) {
-        setState('needs_onboarding');
-        return;
-      }
-      setRotationDue(due);
-      setState('ready');
-    });
+
+    isOnboardingComplete()
+      .then((onboarded) => {
+        if (cancelled) return;
+        if (!onboarded) {
+          setState('needs_onboarding');
+          return;
+        }
+        return Promise.all([isSessionValid(), isPinRotationDue()]).then(([, due]) => {
+          if (cancelled) return;
+          setRotationDue(due);
+          setState('ready');
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setState('needs_onboarding');
+      });
+
     return () => {
       cancelled = true;
     };

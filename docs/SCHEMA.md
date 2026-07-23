@@ -14,6 +14,48 @@ Encrypted stores use `EncryptedRepository<T>`, which wraps Dexie and transparent
 
 ---
 
+## Mobile (React Native) storage engine
+
+Since Track 2 of the [mobile migration](plans/mobile-migration.md), `apps/mobile` runs on `expo-sqlite`
+instead of Dexie — Metro resolves `packages/core/src/core/db/schema.native.ts` in place of `schema.ts` for
+any native build (verified via bundle inspection; web/`apps/web-legacy` is completely unaffected and keeps
+using Dexie unchanged). Every store — encrypted or plain — is a 2-column SQLite table:
+
+```sql
+CREATE TABLE IF NOT EXISTS <store_name> (id TEXT PRIMARY KEY NOT NULL, data TEXT NOT NULL)
+```
+
+`data` holds `JSON.stringify(row)` — the exact same shape already on disk in the Dexie version (every row
+was already a plain JSON-serializable object, whether an `{id, iv, ciphertext}` encrypted record or a
+plain record like `security`/`price_cache`). This uniform shape means no store needed its own column
+schema, and it's why `schema.native.ts` doesn't need a store-by-store rewrite of the field lists documented
+below — the mapping is the same for every store.
+
+**Dexie version → SQLite migration correspondence** (a `_migrations(version INTEGER PRIMARY KEY)` table
+tracks what's applied, so a fresh RN install just runs all of them once and a future v10+ addition only
+adds its own migration):
+
+| Dexie version | Stores created                                             |
+| -------------- | ------------------------------------------------------------ |
+| v1              | `price_cache`, `privacy_stats`, `profile`, `holdings`, `expenses`, `expense_categories`, `budgets`, `hashtags`, `goals`, `goal_contributions`, `liabilities`, `insurance_policies`, `chip_insights`, `ai_call_log`, `security`, `subscriptions`, `personal_ious`, `credit_profile` |
+| v2              | `accounts`                                                   |
+| v3              | *(dropped `assets` — never existed on RN, nothing to create)* |
+| v4              | `activity_log`                                                |
+| v5              | `merchant_memory`                                             |
+| v6              | `transaction_templates`                                       |
+| v7              | `persons`, `ledger_entries`                                   |
+| v8              | `device_keys`, `group_keys`, `sync_cursor`                    |
+| v9              | `groups`, `group_members`, `group_events`                     |
+
+The storage-engine seam is `packages/core/src/core/db/store.ts`'s `RowStore<T>` interface (`get/put/toArray/
+delete/count/update/clear`) — `EncryptedRepository<T>`'s constructor takes a `RowStore<EncryptedRecord>`
+instead of Dexie's `Table` directly; Dexie's `Table` already structurally satisfies this interface, so this
+was a type-only change on the web side. Cross-engine correctness (PBKDF2/AES-GCM/deterministic-Ed25519
+vectors run under Web Crypto here, to be reproduced on-device against `react-native-quick-crypto`) is
+tracked in `packages/core/tests/crypto/crossEngineVectors.test.ts`.
+
+---
+
 ## Encrypted stores
 
 ### `profile`

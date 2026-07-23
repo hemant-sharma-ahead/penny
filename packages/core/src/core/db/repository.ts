@@ -1,4 +1,4 @@
-import type { Table } from 'dexie';
+import type { RowStore } from './store';
 import { decrypt, encrypt } from '@/core/crypto/engine';
 import { keystore } from '@/core/crypto/keystore';
 
@@ -23,9 +23,9 @@ function bufferToBase64(buf: ArrayBuffer): string {
 }
 
 export class EncryptedRepository<T extends { id: string }> {
-  private table: Table<EncryptedRecord, string>;
+  private table: RowStore<EncryptedRecord>;
 
-  constructor(table: Table<EncryptedRecord, string>) {
+  constructor(table: RowStore<EncryptedRecord>) {
     this.table = table;
   }
 
