@@ -72,8 +72,12 @@ export function ExpensesPage() {
   const { groups, claimed } = useGroupContext();
   const shareGroups =
     hasEntitlement('sync') && claimed
-      ? groups.filter((g) => g.status === 'active').map((g) => ({ id: g.id, name: g.name }))
+      ? groups.filter((g) => g.status === 'active').map((g) => ({ id: g.id, name: g.name, type: g.type }))
       : [];
+  // Any expense shared into a Family-type group, or carrying a Set-Aside tag, is excluded from
+  // daily-living analytics regardless of category — see useExpenseAnalytics's classify().
+  const familyGroupIds = new Set(groups.filter((g) => g.type === 'family').map((g) => g.id));
+  const setAsideTagNames = new Set(hashtags.filter((h) => h.setAside).map((h) => h.name));
   const handleShareToGroup = (expense: Expense, groupId: string, participants?: string[]): Promise<void> =>
     shareExpenseToGroup(groupId, {
       amount: expense.amount,
@@ -169,6 +173,8 @@ export function ExpensesPage() {
           categoryMap={categoryMap}
           masked={shouldMask(false)}
           iouLinkedTxnIds={iouLinkedTxnIds}
+          familyGroupIds={familyGroupIds}
+          setAsideTagNames={setAsideTagNames}
         />
       )}
 

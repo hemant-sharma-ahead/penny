@@ -20,10 +20,20 @@ interface Args {
   allEventHashtags: Set<string>;
   /** Transactions that back an IOU ledger entry — treated as non-routine (set aside), not daily-living. */
   iouLinkedTxnIds: Set<string>;
+  /** Ids of active Family-type groups — any expense shared into one is set aside regardless of split
+   *  or category (it's family spend, not a reciprocal split like Trip/Roommates). */
+  familyGroupIds: Set<string>;
+  /** Names of tags marked "Set aside" in Manage Tags — any expense carrying one is set aside
+   *  regardless of category, reported as its own line (not folded into a category bucket). */
+  setAsideTagNames: Set<string>;
 }
 
 /** Synthetic set-aside group for money lent (IOU-linked), independent of the txn's own category. */
 const IOU_LENDING_GROUP = 'iou_lending';
+/** Synthetic set-aside group for expenses shared into a Family-type group. */
+const FAMILY_SHARE_GROUP = 'family_group_share';
+/** Prefix for the synthetic per-tag set-aside group — each Set-Aside tag gets its own reporting line. */
+const TAG_GROUP_PREFIX = 'tag:';
 
 /**
  * Derives every analytics aggregation for the Analytics tab: per-intent-group spend with
@@ -39,7 +49,9 @@ export function useExpenseAnalytics({
   events,
   pastEvents,
   allEventHashtags,
-  iouLinkedTxnIds
+  iouLinkedTxnIds,
+  familyGroupIds,
+  setAsideTagNames
 }: Args) {
   const analyticsMonthBudgets = useMemo(
     () => budgets.filter((b) => b.monthYear === selectedMonth),
@@ -55,11 +67,16 @@ export function useExpenseAnalytics({
     return (e: Expense): { kind: 'event' | 'routine' | 'setAside'; group: string } => {
       if (e.hashtags.some((t) => allEventHashtags.has(normalizeHashtag(t)))) return { kind: 'event', group: '' };
       if (iouLinkedTxnIds.has(e.id)) return { kind: 'setAside', group: IOU_LENDING_GROUP };
+      if (e.shareWith?.some((id) => familyGroupIds.has(id))) {
+        return { kind: 'setAside', group: FAMILY_SHARE_GROUP };
+      }
+      const setAsideTag = e.hashtags.find((t) => setAsideTagNames.has(normalizeHashtag(t)));
+      if (setAsideTag) return { kind: 'setAside', group: `${TAG_GROUP_PREFIX}${normalizeHashtag(setAsideTag)}` };
       const cat = categoryMap.get(e.categoryId);
       const group = cat ? groupKey(cat) : 'other';
       return { kind: isRoutineGroup(group) ? 'routine' : 'setAside', group };
     };
-  }, [allEventHashtags, iouLinkedTxnIds, categoryMap]);
+  }, [allEventHashtags, iouLinkedTxnIds, familyGroupIds, setAsideTagNames, categoryMap]);
 
   const analyticsData = useMemo(() => {
     const byGroup = new Map<string, { amount: number; categories: Map<string, number> }>();
@@ -119,6 +136,18 @@ export function useExpenseAnalytics({
       .map(([group, amount]) => {
         if (group === IOU_LENDING_GROUP) {
           return { group, amount, label: 'Lending & IOU', color: '#64748b', icon: 'ti-arrow-up-right' };
+        }
+        if (group === FAMILY_SHARE_GROUP) {
+          return { group, amount, label: 'Shared with family', color: '#ec4899', icon: 'ti-users-group' };
+        }
+        if (group.startsWith(TAG_GROUP_PREFIX)) {
+          return {
+            group,
+            amount,
+            label: `#${group.slice(TAG_GROUP_PREFIX.length)}`,
+            color: '#ec4899',
+            icon: 'ti-hash'
+          };
         }
         const meta = groupMeta(group, parentCategoryMap);
         return { group, amount, label: meta.label, color: meta.color, icon: 'ti-bookmark' };

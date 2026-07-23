@@ -10,7 +10,7 @@ interface PaymentModeChipsProps {
 /** Horizontal, scrollable payment-mode selector. Disables modes incompatible with the account. */
 export function PaymentModeChips({ value, onChange, selectedAccount }: PaymentModeChipsProps) {
   return (
-    <div className="flex gap-2 overflow-x-auto pb-0.5">
+    <div className="flex gap-2 overflow-x-auto pt-1 pb-0.5">
       {PAYMENT_MODES.map((m) => {
         const disabled = isPaymentModeDisabled(selectedAccount, m.id);
         const active = value === m.id;

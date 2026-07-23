@@ -294,6 +294,14 @@ export interface Hashtag {
   id: string;
   name: string; // without #
   usageCount: number;
+  /** Transactions carrying this tag are excluded from daily-living analytics (health score, budgets'
+   *  category totals are unaffected — this only changes the routine-vs-set-aside split), reported as
+   *  their own line rather than folded into a category. Set once per tag, not per transaction. */
+  setAside?: boolean | undefined;
+  /** Independent of `setAside` — Safe Mode masks any transaction carrying this tag when true. Defaults
+   *  to mirroring `setAside` at creation time but is separately editable (financial classification and
+   *  privacy visibility are different questions). */
+  hideInSafeMode?: boolean | undefined;
   createdAt: number;
 }
 

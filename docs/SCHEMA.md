@@ -126,18 +126,17 @@ Monthly spend limits per category.
 
 ### `hashtags`
 
-User-defined tags that can optionally represent events (vacations, trips, occasions).
+User-defined tags applied to expenses/income. Event/Vacation Mode state (which tags are "active
+events") lives separately in `EventModeContext`/localStorage, not on this record.
 
-| Field      | Type                                  | Notes                                   |
-| ---------- | ------------------------------------- | --------------------------------------- |
-| id         | string (UUID)                         | Primary key                             |
-| name       | string                                | e.g. `'goa-trip'`, `'emi'`, `'wedding'` |
-| usageCount | number                                | Incremented on each use                 |
-| lastUsed   | number                                | Epoch ms                                |
-| eventType  | `'vacation' \| 'background' \| null`? | Classifies the tag as a named event     |
-| isActive   | boolean?                              | Whether the event is ongoing            |
-| startDate  | number?                               | Epoch ms — event start                  |
-| endDate    | number?                               | Epoch ms — event end                    |
+| Field          | Type      | Notes                                                                                                                                                          |
+| -------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id             | string (UUID) | Primary key                                                                                                                                              |
+| name           | string    | Without `#`, lowercased — e.g. `'goa-trip'`, `'emi'`, `'momgroceries'`                                                                                        |
+| usageCount     | number    | Incremented on each use; drives the "Frequent" row in the expense form's Tags panel and the sort order in Manage Tags                                        |
+| setAside       | boolean?  | **New (2026-07).** Any transaction carrying this tag is excluded from daily-living analytics (`useExpenseAnalytics`'s `classify()`) regardless of category, reported as its own line. Set once per tag (Manage Tags, or inline when the tag is first created), never per transaction |
+| hideInSafeMode | boolean?  | **New (2026-07).** Independent of `setAside` — Safe Mode masks any transaction carrying this tag when true. Defaults to mirroring `setAside` at creation but is separately editable (Settings → Safe Mode → Tags) |
+| createdAt      | number    | Epoch ms                                                                                                                                                       |
 
 ---
 
@@ -506,6 +505,13 @@ A group the user belongs to. `role`/`status` are **this user's own** membership.
 | joinedAt          | number  | Epoch ms                                           |
 | createdAt         | number  | Epoch ms                                           |
 | updatedAt         | number  | Epoch ms                                           |
+
+> **`type: 'family'` changes two behaviors (2026-07).** Sharing an expense into a Family-type group
+> defaults the participant picker to just the person sharing it — no split, since Indian family
+> spend is usually one-directional, not reciprocal (Trip/Roommates still default to splitting evenly
+> across all members). Any expense shared into a Family-type group is also excluded from
+> daily-living analytics (`useExpenseAnalytics`'s `classify()`), regardless of category or whether
+> it ends up split after all.
 
 ### `group_members`
 

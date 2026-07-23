@@ -1,4 +1,4 @@
-import type { ExpenseCategory } from '@/core/db/types';
+import type { ExpenseCategory, Hashtag } from '@/core/db/types';
 import { INTENT_GROUP_META } from '@/core/db/defaultCategories';
 
 export interface GroupMeta {
@@ -57,4 +57,15 @@ const DEFAULT_HIDDEN_INTENT_GROUPS = new Set([
 export function isHiddenInSafeMode(cat: Pick<ExpenseCategory, 'hideInSafeMode' | 'parentId' | 'intentGroup'>): boolean {
   if (cat.hideInSafeMode !== undefined) return cat.hideInSafeMode;
   return !cat.parentId && !!cat.intentGroup && DEFAULT_HIDDEN_INTENT_GROUPS.has(cat.intentGroup);
+}
+
+/**
+ * Whether any of a transaction's tags is independently marked hidden in Safe Mode (Manage Tags) —
+ * masks the amount regardless of the transaction's own category, same "explicit flag wins" model as
+ * `isHiddenInSafeMode`, just scoped to tags rather than categories.
+ */
+export function isTagHiddenInSafeMode(hashtagNames: string[], hashtags: Hashtag[]): boolean {
+  if (hashtagNames.length === 0) return false;
+  const hiddenNames = new Set(hashtags.filter((h) => h.hideInSafeMode).map((h) => h.name));
+  return hashtagNames.some((t) => hiddenNames.has(t.toLowerCase()));
 }

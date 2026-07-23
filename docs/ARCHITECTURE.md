@@ -204,7 +204,7 @@ penny/
 | `useForecast.ts`           | `{ loading, nowMs, todayStart, startBalance, events, forecast, dueRecurring, reload }` | Loads recurring-flow sources + accounts, computes current liquid balance, and projects it forward via `core/cashflow` (running balance, lowest point, buffer breach, liquidity-based safe-to-spend) plus the due-recurring set. Shared by the Cash Flow page, the safe-to-spend surfaces (Home, Expenses header), and reminders — lives here so features don't cross-import. |
 | `useReminders.ts`          | `{ loading, nowMs, reminders, counts, snooze, markDone, log, cancelSub }`              | Builds the header bell's in-app reminders from `useForecast` + `core/reminders`, holding snooze/done state in localStorage. Actions: snooze, mark done, log a due bill (reuses the recurring occurrence builder), cancel a subscription.                                                                                                                                     |
 | `useTxnRefresh.ts`         | `notifyTxnChanged()` + `useTxnRefresh(reload)`                                         | Cross-instance live-refresh for transactions/balances. The IOU screen writes expenses through separate repo instances and calls `notifyTxnChanged()` (a `penny:txn-changed` window event); `useExpenses`, `useForecast`, `useHome`, and `useAccounts` subscribe via `useTxnRefresh` so lists, balances, forecast, and net worth reload live.                                 |
-| `useDataRefresh.ts`        | `notifyCategoriesChanged()`/`useCategoriesRefresh(reload)`, `notifyAccountsChanged()`/`useAccountsRefresh(reload)` | Same pattern as `useTxnRefresh`, for categories/accounts. `SafeModeSettingsPage` edits both through its own repo instances (Settings → Safe Mode is a separate route from Expenses/Home/Accounts); `useExpenses` subscribes to the categories event, `useHome`/`useAccounts` subscribe to the accounts event, so a Safe Mode toggle reflects immediately without waiting for those screens to remount. |
+| `useDataRefresh.ts`        | `notifyCategoriesChanged()`/`useCategoriesRefresh(reload)`, `notifyAccountsChanged()`/`useAccountsRefresh(reload)`, `notifyTagsChanged()`/`useTagsRefresh(reload)` | Same pattern as `useTxnRefresh`, for categories/accounts/tags. `SafeModeSettingsPage` and `ManageTagsPage` edit these through their own repo instances (separate routes from Expenses); `useExpenses` subscribes to all three events, so a Safe Mode or Manage Tags change reflects immediately without waiting for those screens to remount. |
 
 _(Track 1 adds: `useDisclosure.ts`, `useAsync.ts`)_
 
@@ -525,7 +525,10 @@ src/features/expenses/
     BudgetsSlice.tsx       ← owns BudgetModal · BudgetsTab.tsx · BudgetModal.tsx · useBudgets.ts
   analytics/
     AnalyticsSlice.tsx     ← owns view/month state, calls useEventMode() + useExpenseAnalytics
-    useExpenseAnalytics.ts ← pure-input derivation hook (group/event/prev-month/velocity/annual)
+    useExpenseAnalytics.ts ← pure-input derivation hook (group/event/prev-month/velocity/annual). `classify()`'s
+                              set-aside paths (2026-07): IOU-linked, shared into a Family-type group, or carrying
+                              a Set-Aside tag — each independent of the transaction's own category, the tag path
+                              reported as its own line (`tag:<name>`) rather than folded into a category bucket
     AnalyticsTab.tsx
   subscriptions/
     SubscriptionsSlice.tsx ← renders the shared <SubscriptionsView> from src/features/subscriptions/
@@ -542,7 +545,9 @@ src/features/iou/          ← IOU UI, rendered in the Expenses → IOU tab (no 
 
 src/core/expenses/
   filterAndAggregate.ts    ← pure: grouping, category aggregation, calcTxnCountByCategory
-  categoryGroups.ts        ← pure: groupKey / groupMeta / buildParentCategoryMap (parent-aware grouping)
+  categoryGroups.ts        ← pure: groupKey / groupMeta / buildParentCategoryMap (parent-aware grouping);
+                              isHiddenInSafeMode (category) / isTagHiddenInSafeMode (2026-07 — any of a
+                              transaction's tags independently marked hidden in Safe Mode via Manage Tags)
   categoryIcons.ts         ← curated category icon set + shared CAT_COLORS palette
   merchantMemory.ts        ← pure: normalizeMerchant / memoryKey / buildMemory (Track 6 auto-fill)
   recurringDue.ts          ← pure: computeDueRecurring / buildOccurrence (Track 6 auto-post inbox)

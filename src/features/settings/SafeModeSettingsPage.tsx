@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Banner, Button, ListContainer, PageHeader, SectionLabel, Toggle } from '@/components/ui';
 import { useRepository } from '@/hooks/useRepository';
-import { notifyAccountsChanged, notifyCategoriesChanged } from '@/hooks/useDataRefresh';
-import { accountsRepo, expenseCategoriesRepo } from '@/core/db/repositories';
+import { notifyAccountsChanged, notifyCategoriesChanged, notifyTagsChanged } from '@/hooks/useDataRefresh';
+import { accountsRepo, expenseCategoriesRepo, hashtagsRepo } from '@/core/db/repositories';
 import { INTENT_GROUP_META } from '@/core/db/defaultCategories';
 import { buildParentCategoryMap, groupKey, isHiddenInSafeMode } from '@/core/expenses/categoryGroups';
 import { useSettings, type SafeModeVisibility } from '@/context/SettingsContext';
@@ -64,6 +64,8 @@ export function SafeModeSettingsPage() {
   const { safeModeVisibility, setSafeModeVisibility } = useSettings();
   const { items: categories, save: saveCategory, loading: categoriesLoading } = useRepository(expenseCategoriesRepo);
   const { items: accounts, save: saveAccount, loading: accountsLoading } = useRepository(accountsRepo);
+  const { items: hashtags, save: saveHashtag, loading: hashtagsLoading } = useRepository(hashtagsRepo);
+  const sortedHashtags = useMemo(() => [...hashtags].sort((a, b) => b.usageCount - a.usageCount), [hashtags]);
 
   const parentCategoryMap = useMemo(() => buildParentCategoryMap(categories), [categories]);
 
@@ -129,6 +131,32 @@ export function SafeModeSettingsPage() {
                   onChange={(hidden) =>
                     void saveAccount({ ...acc, hideInSafeMode: hidden }).then(notifyAccountsChanged)
                   }
+                />
+              ))}
+            </ListContainer>
+          )}
+        </div>
+
+        <div>
+          <SectionLabel>Tags</SectionLabel>
+          <p className="text-xs text-secondary -mt-1 mb-2">
+            Independent of a tag's "Set aside" classification (Manage Tags) — a tag can be hidden here without being
+            excluded from your daily-living total, or vice versa.
+          </p>
+          {hashtagsLoading ? (
+            <p className="text-xs text-tertiary">Loading…</p>
+          ) : sortedHashtags.length === 0 ? (
+            <p className="text-xs text-tertiary">No tags yet.</p>
+          ) : (
+            <ListContainer>
+              {sortedHashtags.map((h) => (
+                <ToggleRow
+                  key={h.id}
+                  icon="ti-hash"
+                  iconColor="#ec4899"
+                  label={h.name}
+                  value={!!h.hideInSafeMode}
+                  onChange={(hidden) => void saveHashtag({ ...h, hideInSafeMode: hidden }).then(notifyTagsChanged)}
                 />
               ))}
             </ListContainer>

@@ -8,6 +8,7 @@ import { seedDemoData } from '@/core/db/seedDemoData';
 import type { Profile } from '@/core/db/types';
 import { PATHS } from '@/router/paths';
 import { OnboardingBack } from './OnboardingBack';
+import { useRedirectIfOnboarded } from './useRedirectIfOnboarded';
 
 /**
  * A known, shown, throwaway vault — lets "Explore with Demo Data" skip straight into a fully-populated
@@ -18,6 +19,8 @@ export function DemoVaultScreen() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // Never legitimate to re-enter this screen once any vault (real or demo) already exists.
+  const checking = useRedirectIfOnboarded(false);
 
   async function handleContinue() {
     setLoading(true);
@@ -43,6 +46,14 @@ export function DemoVaultScreen() {
       setError('Something went wrong setting up the demo. Please try again.');
       setLoading(false);
     }
+  }
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface">
+        <div className="w-8 h-8 border-2 border-[#00a86b] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
   return (

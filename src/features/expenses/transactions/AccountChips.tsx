@@ -28,7 +28,7 @@ export function AccountChips({ accounts, value, onChange, showNone, disabledId, 
   }
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-0.5">
+    <div className="flex gap-2 overflow-x-auto pt-1 pb-0.5">
       {showNone && (
         <button
           type="button"

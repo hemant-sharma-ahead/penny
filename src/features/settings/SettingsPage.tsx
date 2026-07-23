@@ -358,6 +358,13 @@ export function SettingsPage() {
           onClick={() => navigate(PATHS.app.safeMode)}
           trailing={<Chevron />}
         />
+        <Row
+          icon="ti-hash"
+          label="Manage tags"
+          sub="Set aside tags from your daily living total"
+          onClick={() => navigate(PATHS.app.manageTags)}
+          trailing={<Chevron />}
+        />
 
         {/* Security */}
         <SectionLabel>Security</SectionLabel>

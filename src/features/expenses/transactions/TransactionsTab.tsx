@@ -1,13 +1,14 @@
 import { formatCurrency } from '@/lib/formatters';
 import { STATUS } from '@/lib/statusColors';
-import type { Account, Expense, ExpenseCategory } from '@/core/db/types';
-import { isHiddenInSafeMode } from '@/core/expenses/categoryGroups';
+import type { Account, Expense, ExpenseCategory, Hashtag } from '@/core/db/types';
+import { isHiddenInSafeMode, isTagHiddenInSafeMode } from '@/core/expenses/categoryGroups';
 import { SwipeableRow } from './SwipeableRow';
 
 interface TransactionsTabProps {
   grouped: { label: string; items: Expense[] }[];
   categoryMap: Map<string, ExpenseCategory>;
   accountMap: Map<string, Account>;
+  hashtags: Hashtag[];
   shouldMask: (sensitive: boolean | undefined) => boolean;
   onEdit: (expense: Expense) => void;
   onDelete?: (id: string) => void;
@@ -23,6 +24,7 @@ export function TransactionsTab({
   grouped,
   categoryMap,
   accountMap,
+  hashtags,
   shouldMask,
   onEdit,
   onDelete,
@@ -73,7 +75,9 @@ export function TransactionsTab({
               txnType === 'transfer' ? 'Transfer' : (cat?.name ?? (txnType === 'income' ? 'Income' : 'Uncategorized'));
             const subtitle = acc?.name ? `${catLabel} · ${acc.name}` : catLabel;
             const isSel = selectedIds?.has(txn.id) ?? false;
-            const masked = shouldMask(cat && isHiddenInSafeMode(cat));
+            const masked = shouldMask(
+              (cat && isHiddenInSafeMode(cat)) || isTagHiddenInSafeMode(txn.hashtags, hashtags)
+            );
 
             // icon + title/meta + amount — shared between modes
             const body = (

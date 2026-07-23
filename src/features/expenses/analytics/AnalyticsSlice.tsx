@@ -11,9 +11,18 @@ interface AnalyticsSliceProps {
   categoryMap: Map<string, ExpenseCategory>;
   masked: boolean;
   iouLinkedTxnIds: Set<string>;
+  familyGroupIds: Set<string>;
+  setAsideTagNames: Set<string>;
 }
 
-export function AnalyticsSlice({ expenses, categoryMap, masked, iouLinkedTxnIds }: AnalyticsSliceProps) {
+export function AnalyticsSlice({
+  expenses,
+  categoryMap,
+  masked,
+  iouLinkedTxnIds,
+  familyGroupIds,
+  setAsideTagNames
+}: AnalyticsSliceProps) {
   const { events, pastEvents, allEventHashtags, promoteHashtagToEvent } = useEventMode();
   const { budgets } = useBudgets();
 
@@ -51,7 +60,9 @@ export function AnalyticsSlice({ expenses, categoryMap, masked, iouLinkedTxnIds 
     events,
     pastEvents,
     allEventHashtags,
-    iouLinkedTxnIds
+    iouLinkedTxnIds,
+    familyGroupIds,
+    setAsideTagNames
   });
 
   return (

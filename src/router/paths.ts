@@ -34,6 +34,7 @@ export const PATHS = {
     changePin: '/app/change-pin',
     changePassphrase: '/app/change-passphrase',
     safeMode: '/app/safe-mode',
+    manageTags: '/app/manage-tags',
     profile: '/app/profile',
     settings: '/app/settings',
     timeline: '/app/timeline',

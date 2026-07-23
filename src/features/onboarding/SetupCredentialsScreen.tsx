@@ -13,6 +13,7 @@ import { PATHS } from '@/router/paths';
 import { Button, TextInput, PassphraseStrengthMeter } from '@/components/ui';
 import { useOnboardingDraft } from '@/context/OnboardingDraftContext';
 import { OnboardingBack } from './OnboardingBack';
+import { useRedirectIfOnboarded } from './useRedirectIfOnboarded';
 
 /**
  * The final "real vault" step — reached either fresh (Account Start → "Start fresh" → Let us know you →
@@ -30,6 +31,9 @@ export function SetupCredentialsScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  // Legitimate to reach this screen with onboarding already "complete" only via Exit Demo Mode
+  // (the demo vault counts as complete) — any other stray arrival with an existing vault bounces away.
+  const checking = useRedirectIfOnboarded(!!draft.fromDemoMode);
 
   const { score } = usePassphraseStrength(passphrase);
 
@@ -111,6 +115,14 @@ export function SetupCredentialsScreen() {
       setLoading(false);
     }
   };
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface">
+        <div className="w-8 h-8 border-2 border-[#00a86b] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen flex flex-col bg-surface px-6 py-10">
