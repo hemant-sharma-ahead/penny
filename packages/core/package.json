@@ -1,0 +1,28 @@
+{
+  "name": "@penny/core",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "type-check": "tsc -b"
+  },
+  "dependencies": {
+    "@zip.js/zip.js": "^2.8.26",
+    "dexie": "^4.4.3",
+    "react": "^19.2.6",
+    "xlsx": "^0.18.5",
+    "zxcvbn": "^4.4.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/zxcvbn": "^4.4.5",
+    "fake-indexeddb": "^6.2.5",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.12",
+    "vitest": "^4.1.8"
+  }
+}

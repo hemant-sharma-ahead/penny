@@ -1,0 +1,7 @@
+# workers/* are intentionally excluded — each is an independent Cloudflare Worker project
+# with its own npm lockfile/node_modules, and the migration plan requires zero changes to them.
+packages:
+  - 'packages/*'
+  - 'apps/*'
+allowBuilds:
+  ttf2woff2: true

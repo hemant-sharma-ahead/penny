@@ -322,12 +322,22 @@ Each group has its own **Group Key** (AES-256), completely independent of person
 
 **Local rules engine:** After ~3–4 months of corrections, 80–90% of categorisations happen offline via local rules. API calls become rare.
 
-### Mobile apps (iOS + Android)
+### Mobile apps (iOS + Android) — 🚧 in progress, superseded from "Phase 2 future" to active migration
 
-- React Native with shared core hooks and business logic
-- Platform-specific UI layer (not Tailwind — React Native StyleSheet)
-- Shared: all `src/core/` logic, formatters, calculators, repository pattern
-- The component extraction in Pre-Phase 1.5 (semantic props API, no Tailwind leakage into feature code) makes this migration mechanical
+Full plan (locked decisions, tracks, verification): [`docs/plans/mobile-migration.md`](plans/mobile-migration.md).
+Superseded from this section's original sketch:
+
+- **Expo (managed workflow)**, not bare React Native CLI, not Capacitor — a single codebase targets iOS,
+  Android, and eventually web via `react-native-web`.
+- **NativeWind** for styling (not plain RN StyleSheet as originally sketched here) — reuses the same
+  semantic token names already in `src/index.css`/`docs/DESIGN_GUIDELINES.md`, lowering the risk of visual
+  drift between platforms.
+- Shared: `packages/core/` (moved from `src/core/` + `src/lib/` in Track 0) — business logic, formatters,
+  calculators, repository pattern, all portable with near-zero changes.
+- Storage/crypto adapters: `expo-sqlite` (behind `EncryptedRepository<T>`'s existing interface) and
+  `react-native-quick-crypto` (polyfills `crypto.subtle`, so `engine.ts`/`securityManager.ts` need no logic changes).
+- The component extraction in Pre-Phase 1.5 (semantic props API, no Tailwind leakage into feature code)
+  is what made this migration's shared-core boundary clean to extract in Track 0.
 
 ### Other Phase 2 items
 

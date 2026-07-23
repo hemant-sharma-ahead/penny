@@ -1,15 +1,14 @@
 import { defineConfig } from 'vitest/config';
-import path from 'path';
 
+// Tests for the Cloudflare Workers backend (workers/api-proxy, workers/auth, workers/groups).
+// These live at the repo root (not inside a workspace package) since they test plain
+// TypeScript modules under workers/ directly via relative imports, independent of the
+// packages/core or apps/web-legacy build graphs.
 export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
-    setupFiles: ['./tests/setup.ts'],
-    include: ['tests/**/*.test.ts'],
+    include: ['tests/worker/**/*.test.ts'],
     passWithNoTests: true
-  },
-  resolve: {
-    alias: { '@': path.resolve(__dirname, './src') }
   }
 });

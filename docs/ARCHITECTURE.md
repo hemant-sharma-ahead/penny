@@ -2,7 +2,7 @@
 
 This document describes the codebase structure, every directory and its purpose, and the key architectural decisions with their rationale.
 
-**Last updated:** July 2026 (Phase 1.5)
+**Last updated:** July 2026 (Phase 1.5 + Mobile Migration Track 0)
 
 > **UI design guidance lives in [`docs/DESIGN_GUIDELINES.md`](DESIGN_GUIDELINES.md)** — ethos, patterns, themes, colours, and the mockup workflow. This doc covers code structure & architecture only.
 
@@ -10,94 +10,60 @@ This document describes the codebase structure, every directory and its purpose,
 
 ## Directory structure
 
+**Monorepo restructuring (Mobile Migration Track 0, July 2026):** the repo is now a pnpm workspace. Everything under the old `src/core/`, `src/lib/`, and the framework-agnostic half of `src/hooks/` moved verbatim into `packages/core/` (a new platform-agnostic package, `@penny/core`) so it can eventually be shared with the Expo/React Native mobile app. Everything else (feature UI, components, context, router) moved into `apps/web-legacy/` — the existing app, unchanged in behavior, kept alive as-is until the mobile app reaches parity (see [`docs/plans/mobile-migration.md`](plans/mobile-migration.md)). The Cloudflare Workers (`workers/`) are untouched and remain independent npm projects outside the pnpm workspace.
+
 ```
 penny/
-├── src/
-│   ├── App.tsx                  ← Root component; wires all context providers
-│   ├── main.tsx                 ← React entry point (ReactDOM.createRoot)
-│   ├── index.css                ← Tailwind v4 + semantic token definitions
-│   │
-│   ├── core/                   ← Infrastructure layer (features import FROM here)
-│   │   ├── accounts/           ← balanceCalculator.ts — account balance from transactions
-│   │   ├── ai-safety/          ← PII pipeline, buildUserContext, mock Chip
-│   │   ├── backup/             ← Encrypted .penny export/import + mergeBundle (non-destructive LWW sync/recovery merge)
-│   │   ├── cashflow/           ← Cash flow forecasting engine
-│   │   ├── crypto/             ← AES-256-GCM encryption (Web Crypto API)
-│   │   ├── db/                 ← Dexie schema + EncryptedRepository pattern
-│   │   ├── expenses/           ← filterAndAggregate.ts — grouping, category spend aggregation
-│   │   ├── export/             ← CSV export + AES-256 password-protected ZIP
-│   │   ├── fd/                 ← FD/RD maturity calculation
-│   │   ├── goals/              ← sipCalculator.ts — SIP needed + monthsUntil
-│   │   ├── health/             ← Financial health score engine
-│   │   ├── identity/           ← Account claim/reclaim, signed-request auth, passphrase recovery (Track C/F)
-│   │   ├── import/             ← CSV import parsers
-│   │   ├── ipo/                ← IPO data client + types + hook
-│   │   ├── loans/              ← Loan/EMI calculators
-│   │   ├── market/             ← Market data (indices, forex, commodities)
-│   │   ├── metals/             ← Gold/silver price client
-│   │   ├── nps/                ← NPS NAV client + lifecycle fund tables
-│   │   ├── portfolio/          ← PPF/EPF projections; holdingMappers (pure save logic), mfApiClient, stockApiClient, vehicleMeta
-│   │   ├── reminders/          ← buildReminders — near-term outflow reminders (Track 6, in-app)
-│   │   ├── sentiment/          ← On-device, no-AI news sentiment (lexicon+rules, entity tagging)
-│   │   ├── session/            ← PIN session management + SessionGate
-│   │   ├── subscriptions/      ← 3-pass subscription detection
-│   │   ├── tax/                ← Tax calc (LTCG/STCG/80C/80D) + Track 7 engine: indirectTaxRates (GST 2.0, dated history), categoryTaxMap, taxBandClassifier, indirectTax (with min/max range), regimeHistory (per-FY slabs 2017→2026), fy, incomeWaterfall, taxScenarios (X-ray), optimizer, itrAdvisor, taxFacts, assetTaxInfo (shared per-asset notes)
-│   │   └── vehicle/            ← Vehicle RC lookup
-│   │
-│   ├── features/               ← Feature modules (one per app section)
-│   │   ├── accounts/           ← Accounts management
-│   │   ├── backup/             ← Backup/restore UI
-│   │   ├── cashflow/           ← Cash flow page
-│   │   ├── chip/               ← Chip AI (Phase 1: stub)
-│   │   ├── expenses/           ← Expense tracking
-│   │   ├── goals/              ← Goals tracking
-│   │   ├── health/             ← Health score page
-│   │   ├── home/               ← Home dashboard
-│   │   ├── import/             ← Import page
-│   │   ├── insurance/          ← Insurance policies
-│   │   ├── iou/                ← IOU tracker
-│   │   ├── loans/              ← Loan scenarios
-│   │   ├── news/               ← Finance news + on-device sentiment (chips, mood gauge, holdings-in-news)
-│   │   ├── onboarding/         ← Onboarding + account start/recovery/reconcile screens
-│   │   ├── portfolio/          ← Portfolio (all asset classes)
-│   │   ├── subscriptions/      ← Subscription detection
-│   │   └── tax/                ← Tax awareness — 4 pillars: footprint/ (income waterfall + MoneyFlow + share/), explore/ (tax X-ray + rates/), optimize/ (suggestions + deductions/), calculators/ (Regime/HRA/gains/); + DidYouKnow
-│   │
-│   ├── components/             ← Shared UI (not feature-specific)
-│   │   ├── layout/             ← AppShell, BottomNav
-│   │   ├── privacy/            ← MaskedValue, PrivacyBadge, PrivacyModeSwitcher
-│   │   ├── AssetTaxNote.tsx    ← Collapsible per-asset "Tax on this" note (Portfolio tabs; from core/tax/assetTaxInfo)
-│   │   └── ui/                 ← Shared primitives (Card, Modal, Button, etc.) — EXPANDING in Track 1
-│   │
-│   ├── context/                ← React context providers
-│   │   ├── PrivacyContext.tsx  ← Privacy mode (safe/privacy/open)
-│   │   ├── SettingsContext.tsx ← Module visibility, theme, font scale
-│   │   ├── EventModeContext.tsx← Active events (vacation, background)
-│   │   └── ToastContext.tsx    ← Global snackbar (Undo toasts) — useToast()
-│   │
-│   ├── hooks/                  ← Shared React hooks
-│   │   └── useRepository.ts   ← Generic repository hook
-│   │
-│   ├── lib/                    ← Pure utilities
-│   │   ├── formatters.ts       ← Currency, date, compact number formatters + epochToDateInput
-│   │   ├── amountToWords.ts    ← Indian-system amount-in-words (crore/lakh) for AmountInput
-│   │   └── dateUtils.ts        ← Date key helpers (toDateKey, dateLabel, offsetMonth, monthLabel)
-│   │
-│   └── router/                 ← Routing config
-│       ├── index.tsx           ← createBrowserRouter with all 19 routes
-│       ├── paths.ts            ← PATHS constants (no magic strings)
-│       └── AuthGuard.tsx       ← Session check, onboarding gate, PIN rotation check
+├── pnpm-workspace.yaml          ← workspace packages: packages/*, apps/* (workers/* stay independent)
+├── tsconfig.json                ← root orchestrator: references packages/core + apps/web-legacy
+├── vitest.config.ts             ← root-level: tests/worker/** only (Cloudflare Workers tests)
+├── eslint.config.js             ← shared lint rules across all packages (architecture enforcement)
 │
-├── public/                     ← Static assets (icons, splash, manifest)
-├── tests/                      ← Test files (PII gate + others)
-│   └── pii-gate/
-│       └── piiGate.test.ts     ← CI PII gate (must never skip)
-├── docs/                       ← Documentation
-├── .claude/commands/           ← Skill files for Claude sessions
-├── vite.config.ts              ← Build config, PWA, CSP
-├── tailwind.config.ts          ← Tailwind v4 config
-└── eslint.config.js            ← Lint rules (architecture enforcement)
+├── packages/
+│   └── core/                    ← @penny/core — pure TypeScript, zero DOM/RN-specific deps (yet)
+│       ├── package.json
+│       ├── tsconfig.json
+│       ├── vitest.config.ts
+│       ├── src/
+│       │   ├── core/            ← same domains as before (accounts, ai-safety, backup, cashflow,
+│       │   │                       crypto, db, expenses, export, fd, goals, groups, health, identity,
+│       │   │                       import, insurance, iou, ipo, loans, market, metals, net, news, nps,
+│       │   │                       platform, portfolio, profile, reminders, sentiment, session
+│       │   │                       (sessionStore.ts only — SessionGate.tsx stays app-local, see below),
+│       │   │                       subscriptions, sync, tax, vehicle, advisor, entitlement)
+│       │   ├── lib/             ← formatters.ts, date.ts, statusColors.ts, amountToWords.ts, debounce.ts, image.ts, maskAmounts.ts
+│       │   ├── hooks/           ← the 5 hooks with no React Context/router dependency:
+│       │   │                       useDataRefresh, usePassphraseStrength, useProfile, useRepository, useTxnRefresh
+│       │   └── index.ts         ← placeholder package entry (nothing imports `@penny/core` by name yet — see note below)
+│       └── tests/               ← everything from the old root tests/ except tests/worker
+│
+├── apps/
+│   └── web-legacy/               ← today's app, moved as-is; frozen (bugfixes only) until Track 7 retires it
+│       ├── package.json
+│       ├── tsconfig.json / tsconfig.app.json / tsconfig.node.json
+│       ├── vite.config.ts        ← same PWA/proxy config as before, plus the Track 0 alias shim (below)
+│       ├── vitest.config.ts      ← placeholder (no UI test suite exists yet)
+│       ├── index.html, public/, scripts/
+│       └── src/
+│           ├── App.tsx, main.tsx, index.css
+│           ├── features/         ← unchanged feature modules (one per app section)
+│           ├── components/       ← unchanged shared UI (layout/, privacy/, ui/, AssetTaxNote.tsx)
+│           ├── context/           ← unchanged (PrivacyContext, SettingsContext, EventModeContext, ToastContext)
+│           ├── hooks/             ← the 3 hooks that stayed app-local (React Context/router-coupled):
+│           │                        useForecast, useLoggedRepository, useReminders
+│           ├── session/           ← SessionGate.tsx (moved back out of core/session — it's router+Context-coupled,
+│           │                        not portable business logic; sessionStore.ts stayed in packages/core/src/core/session/)
+│           └── router/            ← unchanged (index.tsx, paths.ts, AuthGuard.tsx)
+│
+├── workers/                      ← unchanged: api-proxy, auth, groups (independent npm projects, own lockfiles)
+└── docs/
 ```
+
+**Track 0 path-aliasing shortcut (temporary):** rather than editing hundreds of `@/core/...`/`@/lib/...` import statements across `apps/web-legacy`, its `tsconfig.app.json` and `vite.config.ts` map those specifiers straight into `packages/core/src/` via relative paths (see the comment in `apps/web-legacy/tsconfig.app.json`). `apps/mobile` (Track 1) will need real package-boundary resolution (`@penny/core`, via `package.json`'s `main`/`exports`) since Metro doesn't support this kind of raw cross-workspace relative aliasing — that's when `packages/core/src/index.ts`'s placeholder gets a real curated export surface.
+
+**Known seam surfaced during Track 0 (flagged, not fixed):** `packages/core/src/core/entitlement/entitlement.ts`, `core/net/apiBase.ts`, and `core/sync/providers/googleDriveProvider.ts` read `import.meta.env.VITE_*` directly — a Vite-ism with no Metro/RN equivalent. Kept as-is (types-only fix: `packages/core/tsconfig.json` now includes `vite/client` types) to preserve behavior; needs a small platform-agnostic env-access abstraction before Track 1's mobile app can consume these files.
+
+**Also surfaced:** `packages/core/src/core/advisor/guidance.ts` used to import `PATHS` from the web router to build "navigate to X" recommendation actions — a real core→app coupling. Fixed during Track 0 (not deferred, since it was a one-line-risk mechanical change): `guidance.ts` now returns a semantic `AppRouteKey` (`'goals' | 'insurance' | ...`), and the one caller (`FinancialHealthCard.tsx`) maps that key to an actual `PATHS` value via a small local lookup. Behavior is unchanged; `packages/core` no longer imports anything router-specific.
 
 ---
 
@@ -599,14 +565,16 @@ Bridge functions that read UI state then call a hook mutation live in the page.
 
 ### React Native portability by layer
 
-| Layer                          | RN effort                         | Why                                                    |
-| ------------------------------ | --------------------------------- | ------------------------------------------------------ |
-| `src/core/`                    | Zero changes                      | Pure TypeScript, no browser deps                       |
-| Feature hooks (`use{Name}.ts`) | Zero changes                      | React hooks work identically in RN                     |
-| Feature UI (`{Name}Page.tsx`)  | Swap component implementations    | Pages call `<Card>`, `<Modal>` — not Tailwind directly |
-| `src/components/ui/`           | Create `*.native.tsx` variants    | Same props API, different renderer                     |
-| `src/core/db/`                 | Replace Dexie with SQLite         | Isolated behind EncryptedRepository interface          |
-| `src/core/crypto/`             | Replace Web Crypto with RN crypto | Isolated in engine.ts                                  |
+This table reflects the approved plan in [`docs/plans/mobile-migration.md`](plans/mobile-migration.md) (single Expo codebase, targeting iOS/Android/web via `react-native-web`; NativeWind for styling; `expo-sqlite` + `react-native-quick-crypto` as native adapters). Track 0 (done) physically separated the two layers below into `packages/core/` and `apps/web-legacy/`; the remaining rows land in later tracks.
+
+| Layer                                | RN effort                                        | Why                                                                        |
+| ------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------- |
+| `packages/core/src/`                  | Near-zero changes                                 | Pure TypeScript; one flagged seam (`import.meta.env`, see above) to abstract |
+| Feature hooks (`use{Name}.ts`)         | Zero changes                                      | React hooks work identically in RN                                          |
+| Feature UI (`{Name}Page.tsx`)          | Full rewrite (Track 4)                            | NativeWind + View/Text/Pressable, not Tailwind/DOM elements                  |
+| `apps/web-legacy/src/components/ui/`  | Full rewrite as `apps/mobile/src/components/`     | Same prop APIs, different renderer (Track 3)                                |
+| `packages/core/src/core/db/`          | New `expo-sqlite` adapter behind the same interface | `EncryptedRepository<T>`'s constructor already only needs put/get/getAll/delete/count — narrows cleanly (Track 2) |
+| `packages/core/src/core/crypto/`      | `react-native-quick-crypto` polyfills `crypto.subtle` | `engine.ts`/`securityManager.ts`/`identityKeys.ts`/`recovery.ts` need **zero logic changes** (Track 2) |
 
 ---
 
@@ -665,9 +633,9 @@ and the parent plan → Track C.)
 
 **Rationale (Track 2):** Route would-be-paid features (e.g. cloud backup) through a single `entitlement` check that currently always returns pro/true. Enabling pricing later (store receipts on native, offline-verifiable signed license tokens on web) swaps the entitlement source without touching feature code and without storing user data.
 
-### Decision: React Native for mobile (not Capacitor)
+### Decision: React Native (Expo, managed workflow) for mobile — not Capacitor, not bare RN CLI
 
-**Rationale (Phase 2):** Capacitor wraps the web app in a WebView — performance is constrained by CSS rendering and JavaScript layout. React Native renders to native components. The component extraction in Pre-Phase 1.5 (semantic variant props, no Tailwind className in feature files) makes the migration mechanical: swap component implementations, keep all business logic and `src/core/`.
+**Rationale (Mobile Migration, July 2026):** Capacitor wraps the web app in a WebView — performance is constrained by CSS rendering and JavaScript layout, and it never quite achieves native feel. React Native renders to real native components. Expo's managed workflow (not bare RN CLI) was chosen over hand-rolled native projects for its build/signing/OTA tooling (EAS Build/Submit/Update) — a solo/small-team app doesn't benefit from bare RN CLI's extra native-project control. A single Expo codebase targets iOS, Android, **and web** (via `react-native-web`) — the existing web app (`apps/web-legacy/`) is kept alive untouched as a safety net until the new codebase reaches documented parity (see the Track 7 gate in the plan below), not maintained as a second permanent UI layer. An earlier, now-abandoned Capacitor experiment (a generated `android/` project, never committed) was removed during Track 0. Full phased plan: [`docs/plans/mobile-migration.md`](plans/mobile-migration.md).
 
 ### Decision: Domain hooks, not page-god-hooks
 

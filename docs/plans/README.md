@@ -23,3 +23,4 @@ track/step breakdown, and a verification section.
 | [Home as a Financial-Health & Guidance Hub](home-financial-advisor.md)   | TBD       | 🚧 In progress — Steps 1–4 done; Step 5 (Chip) future |
 | [Account Lifecycle & Recovery](account-lifecycle-recovery.md)            | Phase 1.5 | 🚧 Deregister-on-erase + inactivity GC done. **Recovery now delivered under Track F** — this doc is the recovery-worker mechanics reference |
 | [Phase 1.5 Track F — Multi-Device, Sync & Recovery](phase-1.5-track-F-multi-device-recovery.md) | Phase 1.5 | 🚧 F1 phantom-claim ✅, F2 recovery hardening + restore-on-reinstall ✅, F3 passphrase reclaim (Ed25519) ✅; F4 device pairing/QR next (living doc) |
+| [Mobile Migration — React Native (Expo)](mobile-migration.md)           | Mobile    | 🚧 Track 0 (repo restructuring) ✅ done, not yet merged/committed. Track 1 (Expo app skeleton) next (living doc) |
