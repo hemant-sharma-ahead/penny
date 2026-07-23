@@ -1,9 +1,11 @@
 # Penny → React Native Migration Plan (living doc)
 
-> **Status:** 🚧 In progress. **Track 0 ✅** (repo restructuring: pnpm workspace, `packages/core` +
-> `apps/web-legacy` split, existing Vitest suite green, `tsc -b`/eslint clean, build+dev smoke-tested).
-> **Track 1 (Expo app skeleton) = next.** Full context: [`CLAUDE.md`](../../CLAUDE.md), architecture
-> details in [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md).
+> **Status:** 🚧 In progress. **Track 0 ✅** (repo restructuring). **Track 1 ✅** (Expo app skeleton:
+> `apps/mobile` created, NativeWind + dynamic 3-palette theming, React Navigation shell, stubbed AuthGuard,
+> `docs/RUNNING_MOBILE.md` written; verified via web export + `tsc -b`/eslint/full test suite — **manual
+> on-device/simulator check still owed**, not yet committed). **Track 2 (storage + crypto adapter swap) =
+> next.** Full context: [`CLAUDE.md`](../../CLAUDE.md), architecture details in
+> [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md), how to run it: [`docs/RUNNING_MOBILE.md`](../RUNNING_MOBILE.md).
 >
 > **Update discipline:** append a dated entry to the **Progress Log** (bottom) at every track, and keep
 > the **Status** line + `CLAUDE.md`'s milestone table + `docs/ROADMAP.md`'s React Native row in sync.
@@ -57,10 +59,12 @@ into `apps/web-legacy/`. Stood up `pnpm-workspace.yaml`, per-package `package.js
 `capacitor.config.ts`, `@capacitor/*` deps). Full details, what got fixed along the way, and verification
 results are in the Progress Log below.
 
-### Track 1 — RN app skeleton — next
-`apps/mobile` via `create-expo-app`, NativeWind theme wired to a new single-source-of-truth token object,
-React Navigation stack+tabs, `AuthGuard` state machine ported. Runs in plain Expo Go (no native modules yet).
-Write `docs/RUNNING_MOBILE.md`.
+### Track 1 — RN app skeleton — ✅ done
+`apps/mobile` via `create-expo-app`, NativeWind theme wired to `packages/core/src/theme/tokens.ts` (single
+source of truth, 3 palettes + runtime dark-mode switching via NativeWind's `vars()`), React Navigation
+stack+tabs, `AuthGuard` state machine **stubbed** (see below — not yet wired to real `@penny/core` calls).
+Runs in plain Expo Go + web (no native modules yet). `docs/RUNNING_MOBILE.md` written. Details in the
+Progress Log below.
 
 ### Track 2 — Storage + crypto adapter swap (highest risk)
 `expo-sqlite` adapter (SQL DDL reimplementing the Dexie v1–v9 migration history) + `react-native-quick-crypto`
@@ -156,6 +160,52 @@ defines the actual parity bar for retiring legacy web.
   - `apps/web-legacy`: production build succeeds (`vite build` + PWA precache), dev server boots and serves
     the app correctly (manually curled, HTTP 200, correct HTML).
 - Not yet done as part of Track 0: manual side-by-side UI walkthrough against a pre-migration baseline (no
-  UI changed in this track, so lower priority, but still owed before the branch is considered mergeable —
-  see the plan's Validation strategy). **Nothing has been committed yet** — awaiting user sign-off per the
-  commit gate (guideline 10).
+  UI changed in this track, so lower priority — deferred, at the user's direction, to a final review pass
+  across all tracks rather than gating each one). **Committed** (`2c40dec`) on `feat/rn-migration` after
+  automated verification passed, per the user's explicit go-ahead to proceed and let them verify at the end.
+
+### 2026-07-23 — Track 1 complete
+
+- Scaffolded `apps/mobile` via `create-expo-app` (blank-typescript template), cleaned up its npm artifacts
+  (`node_modules`, `package-lock.json`, template's own `AGENTS.md`/`CLAUDE.md`/`LICENSE`) and linked it into
+  the pnpm workspace instead. Renamed the app to "Penny" (`app.json`: name/slug/scheme), set
+  `userInterfaceStyle: "automatic"` for OS-driven light/dark.
+- Extracted theme tokens to `packages/core/src/theme/tokens.ts` — the single source of truth (light/Penny
+  Blue/dark palettes) read from `apps/web-legacy/src/index.css`'s CSS custom properties. Gave `@penny/core`
+  a real `exports` map (`"./*": "./src/*.ts"`) and added `@penny/core` as an actual `workspace:*` dependency
+  of `apps/mobile` — the first real (non-Track-0-shortcut) cross-package import in the monorepo.
+- **Dynamic theming, not just static colours:** `tailwind.config.js` maps Tailwind color names to CSS
+  variable references (`var(--color-surface)`, etc.); `src/theme/ThemeProvider.tsx` uses NativeWind's
+  `vars()` to apply the active palette's actual hex values at runtime, resolving `'system'` via RN's
+  `useColorScheme()` — matches the web app's 4-theme model (Light/Penny Blue/Dark/System) rather than
+  hardcoding one palette.
+- Installed React Navigation (`native`, `native-stack`, `bottom-tabs`) + `react-native-screens`/
+  `react-native-safe-area-context` via `npx expo install` (version-matched to the Expo SDK). Built
+  `RootNavigator` → `AuthGuard` → `MainTabs` (5 tabs: Home/Portfolio/Chip/Expenses/Goals, per `CLAUDE.md`'s
+  nav structure) or `OnboardingStubScreen`.
+- **`AuthGuard` is deliberately stubbed, not wired to real `@penny/core` calls yet.** The real
+  `isOnboardingComplete`/`isSessionValid`/`isPinRotationDue` in `securityManager.ts` currently run against
+  the Dexie/IndexedDB schema, which doesn't exist under Metro/RN — wiring them now would try to bundle
+  `dexie` and fail immediately. `src/navigation/AuthGuard.tsx` documents this explicitly; Track 2 replaces
+  the stub once the `expo-sqlite` adapter exists.
+- Installed `nativewind` + `tailwindcss@^3.4` (pinned independently of `apps/web-legacy`'s v4 — NativeWind's
+  RN toolchain is a separate concern) + `babel-preset-expo`, and wrote `babel.config.js`/`metro.config.js`/
+  `global.css`/`tailwind.config.js`/`nativewind-env.d.ts`.
+- **Two phantom-dependency bugs found and fixed** (same category as Track 0's `@tabler/icons` issue —
+  pnpm's strict `node_modules` correctly refuses to expose transitive deps other tools assumed were
+  hoisted): `react-native-css-interop` (NativeWind's `jsxImportSource` babel transform requires it directly
+  resolvable from the app, not just from within `nativewind`'s own dependency tree) and a missing
+  `declare module '*.css'` ambient type (TS couldn't type-check the side-effect `global.css` import).
+- **Verification:**
+  - `npx expo export --platform web`: bundled cleanly (576 modules, no Dexie/crypto-bundling errors —
+    confirms the stub approach avoided pulling in native-only code this early).
+  - Served the exported build and confirmed HTTP 200 + correct `<title>Penny</title>` + expected
+    react-native-web boilerplate in the HTML.
+  - `apps/mobile`'s own `tsc --noEmit`: clean. Root `tsc -b` (now referencing `apps/mobile/tsconfig.json`
+    too): clean. `eslint` (root `pnpm lint`, glob already covers `apps/mobile/src`): clean after fixing an
+    unused-callback-parameter error and adding `ThemeProvider.tsx` to the existing
+    provider-exports-a-hook-too ESLint override. `prettier --check`: clean after formatting 2 files.
+  - Full `pnpm test` (core + web-legacy + workers): 398 + 0 + 39 tests, all still passing — Track 1 touched
+    no `@penny/core` logic.
+  - **Not yet done:** an actual on-device/simulator/Expo-Go visual check (this environment is headless —
+    only the web export could be verified here). Flagged for the user's end-of-migration review pass.

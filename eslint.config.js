@@ -59,7 +59,11 @@ export default defineConfig([
   },
   {
     // Provider files intentionally export both a Provider component and a hook
-    files: ['apps/web-legacy/src/context/*.tsx', 'packages/core/src/core/sync/SyncProvider.tsx'],
+    files: [
+      'apps/web-legacy/src/context/*.tsx',
+      'packages/core/src/core/sync/SyncProvider.tsx',
+      'apps/mobile/src/theme/ThemeProvider.tsx'
+    ],
     rules: {
       'react-refresh/only-export-components': 'off'
     }
