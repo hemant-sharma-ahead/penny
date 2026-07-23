@@ -1,9 +1,11 @@
 # Market Sentiment from News — Feasibility & Design (No AI, On-Device)
 
-_Research + design snapshot. Author: Pankhuri. Status: **Phase A implemented** (offline headline
-sentiment: chips + news-mood gauge, on branch `feat/phase-A-news-sentiment`); Phases B–C not started.
-This documents what is technically and legally feasible for showing "how market news affects stocks"
-inside Penny **without any AI and fully on-device**, and where/how to surface it._
+_Research + design snapshot. Author: Pankhuri. Status: **Phase A ✅ merged** (offline headline
+sentiment: chips + news-mood gauge). **Phase B 🚧 in progress** — F3 "your holdings in the news"
+implemented (entity dictionary + tagging + News-module section); F4 per-stock strip + Home card
+pending. Phase C not started. This documents what is technically and legally feasible for showing "how
+market news affects stocks" inside Penny **without any AI and fully on-device**, and where/how to
+surface it._
 
 ---
 
@@ -114,9 +116,10 @@ Both are **public, non-personal assets** — no user data is involved in scoring
 mandatory disclaimer. ✅ **Phase A.**
 
 **F3 — "Your holdings in the news."** Entity-tag headlines to the stocks the user owns; surface + tag
-them. _The compliant replacement for "best 5 stocks to trade."_ ⏳ Phase B.
+them. _The compliant replacement for "best 5 stocks to trade."_ ✅ **Phase B** (News-module section,
+recency-ordered, informational — no aggregate per-stock verdict).
 
-**F4 — Per-stock news strip.** On a stock holding's detail, a sentiment-tagged "In the news" list. ⏳ Phase B.
+**F4 — Per-stock news strip.** On a stock holding's detail, a sentiment-tagged "In the news" list. ⏳ Phase B (pending).
 
 **F5 — Descriptive news-vs-move context.** Pair mood with the live market snapshot. ⏳ Phase C.
 
