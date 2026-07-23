@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePrivacy } from '@/context/PrivacyContext';
+import { useSettings } from '@/context/SettingsContext';
 import type { Liability } from '@/core/db/types';
 import { SegmentedControl, PageHeader, Button } from '@/components/ui';
 import { useLoans } from './useLoans';
@@ -10,7 +11,9 @@ import { usePlanner } from './planner/usePlanner';
 
 export function LoanScenariosPage() {
   const navigate = useNavigate();
-  const { mode } = usePrivacy();
+  const { shouldMask } = usePrivacy();
+  const { safeModeVisibility } = useSettings();
+  const masked = shouldMask(!safeModeVisibility.loans);
   const { saveLiability, deleteLiability, emiLoans } = useLoans();
   const planner = usePlanner();
   const [activeTab, setActiveTab] = useState<'myloans' | 'planner'>('myloans');
@@ -50,14 +53,14 @@ export function LoanScenariosPage() {
       {activeTab === 'myloans' && (
         <MyLoansTab
           emiLoans={emiLoans}
-          mode={mode}
+          masked={masked}
           saveLiability={saveLiability}
           deleteLiability={deleteLiability}
           onPlanLoan={handlePlanLoan}
         />
       )}
 
-      {activeTab === 'planner' && <PlannerTab planner={planner} mode={mode} />}
+      {activeTab === 'planner' && <PlannerTab planner={planner} masked={masked} />}
     </div>
   );
 }

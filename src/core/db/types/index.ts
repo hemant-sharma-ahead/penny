@@ -228,6 +228,8 @@ export interface ExpenseCategory {
   intentGroup?: string; // e.g. 'daily_living', 'income', 'transfers'
   applicableTo?: 'expense' | 'income' | 'transfer'; // defaults to 'expense'
   createdAt: number;
+  /** Safe Mode masks this category's amounts (transactions, budgets, analytics rows); undefined/false = visible. */
+  hideInSafeMode?: boolean;
 }
 
 // Transaction direction — all new records should set this explicitly; legacy records implicitly 'expense'
@@ -275,6 +277,8 @@ export interface Account {
   isArchived: boolean;
   createdAt: number;
   updatedAt: number;
+  /** Safe Mode masks this account's balance; undefined/false = visible. */
+  hideInSafeMode?: boolean;
 }
 
 export interface Budget {
@@ -290,6 +294,14 @@ export interface Hashtag {
   id: string;
   name: string; // without #
   usageCount: number;
+  /** Transactions carrying this tag are excluded from daily-living analytics (health score, budgets'
+   *  category totals are unaffected — this only changes the routine-vs-set-aside split), reported as
+   *  their own line rather than folded into a category. Set once per tag, not per transaction. */
+  setAside?: boolean | undefined;
+  /** Independent of `setAside` — Safe Mode masks any transaction carrying this tag when true. Defaults
+   *  to mirroring `setAside` at creation time but is separately editable (financial classification and
+   *  privacy visibility are different questions). */
+  hideInSafeMode?: boolean | undefined;
   createdAt: number;
 }
 
@@ -477,6 +489,15 @@ export interface SecurityRecord {
   lockedUntil?: number;
   lastPinVerifiedAt?: number;
   pinChangedAt?: number;
+  // Forgot-PIN recovery: a SEPARATE attempt counter/lockout for passphrase verification, shared by
+  // unlockWithPassphrase() and resetPinWithPassphrase() — kept independent of pinAttempts/lockedUntil so
+  // exhausting one factor never blocks the other (that would trap a user who forgot their PIN and is
+  // trying to use the escape hatch). A successful passphrase verification resets pinAttempts/lockedUntil.
+  passphraseAttempts?: number;
+  passphraseLockedUntil?: number;
+  // Rate-limits changePassphrase() to once/24h, same policy as pinChangedAt. Not checked by
+  // resetPinWithPassphrase (an emergency recovery path, not a routine passphrase change).
+  passphraseChangedAt?: number;
   sessionExpiresAt?: number;
   wipeAfterAttempts?: number; // opt-in: erase all data after this many consecutive failed PIN attempts (undefined = off)
   createdAt: number;

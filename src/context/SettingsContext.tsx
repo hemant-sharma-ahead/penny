@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { type PrivacyMode } from '@/context/PrivacyContext';
+import { type PersistedPrivacyMode } from '@/context/PrivacyContext';
 
 export type FontScale = 'small' | 'default' | 'large' | 'xl';
 /** Visual themes: light, Penny Blue (navy brand), true dark, or follow OS. */
@@ -27,6 +27,25 @@ const DEFAULT_MODULES: ModuleVisibility = {
   calc: true
 };
 
+/** Modules without a natural "category" to hang a per-item Safe Mode flag on — one toggle each. */
+export interface SafeModeVisibility {
+  loans: boolean;
+  iou: boolean;
+  portfolio: boolean;
+  goals: boolean;
+  insurance: boolean;
+  subscriptions: boolean;
+}
+
+const DEFAULT_SAFE_MODE_VISIBILITY: SafeModeVisibility = {
+  loans: true,
+  iou: true,
+  portfolio: true,
+  goals: true,
+  insurance: true,
+  subscriptions: true
+};
+
 const FONT_SCALE_MAP: Record<FontScale, number> = {
   small: 0.875,
   default: 1,
@@ -35,10 +54,12 @@ const FONT_SCALE_MAP: Record<FontScale, number> = {
 };
 
 const MODULES_KEY = 'penny_settings_modules';
+const SAFE_MODE_VISIBILITY_KEY = 'penny_settings_safe_mode_visibility';
 const FONT_SCALE_KEY = 'penny_settings_font_scale';
 const THEME_KEY = 'penny_settings_theme';
 const THEME_MIGRATED_KEY = 'penny_settings_theme_v2';
 export const DEFAULT_PRIVACY_KEY = 'penny_settings_default_privacy';
+const OPEN_MODE_DURATION_KEY = 'penny_settings_open_mode_duration';
 const LOCK_ON_BACKGROUND_KEY = 'penny_settings_lock_on_background';
 const CASHFLOW_BUFFER_KEY = 'penny_settings_cashflow_buffer';
 const TAX_GROSS_INCOME_KEY = 'penny_settings_tax_gross_income';
@@ -99,23 +120,50 @@ function loadModules(): ModuleVisibility {
   }
 }
 
+function loadSafeModeVisibility(): SafeModeVisibility {
+  try {
+    const raw = localStorage.getItem(SAFE_MODE_VISIBILITY_KEY);
+    if (!raw) return DEFAULT_SAFE_MODE_VISIBILITY;
+    return { ...DEFAULT_SAFE_MODE_VISIBILITY, ...(JSON.parse(raw) as Partial<SafeModeVisibility>) };
+  } catch {
+    return DEFAULT_SAFE_MODE_VISIBILITY;
+  }
+}
+
 function loadFontScale(): FontScale {
   const raw = localStorage.getItem(FONT_SCALE_KEY);
   if (raw === 'small' || raw === 'default' || raw === 'large' || raw === 'xl') return raw;
   return 'default';
 }
 
-export function loadDefaultPrivacyMode(): PrivacyMode {
+/** Open can never be a persisted default — it's only ever a temporary elevation (see PrivacyContext).
+ *  A legacy stored value of 'open' (from before this rule existed) silently coerces to 'safe'. */
+export function loadDefaultPrivacyMode(): PersistedPrivacyMode {
   const raw = localStorage.getItem(DEFAULT_PRIVACY_KEY);
-  if (raw === 'safe' || raw === 'privacy' || raw === 'open') return raw;
+  if (raw === 'safe' || raw === 'privacy') return raw;
   return 'safe';
+}
+
+/** Allowed Open-mode auto-revert durations, in minutes. */
+export const OPEN_MODE_DURATIONS = [1, 5, 10, 15, 30] as const;
+export type OpenModeDuration = (typeof OPEN_MODE_DURATIONS)[number];
+const DEFAULT_OPEN_MODE_DURATION: OpenModeDuration = 1;
+
+/** Read directly (no React) — used by PrivacyContext's auto-revert timer. */
+export function loadOpenModeDurationMinutes(): OpenModeDuration {
+  const raw = Number(localStorage.getItem(OPEN_MODE_DURATION_KEY));
+  return (OPEN_MODE_DURATIONS as readonly number[]).includes(raw)
+    ? (raw as OpenModeDuration)
+    : DEFAULT_OPEN_MODE_DURATION;
 }
 
 interface SettingsContextValue {
   modules: ModuleVisibility;
+  safeModeVisibility: SafeModeVisibility;
   fontScale: FontScale;
   theme: Theme;
-  defaultPrivacyMode: PrivacyMode;
+  defaultPrivacyMode: PersistedPrivacyMode;
+  openModeDurationMinutes: OpenModeDuration;
   lockOnBackground: boolean;
   cashflowBuffer: number;
   /** Manual annual gross income for the tax footprint; null = derive from income transactions. */
@@ -127,9 +175,11 @@ interface SettingsContextValue {
   /** Manual annual statutory levies (professional tax + LWF); null = default (~₹2,400). */
   taxStatutoryOverride: number | null;
   setModule: (key: keyof ModuleVisibility, visible: boolean) => void;
+  setSafeModeVisibility: (key: keyof SafeModeVisibility, visible: boolean) => void;
   setFontScale: (scale: FontScale) => void;
   setTheme: (theme: Theme) => void;
-  setDefaultPrivacyMode: (mode: PrivacyMode) => void;
+  setDefaultPrivacyMode: (mode: PersistedPrivacyMode) => void;
+  setOpenModeDurationMinutes: (minutes: OpenModeDuration) => void;
   setLockOnBackground: (value: boolean) => void;
   setCashflowBuffer: (value: number) => void;
   setTaxGrossIncomeOverride: (value: number | null) => void;
@@ -142,9 +192,12 @@ const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [modules, setModules] = useState<ModuleVisibility>(loadModules);
+  const [safeModeVisibility, setSafeModeVisibilityState] = useState<SafeModeVisibility>(loadSafeModeVisibility);
   const [fontScale, setFontScaleState] = useState<FontScale>(loadFontScale);
   const [theme, setThemeState] = useState<Theme>(loadTheme);
-  const [defaultPrivacyMode, setDefaultPrivacyModeState] = useState<PrivacyMode>(loadDefaultPrivacyMode);
+  const [defaultPrivacyMode, setDefaultPrivacyModeState] = useState<PersistedPrivacyMode>(loadDefaultPrivacyMode);
+  const [openModeDurationMinutes, setOpenModeDurationMinutesState] =
+    useState<OpenModeDuration>(loadOpenModeDurationMinutes);
   const [lockOnBackground, setLockOnBackgroundState] = useState<boolean>(loadLockOnBackground);
   const [cashflowBuffer, setCashflowBufferState] = useState<number>(loadCashflowBuffer);
   const [taxGrossIncomeOverride, setTaxGrossIncomeOverrideState] = useState<number | null>(() =>
@@ -182,6 +235,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setSafeModeVisibility = useCallback((key: keyof SafeModeVisibility, visible: boolean) => {
+    setSafeModeVisibilityState((prev) => {
+      const next = { ...prev, [key]: visible };
+      localStorage.setItem(SAFE_MODE_VISIBILITY_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const setFontScale = useCallback((scale: FontScale) => {
     localStorage.setItem(FONT_SCALE_KEY, scale);
     setFontScaleState(scale);
@@ -192,9 +253,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setThemeState(t);
   }, []);
 
-  const setDefaultPrivacyMode = useCallback((m: PrivacyMode) => {
+  const setDefaultPrivacyMode = useCallback((m: PersistedPrivacyMode) => {
     localStorage.setItem(DEFAULT_PRIVACY_KEY, m);
     setDefaultPrivacyModeState(m);
+  }, []);
+
+  const setOpenModeDurationMinutes = useCallback((minutes: OpenModeDuration) => {
+    localStorage.setItem(OPEN_MODE_DURATION_KEY, String(minutes));
+    setOpenModeDurationMinutesState(minutes);
   }, []);
 
   const setLockOnBackground = useCallback((value: boolean) => {
@@ -256,9 +322,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     <SettingsContext.Provider
       value={{
         modules,
+        safeModeVisibility,
         fontScale,
         theme,
         defaultPrivacyMode,
+        openModeDurationMinutes,
         lockOnBackground,
         cashflowBuffer,
         taxGrossIncomeOverride,
@@ -266,9 +334,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         taxEpfOverride,
         taxStatutoryOverride,
         setModule,
+        setSafeModeVisibility,
         setFontScale,
         setTheme,
         setDefaultPrivacyMode,
+        setOpenModeDurationMinutes,
         setLockOnBackground,
         setCashflowBuffer,
         setTaxGrossIncomeOverride,

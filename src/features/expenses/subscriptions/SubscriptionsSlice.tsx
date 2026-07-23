@@ -4,10 +4,10 @@ import { SubscriptionsView } from '@/features/subscriptions/SubscriptionsView';
 
 interface SubscriptionsSliceProps {
   expenses: Expense[];
-  mode: 'open' | 'safe' | 'privacy';
+  masked: boolean;
 }
 
-export function SubscriptionsSlice({ expenses, mode }: SubscriptionsSliceProps) {
+export function SubscriptionsSlice({ expenses, masked }: SubscriptionsSliceProps) {
   const {
     detectedSubs,
     activeSubs,
@@ -27,7 +27,7 @@ export function SubscriptionsSlice({ expenses, mode }: SubscriptionsSliceProps) 
         monthlyTotal={subsMonthlyTotal}
         annualTotal={subsAnnualTotal}
         hasExpenses={expenses.length > 0}
-        mode={mode}
+        masked={masked}
         onConfirm={confirmSubscription}
         onDismiss={dismissSubscription}
         onCancel={cancelSubscription}

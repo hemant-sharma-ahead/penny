@@ -7,14 +7,14 @@ import { GoldModal } from './GoldModal';
 
 interface PreciousMetalsSectionProps {
   holdings: Holding[];
-  mode: string;
+  masked: boolean;
   onSave: (holding: Holding) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
 }
 
 // Precious metals slice: fetches live spot prices, renders gold/silver cards, and
 // owns its own add/edit modal.
-export function PreciousMetalsSection({ holdings, mode, onSave, onRemove }: PreciousMetalsSectionProps) {
+export function PreciousMetalsSection({ holdings, masked, onSave, onRemove }: PreciousMetalsSectionProps) {
   const [spotGold, setSpotGold] = useState<number | null>(null);
   const [spotSilver, setSpotSilver] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,7 +47,7 @@ export function PreciousMetalsSection({ holdings, mode, onSave, onRemove }: Prec
               spotGold={spotGold}
               spotSilver={spotSilver}
               onEdit={() => setForm({ editing: h })}
-              mode={mode}
+              masked={masked}
             />
           ))}
         </>

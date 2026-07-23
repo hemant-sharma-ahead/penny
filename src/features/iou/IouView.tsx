@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { usePrivacy } from '@/context/PrivacyContext';
+import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/context/ToastContext';
 import { useGroupContext } from '@/context/GroupContext';
 import { hasEntitlement } from '@/core/entitlement/entitlement';
@@ -25,7 +26,9 @@ interface EntryFormState {
 
 /** Full interactive IOU experience (list → ledger → add/edit/settle). Rendered as the Expenses IOU tab (IouSlice). */
 export function IouView() {
-  const { mode } = usePrivacy();
+  const { shouldMask } = usePrivacy();
+  const { safeModeVisibility } = useSettings();
+  const masked = shouldMask(!safeModeVisibility.iou);
   const { groups, claimed } = useGroupContext();
   // Clarify the separation only when Groups are actually in use (screen 7).
   const showGroupNote = hasEntitlement('sync') && claimed && groups.length > 0;
@@ -212,18 +215,23 @@ export function IouView() {
           <div className="flex gap-4 px-4 py-3 border-b border-theme">
             {totalOwedToYou > 0 && (
               <span className="text-xs font-medium text-success">
-                Owed to you: {mode === 'open' ? formatCurrency(totalOwedToYou) : '••••'}
+                Owed to you: {masked ? '••••' : formatCurrency(totalOwedToYou)}
               </span>
             )}
             {totalYouOwe > 0 && (
               <span className="text-xs font-medium text-danger">
-                You owe: {mode === 'open' ? formatCurrency(totalYouOwe) : '••••'}
+                You owe: {masked ? '••••' : formatCurrency(totalYouOwe)}
               </span>
             )}
           </div>
         )}
 
-        <PersonListView persons={personsWithBalance} overdueCount={overdueCount} mode={mode} onOpen={setOpenPersonId} />
+        <PersonListView
+          persons={personsWithBalance}
+          overdueCount={overdueCount}
+          masked={masked}
+          onOpen={setOpenPersonId}
+        />
 
         {archivedPersons.length > 0 && (
           <div className="mt-2 border-t border-theme">
@@ -245,11 +253,11 @@ export function IouView() {
                         <p className="text-sm font-medium text-primary truncate">{p.name}</p>
                         {Math.abs(net) >= 1 && (
                           <p className={`text-[11px] ${net > 0 ? 'text-success' : 'text-danger'}`}>
-                            {mode === 'open'
-                              ? net > 0
+                            {masked
+                              ? '••••'
+                              : net > 0
                                 ? `owes you ${formatCurrency(net)}`
-                                : `you owe ${formatCurrency(-net)}`
-                              : '••••'}
+                                : `you owe ${formatCurrency(-net)}`}
                           </p>
                         )}
                       </div>
@@ -290,7 +298,7 @@ export function IouView() {
           person={openPerson}
           entries={entriesFor(openPerson.id)}
           net={netFor(openPerson.id)}
-          mode={mode}
+          masked={masked}
           nowMs={nowMs}
           onAddEntry={() => setEntryForm({ presetPerson: openPerson })}
           onSettle={() => setSettlePerson(openPerson)}

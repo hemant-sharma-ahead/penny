@@ -1,16 +1,23 @@
 import { formatCurrency } from '@/lib/formatters';
 import { STATUS } from '@/lib/statusColors';
 import type { Budget, ExpenseCategory } from '@/core/db/types';
+import { isHiddenInSafeMode } from '@/core/expenses/categoryGroups';
 
 interface BudgetsTabProps {
   expenseCategories: ExpenseCategory[];
   spendByCategory: Map<string, number>;
   monthBudgets: Budget[];
-  mode: 'open' | 'safe' | 'privacy';
+  shouldMask: (sensitive: boolean | undefined) => boolean;
   onOpenBudget: (cat: ExpenseCategory, existing?: Budget) => void;
 }
 
-export function BudgetsTab({ expenseCategories, spendByCategory, monthBudgets, mode, onOpenBudget }: BudgetsTabProps) {
+export function BudgetsTab({
+  expenseCategories,
+  spendByCategory,
+  monthBudgets,
+  shouldMask,
+  onOpenBudget
+}: BudgetsTabProps) {
   return (
     <div className="px-4 py-4 flex flex-col gap-3">
       {expenseCategories.length === 0 && <p className="text-sm text-center mt-8 text-tertiary">Loading categories…</p>}
@@ -19,6 +26,7 @@ export function BudgetsTab({ expenseCategories, spendByCategory, monthBudgets, m
         const spent = spendByCategory.get(cat.id) ?? 0;
         const pct = budget ? Math.min((spent / budget.limitAmount) * 100, 100) : 0;
         const over = !!budget && spent > budget.limitAmount;
+        const masked = shouldMask(isHiddenInSafeMode(cat));
         return (
           <div key={cat.id} className="surface rounded-xl px-4 py-3">
             {/* Header row */}
@@ -35,7 +43,7 @@ export function BudgetsTab({ expenseCategories, spendByCategory, monthBudgets, m
                   className="text-xs flex-shrink-0"
                   style={{ color: over ? STATUS.danger : 'var(--color-text-tertiary)' }}
                 >
-                  {mode === 'open' ? formatCurrency(budget.limitAmount) : '••••'}
+                  {masked ? '••••' : formatCurrency(budget.limitAmount)}
                 </span>
               )}
               <button
@@ -58,7 +66,7 @@ export function BudgetsTab({ expenseCategories, spendByCategory, monthBudgets, m
                   className="text-xs flex-shrink-0"
                   style={{ color: over ? STATUS.danger : 'var(--color-text-secondary)' }}
                 >
-                  {mode === 'open' ? formatCurrency(spent) : '••••'}
+                  {masked ? '••••' : formatCurrency(spent)}
                 </span>
               </div>
             )}

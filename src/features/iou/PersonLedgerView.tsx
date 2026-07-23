@@ -3,7 +3,6 @@ import { formatCurrency, formatDateShort } from '@/lib/formatters';
 import { Modal, Button, Badge } from '@/components/ui';
 import { ListRow, DueDateBadge } from '@/components/shared';
 import { STATUS, tint } from '@/lib/statusColors';
-import type { PrivacyMode } from '@/context/PrivacyContext';
 import { isSettled } from '@/core/iou/ledger';
 
 interface PersonLedgerViewProps {
@@ -11,7 +10,7 @@ interface PersonLedgerViewProps {
   /** Entries for this person, sorted newest-first. */
   entries: LedgerEntry[];
   net: number;
-  mode: PrivacyMode;
+  masked: boolean;
   nowMs: number;
   onAddEntry: () => void;
   onSettle: () => void;
@@ -35,7 +34,7 @@ export function PersonLedgerView({
   person,
   entries,
   net,
-  mode,
+  masked,
   nowMs,
   onAddEntry,
   onSettle,
@@ -47,7 +46,7 @@ export function PersonLedgerView({
   const settled = isSettled(net);
   const headColor = settled ? STATUS.neutral : net > 0 ? STATUS.success : STATUS.danger;
   const headLabel = settled ? 'All settled up' : net > 0 ? `${person.name} owes you` : `You owe ${person.name}`;
-  const headAmount = mode === 'open' ? formatCurrency(Math.abs(net)) : '••••';
+  const headAmount = masked ? '••••' : formatCurrency(Math.abs(net));
 
   return (
     <Modal
@@ -126,7 +125,7 @@ export function PersonLedgerView({
                   right={
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold" style={{ color }}>
-                        {mode === 'open' ? formatCurrency(e.amount) : '••••'}
+                        {masked ? '••••' : formatCurrency(e.amount)}
                       </p>
                       {e.dueDate !== undefined && e.kind !== 'settlement' && (
                         <DueDateBadge dueDateMs={e.dueDate} nowMs={nowMs} />

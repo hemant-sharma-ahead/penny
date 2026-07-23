@@ -1,13 +1,15 @@
 import { formatCurrency } from '@/lib/formatters';
 import { STATUS } from '@/lib/statusColors';
-import type { Account, Expense, ExpenseCategory } from '@/core/db/types';
+import type { Account, Expense, ExpenseCategory, Hashtag } from '@/core/db/types';
+import { isHiddenInSafeMode, isTagHiddenInSafeMode } from '@/core/expenses/categoryGroups';
 import { SwipeableRow } from './SwipeableRow';
 
 interface TransactionsTabProps {
   grouped: { label: string; items: Expense[] }[];
   categoryMap: Map<string, ExpenseCategory>;
   accountMap: Map<string, Account>;
-  mode: 'open' | 'safe' | 'privacy';
+  hashtags: Hashtag[];
+  shouldMask: (sensitive: boolean | undefined) => boolean;
   onEdit: (expense: Expense) => void;
   onDelete?: (id: string) => void;
   onDuplicate?: (expense: Expense) => void;
@@ -22,7 +24,8 @@ export function TransactionsTab({
   grouped,
   categoryMap,
   accountMap,
-  mode,
+  hashtags,
+  shouldMask,
   onEdit,
   onDelete,
   onDuplicate,
@@ -72,6 +75,9 @@ export function TransactionsTab({
               txnType === 'transfer' ? 'Transfer' : (cat?.name ?? (txnType === 'income' ? 'Income' : 'Uncategorized'));
             const subtitle = acc?.name ? `${catLabel} · ${acc.name}` : catLabel;
             const isSel = selectedIds?.has(txn.id) ?? false;
+            const masked = shouldMask(
+              (cat && isHiddenInSafeMode(cat)) || isTagHiddenInSafeMode(txn.hashtags, hashtags)
+            );
 
             // icon + title/meta + amount — shared between modes
             const body = (
@@ -111,9 +117,9 @@ export function TransactionsTab({
                 </div>
                 <span
                   className="text-sm font-bold tabular-nums flex-shrink-0 ml-2"
-                  style={{ color: mode === 'open' ? amountColor : 'var(--color-text-primary)' }}
+                  style={{ color: masked ? 'var(--color-text-primary)' : amountColor }}
                 >
-                  {mode === 'open' ? `${prefix}${formatCurrency(txn.amount)}` : '••••'}
+                  {masked ? '••••' : `${prefix}${formatCurrency(txn.amount)}`}
                 </span>
               </>
             );

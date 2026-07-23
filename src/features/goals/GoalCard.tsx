@@ -7,12 +7,12 @@ import type { Goal } from './useGoals';
 
 interface GoalCardProps {
   goal: Goal;
-  mode: 'open' | 'safe' | 'privacy';
+  masked: boolean;
   onEdit: (goal: Goal) => void;
   onContribute: (goal: Goal, amount: number) => void;
 }
 
-export function GoalCard({ goal, mode, onEdit, onContribute }: GoalCardProps) {
+export function GoalCard({ goal, masked, onEdit, onContribute }: GoalCardProps) {
   const [contributing, setContributing] = useState(false);
   const [amount, setAmount] = useState('');
 
@@ -59,8 +59,8 @@ export function GoalCard({ goal, mode, onEdit, onContribute }: GoalCardProps) {
             />
           </div>
           <p className="text-xs mt-0.5 text-secondary">
-            {mode === 'open' ? formatCurrency(goal.currentAmount) : '••••'} of{' '}
-            {mode === 'open' ? formatCurrency(goal.targetAmount) : '••••'}
+            {masked ? '••••' : formatCurrency(goal.currentAmount)} of{' '}
+            {masked ? '••••' : formatCurrency(goal.targetAmount)}
           </p>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <span
@@ -75,7 +75,7 @@ export function GoalCard({ goal, mode, onEdit, onContribute }: GoalCardProps) {
           </div>
           {sipNeeded > 0 && (
             <p className="text-[10px] mt-1 text-tertiary">
-              SIP needed: {mode === 'open' ? formatCurrency(Math.ceil(sipNeeded)) : '••••'}
+              SIP needed: {masked ? '••••' : formatCurrency(Math.ceil(sipNeeded))}
               /mo
             </p>
           )}

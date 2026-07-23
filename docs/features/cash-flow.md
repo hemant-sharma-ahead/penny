@@ -28,6 +28,8 @@ Projects your **total liquid balance** forward and answers two questions: "how m
 
 **Recurring-income detection — `src/core/cashflow/incomeDetector.ts`:** `detectRecurringIncome` mirrors the subscription detector — groups income transactions by normalized description, matches the median gap to a canonical cadence, and returns candidates with the next projected payday. `useIncomeSuggestions` filters out income already marked recurring + locally dismissed ones; confirming marks the latest matching transaction recurring and reloads the forecast.
 
+The forecast is a derived aggregate (a projection, not a single flagged item), so `CashFlowPage` treats it like Home's net worth: `usePrivacy().shouldMask(false)` — visible in Safe Mode, hidden only in Privacy Mode. There's no per-event Safe Mode toggle here.
+
 **Key files:**
 
 - `src/core/cashflow/forecaster.ts` — `forecastEvents` + `projectBalance` (pure, tested in `tests/cashflow/forecaster.test.ts`); `meta.ts` — event-type icon/colour/label

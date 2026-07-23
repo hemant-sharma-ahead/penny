@@ -35,6 +35,9 @@ export function ChangePassphrasePage() {
     } else if (result === 'wrong_passphrase') {
       setError('Your current passphrase is incorrect.');
       setSaving(false);
+    } else if (result === 'too_soon') {
+      setError('You can only change your passphrase once a day. Please try again later.');
+      setSaving(false);
     } else {
       setError('Something went wrong. Please try again.');
       setSaving(false);

@@ -7,12 +7,12 @@ import type { Goal } from './useGoals';
 
 interface GoalsTabProps {
   goals: Goal[];
-  mode: 'open' | 'safe' | 'privacy';
+  masked: boolean;
   saveGoal: (g: Goal) => Promise<unknown>;
   removeGoal: (id: string) => Promise<unknown>;
 }
 
-export function GoalsTab({ goals, mode, saveGoal, removeGoal }: GoalsTabProps) {
+export function GoalsTab({ goals, masked, saveGoal, removeGoal }: GoalsTabProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
 
@@ -36,7 +36,7 @@ export function GoalsTab({ goals, mode, saveGoal, removeGoal }: GoalsTabProps) {
               <GoalCard
                 key={goal.id}
                 goal={goal}
-                mode={mode}
+                masked={masked}
                 onEdit={(g) => {
                   setEditingGoal(g);
                   setShowForm(true);

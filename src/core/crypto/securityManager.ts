@@ -59,6 +59,26 @@ async function keyDecryptsExistingData(key: CryptoKey): Promise<boolean> {
   }
 }
 
+// Unwraps the DMK via the passphrase-KEK (or the legacy mkSalt fallback). Throws on a wrong passphrase.
+// Shared by changePassphrase and consumePassphraseAttempt (forgot-PIN recovery + Open-mode-adjacent flows).
+async function unwrapDmkWithPassphrase(
+  passphrase: string,
+  record: SecurityRecord,
+  extractable: boolean
+): Promise<CryptoKey> {
+  if (record.encryptedMasterKeyByPassphrase && record.passphraseKekSalt) {
+    const passKek = await deriveKey(passphrase, base64ToBuffer(record.passphraseKekSalt), MK_ITERATIONS);
+    return unwrapKey(base64ToBuffer(record.encryptedMasterKeyByPassphrase), passKek, extractable);
+  }
+  if (record.mkSalt) {
+    // Legacy vault — the DMK was derived from the passphrase; reconstruct and verify against real data.
+    const candidate = await deriveKey(passphrase, base64ToBuffer(record.mkSalt), MK_ITERATIONS, extractable);
+    if (!(await keyDecryptsExistingData(candidate))) throw new Error('wrong passphrase');
+    return candidate;
+  }
+  throw new Error('no passphrase verifier on record');
+}
+
 // ─── Weak-PIN policy ──────────────────────────────────────────────────────────
 
 const COMMON_WEAK_PINS = new Set(['123456', '654321', '121212', '112233', '123123', '696969', '789456']);
@@ -149,6 +169,61 @@ async function consumePinAttempt(
   }
 }
 
+// ─── Shared passphrase attempt (forgot-PIN recovery) — independent lockout from PIN's ────────
+
+export interface PassphraseCheckResult {
+  status: 'ok' | 'wrong_passphrase' | 'locked_out' | 'wiped';
+  attemptsRemaining: number;
+  lockedUntil: number | null;
+}
+
+async function consumePassphraseAttempt(
+  passphrase: string,
+  extractable: boolean
+): Promise<{ result: PassphraseCheckResult; dmk?: CryptoKey }> {
+  const record = await firstRecord();
+  if (!record) return { result: { status: 'wrong_passphrase', attemptsRemaining: MAX_ATTEMPTS, lockedUntil: null } };
+
+  const now = Date.now();
+  if (record.passphraseLockedUntil && record.passphraseLockedUntil > now) {
+    return { result: { status: 'locked_out', attemptsRemaining: 0, lockedUntil: record.passphraseLockedUntil } };
+  }
+
+  try {
+    const dmk = await unwrapDmkWithPassphrase(passphrase, record, extractable);
+    await db.security.update(record.id, {
+      passphraseAttempts: 0,
+      passphraseLockedUntil: undefined,
+      updatedAt: now
+    } as object);
+    return { result: { status: 'ok', attemptsRemaining: MAX_ATTEMPTS, lockedUntil: null }, dmk };
+  } catch {
+    const attempts = (record.passphraseAttempts ?? 0) + 1;
+
+    // Opt-in anti-theft: erase everything after N consecutive failures, same policy as PIN.
+    if (record.wipeAfterAttempts && attempts >= record.wipeAfterAttempts) {
+      await wipeAllData();
+      return { result: { status: 'wiped', attemptsRemaining: 0, lockedUntil: null } };
+    }
+
+    const update: Partial<SecurityRecord> = { passphraseAttempts: attempts, updatedAt: now };
+    let lockedUntil: number | null = null;
+    if (attempts >= MAX_ATTEMPTS) {
+      const backoffMs = Math.min(5 * 60 * 1000 * Math.pow(2, attempts - MAX_ATTEMPTS), DAY_MS);
+      lockedUntil = now + backoffMs;
+      update.passphraseLockedUntil = lockedUntil;
+    }
+    await db.security.update(record.id, update as object);
+    return {
+      result: {
+        status: lockedUntil ? 'locked_out' : 'wrong_passphrase',
+        attemptsRemaining: Math.max(0, MAX_ATTEMPTS - attempts),
+        lockedUntil
+      }
+    };
+  }
+}
+
 // ─── Initialize (first-time setup) ───────────────────────────────────────────
 
 export async function initialize(passphrase: string, pin: string): Promise<void> {
@@ -185,6 +260,64 @@ export async function initialize(passphrase: string, pin: string): Promise<void>
     createdAt: now,
     updatedAt: now
   });
+}
+
+// ─── Demo Mode — throwaway vault + exit re-key ────────────────────────────────
+
+/** Fixed, known credentials for the "Explore with Demo Data" vault — shown on-screen, never secret.
+ *  Never run through isWeakPin (that only gates user-chosen PINs) — trivial on purpose since there's
+ *  nothing to protect and nothing to remember; both are cleared the moment Demo Mode is exited. */
+export const DEMO_PIN = '123456';
+export const DEMO_PASSPHRASE = 'penny123456';
+
+export type ExitDemoModeResult = 'ok' | 'weak_pin' | 'no_security_record';
+
+/** Re-keys a Demo Mode vault (created moments earlier with DEMO_PIN/DEMO_PASSPHRASE) to the user's real
+ *  credentials in one step, when they exit Demo Mode. Deliberately bypasses the once/24h throttle that
+ *  changePin/changePassphrase enforce — that throttle protects a real, in-use vault from credential-
+ *  cycling abuse, which doesn't apply to a vault that's seconds old and about to have all its data wiped.
+ *  Re-wraps the SAME DMK for both new KEKs (mirrors initialize(), minus generating a fresh DMK — nothing
+ *  encrypted under this one survives the exit anyway). */
+export async function exitDemoMode(newPassphrase: string, newPin: string): Promise<ExitDemoModeResult> {
+  if (isWeakPin(newPin)) return 'weak_pin';
+  const record = await firstRecord();
+  if (!record) return 'no_security_record';
+
+  const dmk = await unwrapDmkWithPassphrase(DEMO_PASSPHRASE, record, true);
+
+  const newKekSalt = generateSalt();
+  const newPassphraseKekSalt = generateSalt();
+  const newPinKek = await deriveKey(newPin, newKekSalt, KEK_ITERATIONS);
+  const newPassKek = await deriveKey(newPassphrase, newPassphraseKekSalt, MK_ITERATIONS);
+  const rewrappedByPin = await wrapKey(dmk, newPinKek);
+  const rewrappedByPassphrase = await wrapKey(dmk, newPassKek);
+
+  keystore.setMasterKey(await unwrapKey(rewrappedByPin, newPinKek, false));
+
+  // Track F (F3): recovery keypair is passphrase-derived, so a new passphrase means a new keypair —
+  // same as changePassphrase. A claimed account re-uploads it via claimAccount() after this resolves.
+  const newRecoverySalt = generateSalt(16);
+  const { publicJwk: newRecoveryPublicJwk } = await deriveRecoveryKeypair(newPassphrase, newRecoverySalt);
+
+  const now = Date.now();
+  await db.security.update(record.id, {
+    encryptedMasterKey: bufferToBase64(rewrappedByPin),
+    kekSalt: bufferToBase64(newKekSalt),
+    encryptedMasterKeyByPassphrase: bufferToBase64(rewrappedByPassphrase),
+    passphraseKekSalt: bufferToBase64(newPassphraseKekSalt),
+    recoverySalt: bufferToBase64(newRecoverySalt),
+    recoveryPublicJwk: JSON.stringify(newRecoveryPublicJwk),
+    mkSalt: undefined,
+    pinChangedAt: now,
+    passphraseChangedAt: now,
+    pinAttempts: 0,
+    lockedUntil: undefined,
+    passphraseAttempts: 0,
+    passphraseLockedUntil: undefined,
+    sessionExpiresAt: now + SESSION_MS,
+    updatedAt: now
+  } as object);
+  return 'ok';
 }
 
 /**
@@ -270,7 +403,7 @@ export async function changePin(currentPin: string, newPin: string): Promise<Cha
 
 // ─── Change Passphrase — re-wrap the DMK with a new passphrase-KEK ────────────
 
-export type ChangePassphraseResult = 'ok' | 'wrong_passphrase' | 'no_security_record';
+export type ChangePassphraseResult = 'ok' | 'wrong_passphrase' | 'too_soon' | 'no_security_record';
 
 export async function changePassphrase(
   currentPassphrase: string,
@@ -279,20 +412,16 @@ export async function changePassphrase(
   const record = await firstRecord();
   if (!record) return 'no_security_record';
 
+  // Rate-limit: at most one passphrase change per 24h, same policy as PIN changes. Does not apply to
+  // resetPinWithPassphrase — that's an emergency recovery path, not a routine change.
+  if (record.passphraseChangedAt && Date.now() - record.passphraseChangedAt < DAY_MS) {
+    return 'too_soon';
+  }
+
   let dmk: CryptoKey;
-  if (record.encryptedMasterKeyByPassphrase && record.passphraseKekSalt) {
-    try {
-      const oldPassKek = await deriveKey(currentPassphrase, base64ToBuffer(record.passphraseKekSalt), MK_ITERATIONS);
-      dmk = await unwrapKey(base64ToBuffer(record.encryptedMasterKeyByPassphrase), oldPassKek, true);
-    } catch {
-      return 'wrong_passphrase';
-    }
-  } else if (record.mkSalt) {
-    // Legacy vault — the DMK was derived from the passphrase; reconstruct and verify against real data.
-    const candidate = await deriveKey(currentPassphrase, base64ToBuffer(record.mkSalt), MK_ITERATIONS, true);
-    if (!(await keyDecryptsExistingData(candidate))) return 'wrong_passphrase';
-    dmk = candidate;
-  } else {
+  try {
+    dmk = await unwrapDmkWithPassphrase(currentPassphrase, record, true);
+  } catch {
     return 'wrong_passphrase';
   }
 
@@ -313,9 +442,93 @@ export async function changePassphrase(
     recoverySalt: bufferToBase64(newRecoverySalt),
     recoveryPublicJwk: JSON.stringify(newRecoveryPublicJwk),
     mkSalt: undefined, // legacy derivation no longer used once migrated
+    passphraseChangedAt: now,
     updatedAt: now
   } as object);
   return 'ok';
+}
+
+// ─── Unlock with passphrase (forgot-PIN recovery) ─────────────────────────────
+
+export type UnlockWithPassphraseResult = 'ok' | 'wrong_passphrase' | 'locked_out' | 'wiped' | 'no_security_record';
+
+/** Unlocks the session by proving the passphrase instead of the PIN — the entry point for the
+ *  lock-screen "Forgot PIN?" flow. Independent of the PIN lockout: works even when pinAttempts is
+ *  exhausted. On success, also clears the PIN lockout (the caller is expected to route straight to
+ *  resetting the PIN — see ChangePinPage's forced-reset mode). */
+export async function unlockWithPassphrase(passphrase: string): Promise<UnlockWithPassphraseResult> {
+  const record = await firstRecord();
+  if (!record) return 'no_security_record';
+
+  const { result, dmk } = await consumePassphraseAttempt(passphrase, false);
+  if (result.status === 'ok' && dmk) {
+    keystore.setMasterKey(dmk);
+    const now = Date.now();
+    await db.security.update(record.id, {
+      sessionExpiresAt: now + SESSION_MS,
+      pinAttempts: 0,
+      lockedUntil: undefined,
+      updatedAt: now
+    } as object);
+    return 'ok';
+  }
+  return result.status;
+}
+
+/** Lockout state for the passphrase-recovery attempt counter — independent of PIN's. */
+export interface PassphraseLockoutState {
+  passphraseAttempts: number;
+  lockedUntil: number | null;
+}
+
+export async function getPassphraseLockoutState(): Promise<PassphraseLockoutState | null> {
+  const record = await firstRecord();
+  if (!record) return null;
+  return { passphraseAttempts: record.passphraseAttempts ?? 0, lockedUntil: record.passphraseLockedUntil ?? null };
+}
+
+// ─── Reset PIN with passphrase (forgot-PIN recovery) ──────────────────────────
+
+export interface ResetPinResult {
+  status: 'ok' | 'wrong_passphrase' | 'locked_out' | 'wiped' | 'weak_pin' | 'no_security_record';
+  attemptsRemaining?: number;
+  lockedUntil?: number | null;
+}
+
+/** Sets a brand-new PIN by proving the passphrase instead of the current (forgotten) PIN. Not
+ *  rate-limited by the once/24h PIN-change throttle — this is the emergency recovery path, and
+ *  throttling it would trap someone who just regained access. Shares the passphrase attempt
+ *  counter with unlockWithPassphrase (same threat surface). */
+export async function resetPinWithPassphrase(passphrase: string, newPin: string): Promise<ResetPinResult> {
+  const record = await firstRecord();
+  if (!record) return { status: 'no_security_record' };
+  if (isWeakPin(newPin)) return { status: 'weak_pin' };
+
+  const { result, dmk } = await consumePassphraseAttempt(passphrase, true);
+  if (result.status !== 'ok' || !dmk) {
+    return {
+      status: result.status === 'ok' ? 'wrong_passphrase' : result.status,
+      attemptsRemaining: result.attemptsRemaining,
+      lockedUntil: result.lockedUntil
+    };
+  }
+
+  const newKekSalt = generateSalt();
+  const newPinKek = await deriveKey(newPin, newKekSalt, KEK_ITERATIONS);
+  const rewrapped = await wrapKey(dmk, newPinKek);
+  keystore.setMasterKey(await unwrapKey(rewrapped, newPinKek, false));
+
+  const now = Date.now();
+  await db.security.update(record.id, {
+    encryptedMasterKey: bufferToBase64(rewrapped),
+    kekSalt: bufferToBase64(newKekSalt),
+    pinChangedAt: now,
+    pinAttempts: 0,
+    lockedUntil: undefined,
+    sessionExpiresAt: now + SESSION_MS,
+    updatedAt: now
+  } as object);
+  return { status: 'ok' };
 }
 
 // ─── Lockout state ───────────────────────────────────────────────────────────

@@ -64,9 +64,20 @@ export function SimulatedDashboardScreen() {
           </p>
         </div>
 
-        <Button variant="primary" size="lg" fullWidth onClick={() => navigate(PATHS.onboarding.start)}>
-          Set up my account
-        </Button>
+        <div className="flex flex-col gap-2.5">
+          <Button
+            variant="primary"
+            size="lg"
+            fullWidth
+            style={{ background: 'linear-gradient(90deg, #7c3aed, #9333ea)' }}
+            onClick={() => navigate(PATHS.onboarding.demoVault)}
+          >
+            Explore with Demo Data
+          </Button>
+          <Button variant="primary" size="lg" fullWidth onClick={() => navigate(PATHS.onboarding.start)}>
+            Setup my Account
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -9,7 +9,7 @@ import { AddLoanModal } from './AddLoanModal';
 
 interface MyLoansTabProps {
   emiLoans: Liability[];
-  mode: 'open' | 'safe' | 'privacy';
+  masked: boolean;
   saveLiability: (l: Liability) => Promise<unknown>;
   deleteLiability: (id: string) => Promise<unknown>;
   onPlanLoan: (l: Liability) => void;
@@ -21,7 +21,7 @@ function estimatedMonthsLeft(l: Liability): number | null {
   return null;
 }
 
-export function MyLoansTab({ emiLoans, mode, saveLiability, deleteLiability, onPlanLoan }: MyLoansTabProps) {
+export function MyLoansTab({ emiLoans, masked, saveLiability, deleteLiability, onPlanLoan }: MyLoansTabProps) {
   const [showAddLoan, setShowAddLoan] = useState(false);
   const [editLoan, setEditLoan] = useState<Liability | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Liability | null>(null);
@@ -77,15 +77,11 @@ export function MyLoansTab({ emiLoans, mode, saveLiability, deleteLiability, onP
                 <div className="flex flex-col gap-1.5 mt-3">
                   <DetailRow
                     label="Outstanding"
-                    value={mode === 'open' ? formatCurrency(l.outstandingAmount) : '••••'}
+                    value={masked ? '••••' : formatCurrency(l.outstandingAmount)}
                     size="md"
                   />
                   {l.emiAmount && (
-                    <DetailRow
-                      label="EMI / month"
-                      value={mode === 'open' ? formatCurrency(l.emiAmount) : '••••'}
-                      size="md"
-                    />
+                    <DetailRow label="EMI / month" value={masked ? '••••' : formatCurrency(l.emiAmount)} size="md" />
                   )}
                   <DetailRow label="Rate" value={`${l.interestRate}% p.a.`} size="md" />
                 </div>

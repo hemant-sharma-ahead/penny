@@ -1,12 +1,11 @@
 import type { ActivityLog } from '@/core/db/types';
-import type { PrivacyMode } from '@/context/PrivacyContext';
 import { maskAmounts } from '@/lib/maskAmounts';
 import { ACTION_META } from '../activityMeta';
 import { DiffChips } from './DiffChips';
 
 interface Props {
   entry: ActivityLog;
-  mode: PrivacyMode;
+  masked: boolean;
   onRestore?: (id: string) => void;
   restoring?: boolean;
 }
@@ -15,7 +14,7 @@ function timeOf(ts: number): string {
   return new Date(ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 }
 
-export function ActivityRow({ entry, mode, onRestore, restoring }: Props) {
+export function ActivityRow({ entry, masked, onRestore, restoring }: Props) {
   const meta = ACTION_META[entry.action];
   return (
     <div className="flex items-start gap-3 px-4 py-3">
@@ -26,8 +25,8 @@ export function ActivityRow({ entry, mode, onRestore, restoring }: Props) {
         <i className={`ti ${meta.icon}`} style={{ fontSize: 16, color: meta.color }} aria-hidden="true" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-primary leading-snug">{maskAmounts(entry.summary, mode)}</p>
-        {entry.diff && <DiffChips diff={entry.diff} mode={mode} />}
+        <p className="text-sm text-primary leading-snug">{maskAmounts(entry.summary, masked)}</p>
+        {entry.diff && <DiffChips diff={entry.diff} masked={masked} />}
         <p className="text-[10px] text-tertiary mt-0.5">{timeOf(entry.timestamp)}</p>
       </div>
       {onRestore && (

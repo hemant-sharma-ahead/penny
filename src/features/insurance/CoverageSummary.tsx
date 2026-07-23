@@ -8,10 +8,10 @@ const COVER_TYPES: InsuranceType[] = ['term', 'life', 'health'];
 interface CoverageSummaryProps {
   policies: InsurancePolicy[];
   totalAnnualPremium: number;
-  mode: 'open' | 'safe' | 'privacy';
+  masked: boolean;
 }
 
-export function CoverageSummary({ policies, totalAnnualPremium, mode }: CoverageSummaryProps) {
+export function CoverageSummary({ policies, totalAnnualPremium, masked }: CoverageSummaryProps) {
   return (
     <Card padding="sm" radius="md" className="mt-1">
       <p className="text-xs font-medium mb-2 text-secondary">Coverage summary</p>
@@ -29,14 +29,14 @@ export function CoverageSummary({ policies, totalAnnualPremium, mode }: Coverage
                   {m.label} cover
                 </span>
               }
-              value={mode === 'open' ? formatCurrency(total) : '••••'}
+              value={!masked ? formatCurrency(total) : '••••'}
             />
           );
         })}
         <DetailRow
           className="pt-1.5 mt-0.5 border-t border-theme"
           label="Total annual premium"
-          value={mode === 'open' ? formatCurrency(totalAnnualPremium) : '••••'}
+          value={!masked ? formatCurrency(totalAnnualPremium) : '••••'}
         />
       </div>
     </Card>

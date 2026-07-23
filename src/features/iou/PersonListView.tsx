@@ -2,18 +2,17 @@ import { formatCurrency } from '@/lib/formatters';
 import { Card, EmptyState, Banner } from '@/components/ui';
 import { ListRow } from '@/components/shared';
 import { STATUS, tint } from '@/lib/statusColors';
-import type { PrivacyMode } from '@/context/PrivacyContext';
 import type { PersonWithBalance } from './useIou';
 
 interface PersonListViewProps {
   persons: PersonWithBalance[];
   overdueCount: number;
-  mode: PrivacyMode;
+  masked: boolean;
   onOpen: (personId: string) => void;
 }
 
 /** Person-centric IOU list: one row per person showing the derived net balance. */
-export function PersonListView({ persons, overdueCount, mode, onOpen }: PersonListViewProps) {
+export function PersonListView({ persons, overdueCount, masked, onOpen }: PersonListViewProps) {
   if (persons.length === 0) {
     return (
       <div className="px-4 py-4">
@@ -39,8 +38,8 @@ export function PersonListView({ persons, overdueCount, mode, onOpen }: PersonLi
         const label = settled
           ? 'Settled up'
           : net > 0
-            ? `owes you ${mode === 'open' ? formatCurrency(net) : '••••'}`
-            : `you owe ${mode === 'open' ? formatCurrency(-net) : '••••'}`;
+            ? `owes you ${masked ? '••••' : formatCurrency(net)}`
+            : `you owe ${masked ? '••••' : formatCurrency(-net)}`;
         return (
           <Card key={person.id} onClick={() => onOpen(person.id)}>
             <ListRow

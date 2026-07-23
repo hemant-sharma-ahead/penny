@@ -30,7 +30,8 @@ export function ExpensesHeader({
   saveExpense
 }: ExpensesHeaderProps) {
   const navigate = useNavigate();
-  const { mode } = usePrivacy();
+  const { shouldMask } = usePrivacy();
+  const masked = shouldMask(false);
   const { events, updateEvent } = useEventMode();
   const { loading: forecastLoading, forecast } = useForecast();
   const safeToSpend = Math.max(0, forecast.discretionary);
@@ -80,7 +81,7 @@ export function ExpensesHeader({
         <div className="flex items-center justify-between mt-1">
           <p className="text-sm text-secondary">
             {monthFilter ? monthLabel(monthFilter) : 'All transactions'}:{' '}
-            <span className="font-medium text-primary">{mode === 'open' ? formatCurrency(filteredTotal) : '••••'}</span>
+            <span className="font-medium text-primary">{masked ? '••••' : formatCurrency(filteredTotal)}</span>
           </p>
           <div className="flex items-center gap-2">
             {immersiveEvent && (
@@ -103,7 +104,7 @@ export function ExpensesHeader({
                   style={{ fontSize: 12, color: 'var(--color-primary)' }}
                   aria-hidden="true"
                 />
-                Safe: <span className="text-primary">{mode === 'open' ? formatCurrency(safeToSpend) : '••••'}</span>
+                Safe: <span className="text-primary">{masked ? '••••' : formatCurrency(safeToSpend)}</span>
               </button>
             )}
           </div>

@@ -7,13 +7,13 @@ import { FdModal } from './FdModal';
 
 interface FixedIncomeSectionProps {
   holdings: Holding[];
-  mode: string;
+  masked: boolean;
   onSave: (holding: Holding) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
 }
 
 // Fixed Income (FD/RD) slice: renders the cards and owns its own add/edit modal.
-export function FixedIncomeSection({ holdings, mode, onSave, onRemove }: FixedIncomeSectionProps) {
+export function FixedIncomeSection({ holdings, masked, onSave, onRemove }: FixedIncomeSectionProps) {
   // null = closed; { editing: null } = adding; { editing: h } = editing.
   const [form, setForm] = useState<{ editing: Holding | null } | null>(null);
 
@@ -28,9 +28,9 @@ export function FixedIncomeSection({ holdings, mode, onSave, onRemove }: FixedIn
       ) : (
         holdings.map((h) =>
           h.assetMeta?.fdSubType === 'rd' ? (
-            <RdCard key={h.id} holding={h} onEdit={() => setForm({ editing: h })} mode={mode} />
+            <RdCard key={h.id} holding={h} onEdit={() => setForm({ editing: h })} masked={masked} />
           ) : (
-            <FdCard key={h.id} holding={h} onEdit={() => setForm({ editing: h })} mode={mode} />
+            <FdCard key={h.id} holding={h} onEdit={() => setForm({ editing: h })} masked={masked} />
           )
         )
       )}

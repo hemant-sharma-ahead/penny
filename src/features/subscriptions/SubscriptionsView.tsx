@@ -14,7 +14,7 @@ interface SubscriptionsViewProps {
   monthlyTotal: number;
   annualTotal: number;
   hasExpenses: boolean;
-  mode: 'open' | 'safe' | 'privacy';
+  masked: boolean;
   onConfirm: (c: DetectedSubscription) => void;
   onDismiss: (c: DetectedSubscription) => void;
   onCancel: (sub: Subscription) => void;
@@ -28,7 +28,7 @@ export function SubscriptionsView({
   monthlyTotal,
   annualTotal,
   hasExpenses,
-  mode,
+  masked,
   onConfirm,
   onDismiss,
   onCancel,
@@ -71,7 +71,7 @@ export function SubscriptionsView({
                 <DetectedSubCard
                   key={`${c.merchantCategory}:${c.intervalDays}`}
                   candidate={c}
-                  mode={mode}
+                  masked={masked}
                   onConfirm={onConfirm}
                   onDismiss={onDismiss}
                 />
@@ -100,19 +100,11 @@ export function SubscriptionsView({
           ) : (
             <>
               <div className="surface rounded-xl px-4 py-1">
-                <DetailRow
-                  label="Monthly spend"
-                  value={mode === 'open' ? formatCurrency(monthlyTotal) : '••••'}
-                  size="md"
-                />
-                <DetailRow
-                  label="Yearly spend"
-                  value={mode === 'open' ? formatCurrency(annualTotal) : '••••'}
-                  size="md"
-                />
+                <DetailRow label="Monthly spend" value={!masked ? formatCurrency(monthlyTotal) : '••••'} size="md" />
+                <DetailRow label="Yearly spend" value={!masked ? formatCurrency(annualTotal) : '••••'} size="md" />
               </div>
               {active.map((sub) => (
-                <ActiveSubCard key={sub.id} sub={sub} nowMs={nowMs} mode={mode} onCancel={onCancel} />
+                <ActiveSubCard key={sub.id} sub={sub} nowMs={nowMs} masked={masked} onCancel={onCancel} />
               ))}
             </>
           )}

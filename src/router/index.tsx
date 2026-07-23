@@ -13,6 +13,10 @@ import { SimulatedDashboardScreen } from '@/features/onboarding/SimulatedDashboa
 import { LetUsKnowYouScreen } from '@/features/onboarding/LetUsKnowYouScreen';
 import { AccountStartScreen } from '@/features/onboarding/AccountStartScreen';
 import { AccountRecoveryScreen } from '@/features/onboarding/AccountRecoveryScreen';
+import { DemoVaultScreen } from '@/features/onboarding/DemoVaultScreen';
+import { LifeHouseholdScreen } from '@/features/onboarding/LifeHouseholdScreen';
+import { AddAccountsScreen } from '@/features/onboarding/AddAccountsScreen';
+import { BackupSetupScreen } from '@/features/onboarding/BackupSetupScreen';
 import { HomePage } from '@/features/home/HomePage';
 import { PortfolioPage } from '@/features/portfolio/PortfolioPage';
 import { ExpensesPage } from '@/features/expenses/ExpensesPage';
@@ -31,6 +35,8 @@ import { ChangePinPage } from '@/features/security/ChangePinPage';
 import { ChangePassphrasePage } from '@/features/security/ChangePassphrasePage';
 import { ProfilePage } from '@/features/profile/ProfilePage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
+import { SafeModeSettingsPage } from '@/features/settings/SafeModeSettingsPage';
+import { ManageTagsPage } from '@/features/settings/ManageTagsPage';
 import { TimelinePage } from '@/features/activity/TimelinePage';
 import { NewsPage } from '@/features/news/NewsPage';
 import { FeedbackPage } from '@/features/feedback/FeedbackPage';
@@ -49,7 +55,11 @@ export const router = createBrowserRouter([
       { path: PATHS.onboarding.letUsKnowYou, element: <LetUsKnowYouScreen /> },
       { path: PATHS.onboarding.setupCredentials, element: <SetupCredentialsScreen /> },
       { path: PATHS.onboarding.start, element: <AccountStartScreen /> },
-      { path: PATHS.onboarding.account, element: <AccountRecoveryScreen /> }
+      { path: PATHS.onboarding.account, element: <AccountRecoveryScreen /> },
+      { path: PATHS.onboarding.demoVault, element: <DemoVaultScreen /> },
+      { path: PATHS.onboarding.lifeHousehold, element: <LifeHouseholdScreen /> },
+      { path: PATHS.onboarding.addAccounts, element: <AddAccountsScreen /> },
+      { path: PATHS.onboarding.backupSetup, element: <BackupSetupScreen /> }
     ]
   },
 
@@ -78,6 +88,8 @@ export const router = createBrowserRouter([
           { path: PATHS.app.changePassphrase, element: <ChangePassphrasePage /> },
           { path: PATHS.app.profile, element: <ProfilePage /> },
           { path: PATHS.app.settings, element: <SettingsPage /> },
+          { path: PATHS.app.safeMode, element: <SafeModeSettingsPage /> },
+          { path: PATHS.app.manageTags, element: <ManageTagsPage /> },
           { path: PATHS.app.timeline, element: <TimelinePage /> },
           { path: PATHS.app.news, element: <NewsPage /> },
           { path: PATHS.app.feedback, element: <FeedbackPage /> }

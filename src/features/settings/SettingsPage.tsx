@@ -1,10 +1,16 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PageHeader, Button, Toggle } from '@/components/ui';
+import { PageHeader, Button, Toggle, ConfirmDialog } from '@/components/ui';
 import { useProfile } from '@/hooks/useProfile';
-import { useSettings, type FontScale, type ModuleVisibility, type Theme } from '@/context/SettingsContext';
-import { type PrivacyMode } from '@/context/PrivacyContext';
-import { clearDemoData, isDemoSeeded } from '@/core/db/seedDemoData';
+import {
+  useSettings,
+  OPEN_MODE_DURATIONS,
+  type FontScale,
+  type ModuleVisibility,
+  type Theme
+} from '@/context/SettingsContext';
+import { type PersistedPrivacyMode } from '@/context/PrivacyContext';
+import { wipeDemoData, isDemoSeeded } from '@/core/db/seedDemoData';
 import { getWipeAfterAttempts, setWipeAfterAttempts, WIPE_THRESHOLD } from '@/core/crypto/securityManager';
 import { PATHS } from '@/router/paths';
 
@@ -36,11 +42,11 @@ const FONT_SCALES: { value: FontScale; label: string; px: number }[] = [
   { value: 'xl', label: 'A++', px: 24 }
 ];
 
-// Icons + colours mirror the header's PrivacyModeSwitcher — keep the two in sync.
-const PRIVACY_MODES: { mode: PrivacyMode; label: string; icon: string; color: string }[] = [
+// Icons + colours mirror the header's PrivacyModeSwitcher — keep the two in sync. Open is deliberately
+// excluded here — it can never be a persisted default, only a temporary elevation (see PrivacyContext).
+const PRIVACY_MODES: { mode: PersistedPrivacyMode; label: string; icon: string; color: string }[] = [
   { mode: 'safe', label: 'Safe', icon: 'ti-eye-off', color: 'var(--color-safe)' },
-  { mode: 'privacy', label: 'Private', icon: 'ti-shield-lock', color: 'var(--color-privacy)' },
-  { mode: 'open', label: 'Open', icon: 'ti-eye', color: 'var(--color-open)' }
+  { mode: 'privacy', label: 'Private', icon: 'ti-shield-lock', color: 'var(--color-privacy)' }
 ];
 
 /** Miniature palette preview for a theme swatch (brand palette = domain data, kept inline). */
@@ -122,16 +128,18 @@ export function SettingsPage() {
     fontScale,
     theme,
     defaultPrivacyMode,
+    openModeDurationMinutes,
     lockOnBackground,
     setModule,
     setFontScale,
     setTheme,
     setDefaultPrivacyMode,
+    setOpenModeDurationMinutes,
     setLockOnBackground
   } = useSettings();
   const [wipeEnabled, setWipeEnabled] = useState(false);
-  const [clearing, setClearing] = useState(false);
-  const [confirmClear, setConfirmClear] = useState(false);
+  const [exiting, setExiting] = useState(false);
+  const [confirmExit, setConfirmExit] = useState(false);
 
   useEffect(() => {
     void getWipeAfterAttempts().then((n) => setWipeEnabled(n != null));
@@ -142,14 +150,14 @@ export function SettingsPage() {
     void setWipeAfterAttempts(value);
   };
 
-  const handleClearSample = async () => {
-    if (!confirmClear) {
-      setConfirmClear(true);
-      return;
-    }
-    setClearing(true);
-    await clearDemoData();
-    navigate(PATHS.app.home);
+  // Only ever shown while still on the throwaway Demo Mode vault (see the render guard below) — so
+  // this must hand off to the same real-setup sequence as DemoModeBanner's "Exit Demo Mode", not just
+  // wipe the data. Otherwise the user is left permanently on the known demo PIN/passphrase with no
+  // profile details, having never been asked to set real credentials.
+  const handleExitDemoMode = async () => {
+    setExiting(true);
+    await wipeDemoData();
+    navigate(PATHS.onboarding.letUsKnowYou, { state: { fromDemoMode: true } });
   };
 
   const name = profile?.displayName?.trim() || 'Your account';
@@ -318,6 +326,46 @@ export function SettingsPage() {
           })}
         </div>
 
+        <p className="text-xs text-secondary mt-4 mb-2">
+          Open mode duration — how long "Open" lasts before it auto-reverts. Open is never a starting state; it's always
+          a temporary switch (from the header) that resets on its own, on backgrounding, or on relaunch.
+        </p>
+        <div className="flex gap-1.5">
+          {OPEN_MODE_DURATIONS.map((minutes) => {
+            const on = openModeDurationMinutes === minutes;
+            return (
+              <button
+                key={minutes}
+                type="button"
+                onClick={() => setOpenModeDurationMinutes(minutes)}
+                className="flex-1 py-2 rounded-xl text-xs font-bold border transition-colors"
+                style={
+                  on
+                    ? { backgroundColor: 'var(--color-open)', color: '#fff', borderColor: 'var(--color-open)' }
+                    : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
+                }
+              >
+                {minutes}m
+              </button>
+            );
+          })}
+        </div>
+
+        <Row
+          icon="ti-eye-off"
+          label="Manage Safe Mode visibility"
+          sub="Choose what stays hidden in Safe Mode"
+          onClick={() => navigate(PATHS.app.safeMode)}
+          trailing={<Chevron />}
+        />
+        <Row
+          icon="ti-hash"
+          label="Manage tags"
+          sub="Set aside tags from your daily living total"
+          onClick={() => navigate(PATHS.app.manageTags)}
+          trailing={<Chevron />}
+        />
+
         {/* Security */}
         <SectionLabel>Security</SectionLabel>
         <Row icon="ti-lock" label="Change PIN" onClick={() => navigate(PATHS.app.changePin)} trailing={<Chevron />} />
@@ -370,19 +418,27 @@ export function SettingsPage() {
         {(profile?.demoSeeded || isDemoSeeded()) && (
           <button
             type="button"
-            onClick={() => void handleClearSample()}
-            disabled={clearing}
+            onClick={() => setConfirmExit(true)}
+            disabled={exiting}
             className="w-full mt-3 py-3 rounded-xl text-sm font-bold border transition-colors disabled:opacity-40"
-            style={
-              confirmClear
-                ? { backgroundColor: 'var(--color-danger)', color: '#fff', borderColor: 'var(--color-danger)' }
-                : { backgroundColor: 'transparent', color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }
-            }
+            style={{ backgroundColor: 'transparent', color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
           >
-            {clearing ? 'Clearing…' : confirmClear ? 'Tap again to confirm' : 'Clear sample data'}
+            Exit Demo Mode
           </button>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmExit}
+        onClose={() => setConfirmExit(false)}
+        onConfirm={() => void handleExitDemoMode()}
+        title="Ready to make it yours?"
+        message="We'll clear this sample data and walk you through setting up your real account — your accounts, a few personal details, and your own PIN and passphrase."
+        confirmLabel="Continue"
+        cancelLabel="Not yet"
+        confirmVariant="primary"
+        loading={exiting}
+      />
     </div>
   );
 }

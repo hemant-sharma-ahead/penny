@@ -7,8 +7,8 @@ import { Button } from '@/components/ui';
 const pillars = [
   {
     icon: 'ti-server-off',
-    title: '0 bytes to servers',
-    detail: 'Your financial data never leaves your device. No cloud sync, no backup service, no analytics.'
+    title: '0 bytes readable by us',
+    detail: 'Our servers only ever see your handle and scrambled data they can’t unlock — never your real numbers.'
   },
   {
     icon: 'ti-world-check',
@@ -24,6 +24,12 @@ const pillars = [
     icon: 'ti-lock',
     title: 'AES-256-GCM encryption',
     detail: 'Everything sensitive is encrypted on your device using your passphrase before it touches storage.'
+  },
+  {
+    icon: 'ti-cloud-lock',
+    title: 'Your backup, your cloud',
+    detail:
+      'If you choose to back up, it goes to your own Google Drive or iCloud — never ours — and stays encrypted the whole way.'
   }
 ];
 

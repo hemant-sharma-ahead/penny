@@ -6,7 +6,7 @@ import { Button, IconBadge } from '@/components/ui';
 import type { AccountBalance } from './useHome';
 
 export function AccountsStrip({ accounts }: { accounts: AccountBalance[] }) {
-  const { mode } = usePrivacy();
+  const { shouldMask } = usePrivacy();
   const navigate = useNavigate();
 
   return (
@@ -31,7 +31,9 @@ export function AccountsStrip({ accounts }: { accounts: AccountBalance[] }) {
           >
             <IconBadge icon={acc.icon} color={acc.color} bg={acc.color + '22'} size="sm" />
             <p className="text-[11px] font-medium text-secondary truncate mt-0.5">{acc.name}</p>
-            <p className="text-sm font-bold text-primary">{mode === 'open' ? formatCurrency(acc.balance) : '••••'}</p>
+            <p className="text-sm font-bold text-primary">
+              {shouldMask(acc.hideInSafeMode) ? '••••' : formatCurrency(acc.balance)}
+            </p>
           </button>
         ))}
       </div>

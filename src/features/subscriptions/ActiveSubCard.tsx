@@ -8,15 +8,15 @@ import type { Subscription } from '@/core/db/types';
 interface ActiveSubCardProps {
   sub: Subscription;
   nowMs: number;
-  mode: 'open' | 'safe' | 'privacy';
+  masked: boolean;
   onCancel: (sub: Subscription) => void;
 }
 
-export function ActiveSubCard({ sub, nowMs, mode, onCancel }: ActiveSubCardProps) {
+export function ActiveSubCard({ sub, nowMs, masked, onCancel }: ActiveSubCardProps) {
   const annual = toAnnual(sub.detectedAmount, sub.intervalDays);
   const renewMs = nextRenewal(sub, nowMs);
   const dormant = isDormant(sub, nowMs);
-  const money = (n: number) => (mode === 'open' ? formatCurrency(n) : '••••');
+  const money = (n: number) => (!masked ? formatCurrency(n) : '••••');
 
   const renewLabel = (() => {
     if (renewMs === null) return null;
@@ -40,7 +40,7 @@ export function ActiveSubCard({ sub, nowMs, mode, onCancel }: ActiveSubCardProps
           </div>
           <p className="text-xs text-secondary mt-0.5">
             {money(sub.detectedAmount)} · {intervalLabel(sub.intervalDays)}
-            {mode === 'open' && <span className="text-tertiary"> · {formatCurrency(annual)}/yr</span>}
+            {!masked && <span className="text-tertiary"> · {formatCurrency(annual)}/yr</span>}
           </p>
           {renewLabel && <p className="text-xs text-tertiary mt-0.5">{renewLabel}</p>}
           {sub.status === 'trial' && sub.trialEndsAt !== undefined && (
@@ -55,7 +55,7 @@ export function ActiveSubCard({ sub, nowMs, mode, onCancel }: ActiveSubCardProps
       {dormant && sub.lastChargedAt !== undefined && (
         <Banner variant="warning" icon="ti-zzz">
           Looks unused — last charged {formatDateShort(sub.lastChargedAt)}. Cancelling saves{' '}
-          {mode === 'open' ? formatCurrency(annual) : '••••'}/yr.
+          {!masked ? formatCurrency(annual) : '••••'}/yr.
         </Banner>
       )}
     </Card>

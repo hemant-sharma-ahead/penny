@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { TabStrip, Modal } from '@/components/ui';
 import { usePrivacy } from '@/context/PrivacyContext';
+import { useSettings } from '@/context/SettingsContext';
 import { useEventMode } from '@/context/EventModeContext';
 import { useGroupContext } from '@/context/GroupContext';
 import { hasEntitlement } from '@/core/entitlement/entitlement';
@@ -20,7 +21,8 @@ import type { CategoryManager } from './categories/types';
 type ExpensesTab = 'transactions' | 'subscriptions' | 'iou' | 'analytics';
 
 export function ExpensesPage() {
-  const { mode } = usePrivacy();
+  const { shouldMask } = usePrivacy();
+  const { safeModeVisibility } = useSettings();
   const { events, pastEvents } = useEventMode();
   const {
     expenses,
@@ -70,8 +72,12 @@ export function ExpensesPage() {
   const { groups, claimed } = useGroupContext();
   const shareGroups =
     hasEntitlement('sync') && claimed
-      ? groups.filter((g) => g.status === 'active').map((g) => ({ id: g.id, name: g.name }))
+      ? groups.filter((g) => g.status === 'active').map((g) => ({ id: g.id, name: g.name, type: g.type }))
       : [];
+  // Any expense shared into a Family-type group, or carrying a Set-Aside tag, is excluded from
+  // daily-living analytics regardless of category — see useExpenseAnalytics's classify().
+  const familyGroupIds = new Set(groups.filter((g) => g.type === 'family').map((g) => g.id));
+  const setAsideTagNames = new Set(hashtags.filter((h) => h.setAside).map((h) => h.name));
   const handleShareToGroup = (expense: Expense, groupId: string, participants?: string[]): Promise<void> =>
     shareExpenseToGroup(groupId, {
       amount: expense.amount,
@@ -131,7 +137,7 @@ export function ExpensesPage() {
           hashtags={hashtags}
           events={events}
           pastEvents={pastEvents}
-          mode={mode}
+          shouldMask={shouldMask}
           onSaveExpense={saveExpenseWithHashtags}
           onDeleteExpense={deleteExpense}
           onOpenBudgets={() => setShowBudgets(true)}
@@ -155,17 +161,31 @@ export function ExpensesPage() {
         />
       )}
 
-      {activeTab === 'subscriptions' && <SubscriptionsSlice expenses={expenses} mode={mode} />}
+      {activeTab === 'subscriptions' && (
+        <SubscriptionsSlice expenses={expenses} masked={shouldMask(!safeModeVisibility.subscriptions)} />
+      )}
 
       {activeTab === 'iou' && <IouSlice />}
 
       {activeTab === 'analytics' && (
-        <AnalyticsSlice expenses={expenses} categoryMap={categoryMap} mode={mode} iouLinkedTxnIds={iouLinkedTxnIds} />
+        <AnalyticsSlice
+          expenses={expenses}
+          categoryMap={categoryMap}
+          masked={shouldMask(false)}
+          iouLinkedTxnIds={iouLinkedTxnIds}
+          familyGroupIds={familyGroupIds}
+          setAsideTagNames={setAsideTagNames}
+        />
       )}
 
       {showBudgets && (
         <Modal title="Budgets" onClose={() => setShowBudgets(false)} scrollable>
-          <BudgetsSlice expenseCategories={expenseCategories} spendByCategory={spendByCategory} mode={mode} overlay />
+          <BudgetsSlice
+            expenseCategories={expenseCategories}
+            spendByCategory={spendByCategory}
+            shouldMask={shouldMask}
+            overlay
+          />
         </Modal>
       )}
     </div>

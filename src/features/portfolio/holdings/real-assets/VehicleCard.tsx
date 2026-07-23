@@ -11,12 +11,16 @@ export function VehicleCard({
   holding,
   onEdit,
   onSave,
-  mode
+  mode,
+  masked
 }: {
   holding: Holding;
   onEdit: () => void;
   onSave: (updated: Holding) => Promise<void>;
+  /** Real PrivacyMode — PII fields (reg number, owner name, address) stay hidden outside Open. */
   mode: string;
+  /** Portfolio Safe Mode toggle applied — amount fields only. */
+  masked: boolean;
 }) {
   const [showDetail, setShowDetail] = useState(false);
   const meta = holding.assetMeta ?? {};
@@ -108,7 +112,7 @@ export function VehicleCard({
             <div>
               <p className="text-[10px] text-tertiary mb-0.5">Purchase price</p>
               <p className="text-sm font-semibold text-primary tabular-nums">
-                {mode === 'open' ? `₹${holding.investedAmount.toLocaleString('en-IN')}` : '••••'}
+                {masked ? '••••' : `₹${holding.investedAmount.toLocaleString('en-IN')}`}
               </p>
               {gainPct !== null && (
                 <p className={`text-[9px] font-medium ${gainPct >= 0 ? 'text-success' : 'text-danger'}`}>
@@ -121,7 +125,7 @@ export function VehicleCard({
           <div className="text-right">
             <p className="text-[10px] text-tertiary mb-0.5">Current value</p>
             <p className="text-lg font-bold text-primary tabular-nums">
-              {mode === 'open' ? (currentVal > 0 ? `₹${currentVal.toLocaleString('en-IN')}` : '—') : '••••'}
+              {masked ? '••••' : currentVal > 0 ? `₹${currentVal.toLocaleString('en-IN')}` : '—'}
             </p>
           </div>
         </div>
@@ -167,6 +171,7 @@ export function VehicleCard({
             setShowDetail(false);
           }}
           mode={mode}
+          masked={masked}
         />
       )}
     </>

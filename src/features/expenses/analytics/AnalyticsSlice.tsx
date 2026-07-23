@@ -9,11 +9,20 @@ import { useBudgets } from '../budgets/useBudgets';
 interface AnalyticsSliceProps {
   expenses: Expense[];
   categoryMap: Map<string, ExpenseCategory>;
-  mode: 'open' | 'safe' | 'privacy';
+  masked: boolean;
   iouLinkedTxnIds: Set<string>;
+  familyGroupIds: Set<string>;
+  setAsideTagNames: Set<string>;
 }
 
-export function AnalyticsSlice({ expenses, categoryMap, mode, iouLinkedTxnIds }: AnalyticsSliceProps) {
+export function AnalyticsSlice({
+  expenses,
+  categoryMap,
+  masked,
+  iouLinkedTxnIds,
+  familyGroupIds,
+  setAsideTagNames
+}: AnalyticsSliceProps) {
   const { events, pastEvents, allEventHashtags, promoteHashtagToEvent } = useEventMode();
   const { budgets } = useBudgets();
 
@@ -51,7 +60,9 @@ export function AnalyticsSlice({ expenses, categoryMap, mode, iouLinkedTxnIds }:
     events,
     pastEvents,
     allEventHashtags,
-    iouLinkedTxnIds
+    iouLinkedTxnIds,
+    familyGroupIds,
+    setAsideTagNames
   });
 
   return (
@@ -86,7 +97,7 @@ export function AnalyticsSlice({ expenses, categoryMap, mode, iouLinkedTxnIds }:
         annualMax={annualMax}
         eventsThisMonth={eventsThisMonth}
         hashtagSummary={hashtagSummary}
-        mode={mode}
+        masked={masked}
         promoteHashtagToEvent={promoteHashtagToEvent}
       />
     </div>

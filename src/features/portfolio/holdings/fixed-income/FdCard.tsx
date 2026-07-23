@@ -8,7 +8,7 @@ import { nowMs } from '@/features/portfolio/holdings/shared/helpers';
 
 // View card for a Fixed Deposit — principal, rate, maturity progress and
 // projected/accrued interest.
-export function FdCard({ holding, onEdit, mode }: { holding: Holding; onEdit: () => void; mode: string }) {
+export function FdCard({ holding, onEdit, masked }: { holding: Holding; onEdit: () => void; masked: boolean }) {
   const meta = holding.assetMeta ?? {};
   const principal = holding.investedAmount;
   const rate = holding.interestRate ?? 0;
@@ -80,7 +80,7 @@ export function FdCard({ holding, onEdit, mode }: { holding: Holding; onEdit: ()
         <div>
           <p className="text-[10px] text-tertiary mb-0.5">Principal</p>
           <p className="text-sm font-semibold text-primary tabular-nums">
-            {mode === 'open' ? `₹${principal.toLocaleString('en-IN')}` : '••••'}
+            {!masked ? `₹${principal.toLocaleString('en-IN')}` : '••••'}
           </p>
           {!result && maturityDateStr && <p className="text-[10px] text-tertiary mt-0.5">Matures {maturityDateStr}</p>}
         </div>
@@ -90,7 +90,7 @@ export function FdCard({ holding, onEdit, mode }: { holding: Holding; onEdit: ()
               {result.isMatured ? 'Maturity amount' : 'Projected maturity'}
             </p>
             <p className="text-lg font-bold tabular-nums text-success">
-              {mode === 'open' ? `₹${result.maturityAmount.toLocaleString('en-IN')}` : '••••'}
+              {!masked ? `₹${result.maturityAmount.toLocaleString('en-IN')}` : '••••'}
             </p>
             <p className="text-[9px] font-medium text-success">
               +₹{result.totalInterest.toLocaleString('en-IN')} ({((result.totalInterest / principal) * 100).toFixed(1)}
@@ -105,9 +105,7 @@ export function FdCard({ holding, onEdit, mode }: { holding: Holding; onEdit: ()
         <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-success-subtle">
           <i className="ti ti-trending-up text-success" style={{ fontSize: 13 }} aria-hidden="true" />
           <p className="text-[10px] font-medium text-success">
-            {mode === 'open'
-              ? `Accrued so far: ₹${result.accruedInterest.toLocaleString('en-IN')}`
-              : 'Accrued interest: ••••'}
+            {!masked ? `Accrued so far: ₹${result.accruedInterest.toLocaleString('en-IN')}` : 'Accrued interest: ••••'}
           </p>
         </div>
       )}

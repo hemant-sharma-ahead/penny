@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Button, TextInput, OptionButton } from '@/components/ui';
 import { EMPLOYMENT_OPTIONS } from '@/core/profile/employment';
 import { isValidUsername } from '@/core/profile/username';
@@ -10,10 +10,29 @@ import { PATHS } from '@/router/paths';
 import { useOnboardingDraft } from '@/context/OnboardingDraftContext';
 import { OnboardingBack } from './OnboardingBack';
 
+/** A short "where this lives" caption, same visual language as the existing "why we ask" captions —
+ *  broad promise lives on the Privacy Promise screen; this is the specific, per-field reinforcement. */
+function WhereCaption({ icon, color, children }: { icon: string; color: string; children: string }) {
+  return (
+    <p className="text-[10px] text-tertiary mt-1 flex items-start gap-1 leading-relaxed">
+      <i className={`ti ${icon} mt-0.5 flex-shrink-0`} style={{ fontSize: 11, color }} aria-hidden="true" />
+      <span>{children}</span>
+    </p>
+  );
+}
+
 export function LetUsKnowYouScreen() {
   const navigate = useNavigate();
+  const location = useLocation();
   // Drive inputs straight from the draft so going back/forward preserves everything.
   const { fullName = '', username = '', dob = '', employmentType, setDraft } = useOnboardingDraft();
+
+  // Reached either fresh (Account Start → "Start fresh") or via "Exit Demo Mode" — in the latter case an
+  // unlocked demo vault already exists, so the final step re-keys it instead of calling initialize() fresh.
+  const cameFromDemoExit = !!(location.state as { fromDemoMode?: boolean } | null)?.fromDemoMode;
+  useEffect(() => {
+    if (cameFromDemoExit) setDraft({ fromDemoMode: true });
+  }, [cameFromDemoExit, setDraft]);
 
   // On sync builds the username is the account handle (recovery anchor + sharing), so it's mandatory and
   // gets claimed at vault setup — so we check availability here to avoid a taken handle failing the claim.
@@ -46,7 +65,7 @@ export function LetUsKnowYouScreen() {
   }, [username, usernameRequired]);
 
   const handleContinue = () => {
-    if (canContinue) navigate(PATHS.onboarding.setupCredentials);
+    if (canContinue) navigate(PATHS.onboarding.lifeHousehold);
   };
 
   return (
@@ -67,40 +86,50 @@ export function LetUsKnowYouScreen() {
         </div>
 
         <div className="flex flex-col gap-4">
-          <TextInput
-            label="Full name"
-            required
-            value={fullName}
-            onChange={(v) => setDraft({ fullName: v })}
-            placeholder="e.g. Aarav Sharma"
-          />
+          <div>
+            <TextInput
+              label="Full name"
+              required
+              value={fullName}
+              onChange={(v) => setDraft({ fullName: v })}
+              placeholder="e.g. Aarav Sharma"
+            />
+            <WhereCaption icon="ti-device-mobile" color="var(--color-primary)">
+              Stays on this device, encrypted — never sent to our servers.
+            </WhereCaption>
+          </div>
 
-          <TextInput
-            label={usernameRequired ? 'Username' : 'Username (optional)'}
-            required={usernameRequired}
-            value={username}
-            onChange={(v) => {
-              setDraft({ username: v.toLowerCase() });
-              setAvailability('idle');
-            }}
-            placeholder="e.g. aarav_s"
-            error={
-              usernameFilled && !usernameValid
-                ? '3–20 lowercase letters, numbers, or _'
-                : usernameRequired && availability === 'taken'
-                  ? 'That handle is taken — try another'
-                  : undefined
-            }
-            hint={
-              usernameRequired
-                ? availability === 'checking'
-                  ? 'Checking availability…'
-                  : availability === 'available'
-                    ? '✓ Available'
-                    : 'Your unique handle — how others find you for sharing, and how you recover your account.'
-                : "You'll confirm this when you set up household sharing later."
-            }
-          />
+          <div>
+            <TextInput
+              label={usernameRequired ? 'Username' : 'Username (optional)'}
+              required={usernameRequired}
+              value={username}
+              onChange={(v) => {
+                setDraft({ username: v.toLowerCase() });
+                setAvailability('idle');
+              }}
+              placeholder="e.g. aarav_s"
+              error={
+                usernameFilled && !usernameValid
+                  ? '3–20 lowercase letters, numbers, or _'
+                  : usernameRequired && availability === 'taken'
+                    ? 'That handle is taken — try another'
+                    : undefined
+              }
+              hint={
+                usernameRequired
+                  ? availability === 'checking'
+                    ? 'Checking availability…'
+                    : availability === 'available'
+                      ? '✓ Available'
+                      : 'Your unique handle — how others find you for sharing, and how you recover your account.'
+                  : "You'll confirm this when you set up household sharing later."
+              }
+            />
+            <WhereCaption icon="ti-world" color="var(--color-warning)">
+              Public — how others find you for sharing, and how you recover your account.
+            </WhereCaption>
+          </div>
 
           <div>
             <TextInput
@@ -115,6 +144,9 @@ export function LetUsKnowYouScreen() {
               Used for your FIRE target, EPF/NPS projections, and the right tax slab. Only a 5-year age band is ever
               shared with Chip.
             </p>
+            <WhereCaption icon="ti-device-mobile" color="var(--color-primary)">
+              Encrypted on-device. Only ever leaves as a 5-year age band.
+            </WhereCaption>
           </div>
 
           <div>
@@ -136,6 +168,9 @@ export function LetUsKnowYouScreen() {
             <p className="text-[11px] text-tertiary mt-1.5">
               Tailors EPF visibility, tax deductions, and your health benchmarks.
             </p>
+            <WhereCaption icon="ti-device-mobile" color="var(--color-primary)">
+              Stays on this device, encrypted — never sent to our servers.
+            </WhereCaption>
           </div>
         </div>
 

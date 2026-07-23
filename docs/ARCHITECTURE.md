@@ -154,6 +154,12 @@ penny/
 | `PrivacyBadge.tsx`        | —                     | Coloured badge (amber/violet/red) showing current mode. Tappable to open switcher. |
 | `PrivacyModeSwitcher.tsx` | `isOpen`, `onClose`   | 3-segment toggle. PIN modal fires when switching to Open mode.                     |
 
+### `src/components/demo/`
+
+| File                | Props | Purpose                                                                                                                                                                                                                                                       |
+| ------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DemoModeBanner.tsx` | —     | Persistent purple strip mounted in `AppShell`, gated on `profile.demoSeeded`. "Exit Demo Mode" opens a `ConfirmDialog`; confirming calls `wipeDemoData()` and navigates to `/onboarding/let-us-know-you` with `{ state: { fromDemoMode: true } }`, handing off to the real-setup sequence. `SettingsPage`'s danger-zone "Exit Demo Mode" button (same visibility guard, `profile.demoSeeded`) does the identical thing — the two are separate entry points into one behaviour, not two different actions. |
+
 ### `src/components/ui/`
 
 | File                          | Key Props                                                                                                                                  | Purpose                                                                                                                                                                                                                                                                                                                                                     |
@@ -179,6 +185,8 @@ penny/
 | `SegmentedControl.tsx`        | `options[]{value,label,icon?,color?}` · `value` · `onChange` · `cols?`                                                                     | 2–4 option radio group. Active option fills with `color` (default `--color-primary`). Background: `bg-surface-2`.                                                                                                                                                                                                                                           |
 | `SelectInput.tsx`             | `label?` · `value` · `onChange(value)` · `options[]{value,label}` · `placeholder?` · `required?` · `disabled?` · `error?` · `hint?`        | Custom dropdown: styled trigger + portal-rendered listbox anchored directly below the field (flips above when space is tight). Renders to `document.body` at `z-index:90` so it escapes modal `overflow` clipping and stacks above `z-80` modals; dismisses on outside-click/Escape; repositions on scroll/resize. Wraps `FormField` when `label` provided. |
 | `Toggle.tsx`                  | `value` · `onChange(value)` · `disabled?` · `aria-label?`                                                                                  | iOS-style sliding boolean switch. Active: `--color-primary`; inactive: `--color-surface-3`.                                                                                                                                                                                                                                                                 |
+| `LifeRow.tsx`                 | `icon` · `label` · `alignTop?` · `children`                                                                                                | Labelled row for one optional "Life & household" field (icon + label left, control right). Shared by Edit Profile and onboarding's `LifeHouseholdScreen`.                                                                                                                                                                                                   |
+| `OptionalSeg.tsx`             | `options[]{value,label}` · `value` · `onChange(v \| undefined)`                                                                            | Compact segmented control for an optional, clearable field — tap the active segment again to unset it. Distinct from `SegmentedControl` (which requires a value). Shared by Edit Profile and `LifeHouseholdScreen`.                                                                                                                                        |
 | `index.ts`                    | —                                                                                                                                          | Barrel export for all ui components. Import shared primitives from `@/components/ui` (never deep-import the file).                                                                                                                                                                                                                                          |
 
 ---
@@ -196,6 +204,7 @@ penny/
 | `useForecast.ts`           | `{ loading, nowMs, todayStart, startBalance, events, forecast, dueRecurring, reload }` | Loads recurring-flow sources + accounts, computes current liquid balance, and projects it forward via `core/cashflow` (running balance, lowest point, buffer breach, liquidity-based safe-to-spend) plus the due-recurring set. Shared by the Cash Flow page, the safe-to-spend surfaces (Home, Expenses header), and reminders — lives here so features don't cross-import. |
 | `useReminders.ts`          | `{ loading, nowMs, reminders, counts, snooze, markDone, log, cancelSub }`              | Builds the header bell's in-app reminders from `useForecast` + `core/reminders`, holding snooze/done state in localStorage. Actions: snooze, mark done, log a due bill (reuses the recurring occurrence builder), cancel a subscription.                                                                                                                                     |
 | `useTxnRefresh.ts`         | `notifyTxnChanged()` + `useTxnRefresh(reload)`                                         | Cross-instance live-refresh for transactions/balances. The IOU screen writes expenses through separate repo instances and calls `notifyTxnChanged()` (a `penny:txn-changed` window event); `useExpenses`, `useForecast`, `useHome`, and `useAccounts` subscribe via `useTxnRefresh` so lists, balances, forecast, and net worth reload live.                                 |
+| `useDataRefresh.ts`        | `notifyCategoriesChanged()`/`useCategoriesRefresh(reload)`, `notifyAccountsChanged()`/`useAccountsRefresh(reload)`, `notifyTagsChanged()`/`useTagsRefresh(reload)` | Same pattern as `useTxnRefresh`, for categories/accounts/tags. `SafeModeSettingsPage` and `ManageTagsPage` edit these through their own repo instances (separate routes from Expenses); `useExpenses` subscribes to all three events, so a Safe Mode or Manage Tags change reflects immediately without waiting for those screens to remount. |
 
 _(Track 1 adds: `useDisclosure.ts`, `useAsync.ts`)_
 
@@ -211,7 +220,7 @@ Three files, one responsibility each:
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `engine.ts`          | Pure crypto: symmetric (`deriveKey()`, `encrypt()`, `decrypt()`, `wrapKey()`, `unwrapKey()`, `generateSalt()`, `deriveVerifier()`) + asymmetric device-identity primitives (Track B): `generateSigningKeypair()`/`generateWrappingKeypair()` (ECDSA/ECDH P-256), `sign()`/`verify()`, JWK export/import, `deriveSharedWrappingKey()` (ECDH → AES-GCM KEK). Only file that calls `window.crypto.subtle`. |
 | `keystore.ts`        | In-memory Master Key holder. `setMasterKey()`, `getMasterKey()`, `isUnlocked()`, `lock()`. Never writes to storage.                                                                                                                                                                                                                                                                                     |
-| `securityManager.ts` | Orchestrates auth lifecycle: `initialize()`, `unlock()`, `verifyPin()`, `isOnboardingComplete()`, `isPinRotationDue()`. Reads/writes the `security` Dexie store.                                                                                                                                                                                                                                        |
+| `securityManager.ts` | Orchestrates auth lifecycle: `initialize()`, `unlock()`, `verifyPin()`, `changePin()`, `changePassphrase()` (once/24h throttle), `isOnboardingComplete()`, `isPinRotationDue()`. **Track F Forgot-PIN recovery**: `unlockWithPassphrase()` and `resetPinWithPassphrase()` — an independent passphrase-attempt counter/lockout (`getPassphraseLockoutState()`) kept separate from the PIN's own, so exhausting one factor never blocks the other. **Demo Mode**: `DEMO_PIN`/`DEMO_PASSPHRASE` (fixed, shown constants) + `exitDemoMode()` — re-keys the throwaway demo vault to real credentials, deliberately bypassing the once/24h throttle since the vault is seconds old. Reads/writes the `security` Dexie store.                                                                                                                                                                                                                                        |
 | `identityKeys.ts`    | Device identity keypair lifecycle (Track B): `ensureIdentityKeys()` (lazy + idempotent, called at claim), `getSigningKeypair()`/`getWrappingKeypair()`, `getPublicJwks()`. Stores JWKs in the DMK-encrypted `device_keys` table.                                                                                                                                                                        |
 
 ### `src/core/db/`
@@ -224,7 +233,7 @@ Three files, one responsibility each:
 | `types/index.ts`       | TypeScript interfaces for all 40+ entity types.                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `defaultCategories.ts` | `ALL_DEFAULT_CATEGORIES`, `INTENT_GROUP_META`, `CATEGORY_MIGRATION_MAP`.                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `priceCache.ts`        | Helpers for reading/writing the `price_cache` plain store with TTL support.                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `seedDemoData.ts`      | Seeds a realistic **multi-year (Jan 2017 → today)** demo dataset after onboarding, tailored per `employmentType` via a per-persona config. Salary steps through a career arc (`SALARY_ARC`/`salaryFor`, aligned to the EPF employer history) with April/July hikes; the latest 12 months are fully detailed, older months carry the core recurring rows (scaled back by a ~5%/yr `grow()` factor). Exports `seedDemoData(employmentType?)`, `clearDemoData()`, and `reseedForEmployment(employmentType)`. |
+| `seedDemoData.ts`      | Seeds a realistic **multi-year (Jan 2017 → today)** demo dataset, tailored per `employmentType` via a per-persona config. Salary steps through a career arc (`SALARY_ARC`/`salaryFor`, aligned to the EPF employer history) with April/July hikes; the latest 12 months are fully detailed, older months carry the core recurring rows (scaled back by a ~5%/yr `grow()` factor). Only ever called from `DemoVaultScreen` (the "Explore with Demo Data" branch) — never from the real-setup sequence. Exports `seedDemoData(employmentType?)`, `wipeDemoData()` (wholesale `.clear()` on every financial table, no reload/navigation — both `DemoModeBanner`'s "Exit Demo Mode" and Settings' equivalent button call it directly, then hand off to the real-setup sequence), and `reseedForEmployment(employmentType)`. |
 | `activityLog.ts`       | Timeline service: `logActivity` (fire-and-forget + prune), `restoreActivity` (restores `snapshot` + any other-type `cascade` records — atomic combined Undo), `restoreDeletionsSince`, `summarizeDiff`.                                                                                                                                                                                                                                                                                                   |
 | `entityRegistry.ts`    | `entityType → repo.put` map so `restoreActivity` re-inserts snapshots (and cascade records) generically.                                                                                                                                                                                                                                                                                                                                                                                                  |
 
@@ -344,9 +353,10 @@ group UX (create/invite/join/split/settle) lands in E2–E5. See
 
 | Context            | Stored in                  | Key values                                                                    |
 | ------------------ | -------------------------- | ----------------------------------------------------------------------------- |
-| `PrivacyContext`   | React state + localStorage | `mode: PrivacyMode`, `setMode()`, `maskValue()`, `canUseAI()`                 |
-| `SettingsContext`  | localStorage               | `moduleVisibility`, `fontScale`, `theme`, `defaultPrivacyMode`, `setModule()` |
+| `PrivacyContext`   | React state + localStorage | `mode: PrivacyMode`, `setMode()`, `maskValue()`, `shouldMask(sensitive)`, `canUseAI()`, `openModeExpiresAt: number \| null` — `shouldMask` is the single source of truth for amount masking: Open never masks, Privacy always masks, Safe masks only when `sensitive` is true. Open is never a persistent state — `mode` always starts at `defaultPrivacyMode` (Safe or Privacy) on launch, and `setMode('open')` arms an auto-revert `setTimeout` (duration from `openModeDurationMinutes`) plus an immediate revert on `visibilitychange`/backgrounding |
+| `SettingsContext`  | localStorage               | `moduleVisibility`, `safeModeVisibility` (`loans`/`iou`/`portfolio`/`goals`/`insurance`/`subscriptions`, all default visible), `fontScale`, `theme`, `defaultPrivacyMode: PersistedPrivacyMode` (Safe/Privacy only — Open excluded from the type, legacy `'open'` values coerce to Safe), `openModeDurationMinutes` (1/5/10/15/30, default 1) + `setOpenModeDurationMinutes()`, `setModule()`, `setSafeModeVisibility()` |
 | `EventModeContext` | Dexie (`hashtags` store)   | `activeEvent`, `addEvent()`, `stopEvent()`, `promoteHashtagToEvent()`         |
+| `OnboardingDraftContext` | React state (in-memory only) | `fullName`/`username`/`dob`/`employmentType`, Life & household fields (`maritalStatus`/`children`/`homeOwner`/`riskAppetite`), `accountsToCreate: DraftAccount[]`, `backupChoice`, `fromDemoMode` (set from router location state when reached via Exit Demo Mode) + `setDraft(patch)`. Scoped to the `/onboarding/*` route tree (mounted by `OnboardingLayout`) — nothing here persists until the final vault step writes it. |
 
 ---
 
@@ -359,11 +369,15 @@ group UX (create/invite/join/split/settle) lands in E2–E5. See
   privacy-promise        → PrivacyPromiseScreen
   privacy-demo           → PrivacyDemoScreen
   chip-intro             → ChipIntroScreen
-  simulated-dashboard    → SimulatedDashboardScreen (Preview Dashboard)
-  let-us-know-you        → LetUsKnowYouScreen
-  setup                  → SetupCredentialsScreen (passphrase + PIN)
-  start                  → AccountStartScreen (Start fresh / Restore / Reclaim)
+  simulated-dashboard    → SimulatedDashboardScreen (fork: Explore with Demo Data / Setup my Account)
+  start                  → AccountStartScreen (Start fresh / Restore / Reclaim) — "Setup my Account" branch
   account                → AccountRecoveryScreen (segmented new / restore / reclaim)
+  demo-vault             → DemoVaultScreen (shown throwaway PIN/passphrase) — "Explore with Demo Data" branch
+  let-us-know-you        → LetUsKnowYouScreen — both branches converge here
+  life-household         → LifeHouseholdScreen (optional Life & household fields)
+  add-accounts           → AddAccountsScreen (optional quick-add accounts)
+  backup-setup           → BackupSetupScreen (optional This Device / Drive / iCloud choice)
+  setup                  → SetupCredentialsScreen (passphrase + PIN — initialize() or exitDemoMode())
 
 /app/ (all behind AuthGuard → AppShell)
   home                   → HomePage
@@ -384,13 +398,28 @@ group UX (create/invite/join/split/settle) lands in E2–E5. See
 
 `AuthGuard` checks: onboarding completion → session unlock → PIN rotation due → passes through.
 
-**Onboarding flow:** Splash → Privacy Promise → Privacy Demo → Chip Intro → Preview Dashboard →
-(Set up my account) `AccountStartScreen` → `AccountRecoveryScreen` (new tab → Let-us-know-you →
-set-up-vault; restore / reclaim tabs). On sync builds a username is mandatory and the account is
-**claimed during onboarding**. Two screens sit outside the route table: `ChooseHandleScreen`
-(shown after a restore when a deregistered account's old handle is taken) and `IdentityReconciler`
-(mounted in `AuthGuard` — on a restore it re-verifies via `/whoami`, re-registers the restored
-identity, and surfaces `ChooseHandleScreen` if the handle was taken).
+**Onboarding flow (2026-07, Demo Mode first):** Splash → Privacy Promise → Privacy Demo → Chip Intro →
+Preview Dashboard, which forks:
+
+- **"Setup my Account"** → `AccountStartScreen` → `AccountRecoveryScreen` (new tab; restore/reclaim
+  tabs recover an existing account and skip everything below) → straight to Let-us-know-you.
+- **"Explore with Demo Data"** → `DemoVaultScreen` (fixed, shown `DEMO_PIN`/`DEMO_PASSPHRASE` init the
+  vault) → the app, tagged Demo Mode (`DemoModeBanner` in `AppShell`, gated on `profile.demoSeeded`) →
+  "Exit Demo Mode" (`wipeDemoData()` + `navigate(..., { state: { fromDemoMode: true } })`) → also lands
+  on Let-us-know-you.
+
+Both branches converge on the same real-setup sequence: Let-us-know-you → `LifeHouseholdScreen` →
+`AddAccountsScreen` → `BackupSetupScreen` → `SetupCredentialsScreen`. The final step's `handleCreate`
+branches on the in-memory `OnboardingDraftContext.fromDemoMode` flag: fresh setup calls
+`securityManager.initialize()`; exiting Demo Mode calls `exitDemoMode()` instead, which re-keys the
+already-unlocked demo vault (bypassing the once/24h change throttle — the vault is seconds old) so the
+demo PIN/passphrase stop working the instant it completes. `seedDemoData()` is only ever called from
+`DemoVaultScreen` — neither branch of the real-setup sequence seeds demo data.
+
+On sync builds a username is mandatory and the account is **claimed during onboarding**. Two screens
+sit outside the route table: `ChooseHandleScreen` (shown after a restore when a deregistered account's
+old handle is taken) and `IdentityReconciler` (mounted in `AuthGuard` — on a restore it re-verifies via
+`/whoami`, re-registers the restored identity, and surfaces `ChooseHandleScreen` if the handle was taken).
 
 ---
 
@@ -496,7 +525,10 @@ src/features/expenses/
     BudgetsSlice.tsx       ← owns BudgetModal · BudgetsTab.tsx · BudgetModal.tsx · useBudgets.ts
   analytics/
     AnalyticsSlice.tsx     ← owns view/month state, calls useEventMode() + useExpenseAnalytics
-    useExpenseAnalytics.ts ← pure-input derivation hook (group/event/prev-month/velocity/annual)
+    useExpenseAnalytics.ts ← pure-input derivation hook (group/event/prev-month/velocity/annual). `classify()`'s
+                              set-aside paths (2026-07): IOU-linked, shared into a Family-type group, or carrying
+                              a Set-Aside tag — each independent of the transaction's own category, the tag path
+                              reported as its own line (`tag:<name>`) rather than folded into a category bucket
     AnalyticsTab.tsx
   subscriptions/
     SubscriptionsSlice.tsx ← renders the shared <SubscriptionsView> from src/features/subscriptions/
@@ -513,7 +545,9 @@ src/features/iou/          ← IOU UI, rendered in the Expenses → IOU tab (no 
 
 src/core/expenses/
   filterAndAggregate.ts    ← pure: grouping, category aggregation, calcTxnCountByCategory
-  categoryGroups.ts        ← pure: groupKey / groupMeta / buildParentCategoryMap (parent-aware grouping)
+  categoryGroups.ts        ← pure: groupKey / groupMeta / buildParentCategoryMap (parent-aware grouping);
+                              isHiddenInSafeMode (category) / isTagHiddenInSafeMode (2026-07 — any of a
+                              transaction's tags independently marked hidden in Safe Mode via Manage Tags)
   categoryIcons.ts         ← curated category icon set + shared CAT_COLORS palette
   merchantMemory.ts        ← pure: normalizeMerchant / memoryKey / buildMemory (Track 6 auto-fill)
   recurringDue.ts          ← pure: computeDueRecurring / buildOccurrence (Track 6 auto-post inbox)

@@ -21,6 +21,7 @@ import type {
 import { reconcileExpenseLink, type ExpenseIouIntent, type ExpenseSeedIntent } from '@/core/iou/expenseLink';
 import { useRepository } from '@/hooks/useRepository';
 import { useTxnRefresh, notifyTxnChanged } from '@/hooks/useTxnRefresh';
+import { useCategoriesRefresh, useTagsRefresh } from '@/hooks/useDataRefresh';
 import { ALL_DEFAULT_CATEGORIES, CATEGORY_MIGRATION_MAP } from '@/core/db/defaultCategories';
 import { dedupeDemoCategories, reconcileDefaultCategories, repairCategoryIcons } from '@/core/db/dedupeDemoCategories';
 import { calcSpendByCategory, calcTxnCountByCategory } from '@/core/expenses/filterAndAggregate';
@@ -53,7 +54,7 @@ export function useExpenses() {
     loading: categoriesLoading,
     reload: reloadCategories
   } = useRepository(expenseCategoriesRepo);
-  const { items: hashtags, save: saveHashtag } = useRepository(hashtagsRepo);
+  const { items: hashtags, save: saveHashtag, reload: reloadHashtags } = useRepository(hashtagsRepo);
   const { items: accounts } = useRepository(accountsRepo);
   const { items: persons, reload: reloadPersons } = useRepository<Person>(personsRepo);
   const { items: ledgerEntries, reload: reloadLedger } = useRepository(ledgerEntriesRepo);
@@ -65,6 +66,10 @@ export function useExpenses() {
     reloadPersons();
   }, [reloadExpenses, reloadLedger, reloadPersons]);
   useTxnRefresh(refreshTxnData);
+  // Settings → Safe Mode edits categories through a separately-mounted repo instance; reload here too.
+  useCategoriesRefresh(reloadCategories);
+  // Settings → Safe Mode → Tags and Manage Tags edit tags through separately-mounted repo instances.
+  useTagsRefresh(reloadHashtags);
   const { items: merchantMemories, reload: reloadMerchantMemory } = useRepository(merchantMemoryRepo);
   const { items: templates, save: saveTemplateRepo, remove: removeTemplate } = useRepository(transactionTemplatesRepo);
 
@@ -141,6 +146,26 @@ export function useExpenses() {
     Promise.all(missing.map((c) => expenseCategoriesRepo.put({ ...c, createdAt: Date.now() })))
       .then(() => {
         localStorage.setItem('penny_cats_v6', '1');
+        if (missing.length > 0) reloadCategories();
+      })
+      .catch(() => {});
+  }, [categoriesLoading, categories, reloadCategories]);
+
+  // Additive default-category seeding (v7): inserts the Family & Giving "Miscellaneous" category. Same
+  // non-clobbering, once-per-version pattern as v3/v6.
+  const catSeedV7Ref = useRef(false);
+  useEffect(() => {
+    if (categoriesLoading || catSeedV7Ref.current) return;
+    if (localStorage.getItem('penny_cats_v7')) {
+      catSeedV7Ref.current = true;
+      return;
+    }
+    catSeedV7Ref.current = true;
+    const existingIds = new Set(categories.map((c) => c.id));
+    const missing = ALL_DEFAULT_CATEGORIES.filter((c) => !existingIds.has(c.id));
+    Promise.all(missing.map((c) => expenseCategoriesRepo.put({ ...c, createdAt: Date.now() })))
+      .then(() => {
+        localStorage.setItem('penny_cats_v7', '1');
         if (missing.length > 0) reloadCategories();
       })
       .catch(() => {});
@@ -476,9 +501,11 @@ export function useExpenses() {
     return map;
   }, [expenses]);
 
-  // Compound mutation: saves the expense and upserts all hashtag usage counts atomically
+  // Compound mutation: saves the expense and upserts all hashtag usage counts atomically. `newTagSetAside`
+  // carries the Set Aside choice made inline in the form for any tag being created for the first time —
+  // ignored for tags that already exist (their classification only changes via Manage Tags).
   const saveExpenseWithHashtags = useCallback(
-    async (expense: Expense) => {
+    async (expense: Expense, newTagSetAside?: Record<string, boolean>) => {
       const existing = expenses.find((e) => e.id === expense.id);
       await saveExpense(expense);
       for (const tag of expense.hashtags) {
@@ -486,7 +513,15 @@ export function useExpenses() {
         if (existingTag) {
           await saveHashtag({ ...existingTag, usageCount: existingTag.usageCount + 1 });
         } else {
-          await saveHashtag({ id: crypto.randomUUID(), name: tag, usageCount: 1, createdAt: Date.now() });
+          const setAside = newTagSetAside?.[tag] ?? false;
+          await saveHashtag({
+            id: crypto.randomUUID(),
+            name: tag,
+            usageCount: 1,
+            setAside,
+            hideInSafeMode: setAside,
+            createdAt: Date.now()
+          });
         }
       }
       // Remember this merchant's category/account/payment for next-time suggestions.

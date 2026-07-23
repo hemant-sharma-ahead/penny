@@ -1,15 +1,14 @@
 import { useMemo } from 'react';
 import type { ActivityLog } from '@/core/db/types';
-import type { PrivacyMode } from '@/context/PrivacyContext';
 import { maskAmounts } from '@/lib/maskAmounts';
 
 interface Props {
   entries: ActivityLog[];
-  mode: PrivacyMode;
+  masked: boolean;
 }
 
 /** Nostalgic "a year (or more) ago today" memory from the same calendar day in a past year. */
-export function OnThisDay({ entries, mode }: Props) {
+export function OnThisDay({ entries, masked }: Props) {
   const memories = useMemo(() => {
     const now = new Date();
     return entries
@@ -35,7 +34,8 @@ export function OnThisDay({ entries, mode }: Props) {
       <div className="flex flex-col gap-1.5">
         {memories.map((e) => (
           <p key={e.id} className="text-xs text-secondary">
-            <span className="text-tertiary">{new Date(e.timestamp).getFullYear()}:</span> {maskAmounts(e.summary, mode)}
+            <span className="text-tertiary">{new Date(e.timestamp).getFullYear()}:</span>{' '}
+            {maskAmounts(e.summary, masked)}
           </p>
         ))}
       </div>

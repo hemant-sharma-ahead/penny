@@ -27,12 +27,11 @@ function CompareRow({ label, original, withPlan, saving }: CompareRowProps) {
 
 interface PlannerResultsProps {
   planner: ReturnType<typeof usePlanner>;
-  mode: 'open' | 'safe' | 'privacy';
+  masked: boolean;
 }
 
-export function PlannerResults({ planner, mode }: PlannerResultsProps) {
+export function PlannerResults({ planner, masked }: PlannerResultsProps) {
   const { planParams, baseline, result, interestSaved, monthsSaved, hasAccelerators } = planner;
-  const masked = mode !== 'open';
 
   async function downloadXlsx() {
     if (result.rows.length === 0) return;

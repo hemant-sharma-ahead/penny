@@ -7,11 +7,11 @@ import { ListRow, DueDateBadge } from '@/components/shared';
 
 interface PolicyCardProps {
   policy: InsurancePolicy;
-  mode: 'open' | 'safe' | 'privacy';
+  masked: boolean;
   onEdit: (p: InsurancePolicy) => void;
 }
 
-export function PolicyCard({ policy, mode, onEdit }: PolicyCardProps) {
+export function PolicyCard({ policy, masked, onEdit }: PolicyCardProps) {
   const meta = getPolicyMeta(policy.type);
 
   return (
@@ -38,14 +38,14 @@ export function PolicyCard({ policy, mode, onEdit }: PolicyCardProps) {
             <div>
               <p className="text-[10px] text-tertiary">Coverage</p>
               <p className="text-xs font-semibold text-primary">
-                {mode === 'open' ? formatCurrency(policy.coverageAmount) : '••••'}
+                {!masked ? formatCurrency(policy.coverageAmount) : '••••'}
               </p>
             </div>
             <div className="w-px h-6 border-r border-theme" />
             <div>
               <p className="text-[10px] text-tertiary">Premium / yr</p>
               <p className="text-xs font-semibold text-primary">
-                {mode === 'open' ? formatCurrency(policy.annualPremium) : '••••'}
+                {!masked ? formatCurrency(policy.annualPremium) : '••••'}
               </p>
             </div>
             {policy.nominees && (

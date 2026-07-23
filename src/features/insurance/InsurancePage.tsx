@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePrivacy } from '@/context/PrivacyContext';
+import { useSettings } from '@/context/SettingsContext';
 import type { InsurancePolicy } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
 import { Button, Banner, PageHeader } from '@/components/ui';
@@ -11,7 +12,9 @@ import { PolicyForm } from './PolicyForm';
 
 export function InsurancePage() {
   const navigate = useNavigate();
-  const { mode } = usePrivacy();
+  const { shouldMask } = usePrivacy();
+  const { safeModeVisibility } = useSettings();
+  const masked = shouldMask(!safeModeVisibility.insurance);
   const { policies, savePolicy, removePolicy, totalAnnualPremium, expiringCount, sorted } = useInsurance();
 
   const [showForm, setShowForm] = useState(false);
@@ -32,7 +35,7 @@ export function InsurancePage() {
         }
         subtitle={
           policies.length > 0
-            ? `${policies.length} ${policies.length === 1 ? 'policy' : 'policies'} · ${mode === 'open' ? formatCurrency(totalAnnualPremium) : '••••'}/yr`
+            ? `${policies.length} ${policies.length === 1 ? 'policy' : 'policies'} · ${masked ? '••••' : formatCurrency(totalAnnualPremium)}/yr`
             : undefined
         }
       />
@@ -53,10 +56,10 @@ export function InsurancePage() {
             )}
 
             {sorted.map((policy) => (
-              <PolicyCard key={policy.id} policy={policy} mode={mode} onEdit={setEditingPolicy} />
+              <PolicyCard key={policy.id} policy={policy} masked={masked} onEdit={setEditingPolicy} />
             ))}
 
-            <CoverageSummary policies={policies} totalAnnualPremium={totalAnnualPremium} mode={mode} />
+            <CoverageSummary policies={policies} totalAnnualPremium={totalAnnualPremium} masked={masked} />
           </div>
         )}
       </div>

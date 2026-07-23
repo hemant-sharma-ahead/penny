@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { usePrivacy } from '@/context/PrivacyContext';
+import { useSettings } from '@/context/SettingsContext';
 import { usePortfolioHoldings, HOLDINGS_SUBTABS } from './usePortfolioHoldings';
 import type { HoldingsSubTab, HoldingsSubTabConfig } from './usePortfolioHoldings';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
@@ -27,7 +28,9 @@ const SUBTAB_TAX_TOPIC: Partial<Record<HoldingsSubTab, AssetTaxTopic>> = {
 // ─── PortfolioPage ────────────────────────────────────────────────────────────
 
 export function PortfolioPage() {
-  const { mode } = usePrivacy();
+  const { shouldMask, mode } = usePrivacy();
+  const { safeModeVisibility } = useSettings();
+  const masked = shouldMask(!safeModeVisibility.portfolio);
   const location = useLocation();
   const {
     holdings,
@@ -79,7 +82,7 @@ export function PortfolioPage() {
       >
         {activeTab !== 'ipo' && holdings.length > 0 && (
           <div className="flex items-baseline gap-3 mt-1">
-            <p className="text-sm text-secondary">{mode === 'open' ? formatCurrency(totalCurrent) : '••••'}</p>
+            <p className="text-sm text-secondary">{masked ? '••••' : formatCurrency(totalCurrent)}</p>
             <span className={`text-xs font-medium ${overallReturn >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
               {overallReturn >= 0 ? '+' : ''}
               {formatPercent(overallReturn)}
@@ -163,23 +166,39 @@ export function PortfolioPage() {
 
             {/* Sub-tab content */}
             {holdingsSubTab === 'retirement' ? (
-              <RetirementSection holdings={subTabHoldings} mode={mode} onSave={saveHolding} onRemove={removeHolding} />
+              <RetirementSection
+                holdings={subTabHoldings}
+                masked={masked}
+                onSave={saveHolding}
+                onRemove={removeHolding}
+              />
             ) : holdingsSubTab === 'precious_metals' ? (
               <PreciousMetalsSection
                 holdings={subTabHoldings}
-                mode={mode}
+                masked={masked}
                 onSave={saveHolding}
                 onRemove={removeHolding}
               />
             ) : holdingsSubTab === 'fixed_income' ? (
-              <FixedIncomeSection holdings={subTabHoldings} mode={mode} onSave={saveHolding} onRemove={removeHolding} />
+              <FixedIncomeSection
+                holdings={subTabHoldings}
+                masked={masked}
+                onSave={saveHolding}
+                onRemove={removeHolding}
+              />
             ) : holdingsSubTab === 'real_assets' ? (
-              <RealAssetsSection holdings={subTabHoldings} mode={mode} onSave={saveHolding} onRemove={removeHolding} />
+              <RealAssetsSection
+                holdings={subTabHoldings}
+                mode={mode}
+                masked={masked}
+                onSave={saveHolding}
+                onRemove={removeHolding}
+              />
             ) : (
               <EquitySection
                 holdings={subTabHoldings}
                 assetClass={holdingsSubTab === 'mf' ? 'mf' : 'stock'}
-                mode={mode}
+                masked={masked}
                 onSave={saveHolding}
                 onRemove={removeHolding}
               />

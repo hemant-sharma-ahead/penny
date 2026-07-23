@@ -5,6 +5,7 @@ import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { logActivity, restoreActivity, summarizeDiff } from '@/core/db/activityLog';
 import { useToast } from '@/context/ToastContext';
 import { useTxnRefresh } from '@/hooks/useTxnRefresh';
+import { useAccountsRefresh } from '@/hooks/useDataRefresh';
 
 export interface AccountInput {
   name: string;
@@ -30,6 +31,8 @@ export function useAccounts() {
 
   useEffect(() => reload(), [reload]);
   useTxnRefresh(reload);
+  // Settings → Safe Mode edits accounts through a separately-mounted repo instance; reload here too.
+  useAccountsRefresh(reload);
 
   const totalBalance = useMemo(
     () =>

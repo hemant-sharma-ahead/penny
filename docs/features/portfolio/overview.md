@@ -38,6 +38,8 @@ APIs in `core/portfolio/*Client.ts`. See `docs/ARCHITECTURE.md` and `penny-stand
 
 All encrypted reads go through `EncryptedRepository<T>` in `src/core/db/repository.ts`. Direct Dexie access is not permitted from feature code.
 
+**Safe Mode masking:** amounts across every holdings sub-tab respect `usePrivacy().shouldMask(!safeModeVisibility.portfolio)` — a single module-wide toggle in Settings → Safe Mode (visible by default; Privacy always masks; Open never does). Holdings don't have per-item categories, so this isn't per-holding. Real Assets → Vehicle is the one exception: its PII fields (registration number, owner name, address, policy/engine/chassis numbers — see `docs/features/portfolio/real-assets.md`) stay hidden outside Open mode regardless of the Portfolio toggle, since they're identity data, not amounts.
+
 ## Current limitations
 
 - Manual entry only — no broker, demat, or bank auto-sync in Phase 1.

@@ -37,13 +37,13 @@ export function RetirementCard({
   onEdit,
   onSave,
   onViewSchedule,
-  mode
+  masked
 }: {
   holding: Holding;
   onEdit: () => void;
   onSave: (h: Holding) => Promise<void>;
   onViewSchedule: () => void;
-  mode: string;
+  masked: boolean;
 }) {
   const meta = holding.assetMeta ?? {};
   const days = staleDays(holding);
@@ -160,9 +160,9 @@ export function RetirementCard({
               )}
             </div>
             <p className="text-base font-bold text-primary tabular-nums">
-              {mode === 'open' ? formatCurrency(displayValue) : '••••'}
+              {!masked ? formatCurrency(displayValue) : '••••'}
             </p>
-            {showLiveCorpus && mode === 'open' && (
+            {showLiveCorpus && !masked && (
               <p className="text-[10px] text-tertiary mt-0.5">
                 {(holding.units ?? 0).toFixed(4)} units × ₹{npsNav?.nav.toFixed(4)}
               </p>
@@ -279,7 +279,7 @@ export function RetirementCard({
                       ? `${Math.ceil(ppfData.yearsLeft)} yr${Math.ceil(ppfData.yearsLeft) !== 1 ? 's' : ''} to maturity`
                       : 'Matured'}
                   </p>
-                  {ppfData.projected != null && mode === 'open' && (
+                  {ppfData.projected != null && !masked && (
                     <p className="text-xs font-semibold" style={{ color: '#8b5cf6' }}>
                       Proj. {formatCurrency(ppfData.projected)}
                     </p>
@@ -294,7 +294,7 @@ export function RetirementCard({
               <div className="flex items-center justify-between mb-1">
                 <p className="text-[10px] text-tertiary">This FY</p>
                 <p className="text-[10px] text-secondary tabular-nums">
-                  {mode === 'open' ? `₹${ppfData.fyDeposits.toLocaleString('en-IN')} / ₹1.5L` : `•••• / ₹1.5L`}
+                  {!masked ? `₹${ppfData.fyDeposits.toLocaleString('en-IN')} / ₹1.5L` : `•••• / ₹1.5L`}
                   {ppfData.fyPct >= 100 && <span className="ml-1 font-bold text-success">✓ Full</span>}
                 </p>
               </div>
@@ -343,7 +343,7 @@ export function RetirementCard({
                           {txTypeLabel[tx.type]}
                         </p>
                         <p className="text-[10px] font-medium text-primary flex-1 tabular-nums text-right">
-                          {mode === 'open' ? `₹${tx.amount.toLocaleString('en-IN')}` : '••••'}
+                          {!masked ? `₹${tx.amount.toLocaleString('en-IN')}` : '••••'}
                         </p>
                         {showFifth && (
                           <span className="flex-shrink-0">
@@ -461,18 +461,18 @@ export function RetirementCard({
                 <StatBox
                   size="sm"
                   label="Employee total"
-                  value={mode === 'open' ? `₹${epfData.employeeTotal.toLocaleString('en-IN')}` : '••••'}
+                  value={!masked ? `₹${epfData.employeeTotal.toLocaleString('en-IN')}` : '••••'}
                 />
                 <StatBox
                   size="sm"
                   label="Employer total"
-                  value={mode === 'open' ? `₹${epfData.employerTotal.toLocaleString('en-IN')}` : '••••'}
+                  value={!masked ? `₹${epfData.employerTotal.toLocaleString('en-IN')}` : '••••'}
                 />
                 <StatBox
                   size="sm"
                   label="Interest earned"
                   valueColor={STATUS.success}
-                  value={mode === 'open' ? `₹${epfData.interestEarned.toLocaleString('en-IN')}` : '••••'}
+                  value={!masked ? `₹${epfData.interestEarned.toLocaleString('en-IN')}` : '••••'}
                 />
               </div>
             )}
@@ -483,26 +483,26 @@ export function RetirementCard({
                 <p className="text-[10px] font-medium text-tertiary uppercase tracking-wide">Monthly contribution</p>
                 <DetailRow
                   label={`Employee (${epfData.currentEmployer.employeeContribPct}%)`}
-                  value={mode === 'open' ? `₹${epfData.monthlyEmployee.toLocaleString('en-IN')}` : '••••'}
+                  value={!masked ? `₹${epfData.monthlyEmployee.toLocaleString('en-IN')}` : '••••'}
                   size="md"
                 />
                 <DetailRow
                   label="Employer → EPF (3.67%)"
-                  value={mode === 'open' ? `₹${epfData.monthlyEmployerEpf.toLocaleString('en-IN')}` : '••••'}
+                  value={!masked ? `₹${epfData.monthlyEmployerEpf.toLocaleString('en-IN')}` : '••••'}
                   size="md"
                 />
                 <DetailRow
                   label="Employer → EPS pension (8.33%)"
                   value={
                     <span style={{ color: '#94a3b8' }}>
-                      {mode === 'open' ? `₹${epfData.monthlyEps.toLocaleString('en-IN')}` : '••••'}
+                      {!masked ? `₹${epfData.monthlyEps.toLocaleString('en-IN')}` : '••••'}
                     </span>
                   }
                   size="md"
                 />
                 <DetailRow
                   label={<span className="font-semibold">Total to EPF/mo</span>}
-                  value={mode === 'open' ? `₹${epfData.monthlyTotalEpf.toLocaleString('en-IN')}` : '••••'}
+                  value={!masked ? `₹${epfData.monthlyTotalEpf.toLocaleString('en-IN')}` : '••••'}
                   size="md"
                   className="border-t border-theme pt-1.5"
                 />
@@ -521,7 +521,7 @@ export function RetirementCard({
                   </p>
                   <p className="text-[10px] text-tertiary">{epfData.yearsToRetirement} yrs away</p>
                 </div>
-                {mode === 'open' && (
+                {!masked && (
                   <p className="text-sm font-bold" style={{ color: '#378add' }}>
                     {formatCurrency(epfData.projectedCorpus)}
                   </p>

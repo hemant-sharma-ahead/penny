@@ -550,6 +550,16 @@ export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
     applicableTo: 'expense',
     createdAt: 0
   },
+  {
+    id: 'cat-family-misc',
+    name: 'Miscellaneous',
+    icon: 'ti-dots',
+    color: '#f9a8d4',
+    isDefault: true,
+    intentGroup: 'family_giving',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
   // ── Legal ────────────────────────────────────────────────────────────────────
   {
     id: 'cat-legal-advocate',

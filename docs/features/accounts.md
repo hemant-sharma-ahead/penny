@@ -15,6 +15,7 @@ The accounts module manages all your bank accounts, cash on hand, and digital wa
 - See all your accounts in the scrollable accounts strip on the Home dashboard for a quick balance overview
 - Edit account details (name, bank, colour, icon) at any time; delete accounts that are no longer active
 - **Reconcile** a cash or wallet account to its real-world balance — enter the actual amount and Penny posts a balancing income/expense ("Balance reconciliation") so the tracked balance matches reality
+- Hide a specific account's balance in **Safe Mode** (Settings → Safe Mode → Accounts), independent of the other accounts — everyday accounts stay visible by default
 
 ## How it works
 
@@ -25,6 +26,8 @@ Critically, **balances are not stored** — they are always derived on read. Eve
 Transfers are recorded as a single transaction with both a source `accountId` and a destination `toAccountId`. Income is an expense-store record with type `income` linked to the receiving account.
 
 The Home dashboard's accounts strip reads all accounts and computes their live balances in a single pass.
+
+Each `Account` carries an optional `hideInSafeMode` flag (undefined/false = visible, the default). Both `AccountList` (this page) and `AccountsStrip` (Home) resolve masking per account via `usePrivacy().shouldMask(acc.hideInSafeMode)` — Open never masks, Privacy always masks, Safe masks only flagged accounts. The Total Balance card is an aggregate and stays visible in Safe (hidden only in Privacy). See `docs/ARCHITECTURE.md` → Context providers.
 
 Key files:
 

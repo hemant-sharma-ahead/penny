@@ -11,7 +11,7 @@ interface AccountListProps {
   accounts: Account[];
   txns: Expense[];
   totalBalance: number;
-  mode: 'open' | 'safe' | 'privacy';
+  shouldMask: (sensitive: boolean | undefined) => boolean;
   onAdd: () => void;
   onEdit: (acc: Account) => void;
   deleteAccount: (id: string) => Promise<unknown>;
@@ -24,13 +24,13 @@ export function AccountList({
   accounts,
   txns,
   totalBalance,
-  mode,
+  shouldMask,
   onAdd,
   onEdit,
   deleteAccount,
   reconcileAccount
 }: AccountListProps) {
-  const masked = mode !== 'open';
+  const totalMasked = shouldMask(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [reconciling, setReconciling] = useState<{ account: Account; balance: number } | null>(null);
 
@@ -40,7 +40,7 @@ export function AccountList({
       {accounts.length > 0 && (
         <Card>
           <p className="text-xs text-tertiary font-medium uppercase tracking-wide mb-1">Total Balance</p>
-          <p className="text-2xl font-bold text-primary">{masked ? '••••••' : formatCurrency(totalBalance)}</p>
+          <p className="text-2xl font-bold text-primary">{totalMasked ? '••••••' : formatCurrency(totalBalance)}</p>
           <p className="text-xs text-tertiary mt-0.5">
             Across {accounts.length} account{accounts.length !== 1 ? 's' : ''} in net worth
           </p>
@@ -63,6 +63,7 @@ export function AccountList({
             const meta = getAccountMeta(acc.type);
             const balance = computeBalance(acc.id, acc.openingBalance, txns);
             const isNeg = balance < 0;
+            const masked = shouldMask(acc.hideInSafeMode);
             return (
               <div key={acc.id} className="px-4 py-3.5 flex items-center gap-3">
                 <IconBadge icon={acc.icon} color={acc.color} bg={acc.color + '20'} />

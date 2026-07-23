@@ -19,6 +19,8 @@ All policy data is stored in the encrypted `insurance_policies` Dexie store. Key
 
 The renewal tracker reads the `renewalDate` field across all policies and filters those within the configurable threshold window (30/60/90 days from today). Coverage totals are computed by summing `sumAssured` across all active policies of the relevant type (life or health).
 
+Amounts respect `usePrivacy().shouldMask(!safeModeVisibility.insurance)` — Safe Mode hides cover/premium amounts only if the "Insurance" toggle in Settings → Safe Mode is switched off (visible by default); Privacy always masks; Open never does. A single module-wide toggle, not per-policy.
+
 When insurance data is passed to Chip AI (Phase 2), insurer names are generalised to "Insurer A", "Insurer B" to avoid identifying the user's specific providers. Policy numbers are never sent to any external service.
 
 Key files:

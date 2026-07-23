@@ -1,9 +1,8 @@
-import type { PrivacyMode } from '@/context/PrivacyContext';
 import { prettifyField } from '../activityMeta';
 
 interface Props {
   diff: string; // JSON { field: [before, after] }
-  mode: PrivacyMode;
+  masked: boolean;
 }
 
 function fmt(v: unknown): string {
@@ -12,8 +11,8 @@ function fmt(v: unknown): string {
   return String(v);
 }
 
-/** Renders an UPDATE diff as friendly before→after chips. Values shown only in Open mode. */
-export function DiffChips({ diff, mode }: Props) {
+/** Renders an UPDATE diff as friendly before→after chips. Values hidden when masked. */
+export function DiffChips({ diff, masked }: Props) {
   let parsed: Record<string, [unknown, unknown]>;
   try {
     parsed = JSON.parse(diff) as Record<string, [unknown, unknown]>;
@@ -23,7 +22,7 @@ export function DiffChips({ diff, mode }: Props) {
   const fields = Object.keys(parsed);
   if (fields.length === 0) return null;
 
-  if (mode !== 'open') {
+  if (masked) {
     return <p className="text-[11px] text-tertiary mt-0.5">Changed: {fields.map(prettifyField).join(', ')}</p>;
   }
 

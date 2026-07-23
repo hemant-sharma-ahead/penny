@@ -6,6 +6,7 @@ import type {
   Account,
   Expense,
   ExpenseCategory,
+  GroupType,
   Hashtag,
   MerchantMemory,
   Person,
@@ -35,14 +36,15 @@ interface TransactionsSliceProps {
   hashtags: Hashtag[];
   events: ActiveEvent[];
   pastEvents: ActiveEvent[];
-  mode: 'open' | 'safe' | 'privacy';
-  onSaveExpense: (e: Expense) => Promise<void>;
+  /** Resolves Safe/Privacy/Open masking for a given item's sensitivity (e.g. a category's `hideInSafeMode`). */
+  shouldMask: (sensitive: boolean | undefined) => boolean;
+  onSaveExpense: (e: Expense, newTagSetAside?: Record<string, boolean>) => Promise<void>;
   onDeleteExpense: (id: string) => Promise<void>;
   iouPersons: Person[];
   onSeedIou: (expenseId: string, intent: ExpenseSeedIntent | null) => Promise<void>;
   iouLinkByTxn: Map<string, { personName: string }>;
   accountBalances: Record<string, number>;
-  shareGroups: { id: string; name: string }[];
+  shareGroups: { id: string; name: string; type: GroupType }[];
   onShareToGroup: (expense: Expense, groupId: string, participants?: string[]) => Promise<void>;
   /** Share-later (Track E): shares an existing transaction into a group and marks it as shared. */
   onShareLater: (expense: Expense, groupId: string) => Promise<void>;
@@ -71,7 +73,7 @@ export function TransactionsSlice({
   hashtags,
   events,
   pastEvents,
-  mode,
+  shouldMask,
   onSaveExpense,
   onDeleteExpense,
   iouPersons,
@@ -236,8 +238,8 @@ export function TransactionsSlice({
     setPrefill(null);
   }
 
-  async function handleSaveExpense(expense: Expense) {
-    await onSaveExpense(expense);
+  async function handleSaveExpense(expense: Expense, newTagSetAside?: Record<string, boolean>) {
+    await onSaveExpense(expense, newTagSetAside);
     closeForm();
   }
 
@@ -444,7 +446,8 @@ export function TransactionsSlice({
           grouped={grouped}
           categoryMap={categoryMap}
           accountMap={accountMap}
-          mode={mode}
+          hashtags={hashtags}
+          shouldMask={shouldMask}
           onEdit={openEdit}
           onDelete={onDeleteExpense}
           onDuplicate={handleDuplicate}
