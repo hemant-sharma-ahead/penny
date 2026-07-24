@@ -62,7 +62,8 @@ export default defineConfig([
     files: [
       'apps/web-legacy/src/context/*.tsx',
       'packages/core/src/core/sync/SyncProvider.tsx',
-      'apps/mobile/src/theme/ThemeProvider.tsx'
+      'apps/mobile/src/theme/ThemeProvider.tsx',
+      'apps/mobile/src/context/*.tsx'
     ],
     rules: {
       'react-refresh/only-export-components': 'off'

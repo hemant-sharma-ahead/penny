@@ -10,6 +10,7 @@ import { profileRepo } from '@/core/db/repositories';
 import { isValidUsername } from '@/core/profile/username';
 import { deriveRecoveryKeypair, signRecoveryChallenge } from './recovery';
 import { signedFetch, SyncNotConfiguredError } from './signedFetch';
+import { notifyProfileChanged } from './profileChangeBus';
 
 function base64ToBuffer(b64: string): ArrayBuffer {
   const bin = atob(b64);
@@ -36,11 +37,10 @@ export interface ClaimState {
  * Signal that the local profile's identity changed (claim / reclaim / handle change). Non-reactive
  * `useRepository` consumers (GroupContext, etc.) listen for this and reload — otherwise they'd show a
  * stale pre-claim profile until the next remount. Mirrors the `penny-events-updated` pattern.
+ * Re-exported for existing consumers importing it from here — see `./profileChangeBus` for the actual
+ * platform-split implementation (web: DOM `CustomEvent`; RN: in-memory listener set, no `window`).
  */
-export const PROFILE_UPDATED_EVENT = 'penny-profile-updated';
-function notifyProfileChanged(): void {
-  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT));
-}
+export { PROFILE_UPDATED_EVENT } from './profileChangeBus';
 
 /** Thrown when the chosen username is already registered to another user. */
 export class UsernameTakenError extends Error {

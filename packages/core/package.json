@@ -23,6 +23,9 @@
   "dependencies": {
     "@zip.js/zip.js": "^2.8.26",
     "dexie": "^4.4.3",
+    "expo-constants": "~57.0.7",
+    "expo-file-system": "~57.0.1",
+    "expo-sharing": "~57.0.7",
     "expo-sqlite": "~57.0.1",
     "react": "^19.2.6",
     "xlsx": "^0.18.5",

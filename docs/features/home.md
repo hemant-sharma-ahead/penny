@@ -78,6 +78,8 @@ Key files:
 > (`tax/share/TaxStoryModal.tsx`) modals still power their own pages; Home's `StoryViewer` is the
 > generalised version of that same tap-through pattern.
 
+**Mobile (`apps/mobile`):** ported in Track 4 (seventh module) — `apps/mobile/src/features/home/` mirrors the web files above (`useHome.ts`/`useHomeStats.ts` unchanged beyond import paths). Initially scoped personal-only, same precedent as IOU (the `useGroupContext`/`activeGroup` branch and `HomeGroupsCard` were dropped until Groups was ported to mobile) — **restored once Groups landed**: `apps/mobile/src/features/home/HomeGroupsCard.tsx` ports the web card, and `HomePage.tsx` now renders `GroupDashboard` in place of the personal view when a group is the active context, same as web. A prerequisite `apps/mobile/src/features/health/` ports the Financial Health card, and a standalone `apps/mobile/src/hooks/useForecast.ts` ports the "safe to spend" hook. Three platform gaps with no direct RN equivalent were solved rather than dropped: `FinancialHealthCard`'s CSS `conic-gradient` score ring is redrawn as a multi-arc `react-native-svg` ring; `MarketTicker`'s CSS `@keyframes` marquee becomes a `react-native-reanimated` seamless `translateX` loop; Stories' canvas + Web Share API share button becomes `react-native-view-shot` (snapshot a real off-screen RN view) + `expo-sharing` (native share sheet), with `expo-linear-gradient` reproducing story-card gradients. Back button dropped, same reasoning as every other module. Full detail: [`docs/plans/mobile-migration.md`](../plans/mobile-migration.md)'s Home and Groups progress-log entries.
+
 ## Current limitations
 
 - No historical net worth graph — you can see today's number but not how it has changed over time

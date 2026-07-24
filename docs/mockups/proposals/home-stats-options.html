@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Home stat-row options (compact)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --primary:#00a86b; --indigo:#6366f1; --sky:#0ea5e9; --violet:#7c3aed; --danger:#dc2626; --teal:#14b8a6; --cyan:#06b6d4;
+        --ink:#0f172a; --sec:#475569; --ter:#94a3b8; --bg:#f4f7fa; --surface:#fff; --surface2:#f6f8fb; --border:#e8edf3;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#e6ebf1; color:var(--ink); -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:26px 16px 4px; font-size:22px; }
+      .sub { text-align:center; margin:0 16px 22px; color:var(--sec); font-size:14px; }
+      .gallery { display:flex; flex-wrap:wrap; gap:40px 28px; justify-content:center; align-items:flex-start; padding:16px 20px 70px; }
+      .frame-wrap { width:330px; }
+      .vt { font-size:14px; font-weight:800; margin:0 2px 3px; }
+      .vs { font-size:12px; color:var(--sec); margin:0 2px 11px; line-height:1.45; }
+      .phone { width:330px; background:var(--bg); border-radius:30px 30px 14px 14px; border:9px solid #0f172a; overflow:hidden; box-shadow:0 16px 40px rgba(15,23,42,.22); }
+      .statusbar { height:20px; background:#fff; }
+      .hdr { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#fff; border-bottom:2px solid var(--primary); }
+      .hdr .l { display:flex; align-items:center; gap:7px; } .logo{width:18px;height:18px;border-radius:50%;border:2px solid var(--primary)} .wm{font-weight:800;font-size:14px}.wm span{color:var(--primary)}
+      .hdr .r{display:flex;gap:9px;align-items:center;color:var(--sec);font-size:15px}
+      .modeic{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--danger) 12%,#fff);color:var(--danger);font-size:14px}
+      /* context bar */
+      .ctx { display:flex; align-items:center; gap:8px; padding:7px 13px; background:var(--surface2); border-bottom:1px solid var(--border); font-size:12.5px; font-weight:700; }
+      .ctx .dot{width:20px;height:20px;border-radius:6px;background:var(--primary);display:grid;place-items:center;color:#fff;font-size:11px}
+      .ctx .chev{margin-left:auto;color:var(--ter);font-size:14px}
+      .body { padding:12px; }
+      .greet{font-size:18px;font-weight:800;margin:2px 2px 11px}
+      .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px}
+      .glance{display:flex}.glance .g{flex:1;padding:1px 6px}.glance .g+.g{border-left:1px solid var(--border)}
+      .glance .k{font-size:9.5px;color:var(--sec);font-weight:600}.glance .v{font-size:19px;font-weight:800;margin-top:2px}.glance .s{font-size:9.5px;color:var(--ter);margin-top:1px}
+      .albar{height:6px;border-radius:4px;margin:9px 2px 2px;overflow:hidden;display:flex}.albar i{display:block;height:100%}
+      .alrow{display:flex;justify-content:space-between;font-size:9.5px;color:var(--sec);margin:4px 2px 0}
+      .slbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ter);margin:13px 4px 7px}
+
+      /* ===== A: one card, 3 columns (hero-style) ===== */
+      .tri{display:flex}.tri .c3{flex:1;padding:2px 8px;text-align:left}.tri .c3+.c3{border-left:1px solid var(--border)}
+      .tri .k{font-size:9.5px;color:var(--sec);font-weight:600;display:flex;align-items:center;gap:4px}.tri .k i{font-size:12px}
+      .tri .v{font-size:15px;font-weight:800;margin-top:3px;letter-spacing:-.3px}.tri .s{font-size:9px;color:var(--ter);margin-top:1px}
+
+      /* ===== B: compact horizontal mini-cards (icon left) ===== */
+      .mini3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+      .mc{border:1px solid var(--border);border-radius:12px;padding:9px;background:#fff;display:flex;align-items:center;gap:8px}
+      .mc .i{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:14px;flex-shrink:0}
+      .mc .k{font-size:9px;color:var(--sec);font-weight:600}.mc .v{font-size:12.5px;font-weight:800;letter-spacing:-.2px}
+
+      /* ===== C: inline strip, no card ===== */
+      .strip{display:flex;align-items:center}.strip .i3{flex:1;text-align:center;padding:2px 4px}.strip .i3+.i3{border-left:1px solid var(--border)}
+      .strip .ic{font-size:15px;margin-bottom:3px}.strip .k{font-size:9px;color:var(--sec);font-weight:600}.strip .v{font-size:13px;font-weight:800;margin-top:1px}
+
+      .cap{margin-top:10px;font-size:12px;color:var(--sec);line-height:1.5;text-align:center}.cap b{color:var(--ink)}
+      .legend{max-width:1040px;margin:0 auto 40px;background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px 20px;color:var(--sec);font-size:13px;line-height:1.6}.legend b{color:var(--ink)}
+    </style>
+  </head>
+  <body>
+    <h1>Home — compact stat row + context bar</h1>
+    <p class="sub">The "Personal" context bar stays under the header. Three shorter treatments for Spent · Insurance · Loans (no "This month" umbrella).</p>
+
+    <div class="gallery">
+      <!-- A -->
+      <div class="frame-wrap">
+        <div class="vt">A · One card, 3 columns</div>
+        <div class="vs">Matches the hero card style; shortest &amp; most cohesive. No section title.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="hdr"><div class="l"><span class="logo"></span><span class="wm">Pen<span>ny</span></span></div><div class="r"><span class="modeic"><i class="ti ti-eye"></i></span><i class="ti ti-bell"></i></div></div>
+          <div class="ctx"><span class="dot"><i class="ti ti-user"></i></span>Personal<i class="ti ti-chevron-down chev"></i></div>
+          <div class="body">
+            <div class="greet">Good afternoon, Hemant</div>
+            <div class="card">
+              <div class="glance"><div class="g"><div class="k">Net worth</div><div class="v">₹1.45 Cr</div><div class="s">View breakdown ›</div></div><div class="g"><div class="k">Safe to spend</div><div class="v" style="color:var(--primary)">₹80,444</div><div class="s">28 days till payday ›</div></div></div>
+              <div class="albar"><i style="width:80%;background:var(--teal)"></i><i style="width:20%;background:var(--violet)"></i></div>
+              <div class="alrow"><span>Assets ₹1.9Cr</span><span style="color:var(--danger)">Liab −₹48.4L</span></div>
+            </div>
+            <div class="card" style="margin-top:8px">
+              <div class="tri">
+                <div class="c3"><div class="k"><i class="ti ti-receipt" style="color:var(--danger)"></i>Spent</div><div class="v">₹51,900</div><div class="s">this month</div></div>
+                <div class="c3"><div class="k"><i class="ti ti-shield" style="color:var(--sky)"></i>Insurance</div><div class="v">₹1.5 Cr</div><div class="s">cover</div></div>
+                <div class="c3"><div class="k"><i class="ti ti-building-bank" style="color:var(--cyan)"></i>Loans</div><div class="v">₹8.4L</div><div class="s">outstanding</div></div>
+              </div>
+            </div>
+            <div class="slbl" style="margin-top:14px">Financial health · …</div>
+          </div>
+        </div>
+        <div class="cap"><b>A</b> — one tidy card, hairline-split. Cohesive with the hero, least vertical space.</div>
+      </div>
+
+      <!-- B -->
+      <div class="frame-wrap">
+        <div class="vt">B · Horizontal mini-cards</div>
+        <div class="vs">Three small cards, icon on the left (not stacked on top) → about half the height.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="hdr"><div class="l"><span class="logo"></span><span class="wm">Pen<span>ny</span></span></div><div class="r"><span class="modeic"><i class="ti ti-eye"></i></span><i class="ti ti-bell"></i></div></div>
+          <div class="ctx"><span class="dot"><i class="ti ti-user"></i></span>Personal<i class="ti ti-chevron-down chev"></i></div>
+          <div class="body">
+            <div class="greet">Good afternoon, Hemant</div>
+            <div class="card">
+              <div class="glance"><div class="g"><div class="k">Net worth</div><div class="v">₹1.45 Cr</div><div class="s">View breakdown ›</div></div><div class="g"><div class="k">Safe to spend</div><div class="v" style="color:var(--primary)">₹80,444</div><div class="s">28 days till payday ›</div></div></div>
+              <div class="albar"><i style="width:80%;background:var(--teal)"></i><i style="width:20%;background:var(--violet)"></i></div>
+              <div class="alrow"><span>Assets ₹1.9Cr</span><span style="color:var(--danger)">Liab −₹48.4L</span></div>
+            </div>
+            <div class="mini3" style="margin-top:8px">
+              <div class="mc"><span class="i" style="background:#fee2e2;color:var(--danger)"><i class="ti ti-receipt"></i></span><div><div class="k">Spent</div><div class="v">₹51.9K</div></div></div>
+              <div class="mc"><span class="i" style="background:#e0f2fe;color:var(--sky)"><i class="ti ti-shield"></i></span><div><div class="k">Insurance</div><div class="v">₹1.5Cr</div></div></div>
+              <div class="mc"><span class="i" style="background:#cffafe;color:var(--cyan)"><i class="ti ti-building-bank"></i></span><div><div class="k">Loans</div><div class="v">₹8.4L</div></div></div>
+            </div>
+            <div class="slbl" style="margin-top:14px">Financial health · …</div>
+          </div>
+        </div>
+        <div class="cap"><b>B</b> — keeps distinct cards + colour-coded icons, but compact (icon beside, not above).</div>
+      </div>
+
+      <!-- C -->
+      <div class="frame-wrap">
+        <div class="vt">C · Inline strip (no card)</div>
+        <div class="vs">Just three inline stats on the page, hairline-divided. Most minimal / airiest.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="hdr"><div class="l"><span class="logo"></span><span class="wm">Pen<span>ny</span></span></div><div class="r"><span class="modeic"><i class="ti ti-eye"></i></span><i class="ti ti-bell"></i></div></div>
+          <div class="ctx"><span class="dot"><i class="ti ti-user"></i></span>Personal<i class="ti ti-chevron-down chev"></i></div>
+          <div class="body">
+            <div class="greet">Good afternoon, Hemant</div>
+            <div class="card">
+              <div class="glance"><div class="g"><div class="k">Net worth</div><div class="v">₹1.45 Cr</div><div class="s">View breakdown ›</div></div><div class="g"><div class="k">Safe to spend</div><div class="v" style="color:var(--primary)">₹80,444</div><div class="s">28 days till payday ›</div></div></div>
+              <div class="albar"><i style="width:80%;background:var(--teal)"></i><i style="width:20%;background:var(--violet)"></i></div>
+              <div class="alrow"><span>Assets ₹1.9Cr</span><span style="color:var(--danger)">Liab −₹48.4L</span></div>
+            </div>
+            <div class="strip" style="margin-top:12px;padding:2px 0">
+              <div class="i3"><div class="ic" style="color:var(--danger)"><i class="ti ti-receipt"></i></div><div class="k">Spent (mo)</div><div class="v">₹51,900</div></div>
+              <div class="i3"><div class="ic" style="color:var(--sky)"><i class="ti ti-shield"></i></div><div class="k">Insurance</div><div class="v">₹1.5 Cr</div></div>
+              <div class="i3"><div class="ic" style="color:var(--cyan)"><i class="ti ti-building-bank"></i></div><div class="k">Loans</div><div class="v">₹8.4L</div></div>
+            </div>
+            <div class="slbl" style="margin-top:14px">Financial health · …</div>
+          </div>
+        </div>
+        <div class="cap"><b>C</b> — no card chrome; lightest touch. Blends into the page.</div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <p><b>Context bar:</b> the "Personal ▾" row stays where it is — under the header, above the page — and switches you into groups. Home content starts below it (shown in all three).</p>
+      <p><b>Title fix:</b> "This month" is dropped as the umbrella (it only fit the expense). Now the expense self-labels "Spent · this month", Insurance/Loans self-label — no misleading section heading. My lean: <b>A</b> (most cohesive with the hero, shortest). Tell me which, and I'll drop it into the refined Home.</p>
+    </div>
+  </body>
+</html>

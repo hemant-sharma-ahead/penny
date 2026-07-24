@@ -17,13 +17,27 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.penny"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-sqlite"
-    ]
+      "expo-sqlite",
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Penny needs access to your photos to attach a receipt image to an expense.",
+          "cameraPermission": "Penny needs access to your camera to photograph a receipt for an expense."
+        }
+      ]
+    ],
+    "extra": {
+      "authProxyUrl": "https://penny-auth.hesh.workers.dev",
+      "groupsProxyUrl": "https://penny-groups.hesh.workers.dev",
+      "enableSync": true
+    }
   }
 }

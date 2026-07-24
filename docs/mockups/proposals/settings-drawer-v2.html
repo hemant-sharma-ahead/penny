@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Settings drawer redesign — proposal v2 (drawer, single scroll)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --primary: #00a86b; --indigo: #6366f1; --teal: #0ea5e9; --amber: #f59e0b;
+        --danger: #dc2626; --violet: #7c3aed; --success: #16a34a;
+        --ink: #0f172a; --sec: #475569; --ter: #94a3b8;
+        --bg: #f4f7fa; --surface: #ffffff; --surface2: #f6f8fb; --border: #e6ebf1;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #e6ebf1; color: var(--ink); -webkit-font-smoothing: antialiased; }
+      h1.page-title { text-align: center; margin: 28px 16px 4px; font-size: 22px; }
+      p.page-sub { text-align: center; margin: 0 16px 24px; color: var(--sec); font-size: 14px; }
+      .gallery { display: flex; flex-wrap: wrap; gap: 40px 28px; justify-content: center; align-items: flex-start; padding: 20px 20px 60px; }
+      .frame-wrap { width: 340px; }
+      .caption { margin-top: 12px; font-size: 12.5px; color: var(--sec); line-height: 1.5; text-align: center; }
+      .caption b { color: var(--ink); }
+      .phone { width: 340px; height: 760px; background: var(--bg); border-radius: 34px; border: 10px solid #0f172a; overflow: hidden; position: relative; display: flex; box-shadow: 0 20px 50px rgba(15,23,42,.25); }
+      /* drawer takes ~88% width; dimmed app peeks on the right */
+      .scrim { position: absolute; inset: 0; background: rgba(15,23,42,.35); }
+      .drawer { position: relative; width: 300px; background: var(--bg); display: flex; flex-direction: column; box-shadow: 6px 0 24px rgba(15,23,42,.2); z-index: 2; }
+      .dhead { display: flex; align-items: center; justify-content: space-between; padding: 15px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+      .dhead .t { font-size: 17px; font-weight: 800; letter-spacing: -0.3px; }
+      .dhead i { font-size: 19px; color: var(--sec); }
+      .body { flex: 1; overflow-y: auto; padding: 13px; }
+      .body::-webkit-scrollbar { width: 0; }
+
+      .slbl { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ter); margin: 6px 4px 6px; }
+      .slbl.danger { color: var(--danger); }
+      .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 15px; }
+      .card.danger { border-color: color-mix(in srgb, var(--danger) 35%, #fff); }
+
+      .row { display: flex; align-items: center; gap: 11px; padding: 11px 13px; }
+      .row + .row { border-top: 1px solid var(--border); }
+      .ricon { width: 28px; height: 28px; border-radius: 8px; background: var(--surface2); display: grid; place-items: center; flex-shrink: 0; }
+      .ricon i { font-size: 15px; color: var(--sec); }
+      .row .lbl { font-size: 13.5px; font-weight: 500; flex: 1; }
+      .row .lbl small { display: block; font-size: 10.5px; color: var(--ter); font-weight: 400; margin-top: 1px; }
+      .row .chev { color: var(--ter); font-size: 16px; }
+
+      .sw { width: 38px; height: 22px; border-radius: 999px; background: var(--primary); position: relative; flex-shrink: 0; }
+      .sw.off { background: #cbd5e1; }
+      .sw::after { content: ''; position: absolute; top: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; right: 2px; }
+      .sw.off::after { right: 18px; }
+
+      .subhead { font-size: 11.5px; font-weight: 600; color: var(--sec); padding: 12px 13px 7px; }
+      .themes { display: grid; grid-template-columns: repeat(4,1fr); gap: 7px; padding: 0 13px 12px; }
+      .themes .th { border: 1.5px solid var(--border); border-radius: 11px; padding: 10px 3px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 9px; color: var(--sec); font-weight: 600; text-align: center; }
+      .themes .th i { font-size: 15px; }
+      .themes .th.on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, #fff); color: var(--primary); }
+      .seg { display: flex; gap: 7px; padding: 0 13px 13px; }
+      .seg .s { flex: 1; text-align: center; border: 1.5px solid var(--border); border-radius: 9px; padding: 8px; font-size: 12.5px; font-weight: 700; color: var(--sec); }
+      .seg .s.on { border-color: var(--primary); background: var(--primary); color: #fff; }
+      .privseg .s.on.open { background: var(--danger); border-color: var(--danger); }
+      .hint { font-size: 10.5px; color: var(--ter); padding: 2px 4px 0; line-height: 1.5; margin: -9px 0 15px; }
+
+      /* module icon grid — tap to toggle on/off */
+      .mgrid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; padding: 13px; }
+      .mtile { border: 1.5px solid var(--border); border-radius: 12px; padding: 11px 3px; display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 600; color: var(--ter); text-align: center; background: var(--surface2); }
+      .mtile i { font-size: 19px; }
+
+      .dangerbtn { display: block; width: calc(100% - 26px); margin: 4px 13px 13px; padding: 11px; border: 1.5px solid var(--danger); color: var(--danger); background: transparent; border-radius: 11px; font-weight: 700; font-size: 13px; }
+
+      /* peek of dimmed app */
+      .peek { flex: 1; background: linear-gradient(180deg,#dfe7ef,#eef2f7); position: relative; }
+      .peek::before { content: ''; position: absolute; inset: 0; background: rgba(15,23,42,.28); }
+
+      .legend { max-width: 360px; background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; align-self: flex-start; }
+      .legend h2 { margin: 0 0 10px; font-size: 15px; }
+      .legend ul { margin: 0; padding-left: 18px; color: var(--sec); font-size: 13px; line-height: 1.7; }
+      .legend b { color: var(--ink); }
+    </style>
+  </head>
+  <body>
+    <h1 class="page-title">Settings drawer — redesign (proposal v2)</h1>
+    <p class="page-sub">Back to the <b>drawer</b> (single scroll, nothing hidden). Two frames = top &amp; scrolled-down of the same drawer.</p>
+
+    <div class="gallery">
+      <!-- FRAME 1: top of drawer -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="drawer">
+            <div class="dhead"><span class="t">Settings</span><i class="ti ti-x"></i></div>
+            <div class="body">
+              <div class="slbl">Account</div>
+              <div class="card">
+                <div class="row"><div class="ricon"><i class="ti ti-user"></i></div><span class="lbl">Edit profile<small>Aarav Sharma · @aarav_s</small></span><i class="ti ti-chevron-right chev"></i></div>
+                <div class="row"><div class="ricon"><i class="ti ti-history"></i></div><span class="lbl">Timeline<small>Activity, undo &amp; restore</small></span><i class="ti ti-chevron-right chev"></i></div>
+              </div>
+
+              <div class="slbl">Modules</div>
+              <div class="card">
+                <div class="mgrid">
+                  <div class="mtile" style="border-color:#6366f1;background:#6366f11a;color:#6366f1"><i class="ti ti-chart-pie"></i>Portfolio</div>
+                  <div class="mtile" style="border-color:#10b981;background:#10b9811a;color:#10b981"><i class="ti ti-target"></i>Goals</div>
+                  <div class="mtile" style="border-color:#3b82f6;background:#3b82f61a;color:#3b82f6"><i class="ti ti-shield"></i>Insurance</div>
+                  <div class="mtile"><i class="ti ti-calculator"></i>Loans</div>
+                  <div class="mtile"><i class="ti ti-heart-rate-monitor"></i>Health</div>
+                  <div class="mtile" style="border-color:#8b5cf6;background:#8b5cf61a;color:#8b5cf6"><i class="ti ti-receipt-tax"></i>Tax</div>
+                  <div class="mtile" style="border-color:#14b8a6;background:#14b8a61a;color:#14b8a6"><i class="ti ti-trending-down"></i>Cash&nbsp;Flow</div>
+                  <div class="mtile"><i class="ti ti-news"></i>News</div>
+                  <div class="mtile" style="border-color:#f97316;background:#f973161a;color:#f97316"><i class="ti ti-math-function"></i>Calc →</div>
+                </div>
+              </div>
+              <p class="hint">Tap to show / hide. Home, Expenses &amp; Chip are always on. Calc opens the calculators.</p>
+            </div>
+          </div>
+          <div class="peek"></div>
+        </div>
+        <div class="caption"><b>Top of the drawer.</b> Account + the familiar module <b>icon grid</b> (tap to toggle on/off), tidied inside a card. Widened to 300px so it breathes.</div>
+      </div>
+
+      <!-- FRAME 2: scrolled down -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="drawer">
+            <div class="dhead"><span class="t">Settings</span><i class="ti ti-x"></i></div>
+            <div class="body">
+              <div class="slbl">Appearance</div>
+              <div class="card">
+                <div class="subhead">Theme</div>
+                <div class="themes">
+                  <div class="th on"><i class="ti ti-sun"></i>Light</div>
+                  <div class="th"><i class="ti ti-droplet"></i>Penny&nbsp;Blue</div>
+                  <div class="th"><i class="ti ti-moon"></i>Dark</div>
+                  <div class="th"><i class="ti ti-device-desktop"></i>System</div>
+                </div>
+                <div class="subhead" style="padding-top:2px">Font size</div>
+                <div class="seg"><div class="s">S</div><div class="s on">A</div><div class="s">A+</div><div class="s">A++</div></div>
+              </div>
+
+              <div class="slbl">Privacy</div>
+              <div class="card">
+                <div class="subhead">Default mode when the app opens</div>
+                <div class="seg privseg"><div class="s">Safe</div><div class="s">Private</div><div class="s on open">Open</div></div>
+              </div>
+
+              <div class="slbl">Security</div>
+              <div class="card">
+                <div class="row"><div class="ricon"><i class="ti ti-lock"></i></div><span class="lbl">Change PIN</span><i class="ti ti-chevron-right chev"></i></div>
+                <div class="row"><div class="ricon"><i class="ti ti-key"></i></div><span class="lbl">Change passphrase</span><i class="ti ti-chevron-right chev"></i></div>
+                <div class="row"><div class="ricon"><i class="ti ti-lock-square"></i></div><span class="lbl">Lock when backgrounded</span><span class="sw"></span></div>
+              </div>
+
+              <div class="slbl">Data</div>
+              <div class="card">
+                <div class="row"><div class="ricon"><i class="ti ti-database-export"></i></div><span class="lbl">Backup &amp; Restore</span><i class="ti ti-chevron-right chev"></i></div>
+                <div class="row"><div class="ricon"><i class="ti ti-message-circle"></i></div><span class="lbl">Contact &amp; Feedback</span><i class="ti ti-chevron-right chev"></i></div>
+              </div>
+
+              <div class="slbl danger">Danger zone</div>
+              <div class="card danger">
+                <div class="row"><div class="ricon" style="background:#fee2e2"><i class="ti ti-trash-x" style="color:var(--danger)"></i></div><span class="lbl">Erase after 10 failed unlocks<small>Irreversible — no recovery</small></span><span class="sw off"></span></div>
+                <button class="dangerbtn">Clear sample data</button>
+              </div>
+            </div>
+          </div>
+          <div class="peek"></div>
+        </div>
+        <div class="caption"><b>Scrolled down.</b> Appearance · Privacy · Security · Data, then an isolated red <b>Danger zone</b>. All one scroll — no extra screens.</div>
+      </div>
+
+      <!-- WHAT CHANGED -->
+      <div class="legend">
+        <h2>What changed &amp; why</h2>
+        <ul>
+          <li><b>Stayed a drawer, single scroll</b> — nothing hidden behind tabs/pages, no extra clicks (your call).</li>
+          <li><b>Grouped cards + consistent rows</b> — icon + label + control everywhere; replaces the chip-grid / segmented / row mix.</li>
+          <li><b>Modules keep the tap-to-toggle icon grid</b> — same interaction as before, now a legible 4-col grid in a card (was a 5-col grid with 9px labels).</li>
+          <li><b>Wider (300px)</b> for breathing room.</li>
+          <li><b>Danger zone</b> — Erase-after-fails + Clear-sample isolated in red, away from everyday prefs.</li>
+        </ul>
+        <p style="font-size:12px;color:var(--sec);margin-top:12px">Kept theme/font/privacy as segmented selectors (unchanged behaviour, cleaner framing).</p>
+      </div>
+    </div>
+  </body>
+</html>

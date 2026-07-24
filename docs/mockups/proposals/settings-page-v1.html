@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Settings redesign (full page + tabs) — proposal v1</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --primary: #00a86b; --indigo: #6366f1; --teal: #0ea5e9; --amber: #f59e0b;
+        --danger: #dc2626; --violet: #7c3aed; --success: #16a34a;
+        --ink: #0f172a; --sec: #475569; --ter: #94a3b8;
+        --bg: #f4f7fa; --surface: #ffffff; --surface2: #f6f8fb; --border: #e6ebf1;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #e6ebf1; color: var(--ink); -webkit-font-smoothing: antialiased; }
+      h1.page-title { text-align: center; margin: 28px 16px 4px; font-size: 22px; }
+      p.page-sub { text-align: center; margin: 0 16px 24px; color: var(--sec); font-size: 14px; }
+      .gallery { display: flex; flex-wrap: wrap; gap: 40px 28px; justify-content: center; align-items: flex-start; padding: 20px 20px 60px; }
+      .frame-wrap { width: 340px; }
+      .caption { margin-top: 12px; font-size: 12.5px; color: var(--sec); line-height: 1.5; text-align: center; }
+      .caption b { color: var(--ink); }
+      .phone { width: 340px; height: 720px; background: var(--bg); border-radius: 34px; border: 10px solid #0f172a; overflow: hidden; position: relative; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(15,23,42,.25); }
+      .status-bar { height: 26px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 11px; color: var(--sec); background: var(--surface); }
+
+      /* App bar */
+      .appbar { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); border-bottom: 1px solid var(--border); }
+      .appbar i { font-size: 20px; color: var(--sec); }
+      .appbar .t { font-size: 17px; font-weight: 800; letter-spacing: -0.3px; }
+
+      /* Tabs */
+      .tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); }
+      .tabs .tb { flex: 1; text-align: center; padding: 11px 4px; font-size: 12px; font-weight: 700; color: var(--ter); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+      .tabs .tb.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+      .body { flex: 1; overflow-y: auto; padding: 14px; }
+      .body::-webkit-scrollbar { width: 0; }
+
+      /* grouped card */
+      .slbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ter); margin: 4px 4px 7px; }
+      .slbl.danger { color: var(--danger); }
+      .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 18px; }
+      .card.danger { border-color: color-mix(in srgb, var(--danger) 35%, #fff); }
+
+      /* list rows */
+      .row { display: flex; align-items: center; gap: 12px; padding: 13px 15px; }
+      .row + .row { border-top: 1px solid var(--border); }
+      .ricon { width: 30px; height: 30px; border-radius: 9px; background: var(--surface2); display: grid; place-items: center; flex-shrink: 0; }
+      .ricon i { font-size: 16px; color: var(--sec); }
+      .row .lbl { font-size: 14px; font-weight: 500; flex: 1; }
+      .row .lbl small { display: block; font-size: 11px; color: var(--ter); font-weight: 400; margin-top: 1px; }
+      .row .chev { color: var(--ter); font-size: 17px; }
+      .row .val { color: var(--ter); font-size: 13px; }
+
+      /* toggle */
+      .sw { width: 40px; height: 23px; border-radius: 999px; background: var(--primary); position: relative; flex-shrink: 0; }
+      .sw.off { background: #cbd5e1; }
+      .sw::after { content: ''; position: absolute; top: 2px; width: 19px; height: 19px; background: #fff; border-radius: 50%; transition: .2s; right: 2px; }
+      .sw.off::after { right: 19px; }
+
+      /* theme cards */
+      .subhead { font-size: 12px; font-weight: 600; color: var(--sec); padding: 13px 15px 8px; }
+      .themes { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; padding: 0 15px 14px; }
+      .themes .th { border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 4px; display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 10px; color: var(--sec); font-weight: 600; }
+      .themes .th i { font-size: 17px; }
+      .themes .th.on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, #fff); color: var(--primary); }
+      .seg { display: flex; gap: 8px; padding: 0 15px 15px; }
+      .seg .s { flex: 1; text-align: center; border: 1.5px solid var(--border); border-radius: 10px; padding: 9px; font-size: 13px; font-weight: 700; color: var(--sec); }
+      .seg .s.on { border-color: var(--primary); background: var(--primary); color: #fff; }
+      .privseg .s.on.safe { background: var(--amber); border-color: var(--amber); }
+      .privseg .s.on.priv { background: var(--violet); border-color: var(--violet); }
+      .privseg .s.on.open { background: var(--danger); border-color: var(--danger); }
+      .hint { font-size: 11px; color: var(--ter); padding: 0 15px 13px; margin-top: -4px; line-height: 1.5; }
+
+      /* module toggle list */
+      .mrow { display: flex; align-items: center; gap: 12px; padding: 11px 15px; }
+      .mrow + .mrow { border-top: 1px solid var(--border); }
+      .mrow .mic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; color: #fff; flex-shrink: 0; }
+      .mrow .mlbl { flex: 1; font-size: 14px; font-weight: 500; }
+
+      .dangerbtn { display: block; width: calc(100% - 30px); margin: 0 15px 15px; padding: 12px; border: 1.5px solid var(--danger); color: var(--danger); background: transparent; border-radius: 12px; font-weight: 700; font-size: 13.5px; }
+
+      .legend { max-width: 360px; background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; align-self: flex-start; }
+      .legend h2 { margin: 0 0 10px; font-size: 15px; }
+      .legend ul { margin: 0; padding-left: 18px; color: var(--sec); font-size: 13px; line-height: 1.7; }
+      .legend b { color: var(--ink); }
+    </style>
+  </head>
+  <body>
+    <h1 class="page-title">Settings — full page + tabs (proposal v1)</h1>
+    <p class="page-sub">Static prototype for direction. Replaces the cramped 288px drawer (<code>SettingsDrawer.tsx</code>) with a full-width page.</p>
+
+    <div class="gallery">
+      <!-- TAB 1: GENERAL -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="appbar"><i class="ti ti-arrow-left"></i><span class="t">Settings</span></div>
+          <div class="tabs"><div class="tb active">General</div><div class="tb">Display &amp; Privacy</div><div class="tb">Security &amp; Data</div></div>
+          <div class="body">
+            <div class="slbl">Account</div>
+            <div class="card">
+              <div class="row"><div class="ricon"><i class="ti ti-user"></i></div><span class="lbl">Edit profile<small>Aarav Sharma · @aarav_s</small></span><i class="ti ti-chevron-right chev"></i></div>
+              <div class="row"><div class="ricon"><i class="ti ti-history"></i></div><span class="lbl">Timeline<small>Activity, undo &amp; restore</small></span><i class="ti ti-chevron-right chev"></i></div>
+            </div>
+
+            <div class="slbl">Modules</div>
+            <div class="card">
+              <div class="mrow"><div class="mic" style="background:#6366f1"><i class="ti ti-chart-pie"></i></div><span class="mlbl">Portfolio</span><span class="sw"></span></div>
+              <div class="mrow"><div class="mic" style="background:#10b981"><i class="ti ti-target"></i></div><span class="mlbl">Goals</span><span class="sw"></span></div>
+              <div class="mrow"><div class="mic" style="background:#3b82f6"><i class="ti ti-shield"></i></div><span class="mlbl">Insurance</span><span class="sw"></span></div>
+              <div class="mrow"><div class="mic" style="background:#06b6d4"><i class="ti ti-calculator"></i></div><span class="mlbl">Loans</span><span class="sw off"></span></div>
+              <div class="mrow"><div class="mic" style="background:#8b5cf6"><i class="ti ti-receipt-tax"></i></div><span class="mlbl">Tax</span><span class="sw"></span></div>
+              <div class="mrow"><div class="mic" style="background:#f59e0b"><i class="ti ti-news"></i></div><span class="mlbl">News</span><span class="sw off"></span></div>
+              <div class="row"><div class="ricon" style="background:#f9731622"><i class="ti ti-math-function" style="color:#f97316"></i></div><span class="lbl">Calculators</span><i class="ti ti-chevron-right chev"></i></div>
+            </div>
+            <p class="hint" style="margin-top:-12px">Home, Expenses &amp; Chip are always on.</p>
+          </div>
+        </div>
+        <div class="caption"><b>General</b> — Account + module toggles as a clean list (was a cramped 5-col chip grid).</div>
+      </div>
+
+      <!-- TAB 2: DISPLAY & PRIVACY -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="appbar"><i class="ti ti-arrow-left"></i><span class="t">Settings</span></div>
+          <div class="tabs"><div class="tb">General</div><div class="tb active">Display &amp; Privacy</div><div class="tb">Security &amp; Data</div></div>
+          <div class="body">
+            <div class="slbl">Appearance</div>
+            <div class="card">
+              <div class="subhead">Theme</div>
+              <div class="themes">
+                <div class="th on"><i class="ti ti-sun"></i>Light</div>
+                <div class="th"><i class="ti ti-droplet"></i>Penny Blue</div>
+                <div class="th"><i class="ti ti-moon"></i>Dark</div>
+                <div class="th"><i class="ti ti-device-desktop"></i>System</div>
+              </div>
+              <div class="subhead" style="padding-top:2px">Font size</div>
+              <div class="seg"><div class="s">S</div><div class="s on">A</div><div class="s">A+</div><div class="s">A++</div></div>
+            </div>
+
+            <div class="slbl">Privacy</div>
+            <div class="card">
+              <div class="subhead">Default mode when the app opens</div>
+              <div class="seg privseg"><div class="s">Safe</div><div class="s">Private</div><div class="s on open">Open</div></div>
+              <p class="hint">Safe hides amounts · Private blurs sensitive data · Open shows everything.</p>
+            </div>
+          </div>
+        </div>
+        <div class="caption"><b>Display &amp; Privacy</b> — theme + font + default privacy mode, with room to breathe and a one-line explainer.</div>
+      </div>
+
+      <!-- TAB 3: SECURITY & DATA -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="appbar"><i class="ti ti-arrow-left"></i><span class="t">Settings</span></div>
+          <div class="tabs"><div class="tb">General</div><div class="tb">Display &amp; Privacy</div><div class="tb active">Security &amp; Data</div></div>
+          <div class="body">
+            <div class="slbl">Security</div>
+            <div class="card">
+              <div class="row"><div class="ricon"><i class="ti ti-lock"></i></div><span class="lbl">Change PIN</span><i class="ti ti-chevron-right chev"></i></div>
+              <div class="row"><div class="ricon"><i class="ti ti-key"></i></div><span class="lbl">Change passphrase</span><i class="ti ti-chevron-right chev"></i></div>
+              <div class="row"><div class="ricon"><i class="ti ti-lock-square"></i></div><span class="lbl">Lock when backgrounded<small>Require unlock on return</small></span><span class="sw"></span></div>
+            </div>
+
+            <div class="slbl">Data</div>
+            <div class="card">
+              <div class="row"><div class="ricon"><i class="ti ti-database-export"></i></div><span class="lbl">Backup &amp; Restore</span><i class="ti ti-chevron-right chev"></i></div>
+              <div class="row"><div class="ricon"><i class="ti ti-message-circle"></i></div><span class="lbl">Contact &amp; Feedback</span><i class="ti ti-chevron-right chev"></i></div>
+            </div>
+
+            <div class="slbl danger">Danger zone</div>
+            <div class="card danger">
+              <div class="row"><div class="ricon" style="background:#fee2e2"><i class="ti ti-trash-x" style="color:var(--danger)"></i></div><span class="lbl">Erase after 10 failed unlocks<small>Irreversible — no recovery</small></span><span class="sw off"></span></div>
+              <button class="dangerbtn" style="margin-top:4px">Clear sample data</button>
+            </div>
+          </div>
+        </div>
+        <div class="caption"><b>Security &amp; Data</b> — actions grouped; destructive items isolated in a red "Danger zone".</div>
+      </div>
+
+      <!-- WHAT CHANGED -->
+      <div class="legend">
+        <h2>What changed &amp; why</h2>
+        <ul>
+          <li><b>Drawer → full page</b> — escapes the cramped 288px width; standard, scalable pattern.</li>
+          <li><b>Tabs</b> (General · Display &amp; Privacy · Security &amp; Data) — no more one long scroll; each screen has one job.</li>
+          <li><b>Consistent list rows</b> everywhere — icon + label + control. Replaces the mix of chip-grid + segmented + rows.</li>
+          <li><b>Modules as a toggle list</b> — legible labels &amp; states, vs. the 9-chip grid with 9px text.</li>
+          <li><b>Danger zone</b> — Erase-after-fails + Clear-sample isolated in a red group, away from everyday prefs.</li>
+          <li><b>Ethos</b> — grouped cards, generous spacing, clear hierarchy = uncluttered &amp; modern.</li>
+        </ul>
+        <p style="font-size:12px;color:var(--sec);margin-top:12px">Open question: keep a slim left <b>drawer</b> as a quick menu too, or have the gear open this page directly?</p>
+      </div>
+    </div>
+  </body>
+</html>

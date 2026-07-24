@@ -38,6 +38,8 @@ Penny's Real Assets sub-tab tracks physical assets that form a significant part 
 
 **Privacy note:** Property address is never stored, only asset type, area, and value. This is a deliberate privacy design decision.
 
+**Mobile (`apps/mobile`):** ported in Track 4 (Portfolio module, the second-largest sub-scope after Retirement, ~1,500 lines) — `apps/mobile/src/features/portfolio/holdings/real-assets/` mirrors the web files above. `VehicleDetailModal`'s hand-rolled `fixed inset-0` overlay (no shared `Modal` import at all on web) was rebuilt on the real ported `Modal` component instead of translating CSS positioning that has no RN equivalent — same fix applied to two other hand-rolled overlays found in Retirement and one in IPO. `STATUS.x` colors → `useThemeColors()`, CSS Grid → `flex-row flex-wrap`. Vehicle RC/challan lookup (`core/vehicle/rcClient.ts` via `VEHICLE_PROXY`) already resolves correctly on native via `apiBase.native.ts`.
+
 ## Current limitations
 
 - Vehicle depreciation uses IRDA insurance category rates, which reflect insured value — not actual second-hand market resale value (which varies by condition, mileage, and demand).

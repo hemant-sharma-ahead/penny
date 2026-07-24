@@ -44,6 +44,8 @@ Penny's IPO Tracker shows you the full lifecycle of Indian IPOs — from announc
 - `src/core/ipo/useIpos.ts` — React hook for fetching, caching, and exposing IPO data to the UI.
 - `src/features/portfolio/PortfolioPage.tsx` — IPO tab rendering, detail modal, FY picker, search.
 
+**Mobile (`apps/mobile`):** ported in Track 4 (Portfolio module) — `apps/mobile/src/features/portfolio/ipo/` mirrors the web files above. `IpoDetailModal`'s hand-rolled `fixed inset-0` overlay was rebuilt on the real ported `Modal` component, same fix as Real Assets'/Retirement's hand-rolled overlays; its CSS-grid stat blocks became `flex-row flex-wrap` `StatBox` cells. The day-wise subscription table became a `flex-row` header + row list (no RN table primitive). `core/ipo/ipoClient.ts`'s IPO-list and historical-IPO caches both used synchronous `localStorage` (incompatible with RN) — fixed via `ipoClient.native.ts`, which keeps an in-memory-only cache (giving `forceRefresh`/`getCachedIpos` the same real meaning they have on web, just not persisted across cold app starts) rather than dropping the caching logic outright.
+
 ## Current limitations
 
 - Live data only — demo mode does not seed IPO data (intentionally skipped; live API is read-only and safe to call).

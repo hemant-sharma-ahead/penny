@@ -338,6 +338,23 @@ Superseded from this section's original sketch:
   `react-native-quick-crypto` (polyfills `crypto.subtle`, so `engine.ts`/`securityManager.ts` need no logic changes).
 - The component extraction in Pre-Phase 1.5 (semantic props API, no Tailwind leakage into feature code)
   is what made this migration's shared-core boundary clean to extract in Track 0.
+- **`react-native-reanimated`** (continuous/looping UI animation — e.g. a marquee ticker with no CSS
+  `@keyframes` equivalent), **`react-native-view-shot` + `expo-sharing`** (snapshot a rendered native view
+  to an image file and open the native share sheet — the RN replacement for `<canvas>` + Web Share API),
+  and **`expo-linear-gradient`** (RN has no CSS gradient syntax) were added in Track 4 (Home module) as the
+  first native deps introduced since Track 3 — see [`docs/plans/mobile-migration.md`](plans/mobile-migration.md)'s
+  Home progress-log entry for the specific gotchas each one solves. Track 4 (Expenses module) added
+  **`react-native-gesture-handler`** (swipe-to-reveal row actions — needs `GestureHandlerRootView`
+  wrapping the app root), **`expo-image-picker` + `expo-image-manipulator`** (receipt photo capture +
+  downscale/compress, the RN replacement for `<input type="file">` + `<canvas>`), and
+  **`expo-file-system`** (writing a file to disk before handing it to `expo-sharing` — CSV/ZIP export).
+  The Track C identity/auth prerequisite (ahead of Groups) added **`expo-constants`** (reads non-secret
+  config — the real deployed `penny-auth`/`penny-groups` worker URLs and the `VITE_ENABLE_SYNC` equivalent
+  — from `app.json`'s `extra` field, added to both `apps/mobile` and `packages/core` following the
+  `expo-sqlite`-in-`packages/core` precedent from Track 2). The Groups module port added
+  **`expo-clipboard`** (invite-link copy in `GroupMembersModal`, alongside RN's built-in `Share` API for
+  the invite share sheet — no new dep needed for that half) — see
+  [`docs/plans/mobile-migration.md`](plans/mobile-migration.md)'s Groups progress-log entry.
 
 ### Other Phase 2 items
 

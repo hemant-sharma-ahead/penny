@@ -42,6 +42,8 @@ Penny tracks physical and digital gold and silver holdings with live price data.
 - `src/features/portfolio/PortfolioPage.tsx` — Metals sub-tab, gold and silver card rendering.
 - `src/core/metals/metalsClient.ts` — `fetchMetalPrices()` and `goldPriceForKarat()` functions.
 
+**Mobile (`apps/mobile`):** ported in Track 4 (Portfolio module) — `apps/mobile/src/features/portfolio/holdings/precious-metals/` mirrors the web files above. `STATUS.x`/`var(--color-primary)` literals → `useThemeColors()`; the "Add Gold / Silver" trigger is a themed dashed-border `Pressable` (no dashed-button precedent existed yet in `apps/mobile`). Live gold/silver price fetch (`metalsClient.ts`, cached through `db.price_cache`) already resolves correctly on native via `apiBase.native.ts`, no changes needed.
+
 ## Current limitations
 
 - Jewellery making charges are not separately tracked — users must manually include them in the purchase price per gram or accept that current value excludes making charges.

@@ -57,7 +57,15 @@ export function TabStrip<T extends string>({ options, value, onChange, scrollabl
 
   if (!scrollable) return row;
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      // Without an explicit flexGrow: 0, a horizontal ScrollView placed as a flex child in a column
+      // layout stretches to fill all remaining vertical space (it becomes the tallest sibling), pushing
+      // its own content down to vertically center inside that oversized box instead of hugging its
+      // content height like the non-scrollable `row` above does.
+      style={{ flexGrow: 0 }}
+    >
       {row}
     </ScrollView>
   );

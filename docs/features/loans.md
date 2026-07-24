@@ -50,6 +50,8 @@ Key files:
 - `src/core/loans/amortization.ts` — month-by-month schedule generation
 - `src/core/loans/meta.ts` — loan-type metadata (label/icon/colour); `planExport.ts` — pure export builder
 
+**Mobile (`apps/mobile`):** ported in Track 4 (third module, after Subscriptions and Insurance) — `apps/mobile/src/features/loans/` mirrors the web files above 1:1 (`useLoans.ts`/`useLoanForm.ts`/`usePlanner.ts` unchanged beyond import paths). One capability gap, not a platform simplification: **the "Download XLSX" button is dropped** — it lazy-loads the `xlsx` package and calls its browser-only `writeFile` (triggers a DOM download), which has no RN equivalent without a native file-save/share flow this migration hasn't built (same "no export" scope as the PDF/HTML export already out of scope for the whole migration). Two platform notes matching Insurance's: `grid-cols-2`/`gridTemplateColumns` (loan-type picker, tenure/rate rows, the amortization table) become `flex-row`/`flex-wrap` layouts with `flex-1` or explicit-percentage-width children; a `var(--color-surface-secondary)`/`var(--color-primary)` CSS-var pair (the computed-EMI banner) is substituted with real theme hex. Back button dropped, same reasoning as Insurance.
+
 ## Current limitations
 
 - Loan balances must be updated manually; there is no automatic sync with lenders

@@ -84,6 +84,8 @@ Key files:
 - `src/features/iou/EntryForm.tsx` / `SettleUpModal.tsx` / `PersonForm.tsx` / `PersonPicker.tsx`
 - `src/core/iou/` — `ledger.ts` (balance math), `expenseLink.ts` (both-way reconcile: `reconcileExpenseLink` expense→IOU + `reconcileLinkedTxn` IOU→transaction), `aiLabels.ts`, `migration.ts`
 
+**Mobile (`apps/mobile`):** ported in Track 4 (fourth module) — `apps/mobile/src/features/iou/` mirrors the web files above 1:1 (`useIou.ts` unchanged beyond import paths and swapping `localStorage` for AsyncStorage in the one-time legacy-migration flag check). **Scoped as personal-only IOU for this port:** web's `IouView` reads `GroupContext` only to show one informational banner when the user has claimed a username and belongs to groups ("Your personal IOUs. Group balances live in each group."); since `GroupContext` (Phase 1.5's sync/multi-device machinery) isn't ported to mobile yet, that banner and its dependency are dropped entirely — the underlying ledger data model was already personal-only regardless, so no ledger behavior changes. Revisit once Groups lands on mobile. `PersonPicker`'s web version renders its suggestion list as a DOM-positioned overlay; the mobile port renders suggestions inline (normal document flow, pushes the form down) since RN has no absolute-overlay-over-siblings equivalent without a portal. Mobile also adds `IouPage.tsx`, a thin `PageHeader` wrapper — web never gives IOU its own page (always embedded as the Expenses module's IOU tab via `IouSlice.tsx`), but Expenses hasn't been ported yet, so this exists purely to make IOU a coherent standalone screen for the interim `AuthGuard` stand-in stage.
+
 ## Current limitations
 
 - Pairwise only — multi-party group splits (uneven shares / who-paid) arrive in Phase 1.5 Track E

@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Onboarding: today vs. proposed (Demo Mode first) — v2</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --primary:#00a86b; --primary-dark:#007a4e; --primary-light:#e1f5ee;
+        --indigo:#6366f1; --amber:#f59e0b; --danger:#dc2626; --info:#3b82f6; --purple:#7c3aed;
+        --ink:#0f172a; --sec:#475569; --ter:#94a3b8; --bg:#f4f7fa; --surface:#fff; --surface2:#f6f8fb; --border:#e8edf3;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#e6ebf1; color:var(--ink); -webkit-font-smoothing:antialiased; }
+      h1.page-title { text-align:center; margin:28px 16px 4px; font-size:22px; }
+      p.page-sub { text-align:center; margin:0 16px 10px; color:var(--sec); font-size:14px; max-width:720px; margin-left:auto; margin-right:auto; line-height:1.55; }
+
+      /* ---- Big section bands: TODAY vs PROPOSED ---- */
+      .band { padding:26px 0 8px; }
+      .band.today { background:#dfe4ea; }
+      .band.proposed { background:linear-gradient(180deg,#e7f7ef,#dfe4ea 3%); }
+      .band-title { max-width:1200px; margin:0 auto; padding:0 24px; display:flex; align-items:center; gap:12px; }
+      .band-title .badge { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; padding:5px 12px; border-radius:999px; }
+      .band.today .badge { background:#64748b; color:#fff; }
+      .band.proposed .badge { background:var(--primary); color:#fff; }
+      .band-title h2 { font-size:17px; margin:0; }
+      .band-title p { margin:2px 0 0; font-size:12.5px; color:var(--sec); }
+
+      .rowlabel { max-width:1200px; margin:22px auto 4px; padding:0 24px; font-size:12px; font-weight:800; color:var(--sec); display:flex; align-items:center; gap:8px; }
+      .rowlabel .dot { width:8px; height:8px; border-radius:50%; background:var(--ter); flex-shrink:0; }
+      .rowlabel.pathA .dot { background:var(--primary); }
+      .rowlabel.pathB .dot { background:var(--purple); }
+      .rowlabel small { font-weight:500; color:var(--ter); }
+
+      /* ---- Horizontal filmstrip ---- */
+      .filmstrip { display:flex; flex-wrap:nowrap; overflow-x:auto; align-items:flex-start; gap:2px; padding:10px 24px 30px; scroll-snap-type:x proximity; }
+      .filmstrip::-webkit-scrollbar { height:8px; }
+      .filmstrip::-webkit-scrollbar-thumb { background:#c3cbd6; border-radius:4px; }
+      .frame-wrap { width:264px; flex:0 0 264px; scroll-snap-align:start; }
+      .arrow-mid { flex:0 0 auto; color:var(--ter); font-size:20px; align-self:center; margin:0 4px 130px; }
+      .caption { margin-top:10px; font-size:11.5px; color:var(--sec); line-height:1.5; }
+      .caption b { color:var(--ink); }
+      .caption .tag { display:inline-block; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; margin-bottom:5px; }
+      .tag.new { background:color-mix(in srgb, var(--primary) 15%, #fff); color:var(--primary-dark); }
+      .tag.changed { background:color-mix(in srgb, var(--amber) 18%, #fff); color:#92400e; }
+      .tag.same { background:var(--surface2); color:var(--sec); }
+
+      .stepno { display:inline-flex; align-items:center; justify-content:center; width:19px; height:19px; border-radius:50%; background:var(--ink); color:#fff; font-size:10px; font-weight:800; flex-shrink:0; margin-right:5px; }
+
+      .phone { width:264px; height:572px; background:var(--bg); border-radius:30px; border:8px solid #0f172a; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 16px 38px rgba(15,23,42,.22); }
+      .statusbar { height:18px; background:#fff; flex-shrink:0; }
+      .screen { flex:1; overflow-y:auto; background:var(--surface); padding:15px 14px; scrollbar-width:none; display:flex; flex-direction:column; }
+      .screen::-webkit-scrollbar { display:none; }
+      .screen.tinted { background:var(--bg); }
+
+      .icon-badge { width:38px; height:38px; border-radius:14px; display:flex; align-items:center; justify-content:center; margin:0 auto 10px; }
+      .h2 { font-size:15.5px; font-weight:700; text-align:center; margin:0 0 4px; }
+      .subtext { font-size:10.5px; color:var(--sec); text-align:center; margin:0 0 13px; line-height:1.45; }
+
+      .pillar { display:flex; align-items:flex-start; gap:8px; background:var(--surface2); border:1px solid var(--border); border-radius:11px; padding:9px; margin-bottom:7px; position:relative; }
+      .pillar .ic { width:22px; height:22px; border-radius:7px; background:var(--primary); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .pillar .ic i { color:#fff; font-size:11px; }
+      .pillar .ic.alt { background:var(--indigo); }
+      .pillar .t { font-size:10.5px; font-weight:700; margin:0 0 1px; display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+      .pillar .d { font-size:9px; color:var(--sec); line-height:1.35; margin:0; }
+      .pillar.highlight { border-color:color-mix(in srgb, var(--primary) 45%, #fff); background:color-mix(in srgb, var(--primary) 7%, #fff); }
+      .pilltag { font-size:7.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:1.5px 5px; border-radius:999px; }
+      .pilltag.rewritten { background:#fef3c7; color:#92400e; }
+      .pilltag.newpill { background:color-mix(in srgb, var(--primary) 18%, #fff); color:var(--primary-dark); }
+
+      .btn { display:block; width:100%; text-align:center; border-radius:11px; padding:9.5px; font-size:12px; font-weight:700; border:none; cursor:pointer; }
+      .btn-primary { background:var(--primary); color:#fff; }
+      .btn-outline { background:#fff; border:1.5px solid var(--primary); color:var(--primary-dark); }
+      .btn-ghost { background:transparent; color:var(--sec); font-weight:600; text-decoration:underline; padding:7px; }
+      .btn + .btn { margin-top:8px; }
+
+      .field { margin-bottom:11px; }
+      .field label { display:block; font-size:10.5px; font-weight:700; color:var(--sec); margin-bottom:3px; }
+      .field input, .field .fake-input { width:100%; border:1.5px solid var(--border); border-radius:9px; padding:8px 9px; font-size:11.5px; color:var(--ink); background:#fff; }
+      .field .fake-input.mono { font-family:'SF Mono',ui-monospace,monospace; letter-spacing:.03em; font-weight:700; }
+      .field .hint { font-size:9px; color:var(--ter); margin-top:3px; line-height:1.4; }
+
+      .lock-caption { display:flex; align-items:flex-start; gap:5px; margin-top:4px; }
+      .lock-caption i { font-size:9.5px; color:var(--primary-dark); margin-top:1px; flex-shrink:0; }
+      .lock-caption.cloud i { color:var(--info); }
+      .lock-caption.public i { color:var(--amber); }
+      .lock-caption span { font-size:8.7px; color:var(--sec); line-height:1.4; }
+
+      .seg { display:flex; gap:4px; }
+      .seg .opt { flex:1; text-align:center; padding:6px 3px; border-radius:7px; border:1.5px solid var(--border); font-size:10px; font-weight:700; color:var(--sec); }
+      .seg .opt.on { background:var(--primary); border-color:var(--primary); color:#fff; }
+
+      .liferow { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); gap:8px; }
+      .liferow:last-child { border-bottom:none; }
+      .liferow .lbl { display:flex; align-items:center; gap:6px; font-size:10.5px; font-weight:600; color:var(--ink); flex-shrink:0; }
+      .liferow .lbl i { font-size:13px; color:var(--sec); width:15px; text-align:center; }
+      .chip { display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:700; border-radius:999px; padding:3px 7px 3px 8px; background:var(--surface2); color:var(--sec); }
+      .chip i { font-size:8px; color:var(--ter); }
+
+      .doorcard { display:flex; align-items:flex-start; gap:8px; border:1.5px solid var(--border); border-radius:14px; padding:10px; margin-bottom:9px; }
+      .doorcard .ic { width:30px; height:30px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .doorcard .t { font-size:11px; font-weight:800; margin:0 0 2px; }
+      .doorcard .d { font-size:8.7px; color:var(--sec); line-height:1.4; margin:0; }
+      .doorcard .chev { align-self:center; color:var(--ter); font-size:13px; flex-shrink:0; }
+
+      .optiontile { display:flex; flex-direction:column; align-items:center; gap:5px; border:1.5px solid var(--border); border-radius:13px; padding:10px 5px; }
+      .optiontile .ic { width:30px; height:30px; border-radius:10px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; }
+      .optiontile .lbl { font-size:9px; font-weight:700; color:var(--ink); }
+      .tilegrid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:12px; }
+
+      .backup-row { display:flex; align-items:center; gap:8px; border:1.5px solid var(--border); border-radius:11px; padding:9px; margin-bottom:8px; }
+      .backup-row.selected { border-color:var(--primary); background:color-mix(in srgb, var(--primary) 6%, #fff); }
+      .backup-row .ic { width:28px; height:28px; border-radius:9px; background:var(--surface2); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .backup-row .ic i { font-size:13px; color:var(--sec); }
+      .backup-row .t { font-size:10.5px; font-weight:700; margin:0; }
+      .backup-row .d { font-size:8.5px; color:var(--ter); margin:1px 0 0; }
+      .backup-row .radio { width:14px; height:14px; border-radius:50%; border:2px solid var(--border); flex-shrink:0; }
+      .backup-row.selected .radio { border-color:var(--primary); background:var(--primary); box-shadow:inset 0 0 0 3px #fff; }
+      .backup-row.disabled { opacity:.55; }
+
+      .demobar { display:flex; align-items:center; gap:7px; background:linear-gradient(90deg, var(--purple), #9333ea); padding:8px 11px; color:#fff; flex-shrink:0; }
+      .demobar i.dot { font-size:7px; }
+      .demobar .txt { flex:1; font-size:10px; font-weight:700; }
+      .demobar .txt small { display:block; font-weight:500; opacity:.85; font-size:8px; }
+      .demobar button { background:rgba(255,255,255,.22); border:none; color:#fff; font-size:9px; font-weight:700; border-radius:7px; padding:5px 8px; }
+
+      .header-strip { display:flex; align-items:center; justify-content:space-between; padding:0 0 10px; }
+      .header-strip .wm { font-weight:800; font-size:13px; }
+      .header-strip .icons { display:flex; gap:7px; color:var(--sec); font-size:14px; }
+
+      .netcard { background:var(--primary); color:#fff; border-radius:14px; padding:12px; margin-bottom:10px; }
+      .netcard .l { font-size:10px; opacity:.85; margin:0 0 2px; }
+      .netcard .v { font-size:18px; font-weight:700; margin:0; }
+      .modtiles { display:grid; grid-template-columns:repeat(2,1fr); gap:7px; margin-bottom:10px; }
+      .modtile { background:#fff; border-radius:11px; padding:9px; }
+      .modtile .t { font-size:9px; color:var(--sec); font-weight:600; margin:0 0 3px; }
+      .modtile .v { font-size:11px; font-weight:700; margin:0; }
+
+      .modal-overlay { position:absolute; inset:0; background:rgba(15,23,42,.5); display:flex; align-items:center; justify-content:center; padding:18px; }
+      .modal-card { background:#fff; border-radius:16px; padding:18px 15px; width:100%; }
+
+      .strength-meter { display:flex; gap:3px; margin:5px 0 3px; }
+      .strength-meter .bar { height:4px; flex:1; border-radius:2px; background:var(--border); }
+      .strength-meter .bar.on { background:var(--primary); }
+
+      .ghost-card { width:264px; height:572px; border:2px dashed #b6bfcc; border-radius:30px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; text-align:center; padding:20px; color:var(--ter); background:rgba(255,255,255,.4); }
+      .ghost-card i { font-size:26px; }
+      .ghost-card .t { font-size:12px; font-weight:800; color:var(--sec); }
+      .ghost-card .d { font-size:10.5px; line-height:1.5; }
+
+      .mergebar { max-width:1200px; margin:0 auto; padding:2px 24px 0; display:flex; align-items:center; gap:10px; color:var(--ter); font-size:11.5px; font-weight:700; }
+      .mergebar .line { flex:1; height:1px; background:var(--border); }
+
+      .notebox { max-width:1200px; margin:20px auto 60px; padding:0 24px; }
+      .notebox .inner { background:#fff; border:1px solid var(--border); border-radius:14px; padding:16px 18px; font-size:12.5px; color:var(--sec); line-height:1.7; }
+      .notebox b { color:var(--ink); }
+      .notebox ul { margin:6px 0 0; padding-left:18px; }
+    </style>
+  </head>
+  <body>
+    <h1 class="page-title">Onboarding — today vs. proposed, side by side</h1>
+    <p class="page-sub">
+      Top band is the <b>live app today</b>, unmodified, for reference. Bottom band is the <b>proposed</b> flow —
+      Demo Mode first, real setup on exit — laid out as a horizontal filmstrip with the fork made explicit as two
+      parallel rows that converge back into one. Scroll each row sideways to follow it in order.
+    </p>
+
+    <!-- ======================================================================= -->
+    <!-- BAND 1 — TODAY (current, unmodified) -->
+    <!-- ======================================================================= -->
+    <div class="band today">
+      <div class="band-title">
+        <span class="badge">Today</span>
+        <div><h2>The live flow, as it exists right now</h2><p>No proposed changes shown in this band — pure reference, so the diff below is obvious.</p></div>
+      </div>
+
+      <div class="filmstrip">
+        <!-- Privacy Promise (current) -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="screen">
+              <div class="icon-badge" style="background:var(--primary);"><i class="ti ti-shield-check" style="color:#fff;font-size:18px;"></i></div>
+              <h2 class="h2">Our privacy promise</h2>
+              <p class="subtext">We built Penny for people who want wealth tools without surveillance.</p>
+              <div class="pillar">
+                <div class="ic"><i class="ti ti-server-off"></i></div>
+                <div><p class="t">0 bytes to servers</p><p class="d">Your financial data never leaves your device. No cloud sync, no backup service, no analytics.</p></div>
+              </div>
+              <div class="pillar">
+                <div class="ic"><i class="ti ti-world"></i></div>
+                <div><p class="t">7 permitted domains</p><p class="d">api.anthropic.com · api.mfapi.in · query.yahoofinance.com · npsnav.in · …</p></div>
+              </div>
+              <div class="pillar">
+                <div class="ic"><i class="ti ti-eye-off"></i></div>
+                <div><p class="t">0 trackers</p><p class="d">No analytics SDK, no crash reporter, no ad pixel.</p></div>
+              </div>
+              <div class="pillar">
+                <div class="ic"><i class="ti ti-lock"></i></div>
+                <div><p class="t">AES-256-GCM encryption</p><p class="d">Everything sensitive is encrypted on your device using your passphrase before it touches storage.</p></div>
+              </div>
+              <div style="margin-top:auto;padding-top:6px;">
+                <button class="btn btn-primary">I'm in — continue</button>
+              </div>
+            </div>
+          </div>
+          <div class="caption"><b>Privacy Promise</b> — 4 pillars, in this exact order. Pillar 1's claim ("no backup service") is now stale since backup shipped.</div>
+        </div>
+        <div class="arrow-mid"><i class="ti ti-arrow-right"></i></div>
+
+        <!-- Privacy Demo -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="screen">
+              <div class="icon-badge" style="background:var(--primary);"><i class="ti ti-eye-off" style="color:#fff;font-size:18px;"></i></div>
+              <h2 class="h2">See encryption in action</h2>
+              <p class="subtext">Type anything — watch it become unreadable ciphertext instantly.</p>
+              <div class="field">
+                <label style="text-transform:uppercase;font-size:9px;letter-spacing:.04em;color:var(--ter);">Your text</label>
+                <div class="fake-input" style="min-height:46px;">My salary is ₹80,000 per month</div>
+              </div>
+              <div class="field">
+                <label style="text-transform:uppercase;font-size:9px;letter-spacing:.04em;color:var(--ter);">What Penny stores</label>
+                <div style="background:#0f172a;border-radius:9px;padding:10px;font-family:'SF Mono',ui-monospace,monospace;font-size:9px;color:#34d399;line-height:1.45;word-break:break-all;">HbdAn+wYZ44XXrCC.0dPqab2T2G5DH+QFdjcc9hWcoxIhyGgAYftTJJBpJja75NiFC1K1vu7DO3IqmrRl</div>
+              </div>
+              <button class="btn btn-primary" style="margin-top:auto;">Got it — meet Chip</button>
+            </div>
+          </div>
+          <div class="caption"><b>Privacy Demo</b> — interactive, re-encrypts live as you type.</div>
+        </div>
+        <div class="arrow-mid"><i class="ti ti-arrow-right"></i></div>
+
+        <!-- Chip Intro -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="screen">
+              <div class="icon-badge" style="background:var(--primary);"><i class="ti ti-sparkles" style="color:#fff;font-size:18px;"></i></div>
+              <h2 class="h2">Meet Chip</h2>
+              <p class="subtext">Your AI money coach. Context-aware, always shows its reasoning, never shares your data.</p>
+              <div class="pillar">
+                <div class="ic"><i class="ti ti-trending-up"></i></div>
+                <div><p class="t">Portfolio</p><p class="d">Your SIP has underperformed its benchmark by 2.3% over 12 months.</p></div>
+              </div>
+              <div class="pillar">
+                <div class="ic"><i class="ti ti-calendar-due"></i></div>
+                <div><p class="t">Tax</p><p class="d">₹32,000 of your ₹1.5L 80C limit is still unused.</p></div>
+              </div>
+              <button class="btn btn-primary" style="margin-top:auto;">See my dashboard</button>
+            </div>
+          </div>
+          <div class="caption"><b>Chip Intro</b> — sample insights before the dashboard preview.</div>
+        </div>
+        <div class="arrow-mid"><i class="ti ti-arrow-right"></i></div>
+
+        <!-- Simulated Dashboard (current, single CTA) -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="screen">
+              <h2 class="h2">Here's a preview</h2>
+              <p class="subtext">Sample data — your real numbers will look like this.</p>
+              <div class="netcard"><p class="l">Net worth</p><p class="v">₹24,80,000</p></div>
+              <div class="modtiles">
+                <div class="modtile"><p class="t"><i class="ti ti-chart-pie"></i> Portfolio</p><p class="v">₹9,80,000</p></div>
+                <div class="modtile"><p class="t"><i class="ti ti-wallet"></i> Expenses</p><p class="v">₹42,300</p></div>
+                <div class="modtile"><p class="t"><i class="ti ti-target"></i> Goals</p><p class="v">2 active</p></div>
+                <div class="modtile"><p class="t"><i class="ti ti-shield"></i> Insurance</p><p class="v">₹1.5Cr</p></div>
+              </div>
+              <button class="btn btn-primary" style="margin-top:auto;">Set up my account</button>
+            </div>
+          </div>
+          <div class="caption"><b>Simulated Dashboard</b> — one button today, straight into the three doors below.</div>
+        </div>
+        <div class="arrow-mid"><i class="ti ti-arrow-right"></i></div>
+
+        <!-- Account Start — Screen A: three doors (current) -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="screen">
+              <div class="icon-badge" style="background:var(--primary);"><i class="ti ti-user-shield" style="color:#fff;font-size:18px;"></i></div>
+              <h2 class="h2" style="font-size:14px;">How would you like to start?</h2>
+              <p class="subtext">New to Penny, or coming back after a reinstall, a new device, or erasing your data?</p>
+              <div class="doorcard">
+                <div class="ic" style="background:color-mix(in srgb, var(--primary) 14%, #fff);"><i class="ti ti-sparkles" style="color:var(--primary);font-size:15px;"></i></div>
+                <div style="flex:1;"><p class="t">Start fresh</p><p class="d">New to Penny — or starting over with nothing to restore. Sets up a brand-new account.</p></div>
+                <i class="ti ti-chevron-right chev"></i>
+              </div>
+              <div class="doorcard">
+                <div class="ic" style="background:color-mix(in srgb, var(--indigo) 14%, #fff);"><i class="ti ti-cloud-download" style="color:var(--indigo);font-size:15px;"></i></div>
+                <div style="flex:1;"><p class="t">Restore from backup</p><p class="d">Bring back your data, groups &amp; handle from Drive, iCloud, or a file. Needs your passphrase.</p></div>
+                <i class="ti ti-chevron-right chev"></i>
+              </div>
+              <div class="doorcard">
+                <div class="ic" style="background:color-mix(in srgb, var(--amber) 16%, #fff);"><i class="ti ti-id-badge-2" style="color:var(--amber);font-size:15px;"></i></div>
+                <div style="flex:1;"><p class="t">Reclaim my handle</p><p class="d">No backup? Recover your username with your passphrase. Personal data still needs a backup.</p></div>
+                <i class="ti ti-chevron-right chev"></i>
+              </div>
+            </div>
+          </div>
+          <div class="caption"><b>Account Start — Screen A</b> ("How would you like to start?"). Tapping a card opens Screen B below with that tab pre-selected.</div>
+        </div>
+        <div class="arrow-mid"><i class="ti ti-arrow-right"></i></div>
+
+        <!-- Account Start — Screen B: tabs (current) -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="screen">
+              <div class="icon-badge" style="background:var(--primary);"><i class="ti ti-sparkles" style="color:#fff;font-size:18px;"></i></div>
+              <h2 class="h2">Set up your account</h2>
+              <p class="subtext">Create a new account in a couple of steps.</p>
+              <div class="seg" style="margin-bottom:14px;"><div class="opt on">Start fresh</div><div class="opt">Restore</div><div class="opt">Reclaim</div></div>
+              <p style="font-size:10.5px;color:var(--sec);line-height:1.55;">We'll ask for a few basics, then set your passphrase and PIN to create your encrypted vault. Nothing leaves your device.</p>
+              <button class="btn btn-primary" style="margin-top:auto;">Continue</button>
+            </div>
+          </div>
+          <div class="caption"><b>Account Start — Screen B</b> — same three choices as segmented tabs, so you can still switch.</div>
+        </div>
+        <div class="arrow-mid"><i class="ti ti-arrow-right"></i></div>
+
+        <!-- Let us know you (current) -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="screen">
+              <div class="icon-badge" style="background:var(--primary);"><i class="ti ti-user-heart" style="color:#fff;font-size:18px;"></i></div>
+              <h2 class="h2">Let us know you</h2>
+              <p class="subtext">A few details so Penny can personalise your numbers.</p>
+              <div class="field"><label>Full name</label><div class="fake-input">Aarav Sharma</div></div>
+              <div class="field"><label>Username</label><div class="fake-input">aarav_s</div></div>
+              <div class="field"><label>Date of birth</label><div class="fake-input">14 / 03 / 1994</div></div>
+              <button class="btn btn-primary" style="margin-top:auto;">Continue</button>
+            </div>
+          </div>
+          <div class="caption"><b>Let us know you</b> — name, username, DOB, employment. No "where it's stored" captions today.</div>
+        </div>
+        <div class="arrow-mid"><i class="ti ti-arrow-right"></i></div>
+
+        <!-- Setup Credentials (current) -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="screen">
+              <div class="icon-badge" style="background:var(--primary);"><i class="ti ti-lock-square" style="color:#fff;font-size:18px;"></i></div>
+              <h2 class="h2">Set up your vault</h2>
+              <p class="subtext">A random key encrypts everything; your passphrase locks that key and never leaves your device.</p>
+              <div class="field">
+                <label>Passphrase</label>
+                <div class="fake-input">••••••••••••</div>
+                <div class="strength-meter"><div class="bar on"></div><div class="bar on"></div><div class="bar on"></div><div class="bar"></div></div>
+              </div>
+              <div class="field"><label>6-digit PIN</label><div class="fake-input mono">• • • • • •</div></div>
+              <div class="field"><label>Confirm PIN</label><div class="fake-input mono">• • • • • •</div></div>
+              <button class="btn btn-primary" style="margin-top:auto;">Create account</button>
+            </div>
+          </div>
+          <div class="caption"><b>Setup Credentials</b> — then straight into the app with demo data auto-seeded, no banner, no way back to "just exploring."</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- BAND 2 — PROPOSED -->
+    <!-- ======================================================================= -->
+    <div class="band proposed">
+      <div class="band-title">
+        <span class="badge">Proposed</span>
+        <div><h2>Demo Mode first — real setup only when you choose it</h2><p>Same intro screens, then a fork: explore immediately, or set up for real straight away. Both converge before the personal questions.</p></div>
+      </div>
+
+      <div class="rowlabel">Shared by everyone <small>— identical for both paths</small></div>
+      <div class="filmstrip">
+        <!-- 1. Privacy Promise (enriched) -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="screen">
+              <div class="icon-badge" style="background:var(--primary);"><i class="ti ti-shield-check" style="color:#fff;font-size:18px;"></i></div>
+              <h2 class="h2"><span class="stepno">1</span>Our privacy promise</h2>
+              <p class="subtext">We built Penny for people who want wealth tools without surveillance.</p>
+              <div class="pillar">
+                <div class="ic"><i class="ti ti-server-off"></i></div>
+                <div><p class="t">0 bytes readable by us <span class="pilltag rewritten">rewritten</span></p><p class="d">Our servers only ever see your handle and scrambled data they can't unlock — never your real numbers.</p></div>
+              </div>
+              <div class="pillar">
+                <div class="ic"><i class="ti ti-world"></i></div>
+                <div><p class="t">7 permitted domains</p><p class="d">api.anthropic.com · api.mfapi.in · query.yahoofinance.com · npsnav.in · …</p></div>
+              </div>
+              <div class="pillar">
+                <div class="ic"><i class="ti ti-eye-off"></i></div>
+                <div><p class="t">0 trackers</p><p class="d">No analytics SDK, no crash reporter, no ad pixel.</p></div>
+              </div>
+              <div class="pillar">
+                <div class="ic"><i class="ti ti-lock"></i></div>
+                <div><p class="t">AES-256-GCM encryption</p><p class="d">Everything sensitive is encrypted on your device before it ever touches storage.</p></div>
+              </div>
+              <div class="pillar highlight">
+                <div class="ic alt"><i class="ti ti-cloud-lock"></i></div>
+                <div><p class="t">Your backup, your cloud <span class="pilltag newpill">new</span></p><p class="d">If you back up, it goes to your own Google Drive or iCloud — never ours — still encrypted the whole way.</p></div>
+              </div>
+              <div style="margin-top:auto;padding-top:6px;"><button class="btn btn-primary">I'm in — continue</button></div>
+            </div>
+          </div>
+          <div class="caption"><span class="tag changed">Changed</span> Same 4 pillars, <b>same order</b> as Today — only pillar 1's text is rewritten (it was stale) and one new pillar is appended at the end. Nothing reordered or removed.</div>
+        </div>
+        <div class="arrow-mid"><i class="ti ti-arrow-right"></i></div>
+
+        <!-- 2. Privacy Demo (ghost) -->
+        <div class="frame-wrap">
+          <div class="ghost-card">
+            <i class="ti ti-eye-off"></i>
+            <div class="t"><span class="stepno" style="background:var(--ter);">2</span>Privacy Demo</div>
+            <div class="d">Identical to Today — "See encryption in action." See the Today band above.</div>
+          </div>
+          <div class="caption"><span class="tag same">Unchanged</span> Same screen as Today, step 2.</div>
+        </div>
+        <div class="arrow-mid"><i class="ti ti-arrow-right"></i></div>
+
+        <!-- 3. Chip Intro (ghost) -->
+        <div class="frame-wrap">
+          <div class="ghost-card">
+            <i class="ti ti-sparkles"></i>
+            <div class="t"><span class="stepno" style="background:var(--ter);">3</span>Chip Intro</div>
+            <div class="d">Identical to Today — "Meet Chip." See the Today band above.</div>
+          </div>
+          <div class="caption"><span class="tag same">Unchanged</span> Same screen as Today, step 3.</div>
+        </div>
+        <div class="arrow-mid"><i class="ti ti-arrow-right"></i></div>
+
+        <!-- 4. Simulated Dashboard fork -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="screen">
+              <h2 class="h2"><span class="stepno">4</span>Here's a preview</h2>
+              <p class="subtext">Sample data — your real numbers will look like this.</p>
+              <div class="netcard"><p class="l">Net worth</p><p class="v">₹24,80,000</p></div>
+              <div class="modtiles">
+                <div class="modtile"><p class="t"><i class="ti ti-chart-pie"></i> Portfolio</p><p class="v">₹9,80,000</p></div>
+                <div class="modtile"><p class="t"><i class="ti ti-wallet"></i> Expenses</p><p class="v">₹42,300</p></div>
+                <div class="modtile"><p class="t"><i class="ti ti-target"></i> Goals</p><p class="v">2 active</p></div>
+                <div class="modtile"><p class="t"><i class="ti ti-shield"></i> Insurance</p><p class="v">₹1.5Cr</p></div>
+              </div>
+              <button class="btn btn-primary" style="margin-top:auto;">Explore with Demo Data</button>
+              <button class="btn btn-outline">Setup my Account</button>
+            </div>
+          </div>
+          <div class="caption"><span class="tag changed">Changed</span> One button becomes two — this is the fork. Follow the row below matching the button you'd tap.</div>
+        </div>
+      </div>
+
+      <div class="mergebar"><span>⤵ forks into two paths here ⤵</span><div class="line"></div></div>
+
+      <div class="rowlabel pathA"><span class="dot"></span>Path A <small>— tapped "Setup my Account"</small></div>
+      <div class="filmstrip">
+        <!-- 5a. Account Start Screen A — doors (ghost, unchanged) -->
+        <div class="frame-wrap">
+          <div class="ghost-card" style="border-color:color-mix(in srgb, var(--primary) 45%, #b6bfcc);">
+            <i class="ti ti-user-shield" style="color:var(--primary);"></i>
+            <div class="t" style="color:var(--primary-dark);"><span class="stepno" style="background:var(--primary);">5a</span>Account Start — Screen A</div>
+            <div class="d">"How would you like to start?" — the three doors (Start fresh / Restore / Reclaim). Identical to Today — see the Today band above.</div>
+          </div>
+          <div class="caption"><span class="tag same">Unchanged</span> Same screen as Today.</div>
+        </div>
+        <div class="arrow-mid"><i class="ti ti-arrow-right"></i></div>
+
+        <!-- 5b. Account Start Screen B — tabs (ghost, unchanged) -->
+        <div class="frame-wrap">
+          <div class="ghost-card" style="border-color:color-mix(in srgb, var(--primary) 45%, #b6bfcc);">
+            <i class="ti ti-sparkles" style="color:var(--primary);"></i>
+            <div class="t" style="color:var(--primary-dark);"><span class="stepno" style="background:var(--primary);">5b</span>Account Start — Screen B</div>
+            <div class="d">Same three choices as segmented tabs. Identical to Today — see the Today band above.</div>
+          </div>
+          <div class="caption"><span class="tag same">Unchanged</span> "Start fresh" → Continue skips Demo Mode entirely, straight to step 8.</div>
+        </div>
+        <div class="arrow-mid"><i class="ti ti-arrow-right"></i></div>
+        <div class="frame-wrap">
+          <div class="ghost-card" style="border-style:solid;border-color:var(--primary); background:color-mix(in srgb, var(--primary) 5%, #fff);">
+            <i class="ti ti-corner-down-right" style="color:var(--primary);"></i>
+            <div class="t" style="color:var(--primary-dark);">Straight to step 8</div>
+            <div class="d">Never touches Demo Mode. Restore/Reclaim tabs work exactly as they do today too.</div>
+          </div>
+          <div class="caption">This path is the shortest — for someone who already knows they want the real thing.</div>
+        </div>
+      </div>
+
+      <div class="rowlabel pathB"><span class="dot"></span>Path B <small>— tapped "Explore with Demo Data"</small></div>
+      <div class="filmstrip">
+        <!-- 6. Demo vault -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="screen">
+              <div class="icon-badge" style="background:var(--purple);"><i class="ti ti-flask" style="color:#fff;font-size:18px;"></i></div>
+              <h2 class="h2"><span class="stepno" style="background:var(--purple);">6</span>Exploring in Demo Mode</h2>
+              <p class="subtext">We've set a temporary PIN and passphrase just so the sample data can be encrypted like the real thing.</p>
+              <div class="field"><label>Temporary PIN</label><div class="fake-input mono">1 2 3 4 5 6</div></div>
+              <div class="field"><label>Temporary passphrase</label><div class="fake-input mono">explore-penny-demo</div></div>
+              <div class="lock-caption" style="margin:2px 0 12px;"><i class="ti ti-info-circle"></i><span>Nothing here is real — cleared along with the sample data when you exit.</span></div>
+              <button class="btn btn-primary" style="margin-top:auto;">Continue exploring</button>
+            </div>
+          </div>
+          <div class="caption"><span class="tag new">New</span> Info card, nothing to type — confirmed direction.</div>
+        </div>
+        <div class="arrow-mid"><i class="ti ti-arrow-right"></i></div>
+
+        <!-- 7. Home in Demo Mode -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="demobar">
+              <i class="ti ti-flask dot"></i>
+              <div class="txt"><span class="stepno" style="background:rgba(255,255,255,.3);">7</span>Demo Mode<small>Exploring with sample data</small></div>
+              <button>Exit Demo Mode</button>
+            </div>
+            <div class="screen tinted">
+              <div class="header-strip"><span class="wm">Penny</span><div class="icons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div></div>
+              <div class="netcard"><p class="l">Net worth</p><p class="v">₹24,80,000</p></div>
+              <div class="modtiles">
+                <div class="modtile"><p class="t"><i class="ti ti-chart-pie"></i> Portfolio</p><p class="v">₹9,80,000</p></div>
+                <div class="modtile"><p class="t"><i class="ti ti-wallet"></i> Expenses</p><p class="v">₹42,300</p></div>
+                <div class="modtile"><p class="t"><i class="ti ti-target"></i> Goals</p><p class="v">2 active</p></div>
+                <div class="modtile"><p class="t"><i class="ti ti-shield"></i> Insurance</p><p class="v">₹1.5Cr</p></div>
+              </div>
+            </div>
+          </div>
+          <div class="caption"><span class="tag new">New</span> Persistent banner. Anything added here still counts as demo data — "Clear sample data" already wipes every financial table wholesale.</div>
+        </div>
+        <div class="arrow-mid"><i class="ti ti-arrow-right"></i></div>
+
+        <!-- Exit confirm modal -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="screen" style="padding:0;">
+              <div class="modal-overlay">
+                <div class="modal-card">
+                  <div class="icon-badge" style="background:var(--primary-light);"><i class="ti ti-sparkles" style="color:var(--primary-dark);font-size:18px;"></i></div>
+                  <h2 class="h2">Ready to make it yours?</h2>
+                  <p class="subtext">We'll clear this sample data and walk you through setting up your real account.</p>
+                  <button class="btn btn-primary">Continue</button>
+                  <button class="btn btn-ghost">Not yet</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="caption"><span class="tag new">New</span> Confirms intent before wiping — cheap insurance against an accidental tap.</div>
+        </div>
+      </div>
+
+      <div class="mergebar"><span>⤵ both paths converge here ⤵</span><div class="line"></div></div>
+
+      <div class="rowlabel">Real setup <small>— same sequence, whichever path got you here</small></div>
+      <div class="filmstrip">
+        <!-- 8. Let us know you -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="screen">
+              <div class="icon-badge" style="background:var(--primary);"><i class="ti ti-user-heart" style="color:#fff;font-size:18px;"></i></div>
+              <h2 class="h2"><span class="stepno">8</span>Let us know you</h2>
+              <p class="subtext">A few details so Penny can personalise your numbers.</p>
+              <div class="field">
+                <label>Full name</label><div class="fake-input">Aarav Sharma</div>
+                <div class="lock-caption"><i class="ti ti-device-mobile"></i><span>Stays on this device, encrypted — never sent to our servers.</span></div>
+              </div>
+              <div class="field">
+                <label>Username</label><div class="fake-input">aarav_s</div>
+                <div class="lock-caption public"><i class="ti ti-world"></i><span>Public — how others find you for sharing and recovery.</span></div>
+              </div>
+              <button class="btn btn-primary" style="margin-top:auto;">Continue</button>
+            </div>
+          </div>
+          <div class="caption"><span class="tag changed">Changed</span> Same fields as Today, now with a second "where it lives" caption per field.</div>
+        </div>
+        <div class="arrow-mid"><i class="ti ti-arrow-right"></i></div>
+
+        <!-- 9. Life & household -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="screen">
+              <div class="icon-badge" style="background:var(--indigo);"><i class="ti ti-home-heart" style="color:#fff;font-size:18px;"></i></div>
+              <h2 class="h2"><span class="stepno">9</span>A bit more about you</h2>
+              <p class="subtext">Optional — unlocks personalised goals. Skip and add it later in Edit Profile.</p>
+              <div class="liferow"><span class="lbl"><i class="ti ti-heart"></i>Relationship</span><div class="seg" style="width:120px;"><div class="opt">Single</div><div class="opt on">Married</div></div></div>
+              <div class="liferow"><span class="lbl"><i class="ti ti-home"></i>Home</span><div class="seg" style="width:100px;"><div class="opt on">Own</div><div class="opt">Rent</div></div></div>
+              <div class="liferow"><span class="lbl"><i class="ti ti-baby-carriage"></i>Children</span><div><span class="chip">2019<i class="ti ti-x"></i></span></div></div>
+              <div class="lock-caption" style="margin:10px 0 12px;"><i class="ti ti-device-mobile"></i><span>Encrypted on-device. Only ever leaves as a 5-year age band.</span></div>
+              <button class="btn btn-primary" style="margin-top:auto;">Continue</button>
+              <button class="btn btn-ghost">Skip for now</button>
+            </div>
+          </div>
+          <div class="caption"><span class="tag new">New screen</span> Pulled forward from Edit Profile's existing "Life & household" block.</div>
+        </div>
+        <div class="arrow-mid"><i class="ti ti-arrow-right"></i></div>
+
+        <!-- 10. Add accounts -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="screen">
+              <div class="icon-badge" style="background:var(--info);"><i class="ti ti-building-bank" style="color:#fff;font-size:18px;"></i></div>
+              <h2 class="h2"><span class="stepno">10</span>Add your accounts</h2>
+              <p class="subtext">Optional — add the ones you'll track expenses from.</p>
+              <div class="tilegrid">
+                <div class="optiontile"><div class="ic" style="background:#10b981;"><i class="ti ti-cash"></i></div><span class="lbl">Cash</span></div>
+                <div class="optiontile" style="border-color:var(--primary);"><div class="ic" style="background:#3b82f6;"><i class="ti ti-building-bank"></i></div><span class="lbl">Bank ✓</span></div>
+                <div class="optiontile"><div class="ic" style="background:#ef4444;"><i class="ti ti-credit-card"></i></div><span class="lbl">Credit Card</span></div>
+                <div class="optiontile"><div class="ic" style="background:#8b5cf6;"><i class="ti ti-wallet"></i></div><span class="lbl">Wallet</span></div>
+              </div>
+              <div class="field"><label>Bank account name</label><div class="fake-input">HDFC Savings</div></div>
+              <button class="btn btn-primary" style="margin-top:auto;">Continue</button>
+            </div>
+          </div>
+          <div class="caption"><span class="tag new">New screen</span> Real <code>ACCOUNT_TYPES</code> icons/colours. Skippable.</div>
+        </div>
+        <div class="arrow-mid"><i class="ti ti-arrow-right"></i></div>
+
+        <!-- 11. Backup -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="screen">
+              <div class="icon-badge" style="background:var(--amber);"><i class="ti ti-cloud-lock" style="color:#fff;font-size:18px;"></i></div>
+              <h2 class="h2"><span class="stepno">11</span>Back up your data</h2>
+              <p class="subtext">Your data lives only on this device unless you back it up.</p>
+              <div class="backup-row"><div class="ic"><i class="ti ti-device-mobile"></i></div><div style="flex:1;"><p class="t">This device only</p><p class="d">A lost phone means lost data.</p></div><div class="radio"></div></div>
+              <div class="backup-row selected"><div class="ic"><i class="ti ti-brand-google-drive"></i></div><div style="flex:1;"><p class="t">Google Drive</p><p class="d">Encrypted before it leaves your device.</p></div><div class="radio"></div></div>
+              <div class="backup-row disabled"><div class="ic"><i class="ti ti-brand-apple"></i></div><div style="flex:1;"><p class="t">iCloud</p><p class="d">Native app only — coming soon.</p></div><div class="radio"></div></div>
+              <button class="btn btn-primary" style="margin-top:auto;">Continue with Drive</button>
+            </div>
+          </div>
+          <div class="caption"><span class="tag new">New screen</span> Mirrors the real <code>AutoBackupCard</code>. Drive OAuth-launch bug is separate follow-up work.</div>
+        </div>
+        <div class="arrow-mid"><i class="ti ti-arrow-right"></i></div>
+
+        <!-- 12. Real vault -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="screen">
+              <div class="icon-badge" style="background:var(--primary);"><i class="ti ti-lock-square" style="color:#fff;font-size:18px;"></i></div>
+              <h2 class="h2"><span class="stepno">12</span>Set up your vault</h2>
+              <p class="subtext">This is the one that matters — a random key encrypts everything, and your passphrase is the only way to recover it.</p>
+              <div class="field">
+                <label>Passphrase</label><div class="fake-input">••••••••••••</div>
+                <div class="strength-meter"><div class="bar on"></div><div class="bar on"></div><div class="bar on"></div><div class="bar"></div></div>
+                <div class="hint">Strong. Write it down somewhere safe.</div>
+              </div>
+              <div class="field"><label>6-digit PIN</label><div class="fake-input mono">• • • • • •</div></div>
+              <button class="btn btn-primary" style="margin-top:auto;">Create my vault</button>
+            </div>
+          </div>
+          <div class="caption"><span class="tag changed">Tone only</span> Identical fields/flow to Today's Setup Credentials — copy nudged more consequential; demo PIN/passphrase stop working the moment this completes.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notebox">
+      <div class="inner">
+        <b>Small things still open — flag if any need a different call:</b>
+        <ul>
+          <li>Exact demo PIN/passphrase values (step 6) are placeholders — real copy TBD.</li>
+          <li>"Add your accounts" (step 10) allows an opening balance — confirm that's wanted at setup time vs. deferred to first use.</li>
+          <li>Demo Mode banner colour uses purple — open to a different treatment if it clashes anywhere.</li>
+          <li>The Google Drive OAuth-launch bug (step 11) is separate follow-up work, not blocked on this flow shipping.</li>
+        </ul>
+      </div>
+    </div>
+  </body>
+</html>

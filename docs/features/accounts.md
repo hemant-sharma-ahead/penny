@@ -36,6 +36,8 @@ Key files:
 - `src/core/accounts/meta.ts` — account-type metadata (label/icon/colour); `balanceCalculator.ts` — balance math
 - `src/features/expenses/ExpenseForm.tsx` — handles income and transfer type transactions (which update account balances)
 
+**Mobile (`apps/mobile`):** ported in Track 4 (sixth module) — `apps/mobile/src/features/accounts/` mirrors the web files above 1:1 (`useAccounts.ts`/`useAccountForm.ts` unchanged beyond import paths). Surfaced a real bug in **shared `packages/core`**: `useDataRefresh.ts`'s cross-instance refresh signals (`useAccountsRefresh`/`useCategoriesRefresh`/`useTagsRefresh`) used the same browser-only `window` events as `useTxnRefresh` (already fixed for IOU) — fixed proactively with `packages/core/src/hooks/useDataRefresh.native.ts` before it could crash on-device. `ReconcileModal`'s `ink()`/`STATUS` usage swaps to `~/lib/color`'s `ink(color, theme.textPrimary)` (mobile's version takes the "toward" color as an explicit argument, since there's no CSS var to default to) — same pattern as other modules. `AccountFormModal` reuses the shared `FormModal` (web used a raw `Modal` here) for consistency with every other add/edit form ported so far. Back button dropped, same reasoning as Insurance/Loans/IOU.
+
 ## Current limitations
 
 - Balances must be seeded with an accurate opening balance; there is no way to import existing transaction history from a bank automatically

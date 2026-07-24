@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Categories: folder-grid proposal</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --ink:#0f172a; --sec:#475569; --ter:#94a3b8; --bg:#f4f7fa; --surface:#fff; --surface2:#f6f8fb; --border:#e8edf3; --primary:#00a86b;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#e6ebf1; color:var(--ink); -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:28px 16px 4px; font-size:21px; }
+      .sub { text-align:center; margin:0 16px 8px; color:var(--sec); font-size:13.5px; max-width:560px; margin-left:auto; margin-right:auto; line-height:1.5; }
+      .rule { max-width:600px; margin:14px auto 26px; background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px 16px; font-size:12.5px; color:var(--sec); line-height:1.6; }
+      .rule b { color:var(--ink); }
+      .gallery { display:flex; flex-wrap:wrap; gap:34px; justify-content:center; align-items:flex-start; padding:0 20px 70px; }
+      .frame-wrap { width:336px; }
+      .caption { margin-top:12px; font-size:12.5px; color:var(--sec); line-height:1.55; text-align:center; }
+      .caption b { color:var(--ink); }
+      .phone { width:336px; height:730px; background:var(--bg); border-radius:34px; border:10px solid #0f172a; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(15,23,42,.25); }
+      .statusbar { height:22px; background:#fff; }
+      .modalhdr { padding:12px 16px 10px; background:#fff; border-bottom:1px solid var(--border); position:relative; text-align:center; }
+      .modalhdr .title { font-weight:800; font-size:15px; }
+      .modalhdr .x { position:absolute; right:14px; top:12px; color:var(--ter); font-size:16px; }
+      .toolbar { display:flex; align-items:center; justify-content:space-between; padding:9px 13px 0; }
+      .toolbar .hint { font-size:11px; color:var(--ter); }
+      .toolbar .manage { font-size:11.5px; color:var(--primary); font-weight:700; display:flex; align-items:center; gap:4px; }
+      .body { flex:1; overflow-y:auto; padding:10px 13px 18px; }
+      .body::-webkit-scrollbar { width:0; }
+
+      /* ---- current: flat stacked grid (today's pattern) ---- */
+      .glabel { display:flex; align-items:center; gap:6px; margin:14px 2px 7px; }
+      .glabel:first-child { margin-top:6px; }
+      .glabel .dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+      .glabel .name { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+      .flatgrid { display:grid; grid-template-columns:repeat(6,1fr); gap:5px; }
+      .flatgrid .tile { border:2px solid transparent; border-radius:10px; background:var(--surface2); padding:5px 2px; display:flex; flex-direction:column; align-items:center; gap:2px; }
+      .flatgrid .tile i { font-size:14px; }
+      .flatgrid .tile span { font-size:6.6px; font-weight:600; color:var(--sec); text-align:center; line-height:1.15; }
+
+      /* ---- proposed: folder tiles ---- */
+      .folders { display:grid; grid-template-columns:repeat(2,1fr); gap:9px; }
+      .folder { grid-column:span 1; background:#fff; border:1px solid var(--border); border-radius:15px; padding:9px 9px 10px; }
+      .folder .lbl { display:flex; align-items:center; gap:5px; margin-bottom:7px; }
+      .folder .lbl .dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+      .folder .lbl .name { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.02em; color:var(--sec); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .folder .lbl .count { margin-left:auto; font-size:8.5px; color:var(--ter); font-weight:700; flex-shrink:0; }
+      .folder .mini { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; }
+      .folder .mini i { aspect-ratio:1; border-radius:8px; background:var(--surface2); display:grid; place-items:center; font-size:12.5px; }
+
+      .flatfallback { grid-column:1 / -1; background:#fff; border:1px solid var(--border); border-radius:15px; padding:9px 9px 10px; }
+      .flatfallback .lbl { display:flex; align-items:center; gap:6px; margin-bottom:8px; }
+      .flatfallback .lbl .dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+      .flatfallback .lbl .name { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.02em; color:var(--sec); }
+      .flatfallback .lbl .count { margin-left:auto; font-size:8.5px; color:var(--ter); font-weight:700; }
+      .flatfallback .lbl .note { font-size:8px; color:var(--ter); font-weight:600; font-style:italic; }
+      .flatfallback .grid6 { display:grid; grid-template-columns:repeat(6,1fr); gap:5px; }
+      .flatfallback .grid6 i { aspect-ratio:1; border-radius:9px; background:var(--surface2); display:grid; place-items:center; font-size:12px; }
+
+      .legend { display:flex; align-items:center; gap:6px; font-size:9px; color:var(--ter); font-weight:600; margin:2px 2px 8px; }
+      .legend i { font-size:11px; }
+    </style>
+  </head>
+  <body>
+    <h1>Categories — folder-grid proposal</h1>
+    <p class="sub">
+      Groups with ≤12 categories collapse into a folder tile with a 3×n icon preview — tap an icon to select
+      it directly, same as today, no folder needs to open first. Groups that would overflow the preview
+      (&gt;12 categories) stay exactly as today's full flat grid, so nothing ever costs a second tap.
+    </p>
+    <div class="rule">
+      <b>Rule:</b> per-group category count ≤ 12 → render as a <b>folder tile</b> (icons directly clickable).
+      Category count &gt; 12 → render as today's <b>full-width flat grid</b> (no folder wrapper, no extra tap).
+      All of Penny's current default groups fit under 12 — the fallback only kicks in for a large
+      user-created group, shown on the right as an illustrative example.
+    </div>
+
+    <div class="gallery">
+      <!-- CURRENT -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="modalhdr"><span class="title">Select category</span><i class="ti ti-x x"></i></div>
+          <div class="toolbar"><span class="hint">Tap to pick</span><span class="manage"><i class="ti ti-settings"></i>Manage</span></div>
+          <div class="body">
+
+            <div class="glabel"><span class="dot" style="background:#ef4444"></span><span class="name" style="color:#ef4444">Daily Living</span></div>
+            <div class="flatgrid">
+              <div class="tile"><i class="ti ti-basket" style="color:#22c55e"></i><span>Groceries</span></div>
+              <div class="tile"><i class="ti ti-pizza" style="color:#ef4444"></i><span>Dining & Café</span></div>
+              <div class="tile"><i class="ti ti-car" style="color:#f59e0b"></i><span>Transport</span></div>
+              <div class="tile"><i class="ti ti-gas-station" style="color:#f59e0b"></i><span>Fuel</span></div>
+              <div class="tile"><i class="ti ti-scissors" style="color:#ec4899"></i><span>Salon</span></div>
+              <div class="tile"><i class="ti ti-home" style="color:#3b82f6"></i><span>Household</span></div>
+            </div>
+
+            <div class="glabel"><span class="dot" style="background:#3b82f6"></span><span class="name" style="color:#3b82f6">Home & Utilities</span></div>
+            <div class="flatgrid">
+              <div class="tile"><i class="ti ti-building" style="color:#6366f1"></i><span>Rent</span></div>
+              <div class="tile"><i class="ti ti-receipt" style="color:#06b6d4"></i><span>Bills</span></div>
+              <div class="tile"><i class="ti ti-wifi" style="color:#8b5cf6"></i><span>Internet</span></div>
+              <div class="tile"><i class="ti ti-tools" style="color:#78716c"></i><span>Maintenance</span></div>
+              <div class="tile"><i class="ti ti-air-conditioning" style="color:#06b6d4"></i><span>Home Svc</span></div>
+            </div>
+
+            <div class="glabel"><span class="dot" style="background:#b45309"></span><span class="name" style="color:#b45309">Renovation</span></div>
+            <div class="flatgrid">
+              <div class="tile"><i class="ti ti-wall" style="color:#b45309"></i><span>Materials</span></div>
+              <div class="tile"><i class="ti ti-hammer" style="color:#92400e"></i><span>Labour</span></div>
+              <div class="tile"><i class="ti ti-sofa" style="color:#a16207"></i><span>Furniture</span></div>
+              <div class="tile"><i class="ti ti-bulb" style="color:#ca8a04"></i><span>Fixtures</span></div>
+              <div class="tile"><i class="ti ti-brush" style="color:#d97706"></i><span>Painting</span></div>
+              <div class="tile"><i class="ti ti-ruler-2" style="color:#c2410c"></i><span>Interior</span></div>
+              <div class="tile"><i class="ti ti-wash-machine" style="color:#78716c"></i><span>Appliances</span></div>
+              <div class="tile"><i class="ti ti-tools" style="color:#6b7280"></i><span>Other</span></div>
+            </div>
+
+            <div class="glabel"><span class="dot" style="background:#10b981"></span><span class="name" style="color:#10b981">Health</span></div>
+            <div class="flatgrid">
+              <div class="tile"><i class="ti ti-stethoscope" style="color:#10b981"></i><span>Medical</span></div>
+              <div class="tile"><i class="ti ti-barbell" style="color:#f43f5e"></i><span>Fitness</span></div>
+              <div class="tile"><i class="ti ti-sparkles" style="color:#ec4899"></i><span>Personal Care</span></div>
+            </div>
+
+            <div class="glabel"><span class="dot" style="background:#22c55e"></span><span class="name" style="color:#22c55e">Financial</span></div>
+            <div class="flatgrid">
+              <div class="tile"><i class="ti ti-chart-line" style="color:#10b981"></i><span>SIP</span></div>
+              <div class="tile"><i class="ti ti-shield" style="color:#3b82f6"></i><span>Insurance</span></div>
+              <div class="tile"><i class="ti ti-file-invoice" style="color:#ef4444"></i><span>Loan EMI</span></div>
+              <div class="tile"><i class="ti ti-pig-money" style="color:#22c55e"></i><span>Savings</span></div>
+            </div>
+
+            <div class="glabel"><span class="dot" style="background:#475569"></span><span class="name" style="color:#475569">Legal</span></div>
+            <div class="flatgrid">
+              <div class="tile"><i class="ti ti-gavel" style="color:#475569"></i><span>Advocate</span></div>
+              <div class="tile"><i class="ti ti-building-bank" style="color:#334155"></i><span>Court Fee</span></div>
+              <div class="tile"><i class="ti ti-license" style="color:#64748b"></i><span>Stamp Duty</span></div>
+              <div class="tile"><i class="ti ti-stamp" style="color:#6366f1"></i><span>Notary</span></div>
+              <div class="tile"><i class="ti ti-files" style="color:#0ea5e9"></i><span>Filing</span></div>
+              <div class="tile"><i class="ti ti-file-text" style="color:#8b5cf6"></i><span>Affidavit</span></div>
+              <div class="tile"><i class="ti ti-printer" style="color:#78716c"></i><span>Typing</span></div>
+              <div class="tile"><i class="ti ti-file-certificate" style="color:#f59e0b"></i><span>Exemption</span></div>
+              <div class="tile"><i class="ti ti-car" style="color:#f97316"></i><span>Transport</span></div>
+              <div class="tile"><i class="ti ti-cup" style="color:#ef4444"></i><span>Food</span></div>
+              <div class="tile"><i class="ti ti-scale" style="color:#6b7280"></i><span>Other Legal</span></div>
+            </div>
+
+            <div class="glabel"><span class="dot" style="background:#6b7280"></span><span class="name" style="color:#6b7280">Other</span></div>
+            <div class="flatgrid">
+              <div class="tile"><i class="ti ti-dots" style="color:#6b7280"></i><span>Other</span></div>
+            </div>
+
+          </div>
+        </div>
+        <p class="caption"><b>Current</b> — every group is a full-width section, header + flat grid, stacked
+          top to bottom. Long scroll once you have 10+ groups, even though most only hold 2-6 categories.</p>
+      </div>
+
+      <!-- PROPOSED -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="modalhdr"><span class="title">Select category</span><i class="ti ti-x x"></i></div>
+          <div class="toolbar"><span class="hint">Tap an icon to pick</span><span class="manage"><i class="ti ti-settings"></i>Manage</span></div>
+          <div class="body">
+            <div class="folders">
+
+              <div class="folder">
+                <div class="lbl"><span class="dot" style="background:#ef4444"></span><span class="name" style="color:#ef4444">Daily Living</span><span class="count">6</span></div>
+                <div class="mini">
+                  <i class="ti ti-basket" style="color:#22c55e"></i>
+                  <i class="ti ti-pizza" style="color:#ef4444"></i>
+                  <i class="ti ti-car" style="color:#f59e0b"></i>
+                  <i class="ti ti-gas-station" style="color:#f59e0b"></i>
+                  <i class="ti ti-scissors" style="color:#ec4899"></i>
+                  <i class="ti ti-home" style="color:#3b82f6"></i>
+                </div>
+              </div>
+
+              <div class="folder">
+                <div class="lbl"><span class="dot" style="background:#3b82f6"></span><span class="name" style="color:#3b82f6">Home & Utils</span><span class="count">5</span></div>
+                <div class="mini">
+                  <i class="ti ti-building" style="color:#6366f1"></i>
+                  <i class="ti ti-receipt" style="color:#06b6d4"></i>
+                  <i class="ti ti-wifi" style="color:#8b5cf6"></i>
+                  <i class="ti ti-tools" style="color:#78716c"></i>
+                  <i class="ti ti-air-conditioning" style="color:#06b6d4"></i>
+                </div>
+              </div>
+
+              <div class="folder">
+                <div class="lbl"><span class="dot" style="background:#b45309"></span><span class="name" style="color:#b45309">Renovation</span><span class="count">8</span></div>
+                <div class="mini">
+                  <i class="ti ti-wall" style="color:#b45309"></i>
+                  <i class="ti ti-hammer" style="color:#92400e"></i>
+                  <i class="ti ti-sofa" style="color:#a16207"></i>
+                  <i class="ti ti-bulb" style="color:#ca8a04"></i>
+                  <i class="ti ti-brush" style="color:#d97706"></i>
+                  <i class="ti ti-ruler-2" style="color:#c2410c"></i>
+                  <i class="ti ti-wash-machine" style="color:#78716c"></i>
+                  <i class="ti ti-tools" style="color:#6b7280"></i>
+                </div>
+              </div>
+
+              <div class="folder">
+                <div class="lbl"><span class="dot" style="background:#10b981"></span><span class="name" style="color:#10b981">Health</span><span class="count">3</span></div>
+                <div class="mini">
+                  <i class="ti ti-stethoscope" style="color:#10b981"></i>
+                  <i class="ti ti-barbell" style="color:#f43f5e"></i>
+                  <i class="ti ti-sparkles" style="color:#ec4899"></i>
+                </div>
+              </div>
+
+              <div class="folder">
+                <div class="lbl"><span class="dot" style="background:#22c55e"></span><span class="name" style="color:#22c55e">Financial</span><span class="count">4</span></div>
+                <div class="mini">
+                  <i class="ti ti-chart-line" style="color:#10b981"></i>
+                  <i class="ti ti-shield" style="color:#3b82f6"></i>
+                  <i class="ti ti-file-invoice" style="color:#ef4444"></i>
+                  <i class="ti ti-pig-money" style="color:#22c55e"></i>
+                </div>
+              </div>
+
+              <div class="folder">
+                <div class="lbl"><span class="dot" style="background:#8b5cf6"></span><span class="name" style="color:#8b5cf6">Lifestyle</span><span class="count">4</span></div>
+                <div class="mini">
+                  <i class="ti ti-shopping-bag" style="color:#8b5cf6"></i>
+                  <i class="ti ti-device-tv" style="color:#ec4899"></i>
+                  <i class="ti ti-refresh" style="color:#7c3aed"></i>
+                  <i class="ti ti-gift" style="color:#f43f5e"></i>
+                </div>
+              </div>
+
+              <div class="folder">
+                <div class="lbl"><span class="dot" style="background:#b91c1c"></span><span class="name" style="color:#b91c1c">Sin Goods</span><span class="count">2</span></div>
+                <div class="mini">
+                  <i class="ti ti-bottle" style="color:#b91c1c"></i>
+                  <i class="ti ti-flame" style="color:#7f1d1d"></i>
+                </div>
+              </div>
+
+              <div class="folder">
+                <div class="lbl"><span class="dot" style="background:#0ea5e9"></span><span class="name" style="color:#0ea5e9">Travel</span><span class="count">8</span></div>
+                <div class="mini">
+                  <i class="ti ti-plane" style="color:#0ea5e9"></i>
+                  <i class="ti ti-bed" style="color:#6366f1"></i>
+                  <i class="ti ti-map-pin" style="color:#f59e0b"></i>
+                  <i class="ti ti-tools-kitchen-2" style="color:#ef4444"></i>
+                  <i class="ti ti-luggage" style="color:#0ea5e9"></i>
+                  <i class="ti ti-shopping-bag" style="color:#8b5cf6"></i>
+                  <i class="ti ti-gas-station" style="color:#0ea5e9"></i>
+                  <i class="ti ti-tools" style="color:#78716c"></i>
+                </div>
+              </div>
+
+              <div class="folder">
+                <div class="lbl"><span class="dot" style="background:#6366f1"></span><span class="name" style="color:#6366f1">Education</span><span class="count">6</span></div>
+                <div class="mini">
+                  <i class="ti ti-school" style="color:#6366f1"></i>
+                  <i class="ti ti-book" style="color:#78716c"></i>
+                  <i class="ti ti-certificate" style="color:#8b5cf6"></i>
+                  <i class="ti ti-bus" style="color:#f59e0b"></i>
+                  <i class="ti ti-backpack" style="color:#10b981"></i>
+                  <i class="ti ti-trophy" style="color:#f97316"></i>
+                </div>
+              </div>
+
+              <div class="folder">
+                <div class="lbl"><span class="dot" style="background:#ec4899"></span><span class="name" style="color:#ec4899">Family & Giving</span><span class="count">4</span></div>
+                <div class="mini">
+                  <i class="ti ti-heart-handshake" style="color:#ec4899"></i>
+                  <i class="ti ti-confetti" style="color:#f59e0b"></i>
+                  <i class="ti ti-star" style="color:#f97316"></i>
+                  <i class="ti ti-coin" style="color:#22c55e"></i>
+                </div>
+              </div>
+
+              <div class="folder">
+                <div class="lbl"><span class="dot" style="background:#475569"></span><span class="name" style="color:#475569">Legal</span><span class="count">11</span></div>
+                <div class="mini">
+                  <i class="ti ti-gavel" style="color:#475569"></i>
+                  <i class="ti ti-building-bank" style="color:#334155"></i>
+                  <i class="ti ti-license" style="color:#64748b"></i>
+                  <i class="ti ti-stamp" style="color:#6366f1"></i>
+                  <i class="ti ti-files" style="color:#0ea5e9"></i>
+                  <i class="ti ti-file-text" style="color:#8b5cf6"></i>
+                  <i class="ti ti-printer" style="color:#78716c"></i>
+                  <i class="ti ti-file-certificate" style="color:#f59e0b"></i>
+                  <i class="ti ti-car" style="color:#f97316"></i>
+                  <i class="ti ti-cup" style="color:#ef4444"></i>
+                  <i class="ti ti-scale" style="color:#6b7280"></i>
+                </div>
+              </div>
+
+              <div class="folder">
+                <div class="lbl"><span class="dot" style="background:#6b7280"></span><span class="name" style="color:#6b7280">Other</span><span class="count">1</span></div>
+                <div class="mini">
+                  <i class="ti ti-dots" style="color:#6b7280"></i>
+                </div>
+              </div>
+
+              <!-- illustrative overflow case: a hypothetical custom group with >12 categories -->
+              <div class="flatfallback">
+                <div class="lbl">
+                  <span class="dot" style="background:#0d9488"></span>
+                  <span class="name" style="color:#0d9488">Everything Else (example)</span>
+                  <span class="count">14</span>
+                  <span class="note">&nbsp;— over 12, stays flat</span>
+                </div>
+                <div class="grid6">
+                  <i class="ti ti-basket" style="color:#22c55e"></i>
+                  <i class="ti ti-car" style="color:#f59e0b"></i>
+                  <i class="ti ti-home" style="color:#3b82f6"></i>
+                  <i class="ti ti-gift" style="color:#f43f5e"></i>
+                  <i class="ti ti-plane" style="color:#0ea5e9"></i>
+                  <i class="ti ti-bed" style="color:#6366f1"></i>
+                  <i class="ti ti-book" style="color:#78716c"></i>
+                  <i class="ti ti-star" style="color:#f97316"></i>
+                  <i class="ti ti-coin" style="color:#22c55e"></i>
+                  <i class="ti ti-bottle" style="color:#b91c1c"></i>
+                  <i class="ti ti-shield" style="color:#3b82f6"></i>
+                  <i class="ti ti-trophy" style="color:#f97316"></i>
+                  <i class="ti ti-bus" style="color:#f59e0b"></i>
+                  <i class="ti ti-dots" style="color:#6b7280"></i>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+        <p class="caption"><b>Proposed</b> — every ≤12-category group becomes a folder tile you can scan at a
+          glance; tapping any icon inside selects it immediately (no folder to open first). A group that
+          outgrows 12 (rightmost example — hypothetical) automatically drops back to today's flat grid instead
+          of gaining a second tap.</p>
+      </div>
+    </div>
+  </body>
+</html>

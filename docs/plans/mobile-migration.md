@@ -1,11 +1,92 @@
 # Penny → React Native Migration Plan (living doc)
 
 > **Status:** 🚧 In progress. **Track 0 ✅ + Track 1 ✅ + Track 2 ✅** (repo restructuring, Expo app
-> skeleton, storage + crypto adapters — on-device crypto/storage verification still owed, headless dev
-> environment). **Track 3 ✅** (core UI component library: all ~28 `components/ui/` ported to NativeWind +
-> View/Text/Pressable, `Icon`/color-utility/theme-color infra built, a `ComponentGalleryScreen` wired as
-> the reachable screen for visual verification once a device/simulator exists). **Track 4
-> (feature-by-feature migration, pilot: Subscriptions) = next.** Full context: [`CLAUDE.md`](../../CLAUDE.md),
+> skeleton, storage + crypto adapters — on-device crypto/storage verification still owed for Track 1/2
+> specifically). **Track 3 ✅** (core UI component library: all ~28 `components/ui/` ported to NativeWind +
+> View/Text/Pressable, `Icon`/color-utility/theme-color infra built, a `ComponentGalleryScreen` verification
+> tool built). **Track 4 🚧 — Tier 1 shared infra ✅ + Subscriptions ✅ + Insurance ✅ + Loans ✅ + IOU ✅ +
+> Goals ✅ + Accounts ✅ + Home ✅ + Portfolio ✅ + Expenses ✅** (all nine modules verified on-device, an Android emulator; PrivacyContext/
+> SettingsContext/ToastContext/`useLoggedRepository` ported as reusable prerequisites — see the
+> dependency-survey Tier 1/2/3 split below; `components/shared/` (`ListRow`/`DueDateBadge`/`FormModal`)
+> ported alongside Insurance as another shared prerequisite for Loans/IOU/Goals/Portfolio; real bugs found
+> + fixed on-device: missing safe-area top inset outside a `Stack.Navigator`, sibling `fullWidth` Buttons
+> in a `flex-row` overflowing instead of splitting evenly, a core `dueDateInfo()` CSS-var fallback with no
+> RN equivalent, CSS Grid with no Yoga equivalent, Loans' dropped "Download XLSX" export (real capability
+> gap, no native file-save/share flow built), and — all in **shared `packages/core`, not mobile-only
+> files** — `useTxnRefresh` and `useDataRefresh` both using browser-only `window` events (the first crashed
+> and got a `.native.ts` fix; the second was pre-empted with the same fix before it could crash) and
+> `STATUS`'s colors being literal CSS var strings that silently failed across 3 already-shipped modules
+> until IOU's on-device check caught the warning (fixed by swapping every mobile `STATUS.x` to `theme.x`,
+> 7 files). IOU is scoped **personal-only** — its one `GroupContext` (Tier 2) dependency, an informational
+> banner, is dropped rather than pulling Groups' sync machinery in early. **Home is also personal-only**
+> (same precedent) — the web `activeGroup`/`GroupDashboard` branch and `HomeGroupsCard` are both dropped.
+> Home also required porting a whole prerequisite **Health** module (`FinancialHealthCard`'s segmented
+> score ring, a CSS `conic-gradient` with zero RN equivalent, redesigned as a multi-arc `react-native-svg`
+> ring) and pulled in three new native deps for the first time since Track 3:
+> `react-native-reanimated`(v4, for `MarketTicker`'s continuous-scroll marquee, no CSS-keyframe
+> equivalent), `react-native-view-shot` + `expo-sharing` (Home's Stories feature renders a real RN `View`
+> off-screen and snapshots it to share, replacing web's `<canvas>`+Web Share API — built now, not dropped,
+> per user decision). **Portfolio is the largest Track 4 module yet** (~7,462 web lines across 53 files,
+> ported by asset class in parallel) but — unlike IOU/Home — has **no `GroupContext`/Tier 2 dependency at
+> all**, so no personal-only scoping decision was needed; ported in full. Two more `packages/core`
+> `localStorage` bugs found and fixed the same way as `marketDataClient.ts`: `core/ipo/ipoClient.ts` and
+> `core/nps/npsClient.ts` both get `.native.ts` siblings keeping an in-memory-only cache (session-scoped,
+> not persisted across cold starts) instead of a mechanical `AsyncStorage` swap (their caches are
+> synchronous, feeding async fetch functions — can't swap mechanically). Several hand-rolled `fixed
+> inset-0` modal overlays across Real Assets/Retirement/IPO were rebuilt on the real ported `Modal`
+> component rather than translated. **Expenses is the ninth module and CLAUDE.md's flagged "hardest
+> port"** (~7,532 web lines, swipe gestures + an SVG chart both explicitly called out as the two hardest
+> UI translations in this migration) — both solved rather than simplified, per user decision: swipe-to-
+> reveal row actions rebuilt on `react-native-gesture-handler`'s `ReanimatedSwipeable` (new native dep,
+> needs `GestureHandlerRootView` at the app root); both SVG charts (an annual bar+line chart, a donut
+> reusing Health's exact multi-arc-via-stroked-circles technique) ported as plain `react-native-svg`, no
+> new charting library. Receipt photo attachment and CSV/ZIP export were both built now, not dropped, via
+> two more new native deps (`expo-image-picker` + `expo-image-manipulator` for receipts; `expo-file-system`
+> + `expo-sharing`, reusing Home's Stories pattern, for export). **`EventModeContext` (vacation/trip mode)
+> is the first Tier 2-adjacent context ported as a real prerequisite rather than dropped** — unlike
+> IOU/Home's single droppable Groups banner, event tagging is threaded through filtering/analytics/the
+> header, so dropping it wasn't a clean option; `GroupContext` itself is still dropped everywhere it
+> appears (`ShareToGroupModal` skipped entirely, matching the personal-only precedent). Sub-page back
+> buttons (web's
+> `navigate(-1)`) are dropped for every module ported before real navigation exists — decided during
+> Insurance, applies going forward. **Known limitation, applies to every module ported so far:** on-device
+> saves throw "Session locked" — the temporary stand-in slot never runs onboarding/unlock, so the DMK is
+> never set; only render/layout verification is possible until real onboarding lands (fix exists via Demo
+> Mode's `initialize()`, deliberately deferred per user decision). **Track C (identity/auth) prerequisite
+> ✅** — ported and verified end-to-end against the live `penny-auth` worker (see progress log): device
+> keypair generation/storage, `signedFetch`, `claimAccount`, and — as a side effect of finally calling
+> `securityManager.initialize()` on a real device for the first time in this whole migration — real
+> DMK-based `EncryptedRepository` encrypt/decrypt is now confirmed working on-device too (previously only
+> theoretically portable; every module up to now hit "Session locked" before ever exercising it). This
+> doesn't change the "Session locked" limitation above (real onboarding still doesn't exist), but Groups'
+> own hard prerequisite — a real claimed identity — is now unblocked. **Groups ✅** — `GroupContext` +
+> all 9 `features/groups/*` components (`ContextSwitcher`, `GroupDashboard`, `SharedExpenseComposer`,
+> `SettleUpGroupModal`, `GroupMembersModal`, `CreateGroupModal`, `JoinGroupModal`,
+> `useGroupSummaries`/`useServerActionError`) ported, **plus** (user-requested, beyond a standalone
+> module) the three Groups integration points previously dropped as personal-only scoping in Home and
+> Expenses were restored: Home's `activeGroup → GroupDashboard` branch + `HomeGroupsCard`; Expenses'
+> `ShareToGroupModal` + `shareGroups`/`onShareToGroup`/`onShareLater`/the Share swipe action +
+> `familyGroupIds` in `useExpenseAnalytics`; and `EventsModal`'s inline `VacationGroupLink` sub-section.
+> Almost no new platform-specific work was needed — `packages/core/src/core/groups/*` (943 lines) was
+> already platform-agnostic, and the two browser-only bits `GroupContext` needed (`localStorage`, a
+> `window` profile-change event) were already solved by Track C's `~/lib/storage` and
+> `profileChangeBus.native.ts`. Two new native-API swaps, both confirmed working on a real device:
+> `expo-clipboard` (new dep) for `GroupMembersModal`'s invite-link copy, and RN's built-in `Share` API for
+> the invite share sheet. `ContextSwitcher`'s hand-rolled `fixed inset-0` web dropdown was rebuilt on the
+> real ported `Modal`, same fix pattern as every other hand-rolled-overlay case this migration. **Verified
+> end-to-end on-device against the live `penny-auth`/`penny-groups` workers** (not just render-only, unlike
+> most prior modules) via a new scratch tool, `GroupsSmokeTestScreen`: claim → create a group → real
+> worker round-trip (group + key creation) → `GroupDashboard` renders with the owner member → invite link
+> created, copied via `expo-clipboard`, and shared via the real Android share sheet →
+> `SharedExpenseComposer` renders with live split-breakdown → Expense form's restored "Share with a group"
+> toggle appears once a group exists. One real (non-blocking) bug found on-device: `groupsService.ts`'s
+> `buildJoinLink` falls back to an empty origin (`typeof location !== 'undefined' ? location.origin : ''`)
+> on RN since `location` is undefined, producing an invite link with no host
+> (`/app/groups/join#secret...`) — doesn't crash (already guarded) and wasn't fixed since it's shared
+> `packages/core` code outside this step's scope; flagged for a future pass once mobile has a real deep-
+> link/URL scheme to build the link against. **Next: Onboarding/Settings/Security/Profile/Activity**, per
+> Track 4's module order. Full context:
+> [`CLAUDE.md`](../../CLAUDE.md),
 > architecture details in [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md), design-pattern notes in
 > [`docs/DESIGN_GUIDELINES.md`](../DESIGN_GUIDELINES.md), SQL schema mapping: [`docs/SCHEMA.md`](../SCHEMA.md),
 > how to run it: [`docs/RUNNING_MOBILE.md`](../RUNNING_MOBILE.md).
@@ -84,9 +165,36 @@ preserving prop APIs (RN naming aside) and the centered-modal-only rule. `compon
 equivalent. See the Progress Log for the icon/color/theme infra this needed and what got verified.
 
 ### Track 4 — Feature-by-feature migration
-Pilot: **Subscriptions** (smallest fully-shipped module). Then Insurance/Loans/IOU → Goals → Accounts → Home →
-Portfolio → Expenses (deliberately last — swipe gestures + SVG chart are the two hardest UI ports) → Groups →
+Pilot: **Subscriptions** (smallest fully-shipped module) — ✅ done. **Insurance** — ✅ done. **Loans** — ✅ done.
+**IOU** — ✅ done (personal-only scope, see progress log). **Goals** — ✅ done. **Accounts** — ✅ done.
+**Home** — ✅ done (personal-only scope, see progress log). **Portfolio** — ✅ done (no group dependency,
+ported in full — see progress log). **Expenses** — ✅ done (deliberately-last hardest module; swipe
+gestures + SVG chart both solved, see progress log). **Groups** — ✅ done (standalone module + restored
+Home/Expenses integration points, see progress log). Then
 Onboarding/Settings/Security/Profile/Activity → Backup/News/Calculators/Cashflow/Health/Feedback.
+
+**Sub-page navigation (decided during Insurance):** modules with a back button (`navigate(-1)` on web) drop it for
+now — reached only as `AuthGuard`'s temporary `needs_onboarding` stand-in, there's no `Stack.Navigator` and thus no
+real "back" destination yet. Applies to every remaining sub-page module until real onboarding/tab navigation lands.
+
+**Shared-infra dependency survey (done once during the Subscriptions pilot, not per-module):** every
+`apps/web-legacy/src/features/*`'s `@/context/*`/`@/hooks/*` imports were grepped up front, splitting into
+three tiers so later modules don't rediscover the same prerequisites one at a time:
+- **Tier 1 (ported, Subscriptions pilot):** `PrivacyContext`, `SettingsContext`, `ToastContext`,
+  `useLoggedRepository` — needed by Subscriptions, Insurance, Loans, Goals, Accounts, Activity, Portfolio,
+  Health outright, and a subset of what Home/Cashflow/Tax/Settings/Expenses need too. `useForecast` was
+  ported during Home (pure hook, no cross-module dependency once actually surveyed — see Home's progress
+  log entry) and is now also Tier 1.
+- **Tier 2:** `GroupContext` — Phase 1.5's sync/multi-device machinery (env-gated, worker/D1-backed), real
+  weight, deliberately not pulled in early; IOU/Portfolio still drop it (see their progress log entries).
+  `EventModeContext` was ported during Expenses (a real prerequisite, not dropped) and is now Tier 1.
+  `GroupContext` itself was ported during the Groups step (see its progress log entry) — Home and Expenses'
+  previously-dropped integration points were restored at that point too, so it's no longer purely dropped
+  everywhere, but it's still only pulled in where a module actually needs group-scoped behavior.
+- **Tier 3 (not yet ported):** `OnboardingDraftContext` — needed for onboarding/security.
+
+`useRepository`/`useProfile`/`useDataRefresh`/`useTxnRefresh`/`usePassphraseStrength` were already
+platform-agnostic in `packages/core/src/hooks/` — no porting needed for any tier.
 
 ### Track 5 — Sync/backup
 Google Drive OAuth swap (`expo-auth-session`), local backup via `expo-file-system`, connectivity/lifecycle via
@@ -345,3 +453,620 @@ defines the actual parity bar for retiring legacy web.
   - **Not done, genuinely can't be done here:** actual visual/pixel verification on a device or simulator —
     this environment is headless. `ComponentGalleryScreen` exists specifically so this is a fast, complete
     check once Xcode/an emulator is available; flagged for the user's review pass, not assumed to look right.
+
+### 2026-07-23 — Track 4 Tier 1 shared infra + Subscriptions pilot complete
+
+- **Planned as a shared-infra pass first, not a per-module port:** porting Subscriptions in isolation kept
+  surfacing not-yet-ported providers (`PrivacyContext`, `SettingsContext`, `ToastContext`) one at a time.
+  Before writing any Subscriptions code, grepped every `apps/web-legacy/src/features/*` for its
+  `@/context/*`/`@/hooks/*` imports and split the results into three tiers (see the Track 4 section above)
+  — Tier 1 covers the large majority of near-term modules and was ported once, up front.
+- **Tier 1 ported:** `apps/mobile/src/lib/storage.ts` (AsyncStorage helper — new dependency
+  `@react-native-async-storage/async-storage`, requiring a native rebuild); `apps/mobile/src/context/
+  PrivacyContext.tsx` (same API as web; `document.body`/`visibilitychange` → dropped/RN `AppState`; async
+  hydration mirrors `AuthGuard.tsx`'s checking-state pattern); `apps/mobile/src/context/SettingsContext.tsx`
+  (ported in full except `theme`/`fontScale`, already superseded by mobile's own `ThemeProvider`);
+  `apps/mobile/src/context/ToastContext.tsx` (a real bottom-anchored toast, not a stub — every future
+  Tier-1 module's delete-with-undo flow needs it working); `apps/mobile/src/hooks/useLoggedRepository.ts`
+  (unchanged logic, points at the new `ToastContext`). All three providers wrap `App.tsx`.
+- **Subscriptions pilot ported:** `apps/mobile/src/features/subscriptions/` — `useSubscriptions.ts`
+  unchanged beyond import paths; `SubscriptionsView`/`DetectedSubCard`/`ActiveSubCard`/`SubscriptionForm`/
+  `SubscriptionsPage` rebuilt in RN using the Track 3 kit. One flagged platform simplification: "Last
+  charged" is a plain `YYYY-MM-DD` text field instead of web's native HTML date input (no native
+  date-picker dependency pulled in for this pilot). `RootNavigator.tsx`'s `onNeedsOnboarding` now renders
+  `SubscriptionsPage` instead of `ComponentGalleryScreen` (per user call — no temporary dev switcher; full
+  visual verification happens once more of the migration is done, not screen-by-screen).
+- **Real on-device verification this time, not just bundle/type-checking** — an Android emulator
+  (`penny_pixel` AVD) was available this session. `npx expo run:android` needed `JAVA_HOME` pointed at
+  Android Studio's bundled JDK (`/Applications/Android Studio.app/Contents/jbr/Contents/Home` — no
+  system-wide `java` was on `PATH`) and, once, a stale Metro dev server from earlier in the session killed
+  and restarted (a long-lived `expo run:android` process reused across unrelated rebuilds can silently
+  serve stale JS — `Skipping dev server` in its log is the tell). `pnpm android`/`pnpm start` do **not**
+  work for this — see `docs/RUNNING_MOBILE.md`; only `npx expo run:android` builds a real dev client.
+- **Two real bugs found and fixed via actual screenshots + a view-hierarchy dump (`adb exec-out screencap`,
+  `uiautomator dump`), not assumed correct:**
+  1. Status bar overlapped the `PageHeader` title — screens rendered outside a `Stack.Navigator` (straight
+     out of `AuthGuard`) get no automatic safe-area handling. Fixed with `SafeAreaView` (`edges={['top']}`).
+  2. The Add-subscription modal's footer ("Cancel"/"Add", both `fullWidth` in a `flex-row`) rendered with
+     "Add" pushed almost entirely off-screen. Root cause: RN's Yoga layout engine defaults `flexShrink` to
+     `0` (CSS flexbox defaults to `1`), so two siblings each with an explicit `width: 100%` don't shrink to
+     fit. Fixed by wrapping each `Button` in its own `<View className="flex-1">`. **Flagged for every later
+     Track 4 module:** any web modal footer using this exact `fullWidth`-pair-in-`flex-row` pattern will hit
+     the same bug when ported.
+- **Verification:** `tsc -b` (whole workspace), `eslint`, `prettier --check` all clean; full `pnpm test`
+  (401 + 39 tests) unchanged/passing; real device verification — installed and exercised on the
+  `penny_pixel` Android emulator (tab switching, empty states, Add-subscription modal open/fill/close,
+  hardware-back dismissal — no crashes, confirmed via `adb logcat`).
+
+### 2026-07-23 — Track 4 Insurance module complete
+
+- **Second Track 4 module, second real prerequisite gap found the same way as Subscriptions':** before
+  writing any Insurance code, traced its imports and found `apps/web-legacy/src/components/shared/`
+  (`ListRow`, `DueDateBadge`, `FormModal` — 119 lines total) is used by Insurance **and** Loans/IOU/Goals/
+  Portfolio, i.e. exactly what's coming next. Ported once to `apps/mobile/src/components/shared/` rather
+  than rediscovering it per-module, same reasoning as the Tier 1 context survey.
+- **`useInsurance.ts` is the first real exercise of the `useLoggedRepository`/`ToastContext` undo-on-delete
+  path** — Subscriptions never calls `remove()`, so its Toast/undo wiring was built but unverified in
+  practice; Insurance's delete-policy flow uses it for real.
+- **`FormModal` bakes in the Subscriptions-bug fix from the start:** its Cancel/Delete/Save footer uses the
+  same `fullWidth`-pair-in-`flex-row` pattern that overflowed in `SubscriptionForm` — wrapped each button in
+  its own `flex-1` View here from day one, so every future `FormModal` consumer (Loans, IOU, Goals,
+  Portfolio, and Insurance itself) avoids the bug by construction instead of hitting it independently.
+- **A third portability gap found while porting `DueDateBadge`:** core's `dueDateInfo()` (`packages/core/
+  src/lib/date.ts`) returns the literal CSS var string `'var(--color-surface-secondary)'` for its
+  far-future case — meaningless to RN's style engine. Rather than changing shared core behavior (which
+  would alter web's live-theme-following background for that one state), `DueDateBadge` substitutes the
+  active theme's real `surfaceSecondary` hex for that specific string, matching Track 3's `tint()`/`ink()`
+  precedent for "web CSS-only construct needs a platform swap at the RN call site, not in core."
+- **CSS Grid has no Yoga equivalent** (again, per Track 3's `SegmentedControl` note) — `PolicyForm`'s
+  `grid-cols-4` policy-type picker became a `flex-row flex-wrap` of `w-[23%]` tiles; its `grid-cols-2`
+  amount-fields row became `flex-row gap-3` with `flex-1` children.
+- **Navigation decision made here, applies to every future sub-page module:** `InsurancePage`'s back button
+  (web's `navigate(-1)`) needs a real `Stack.Navigator`/`useNavigation()` context that doesn't exist yet
+  (screens are still just swapped into `AuthGuard`'s `needs_onboarding` stand-in). Asked the user rather
+  than assuming; decided to drop the back button for now rather than stand up navigation early — revisit
+  once onboarding + tab navigation are real. `RootNavigator.tsx` now renders `InsurancePage` in that slot
+  (superseding Subscriptions, which superseded `ComponentGalleryScreen`).
+- **Verification:** `tsc -b`, `eslint`, `prettier --check` all clean; full `pnpm test` (401 + 39) unchanged;
+  real device verification on `penny_pixel` — screenshots confirmed the empty state, the FAB, and the full
+  Add-policy form (4→2-row type grid, both amount fields with live Indian-grouped formatting **and**
+  amount-in-words helper text rendering correctly, confirming `packages/core/src/lib/amountInput.ts`/
+  `amountToWords.ts` work unchanged on RN). Stopped short of confirming a full submit-and-list round trip
+  live — blocked by an `adb`-only interaction quirk (the on-screen keyboard covering the footer button, and
+  a synthetic back-press closing both the keyboard and the modal in one event), not an app bug; the
+  underlying `save`/`useLoggedRepository` path is unchanged from Subscriptions' already-verified one.
+
+### 2026-07-23 — Track 4 Loans module complete
+
+- **Third Track 4 module, biggest so far (~900 web lines across 7 files, two tabs: My Loans + Planner).**
+  `useLoans.ts`/`useLoanForm.ts`/`usePlanner.ts` all ported unchanged beyond import paths — pure logic,
+  same as every hook so far.
+- **One real capability gap dropped, not a platform simplification:** web's "Download XLSX" button
+  lazy-loads the `xlsx` package and calls its browser-only `writeFile` (triggers a DOM download) — no RN
+  equivalent exists without a native file-save/share flow, which this migration hasn't built. Treated the
+  same as the migration's already-out-of-scope PDF/HTML export rather than trying to build a
+  `expo-file-system`+share-sheet flow mid-port; flagged in `docs/features/loans.md` as a real feature gap,
+  not glossed over as a "platform difference."
+- **CSS Grid shows up twice more** (loan-type picker, tenure/rate rows, and — the biggest one yet — the
+  6-column amortization table's `gridTemplateColumns: '2rem 4.5rem 1fr 1fr 1fr 1fr'`) — same `flex-row`
+  swap as Insurance, fixed-width `View`s for the `#`/Date columns and `flex-1` for the four amount columns.
+  Verified live: filled in a real loan scenario (₹40L @ 9.3% over 20 years) and scrolled through all 240
+  amortization rows on-device — EMI/principal/interest/balance all computed correctly, balance reaching
+  exactly ₹0 at month 240, confirming both `calcAmortization` (unchanged core math) and the new flex-based
+  table layout render correctly together.
+- **Another CSS-var pair found** (the computed-EMI banner's `var(--color-surface-secondary)`/
+  `var(--color-primary)`) — same `useThemeColors()` substitution pattern as `DueDateBadge`.
+- **Verification:** `tsc -b`, `eslint`, `prettier --check` all clean; full `pnpm test` (401 + 39) unchanged;
+  real on-device verification on `penny_pixel` — My Loans empty state, the Planner tab's full input surface
+  (Loan Basics/Accelerators/Lump Sum Prepayments cards, `SelectInput` month/year dropdowns pre-populated
+  with the real current date), the Summary comparison card, and the full amortization table all confirmed
+  rendering correctly with real computed data. Also hit (and worked around, not an app bug) the same
+  `adb`-only quirks as Insurance: a stale/backgrounded app needing a `force-stop`+relaunch to pick up the
+  latest JS, and a synthetic back-press exiting the app entirely at this screen's root (expected given no
+  `Stack.Navigator` exists yet — matches the already-agreed dropped-back-button decision).
+
+### 2026-07-23 — Track 4 IOU module complete
+
+- **Fourth Track 4 module (~1258 web lines across 7 files), and the first to genuinely need a Tier 2
+  ("not yet ported") dependency decision.** Traced exactly how `IouView` uses `GroupContext` before
+  assuming anything: it's read only to show one informational banner ("Your personal IOUs. Group balances
+  live in each group.") when the user has a claimed username and belongs to groups — the actual ledger data
+  model (`useIou.ts`) was already personal-only regardless. Scoped this port as **personal-only IOU**
+  (the option the Tier 1/2/3 survey already anticipated) — dropped the banner and its `GroupContext`/
+  `hasEntitlement('sync')` dependency entirely rather than pulling in Groups' sync/multi-device machinery
+  early. `useIou.ts`/`useLoanForm`-equivalent logic ported unchanged beyond import paths and the
+  `localStorage`→AsyncStorage swap for the one-time legacy-migration flag.
+- **`PersonPicker` rebuilt, not just re-skinned:** web renders its type-ahead suggestions as a DOM-positioned
+  `absolute` overlay. RN has no equivalent (same reasoning as `SelectInput`'s existing port note), so this
+  renders suggestions inline in normal document flow below the field — verified on-device: typing "Alex"
+  correctly showed a "+ Create 'Alex'" affordance pushing the rest of the form down, not floating over it.
+- **Added `IouPage.tsx`, a mobile-only wrapper** — web never gives IOU its own page (`IouView` is always
+  embedded as the Expenses module's IOU tab via `IouSlice.tsx`); since Expenses isn't ported yet, this is a
+  thin `PageHeader` shell purely so IOU is reachable as a coherent standalone screen for this interim stage.
+- **Two more real bugs found on-device, both in shared `packages/core` — not mobile-only files, meaning
+  they were latent in already-shipped modules too:**
+  1. `packages/core/src/hooks/useTxnRefresh.ts` (cross-hook-instance "transactions changed" signal) used
+     browser-only `window.addEventListener`/`dispatchEvent` — crashed immediately
+     (`TypeError: undefined is not a function`) the moment IOU became the first module to actually call it
+     (Subscriptions/Insurance/Loans never needed cross-instance refresh). Fixed with
+     `packages/core/src/hooks/useTxnRefresh.native.ts` — Metro resolves `.native.ts` over the plain file
+     for native builds (Vite always resolves the plain one, same convention as `schema.native.ts` from
+     Track 2) — replacing the DOM event with a plain in-memory listener `Set`. Required killing and
+     restarting Metro after adding it: a long-lived session didn't pick up the *new* file even after the
+     fix was written, matching the earlier lesson that stale Metro state can serve outdated JS silently.
+  2. `packages/core/src/lib/statusColors.ts`'s `STATUS` object is entirely literal CSS var strings
+     (`STATUS.success = 'var(--color-success)'`, etc.) — meaningless as RN color values. Unlike bug #1 this
+     failed **silently** (RN logs `"var(--color-success)" is not a valid color or brush` as a warning and
+     drops the color rather than crashing), so it had been shipping unnoticed since Subscriptions' and
+     Loans' on-device passes — small colored elements (badges, icons) were likely rendering with no color
+     at all and it wasn't visually obvious in screenshots. IOU's on-device check happened to surface the
+     warning in `adb logcat`. Fixed by replacing every mobile `STATUS.x` usage with `theme.x` from
+     `useThemeColors()` (already exposes real hex for the identical semantic names) across 7 files:
+     `DetectedSubCard`/`ActiveSubCard` (Subscriptions), `PlannerResults` (Loans), and
+     `EntryForm`/`PersonListView`/`PersonLedgerView`/`SettleUpModal` (IOU). **Flagged for every future
+     module:** `packages/core`'s `STATUS` (and its co-located `tint()`/`ink()`) stay web-only by design —
+     mobile code must never import `STATUS` directly, always resolve status colors via `useThemeColors()`.
+- **Verification:** `tsc -b`, `eslint`, `prettier --check` all clean; full `pnpm test` (401 + 39) unchanged;
+  real on-device verification on `penny_pixel` — empty state, the full Add-IOU form (OptionButton colors
+  now rendering correctly post-fix, inline PersonPicker create-affordance), all confirmed via screenshots
+  and `adb logcat` (no crashes, no color warnings) after the fix.
+- **Known limitation surfaced here, applies to every Track 4 module already ported (not an IOU-specific
+  bug):** pressing "I lent this" threw `Error: Session locked — master key not available`
+  (`packages/core/src/core/crypto/keystore.ts`). Every ported screen is currently rendered at `AuthGuard`'s
+  `needs_onboarding` stand-in slot precisely because `isOnboardingComplete()` is false — which means the
+  Data Master Key has never been set (that only happens via real `initialize()`/`unlock()`, part of
+  onboarding, which doesn't exist on mobile yet). Reads work fine (nothing to decrypt yet); **any save in
+  any already-ported module** (Subscriptions, Insurance, Loans, IOU) would hit this same error — it just
+  hadn't been triggered yet, since earlier `adb` tap-timing issues kept save buttons from actually firing.
+  Penny already has a mechanism that would fix this (Demo Mode's `initialize(DEMO_PASSPHRASE, DEMO_PIN)`,
+  the same one web's "Explore with Demo Data" onboarding screen uses, which wouldn't flip
+  `isOnboardingComplete()` since it doesn't create a profile record) — **explicitly deferred per user
+  decision**: don't auto-bootstrap a session now, accept that only render/layout verification is possible
+  on-device until real onboarding lands. Future modules' on-device checks should expect the same limitation
+  for any save/write action and not treat it as a new bug.
+
+### 2026-07-24 — Track 4 Goals module complete
+
+- **Fifth Track 4 module, smallest since Subscriptions (528 web lines across 7 files) — no new
+  prerequisite gaps, no new bugs.** `useGoals.ts`/`useSipCalculator.ts` ported unchanged beyond import
+  paths. All the CSS-portability patterns needed here (CSS var/`color-mix()` → `Badge` + `~/lib/color`'s
+  `tint()`; CSS Grid → `flex-row flex-wrap`) were already established during Insurance/Loans — this module
+  applied them without discovering anything new, a good sign the Tier 1 survey + accumulated port patterns
+  are paying off.
+- `GoalForm`'s 3-column risk picker uses `compact` `OptionButton` tiles (RN's icon-above-label small-tile
+  variant, documented as built for exactly this) rather than mechanically porting web's non-compact
+  full-width `OptionButton` into a 3-column layout — a deliberate adaptation, not a mechanical port.
+- **Verification:** `tsc -b`, `eslint`, `prettier --check` all clean; full `pnpm test` (401 + 39) unchanged;
+  real on-device verification on `penny_pixel` — empty state, SIP Calculator tab (info box, all fields,
+  SegmentedControl), and the full Add-goal form (target date correctly pre-filled to today + 1 year,
+  3-column risk picker rendering with correct colors) all confirmed via screenshots. Also re-confirmed
+  `AmountInput`'s Indian-grouping/words helper with a real value entered live (₹20,00,000 → "Twenty Lakh").
+
+### 2026-07-24 — Track 4 Accounts module complete
+
+- **Sixth Track 4 module (547 web lines across 6 files).** `useAccounts.ts`/`useAccountForm.ts` ported
+  unchanged beyond import paths.
+- **Found and fixed another `packages/core` bug proactively, before it could crash on-device this time:**
+  `useDataRefresh.ts` (cross-instance refresh signals for accounts/categories/tags, used when Settings →
+  Safe Mode edits one through a separately-mounted repo instance) has the exact same
+  `window.addEventListener`/`dispatchEvent` pattern as `useTxnRefresh.ts` (fixed for IOU last session).
+  Recognized the pattern on sight while reading `useAccounts.ts`'s imports and pre-emptively added
+  `packages/core/src/hooks/useDataRefresh.native.ts` (same `.native.ts`/Metro-resolution convention, same
+  in-memory-listener-`Set` fix) *before* attempting on-device verification, instead of waiting to
+  rediscover it via a crash like last time. Worth remembering for any future module: **grep any new
+  `packages/core` hook import for `window.`/`document.` before first on-device run**, not after.
+- `ReconcileModal`'s `ink()` call moves to `~/lib/color`'s version, which — unlike core's `statusColors.ts`
+  version — takes the "toward" color as an explicit second argument (`ink(color, theme.textPrimary)`)
+  since there's no CSS var default to fall back to on RN.
+- `AccountFormModal` uses the shared `FormModal` even though web used a raw `Modal` here (no delete
+  action) — for consistency with every other add/edit form ported in Track 4 so far, not because it was
+  strictly required.
+- **Verification:** `tsc -b`, `eslint`, `prettier --check` all clean; full `pnpm test` (401 + 39) unchanged;
+  real on-device verification on `penny_pixel` — proactively killed and restarted Metro before testing
+  (since a new `.native.ts` file was added, matching the lesson from IOU about stale Metro not picking up
+  new files) — empty state with header "+" action button, and the full Add-account form (4-column type
+  grid, all fields, Toggle) confirmed rendering correctly via screenshots, no crashes.
+
+### 2026-07-24 — Track 4 Home module complete
+
+- **Seventh Track 4 module, largest scope so far** — the Home dashboard, plus a full prerequisite survey
+  (dependency-survey Tier 1/2/3 split, same method as the Subscriptions pilot) that fed directly into
+  the port. Files: `useHome.ts`, `useHomeStats.ts`, `HomePage.tsx`, `GlanceHeader.tsx`, `AccountsStrip.tsx`,
+  `MoneyStatsCard.tsx`, `ToolsGrid.tsx`, `MarketTicker.tsx`, `stories/{storyTypes,useHomeStories,
+  StoriesRow,StoryViewer,ShareCard,shareStoryImage}.tsx` (new `apps/mobile/src/features/home/`), plus a
+  full prerequisite **Health** module (`useHealthScore.ts`, `ScoreGauge.tsx`, `ComponentCard.tsx`,
+  `ScoringGuide.tsx`, `HealthDetailModal.tsx`, `FinancialHealthCard.tsx` — new
+  `apps/mobile/src/features/health/`) and a standalone `useForecast.ts` hook port
+  (`apps/mobile/src/hooks/useForecast.ts`).
+- **Scope, matching the IOU precedent:** Home is **personal-only** — web's `useGroupContext`/`activeGroup`
+  branch (swaps the whole screen for `GroupDashboard`) and `HomeGroupsCard` are both dropped until Groups
+  is ported.
+- **First new native dependencies since Track 3:** `react-native-reanimated` (v4.5.0, + its
+  `react-native-worklets` peer and a `babel.config.js` plugin entry), `react-native-view-shot`, and
+  `expo-sharing` (config plugin auto-registered in `app.json`). `expo-linear-gradient` was also added
+  (needed for Stories' gradient card backgrounds/rings, a plain `[string, string]` hex-tuple replacement
+  for web's CSS `linear-gradient()` strings).
+- **Three genuine "no RN equivalent" gotchas, each solved rather than dropped, per explicit user decisions
+  made up front (asked before porting, not discovered mid-port):**
+  1. **`conic-gradient`** (`FinancialHealthCard`'s segmented health-score ring) — RN has zero support, worse
+     than the already-known `color-mix()` gap. Redesigned as a stack of `react-native-svg` `Circle`s, one
+     full circle per score component, each showing only its own arc via `strokeDasharray` + `rotation`,
+     the same "one stroked circle per segment" technique `ProgressRing` already used for a single segment.
+  2. **CSS keyframe marquee** (`MarketTicker`'s continuous horizontal scroll, `@keyframes penny-marquee` in
+     web's `index.css`) — ported to `react-native-reanimated`: render the ticker list twice back-to-back,
+     measure one copy's width via `onLayout`, drive `translateX` with
+     `withRepeat(withTiming(-copyWidth, {duration: 32000, easing: linear}), -1, false)` — each repetition
+     restarts from 0, landing exactly on the second identical copy, so the loop reads as seamless. Confirmed
+     animating on-device (ticker text visibly shifted position between two screenshots taken seconds apart).
+  3. **Canvas + Web Share API** (Stories' share button — web drew to a `<canvas>`, then
+     `navigator.share`) — built now, not dropped (unlike Loans' XLSX export precedent, per explicit user
+     choice this time): a new `ShareCard.tsx` renders the exact same visual as a real, mounted (but
+     off-screen, `left: -3000`) RN `View` wrapped in a `react-native-view-shot` `ViewShot` ref; a new
+     `shareStoryImage.ts`'s `captureAndShareCard()` calls `.capture()` for a temp PNG, then
+     `expo-sharing`'s `Sharing.shareAsync()` opens the native share sheet.
+- **Two more real `packages/core` bugs found and fixed proactively** (same "grep new core imports for
+  `window.`/`import.meta` before first on-device run" discipline established during Accounts):
+  - `marketDataClient.ts`'s `loadEnabledTickers`/`saveEnabledTickers` called `localStorage` directly —
+    would have thrown uncaught on first ticker toggle. Reimplemented that persistence in `MarketTicker.tsx`
+    itself against `~/lib/storage`'s `AsyncStorage` wrapper (same storage key, so data stays compatible)
+    rather than importing the two localStorage-based core functions as-is.
+  - `marketDataClient.ts` transitively imports `packages/core/src/core/net/apiBase.ts`, which reads
+    `import.meta.env` — a Vite-only global Metro/Hermes doesn't define. Both a `tsc` error and a real
+    on-device crash risk. Fixed with a new `apiBase.native.ts` (same `.native.ts`/Metro-resolution
+    convention as `useTxnRefresh.native.ts`/`useDataRefresh.native.ts`), reproducing each export's existing
+    "no backend configured" fallback — mobile's honest current state (no `VITE_API_PROXY` equivalent set).
+- Other translations, same established patterns: `STATUS.x` literal CSS-var strings → `useThemeColors()`
+  lookups (`GlanceHeader`, `MarketTicker`, `ComponentCard`, `FinancialHealthCard`'s own local
+  `STATUS_COLOR` map); CSS Grid → `flex-row flex-wrap` (`ToolsGrid`, `HealthDetailModal`); `localStorage` →
+  `~/lib/storage`'s `AsyncStorage` wrapper (Stories' seen-tracking); `StoryViewer`'s
+  `window.addEventListener('keydown', ...)` Escape/Arrow-key navigation dropped entirely (tap zones already
+  provide the same affordance, matching the dropped-back-button precedent).
+- `useHome.ts` (and its `AccountBalance`/`HomeSummary`/`CreditCardAccount`/`AssetGroup` exports) is the
+  canonical source of these shared Home types — `GlanceHeader.tsx`/`AccountsStrip.tsx` were briefly
+  written with local duplicate type declarations (since they were ported in parallel, before `useHome.ts`
+  existed) and then updated to import from `useHome.ts` once it landed, removing the duplication.
+- **A real lint bug found in the Health port during the final sweep, fixed post-hoc:** `FinancialHealthCard`
+  originally computed its ring-segment offsets with a `let cumulative = 0` mutated inside `.map` during
+  render — flagged by `react-hooks`'s immutability rule (mutating a render-scoped variable across renders).
+  Fixed by extracting the whole calculation into a plain module-level `ringSegments()` function, so no
+  mutable state lives inside the component body at all.
+- **Verification:** `tsc -b`, `eslint`, `prettier --check` all clean across the whole `apps/mobile` project.
+  Real on-device verification on `penny_pixel`: first build failed with "Unable to locate a Java Runtime"
+  (fixed by pointing `JAVA_HOME` at Android Studio's bundled JBR — `/Applications/Android
+  Studio.app/Contents/jbr/Contents/Home` — no system JDK was installed); first JS load crashed with
+  `TypeError: undefined is not a function` in `NativeWorklets`'s `installUnpackers` (a stale Metro bundle
+  cache predating the `babel.config.js` `react-native-worklets/plugin` addition — fixed by killing Metro
+  and restarting via `expo start --clear`). After that, Home rendered cleanly: greeting, net worth/safe-to-
+  spend glance card, money stats, the new SVG health ring (score 0/Critical — expected, no seeded data),
+  live market ticker (with confirmed marquee animation), and the Tools grid. Accounts strip and Stories row
+  correctly stayed hidden (both are empty-state-conditional and there's no seeded data in this session).
+
+### 2026-07-24 — Track 4 Portfolio module complete
+
+- **Eighth Track 4 module, by far the largest yet** — ~7,462 web lines across 53 files (`PortfolioPage.tsx`
+  + `usePortfolioHoldings.ts` + 51 files across 6 asset-class sub-modules + IPO). The original monolithic
+  4,957-line web `PortfolioPage.tsx` (per CLAUDE.md's milestone table) was already split by Pre-Phase 1.5
+  into per-asset-class files, which made this port tractable: shared prerequisite infra
+  (`holdings/shared/`, `AssetTaxNote`, `usePortfolioHoldings`, a stubbed `PortfolioPage` shell) landed
+  first, then all six asset-class sections + the IPO tab were ported **in parallel** (independent
+  directories, no shared mutable state), then wired together in a final integration pass.
+- **Unlike every group-adjacent module so far (IOU, Home), Portfolio needed no personal-only scoping
+  decision** — a full dependency survey found zero `GroupContext`/`EventModeContext`/`OnboardingDraftContext`
+  imports anywhere in the module. Ported in full, no dropped branches.
+- **No charting library, despite the task brief's concern** — CLAUDE.md's "Expenses... swipe gestures + SVG
+  chart are the two hardest UI ports" note was confirmed to apply to Expenses only; Portfolio has no
+  pie/allocation/performance chart anywhere (`ScoreGauge`-style hand-rolled SVG only exists in Health).
+- **Two more `packages/core` `localStorage` bugs found, same class as `marketDataClient.ts`'s (Home) but
+  a harder variant:** `core/ipo/ipoClient.ts`'s IPO-list/historical-IPO caches and `core/nps/npsClient.ts`'s
+  scheme-list cache are *synchronous* caches feeding otherwise-async fetch functions — unlike a simple
+  listener `Set` (`useTxnRefresh`'s fix) or an isolated persistence call (`marketDataClient`'s fix), a
+  mechanical `AsyncStorage` swap doesn't drop in cleanly here. **User decision: drop the persistent
+  cross-*session* cache, keep an in-memory-only cache within a session** — `ipoClient.native.ts` and
+  `npsClient.native.ts` both re-fetch once per cold app start instead of once per 7 days/1 hour, but still
+  avoid refetching on every re-render/navigation within a session (giving `forceRefresh`/`getCachedIpos`
+  real meaning again, not just dead parameters). **A real mid-port catch, worth remembering:** the first
+  draft of `ipoClient.native.ts` dropped `fetchIpos`'s `forceRefresh` parameter entirely on the assumption
+  that "Metro resolves `.native.ts` at runtime, not `tsc`, so signature mismatches don't matter" — this
+  was **wrong** for this repo: `apps/mobile/tsconfig.json`'s `moduleSuffixes: [".native", ""]` makes `tsc`
+  itself resolve `.native.ts` too, for any file under `packages/core` reached by an `apps/mobile` compile,
+  not just Metro. The mismatch surfaced only once the IPO tab's port actually imported `useIpos` (the first
+  mobile caller) and `tsc -b` failed on `useIpos.ts`'s existing `fetchIpos(force)` call site. Fixed by
+  restoring a real (if session-only) in-memory cache instead of dropping the parameter — worth checking
+  going forward: **`.native.ts` siblings must match their web counterpart's exported signatures exactly**,
+  since `tsc -b` — not just Metro — resolves them for any mobile-reachable `packages/core` file.
+- **Several hand-rolled `fixed inset-0` modal overlays found across three sections, all rebuilt on the
+  real ported `Modal` component instead of translated** (same rationale as Track 3's `SelectInput`
+  redesign): Real Assets' `VehicleDetailModal` (no `Modal` import at all on web); Retirement's
+  `NpsLifecycleDetail`, an inline contribution-breakdown popup inside `RetirementSheets` (never converted
+  to `Modal` even on web, despite that file already using `Modal` elsewhere), and a third found only
+  during the port, `EpfAllTransactionsSheet`; IPO's `IpoDetailModal`.
+- **`STATUS.x` literal CSS-var-string colors** — the highest concentration yet, ~30+ sites across 9 files,
+  worst in `RetirementCard.tsx` (10 sites in one file) — all swapped to `useThemeColors()`, same fix
+  pattern used 7+ times since IOU. One new variant: `RdCard.tsx` (Fixed Income) hardcoded a literal
+  `#10b981` hex directly rather than referencing `STATUS` — same underlying bug, just not caught by a
+  `STATUS.x` grep; fixed identically.
+- **A real integration-time bug caught by one section's port while reviewing another's:** the
+  Precious-Metals agent noticed Equity's `MfModal.tsx`/`StockModal.tsx` were missing the established
+  sibling-`fullWidth`-Buttons-in-a-`flex-row` fix (Yoga doesn't split them evenly without each wrapped in
+  its own `flex-1` — the exact bug first found in Subscriptions) — flagged for the integration step and
+  fixed there (wrapped each Delete/Save `Button` in its own `flex-1` `View` in both files).
+- **A second integration-time bug, self-inflicted, found and fixed during integration:** `EquitySection`'s
+  floating FAB used `position: absolute` bottom-anchored via `useSafeAreaInsets` — correct in isolation
+  (matches Insurance's convention, which renders outside its own `ScrollView`), but wrong here since
+  `EquitySection` renders *inside* `PortfolioPage`'s `ScrollView`, so the `absolute` positions relative to
+  the section's own auto-sized content box, not the viewport — it would have scrolled with content
+  instead of staying fixed. Fixed by replacing the floating FAB with an inline `Button`
+  (`EmptyState`'s `action` prop when empty, a trailing full-width `Button` otherwise), matching the
+  inline-add convention every other section (Fixed Income, Precious Metals, Real Assets, Retirement)
+  already used independently — worth remembering: **a floating FAB anchored via safe-area insets only
+  works for a section rendered outside its own scroll container**; sections meant to live inside a shared
+  page-level `ScrollView` should use an inline add affordance instead.
+- **One real agent-orchestration mishap during this port, worth noting for next time:** the first attempt
+  at delegating the Real Assets section to a background agent returned having spawned *another* background
+  agent instead of doing the file work itself, and produced zero files. Caught by checking the filesystem
+  directly rather than trusting the report; fixed by relaunching with an explicit "do this yourself,
+  do NOT spawn sub-agents" instruction, which completed correctly. A second, harmless echo of the same
+  confusion appeared moments later (a stray duplicate agent that correctly noticed real work was already
+  in progress and deliberately backed off rather than clobbering it) — no files were lost or duplicated,
+  but it's a reminder to verify a delegated agent's *actual file output*, not just its prose summary,
+  before trusting a "done" report.
+- CSS Grid → `flex-row flex-wrap` across every section's forms/detail views, same pattern as every prior
+  module, just at a larger total count than any module before it.
+- **Verification:** `tsc -b`, `eslint`, `prettier --check` all clean across the whole `apps/mobile` project
+  (plus `packages/core`). Real on-device verification on `penny_pixel` — no new native deps needed
+  (everything Portfolio uses — `react-native-svg`, `react-native-view-shot`, `expo-sharing`,
+  `expo-linear-gradient`, `react-native-reanimated` — was already installed during Home's port), so only a
+  Metro JS reload was needed, no native rebuild. Confirmed rendering correctly via screenshots: IPO tab
+  (live fetch working, "Updated just now · investorgain.com", sub-tab pills, empty state), Real Assets
+  (AssetTaxNote expanded, Vehicles/Property empty states with dashed borders + Add actions), Stocks
+  (Equity section's fixed inline Add button, not the old floating FAB), the Add-stock modal (fields +
+  single full-width footer button, confirming the `fullWidth` fix), Metals (dashed "Add Gold / Silver"
+  trigger), and Retirement (NPS/PPF/EPF untracked cards). No crashes across any of the six asset classes
+  or the IPO tab.
+
+### 2026-07-24 — Track 4 Expenses module complete (CLAUDE.md's flagged "hardest port")
+
+- **Ninth Track 4 module, ~7,532 web lines across 33 files** — comparable in size to Portfolio, but
+  ported more sequentially than Portfolio's parallel-by-asset-class approach since Expenses' pieces share
+  a lot of state through one hook (`useExpenses.ts`) and cut across each other (transactions ↔ categories
+  ↔ analytics ↔ budgets). Order: prerequisite infra (`EventModeContext`, `useExpenses.ts`, the two native
+  `.native.ts`/helper files) → five independent pieces in parallel (categories, budgets, `SwipeableRow`,
+  analytics, events) → `ExpenseForm.tsx` (depends on categories) → the remaining transactions-flow files
+  (depend on everything else) → final integration pass (`ExpensesPage.tsx`, `ExpensesHeader.tsx`).
+- **Five explicit user decisions made up front, all "build it now" rather than drop/simplify** (matching
+  the pattern of asking before porting rather than deciding mid-port, same as Home):
+  1. **`EventModeContext` ported as a real prerequisite, not dropped.** Unlike IOU/Home's single droppable
+     Groups banner, event/vacation-mode tagging is threaded through filtering, analytics, the header
+     banner, and its own management screen — not an optional add-on. Ported to
+     `apps/mobile/src/context/EventModeContext.tsx`, same logic as web, `localStorage` → AsyncStorage
+     (async hydration in an effect, same pattern as `PrivacyContext`'s default-mode load); web's
+     `penny-events-updated` DOM event (fired by `seedDemoData`) is dropped since mobile's demo seeding
+     isn't wired up yet.
+  2. **CSV/ZIP export built now.** `core/export/exportCsv.ts` (web: Blob + object URL + synthetic `<a
+     download>`, plus a password-protected AES-256 ZIP via `@zip.js/zip.js`) got a new
+     `core/export/exportCsv.native.ts` sibling using `expo-file-system`'s new `File`/`Paths` API +
+     `expo-sharing` (same share-sheet pattern as Home's Stories flow), with `Uint8ArrayWriter` instead of
+     `BlobWriter` for the ZIP (RN's `Blob` shim doesn't support everything zip.js needs internally).
+     `expo-file-system`/`expo-sharing` were added as `packages/core` dependencies directly (following the
+     `expo-sqlite` precedent from Track 2 — `packages/core` already depends on Expo modules for its native
+     storage adapter).
+  3. **Receipt photo capture built now.** Web's `<input type="file">` + canvas-downscale-to-JPEG flow has
+     no RN equivalent input source at all (a picker/camera URI, not a browser `File`) — so rather than a
+     `.native.ts` sibling of `lib/image.ts`, a new mobile-only `apps/mobile/src/lib/receiptImage.ts` wraps
+     two new native deps (`expo-image-picker` for camera+library, `expo-image-manipulator` for
+     resize/compress) into `captureReceiptPhoto()`/`pickReceiptPhoto()`, returning the same downscaled
+     JPEG data-URL shape web stores on `expense.receiptDataUrl` (no schema change). `ExpenseForm.tsx`
+     wires this into a "Camera / Photo library" choice + a tap-to-view-full-size `Modal` (`window.open`'s
+     RN equivalent).
+  4. **Both SVG charts ported as plain `react-native-svg`, no new charting library.** `AnnualChart.tsx`'s
+     bar+line chart maps `Rect`/`Polyline`/`Text` directly (wrapped in a horizontal `ScrollView` instead of
+     `overflow-x-auto`; per-bar tap targets stayed as `Rect onPress`, react-native-svg shapes support touch
+     natively). `AnalyticsTab.tsx`'s `IntentDonut` reused **the exact same multi-arc-via-stroked-circles
+     technique already proven on-device in Health's `FinancialHealthCard`** — confirms that technique
+     generalizes cleanly to a second, unrelated ring visualization.
+  5. **Swipe-to-reveal row actions rebuilt on `react-native-gesture-handler`'s `ReanimatedSwipeable`**
+     (not a hand-rolled Reanimated-only reimplementation) — a new native dependency
+     (`react-native-gesture-handler@~2.32.0`), requiring `App.tsx`'s root wrapped in
+     `GestureHandlerRootView` (one-time setup, done here). Web's manual tap-vs-drag threshold logic wasn't
+     reimplemented — `Swipeable`'s built-in tap gesture already auto-enables/closes based on open state.
+     Props API (`{ actions: SwipeAction[], onTap, children }`) mirrors web's shape so `TransactionsTab.tsx`
+     could wire it in without redesigning anything.
+- **Groups (Tier 2) dropped everywhere it appears**, matching the IOU/Home/Portfolio precedent:
+  `ShareToGroupModal.tsx` skipped entirely (not ported at all); `shareGroups`/`onShareToGroup`/
+  `onShareLater`/`sharingExpense`/the Share swipe action removed from `ExpenseForm.tsx`,
+  `TransactionsTab.tsx`/`TransactionsSlice.tsx`; `familyGroupIds` removed entirely from
+  `useExpenseAnalytics.ts`'s args (not defaulted to an empty set — the whole classification branch was
+  dead code without it, so removed outright rather than left half-alive); `EventsModal.tsx`'s
+  entitlement-gated vacation→group-link sub-section (`VacationGroupLink`, already returning `null` for
+  most users on web) dropped along with its now-unused `createGroup`/`hasEntitlement`/`useGroupContext`
+  imports.
+- **`IconGridPicker.tsx`'s icon-search index** (`tablerIconIndex.json`, ~620KB, fetched at runtime on web
+  via `import.meta.env.BASE_URL`) — copied into `apps/mobile/src/features/expenses/categories/` and
+  imported as a static JSON module instead; Metro bundles it directly, so the entire
+  fetch/promise-cache/loading-state machinery web needed became unnecessary and was dropped.
+- **`STATUS.x` literal CSS-var colors** — high concentration across `transactions/`/`analytics/`/
+  `budgets/`, all swapped to `useThemeColors()`; one new variant found (`RdCard`-style, i.e. a raw
+  hardcoded hex literal rather than a `STATUS.x` reference — same underlying bug, not caught by a
+  `STATUS.x` grep, same fix).
+- **CSS Grid → `flex-row flex-wrap`** across `FilterModal`, both `MonthPickerModal`s (the transactions one
+  was already `Modal`-based on web; `AnalyticsTab.tsx`'s own local one was hand-rolled `fixed inset-0` —
+  **a second hand-rolled-modal find distinct from Portfolio's**, rebuilt on the real `Modal` component,
+  same rationale as every other hand-rolled-overlay fix in this migration), `IconGridPicker`,
+  `CategoryPickerModal`, `TransactionsSlice`'s bulk-action bar, `EventsModal`.
+- **One real cross-file bug caught by a different section's porting agent** (same pattern as Portfolio's
+  Precious-Metals-agent catching Equity's missing fix): the categories agent found `CategoryPickerModal`'s
+  sticky bulk-action bar (web: `sticky bottom-0` inside a scrolling modal body) has no RN
+  sticky-within-`ScrollView` primitive — solved by moving the bulk-move/delete buttons into the ported
+  `Modal`'s `footer` prop (which already renders outside the `ScrollView` and stays pinned), rather than
+  attempting a fake-sticky translation.
+- **A real shared-component bug found during on-device verification, not specific to Expenses:**
+  `apps/mobile/src/components/ui/TabStrip.tsx`'s `scrollable` mode wrapped its tab row in a bare
+  `<ScrollView horizontal>` with no `flexGrow: 0` — as a flex child in a column layout, an unconstrained
+  horizontal `ScrollView` stretches to fill all remaining vertical space (becomes the tallest sibling),
+  pushing its own content down to vertically center inside that oversized box instead of hugging its
+  content height. This showed up as a large blank gap between `ExpensesPage`'s header and its tab strip.
+  Fixed with an explicit `style={{ flexGrow: 0 }}` — benefits any other screen using `TabStrip`'s
+  scrollable mode, not just Expenses. Confirmed via `adb shell uiautomator dump` (a stray oversized
+  clickable region, `[266,348][475,1421]`, associated with the "Analytics" tab label) rather than guessing
+  from a screenshot.
+- **One real agent-orchestration correction during verification, worth noting:** a long-running
+  `expo run:android` native build (needed for the four new native deps) appeared stalled after ~18 minutes
+  with an idle Gradle daemon and near-zero CPU usage on the wrapper process — killed and about to be
+  retried, until the killed process's own output file revealed the build had in fact completed
+  successfully (`BUILD SUCCESSFUL in 38s`) and Metro had already started serving, moments before the kill
+  landed. Recovered by just restarting Metro (`expo start --clear`) rather than re-running the full native
+  build. Lesson: check a background command's actual output file before concluding it's hung, even when
+  process-table heuristics (idle daemon, low CPU) look convincing — a build can finish and move on to a
+  quiet "serving" phase in the same window a status check catches it looking idle.
+- **Verification:** `tsc -b`, `eslint`, `prettier --check` all clean across the whole project (`apps/mobile`
+  + `packages/core`) throughout — every parallel piece verified independently before integration, then
+  swept again after wiring. Real on-device verification on `penny_pixel` required a full native rebuild
+  (four new native deps: `react-native-gesture-handler`, `expo-file-system`, `expo-image-picker`,
+  `expo-image-manipulator`) — confirmed via screenshots: Transactions tab (empty state, working FAB
+  speed-dial with Income/Transfer/Expense), `ExpenseForm` (all fields, payment-mode chips, Tags/Receipt/
+  Lent/Repeat toggles), Receipt toggle revealing working Camera/Photo-library buttons, `CategoryPickerModal`
+  opening cleanly, Analytics tab (Monthly/Annual toggle, month nav, empty-state donut icon), Subscriptions
+  slice (reusing the already-ported module), IOU slice (reusing the already-ported module). No crashes
+  across any tab or modal.
+
+### 2026-07-24 — Track C (identity/auth) prerequisite ported and verified — unblocks Groups
+
+- **Not a normal Track 4 module port** — a dedicated prerequisite track, done ahead of Groups after a
+  dependency survey found Groups is blocked by something no prior module hit: every previous module
+  (IOU, Home, Portfolio, Expenses) only ever needed local Dexie-equivalent data, so the standing "Session
+  locked" limitation was cosmetic (screens rendered, saves silently failed, still verifiable). Groups'
+  `claimed` gate is a hard boolean computed from a real server-verified identity — `claimAccount()` →
+  device keypair registration → `POST /register` against the live `penny-auth` Cloudflare Worker — with
+  no local-only stand-in possible. Porting Groups' ~1,573-line UI without this would have produced screens
+  that render once and then can't create/join/sync/settle-up anything.
+- **User-decided approach**: port the real Track C client prerequisite chain (not the Groups UI itself)
+  first — `claimAccount`/`signedFetch`/device keys/`entitlement.native.ts`/real `AUTH_BASE`/`GROUPS_BASE`
+  wiring — so Groups, whenever it's ported, has a real backend to verify against instead of another
+  render-only pass.
+- **Crypto smoke-tested on-device before writing any port code** (a new scratch tool,
+  `apps/mobile/src/screens/CryptoSmokeTestScreen.tsx`, temporarily swapped into `RootNavigator`'s
+  stand-in slot): confirmed `react-native-quick-crypto`'s P-256 ECDSA/ECDH (generate/sign/verify/JWK
+  export-import) and Ed25519 (including the exact manually-constructed-PKCS#8 trick `recovery.ts` uses)
+  all work correctly on-device, and — critically — the ECDSA signature is exactly 64 bytes (raw IEEE
+  P1363 format), matching the Cloudflare Worker's `crypto.subtle.verify` expectation exactly (a DER-vs-raw
+  mismatch would have silently broken every signed request). `btoa`/`atob` are both present and correctly
+  round-trip all 256 byte values — an assumed gap from the initial survey that turned out not to exist.
+- **Real gaps found and fixed** (all in `packages/core`, following the established `.native.ts`-sibling
+  convention):
+  1. `core/entitlement/entitlement.ts` read `import.meta.env.VITE_ENABLE_SYNC` with no native counterpart
+     — added `entitlement.native.ts` reading `Constants.expoConfig?.extra?.enableSync` via the newly
+     added `expo-constants` dependency (added to both `apps/mobile` and `packages/core`, following the
+     `expo-sqlite`-in-`packages/core` precedent from Track 2).
+  2. `apiBase.native.ts`'s `AUTH_BASE`/`GROUPS_BASE` were hardcoded `null` (confirmed by that file's own
+     comment: "no env plumbing exists yet") — now read the real deployed worker URLs
+     (`https://penny-auth.hesh.workers.dev`, `https://penny-groups.hesh.workers.dev`) from `app.json`'s
+     `extra` field via `expo-constants` — same non-secret, public worker URLs already committed in
+     `apps/web-legacy/.env.production`, just read through a different mechanism than Vite's
+     `import.meta.env`.
+  3. `claim.ts`'s `notifyProfileChanged()` used a bare `window.dispatchEvent(new CustomEvent(...))` — the
+     one `window`-based mechanism in the whole identity/auth chain. Rather than duplicate all of
+     `claim.ts` (security-critical business logic) into a `.native.ts` sibling just to swap this one
+     internal notification primitive, extracted it into its own tiny platform-split module,
+     `core/identity/profileChangeBus.ts`/`.native.ts` (web: DOM `CustomEvent`, matching
+     `useDataRefresh.native.ts`'s "in-memory listener `Set` instead of `window`" pattern for native) —
+     `claim.ts` itself now imports from this and is otherwise byte-for-byte unchanged, so both platforms'
+     call sites stay identical and the security-critical logic was never touched.
+- **No other gaps** — `signedFetch.ts`, `identityKeys.ts` (device key generation/storage — already fully
+  portable via the existing `schema.native.ts`/`expo-sqlite`-backed `EncryptedRepository`, no new storage
+  decision needed), and `recovery.ts` all worked completely unmodified on-device.
+- **A real mid-investigation false alarm, worth remembering:** the first end-to-end claim attempt failed
+  with a cryptic native error (`Cipher.final(...): Cipher final failed`). Rather than assume a fundamental
+  `react-native-quick-crypto`/`EncryptedRepository` bug, isolated the exact failing operation by testing
+  each layer standalone on-device: raw AES-GCM wrap/unwrap/encrypt/decrypt (including the precise
+  base64-round-trip `EncryptedRepository` performs) all passed clean; `ensureIdentityKeys()` (both the
+  fresh-generate path and the reload-from-storage path) passed clean too. The actual cause turned out to
+  be self-inflicted: an earlier test run's log showed "Vault + profile created OK" logged **twice**,
+  meaning the "Setup vault" button had been double-tapped — `securityManager.initialize()` generated a
+  *second*, different DMK, silently replacing the first in the in-memory `keystore` singleton, so the
+  profile record (encrypted under DMK #1) could no longer be decrypted under DMK #2 now held in memory.
+  Not a crypto bug at all — a test-harness artifact from a double-tap. Worth remembering: a cryptic native
+  crypto error during manual on-device testing is worth isolating layer-by-layer before concluding
+  anything is broken, especially when the app has no real onboarding flow yet to prevent this kind of
+  double-init in the first place.
+- **Verification — full end-to-end success against the live worker, confirmed via three scratch-tool
+  screens** (`CryptoSmokeTestScreen.tsx`, `ClaimSmokeTestScreen.tsx` in `apps/mobile/src/screens/`, kept
+  as reference/regression tools, temporarily swapped into `RootNavigator`'s stand-in slot the same way
+  every module verification has been, then reverted back to `ExpensesPage`): `checkUsername()` →
+  `{"available":true}`; `claimAccount()` → real `userId`/`username` from the live worker;
+  `getClaimState()` → `{"claimed":true,"deviceId":"..."}`; `signedFetch('/whoami')` → `200` with the
+  server's own view of the claimed identity. Every layer — device keypair generation/storage, DMK-based
+  encrypted repository read/write, the challenge→sign→verify request-signing loop, and the server-side
+  signature verification itself — is now proven working on a real device against a real deployed backend.
+- `tsc -b`, `eslint`, `prettier --check` all clean across `apps/mobile` + `packages/core`; full
+  `packages/core` test suite (401 tests, 54 files) still passes unchanged.
+
+### 2026-07-24 — Groups module ported + Home/Expenses integration points restored
+
+- **Standalone module port**: `GroupContext` (`apps/mobile/src/context/GroupContext.tsx`, new) + all 9
+  `apps/web-legacy/src/features/groups/*` components ported to `apps/mobile/src/features/groups/`
+  (`ContextSwitcher`, `GroupDashboard`, `SharedExpenseComposer`, `SettleUpGroupModal`,
+  `GroupMembersModal`, `CreateGroupModal`, `JoinGroupModal`, `useGroupSummaries`, `useServerActionError`
+  — ~1,462 web lines, flat layout matching `features/portfolio/`'s convention). `GroupProvider` wired into
+  `App.tsx` alongside the other Tier-1 providers.
+- **User decision (beyond a standalone module)**: also restore the three Groups integration points
+  dropped as personal-only scoping when Home and Expenses were ported (IOU stays personal-only, unchanged
+  — not requested): Home's `activeGroup → GroupDashboard` branch + `HomeGroupsCard`
+  (`apps/mobile/src/features/home/HomeGroupsCard.tsx`, new); Expenses' `ShareToGroupModal`
+  (`apps/mobile/src/features/expenses/transactions/ShareToGroupModal.tsx`, new) +
+  `shareGroups`/`onShareToGroup`/`onShareLater`/`sharingExpense`/the Share swipe action restored in
+  `ExpensesPage.tsx`/`TransactionsTab.tsx`/`TransactionsSlice.tsx`/`ExpenseForm.tsx`, plus `familyGroupIds`
+  restored in `useExpenseAnalytics.ts`/`AnalyticsSlice.tsx`; and `EventsModal.tsx`'s inline
+  `VacationGroupLink` sub-section restored (`createGroup`/`hasEntitlement`/`useGroupContext`).
+- **Almost no new platform-specific work needed** — the dependency survey's expectation held:
+  `packages/core/src/core/groups/*` (`groupsClient.ts`, `groupsService.ts`, `groupSync.ts`, `keys.ts`,
+  `split.ts`, `accountBridge.ts`, 943 lines) needed zero `.native.ts` siblings, confirmed by grepping for
+  `window\.|localStorage|navigator\.|document\.` across the directory before assuming otherwise.
+  `GroupContext`'s two browser-only bits were both already solved by the Track C prerequisite:
+  `localStorage` → `~/lib/storage`'s `getItem`/`setItem`/`removeItem` (async AsyncStorage; `selected`
+  starts at `'personal'` and hydrates once in a `useEffect`, matching `PrivacyContext`'s established
+  pattern), and the raw `window.addEventListener(PROFILE_UPDATED_EVENT, ...)` → `subscribeProfileChanged`,
+  imported directly from `@/core/identity/profileChangeBus` (not re-exported through `claim.ts`, which
+  only re-exports the constant — a small deviation from the original plan wording, caught by reading
+  `claim.ts` before assuming).
+- **Two new native-API swaps, both confirmed working on-device** — the only genuinely new platform work
+  this module needed: `expo-clipboard` (new dep, `~57.0.1`) for `GroupMembersModal`'s invite-link copy
+  (`Clipboard.setStringAsync`), and RN's built-in `Share` API (`Share.share({ message, url })`, no new dep)
+  for the invite share sheet, same try/fallback-to-clipboard structure as web.
+- **`ContextSwitcher`'s hand-rolled `fixed inset-0` web dropdown** rebuilt on the real ported `Modal`
+  component — same "centered modal, never a hand-rolled overlay" fix already applied to every other
+  hand-rolled-overlay case in this migration (Portfolio, Retirement, IPO, Expenses' `AnalyticsTab`). Web's
+  post-switch `navigate(PATHS.app.home)` and the "Claim a username" menu item's `navigate(PATHS.app.profile)`
+  both have no mobile equivalent yet (no real nav stack outside `AuthGuard`'s stand-in) — dropped/no-op,
+  same precedent as every other dropped cross-module navigation call in Track 4.
+- **Verified end-to-end on a real device against the live `penny-auth`/`penny-groups` Cloudflare Workers**
+  — not just a render-only pass, unlike most modules before Track C — via a new scratch tool,
+  `apps/mobile/src/screens/GroupsSmokeTestScreen.tsx` (claim setup + `ContextSwitcher` + a Home/Expenses
+  toggle, temporarily swapped into `RootNavigator`'s stand-in slot the same way every prior verification
+  tool has been, then reverted back to `ExpensesPage`): claim succeeded against the live worker → "Create
+  a group" → real worker round-trip (group creation + ECDH key wrap/unwrap via `keys.ts`) succeeded →
+  `ContextSwitcher` updated to show the new group, `GroupDashboard` rendered (balance card, Members list
+  with the owner, empty Shared Expenses state) confirming the Home restoration branch → `GroupMembersModal`
+  (gear icon) rendered Members/Create invite link/Settle & close/Leave group → "Create invite link" hit the
+  real worker, copied the link via `expo-clipboard` (toast confirmed), and opened the **real Android share
+  sheet** via `Share.share()` → `SharedExpenseComposer` ("Add expense") rendered fully with live
+  split-breakdown and validation → switching to the Expenses tab and opening `ExpenseForm` showed the
+  restored **"Share with a group" toggle**, appearing only because a group now exists in scope — confirming
+  the Expenses restoration end-to-end. No crashes across any screen or modal.
+- **One real (non-blocking) bug found on-device, not fixed in this step**: `groupsService.ts`'s
+  `buildJoinLink` falls back to an empty origin (`typeof location !== 'undefined' ? location.origin : ''`)
+  on RN since `location` is undefined, producing an invite link with no host
+  (`/app/groups/join#<secret>` instead of `https://.../app/groups/join#<secret>`). Doesn't crash (already
+  guarded) and still copies/shares successfully — flagged as a real gap to fix in a future pass once mobile
+  has a real deep-link/URL scheme to build the link against, rather than fixed speculatively now.
+- **A real test-harness lesson from manual on-device verification, worth remembering**: `adb shell input
+  keyevent 111` (KEYCODE_ESCAPE), used to dismiss the on-screen keyboard after typing into a modal's text
+  field, also dismissed the modal itself (the ported `Modal` component treats Escape the same as its
+  backdrop/close action) — several early "Create a group" attempts silently no-opped because of this, not
+  because of an app bug. Recovered by using `uiautomator dump` to get exact on-screen element bounds and
+  tapping precisely, without ever pressing Escape mid-flow.
+- **Verification**: `tsc -b`, `eslint` (0 errors; 3 pre-existing-style `react-hooks/exhaustive-deps`
+  warnings, no `eslint-disable` added), `prettier --check` all clean across `apps/mobile` + `packages/core`;
+  full test suite (401 `packages/core` tests + 39 workers tests) still passes unchanged. Native rebuild
+  (`expo run:android`, required for the new `expo-clipboard` dep) succeeded on the `penny_pixel` emulator
+  after resolving a missing-`JAVA_HOME` build failure (pointed at Android Studio's bundled JBR:
+  `/Applications/Android Studio.app/Contents/jbr/Contents/Home`).

@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Account start flow v2 (A→B + handle recovery)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --primary:#00a86b; --indigo:#6366f1; --amber:#f59e0b; --danger:#dc2626; --success:#16a34a;
+        --ink:#0f172a; --sec:#475569; --ter:#94a3b8; --bg:#f4f7fa; --surface:#fff; --surface2:#f6f8fb; --border:#e8edf3;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#e6ebf1; color:var(--ink); -webkit-font-smoothing:antialiased; }
+      h1.page-title { text-align:center; margin:28px 16px 4px; font-size:22px; }
+      p.page-sub { text-align:center; margin:0 16px 24px; color:var(--sec); font-size:14px; }
+      .flowbar { max-width:940px; margin:0 auto 10px; display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; color:var(--sec); font-size:12.5px; font-weight:700; }
+      .flowbar .step { background:#fff; border:1px solid var(--border); border-radius:999px; padding:6px 13px; }
+      .flowbar i { color:var(--ter); }
+      .gallery { display:flex; flex-wrap:wrap; gap:44px 30px; justify-content:center; align-items:flex-start; padding:20px 20px 70px; }
+      .frame-wrap { width:336px; }
+      .vtitle { font-size:15px; font-weight:800; margin:0 2px 3px; }
+      .vsub { font-size:12px; color:var(--sec); margin:0 2px 12px; line-height:1.5; }
+      .phone { width:336px; height:720px; background:var(--bg); border-radius:34px; border:10px solid #0f172a; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(15,23,42,.25); }
+      .status-bar { height:24px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; font-size:11px; color:var(--sec); background:var(--surface); }
+      .appbar { display:flex; align-items:center; gap:12px; padding:12px 15px; background:var(--surface); border-bottom:1px solid var(--border); }
+      .body { flex:1; overflow-y:auto; padding:22px 18px; }
+      .body::-webkit-scrollbar { width:0; }
+
+      .hd-ico { width:56px; height:56px; border-radius:18px; background:var(--primary); display:grid; place-items:center; margin:6px auto 14px; }
+      .hd-ico i { font-size:26px; color:#fff; }
+      .h2 { text-align:center; font-size:21px; font-weight:800; margin:0 0 6px; }
+      .sub { text-align:center; font-size:13px; color:var(--sec); line-height:1.5; margin:0 6px 22px; }
+
+      .choice { display:flex; align-items:flex-start; gap:13px; width:100%; text-align:left; background:var(--surface); border:1.5px solid var(--border); border-radius:16px; padding:15px; margin-bottom:12px; cursor:pointer; }
+      .choice.primary { border-color:var(--primary); box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 10%,transparent); }
+      .choice .ci { width:44px; height:44px; border-radius:13px; display:grid; place-items:center; flex-shrink:0; font-size:22px; }
+      .ci.green { background:color-mix(in srgb,var(--primary) 12%,#fff); color:var(--primary); }
+      .ci.indigo { background:color-mix(in srgb,var(--indigo) 12%,#fff); color:var(--indigo); }
+      .ci.amber { background:color-mix(in srgb,var(--amber) 14%,#fff); color:var(--amber); }
+      .choice .ct { flex:1; min-width:0; }
+      .choice .ct .t { font-size:15px; font-weight:800; }
+      .choice .ct .d { font-size:12px; color:var(--sec); line-height:1.5; margin-top:3px; }
+      .choice .chev { color:var(--ter); font-size:18px; align-self:center; }
+
+      .seg { display:flex; background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:4px; gap:4px; margin-bottom:18px; }
+      .seg button { flex:1; border:none; background:transparent; font-size:12.5px; font-weight:700; color:var(--sec); padding:8px 4px; border-radius:9px; cursor:pointer; }
+      .seg button.on { background:var(--surface); color:var(--primary); box-shadow:0 1px 3px rgba(15,23,42,.08); }
+
+      .lbl { font-size:12px; font-weight:600; color:var(--sec); margin:0 0 6px; display:block; }
+      .inp { width:100%; border:1.5px solid var(--border); border-radius:11px; padding:11px 13px; font-size:14px; color:var(--ink); background:var(--surface); margin-bottom:13px; display:flex; align-items:center; justify-content:space-between; }
+      .inp.ph { color:var(--ter); }
+      .inp.bad { border-color:var(--danger); box-shadow:0 0 0 3px color-mix(in srgb,var(--danger) 10%,transparent); }
+      .inp.ok { border-color:var(--success); }
+      .taken { font-size:10.5px; font-weight:800; color:var(--danger); }
+      .free { font-size:10.5px; font-weight:800; color:var(--success); }
+      .btn { width:100%; padding:13px; border:none; border-radius:12px; background:var(--primary); color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center; gap:7px; cursor:pointer; }
+      .btn.sec { background:var(--surface); color:var(--sec); border:1.5px solid var(--border); margin-top:10px; }
+      .note { display:flex; gap:8px; align-items:flex-start; font-size:11px; color:var(--sec); line-height:1.5; border-radius:11px; padding:10px 12px; margin-top:14px; }
+      .note.amber { background:color-mix(in srgb,var(--amber) 9%,#fff); border:1px solid color-mix(in srgb,var(--amber) 25%,#fff); }
+      .note.amber i { color:var(--amber); }
+      .note.blue { background:color-mix(in srgb,var(--indigo) 8%,#fff); border:1px solid color-mix(in srgb,var(--indigo) 22%,#fff); }
+      .note.blue i { color:var(--indigo); }
+      .note i { font-size:15px; flex-shrink:0; margin-top:1px; }
+      .back { font-size:20px; color:var(--sec); }
+      .caption { margin-top:12px; font-size:12.5px; color:var(--sec); line-height:1.55; }
+      .caption b { color:var(--ink); }
+      .legend { max-width:960px; margin:0 auto 50px; background:#fff; border:1px solid var(--border); border-radius:16px; padding:18px 24px; color:var(--sec); font-size:13.5px; line-height:1.75; }
+      .legend b { color:var(--ink); } .legend h3 { margin:0 0 8px; font-size:15px; color:var(--ink); }
+      table.mx { width:100%; border-collapse:collapse; margin-top:6px; font-size:12.5px; }
+      table.mx th, table.mx td { border:1px solid var(--border); padding:7px 10px; text-align:left; vertical-align:top; }
+      table.mx th { background:var(--surface2); color:var(--ink); }
+    </style>
+  </head>
+  <body>
+    <h1 class="page-title">Account start — v2 (A → B flow + handle recovery)</h1>
+    <p class="page-sub">Preview "Set up my account" → screen A (cards) → tap a card → screen B (that tab). Restore/Reclaim may end on a "pick a new handle" step.</p>
+
+    <div class="flowbar">
+      <span class="step">Preview dashboard</span><i class="ti ti-arrow-right"></i>
+      <span class="step">A · Choose</span><i class="ti ti-arrow-right"></i>
+      <span class="step">B · New / Restore / Reclaim</span><i class="ti ti-arrow-right"></i>
+      <span class="step">Handle taken? Pick new</span>
+    </div>
+
+    <div class="gallery">
+      <!-- A — chooser -->
+      <div class="frame-wrap">
+        <p class="vtitle">① Screen A · Choose</p>
+        <p class="vsub">Opens on "Set up my account". Tapping a card → Screen B with that tab selected.</p>
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span>Penny</span></div>
+          <div class="appbar"><i class="ti ti-arrow-left back"></i><span style="font-weight:800;font-size:15px">Get started</span></div>
+          <div class="body">
+            <div class="hd-ico"><i class="ti ti-user-shield"></i></div>
+            <h2 class="h2">How would you like to start?</h2>
+            <p class="sub">New to Penny, or coming back after a reinstall, a new device, or erasing your data?</p>
+
+            <button class="choice primary">
+              <div class="ci green"><i class="ti ti-sparkles"></i></div>
+              <div class="ct">
+                <div class="t">Start fresh</div>
+                <div class="d">New to Penny — or starting over after erasing, with nothing to restore. Sets up a brand-new account.</div>
+              </div>
+              <i class="ti ti-chevron-right chev"></i>
+            </button>
+
+            <button class="choice">
+              <div class="ci indigo"><i class="ti ti-cloud-download"></i></div>
+              <div class="ct">
+                <div class="t">Restore from backup</div>
+                <div class="d">Reinstalled or erased but have a backup? Bring back your data, groups &amp; handle from Drive, iCloud, or a file. Needs your passphrase.</div>
+              </div>
+              <i class="ti ti-chevron-right chev"></i>
+            </button>
+
+            <button class="choice">
+              <div class="ci amber"><i class="ti ti-id-badge-2"></i></div>
+              <div class="ct">
+                <div class="t">Reclaim my handle</div>
+                <div class="d">No backup? Recover your username with your passphrase. Handle &amp; groups return; data needs a backup.</div>
+              </div>
+              <i class="ti ti-chevron-right chev"></i>
+            </button>
+          </div>
+        </div>
+        <p class="caption"><b>New card</b> now names the "erased, nothing to restore" case explicitly.</p>
+      </div>
+
+      <!-- B Restore -->
+      <div class="frame-wrap">
+        <p class="vtitle">② Screen B · Restore tab</p>
+        <p class="vsub">Reached by tapping "Restore from backup". Tabs let them switch without going back.</p>
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span>Penny</span></div>
+          <div class="appbar"><i class="ti ti-arrow-left back"></i><span style="font-weight:800;font-size:15px">Restore or reclaim</span></div>
+          <div class="body">
+            <div class="hd-ico"><i class="ti ti-cloud-download"></i></div>
+            <h2 class="h2">Welcome back</h2>
+            <p class="sub">Restore everything from your own backup.</p>
+            <div class="seg"><button>Start fresh</button><button class="on">Restore</button><button>Reclaim</button></div>
+            <label class="lbl">Passphrase</label>
+            <div class="inp ph">Your backup passphrase</div>
+            <button class="btn"><i class="ti ti-brand-google-drive"></i> Restore from Google Drive</button>
+            <button class="btn sec"><i class="ti ti-file-upload"></i> Choose a backup file</button>
+            <div class="note blue"><i class="ti ti-info-circle"></i><span>Restores profile, data, groups &amp; your handle. If your handle was taken while you were away, we'll ask you to pick a new one (your data stays safe).</span></div>
+          </div>
+        </div>
+        <p class="caption">Covers reinstall <b>and</b> erased-with-backup. Handle conflict → screen ④.</p>
+      </div>
+
+      <!-- B Reclaim -->
+      <div class="frame-wrap">
+        <p class="vtitle">③ Screen B · Reclaim tab</p>
+        <p class="vsub">No-backup passphrase recovery (F3).</p>
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span>Penny</span></div>
+          <div class="appbar"><i class="ti ti-arrow-left back"></i><span style="font-weight:800;font-size:15px">Restore or reclaim</span></div>
+          <div class="body">
+            <div class="hd-ico"><i class="ti ti-id-badge-2"></i></div>
+            <h2 class="h2">Reclaim your handle</h2>
+            <p class="sub">Prove it's you with your username &amp; passphrase.</p>
+            <div class="seg"><button>Start fresh</button><button>Restore</button><button class="on">Reclaim</button></div>
+            <label class="lbl">Username</label>
+            <div class="inp ph">e.g. aarav_s</div>
+            <label class="lbl">Passphrase</label>
+            <div class="inp ph">Your original passphrase</div>
+            <label class="lbl">New 6-digit PIN</label>
+            <div class="inp ph">Quick unlock on this device</div>
+            <button class="btn"><i class="ti ti-id-badge-2"></i> Reclaim account</button>
+            <div class="note amber"><i class="ti ti-alert-triangle"></i><span>Handle &amp; groups come back. Personal data &amp; group history need a backup or a re-share from a member.</span></div>
+          </div>
+        </div>
+        <p class="caption">"Start fresh" tab = a one-line intro + Continue into Let-us-know-you.</p>
+      </div>
+
+      <!-- Handle taken -->
+      <div class="frame-wrap">
+        <p class="vtitle">④ Handle unavailable · Pick a new one</p>
+        <p class="vsub">Shown after Restore/Reclaim when the old handle is no longer free (erased/deregistered → someone took it, or GC freed it).</p>
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span>Penny</span></div>
+          <div class="appbar"><i class="ti ti-arrow-left back"></i><span style="font-weight:800;font-size:15px">Choose a handle</span></div>
+          <div class="body">
+            <div class="hd-ico" style="background:var(--amber)"><i class="ti ti-user-question"></i></div>
+            <h2 class="h2">Your handle is taken</h2>
+            <p class="sub"><b style="color:var(--ink)">@aarav_s</b> is no longer available. Your data is restored and safe — just pick a new handle to finish.</p>
+            <label class="lbl">New username</label>
+            <div class="inp ok"><span style="color:var(--ink)">aarav_sharma</span><span class="free"><i class="ti ti-check"></i> Available</span></div>
+            <div class="inp bad" style="margin-top:2px"><span style="color:var(--ink)">aarav_s</span><span class="taken">Taken</span></div>
+            <button class="btn" style="margin-top:4px"><i class="ti ti-shield-check"></i> Claim &amp; continue</button>
+            <div class="note blue"><i class="ti ti-info-circle"></i><span>Only your public handle changes. Your data, encryption keys, and account are unchanged. Group members will see the new handle.</span></div>
+          </div>
+        </div>
+        <p class="caption">Reused after both Restore and Reclaim. If the old handle is still free, this screen is skipped.</p>
+      </div>
+    </div>
+
+    <div class="legend">
+      <h3>Flow &amp; the scenarios it covers</h3>
+      Preview → <b>Screen A</b> (three cards) → tap → <b>Screen B</b> (segmented tabs, chosen one active; user can switch tabs) → for Restore/Reclaim, a post-step reconciles the handle and, only if needed, shows <b>Screen ④</b>.
+      <table class="mx">
+        <tr><th>Situation</th><th>Path</th><th>Handle</th></tr>
+        <tr><td>Reinstall / new device, <b>has backup</b>, not erased</td><td>Restore</td><td>Intact — server still knows you</td></tr>
+        <tr><td>Reinstall, <b>no backup</b></td><td>Reclaim (passphrase)</td><td>Reclaimed via proof</td></tr>
+        <tr><td><b>Erased</b> (deregistered), has backup</td><td>Restore → re-register identity</td><td>Same if free; else <b>Screen ④</b></td></tr>
+        <tr><td><b>Erased</b>, no backup</td><td>Start fresh</td><td>Pick any free handle</td></tr>
+      </table>
+      <br />
+      <b>Key addition — handle recovery:</b> after Restore/Reclaim the app re-verifies the identity with the server. If the account was deregistered and the old handle is now taken, we keep all restored data + keys and only ask for a new public handle (Screen ④). If the handle is still free, it's re-registered silently and ④ is skipped.<br /><br />
+      <b>Open question:</b> Screen ④ — auto-suggest a variant (e.g. <i>aarav_sharma</i>) as shown, or leave the field blank? No app-code changes until you confirm this v2.
+    </div>
+  </body>
+</html>

@@ -52,6 +52,8 @@ Key files:
 - `src/features/expenses/subscriptions/SubscriptionsSlice.tsx` — the Expenses → Subscriptions tab surface (IOU-tab-style), consuming the same hook and shared components
 - `src/core/subscriptions/detector.ts` — 3-pass detection algorithm; `format.ts` — display/interval/monthly helpers (`subKey`, `nextRenewal`, `toAnnual`)
 
+**Mobile (`apps/mobile`):** ported in Track 4 (the mobile migration's pilot module) — `apps/mobile/src/features/subscriptions/` mirrors the web files above 1:1 (`useSubscriptions.ts` unchanged beyond import paths). One intentional platform simplification: the "Last charged" field is a plain text input (`YYYY-MM-DD`) instead of web's native HTML date picker, since RN has no built-in date input and this pilot didn't pull in a native date-picker dependency for it. Reachable today via `AuthGuard`'s temporary `needs_onboarding` stand-in (real onboarding UI doesn't exist yet) — not yet wired into a permanent nav route.
+
 ## Current limitations
 
 - Detection runs on transaction history already in Penny — it cannot detect subscriptions charged to accounts whose transactions have not been imported
