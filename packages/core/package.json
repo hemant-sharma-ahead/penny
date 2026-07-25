@@ -21,6 +21,7 @@
     "type-check": "tsc -b"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^3.1.1",
     "@zip.js/zip.js": "^2.8.26",
     "dexie": "^4.4.3",
     "expo-constants": "~57.0.7",
@@ -28,6 +29,7 @@
     "expo-sharing": "~57.0.7",
     "expo-sqlite": "~57.0.1",
     "react": "^19.2.6",
+    "react-native": "0.86.0",
     "xlsx": "^0.18.5",
     "zxcvbn": "^4.4.2"
   },

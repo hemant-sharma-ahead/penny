@@ -52,7 +52,7 @@ export function PortfolioPage() {
   const subTabRows = [HOLDINGS_SUBTABS.slice(0, 3), HOLDINGS_SUBTABS.slice(3)];
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={[]} className="flex-1 bg-surface-tertiary">
       <PageHeader
         title="Portfolio"
         actions={

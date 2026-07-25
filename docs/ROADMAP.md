@@ -354,7 +354,27 @@ Superseded from this section's original sketch:
   `expo-sqlite`-in-`packages/core` precedent from Track 2). The Groups module port added
   **`expo-clipboard`** (invite-link copy in `GroupMembersModal`, alongside RN's built-in `Share` API for
   the invite share sheet — no new dep needed for that half) — see
-  [`docs/plans/mobile-migration.md`](plans/mobile-migration.md)'s Groups progress-log entry.
+  [`docs/plans/mobile-migration.md`](plans/mobile-migration.md)'s Groups progress-log entry. The
+  Onboarding module port added **`expo-document-picker`** (`AccountRecoveryScreen`'s restore-from-file
+  path). Two real bugs found during this pass, both fixed at the shared-infrastructure level rather than
+  per-call-site: `packages/core/src/core/db/schema.native.ts`'s `expo-sqlite` adapter now serializes every
+  DB operation through a single FIFO queue (no prior serialization meant `seedDemoData.ts`'s concurrent
+  `Promise.all`-based seeding could silently drop writes and corrupt the native statement pool — severe
+  enough to crash the whole emulator, not just the app); and `TransactionsTab.tsx` was rebuilt on a
+  virtualized `SectionList` (was a plain `View`+`.map()` in a `ScrollView`, which mounted ~1,000
+  `SwipeableRow` gesture-handler instances at once with demo data). See
+  [`docs/plans/mobile-migration.md`](plans/mobile-migration.md)'s Onboarding progress-log entry for full
+  detail. The post-Track-4 pass that closed the 7-module feature-folder gap (Feedback/Import/Backup/
+  Cashflow/News/Calculators/Tax) added **`@react-native-community/slider`** (Tax's Optimize "what-if"
+  deduction sliders — no RN range-input equivalent existed anywhere else in the app) and made
+  **`react-native`** a direct `packages/core` dependency for the first time (needed by
+  `core/sync/SyncProvider.native.tsx`, which finally makes the automatic-backup engine actually run on
+  mobile via `AppState` instead of web's DOM `online`/`visibilitychange` events). It also hit the first
+  "genuinely missing browser API with no swap" case beyond `localStorage`/`window` events: RN has no
+  `DOMParser` at all, so `core/news/newsClient.native.ts` reimplements RSS parsing as a small regex-based
+  tag extractor instead of a `.native.ts` localStorage-only swap. See
+  [`docs/plans/mobile-migration.md`](plans/mobile-migration.md)'s 2026-07-25 "ContextSwitcher wired...
+  7-module feature-folder gap closed" progress-log entry for full detail.
 
 ### Other Phase 2 items
 

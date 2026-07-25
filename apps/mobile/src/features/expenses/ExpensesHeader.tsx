@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useNavigation, type ParamListBase } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Modal, Button, PageHeader } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { usePrivacy } from '~/context/PrivacyContext';
@@ -23,10 +25,9 @@ interface ExpensesHeaderProps {
 }
 
 /**
- * RN port of apps/web-legacy/src/features/expenses/ExpensesHeader.tsx — web's "Import expenses" button
- * (navigates to a general import screen outside this feature, out of scope per the mobile-migration plan)
- * is dropped as a no-op, matching every other cross-module nav action dropped so far (no real nav stack
- * exists yet).
+ * RN port of apps/web-legacy/src/features/expenses/ExpensesHeader.tsx. "Import expenses" now navigates
+ * to the real `Import` screen (restored once the Import module was ported — see `~/features/import/`);
+ * previously dropped as a no-op for lack of that destination.
  */
 export function ExpensesHeader({
   filteredTotal,
@@ -37,6 +38,7 @@ export function ExpensesHeader({
   saveExpense
 }: ExpensesHeaderProps) {
   const theme = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { shouldMask } = usePrivacy();
   const masked = shouldMask(false);
   const { events, updateEvent } = useEventMode();
@@ -70,6 +72,13 @@ export function ExpensesHeader({
             </Pressable>
             <Button
               variant="ghost"
+              icon="ti-file-import"
+              accessibilityLabel="Import expenses"
+              className="w-8 h-8 rounded-lg"
+              onPress={() => navigation.navigate('Import')}
+            />
+            <Button
+              variant="ghost"
               icon="ti-file-export"
               accessibilityLabel="Export expenses"
               className="w-8 h-8 rounded-lg"
@@ -93,12 +102,16 @@ export function ExpensesHeader({
               </View>
             )}
             {!forecastLoading && (
-              <View className="flex-row items-center gap-1 rounded-full bg-surface-2 border border-theme px-2.5 py-1">
+              <Pressable
+                onPress={() => navigation.navigate('CashFlow')}
+                accessibilityLabel="View cash flow"
+                className="flex-row items-center gap-1 rounded-full bg-surface-2 border border-theme px-2.5 py-1"
+              >
                 <Icon name="ti-wallet" size={12} color={theme.primary} />
                 <Text className="text-[11px] font-medium text-secondary">
                   Safe: <Text className="text-primary">{masked ? '••••' : formatCurrency(safeToSpend)}</Text>
                 </Text>
-              </View>
+              </Pressable>
             )}
           </View>
         </View>

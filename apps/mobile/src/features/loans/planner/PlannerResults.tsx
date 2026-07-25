@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { View, Text } from 'react-native';
 import { formatCurrency, formatMonthsDuration } from '@/lib/formatters';
-import { Card, SectionLabel } from '~/components/ui';
+import { buildLoanPlanExport } from '@/core/loans/planExport';
+import { Card, SectionLabel, Button } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { useToast } from '~/context/ToastContext';
 import type { usePlanner } from './usePlanner';
 
 interface CompareRowProps {
@@ -30,16 +33,60 @@ interface PlannerResultsProps {
 }
 
 /**
- * RN port note: web's "Download XLSX" button is dropped — it lazy-loads the `xlsx` package and calls
- * its browser-only `writeFile` (triggers a DOM download), which has no RN equivalent without a native
- * file-save/share flow that hasn't been built for this migration (same "no export" scope as the
- * PDF/HTML export already listed in docs/plans/mobile-migration.md's "Explicitly out of scope"). The
- * amortization table's CSS Grid (`gridTemplateColumns`) has no Yoga equivalent — rebuilt as a `flex-row`
- * with fixed-width `#`/`Date` columns and `flex-1` amount columns.
+ * Restored (post-Track-4), but currently BLOCKED by a real bundler gap — not working on-device yet, do
+ * not consider this shipped. Web's "Download XLSX" button was originally dropped as a capability gap (no
+ * native file-save/share flow existed at the time) — the intended fix mirrors Expenses' CSV/ZIP export
+ * exactly (`buildLoanPlanExport` for the pure data, `xlsx`'s `write()` for the workbook bytes,
+ * `expo-file-system`'s `File.write()` + `expo-sharing` for the native share sheet). On-device, tapping
+ * the button throws `Requiring unknown module "NNNN"` as an **uncaught** error overlay — this is a Metro
+ * module-resolution failure inside `await import('xlsx')` itself, not a normal JS runtime error, so the
+ * `try/catch` below does NOT intercept it (confirmed: the error overlay still appears with the catch in
+ * place). `xlsx`'s CJS entry (`xlsx.js`) has `require('fs')`/`require('stream')` calls Metro's static
+ * bundler tries to resolve regardless of the runtime guards around them; stubbing those Node builtins
+ * via `metro.config.js`'s `resolver.extraNodeModules` did NOT fix it either (tried and reverted), meaning
+ * at least one further require in `xlsx`'s dependency chain isn't a plain string literal Metro can
+ * statically stub, and the failure happens below the level any in-app error handling can reach. Not
+ * root-caused further given the depth of Metro-internals work that would need — needs either a different
+ * XLSX-writing library (lighter, RN-targeted) or dedicated Metro bundling investigation before this
+ * button will actually work. Left wired (not reverted) since the surrounding code — `buildLoanPlanExport`
+ * call, `File`/`expo-sharing` plumbing — is correct and reusable once the `xlsx` import itself is fixed.
  */
 export function PlannerResults({ planner, masked }: PlannerResultsProps) {
   const theme = useThemeColors();
-  const { baseline, result, interestSaved, monthsSaved, hasAccelerators } = planner;
+  const { planParams, baseline, result, interestSaved, monthsSaved, hasAccelerators } = planner;
+  const { showToast } = useToast();
+  const [exporting, setExporting] = useState(false);
+
+  async function downloadXlsx() {
+    if (result.rows.length === 0 || exporting) return;
+    setExporting(true);
+    try {
+      const data = buildLoanPlanExport(planParams, baseline, result, interestSaved, monthsSaved);
+      const XLSX = await import('xlsx');
+      const wb = XLSX.utils.book_new();
+      const ws1 = XLSX.utils.aoa_to_sheet(data.summaryRows);
+      XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
+      const ws2 = XLSX.utils.aoa_to_sheet([data.scheduleHeader, ...data.scheduleRows]);
+      ws2['!cols'] = data.scheduleColWidths.map((wch) => ({ wch }));
+      XLSX.utils.book_append_sheet(wb, ws2, 'Schedule');
+      const bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
+
+      const { File, Paths } = await import('expo-file-system');
+      const file = new File(Paths.cache, data.filename);
+      file.write(new Uint8Array(bytes));
+
+      const Sharing = await import('expo-sharing');
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(file.uri, {
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+      }
+    } catch {
+      showToast({ message: "Couldn't export the plan. Please try again." });
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <>
@@ -85,6 +132,17 @@ export function PlannerResults({ planner, masked }: PlannerResultsProps) {
               <CompareRow label="Months saved" original="—" withPlan={formatMonthsDuration(monthsSaved)} saving />
             </>
           )}
+          <Button
+            variant="primary"
+            fullWidth
+            icon="ti-table-down"
+            loading={exporting}
+            disabled={result.rows.length === 0}
+            onPress={() => void downloadXlsx()}
+            className="mt-4"
+          >
+            Download XLSX
+          </Button>
         </Card>
       </View>
 

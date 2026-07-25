@@ -1,4 +1,5 @@
 export { AssetTaxNote } from './AssetTaxNote';
+export { BackButton } from './BackButton';
 export { DueDateBadge } from './DueDateBadge';
 export { dueDateInfo } from '@/lib/date';
 export { FormModal } from './FormModal';

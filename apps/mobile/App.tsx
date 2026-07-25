@@ -8,6 +8,7 @@ import { PrivacyProvider } from './src/context/PrivacyContext';
 import { ToastProvider } from './src/context/ToastContext';
 import { EventModeProvider } from './src/context/EventModeContext';
 import { GroupProvider } from './src/context/GroupContext';
+import { OnboardingDraftProvider } from './src/context/OnboardingDraftContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 
 export default function App() {
@@ -21,8 +22,10 @@ export default function App() {
               <ToastProvider>
                 <EventModeProvider>
                   <GroupProvider>
-                    <RootNavigator />
-                    <StatusBar style="auto" />
+                    <OnboardingDraftProvider>
+                      <RootNavigator />
+                      <StatusBar style="auto" />
+                    </OnboardingDraftProvider>
                   </GroupProvider>
                 </EventModeProvider>
               </ToastProvider>

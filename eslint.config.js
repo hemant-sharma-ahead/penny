@@ -62,6 +62,7 @@ export default defineConfig([
     files: [
       'apps/web-legacy/src/context/*.tsx',
       'packages/core/src/core/sync/SyncProvider.tsx',
+      'packages/core/src/core/sync/SyncProvider.native.tsx',
       'apps/mobile/src/theme/ThemeProvider.tsx',
       'apps/mobile/src/context/*.tsx'
     ],

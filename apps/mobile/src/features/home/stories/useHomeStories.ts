@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { useNavigation, type ParamListBase } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { activityLogRepo, chipInsightsRepo } from '@/core/db/repositories';
 import type { ActivityLog, ChipInsight } from '@/core/db/types';
 import { useRepository } from '@/hooks/useRepository';
@@ -15,11 +17,17 @@ const STREAK_GRAD = ['#f59e0b', '#d97706'] as const;
 const INSIGHT_GRAD = ['#8b5cf6', '#6d28d9'] as const;
 const TIMELINE_GRAD = ['#0ea5e9', '#0369a1'] as const;
 
-// RN port of apps/web-legacy/src/features/home/stories/useHomeStories.ts. Cross-module `cta`/insight
-// taps are no-ops for now — Home isn't wired into real navigation yet (same precedent as every other
-// cross-module Home tap ported so far, e.g. MoneyStatsCard's `onPress={() => {}}`); a later navigation
-// pass will thread real handlers through once Home has a real nav destination for each module.
-const NOOP = () => {};
+// RN port of apps/web-legacy/src/features/home/stories/useHomeStories.ts. Web's `MODULE_PATH` maps a
+// `ChipInsight.moduleTag` to a route, falling back to Chip; mirrored here for the modules with a real
+// mobile route today. TAX/CASHFLOW have no ported mobile module yet, so they fall back to Chip too
+// (same as web's own fallback), not a fake destination.
+const MODULE_ROUTE: Record<string, string> = {
+  EXPENSES: 'Expenses',
+  SUBSCRIPTIONS: 'Subscriptions',
+  PORTFOLIO: 'Portfolio',
+  GOALS: 'Goals',
+  INSURANCE: 'Insurance'
+};
 
 /** ISO-week key (year-week) so the weekly story re-lights every new week. */
 function isoWeekKey(d: Date): string {
@@ -63,6 +71,7 @@ export function useHomeStories(): Story[] {
   const [now] = useState(() => Date.now());
   const { items: activity } = useRepository(activityLogRepo);
   const { items: insights } = useRepository(chipInsightsRepo);
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
 
   return useMemo<Story[]>(() => {
     const entries = [...activity].sort((a, b) => b.timestamp - a.timestamp);
@@ -167,7 +176,10 @@ export function useHomeStories(): Story[] {
         gradient: INSIGHT_GRAD,
         freshnessKey: `insights:${liveInsights.map((i) => i.id).join(',')}`,
         slides,
-        cta: { label: first.actionLabel ?? 'Review now', onClick: NOOP }
+        cta: {
+          label: first.actionLabel ?? 'Review now',
+          onClick: () => navigation.navigate(MODULE_ROUTE[first.moduleTag] ?? 'Chip')
+        }
       });
     }
 
@@ -185,10 +197,10 @@ export function useHomeStories(): Story[] {
           { big: '🕘', caption: 'Your timeline', sub: "Everything you've tracked — undo or restore anytime" },
           ...recent.map((e) => ({ big: '•', caption: maskAmounts(e.summary, masked) }))
         ],
-        cta: { label: 'Open timeline →', onClick: NOOP }
+        cta: { label: 'Open timeline →', onClick: () => navigation.navigate('Timeline') }
       });
     }
 
     return stories;
-  }, [activity, insights, masked, now]);
+  }, [activity, insights, masked, now, navigation]);
 }

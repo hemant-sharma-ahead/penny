@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useNavigation, type ParamListBase } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Modal } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -19,20 +21,21 @@ const TYPE_ICON: Record<string, string> = {
 /**
  * RN port of apps/web-legacy/src/features/groups/ContextSwitcher.tsx: the context bar under the app
  * header — shows the current scope (Personal or a group) and opens a menu to switch or create/join.
- * Rendered only when the `sync` entitlement is on (dark by default).
+ * Rendered only when the `sync` entitlement is on (dark by default), mounted above `MainTabs`' tab
+ * navigator (see `~/navigation/MainTabs.tsx`).
  *
  * Web's menu is a hand-rolled `fixed inset-0` dropdown (a full-screen click-catcher behind an
  * absolutely-positioned panel). RN has no DOM z-index stacking to lean on for that trick, so this
  * rebuilds it on the real ported `Modal` component instead — same "centered modal, never a hand-rolled
  * overlay" fix already applied to every other hand-rolled-overlay case in this migration (Portfolio,
- * Retirement, IPO, Expenses' AnalyticsTab). Web's `navigate(PATHS.app.home)` after switching context has
- * no mobile equivalent yet (no real nav stack outside `AuthGuard`'s temporary stand-in) — dropped, same
- * precedent as every other dropped cross-module navigation call in Track 4. Likewise, "Claim a username"
- * would `navigate(PATHS.app.profile)` on web; there's no Profile screen on mobile yet, so it's a no-op
- * placeholder here (closes the menu) until a real claim/profile screen exists.
+ * Retirement, IPO, Expenses' AnalyticsTab). Web's `navigate(PATHS.app.home)`/`navigate(PATHS.app.profile)`
+ * post-switch/claim navigation, dropped earlier in Track 4 for lack of a real nav stack, are now wired to
+ * the real `MainNavigator`/`MainTabs` routes (`Profile` screen exists since Onboarding; `MainTabs`'
+ * nested `Home` tab is reached via the standard nested-navigate form).
  */
 export function ContextSwitcher() {
   const theme = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { activeContext, activeGroup, groups, claimed, setContext } = useGroupContext();
   const { summaries } = useGroupSummaries(groups);
   const [open, setOpen] = useState(false);
@@ -44,6 +47,7 @@ export function ContextSwitcher() {
   function choose(ctx: 'personal' | string) {
     setContext(ctx);
     setOpen(false);
+    navigation.navigate('MainTabs', { screen: 'Home' });
   }
 
   return (
@@ -116,7 +120,10 @@ export function ContextSwitcher() {
             ))}
             {!claimed ? (
               <Pressable
-                onPress={() => setOpen(false)}
+                onPress={() => {
+                  setOpen(false);
+                  navigation.navigate('Profile');
+                }}
                 className="flex-row items-center gap-2.5 px-4 py-3 border-t border-theme"
               >
                 <Icon name="ti-user-plus" size={16} color={theme.primary} />

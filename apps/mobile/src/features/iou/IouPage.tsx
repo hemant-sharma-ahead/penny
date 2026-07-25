@@ -1,5 +1,6 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PageHeader } from '~/components/ui';
+import { BackButton } from '~/components/shared';
 import { IouView } from './IouView';
 
 /**
@@ -12,7 +13,7 @@ import { IouView } from './IouView';
 export function IouPage() {
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
-      <PageHeader title="IOU" />
+      <PageHeader leading={<BackButton />} title="IOU" />
       <IouView />
     </SafeAreaView>
   );

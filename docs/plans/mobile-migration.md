@@ -4,8 +4,9 @@
 > skeleton, storage + crypto adapters — on-device crypto/storage verification still owed for Track 1/2
 > specifically). **Track 3 ✅** (core UI component library: all ~28 `components/ui/` ported to NativeWind +
 > View/Text/Pressable, `Icon`/color-utility/theme-color infra built, a `ComponentGalleryScreen` verification
-> tool built). **Track 4 🚧 — Tier 1 shared infra ✅ + Subscriptions ✅ + Insurance ✅ + Loans ✅ + IOU ✅ +
-> Goals ✅ + Accounts ✅ + Home ✅ + Portfolio ✅ + Expenses ✅** (all nine modules verified on-device, an Android emulator; PrivacyContext/
+> tool built). **Track 4 ✅ — Tier 1 shared infra ✅ + Subscriptions ✅ + Insurance ✅ + Loans ✅ + IOU ✅ +
+> Goals ✅ + Accounts ✅ + Home ✅ + Portfolio ✅ + Expenses ✅ + Groups ✅ + Onboarding ✅ +
+> Settings/Security/Profile/Activity ✅** (all thirteen modules verified on-device, an Android emulator; PrivacyContext/
 > SettingsContext/ToastContext/`useLoggedRepository` ported as reusable prerequisites — see the
 > dependency-survey Tier 1/2/3 split below; `components/shared/` (`ListRow`/`DueDateBadge`/`FormModal`)
 > ported alongside Insurance as another shared prerequisite for Loans/IOU/Goals/Portfolio; real bugs found
@@ -84,8 +85,58 @@
 > on RN since `location` is undefined, producing an invite link with no host
 > (`/app/groups/join#secret...`) — doesn't crash (already guarded) and wasn't fixed since it's shared
 > `packages/core` code outside this step's scope; flagged for a future pass once mobile has a real deep-
-> link/URL scheme to build the link against. **Next: Onboarding/Settings/Security/Profile/Activity**, per
-> Track 4's module order. Full context:
+> link/URL scheme to build the link against. **Onboarding + Settings/Security/Profile/Activity ✅** — real
+> onboarding (13 screens, a new top-level `Stack.Navigator`/`OnboardingNavigator`/`MainNavigator`) finally
+> sets a real Data Master Key on-device via a real UI for the first time in this migration, closing out
+> the standing "Session locked" limitation every prior module hit; Settings/Security/Profile/Activity
+> ported alongside it. Two real, previously-latent bugs were found and fixed during on-device
+> verification, both severe enough to have crashed not just the app but the emulator process itself: (1)
+> `schema.native.ts`'s single shared `expo-sqlite` connection had no serialization, and `seedDemoData.ts`'s
+> `Promise.all(items.map(repo.put))` seeding pattern (~16 call sites, several hitting `expenses`
+> concurrently) could silently drop writes and corrupt the native statement pool under that load — fixed
+> with a single FIFO queue over every DB operation in `schema.native.ts`, not a per-call-site patch; (2)
+> `TransactionsTab.tsx` rendered its full list via a plain `View`+`.map()` inside a parent `ScrollView` —
+> harmless on web's DOM, but with demo data's ~1,000 seeded transactions this mounted ~1,000
+> `SwipeableRow`s (each a real `react-native-gesture-handler` instance) simultaneously, which crashed hard
+> on-device — fixed by rebuilding it on a virtualized `SectionList` (removing the now-redundant wrapping
+> `ScrollView` in `TransactionsSlice.tsx`). **This module order now covers everything Track 4 originally
+> scoped — Track 4 is complete.** Post-Track-4, a "restore what was dropped since Track 0" pass (user
+> request) covered: full app navigation + back buttons ✅ (see the 2026-07-25 "full app navigation wiring"
+> progress-log entry), IOU's Groups banner ✅, Loans' XLSX export ⚠️ **attempted, confirmed NOT working —
+> see below**. ContextSwitcher's real entry point ✅ and a top-of-screen safe-area double-inset bug on
+> Home/Portfolio/Expenses/Goals ✅ were also fixed (see the 2026-07-25 "ContextSwitcher wired" progress-log
+> entry). **Beyond that restoration pass, a full feature-folder audit (`apps/web-legacy/src/features/` vs
+> `apps/mobile/src/features/`) found 7 modules never ported at all — Feedback ✅, Import ✅, Backup &
+> Restore ✅, Cashflow ✅, News ✅, Calculators ✅, Tax Awareness ✅ — all now ported and wired (see that
+> same progress-log entry for full per-module detail). Chip is the one remaining unported web feature
+> folder, and stays explicitly out of scope (Phase 2, full Chip AI).**
+>
+> **▶ Resume here:**
+> 1. **Loans' "Download XLSX" is broken** — code is written and wired (`PlannerResults.tsx`) but throws an
+>    uncaught Metro module-resolution error on-device (`Requiring unknown module "NNNN"` from
+>    `await import('xlsx')`) that no in-app `try/catch` can intercept. Root cause: `xlsx`'s CJS entry has
+>    `require('fs')`/`require('stream')` Metro can't fully stub (a `metro.config.js`
+>    `resolver.extraNodeModules` stub was tried and reverted — didn't fix it). Needs either a different,
+>    RN-targeted XLSX-writing library, or dedicated Metro bundling work. See the 2026-07-25 "IOU Groups
+>    banner restored; Loans XLSX export attempted" progress-log entry for the full investigation.
+>    (User has asked to research alternative XLSX libraries later — not started yet.)
+> 2. **On-device verification of the 7 newly-ported modules is in progress** (see the 2026-07-25 "RN-web
+>    platform gap + onboarding layout bug + native module linking" progress-log entry below) — two real
+>    bugs found and fixed so far (RN-web's missing `.web.ts` platform resolution; the onboarding
+>    `OnboardingBack` layout bug across all 11 onboarding screens), **one still open and blocking further
+>    testing**: `TurboModuleRegistry.getEnforcing(...): 'QuickBase64' could not be found` on-device —
+>    `react-native-quick-base64` (nested under `@craftzdog/react-native-buffer` → `react-native-quick-
+>    crypto`) isn't linked into the currently-installed native APK. Native rebuild (`npx expo run:android`)
+>    was recommended as the fix but not yet confirmed working — **if a rebuild doesn't clear it, the
+>    autolinking of this nested dependency needs real investigation**, not just another rebuild attempt.
+>
+> **Uncommitted work as of 2026-07-25**: everything from Track C onward (Groups, Onboarding,
+> Settings/Security/Profile/Activity, the two demo-mode bug fixes, and this whole restoration pass) is
+> sitting uncommitted in the working tree — `git status` will show a large diff. Check with the user
+> before committing (a prior mid-session commit already landed Track 4 modules 1–9 + Track C + Groups as
+> `6d1c2a3`; everything since is new).
+>
+> Full context:
 > [`CLAUDE.md`](../../CLAUDE.md),
 > architecture details in [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md), design-pattern notes in
 > [`docs/DESIGN_GUIDELINES.md`](../DESIGN_GUIDELINES.md), SQL schema mapping: [`docs/SCHEMA.md`](../SCHEMA.md),
@@ -1070,3 +1121,328 @@ defines the actual parity bar for retiring legacy web.
   (`expo run:android`, required for the new `expo-clipboard` dep) succeeded on the `penny_pixel` emulator
   after resolving a missing-`JAVA_HOME` build failure (pointed at Android Studio's bundled JBR:
   `/Applications/Android Studio.app/Contents/jbr/Contents/Home`).
+
+### 2026-07-25 — Onboarding + Settings/Security/Profile/Activity — Track 4 complete
+
+- **Navigation infrastructure, built first**: `apps/mobile/src/navigation/OnboardingNavigator.tsx` (a real
+  `native-stack` `Stack.Navigator`, one screen per `PATHS.onboarding.*` route) and `MainNavigator.tsx` (a
+  `Stack.Navigator` hosting `MainTabs` as its root screen, plus `Profile`/`Settings`/`SafeModeSettings`/
+  `ManageTags`/`ChangePin`/`ChangePassphrase`/`Timeline`/`Backup`(placeholder)/`OnboardingFlow`(re-mounts
+  `OnboardingNavigator`, for Exit-Demo-Mode's real nested-navigation case) pushed on top of it). `RootNavigator.tsx`
+  now wires `AuthGuard`'s `needs_onboarding` branch to the real `OnboardingNavigator` and `ready` to
+  `MainNavigator`, superseding every prior stand-in screen. A new `apps/mobile/src/navigation/
+  authRecheckBus.ts` (same in-memory pub/sub shape as `profileChangeBus.native.ts`) lets onboarding
+  screens tell `AuthGuard` to re-run its check after a vault is created/restored/wiped — a real gap the
+  plan didn't anticipate: unlike web (route change or a full page reload re-runs `AuthGuard`), RN's
+  `AuthGuard` only ever checks once, in a mount-time effect. `MainTabs.tsx`'s Home/Portfolio/Expenses/Goals
+  tabs now render their real ported pages instead of `PlaceholderScreen`; Chip stays a placeholder (Phase
+  2). `OnboardingDraftContext.tsx` ported as a plain in-memory (no persistence) context, matching web's
+  "refresh restarts onboarding" behavior.
+- **All 13 onboarding screens ported** (`Splash`/`PrivacyPromise`/`PrivacyDemo`/`ChipIntro`/
+  `SimulatedDashboard`/`LetUsKnowYou`/`SetupCredentials`/`Start`/`Account`(recovery)/`DemoVault`/
+  `LifeHousehold`/`AddAccounts`/`BackupSetup`) plus `OnboardingBack`/`IdentityReconciler`/
+  `useRedirectIfOnboarded`. `OnboardingLayout`/`OnboardingPlaceholder` were skipped — the former's one job
+  (mounting the draft provider) happens once at `App.tsx` root instead, the latter is dead code with zero
+  consumers even on web. `ChooseHandleScreen` (not in the plan's original 13-screen list) was added as a
+  hard compile-time dependency of `IdentityReconciler`. **`SetupCredentialsScreen` is the screen that
+  finally sets a real Data Master Key on-device via a real UI** — every prior on-device module test hit
+  "Session locked" before reaching this point (only `ClaimSmokeTestScreen.tsx`'s hardcoded scratch version
+  had ever called `initialize()` before). Real passphrase input + `PassphraseStrengthMeter` (driven by
+  `usePassphraseStrength`, already platform-agnostic) + 6-digit PIN + confirm-PIN + `isWeakPin`, calling
+  real `initialize()` or `exitDemoMode()` (the re-key path). **`AccountRecoveryScreen`** (the largest
+  single screen) needed a real file picker for the restore-from-file path — added `expo-document-picker`
+  (new dep) + `expo-file-system`'s `File` class — and its cloud-restore branch transitively imported
+  `googleDriveProvider.ts`, which read Vite-only `import.meta.env.VITE_GOOGLE_CLIENT_ID` (same bug class
+  as `apiBase.ts`'s original gap) — fixed with a dormant `googleDriveProvider.native.ts` stub
+  (`isAvailable()` always `false`, matching `icloudProvider.ts`'s existing precedent) so the module tree
+  compiles on native; Drive connect itself is still web-only.
+- **`seedDemoData.ts`'s native storage fix**: rather than a ~1,650-line `.native.ts` fork, the plan's own
+  "inject a storage adapter" alternative was used — a new `seedDemoStorage.ts`/`.native.ts` pair seams off
+  the handful of direct `localStorage`/`window` touches (demo-seeded flag, past-events cache, cleared-data
+  markers), and `seedDemoData.ts` calls through it unchanged. `isDemoSeededSync()` stays a synchronous
+  boolean guard on native via an in-memory flag (same shape as `ipoClient.native.ts`'s fix), safe because
+  every real caller already ORs it with the persisted, encrypted `profile.demoSeeded` field.
+  `@react-native-async-storage/async-storage` added as a direct `packages/core` dependency (matching
+  `apps/mobile`'s version), following the `expo-sqlite`-in-`packages/core` precedent from Track 2.
+- **Settings** (`SettingsPage`/`SafeModeSettingsPage`/`ManageTagsPage`) built on the already-ported
+  `SettingsContext.tsx` (Tier 1 — state layer only, this is the screen UI). Theme/font-scale pickers
+  dropped entirely (Track 3's `ThemeProvider` already owns theme; font scaling has no mobile consumer);
+  "Backup & Restore"/"Contact & Feedback" nav rows dropped (neither module ported yet — `ProfilePage`'s
+  "Set up backup" button points at the `Backup` placeholder route in the meantime). Exit Demo Mode hands
+  off to onboarding's "Let us know you" step via `MainNavigator`'s `OnboardingFlow` nested-navigate case
+  (see above).
+- **Security** (`ChangePinPage`/`ChangePassphrasePage`) — pure UI ports, `securityManager`'s
+  `changePin`/`changePassphrase`/`resetPinWithPassphrase`/`isWeakPin` were already fully portable, no
+  platform work needed. A `'wiped'` result (PIN lockout → passphrase recovery fails too many times →
+  `wipeAllData()`) correctly calls `notifyAuthShouldRecheck()` rather than a direct (nonexistent)
+  `navigate('Splash')`, since `wipeAllData()` genuinely clears `security`/`profile` and
+  `isOnboardingComplete()` goes false again — `AuthGuard`'s own re-check then naturally renders
+  `OnboardingNavigator` from `Splash`.
+- **Profile** (`ProfilePage.tsx`, 594 web lines, single file) — display name, DOB (`deriveAge`/
+  `deriveAgeBand`), employment type (`reseedForEmployment`), username validation + Track C's `claimAccount`
+  (already proven working on-device), sync entitlement check, backup target display. Avatar picker reuses
+  Expenses' `~/lib/receiptImage.ts` (`pickReceiptPhoto`) since web's version is a real `<input
+  type="file">`, not a color-swatch grid. DOB is a plain digit-entry text field — no RN date-picker
+  dependency exists anywhere in this migration yet. One real, unanticipated gap: `getBackupTarget`/
+  `setBackupTarget` (`core/sync/backupPrefs.ts`) used synchronous `localStorage` with no RN equivalent —
+  added `backupPrefs.native.ts`, but since `backupEngine.ts` (the real Backup & Restore read/write flow)
+  isn't ported to mobile yet, this sibling drops persistence entirely (in-memory only, defaults to `null`
+  every cold start) since `ProfilePage`'s only call site is read-only display; flagged for revisit once
+  Backup & Restore itself is ported.
+- **Activity** (`TimelinePage` + `ActivityRow`/`DiffChips`/`ItemHistory`/`MilestoneBanner`/`MoneyStory`/
+  `OnThisDay`/`PrivacyReceipt`/`TrackingHeatmap`/`WrappedModal`/`Confetti` + `useActivityLog`/
+  `activityMeta`) — `logActivity`/`restoreDeletionsSince` were already portable. `activityMeta.ts`'s
+  `ACTION_META` was a static object built from `STATUS`'s CSS-var strings — the same bug class first
+  caught during IOU — ported as a `getActionMeta(theme)` function called with `useThemeColors()` from
+  inside components, not a static export. `WrappedModal.tsx`'s hand-rolled `fixed inset-0 z-[90]`
+  full-screen "wrapped"-style story overlay was rebuilt on Home Stories' full-screen pattern (RN's own
+  `Modal` + `LinearGradient` + `react-native-view-shot`/`expo-sharing`, with a small self-contained
+  offscreen share-card template — not a cross-feature import of Home's own `ShareCard`, respecting the
+  no-cross-feature-import rule), not the shared centered `Modal` component (wrong shape for a full-bleed
+  story). `TrackingHeatmap.tsx`'s CSS Grid `grid-auto-flow: column` (no Yoga equivalent) rebuilt as
+  pre-chunked week-columns in a `flex-row`.
+- **Two real, severe bugs found and fixed during on-device Demo Mode verification** — both crashed hard
+  enough to take down the whole emulator process, not just the app, and both root-caused via code review
+  rather than further blind on-device reproduction (at the user's explicit direction, after the second
+  crash):
+  1. **`schema.native.ts`'s `expo-sqlite` adapter had no serialization** — every table's `get`/`put`/
+     `toArray`/`delete`/`update`/`clear` opened its own independent call against the one shared
+     `SQLite.openDatabaseAsync` connection. `seedDemoData.ts` issues ~16 `Promise.all(items.map(repo.put))`
+     batches (several hundred concurrent `put`s across a handful of tables, three different call sites
+     hitting `expenses` alone), and under that load `expo-sqlite`'s native binding silently dropped writes
+     (Expenses showed "No transactions yet" / ₹0 despite Home's stats correctly reflecting real seeded
+     data from the same tables) and separately corrupted its internal native statement pool, surfacing
+     later as `Cannot use shared object that was already released` / `NativeDatabase.prepareAsync` errors.
+     Fixed with a single FIFO queue (`enqueue()`) serializing every operation through the one connection —
+     a single choke point in `schema.native.ts`, not a patch to each of the ~16 `Promise.all` call sites
+     (which would only protect that one file, not future callers).
+  2. **`TransactionsTab.tsx` rendered its entire list unvirtualized** — a plain `View` + `.map()` (nested
+     two levels: day-group, then row) inside `TransactionsSlice.tsx`'s wrapping `ScrollView`. Harmless on
+     web (a DOM list of any size is cheap), but with demo data's ~1,000 seeded transactions this mounted
+     ~1,000 `SwipeableRow`s simultaneously — each a real `react-native-gesture-handler` instance with its
+     own worklets — which crashed severely enough on-device to restart the emulator, not just the app.
+     Fixed by rebuilding `TransactionsTab` on a virtualized `SectionList` (`sections` from `grouped`,
+     `renderSectionHeader`/`renderItem` carrying the exact same row/rail/swipe-action visuals as before)
+     and removing the now-redundant wrapping `ScrollView` in `TransactionsSlice.tsx`. Verified on-device
+     with the full ~1,000-row demo dataset: Transactions tab renders real data (all-time total
+     ₹38,42,982, real category icons/accounts/tags/timeline rail), Analytics tab renders correctly (donut
+     chart, monthly recap, anomaly banner) — no crash, no data loss, confirmed across a full fresh-install
+     → Demo Mode → Expenses → Analytics cycle.
+- **Verification**: `tsc -b`, `eslint`, `prettier --check` all clean across `apps/mobile` + `packages/core`
+  after every step; full test suite (401 `packages/core` tests + 39 workers tests) unchanged. On-device,
+  end-to-end, on the `penny_pixel` emulator: real onboarding (Splash → 13 screens → `SetupCredentials`)
+  sets a real DMK and lands on real `MainTabs`; `SettingsPage` renders fully (Profile hero, Modules,
+  Privacy, Security, Data & Activity); `ChangePassphrasePage`'s full round-trip (verify current → re-wrap
+  DMK → success → return to app) confirmed working (an earlier "incorrect passphrase" result during
+  testing turned out to be a UI-automation typing artifact, not a real bug, isolated by retyping
+  carefully and reproducing successfully); `ProfilePage` shows the claimed badge, details, username,
+  employment (matching onboarding's choice); Activity's Timeline/Story/Recently-deleted tabs all render;
+  Demo Mode seeds and displays real data end-to-end after the two fixes above. **Track 4 is now complete —
+  every module in its original scope has been ported and verified on-device.**
+
+### 2026-07-25 — Post-Track-4: full app navigation wiring + back buttons
+
+- **A real gap found while restoring "dropped" Track 4 features**: every module (Insurance, Loans, IOU,
+  Accounts, Subscriptions) had been ported and on-device-verified in isolation by swapping it into
+  `AuthGuard`'s single stand-in slot, but a real navigation graph connecting them was never built — Home's
+  every cross-module entry point (`AccountsStrip`, `GlanceHeader`'s breakdown rows, `ToolsGrid`,
+  `MoneyStatsCard`, Stories' CTAs) was a literal `onPress={() => {}}` no-op, and `MainNavigator.tsx`
+  didn't register any of those five modules as routes at all. Fixed in one pass:
+  1. **Routes registered** in `MainNavigator.tsx`: `Insurance`/`Loans`/`IOU`/`Accounts`/`Subscriptions`
+     pushed onto the stack (`headerShown: false`, each screen owns its own `PageHeader`), `MainStackParamList`
+     extended to match.
+  2. **New shared `BackButton`** (`apps/mobile/src/components/shared/BackButton.tsx`) — an inline
+     (non-absolute) `Pressable`+chevron calling `useNavigation().goBack()`, meant for `PageHeader`'s
+     `leading` slot (which was already documented as "e.g. a back button" since Track 3 built it, but
+     never wired since no real `Stack.Navigator` existed until this pass). Wired into every screen reached
+     by a *push* (not a tab root): `Accounts`/`Insurance`/`IOU`/`Loans`/`Subscriptions`/`Profile`/
+     `Settings`/`SafeModeSettings`/`ManageTags`/`ChangePassphrase`/`Timeline` unconditionally,
+     `ChangePinPage` conditionally (`forced ? undefined : <BackButton />`, respecting the existing
+     non-dismissible-lockout intent already enforced at `MainNavigator`'s stack-options level). Home/
+     Portfolio/Expenses/Goals (tab roots, no "back" destination) were deliberately left untouched.
+  3. **Home's dead entry points wired to their web-equivalent destinations**: `AccountsStrip` → `Accounts`;
+     `GlanceHeader`'s breakdown rows → `Accounts`/`Expenses`/`Portfolio`/`Loans` depending on asset class
+     (web's `assetSubTab`/`{state:{tab:'iou'}}` initial-tab hints dropped — neither `PortfolioPage` nor
+     `ExpensesPage` accepts an initial-tab param yet, flagged not silently dropped); `MoneyStatsCard` →
+     `Expenses`/`Insurance`/`Loans`; `useHomeStories.ts`'s `NOOP` replaced with a real `MODULE_ROUTE` map.
+     Anything with no real mobile destination (Cashflow, Tax, Calculators, News — all out of this
+     migration's scope) was left as a flagged no-op with an explaining comment, not a fake destination.
+- Also restored in the same pass: **IOU's Groups informational banner** ("Your personal IOUs. Group
+  balances live in each group.") — dropped during Track 4 (before `GroupContext` existed on mobile),
+  restored in `IouView.tsx` now that Groups has landed, matching the same restoration Home/Expenses already
+  got. IOU's underlying ledger logic is untouched — this only restores the banner.
+- **Verification**: `tsc -b`, `eslint`, `prettier --check` all clean across `apps/mobile` + `packages/core`;
+  full test suite (401 + 39 tests) unchanged. On-device: fresh Demo Mode setup → SectionList transaction
+  rows open the real Edit Expense modal correctly (a second confirmation of the earlier `SectionList` fix,
+  this time via direct row taps rather than just scrolling) → Home's stat cards and breakdown rows
+  navigate without crashing across several taps (Net Worth breakdown, a Portfolio vehicle detail via the
+  Assets breakdown) → no crash across the whole session. Exact per-tap destination correctness for every
+  single Home entry point wasn't exhaustively re-verified pixel-by-pixel on-device (screenshot-coordinate
+  taps repeatedly landed on the Net Worth breakdown instead of the intended stat card) — the navigation
+  code itself was read and confirmed correct, and no destination in this pass is a fabricated route.
+  **On-device confirmation of the route wiring itself**: navigating to `Loans` from Home rendered the
+  real `LoanScenariosPage` with a working `BackButton` in its `PageHeader` — direct proof `MainNavigator`'s
+  new routes + `BackButton` restoration both work end-to-end, not just in code review.
+
+### 2026-07-25 — IOU Groups banner restored; Loans XLSX export attempted, blocked by a real Metro/xlsx gap
+
+- **IOU's Groups informational banner restored** in `IouView.tsx` ("Your personal IOUs. Group balances
+  live in each group — kept separate on purpose."), gated on `hasEntitlement('sync') && claimed &&
+  groups.length > 0` via the now-ported `useGroupContext()` — matches web exactly. IOU's own ledger
+  logic and personal-only scoping are otherwise unchanged; this only restores the one dropped banner.
+- **Loans' "Download XLSX" export — restored in code, confirmed NOT working on-device, left flagged
+  rather than silently shipped broken.** `PlannerResults.tsx` now has a real `downloadXlsx()` following
+  the exact established pattern (`buildLoanPlanExport` for pure data, `xlsx`'s `write()` for workbook
+  bytes, `expo-file-system`'s `File.write()` + `expo-sharing` for the share sheet — same shape as
+  Expenses' CSV/ZIP export). Added `xlsx` as a direct `apps/mobile` dependency (unlike `@zip.js/zip.js`,
+  which only `packages/core` needs directly — this import is in app code, so it needs its own
+  resolvable copy). On-device, tapping the button throws `Requiring unknown module "NNNN"` as an
+  **uncaught** error — a Metro module-resolution failure inside `await import('xlsx')` itself, confirmed
+  to happen below the level a `try/catch` around the call can intercept (added one anyway, for any
+  future runtime-level failure; the overlay still appears with it in place). Root cause: `xlsx`'s CJS
+  entry has `require('fs')`/`require('stream')` calls Metro's static bundler tries to resolve regardless
+  of their runtime guards; stubbing those Node builtins via `metro.config.js`'s `resolver.extraNodeModules`
+  was tried and reverted — it did not fix the error, meaning at least one further require in `xlsx`'s
+  dependency chain isn't a plain string literal Metro can statically stub. **Not fixed — needs either a
+  different, RN-targeted XLSX-writing library or dedicated Metro bundling investigation** before this
+  button will actually produce a file. Left wired rather than reverted, since the surrounding
+  `buildLoanPlanExport`/`File`/`expo-sharing` plumbing is correct and directly reusable once the `xlsx`
+  import itself is fixed.
+- **Verification**: `tsc -b`, `eslint`, `prettier --check` clean; full test suite (401 + 39) unchanged.
+  On-device: IOU's restored banner not separately screenshotted this pass (small, low-risk change,
+  same `useGroupContext` pattern already proven working in Home/Expenses); Loans' export button confirmed
+  reachable (real navigation → `LoanScenariosPage` → `Plan this loan` pre-fills the planner from a real
+  loan → "Download XLSX" appears once a valid plan exists) but confirmed non-functional per above.
+
+### 2026-07-25 — ContextSwitcher wired; top-of-screen safe-area gap fixed; the 7-module feature-folder gap closed
+
+- **ContextSwitcher wired into real navigation** — the last open item from the prior restoration pass.
+  Mounted in `MainTabs.tsx` above the `Tab.Navigator` (persistent across every tab, mirroring web
+  `AppShell`'s chrome position), gated by `hasEntitlement('sync')`. Its "switch context" action now
+  navigates to the `Home` tab (`navigation.navigate('MainTabs', { screen: 'Home' })`, added a typed
+  `TabParamList`/`NavigatorScreenParams` for this); its "Claim a username" row now opens the real
+  `Profile` screen instead of a no-op placeholder. `useServerActionError`'s `NotClaimedError` branch was
+  restored the same way — routes to `Profile` and returns `true` (previously always `false`, since it
+  couldn't navigate anywhere).
+- **Top-of-screen gap bug fixed on Home/Portfolio/Expenses/Goals** — all four tab screens wrapped
+  themselves in `SafeAreaView edges={['top']}`, double-reserving the top safe-area inset already consumed
+  by `MainTabs`' own Stack.Screen header ("Penny" title + settings button). Pushed screens with
+  `headerShown: false` (Insurance, Loans, etc.) correctly keep `edges={['top']}` — only the four
+  tab-root screens had the bug; fixed by dropping to `edges={[]}` on those four.
+- **The real remaining Track 4 gap, found by diffing `apps/web-legacy/src/features/` (24 folders) against
+  `apps/mobile/src/features/` (16)**: 7 modules were never ported — **Feedback, Import (expenses CSV
+  import), Backup & Restore, Cashflow, News, Calculators, Tax Awareness** (an 8th, Chip, stays out of
+  scope — Phase 2). All 7 are now ported, each with its own progress-log detail folded in here rather
+  than as separate entries given the pass covered all of them together:
+  - **Feedback** (145 web lines) — a `mailto:` draft composer; `window.open` → `Linking.openURL`;
+    `__APP_VERSION__` (a Vite `define`) has no mobile equivalent, so this reads `app.json`'s `version` via
+    `expo-constants` instead (`Constants.expoConfig?.version`) — first use of that field on mobile.
+  - **Import** (401 lines) — `useImport.ts`/`importParsers`/`importPipeline` were already
+    platform-agnostic; only the file-picking UI needed a swap (`expo-document-picker` +
+    `expo-file-system`'s `File.text()`, same pattern as onboarding's `AccountRecoveryScreen`). Restored
+    Expenses' "Import expenses" header button, previously a flagged no-op.
+  - **Backup & Restore** (456 lines) — export/import/reset all fully functional (`expo-file-system` +
+    `expo-sharing` for export/share, `expo-document-picker` for restore, `notifyAuthShouldRecheck()` in
+    place of web's full-page-reload after import/reset). The bigger piece: the **automatic backup engine
+    was upgraded to actually run on mobile** — added `packages/core/src/core/sync/SyncProvider.native.tsx`
+    (re-runs on `AppState` → `'active'` instead of web's `online`/`visibilitychange` DOM events; RN needed
+    `react-native` added as a direct `packages/core` dependency, since that file lives there, not in
+    `apps/mobile`) and upgraded `backupPrefs.native.ts` from in-memory-only to AsyncStorage-hydrated.
+    Mounted `SyncProvider` in `RootNavigator.tsx` around `MainNavigator` (post-unlock), mirroring web's
+    `AppShell` mount point. Google Drive (needs native Sign-In, not built) and the on-device OPFS floor
+    (browser-only API) both degrade to their existing "not configured" UI rather than crashing.
+  - **Cashflow** (487 lines) — the "Safe to spend" screen Home/Expenses had flagged no-op links to.
+    `useForecast` was already shared and complete; the balance sparkline is redrawn with `react-native-svg`
+    (`Path`/`Line`/`Circle`); `useIncomeSuggestions`'s dismissed-set cache swaps `localStorage` for
+    `~/lib/storage`.
+  - **News** (689 lines) — `core/news/newsClient.ts` needed a real `.native.ts` sibling: RN has **no
+    `DOMParser`** at all (a first for this migration — every prior "browser API missing" case was
+    `localStorage`/`window` events), so RSS parsing became a small regex-based tag extractor (handles
+    `CDATA`-wrapped fields); cache drops to in-memory/session-scoped, same precedent as `ipoClient.native.ts`.
+    `FilterDropdown`'s hand-rolled dropdown rebuilt on the shared `Modal`, same fix pattern used
+    throughout this migration.
+  - **Calculators** (1,405 lines, 10 individual calculators + shared `CalcUI.tsx` primitives) — the most
+    mechanical of the seven; `AmountRow`/`HeroResult` take a `masked` boolean from `usePrivacy().shouldMask(false)`
+    instead of porting web's tap-to-peek `MaskedValue` component (no precedent for that interaction
+    anywhere else on mobile). `ResultCard`'s web `divide-y` becomes the same border-top-on-non-first-child
+    technique `ListContainer.tsx` already established.
+  - **Tax Awareness** (1,848 lines — the largest of the seven) — four-pillar tab structure
+    (Footprint/Explore/Optimize/Calculators) ported whole; every hook (`useTaxData`, `useTaxDeductions`,
+    `useFootprint`) was already platform-agnostic. Two new pieces: `@react-native-community/slider` (new
+    native dependency — Optimize's "what-if" deduction sliders had no existing RN range-input equivalent
+    anywhere in the app), and `TaxStoryModal`'s shareable image, which reuses Home Stories' exact
+    `ShareCard`/`react-native-view-shot`/`expo-sharing` solution instead of web's procedural `<canvas>` +
+    `navigator.share`.
+  - **Entry points restored** across Home/Expenses (previously flagged no-ops pending these modules):
+    Home's `ToolsGrid` (News, Calculators tiles), Home's `GlanceHeader` ("Safe to spend"), Home's
+    `MoneyStatsCard` ("Tax story" row), Expenses' `ExpensesHeader` ("Import expenses" button, "Safe: ₹X"
+    pill). `SettingsPage` gained "Backup & Restore" and "Contact & Feedback" rows (both previously
+    explicitly called out as dropped in that file's own comment).
+- **Verification**: `tsc -b` (both `apps/mobile` and `packages/core` standalone), `eslint` clean across
+  every new/touched file; full `apps/web-legacy` production build unaffected (sanity-checked after the
+  `packages/core` `package.json`/`SyncProvider.native.tsx` changes, since that's shared code). Render/
+  layout only — no on-device pass yet for these 7 modules (matches this migration's standing "Session
+  locked" caveat until a real device/emulator session is run against them).
+
+### 2026-07-25 — On-device verification of the 7-module pass begins: RN-web platform gap, onboarding layout bug, native module linking (in progress)
+
+Started the on-device verification pass flagged as outstanding above. Testing happened across three
+surfaces at once — the Android emulator (`penny_pixel` AVD), `apps/mobile` running via `expo start --web`
+(react-native-web in a browser), and `apps/web-legacy` (the original web app) side by side — to cross-check
+new modules against the reference implementation. Found and fixed two real bugs; one more found, fix
+recommended but not yet confirmed.
+
+- **RN-web crash: `Cannot read properties of undefined (reading 'VITE_ENABLE_SYNC')`.** Mounting
+  `SyncProvider` at the app root (this pass's Backup & Restore work) was the first thing to ever
+  unconditionally import `entitlement.ts` at startup — surfacing a latent gap that likely predates this
+  session: `apps/mobile` targets iOS/Android/**web** (via react-native-web), but Metro's platform
+  resolution only swaps in `.native.ts` for iOS/Android, never for the `web` target, so anything without a
+  `.web.ts` sibling falls through to the bare file — which still assumes Vite's `import.meta.env`, a global
+  Metro never defines. First fix attempt (adding `entitlement.web.ts`, `apiBase.web.ts`,
+  `googleDriveProvider.web.ts` mirroring the existing `.native.ts` siblings) didn't work — the crash
+  persisted identically. **Real root cause, found by reading `@expo/metro-config`'s source directly**:
+  Expo's default Metro config explicitly sets `resolver.platforms: ['ios', 'android', 'tvos', 'macos']`
+  (omitting `'web'` entirely, unlike Metro core's own default which includes it), so Metro's file crawler
+  never even recognized `foo.web.ts` as a platform variant of `foo` — not a cache issue, a genuine config
+  gap. Fixed by explicitly appending `'web'` to `resolver.platforms` in `apps/mobile/metro.config.js`. This
+  requires a full Metro restart to take effect (platform config is read once at server startup, not
+  hot-reloadable) — confirmed via `expo start --web --clear`.
+- **Onboarding layout bug: back arrow misaligned + unwanted gap at the top, across all 11 onboarding
+  screens.** `OnboardingBack` (`position: absolute`, `top-5 left-5`, meant to sit flush at the top-left of
+  a "full-bleed" screen) was rendered as the **first child inside a `ScrollView`** that itself has
+  `px-6 py-10` padding. In React Native, `<ScrollView>{children}</ScrollView>` renders its children inside
+  an *inner* scrollable content view, distinct from the *outer* frame the padding actually attaches to —
+  so the inner content view (and everything positioned relative to it, including the absolutely-positioned
+  back button) was already offset by the outer frame's padding, pushing the button ~40px further down/right
+  than intended. A dedicated Explore-agent survey confirmed **all 11 files using `OnboardingBack`**
+  (AccountRecoveryScreen, BackupSetupScreen, AddAccountsScreen, AccountStartScreen, ChipIntroScreen,
+  DemoVaultScreen, LetUsKnowYouScreen, PrivacyDemoScreen, LifeHouseholdScreen, SimulatedDashboardScreen,
+  SetupCredentialsScreen) have the identical structure — no outliers. Fixed uniformly: moved
+  `<OnboardingBack />` out of the `ScrollView`, as a direct sibling inside `SafeAreaView` (no padding),
+  across all 11 files. Verified against web-legacy screenshots side-by-side on two of the fixed screens
+  (PrivacyDemoScreen, ChipIntroScreen) post-fix — matches web's actual behavior (an independent top-corner
+  overlay, not row-aligned with whatever hero icon the screen has). **One follow-up design change beyond
+  the structural fix**: `SimulatedDashboardScreen` ("Here's a preview") has no hero icon above its title
+  (unique among the 11), so the floating corner arrow left a conspicuous empty gap with nothing to anchor
+  it against — per explicit user feedback, this one screen now uses a local inline back arrow + centered
+  title in the same row (vertically centered together), rather than the shared absolute-positioned
+  `OnboardingBack`. The other 10 screens (which all have a hero icon) keep the shared component/pattern.
+- **Native module linking issue found, not yet confirmed fixed**: `[runtime not ready]: Invariant
+  Violation: TurboModuleRegistry.getEnforcing(...): 'QuickBase64' could not be found` on a fresh
+  (`pm clear`-reset) on-device run. `react-native-quick-base64` is a real native turbo module, nested three
+  levels deep (`react-native-quick-crypto` → `@craftzdog/react-native-buffer` → `react-native-quick-
+  base64`) — not something touched directly this session, but likely surfaced by the several `pnpm
+  install`s run this pass (adding `@react-native-community/slider`, adding `react-native` as a direct
+  `packages/core` dependency for `SyncProvider.native.tsx`), which can shift pnpm's dependency resolution
+  enough to change what's reachable for Android autolinking without a matching native rebuild. Recommended
+  fix: a full `npx expo run:android` (relinks every native module fresh) — **not yet confirmed working**,
+  since the user is now driving testing/emulator interaction directly rather than through agent-driven
+  screenshots (a request made explicitly this pass — "I will do the testing"). If a rebuild doesn't clear
+  it, this needs real autolinking investigation, not another rebuild attempt.
+- **Process note**: switched testing approach mid-pass — the user asked to stop having Claude drive the
+  emulator/take screenshots directly ("you waste time, I will do the testing") in favor of Claude making
+  code fixes and handing back plain terminal commands for the user to run themselves. `docs/RUNNING_MOBILE.md`
+  should get a follow-up pass documenting the `JAVA_HOME` requirement for local Gradle builds on this
+  machine (no system Java installed, only Android Studio's bundled JBR) and the native-rebuild-vs-Metro-
+  restart distinction (JS-only changes → Metro hot reload is enough; new native deps or native config
+  changes like `metro.config.js`'s `resolver.platforms` → full `expo run:android` rebuild required).

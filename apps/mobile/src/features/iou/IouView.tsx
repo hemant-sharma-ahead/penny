@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { useSettings } from '~/context/SettingsContext';
 import { useToast } from '~/context/ToastContext';
+import { useGroupContext } from '~/context/GroupContext';
+import { hasEntitlement } from '@/core/entitlement/entitlement';
 import { accountsRepo, expensesRepo, ledgerEntriesRepo, personsRepo } from '@/core/db/repositories';
 import { logActivity, restoreActivity } from '@/core/db/activityLog';
 import type { Account, Expense, LedgerEntry, Person } from '@/core/db/types';
@@ -29,14 +31,12 @@ interface EntryFormState {
 /**
  * Full interactive IOU experience (list → ledger → add/edit/settle).
  *
- * RN port note (scope decision, made explicitly rather than silently): web's `IouView` reads
- * `GroupContext` only to show one informational banner ("Your personal IOUs. Group balances live in
- * each group.") when the user has a claimed username and belongs to groups. Since `GroupContext`
- * (Phase 1.5's sync/multi-device machinery, Tier 2 in the Track 4 dependency survey) isn't ported to
- * mobile yet, this port is **personal-only IOU** — the banner and its `GroupContext`/`hasEntitlement`
- * dependency are dropped entirely, matching the "personal-only IOU" option the migration plan already
- * anticipated. `useIou`'s data model was already personal-ledger-only regardless; nothing about the
- * actual ledger logic changes. Revisit once Groups (Tier 2) lands on mobile.
+ * Restored once Groups landed on mobile: web's `IouView` reads `GroupContext` only to show one
+ * informational banner ("Your personal IOUs. Group balances live in each group.") when the user has a
+ * claimed username and belongs to at least one group — this was dropped as "personal-only IOU" during
+ * Track 4 (before `GroupContext` was ported), matching the same precedent Home/Portfolio's droppable
+ * Groups dependency used. `useIou`'s data model was already personal-ledger-only regardless — nothing
+ * about the actual ledger logic changes, this only restores the banner.
  */
 export function IouView() {
   const theme = useThemeColors();
@@ -44,6 +44,8 @@ export function IouView() {
   const { shouldMask } = usePrivacy();
   const { safeModeVisibility } = useSettings();
   const masked = shouldMask(!safeModeVisibility.iou);
+  const { groups, claimed } = useGroupContext();
+  const showGroupNote = hasEntitlement('sync') && claimed && groups.length > 0;
   const { showToast } = useToast();
   const {
     persons,
@@ -216,6 +218,17 @@ export function IouView() {
   return (
     <>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 96 }}>
+        {showGroupNote && (
+          <View className="flex-row items-start gap-1.5 px-4 py-2.5 border-b border-theme">
+            <View className="mt-0.5">
+              <Icon name="ti-info-circle" size={13} color={theme.textTertiary} />
+            </View>
+            <Text className="flex-1 text-[11px] text-tertiary">
+              Your <Text className="font-semibold text-secondary">personal</Text> IOUs. Group balances live in each
+              group — kept separate on purpose.
+            </Text>
+          </View>
+        )}
         {(totalOwedToYou > 0 || totalYouOwe > 0) && (
           <View className="flex-row gap-4 px-4 py-3 border-b border-theme">
             {totalOwedToYou > 0 && (

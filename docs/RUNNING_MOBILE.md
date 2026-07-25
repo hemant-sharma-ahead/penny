@@ -134,12 +134,42 @@ pnpm android      # boots the configured Android emulator/AVD — same auto-buil
 pnpm web          # runs in a browser via react-native-web — no native modules involved, no dev build needed
 ```
 
-## What's actually running right now (Track 2)
+## What's actually running right now
 
-`AuthGuard` calls the real `@penny/core` security manager, backed by the `expo-sqlite` adapter and the
-`react-native-quick-crypto` polyfill (see `docs/plans/mobile-migration.md`'s Track 2 entry). No onboarding
-UI exists yet (that's Track 4), so you'll land on the onboarding stub screen — but the check itself is
-now real, not an in-memory stub.
+Track 4 (all modules, including real onboarding) is complete — `AuthGuard` calls the real `@penny/core`
+security manager (backed by `expo-sqlite` + `react-native-quick-crypto`), and a real 13-screen onboarding
+flow sets the Data Master Key on-device via a real UI, not a stub. See `docs/plans/mobile-migration.md`
+for full track-by-track status and the current "▶ Resume here" open items.
+
+## No system Java on this machine — `JAVA_HOME` for local Gradle builds
+
+`npx expo run:android` (and any other command that invokes Gradle directly) fails with
+`Unable to locate a Java Runtime` if run bare on a machine with no system-wide JDK install — only Android
+Studio's own bundled JBR exists. Point `JAVA_HOME` at it for any command that runs a native build:
+
+```bash
+JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" npx expo run:android
+```
+
+Same for `npx expo start` if you want the terminal to also be able to build/reinstall on demand.
+
+## Hot reload vs. a full native rebuild — know which one you need
+
+Once a development build is installed and Metro is running (`npx expo start`, from `apps/mobile`), **JS/TS
+changes hot-reload automatically** via Fast Refresh — no rebuild needed, just save the file. A **full
+native rebuild** (`npx expo run:android` / `run:ios` again) is required instead whenever:
+
+- A new native dependency is added (anything needing `pnpm install` + native autolinking — e.g.
+  `@react-native-community/slider`, `expo-document-picker`, `react-native-view-shot`, etc.).
+- `metro.config.js` changes — Metro reads its config once at server startup; even a JS-only config edit
+  (e.g. the `resolver.platforms` fix in the 2026-07-25 progress-log entry) needs the Metro process
+  restarted, not just a Fast Refresh.
+- Android/iOS native project files under `apps/mobile/android/`/`apps/mobile/ios/` change directly.
+
+If you save a JS/TS file and nothing happens in the running app, check the terminal running Metro first —
+it prints a line for every bundle rebuild; if it's silent, the app has likely lost its dev-server
+connection (`Cannot connect to Expo CLI` in `adb logcat`) and needs a manual reload (shake menu → Reload,
+or press `r` twice in the Metro terminal).
 
 ## Troubleshooting
 
@@ -152,3 +182,18 @@ now real, not an in-memory stub.
   <pkg>` it explicitly rather than assuming hoisting will find it.
 - **Changed `tailwind.config.js` or `global.css` and styles didn't update:** restart Metro (`pnpm start`
   with `r` to reload, or stop/restart) — NativeWind's CSS extraction runs at bundle time.
+- **`Unable to locate a Java Runtime` running `expo run:android`/`run:ios`:** see "No system Java on this
+  machine" above.
+- **`[runtime not ready]: Invariant Violation: TurboModuleRegistry.getEnforcing(...): '<Module>' could not
+  be found`:** the JS bundle expects a native module that isn't linked into the currently-installed APK —
+  always a rebuild issue (see "Hot reload vs. a full native rebuild" above), never something Fast Refresh
+  can fix. Usually caused by a `pnpm install` that added/shifted a native dependency after the last native
+  build. Fix: `npx expo run:android` (or `run:ios`) again. If the same module is still missing after a
+  rebuild, the dependency likely isn't being autolinked at all (check it's a direct — not just nested
+  transitive — dependency of `apps/mobile`, same as the plain Metro-resolution issue above) and needs
+  real investigation, not another rebuild attempt.
+- **RN-web (`pnpm web`/`expo start --web`) crashes on something reading `import.meta.env`:** a
+  `packages/core` file is missing its `.web.ts` platform-specific sibling (see the 2026-07-25 "RN-web
+  platform gap" progress-log entry in `docs/plans/mobile-migration.md`) — check `apps/mobile/metro.config.js`
+  actually includes `'web'` in `resolver.platforms` (Expo's default config omits it) before assuming a new
+  `.web.ts` file is the fix; either gap produces the identical crash.

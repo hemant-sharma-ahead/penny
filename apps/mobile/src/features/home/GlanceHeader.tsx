@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useNavigation, type ParamListBase } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { useForecast } from '~/hooks/useForecast';
 import { formatCompact, formatCurrency } from '@/lib/formatters';
@@ -32,16 +34,27 @@ interface Props {
 }
 
 /** Light, minimal Home header: the two numbers that matter most (net worth + safe-to-spend),
- *  a slim asset bar, and a tap-through to the full breakdown. No real nav stack yet, so "Safe to spend"
- *  and the breakdown rows' cross-module taps are no-ops until Home is wired into real navigation. */
+ *  a slim asset bar, and a tap-through to the full breakdown. Breakdown rows navigate to the matching
+ *  module's real route (Accounts/Expenses/Portfolio/Loans), same mapping as web's `GlanceHeader` —
+ *  web's `assetSubTab`/`{ state: { tab: 'iou' } }` deep-link hints are dropped since neither
+ *  `PortfolioPage` nor `ExpensesPage` accepts an initial-sub-tab param yet (flagged, not faked; both
+ *  pages land on their default tab instead). "Safe to spend" navigates to the real `CashFlow` screen
+ *  (restored once that module was ported — see `~/features/cashflow/CashFlowPage.tsx`). */
 export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabilities }: Props) {
   const { shouldMask } = usePrivacy();
   const theme = useThemeColors();
   const { loading: forecastLoading, forecast } = useForecast();
   const [detailOpen, setDetailOpen] = useState(false);
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   // Net worth is an aggregate, not a specific sensitive item — Safe Mode keeps it visible;
   // only Privacy Mode hides it (same as everywhere else "sensitive" defaults to false).
   const open = !shouldMask(false);
+
+  const goToAsset = (ac: string) => {
+    if (ac === 'liquid') navigation.navigate('Accounts');
+    else if (ac === 'iou') navigation.navigate('Expenses');
+    else navigation.navigate('Portfolio');
+  };
 
   const safe = Math.max(0, forecast.discretionary);
   const breached = forecast.bufferBreachMs !== null;
@@ -68,7 +81,10 @@ export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabiliti
               <Icon name="ti-chevron-right" size={12} color={theme.textTertiary} />
             </View>
           </Pressable>
-          <Pressable onPress={() => {}} className="flex-1 px-4 py-3.5 border-l border-theme active:bg-surface-2">
+          <Pressable
+            onPress={() => navigation.navigate('CashFlow')}
+            className="flex-1 px-4 py-3.5 border-l border-theme active:bg-surface-2"
+          >
             <Text className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">Safe to spend</Text>
             <Text
               className="text-[24px] font-bold tracking-tight leading-tight mt-0.5"
@@ -120,7 +136,7 @@ export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabiliti
               <Text className="text-[11px] font-semibold uppercase tracking-wide text-tertiary mb-2">Assets</Text>
               <View>
                 {assetGroups.map(({ ac, value, meta }) => (
-                  <Pressable key={ac} onPress={() => {}} className="w-full flex-row items-center gap-3 py-2">
+                  <Pressable key={ac} onPress={() => goToAsset(ac)} className="w-full flex-row items-center gap-3 py-2">
                     <IconBadge icon={meta.icon} color={meta.color} bg={`${meta.color}22`} size="sm" />
                     <View className="flex-1">
                       <View className="flex-row items-baseline gap-1.5 mb-1">
@@ -154,7 +170,10 @@ export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabiliti
                 </Text>
                 <View>
                   {summary.netIou < 0 && (
-                    <Pressable onPress={() => {}} className="w-full flex-row items-center gap-3 py-2">
+                    <Pressable
+                      onPress={() => navigation.navigate('Expenses')}
+                      className="w-full flex-row items-center gap-3 py-2"
+                    >
                       <IconBadge icon="ti-users" color={theme.danger} bg={tint(theme.danger, 12)} size="sm" />
                       <View className="flex-1">
                         <Text className="text-[13px] font-medium text-primary" numberOfLines={1}>
@@ -170,7 +189,11 @@ export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabiliti
                   {summary.creditCardAccounts
                     .filter((c) => c.outstanding > 0)
                     .map((c) => (
-                      <Pressable key={c.id} onPress={() => {}} className="w-full flex-row items-center gap-3 py-2">
+                      <Pressable
+                        key={c.id}
+                        onPress={() => navigation.navigate('Accounts')}
+                        className="w-full flex-row items-center gap-3 py-2"
+                      >
                         <IconBadge icon={c.icon} color={theme.danger} bg={tint(theme.danger, 12)} size="sm" />
                         <View className="flex-1">
                           <Text className="text-[13px] font-medium text-primary" numberOfLines={1}>
@@ -186,7 +209,11 @@ export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabiliti
                   {summary.liabilities.map((l) => {
                     const lMeta = LIABILITY_META[l.type] ?? { label: l.type, icon: 'ti-credit-card' };
                     return (
-                      <Pressable key={l.id} onPress={() => {}} className="w-full flex-row items-center gap-3 py-2">
+                      <Pressable
+                        key={l.id}
+                        onPress={() => navigation.navigate('Loans')}
+                        className="w-full flex-row items-center gap-3 py-2"
+                      >
                         <IconBadge icon={lMeta.icon} color={theme.danger} bg={tint(theme.danger, 12)} size="sm" />
                         <View className="flex-1">
                           <Text className="text-[13px] font-medium text-primary" numberOfLines={1}>

@@ -464,23 +464,21 @@ export function TransactionsSlice({
         </Pressable>
       )}
 
-      {/* List */}
-      <ScrollView className="flex-1 bg-surface-3" contentContainerStyle={{ paddingBottom: 96 }}>
-        <TransactionsTab
-          grouped={grouped}
-          categoryMap={categoryMap}
-          accountMap={accountMap}
-          hashtags={hashtags}
-          shouldMask={shouldMask}
-          onEdit={openEdit}
-          onDelete={onDeleteExpense}
-          onDuplicate={handleDuplicate}
-          onShare={shareGroups.length > 0 ? setSharingExpense : undefined}
-          selectMode={selectMode}
-          selectedIds={selected}
-          onToggleSelect={toggleSelect}
-        />
-      </ScrollView>
+      {/* List — SectionList owns its own scroll/virtualization (see TransactionsTab.tsx) */}
+      <TransactionsTab
+        grouped={grouped}
+        categoryMap={categoryMap}
+        accountMap={accountMap}
+        hashtags={hashtags}
+        shouldMask={shouldMask}
+        onEdit={openEdit}
+        onDelete={onDeleteExpense}
+        onDuplicate={handleDuplicate}
+        onShare={shareGroups.length > 0 ? setSharingExpense : undefined}
+        selectMode={selectMode}
+        selectedIds={selected}
+        onToggleSelect={toggleSelect}
+      />
 
       {/* Bulk action bar (select mode) */}
       {selectMode && selected.size > 0 && (

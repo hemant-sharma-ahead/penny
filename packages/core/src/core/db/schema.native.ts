@@ -59,6 +59,27 @@ function openDb(): Promise<SQLite.SQLiteDatabase> {
   return dbPromise;
 }
 
+// Serializes every operation against the single shared connection. expo-sqlite's native binding isn't
+// safe against a large burst of concurrent statements on one connection — seedDemoData.ts/
+// seedGroupFixtures.ts's `Promise.all(items.map(repo.put))` pattern (up to a few hundred concurrent
+// `put`s across a handful of tables, several hitting `expenses` from three different call sites at once)
+// reproduced this exactly on-device: some writes were silently lost (rows missing after seeding
+// completed with no thrown error) and, separately, a later query failed with "Cannot use shared object
+// that was already released" — a corrupted native statement handle, severe enough to have crashed the
+// whole emulator process during testing, not just the app. A single FIFO queue over every call (reads
+// included, since the native error was in `prepareAsync`, not write-specific) is the simplest fix that
+// protects every current and future caller — not a per-call-site patch.
+let queue: Promise<unknown> = Promise.resolve();
+
+function enqueue<T>(fn: () => Promise<T>): Promise<T> {
+  const result = queue.then(fn, fn);
+  queue = result.then(
+    () => undefined,
+    () => undefined
+  );
+  return result;
+}
+
 /** Mirrors schema.ts's Dexie version history — every migration here is an additive table creation
  * (no data transforms), so replaying all of them on a fresh install just creates every table once. A
  * `_migrations` table tracks what's applied so a future v10+ addition only runs its own new statements. */
@@ -123,43 +144,57 @@ interface Row {
 function makeRowStore<T>(tableName: string): RowStore<T> {
   return {
     async get(id) {
-      const database = await openDb();
-      const row = await database.getFirstAsync<Row>(`SELECT id, data FROM ${tableName} WHERE id = ?`, id);
-      return row ? (JSON.parse(row.data) as T) : undefined;
+      return enqueue(async () => {
+        const database = await openDb();
+        const row = await database.getFirstAsync<Row>(`SELECT id, data FROM ${tableName} WHERE id = ?`, id);
+        return row ? (JSON.parse(row.data) as T) : undefined;
+      });
     },
     async put(record) {
-      const database = await openDb();
-      const id = (record as { id: string }).id;
-      return database.runAsync(
-        `INSERT OR REPLACE INTO ${tableName} (id, data) VALUES (?, ?)`,
-        id,
-        JSON.stringify(record)
-      );
+      return enqueue(async () => {
+        const database = await openDb();
+        const id = (record as { id: string }).id;
+        return database.runAsync(
+          `INSERT OR REPLACE INTO ${tableName} (id, data) VALUES (?, ?)`,
+          id,
+          JSON.stringify(record)
+        );
+      });
     },
     async toArray() {
-      const database = await openDb();
-      const rows = await database.getAllAsync<Row>(`SELECT id, data FROM ${tableName}`);
-      return rows.map((r) => JSON.parse(r.data) as T);
+      return enqueue(async () => {
+        const database = await openDb();
+        const rows = await database.getAllAsync<Row>(`SELECT id, data FROM ${tableName}`);
+        return rows.map((r) => JSON.parse(r.data) as T);
+      });
     },
     async delete(id) {
-      const database = await openDb();
-      return database.runAsync(`DELETE FROM ${tableName} WHERE id = ?`, id);
+      return enqueue(async () => {
+        const database = await openDb();
+        return database.runAsync(`DELETE FROM ${tableName} WHERE id = ?`, id);
+      });
     },
     async count() {
-      const database = await openDb();
-      const row = await database.getFirstAsync<{ n: number }>(`SELECT COUNT(*) AS n FROM ${tableName}`);
-      return row?.n ?? 0;
+      return enqueue(async () => {
+        const database = await openDb();
+        const row = await database.getFirstAsync<{ n: number }>(`SELECT COUNT(*) AS n FROM ${tableName}`);
+        return row?.n ?? 0;
+      });
     },
     async update(id, changes) {
-      const database = await openDb();
-      const existing = await database.getFirstAsync<Row>(`SELECT id, data FROM ${tableName} WHERE id = ?`, id);
-      if (!existing) return undefined;
-      const merged = { ...JSON.parse(existing.data), ...changes };
-      return database.runAsync(`UPDATE ${tableName} SET data = ? WHERE id = ?`, JSON.stringify(merged), id);
+      return enqueue(async () => {
+        const database = await openDb();
+        const existing = await database.getFirstAsync<Row>(`SELECT id, data FROM ${tableName} WHERE id = ?`, id);
+        if (!existing) return undefined;
+        const merged = { ...JSON.parse(existing.data), ...changes };
+        return database.runAsync(`UPDATE ${tableName} SET data = ? WHERE id = ?`, JSON.stringify(merged), id);
+      });
     },
     async clear() {
-      const database = await openDb();
-      return database.runAsync(`DELETE FROM ${tableName}`);
+      return enqueue(async () => {
+        const database = await openDb();
+        return database.runAsync(`DELETE FROM ${tableName}`);
+      });
     }
   };
 }

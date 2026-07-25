@@ -6,6 +6,7 @@ import { useSettings } from '~/context/SettingsContext';
 import type { InsurancePolicy } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
 import { Button, Banner, PageHeader, EmptyState } from '~/components/ui';
+import { BackButton } from '~/components/shared';
 import { useInsurance } from './useInsurance';
 import { PolicyCard } from './PolicyCard';
 import { CoverageSummary } from './CoverageSummary';
@@ -30,6 +31,7 @@ export function InsurancePage() {
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
       <PageHeader
+        leading={<BackButton />}
         title="Insurance"
         subtitle={
           policies.length > 0

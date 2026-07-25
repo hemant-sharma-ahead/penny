@@ -1,4 +1,6 @@
 import { View, Text, Pressable } from 'react-native';
+import { useNavigation, type ParamListBase } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { formatCompact, formatCurrency } from '@/lib/formatters';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -6,23 +8,24 @@ import { useHomeStats } from './useHomeStats';
 
 /**
  * The Home "money facts" card (Track: Home advisor) — one card, three hairline-split columns:
- * Spent this month (living subtext) · Insurance cover · Loans outstanding. Each column taps through.
- * No real nav stack yet — every tap is a no-op until Home is wired into real navigation (same as
- * every other cross-module link in this port).
+ * Spent this month (living subtext) · Insurance cover · Loans outstanding. Each column taps through to
+ * its real route (Expenses/Insurance/Loans), matching web's `MoneyStatsCard`.
  */
 export function MoneyStatsCard() {
   const stats = useHomeStats();
   const theme = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   if (!stats) return null;
 
-  const cols: { key: string; icon: string; color: string; label: string; value: string; sub: string }[] = [
+  const cols: { key: string; icon: string; color: string; label: string; value: string; sub: string; to: string }[] = [
     {
       key: 'spent',
       icon: 'ti-receipt',
       color: theme.danger,
       label: 'Spent',
       value: formatCurrency(stats.spentThisMonth),
-      sub: `Living ${formatCompact(stats.livingThisMonth)}`
+      sub: `Living ${formatCompact(stats.livingThisMonth)}`,
+      to: 'Expenses'
     },
     {
       key: 'insurance',
@@ -30,7 +33,8 @@ export function MoneyStatsCard() {
       color: theme.info,
       label: 'Insurance',
       value: stats.insuranceCover > 0 ? formatCompact(stats.insuranceCover) : '—',
-      sub: 'cover'
+      sub: 'cover',
+      to: 'Insurance'
     },
     {
       key: 'loans',
@@ -38,7 +42,8 @@ export function MoneyStatsCard() {
       color: '#06b6d4',
       label: 'Loans',
       value: stats.loansOutstanding > 0 ? formatCompact(stats.loansOutstanding) : '—',
-      sub: 'outstanding'
+      sub: 'outstanding',
+      to: 'Loans'
     }
   ];
 
@@ -48,7 +53,7 @@ export function MoneyStatsCard() {
         {cols.map((c, i) => (
           <Pressable
             key={c.key}
-            onPress={() => {}}
+            onPress={() => navigation.navigate(c.to)}
             className={`flex-1 px-3 py-3 ${i > 0 ? 'border-l border-theme' : ''}`}
           >
             <View className="flex-row items-center gap-1.5">
@@ -63,7 +68,7 @@ export function MoneyStatsCard() {
 
       {/* Tax — a line into the Tax Awareness screen (Tax has no Home tile of its own). */}
       <Pressable
-        onPress={() => {}}
+        onPress={() => navigation.navigate('Tax')}
         className="w-full flex-row items-center gap-2 px-3 py-2.5 border-t border-theme active:bg-surface-2"
       >
         <Icon name="ti-receipt-tax" size={14} color="#8b5cf6" />

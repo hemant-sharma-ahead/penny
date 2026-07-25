@@ -2,6 +2,7 @@ import { ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { Button, PageHeader } from '~/components/ui';
+import { BackButton } from '~/components/shared';
 import { useAccounts } from './useAccounts';
 import { useAccountForm } from './useAccountForm';
 import { AccountList } from './AccountList';
@@ -17,6 +18,7 @@ export function AccountsPage() {
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
       <PageHeader
+        leading={<BackButton />}
         title="Accounts"
         actions={
           <Button

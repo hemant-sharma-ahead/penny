@@ -9,6 +9,7 @@
 // seed), so setting a demo "claimed" identity here is safe — it never touches a real account.
 import { profileRepo, groupsRepo, groupMembersRepo, groupEventsRepo } from './repositories';
 import { generateGroupKey, persistGroupKey } from '@/core/groups/keys';
+import { mergeLocalEvents } from './seedDemoStorage';
 import type { Group, GroupEvent, GroupEventType, GroupMember, GroupRole, GroupType } from './types';
 
 const DAY = 86_400_000;
@@ -286,7 +287,7 @@ export async function seedGroupFixtures(now: number): Promise<void> {
   });
 
   // ── Link the trips to their events + add the Renovation event ──────────────────
-  mergeLocalEvents({
+  await mergeLocalEvents<StoredEvent>({
     // Closed trip → its past event links to the closed group.
     past: (events) => events.map((e) => (e.id === 'demo-event-leh' ? { ...e, linkedGroupId: 'demo-grp-leh' } : e)),
     // Active: an upcoming Goa vacation linked to the ongoing group + an ongoing Renovation event.
@@ -316,7 +317,8 @@ export async function seedGroupFixtures(now: number): Promise<void> {
   });
 }
 
-// ── localStorage event helpers (EventModeContext owns these keys) ────────────────
+// ── local event linking (EventModeContext owns these keys; see ./seedDemoStorage for the
+//    localStorage/AsyncStorage split) ────────────────
 
 interface StoredEvent {
   id: string;
@@ -328,23 +330,4 @@ interface StoredEvent {
   autoTag: boolean;
   color: string;
   linkedGroupId?: string;
-}
-
-function readEvents(key: string): StoredEvent[] {
-  try {
-    return JSON.parse(localStorage.getItem(key) ?? '[]') as StoredEvent[];
-  } catch {
-    return [];
-  }
-}
-
-function mergeLocalEvents(opts: {
-  active?: (events: StoredEvent[]) => StoredEvent[];
-  past?: (events: StoredEvent[]) => StoredEvent[];
-}): void {
-  if (typeof window === 'undefined') return;
-  if (opts.active)
-    localStorage.setItem('penny_active_events', JSON.stringify(opts.active(readEvents('penny_active_events'))));
-  if (opts.past) localStorage.setItem('penny_past_events', JSON.stringify(opts.past(readEvents('penny_past_events'))));
-  window.dispatchEvent(new CustomEvent('penny-events-updated'));
 }

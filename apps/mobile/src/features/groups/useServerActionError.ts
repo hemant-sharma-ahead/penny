@@ -1,27 +1,29 @@
 import { useCallback } from 'react';
+import { useNavigation, type ParamListBase } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useToast } from '~/context/ToastContext';
 import { NotClaimedError } from '@/core/identity/signedFetch';
 
 /**
  * RN port of apps/web-legacy/src/features/groups/useServerActionError.ts. Shared handler for
- * group/server action failures. Web's `NotClaimedError` branch routes to a Profile screen via
- * `react-router-dom`'s `navigate` — mobile has no such destination yet (no real nav stack exists outside
- * `AuthGuard`'s temporary stand-in, the same "no real nav" limitation noted throughout Track 4), so this
- * just surfaces a clear toast without navigating. Revisit once a real Profile/claim screen is wired up.
- * Returns `false` always here (nothing "handled" the navigation away) — callers only use the return value
- * to skip resetting local busy state on an unmounting screen, which doesn't apply without a navigation.
+ * group/server action failures. `NotClaimedError` shows one consistent "claim your account" toast and
+ * routes to the real `Profile` screen (wired up alongside `ContextSwitcher`'s own claim entry point —
+ * see `~/features/groups/ContextSwitcher.tsx`), returning `true` so callers can skip resetting local
+ * busy state on an unmounting screen.
  */
 export function useServerActionError(): (err: unknown, fallback?: string) => boolean {
   const { showToast } = useToast();
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   return useCallback(
     (err: unknown, fallback = 'Something went wrong'): boolean => {
       if (err instanceof NotClaimedError) {
         showToast({ message: 'Claim your account to use groups & sharing.' });
-        return false;
+        navigation.navigate('Profile');
+        return true;
       }
       showToast({ message: err instanceof Error ? err.message : fallback });
       return false;
     },
-    [showToast]
+    [showToast, navigation]
   );
 }

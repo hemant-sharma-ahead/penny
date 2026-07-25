@@ -1,21 +1,25 @@
 import { View, Text, Pressable, ScrollView } from 'react-native';
+import { useNavigation, type ParamListBase } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { formatCurrency } from '@/lib/formatters';
 import { IconBadge } from '~/components/ui';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { AccountBalance } from './useHome';
 
-// No real nav stack yet (same reasoning as every module's dropped back button) — "Manage" and the
-// account tiles are inert until Home is wired into real navigation.
+// Web: both the "Manage" header link and each account tile navigate(PATHS.app.accounts) — same
+// destination either way, so both taps below just push the real `Accounts` route.
 export function AccountsStrip({ accounts }: { accounts: AccountBalance[] }) {
   const { shouldMask } = usePrivacy();
   const theme = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const goToAccounts = () => navigation.navigate('Accounts');
 
   return (
     <View>
       <View className="flex-row items-center justify-between mb-2">
         <Text className="text-xs font-medium text-tertiary">Accounts</Text>
-        <Pressable onPress={() => {}} hitSlop={8}>
+        <Pressable onPress={goToAccounts} hitSlop={8}>
           <Text className="text-xs font-semibold" style={{ color: theme.primary }}>
             Manage →
           </Text>
@@ -30,7 +34,7 @@ export function AccountsStrip({ accounts }: { accounts: AccountBalance[] }) {
         {accounts.map((acc) => (
           <Pressable
             key={acc.id}
-            onPress={() => {}}
+            onPress={goToAccounts}
             className="bg-surface border border-theme rounded-2xl px-3.5 py-3 gap-1 active:opacity-70"
             style={{ minWidth: 120 }}
           >

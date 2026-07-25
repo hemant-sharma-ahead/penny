@@ -47,6 +47,8 @@ for later phases.
 - **No PII, no data leaves the device.** News is public; scoring + holdings cross-reference are local.
   Honors the `no-console`/PII and semantic-color rules.
 
+**Mobile (`apps/mobile`):** ported alongside the rest of Track 4's remaining-modules pass — `apps/mobile/src/features/news/` mirrors the web files above 1:1 (`useNews.ts`/`useNewsSentiment.ts`/`useHoldingsInNews.ts` unchanged beyond import paths). `core/news/newsClient.ts` needed a `.native.ts` sibling: RN has no `DOMParser` at all (unlike the usual `localStorage`-only swap elsewhere), so RSS parsing is a small regex-based tag extractor instead (handles `CDATA`-wrapped titles/descriptions); the 45-minute cache also drops to in-memory-only (session-scoped), same "flag, don't fake" precedent as `ipoClient.native.ts`. `FilterDropdown`'s hand-rolled DOM dropdown is rebuilt on the shared `Modal` component, same fix as `ContextSwitcher`/`SelectInput`. Home's "News" tools-grid tile (previously a flagged no-op) now navigates to the real `News` screen.
+
 ## Current limitations
 
 - **Sentiment ≠ price direction.** It reflects the _tone of a headline_, not what a stock will do.

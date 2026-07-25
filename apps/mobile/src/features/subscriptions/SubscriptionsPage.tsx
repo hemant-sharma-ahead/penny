@@ -6,6 +6,7 @@ import { expensesRepo } from '@/core/db/repositories';
 import { useRepository } from '@/hooks/useRepository';
 import { formatCurrency } from '@/lib/formatters';
 import { PageHeader } from '~/components/ui';
+import { BackButton } from '~/components/shared';
 import { useSubscriptions } from './useSubscriptions';
 import { SubscriptionsView } from './SubscriptionsView';
 
@@ -28,6 +29,7 @@ export function SubscriptionsPage() {
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
       <PageHeader
+        leading={<BackButton />}
         title="Subscriptions"
         subtitle={
           activeSubs.length > 0 ? `${masked ? '••••' : formatCurrency(subsMonthlyTotal)}/month total` : undefined

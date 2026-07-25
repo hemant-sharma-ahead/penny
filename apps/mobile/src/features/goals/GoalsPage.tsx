@@ -16,7 +16,7 @@ export function GoalsPage() {
   const [activeTab, setActiveTab] = useState<'goals' | 'sip'>('goals');
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={[]} className="flex-1 bg-surface-tertiary">
       <PageHeader
         title="Goals"
         subtitle={

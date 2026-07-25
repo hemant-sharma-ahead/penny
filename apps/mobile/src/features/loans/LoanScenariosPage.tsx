@@ -5,6 +5,7 @@ import { usePrivacy } from '~/context/PrivacyContext';
 import { useSettings } from '~/context/SettingsContext';
 import type { Liability } from '@/core/db/types';
 import { SegmentedControl, PageHeader } from '~/components/ui';
+import { BackButton } from '~/components/shared';
 import { useLoans } from './useLoans';
 import { MyLoansTab } from './myloans/MyLoansTab';
 import { PlannerTab } from './planner/PlannerTab';
@@ -27,7 +28,7 @@ export function LoanScenariosPage() {
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
-      <PageHeader title="Loans" />
+      <PageHeader leading={<BackButton />} title="Loans" />
 
       <View className="px-4 py-2.5 border-b border-theme">
         <SegmentedControl

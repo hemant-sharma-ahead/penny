@@ -27,7 +27,7 @@ export function HomePage() {
   // When a group is the active context, Home becomes that group's dashboard.
   if (activeGroup) {
     return (
-      <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+      <SafeAreaView edges={[]} className="flex-1 bg-surface-tertiary">
         <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 96 }}>
           <GroupDashboard group={activeGroup} />
         </ScrollView>

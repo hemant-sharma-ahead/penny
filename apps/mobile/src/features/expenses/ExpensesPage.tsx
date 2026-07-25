@@ -110,7 +110,7 @@ export function ExpensesPage() {
   };
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={[]} className="flex-1 bg-surface-tertiary">
       <ExpensesHeader
         filteredTotal={txnFilters.filteredTotal}
         monthFilter={txnFilters.monthFilter}
