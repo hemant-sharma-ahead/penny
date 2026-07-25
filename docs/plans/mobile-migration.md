@@ -1446,3 +1446,385 @@ recommended but not yet confirmed.
   machine (no system Java installed, only Android Studio's bundled JBR) and the native-rebuild-vs-Metro-
   restart distinction (JS-only changes → Metro hot reload is enough; new native deps or native config
   changes like `metro.config.js`'s `resolver.platforms` → full `expo run:android` rebuild required).
+
+### 2026-07-25 — Web-vs-mobile parity audit + restore: header, theme, font settings, Chip insights, Loans XLSX fix
+
+Prompted by direct user pushback that prior passes had made silent scope cuts without clearly calling them
+out (framing "Phase 2 real Chip AI" and "Chip insights ported" as the same thing, when they aren't). A
+targeted audit compared web-legacy against mobile file-by-file across five areas the user named, using an
+Explore agent with instructions to read actual source rather than trust prior plan-doc claims. Found four
+real gaps (not just "capped" ones) and fixed all four, plus the previously-open Loans XLSX bug:
+
+- **No persistent app-shell header at all.** `MainTabs.tsx` had `headerShown: false` on every tab — the
+  comment describing this as deliberately deferred ("PrivacyModeSwitcher, RemindersBell... land with their
+  own features in Track 4") never actually landed. Fixed in `MainNavigator.tsx`: the `MainTabs` stack
+  screen now gets a real header — left side `PennyWordmark` logo (already existed, just never mounted
+  anywhere persistent) + settings button, right side two new ports: `~/components/privacy/
+  PrivacyModeSwitcher.tsx` (dropdown-style mode switcher + PIN-gated Open-mode flow, RN port of web's
+  hover-menu version) and `~/components/reminders/RemindersBell.tsx` (badge count + centered Modal with
+  overdue/today/soon sections), both requiring a new `~/hooks/useReminders.ts` port (AsyncStorage instead
+  of synchronous `localStorage`, same pattern every other context/hook port in this migration uses).
+- **Theme picker had infra but no UI.** `ThemeProvider.tsx` (`preference`/`setPreference`/`activePalette`)
+  existed since Track 3, but grep confirmed `setPreference` was never called from anywhere. Restored the
+  same 4-swatch grid web has (`SettingsPage.tsx`) — Light / Penny Blue / Dark / System — with an RN
+  `ThemePreview` swatch translated from web's CSS-based one.
+- **Font-scale setting was missing entirely** — not even infra, unlike theme. Ported `FontScale`/
+  `FONT_SCALE_MAP` into mobile's own `SettingsContext.tsx` (persisted via `~/lib/storage`, same
+  hydrate-in-`useEffect` pattern every other setting there uses) plus a matching `Aa` picker grid in
+  Settings. **Important limitation, flagged rather than silently shipped**: unlike theme (applied globally
+  via `ThemeProvider`'s NativeWind `vars()`), there is currently no safe way to apply this scale to every
+  existing `<Text>` app-wide — RN 0.86's `Text` is a functional component with no class `prototype.render`
+  to patch (confirmed by reading RN's own `Text.js` source after a first monkeypatch attempt would have
+  crashed the app at import time — caught before shipping, not after). `~/theme/fontScale.ts` currently
+  only exposes an opt-in `useFontScale()` hook for individual components to multiply their own `fontSize`
+  by; true automatic global scaling needs a larger dedicated pass (a `<Text>` wrapper migrated across the
+  whole codebase, or equivalent) — out of scope for this pass.
+- **Chip's insights dashboard was never ported** — `apps/mobile/src/features/chip/` didn't exist at all.
+  Web-legacy's Chip is itself just a rule-based insights list today (headline/reasoning/consequence cards
+  seeded from `mockChip`'s `DEFAULT_INSIGHTS`, explicitly not an LLM chat — a banner says that's Phase 2
+  on web too), so this was a straightforward port: `ChipPage.tsx`, wired into `MainTabs`' Chip tab in place
+  of `PlaceholderScreen`. Real conversational Chip (Anthropic-backed) remains Phase 2 on both platforms —
+  that part of the original scoping call was correct; the insights dashboard should have been ported
+  alongside the other 7 modules and wasn't.
+- **Loans "Download XLSX" fixed.** The `xlsx` package (web's choice) never bundles under Metro — its CJS
+  entry has `require('fs')`/`require('stream')` that Metro's static resolver chokes on regardless of
+  runtime guards, a failure `resolver.extraNodeModules` stubbing couldn't fix either (confirmed in the
+  prior pass). Swapped to `write-excel-file`'s `/universal` entry point: verified by reading its dependency
+  tree directly (only `fflate`, a pure-JS zip implementation with zero Node-builtin `require`s anywhere in
+  its module graph) that it should bundle clean under Metro. It returns a `Blob` rather than raw bytes
+  (browser-oriented API), so `new Response(blob).arrayBuffer()` — RN's `whatwg-fetch` polyfill already
+  implements `Response.prototype.arrayBuffer()` over a `Blob` body, confirmed by reading the polyfill
+  source, so no extra native dependency was needed — bridges to the same `File.write(Uint8Array)` +
+  `expo-sharing` flow Expenses' CSV/ZIP export already established. `apps/mobile/package.json`'s `xlsx`
+  dependency was replaced with `write-excel-file`.
+
+**Verification**: `tsc -b` and `eslint --max-warnings 0` both clean on every new/touched file (fixed one
+real issue caught this way: a first monkeypatch draft of `fontScale.ts` targeting `Text.prototype.render`
+would have thrown at import time on RN 0.86, since `Text` has no such prototype — caught before it ever
+ran, not after). **None of this has been on-device-verified yet** — resume with an on-device pass across
+all five fixes (header chrome, theme switching, font-scale UI interaction, Chip insights rendering, the
+Loans XLSX share-sheet flow) alongside the already-in-progress 7-module on-device pass and the still-open
+QuickBase64 native-linking bug (unrelated to this pass).
+
+### 2026-07-25 (continued) — On-device verification of the above pass: found a much bigger bug (SessionGate never ported), fixed it, then ran a full parity sweep
+
+The on-device pass flagged above as outstanding actually happened this same day, driven by the user
+directly (JAVA_HOME set up, `npx expo run:android` run repeatedly, real device/emulator interaction) with
+Claude fixing what surfaced in real time. It uncovered a genuinely critical bug, not just polish gaps.
+
+**Root cause found: `SessionGate` (the actual PIN-unlock screen) was never ported to mobile at all.**
+`AuthGuard.tsx`'s 'ready' state only ever meant "onboarding is complete" — never "the in-memory Data
+Master Key is actually loaded" (the DMK lives only in `keystore.ts`'s module closure, wiped on every
+process restart). Web's `AuthGuard.tsx` renders a `SessionGate` component for exactly this reason
+(checks `keystore.isUnlocked()`, shows a real PIN-entry screen if not); mobile's port dropped `SessionGate`
+silently, going straight to `MainNavigator` with no key at all on every cold launch — throwing "Session
+locked" the instant anything touched an encrypted repo. Fixed by porting the full ~400-line component
+(`apps/mobile/src/session/SessionGate.tsx`: PIN entry, lockout countdown with exponential backoff,
+forgot-PIN→passphrase recovery, PIN-rotation banner) and wrapping it around `IdentityReconciler`/
+`SyncProvider`/`GroupProvider`/`MainNavigator` in `RootNavigator.tsx`. A related, smaller bug found first
+(and still correct to have fixed): `GroupContext.tsx`'s `GroupProvider` was mounted in `App.tsx` **above**
+this lock gate entirely, so it read encrypted `groups`/`profile` repos on mount before any unlock — moved
+into `RootNavigator.tsx`'s post-`SessionGate` branch alongside `SyncProvider`. The passphrase-recovery
+flow's post-unlock navigation to `ChangePin` needed a new `navigationRef.ts` (React Navigation's documented
+pattern for navigating from outside any `Stack.Navigator`), since `SessionGate` sits above `MainNavigator`
+entirely and has no `useNavigation()` context of its own.
+
+**Further bugs found via direct on-device interaction** (not the sweep — these came from the user manually
+using the app after the SessionGate fix):
+- **Backup export crash** (`"undefined is not a function"`): `BackupPage.tsx`'s `handleExport` called
+  `blob.text()` directly on a `Blob` — same gap as Loans' XLSX fix (RN's own `Blob` class has no `.text()`
+  method). Fixed with `new Response(blob).text()`. A dormant twin of the same bug was found and
+  proactively fixed in `packages/core/src/core/sync/providers/icloudProvider.ts` (currently unreachable —
+  no native iCloud bridge wired up yet).
+- **Exit Demo Mode → wrong screen**: navigated straight to `LetUsKnowYou`, skipping `AccountStartScreen`'s
+  mandatory username-claim step. Fixed to target `Start` instead — **web-legacy has this identical stale
+  bug in its own `SettingsPage.tsx`, not yet fixed there.**
+- **Exit Demo Mode → stuck forever on failure**: no try/catch around `wipeDemoData()`; a thrown error left
+  the confirm dialog permanently disabled/loading with no error shown and no retry. Fixed with
+  try/catch/finally + a toast — the same fix was then applied to four more instances of the identical
+  pattern found via audit: `ProfilePage.tsx` (`handleSave`), `ChangePinPage.tsx` (both PIN and passphrase
+  paths), `ChangePassphrasePage.tsx`, and portfolio's `UpdateValueSheet.tsx`.
+- **`PrivacyModeSwitcher` (new this session) didn't work at all**: hand-rolled absolutely-positioned
+  dropdown, clipped by `MainNavigator`'s native-stack header — the identical problem `ContextSwitcher`'s
+  dropdown already hit and was already fixed for elsewhere in this migration (rebuilt on the shared
+  `Modal`). Fixed the same way.
+- **Theme picker fully non-functional** (selecting a theme did nothing visible), traced to a genuine root
+  cause, not a deep framework bug: `apps/mobile/tailwind.config.js` only registered `surface-2`/`surface-3`
+  as color keys, but ~33 screens across the app use `bg-surface-tertiary`/`bg-surface-secondary` — NOT
+  valid classes under those key names, so NativeWind silently dropped them, leaving those screens
+  permanently unthemed regardless of palette. Fixed by adding both naming conventions as aliases (safer
+  than renaming 33 files). Contributing causes also fixed: `MainNavigator`'s native-stack header and
+  `MainTabs`' tab bar never set theme-aware `headerStyle`/`contentStyle`/`tabBarStyle` (native chrome
+  defaulted to white regardless of theme); `ThemeProvider.tsx` never persisted the preference to
+  AsyncStorage at all (reset to `'system'` every cold launch, unlike every other setting in the app). A
+  first attempted fix (`key={activePalette}` forcing a full remount on theme change) was later found to be
+  a regression — it remounted `NavigationContainer` itself, so **changing the theme reset the whole
+  navigation stack back to Home** (the user caught this directly). Removed once the real root causes above
+  were fixed and confirmed sufficient on their own.
+- **`HomeGroupsCard`'s "Claim to create" was a dead tap target** — a plain `View`, justified by a
+  now-stale comment saying `Profile` "doesn't exist on mobile yet" (it does, since Onboarding/Track 4).
+  Wired to `navigation.navigate('Profile')`.
+
+**User-driven follow-up findings, fixed same-session:**
+- **"System" theme swatch showed a flat gray fill**, not web's 135°-diagonal light/dark split
+  (`linear-gradient(135deg,#fff 50%,#0b1220 50%)`). Fixed using `expo-linear-gradient` (already a
+  dependency, used by Home Stories) to reproduce the same diagonal split.
+- **Privacy-mode header/background tinting was completely unported** — web's `AppShell.tsx` tints the
+  header (2px bottom border + background) and main content background differently per Safe/Private/Open
+  mode, layered on top of the light/pennyBlue/dark theme (`[data-privacy-mode=...]` CSS overrides in
+  `index.css`). Ported as `packages/core/src/theme/privacyModeColors.ts` (two variants — light theme, and
+  a shared dark-ish variant for pennyBlue+dark, matching web's combined CSS selector) and wired into
+  `MainNavigator.tsx` via `headerBackground` (native-stack's `headerStyle` has no border props, so the 2px
+  accent border needs a custom `headerBackground` render function instead) + `contentStyle`.
+- **Cashflow's "Safety cushion" modal Cancel/Save buttons, and the recurring-income-suggestion card's two
+  buttons, both overflowed/overlapped** — two `fullWidth` `Button` siblings directly in a `flex-row` with
+  no `flex-1` wrapper, the same bug class already fixed multiple times earlier in this migration (Track 4,
+  Portfolio's Equity modals). Fixed the same established way (each button wrapped in its own `flex-1`
+  `View`).
+
+**A large systematic parity sweep followed** (4 parallel Explore agents, each covering a subset of
+`apps/web-legacy/src/features/` vs `apps/mobile/src/features/`, at the user's explicit request for a full
+functionality/behavior/layout/icon/color audit, not just bug-pattern hunting). ~35 distinct findings
+surfaced, not yet all fixed — tracked here so a future session can resume:
+
+- **High severity (real broken functionality):**
+  1. Web's `DemoModeBanner` (persistent purple strip + always-visible "Exit Demo Mode" button) has no
+     mobile equivalent at all — only escape is Settings → Danger zone.
+  2. Settings' module-visibility toggles (Portfolio/Goals) have zero effect on mobile's bottom tab bar —
+     web hides the tab when toggled off; mobile always shows all 4 regardless.
+  3. Onboarding never routes a Google-Drive backup choice to actually connect Drive afterward (web does;
+     mobile's own comment justifying the gap is stale — `BackupPage` exists now).
+  4. Cloud backup *and* local ("This device") backup are both non-functional no-ops on mobile currently
+     (honestly flagged in-code, but still a real dead end a user can select).
+  5. `ExpenseForm.tsx`'s "+" add-account button (`AccountChips`) is a dead tap target — `goToAccounts()` is
+     a literal no-op.
+  6. `CalculatorsPage.tsx`'s back button from a calculator detail view exits the **entire feature** instead
+     of returning to the calculator list (web just clears local state; mobile uses the generic
+     `BackButton`/`goBack()`).
+  7. `ExpenseForm.tsx` shows no edit-history timeline when editing an existing expense (web shows
+     who/when/what via `ItemHistory`, already ported and used elsewhere on mobile — just not wired in here).
+  8. **Privacy-mode background tint doesn't actually cover full pages on mobile, unlike web** — found via
+     direct user follow-up after the header-tint fix above. Web's page components (`HomePage.tsx`,
+     `PortfolioPage.tsx`, etc.) never set their own background at all, letting `AppShell.tsx`'s `<main
+     style={{backgroundColor: 'var(--color-mode-bg)'}}>` show through as the *actual full-screen
+     background* everywhere. Mobile's ~33 page-level containers all wrap in `<SafeAreaView
+     className="...bg-surface-tertiary">` — an *opaque* background — which sits in front of (not behind,
+     the way DOM cascade works) the `contentStyle` mode-tint added to `MainNavigator`'s `Stack.Navigator`,
+     completely hiding it. RN has no equivalent of "leave transparent, let the parent's background show
+     through" the way the DOM does; every screen is a fully opaque native view. Fixing this properly means
+     giving every page-level container a mode-aware background color (via a shared hook reading
+     theme+privacy-mode) instead of the static `bg-surface-tertiary` class — a ~33-file change, not yet
+     started. **Root-cause note for future sweeps**: this was missed by the parity-sweep agents because
+     they were told privacy-mode tinting was "already fixed" and explicitly skipped re-verifying it — the
+     fix was structurally present (code existed) but incomplete (didn't account for the cross-platform
+     rendering-model difference between DOM cascade and RN's opaque-per-screen compositing). Any other
+     item marked "already fixed, don't re-check" in an agent prompt carries the same risk and deserves
+     healthy suspicion, not just structural file-diffing.
+
+- **Medium severity:**
+  Settings' Safe/Private buttons use wrong colors (don't match the header switcher's own amber/violet/red);
+  no date-picker component exists anywhere in the mobile UI kit (DOB, policy renewal, IOU due dates,
+  subscription "last charged," goal target dates are all raw `YYYY-MM-DD` text fields — systemic, one
+  fix needed); PIN entry fields lack web's large/centered/letter-spaced digit styling everywhere; onboarding
+  info/warning callouts lose their blue/amber tint on 2 screens; Accounts' Save button never disables on an
+  empty name; IOU's person-picker dropdown pushes content down instead of floating over it; Home/Portfolio/
+  Expenses net-worth breakdown taps always land on the default tab instead of deep-linking to a specific
+  sub-tab (one root cause, 3 files); `ExpenseForm`'s "Manage tags →" link is dropped entirely; the shared
+  `Button` ghost variant can't render primary-colored text on a transparent background (makes "ghost"
+  action buttons in Chip/Import show gray instead of brand green — recurs in ≥2 places, fix once at the
+  component level); Feedback's active type-button missing its background tint; News hardcodes the wrong hex
+  for "neutral"; Tax module flattens several bold lead-ins ("Note:", "Coming soon:") to plain text,
+  inconsistently; Calculators' outcome banners lose bold-title/plain-subtitle hierarchy (`Banner` only
+  takes one text child); `MoneyStory`'s "Weekly Wrapped" card uses a flat color instead of web's gradient.
+
+- **Low severity (icon/color/polish nitpicks):** `ManageTagsPage` callout color mismatch; missing
+  check-icon on username availability; missing icon on "Claim & continue" and shared-expense success line;
+  missing inset ring on a radio button; flattened gradient/missing spinners on 3 onboarding screens; wrong
+  icon color on activity privacy receipts (no violet "privacy" token exists yet in
+  `packages/core/src/theme/tokens.ts`); missing tap-to-view on activity heatmap cells; Goals badge text not
+  capitalized; missing sparkles icon on "Suggested" goal badge (shared `Badge` has no icon slot); no
+  progress-bar animation (no Reanimated wiring yet); tax disclaimer missing bullet markers.
+
+**Status**: High-severity items above are NOT yet fixed (tracked here, not started) except where noted
+inline. A second, improved parity sweep is planned — the first sweep's agent prompts described several
+"already fixed" items as settled context rather than asking agents to verify completeness end-to-end,
+which is exactly how the full-page background-tint gap slipped through; the re-sweep will explicitly ask
+agents to treat "already fixed" claims with suspicion and check for cross-platform rendering-model gaps
+(anything relying on DOM-style cascade/inheritance, ambient global state, or CSS-only mechanisms web takes
+for granted), not just structural file-diffing. **Resume here**: run the improved re-sweep, then work
+through the High-severity punch list above (particularly the full-page privacy-mode background tint, the
+Demo Mode banner, module-visibility-to-tab-bar wiring, and the three `ExpenseForm.tsx` dead-ends), then the
+Medium/Low lists by priority. Font-scale's still-open "no global application mechanism" gap (see above)
+remains separately tracked and unresolved.
+
+### 2026-07-25 (continued again) — Rendering-model re-sweep: exhaustive background-tint file list + 3 more real bugs
+
+The improved re-sweep ran as 2 parallel agents, explicitly primed with the full-page-background-tint bug
+as a worked example and told to hunt for the same *category* (web relying on a DOM/CSS propagation
+mechanism — cascade, media queries, `position: fixed`, global event listeners, z-index stacking — with no
+direct RN equivalent) rather than repeating the first sweep's structural file-diffing. It found:
+
+- **Exhaustive, confirmed list of every file needing the mode-tint background fix** (same bug as before,
+  now fully enumerated rather than spot-checked): `home/HomePage.tsx`, `portfolio/PortfolioPage.tsx`,
+  `expenses/ExpensesPage.tsx`, `expenses/transactions/TransactionsTab.tsx` (its `SectionList` root **and**
+  `renderSectionHeader` both re-apply the opaque background — a new instance the first pass didn't catch),
+  `goals/GoalsPage.tsx`, `settings/SettingsPage.tsx`, `settings/ManageTagsPage.tsx`,
+  `settings/SafeModeSettingsPage.tsx`, `profile/ProfilePage.tsx`, `security/ChangePassphrasePage.tsx`,
+  `security/ChangePinPage.tsx`, `activity/TimelinePage.tsx`, `insurance/InsurancePage.tsx`,
+  `loans/LoanScenariosPage.tsx`, `accounts/AccountsPage.tsx`, `subscriptions/SubscriptionsPage.tsx`,
+  `cashflow/CashFlowPage.tsx`, `backup/BackupPage.tsx`, `import/ImportPage.tsx`, `feedback/FeedbackPage.tsx`,
+  `news/NewsPage.tsx`, `calculators/CalculatorsPage.tsx`, `tax/TaxAwarenessPage.tsx`, `chip/ChipPage.tsx` —
+  22 files total. **Confirmed clean, no fix needed**: onboarding screens (web's own `OnboardingLayout`
+  never references `--color-mode-bg` either — privacy mode doesn't exist pre-login, out of scope) and
+  `components/ui/Modal.tsx` (web's own modal card is a fixed `bg-surface` regardless of privacy mode too —
+  intentionally not mode-tinted on either platform, not a bug).
+- **Forced PIN-reset screen is dismissible via Android's hardware back button — High, real security gap.**
+  Web traps the browser back button (push a history state, re-push on every `popstate`) so the
+  lockout-recovery screen is genuinely inescapable. Mobile's `MainNavigator.tsx` only sets
+  `gestureEnabled`/`headerBackVisible` to `false` — neither intercepts Android's hardware back button (a
+  separate OS-level event), so a locked-out user can press back and exit the forced-reset screen entirely,
+  bypassing the recovery flow. Needs `BackHandler.addEventListener('hardwareBackPress', ...)` — currently
+  zero usages of `BackHandler` anywhere in the app.
+- **Toasts render behind any open Modal — High, inverted stacking vs. web.** Web's toast is `position:
+  fixed` with `zIndex: 85`, deliberately above `Modal.tsx`'s own z-60/70/80 tiers — same DOM stacking
+  context, so a toast always wins. Mobile's `ToastContext.tsx` renders a plain absolutely-positioned `View`
+  at the `App.tsx` root, while `Modal.tsx` uses RN's own `<Modal transparent>`, which composites into a
+  *separate native layer* that unconditionally renders above all normal JS views regardless of mount order
+  — so any `showToast()` fired while a modal is open (real call sites: `JoinGroupModal`/`CreateGroupModal`/
+  `SettleUpGroupModal`/`GroupMembersModal`/`SharedExpenseComposer`/`EventsModal`/`IouView`/
+  `UpdateValueSheet`) is silently hidden behind it until the modal closes.
+- **`prefers-reduced-motion` never honored on mobile — Medium, accessibility.** Web's CSS has a
+  `@media (prefers-reduced-motion: reduce)` rule disabling the Home market-ticker marquee animation, an
+  ambient OS-level setting the browser applies for free. Mobile's Reanimated-based marquee
+  (`MarketTicker.tsx`) has no `AccessibilityInfo.isReduceMotionEnabled()` check at all (confirmed via
+  repo-wide grep) — users with motion sensitivity who rely on this OS setting get the animation regardless.
+
+**Status of this second sweep's findings**: not yet fixed as of this entry — being worked immediately
+after in the same session (background-tint fix, PIN-reset back-button trap, toast/modal stacking). Check
+git history / the next progress-log entry for outcome. `prefers-reduced-motion` remains open, lower
+priority (accessibility polish, not a functional break).
+
+### 2026-07-25 (continued a third time) — All three findings from the rendering-model re-sweep fixed and on-device-verified
+
+- **Full-page privacy-mode background tint, all 23 files** (the 22 the second re-sweep agent enumerated,
+  plus `TransactionsTab.tsx`'s `SectionList` root/`renderSectionHeader` counted as one entry): added
+  `apps/mobile/src/theme/useModeBackgroundColor.ts` (a small hook combining `useTheme().activePalette` +
+  `usePrivacy().mode` via `privacyModeColors.ts`), then mechanically replaced every root container's
+  static `bg-surface-tertiary`/`bg-surface-3` class with `style={{ backgroundColor: modeBg }}` — done via a
+  `sed` pass for the className swap (safe, since the string was identical and specific enough across all
+  files) followed by a Python script inserting the import + `const modeBg = useModeBackgroundColor();` as
+  the first line of each component (verified no file had more than one component needing it, despite 3
+  files having 2 separate `SafeAreaView` occurrences each — both were early-return branches of the *same*
+  function). **Verified live on-device**: switching Privacy Mode to Private now tints the *entire* Home
+  page violet (previously only the header changed) — confirmed via screenshot, side-by-side before/after.
+- **Forced PIN-reset screen's Android hardware-back-button bypass**: `ChangePinPage.tsx` now adds a
+  `BackHandler.addEventListener('hardwareBackPress', () => true)` for the duration `forced` is true,
+  swallowing the event (returning `true` prevents default back navigation) — mirrors web's history-trap
+  intent using the actual RN-native mechanism instead of a native-stack option that never covered it.
+- **Toasts rendering behind open modals**: `ToastContext.tsx`'s toast now renders inside a transparent RN
+  `<Modal>` instead of a plain absolutely-positioned `View` — RN's `Modal` composites into its own native
+  layer above all normal views (and stacks by presentation order relative to other native `Modal`s), so a
+  toast fired while a feature modal is open now correctly appears on top of it, matching web's z-index
+  ordering.
+
+All three: `tsc -b` + `eslint --max-warnings 0` clean, on-device rebuild confirmed no regressions (app
+boots, unlocks, Home/Settings/Groups render correctly with full-page tinting visible). `HomeGroupsCard`'s
+earlier "Claim to create" fix was also visually confirmed working in the same pass (navigates to Profile).
+**Remaining from the full punch list** (both sweeps combined, ~38 items total): the original sweep's High
+items (Demo Mode banner missing, module-visibility-to-tab-bar not wired, `ExpenseForm`'s 3 dead-ends,
+Calculators' back-button-exits-feature bug, non-functional Backup destinations, Google-Drive onboarding
+handoff) are still open, plus the Medium/Low lists and `prefers-reduced-motion`. Font-scale's "no global
+application mechanism" gap also remains open. **Resume here** for the next session: pick up the High list
+first (see the two prior progress-log entries above for the full itemized punch list with file paths).
+
+### 2026-07-25 (continued a fourth time) — Font-scale global application: investigated thoroughly, does NOT work, real path forward identified
+
+At the user's explicit request (only item scoped for the rest of this session), attempted to actually fix
+font-scale's standing "no global application mechanism" gap rather than leave it as a flagged limitation.
+
+**What was tried**: NativeWind (via `react-native-css-interop`) exposes a real, public, typed global `rem`
+unit — `unit-observables.js`'s `rem` observable (`Observable<number>`, default value 14), consulted by
+`resolve-value.js`'s style-resolution code for any style property typed `"rem"`. This looked like the exact
+RN equivalent of web's mechanism (`html { font-size: calc(16px * var(--font-scale, 1)); }`, which cascades
+to every rem-based Tailwind class via the browser's own CSS engine). Implemented `useApplyFontScale()`
+(captures NativeWind's actual default via `rem.get()` once at module load, then calls
+`rem.set(BASE_REM * FONT_SCALE_MAP[fontScale])` in a `useEffect` keyed on the persisted preference),
+mounted once at the `App.tsx` root inside `SettingsProvider`.
+
+**It does not work — proven, not assumed.** On-device testing via screenshot comparison looked
+inconclusive (hard to judge subtle size differences by eye), so verification switched to `adb shell
+uiautomator dump` — reading the *exact pixel bounding box* of the same `Text` element (`"Your account"`,
+`className="text-lg font-bold"`) at different font-scale settings. Result: **identical bounds
+(`[193,336][909,401]`, 65px tall) at both "A+" and "A++"** — both immediately after tapping the setting
+(live) and after a full `am force-stop` + relaunch (cold mount, with the new `rem` value already set
+before first render). Zero measurable change either way.
+
+**Root cause**: NativeWind's compiler statically resolves plain utility classes with no other dynamic
+dependency (like `text-lg`, which references nothing but a fixed Tailwind config value) into a constant
+pixel number at build time, never reaching the runtime `rem.get()` call path at all. This is fundamentally
+different from theme colors, which use `var(--color-x)` — a value NativeWind can *never* know at build
+time, forcing it to stay runtime-reactive (which is why the theme/privacy-mode-tint work earlier in this
+session's progress log did work). No config flag to force universal runtime resolution for all classes was
+found in the installed `nativewind@4.2.6`/`react-native-css-interop@0.2.6`.
+
+**Reverted** the App.tsx/`fontScale.ts`/`SettingsPage.tsx` changes back to the honest prior state (persisted
+setting + opt-in `useFontScale()` hook only, no false "applies globally" claim) — confirmed via `tsc -b`
++ `eslint` clean after reverting.
+
+**Real path forward, scoped for a future session, not attempted here (confirmed with the user this is
+genuinely required, not a shortcut being skipped)**: a dedicated `<AppText>` wrapper component that reads
+`useFontScale()` and multiplies its own resolved `fontSize`, then migrated across every screen currently
+using a semantic Tailwind text-size class (`text-xs`/`text-sm`/`text-base`/`text-lg`/`text-xl`/etc.) instead
+of an arbitrary bracket value (`text-[11px]`) — a substantial, multi-file task (this app uses `<Text
+className="text-sm">`-style semantic classes extremely widely; no smaller number is known yet without a
+dedicated grep/count pass). **Resume here**: scope and execute the `<AppText>` migration as its own
+tracked piece of work, likely warranting its own plan-doc section given the file count.
+
+---
+
+## ▶ Where this session (2026-07-25) left off — the one authoritative resume point
+
+The four "Resume here" mentions inside this same day's entries above were each accurate *at the time they
+were written*, but later entries fixed some of what earlier ones flagged as open. This section is the
+final word — read this one, not the earlier inline ones, to know what's actually still outstanding.
+
+**Fixed and on-device-verified today** (do not re-investigate these): `SessionGate` port (the real
+PIN-unlock gate) + `GroupProvider` relocation + `navigationRef.ts`; Backup export crash
+(`blob.text()` → `Response(blob).text()`, plus a proactive twin fix in `icloudProvider.ts`); Exit Demo
+Mode's wrong navigation target and stuck-on-failure bug; `PrivacyModeSwitcher`'s non-functional dropdown
+(rebuilt on `Modal`); the theme picker end-to-end (persistence, `tailwind.config.js`'s `surface-2`/
+`surface-3` vs `surface-secondary`/`surface-tertiary` alias gap, `MainNavigator`/`MainTabs` header/tab-bar
+theming, the "System" swatch's diagonal-split icon, and a `key={activePalette}` remount regression that
+was introduced then removed once the real fixes made it unnecessary); privacy-mode header tinting
+(`privacyModeColors.ts`); the full-page privacy-mode background tint across all 23 affected files
+(`useModeBackgroundColor.ts`); `HomeGroupsCard`'s dead "Claim to create" tap target; the Android
+hardware-back-button bypass on the forced PIN-reset screen; toasts rendering behind open modals; the
+Cashflow buffer-modal and income-suggestion button-overflow bug.
+
+**Investigated and confirmed NOT fixable the easy way** (don't re-attempt without a new idea): font-scale's
+global application. Proven via `uiautomator dump` pixel measurement that NativeWind's `rem` observable
+does not affect statically-resolvable utility classes like `text-lg`. The only real fix is a dedicated
+`<AppText>` wrapper component migrated across every screen using a semantic text-size class — scope this
+as its own task before starting (grep/count how many files are actually affected first).
+
+**Still open, not yet started** — the original parity sweep's full punch list (see the first "full
+parity sweep" 2026-07-25 entry above for file paths), prioritized:
+- High: Demo Mode banner missing entirely; Settings' module-visibility toggles don't hide bottom-nav tabs;
+  `ExpenseForm.tsx`'s 3 dead-ends (dead add-account button, missing "Manage tags" link, missing edit-history
+  timeline); `CalculatorsPage.tsx`'s back button exits the whole feature instead of returning to the
+  calculator list; Backup's cloud/local destinations are non-functional no-ops; onboarding never routes a
+  Google-Drive backup choice to actually connect Drive.
+- Medium: wrong colors on Settings' Safe/Private buttons; no date-picker component anywhere in the app
+  (systemic, one component needed); PIN fields lack web's large/centered/letter-spaced styling; 2 onboarding
+  screens lose callout tinting; Accounts' Save button never disables on empty name; IOU's person-picker
+  dropdown pushes content down instead of floating; Home/Portfolio/Expenses deep-link-to-subtab gap (1 root
+  cause, 3 files); shared `Button` ghost variant can't do primary-colored text on transparent background
+  (recurs ≥2 places); Feedback/News/Tax/Calculators/MoneyStory polish items (see the sweep entry for detail).
+- Low: assorted icon/color/spinner/animation nitpicks (see the sweep entry).
+- Also open, lower priority: `prefers-reduced-motion` never honored (Home's market-ticker marquee).
+
+**Housekeeping reminders for next session**: a large amount of work since commit `6d1c2a3` is still
+uncommitted (check with the user before committing — this has been true all session and remains true);
+the QuickBase64 native-linking bug from earlier today was fixed by a full rebuild and confirmed clear, no
+action needed there; JAVA_HOME must be exported before any `expo run:android` on this machine (see
+`docs/RUNNING_MOBILE.md`).

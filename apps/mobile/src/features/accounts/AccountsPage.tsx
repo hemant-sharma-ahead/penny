@@ -7,16 +7,18 @@ import { useAccounts } from './useAccounts';
 import { useAccountForm } from './useAccountForm';
 import { AccountList } from './AccountList';
 import { AccountFormModal } from './AccountFormModal';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 /** RN port note: back button dropped for now — see docs/plans/mobile-migration.md's Track 4 progress log
  *  (same reasoning as InsurancePage/LoanScenariosPage/IouPage). */
 export function AccountsPage() {
+  const modeBg = useModeBackgroundColor();
   const { shouldMask } = usePrivacy();
   const { accounts, txns, saving, totalBalance, saveAccount, deleteAccount, reconcileAccount } = useAccounts();
   const form = useAccountForm(saveAccount);
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader
         leading={<BackButton />}
         title="Accounts"

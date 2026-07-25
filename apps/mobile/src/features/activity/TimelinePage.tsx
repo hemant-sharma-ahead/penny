@@ -13,6 +13,7 @@ import { useActivityLog, groupByDay } from './useActivityLog';
 import { ActivityRow } from './components/ActivityRow';
 import { PrivacyReceipt } from './components/PrivacyReceipt';
 import { MoneyStory } from './components/MoneyStory';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 type TimelineTab = 'story' | 'timeline' | 'deleted';
 type ActionFilter = 'all' | 'added' | 'edited' | 'deleted' | 'moved';
@@ -31,6 +32,7 @@ const ACTION_FILTERS: { value: ActionFilter; label: string; actions: ActivityAct
  * needed here.
  */
 export function TimelinePage() {
+  const modeBg = useModeBackgroundColor();
   const theme = useThemeColors();
   const { shouldMask } = usePrivacy();
   // Activity log mixes entries from every module without a live category/account reference to
@@ -85,7 +87,7 @@ export function TimelinePage() {
   }
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader
         leading={<BackButton />}
         title="Timeline"

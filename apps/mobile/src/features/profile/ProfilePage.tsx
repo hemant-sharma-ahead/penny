@@ -19,6 +19,8 @@ import { pickReceiptPhoto } from '~/lib/receiptImage';
 import { checkUsername, claimAccount, UsernameTakenError } from '@/core/identity/claim';
 import { getBackupTarget } from '@/core/sync/backupPrefs';
 import { useProfile } from '@/hooks/useProfile';
+import { useToast } from '~/context/ToastContext';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 /**
  * RN port of apps/web-legacy/src/features/profile/ProfilePage.tsx. Deviations:
@@ -36,10 +38,11 @@ import { useProfile } from '@/hooks/useProfile';
  *   calendar picker is a UI-polish follow-up, not blocking this port.
  */
 export function ProfilePage() {
+  const modeBg = useModeBackgroundColor();
   const { profile, loading } = useProfile();
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader leading={<BackButton />} title="Edit profile" />
       {loading ? (
         <View className="flex-1 items-center justify-center">
@@ -91,6 +94,7 @@ function SectionLabel({ children }: { children: ReactNode }) {
 function ProfileEditor({ profile }: { profile: Profile }) {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const theme = useThemeColors();
+  const { showToast } = useToast();
   const syncOn = hasEntitlement('sync');
 
   const [avatarDataUrl, setAvatarDataUrl] = useState(profile.avatarDataUrl ?? '');
@@ -145,26 +149,31 @@ function ProfileEditor({ profile }: { profile: Profile }) {
   async function handleSave() {
     if (!canSave) return;
     setSaving(true);
-    const employmentChanged = employmentType !== profile.employmentType;
-    await profileRepo.put({
-      ...profile,
-      displayName: fullName.trim(),
-      // When claimed, the username is owned by the claim flow (server) — don't overwrite it here.
-      username: claimed ? profile.username : username.trim() || undefined,
-      dob: dob || undefined,
-      avatarDataUrl: avatarDataUrl || undefined,
-      employmentType,
-      maritalStatus,
-      children: children.length ? children : undefined,
-      homeOwner,
-      riskAppetite,
-      updatedAt: Date.now()
-    });
-    logActivity({ action: 'UPDATE', entityType: 'profile', entityId: profile.id, summary: 'Updated profile' });
-    const didReseed = employmentChanged && employmentType ? await reseedForEmployment(employmentType) : false;
-    setSaving(false);
-    setSaved(true);
-    setReseeded(didReseed);
+    try {
+      const employmentChanged = employmentType !== profile.employmentType;
+      await profileRepo.put({
+        ...profile,
+        displayName: fullName.trim(),
+        // When claimed, the username is owned by the claim flow (server) — don't overwrite it here.
+        username: claimed ? profile.username : username.trim() || undefined,
+        dob: dob || undefined,
+        avatarDataUrl: avatarDataUrl || undefined,
+        employmentType,
+        maritalStatus,
+        children: children.length ? children : undefined,
+        homeOwner,
+        riskAppetite,
+        updatedAt: Date.now()
+      });
+      logActivity({ action: 'UPDATE', entityType: 'profile', entityId: profile.id, summary: 'Updated profile' });
+      const didReseed = employmentChanged && employmentType ? await reseedForEmployment(employmentType) : false;
+      setSaved(true);
+      setReseeded(didReseed);
+    } catch {
+      showToast({ message: "Couldn't save your profile. Please try again." });
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleClaim() {

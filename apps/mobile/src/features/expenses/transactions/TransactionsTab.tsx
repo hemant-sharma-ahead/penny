@@ -1,6 +1,7 @@
 import { SectionList, View, Text, Pressable } from 'react-native';
 import { formatCurrency } from '@/lib/formatters';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { Icon } from '~/components/Icon';
 import type { Account, Expense, ExpenseCategory, Hashtag } from '@/core/db/types';
 import { isHiddenInSafeMode, isTagHiddenInSafeMode } from '@/core/expenses/categoryGroups';
@@ -55,6 +56,7 @@ export function TransactionsTab({
   onToggleSelect
 }: TransactionsTabProps) {
   const theme = useThemeColors();
+  const modeBg = useModeBackgroundColor();
 
   if (grouped.length === 0) {
     return (
@@ -72,7 +74,8 @@ export function TransactionsTab({
 
   return (
     <SectionList
-      className="flex-1 bg-surface-3"
+      className="flex-1"
+      style={{ backgroundColor: modeBg }}
       contentContainerStyle={{ paddingBottom: 96 }}
       sections={sections}
       keyExtractor={(txn) => txn.id}
@@ -80,7 +83,7 @@ export function TransactionsTab({
       renderSectionHeader={({ section }) => {
         const isFirst = section.title === firstSectionTitle;
         return (
-          <View className="relative pl-10 pr-4 pt-4 pb-1.5 bg-surface-3">
+          <View className="relative pl-10 pr-4 pt-4 pb-1.5" style={{ backgroundColor: modeBg }}>
             <View
               className="absolute w-px"
               style={{ left: 20, top: isFirst ? '55%' : 0, bottom: 0, backgroundColor: theme.border }}

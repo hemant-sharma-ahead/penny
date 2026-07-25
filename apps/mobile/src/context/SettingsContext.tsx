@@ -5,11 +5,23 @@ import { type PersistedPrivacyMode } from './PrivacyContext';
 /**
  * RN port of apps/web-legacy/src/context/SettingsContext.tsx. Ported in full (not just the
  * subscriptions-relevant slice) since the Track 4 dependency survey showed most near-term modules touch
- * this context. `theme`/`fontScale` are deliberately NOT ported here — mobile's own `ThemeProvider`
- * (Track 3) is already the source of truth for theme, and font scaling has no mobile consumer yet.
+ * this context. `theme` itself is NOT ported here — mobile's own `ThemeProvider` (Track 3) is already
+ * the source of truth for palette selection (light/pennyBlue/dark/system); `fontScale` IS ported (see
+ * `FONT_SCALE_MAP` below and `~/theme/fontScale.ts`, which applies it globally via a `Text`/`TextInput`
+ * render patch since NativeWind's font-size utilities don't reference a runtime-adjustable rem unit the
+ * way web's `--font-scale` CSS variable does).
  * `localStorage` (sync) becomes AsyncStorage (async) — every loader is async and state hydrates in a
  * `useEffect`, same pattern `AuthGuard.tsx` already uses for its checking/hydration state.
  */
+
+export type FontScale = 'small' | 'default' | 'large' | 'xl';
+
+export const FONT_SCALE_MAP: Record<FontScale, number> = {
+  small: 0.875,
+  default: 1,
+  large: 1.125,
+  xl: 1.25
+};
 
 export interface ModuleVisibility {
   portfolio: boolean;
@@ -52,6 +64,7 @@ const DEFAULT_SAFE_MODE_VISIBILITY: SafeModeVisibility = {
 
 const MODULES_KEY = 'penny_settings_modules';
 const SAFE_MODE_VISIBILITY_KEY = 'penny_settings_safe_mode_visibility';
+const FONT_SCALE_KEY = 'penny_settings_font_scale';
 export const DEFAULT_PRIVACY_KEY = 'penny_settings_default_privacy';
 const OPEN_MODE_DURATION_KEY = 'penny_settings_open_mode_duration';
 const LOCK_ON_BACKGROUND_KEY = 'penny_settings_lock_on_background';
@@ -92,6 +105,12 @@ async function loadSafeModeVisibility(): Promise<SafeModeVisibility> {
   return { ...DEFAULT_SAFE_MODE_VISIBILITY, ...(raw ?? {}) };
 }
 
+async function loadFontScale(): Promise<FontScale> {
+  const raw = await getItem(FONT_SCALE_KEY);
+  if (raw === 'small' || raw === 'default' || raw === 'large' || raw === 'xl') return raw;
+  return 'default';
+}
+
 /** Open can never be a persisted default — it's only ever a temporary elevation (see PrivacyContext).
  *  A legacy stored value of 'open' (from before this rule existed) silently coerces to 'safe'. */
 export async function loadDefaultPrivacyMode(): Promise<PersistedPrivacyMode> {
@@ -116,6 +135,7 @@ export async function loadOpenModeDurationMinutes(): Promise<OpenModeDuration> {
 interface SettingsContextValue {
   modules: ModuleVisibility;
   safeModeVisibility: SafeModeVisibility;
+  fontScale: FontScale;
   defaultPrivacyMode: PersistedPrivacyMode;
   openModeDurationMinutes: OpenModeDuration;
   lockOnBackground: boolean;
@@ -130,6 +150,7 @@ interface SettingsContextValue {
   taxStatutoryOverride: number | null;
   setModule: (key: keyof ModuleVisibility, visible: boolean) => void;
   setSafeModeVisibility: (key: keyof SafeModeVisibility, visible: boolean) => void;
+  setFontScale: (scale: FontScale) => void;
   setDefaultPrivacyMode: (mode: PersistedPrivacyMode) => void;
   setOpenModeDurationMinutes: (minutes: OpenModeDuration) => void;
   setLockOnBackground: (value: boolean) => void;
@@ -145,6 +166,7 @@ const SettingsContext = createContext<SettingsContextValue | null>(null);
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [modules, setModules] = useState<ModuleVisibility>(DEFAULT_MODULES);
   const [safeModeVisibility, setSafeModeVisibilityState] = useState<SafeModeVisibility>(DEFAULT_SAFE_MODE_VISIBILITY);
+  const [fontScale, setFontScaleState] = useState<FontScale>('default');
   const [defaultPrivacyMode, setDefaultPrivacyModeState] = useState<PersistedPrivacyMode>('safe');
   const [openModeDurationMinutes, setOpenModeDurationMinutesState] =
     useState<OpenModeDuration>(DEFAULT_OPEN_MODE_DURATION);
@@ -160,6 +182,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     Promise.all([
       loadModules(),
       loadSafeModeVisibility(),
+      loadFontScale(),
       loadDefaultPrivacyMode(),
       loadOpenModeDurationMinutes(),
       loadLockOnBackground(),
@@ -172,6 +195,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       ([
         loadedModules,
         loadedSafeMode,
+        loadedFontScale,
         loadedDefaultPrivacy,
         loadedOpenModeDuration,
         loadedLockOnBackground,
@@ -184,6 +208,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         setModules(loadedModules);
         setSafeModeVisibilityState(loadedSafeMode);
+        setFontScaleState(loadedFontScale);
         setDefaultPrivacyModeState(loadedDefaultPrivacy);
         setOpenModeDurationMinutesState(loadedOpenModeDuration);
         setLockOnBackgroundState(loadedLockOnBackground);
@@ -213,6 +238,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       void setJSON(SAFE_MODE_VISIBILITY_KEY, next);
       return next;
     });
+  }, []);
+
+  const setFontScale = useCallback((scale: FontScale) => {
+    void setItem(FONT_SCALE_KEY, scale);
+    setFontScaleState(scale);
   }, []);
 
   const setDefaultPrivacyMode = useCallback((m: PersistedPrivacyMode) => {
@@ -285,6 +315,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       value={{
         modules,
         safeModeVisibility,
+        fontScale,
         defaultPrivacyMode,
         openModeDurationMinutes,
         lockOnBackground,
@@ -295,6 +326,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         taxStatutoryOverride,
         setModule,
         setSafeModeVisibility,
+        setFontScale,
         setDefaultPrivacyMode,
         setOpenModeDurationMinutes,
         setLockOnBackground,

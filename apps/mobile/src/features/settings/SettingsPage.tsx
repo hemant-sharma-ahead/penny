@@ -3,21 +3,33 @@ import { View, Text, Pressable, Image, ScrollView } from 'react-native';
 import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { PageHeader, Toggle, ConfirmDialog } from '~/components/ui';
 import { BackButton } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useProfile } from '@/hooks/useProfile';
-import { useSettings, OPEN_MODE_DURATIONS, type ModuleVisibility } from '~/context/SettingsContext';
+import { useSettings, OPEN_MODE_DURATIONS, type ModuleVisibility, type FontScale } from '~/context/SettingsContext';
 import { type PersistedPrivacyMode } from '~/context/PrivacyContext';
+import { useTheme, type ThemePreference } from '~/theme/ThemeProvider';
+import { useToast } from '~/context/ToastContext';
 import { wipeDemoData, isDemoSeeded } from '@/core/db/seedDemoData';
 import { getWipeAfterAttempts, setWipeAfterAttempts, WIPE_THRESHOLD } from '@/core/crypto/securityManager';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 /**
  * RN port of apps/web-legacy/src/features/settings/SettingsPage.tsx. Deviations from the web version:
- * - Theme picker + font-scale grid dropped entirely — mobile's `SettingsContext.tsx` deliberately never
- *   ported `theme`/`fontScale` (Track 3's own `ThemeProvider` already owns theme; font scaling has no
- *   mobile consumer yet). Nothing in this screen references either.
+ * - Theme picker restored, driving mobile's own `ThemeProvider` (Track 3) instead of web's
+ *   `SettingsContext`-owned `theme`/`data-theme` — same 4 choices (Light/Penny Blue/Dark/System), same
+ *   swatch-preview grid, translated to `Pressable`+`View` swatches instead of web's `<button>`/CSS.
+ * - Font-size picker restored (`FontScale`, ported into mobile's own `SettingsContext.tsx` this pass) —
+ *   the persisted preference is real and this screen's `Aa` grid drives it, but it does NOT yet apply
+ *   globally: a 2026-07-25 attempt using NativeWind's `rem` observable (the real RN equivalent of CSS's
+ *   `:root { font-size }`) was proven not to work via direct on-device pixel measurement — NativeWind
+ *   statically resolves plain utility classes like `text-lg` at build time, bypassing that runtime
+ *   mechanism. See `~/theme/fontScale.ts` for the full investigation and `docs/plans/mobile-migration.md`
+ *   for the tracked follow-up (a dedicated `<AppText>` wrapper migrated across the app is the only real
+ *   path left, out of scope for this pass).
  * - "Contact & Feedback" and "Backup & Restore" nav rows restored once those modules were ported (see
  *   `FeedbackPage.tsx`/`~/features/backup/BackupPage.tsx`).
  * - Exit Demo Mode hands off to onboarding's "Let us know you" step by nested-navigating into the
@@ -42,6 +54,62 @@ const MODULES: ModuleDef[] = [
   { key: 'news', label: 'News', icon: 'ti-news', color: '#f59e0b' },
   { key: 'calc', label: 'Calc', icon: 'ti-math-function', color: '#f97316' }
 ];
+
+const THEMES: { value: ThemePreference; label: string }[] = [
+  { value: 'light', label: 'Light' },
+  { value: 'pennyBlue', label: 'Penny Blue' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'system', label: 'System' }
+];
+
+const FONT_SCALES: { value: FontScale; label: string; px: number }[] = [
+  { value: 'small', label: 'S', px: 12 },
+  { value: 'default', label: 'A', px: 16 },
+  { value: 'large', label: 'A+', px: 20 },
+  { value: 'xl', label: 'A++', px: 24 }
+];
+
+/** Miniature palette preview for a theme swatch — RN port of web's `ThemePreview` (brand palette =
+ *  domain data, kept inline like web's version). */
+function ThemePreview({ theme }: { theme: ThemePreference }) {
+  const styles: Record<Exclude<ThemePreference, 'system'>, { bg: string; bar: string; ln: string }> = {
+    light: { bg: '#ffffff', bar: '#00a86b', ln: '#e2e8f0' },
+    pennyBlue: { bg: '#1F3864', bar: '#6ea8fe', ln: '#3b5488' },
+    dark: { bg: '#0b1220', bar: '#00c47e', ln: '#243247' }
+  };
+
+  // Web's "System" swatch is a 135deg diagonal light/dark split (`linear-gradient(135deg,#fff 50%,
+  // #0b1220 50%)`) rather than a flat gray fill — the flat version (found via the 2026-07-25 parity
+  // sweep) looked like a fifth, unthemed color instead of "follows OS light/dark". `expo-linear-gradient`
+  // (already a dependency, used by Home Stories) reproduces the same diagonal split.
+  if (theme === 'system') {
+    return (
+      <LinearGradient
+        colors={['#ffffff', '#ffffff', '#0b1220', '#0b1220']}
+        locations={[0, 0.5, 0.5, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ height: 40, borderRadius: 8, overflow: 'hidden', marginBottom: 6 }}
+      >
+        <View className="h-1.5 rounded-sm mx-1.5 mt-1.5" style={{ backgroundColor: '#00a86b' }} />
+        <View className="h-1 rounded-sm mx-1.5 mt-1" style={{ backgroundColor: '#94a3b8' }} />
+        <View className="h-1 rounded-sm mx-1.5 mt-0.5" style={{ backgroundColor: '#94a3b8', width: '60%' }} />
+      </LinearGradient>
+    );
+  }
+
+  const s = styles[theme];
+  return (
+    <View
+      className="h-10 rounded-lg overflow-hidden mb-1.5"
+      style={{ backgroundColor: s.bg, borderWidth: theme === 'light' ? 1 : 0, borderColor: '#e2e8f0' }}
+    >
+      <View className="h-1.5 rounded-sm mx-1.5 mt-1.5" style={{ backgroundColor: s.bar }} />
+      <View className="h-1 rounded-sm mx-1.5 mt-1" style={{ backgroundColor: s.ln }} />
+      <View className="h-1 rounded-sm mx-1.5 mt-0.5" style={{ backgroundColor: s.ln, width: '60%' }} />
+    </View>
+  );
+}
 
 // Icons + colours mirror the header's PrivacyModeSwitcher — keep the two in sync. Open is deliberately
 // excluded — it can never be a persisted default, only a temporary elevation (see PrivacyContext).
@@ -106,19 +174,24 @@ function Row({
 }
 
 export function SettingsPage() {
+  const modeBg = useModeBackgroundColor();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const theme = useThemeColors();
   const { profile } = useProfile();
   const {
     modules,
+    fontScale,
     defaultPrivacyMode,
     openModeDurationMinutes,
     lockOnBackground,
     setModule,
+    setFontScale,
     setDefaultPrivacyMode,
     setOpenModeDurationMinutes,
     setLockOnBackground
   } = useSettings();
+  const { preference: themePreference, setPreference: setThemePreference } = useTheme();
+  const { showToast } = useToast();
   const privacyModes = usePrivacyModes();
   const [wipeEnabled, setWipeEnabled] = useState(false);
   const [exiting, setExiting] = useState(false);
@@ -134,11 +207,25 @@ export function SettingsPage() {
   };
 
   // Only ever shown while still on the throwaway Demo Mode vault (see the render guard below) — hands
-  // off to the same real-setup sequence as web's "Exit Demo Mode", not just a data wipe.
+  // off to the real account-start flow (Screen A, `AccountStartScreen`) rather than jumping straight to
+  // `LetUsKnowYou` — that was a real bug (found via on-device testing, 2026-07-25): it skipped the
+  // mandatory username+claim entry point entirely. Web's own `SettingsPage.tsx` has the same stale
+  // `letUsKnowYou`-direct wiring, not yet fixed there either.
+  //
+  // Wrapped in try/catch/finally (2026-07-25, also found via on-device testing): a failed `wipeDemoData()`
+  // used to leave `exiting` stuck at `true` forever, since it was never reset on the throw path — the
+  // confirm dialog's "Continue" button stayed disabled/loading with no error shown and no way to retry.
   const handleExitDemoMode = async () => {
     setExiting(true);
-    await wipeDemoData();
-    navigation.navigate('OnboardingFlow', { screen: 'LetUsKnowYou', params: { fromDemoMode: true } });
+    try {
+      await wipeDemoData();
+      navigation.navigate('OnboardingFlow', { screen: 'Start', params: { fromDemoMode: true } });
+    } catch {
+      showToast({ message: "Couldn't exit Demo Mode. Please try again." });
+    } finally {
+      setExiting(false);
+      setConfirmExit(false);
+    }
   };
 
   const name = profile?.displayName?.trim() || 'Your account';
@@ -148,7 +235,7 @@ export function SettingsPage() {
     .join(' · ');
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader leading={<BackButton />} title="Settings" />
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-4">
@@ -212,6 +299,59 @@ export function SettingsPage() {
           <Text className="text-[11px] text-tertiary mt-2.5">
             Tap to show / hide. Home, Expenses &amp; Chip are always on.
           </Text>
+
+          {/* Appearance */}
+          <SectionLabel>Appearance · Theme</SectionLabel>
+          <View className="flex-row flex-wrap gap-2">
+            {THEMES.map((t) => {
+              const on = themePreference === t.value;
+              return (
+                <Pressable
+                  key={t.value}
+                  onPress={() => setThemePreference(t.value)}
+                  className="rounded-xl border p-1.5"
+                  style={{ width: '23%', borderColor: on ? theme.primary : theme.border }}
+                >
+                  <ThemePreview theme={t.value} />
+                  <Text
+                    className="text-[9.5px] font-bold text-center"
+                    style={{ color: on ? theme.primary : theme.textSecondary }}
+                  >
+                    {t.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <SectionLabel>Text size</SectionLabel>
+          <View className="flex-row flex-wrap gap-2">
+            {FONT_SCALES.map((s) => {
+              const on = fontScale === s.value;
+              return (
+                <Pressable
+                  key={s.value}
+                  onPress={() => setFontScale(s.value)}
+                  className="rounded-xl border items-center justify-end gap-1"
+                  style={{
+                    width: '23%',
+                    height: 56,
+                    paddingBottom: 6,
+                    borderColor: on ? theme.primary : theme.border,
+                    backgroundColor: on ? `${theme.primary}14` : 'transparent'
+                  }}
+                >
+                  <Text
+                    className="font-extrabold"
+                    style={{ fontSize: s.px, color: on ? theme.primary : theme.textSecondary, lineHeight: s.px }}
+                  >
+                    Aa
+                  </Text>
+                  <Text className="text-[9px] font-bold text-tertiary">{s.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
           {/* Privacy */}
           <SectionLabel>Privacy</SectionLabel>

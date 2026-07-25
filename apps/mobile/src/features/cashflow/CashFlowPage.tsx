@@ -14,6 +14,7 @@ import type { BalanceForecast } from '@/core/cashflow/forecaster';
 import { useCashFlow, type Horizon } from './useCashFlow';
 import { useIncomeSuggestions } from './useIncomeSuggestions';
 import { CashFlowTimeline } from './CashFlowTimeline';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 const HORIZON_LABEL: Record<string, string> = {
   month: 'this month',
@@ -32,7 +33,19 @@ function intervalLabel(days: number): string {
 
 /** Compact SVG sparkline of the projected daily balance, with the buffer floor marked. RN port —
  *  same path-building math as web, drawn with `react-native-svg` instead of a DOM `<svg>`. */
-function BalanceSparkline({ forecast, buffer, danger }: { forecast: BalanceForecast; buffer: number; danger: string }) {
+function BalanceSparkline({
+  forecast,
+  buffer,
+  danger,
+  primary,
+  warning
+}: {
+  forecast: BalanceForecast;
+  buffer: number;
+  danger: string;
+  primary: string;
+  warning: string;
+}) {
   const pts = forecast.daily;
   if (pts.length < 2) return null;
   const W = 320;
@@ -46,7 +59,7 @@ function BalanceSparkline({ forecast, buffer, danger }: { forecast: BalanceForec
   const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(' ');
   const lowIdx = pts.findIndex((p) => p.balance === forecast.lowest.balance);
   const breached = forecast.bufferBreachMs !== null;
-  const stroke = breached ? danger : '#00a86b';
+  const stroke = breached ? danger : primary;
 
   return (
     <Svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H}>
@@ -56,7 +69,7 @@ function BalanceSparkline({ forecast, buffer, danger }: { forecast: BalanceForec
           y1={y(buffer)}
           x2={W}
           y2={y(buffer)}
-          stroke="#f59e0b"
+          stroke={warning}
           strokeWidth={1}
           strokeDasharray="4 3"
           opacity={0.7}
@@ -76,6 +89,7 @@ function BalanceSparkline({ forecast, buffer, danger }: { forecast: BalanceForec
  * `STATUS`/CSS-var strings, same fix applied throughout this migration.
  */
 export function CashFlowPage() {
+  const modeBg = useModeBackgroundColor();
   const theme = useThemeColors();
   const { shouldMask } = usePrivacy();
   const { cashflowBuffer, setCashflowBuffer } = useSettings();
@@ -111,7 +125,7 @@ export function CashFlowPage() {
       : `to last till month-end (${forecast.daysLeft} days)`;
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       <ScrollView>
         <View className="px-4 pt-4 pb-6 gap-4">
           <View className="flex-row items-center justify-between">
@@ -162,13 +176,18 @@ export function CashFlowPage() {
                   </Text>
                 </View>
               </View>
+              {/* Same flex-1-per-button fix as the buffer modal footer below — found alongside it. */}
               <View className="flex-row gap-2">
-                <Button variant="secondary" size="sm" fullWidth onPress={() => dismiss(incomeSuggestion)}>
-                  Not recurring
-                </Button>
-                <Button size="sm" fullWidth onPress={() => void confirm(incomeSuggestion)}>
-                  Add to forecast
-                </Button>
+                <View className="flex-1">
+                  <Button variant="secondary" size="sm" fullWidth onPress={() => dismiss(incomeSuggestion)}>
+                    Not recurring
+                  </Button>
+                </View>
+                <View className="flex-1">
+                  <Button size="sm" fullWidth onPress={() => void confirm(incomeSuggestion)}>
+                    Add to forecast
+                  </Button>
+                </View>
               </View>
             </Card>
           )}
@@ -188,7 +207,13 @@ export function CashFlowPage() {
                 <Text className="text-sm text-secondary">Balance now</Text>
                 <Text className="text-sm font-semibold text-primary">{money(startBalance)}</Text>
               </View>
-              <BalanceSparkline forecast={forecast} buffer={cashflowBuffer} danger={theme.danger} />
+              <BalanceSparkline
+                forecast={forecast}
+                buffer={cashflowBuffer}
+                danger={theme.danger}
+                primary={theme.primary}
+                warning={theme.warning}
+              />
               <View className="flex-row items-center justify-between">
                 <Text className="text-xs text-tertiary">
                   Lowest {money(forecast.lowest.balance)} · {formatDateShort(forecast.lowest.dayMs)}
@@ -260,19 +285,28 @@ export function CashFlowPage() {
           title="Safety cushion"
           onClose={() => setShowBuffer(false)}
           footer={
+            // Each button gets its own `flex-1` wrapper, not just `fullWidth` — two `fullWidth` (`w-full`)
+            // siblings in a `flex-row` both try to take 100% width and overflow/overlap instead of
+            // splitting the row evenly (the same bug class already fixed elsewhere in this migration —
+            // see FormModal.tsx's own footer for the established pattern). Found via the 2026-07-25
+            // parity sweep.
             <View className="flex-row gap-3">
-              <Button variant="secondary" fullWidth onPress={() => setShowBuffer(false)}>
-                Cancel
-              </Button>
-              <Button
-                fullWidth
-                onPress={() => {
-                  setCashflowBuffer(Number(bufferDraft) || 0);
-                  setShowBuffer(false);
-                }}
-              >
-                Save
-              </Button>
+              <View className="flex-1">
+                <Button variant="secondary" fullWidth onPress={() => setShowBuffer(false)}>
+                  Cancel
+                </Button>
+              </View>
+              <View className="flex-1">
+                <Button
+                  fullWidth
+                  onPress={() => {
+                    setCashflowBuffer(Number(bufferDraft) || 0);
+                    setShowBuffer(false);
+                  }}
+                >
+                  Save
+                </Button>
+              </View>
             </View>
           }
         >

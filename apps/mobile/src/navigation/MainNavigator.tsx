@@ -1,9 +1,15 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Pressable } from 'react-native';
+import { View, Pressable } from 'react-native';
 import { MainTabs } from './MainTabs';
 import { OnboardingNavigator } from './OnboardingNavigator';
 import { Icon } from '../components/Icon';
+import { PennyWordmark } from '../components/ui/PennyLogo';
+import { PrivacyModeSwitcher } from '../components/privacy/PrivacyModeSwitcher';
+import { RemindersBell } from '../components/reminders/RemindersBell';
 import { useThemeColors } from '../theme/useThemeColors';
+import { useTheme } from '../theme/ThemeProvider';
+import { usePrivacy } from '../context/PrivacyContext';
+import { getPrivacyModeColors } from '@penny/core/theme/privacyModeColors';
 import { ProfilePage } from '../features/profile/ProfilePage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 import { SafeModeSettingsPage } from '../features/settings/SafeModeSettingsPage';
@@ -29,9 +35,11 @@ import { TaxAwarenessPage } from '../features/tax/TaxAwarenessPage';
  * plus every screen `SettingsPage`/`ProfilePage`'s `navigation.navigate(...)` calls assume exists —
  * `Profile`, `SafeModeSettings`, `ManageTags`, `ChangePin`, `ChangePassphrase`, `Timeline` (all built in
  * this same pass, previously only reachable in theory) — pushed on top of it. Standing in for web's
- * `AppShell` header (a persistent settings/menu icon above every tab), the `MainTabs` screen itself gets
- * a header with a left-aligned settings button navigating to `Settings`, since `MainTabs`' own
- * `Tab.Navigator` has `headerShown: false` on every tab.
+ * `AppShell` header, the `MainTabs` screen itself gets a real persistent header: left side is a
+ * settings-menu button + the `PennyWordmark` logo (matching web's header exactly), right side is
+ * `PrivacyModeSwitcher` + `RemindersBell` (also ported from web) — since `MainTabs`' own
+ * `Tab.Navigator` has `headerShown: false` on every tab, this stack-level header is the one place
+ * that chrome can live across all four tabs.
  *
  * Also pushed on top: `Insurance`, `Loans`, `IOU`, `Accounts`, `Subscriptions` — Track 4 modules that
  * were ported and on-device-verified in isolation but, until this pass, had no real route connecting
@@ -75,24 +83,64 @@ export type MainStackParamList = {
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
-function SettingsButton({ onPress }: { onPress: () => void }) {
+function HeaderLeft({ onPress }: { onPress: () => void }) {
   const theme = useThemeColors();
   return (
-    <Pressable onPress={onPress} hitSlop={8}>
-      <Icon name="ti-menu-2" size={22} color={theme.textSecondary} />
-    </Pressable>
+    <View className="flex-row items-center gap-3">
+      <Pressable onPress={onPress} hitSlop={8}>
+        <Icon name="ti-menu-2" size={22} color={theme.textSecondary} />
+      </Pressable>
+      <PennyWordmark height={22} />
+    </View>
+  );
+}
+
+function HeaderRight() {
+  return (
+    <View className="flex-row items-center gap-1">
+      <PrivacyModeSwitcher />
+      <RemindersBell />
+    </View>
   );
 }
 
 export function MainNavigator() {
+  const theme = useThemeColors();
+  const { activePalette } = useTheme();
+  const { mode } = usePrivacy();
+  // Privacy-mode header/background tint, layered on top of the light/pennyBlue/dark theme — RN port of
+  // web's `[data-privacy-mode=...]` CSS overrides (`--color-mode-accent`/`--color-mode-header-bg`/
+  // `--color-mode-bg`, see apps/web-legacy/src/index.css and AppShell.tsx's header). Missing entirely
+  // until this pass (found via the 2026-07-25 parity sweep) — the header used a flat theme-only
+  // background regardless of Safe/Private/Open mode.
+  const modeColors = getPrivacyModeColors(mode, activePalette);
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        // `headerStyle` only supports `backgroundColor` on native-stack (no border props) — the 2px
+        // accent bottom border web's header has needs `headerBackground` instead, a custom render
+        // function placed behind the header content.
+        headerBackground: () => (
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: modeColors.headerBg,
+              borderBottomWidth: 2,
+              borderBottomColor: modeColors.accent
+            }}
+          />
+        ),
+        headerTintColor: theme.textPrimary,
+        contentStyle: { backgroundColor: modeColors.bg }
+      }}
+    >
       <Stack.Screen
         name="MainTabs"
         component={MainTabs}
         options={({ navigation }) => ({
-          title: 'Penny',
-          headerLeft: () => <SettingsButton onPress={() => navigation.navigate('Settings')} />
+          headerTitle: '',
+          headerLeft: () => <HeaderLeft onPress={() => navigation.navigate('Settings')} />,
+          headerRight: () => <HeaderRight />
         })}
       />
       <Stack.Screen name="Settings" component={SettingsPage} options={{ headerShown: false }} />

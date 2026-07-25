@@ -22,6 +22,13 @@ module.exports = {
         surface: 'var(--color-surface)',
         'surface-2': 'var(--color-surface-secondary)',
         'surface-3': 'var(--color-surface-tertiary)',
+        // Aliases for the same two tokens — both spellings are used across apps/mobile/src (found via
+        // on-device theme-switching testing, 2026-07-25: `bg-surface-tertiary`/`bg-surface-secondary`
+        // aren't valid classes under the `-2`/`-3` names above, so NativeWind silently dropped them on
+        // ~33 screens, leaving their backgrounds unthemed). Aliasing here is safer than renaming every
+        // call site.
+        'surface-secondary': 'var(--color-surface-secondary)',
+        'surface-tertiary': 'var(--color-surface-tertiary)',
         primary: 'var(--color-text-primary)',
         secondary: 'var(--color-text-secondary)',
         tertiary: 'var(--color-text-tertiary)',

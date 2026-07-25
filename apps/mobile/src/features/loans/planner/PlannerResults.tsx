@@ -33,23 +33,18 @@ interface PlannerResultsProps {
 }
 
 /**
- * Restored (post-Track-4), but currently BLOCKED by a real bundler gap — not working on-device yet, do
- * not consider this shipped. Web's "Download XLSX" button was originally dropped as a capability gap (no
- * native file-save/share flow existed at the time) — the intended fix mirrors Expenses' CSV/ZIP export
- * exactly (`buildLoanPlanExport` for the pure data, `xlsx`'s `write()` for the workbook bytes,
- * `expo-file-system`'s `File.write()` + `expo-sharing` for the native share sheet). On-device, tapping
- * the button throws `Requiring unknown module "NNNN"` as an **uncaught** error overlay — this is a Metro
- * module-resolution failure inside `await import('xlsx')` itself, not a normal JS runtime error, so the
- * `try/catch` below does NOT intercept it (confirmed: the error overlay still appears with the catch in
- * place). `xlsx`'s CJS entry (`xlsx.js`) has `require('fs')`/`require('stream')` calls Metro's static
- * bundler tries to resolve regardless of the runtime guards around them; stubbing those Node builtins
- * via `metro.config.js`'s `resolver.extraNodeModules` did NOT fix it either (tried and reverted), meaning
- * at least one further require in `xlsx`'s dependency chain isn't a plain string literal Metro can
- * statically stub, and the failure happens below the level any in-app error handling can reach. Not
- * root-caused further given the depth of Metro-internals work that would need — needs either a different
- * XLSX-writing library (lighter, RN-targeted) or dedicated Metro bundling investigation before this
- * button will actually work. Left wired (not reverted) since the surrounding code — `buildLoanPlanExport`
- * call, `File`/`expo-sharing` plumbing — is correct and reusable once the `xlsx` import itself is fixed.
+ * Web's "Download XLSX" button was originally dropped as a capability gap (no native file-save/share
+ * flow existed at the time), then restored post-Track-4 on the same `xlsx` package web uses — which
+ * turned out not to work on-device at all: `xlsx`'s CJS entry has `require('fs')`/`require('stream')`
+ * calls Metro's static bundler tries to resolve regardless of runtime guards, failing below the level
+ * any in-app `try/catch` can reach (`Requiring unknown module "NNNN"`, an uncaught error overlay).
+ * Stubbing the Node builtins via `metro.config.js`'s `resolver.extraNodeModules` didn't fix it either.
+ * Switched to `write-excel-file`'s `/universal` entry point instead, which depends only on `fflate`
+ * (a pure-JS zip implementation, no Node builtins) — it bundles clean under Metro. It returns a `Blob`
+ * (browser-oriented API) rather than raw bytes, so `Response(blob).arrayBuffer()` — RN's `fetch`
+ * polyfill already implements `Response` over its own `Blob`, so this conversion works without a
+ * dedicated native module — bridges to the same `File.write(Uint8Array)` + `expo-sharing` flow
+ * Expenses' CSV/ZIP export already established.
  */
 export function PlannerResults({ planner, masked }: PlannerResultsProps) {
   const theme = useThemeColors();
@@ -62,18 +57,23 @@ export function PlannerResults({ planner, masked }: PlannerResultsProps) {
     setExporting(true);
     try {
       const data = buildLoanPlanExport(planParams, baseline, result, interestSaved, monthsSaved);
-      const XLSX = await import('xlsx');
-      const wb = XLSX.utils.book_new();
-      const ws1 = XLSX.utils.aoa_to_sheet(data.summaryRows);
-      XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
-      const ws2 = XLSX.utils.aoa_to_sheet([data.scheduleHeader, ...data.scheduleRows]);
-      ws2['!cols'] = data.scheduleColWidths.map((wch) => ({ wch }));
-      XLSX.utils.book_append_sheet(wb, ws2, 'Schedule');
-      const bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
+      const { default: writeXlsxFile } = await import('write-excel-file/universal');
+      const blob = await writeXlsxFile(
+        [
+          { data: data.summaryRows, sheet: 'Summary' },
+          {
+            data: [data.scheduleHeader, ...data.scheduleRows],
+            sheet: 'Schedule',
+            columns: data.scheduleColWidths.map((width) => ({ width }))
+          }
+        ],
+        { fontFamily: 'Calibri', fontSize: 11 }
+      ).toBlob();
+      const bytes = new Uint8Array(await new Response(blob).arrayBuffer());
 
       const { File, Paths } = await import('expo-file-system');
       const file = new File(Paths.cache, data.filename);
-      file.write(new Uint8Array(bytes));
+      file.write(bytes);
 
       const Sharing = await import('expo-sharing');
       if (await Sharing.isAvailableAsync()) {

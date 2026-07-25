@@ -13,11 +13,13 @@ import { FootprintTab } from './footprint/FootprintTab';
 import { ExploreTab } from './explore/ExploreTab';
 import { OptimizePillar } from './optimize/OptimizePillar';
 import { CalculatorsPillar } from './calculators/CalculatorsPillar';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 type TaxTab = 'footprint' | 'explore' | 'optimize' | 'calculators';
 
 /** RN port of apps/web-legacy/src/features/tax/TaxAwarenessPage.tsx. */
 export function TaxAwarenessPage() {
+  const modeBg = useModeBackgroundColor();
   const theme = useThemeColors();
   const { summary } = useTaxData();
   const deductions = useTaxDeductions(summary);
@@ -41,7 +43,7 @@ export function TaxAwarenessPage() {
 
   if (!summary) {
     return (
-      <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+      <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
         <PageHeader title="Tax Awareness" leading={<BackButton />} />
         <View className="flex-1 items-center justify-center">
           <Text className="text-sm text-tertiary">Loading…</Text>
@@ -54,7 +56,7 @@ export function TaxAwarenessPage() {
   const showNotes = (activeTab === 'footprint' || activeTab === 'optimize') && taxNotes.length > 0;
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader title="Tax Awareness" leading={<BackButton />}>
         <View className="flex-row items-center gap-2 mt-0.5">
           <Text className="text-xs text-secondary">{fy.label}</Text>

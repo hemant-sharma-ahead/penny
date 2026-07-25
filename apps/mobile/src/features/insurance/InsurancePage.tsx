@@ -11,6 +11,7 @@ import { useInsurance } from './useInsurance';
 import { PolicyCard } from './PolicyCard';
 import { CoverageSummary } from './CoverageSummary';
 import { PolicyForm } from './PolicyForm';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 /**
  * RN port note: web's back button (`navigate(-1)`) is dropped for now — this screen is currently reached
@@ -19,6 +20,7 @@ import { PolicyForm } from './PolicyForm';
  * onboarding + tab navigation are real. See docs/plans/mobile-migration.md's Track 4 progress log.
  */
 export function InsurancePage() {
+  const modeBg = useModeBackgroundColor();
   const insets = useSafeAreaInsets();
   const { shouldMask } = usePrivacy();
   const { safeModeVisibility } = useSettings();
@@ -29,7 +31,7 @@ export function InsurancePage() {
   const [editingPolicy, setEditingPolicy] = useState<InsurancePolicy | null>(null);
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader
         leading={<BackButton />}
         title="Insurance"

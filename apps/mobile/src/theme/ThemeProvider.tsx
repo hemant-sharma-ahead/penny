@@ -1,11 +1,20 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { View, useColorScheme as useSystemColorScheme } from 'react-native';
 import { vars } from 'nativewind';
 import { THEME_TOKENS, type ThemeName, type ThemeTokens } from '@penny/core/theme/tokens';
+import { getItem, setItem } from '~/lib/storage';
 
 /** The 4 themes from docs/DESIGN_GUIDELINES.md. 'system' isn't a palette of its own — it resolves to
  * 'light' or 'dark' based on the OS appearance, same as apps/web-legacy's SettingsContext. */
 export type ThemePreference = ThemeName | 'system';
+
+const THEME_PREFERENCE_KEY = 'penny_theme_preference';
+
+async function loadThemePreference(): Promise<ThemePreference> {
+  const raw = await getItem(THEME_PREFERENCE_KEY);
+  if (raw === 'light' || raw === 'pennyBlue' || raw === 'dark' || raw === 'system') return raw;
+  return 'system';
+}
 
 function resolvePalette(preference: ThemePreference, systemIsDark: boolean): ThemeName {
   if (preference !== 'system') return preference;
@@ -48,9 +57,28 @@ export function useTheme(): ThemeContextValue {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [preference, setPreference] = useState<ThemePreference>('system');
+  const [preference, setPreferenceState] = useState<ThemePreference>('system');
   const systemScheme = useSystemColorScheme();
   const activePalette = resolvePalette(preference, systemScheme === 'dark');
+
+  // Hydrate the persisted preference once on mount — previously missing entirely (found via on-device
+  // testing, 2026-07-25): every other setting in this app persists across restarts via AsyncStorage
+  // (SettingsContext, PrivacyContext, etc.), but this one reset to 'system' on every cold launch, so a
+  // deliberately-chosen theme silently reverted the moment the app was closed and reopened.
+  useEffect(() => {
+    let cancelled = false;
+    void loadThemePreference().then((loaded) => {
+      if (!cancelled) setPreferenceState(loaded);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const setPreference = (next: ThemePreference) => {
+    setPreferenceState(next);
+    void setItem(THEME_PREFERENCE_KEY, next);
+  };
 
   const value = useMemo<ThemeContextValue>(
     () => ({ preference, setPreference, activePalette }),

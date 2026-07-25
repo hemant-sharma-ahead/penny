@@ -1,18 +1,24 @@
+import { useEffect } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';
+import { useOnboardingDraft } from '~/context/OnboardingDraftContext';
 import type { OnboardingStackParamList } from '~/navigation/OnboardingNavigator';
 import type { AccountTab } from './AccountRecoveryScreen';
 import { OnboardingBack } from './OnboardingBack';
 
 /**
- * Screen A of the account-start flow (Track F). Opens on the Preview Dashboard's "Set up my account".
- * Three plain doors — new / restore / reclaim — each honest about what it recovers. Tapping a card opens
- * Screen B (AccountRecoveryScreen) with that tab pre-selected, so the user can still switch between them.
+ * Screen A of the account-start flow (Track F). Opens on the Preview Dashboard's "Set up my account" —
+ * and, since 2026-07-25, also on `SettingsPage`'s "Exit Demo Mode" (`fromDemoMode: true` route param),
+ * which previously skipped straight to `LetUsKnowYou`, bypassing this mandatory username+claim entry
+ * point entirely (a real bug found via on-device testing, not a deliberate simplification — web-legacy
+ * has the same stale wiring in its own `SettingsPage.tsx`, unfixed there too). Three plain doors — new /
+ * restore / reclaim — each honest about what it recovers. Tapping a card opens Screen B
+ * (AccountRecoveryScreen) with that tab pre-selected, so the user can still switch between them.
  */
 interface Choice {
   tab: AccountTab;
@@ -50,7 +56,18 @@ const CHOICES: Choice[] = [
 
 export function AccountStartScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<OnboardingStackParamList>>();
+  const route = useRoute<RouteProp<OnboardingStackParamList, 'Start'>>();
   const theme = useThemeColors();
+  const { setDraft } = useOnboardingDraft();
+
+  // "Exit Demo Mode" lands here directly (see file header) — record it in the shared draft once, up
+  // front, same as `LetUsKnowYouScreen`'s own `cameFromDemoExit` effect; `SetupCredentialsScreen` reads
+  // `draft.fromDemoMode` from context, not a route param, so it doesn't matter that `Account`/
+  // `LetUsKnowYou` don't explicitly thread this param onward — the draft persists across the whole flow.
+  const cameFromDemoExit = !!route.params?.fromDemoMode;
+  useEffect(() => {
+    if (cameFromDemoExit) setDraft({ fromDemoMode: true });
+  }, [cameFromDemoExit, setDraft]);
   const TONE: Record<Choice['tone'], { bg: string; fg: string }> = {
     green: { bg: tint(theme.primary, 12), fg: theme.primary },
     indigo: { bg: tint('#6366f1', 12), fg: '#6366f1' },

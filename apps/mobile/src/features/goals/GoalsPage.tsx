@@ -7,8 +7,10 @@ import { TabStrip, PageHeader } from '~/components/ui';
 import { useGoals } from './useGoals';
 import { GoalsTab } from './GoalsTab';
 import { SipCalculatorTab } from './SipCalculatorTab';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 export function GoalsPage() {
+  const modeBg = useModeBackgroundColor();
   const { shouldMask } = usePrivacy();
   const { safeModeVisibility } = useSettings();
   const masked = shouldMask(!safeModeVisibility.goals);
@@ -16,7 +18,7 @@ export function GoalsPage() {
   const [activeTab, setActiveTab] = useState<'goals' | 'sip'>('goals');
 
   return (
-    <SafeAreaView edges={[]} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader
         title="Goals"
         subtitle={

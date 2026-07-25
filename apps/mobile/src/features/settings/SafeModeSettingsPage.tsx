@@ -11,6 +11,7 @@ import { INTENT_GROUP_META } from '@/core/db/defaultCategories';
 import { buildParentCategoryMap, groupKey, isHiddenInSafeMode } from '@/core/expenses/categoryGroups';
 import { useSettings, type SafeModeVisibility } from '~/context/SettingsContext';
 import type { ExpenseCategory } from '@/core/db/types';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 /** RN port of apps/web-legacy/src/features/settings/SafeModeSettingsPage.tsx — straightforward
  *  list/toggle port, no CSS grids or hand-rolled overlays to translate. */
@@ -67,6 +68,7 @@ function ToggleRow({
 }
 
 export function SafeModeSettingsPage() {
+  const modeBg = useModeBackgroundColor();
   const { safeModeVisibility, setSafeModeVisibility } = useSettings();
   const { items: categories, save: saveCategory, loading: categoriesLoading } = useRepository(expenseCategoriesRepo);
   const { items: accounts, save: saveAccount, loading: accountsLoading } = useRepository(accountsRepo);
@@ -97,7 +99,7 @@ export function SafeModeSettingsPage() {
   }, [categories, parentCategoryMap]);
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader leading={<BackButton />} title="Safe Mode" />
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-4 py-4 gap-4">

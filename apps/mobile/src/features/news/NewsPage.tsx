@@ -16,6 +16,7 @@ import { SentimentChip } from './SentimentChip';
 import { NewsMoodGauge } from './NewsMoodGauge';
 import { HoldingsInNews } from './HoldingsInNews';
 import { FilterDropdown, type FilterDropdownOption } from './FilterDropdown';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 type SourceFilter = 'all' | 'markets' | 'regulatory';
 type ToneFilter = 'all' | SentimentLabel;
@@ -63,6 +64,7 @@ const DEFAULT_FILTERS: TabFilters = { source: 'all', tone: 'all' };
  * every other pushed screen in `MainNavigator.tsx`.
  */
 export function NewsPage() {
+  const modeBg = useModeBackgroundColor();
   const theme = useThemeColors();
   const { items, loading, error, refresh } = useNews();
   const { scoredById, mood } = useNewsSentiment(items);
@@ -104,7 +106,7 @@ export function NewsPage() {
   ];
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       {/* Header */}
       <View className="px-4 pt-4 pb-2 flex-row items-center justify-between">
         <View className="flex-row items-center gap-2">

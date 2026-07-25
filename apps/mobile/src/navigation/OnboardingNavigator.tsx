@@ -28,7 +28,7 @@ export type OnboardingStackParamList = {
   SimulatedDashboard: undefined;
   LetUsKnowYou: { fromDemoMode?: boolean } | undefined;
   SetupCredentials: undefined;
-  Start: undefined;
+  Start: { fromDemoMode?: boolean } | undefined;
   Account: { tab?: AccountTab } | undefined;
   DemoVault: undefined;
   LifeHousehold: undefined;

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Modal as RNModal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -10,6 +10,16 @@ import { useThemeColors } from '~/theme/useThemeColors';
  * `max-w-[430px]` layout; RN has no such wrapper, so this renders as an absolutely-positioned `View`
  * anchored to the bottom of whatever it's mounted under (the app root), offset by the safe-area inset
  * instead of `env(safe-area-inset-bottom)`.
+ *
+ * Wrapped in a transparent `Modal` (2026-07-25, found via the rendering-model parity re-sweep): web's
+ * toast is `position: fixed` with a `zIndex` deliberately higher than `Modal.tsx`'s own stacking tiers —
+ * same DOM stacking context, so a toast fired while a modal is open always renders on top. A plain
+ * absolutely-positioned `View` here has no such guarantee: `components/ui/Modal.tsx` uses RN's own
+ * `<Modal>`, which composites into a separate native layer that unconditionally renders above every
+ * normal JS view regardless of mount order — so a toast fired from inside an open modal (e.g.
+ * `JoinGroupModal`, `SharedExpenseComposer`) was silently hidden behind it. Rendering the toast in its own
+ * transparent `Modal` puts it in that same native layer; multiple native modals stack in presentation
+ * order (last-shown on top), so a toast fired after a modal is already open correctly appears above it.
  */
 
 export interface ToastOptions {
@@ -63,30 +73,32 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ showToast }}>
       {children}
       {toast && (
-        <View
-          className="absolute left-0 right-0 items-center px-4"
-          style={{ bottom: insets.bottom + 64 }}
-          pointerEvents="box-none"
-        >
+        <RNModal transparent visible animationType="none" statusBarTranslucent onRequestClose={dismiss}>
           <View
-            className="flex-row items-center gap-3 w-full rounded-xl border shadow-lg px-4 py-3"
-            style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+            className="absolute left-0 right-0 items-center px-4"
+            style={{ bottom: insets.bottom + 64 }}
+            pointerEvents="box-none"
           >
-            <Text className="flex-1 text-sm" style={{ color: theme.textPrimary }}>
-              {toast.message}
-            </Text>
-            {toast.actionLabel && (
-              <Pressable onPress={() => void handleAction()}>
-                <Text className="text-sm font-semibold" style={{ color: theme.primary }}>
-                  {toast.actionLabel}
-                </Text>
+            <View
+              className="flex-row items-center gap-3 w-full rounded-xl border shadow-lg px-4 py-3"
+              style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+            >
+              <Text className="flex-1 text-sm" style={{ color: theme.textPrimary }}>
+                {toast.message}
+              </Text>
+              {toast.actionLabel && (
+                <Pressable onPress={() => void handleAction()}>
+                  <Text className="text-sm font-semibold" style={{ color: theme.primary }}>
+                    {toast.actionLabel}
+                  </Text>
+                </Pressable>
+              )}
+              <Pressable onPress={dismiss} accessibilityLabel="Dismiss">
+                <Icon name="ti-x" size={15} color={theme.textTertiary} />
               </Pressable>
-            )}
-            <Pressable onPress={dismiss} accessibilityLabel="Dismiss">
-              <Icon name="ti-x" size={15} color={theme.textTertiary} />
-            </Pressable>
+            </View>
           </View>
-        </View>
+        </RNModal>
       )}
     </ToastContext.Provider>
   );

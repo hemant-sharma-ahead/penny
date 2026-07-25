@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useNavigation, type ParamListBase } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { formatCurrency } from '@/lib/formatters';
@@ -22,11 +24,14 @@ const TYPE_ICON: Record<string, string> = {
  * Join entry. Tapping a tile re-scopes the app to that group (Home then renders that group's
  * `GroupDashboard` instead — see `HomePage.tsx`). Web's `navigate(PATHS.app.home)` after switching
  * context is a no-op here (Home re-renders in place from `useGroupContext` — there's no separate route to
- * navigate to); web's "Claim to create" routes to Profile, which doesn't exist on mobile yet, so it's a
- * no-op tap for now (same precedent as every other dropped cross-module navigation call in Track 4).
+ * navigate to); web's "Claim to create" routes to Profile — this used to be a no-op tap here since
+ * `Profile` didn't exist on mobile yet, but that route landed alongside Track 4's Onboarding pass and is
+ * already used the same way by `ContextSwitcher.tsx`, so the stale reasoning was fixed (found via the
+ * 2026-07-25 audit) rather than left as dead code.
  */
 export function HomeGroupsCard() {
   const theme = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { groups, claimed, setContext } = useGroupContext();
   const { summaries } = useGroupSummaries(groups);
   const [modal, setModal] = useState<'create' | 'join' | null>(null);
@@ -59,12 +64,12 @@ export function HomeGroupsCard() {
               </Pressable>
             </>
           ) : (
-            <View className="flex-row items-center gap-1">
+            <Pressable onPress={() => navigation.navigate('Profile')} className="flex-row items-center gap-1">
               <Icon name="ti-user-plus" size={13} color={theme.primary} />
               <Text className="text-xs font-semibold" style={{ color: theme.primary }}>
                 Claim to create
               </Text>
-            </View>
+            </Pressable>
           )}
         </View>
       </View>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Text } from 'react-native';
 import { Modal, Button, AmountInput } from '~/components/ui';
+import { useToast } from '~/context/ToastContext';
 import type { Holding } from '@/core/db/types';
 
 export function UpdateValueSheet({
@@ -22,13 +23,21 @@ export function UpdateValueSheet({
 
   const [value, setValue] = useState(holding.currentValue?.toString() ?? holding.investedAmount.toString());
   const [saving, setSaving] = useState(false);
+  const { showToast } = useToast();
 
+  // try/catch/finally added 2026-07-25 (found via audit) — a thrown `onSave` used to leave `saving`
+  // stuck at `true` forever, same bug class as SettingsPage's Exit Demo Mode.
   async function handleSave() {
     const v = parseFloat(value);
     if (isNaN(v) || v <= 0) return;
     setSaving(true);
-    await onSave({ ...holding, currentValue: v, lastUpdatedAt: Date.now() });
-    setSaving(false);
+    try {
+      await onSave({ ...holding, currentValue: v, lastUpdatedAt: Date.now() });
+    } catch {
+      showToast({ message: "Couldn't save. Please try again." });
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (

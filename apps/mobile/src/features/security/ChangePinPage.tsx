@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, Pressable, ScrollView, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type ParamListBase, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -7,6 +7,7 @@ import { Button, PageHeader, TextInput, Banner } from '~/components/ui';
 import { BackButton } from '~/components/shared';
 import { changePin, isWeakPin, resetPinWithPassphrase } from '@/core/crypto/securityManager';
 import { notifyAuthShouldRecheck } from '~/navigation/authRecheckBus';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 type ChangePinRouteParams = { forcedPinReset?: boolean } | undefined;
 
@@ -18,18 +19,33 @@ const isSixDigits = (v: string) => /^\d{6}$/.test(v);
  * CLAUDE.md's encryption rules — this is a pure UI port, no crypto work needed.
  *
  * Web traps the browser back button (history.pushState/popstate) while `forced` (reached via a PIN
- * lockout recovery) so the screen can't be dismissed until the PIN is reset. RN has no equivalent
- * browser-history trap; `MainNavigator.tsx`'s `ChangePin` screen options set
- * `gestureEnabled: !route.params?.forcedPinReset` / `headerBackVisible: !route.params?.forcedPinReset`
- * as the real native-stack analog. The `leading` back button (this screen's own in-content header, not
+ * lockout recovery) so the screen can't be dismissed until the PIN is reset. `MainNavigator.tsx`'s
+ * `ChangePin` screen options set `gestureEnabled: !route.params?.forcedPinReset` /
+ * `headerBackVisible: !route.params?.forcedPinReset` as the native-stack analog for swipe-back/header-back
+ * — but neither intercepts Android's hardware back button, a separate OS-level event (found via the
+ * 2026-07-25 rendering-model parity re-sweep: a locked-out user could press back and exit the forced-reset
+ * screen entirely, bypassing recovery). Fixed with a `BackHandler` listener that swallows the event
+ * whenever `forced` is true. The `leading` back button (this screen's own in-content header, not
  * native-stack's chrome) is still conditionally hidden below to match web's intent.
+ *
+ * `handleSubmitViaPassphrase`/`handleSubmitViaPin` wrap their `securityManager` call in try/catch
+ * (2026-07-25, found via audit): previously a thrown error (as opposed to a resolved failure `status`)
+ * left `saving` stuck at `true` forever — the submit button permanently disabled with no error shown and
+ * no way to retry, the same bug class already fixed in `SettingsPage.tsx`'s Exit Demo Mode.
  */
 export function ChangePinPage() {
+  const modeBg = useModeBackgroundColor();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const route = useRoute<RouteProp<Record<string, ChangePinRouteParams>, string>>();
   // Reached via SessionGate's "Forgot PIN?" recovery — only possible once PIN attempts were exhausted,
   // so this is always a genuine recovery and the screen is made non-dismissible below.
   const forced = !!route.params?.forcedPinReset;
+
+  useEffect(() => {
+    if (!forced) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => sub.remove();
+  }, [forced]);
 
   const [viaPassphrase, setViaPassphrase] = useState(forced);
   const [current, setCurrent] = useState('');
@@ -54,7 +70,14 @@ export function ChangePinPage() {
     : isSixDigits(current) && isSixDigits(next) && next === confirm && !sameAsCurrent && !weakNew && !saving && !done;
 
   async function handleSubmitViaPassphrase() {
-    const result = await resetPinWithPassphrase(passphrase, next);
+    let result;
+    try {
+      result = await resetPinWithPassphrase(passphrase, next);
+    } catch {
+      setError('Something went wrong. Please try again.');
+      setSaving(false);
+      return;
+    }
     switch (result.status) {
       case 'ok':
         setDone(true);
@@ -84,7 +107,14 @@ export function ChangePinPage() {
   }
 
   async function handleSubmitViaPin() {
-    const result = await changePin(current, next);
+    let result;
+    try {
+      result = await changePin(current, next);
+    } catch {
+      setError('Something went wrong. Please try again.');
+      setSaving(false);
+      return;
+    }
     switch (result.status) {
       case 'ok':
         setDone(true);
@@ -125,7 +155,7 @@ export function ChangePinPage() {
   }
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader leading={forced ? undefined : <BackButton />} title="Change PIN" />
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-4 py-4 gap-4">

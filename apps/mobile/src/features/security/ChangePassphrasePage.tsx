@@ -10,6 +10,7 @@ import { useThemeColors } from '~/theme/useThemeColors';
 import { changePassphrase } from '@/core/crypto/securityManager';
 import { claimAccount, getClaimState } from '@/core/identity/claim';
 import { usePassphraseStrength } from '@/hooks/usePassphraseStrength';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 /**
  * RN port of apps/web-legacy/src/features/security/ChangePassphrasePage.tsx. Pure UI port —
@@ -17,6 +18,7 @@ import { usePassphraseStrength } from '@/hooks/usePassphraseStrength';
  * encryption rules). `usePassphraseStrength` is already platform-agnostic (packages/core/src/hooks).
  */
 export function ChangePassphrasePage() {
+  const modeBg = useModeBackgroundColor();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const theme = useThemeColors();
   const [current, setCurrent] = useState('');
@@ -35,28 +37,34 @@ export function ChangePassphrasePage() {
     if (!canSubmit) return;
     setSaving(true);
     setError('');
-    const result = await changePassphrase(current, next);
-    if (result === 'ok') {
-      // The passphrase-recovery verifier is passphrase-derived, so a change re-derives it. Re-upload it
-      // for a claimed account so future reclaims match the new passphrase (best-effort — Track F, F3).
-      const claim = await getClaimState();
-      if (claim.claimed && claim.username) await claimAccount(claim.username).catch(() => undefined);
-      setDone(true);
-      setTimeout(() => navigation.navigate('MainTabs'), 1200);
-    } else if (result === 'wrong_passphrase') {
-      setError('Your current passphrase is incorrect.');
-      setSaving(false);
-    } else if (result === 'too_soon') {
-      setError('You can only change your passphrase once a day. Please try again later.');
-      setSaving(false);
-    } else {
+    try {
+      const result = await changePassphrase(current, next);
+      if (result === 'ok') {
+        // The passphrase-recovery verifier is passphrase-derived, so a change re-derives it. Re-upload it
+        // for a claimed account so future reclaims match the new passphrase (best-effort — Track F, F3).
+        const claim = await getClaimState();
+        if (claim.claimed && claim.username) await claimAccount(claim.username).catch(() => undefined);
+        setDone(true);
+        setTimeout(() => navigation.navigate('MainTabs'), 1200);
+        return;
+      } else if (result === 'wrong_passphrase') {
+        setError('Your current passphrase is incorrect.');
+      } else if (result === 'too_soon') {
+        setError('You can only change your passphrase once a day. Please try again later.');
+      } else {
+        setError('Something went wrong. Please try again.');
+      }
+    } catch {
+      // Found via the 2026-07-25 audit — a thrown error (not just a resolved failure result) used to
+      // leave `saving` stuck at `true` forever, same bug class as SettingsPage's Exit Demo Mode.
       setError('Something went wrong. Please try again.');
+    } finally {
       setSaving(false);
     }
   }
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader leading={<BackButton />} title="Change Passphrase" />
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-4 py-4 gap-4">

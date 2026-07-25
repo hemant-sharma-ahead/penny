@@ -49,6 +49,9 @@ export const icloudProvider: CloudProvider = {
   async push(blob: Blob): Promise<{ tag: string }> {
     const b = bridge();
     if (!b) throw new NeedsConsentError('icloud');
-    return b.write(await blob.text());
+    // `Blob.text()` doesn't exist on RN's own `Blob` class (same gap `BackupPage.tsx`'s export flow
+    // hit) — `Response(blob).text()` works via the `fetch` polyfill instead. Dormant today (no native
+    // iCloud bridge wired up yet, see `bridge()`), fixed proactively so it doesn't bite later.
+    return b.write(await new Response(blob).text());
   }
 };

@@ -10,6 +10,7 @@ import { useImport } from './useImport';
 import { UploadStep } from './UploadStep';
 import { PreviewStep } from './PreviewStep';
 import { DoneStep } from './DoneStep';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 /**
  * RN port of apps/web-legacy/src/features/import/ImportPage.tsx. Web's back button either navigates to
@@ -19,12 +20,13 @@ import { DoneStep } from './DoneStep';
  * `navigation.goBack()` and has no override for "reset local wizard state instead."
  */
 export function ImportPage() {
+  const modeBg = useModeBackgroundColor();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const theme = useThemeColors();
   const imp = useImport();
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader
         title="Import expenses"
         leading={

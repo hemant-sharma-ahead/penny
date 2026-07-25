@@ -14,6 +14,7 @@ import { deregisterAccount, getClaimState } from '@/core/identity/claim';
 import { hasEntitlement } from '@/core/entitlement/entitlement';
 import { notifyAuthShouldRecheck } from '~/navigation/authRecheckBus';
 import { AutoBackupCard } from './AutoBackupCard';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 type ExportState = 'idle' | 'exporting' | 'done' | 'error';
 type ImportState = 'idle' | 'importing' | 'done' | 'error';
@@ -23,8 +24,11 @@ type CloudState = 'idle' | 'uploading' | 'uploaded' | 'restoring' | 'error';
  * RN port of apps/web-legacy/src/features/backup/BackupPage.tsx. Platform notes:
  * - Export: web builds an object-URL `<a download>`; RN writes `exportBackup()`'s blob text to
  *   `expo-file-system`'s cache dir and hands it to `expo-sharing`'s native share sheet (same pattern as
- *   `core/export/exportCsv.native.ts`). RN's `Blob` shim supports `.text()` (needed for `fetch`/`Response`
- *   internally), so `exportBackup()` itself needed no native variant.
+ *   `core/export/exportCsv.native.ts`). RN's own `Blob` class has no `.text()` method at all (confirmed
+ *   by reading its source — the same gap Loans' XLSX export hit with `.arrayBuffer()`), so this reads it
+ *   via `new Response(blob).text()` instead — `whatwg-fetch`'s `Response` (already global via RN's own
+ *   `fetch` polyfill) implements `.text()` over any `Blob` body. `exportBackup()` itself needed no native
+ *   variant.
  * - Import: web's `<input type=file>` + `file.text()` → `expo-document-picker` + `expo-file-system`'s
  *   `File.text()`, same pattern as `~/features/import/UploadStep.tsx` and onboarding's
  *   `AccountRecoveryScreen`.
@@ -36,6 +40,7 @@ type CloudState = 'idle' | 'uploading' | 'uploaded' | 'restoring' | 'error';
  *   fallback message web already shows when its own client ID is unset, so no behavior needed to change.
  */
 export function BackupPage() {
+  const modeBg = useModeBackgroundColor();
   const theme = useThemeColors();
 
   // ── Export ──────────────────────────────────────────────────────────────────
@@ -47,7 +52,7 @@ export function BackupPage() {
     setExportError('');
     try {
       const blob = await exportBackup();
-      const text = await blob.text();
+      const text = await new Response(blob).text();
       const date = new Date().toISOString().slice(0, 10);
       const file = new File(Paths.cache, `penny-backup-${date}.penny`);
       file.write(text);
@@ -161,7 +166,7 @@ export function BackupPage() {
   }
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader title="Backup & Restore" leading={<BackButton />} />
       <ScrollView>
         <View className="px-4 pt-4 pb-6 gap-5">

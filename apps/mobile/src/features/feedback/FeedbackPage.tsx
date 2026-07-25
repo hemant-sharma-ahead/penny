@@ -6,6 +6,7 @@ import { PageHeader } from '~/components/ui';
 import { BackButton } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 // Placeholder — swap for real support inbox before release
 const SUPPORT_EMAIL = 'feedback@penny.app';
@@ -37,6 +38,7 @@ const INFO_ROWS: { icon: string; title: string; body: string }[] = [
  * for `extra.*` by packages/core's entitlement/apiBase native adapters).
  */
 export function FeedbackPage() {
+  const modeBg = useModeBackgroundColor();
   const theme = useThemeColors();
   const [type, setType] = useState<FeedbackType>('suggestion');
   const [message, setMessage] = useState('');
@@ -55,7 +57,7 @@ export function FeedbackPage() {
   }
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader
         leading={<BackButton />}
         title="Contact & Feedback"

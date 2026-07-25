@@ -16,6 +16,7 @@ import { PreciousMetalsSection } from './holdings/precious-metals/PreciousMetals
 import { RealAssetsSection } from './holdings/real-assets/RealAssetsSection';
 import { RetirementSection } from './holdings/retirement/RetirementSection';
 import { IpoTab } from './ipo/IpoTab';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 /** Which contextual tax note to show per holdings sub-tab. */
 const SUBTAB_TAX_TOPIC: Partial<Record<HoldingsSubTab, AssetTaxTopic>> = {
@@ -28,6 +29,7 @@ const SUBTAB_TAX_TOPIC: Partial<Record<HoldingsSubTab, AssetTaxTopic>> = {
 };
 
 export function PortfolioPage() {
+  const modeBg = useModeBackgroundColor();
   const theme = useThemeColors();
   const { mode, shouldMask } = usePrivacy();
   const { safeModeVisibility } = useSettings();
@@ -52,7 +54,7 @@ export function PortfolioPage() {
   const subTabRows = [HOLDINGS_SUBTABS.slice(0, 3), HOLDINGS_SUBTABS.slice(3)];
 
   return (
-    <SafeAreaView edges={[]} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader
         title="Portfolio"
         actions={

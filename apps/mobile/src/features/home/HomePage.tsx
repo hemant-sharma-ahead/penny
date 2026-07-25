@@ -12,6 +12,7 @@ import { MoneyStatsCard } from './MoneyStatsCard';
 import { FinancialHealthCard } from '~/features/health/FinancialHealthCard';
 import { HomeGroupsCard } from './HomeGroupsCard';
 import { useHome } from './useHome';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 /**
  * RN port of apps/web-legacy/src/features/home/HomePage.tsx. Groups is now ported (mobile-migration
@@ -20,6 +21,7 @@ import { useHome } from './useHome';
  * placement, both previously dropped when Home was ported personal-only ahead of Groups.
  */
 export function HomePage() {
+  const modeBg = useModeBackgroundColor();
   const { activeGroup } = useGroupContext();
   const { summary, assetGroups, totalAssets, totalLiabilities } = useHome();
   const { profile } = useProfile();
@@ -27,7 +29,7 @@ export function HomePage() {
   // When a group is the active context, Home becomes that group's dashboard.
   if (activeGroup) {
     return (
-      <SafeAreaView edges={[]} className="flex-1 bg-surface-tertiary">
+      <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
         <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 96 }}>
           <GroupDashboard group={activeGroup} />
         </ScrollView>
@@ -40,7 +42,7 @@ export function HomePage() {
   const firstName = profile?.displayName?.trim().split(/\s+/)[0];
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 96 }}>
         <View className="px-4 pt-3 pb-6">
           <Text className="text-xl font-semibold text-primary mb-3">

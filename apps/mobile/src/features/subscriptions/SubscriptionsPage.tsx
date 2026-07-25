@@ -9,8 +9,10 @@ import { PageHeader } from '~/components/ui';
 import { BackButton } from '~/components/shared';
 import { useSubscriptions } from './useSubscriptions';
 import { SubscriptionsView } from './SubscriptionsView';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 export function SubscriptionsPage() {
+  const modeBg = useModeBackgroundColor();
   const { shouldMask } = usePrivacy();
   const { safeModeVisibility } = useSettings();
   const masked = shouldMask(!safeModeVisibility.subscriptions);
@@ -27,7 +29,7 @@ export function SubscriptionsPage() {
   } = useSubscriptions(expenses);
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader
         leading={<BackButton />}
         title="Subscriptions"

@@ -17,6 +17,7 @@ import { CapitalGainsCalculator } from './CapitalGainsCalculator';
 import { GratuityCalculator } from './GratuityCalculator';
 import { SsyCalculator } from './SsyCalculator';
 import { InflationCalculator } from './InflationCalculator';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 function renderCalculator(id: CalculatorId) {
   switch (id) {
@@ -51,6 +52,7 @@ function renderCalculator(id: CalculatorId) {
  * no URL bar, and no other screen deep-links into a specific calculator yet.
  */
 export function CalculatorsPage() {
+  const modeBg = useModeBackgroundColor();
   const theme = useThemeColors();
   const [query, setQuery] = useState('');
   const [activeId, setActiveId] = useState<CalculatorId | null>(null);
@@ -61,7 +63,7 @@ export function CalculatorsPage() {
   // ── Detail view ────────────────────────────────────────────────────────────────
   if (active) {
     return (
-      <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+      <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
         <View className="px-4 pt-4 pb-3 border-b border-theme flex-row items-center gap-3">
           <BackButton />
           <View className="flex-row items-center gap-2.5 flex-1">
@@ -86,7 +88,7 @@ export function CalculatorsPage() {
 
   // ── Searchable list view ─────────────────────────────────────────────────────────
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader leading={<BackButton />} title="Calculators">
         <Text className="text-xs mt-0.5 text-tertiary">On-device calculations — nothing leaves your phone</Text>
       </PageHeader>

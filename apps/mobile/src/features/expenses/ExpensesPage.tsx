@@ -18,6 +18,7 @@ import { AnalyticsSlice } from './analytics/AnalyticsSlice';
 import { SubscriptionsSlice } from './subscriptions/SubscriptionsSlice';
 import { IouSlice } from './iou/IouSlice';
 import type { CategoryManager } from './categories/types';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 type ExpensesTab = 'transactions' | 'subscriptions' | 'iou' | 'analytics';
 
@@ -29,6 +30,7 @@ type ExpensesTab = 'transactions' | 'subscriptions' | 'iou' | 'analytics';
  * elsewhere in this migration.
  */
 export function ExpensesPage() {
+  const modeBg = useModeBackgroundColor();
   const { shouldMask } = usePrivacy();
   const { safeModeVisibility } = useSettings();
   const { events, pastEvents } = useEventMode();
@@ -110,7 +112,7 @@ export function ExpensesPage() {
   };
 
   return (
-    <SafeAreaView edges={[]} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <ExpensesHeader
         filteredTotal={txnFilters.filteredTotal}
         monthFilter={txnFilters.monthFilter}

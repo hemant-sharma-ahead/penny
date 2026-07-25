@@ -7,7 +7,6 @@ import { SettingsProvider } from './src/context/SettingsContext';
 import { PrivacyProvider } from './src/context/PrivacyContext';
 import { ToastProvider } from './src/context/ToastContext';
 import { EventModeProvider } from './src/context/EventModeContext';
-import { GroupProvider } from './src/context/GroupContext';
 import { OnboardingDraftProvider } from './src/context/OnboardingDraftContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 
@@ -21,12 +20,10 @@ export default function App() {
             <PrivacyProvider>
               <ToastProvider>
                 <EventModeProvider>
-                  <GroupProvider>
-                    <OnboardingDraftProvider>
-                      <RootNavigator />
-                      <StatusBar style="auto" />
-                    </OnboardingDraftProvider>
-                  </GroupProvider>
+                  <OnboardingDraftProvider>
+                    <RootNavigator />
+                    <StatusBar style="auto" />
+                  </OnboardingDraftProvider>
                 </EventModeProvider>
               </ToastProvider>
             </PrivacyProvider>

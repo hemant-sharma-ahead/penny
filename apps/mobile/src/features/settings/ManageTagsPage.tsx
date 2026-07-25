@@ -8,6 +8,7 @@ import { useThemeColors } from '~/theme/useThemeColors';
 import { useRepository } from '@/hooks/useRepository';
 import { notifyTagsChanged } from '@/hooks/useDataRefresh';
 import { hashtagsRepo } from '@/core/db/repositories';
+import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 /**
  * RN port of apps/web-legacy/src/features/settings/ManageTagsPage.tsx. The only place an *existing*
@@ -15,6 +16,7 @@ import { hashtagsRepo } from '@/core/db/repositories';
  * carrying that tag, so it deliberately doesn't live one accidental tap away in the Add Expense form.
  */
 export function ManageTagsPage() {
+  const modeBg = useModeBackgroundColor();
   const theme = useThemeColors();
   const { items: hashtags, save: saveHashtag, loading } = useRepository(hashtagsRepo);
   const [search, setSearch] = useState('');
@@ -27,7 +29,7 @@ export function ManageTagsPage() {
   }, [hashtags, search]);
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-surface-tertiary">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader leading={<BackButton />} title="Manage Tags" />
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-4 py-4 gap-4">
