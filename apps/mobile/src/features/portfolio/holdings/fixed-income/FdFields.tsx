@@ -1,5 +1,5 @@
 import { View, Text } from 'react-native';
-import { TextInput, SelectInput, SegmentedControl, AmountInput } from '~/components/ui';
+import { TextInput, DateInput, SelectInput, SegmentedControl, AmountInput } from '~/components/ui';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { CompoundingFreq, FdResult, RdResult } from '@/core/fd/fdCalculations';
 
@@ -83,8 +83,8 @@ export function FdFields({
       {/* Start date + interest rate */}
       <View className="flex-row gap-3">
         <View className="flex-1">
-          <TextInput
-            label={fdSubType === 'rd' ? 'First installment date (YYYY-MM-DD)' : 'Deposit date (YYYY-MM-DD)'}
+          <DateInput
+            label={fdSubType === 'rd' ? 'First installment date' : 'Deposit date'}
             value={fdStartDate}
             onChange={setFdStartDate}
           />
@@ -119,7 +119,7 @@ export function FdFields({
               />
             </View>
             <View className="flex-1">
-              <TextInput label="Maturity date (YYYY-MM-DD)" value={maturityDate} onChange={setMaturityDate} />
+              <DateInput label="Maturity date" value={maturityDate} onChange={setMaturityDate} />
             </View>
           </View>
         </>

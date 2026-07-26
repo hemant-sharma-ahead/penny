@@ -57,6 +57,7 @@ export function UploadStep({ format, setFormat, parseError, onText }: UploadStep
           variant="ghost"
           size="sm"
           icon="ti-download"
+          textColor={theme.primary}
           onPress={() => void downloadCsv(PENNY_TEMPLATE, 'penny-import-template.csv')}
         >
           Download Penny CSV template

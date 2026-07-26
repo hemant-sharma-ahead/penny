@@ -7,6 +7,7 @@ import { BackButton } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { tint } from '~/lib/color';
 
 // Placeholder — swap for real support inbox before release
 const SUPPORT_EMAIL = 'feedback@penny.app';
@@ -75,7 +76,10 @@ export function FeedbackPage() {
                     key={t.id}
                     onPress={() => setType(t.id)}
                     className="flex-1 items-center gap-1.5 py-3 rounded-xl border"
-                    style={{ borderColor: active ? theme.primary : theme.border }}
+                    style={{
+                      borderColor: active ? theme.primary : theme.border,
+                      backgroundColor: active ? tint(theme.primary, 10) : undefined
+                    }}
                   >
                     <Icon name={t.icon} size={20} color={active ? theme.primary : theme.textSecondary} />
                     <Text

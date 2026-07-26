@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Banner } from '~/components/ui';
 import { Icon } from '~/components/Icon';
@@ -52,7 +52,7 @@ export function DemoVaultScreen() {
   if (checking) {
     return (
       <SafeAreaView edges={['top', 'bottom']} className="flex-1 items-center justify-center bg-surface">
-        <Text className="text-secondary text-sm">Loading…</Text>
+        <ActivityIndicator size="large" color="#00a86b" />
       </SafeAreaView>
     );
   }

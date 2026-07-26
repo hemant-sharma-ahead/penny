@@ -15,6 +15,11 @@ interface TextInputProps extends Pick<
   disabled?: boolean;
   prefix?: string | undefined;
   suffix?: string | undefined;
+  /** Extra classes merged onto the inner `RNTextInput` only (not the field wrapper) — matches web's own
+   *  `TextInput`'s `inputClassName` prop, e.g. `"text-center tracking-widest text-lg"` for PIN fields.
+   *  Found missing via the 2026-07-25 parity sweep: PIN entry everywhere on mobile used the plain
+   *  left-aligned default instead of web's large/centered/letter-spaced digit styling. */
+  inputClassName?: string;
 }
 
 export function TextInput({
@@ -28,6 +33,7 @@ export function TextInput({
   placeholder,
   prefix,
   suffix,
+  inputClassName = '',
   ...rest
 }: TextInputProps) {
   const theme = useThemeColors();
@@ -40,7 +46,7 @@ export function TextInput({
         placeholder={placeholder}
         placeholderTextColor={theme.textTertiary}
         editable={!disabled}
-        className={`bg-surface-2 text-primary border w-full rounded-xl px-3 py-2.5 text-sm ${prefix ? 'pl-7' : ''} ${suffix ? 'pr-10' : ''} ${disabled ? 'opacity-50' : ''}`}
+        className={`bg-surface-2 text-primary border w-full rounded-xl px-3 py-2.5 text-sm ${prefix ? 'pl-7' : ''} ${suffix ? 'pr-10' : ''} ${disabled ? 'opacity-50' : ''} ${inputClassName}`}
         style={{ borderColor: error ? theme.danger : theme.border }}
         {...rest}
       />

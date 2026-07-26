@@ -65,7 +65,17 @@ export function CalculatorsPage() {
     return (
       <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
         <View className="px-4 pt-4 pb-3 border-b border-theme flex-row items-center gap-3">
-          <BackButton />
+          {/* Web just clears local `?calc=` state here, returning to the list within the same page —
+              the shared `BackButton` calls `navigation.goBack()`, which would exit the whole feature
+              instead (found via the 2026-07-25 parity sweep). Clear `activeId` directly instead. */}
+          <Pressable
+            onPress={() => setActiveId(null)}
+            accessibilityLabel="Back to calculators"
+            hitSlop={8}
+            className="w-9 h-9 items-center justify-center rounded-full -ml-2"
+          >
+            <Icon name="ti-arrow-left" size={20} color={theme.textSecondary} />
+          </Pressable>
           <View className="flex-row items-center gap-2.5 flex-1">
             <View
               className="w-8 h-8 rounded-lg items-center justify-center"

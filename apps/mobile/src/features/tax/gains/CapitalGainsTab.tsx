@@ -98,9 +98,10 @@ export function CapitalGainsTab({ summary }: { summary: TaxSummary }) {
       {capGains.length > 0 && (
         <View className="rounded-xl p-3 bg-surface-2 border border-theme">
           <Text className="text-[10px] leading-relaxed text-tertiary">
-            Note: Holding period is calculated from when you added this holding to Penny, which may differ from the
-            actual purchase date. Tax estimates are indicative — consult a CA for precise calculations. Equity LTCG
-            exemption of ₹1.25L is shown per-holding here; it applies across all equity gains in a FY.
+            <Text className="font-bold">Note:</Text> Holding period is calculated from when you added this holding to
+            Penny, which may differ from the actual purchase date. Tax estimates are indicative — consult a CA for
+            precise calculations. Equity LTCG exemption of ₹1.25L is shown per-holding here; it applies across all
+            equity gains in a FY.
           </Text>
         </View>
       )}

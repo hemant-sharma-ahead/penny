@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, ScrollView, TextInput as RNTextInput } from 'react-native';
+import { View, Text, ScrollView, TextInput as RNTextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -97,7 +97,12 @@ export function PrivacyDemoScreen() {
           <View className="mb-6">
             <View className="flex-row items-center justify-between mb-1.5">
               <Text className="text-xs font-medium text-tertiary uppercase tracking-wide">What Penny stores</Text>
-              {encrypting && <Text className="text-tertiary text-xs">Encrypting…</Text>}
+              {encrypting && (
+                <View className="flex-row items-center gap-1">
+                  <ActivityIndicator size="small" color={theme.textTertiary} />
+                  <Text className="text-tertiary text-xs">Encrypting</Text>
+                </View>
+              )}
             </View>
             <View className="w-full min-h-[80px] bg-slate-900 rounded-xl px-4 py-3">
               <Text className="font-mono text-xs text-emerald-400 leading-relaxed">

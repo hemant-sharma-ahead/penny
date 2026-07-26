@@ -20,7 +20,7 @@ export function PrivacyReceipt({ entries }: Props) {
 
   return (
     <View className="flex-row items-center gap-2 px-4 py-2.5 border-b border-theme">
-      <Icon name="ti-lock-check" size={14} color={theme.info} />
+      <Icon name="ti-lock-check" size={14} color={theme.privacy} />
       <Text className="text-xs text-secondary">
         <Text className="font-semibold text-primary">{todayCount}</Text> change{todayCount === 1 ? '' : 's'} today — all
         stayed on your device.

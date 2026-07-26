@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { ActivityLog } from '@/core/db/types';
 import { ChipAvatar } from '~/components/ui/ChipAvatar';
 import { Icon } from '~/components/Icon';
@@ -53,23 +54,29 @@ export function MoneyStory({ entries, masked }: Props) {
         </View>
       </View>
 
-      {/* Weekly Wrapped entry — emphasised on Sundays */}
+      {/* Weekly Wrapped entry — emphasised on Sundays. Web's `linear-gradient(135deg,#00C47D,#007A4D)`
+          was flattened to a single flat color here — found via the 2026-07-25 parity sweep — restored
+          via `expo-linear-gradient` (already a dependency, see Stories' own gradient cards). */}
       {week && (
-        <Pressable
-          onPress={() => setShowWrapped(true)}
-          className="rounded-2xl px-4 py-3 flex-row items-center gap-3"
-          style={{ backgroundColor: '#00A870' }}
-        >
-          <Icon name="ti-sparkles" size={20} color="#ffffff" />
-          <View className="flex-1">
-            <Text className="text-sm font-semibold text-white">
-              {isSunday ? 'Your week is ready 🎉' : 'Your week, wrapped'}
-            </Text>
-            <Text className="text-[11px] text-white" style={{ opacity: 0.9 }}>
-              Tap through your week · share it
-            </Text>
-          </View>
-          <Icon name="ti-chevron-right" size={18} color="#ffffff" />
+        <Pressable onPress={() => setShowWrapped(true)}>
+          <LinearGradient
+            colors={['#00C47D', '#007A4D']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12 }}
+            className="flex-row items-center gap-3"
+          >
+            <Icon name="ti-sparkles" size={20} color="#ffffff" />
+            <View className="flex-1">
+              <Text className="text-sm font-semibold text-white">
+                {isSunday ? 'Your week is ready 🎉' : 'Your week, wrapped'}
+              </Text>
+              <Text className="text-[11px] text-white" style={{ opacity: 0.9 }}>
+                Tap through your week · share it
+              </Text>
+            </View>
+            <Icon name="ti-chevron-right" size={18} color="#ffffff" />
+          </LinearGradient>
         </Pressable>
       )}
 

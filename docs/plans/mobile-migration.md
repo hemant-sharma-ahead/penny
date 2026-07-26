@@ -1828,3 +1828,238 @@ uncommitted (check with the user before committing — this has been true all se
 the QuickBase64 native-linking bug from earlier today was fixed by a full rebuild and confirmed clear, no
 action needed there; JAVA_HOME must be exported before any `expo run:android` on this machine (see
 `docs/RUNNING_MOBILE.md`).
+
+### 2026-07-25 (continued yet again) — the "Where this session left off" work was committed, then the High-severity punch list was worked through
+
+The uncommitted work referenced just above was committed as `d8df285` (SessionGate port, theme picker,
+app-shell header, privacy-mode tinting, Chip page, reminders/privacy components). `.claude/settings.json`
+(a local Bash/tool permission allowlist accumulated this session) was deliberately left uncommitted —
+session-specific, not project config.
+
+All six High-severity parity-sweep items were then fixed in one pass:
+
+1. **Demo Mode banner** — ported `components/demo/DemoModeBanner.tsx` (same exit-demo flow as
+   `SettingsPage`'s Danger zone entry) and mounted it inside `MainNavigator`, wrapping the whole
+   `Stack.Navigator` in a `View` so it renders above every screen the stack hosts, matching web's
+   `AppShell` placing it above the header for every `/app/*` route — RN has no header-agnostic slot, so
+   this wraps the navigator rather than living in `screenOptions`.
+2. **Module-visibility toggles not wired to the tab bar** — `MainTabs.tsx` now reads `useSettings().modules`
+   and hides the Portfolio/Goals tab bar buttons via `tabBarButton: () => null` when toggled off.
+   Deliberately did **not** remove the `Tab.Screen` entirely (an initial approach) — `GlanceHeader.tsx`
+   still calls `navigation.navigate('Portfolio')` from Home's net-worth tap-through regardless of the
+   toggle, matching web's own behavior where hiding the nav item never removes the route itself; removing
+   the screen would have turned a hidden-tab parity fix into a new "tap-through crashes" regression.
+3. **`ExpenseForm.tsx`'s dead "+" add-account button** — `goToAccounts()` was a literal no-op; now calls
+   `onClose()` + `navigation.navigate('Accounts')` via a `useNavigation<NativeStackNavigationProp<ParamListBase>>()`
+   handle, the same pattern `SettingsPage.tsx` already uses for cross-stack navigation from inside a
+   feature component.
+4. **`ExpenseForm.tsx` missing edit-history timeline** — `ItemHistory` (the activity-log timeline
+   component) already existed ported at `features/activity/components/ItemHistory.tsx` but had never been
+   wired into any real edit screen; now rendered under a `border-t` divider when `editing`, an exact port
+   of web's own usage. Also wired the adjacent "Manage tags →" link (a Medium-severity item in the same
+   sweep, fixed alongside since it was one line away) to `navigation.navigate('ManageTags')`.
+5. **`CalculatorsPage.tsx`'s back button exits the whole feature** — the detail view's `<BackButton />`
+   called the shared component's `navigation.goBack()`, popping the whole pushed screen; web just clears
+   local `?calc=` state to return to the list within the same page. Replaced with an inline `Pressable`
+   that calls `setActiveId(null)` instead, same visual treatment as the shared `BackButton`.
+6. **Onboarding never routes a Google-Drive backup choice to actually connect Drive** — `SetupCredentialsScreen.tsx`'s
+   own comment justifying this as "out of scope" was stale: `BackupPage` has existed since the 7-module
+   feature-folder gap closure. Fixed to poll briefly for `navigationRef.isReady()` (since `MainNavigator`
+   remounts fresh once `AuthGuard` transitions to 'ready' after `notifyAuthShouldRecheck()`) then
+   `navigationRef.navigate('Backup')` when `draft.backupChoice === 'google-drive'`, mirroring web's
+   `navigate(PATHS.app.backup)` exactly. **Actually connecting Drive remains a real, separate gap** —
+   `googleDriveProvider.native.ts` is still dormant (`isCloudBackupConfigured()` hardcoded `false`, same
+   "no native Google Sign-In wired up yet" shape as `icloudProvider.ts`'s iCloud dormancy on web) — this
+   fix only makes the routing honest, landing the user on `BackupPage`'s already-correct disabled/"coming
+   soon" messaging instead of silently dropping the choice. Investigated the paired "Backup's cloud/local
+   destinations are non-functional no-ops" bullet too: `BackupPage.tsx`'s cloud-backup card was already
+   correctly gated behind `isCloudBackupConfigured() && hasEntitlement('cloud_backup')`, showing an honest
+   "activates once configured" message when unavailable rather than a dead button — no separate fix
+   needed there beyond the routing gap above.
+
+Typecheck (`tsc -b`), lint (`eslint --max-warnings 0`), and the full test suite (401 core + 39 workers
+tests) all pass. **None of this has been on-device-verified yet** — resume with an on-device pass on the
+six fixes above, then move to the Medium/Low punch-list items (see the previous entry's list; still
+untouched). Not yet committed — check with the user before committing.
+
+### 2026-07-25 (continued once more) — On-device verification of the High-severity fixes found 3 real bugs, all fixed
+
+On-device screenshot review of the six fixes above (Home tab) surfaced problems the typecheck/lint/test
+pass couldn't catch — all three fixed same session:
+
+1. **`HomePage.tsx`'s non-group return branch used `edges={['top']}`** on its `SafeAreaView`, the one
+   holdout among the four tab-root screens (Portfolio/Expenses/Goals/Home's own group-dashboard branch all
+   correctly use `edges={[]}`, per the 2026-07-25 "double safe-area inset" fix earlier this same day) —
+   reserving the top safe-area inset a second time on top of what `MainNavigator`'s stack header already
+   consumes, producing a large wasted gap between the "Personal" context-switcher row and the "Good
+   evening" greeting. Fixed to `edges={[]}` to match its siblings. A stray `</>` that didn't match its
+   `<SafeAreaView>` opening tag (a parse error, likely from a concurrent edit) was fixed alongside it.
+2. **`DemoModeBanner` placement** — per explicit user feedback on the on-device screenshot, moved from
+   `MainNavigator` (where it rendered above the stack header, matching web's `AppShell` order) into
+   `MainTabs.tsx`, just above `ContextSwitcher` — the user wants the visible order to be header → Demo
+   Mode banner → "Personal" context switcher → tab content, not banner-then-header. This is a deliberate
+   mobile-specific deviation from web's ordering, not a bug fix.
+3. **Black gap above the header, under the status-bar icons** — found via a second on-device screenshot,
+   after fix #2 above. Root cause: Expo's newer SDKs (this app is on Expo 57) enforce Android edge-to-edge
+   by default (content draws behind the system status bar rather than the OS reserving space for it).
+   `MainNavigator`'s custom `headerBackground` `View` (added for privacy-mode header tinting) was sized to
+   just the header row, leaving the raw black window background exposed above it, under the status-bar
+   icons. Fixed by reading `useSafeAreaInsets().top` and extending the background `View` upward
+   (`position: 'absolute', top: -insets.top`) so the themed fill and the accent bottom border (still
+   anchored to the header's true bottom) stretch all the way to the physical top of the screen.
+
+Typecheck/lint/prettier all re-verified clean after each fix. **Still not committed** — check with the
+user before committing. Next: on-device re-verification of these three fixes, then the Medium/Low
+punch-list items (see the "2026-07-25 (continued)" entry above for the full list, unchanged).
+
+### 2026-07-25 (continued yet again) — All Medium-severity punch-list items fixed, including the systemic date-picker gap
+
+Worked through the full Medium-severity list from the original parity sweep in one pass:
+
+- **Accounts' Save button never disabled on an empty name** — `FormModal.tsx` (shared by every
+  Loans/IOU/Goals/Portfolio/Accounts/Insurance/Subscriptions form) gained a `saveDisabled` prop, wired in
+  `AccountFormModal.tsx` as `!state.name.trim()`, matching web's own `disabled={!state.name.trim()}`.
+- **Shared `Button` ghost variant couldn't render primary-colored text on a transparent background** —
+  added a `textColor` override prop (`Button.tsx`'s `style` prop only reaches the outer `Pressable`, not
+  the inner `Text`, unlike web's `style={{ color: ... }}` which lands directly on the `<button>`); wired
+  into Chip's insight-dismiss button and Import's template-download button, the two places web uses this.
+- **Home/Portfolio/Expenses net-worth breakdown always landed on the default tab** — restored web's
+  `assetSubTab()` mapping + `{ state: { tab: 'iou' } }` deep-link hints in `GlanceHeader.tsx`, and added
+  `useRoute().params` reads to `PortfolioPage.tsx` (`holdingsSubTab`) and `ExpensesPage.tsx` (`initialTab`)
+  to consume them — React Navigation's `navigate(name, params)` already reaches nested Tab.Screens by
+  name, confirmed via existing bare `navigate('Portfolio')` calls, so no navigator restructuring needed.
+- **Settings' Safe/Private buttons used the wrong colors** — `usePrivacyModes()` in `SettingsPage.tsx` was
+  using unrelated `theme.textSecondary`/`theme.danger`; now matches `PrivacyModeSwitcher.tsx`'s own
+  `MODE` record exactly (`theme.warning`/`theme.info`).
+- **IOU's person-picker dropdown pushed content down instead of floating** — `PersonPicker.tsx`'s
+  suggestion list is now `position: 'absolute'` (with `elevation` for Android's z-index equivalent)
+  anchored below the field, instead of rendering inline in normal document flow.
+- **2 onboarding screens lost their info/warning callout tinting** — `AccountRecoveryScreen.tsx` (both its
+  restore-from-backup and reclaim-account callouts) and `ChooseHandleScreen.tsx` were using flat
+  `bg-surface-2` instead of web's `bg-info-subtle`/`bg-warning-subtle` (`color-mix(... 12%, transparent)`
+  translucent tints) — fixed via the existing `tint()` helper at the same 12% web uses.
+- **Feedback's active type-button was missing its background tint** — added `backgroundColor:
+  tint(theme.primary, 10)` when active, matching web's `'var(--color-primary)1a'`.
+- **News hardcoded the wrong hex for "neutral"** (and, once opened, the same hardcoded-hex-instead-of-
+  theme-token pattern recurred across all of `SentimentChip.tsx`/`NewsMoodGauge.tsx`/`HoldingsInNews.tsx`,
+  not just the one neutral value the sweep flagged) — all three now read `theme.success`/`theme.danger`/
+  `theme.warning`/`theme.neutral` (or `theme.textSecondary`/`theme.textTertiary` where web itself doesn't
+  use `STATUS.neutral`), the same "literal CSS-var-string" bug class already fixed elsewhere in the app.
+- **Tax module flattened `<strong>Note:</strong>`/`<strong>Coming soon:</strong>` lead-ins to plain
+  text** across `FootprintTab.tsx`/`CapitalGainsTab.tsx`/`OptimizeTab.tsx` (3 files, 4 spots) — restored
+  as a nested bold `<Text>`, valid RN since `Text`-in-`Text` is real inline composition (unlike `View`-in-
+  `Text`).
+- **Calculators' outcome banners lost their bold-title/plain-subtitle hierarchy** — root cause was
+  `Banner.tsx` wrapping all `children` in one outer `<Text>`, so two sibling strings (mirroring web's two
+  `<p>` tags) collapsed into one run with no line break. Added a proper `title` prop to `Banner.tsx`
+  (rendered as its own bold line above `children`) instead of patching each call site with manual
+  newlines; wired into `SipSwpCalculator.tsx`/`CapitalGainsCalculator.tsx`/`GratuityCalculator.tsx`.
+- **`MoneyStory`'s "Weekly Wrapped" card used a flat color instead of web's gradient** — now a real
+  `expo-linear-gradient` (`#00C47D`→`#007A4D`, diagonal), reusing the same dependency Home's Stories cards
+  already use.
+- **PIN entry fields lacked web's large/centered/letter-spaced digit styling everywhere** — web's own
+  shared `TextInput` component has an `inputClassName` prop for exactly this
+  (`"text-center tracking-widest text-lg"`); mobile's `TextInput.tsx` had no equivalent escape hatch at
+  all. Added the same `inputClassName` prop and wired it into all 5 PIN fields across
+  `ChangePinPage.tsx`/`SetupCredentialsScreen.tsx`/`AccountRecoveryScreen.tsx` (web's `text-lg` size) and
+  `SessionGate.tsx`/`PrivacyModeSwitcher.tsx` (web's bigger `text-2xl`, since those two use a raw
+  `<input>` directly rather than the shared component).
+- **No date-picker component existed anywhere in the mobile UI kit** — the largest item, scoped as its own
+  decision point with the user (chose "build it now, including wiring" over deferring or building
+  component-only). Added `@react-native-community/datetimepicker` (via `npx expo install`, matching every
+  other native-dep addition's convention) and a new shared `components/ui/DateInput.tsx`: Android opens
+  the native `DateTimePickerAndroid` dialog directly; iOS (no native dialog chrome of its own) shows the
+  picker inside the shared centered `Modal`, per docs/DESIGN_GUIDELINES.md's "centered modals, never
+  bottom sheets" rule — same reasoning as `SelectInput.tsx`'s own port note. Value contract is the same
+  `YYYY-MM-DD` string every call site already used (`epochToDateInput`/`toDateKey`), so most of the 17
+  call sites were a direct `TextInput`→`DateInput` swap: `GoalForm.tsx`, `ExpenseForm.tsx`,
+  `ExpenseExportModal.tsx` (both range fields), `EventsModal.tsx` (5 fields across 3 sub-views),
+  `EntryForm.tsx` (IOU), `SubscriptionForm.tsx`, `PolicyForm.tsx`, `PpfFields.tsx`, `EpfFields.tsx`,
+  `RetirementSheets.tsx` (2 of its date fields — its 2 `YYYY-MM` month-only fields were deliberately left
+  as text, different granularity, out of scope), `FdFields.tsx` (2 fields), and `LetUsKnowYouScreen.tsx`.
+  One file needed a different approach: `ProfilePage.tsx`'s DOB field lives inside a plain-text list-row
+  `Field` component with an inline age-band badge, where `DateInput`'s own bordered-box chrome would look
+  wrong; it instead gets a bare `Pressable` that opens the same Android-imperative/iOS-modal picker logic
+  inline (duplicated ~15 lines rather than generalizing a hook for just one caller).
+  `OnboardingDraftContext.tsx`'s `dob` match was just a type comment, not a field — no change needed.
+
+Typecheck (`tsc -b`), lint (`eslint --max-warnings 0`), prettier, and the full core test suite (401 tests)
+all pass after every fix in this pass. **None of this has been on-device-verified yet** (the DateInput
+work especially — Android's imperative dialog vs. iOS's in-modal spinner have only been typechecked, not
+run) — resume with an on-device pass covering all of the above, then the original sweep's Low-severity
+list (icon/color/polish nitpicks — see the "2026-07-25 (continued)" entry above) and `prefers-reduced-
+motion`. Still not committed — a lot of work has accumulated across this session's last several entries;
+check with the user before committing (they may want to split this into more than one commit given its
+size — the date-picker addition alone touches 18 files plus a new dependency).
+
+### 2026-07-25 (continued a fifth time) — On-device: RNCDatePicker crash fixed via native rebuild, status-bar gap confirmed not a bug, then all 11 Low-severity items fixed
+
+On-device testing of the DateInput work hit the expected consequence of adding a new native dependency
+without a rebuild: `TurboModuleRegistry.getEnforcing(...): 'RNCDatePicker' could not be found` — same root
+cause as the earlier QuickBase64 incident. Fixed with `JAVA_HOME="/Applications/Android Studio.app/
+Contents/jbr/Contents/Home" npx expo run:android` (full native rebuild); confirmed clean via `adb logcat`
+(no `RNCDatePicker`/`FATAL`/`Invariant` errors) and a fresh screenshot — Home renders correctly, Demo Mode
+banner/header/context-switcher all in the right order from the prior fixes.
+
+User then flagged a visible gap between the status-bar icons and the app header as apparently-wasted
+space. Investigated via `adb shell dumpsys window displays`, which reports the OS-owned status bar
+insets directly: `InsetsSource ... type=statusBars frame=[0,0][1080,136]` — a genuine **136px (≈52dp)**
+reservation on this emulator, well above the ~24dp a typical phone uses, most likely because of the two
+privacy-indicator (camera/mic) shield icons visible next to the clock, which Android grows the status bar
+to fit. `useSafeAreaInsets().top` is correctly reading that real OS value — **not a bug**, not
+reclaimable by app content (the OS draws its own status-bar UI in that region), and not double-counted by
+the earlier `headerBackground` extension fix. No code change from this investigation.
+
+All 11 Low-severity parity-sweep items were then fixed in one pass:
+
+1. **`ManageTagsPage`'s "Set aside" info callout used the wrong shade** — `bg-surface-2` instead of web's
+   `bg-surface-3`. One-class fix.
+2. **Missing check-icon on username availability** — `ProfilePage.tsx`'s handle-edit "Available" indicator
+   had no `ti-check` icon (web has one); IOU/onboarding's own username fields use a plain `✓` text glyph
+   already, so only this one spot needed it.
+3. **Missing icon on "Claim & continue" and the shared-expense success line** — `ChooseHandleScreen.tsx`'s
+   claim button got `icon="ti-shield-check"`; `SharedExpenseComposer.tsx`'s "Reconciles to ₹X" success
+   line got a `ti-circle-check` icon alongside the text (previously text-only).
+4. **Missing inset ring on a selected radio button** — `BackupSetupScreen.tsx`'s web version has
+   `boxShadow: inset 0 0 0 3px #fff` on the filled dot, reading as a colored ring around a white center;
+   RN has no `boxShadow: inset`, so a nested smaller white circle recreates the same ring look (the
+   previous mobile port rendered a plain solid-filled dot).
+5. **Flattened gradient / missing spinners on 3 onboarding screens** — `DemoVaultScreen.tsx`,
+   `PrivacyDemoScreen.tsx`, and `SetupCredentialsScreen.tsx` all showed a plain "Loading…"/"Encrypting…"
+   text label where web has an `animate-spin` ring; swapped for RN's `ActivityIndicator`.
+   `SimulatedDashboardScreen.tsx`'s "Explore with Demo Data" button was a flat `#7c3aed` instead of web's
+   `linear-gradient(90deg, #7c3aed, #9333ea)` — wrapped the shared `Button` in `expo-linear-gradient`
+   (forcing the `Button`'s own background transparent) rather than building a one-off custom pressable.
+6. **Wrong icon color on activity privacy receipts** — root cause was exactly what the plan doc's own
+   comment flagged months ago: no `privacy` token existed in `packages/core/src/theme/tokens.ts`, so
+   `PrivacyReceipt.tsx` fell back to `theme.info` (blue) instead of web's violet `--color-privacy:
+   #7c3aed`. Added a real `privacy: string` field to `ThemeTokens` (same `#7c3aed` across all three
+   palettes — web's own value is a fixed `:root` constant, not per-theme) and wired it into
+   `PrivacyReceipt.tsx`; also updated `PrivacyModeSwitcher.tsx`'s and `SettingsPage.tsx`'s own `'privacy'`
+   mode-color entries, both of which had been using `theme.info` as the same stand-in, now unnecessary.
+7. **Missing tap-to-view on activity heatmap cells** — web's cells have a `title` hover tooltip (desktop-
+   only anyway); mobile's were fully inert. Each cell is now a `Pressable` showing "date: N changes" via
+   the shared toast — a touch-appropriate equivalent, not a literal port of an interaction that wouldn't
+   work on a touchscreen regardless.
+8. **Goals badge text not capitalized** — `goal.risk` ('moderate'/'conservative'/'aggressive') rendered
+   lowercase; web has a `capitalize` Tailwind class. Added a `capitalize?: boolean` prop to the shared
+   `Badge` component (applies RN's `capitalize` text-transform class) rather than hacking the string at
+   the call site, so any other raw-enum-value badge can reuse it.
+9. **Missing sparkles icon on the "Suggested" goal badge** — root cause was the shared `Badge` component
+   having no icon slot at all. Added an `icon?: string` prop (renders before the label, same color as the
+   text) and wired `icon="ti-sparkles"` into `GoalCard.tsx`'s "Suggested" badge — the same component fix
+   as item 8, both landed in the same `Badge.tsx` edit.
+10. **No progress-bar animation** — web's fill bar has a CSS `transition` on `width`; the shared
+    `ProgressBar.tsx` had an explicit comment noting Reanimated wasn't wired in "until a real caller needs
+    it." Added `useSharedValue`/`withTiming`/`useAnimatedStyle` (reanimated is already a dependency, first
+    used by Home's `MarketTicker`) so the fill now animates on value changes instead of snapping.
+11. **Tax disclaimer missing bullet markers** — `TaxAwarenessPage.tsx`'s info notes rendered as plain
+    newline-separated text; added a `• ` prefix per line. (Checked `OptimizeTab.tsx`'s HUF-eligibility
+    list too, since it also uses a bulleted `<ul>` on web — that one already has a real bullet character
+    on mobile, no fix needed there.)
+
+Typecheck/lint/prettier/full test suite all re-verified clean after every fix. **Still not on-device-
+verified for this Low-severity batch, still not committed.** With this, every item from both parity
+sweeps is fixed except `prefers-reduced-motion` (Medium, accessibility, Home's market-ticker marquee) and
+font-scale's global-application gap (separately scoped, proven not fixable the easy way — see above).
+Resume: on-device pass over this session's full accumulated diff, then `prefers-reduced-motion` if wanted.

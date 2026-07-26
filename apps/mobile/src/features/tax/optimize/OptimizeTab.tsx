@@ -275,14 +275,14 @@ export function OptimizeTab({ summary, deductions, profile, gross }: Props) {
 
       {/* ITR upload — coming soon */}
       <Banner variant="info" icon="ti-file-upload">
-        Coming soon: upload last year's ITR to get an automatic review of what you could have saved. For now, the
-        suggestions above use your Penny data.
+        <Text className="font-bold">Coming soon:</Text> upload last year's ITR to get an automatic review of what you
+        could have saved. For now, the suggestions above use your Penny data.
       </Banner>
 
       <View className="rounded-xl p-3 bg-surface-2 border border-theme">
         <Text className="text-[10px] leading-relaxed text-tertiary">
-          Note: Planning estimates, not filing advice. Saving figures assume the old regime and your marginal slab.
-          Confirm eligibility and limits with a CA.
+          <Text className="font-bold">Note:</Text> Planning estimates, not filing advice. Saving figures assume the old
+          regime and your marginal slab. Confirm eligibility and limits with a CA.
         </Text>
       </View>
     </>

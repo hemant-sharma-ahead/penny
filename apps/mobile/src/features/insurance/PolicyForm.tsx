@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Text } from 'react-native';
 import type { InsurancePolicy, InsuranceType } from '@/core/db/types';
 import { epochToDateInput } from '@/lib/formatters';
-import { TextInput, OptionButton, AmountInput } from '~/components/ui';
+import { TextInput, OptionButton, AmountInput, DateInput } from '~/components/ui';
 import { FormModal } from '~/components/shared';
 
 interface Props {
@@ -136,7 +136,7 @@ export function PolicyForm({ editing, onSave, onDelete, onClose }: Props) {
         </View>
       </View>
 
-      <TextInput label="Renewal / expiry date (YYYY-MM-DD)" value={renewalDate} onChange={setRenewalDate} />
+      <DateInput label="Renewal / expiry date" value={renewalDate} onChange={setRenewalDate} />
 
       <TextInput label="Nominees (optional)" value={nominees} onChange={setNominees} placeholder="e.g. Spouse, Child" />
 

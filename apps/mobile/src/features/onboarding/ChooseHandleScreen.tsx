@@ -6,6 +6,7 @@ import { isValidUsername } from '@/core/profile/username';
 import { Button, TextInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { tint } from '~/lib/color';
 
 /**
  * Screen ④ of the account-start flow (Track F). Shown after a restore when the account was deregistered
@@ -104,6 +105,7 @@ export function ChooseHandleScreen({ oldHandle, onDone }: { oldHandle: string; o
             size="lg"
             fullWidth
             className="mt-6"
+            icon="ti-shield-check"
             disabled={availability !== 'available' || busy}
             loading={busy}
             onPress={() => void handleClaim()}
@@ -111,7 +113,10 @@ export function ChooseHandleScreen({ oldHandle, onDone }: { oldHandle: string; o
             Claim & continue
           </Button>
 
-          <View className="mt-4 flex-row items-start gap-2 bg-surface-2 rounded-xl px-3 py-2.5">
+          <View
+            className="mt-4 flex-row items-start gap-2 rounded-xl px-3 py-2.5"
+            style={{ backgroundColor: tint(theme.info, 12) }}
+          >
             <Icon name="ti-info-circle" size={14} color={theme.info} />
             <Text className="text-xs text-secondary flex-1">
               Only your public handle changes. Your data, encryption keys, and account are unchanged. Group members will

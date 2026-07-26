@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, Pressable, TextInput as RNTextInput } from 'react-native';
-import { Modal, Button, TextInput, FormField } from '~/components/ui';
+import { Modal, Button, DateInput, FormField } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { Expense, ExpenseCategory } from '@/core/db/types';
@@ -87,10 +87,10 @@ export function ExpenseExportModal({ expenses, expenseCategories, onClose }: Exp
         {exportRange === 'custom' && (
           <View className="flex-row gap-2 pt-1">
             <View className="flex-1">
-              <TextInput label="From" value={exportFrom} onChange={setExportFrom} placeholder="YYYY-MM-DD" />
+              <DateInput label="From" value={exportFrom} onChange={setExportFrom} />
             </View>
             <View className="flex-1">
-              <TextInput label="To" value={exportTo} onChange={setExportTo} placeholder="YYYY-MM-DD" />
+              <DateInput label="To" value={exportTo} onChange={setExportTo} />
             </View>
           </View>
         )}

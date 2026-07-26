@@ -101,6 +101,7 @@ export function ChipPage() {
                       variant="ghost"
                       size="sm"
                       className="mt-2 self-start px-0"
+                      textColor={theme.primary}
                       onPress={() => dismissInsight(insight)}
                     >
                       {insight.actionLabel} →

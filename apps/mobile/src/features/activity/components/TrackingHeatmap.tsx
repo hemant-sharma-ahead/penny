@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import type { ActivityLog } from '@/core/db/types';
-import { DAY_MS, startOfToday, toDateKey } from '@/lib/date';
+import { DAY_MS, startOfToday, toDateKey, formatDate } from '@/lib/date';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { useToast } from '~/context/ToastContext';
 
 interface Props {
   entries: ActivityLog[];
@@ -41,10 +42,14 @@ function computeStreaks(daysWithActivity: Set<string>): { current: number; longe
  * with CSS Grid's `grid-auto-flow: column` (7 rows × N columns, filled column-by-column) — no direct RN
  * Yoga equivalent (same CSS-Grid-to-Flexbox gap this migration has hit repeatedly), so this pre-chunks
  * the flat day list into `weeks` column-arrays of 7 and renders each as its own `flex-col`, wrapped in a
- * `flex-row` — same visual result as the web grid.
+ * `flex-row` — same visual result as the web grid. Web's per-cell `title` attribute (a hover tooltip,
+ * desktop-only anyway) had no mobile equivalent at all — found via the 2026-07-25 parity sweep, cells
+ * were fully inert. Each cell is now a `Pressable` that shows the same "date: N changes" info via the
+ * shared toast, a touch-appropriate stand-in for a hover tooltip.
  */
 export function TrackingHeatmap({ entries, weeks = 14 }: Props) {
   const theme = useThemeColors();
+  const { showToast } = useToast();
   const { columns, current, longest } = useMemo(() => {
     const counts = new Map<string, number>();
     for (const e of entries) {
@@ -77,13 +82,19 @@ export function TrackingHeatmap({ entries, weeks = 14 }: Props) {
             {col.map((c) => {
               const level = levelFor(c.count);
               return (
-                <View
+                <Pressable
                   key={c.key}
                   className="aspect-square rounded-[3px]"
                   style={{
                     backgroundColor: level === 0 ? theme.surfaceSecondary : theme.primary,
                     opacity: level === 0 ? 1 : LEVEL_OPACITY[level]
                   }}
+                  onPress={() =>
+                    showToast({
+                      message: `${formatDate(new Date(`${c.key}T00:00:00`).getTime())}: ${c.count} change${c.count === 1 ? '' : 's'}`
+                    })
+                  }
+                  hitSlop={2}
                 />
               );
             })}

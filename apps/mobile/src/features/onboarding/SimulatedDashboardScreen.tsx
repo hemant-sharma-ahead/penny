@@ -1,5 +1,6 @@
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button } from '~/components/ui';
@@ -91,15 +92,26 @@ export function SimulatedDashboardScreen() {
           </View>
 
           <View className="gap-2.5">
-            <Button
-              variant="primary"
-              size="lg"
-              fullWidth
-              style={{ backgroundColor: '#7c3aed' }}
-              onPress={() => navigation.navigate('DemoVault')}
+            {/* Web uses a gradient background here (`linear-gradient(90deg, #7c3aed, #9333ea)`) — flattened
+                to a flat color on mobile since `Button`'s `style` prop only sets `backgroundColor`, no
+                gradient support. Wrapping the shared `Button` in `expo-linear-gradient` and forcing its
+                own background transparent restores the gradient without a one-off custom pressable. */}
+            <LinearGradient
+              colors={['#7c3aed', '#9333ea']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{ borderRadius: 12 }}
             >
-              Explore with Demo Data
-            </Button>
+              <Button
+                variant="primary"
+                size="lg"
+                fullWidth
+                style={{ backgroundColor: 'transparent' }}
+                onPress={() => navigation.navigate('DemoVault')}
+              >
+                Explore with Demo Data
+              </Button>
+            </LinearGradient>
             <Button variant="primary" size="lg" fullWidth onPress={() => navigation.navigate('Start')}>
               Setup my Account
             </Button>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text } from 'react-native';
-import { Modal, Button, TextInput, SelectInput, AmountInput, Toggle } from '~/components/ui';
+import { Modal, Button, TextInput, DateInput, SelectInput, AmountInput, Toggle } from '~/components/ui';
 import { epochToDateInput } from '@/lib/formatters';
 import type { ManualSubscription } from './useSubscriptions';
 
@@ -18,10 +18,9 @@ const INTERVALS = [
 ];
 
 /**
- * RN port note: web's "Last charged" field is a native HTML `<input type="date">`. RN has no built-in
- * date input; rather than pull in a native date-picker module for this pilot, it's a plain text field
- * accepting the same `YYYY-MM-DD` shape `epochToDateInput` already produces — a flagged, accepted
- * simplification (same parsing/format contract, just typed by hand instead of picked).
+ * RN port note: web's "Last charged" field is a native HTML `<input type="date">` — now a real
+ * `DateInput` (`@react-native-community/datetimepicker`) instead of a hand-typed `YYYY-MM-DD` text
+ * field, closing the systemic no-date-picker gap found via the 2026-07-25 parity sweep.
  */
 export function SubscriptionForm({ onAdd, onClose }: Props) {
   const [name, setName] = useState('');
@@ -79,7 +78,7 @@ export function SubscriptionForm({ onAdd, onClose }: Props) {
             <SelectInput label="Billing" value={interval} onChange={setInterval} options={INTERVALS} />
           </View>
         </View>
-        <TextInput label="Last charged (YYYY-MM-DD)" value={lastCharged} onChange={setLastCharged} />
+        <DateInput label="Last charged" value={lastCharged} onChange={setLastCharged} />
         <View className="flex-row items-center justify-between rounded-xl border border-theme px-3 py-3">
           <View>
             <Text className="text-xs font-medium text-secondary">Free trial</Text>

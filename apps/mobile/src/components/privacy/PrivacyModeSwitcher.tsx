@@ -48,7 +48,7 @@ export function PrivacyModeSwitcher() {
 
   const MODE: Record<PrivacyMode, { label: string; icon: string; color: string }> = {
     safe: { label: 'Safe', icon: 'ti-eye-off', color: theme.warning },
-    privacy: { label: 'Private', icon: 'ti-shield-lock', color: theme.info },
+    privacy: { label: 'Private', icon: 'ti-shield-lock', color: theme.privacy },
     open: { label: 'Open', icon: 'ti-eye', color: theme.danger }
   };
   const active = MODE[mode];
@@ -161,6 +161,7 @@ export function PrivacyModeSwitcher() {
             onChange={(v) => setPinInput(v.replace(/\D/g, ''))}
             placeholder="6-digit PIN"
             maxLength={6}
+            inputClassName="text-center tracking-widest text-2xl"
             keyboardType="number-pad"
             secureTextEntry
             autoFocus

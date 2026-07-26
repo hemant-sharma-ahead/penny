@@ -1,5 +1,5 @@
 import { View, Text } from 'react-native';
-import { TextInput, AmountInput } from '~/components/ui';
+import { TextInput, AmountInput, DateInput } from '~/components/ui';
 
 // Computes the PPF maturity label (15-year lock-in) from the account opening date.
 function ppfMaturityLabel(openingDateStr: string): { text: string } | null {
@@ -35,15 +35,9 @@ export function PpfFields({
 
   return (
     <View className="gap-3">
-      {/* Opening date + derived maturity — RN has no native date input, so this is a plain
-          YYYY-MM-DD text field (same convention as Insurance's renewal date). */}
+      {/* Opening date + derived maturity */}
       <View>
-        <TextInput
-          label="Account opening date (YYYY-MM-DD)"
-          value={ppfOpeningDate}
-          onChange={setPpfOpeningDate}
-          placeholder="e.g. 2015-06-01"
-        />
+        <DateInput label="Account opening date" value={ppfOpeningDate} onChange={setPpfOpeningDate} />
         {maturity && (
           <Text className="mt-1 text-xs" style={{ color: '#8b5cf6' }}>
             {maturity.text}

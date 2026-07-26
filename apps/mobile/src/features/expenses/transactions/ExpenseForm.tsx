@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, TextInput as RNTextInput, Image, ScrollView } from 'react-native';
+import { useNavigation, type ParamListBase } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type {
   Account,
   Expense,
@@ -17,10 +19,21 @@ import { accountsRepo, groupMembersRepo, profileRepo } from '@/core/db/repositor
 import { epochToDateInput, formatCurrency } from '@/lib/formatters';
 import { dateInputToEpoch } from '@/lib/date';
 import { projectedBalance } from '@/core/accounts/balanceCalculator';
-import { Modal, Button, TextInput, SegmentedControl, AmountInput, Banner, SelectInput, Toggle } from '~/components/ui';
+import {
+  Modal,
+  Button,
+  TextInput,
+  DateInput,
+  SegmentedControl,
+  AmountInput,
+  Banner,
+  SelectInput,
+  Toggle
+} from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { captureReceiptPhoto, pickReceiptPhoto } from '~/lib/receiptImage';
+import { ItemHistory } from '../../activity/components/ItemHistory';
 import { CategoryPickerModal } from '../categories/CategoryPickerModal';
 import type { CategoryManager } from '../categories/types';
 import { AccountChips } from './AccountChips';
@@ -137,6 +150,7 @@ export function ExpenseForm({
   onClose
 }: Props) {
   const theme = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   // Editing seeds from the record; a new entry may seed from a duplicate/template prefill.
   const seed = editing ?? prefill ?? null;
   const [type, setType] = useState<TransactionType>(seed?.type ?? initialType ?? 'expense');
@@ -443,9 +457,10 @@ export function ExpenseForm({
       .finally(() => setSaving(false));
   }
 
-  // No real nav stack exists yet outside AuthGuard's temporary stand-in (same precedent as every other
-  // ported module) — "add an account" from here is a no-op until Accounts is a real destination.
-  function goToAccounts() {}
+  function goToAccounts() {
+    onClose();
+    navigation.navigate('Accounts');
+  }
 
   const canTemplate = type !== 'transfer' && description.trim().length > 0 && categoryId.length > 0;
 
@@ -641,7 +656,7 @@ export function ExpenseForm({
         )}
 
         {/* Date — no native date picker wired up yet; plain text field like every other ported form. */}
-        <TextInput label="Date (YYYY-MM-DD)" value={date} onChange={setDate} />
+        <DateInput label="Date" value={date} onChange={setDate} />
 
         {/* Account */}
         {type === 'transfer' ? (
@@ -736,8 +751,19 @@ export function ExpenseForm({
           <View className="rounded-xl border border-theme bg-surface-3 p-3 gap-2">
             <View className="flex-row items-center justify-between">
               <Text className="text-xs font-medium text-secondary">Tags</Text>
-              {/* "Manage tags" is a sub-page destination that doesn't exist in mobile's nav yet — no-op
-                  for now, same precedent as every other dropped cross-module navigation call. */}
+              <Pressable
+                onPress={() => {
+                  onClose();
+                  navigation.navigate('ManageTags');
+                }}
+                className="flex-row items-center gap-0.5"
+                hitSlop={4}
+              >
+                <Text className="text-xs font-semibold" style={{ color: theme.primaryDark }}>
+                  Manage tags
+                </Text>
+                <Icon name="ti-chevron-right" size={12} color={theme.primaryDark} />
+              </Pressable>
             </View>
 
             <View className="flex-row items-center gap-2">
@@ -1042,8 +1068,12 @@ export function ExpenseForm({
           </View>
         )}
 
-        {/* History (editing): ItemHistory (activity-log timeline) isn't ported to mobile yet — dropped
-            for now, revisit alongside the rest of the activity-log module. */}
+        {/* History (editing) */}
+        {editing && (
+          <View className="border-t border-theme pt-3">
+            <ItemHistory entityId={editing.id} />
+          </View>
+        )}
       </Modal>
 
       {/* Category picker — nested modal, above the form (RN Modals stack in mount order). */}

@@ -4,9 +4,13 @@
 // changes here, update index.css too (and vice versa) until Track 7 retires the CSS-var copy.
 //
 // "System" is not a fourth palette — it's Light or Dark chosen by the OS; the app layer resolves it
-// before picking a palette below. Privacy-mode accent overlays (safe/privacy/open header tints) are a
-// separate axis layered on top of a base palette and aren't part of this file yet — deferred to
-// whichever track ports the privacy-mode UI.
+// before picking a palette below. Most privacy-mode accent overlays (safe/open header tints) are a
+// separate axis layered on top of a base palette and aren't part of this file — `~/components/privacy/
+// PrivacyModeSwitcher.tsx` approximates those via `theme.warning`/`theme.danger` instead. `privacy` is
+// the one exception, added here (2026-07-25 parity sweep: activity Timeline's privacy receipts had no
+// token to read and fell back to `theme.info`, a wrong blue instead of web's violet) since — like every
+// other token in this file — web's `--color-privacy` is a fixed `:root` value, identical across all
+// three themes, not something that needs a per-palette accent-overlay treatment.
 
 export interface ThemeTokens {
   primary: string;
@@ -25,6 +29,7 @@ export interface ThemeTokens {
   warning: string;
   info: string;
   neutral: string;
+  privacy: string;
 }
 
 export const THEME_TOKENS = {
@@ -44,7 +49,8 @@ export const THEME_TOKENS = {
     danger: '#ef4444',
     warning: '#f59e0b',
     info: '#3b82f6',
-    neutral: '#64748b'
+    neutral: '#64748b',
+    privacy: '#7c3aed'
   },
   pennyBlue: {
     primary: '#00a86b',
@@ -62,7 +68,8 @@ export const THEME_TOKENS = {
     danger: '#ef4444',
     warning: '#f59e0b',
     info: '#3b82f6',
-    neutral: '#64748b'
+    neutral: '#64748b',
+    privacy: '#7c3aed'
   },
   dark: {
     primary: '#00a86b',
@@ -80,7 +87,8 @@ export const THEME_TOKENS = {
     danger: '#ef4444',
     warning: '#f59e0b',
     info: '#3b82f6',
-    neutral: '#64748b'
+    neutral: '#64748b',
+    privacy: '#7c3aed'
   }
 } satisfies Record<'light' | 'pennyBlue' | 'dark', ThemeTokens>;
 

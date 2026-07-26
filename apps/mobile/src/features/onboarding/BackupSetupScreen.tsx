@@ -24,8 +24,8 @@ interface Option {
  * Surfaced during setup (not just as a later nudge) because Model B means a lost device with no
  * backup is unrecoverable, by design — this is the single most consequential thing to get across.
  * Only records the choice here; the live Google Drive connect flow itself runs post-setup on the real
- * Backup page (not ported this pass — out of scope, see `docs/plans/mobile-migration.md`) —
- * `SetupCredentialsScreen` always lands on `MainTabs` regardless of this choice for now.
+ * Backup page — `SetupCredentialsScreen` routes there next if "Google Drive" was picked (see its own
+ * platform note re: actually connecting Drive still being a native gap, same as web's iCloud dormancy).
  */
 export function BackupSetupScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<OnboardingStackParamList>>();
@@ -116,13 +116,19 @@ export function BackupSetupScreen() {
                     <Text className="text-[11px] text-tertiary leading-relaxed mt-0.5">{o.detail}</Text>
                   </View>
                   <View
-                    className="w-4 h-4 rounded-full border-2 shrink-0"
+                    className="w-4 h-4 rounded-full border-2 items-center justify-center shrink-0"
                     style={
                       isSelected
                         ? { borderColor: theme.primary, backgroundColor: theme.primary }
                         : { borderColor: theme.border }
                     }
-                  />
+                  >
+                    {/* Web's selected dot has an inset white ring (`boxShadow: inset 0 0 0 3px #fff`),
+                        reading as a colored ring around a white center rather than a solid filled dot.
+                        RN has no `boxShadow: inset` — nesting a smaller white circle inside the colored
+                        one gets the same ring look. */}
+                    {isSelected && <View className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  </View>
                 </Pressable>
               );
             })}

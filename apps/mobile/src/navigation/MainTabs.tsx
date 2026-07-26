@@ -9,16 +9,18 @@ import { ExpensesPage } from '../features/expenses/ExpensesPage';
 import { GoalsPage } from '../features/goals/GoalsPage';
 import { ChipPage } from '../features/chip/ChipPage';
 import { ContextSwitcher } from '../features/groups/ContextSwitcher';
+import { DemoModeBanner } from '../components/demo/DemoModeBanner';
 import { hasEntitlement } from '@/core/entitlement/entitlement';
+import { useSettings } from '../context/SettingsContext';
 
 /**
  * Bottom nav order per CLAUDE.md: Home · Portfolio · Chip (FAB, centred) · Expenses · Goals — matches
  * apps/web-legacy/src/components/layout/BottomNav.tsx's item order/icons/colors. This is React
- * Navigation's tab bar standing in for that component (not a literal port): BottomNav's other chrome —
- * module-visibility filtering (useSettings) — depends on context/features not ported yet, and lands
- * with its own feature in a later pass. `PrivacyModeSwitcher`/`RemindersBell` moved into `MainNavigator`'s
- * stack-level header instead (the actual chrome parity fix for web's `AppShell` header); `DemoModeBanner`
- * remains unported.
+ * Navigation's tab bar standing in for that component (not a literal port). Module-visibility filtering
+ * (`useSettings().modules`) now hides the Portfolio/Goals tabs the same way web's `BottomNav` does when
+ * toggled off in Settings (found missing via the 2026-07-25 parity sweep — mobile always showed all 4
+ * regardless of the toggle). `PrivacyModeSwitcher`/`RemindersBell` moved into `MainNavigator`'s
+ * stack-level header instead (the actual chrome parity fix for web's `AppShell` header).
  *
  * Track 4 (Onboarding) update: Home/Portfolio/Expenses/Goals tabs now render their real ported pages
  * instead of `PlaceholderScreen` (all four shipped earlier in Track 4 — see
@@ -27,7 +29,10 @@ import { hasEntitlement } from '@/core/entitlement/entitlement';
  *
  * `ContextSwitcher` mounts above the tab navigator (same persistent-chrome position as web's `AppShell`,
  * which renders it between the header and `<Outlet />`), gated by the same `hasEntitlement('sync')`
- * check web uses — so it's visible across every tab, not per-screen.
+ * check web uses — so it's visible across every tab, not per-screen. `DemoModeBanner` renders just above
+ * it, so the visible order is: `MainNavigator`'s stack header → Demo Mode banner → context switcher →
+ * tab content — per explicit user feedback (2026-07-25), placed here rather than above the header
+ * (unlike web's `AppShell`, which puts it above the header) since that's where the user wants it.
  */
 const Tab = createBottomTabNavigator();
 
@@ -47,9 +52,11 @@ const ICON_NAMES: Record<string, string> = {
 
 export function MainTabs() {
   const theme = useThemeColors();
+  const { modules } = useSettings();
 
   return (
     <View style={{ flex: 1 }}>
+      <DemoModeBanner />
       {hasEntitlement('sync') && <ContextSwitcher />}
       <Tab.Navigator
         screenOptions={({ route }) => ({
@@ -66,7 +73,16 @@ export function MainTabs() {
         })}
       >
         <Tab.Screen name="Home" component={HomePage} />
-        <Tab.Screen name="Portfolio" component={PortfolioPage} />
+        {/* `tabBarButton: () => null` hides the tab bar entry without unmounting the screen from the
+            navigator — web's module-visibility toggle only hides the BottomNav item, the route stays
+            reachable (e.g. Home's net-worth tap-through still calls `navigation.navigate('Portfolio')`
+            regardless of the toggle), so removing the Tab.Screen entirely would break that instead of
+            matching web's behavior. */}
+        <Tab.Screen
+          name="Portfolio"
+          component={PortfolioPage}
+          options={modules.portfolio ? undefined : { tabBarButton: () => null }}
+        />
         {/* Chip renders as a distinct round ChipAvatar icon (via tabBarIcon above), matching web's FAB
             treatment in spirit. The elevated/floating circular button chrome BottomNav.tsx has is a
             cosmetic polish item (custom tabBarButton) deferred to Track 6 — not worth risking unverified
@@ -75,7 +91,11 @@ export function MainTabs() {
             on both platforms. */}
         <Tab.Screen name="Chip" component={ChipPage} />
         <Tab.Screen name="Expenses" component={ExpensesPage} />
-        <Tab.Screen name="Goals" component={GoalsPage} />
+        <Tab.Screen
+          name="Goals"
+          component={GoalsPage}
+          options={modules.goals ? undefined : { tabBarButton: () => null }}
+        />
       </Tab.Navigator>
     </View>
   );

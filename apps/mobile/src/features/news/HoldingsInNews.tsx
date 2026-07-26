@@ -1,6 +1,7 @@
 import { View, Text, Pressable, Linking } from 'react-native';
 import type { ScoredHeadline, SentimentLabel } from '@/core/sentiment';
 import { Icon } from '~/components/Icon';
+import { useThemeColors } from '~/theme/useThemeColors';
 import type { HoldingNewsMatch } from './useHoldingsInNews';
 
 function relativeTime(epochMs: number): string {
@@ -12,12 +13,6 @@ function relativeTime(epochMs: number): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-const TONE: Record<SentimentLabel, { color: string; icon: string; text: string }> = {
-  positive: { color: '#10b981', icon: 'ti-trending-up', text: 'Positive' },
-  negative: { color: '#ef4444', icon: 'ti-trending-down', text: 'Negative' },
-  neutral: { color: '#94a3b8', icon: 'ti-minus', text: 'Neutral' }
-};
-
 interface Props {
   matches: HoldingNewsMatch[];
   scoredById: Map<string, ScoredHeadline>;
@@ -28,12 +23,25 @@ interface Props {
  * headlines mentioning stocks the user owns, recency-ordered, each with the headline's own sentiment
  * tone. Informational (news about what you own), NOT a trade idea or ranking of picks. Web's
  * `<a target="_blank">` becomes `Linking.openURL`.
+ *
+ * Colors read from theme tokens now — `theme.success`/`theme.danger` (web's `STATUS.success`/
+ * `STATUS.danger`) and `theme.textSecondary` for neutral (web's own `var(--color-text-secondary)`,
+ * deliberately not `STATUS.neutral` here) — previously hardcoded to unrelated hex literals, the same
+ * "literal CSS-var-string" bug class already fixed elsewhere in the app, found via the 2026-07-25
+ * parity sweep.
  */
 export function HoldingsInNews({ matches, scoredById }: Props) {
+  const theme = useThemeColors();
+  const TONE: Record<SentimentLabel, { color: string; icon: string; text: string }> = {
+    positive: { color: theme.success, icon: 'ti-trending-up', text: 'Positive' },
+    negative: { color: theme.danger, icon: 'ti-trending-down', text: 'Negative' },
+    neutral: { color: theme.textSecondary, icon: 'ti-minus', text: 'Neutral' }
+  };
+
   if (matches.length === 0) {
     return (
       <View className="bg-surface rounded-2xl p-4 flex-row items-center gap-3">
-        <Icon name="ti-mood-neutral" size={20} color="#94a3b8" />
+        <Icon name="ti-mood-neutral" size={20} color={theme.textTertiary} />
         <View className="flex-1">
           <Text className="text-sm text-secondary">None of your holdings are in today's news.</Text>
           <Text className="text-[11px] text-tertiary mt-0.5">

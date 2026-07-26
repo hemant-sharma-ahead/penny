@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { useSettings } from '~/context/SettingsContext';
-import { Modal, Button, TextInput, SegmentedControl, DetailRow, AmountInput } from '~/components/ui';
+import { Modal, Button, TextInput, DateInput, SegmentedControl, DetailRow, AmountInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';
@@ -198,7 +198,7 @@ export function PpfTransactionSheet({
       />
 
       <View>
-        <TextInput label="Date (YYYY-MM-DD)" value={txDate} onChange={setTxDate} placeholder="e.g. 2026-04-01" />
+        <DateInput label="Date" value={txDate} onChange={setTxDate} />
         {showFifthHint && (
           <View className="mt-1 flex-row items-center gap-1">
             <Icon
@@ -609,12 +609,7 @@ export function EpfTransactionSheet({
         />
       )}
 
-      <TextInput
-        label="Date of credit (YYYY-MM-DD)"
-        value={txDate}
-        onChange={setTxDate}
-        placeholder="e.g. 2026-07-05"
-      />
+      <DateInput label="Date of credit" value={txDate} onChange={setTxDate} />
 
       {isContribution ? (
         <View className="gap-3">

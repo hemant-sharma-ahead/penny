@@ -189,6 +189,7 @@ export function ChangePinPage() {
                   secureTextEntry
                   keyboardType="numeric"
                   maxLength={6}
+                  inputClassName="text-center tracking-widest text-lg"
                   value={current}
                   onChange={(v) => setCurrent(onlyDigits(v))}
                   placeholder="Enter current 6-digit PIN"
@@ -216,6 +217,7 @@ export function ChangePinPage() {
                 secureTextEntry
                 keyboardType="numeric"
                 maxLength={6}
+                inputClassName="text-center tracking-widest text-lg"
                 value={next}
                 onChange={(v) => setNext(onlyDigits(v))}
                 placeholder="Choose a new 6-digit PIN"
@@ -226,6 +228,7 @@ export function ChangePinPage() {
                 secureTextEntry
                 keyboardType="numeric"
                 maxLength={6}
+                inputClassName="text-center tracking-widest text-lg"
                 value={confirm}
                 onChange={(v) => setConfirm(onlyDigits(v))}
                 placeholder="Re-enter your new PIN"

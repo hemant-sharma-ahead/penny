@@ -319,6 +319,7 @@ export function SessionGate({ children, showRotationBanner = false }: Props) {
                 onChange={(v) => setPinInput(v.replace(/\D/g, ''))}
                 placeholder="6-digit PIN"
                 maxLength={6}
+                inputClassName="text-center tracking-widest text-2xl"
                 keyboardType="number-pad"
                 secureTextEntry
                 autoFocus

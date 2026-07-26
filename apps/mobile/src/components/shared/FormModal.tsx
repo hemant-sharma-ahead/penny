@@ -8,6 +8,8 @@ interface FormModalProps {
   onSave: () => void;
   onDelete?: (() => void) | undefined;
   saving?: boolean;
+  /** Disables the primary save button — e.g. required-field validation. Default false. */
+  saveDisabled?: boolean;
   /** Label for the primary save button. Default "Save". */
   saveLabel?: string;
   /** Label for the danger delete button. Default "Delete". */
@@ -31,6 +33,7 @@ export function FormModal({
   onSave,
   onDelete,
   saving = false,
+  saveDisabled = false,
   saveLabel = 'Save',
   deleteLabel = 'Delete',
   children,
@@ -53,7 +56,7 @@ export function FormModal({
             </View>
           )}
           <View className="flex-1">
-            <Button variant="primary" fullWidth onPress={onSave} loading={saving}>
+            <Button variant="primary" fullWidth onPress={onSave} loading={saving} disabled={saveDisabled}>
               {saving ? 'Saving…' : saveLabel}
             </Button>
           </View>

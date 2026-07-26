@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRoute } from '@react-navigation/native';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { useSettings } from '~/context/SettingsContext';
 import { usePortfolioHoldings, HOLDINGS_SUBTABS } from './usePortfolioHoldings';
@@ -46,8 +47,15 @@ export function PortfolioPage() {
     refreshPrices
   } = usePortfolioHoldings();
 
+  // Deep-link hint from `GlanceHeader`'s net-worth breakdown (`navigation.navigate('Portfolio', {
+  // holdingsSubTab })`) — RN port of web's `location.state.holdingsSubTab`, found missing via the
+  // 2026-07-25 parity sweep (mobile always landed on the default 'stocks' tab regardless of which asset
+  // class was tapped).
+  const route = useRoute();
+  const initialSubTab = (route.params as { holdingsSubTab?: HoldingsSubTab } | undefined)?.holdingsSubTab;
+
   const [activeTab, setActiveTab] = useState<'holdings' | 'ipo'>('holdings');
-  const [holdingsSubTab, setHoldingsSubTab] = useState<HoldingsSubTab>('stocks');
+  const [holdingsSubTab, setHoldingsSubTab] = useState<HoldingsSubTab>(initialSubTab ?? 'stocks');
 
   const overallReturn = totalInvested > 0 ? ((totalCurrent - totalInvested) / totalInvested) * 100 : 0;
 

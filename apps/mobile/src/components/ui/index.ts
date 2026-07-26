@@ -5,6 +5,7 @@ export { Button } from './Button';
 export { Card } from './Card';
 export { ChipAvatar } from './ChipAvatar';
 export { ConfirmDialog } from './ConfirmDialog';
+export { DateInput } from './DateInput';
 export { DetailRow } from './DetailRow';
 export { DismissibleChip } from './DismissibleChip';
 export { EmptyState } from './EmptyState';

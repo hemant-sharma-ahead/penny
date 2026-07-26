@@ -21,6 +21,10 @@ interface ButtonProps {
   className?: string;
   /** Override background hex color for dynamic-color buttons (e.g. per-type expense buttons). */
   color?: string;
+  /** Override text/icon color without setting a background — the `ghost`-variant equivalent of web's
+   *  `style={{ color: 'var(--color-primary)' }}` (RN's `style` prop only reaches the outer `Pressable`,
+   *  not the inner `Text`, so `color` alone can't do this without also forcing an opaque background). */
+  textColor?: string;
   style?: ViewStyle;
 }
 
@@ -45,6 +49,7 @@ export function Button({
   accessibilityLabel,
   className = '',
   color,
+  textColor: textColorOverride,
   style
 }: ButtonProps) {
   const theme = useThemeColors();
@@ -56,7 +61,7 @@ export function Button({
 
   const backgroundColor =
     color ?? (variant === 'primary' ? theme.primary : variant === 'danger' ? theme.danger : undefined);
-  const textColor = backgroundColor ? '#fff' : theme.textSecondary;
+  const textColor = textColorOverride ?? (backgroundColor ? '#fff' : theme.textSecondary);
 
   return (
     <Pressable

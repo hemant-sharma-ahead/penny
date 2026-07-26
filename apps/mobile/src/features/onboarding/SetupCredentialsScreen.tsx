@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TextInput as RNTextInput, Pressable } from 'react-native';
+import { View, Text, ScrollView, TextInput as RNTextInput, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { exitDemoMode, initialize, isWeakPin } from '@/core/crypto/securityManager';
 import { EncryptedRepository } from '@/core/db/repository';
@@ -15,6 +15,7 @@ import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useOnboardingDraft } from '~/context/OnboardingDraftContext';
 import { notifyAuthShouldRecheck } from '~/navigation/authRecheckBus';
+import { navigationRef } from '~/navigation/navigationRef';
 import { OnboardingBack } from './OnboardingBack';
 import { useRedirectIfOnboarded } from './useRedirectIfOnboarded';
 
@@ -30,9 +31,12 @@ import { useRedirectIfOnboarded } from './useRedirectIfOnboarded';
  * `~/screens/ClaimSmokeTestScreen.tsx`'s scratch version, which this supersedes for everyday use).
  *
  * Platform note: web navigates to `PATHS.app.backup` when Google Drive was chosen as the backup
- * destination, else `PATHS.app.home`. Mobile has no Backup page yet (out of scope for this pass — Drive
- * connect itself is also still web-only, see `googleDriveProvider.native.ts`), so this always signals
- * `notifyAuthShouldRecheck()` and lands on `MainTabs` regardless of `backupChoice`.
+ * destination, else `PATHS.app.home` — mirrored below via `navigationRef` once `MainNavigator` remounts
+ * post-`notifyAuthShouldRecheck()` (found stale via the 2026-07-25 parity sweep: `BackupPage` has
+ * existed since Track 4's feature-folder gap closure, this just never routed to it). Actually
+ * *connecting* Drive is still a real gap on native (`googleDriveProvider.native.ts` is dormant, same
+ * "no config yet" shape as `icloudProvider.ts`) — landing on `BackupPage` at least shows that honestly,
+ * same as `BackupSetupScreen` already does, rather than silently dropping the choice on the floor.
  */
 export function SetupCredentialsScreen() {
   const draft = useOnboardingDraft();
@@ -122,6 +126,19 @@ export function SetupCredentialsScreen() {
       }
       await writeProfileAndAccounts();
       notifyAuthShouldRecheck();
+      if (draft.backupChoice === 'google-drive') {
+        // `MainNavigator` remounts fresh once `AuthGuard` re-checks and transitions to 'ready' — poll
+        // briefly for `navigationRef` to attach rather than assuming it's ready synchronously.
+        let attempts = 0;
+        const tryNavigate = () => {
+          if (navigationRef.isReady()) {
+            navigationRef.navigate('Backup');
+          } else if (attempts++ < 20) {
+            setTimeout(tryNavigate, 100);
+          }
+        };
+        setTimeout(tryNavigate, 100);
+      }
     } catch {
       setError('Setup failed. Please try again.');
       setLoading(false);
@@ -131,7 +148,7 @@ export function SetupCredentialsScreen() {
   if (checking) {
     return (
       <SafeAreaView edges={['top', 'bottom']} className="flex-1 items-center justify-center bg-surface">
-        <Text className="text-secondary text-sm">Loading…</Text>
+        <ActivityIndicator size="large" color="#00a86b" />
       </SafeAreaView>
     );
   }
@@ -198,6 +215,7 @@ export function SetupCredentialsScreen() {
               secureTextEntry
               keyboardType="numeric"
               maxLength={6}
+              inputClassName="text-center tracking-widest text-lg"
               value={pin}
               onChange={(v) => setPin(v.replace(/\D/g, ''))}
               placeholder="For quick unlock"
@@ -215,6 +233,7 @@ export function SetupCredentialsScreen() {
               secureTextEntry
               keyboardType="numeric"
               maxLength={6}
+              inputClassName="text-center tracking-widest text-lg"
               value={confirmPin}
               onChange={(v) => setConfirmPin(v.replace(/\D/g, ''))}
               placeholder="Repeat your PIN"

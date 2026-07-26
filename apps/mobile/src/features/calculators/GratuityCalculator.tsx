@@ -53,9 +53,8 @@ export function GratuityCalculator() {
           />
 
           {!result.eligible && (
-            <Banner variant="warning">
-              Below the 5-year minimum. Gratuity is normally payable only after 5 years of continuous service. This
-              figure is indicative.
+            <Banner variant="warning" title="Below the 5-year minimum">
+              Gratuity is normally payable only after 5 years of continuous service. This figure is indicative.
             </Banner>
           )}
 

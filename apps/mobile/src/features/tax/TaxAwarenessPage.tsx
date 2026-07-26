@@ -85,6 +85,7 @@ export function TaxAwarenessPage() {
               {taxNotes.map((note, i) => (
                 <Text key={note}>
                   {i > 0 ? '\n' : ''}
+                  {'• '}
                   {note}
                 </Text>
               ))}

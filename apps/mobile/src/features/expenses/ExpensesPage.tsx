@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRoute } from '@react-navigation/native';
 import { TabStrip, Modal } from '~/components/ui';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { useSettings } from '~/context/SettingsContext';
@@ -25,11 +26,14 @@ type ExpensesTab = 'transactions' | 'subscriptions' | 'iou' | 'analytics';
 /**
  * RN port of apps/web-legacy/src/features/expenses/ExpensesPage.tsx. Groups is now ported — this
  * restores web's `useGroupContext`-derived `shareGroups`/`handleShareToGroup`/`handleShareLater`/
- * `familyGroupIds`, previously dropped here. Web's deep-link-initial-tab (`location.state`) is still
- * dropped — no real nav stack exists yet, same reasoning as every dropped cross-module navigation call
- * elsewhere in this migration.
+ * `familyGroupIds`, previously dropped here. Web's deep-link-initial-tab (`location.state.tab`) is now
+ * restored too via `useRoute().params.initialTab` — `GlanceHeader`'s "Owed to others" tap now lands
+ * directly on the IOU tab instead of always defaulting to Transactions (found missing via the
+ * 2026-07-25 parity sweep).
  */
 export function ExpensesPage() {
+  const route = useRoute();
+  const initialTab = (route.params as { initialTab?: ExpensesTab } | undefined)?.initialTab;
   const modeBg = useModeBackgroundColor();
   const { shouldMask } = usePrivacy();
   const { safeModeVisibility } = useSettings();
@@ -71,7 +75,7 @@ export function ExpensesPage() {
     createParentWithChildren
   } = useExpenses();
 
-  const [activeTab, setActiveTab] = useState<ExpensesTab>('transactions');
+  const [activeTab, setActiveTab] = useState<ExpensesTab>(initialTab ?? 'transactions');
   const [showBudgets, setShowBudgets] = useState(false);
   const txnFilters = useTransactionFilters(expenses, categoryMap);
 

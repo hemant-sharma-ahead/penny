@@ -17,10 +17,14 @@ interface PersonPickerProps {
 }
 
 /**
- * Type-ahead over existing persons with a "Create '<typed>'" affordance. RN port note: web renders the
- * suggestion list as a DOM-positioned `absolute` overlay; RN has no equivalent (same reasoning as
- * `SelectInput`'s port note), so this renders the suggestions inline, in normal document flow, below the
- * field — pushes the rest of the (scrollable) form down instead of floating over it.
+ * Type-ahead over existing persons with a "Create '<typed>'" affordance. Web renders the suggestion list
+ * as a DOM-positioned `absolute` overlay; the suggestions here render the same way — `position:
+ * 'absolute'` anchored below the field, with `elevation` for Android's stacking-context equivalent of
+ * z-index — instead of the earlier approach of rendering inline in normal document flow, which pushed
+ * the rest of the (scrollable) form down (found via the 2026-07-25 parity sweep). Unlike `SelectInput`
+ * (a fixed option list, rebuilt on the shared centered `Modal`), this is a live type-ahead search with a
+ * "Create" affordance tightly coupled to the text field itself, so an overlay anchored to the field reads
+ * more naturally here than a full-screen modal.
  */
 export function PersonPicker({
   persons,
@@ -45,45 +49,50 @@ export function PersonPicker({
 
   return (
     <FormField label={label} required>
-      <RNTextInput
-        value={query}
-        autoFocus={autoFocus}
-        placeholder="Type a name…"
-        placeholderTextColor={theme.textTertiary}
-        onChangeText={onQueryChange}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setTimeout(() => setFocused(false), 120)}
-        className="bg-surface-2 text-primary border w-full rounded-xl px-3 py-2.5 text-sm"
-        style={{ borderColor: theme.border }}
-      />
-      {showList && (
-        <View className="mt-1 bg-surface border border-theme rounded-xl overflow-hidden">
-          {matches.map((p) => (
-            <Pressable
-              key={p.id}
-              onPress={() => {
-                onSelect(p);
-                setFocused(false);
-              }}
-              className="px-3 py-2 border-b border-theme"
-            >
-              <Text className="text-sm text-primary">{p.name}</Text>
-            </Pressable>
-          ))}
-          {showCreate && (
-            <Pressable
-              onPress={() => {
-                onQueryChange(query.trim());
-                setFocused(false);
-              }}
-              className="flex-row items-center gap-1.5 px-3 py-2"
-            >
-              <Icon name="ti-plus" size={14} color={theme.textPrimary} />
-              <Text className="text-sm text-primary">Create "{query.trim()}"</Text>
-            </Pressable>
-          )}
-        </View>
-      )}
+      <View style={{ position: 'relative', zIndex: showList ? 50 : undefined }}>
+        <RNTextInput
+          value={query}
+          autoFocus={autoFocus}
+          placeholder="Type a name…"
+          placeholderTextColor={theme.textTertiary}
+          onChangeText={onQueryChange}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setTimeout(() => setFocused(false), 120)}
+          className="bg-surface-2 text-primary border w-full rounded-xl px-3 py-2.5 text-sm"
+          style={{ borderColor: theme.border }}
+        />
+        {showList && (
+          <View
+            className="bg-surface border border-theme rounded-xl overflow-hidden"
+            style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, elevation: 6, zIndex: 50 }}
+          >
+            {matches.map((p) => (
+              <Pressable
+                key={p.id}
+                onPress={() => {
+                  onSelect(p);
+                  setFocused(false);
+                }}
+                className="px-3 py-2 border-b border-theme"
+              >
+                <Text className="text-sm text-primary">{p.name}</Text>
+              </Pressable>
+            ))}
+            {showCreate && (
+              <Pressable
+                onPress={() => {
+                  onQueryChange(query.trim());
+                  setFocused(false);
+                }}
+                className="flex-row items-center gap-1.5 px-3 py-2"
+              >
+                <Icon name="ti-plus" size={14} color={theme.textPrimary} />
+                <Text className="text-sm text-primary">Create "{query.trim()}"</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+      </View>
     </FormField>
   );
 }

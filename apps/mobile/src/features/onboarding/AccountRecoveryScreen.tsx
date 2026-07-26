@@ -17,6 +17,7 @@ import { isValidUsername } from '@/core/profile/username';
 import { Button, TextInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { tint } from '~/lib/color';
 import { setItem } from '~/lib/storage';
 import { notifyAuthShouldRecheck } from '~/navigation/authRecheckBus';
 import type { OnboardingStackParamList } from '~/navigation/OnboardingNavigator';
@@ -227,7 +228,10 @@ function RestoreTab() {
       </View>
 
       {error && <Text className="text-danger text-sm mt-4 text-center">{error}</Text>}
-      <View className="mt-4 flex-row items-start gap-2 bg-surface-2 rounded-xl px-3 py-2.5">
+      <View
+        className="mt-4 flex-row items-start gap-2 rounded-xl px-3 py-2.5"
+        style={{ backgroundColor: tint(theme.info, 12) }}
+      >
         <Icon name="ti-info-circle" size={14} color={theme.info} />
         <Text className="text-xs text-secondary flex-1">
           Restores your profile, data, groups &amp; handle. If your handle was taken while you were away, we'll ask you
@@ -239,6 +243,7 @@ function RestoreTab() {
 }
 
 function ReclaimTab() {
+  const theme = useThemeColors();
   const [username, setUsername] = useState('');
   const [passphrase, setPassphrase] = useState('');
   const [pin, setPin] = useState('');
@@ -309,6 +314,7 @@ function ReclaimTab() {
         secureTextEntry
         keyboardType="numeric"
         maxLength={6}
+        inputClassName="text-center tracking-widest text-lg"
         value={pin}
         onChange={(v) => setPin(v.replace(/\D/g, ''))}
         placeholder="Quick unlock on this device"
@@ -319,6 +325,7 @@ function ReclaimTab() {
         secureTextEntry
         keyboardType="numeric"
         maxLength={6}
+        inputClassName="text-center tracking-widest text-lg"
         value={confirmPin}
         onChange={(v) => setConfirmPin(v.replace(/\D/g, ''))}
         placeholder="Repeat your PIN"
@@ -337,8 +344,11 @@ function ReclaimTab() {
       >
         {busy ? 'Reclaiming…' : 'Reclaim account'}
       </Button>
-      <View className="flex-row items-start gap-2 bg-surface-2 rounded-xl px-3 py-2.5">
-        <Icon name="ti-alert-triangle" size={14} color="#d97706" />
+      <View
+        className="flex-row items-start gap-2 rounded-xl px-3 py-2.5"
+        style={{ backgroundColor: tint(theme.warning, 12) }}
+      >
+        <Icon name="ti-alert-triangle" size={14} color={theme.warning} />
         <Text className="text-xs text-secondary flex-1">
           Handle &amp; groups come back. Personal data &amp; group history need a backup or a re-share from a member.
         </Text>

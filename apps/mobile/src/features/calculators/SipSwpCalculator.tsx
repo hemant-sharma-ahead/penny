@@ -139,8 +139,10 @@ export function SipSwpCalculator() {
           {result.hasSwp && (
             <>
               {/* Outcome banner */}
-              <Banner variant={result.corpusDepleted ? 'danger' : 'success'}>
-                {result.corpusDepleted ? 'Corpus runs out early. ' : 'Corpus lasts the full period. '}
+              <Banner
+                variant={result.corpusDepleted ? 'danger' : 'success'}
+                title={result.corpusDepleted ? 'Corpus runs out early' : 'Corpus lasts the full period'}
+              >
                 {result.corpusDepleted && result.monthsCorpusLasted != null
                   ? `Your money lasts about ${lastedLabel(result.monthsCorpusLasted)} into a ${swpYears}-year plan. Trim withdrawals, raise returns, or invest longer.`
                   : `After ${swpYears} years of withdrawals you still have a balance left.`}

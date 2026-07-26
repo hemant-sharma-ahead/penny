@@ -3,7 +3,7 @@ import { View, Text } from 'react-native';
 import type { Account, Expense, LedgerEntry, LedgerKind, Person } from '@/core/db/types';
 import { epochToDateInput } from '@/lib/formatters';
 import { dateInputToEpoch } from '@/lib/date';
-import { TextInput, OptionButton, AmountInput, SelectInput, Toggle } from '~/components/ui';
+import { TextInput, OptionButton, AmountInput, SelectInput, Toggle, DateInput } from '~/components/ui';
 import { FormModal } from '~/components/shared';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { PersonPicker } from './PersonPicker';
@@ -174,10 +174,10 @@ export function EntryForm({
 
       <View className="flex-row gap-3">
         <View className="flex-1">
-          <TextInput label="Date (YYYY-MM-DD)" value={date} onChange={setDate} />
+          <DateInput label="Date" value={date} onChange={setDate} />
         </View>
         <View className="flex-1">
-          <TextInput label="Due date (optional)" value={dueDate} onChange={setDueDate} />
+          <DateInput label="Due date (optional)" value={dueDate} onChange={setDueDate} />
         </View>
       </View>
 

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Text } from 'react-native';
 import type { Goal, GoalRisk } from '@/core/db/types';
 import { epochToDateInput } from '@/lib/formatters';
-import { TextInput, OptionButton, AmountInput } from '~/components/ui';
+import { TextInput, OptionButton, AmountInput, DateInput } from '~/components/ui';
 import { FormModal } from '~/components/shared';
 
 interface Props {
@@ -77,7 +77,7 @@ export function GoalForm({ editing, onSave, onDelete, onClose }: Props) {
 
       <AmountInput label="Already saved" value={currentAmount} onChange={setCurrentAmount} placeholder="0" />
 
-      <TextInput label="Target date (YYYY-MM-DD)" value={targetDate} onChange={setTargetDate} />
+      <DateInput label="Target date" value={targetDate} onChange={setTargetDate} />
 
       <View>
         <Text className="text-xs font-medium text-secondary">Investment approach</Text>

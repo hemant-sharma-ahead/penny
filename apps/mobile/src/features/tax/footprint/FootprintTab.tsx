@@ -267,10 +267,10 @@ export function FootprintTab({ data }: { data: FootprintData }) {
       {/* Disclaimer */}
       <View className="rounded-xl p-3 bg-surface-2 border border-theme">
         <Text className="text-[10px] leading-relaxed text-tertiary">
-          Note: A planning estimate, not a tax filing. Gross is derived from logged income (editable); EPF defaults to
-          12% of a 50%-basic; direct tax assumes the recommended regime and the deductions on the Deductions tab;
-          indirect tax is inferred from spending; capital-gains tax is on unrealised gains.{' '}
-          {directOverridden ? 'Income tax uses your manual correction. ' : ''}Consult a CA for precise figures.
+          <Text className="font-bold">Note:</Text> A planning estimate, not a tax filing. Gross is derived from logged
+          income (editable); EPF defaults to 12% of a 50%-basic; direct tax assumes the recommended regime and the
+          deductions on the Deductions tab; indirect tax is inferred from spending; capital-gains tax is on unrealised
+          gains. {directOverridden ? 'Income tax uses your manual correction. ' : ''}Consult a CA for precise figures.
         </Text>
       </View>
     </>

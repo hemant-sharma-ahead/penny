@@ -1,5 +1,5 @@
 import { View, Text } from 'react-native';
-import { TextInput, AmountInput } from '~/components/ui';
+import { TextInput, AmountInput, DateInput } from '~/components/ui';
 
 interface EpfFieldsProps {
   epfUan: string;
@@ -68,12 +68,7 @@ export function EpfFields({
           />
         </View>
         <View className="flex-1">
-          <TextInput
-            label="Joining date (YYYY-MM-DD)"
-            value={epfJoiningDate}
-            onChange={setEpfJoiningDate}
-            placeholder="e.g. 2020-04-01"
-          />
+          <DateInput label="Joining date" value={epfJoiningDate} onChange={setEpfJoiningDate} />
         </View>
       </View>
       <Text className="text-[11px] text-tertiary">

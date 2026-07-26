@@ -2,21 +2,27 @@ import { View, Text } from 'react-native';
 import type { MoodSummary } from '@/core/sentiment';
 import { tint } from '~/lib/color';
 import { Icon } from '~/components/Icon';
-
-const SKEW_META: Record<MoodSummary['skew'], { color: string; icon: string }> = {
-  positive: { color: '#10b981', icon: 'ti-trending-up' },
-  negative: { color: '#ef4444', icon: 'ti-trending-down' },
-  mixed: { color: '#f59e0b', icon: 'ti-arrows-up-down' },
-  quiet: { color: '#94a3b8', icon: 'ti-minus' }
-};
+import { useThemeColors } from '~/theme/useThemeColors';
 
 /**
  * RN port of apps/web-legacy/src/features/news/NewsMoodGauge.tsx. "Today's news mood" — a full-bleed
  * banner fixed under the page header (not part of the scrolling feed). Descriptive only — how the
  * current headlines skew (positive/negative/mixed) — NOT a market forecast or investment advice. The
  * disclaimer below is mandatory and must stay persistent (not hidden behind a tap).
+ *
+ * Colors read from `theme.success`/`theme.danger`/`theme.warning`/`theme.neutral` — web's own
+ * `STATUS.*` theme-token references, previously hardcoded to unrelated hex literals here — the same
+ * "literal CSS-var-string" bug class already fixed elsewhere in the app, found via the 2026-07-25 parity
+ * sweep (which flagged the wrong "neutral" hex specifically; the other three were the same root cause).
  */
 export function NewsMoodGauge({ mood }: { mood: MoodSummary }) {
+  const theme = useThemeColors();
+  const SKEW_META: Record<MoodSummary['skew'], { color: string; icon: string }> = {
+    positive: { color: theme.success, icon: 'ti-trending-up' },
+    negative: { color: theme.danger, icon: 'ti-trending-down' },
+    mixed: { color: theme.warning, icon: 'ti-arrows-up-down' },
+    quiet: { color: theme.neutral, icon: 'ti-minus' }
+  };
   const { color, icon } = SKEW_META[mood.skew];
   const { positive, negative, neutral, total } = mood;
 
@@ -45,9 +51,9 @@ export function NewsMoodGauge({ mood }: { mood: MoodSummary }) {
 
         {total > 0 && (
           <View className="flex-row h-1.5 w-11 rounded-full overflow-hidden">
-            <View style={{ width: `${pct(positive)}%`, backgroundColor: '#10b981' }} />
-            <View style={{ width: `${pct(neutral)}%`, backgroundColor: '#94a3b8' }} />
-            <View style={{ width: `${pct(negative)}%`, backgroundColor: '#ef4444' }} />
+            <View style={{ width: `${pct(positive)}%`, backgroundColor: theme.success }} />
+            <View style={{ width: `${pct(neutral)}%`, backgroundColor: theme.neutral }} />
+            <View style={{ width: `${pct(negative)}%`, backgroundColor: theme.danger }} />
           </View>
         )}
 

@@ -3,7 +3,7 @@ import { View, Text, ScrollView } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Button, TextInput, OptionButton } from '~/components/ui';
+import { Button, TextInput, DateInput, OptionButton } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { EMPLOYMENT_OPTIONS } from '@/core/profile/employment';
@@ -139,12 +139,12 @@ export function LetUsKnowYouScreen() {
             </View>
 
             <View>
-              <TextInput
+              <DateInput
                 label="Date of birth"
                 required
                 value={dob}
                 onChange={(v) => setDraft({ dob: v })}
-                placeholder="YYYY-MM-DD"
+                maximumDate={new Date()}
                 error={dob && !dobValid ? 'Enter a valid date of birth' : undefined}
               />
               <Text className="text-[11px] text-tertiary mt-1 leading-relaxed">

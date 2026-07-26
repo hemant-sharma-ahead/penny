@@ -80,8 +80,8 @@ export function CapitalGainsCalculator() {
           <Banner
             variant={result.isLongTerm ? 'success' : 'warning'}
             icon={result.isLongTerm ? 'ti-clock-check' : 'ti-clock-bolt'}
+            title={result.isLongTerm ? 'Long-term capital gain (LTCG)' : 'Short-term capital gain (STCG)'}
           >
-            {result.isLongTerm ? 'Long-term capital gain (LTCG). ' : 'Short-term capital gain (STCG). '}
             {asset === 'debt'
               ? 'Debt gains are taxed at your slab rate regardless of holding period.'
               : `Long-term needs ${result.ltThresholdMonths} months held for this asset.`}

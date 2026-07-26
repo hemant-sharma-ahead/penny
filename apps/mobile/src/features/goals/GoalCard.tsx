@@ -43,7 +43,9 @@ export function GoalCard({ goal, masked, onEdit, onContribute }: GoalCardProps) 
               <Text className="text-sm font-semibold text-primary" numberOfLines={1}>
                 {goal.name}
               </Text>
-              {goal.source === 'suggested' && <Badge label="Suggested" color={theme.primary} size="sm" />}
+              {goal.source === 'suggested' && (
+                <Badge label="Suggested" icon="ti-sparkles" color={theme.primary} size="sm" />
+              )}
             </View>
             <Button
               variant="ghost"
@@ -58,7 +60,7 @@ export function GoalCard({ goal, masked, onEdit, onContribute }: GoalCardProps) 
             {masked ? '••••' : formatCurrency(goal.targetAmount)}
           </Text>
           <View className="flex-row items-center gap-2 mt-1.5 flex-wrap">
-            <Badge label={goal.risk} color={color} variant="solid" size="sm" />
+            <Badge label={goal.risk} color={color} variant="solid" size="sm" capitalize />
             <Text className="text-[10px] text-tertiary">
               {months > 0 ? `${months}mo left` : 'Due'} · {formatDate(goal.targetDate)}
             </Text>

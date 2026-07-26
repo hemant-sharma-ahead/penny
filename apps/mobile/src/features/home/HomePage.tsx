@@ -42,7 +42,7 @@ export function HomePage() {
   const firstName = profile?.displayName?.trim().split(/\s+/)[0];
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
+    <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 96 }}>
         <View className="px-4 pt-3 pb-6">
           <Text className="text-xl font-semibold text-primary mb-3">

@@ -1,9 +1,19 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { View, Text, Pressable, Image, ScrollView, ActivityIndicator, TextInput as RNTextInput } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  Image,
+  ScrollView,
+  ActivityIndicator,
+  Platform,
+  TextInput as RNTextInput
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Button, PageHeader, Banner, LifeRow, OptionalSeg } from '~/components/ui';
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import { Button, PageHeader, Banner, LifeRow, OptionalSeg, Modal } from '~/components/ui';
 import { BackButton } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -14,7 +24,7 @@ import type { EmploymentType, GoalRisk, Profile } from '@/core/db/types';
 import { EMPLOYMENT_OPTIONS } from '@/core/profile/employment';
 import { isValidUsername } from '@/core/profile/username';
 import { hasEntitlement } from '@/core/entitlement/entitlement';
-import { deriveAge, deriveAgeBand } from '@/lib/date';
+import { deriveAge, deriveAgeBand, formatDate } from '@/lib/date';
 import { pickReceiptPhoto } from '~/lib/receiptImage';
 import { checkUsername, claimAccount, UsernameTakenError } from '@/core/identity/claim';
 import { getBackupTarget } from '@/core/sync/backupPrefs';
@@ -33,9 +43,11 @@ import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
  *   now hydrated from/written through to AsyncStorage since Backup & Restore was ported (see that
  *   file's own comment). Not anticipated in the original plan.
  * - `grid-cols-5` employment picker → `flex-row flex-wrap`, established Track 4 pattern.
- * - Web's native `<input type="date">` DOB field becomes a plain digit-entry `YYYY-MM-DD` text field —
- *   no RN native date-picker dependency has been introduced anywhere in this migration yet; a real
- *   calendar picker is a UI-polish follow-up, not blocking this port.
+ * - Web's native `<input type="date">` DOB field is now a real native date picker
+ *   (`@react-native-community/datetimepicker`) instead of a hand-typed `YYYY-MM-DD` text field, closing
+ *   the systemic no-date-picker gap found via the 2026-07-25 parity sweep. Inline within this row-style
+ *   `Field` (not the shared `DateInput`, which renders its own bordered box) to preserve the plain-text
+ *   list-row look every other field in this screen has.
  */
 export function ProfilePage() {
   const modeBg = useModeBackgroundColor();
@@ -118,6 +130,8 @@ function ProfileEditor({ profile }: { profile: Profile }) {
   const [handleBusy, setHandleBusy] = useState(false);
   const [handleError, setHandleError] = useState<string | undefined>();
   const [pickingPhoto, setPickingPhoto] = useState(false);
+  const [dobPickerOpen, setDobPickerOpen] = useState(false);
+  const [dobDraft, setDobDraft] = useState(() => (dob ? new Date(`${dob}T00:00:00`) : new Date()));
 
   const age = dob ? deriveAge(dob) : null;
   const dobValid = dob === '' || (age !== null && age >= 13 && age <= 120);
@@ -125,6 +139,27 @@ function ProfileEditor({ profile }: { profile: Profile }) {
   const usernameValid = username === '' || isValidUsername(username);
   const canSave = fullName.trim().length > 0 && dobValid && usernameValid && !saving;
   const planLabel = profile.plan && profile.plan !== 'free' ? profile.plan : 'Free plan';
+
+  function toDobKey(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  function openDobPicker() {
+    const initial = dob ? new Date(`${dob}T00:00:00`) : new Date();
+    if (Platform.OS === 'android') {
+      DateTimePickerAndroid.open({
+        value: initial,
+        mode: 'date',
+        maximumDate: new Date(),
+        onChange: (event, selected) => {
+          if (event.type === 'set' && selected) edited(setDob)(toDobKey(selected));
+        }
+      });
+    } else {
+      setDobDraft(initial);
+      setDobPickerOpen(true);
+    }
+  }
 
   function edited<T>(setter: (v: T) => void) {
     return (v: T) => {
@@ -335,16 +370,14 @@ function ProfileEditor({ profile }: { profile: Profile }) {
               ) : undefined
             }
           >
-            <RNTextInput
-              className="text-[15px] p-0"
-              style={{ color: theme.textPrimary }}
-              value={dob}
-              onChangeText={(v) => edited(setDob)(v)}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={theme.textTertiary}
-              keyboardType="numbers-and-punctuation"
-              maxLength={10}
-            />
+            <Pressable onPress={openDobPicker}>
+              <Text
+                className={`text-[15px] ${dob ? '' : 'text-tertiary'}`}
+                style={dob ? { color: theme.textPrimary } : undefined}
+              >
+                {dob ? formatDate(new Date(`${dob}T00:00:00`).getTime()) : 'Select date of birth'}
+              </Text>
+            </Pressable>
           </Field>
         </Card>
         {dob !== '' && !dobValid && (
@@ -355,6 +388,30 @@ function ProfileEditor({ profile }: { profile: Profile }) {
         <Text className="text-[11px] text-tertiary mt-1.5 px-1">
           Personalises FIRE, retirement &amp; tax context. Only a 5-year age band is shared with Chip.
         </Text>
+
+        {dobPickerOpen && (
+          <Modal onClose={() => setDobPickerOpen(false)} title="Date of birth" size="sm">
+            <View className="items-center">
+              <DateTimePicker
+                value={dobDraft}
+                mode="date"
+                display="spinner"
+                maximumDate={new Date()}
+                onChange={(_, selected) => selected && setDobDraft(selected)}
+              />
+            </View>
+            <Button
+              fullWidth
+              className="mt-3"
+              onPress={() => {
+                edited(setDob)(toDobKey(dobDraft));
+                setDobPickerOpen(false);
+              }}
+            >
+              Done
+            </Button>
+          </Modal>
+        )}
 
         {/* Sharing / account */}
         <SectionLabel>{syncOn ? 'Sharing & account' : 'Sharing'}</SectionLabel>
@@ -387,9 +444,12 @@ function ProfileEditor({ profile }: { profile: Profile }) {
                 availability === 'checking' ? (
                   <Text className="text-[10.5px] text-tertiary">Checking…</Text>
                 ) : availability === 'available' ? (
-                  <Text className="text-[10.5px] font-bold" style={{ color: theme.success }}>
-                    Available
-                  </Text>
+                  <View className="flex-row items-center gap-1">
+                    <Icon name="ti-check" size={11} color={theme.success} />
+                    <Text className="text-[10.5px] font-bold" style={{ color: theme.success }}>
+                      Available
+                    </Text>
+                  </View>
                 ) : availability === 'taken' ? (
                   <Text className="text-[10.5px] font-bold" style={{ color: theme.danger }}>
                     Taken

@@ -1,5 +1,6 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MainTabs } from './MainTabs';
 import { OnboardingNavigator } from './OnboardingNavigator';
 import { Icon } from '../components/Icon';
@@ -108,6 +109,7 @@ export function MainNavigator() {
   const theme = useThemeColors();
   const { activePalette } = useTheme();
   const { mode } = usePrivacy();
+  const insets = useSafeAreaInsets();
   // Privacy-mode header/background tint, layered on top of the light/pennyBlue/dark theme — RN port of
   // web's `[data-privacy-mode=...]` CSS overrides (`--color-mode-accent`/`--color-mode-header-bg`/
   // `--color-mode-bg`, see apps/web-legacy/src/index.css and AppShell.tsx's header). Missing entirely
@@ -119,11 +121,20 @@ export function MainNavigator() {
       screenOptions={{
         // `headerStyle` only supports `backgroundColor` on native-stack (no border props) — the 2px
         // accent bottom border web's header has needs `headerBackground` instead, a custom render
-        // function placed behind the header content.
+        // function placed behind the header content. Expo's mandatory Android edge-to-edge (content
+        // draws behind the system status bar) meant this `View`, sized to just the header row, left the
+        // raw black window background showing through above it — found via on-device screenshot review,
+        // 2026-07-25. Extending `top` upward by the safe-area inset stretches the themed fill (and the
+        // accent border, still anchored to the header's true bottom) all the way to the physical top of
+        // the screen, under the status bar icons.
         headerBackground: () => (
           <View
             style={{
-              flex: 1,
+              position: 'absolute',
+              top: -insets.top,
+              left: 0,
+              right: 0,
+              bottom: 0,
               backgroundColor: modeColors.headerBg,
               borderBottomWidth: 2,
               borderBottomColor: modeColors.accent

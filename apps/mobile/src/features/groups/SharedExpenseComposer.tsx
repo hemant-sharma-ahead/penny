@@ -267,9 +267,12 @@ export function SharedExpenseComposer({
               ))}
               <View className="border-t border-theme mt-1 pt-1.5 items-center">
                 {split.valid ? (
-                  <Text className="text-[11px] font-medium" style={{ color: theme.success }}>
-                    Reconciles to {formatCurrency(total)}
-                  </Text>
+                  <View className="flex-row items-center gap-1">
+                    <Icon name="ti-circle-check" size={12} color={theme.success} />
+                    <Text className="text-[11px] font-medium" style={{ color: theme.success }}>
+                      Reconciles to {formatCurrency(total)}
+                    </Text>
+                  </View>
                 ) : (
                   <Text className="text-[11px] font-medium" style={{ color: theme.danger }}>
                     {split.reason ?? 'Split does not add up'}

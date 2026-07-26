@@ -115,9 +115,13 @@ function ThemePreview({ theme }: { theme: ThemePreference }) {
 // excluded — it can never be a persisted default, only a temporary elevation (see PrivacyContext).
 function usePrivacyModes(): { mode: PersistedPrivacyMode; label: string; icon: string; color: string }[] {
   const theme = useThemeColors();
+  // Same colors `~/components/privacy/PrivacyModeSwitcher.tsx`'s own `MODE` record uses (its header
+  // switcher amber/violet/red) — these two previously used unrelated colors (`textSecondary`/`danger`),
+  // a mismatch found via the 2026-07-25 parity sweep. `theme.privacy` is real now too (added the same
+  // sweep, see tokens.ts) — no more `theme.info` standing in for violet.
   return [
-    { mode: 'safe', label: 'Safe', icon: 'ti-eye-off', color: theme.textSecondary },
-    { mode: 'privacy', label: 'Private', icon: 'ti-shield-lock', color: theme.danger }
+    { mode: 'safe', label: 'Safe', icon: 'ti-eye-off', color: theme.warning },
+    { mode: 'privacy', label: 'Private', icon: 'ti-shield-lock', color: theme.privacy }
   ];
 }
 

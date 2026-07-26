@@ -11,6 +11,15 @@ import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';
 import type { HomeSummary, AssetGroup } from './useHome';
 
+function assetSubTab(ac: string): string {
+  if (ac === 'nps' || ac === 'ppf' || ac === 'epf') return 'retirement';
+  if (ac === 'gold') return 'precious_metals';
+  if (ac === 'vehicle' || ac === 'property' || ac === 'other') return 'real_assets';
+  if (ac === 'fd') return 'fixed_income';
+  if (ac === 'stock') return 'stocks';
+  return ac;
+}
+
 const LIABILITY_META: Record<string, { label: string; icon: string }> = {
   home_loan: { label: 'Home Loan', icon: 'ti-home' },
   car_loan: { label: 'Car Loan', icon: 'ti-car' },
@@ -36,10 +45,10 @@ interface Props {
 /** Light, minimal Home header: the two numbers that matter most (net worth + safe-to-spend),
  *  a slim asset bar, and a tap-through to the full breakdown. Breakdown rows navigate to the matching
  *  module's real route (Accounts/Expenses/Portfolio/Loans), same mapping as web's `GlanceHeader` —
- *  web's `assetSubTab`/`{ state: { tab: 'iou' } }` deep-link hints are dropped since neither
- *  `PortfolioPage` nor `ExpensesPage` accepts an initial-sub-tab param yet (flagged, not faked; both
- *  pages land on their default tab instead). "Safe to spend" navigates to the real `CashFlow` screen
- *  (restored once that module was ported — see `~/features/cashflow/CashFlowPage.tsx`). */
+ *  web's `assetSubTab`/`{ state: { tab: 'iou' } }` deep-link hints are now restored too (found missing
+ *  via the 2026-07-25 parity sweep): `PortfolioPage`/`ExpensesPage` both read an initial sub-tab param
+ *  off `useRoute()` now. "Safe to spend" navigates to the real `CashFlow` screen (restored once that
+ *  module was ported — see `~/features/cashflow/CashFlowPage.tsx`). */
 export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabilities }: Props) {
   const { shouldMask } = usePrivacy();
   const theme = useThemeColors();
@@ -52,8 +61,8 @@ export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabiliti
 
   const goToAsset = (ac: string) => {
     if (ac === 'liquid') navigation.navigate('Accounts');
-    else if (ac === 'iou') navigation.navigate('Expenses');
-    else navigation.navigate('Portfolio');
+    else if (ac === 'iou') navigation.navigate('Expenses', { initialTab: 'iou' });
+    else navigation.navigate('Portfolio', { holdingsSubTab: assetSubTab(ac) });
   };
 
   const safe = Math.max(0, forecast.discretionary);
@@ -171,7 +180,7 @@ export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabiliti
                 <View>
                   {summary.netIou < 0 && (
                     <Pressable
-                      onPress={() => navigation.navigate('Expenses')}
+                      onPress={() => navigation.navigate('Expenses', { initialTab: 'iou' })}
                       className="w-full flex-row items-center gap-3 py-2"
                     >
                       <IconBadge icon="ti-users" color={theme.danger} bg={tint(theme.danger, 12)} size="sm" />

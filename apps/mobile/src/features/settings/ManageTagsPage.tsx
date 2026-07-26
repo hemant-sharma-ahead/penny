@@ -48,7 +48,7 @@ export function ManageTagsPage() {
               once, when a tag is first created.
             </Text>
             {showInfo && (
-              <View className="rounded-xl bg-surface-2 px-3.5 py-3 mb-3">
+              <View className="rounded-xl bg-surface-3 px-3.5 py-3 mb-3">
                 <Text className="text-xs text-secondary leading-relaxed">
                   Transactions tagged with a "Set aside" tag don't count toward your daily living total or health score
                   — use it for money spent on someone else's behalf, gifts, or anything that shouldn't skew your

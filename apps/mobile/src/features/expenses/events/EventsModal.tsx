@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { epochToDateInput } from '@/lib/formatters';
 import { daysBetween } from '@/lib/date';
-import { Modal, Button, TextInput, Card, Banner } from '~/components/ui';
+import { Modal, Button, TextInput, DateInput, Card, Banner } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useEventMode, EVENT_COLORS, toEventHashtag, normalizeHashtag } from '~/context/EventModeContext';
 import type { ActiveEvent, EventSubtype } from '~/context/EventModeContext';
@@ -146,8 +146,8 @@ export function EventsModal({ onClose, linkedCountByEventHashtag, nowMs, onReque
 
           <View className="flex-row gap-3">
             <View className="flex-1">
-              <TextInput
-                label="Start date (YYYY-MM-DD)"
+              <DateInput
+                label="Start date"
                 value={newEventStartDate}
                 onChange={(val) => {
                   setNewEventStartDate(val);
@@ -156,8 +156,8 @@ export function EventsModal({ onClose, linkedCountByEventHashtag, nowMs, onReque
               />
             </View>
             <View className="flex-1">
-              <TextInput
-                label="End date (YYYY-MM-DD)"
+              <DateInput
+                label="End date"
                 value={newEventEndDate}
                 disabled={newEventType === 'background'}
                 onChange={setNewEventEndDate}
@@ -231,8 +231,8 @@ export function EventsModal({ onClose, linkedCountByEventHashtag, nowMs, onReque
                 </View>
                 <View className="flex-row gap-3">
                   <View className="flex-1">
-                    <TextInput
-                      label="Start date (YYYY-MM-DD)"
+                    <DateInput
+                      label="Start date"
                       value={editEventStartDate}
                       onChange={(val) => {
                         setEditEventStartDate(val);
@@ -241,8 +241,8 @@ export function EventsModal({ onClose, linkedCountByEventHashtag, nowMs, onReque
                     />
                   </View>
                   <View className="flex-1">
-                    <TextInput
-                      label="End date (YYYY-MM-DD)"
+                    <DateInput
+                      label="End date"
                       value={editEventEndDate}
                       disabled={ev.subtype === 'background'}
                       onChange={setEditEventEndDate}
@@ -376,12 +376,7 @@ export function EventsModal({ onClose, linkedCountByEventHashtag, nowMs, onReque
                     </Banner>
                     {isVacation && (
                       <View>
-                        <TextInput
-                          label="New end date (YYYY-MM-DD)"
-                          value={reactivateEndDate}
-                          onChange={setReactivateEndDate}
-                          autoFocus
-                        />
+                        <DateInput label="New end date" value={reactivateEndDate} onChange={setReactivateEndDate} />
                       </View>
                     )}
                     <View className="flex-row gap-2">

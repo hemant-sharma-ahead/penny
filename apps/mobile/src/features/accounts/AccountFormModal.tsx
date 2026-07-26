@@ -26,6 +26,7 @@ export function AccountFormModal({ form, saving }: AccountFormModalProps) {
       onClose={form.close}
       onSave={form.save}
       saving={saving}
+      saveDisabled={!state.name.trim()}
       saveLabel={editing ? 'Save changes' : 'Add account'}
     >
       <View className="flex-row flex-wrap gap-2">
