@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, Pressable, ScrollView, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SearchInput, DismissibleChip, Button, Modal, SelectInput, ConfirmDialog } from '~/components/ui';
@@ -157,14 +157,14 @@ export function TransactionsSlice({
     [categories]
   );
 
-  function toggleSelect(id: string) {
+  const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  }
+  }, []);
 
   function enterSelect() {
     setShowDial(false);
@@ -214,22 +214,25 @@ export function TransactionsSlice({
   }
 
   /** Open Add prefilled from a duplicate or a saved template. */
-  function openPrefilled(p: Partial<Expense>) {
+  const openPrefilled = useCallback((p: Partial<Expense>) => {
     setEditingExpense(null);
     setPrefill(p);
     setInitialTransactionType(p.type ?? 'expense');
     setShowDial(false);
     setShowForm(true);
-  }
+  }, []);
 
-  function handleDuplicate(e: Expense) {
-    const { id: _id, createdAt: _c, updatedAt: _u, date: _d, ...rest } = e;
-    void _id;
-    void _c;
-    void _u;
-    void _d;
-    openPrefilled(rest);
-  }
+  const handleDuplicate = useCallback(
+    (e: Expense) => {
+      const { id: _id, createdAt: _c, updatedAt: _u, date: _d, ...rest } = e;
+      void _id;
+      void _c;
+      void _u;
+      void _d;
+      openPrefilled(rest);
+    },
+    [openPrefilled]
+  );
 
   function applyTemplate(t: TransactionTemplate) {
     openPrefilled({
@@ -242,11 +245,11 @@ export function TransactionsSlice({
     });
   }
 
-  function openEdit(expense: Expense) {
+  const openEdit = useCallback((expense: Expense) => {
     setPrefill(null);
     setEditingExpense(expense);
     setShowForm(true);
-  }
+  }, []);
 
   function closeForm() {
     setShowForm(false);

@@ -15,7 +15,11 @@ import { IG_BASE } from '@/core/net/apiBase';
 const IPO_API_YEAR = '2026';
 const IPO_API_FY = '2026-27';
 
-const BASE_URL = `${IG_BASE}/cloud/report/data-read`;
+// investorgain rebuilt their site (Next.js/Turbopack) at some point after this was first wired up, and
+// retired `cloud/report/data-read`/`cloud/ipo/ipo-subscription-read` in favor of `cloud/v2/...` — same
+// response shape, just a version-prefixed path. Found via a user report of "API not found" and confirmed
+// by pulling investorgain's own rebuilt frontend bundle and grepping it for the new call sites.
+const BASE_URL = `${IG_BASE}/cloud/v2/report/data-read`;
 const CACHE_KEY = 'penny_ipo_cache';
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
@@ -133,7 +137,7 @@ export async function fetchIpoSubscription(id: number): Promise<IpoSubDetail | n
   const cached = subCache.get(id);
   if (cached) return cached;
   try {
-    const res = await fetch(`${IG_BASE}/cloud/ipo/ipo-subscription-read/${id}`);
+    const res = await fetch(`${IG_BASE}/cloud/v2/ipo/ipo-subscription-read/${id}`);
     if (!res.ok) return null;
     const json = (await res.json()) as { data?: { ipoBiddingData?: RawSubRow[] } };
     const raw = json.data?.ipoBiddingData;

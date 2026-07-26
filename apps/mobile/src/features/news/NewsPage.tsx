@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Pressable, ScrollView, FlatList, Linking, ActivityIndicator, Text } from 'react-native';
+import { View, Pressable, ScrollView, Linking, ActivityIndicator, Text } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NEWS_SOURCES } from '@/core/news/newsClient';
 import type { NewsItem, NewsSourceId } from '@/core/news/newsTypes';
@@ -199,9 +200,10 @@ export function NewsPage() {
           </ScrollView>
         ) : (
           // The aggregated "All News" feed (80-150+ items across 4 sources) is the one flagged as an
-          // unvirtualized risk — rendered as the page's own FlatList (not nested inside a ScrollView)
-          // instead of a `.map()` in a `View`, so it's actually windowed.
-          <FlatList
+          // unvirtualized risk. FlashList (not FlatList/ScrollView+.map()) recycles row instances instead
+          // of destroying/remounting them on scroll — see TransactionsTab.tsx for the full diagnosis of
+          // why that distinction actually matters at this scale.
+          <FlashList
             className="flex-1"
             contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 }}
             data={visible}

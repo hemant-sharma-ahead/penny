@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View, Pressable, FlatList, Text } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { ListContainer, SectionLabel, EmptyState, Button } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -184,14 +185,16 @@ export function GroupDashboard({ group }: { group: Group }) {
   return (
     <>
       {/*
-       * A FlatList, not a plain `.map()` in a `ListContainer` — the shared-expense feed grows unbounded
+       * FlashList, not a plain `.map()` in a `ListContainer` — the shared-expense feed grows unbounded
        * over a group's lifetime (flagged as a real jank risk in the 2026-07-26 parity sweep), unlike the
-       * Members list above it (naturally bounded by group size, left as-is). Everything above "Shared
-       * expenses" becomes the `ListHeaderComponent`; each feed row is its own rounded card (not the
-       * hairline-divided single box `ListContainer` draws — a `FlatList` has no single wrapping element
-       * to hang that technique on, same tradeoff already made for Loans'/Import's schedule/preview lists).
+       * Members list above it (naturally bounded by group size, left as-is). FlashList recycles rows
+       * instead of FlatList's mount/unmount-on-scroll (see TransactionsTab.tsx for the full diagnosis).
+       * Everything above "Shared expenses" becomes the `ListHeaderComponent`; each feed row is its own
+       * rounded card (not the hairline-divided single box `ListContainer` draws — neither list type has a
+       * single wrapping element to hang that technique on, same tradeoff already made for Loans'/Import's
+       * schedule/preview lists).
        */}
-      <FlatList
+      <FlashList
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 96 }}
         data={feed}

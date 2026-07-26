@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { View, Pressable, SectionList, Text } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { View, Pressable, Text } from 'react-native';
+import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Line, Circle } from 'react-native-svg';
 import { usePrivacy } from '~/context/PrivacyContext';
@@ -124,13 +125,32 @@ export function CashFlowPage() {
       ? `to last the next ${forecast.daysToPayday} day${forecast.daysToPayday === 1 ? '' : 's'} till payday`
       : `to last till month-end (${forecast.daysLeft} days)`;
 
-  const sections = !loading
-    ? grouped.map(([monthKey, events]) => ({
-        title: monthKey,
-        total: events.reduce((s, e) => s + e.amount, 0),
-        data: events
-      }))
-    : [];
+  type Row =
+    | { kind: 'header'; key: string; monthKey: string; total: number }
+    | { kind: 'event'; key: string; event: CashFlowEvent };
+
+  const rows: Row[] = useMemo(() => {
+    if (loading) return [];
+    const out: Row[] = [];
+    grouped.forEach(([monthKey, events]) => {
+      const total = events.reduce((s, e) => s + e.amount, 0);
+      out.push({ kind: 'header', key: `h:${monthKey}`, monthKey, total });
+      events.forEach((event) => out.push({ kind: 'event', key: event.id, event }));
+    });
+    return out;
+  }, [loading, grouped]);
+
+  const keyExtractor = useCallback((row: Row) => row.key, []);
+  const getItemType = useCallback((row: Row) => row.kind, []);
+  const renderRow = useCallback(
+    ({ item }: ListRenderItemInfo<Row>) =>
+      item.kind === 'header' ? (
+        <CashFlowMonthHeader monthKey={item.monthKey} total={item.total} masked={masked} />
+      ) : (
+        <CashFlowEventCard event={item.event} todayStart={todayStart} masked={masked} />
+      ),
+    [masked, todayStart]
+  );
 
   const header = (
     <View className="pt-4 gap-4">
@@ -279,22 +299,21 @@ export function CashFlowPage() {
   return (
     <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       {/*
-       * A SectionList, not the plain ScrollView this used to be — a 6-month horizon can produce
-       * 50-100+ rows across the nested month/event lists, flagged as an unvirtualized risk in the
-       * 2026-07-26 parity sweep. Everything above "Upcoming payments" (hero, income suggestion,
-       * warning, balance chart, buffer editor) becomes the `ListHeaderComponent`; only the actual
-       * month-grouped event rows are windowed.
+       * FlashList, not SectionList — a 6-month horizon can produce 50-100+ rows across the nested
+       * month/event lists, flagged as an unvirtualized risk in the 2026-07-26 parity sweep, then found to
+       * still remount every row on scroll under SectionList (same root cause diagnosed on Expenses'
+       * Transactions list — see TransactionsTab.tsx). Sections are flattened into `rows` (header/event)
+       * with `getItemType` so FlashList recycles them from separate pools. Everything above "Upcoming
+       * payments" (hero, income suggestion, warning, balance chart, buffer editor) stays the
+       * `ListHeaderComponent`; only the actual month-grouped event rows are windowed/recycled.
        */}
-      <SectionList
-        className="flex-1"
+      <FlashList
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
-        sections={sections}
-        keyExtractor={(item: CashFlowEvent) => item.id}
-        stickySectionHeadersEnabled={false}
-        renderSectionHeader={({ section }) => (
-          <CashFlowMonthHeader monthKey={section.title} total={section.total} masked={masked} />
-        )}
-        renderItem={({ item }) => <CashFlowEventCard event={item} todayStart={todayStart} masked={masked} />}
+        data={rows}
+        keyExtractor={keyExtractor}
+        getItemType={getItemType}
+        renderItem={renderRow}
         ListHeaderComponent={header}
         ListFooterComponent={
           <Text className="text-xs text-center leading-relaxed text-tertiary mt-4">

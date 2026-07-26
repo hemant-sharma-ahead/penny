@@ -1,5 +1,6 @@
-import { memo, useCallback } from 'react';
-import { SectionList, View, Pressable, Text } from 'react-native';
+import { memo, useCallback, useMemo } from 'react';
+import { View, Pressable, Text } from 'react-native';
+import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { formatCurrency } from '@/lib/formatters';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { Icon } from '~/components/Icon';
@@ -26,10 +27,9 @@ interface TransactionsTabProps {
   onToggleSelect?: (id: string) => void;
 }
 
-interface Section {
-  title: string;
-  data: Expense[];
-}
+type Row =
+  | { kind: 'header'; key: string; title: string; isFirst: boolean }
+  | { kind: 'txn'; key: string; txn: Expense; isLastRowOverall: boolean };
 
 interface RowProps {
   txn: Expense;
@@ -188,20 +188,18 @@ const TransactionRow = memo(function TransactionRow({
  * ported — this restores web's `onShare`/`shareGroups`-driven "Share" swipe action and the
  * shared-with-group (`ti-users-group`) badge on a transaction's title, both previously dropped here.
  *
- * Rebuilt on `SectionList` (was a plain `View`+`.map()` inside a parent `ScrollView`) — a real, previously
- * unnoticed scaling bug found on-device: with a demo-sized dataset (~1,000 transactions), rendering every
- * row unvirtualized meant mounting ~1,000 `SwipeableRow`s (each a `react-native-gesture-handler` instance
- * with its own worklets) simultaneously, which crashed hard enough on-device to take down the whole
- * emulator process, not just the app. `SectionList` windows rendering to what's near the viewport, the
- * same fix web never needed (a browser's DOM has no equivalent per-row native gesture-recognizer cost).
- * `TransactionsSlice.tsx`'s wrapping `ScrollView` was removed — this owns its own scroll now.
- *
- * `windowSize`/`maxToRenderPerBatch`/`updateCellsBatchingPeriod` are explicitly tuned (not left at
- * RN's defaults) alongside the `TransactionRow` memoization above — same on-device blank-mid-scroll bug.
- * A larger `windowSize` keeps more off-screen rows pre-rendered ahead of the visible area, giving the JS
- * thread more lead time before a fast scroll outruns it; a smaller `maxToRenderPerBatch` +
- * `updateCellsBatchingPeriod` renders in smaller, more frequent chunks instead of one large blocking batch,
- * so the thread yields sooner instead of stalling on a big batch of expensive `SwipeableRow` mounts.
+ * Rebuilt on `@shopify/flash-list`'s `FlashList` (was `SectionList`, before that a plain `View`+`.map()`
+ * inside a parent `ScrollView`). `SectionList`/`VirtualizedList` **destroys and recreates** a row's whole
+ * component tree every time it scrolls out of and back into the render window — for a row that mounts a
+ * real `react-native-gesture-handler` instance (`SwipeableRow`), that's the actual irreducible cost that
+ * no amount of `windowSize`/`maxToRenderPerBatch` tuning removes, and it's exactly why scrolling back UP to
+ * an already-seen transaction still re-rendered and lagged even after the `sections`/callback identity bug
+ * (see git history) was fixed. `FlashList` uses cell **recycling** instead — a fixed pool of mounted row
+ * components gets its props swapped in place as you scroll, the same strategy native list views (Android
+ * `RecyclerView`, iOS `UITableView` reused cells) and cross-platform apps built on them use to handle much
+ * larger datasets smoothly. Sections are flattened into one `Row[]` (`header`/`txn` variants) with
+ * `getItemType` so headers and transaction rows recycle from separate pools instead of colliding.
+ * `TransactionsSlice.tsx`'s wrapping `ScrollView` stays removed — this owns its own scroll.
  */
 export function TransactionsTab({
   loading,
@@ -224,35 +222,42 @@ export function TransactionsTab({
   // decrypting, `grouped` is indistinguishable from "genuinely no transactions" (both are `[]`), so
   // without this the list flashed a wrong "No transactions yet" message during every load, not just a
   // blank screen. Found via user report of the Transactions tab feeling laggy/broken on entry.
-  const sections: Section[] = grouped.map((g) => ({ title: g.label, data: g.items }));
-  const firstSectionTitle = sections[0]?.title;
-  const lastSectionTitle = sections[sections.length - 1]?.title;
-  const lastSectionCount = grouped[grouped.length - 1]?.items.length ?? 0;
+  //
+  // Flattened + memoized on `grouped` specifically — a fresh array/object identity on every render of the
+  // (large, frequently-re-rendering) parent `TransactionsSlice` previously made the list treat the entire
+  // dataset as new on every unrelated parent re-render, including ones mid-scroll. That's fixed here too,
+  // on top of the recycling change above.
+  const rows: Row[] = useMemo(() => {
+    const out: Row[] = [];
+    grouped.forEach((g, gi) => {
+      out.push({ kind: 'header', key: `h:${g.label}`, title: g.label, isFirst: gi === 0 });
+      g.items.forEach((txn, ti) => {
+        const isLastRowOverall = gi === grouped.length - 1 && ti === g.items.length - 1;
+        out.push({ kind: 'txn', key: txn.id, txn, isLastRowOverall });
+      });
+    });
+    return out;
+  }, [grouped]);
 
-  const keyExtractor = useCallback((txn: Expense) => txn.id, []);
-
-  const renderSectionHeader = useCallback(
-    ({ section }: { section: Section }) => {
-      const isFirst = section.title === firstSectionTitle;
-      return (
-        <View className="relative pl-10 pr-4 pt-4 pb-1.5" style={{ backgroundColor: theme.surfaceTertiary }}>
-          <View
-            className="absolute w-px"
-            style={{ left: 20, top: isFirst ? '55%' : 0, bottom: 0, backgroundColor: theme.border }}
-          />
-          <Text className="text-[11px] font-semibold uppercase tracking-wider text-tertiary">{section.title}</Text>
-        </View>
-      );
-    },
-    [firstSectionTitle, theme.surfaceTertiary, theme.border]
-  );
+  const keyExtractor = useCallback((row: Row) => row.key, []);
+  const getItemType = useCallback((row: Row) => row.kind, []);
 
   const renderItem = useCallback(
-    ({ item: txn, index, section }: { item: Expense; index: number; section: Section }) => {
-      const isLastRowOverall = section.title === lastSectionTitle && index === lastSectionCount - 1;
+    ({ item }: ListRenderItemInfo<Row>) => {
+      if (item.kind === 'header') {
+        return (
+          <View className="relative pl-10 pr-4 pt-4 pb-1.5" style={{ backgroundColor: theme.surfaceTertiary }}>
+            <View
+              className="absolute w-px"
+              style={{ left: 20, top: item.isFirst ? '55%' : 0, bottom: 0, backgroundColor: theme.border }}
+            />
+            <Text className="text-[11px] font-semibold uppercase tracking-wider text-tertiary">{item.title}</Text>
+          </View>
+        );
+      }
       return (
         <TransactionRow
-          txn={txn}
+          txn={item.txn}
           categoryMap={categoryMap}
           accountMap={accountMap}
           hashtags={hashtags}
@@ -262,15 +267,15 @@ export function TransactionsTab({
           onDuplicate={onDuplicate}
           onShare={onShare}
           selectMode={selectMode}
-          isSelected={selectedIds?.has(txn.id) ?? false}
+          isSelected={selectedIds?.has(item.txn.id) ?? false}
           onToggleSelect={onToggleSelect}
-          isLastRowOverall={isLastRowOverall}
+          isLastRowOverall={item.isLastRowOverall}
         />
       );
     },
     [
-      lastSectionTitle,
-      lastSectionCount,
+      theme.surfaceTertiary,
+      theme.border,
       categoryMap,
       accountMap,
       hashtags,
@@ -311,8 +316,8 @@ export function TransactionsTab({
   }
 
   return (
-    <SectionList
-      className="flex-1"
+    <FlashList
+      style={{ flex: 1, backgroundColor: theme.surfaceTertiary }}
       // Both the list's own background and each section's date header use the same fixed
       // `theme.surfaceTertiary` the row cards below use (see `SwipeableRow.tsx`'s `bg-surface-3`) —
       // not the privacy-mode-tinted `modeBg` this used to be. Web's own `TransactionsTab` deliberately
@@ -320,20 +325,15 @@ export function TransactionsTab({
       // surface" (see that file's comment) — matching that here means the date headers/gaps need the
       // same fixed color the rows have, not the ambient page tint, or they visibly seam against the
       // opaque row cards (found via user report: looked like a mistint, not a themed background).
-      style={{ backgroundColor: theme.surfaceTertiary }}
       contentContainerStyle={{ paddingBottom: 96 }}
-      sections={sections}
+      data={rows}
       keyExtractor={keyExtractor}
-      stickySectionHeadersEnabled={false}
-      renderSectionHeader={renderSectionHeader}
+      getItemType={getItemType}
       renderItem={renderItem}
-      windowSize={12}
-      maxToRenderPerBatch={8}
-      updateCellsBatchingPeriod={30}
-      // Explicitly off, not just left at its default — `removeClippedSubviews` has documented
-      // incompatibilities with Reanimated shared values in clipped-out views (each row's `SwipeableRow`
-      // uses Reanimated internally), so enabling it risks trading one on-device bug for another.
-      removeClippedSubviews={false}
+      // Default is 250dp — the buffer of off-screen rows kept pre-rendered ahead of the viewport.
+      // Bumped after a user-reported blank flash during a fast fling: a larger buffer gives the recycler
+      // more lead room before a cell scrolls into view with no rendered content yet to swap in.
+      drawDistance={500}
     />
   );
 }

@@ -1,4 +1,5 @@
-import { Pressable, View, ScrollView, FlatList } from 'react-native';
+import { Pressable, View, ScrollView } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -46,10 +47,11 @@ export function ImportPage() {
         }
       />
       {imp.step === 'preview' ? (
-        // A FlatList, not the ScrollView the other two steps use — bank exports commonly run hundreds
+        // FlashList, not the ScrollView the other two steps use — bank exports commonly run hundreds
         // of rows, and rendering them all unvirtualized inside a ScrollView (via `.map()`) was flagged
-        // as a real jank/OOM risk in the 2026-07-26 parity sweep.
-        <FlatList
+        // as a real jank/OOM risk in the 2026-07-26 parity sweep; FlashList recycles rows instead of
+        // FlatList's mount/unmount-on-scroll (see TransactionsTab.tsx for the full diagnosis).
+        <FlashList
           className="flex-1 px-4"
           data={imp.preview}
           keyExtractor={(_row: PreviewRow, i: number) => String(i)}
