@@ -1,14 +1,20 @@
-import { View } from 'react-native';
+import { View, Pressable } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useNavigation, type ParamListBase } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../components/Icon';
 import { ChipAvatar } from '../components/ui/ChipAvatar';
+import { PennyWordmark } from '../components/ui/PennyLogo';
+import { PrivacyModeSwitcher } from '../components/privacy/PrivacyModeSwitcher';
+import { RemindersBell } from '../components/reminders/RemindersBell';
 import { useThemeColors } from '../theme/useThemeColors';
 import { useTheme } from '../theme/ThemeProvider';
 import { usePrivacy } from '../context/PrivacyContext';
 import { getPrivacyModeColors } from '@penny/core/theme/privacyModeColors';
-import { HomePage } from '../features/home/HomePage';
+import { HomeStack } from './HomeStack';
 import { PortfolioPage } from '../features/portfolio/PortfolioPage';
-import { ExpensesPage } from '../features/expenses/ExpensesPage';
+import { ExpensesStack } from './ExpensesStack';
 import { GoalsPage } from '../features/goals/GoalsPage';
 import { ChipPage } from '../features/chip/ChipPage';
 import { ContextSwitcher } from '../features/groups/ContextSwitcher';
@@ -18,24 +24,20 @@ import { useSettings } from '../context/SettingsContext';
 
 /**
  * Bottom nav order per CLAUDE.md: Home · Portfolio · Chip (FAB, centred) · Expenses · Goals — matches
- * apps/web-react/src/components/layout/BottomNav.tsx's item order/icons/colors. This is React
- * Navigation's tab bar standing in for that component (not a literal port). Module-visibility filtering
- * (`useSettings().modules`) now hides the Portfolio/Goals tabs the same way web's `BottomNav` does when
- * toggled off in Settings (found missing via the 2026-07-25 parity sweep — mobile always showed all 4
- * regardless of the toggle). `PrivacyModeSwitcher`/`RemindersBell` moved into `MainNavigator`'s
- * stack-level header instead (the actual chrome parity fix for web's `AppShell` header).
+ * apps/web-react/src/components/layout/BottomNav.tsx's item order/icons/colors. Module-visibility
+ * filtering (`useSettings().modules`) hides the Portfolio/Goals tabs the same way web's `BottomNav`
+ * does when toggled off in Settings.
  *
- * Track 4 (Onboarding) update: Home/Portfolio/Expenses/Goals tabs now render their real ported pages
- * instead of `PlaceholderScreen` (all four shipped earlier in Track 4 — see
- * docs/plans/mobile-migration.md). Chip now renders the real (mock-insights, not LLM chat) `ChipPage` —
- * same scope as web-react today; full conversational Chip AI stays Phase 2 on both platforms.
- *
- * `ContextSwitcher` mounts above the tab navigator (same persistent-chrome position as web's `AppShell`,
- * which renders it between the header and `<Outlet />`), gated by the same `hasEntitlement('sync')`
- * check web uses — so it's visible across every tab, not per-screen. `DemoModeBanner` renders just above
- * it, so the visible order is: `MainNavigator`'s stack header → Demo Mode banner → context switcher →
- * tab content — per explicit user feedback (2026-07-25), placed here rather than above the header
- * (unlike web's `AppShell`, which puts it above the header) since that's where the user wants it.
+ * **Chrome-persistence fix**: the persistent header (logo, settings menu, `PrivacyModeSwitcher`,
+ * `RemindersBell`) now lives *here*, above `Tab.Navigator`, instead of being attached to
+ * `MainNavigator`'s old `MainTabs` `Stack.Screen` options — moved for the same reason
+ * `DemoModeBanner`/`ContextSwitcher` already render here: anything that must be visible across every
+ * screen in the authenticated app (not just the 5 tab roots) has to be owned by this component, since
+ * `MainNavigator` now only ever renders this one screen (`OnboardingFlow` aside). Only the Home and
+ * Expenses tabs get their own nested `Stack.Navigator` (`HomeStack`/`ExpensesStack`) — they're the only
+ * two that need to push further screens; Portfolio/Chip/Goals render their page directly, same as
+ * before, since nothing currently pushes from them. See `HomeStack.tsx`'s doc comment for the full
+ * rationale and the cross-tab navigation pattern this requires at a few call sites.
  */
 const Tab = createBottomTabNavigator();
 
@@ -53,19 +55,59 @@ const ICON_NAMES: Record<string, string> = {
   Goals: 'ti-target'
 };
 
+function HeaderLeft({ onPress }: { onPress: () => void }) {
+  const theme = useThemeColors();
+  return (
+    <View className="flex-row items-center gap-3">
+      <Pressable onPress={onPress} hitSlop={8}>
+        <Icon name="ti-menu-2" size={22} color={theme.textSecondary} />
+      </Pressable>
+      <PennyWordmark height={22} />
+    </View>
+  );
+}
+
+function HeaderRight() {
+  return (
+    <View className="flex-row items-center gap-1">
+      <PrivacyModeSwitcher />
+      <RemindersBell />
+    </View>
+  );
+}
+
 export function MainTabs() {
   const theme = useThemeColors();
   const { modules } = useSettings();
   const { activePalette } = useTheme();
   const { mode } = usePrivacy();
-  // Matches web's BottomNav.tsx, which reads `var(--color-mode-header-bg, #ffffff)` from the CSS
-  // cascade — RN has no cascade, so this must be read directly the same way MainNavigator's stack
-  // header already does, instead of a flat theme.surface that never reacted to privacy mode (found via
-  // the parity-sweep skill's chrome-component check).
-  const tabBarBg = getPrivacyModeColors(mode, activePalette).headerBg;
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  // Matches web's BottomNav.tsx (reads `var(--color-mode-header-bg, #ffffff)` from the CSS cascade) and
+  // MainNavigator's old header logic — RN has no cascade, so both are read directly here now that this
+  // component owns the whole persistent chrome (tab bar + header).
+  const modeColors = getPrivacyModeColors(mode, activePalette);
 
   return (
     <View style={{ flex: 1 }}>
+      {/*
+       * Persistent header — was `MainNavigator`'s `MainTabs` `Stack.Screen` options; moved here so it
+       * survives navigation into HomeStack/ExpensesStack the same way the tab bar below does. The
+       * `headerBackground`-style absolute fill + safe-area-extending trick (see the old MainNavigator.tsx
+       * comment this was ported from) still applies: Android's edge-to-edge rendering draws behind the
+       * status bar, so the themed fill extends upward by `insets.top` to avoid a black gap above it.
+       */}
+      <View style={{ paddingTop: insets.top, backgroundColor: modeColors.headerBg }}>
+        <View
+          className="flex-row items-center justify-between px-4"
+          style={{ height: 44, borderBottomWidth: 2, borderBottomColor: modeColors.accent }}
+        >
+          <HeaderLeft
+            onPress={() => navigation.navigate('MainTabs', { screen: 'Home', params: { screen: 'Settings' } })}
+          />
+          <HeaderRight />
+        </View>
+      </View>
       <DemoModeBanner />
       {hasEntitlement('sync') && <ContextSwitcher />}
       <Tab.Navigator
@@ -73,7 +115,7 @@ export function MainTabs() {
           headerShown: false,
           tabBarActiveTintColor: ICON_COLORS[route.name],
           tabBarInactiveTintColor: theme.textTertiary,
-          tabBarStyle: { backgroundColor: tabBarBg, borderTopColor: theme.border },
+          tabBarStyle: { backgroundColor: modeColors.headerBg, borderTopColor: theme.border },
           tabBarIcon:
             route.name === 'Chip'
               ? () => <ChipAvatar size={30} />
@@ -82,7 +124,7 @@ export function MainTabs() {
                 )
         })}
       >
-        <Tab.Screen name="Home" component={HomePage} />
+        <Tab.Screen name="Home" component={HomeStack} />
         {/* `tabBarButton: () => null` hides the tab bar entry without unmounting the screen from the
             navigator — web's module-visibility toggle only hides the BottomNav item, the route stays
             reachable (e.g. Home's net-worth tap-through still calls `navigation.navigate('Portfolio')`
@@ -100,7 +142,7 @@ export function MainTabs() {
             rule-based insights dashboard web-react ships today — real conversational Chip stays Phase 2
             on both platforms. */}
         <Tab.Screen name="Chip" component={ChipPage} />
-        <Tab.Screen name="Expenses" component={ExpensesPage} />
+        <Tab.Screen name="Expenses" component={ExpensesStack} />
         <Tab.Screen
           name="Goals"
           component={GoalsPage}

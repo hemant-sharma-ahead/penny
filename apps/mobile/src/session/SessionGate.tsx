@@ -188,7 +188,10 @@ export function SessionGate({ children, showRotationBanner = false }: Props) {
     if (result === 'ok') {
       setLocked(false);
       if (navigationRef.isReady()) {
-        navigationRef.navigate('ChangePin', { forcedPinReset: true });
+        navigationRef.navigate('MainTabs', {
+          screen: 'Home',
+          params: { screen: 'ChangePin', params: { forcedPinReset: true } }
+        });
       }
     } else if (result === 'wiped') {
       notifyAuthShouldRecheck();

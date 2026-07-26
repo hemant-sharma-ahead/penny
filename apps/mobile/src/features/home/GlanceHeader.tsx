@@ -61,7 +61,7 @@ export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabiliti
 
   const goToAsset = (ac: string) => {
     if (ac === 'liquid') navigation.navigate('Accounts');
-    else if (ac === 'iou') navigation.navigate('Expenses', { initialTab: 'iou' });
+    else if (ac === 'iou') navigation.navigate('Expenses', { screen: 'ExpensesMain', params: { initialTab: 'iou' } });
     else navigation.navigate('Portfolio', { holdingsSubTab: assetSubTab(ac) });
   };
 
@@ -180,7 +180,9 @@ export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabiliti
                 <View>
                   {summary.netIou < 0 && (
                     <Pressable
-                      onPress={() => navigation.navigate('Expenses', { initialTab: 'iou' })}
+                      onPress={() =>
+                        navigation.navigate('Expenses', { screen: 'ExpensesMain', params: { initialTab: 'iou' } })
+                      }
                       className="w-full flex-row items-center gap-3 py-2"
                     >
                       <IconBadge icon="ti-users" color={theme.danger} bg={tint(theme.danger, 12)} size="sm" />

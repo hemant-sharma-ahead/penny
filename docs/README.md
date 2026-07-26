@@ -92,11 +92,14 @@ Settings — functional in both apps but without a dedicated `docs/features/` fi
 | [`.claude/commands/penny-api-client.md`](../.claude/commands/penny-api-client.md) | Adding a new external API integration |
 | [`.claude/commands/penny-roadmap-context.md`](../.claude/commands/penny-roadmap-context.md) | Phase context — what's decided, don't re-derive |
 | [`.claude/skills/parity-sweep/`](../.claude/skills/parity-sweep/SKILL.md) | Auditing `apps/mobile` against `apps/web-react` for parity gaps |
+| [`.claude/skills/documentation-maintenance/`](../.claude/skills/documentation-maintenance/SKILL.md) | Determining which docs need updating after a change |
+| [`.claude/skills/ui-design-check/`](../.claude/skills/ui-design-check/SKILL.md) | Reviewing/proposing UI against design guidelines + cross-platform consistency |
 | [`.claude/agents/mobile-developer.md`](../.claude/agents/mobile-developer.md) | Implementing/porting `apps/mobile` features and fixes |
 | [`.claude/agents/web-developer.md`](../.claude/agents/web-developer.md) | Implementing `apps/web-react` + `packages/core` web-side features |
 | [`.claude/agents/parity-auditor.md`](../.claude/agents/parity-auditor.md) | Read-only parity auditing — finds gaps, never fixes them |
 | [`.claude/agents/code-reviewer.md`](../.claude/agents/code-reviewer.md) | Reviewing a diff before commit through React/RN/design/standards lenses |
 | [`.claude/agents/test-writer.md`](../.claude/agents/test-writer.md) | Writing/maintaining Vitest tests |
+| [`.claude/agents/ui-designer.md`](../.claude/agents/ui-designer.md) | Designing/refactoring UI, producing mockup proposals |
 
 ---
 

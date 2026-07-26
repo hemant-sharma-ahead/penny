@@ -103,7 +103,7 @@ export function ExpensesHeader({
             )}
             {!forecastLoading && (
               <Pressable
-                onPress={() => navigation.navigate('CashFlow')}
+                onPress={() => navigation.navigate('Home', { screen: 'CashFlow' })}
                 accessibilityLabel="View cash flow"
                 className="flex-row items-center gap-1 rounded-full bg-surface-2 border border-theme px-2.5 py-1"
               >

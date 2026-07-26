@@ -91,23 +91,22 @@ storage-engine investigation), **not** the primary mobile path (that's `apps/mob
 above). Wraps the built `apps/web-react` bundle in a native Android shell via
 [Capacitor](https://capacitorjs.com/).
 
-**Status: dormant, not currently installed.** `capacitor.config.ts` exists at the repo
-root, but the `@capacitor/*` packages aren't currently in any `package.json` — they were
-last used ad hoc and need reinstalling fresh:
+**Status: dormant, not currently installed.** `apps/web-react/capacitor.config.ts` exists
+(moved there from the repo root — it only ever wraps this one app's build, never
+`apps/mobile`), but the `@capacitor/*` packages aren't currently in any `package.json` —
+they were last used ad hoc and need reinstalling fresh, from **`apps/web-react/`**:
 
 ```bash
-npm install --save @capacitor/core @capacitor/android   # or pnpm add, from repo root
+cd apps/web-react
+npm install --save @capacitor/core @capacitor/android   # or pnpm add
 npm install --save-dev @capacitor/cli
-pnpm build                          # builds apps/web-react, output at apps/web-react/dist
-npx cap add android                 # creates the native android/ project, copies dist/ in
-npx cap open android                # opens it in Android Studio — wait for Gradle sync
+pnpm build                           # builds this app, output at ./dist
+npx cap add android                  # creates the native android/ project, copies dist/ in
+npx cap open android                 # opens it in Android Studio — wait for Gradle sync
 ```
 
-`capacitor.config.ts`'s `webDir` points at `apps/web-react/dist` (this was silently broken
-for a while after the monorepo split moved the build output there from a root-level
-`dist/` — fixed as part of this doc pass; if you're on an older checkout, update it before
-following the steps above). The rebuild loop after a code change: `pnpm build && npx cap
-sync android`, then re-run from Android Studio or `cd android && ./gradlew assembleDebug`.
+The rebuild loop after a code change (from `apps/web-react/`): `pnpm build && npx cap sync
+android`, then re-run from Android Studio or `cd android && ./gradlew assembleDebug`.
 
 The `android/` folder itself is git-ignored (generated, like `dist/`) — regenerate it with
 the commands above on a fresh clone. Full step-by-step (AVD creation, terminal-only flow,

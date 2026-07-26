@@ -39,132 +39,13 @@ Complete record of every milestone, step, and status from M0 to present.
 | M14: Finance news + Contact/Feedback | ✅ Complete |
 | M15: UI polish + feature refinements | ✅ Complete |
 
-## M5 steps
-
-| Step  | Feature                                                      | Status  |
-| ----- | ------------------------------------------------------------ | ------- |
-| Infra | formatters, repositories, mockChip, useRepository hook       | ✅ Done |
-| 22    | Home dashboard (net worth card, Chip insights, module tiles) | ✅ Done |
-| 23    | Expenses (list, form, categories, hashtags, budgets)         | ✅ Done |
-| 24    | Goals (cards, progress rings, SIP calculator)                | ✅ Done |
-| 25    | Portfolio (holdings, live price fetch, report card)          | ✅ Done |
-| 26    | Insurance (policy cards, form, renewal tracker)              | ✅ Done |
-| 27    | Subscription detection (3-pass algorithm)                    | ✅ Done |
-| 28    | IOU tracker (lent/borrowed, ageing alerts)                   | ✅ Done |
-| 29    | Loan scenarios (6 on-device calculations)                    | ✅ Done |
-| 30    | Financial health score (0–100 composite)                     | ✅ Done |
-| 31    | Tax awareness (80C/80D/24B, LTCG/STCG)                       | ✅ Done |
-| 32    | Cash flow forecast (week/month ahead)                        | ✅ Done |
-
-Step 33 (Chip tab) moved to M9.
-
-## M6 steps
-
-| Step | Feature                                                  | Status  |
-| ---- | -------------------------------------------------------- | ------- |
-| 34   | PWA setup (vite-plugin-pwa, Workbox, CSP, offline icons) | ✅ Done |
-| 35   | Responsive audit (360/390/768px, tap targets ≥44px)      | ✅ Done |
-
-## M7 steps
-
-| Step | Feature                                                                  | Status  |
-| ---- | ------------------------------------------------------------------------ | ------- |
-| 36   | PIN lockout UI (countdown, exponential backoff, attempt warnings)        | ✅ Done |
-| 37   | 21-day PIN rotation banner (AuthGuard always checks, shown after unlock) | ✅ Done |
-| 38   | Encrypted backup/restore (.penny export/import, passphrase-derived MK)   | ✅ Done |
-| 39   | Final CI pass + CLAUDE.md updated                                        | ✅ Done |
-
-## M8 steps
-
-| Step | Feature                                                                    | Status                 |
-| ---- | -------------------------------------------------------------------------- | ----------------------- |
-| 40   | Visual identity — Penny SVG logo, Chip avatar, updated PWA icons           | ✅ Done                |
-| 41   | Settings drawer — module visibility toggles, font scale slider             | ✅ Done                |
-| 42   | Privacy mode switcher — 3-segment toggle, PIN gate for Open, theme tinting | ✅ Done                |
-| 42b  | Light/dark theme system (Penny Light + Penny Dark)                         | ✅ Done                |
-| 43   | Demo data seeding — realistic sample records on first onboarding           | ✅ Done                |
-| 44   | Chip mock chat UI                                                          | ⏳ Deferred to Phase 2 |
-| 45   | Expense categories rethink + analytics tab + budget tab polish             | ✅ Done                |
-| 46   | Import expenses — Penny CSV + YNAB/Cashew/MoneyView parsers, 3-step UI     | ✅ Done                |
-| 47   | Export CSV — AES-256 password-protected ZIP, date range picker             | ✅ Done                |
-| 48   | Responsive/laptop layout                                                   | ⏳ Deferred to Phase 2 |
-| 49   | Final CI pass + CLAUDE.md updated                                          | ✅ Done                |
-
-## M9 steps
-
-| Step | Feature                                                                                      | Status  |
-| ---- | ---------------------------------------------------------------------------------------------- | ------- |
-| 50   | Data model — Account type + Dexie v2, accountsRepo, AccountsPage, router wiring              | ✅ Done |
-| 51   | TransactionForm — type selector (Expense/Income/Transfer), account selectors, speed dial FAB | ✅ Done |
-| 52   | Transactions tab — all types in list with type-specific icons/colors, page rename            | ✅ Done |
-| 53   | Demo data — 3 accounts, salary income ×3, freelance income, CC + savings transfers           | ✅ Done |
-| 54   | Home dashboard — accounts strip with live balances                                           | ✅ Done |
-| 55   | Final CI pass + CLAUDE.md updated                                                            | ✅ Done |
-
-## M10 steps
-
-| Step | Feature                                                                                  | Status                                             |
-| ---- | ------------------------------------------------------------------------------------------ | --------------------------------------------------- |
-| 56   | IPO types + ipoClient (investorgain.com, cache, FY constants)                            | ✅ Done                                            |
-| 57   | useIpos hook + IPO_TRACKER.md research doc                                               | ✅ Done                                            |
-| 58   | IPO tab in PortfolioPage — sub-tabs (Upcoming/Open/Closed/Listed), refresh, empty states | ✅ Done                                            |
-| 59   | CSP fix (webnodejs.investorgain.com) + FY year fix + live data wiring                    | ✅ Done                                            |
-| 60   | IPO cards redesign — 2-column layout, financials left, dates right, all 4 tabs           | ✅ Done                                            |
-| 61   | Demo data seeding                                                                        | ⏳ Skipped — live data only (investorgain.com API) |
-| 62   | IPO detail modal — 4-col grids, subscription API (QIB/HNI/Retail), day-wise table        | ✅ Done                                            |
-
-## M11 steps
-
-| Step  | Feature                                                                                     | Status                 |
-| ----- | ------------------------------------------------------------------------------------------- | ----------------------- |
-| 63    | Holdings sub-tab shell (6 tabs) + Retirement sub-tab (NPS/PPF/EPF cards)                    | ✅ Done                |
-| 63+   | NPS live NAV tracking — npsnav.in client, lifecycle fund tables, auto choice allocation     | ✅ Done                |
-| 63++  | PPF full tracking — passbook ledger, FY deposit bar vs ₹1.5L, corpus projection             | ✅ Done                |
-| 63+++ | EPF full tracking — employment history, transaction ledger, retirement projection           | ✅ Done                |
-| 64    | Real Assets — vehicles (RC fetch, IRDA depreciation, challan cards) + property              | ✅ Done                |
-| 65    | Fixed Income — FD/RD maturity auto-calc + compound interest projection                      | ✅ Done                |
-| 66    | Precious Metals — Gold + Silver live prices via MFAPI.in                                    | ✅ Done                |
-| 67    | Stocks — full-width tab, symbol validation, live price × units, weighted avg, lot breakdown | ✅ Done                |
-| 68    | Mutual Funds — scheme category + fund house from MFAPI.in, scheme search, lot breakdown     | ✅ Done                |
-| 69    | Home dashboard + Portfolio restructure — drop legacy assets store, fix net worth            | ✅ Done                |
-| 70    | PDF Imports (CAS + EPFO passbook)                                                           | ⏳ Deferred to Phase 2 |
-| 71    | Watchlist                                                                                   | ⏳ Deferred to Phase 2 |
-| 72    | Final CI pass + CLAUDE.md updated                                                           | ✅ Done                |
-
-## M12 steps
-
-See git log for M12 step details. Key deliverables: MF/stock search with live prices, symbol/scheme grouping, lot breakdown, scheme metadata (fund house, category), weighted average cost basis.
-
-## M13 steps (complete)
-
-| Step | Feature                          | Status  |
-| ---- | --------------------------------- | ------- |
-| —    | FIRE calculator                  | ✅ Done |
-| —    | HRA exemption calculator         | ✅ Done |
-| —    | PPF maturity calculator          | ✅ Done |
-| —    | NPS corpus calculator            | ✅ Done |
-| —    | Step-up SIP calculator           | ✅ Done |
-| —    | Old vs new tax regime comparison | ✅ Done |
-
-## M14 (✅ Complete)
-
-Finance news (RSS — ET Markets, Mint, RBI, SEBI, headlines + link-out) + Contact/Feedback (mailto: deep-link).
-
-## M15 steps
-
-| Step   | Feature                                                                                        | Status                    |
-| ------ | ------------------------------------------------------------------------------------------------ | -------------------------- |
-| M15-1  | Modal centering — convert all bottom-sheet violations to centred modals                        | ✅ Done                   |
-| M15-2  | Events system redesign — conditional delete, edit with unlink dialog, vacation guard           | ✅ Done                   |
-| M15-3  | Privacy mode overhaul — open mode red theme, default mode setting, safe mode rethink           | ✅ Done                   |
-| M15-4  | Home net worth fixes — credit card in liabilities, Liquid Funds bucket, Chip Insights moved    | ✅ Done                   |
-| M15-5  | Market data strip — indices, metals, forex, user-customisable (6 tickers)                      | ✅ Done                   |
-| M15-6  | Expenses improvements — transaction filters (incl. event filter), analytics redesign           | ✅ Done                   |
-| M15-7  | Recurring transactions expansion — daily/weekly/bi-weekly/monthly/quarterly/half-yearly/yearly | ✅ Done                   |
-| M15-8  | IPO Listed tab — FY year picker, search bar, listing gain %                                    | ✅ Done                   |
-| M15-9  | Loans module redesign — My Loans + amortization + payoff planner + XLSX download, 2-tab layout | ✅ Done                   |
-| M15-10 | EPF salary hike groups — per-employer hike timeline, corpus auto-calc, card redesign           | ✅ Done                   |
-| M15-11 | Shared component extraction                                                                    | ➡️ Moved to Pre-Phase 1.5 |
+The detailed step-by-step breakdown for M5-M15 (all ✅ complete) has been trimmed from
+this doc — it carried no ongoing information beyond "yes, this shipped," which the
+one-line summary table above already states. The two items that were genuinely
+deferred/skipped rather than done (Chip mock chat UI, desktop/laptop layout, CAS/EPFO PDF
+import, Watchlist) are captured in the "Deferred from Phase 1" table further down, not
+lost. Full step-by-step history remains in git log / commit messages for that period if
+ever needed.
 
 ## Pre-Phase 1.5 tracks
 
@@ -227,35 +108,10 @@ After v1, the screen was reframed into the one place to see every rupee of tax a
 
 Tests in `tests/tax/` cover the rate/regime history, FY helpers, income waterfall, scenarios, and optimizer/ITR logic.
 
-### Track 1 rationale
-
-Analysis of the existing codebase revealed that major feature files (ExpensesPage: 3,183 lines, PortfolioPage: 4,957 lines) mixed pure calculations, data fetching, state management, and UI rendering in a single file. This makes React Native migration expensive and feature logic untestable. The four-sub-track approach fixes the root cause before addressing the surface symptom (inline Tailwind patterns).
-
-**RN migration reusability (measured by LOC, post Track 1D):**
-
-- **Logic layer (~36% of `src`) ports directly or behind an isolated adapter** — `src/core/` (minus Dexie/Web-Crypto), `src/lib/`, all feature `use*.ts` hooks. Dexie (`core/db`), Web Crypto (`core/crypto`, one file), and `context/` localStorage are swap-behind-interface.
-- The remaining ~64% is `components/ui` + feature JSX markup — inherent RN UI rework (swap renderers, keep prop contracts). The clean isolation (Web Crypto in 1 file, Dexie in 4, FileReader/xlsx in leaf components) makes that port mechanical.
-- Earlier "~85%" estimates counted the component-swap UI as "reuse"; by LOC the honest logic-reuse figure is ~36%. Track 1E (shared-component adoption) raises effective UI reuse by shrinking bespoke markup.
-
-### Target feature module structure (after Track 1)
-
-```
-src/features/{name}/
-  use{Name}.ts          ← ALL state + ALL data fetching + ALL mutations (RN-portable)
-  {Name}Page.tsx        ← thin: layout + calls hook + calls shared components (~300 lines max)
-  {Name}Form.tsx        ← thin: form layout only (~150 lines max)
-
-src/core/{domain}/
-  {domain}Calculator.ts ← pure functions: calculations, transforms, aggregations (100% RN-portable)
-  {domain}Utils.ts      ← pure utilities (date helpers, formatters specific to domain)
-```
-
-### Verification gate (after every sub-track step)
-
-1. `npm run type-check` — catches prop mismatches and type errors immediately
-2. `npm run lint` — catches architecture violations
-3. `npm test -- --run` — PII gate + all tests green
-4. Dev server visual check — navigate to the changed feature, verify UI and interactions
+This LOC-based rationale and the resulting target module structure/verification gate
+have moved to `docs/ARCHITECTURE.md`'s decision log (see "Decision: three-layer feature
+module split") and `.claude/commands/penny-feature-module.md` respectively, rather than
+being duplicated here.
 
 ## Phase 1.5 — Groups & Household OS
 

@@ -832,6 +832,21 @@ and the parent plan → Track C.)
 
 **Rationale (Mobile Migration, July 2026):** Capacitor wraps the web app in a WebView — performance is constrained by CSS rendering and JavaScript layout, and it never quite achieves native feel. React Native renders to real native components. Expo's managed workflow (not bare RN CLI) was chosen over hand-rolled native projects for its build/signing/OTA tooling (EAS Build/Submit/Update) — a solo/small-team app doesn't benefit from bare RN CLI's extra native-project control. A single Expo codebase targets iOS, Android, **and web** (via `react-native-web`) — the existing web app (`apps/web-react/`) is kept alive untouched as a safety net until the new codebase reaches documented parity (see the Track 7 gate in the plan below), not maintained as a second permanent UI layer. An earlier, now-abandoned Capacitor experiment (a generated `android/` project, never committed) was removed during Track 0. Full phased plan: [`docs/plans/mobile-migration.md`](plans/mobile-migration.md).
 
+### Decision: three-layer feature module split (moved here from docs/ROADMAP.md's "Track 1 rationale")
+
+**Rationale (Pre-Phase 1.5, Track 1):** analysis of the pre-split codebase found major
+feature files (`ExpensesPage`: 3,183 lines, `PortfolioPage`: 4,957 lines) mixing pure
+calculations, data fetching, state management, and UI rendering in one file — expensive to
+port to React Native and impossible to unit-test in isolation. Measured by LOC after the
+split: the logic layer (`core/`, `lib/`, feature `use*.ts` hooks — roughly 36% of `src`)
+ports directly or behind an isolated adapter (Dexie/Web-Crypto/`window`-event usage stay
+swap-behind-interface); the remaining ~64% (`components/ui` + feature JSX) is inherent
+UI-renderer rework, made mechanical by the same clean isolation. (An earlier "~85% reuse"
+estimate had counted straightforward UI-swap work as "reuse" — the honest logic-only figure
+is ~36%; shared-component adoption raises effective UI reuse further.) See
+`.claude/commands/penny-feature-module.md` for the resulting target structure and
+checklist.
+
 ### Decision: Domain hooks, not page-god-hooks
 
 **Rationale:** A single hook that owns everything for a page (all useState, all effects, all form state, all mutations) violates SRP, is hard to test, and returns 20+ values with unclear cohesion. Instead: each hook has one domain responsibility (data loading + mutations for one entity). Form fields, modal toggles, and selection state (`editing`, `deletingId`) stay in the page component — they're local UI state, not business state. Bridge functions that read UI state and call a domain mutation (e.g. `handleSave` reads the form, then calls `saveAccount(form, editing)`) also stay in the page. Complex pages compose multiple focused hooks (e.g. `ExpensesPage` calls `useExpenses`, `useSubscriptions`, `useIou`, `useBudgets`). Each domain hook exports ≤10 values and is independently testable with `renderHook`.

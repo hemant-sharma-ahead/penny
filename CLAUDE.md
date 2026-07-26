@@ -22,7 +22,9 @@ Phase 1.
 
 - **Overall roadmap/phase status**: [`docs/ROADMAP.md`](docs/ROADMAP.md) (shipped history,
   decided/in-progress phases, future ideas — merged from three previously separate docs)
-- **Mobile-vs-web parity status, per module**: [`docs/MOBILE_PARITY.md`](docs/MOBILE_PARITY.md)
+- **Mobile-vs-web parity status, per module, and what to work on next**:
+  [`docs/MOBILE_PARITY.md`](docs/MOBILE_PARITY.md) — read its "Program status" section
+  first, every session, before starting any parity-related work
 - **Mobile migration tech stack, rationale, and lessons-learned playbook**:
   [`docs/plans/mobile-migration.md`](docs/plans/mobile-migration.md)
 - **Current git branch**: `feat/rn-migration` (mobile migration work)
@@ -101,4 +103,7 @@ Never mark a step complete without checking this list.
 | Shared component library | [`.claude/commands/penny-components.md`](.claude/commands/penny-components.md) |
 | Adding an external API integration | [`.claude/commands/penny-api-client.md`](.claude/commands/penny-api-client.md) |
 | Auditing `apps/mobile` vs `apps/web-react` for parity gaps | [`.claude/skills/parity-sweep/`](.claude/skills/parity-sweep/SKILL.md) |
-| Specialized subagents (mobile-developer, web-developer, parity-auditor, code-reviewer, test-writer) | [`.claude/agents/`](.claude/agents/) |
+| Keeping docs current after a change | [`.claude/skills/documentation-maintenance/`](.claude/skills/documentation-maintenance/SKILL.md) |
+| Reviewing/proposing UI, cross-platform design consistency | [`.claude/skills/ui-design-check/`](.claude/skills/ui-design-check/SKILL.md) |
+| Specialized subagents (mobile-developer, web-developer, parity-auditor, code-reviewer, test-writer, ui-designer) | [`.claude/agents/`](.claude/agents/) |
+| Current docs for a fast-moving library (RN/Expo/native packages) instead of relying on training data | Context7 MCP, configured project-wide in [`.mcp.json`](.mcp.json) — works anonymously; add an API key in Context7's dashboard only if you hit rate limits |

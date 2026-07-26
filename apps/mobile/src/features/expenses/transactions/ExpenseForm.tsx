@@ -459,7 +459,7 @@ export function ExpenseForm({
 
   function goToAccounts() {
     onClose();
-    navigation.navigate('Accounts');
+    navigation.navigate('Home', { screen: 'Accounts' });
   }
 
   const canTemplate = type !== 'transfer' && description.trim().length > 0 && categoryId.length > 0;
@@ -754,7 +754,7 @@ export function ExpenseForm({
               <Pressable
                 onPress={() => {
                   onClose();
-                  navigation.navigate('ManageTags');
+                  navigation.navigate('Home', { screen: 'ManageTags' });
                 }}
                 className="flex-row items-center gap-0.5"
                 hitSlop={4}

@@ -125,7 +125,7 @@ export function ContextSwitcher() {
               <Pressable
                 onPress={() => {
                   setOpen(false);
-                  navigation.navigate('Profile');
+                  navigation.navigate('MainTabs', { screen: 'Home', params: { screen: 'Profile' } });
                 }}
                 className="flex-row items-center gap-2.5 px-4 py-3 border-t border-theme"
               >

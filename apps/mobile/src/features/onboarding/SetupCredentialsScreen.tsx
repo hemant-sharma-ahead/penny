@@ -132,7 +132,7 @@ export function SetupCredentialsScreen() {
         let attempts = 0;
         const tryNavigate = () => {
           if (navigationRef.isReady()) {
-            navigationRef.navigate('Backup');
+            navigationRef.navigate('MainTabs', { screen: 'Home', params: { screen: 'Backup' } });
           } else if (attempts++ < 20) {
             setTimeout(tryNavigate, 100);
           }

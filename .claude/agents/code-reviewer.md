@@ -12,7 +12,9 @@ and the concrete performance/design pitfalls this codebase has already hit once.
 
 Read `.claude/commands/penny-standards.md` and `docs/DESIGN_GUIDELINES.md` first. Then
 review the actual diff (`git diff`, `git diff --staged`, or the specific files named) —
-never review from a description of what changed, always the real code.
+never review from a description of what changed, always the real code. If a claim in the
+diff or its commit message depends on a library's current behavior you're unsure of, check
+Context7 (see `CLAUDE.md`) rather than assuming.
 
 ## What to check, specifically
 
@@ -29,13 +31,29 @@ never review from a description of what changed, always the real code.
   former destroys and remounts rows on scroll, which has caused real lag/ANR here before.
 - **Theming reactivity**: any chrome-level or screen-level background color should come
   from `useModeBackgroundColor()`/`useModeAccentColor()`, not a flat `theme.surface` or
-  hardcoded class — confirmed twice as a real bug pattern already.
-- **Design tokens**: semantic tokens only, no hardcoded colors except documented domain/
-  brand accents (see `docs/DESIGN_GUIDELINES.md`).
+  hardcoded class — confirmed multiple times as a real bug pattern already.
 - **Memoization correctness**: if a list/row is wrapped in `React.memo`/`useCallback`,
   verify the *props feeding it* are actually stable too — a memoized leaf fed unstable
   callback/array props from its parent gains nothing, which is exactly what happened here
   before it was traced through the full prop chain.
+- **Navigation changes on mobile**: if the diff touches `apps/mobile/src/navigation/` or
+  adds a new pushable screen, confirm it's registered inside `HomeStack`/`ExpensesStack`
+  (or an appropriate per-tab stack), never as a new top-level sibling of `MainTabs` in
+  `MainNavigator.tsx` — that exact shape caused the tab-bar/header to unmount for 19
+  screens before the nested-stack fix. If a new call site navigates across tabs, confirm
+  it uses the nested `{ screen, params }` form, not a bare route name (which only resolves
+  within the caller's own stack).
+- **Design tokens**: semantic tokens only, no hardcoded colors except documented domain/
+  brand accents (see `docs/DESIGN_GUIDELINES.md`). Centered modals only; a back button on
+  every sub-page; correct z-index layering.
+- **Cross-platform UI consistency**: if the diff is a UI refactor on one platform only,
+  flag whether the same change should apply to the other platform too (both apply until
+  the `react-native-web` unification happens — see `docs/ROADMAP.md`) rather than letting
+  them silently diverge.
+- **Documentation discipline**: does this change require updating `docs/features/<module>.md`,
+  `docs/SCHEMA.md`, `docs/ARCHITECTURE.md`, `docs/MOBILE_PARITY.md`, or
+  `docs/DESIGN_GUIDELINES.md`? (See `.claude/skills/documentation-maintenance/` for the
+  full checklist.) Flag if a change plausibly needs a doc update that isn't in the diff.
 - **Test coverage**: does the change need a test, and if one exists, does it actually
   exercise the changed behavior rather than just re-asserting the implementation?
 

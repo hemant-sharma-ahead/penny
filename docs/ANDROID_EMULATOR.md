@@ -70,7 +70,8 @@ Then `source ~/.zshrc` (or open a new terminal).
 
 ## Part 2 — Add Capacitor to the project
 
-Run these from the repo root (`/Users/hemant.sharma/Projects/penny`).
+Run these from **`apps/web-react/`** (`cd apps/web-react` first) — Capacitor only ever
+wraps this app's build output, never `apps/mobile`, so it lives there, not the repo root.
 
 ### 2.1 Install Capacitor
 
@@ -83,9 +84,9 @@ npm install --save-dev @capacitor/cli
 
 (Penny was wrapped with Capacitor **8.4.1**.)
 
-### 2.2 Create the Capacitor config
+### 2.2 The Capacitor config
 
-Create `capacitor.config.ts` in the repo root:
+`apps/web-react/capacitor.config.ts` already exists (committed) — nothing to create:
 
 ```ts
 import type { CapacitorConfig } from '@capacitor/cli';
@@ -102,24 +103,25 @@ const config: CapacitorConfig = {
 export default config;
 ```
 
-- `webDir: 'dist'` points Capacitor at Vite's build output.
+- `webDir: 'dist'` points Capacitor at Vite's build output, relative to this config file's
+  own location (`apps/web-react/dist`).
 - `appId` is the Android package id — change it later if you register a real domain.
 
 ### 2.3 Build the web app, then add the native Android project
 
 ```bash
-npm run build            # produces dist/
+pnpm build               # produces apps/web-react/dist
 npx cap add android      # creates the native android/ project and copies dist/ into it
 ```
 
 `cap add android` also runs an initial Gradle sync (~1 min the first time).
 
-> **Live data works out of the box:** `npm run build` bakes `VITE_API_PROXY` from the committed
+> **Live data works out of the box:** `pnpm build` bakes `VITE_API_PROXY` from the committed
 > `.env.production` (the deployed API Proxy Worker), so market / NAV / vehicle data loads in the
 > emulator. To point the wrap at a **local** worker instead, set `VITE_API_PROXY=http://localhost:8787`
 > in `.env.local` before building; leave it unset there to force direct, no-backend calls.
 
-> **The `android/` folder is git-ignored** (treated as generated build output, like `dist/`). What's committed is the source of truth: `capacitor.config.ts` and the `@capacitor/*` deps in `package.json`. So on a **fresh clone** you must regenerate it — run the two commands above (`npm run build && npx cap add android`) before building. Native customisations (icons, splash, manifest, signing) aren't tracked while `android/` is ignored.
+> **The `android/` folder is git-ignored** (treated as generated build output, like `dist/`). What's committed is the source of truth: `capacitor.config.ts` and the `@capacitor/*` deps in `package.json`. So on a **fresh clone** you must regenerate it — run the two commands above (`pnpm build && npx cap add android`) before building. Native customisations (icons, splash, manifest, signing) aren't tracked while `android/` is ignored.
 
 ---
 
@@ -191,7 +193,7 @@ export PATH="$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator"
 **1. Build the APK** (only needed after web-code changes — see the rebuild loop below):
 
 ```bash
-npm run build && npx cap sync android
+pnpm build && npx cap sync android
 ( cd android && ./gradlew assembleDebug )
 # -> android/app/build/outputs/apk/debug/app-debug.apk
 ```
@@ -235,7 +237,7 @@ adb exec-out screencap -p > shot.png # screenshot the screen
 Capacitor serves a **static copy** of `dist/`, so native rebuilds need a sync:
 
 ```bash
-npm run build          # rebuild the web bundle
+pnpm build             # rebuild the web bundle (run from apps/web-react/)
 npx cap sync android   # copy dist/ into the native project
 # then re-run from Android Studio (▶) or: cd android && ./gradlew assembleDebug && adb install -r …
 ```
@@ -261,7 +263,7 @@ Now click any text field and type directly. `⌘V` pastes, `Esc` = Back, `Return
 
 | Symptom | Fix |
 | ------- | --- |
-| **Live market data / prices don't load** | Prices are served via the deployed API Proxy Worker (Phase 1.5 Track A), whose URL is baked in from the committed `.env.production` at `npm run build`. Make sure you built from the repo root (so `.env.production` is picked up) and that `VITE_API_PROXY` isn't emptied by a `.env.local` override. All local-first features work offline regardless. See [BACKEND_STRATEGY.md](BACKEND_STRATEGY.md). |
+| **Live market data / prices don't load** | Prices are served via the deployed API Proxy Worker (Phase 1.5 Track A), whose URL is baked in from the committed `.env.production` at build time. Make sure you built from `apps/web-react/` (so its `.env.production` is picked up) and that `VITE_API_PROXY` isn't emptied by a `.env.local` override. All local-first features work offline regardless. See [BACKEND_STRATEGY.md](BACKEND_STRATEGY.md). |
 | `adb: no devices/emulators found` | Boot the AVD first (Device Manager ▶, or `emulator -avd penny_pixel`), then `adb wait-for-device`. |
 | App installs but drops back to the launcher | Launch explicitly: `adb shell am start -n com.penny.app/.MainActivity`. |
 | Gradle can't find a JDK (terminal builds) | `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`, or just build from inside Android Studio. |
