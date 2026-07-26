@@ -9,7 +9,7 @@ interface DoneStepProps {
   onDone: () => void;
 }
 
-/** RN port of apps/web-legacy/src/features/import/DoneStep.tsx. */
+/** RN port of apps/web-react/src/features/import/DoneStep.tsx. */
 export function DoneStep({ importedCount, onDone }: DoneStepProps) {
   const theme = useThemeColors();
 

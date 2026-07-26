@@ -35,7 +35,7 @@ import { useToast } from '~/context/ToastContext';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 /**
- * RN port of apps/web-legacy/src/features/profile/ProfilePage.tsx. Deviations:
+ * RN port of apps/web-react/src/features/profile/ProfilePage.tsx. Deviations:
  * - The avatar picker uses a *real* photo (web's `<input type="file">` + `fileToReceiptDataUrl`, not a
  *   color-swatch/icon grid) — reused Expenses' `pickReceiptPhoto` (`~/lib/receiptImage.ts`, built on
  *   `expo-image-picker`+`expo-image-manipulator`) for the same "downscaled JPEG data URL" shape web

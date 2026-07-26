@@ -18,7 +18,7 @@ function dueLabel(r: Reminder, todayMs: number): string {
 }
 
 /**
- * RN port of apps/web-legacy/src/components/reminders/RemindersBell.tsx — same bell icon + badge
+ * RN port of apps/web-react/src/components/reminders/RemindersBell.tsx — same bell icon + badge
  * count, opening a centered Modal with the same overdue/today/soon sections and per-reminder
  * actions (log/cancel/snooze/done). Snooze's inline day-picker row swaps web's flex-wrap buttons
  * for the shared `Button` component.

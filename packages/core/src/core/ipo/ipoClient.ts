@@ -10,18 +10,17 @@ import type {
   RawIpoRow
 } from './ipoTypes';
 import { IG_BASE } from '@/core/net/apiBase';
+import {
+  IPO_API_YEAR,
+  IPO_API_FY,
+  IPO_BASE_PATH,
+  IPO_SUBSCRIPTION_PATH,
+  IPO_CACHE_TTL_MS
+} from './ipoClient.constants';
 
-// Update every April when the Indian financial year rolls over (FY starts April 1).
-const IPO_API_YEAR = '2026';
-const IPO_API_FY = '2026-27';
-
-// investorgain rebuilt their site (Next.js/Turbopack) at some point after this was first wired up, and
-// retired `cloud/report/data-read`/`cloud/ipo/ipo-subscription-read` in favor of `cloud/v2/...` — same
-// response shape, just a version-prefixed path. Found via a user report of "API not found" and confirmed
-// by pulling investorgain's own rebuilt frontend bundle and grepping it for the new call sites.
-const BASE_URL = `${IG_BASE}/cloud/v2/report/data-read`;
+const BASE_URL = `${IG_BASE}/${IPO_BASE_PATH}`;
 const CACHE_KEY = 'penny_ipo_cache';
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const CACHE_TTL_MS = IPO_CACHE_TTL_MS;
 
 // IPO subscription hours: 10:00–17:00 IST, Mon–Fri (IST = UTC+5:30)
 function isMarketHours(): boolean {
@@ -137,7 +136,7 @@ export async function fetchIpoSubscription(id: number): Promise<IpoSubDetail | n
   const cached = subCache.get(id);
   if (cached) return cached;
   try {
-    const res = await fetch(`${IG_BASE}/cloud/v2/ipo/ipo-subscription-read/${id}`);
+    const res = await fetch(`${IG_BASE}/${IPO_SUBSCRIPTION_PATH}/${id}`);
     if (!res.ok) return null;
     const json = (await res.json()) as { data?: { ipoBiddingData?: RawSubRow[] } };
     const raw = json.data?.ipoBiddingData;

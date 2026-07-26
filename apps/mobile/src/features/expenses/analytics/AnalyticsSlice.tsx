@@ -17,7 +17,7 @@ interface AnalyticsSliceProps {
 }
 
 /**
- * RN port of apps/web-legacy/src/features/expenses/analytics/AnalyticsSlice.tsx. Groups is now ported —
+ * RN port of apps/web-react/src/features/expenses/analytics/AnalyticsSlice.tsx. Groups is now ported —
  * this restores the `familyGroupIds` prop, previously dropped here. Web's outer `overflow-y-auto` scroll
  * wrapper becomes a real `ScrollView` here (previously missing entirely — `ExpensesPage.tsx`'s tab
  * content area has no scroll of its own, unlike the comment here used to claim; `BudgetsSlice.tsx` is

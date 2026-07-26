@@ -15,7 +15,7 @@ import { DoneStep } from './DoneStep';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 /**
- * RN port of apps/web-legacy/src/features/import/ImportPage.tsx. Web's back button either navigates to
+ * RN port of apps/web-react/src/features/import/ImportPage.tsx. Web's back button either navigates to
  * Expenses (upload step) or back to the upload step (preview/done step, since the wizard has no browser
  * history to pop within a single screen) — the preview/done case is a plain inline `Pressable` matching
  * `BackButton`'s look, not the shared `BackButton` itself, since that component is hardcoded to

@@ -42,7 +42,7 @@ import { getItem, setItem, getJSON, setJSON, removeItem } from '~/lib/storage';
 const expenseSummary = (verb: string, e: Expense) => `${verb} ${e.type}: ${e.description} ₹${e.amount}`;
 
 /**
- * RN port of apps/web-legacy/src/features/expenses/useExpenses.ts — same logic, unchanged, except every
+ * RN port of apps/web-react/src/features/expenses/useExpenses.ts — same logic, unchanged, except every
  * one-time migration/seeding effect's synchronous `localStorage` check becomes an async `~/lib/storage`
  * (AsyncStorage) check inside the same effect. Each effect already gates on a `*Ref` flag + reload-driven
  * re-render, so making the storage check async (instead of synchronous-then-effect) just shifts the

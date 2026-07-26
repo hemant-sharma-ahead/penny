@@ -13,7 +13,7 @@ import { useServerActionError } from './useServerActionError';
 
 type Direction = 'they_paid_you' | 'you_paid_them';
 
-/** RN port of apps/web-legacy/src/features/groups/SettleUpGroupModal.tsx — straightforward form port. */
+/** RN port of apps/web-react/src/features/groups/SettleUpGroupModal.tsx — straightforward form port. */
 export function SettleUpGroupModal({
   group,
   onClose,

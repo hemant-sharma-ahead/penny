@@ -37,7 +37,7 @@ export interface ForecastResult {
 }
 
 /**
- * RN port of apps/web-legacy/src/hooks/useForecast.ts — same logic, unchanged; only the
+ * RN port of apps/web-react/src/hooks/useForecast.ts — same logic, unchanged; only the
  * SettingsContext import points at the mobile context.
  * Loads the recurring-flow sources + accounts, computes the current liquid
  * balance, and projects it forward over `horizonDays`. Shared by the Cash Flow

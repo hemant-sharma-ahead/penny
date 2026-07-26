@@ -19,7 +19,7 @@ import type { Group, GroupMember } from '@/core/db/types';
 import { useServerActionError } from './useServerActionError';
 
 /**
- * RN port of apps/web-legacy/src/features/groups/GroupMembersModal.tsx. The one file in this module with
+ * RN port of apps/web-react/src/features/groups/GroupMembersModal.tsx. The one file in this module with
  * real native-API swaps: `navigator.clipboard.writeText(link)` → `expo-clipboard`'s
  * `Clipboard.setStringAsync(link)`; `navigator.share({ title, url })` → RN's built-in `Share.share({
  * message, url })` — same try/fallback-to-clipboard structure as web.

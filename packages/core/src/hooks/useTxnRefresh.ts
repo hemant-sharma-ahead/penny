@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
+import { TXN_CHANGED_EVENT } from './useTxnRefresh.constants';
 
-/** The app-wide signal that transactions/balances changed in another mounted hook instance. */
-export const TXN_CHANGED_EVENT = 'penny:txn-changed';
+export { TXN_CHANGED_EVENT };
 
 /** Broadcast that transactions changed so balance/forecast views in other hooks reload. */
 export function notifyTxnChanged(): void {

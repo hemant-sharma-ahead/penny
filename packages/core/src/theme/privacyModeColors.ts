@@ -1,4 +1,4 @@
-// Extracted from apps/web-legacy/src/index.css's `[data-privacy-mode=...]` / `[data-theme=...]
+// Extracted from apps/web-react/src/index.css's `[data-privacy-mode=...]` / `[data-theme=...]
 // [data-privacy-mode=...]` rules — the header/page-background tint that layers on top of the base
 // theme (light/pennyBlue/dark) depending on the current Privacy Mode (Safe/Private/Open). Two variants
 // only: "light" (used with the `light` theme) and "dark-ish" (used with both `pennyBlue` and `dark`,

@@ -11,7 +11,7 @@ const DAY_MS = 86_400_000;
 const EMPTY_STATE: ReminderState = { snoozed: {}, done: [] };
 
 /**
- * RN port of apps/web-legacy/src/hooks/useReminders.ts — drives the header Reminders bell. Same
+ * RN port of apps/web-react/src/hooks/useReminders.ts — drives the header Reminders bell. Same
  * logic; only the persisted snooze/done state swaps synchronous `localStorage` for async
  * AsyncStorage (`~/lib/storage`), hydrated once on mount like PrivacyContext's default-mode load.
  */

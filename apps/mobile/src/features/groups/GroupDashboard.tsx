@@ -20,7 +20,7 @@ const TYPE_ICON: Record<string, string> = {
   other: 'ti-users-group'
 };
 
-/** RN port of apps/web-legacy/src/features/groups/GroupDashboard.tsx. `grid place-items-center`
+/** RN port of apps/web-react/src/features/groups/GroupDashboard.tsx. `grid place-items-center`
  *  occurrences on web are single-cell centering here (`items-center justify-center`), not a real grid. */
 export function GroupDashboard({ group }: { group: Group }) {
   const theme = useThemeColors();

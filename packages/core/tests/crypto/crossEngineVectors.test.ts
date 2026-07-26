@@ -8,7 +8,7 @@
 // IMPORTANT — honesty about what's actually verified here: react-native-quick-crypto is a native Nitro
 // module. It cannot run inside this Node/Vitest process — there is no device or simulator in this
 // environment. What this file DOES prove: the vectors below are internally consistent and correct against
-// Node's Web Crypto implementation (the same engine.ts code apps/web-legacy runs). What still needs a human
+// Node's Web Crypto implementation (the same engine.ts code apps/web-react runs). What still needs a human
 // with a physical device or simulator: run these exact same fixed inputs through
 // react-native-quick-crypto's crypto.subtle (e.g. temporarily log the outputs from a debug screen in
 // apps/mobile, or write an equivalent test using a device-based test runner) and confirm they match the
@@ -44,7 +44,7 @@ describe('cross-engine crypto vectors — verified here under Web Crypto; MUST b
       keyMaterial,
       256
     );
-    // Computed once against Node's Web Crypto (the same implementation apps/web-legacy uses in a browser).
+    // Computed once against Node's Web Crypto (the same implementation apps/web-react uses in a browser).
     expect(hex(bits)).toBe('082801ebffc2cd21fb5f89c5c691dcba73e1b44e629604bb45a83eb12ee9cffb');
   });
 

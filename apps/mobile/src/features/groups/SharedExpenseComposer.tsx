@@ -43,7 +43,7 @@ function Avatar({ name, on, dim, onPress }: { name: string; on?: boolean; dim?: 
   );
 }
 
-/** RN port of apps/web-legacy/src/features/groups/SharedExpenseComposer.tsx. */
+/** RN port of apps/web-react/src/features/groups/SharedExpenseComposer.tsx. */
 export function SharedExpenseComposer({
   group,
   onClose,

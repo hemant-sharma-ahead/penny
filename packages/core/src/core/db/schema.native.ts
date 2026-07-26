@@ -62,7 +62,7 @@ import type {
  *    ahead of time the way it can for the fixed `EncryptedRecord` shape every `EncryptedRepository`-wrapped
  *    table always has.
  *
- * Never bundled on web: apps/web-legacy imports `./schema` (bare, extensionless), and Metro/Vite each
+ * Never bundled on web: apps/web-react imports `./schema` (bare, extensionless), and Metro/Vite each
  * resolve that differently — Metro prefers `schema.native.ts` for RN, Vite has no such convention and
  * just resolves `schema.ts` as always.
  *

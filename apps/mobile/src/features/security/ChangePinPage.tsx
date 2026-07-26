@@ -14,7 +14,7 @@ type ChangePinRouteParams = { forcedPinReset?: boolean } | undefined;
 const isSixDigits = (v: string) => /^\d{6}$/.test(v);
 
 /**
- * RN port of apps/web-legacy/src/features/security/ChangePinPage.tsx. Envelope-crypto re-wrap only —
+ * RN port of apps/web-react/src/features/security/ChangePinPage.tsx. Envelope-crypto re-wrap only —
  * `securityManager.changePin`/`resetPinWithPassphrase` never re-encrypt the underlying data, per
  * CLAUDE.md's encryption rules — this is a pure UI port, no crypto work needed.
  *

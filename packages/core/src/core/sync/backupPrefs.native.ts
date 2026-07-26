@@ -9,8 +9,7 @@
 // re-reads it on every sync cycle, not just once.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { BackupTarget } from './decide';
-
-const KEY = 'penny_backup_target';
+import { BACKUP_TARGET_KEY as KEY } from './backupPrefs.constants';
 
 let target: BackupTarget = null;
 

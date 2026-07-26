@@ -12,7 +12,7 @@ function fmt(v: unknown): string {
   return String(v);
 }
 
-/** RN port of apps/web-legacy/src/features/activity/components/DiffChips.tsx — renders an UPDATE diff
+/** RN port of apps/web-react/src/features/activity/components/DiffChips.tsx — renders an UPDATE diff
  *  as friendly before→after chips. Values hidden when masked. */
 export function DiffChips({ diff, masked }: Props) {
   let parsed: Record<string, [unknown, unknown]>;

@@ -21,7 +21,7 @@ const TYPE_ICON: Record<string, string> = {
 };
 
 /**
- * RN port of apps/web-legacy/src/features/groups/ContextSwitcher.tsx: the context bar under the app
+ * RN port of apps/web-react/src/features/groups/ContextSwitcher.tsx: the context bar under the app
  * header — shows the current scope (Personal or a group) and opens a menu to switch or create/join.
  * Rendered only when the `sync` entitlement is on (dark by default), mounted above `MainTabs`' tab
  * navigator (see `~/navigation/MainTabs.tsx`).

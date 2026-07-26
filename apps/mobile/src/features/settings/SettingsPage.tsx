@@ -19,7 +19,7 @@ import { getWipeAfterAttempts, setWipeAfterAttempts, WIPE_THRESHOLD } from '@/co
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 /**
- * RN port of apps/web-legacy/src/features/settings/SettingsPage.tsx. Deviations from the web version:
+ * RN port of apps/web-react/src/features/settings/SettingsPage.tsx. Deviations from the web version:
  * - Theme picker restored, driving mobile's own `ThemeProvider` (Track 3) instead of web's
  *   `SettingsContext`-owned `theme`/`data-theme` — same 4 choices (Light/Penny Blue/Dark/System), same
  *   swatch-preview grid, translated to `Pressable`+`View` swatches instead of web's `<button>`/CSS.

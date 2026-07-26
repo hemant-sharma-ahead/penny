@@ -15,10 +15,10 @@ import { useReduceMotion } from '~/hooks/useReduceMotion';
 import { getItem, setItem } from '~/lib/storage';
 import { TICKER_CONFIGS, fetchMarketTickers, type TickerId, type TickerResult } from '@/core/market/marketDataClient';
 
-// Web's storage key (apps/web-legacy/src/features/home/MarketTicker.tsx via marketDataClient's
+// Web's storage key (apps/web-react/src/features/home/MarketTicker.tsx via marketDataClient's
 // loadEnabledTickers/saveEnabledTickers) — kept identical so the two apps' persisted picks agree.
 const STORAGE_KEY = 'penny_market_tickers_enabled';
-// Web's @keyframes penny-marquee (apps/web-legacy/src/index.css:303-315): translateX 0 → -50% of a
+// Web's @keyframes penny-marquee (apps/web-react/src/index.css:303-315): translateX 0 → -50% of a
 // doubled track, linear, 32s, infinite, jump-cut back to 0 (not reverse). RN has no CSS keyframes, so
 // this is reanimated's standard seamless-marquee recipe: render the content twice back-to-back, measure
 // one copy's width via onLayout, then withRepeat(withTiming(-width, linear, 32s), reverse: false) —

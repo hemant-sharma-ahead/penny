@@ -19,7 +19,7 @@ const BOTTOM = 18; // month-label row
 const H = TOP + PLOT + BOTTOM;
 
 /**
- * RN port of apps/web-legacy/src/features/expenses/analytics/AnnualChart.tsx. Same viewBox-scaled SVG
+ * RN port of apps/web-react/src/features/expenses/analytics/AnnualChart.tsx. Same viewBox-scaled SVG
  * (`Rect`/`Polyline`/`Text` map directly to their web counterparts), wrapped in a horizontal `ScrollView`
  * instead of `overflow-x-auto`. Tap targets use `react-native-svg`'s native `onPress` on the transparent
  * per-column `Rect` directly (touch events work fine on SVG shapes here) rather than an overlay of RN

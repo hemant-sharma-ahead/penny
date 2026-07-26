@@ -11,7 +11,7 @@ import { hashtagsRepo } from '@/core/db/repositories';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 /**
- * RN port of apps/web-legacy/src/features/settings/ManageTagsPage.tsx. The only place an *existing*
+ * RN port of apps/web-react/src/features/settings/ManageTagsPage.tsx. The only place an *existing*
  * tag's "Set aside" classification can be changed — retroactively reclassifies every past transaction
  * carrying that tag, so it deliberately doesn't live one accidental tap away in the Add Expense form.
  */

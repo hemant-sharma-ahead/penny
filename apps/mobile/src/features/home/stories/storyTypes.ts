@@ -1,5 +1,5 @@
 // Shared types for the Home "stories" (Instagram-style tap-through cards). RN port of
-// apps/web-legacy/src/features/home/stories/storyTypes.ts — the share-image generator moved to
+// apps/web-react/src/features/home/stories/storyTypes.ts — the share-image generator moved to
 // ShareCard.tsx since it now needs to render a real (offscreen) RN View for react-native-view-shot to
 // snapshot, rather than draw procedurally onto a <canvas> (see ShareCard.tsx's top comment for why).
 

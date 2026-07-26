@@ -4,7 +4,7 @@ import { calcFd, calcRd, type CompoundingFreq } from '@/core/calculators/fdRd';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { LabeledInput, SegmentedToggle, ResultCard, AmountRow, HeroResult } from './CalcUI';
 
-/** RN port of apps/web-legacy/src/features/calculators/FdRdCalculator.tsx. */
+/** RN port of apps/web-react/src/features/calculators/FdRdCalculator.tsx. */
 export function FdRdCalculator() {
   const masked = usePrivacy().shouldMask(false);
   const [mode, setMode] = useState<'fd' | 'rd'>('fd');

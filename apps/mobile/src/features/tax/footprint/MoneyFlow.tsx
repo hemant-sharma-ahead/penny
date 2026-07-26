@@ -24,7 +24,7 @@ function segments(
   ];
 }
 
-/** RN port of apps/web-legacy/src/features/tax/footprint/MoneyFlow.tsx — a stacked proportion bar
+/** RN port of apps/web-react/src/features/tax/footprint/MoneyFlow.tsx — a stacked proportion bar
  *  showing how every rupee of gross income was used. */
 export function MoneyFlow({ waterfall }: { waterfall: IncomeWaterfall }) {
   const theme = useThemeColors();

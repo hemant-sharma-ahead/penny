@@ -84,7 +84,7 @@ function BalanceSparkline({
 }
 
 /**
- * RN port of apps/web-legacy/src/features/cashflow/CashFlowPage.tsx — the "Safe to spend" screen
+ * RN port of apps/web-react/src/features/cashflow/CashFlowPage.tsx — the "Safe to spend" screen
  * `~/features/home/GlanceHeader.tsx` links to (previously flagged as a no-op since this module didn't
  * exist on mobile). Uses `theme.primary`/`theme.danger`/etc. real hex values instead of web's
  * `STATUS`/CSS-var strings, same fix applied throughout this migration.

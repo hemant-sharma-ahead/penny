@@ -21,7 +21,7 @@ interface UploadStepProps {
 }
 
 /**
- * RN port of apps/web-legacy/src/features/import/UploadStep.tsx. Web's `<input type=file>` +
+ * RN port of apps/web-react/src/features/import/UploadStep.tsx. Web's `<input type=file>` +
  * `FileReader.readAsText` becomes `expo-document-picker`'s `getDocumentAsync` + `expo-file-system`'s
  * `File.text()` — same pattern already proven in onboarding's `AccountRecoveryScreen`. Template download
  * reuses `downloadCsv` (already ported to `expo-file-system`+`expo-sharing` for Expenses' CSV export).

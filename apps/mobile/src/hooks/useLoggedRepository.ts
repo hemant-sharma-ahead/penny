@@ -14,7 +14,7 @@ interface LoggedOptions<T> {
 }
 
 /**
- * RN port of apps/web-legacy/src/hooks/useLoggedRepository.ts — same logic, unchanged; only the
+ * RN port of apps/web-react/src/hooks/useLoggedRepository.ts — same logic, unchanged; only the
  * `useToast` import points at the mobile `ToastContext`.
  * Drop-in replacement for `useRepository` that records CREATE/UPDATE on save and DELETE on remove,
  * and shows an Undo toast (restore + reload) after a delete. Same return shape as `useRepository`.

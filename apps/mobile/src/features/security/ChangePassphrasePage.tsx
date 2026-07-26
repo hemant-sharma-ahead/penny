@@ -13,7 +13,7 @@ import { usePassphraseStrength } from '@/hooks/usePassphraseStrength';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 /**
- * RN port of apps/web-legacy/src/features/security/ChangePassphrasePage.tsx. Pure UI port —
+ * RN port of apps/web-react/src/features/security/ChangePassphrasePage.tsx. Pure UI port —
  * `securityManager.changePassphrase` only re-wraps the DMK, data is never re-encrypted (CLAUDE.md's
  * encryption rules). `usePassphraseStrength` is already platform-agnostic (packages/core/src/hooks).
  */

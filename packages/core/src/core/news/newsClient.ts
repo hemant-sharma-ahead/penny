@@ -1,42 +1,9 @@
 import type { NewsItem, NewsSource, NewsSourceId } from './newsTypes';
+import { NEWS_PROXY as PROXY, NEWS_TTL_MS, NEWS_SOURCES } from './newsClient.constants';
 
-// AllOrigins raw passthrough — returns the XML as-is so we parse with DOMParser.
-// Swap this constant to a Cloudflare Worker URL in Phase 2.
-const PROXY = 'https://api.allorigins.win/raw?url=';
+export { NEWS_SOURCES };
 
 const NEWS_CACHE_KEY = 'penny_news_cache';
-const NEWS_TTL_MS = 45 * 60 * 1000; // 45 minutes
-
-export const NEWS_SOURCES: NewsSource[] = [
-  {
-    id: 'et-markets',
-    label: 'ET Markets',
-    category: 'markets',
-    feedUrl: 'https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms',
-    color: '#f97316'
-  },
-  {
-    id: 'mint',
-    label: 'Mint',
-    category: 'markets',
-    feedUrl: 'https://www.livemint.com/rss/markets',
-    color: '#0ea5e9'
-  },
-  {
-    id: 'rbi',
-    label: 'RBI',
-    category: 'regulatory',
-    feedUrl: 'https://www.rbi.org.in/pressreleases_rss.xml',
-    color: '#10b981'
-  },
-  {
-    id: 'sebi',
-    label: 'SEBI',
-    category: 'regulatory',
-    feedUrl: 'https://www.sebi.gov.in/sebirss.xml',
-    color: '#8b5cf6'
-  }
-];
 
 interface CacheEntry {
   items: NewsItem[];

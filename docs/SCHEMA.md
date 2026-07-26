@@ -18,7 +18,7 @@ Encrypted stores use `EncryptedRepository<T>`, which wraps Dexie and transparent
 
 Since Track 2 of the [mobile migration](plans/mobile-migration.md), `apps/mobile` runs on
 `@op-engineering/op-sqlite` instead of Dexie — Metro resolves `packages/core/src/core/db/schema.native.ts`
-in place of `schema.ts` for any native build (verified via bundle inspection; web/`apps/web-legacy` is
+in place of `schema.ts` for any native build (verified via bundle inspection; web/`apps/web-react` is
 completely unaffected and keeps using Dexie unchanged). This is the third storage engine this file has
 used, each swap driven by a real on-device bug:
 

@@ -21,7 +21,7 @@ const SLIDE_MS = 4500;
 /**
  * Full-screen, Instagram-style tap-through viewer for the Home stories. Segmented progress bars for
  * the current story, tap left/right to step, auto-advance, and seamless cross-story progression.
- * RN port of apps/web-legacy/src/features/home/stories/StoryViewer.tsx — dropped the `keydown`
+ * RN port of apps/web-react/src/features/home/stories/StoryViewer.tsx — dropped the `keydown`
  * Escape/Arrow-key listener entirely (no RN equivalent; the tap zones already give the same
  * prev/next/close affordance touch-first, matching the "sub-page back button dropped" precedent used
  * elsewhere in this port), and swapped the CSS `width`-transition progress fill for an `Animated.Value`

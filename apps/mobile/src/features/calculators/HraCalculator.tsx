@@ -4,7 +4,7 @@ import { calcHraExemption } from '@/core/calculators/hra';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { LabeledInput, SegmentedToggle, ResultCard, AmountRow, HeroResult } from './CalcUI';
 
-/** RN port of apps/web-legacy/src/features/calculators/HraCalculator.tsx. */
+/** RN port of apps/web-react/src/features/calculators/HraCalculator.tsx. */
 export function HraCalculator() {
   const masked = usePrivacy().shouldMask(false);
   const [basic, setBasic] = useState('');

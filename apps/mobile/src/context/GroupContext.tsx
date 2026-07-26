@@ -2,7 +2,7 @@
 // group re-scopes Home to that group's dashboard (Phase 1.5 Track E, E4). Mounted at the app root so it
 // can read the encrypted `groups` mirror. Behind the dark `sync` entitlement in the UI.
 //
-// RN port of apps/web-legacy/src/context/GroupContext.tsx — same API surface; the only platform swaps
+// RN port of apps/web-react/src/context/GroupContext.tsx — same API surface; the only platform swaps
 // are: `localStorage` → `~/lib/storage` (async AsyncStorage; `selected` starts at the safe default
 // 'personal' and hydrates once in a `useEffect`, matching `PrivacyContext`'s established pattern), and
 // `window.addEventListener(PROFILE_UPDATED_EVENT, ...)` → `subscribeProfileChanged` (from

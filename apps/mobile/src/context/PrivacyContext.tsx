@@ -3,7 +3,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { loadDefaultPrivacyMode, loadOpenModeDurationMinutes } from './SettingsContext';
 
 /**
- * RN port of apps/web-legacy/src/context/PrivacyContext.tsx. Same API surface; the only platform swaps
+ * RN port of apps/web-react/src/context/PrivacyContext.tsx. Same API surface; the only platform swaps
  * are: dropped `document.body.setAttribute` (nothing on mobile reads a DOM attribute — theme already
  * flows through `ThemeProvider`), and `document.hidden`/`visibilitychange` → RN `AppState` for the
  * Open-mode auto-revert-on-backgrounding behavior. `loadDefaultPrivacyMode` is async here (AsyncStorage,

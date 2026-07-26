@@ -24,7 +24,7 @@ const SHARE_CARD_H = 1350;
 const SHARE_SCALE = 0.28; // rendered small on-screen (offscreen), react-native-view-shot snaps its real pixels
 
 /**
- * RN port of apps/web-legacy/src/features/activity/components/WrappedModal.tsx's hand-rolled `fixed
+ * RN port of apps/web-react/src/features/activity/components/WrappedModal.tsx's hand-rolled `fixed
  * inset-0 z-[90]` full-screen "wrapped"-style overlay + `<canvas>`-drawn share image.
  *
  * Neither the shared `components/ui` `Modal` (a centered dialog, not a full-bleed story presentation —

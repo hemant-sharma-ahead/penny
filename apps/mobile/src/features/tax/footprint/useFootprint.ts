@@ -36,7 +36,7 @@ export interface FootprintData {
 type Deductions = ReturnType<typeof useTaxDeductions>;
 
 /**
- * RN port of apps/web-legacy/src/features/tax/footprint/useFootprint.ts — unchanged logic. Assembles
+ * RN port of apps/web-react/src/features/tax/footprint/useFootprint.ts — unchanged logic. Assembles
  * the income waterfall for the selected financial year: derives gross (FY income transactions →
  * annualised recurring → manual override), applies EPF/statutory levies and the regime-based direct tax
  * (all overridable), estimates indirect tax from that FY's spending, and reconciles consumed money into

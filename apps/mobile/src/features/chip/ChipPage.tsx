@@ -25,10 +25,10 @@ async function seedInsightsIfEmpty(): Promise<ChipInsight[]> {
 }
 
 /**
- * RN port of apps/web-legacy/src/features/chip/ChipPage.tsx — the rule-based "insights" dashboard
+ * RN port of apps/web-react/src/features/chip/ChipPage.tsx — the rule-based "insights" dashboard
  * (headline/reasoning/consequence cards seeded from `mockChip`'s `DEFAULT_INSIGHTS`), not a real LLM
  * chat — same as web today. Real conversational Chip (Anthropic-backed) stays Phase 2 on both
- * platforms; this screen was the one web-legacy feature folder mobile had never ported at all.
+ * platforms; this screen was the one web-react feature folder mobile had never ported at all.
  */
 export function ChipPage() {
   const modeBg = useModeBackgroundColor();

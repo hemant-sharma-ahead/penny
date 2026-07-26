@@ -178,7 +178,7 @@ importers:
         specifier: ~6.0.3
         version: 6.0.3
 
-  apps/web-legacy:
+  apps/web-react:
     dependencies:
       '@fontsource/inter':
         specifier: ^5.2.8

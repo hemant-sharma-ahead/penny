@@ -11,7 +11,7 @@ interface UseNewsSentimentResult {
 }
 
 /**
- * RN port of apps/web-legacy/src/features/news/useNewsSentiment.ts — unchanged, pure logic (no
+ * RN port of apps/web-react/src/features/news/useNewsSentiment.ts — unchanged, pure logic (no
  * network, no AI, no platform APIs).
  */
 export function useNewsSentiment(items: NewsItem[]): UseNewsSentimentResult {

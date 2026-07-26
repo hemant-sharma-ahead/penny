@@ -18,7 +18,7 @@ const GROSS_SOURCE_LABEL: Record<FootprintData['grossSource'], string> = {
   none: 'No income data yet'
 };
 
-/** RN port of apps/web-legacy/src/features/tax/footprint/FootprintTab.tsx. */
+/** RN port of apps/web-react/src/features/tax/footprint/FootprintTab.tsx. */
 export function FootprintTab({ data }: { data: FootprintData }) {
   const theme = useThemeColors();
   const {

@@ -12,7 +12,7 @@ export interface GroupSummary {
 }
 
 /**
- * RN port of apps/web-legacy/src/features/groups/useGroupSummaries.ts — pure data hook, no browser APIs,
+ * RN port of apps/web-react/src/features/groups/useGroupSummaries.ts — pure data hook, no browser APIs,
  * ported unchanged (import-path translation only).
  *
  * Per-group summaries (your balance + member/expense counts + members) for the Home Groups card and the

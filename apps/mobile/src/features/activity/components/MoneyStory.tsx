@@ -21,7 +21,7 @@ interface Tile {
 }
 
 /**
- * RN port of apps/web-legacy/src/features/activity/components/MoneyStory.tsx — Story tab: Chip
+ * RN port of apps/web-react/src/features/activity/components/MoneyStory.tsx — Story tab: Chip
  * narration + a compact 2×2 week grid + streak heatmap + On this day. `grid-cols-2` → `flex-row
  * flex-wrap`, established Track 4 pattern.
  */

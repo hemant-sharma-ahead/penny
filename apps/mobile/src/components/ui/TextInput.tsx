@@ -46,8 +46,9 @@ export function TextInput({
         placeholder={placeholder}
         placeholderTextColor={theme.textTertiary}
         editable={!disabled}
+        textAlignVertical="center"
         className={`bg-surface-2 text-primary border w-full rounded-xl px-3 py-2.5 text-sm ${prefix ? 'pl-7' : ''} ${suffix ? 'pr-10' : ''} ${disabled ? 'opacity-50' : ''} ${inputClassName}`}
-        style={{ borderColor: error ? theme.danger : theme.border }}
+        style={{ borderColor: error ? theme.danger : theme.border, includeFontPadding: false }}
         {...rest}
       />
       {suffix && <Text className="absolute right-3 text-sm text-tertiary">{suffix}</Text>}

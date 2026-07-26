@@ -6,7 +6,7 @@ import { subscribeAuthRecheck } from './authRecheckBus';
 type CheckState = 'checking' | 'needs_onboarding' | 'ready';
 
 /**
- * Mirrors apps/web-legacy/src/router/AuthGuard.tsx's 3-state machine (checking → needs_onboarding →
+ * Mirrors apps/web-react/src/router/AuthGuard.tsx's 3-state machine (checking → needs_onboarding →
  * ready), now calling the real @penny/core securityManager functions — this only became possible once
  * Track 2 shipped a real native storage adapter (schema.native.ts — originally expo-sqlite, then MMKV,
  * now op-sqlite, see that file for the full history); before that, these calls would have tried to

@@ -20,7 +20,7 @@ const TYPE_ICON: Record<string, string> = {
 };
 
 /**
- * RN port of apps/web-legacy/src/features/groups/HomeGroupsCard.tsx: the "Groups" card on the Personal
+ * RN port of apps/web-react/src/features/groups/HomeGroupsCard.tsx: the "Groups" card on the Personal
  * Home (Track E, screen 1) — lists each group with your balance + member/expense counts, and a New /
  * Join entry. Tapping a tile re-scopes the app to that group (Home then renders that group's
  * `GroupDashboard` instead — see `HomePage.tsx`). Web's `navigate(PATHS.app.home)` after switching

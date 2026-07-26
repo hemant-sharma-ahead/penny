@@ -112,7 +112,7 @@ export function MainNavigator() {
   const insets = useSafeAreaInsets();
   // Privacy-mode header/background tint, layered on top of the light/pennyBlue/dark theme — RN port of
   // web's `[data-privacy-mode=...]` CSS overrides (`--color-mode-accent`/`--color-mode-header-bg`/
-  // `--color-mode-bg`, see apps/web-legacy/src/index.css and AppShell.tsx's header). Missing entirely
+  // `--color-mode-bg`, see apps/web-react/src/index.css and AppShell.tsx's header). Missing entirely
   // until this pass (found via the 2026-07-25 parity sweep) — the header used a flat theme-only
   // background regardless of Safe/Private/Open mode.
   const modeColors = getPrivacyModeColors(mode, activePalette);

@@ -5,14 +5,15 @@
 // before any fallback branch runs). Identical to `apiBase.native.ts` — `expo-constants` behaves the same
 // under Expo's web target as it does natively, so this is a straight duplicate, not a different
 // implementation. `AUTH_BASE`/`GROUPS_BASE` read the real deployed worker URLs from `app.json`'s
-// `extra`, same non-secret public worker URLs already committed in apps/web-legacy/.env.production.
+// `extra`, same non-secret public worker URLs already committed in apps/web-react/.env.production.
 
 import Constants from 'expo-constants';
+import { YF_DIRECT, MFAPI_DIRECT, NPS_DIRECT, IG_DIRECT } from './apiBase.constants';
 
-export const YF_BASE: string = 'https://query1.finance.yahoo.com';
-export const MFAPI_BASE: string = 'https://api.mfapi.in';
-export const NPS_BASE: string = 'https://npsnav.in/api';
-export const IG_BASE: string = 'https://webnodejs.investorgain.com';
+export const YF_BASE: string = YF_DIRECT;
+export const MFAPI_BASE: string = MFAPI_DIRECT;
+export const NPS_BASE: string = NPS_DIRECT;
+export const IG_BASE: string = IG_DIRECT;
 export const VEHICLE_PROXY: string | null = null;
 export const MARKET_SNAPSHOT: string | null = null;
 

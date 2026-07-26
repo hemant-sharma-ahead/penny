@@ -14,7 +14,7 @@ import { AddAccountsScreen } from '~/features/onboarding/AddAccountsScreen';
 import { BackupSetupScreen } from '~/features/onboarding/BackupSetupScreen';
 
 /**
- * Mobile's onboarding stack — one screen per apps/web-legacy/src/router/index.tsx's
+ * Mobile's onboarding stack — one screen per apps/web-react/src/router/index.tsx's
  * `PATHS.onboarding.*` route (screen names below match those path keys, PascalCased), in the same
  * order. Web's `OnboardingLayout` wraps these routes with `OnboardingDraftProvider`; mobile mounts that
  * provider once at the `App.tsx` root instead (see that file), since there's no per-subtree route

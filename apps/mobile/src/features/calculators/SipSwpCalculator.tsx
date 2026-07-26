@@ -14,7 +14,7 @@ function lastedLabel(months: number): string {
   return `${y}y ${m}m`;
 }
 
-/** RN port of apps/web-legacy/src/features/calculators/SipSwpCalculator.tsx. Web's `divide-y` drawdown
+/** RN port of apps/web-react/src/features/calculators/SipSwpCalculator.tsx. Web's `divide-y` drawdown
  *  rows use the same border-top-on-non-first-row technique as `CalcUI.tsx`'s `ResultCard`. */
 export function SipSwpCalculator() {
   const masked = usePrivacy().shouldMask(false);

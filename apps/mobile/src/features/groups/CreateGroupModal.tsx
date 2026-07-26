@@ -14,7 +14,7 @@ const TYPES: { value: GroupType; label: string }[] = [
   { value: 'other', label: 'Other' }
 ];
 
-/** RN port of apps/web-legacy/src/features/groups/CreateGroupModal.tsx — straightforward form port. */
+/** RN port of apps/web-react/src/features/groups/CreateGroupModal.tsx — straightforward form port. */
 export function CreateGroupModal({ onClose }: { onClose: () => void }) {
   const { showToast } = useToast();
   const onError = useServerActionError();

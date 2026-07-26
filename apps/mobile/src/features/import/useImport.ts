@@ -8,7 +8,7 @@ import { buildPreviewRows, dedupKey, type PreviewRow } from '@/core/import/impor
 type Step = 'upload' | 'preview' | 'done';
 
 /**
- * RN port of apps/web-legacy/src/features/import/useImport.ts — unchanged logic. Owns the CSV-import
+ * RN port of apps/web-react/src/features/import/useImport.ts — unchanged logic. Owns the CSV-import
  * wizard: format selection, parse + enrich into preview rows, duplicate detection, and persisting the
  * non-duplicate rows. File reading stays in the UI (platform glue) — mobile's `UploadStep` uses
  * `expo-document-picker`/`expo-file-system` instead of web's `<input type=file>`, but both hand this

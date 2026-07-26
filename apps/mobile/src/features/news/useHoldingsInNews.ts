@@ -36,7 +36,7 @@ function normSymbol(s: string): string {
 const MAX_MATCHES = 8;
 
 /**
- * RN port of apps/web-legacy/src/features/news/useHoldingsInNews.ts — unchanged logic. Cross-references
+ * RN port of apps/web-react/src/features/news/useHoldingsInNews.ts — unchanged logic. Cross-references
  * the (already-fetched) headlines with the user's stock holdings, on-device. Returns the headlines that
  * mention a stock the user owns — recency-ordered, NOT ranked by any signal. Informational only.
  */

@@ -3,7 +3,7 @@ import type { CapGainItem } from '@/core/tax/calculator';
 import { formatCurrency } from '@/lib/formatters';
 import { useThemeColors } from '~/theme/useThemeColors';
 
-/** RN port of apps/web-legacy/src/features/tax/gains/CapGainRow.tsx — a single holding's
+/** RN port of apps/web-react/src/features/tax/gains/CapGainRow.tsx — a single holding's
  *  realised/unrealised gain row with long-term progress and estimated tax. */
 export function CapGainRow({ item }: { item: CapGainItem }) {
   const theme = useThemeColors();

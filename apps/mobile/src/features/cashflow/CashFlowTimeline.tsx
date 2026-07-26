@@ -14,7 +14,7 @@ function formatRowDate(dueMs: number, todayStart: number): string {
 }
 
 /**
- * RN port of apps/web-legacy/src/features/cashflow/CashFlowTimeline.tsx, split into a section header
+ * RN port of apps/web-react/src/features/cashflow/CashFlowTimeline.tsx, split into a section header
  * (`CashFlowMonthHeader`) and item (`CashFlowEventCard`) so `CashFlowPage.tsx` can assemble them around a
  * `SectionList` instead of nested `.map()`s inside a `ScrollView` — a 6-month horizon can produce 50-100+
  * rows across nested month/event lists, flagged as an unvirtualized risk in the 2026-07-26 parity sweep.

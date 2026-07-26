@@ -1,10 +1,10 @@
 // Colours are CSS-variable references, not static hex — the actual per-theme hex values live in
-// packages/core/src/theme/tokens.ts (the single source of truth shared with apps/web-legacy's CSS
+// packages/core/src/theme/tokens.ts (the single source of truth shared with apps/web-react's CSS
 // custom properties) and are applied at runtime by src/theme/ThemeProvider.tsx via NativeWind's
 // vars(), so switching theme/dark-mode doesn't require rebuilding styles per screen.
 //
 // The color KEY names here are chosen to reproduce the exact same utility-class vocabulary
-// apps/web-legacy/src/index.css defines (see its "Semantic theme utilities" section) — e.g. the color
+// apps/web-react/src/index.css defines (see its "Semantic theme utilities" section) — e.g. the color
 // key must be `primary` (not `text-primary`) to get a `text-primary` class at all, and `primary` here
 // means the *text* token (--color-text-primary), NOT the brand-green accent, exactly matching web's
 // meaning of `text-primary`/`bg-surface`/etc. The brand accent color (web's `var(--color-primary)`,

@@ -2,7 +2,7 @@ import { useSettings, FONT_SCALE_MAP } from '~/context/SettingsContext';
 
 /**
  * RN counterpart of web's `--font-scale` CSS variable. Web's mechanism is a single line in
- * `apps/web-legacy/src/index.css`: `html { font-size: calc(16px * var(--font-scale, 1)); }` — every
+ * `apps/web-react/src/index.css`: `html { font-size: calc(16px * var(--font-scale, 1)); }` — every
  * `rem`-based Tailwind class cascades from the root element's font-size automatically, because that's
  * what the CSS `rem` unit means, enforced by the browser engine at every paint (never precomputed).
  *

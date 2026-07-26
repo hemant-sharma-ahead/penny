@@ -8,7 +8,7 @@ import { getJSON, setJSON } from '~/lib/storage';
 const DISMISSED_KEY = 'penny_income_suggestions_dismissed';
 
 /**
- * RN port of apps/web-legacy/src/features/cashflow/useIncomeSuggestions.ts. Web loads the dismissed-
+ * RN port of apps/web-react/src/features/cashflow/useIncomeSuggestions.ts. Web loads the dismissed-
  * suggestions set synchronously from `localStorage` in a `useState` initializer; `~/lib/storage`'s
  * AsyncStorage wrapper is async, so this loads it in an effect instead (starts empty, then hydrates —
  * one open-app render where a previously dismissed suggestion could flash before the read resolves;

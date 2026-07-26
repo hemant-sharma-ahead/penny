@@ -129,7 +129,7 @@ async function loadSummary(): Promise<HomeSummary> {
   };
 }
 
-/** RN port of apps/web-legacy/src/features/home/useHome.ts — unchanged logic, no group dependency here
+/** RN port of apps/web-react/src/features/home/useHome.ts — unchanged logic, no group dependency here
  *  (the web HomePage's activeGroup branch lives outside this hook; this port is personal-only). */
 export function useHome() {
   const [summary, setSummary] = useState<HomeSummary | null>(null);

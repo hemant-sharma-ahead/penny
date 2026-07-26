@@ -3,7 +3,7 @@ import { getItem, setItem, removeItem, getJSON, setJSON } from '~/lib/storage';
 import { type PersistedPrivacyMode } from './PrivacyContext';
 
 /**
- * RN port of apps/web-legacy/src/context/SettingsContext.tsx. Ported in full (not just the
+ * RN port of apps/web-react/src/context/SettingsContext.tsx. Ported in full (not just the
  * subscriptions-relevant slice) since the Track 4 dependency survey showed most near-term modules touch
  * this context. `theme` itself is NOT ported here — mobile's own `ThemeProvider` (Track 3) is already
  * the source of truth for palette selection (light/pennyBlue/dark/system); `fontScale` IS ported (see

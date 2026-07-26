@@ -18,7 +18,7 @@ const STATUS_TEXT: Record<string, string> = {
 };
 
 /**
- * RN port of apps/web-legacy/src/features/backup/AutoBackupCard.tsx. Both cloud providers are
+ * RN port of apps/web-react/src/features/backup/AutoBackupCard.tsx. Both cloud providers are
  * `isAvailable() === false` on mobile today (Google Drive needs a native Sign-In flow not built yet;
  * iCloud needs the Capacitor bridge this app doesn't use) and the on-device "This device" floor is
  * itself a no-op on RN (`isLocalBackupAvailable()` checks OPFS, absent on RN) — so choosing any target

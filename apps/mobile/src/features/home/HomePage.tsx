@@ -15,7 +15,7 @@ import { useHome } from './useHome';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 /**
- * RN port of apps/web-legacy/src/features/home/HomePage.tsx. Groups is now ported (mobile-migration
+ * RN port of apps/web-react/src/features/home/HomePage.tsx. Groups is now ported (mobile-migration
  * plan's "Restore integration points" step) — this restores web's `useGroupContext`/`activeGroup` branch
  * (Home becomes that group's `GroupDashboard` when a group is the active context) and the `HomeGroupsCard`
  * placement, both previously dropped when Home was ported personal-only ahead of Groups.

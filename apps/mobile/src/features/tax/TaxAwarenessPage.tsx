@@ -17,7 +17,7 @@ import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 type TaxTab = 'footprint' | 'explore' | 'optimize' | 'calculators';
 
-/** RN port of apps/web-legacy/src/features/tax/TaxAwarenessPage.tsx. */
+/** RN port of apps/web-react/src/features/tax/TaxAwarenessPage.tsx. */
 export function TaxAwarenessPage() {
   const modeBg = useModeBackgroundColor();
   const theme = useThemeColors();

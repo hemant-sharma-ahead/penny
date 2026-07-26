@@ -42,7 +42,7 @@ function ConfettiPiece({ index }: { index: number }) {
 }
 
 /**
- * RN port of apps/web-legacy/src/features/activity/components/Confetti.tsx. Web animates via a CSS
+ * RN port of apps/web-react/src/features/activity/components/Confetti.tsx. Web animates via a CSS
  * `@keyframes confetti-fall`; no RN equivalent, so this drives each piece with a `react-native-reanimated`
  * `withTiming`/`withDelay` fall+fade, same visual idea (18 staggered pieces dropping and fading out).
  */

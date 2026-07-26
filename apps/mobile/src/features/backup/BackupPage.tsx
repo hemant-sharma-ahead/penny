@@ -21,7 +21,7 @@ type ImportState = 'idle' | 'importing' | 'done' | 'error';
 type CloudState = 'idle' | 'uploading' | 'uploaded' | 'restoring' | 'error';
 
 /**
- * RN port of apps/web-legacy/src/features/backup/BackupPage.tsx. Platform notes:
+ * RN port of apps/web-react/src/features/backup/BackupPage.tsx. Platform notes:
  * - Export: web builds an object-URL `<a download>`; RN writes `exportBackup()`'s blob text to
  *   `expo-file-system`'s cache dir and hands it to `expo-sharing`'s native share sheet (same pattern as
  *   `core/export/exportCsv.native.ts`). RN's own `Blob` class has no `.text()` method at all (confirmed

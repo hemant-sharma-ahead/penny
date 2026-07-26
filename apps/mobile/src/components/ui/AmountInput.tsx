@@ -96,7 +96,15 @@ export function AmountInput({
             autoFocus={autoFocus}
             keyboardType="decimal-pad"
             accessibilityLabel="Amount"
-            style={{ fontSize: 42, fontWeight: '700', color: heroColor, padding: 0, minWidth: 40 }}
+            textAlignVertical="center"
+            style={{
+              fontSize: 42,
+              fontWeight: '700',
+              color: heroColor,
+              padding: 0,
+              minWidth: 40,
+              includeFontPadding: false
+            }}
           />
         </View>
         {error ? (
@@ -122,8 +130,9 @@ export function AmountInput({
         editable={!disabled}
         autoFocus={autoFocus}
         keyboardType="decimal-pad"
+        textAlignVertical="center"
         className={`bg-surface-2 text-primary border w-full rounded-xl px-3 py-2.5 text-sm ${prefix ? 'pl-7' : ''} ${disabled ? 'opacity-50' : ''}`}
-        style={{ borderColor: error ? theme.danger : theme.border }}
+        style={{ borderColor: error ? theme.danger : theme.border, includeFontPadding: false }}
       />
     </View>
   );

@@ -5,7 +5,7 @@ import { useToast } from '~/context/ToastContext';
 import { NotClaimedError } from '@/core/identity/signedFetch';
 
 /**
- * RN port of apps/web-legacy/src/features/groups/useServerActionError.ts. Shared handler for
+ * RN port of apps/web-react/src/features/groups/useServerActionError.ts. Shared handler for
  * group/server action failures. `NotClaimedError` shows one consistent "claim your account" toast and
  * routes to the real `Profile` screen (wired up alongside `ContextSwitcher`'s own claim entry point —
  * see `~/features/groups/ContextSwitcher.tsx`), returning `true` so callers can skip resetting local

@@ -11,7 +11,7 @@ interface UseNewsResult {
   refresh: () => void;
 }
 
-/** RN port of apps/web-legacy/src/features/news/useNews.ts — unchanged logic; `@/core/news/newsClient`
+/** RN port of apps/web-react/src/features/news/useNews.ts — unchanged logic; `@/core/news/newsClient`
  *  resolves to its `.native.ts` sibling (in-memory cache instead of `localStorage`, regex-based RSS
  *  parsing instead of `DOMParser`) automatically via Metro's platform-extension resolution. */
 export function useNews(): UseNewsResult {

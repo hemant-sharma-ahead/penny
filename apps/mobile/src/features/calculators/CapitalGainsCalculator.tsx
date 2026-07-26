@@ -13,7 +13,7 @@ const ASSET_OPTIONS: { value: CapitalAsset; label: string }[] = [
   { value: 'property', label: 'Property' }
 ];
 
-/** RN port of apps/web-legacy/src/features/calculators/CapitalGainsCalculator.tsx. */
+/** RN port of apps/web-react/src/features/calculators/CapitalGainsCalculator.tsx. */
 export function CapitalGainsCalculator() {
   const masked = usePrivacy().shouldMask(false);
   const [asset, setAsset] = useState<CapitalAsset>('equity');

@@ -36,7 +36,7 @@ function formatCountdown(ms: number): string {
 }
 
 /**
- * RN port of apps/web-legacy/src/session/SessionGate.tsx — the actual PIN-unlock gate, missing from
+ * RN port of apps/web-react/src/session/SessionGate.tsx — the actual PIN-unlock gate, missing from
  * mobile entirely until now. `AuthGuard.tsx`'s 'ready' state only means onboarding is complete, NOT that
  * the in-memory Data Master Key (`keystore.ts`) is loaded — that key is wiped on every process restart,
  * so without this component every cold app launch skipped straight to the dashboard with no key at all,

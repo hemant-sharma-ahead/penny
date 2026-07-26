@@ -7,7 +7,7 @@ import { formatCurrency } from '@/lib/formatters';
 import type { Expense } from '@/core/db/types';
 
 /**
- * RN port of apps/web-legacy/src/features/expenses/transactions/ShareToGroupModal.tsx. Share-later
+ * RN port of apps/web-react/src/features/expenses/transactions/ShareToGroupModal.tsx. Share-later
  * picker (Track E, screen 9). A focused "Share with which group?" list opened from a transaction's row
  * action. Shares the expense as an equal split into the chosen group and marks the personal transaction
  * as shared — the transaction itself stays put; only a linked group event is added.

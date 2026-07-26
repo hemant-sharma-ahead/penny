@@ -1,5 +1,5 @@
-// Single source of truth for Penny's theme colours, extracted from apps/web-legacy/src/index.css's
-// CSS custom properties. Both apps/web-legacy (via its existing CSS vars, unchanged) and apps/mobile
+// Single source of truth for Penny's theme colours, extracted from apps/web-react/src/index.css's
+// CSS custom properties. Both apps/web-react (via its existing CSS vars, unchanged) and apps/mobile
 // (via NativeWind, consuming this object directly) are meant to agree with these values — if a colour
 // changes here, update index.css too (and vice versa) until Track 7 retires the CSS-var copy.
 //

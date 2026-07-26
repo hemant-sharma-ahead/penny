@@ -3,7 +3,7 @@ import type { TaxSummary } from '@/core/tax/calculator';
 import { parseNumber } from '@/lib/formatters';
 
 /**
- * RN port of apps/web-legacy/src/features/tax/deductions/useTaxDeductions.ts — unchanged. Owns the
+ * RN port of apps/web-react/src/features/tax/deductions/useTaxDeductions.ts — unchanged. Owns the
  * manual deduction inputs (PPF/ELSS/NPS/other 80C, parents' premium) and combines them with the
  * inferred amounts from the tax summary to produce the 80C / 80CCD(1B) / 80D totals.
  */

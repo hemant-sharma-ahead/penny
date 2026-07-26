@@ -5,7 +5,7 @@ import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 
 /**
- * RN port of apps/web-legacy/src/context/ToastContext.tsx. Same API (`showToast`), same one-toast-
+ * RN port of apps/web-react/src/context/ToastContext.tsx. Same API (`showToast`), same one-toast-
  * at-a-time/auto-dismiss behavior. The web version is a `fixed` bottom-anchored bar within the
  * `max-w-[430px]` layout; RN has no such wrapper, so this renders as an absolutely-positioned `View`
  * anchored to the bottom of whatever it's mounted under (the app root), offset by the safe-area inset

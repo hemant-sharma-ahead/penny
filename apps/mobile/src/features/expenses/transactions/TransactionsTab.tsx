@@ -184,7 +184,7 @@ const TransactionRow = memo(function TransactionRow({
 });
 
 /**
- * RN port of apps/web-legacy/src/features/expenses/transactions/TransactionsTab.tsx. Groups is now
+ * RN port of apps/web-react/src/features/expenses/transactions/TransactionsTab.tsx. Groups is now
  * ported — this restores web's `onShare`/`shareGroups`-driven "Share" swipe action and the
  * shared-with-group (`ti-users-group`) badge on a transaction's title, both previously dropped here.
  *

@@ -5,7 +5,7 @@ import { formatPercent } from '@/lib/formatters';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { LabeledInput, SegmentedToggle, ResultCard, ResultRow, AmountRow, HeroResult } from './CalcUI';
 
-/** RN port of apps/web-legacy/src/features/calculators/LumpsumCalculator.tsx. */
+/** RN port of apps/web-react/src/features/calculators/LumpsumCalculator.tsx. */
 export function LumpsumCalculator() {
   const masked = usePrivacy().shouldMask(false);
   const [mode, setMode] = useState<'fv' | 'cagr'>('fv');

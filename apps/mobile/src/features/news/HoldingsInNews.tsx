@@ -19,7 +19,7 @@ interface Props {
 }
 
 /**
- * RN port of apps/web-legacy/src/features/news/HoldingsInNews.tsx. "Holdings News" tab content —
+ * RN port of apps/web-react/src/features/news/HoldingsInNews.tsx. "Holdings News" tab content —
  * headlines mentioning stocks the user owns, recency-ordered, each with the headline's own sentiment
  * tone. Informational (news about what you own), NOT a trade idea or ranking of picks. Web's
  * `<a target="_blank">` becomes `Linking.openURL`.

@@ -5,7 +5,7 @@ import { Banner } from '~/components/ui';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { LabeledInput, ResultCard, AmountRow, HeroResult } from './CalcUI';
 
-/** RN port of apps/web-legacy/src/features/calculators/GratuityCalculator.tsx. */
+/** RN port of apps/web-react/src/features/calculators/GratuityCalculator.tsx. */
 export function GratuityCalculator() {
   const masked = usePrivacy().shouldMask(false);
   const [salary, setSalary] = useState('');

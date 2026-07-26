@@ -38,7 +38,7 @@ function computeStreaks(daysWithActivity: Set<string>): { current: number; longe
 }
 
 /**
- * RN port of apps/web-legacy/src/features/activity/components/TrackingHeatmap.tsx. Web lays this out
+ * RN port of apps/web-react/src/features/activity/components/TrackingHeatmap.tsx. Web lays this out
  * with CSS Grid's `grid-auto-flow: column` (7 rows × N columns, filled column-by-column) — no direct RN
  * Yoga equivalent (same CSS-Grid-to-Flexbox gap this migration has hit repeatedly), so this pre-chunks
  * the flat day list into `weeks` column-arrays of 7 and renders each as its own `flex-col`, wrapped in a

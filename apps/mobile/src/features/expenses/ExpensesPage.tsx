@@ -24,7 +24,7 @@ import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 type ExpensesTab = 'transactions' | 'subscriptions' | 'iou' | 'analytics';
 
 /**
- * RN port of apps/web-legacy/src/features/expenses/ExpensesPage.tsx. Groups is now ported — this
+ * RN port of apps/web-react/src/features/expenses/ExpensesPage.tsx. Groups is now ported — this
  * restores web's `useGroupContext`-derived `shareGroups`/`handleShareToGroup`/`handleShareLater`/
  * `familyGroupIds`, previously dropped here. Web's deep-link-initial-tab (`location.state.tab`) is now
  * restored too via `useRoute().params.initialTab` — `GlanceHeader`'s "Owed to others" tap now lands

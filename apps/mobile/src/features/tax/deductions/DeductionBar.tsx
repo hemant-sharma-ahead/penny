@@ -9,7 +9,7 @@ interface DeductionBarProps {
   label: string;
 }
 
-/** RN port of apps/web-legacy/src/features/tax/deductions/DeductionBar.tsx — a labelled
+/** RN port of apps/web-react/src/features/tax/deductions/DeductionBar.tsx — a labelled
  *  deduction-utilisation bar with used/limit amounts and a "remaining" hint. */
 export function DeductionBar({ used, limit, label }: DeductionBarProps) {
   const theme = useThemeColors();

@@ -1,5 +1,5 @@
 // Pure parsing/formatting logic for the AmountInput component — extracted here (rather than left
-// duplicated inside apps/web-legacy's AmountInput.tsx) during the mobile migration's Track 3 UI port,
+// duplicated inside apps/web-react's AmountInput.tsx) during the mobile migration's Track 3 UI port,
 // since it's plain string/number math with zero DOM dependency and both platforms' AmountInput need
 // byte-identical behavior. `caretAfter` (DOM caret-position math) stays web-only — RN's TextInput
 // doesn't expose the same live selection-restoration hook, so apps/mobile's port skips it (a minor,

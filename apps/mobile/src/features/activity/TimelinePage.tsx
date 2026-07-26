@@ -27,7 +27,7 @@ const ACTION_FILTERS: { value: ActionFilter; label: string; actions: ActivityAct
 ];
 
 /**
- * RN port of apps/web-legacy/src/features/activity/TimelinePage.tsx. `logActivity`/
+ * RN port of apps/web-react/src/features/activity/TimelinePage.tsx. `logActivity`/
  * `restoreDeletionsSince` (`@/core/db/activityLog`) are already platform-agnostic — no platform work
  * needed here.
  */

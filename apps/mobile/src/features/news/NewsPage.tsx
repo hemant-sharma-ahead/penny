@@ -59,7 +59,7 @@ interface TabFilters {
 const DEFAULT_FILTERS: TabFilters = { source: 'all', tone: 'all' };
 
 /**
- * RN port of apps/web-legacy/src/features/news/NewsPage.tsx. Web's `<a target="_blank">` headline
+ * RN port of apps/web-react/src/features/news/NewsPage.tsx. Web's `<a target="_blank">` headline
  * cards become `Pressable` + `Linking.openURL`. Web relies on `AppShell`'s persistent chrome for back
  * navigation (this page has no back button of its own); mobile adds one inline, same convention as
  * every other pushed screen in `MainNavigator.tsx`.

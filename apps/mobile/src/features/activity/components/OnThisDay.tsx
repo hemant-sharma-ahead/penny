@@ -10,7 +10,7 @@ interface Props {
   masked: boolean;
 }
 
-/** RN port of apps/web-legacy/src/features/activity/components/OnThisDay.tsx. */
+/** RN port of apps/web-react/src/features/activity/components/OnThisDay.tsx. */
 export function OnThisDay({ entries, masked }: Props) {
   const theme = useThemeColors();
   const memories = useMemo(() => {

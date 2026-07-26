@@ -9,7 +9,7 @@ export type Horizon = 'month' | 'quarter' | 'halfyear';
 const HORIZON_DAYS: Record<Horizon, number> = { month: 31, quarter: 92, halfyear: 183 };
 
 /**
- * RN port of apps/web-legacy/src/features/cashflow/useCashFlow.ts — unchanged logic, only the
+ * RN port of apps/web-react/src/features/cashflow/useCashFlow.ts — unchanged logic, only the
  * `useForecast` import points at mobile's own copy (`~/hooks/useForecast.ts`, already platform-agnostic
  * besides its `SettingsContext` import).
  */

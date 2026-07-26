@@ -11,7 +11,7 @@ interface LoadedData {
 }
 
 /**
- * RN port of apps/web-legacy/src/features/tax/useTaxData.ts — unchanged. Loads the portfolio/insurance/
+ * RN port of apps/web-react/src/features/tax/useTaxData.ts — unchanged. Loads the portfolio/insurance/
  * liability snapshot once and derives the full tax summary (deductions + capital gains).
  */
 export function useTaxData(): { summary: TaxSummary | null } {

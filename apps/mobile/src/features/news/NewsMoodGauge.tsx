@@ -5,7 +5,7 @@ import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 
 /**
- * RN port of apps/web-legacy/src/features/news/NewsMoodGauge.tsx. "Today's news mood" — a full-bleed
+ * RN port of apps/web-react/src/features/news/NewsMoodGauge.tsx. "Today's news mood" — a full-bleed
  * banner fixed under the page header (not part of the scrolling feed). Descriptive only — how the
  * current headlines skew (positive/negative/mixed) — NOT a market forecast or investment advice. The
  * disclaimer below is mandatory and must stay persistent (not hidden behind a tap).

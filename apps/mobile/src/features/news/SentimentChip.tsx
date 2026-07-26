@@ -5,7 +5,7 @@ import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 
 /**
- * RN port of apps/web-legacy/src/features/news/SentimentChip.tsx. Small pill showing a headline's
+ * RN port of apps/web-react/src/features/news/SentimentChip.tsx. Small pill showing a headline's
  * news-tone (positive/negative/neutral). Descriptive only — NOT a buy/sell signal or price prediction.
  * Colors now read from `theme.success`/`theme.danger`/`theme.neutral` — web's own `STATUS.success`/
  * `STATUS.danger`/`STATUS.neutral` theme-token references, previously hardcoded to unrelated hex

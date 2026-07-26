@@ -16,7 +16,7 @@ interface PreviewSummaryCardProps {
 }
 
 /**
- * RN port of apps/web-legacy/src/features/import/PreviewStep.tsx, split into pieces (this summary card,
+ * RN port of apps/web-react/src/features/import/PreviewStep.tsx, split into pieces (this summary card,
  * `PreviewRowItem`, `PreviewActions` below) so `ImportPage.tsx` can assemble them around a `FlatList`
  * instead of a plain `.map()` in a `ScrollView` — bank exports commonly run hundreds of rows, flagged as
  * an unvirtualized risk in the 2026-07-26 parity sweep. Uses `theme.success`/`theme.warning` (real hex

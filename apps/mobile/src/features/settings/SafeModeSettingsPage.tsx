@@ -14,7 +14,7 @@ import { useSettings, type SafeModeVisibility } from '~/context/SettingsContext'
 import type { ExpenseCategory } from '@/core/db/types';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
-/** RN port of apps/web-legacy/src/features/settings/SafeModeSettingsPage.tsx — straightforward
+/** RN port of apps/web-react/src/features/settings/SafeModeSettingsPage.tsx — straightforward
  *  list/toggle port, no CSS grids or hand-rolled overlays to translate. */
 
 interface ModuleToggleDef {

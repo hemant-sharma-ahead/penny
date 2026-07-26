@@ -88,7 +88,7 @@ function persistPastEvents(events: ActiveEvent[]) {
 const EventModeContext = createContext<EventModeContextValue | null>(null);
 
 /**
- * RN port of apps/web-legacy/src/context/EventModeContext.tsx — same logic, unchanged; storage is async
+ * RN port of apps/web-react/src/context/EventModeContext.tsx — same logic, unchanged; storage is async
  * (AsyncStorage) instead of sync `localStorage`, so `events`/`pastEvents` start empty and hydrate once in
  * an effect (same pattern as `PrivacyContext`'s async default-mode load). Web's `penny-events-updated`
  * DOM event (fired by `seedDemoData` after seeding `penny_past_events`) is dropped — mobile's demo

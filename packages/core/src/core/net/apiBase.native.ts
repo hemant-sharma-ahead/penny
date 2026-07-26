@@ -6,15 +6,16 @@
 // for web when `VITE_API_PROXY` is unset — which is today's real state for the finance-data bases below
 // (no market/vehicle backend gating exists yet for mobile). `AUTH_BASE`/`GROUPS_BASE` (Track C
 // prerequisite) now read the real deployed worker URLs from `app.json`'s `extra` — same non-secret,
-// public worker URLs already committed in apps/web-legacy/.env.production, just read via
+// public worker URLs already committed in apps/web-react/.env.production, just read via
 // `expo-constants` instead of Vite's `import.meta.env`.
 
 import Constants from 'expo-constants';
+import { YF_DIRECT, MFAPI_DIRECT, NPS_DIRECT, IG_DIRECT } from './apiBase.constants';
 
-export const YF_BASE: string = 'https://query1.finance.yahoo.com';
-export const MFAPI_BASE: string = 'https://api.mfapi.in';
-export const NPS_BASE: string = 'https://npsnav.in/api';
-export const IG_BASE: string = 'https://webnodejs.investorgain.com';
+export const YF_BASE: string = YF_DIRECT;
+export const MFAPI_BASE: string = MFAPI_DIRECT;
+export const NPS_BASE: string = NPS_DIRECT;
+export const IG_BASE: string = IG_DIRECT;
 export const VEHICLE_PROXY: string | null = null;
 export const MARKET_SNAPSHOT: string | null = null;
 

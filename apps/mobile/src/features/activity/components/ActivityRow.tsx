@@ -17,7 +17,7 @@ function timeOf(ts: number): string {
   return new Date(ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 }
 
-/** RN port of apps/web-legacy/src/features/activity/components/ActivityRow.tsx. */
+/** RN port of apps/web-react/src/features/activity/components/ActivityRow.tsx. */
 export function ActivityRow({ entry, masked, onRestore, restoring }: Props) {
   const theme = useThemeColors();
   const meta = getActionMeta(theme)[entry.action];

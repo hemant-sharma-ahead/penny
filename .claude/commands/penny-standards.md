@@ -61,6 +61,8 @@ Invoke this at the start of any implementation task on Penny. These rules apply 
 
 5. **Log user mutations to the Timeline at the hook layer.** Use `useLoggedRepository` (or `logActivity` for compound/bulk flows) for user-initiated create/update/delete; include a `snapshot` on deletes so Undo/restore works, and register the `entityType` in `src/core/db/entityRegistry.ts`. Never log inside the generic repository, and never log system/side-effect writes (seeding, migrations, price cache, hashtags).
 
+6. **Never duplicate a literal or pure logic across a `.native.ts`/`.web.ts` pair.** A platform-suffixed file may only contain logic that's genuinely platform-different. Any literal (URL, storage key, event name, cache TTL) — or, if the whole function is identical across variants, the function itself — that's needed identically by multiple variants belongs in an unsuffixed sibling file (`*.constants.ts` for literals, a descriptively-named file like `exportCsv.shared.ts` for shared functions), imported by every variant. This is what an IPO API URL bug taught the hard way: it was hardcoded independently in `ipoClient.ts` and `ipoClient.native.ts`, and only one got fixed the first time. See `docs/ARCHITECTURE.md`'s platform-variance-minimization decision entry and `docs/EXTERNAL_APIS.md`.
+
 ---
 
 ## TypeScript standards

@@ -43,7 +43,7 @@ function RateCard({ band }: { band: TaxBand }) {
   );
 }
 
-/** RN port of apps/web-legacy/src/features/tax/rates/RatesTab.tsx. */
+/** RN port of apps/web-react/src/features/tax/rates/RatesTab.tsx. */
 export function RatesTab() {
   const history = [
     ...Object.values(TAX_BANDS).flatMap((band) =>

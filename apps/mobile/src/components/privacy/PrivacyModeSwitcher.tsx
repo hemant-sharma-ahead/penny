@@ -19,7 +19,7 @@ function formatCountdown(ms: number): string {
 }
 
 /**
- * RN port of apps/web-legacy/src/components/privacy/PrivacyModeSwitcher.tsx — same three-mode
+ * RN port of apps/web-react/src/components/privacy/PrivacyModeSwitcher.tsx — same three-mode
  * (Safe/Private/Open) icon button + dropdown, PIN-gated Open mode, and pre-Open warning modal.
  * The mode-picker dropdown renders on the shared `Modal` component (not a hand-rolled
  * absolutely-positioned overlay) — this component lives inside `MainNavigator`'s native-stack

@@ -6,7 +6,7 @@ import { parseJoinSecret, redeemInvite, syncGroupKeys } from '@/core/groups/grou
 import { useGroupContext } from '~/context/GroupContext';
 import { useServerActionError } from './useServerActionError';
 
-/** RN port of apps/web-legacy/src/features/groups/JoinGroupModal.tsx — straightforward form port. */
+/** RN port of apps/web-react/src/features/groups/JoinGroupModal.tsx — straightforward form port. */
 export function JoinGroupModal({ onClose }: { onClose: () => void }) {
   const { showToast } = useToast();
   const onError = useServerActionError();

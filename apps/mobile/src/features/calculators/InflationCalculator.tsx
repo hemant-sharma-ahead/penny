@@ -4,7 +4,7 @@ import { calcInflation } from '@/core/calculators/inflation';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { LabeledInput, ResultCard, AmountRow, HeroResult } from './CalcUI';
 
-/** RN port of apps/web-legacy/src/features/calculators/InflationCalculator.tsx. */
+/** RN port of apps/web-react/src/features/calculators/InflationCalculator.tsx. */
 export function InflationCalculator() {
   const masked = usePrivacy().shouldMask(false);
   const [cost, setCost] = useState('');

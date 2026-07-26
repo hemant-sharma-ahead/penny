@@ -2,7 +2,7 @@ import type { ActivityAction } from '@/core/db/types';
 import type { ThemeTokens } from '@penny/core/theme/tokens';
 
 /**
- * RN port of apps/web-legacy/src/features/activity/activityMeta.ts. Web's `ACTION_META` is a static
+ * RN port of apps/web-react/src/features/activity/activityMeta.ts. Web's `ACTION_META` is a static
  * object built from `@/lib/statusColors`'s `STATUS` — literal CSS var strings with no RN equivalent.
  * Same fix pattern IOU already needed for its own status colors (see docs/plans/mobile-migration.md's
  * Track 4 progress log — "STATUS's colors are literal CSS var strings that silently failed"): this

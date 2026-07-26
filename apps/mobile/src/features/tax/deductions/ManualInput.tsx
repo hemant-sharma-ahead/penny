@@ -7,7 +7,7 @@ interface ManualInputProps {
   onChange: (v: string) => void;
 }
 
-/** RN port of apps/web-legacy/src/features/tax/deductions/ManualInput.tsx — a labelled inline numeric
+/** RN port of apps/web-react/src/features/tax/deductions/ManualInput.tsx — a labelled inline numeric
  *  input for entering a manual deduction amount. */
 export function ManualInput({ label, value, onChange }: ManualInputProps) {
   return (

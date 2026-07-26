@@ -47,7 +47,7 @@ function renderCalculator(id: CalculatorId) {
 }
 
 /**
- * RN port of apps/web-legacy/src/features/calculators/CalculatorsPage.tsx. Web's `?calc=` URL search
+ * RN port of apps/web-react/src/features/calculators/CalculatorsPage.tsx. Web's `?calc=` URL search
  * param (so a calculator is a shareable/bookmarkable deep link) becomes plain local `useState` — RN has
  * no URL bar, and no other screen deep-links into a specific calculator yet.
  */

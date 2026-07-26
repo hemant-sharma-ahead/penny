@@ -1,7 +1,9 @@
 // RN counterpart to profileChangeBus.ts — same "no window" fix pattern as useTxnRefresh.native.ts/
 // useDataRefresh.native.ts: a plain in-memory listener Set instead of a DOM CustomEvent.
 
-export const PROFILE_UPDATED_EVENT = 'penny-profile-updated';
+import { PROFILE_UPDATED_EVENT } from './profileChangeBus.constants';
+
+export { PROFILE_UPDATED_EVENT };
 
 const listeners = new Set<() => void>();
 

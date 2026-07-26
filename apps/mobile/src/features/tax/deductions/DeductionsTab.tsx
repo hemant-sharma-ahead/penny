@@ -14,7 +14,7 @@ interface DeductionsTabProps {
   deductions: ReturnType<typeof useTaxDeductions>;
 }
 
-/** RN port of apps/web-legacy/src/features/tax/deductions/DeductionsTab.tsx. */
+/** RN port of apps/web-react/src/features/tax/deductions/DeductionsTab.tsx. */
 export function DeductionsTab({ summary, deductions }: DeductionsTabProps) {
   const theme = useThemeColors();
   const { sec24B } = summary;

@@ -25,7 +25,7 @@ interface ExpensesHeaderProps {
 }
 
 /**
- * RN port of apps/web-legacy/src/features/expenses/ExpensesHeader.tsx. "Import expenses" now navigates
+ * RN port of apps/web-react/src/features/expenses/ExpensesHeader.tsx. "Import expenses" now navigates
  * to the real `Import` screen (restored once the Import module was ported — see `~/features/import/`);
  * previously dropped as a no-op for lack of that destination.
  */

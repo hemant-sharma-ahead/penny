@@ -1,5 +1,5 @@
 // Shared building blocks for the financial calculator screens. RN port of
-// apps/web-legacy/src/features/calculators/CalcUI.tsx. Web's `MaskedValue` (tap-to-peek) has no mobile
+// apps/web-react/src/features/calculators/CalcUI.tsx. Web's `MaskedValue` (tap-to-peek) has no mobile
 // counterpart anywhere in this migration — every other ported screen uses `usePrivacy().shouldMask(...)`
 // + a plain `'••••'` fallback instead (Home/CashFlow's convention for non-identity aggregate amounts),
 // so `AmountRow`/`HeroResult` take a `masked` boolean from the caller rather than reimplementing peek.

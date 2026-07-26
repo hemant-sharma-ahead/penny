@@ -6,7 +6,7 @@ import { Banner } from '~/components/ui';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { LabeledInput, ResultCard, AmountRow, HeroResult } from './CalcUI';
 
-/** RN port of apps/web-legacy/src/features/calculators/SsyCalculator.tsx. Web's `divide-y` passbook
+/** RN port of apps/web-react/src/features/calculators/SsyCalculator.tsx. Web's `divide-y` passbook
  *  rows use the same border-top-on-non-first-child technique as `CalcUI.tsx`'s `ResultCard`. */
 export function SsyCalculator() {
   const masked = usePrivacy().shouldMask(false);

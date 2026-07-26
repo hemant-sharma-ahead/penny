@@ -53,7 +53,7 @@ function Slider({
   );
 }
 
-/** RN port of apps/web-legacy/src/features/tax/optimize/OptimizeTab.tsx. */
+/** RN port of apps/web-react/src/features/tax/optimize/OptimizeTab.tsx. */
 export function OptimizeTab({ summary, deductions, profile, gross }: Props) {
   const theme = useThemeColors();
   const isSalaried = profile?.employmentType === 'salaried';

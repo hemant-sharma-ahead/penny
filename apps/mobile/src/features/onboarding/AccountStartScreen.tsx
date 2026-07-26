@@ -15,7 +15,7 @@ import { OnboardingBack } from './OnboardingBack';
  * Screen A of the account-start flow (Track F). Opens on the Preview Dashboard's "Set up my account" —
  * and, since 2026-07-25, also on `SettingsPage`'s "Exit Demo Mode" (`fromDemoMode: true` route param),
  * which previously skipped straight to `LetUsKnowYou`, bypassing this mandatory username+claim entry
- * point entirely (a real bug found via on-device testing, not a deliberate simplification — web-legacy
+ * point entirely (a real bug found via on-device testing, not a deliberate simplification — web-react
  * has the same stale wiring in its own `SettingsPage.tsx`, unfixed there too). Three plain doors — new /
  * restore / reclaim — each honest about what it recovers. Tapping a card opens Screen B
  * (AccountRecoveryScreen) with that tab pre-selected, so the user can still switch between them.

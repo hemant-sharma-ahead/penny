@@ -5,7 +5,7 @@ import { useThemeColors } from '~/theme/useThemeColors';
 import { Icon } from '~/components/Icon';
 import { TAX_FACTS } from '@/core/tax/taxFacts';
 
-/** RN port of apps/web-legacy/src/features/tax/DidYouKnow.tsx — a tappable "Did you know?" awareness
+/** RN port of apps/web-react/src/features/tax/DidYouKnow.tsx — a tappable "Did you know?" awareness
  *  card that cycles through tax facts. */
 export function DidYouKnow() {
   const theme = useThemeColors();

@@ -10,7 +10,7 @@ import type { Story } from './storyTypes';
 const SEEN_KEY = 'penny_stories_seen';
 
 /** Instagram-style story rings on Home: unseen = gradient ring, seen = muted. Tap to open the viewer.
- *  RN port of apps/web-legacy/src/features/home/stories/StoriesRow.tsx — `localStorage` swapped for
+ *  RN port of apps/web-react/src/features/home/stories/StoriesRow.tsx — `localStorage` swapped for
  *  `~/lib/storage`'s AsyncStorage-backed helper (async, so `seen` starts empty and hydrates once on
  *  mount), and the ring's CSS `background: <gradient-string>` swapped for `expo-linear-gradient`. */
 export function StoriesRow() {

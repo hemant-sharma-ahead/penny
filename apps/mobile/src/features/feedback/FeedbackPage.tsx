@@ -32,7 +32,7 @@ const INFO_ROWS: { icon: string; title: string; body: string }[] = [
 ];
 
 /**
- * RN port of apps/web-legacy/src/features/feedback/FeedbackPage.tsx — a `mailto:` draft composer, no
+ * RN port of apps/web-react/src/features/feedback/FeedbackPage.tsx — a `mailto:` draft composer, no
  * network call. Web's `window.open(mailto)` becomes RN's `Linking.openURL`. `__APP_VERSION__` (a Vite
  * define reading package.json) has no mobile equivalent yet, so this reads `app.json`'s `version` via
  * `expo-constants` instead — first use of that field on mobile (Constants.expoConfig is already used

@@ -14,7 +14,7 @@ import { navigationRef } from './navigationRef';
  * for that stand-in and its rationale) — `AuthGuard`'s `needs_onboarding` branch now renders the real
  * 13-screen `OnboardingNavigator`, and `ready` renders the real `MainTabs`, wrapped in
  * `IdentityReconciler` (post-restore handle reconciliation, mirroring
- * apps/web-legacy/src/router/AuthGuard.tsx's own `IdentityReconciler` wrapping), `SyncProvider`
+ * apps/web-react/src/router/AuthGuard.tsx's own `IdentityReconciler` wrapping), `SyncProvider`
  * (the automatic backup engine, ported alongside `~/features/backup/` — mirrors web's `AppShell`
  * mounting it post-unlock; see `packages/core/src/core/sync/SyncProvider.native.tsx`), and now
  * `GroupProvider` too — moved here from `App.tsx` (2026-07-25), where it was mounted globally: a real

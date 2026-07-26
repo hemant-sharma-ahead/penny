@@ -5,7 +5,7 @@ import type { ActivityLog } from '@/core/db/types';
 import { useRepository } from '@/hooks/useRepository';
 import { toDateKey, dateLabel } from '@/lib/date';
 
-/** RN port of apps/web-legacy/src/features/activity/useActivityLog.ts — pure hook/logic, no platform
+/** RN port of apps/web-react/src/features/activity/useActivityLog.ts — pure hook/logic, no platform
  *  work needed (`useRepository`/`@/lib/date` are already platform-agnostic). */
 
 export interface ActivityDay {

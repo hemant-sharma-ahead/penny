@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { TXN_CHANGED_EVENT } from './useTxnRefresh.constants';
 
 /**
  * RN variant of `useTxnRefresh.ts` — same exports/contract, no DOM. Web's version uses
@@ -8,7 +9,7 @@ import { useEffect } from 'react';
  * (see docs/plans/mobile-migration.md's Track 2 entry). Replaces the DOM event with a plain in-memory
  * listener set.
  */
-export const TXN_CHANGED_EVENT = 'penny:txn-changed';
+export { TXN_CHANGED_EVENT };
 
 const listeners = new Set<() => void>();
 

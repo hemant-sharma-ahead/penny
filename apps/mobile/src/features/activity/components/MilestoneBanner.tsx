@@ -14,7 +14,7 @@ interface Props {
 const SEEN_KEY = 'penny_milestone_seen';
 
 /**
- * RN port of apps/web-legacy/src/features/activity/components/MilestoneBanner.tsx. Web reads/writes the
+ * RN port of apps/web-react/src/features/activity/components/MilestoneBanner.tsx. Web reads/writes the
  * "seen" flag via synchronous `localStorage`; here via `~/lib/storage`'s async `getItem`/`setItem` (same
  * AsyncStorage-hydration convention used throughout this migration) — the celebrate check runs once the
  * async read resolves rather than synchronously on mount.

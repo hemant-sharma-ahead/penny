@@ -5,7 +5,7 @@ import { THEME_TOKENS, type ThemeName, type ThemeTokens } from '@penny/core/them
 import { getItem, setItem } from '~/lib/storage';
 
 /** The 4 themes from docs/DESIGN_GUIDELINES.md. 'system' isn't a palette of its own — it resolves to
- * 'light' or 'dark' based on the OS appearance, same as apps/web-legacy's SettingsContext. */
+ * 'light' or 'dark' based on the OS appearance, same as apps/web-react's SettingsContext. */
 export type ThemePreference = ThemeName | 'system';
 
 const THEME_PREFERENCE_KEY = 'penny_theme_preference';

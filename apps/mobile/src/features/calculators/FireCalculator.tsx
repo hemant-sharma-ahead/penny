@@ -6,7 +6,7 @@ import { deriveAge } from '@/lib/date';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { LabeledInput, ResultCard, ResultRow, AmountRow, HeroResult } from './CalcUI';
 
-/** RN port of apps/web-legacy/src/features/calculators/FireCalculator.tsx. */
+/** RN port of apps/web-react/src/features/calculators/FireCalculator.tsx. */
 export function FireCalculator() {
   const masked = usePrivacy().shouldMask(false);
   // Age is pre-filled from the profile's DOB but the user's own input always wins.

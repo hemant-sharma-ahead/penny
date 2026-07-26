@@ -3,7 +3,9 @@
 // seedDemoData.ts's pure data-generation logic into a full `.native.ts` fork just for 5 call sites —
 // the mobile-migration plan's Track 4 Onboarding entry explicitly sanctions "a refactor to accept an
 // injected storage adapter" as the alternative to a full sibling for exactly this shape of problem.
-export const DEMO_SEED_KEY = 'penny_demo_seeded';
+import { DEMO_SEED_KEY } from './seedDemoStorage.constants';
+
+export { DEMO_SEED_KEY };
 
 export function isDemoSeededSync(): boolean {
   return localStorage.getItem(DEMO_SEED_KEY) === '1';

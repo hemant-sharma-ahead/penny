@@ -19,6 +19,8 @@ export function SearchInput({ value, onChange, placeholder = 'Search…', classN
         onChangeText={onChange}
         placeholder={placeholder}
         placeholderTextColor={theme.textTertiary}
+        textAlignVertical="center"
+        style={{ includeFontPadding: false }}
         className="flex-1 text-sm text-primary"
       />
       {value && (

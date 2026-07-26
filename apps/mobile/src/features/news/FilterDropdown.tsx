@@ -19,7 +19,7 @@ interface FilterDropdownProps {
 }
 
 /**
- * RN port of apps/web-legacy/src/features/news/FilterDropdown.tsx. Compact "in-field label" filter
+ * RN port of apps/web-react/src/features/news/FilterDropdown.tsx. Compact "in-field label" filter
  * (source/tone/holding) — web opens a DOM-positioned dropdown panel with a full-screen click-catcher;
  * RN has no DOM measurement/portal equivalent, so this opens the shared centered `Modal` instead, same
  * fix as `SelectInput`/`ContextSwitcher`/every other hand-rolled-dropdown case in this migration.

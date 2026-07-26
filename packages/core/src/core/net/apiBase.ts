@@ -3,22 +3,23 @@
 // (or via the Vite dev proxy for Yahoo) — i.e. exactly today's no-backend behavior.
 // See docs/plans/phase-1.5-track-A-api-proxy.md and workers/api-proxy/.
 
+import { YF_DIRECT, MFAPI_DIRECT, NPS_DIRECT, IG_DIRECT } from './apiBase.constants';
+
 const PROXY = (import.meta.env.VITE_API_PROXY as string | undefined)?.replace(/\/$/, '');
 
 /** Yahoo Finance. Priority: API proxy → legacy VITE_YF_PROXY → Vite dev proxy → direct. */
 export const YF_BASE: string = PROXY
   ? `${PROXY}/yf`
-  : ((import.meta.env.VITE_YF_PROXY as string | undefined) ??
-    (import.meta.env.DEV ? '/api/yf' : 'https://query1.finance.yahoo.com'));
+  : ((import.meta.env.VITE_YF_PROXY as string | undefined) ?? (import.meta.env.DEV ? '/api/yf' : YF_DIRECT));
 
 /** MFAPI (mutual-fund NAV + search; also metals). */
-export const MFAPI_BASE: string = PROXY ? `${PROXY}/mfapi` : 'https://api.mfapi.in';
+export const MFAPI_BASE: string = PROXY ? `${PROXY}/mfapi` : MFAPI_DIRECT;
 
 /** npsnav.in (NPS NAV + scheme list). Includes the upstream `/api` path. */
-export const NPS_BASE: string = PROXY ? `${PROXY}/nps` : 'https://npsnav.in/api';
+export const NPS_BASE: string = PROXY ? `${PROXY}/nps` : NPS_DIRECT;
 
 /** investorgain.com (IPO list + GMP + subscription). */
-export const IG_BASE: string = PROXY ? `${PROXY}/ig` : 'https://webnodejs.investorgain.com';
+export const IG_BASE: string = PROXY ? `${PROXY}/ig` : IG_DIRECT;
 
 /** Vehicle proxy base (`${PROXY}/vehicle`), or null when no backend is configured (direct POSTs). */
 export const VEHICLE_PROXY: string | null = PROXY ? `${PROXY}/vehicle` : null;

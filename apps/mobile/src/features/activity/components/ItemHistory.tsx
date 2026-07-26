@@ -17,7 +17,7 @@ function when(ts: number): string {
 }
 
 /**
- * RN port of apps/web-legacy/src/features/activity/components/ItemHistory.tsx — compact change history
+ * RN port of apps/web-react/src/features/activity/components/ItemHistory.tsx — compact change history
  * for a single record, meant to be dropped onto per-item edit screens (not currently wired into any
  * mobile edit screen; ported for parity/future reuse per the migration plan's component list).
  */

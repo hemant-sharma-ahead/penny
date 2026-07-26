@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DEMO_SEED_KEY } from './seedDemoStorage.constants';
 
 /**
  * RN counterpart to seedDemoStorage.ts. `isDemoSeededSync()` must stay synchronous (seedDemoData.ts and
@@ -10,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * restarts; this in-memory flag only needs to be right within a single session (e.g. immediately after
  * `seedDemoData()` runs, before the caller re-renders).
  */
-export const DEMO_SEED_KEY = 'penny_demo_seeded';
+export { DEMO_SEED_KEY };
 
 let demoSeededMemFlag = false;
 // Best-effort background hydration on module load, so a cold start that (unusually) already has demo

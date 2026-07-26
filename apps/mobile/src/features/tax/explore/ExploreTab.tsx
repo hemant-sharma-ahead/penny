@@ -10,7 +10,7 @@ import { DidYouKnow } from '../DidYouKnow';
 
 const FALLBACK_SCENARIO = TAX_SCENARIOS[0] as TaxScenario;
 
-/** RN port of apps/web-legacy/src/features/tax/explore/ExploreTab.tsx. */
+/** RN port of apps/web-react/src/features/tax/explore/ExploreTab.tsx. */
 export function ExploreTab() {
   const theme = useThemeColors();
   const [scenarioId, setScenarioId] = useState(FALLBACK_SCENARIO.id);

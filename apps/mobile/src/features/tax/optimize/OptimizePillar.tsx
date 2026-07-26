@@ -13,7 +13,7 @@ interface Props {
   gross: number;
 }
 
-/** RN port of apps/web-legacy/src/features/tax/optimize/OptimizePillar.tsx — "Optimize" pillar:
+/** RN port of apps/web-react/src/features/tax/optimize/OptimizePillar.tsx — "Optimize" pillar:
  *  tax-saving suggestions + the detailed deductions tracker. */
 export function OptimizePillar({ summary, deductions, profile, gross }: Props) {
   const [sub, setSub] = useState<'suggestions' | 'deductions'>('suggestions');

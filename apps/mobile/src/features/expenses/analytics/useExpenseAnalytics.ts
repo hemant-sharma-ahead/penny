@@ -36,7 +36,7 @@ const FAMILY_SHARE_GROUP = 'family_group_share';
 const TAG_GROUP_PREFIX = 'tag:';
 
 /**
- * RN port of apps/web-legacy/src/features/expenses/analytics/useExpenseAnalytics.ts — same aggregation
+ * RN port of apps/web-react/src/features/expenses/analytics/useExpenseAnalytics.ts — same aggregation
  * logic, unchanged. Groups is now ported — this restores the `familyGroupIds` input (and the "shared into
  * a Family-type group" set-aside branch it feeds), previously dropped here.
  */

@@ -44,7 +44,7 @@ function RegimeColumn({
   );
 }
 
-/** RN port of apps/web-legacy/src/features/calculators/TaxRegimeCalculator.tsx. */
+/** RN port of apps/web-react/src/features/calculators/TaxRegimeCalculator.tsx. */
 export function TaxRegimeCalculator() {
   const theme = useThemeColors();
   const masked = usePrivacy().shouldMask(false);

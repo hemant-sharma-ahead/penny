@@ -27,7 +27,7 @@ interface Card {
 const GRADIENT = ['#00C47D', '#007A4D'] as const;
 
 /**
- * RN port of apps/web-legacy/src/features/tax/share/TaxStoryModal.tsx. Web draws the shareable image
+ * RN port of apps/web-react/src/features/tax/share/TaxStoryModal.tsx. Web draws the shareable image
  * directly onto a `<canvas>` and shares via `navigator.share`; RN has no procedural canvas, so this
  * reuses Home Stories' exact solution instead — an offscreen `ShareCard` (a real RN `View`) captured by
  * `react-native-view-shot` and handed to `expo-sharing`'s native share sheet (`captureAndShareCard`,

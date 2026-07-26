@@ -7,7 +7,7 @@ import { EQUITY_LTCG_EXEMPTION, computeCapitalGainsTax } from '@/core/tax/calcul
 import type { TaxSummary } from '@/core/tax/calculator';
 import { CapGainRow } from './CapGainRow';
 
-/** RN port of apps/web-legacy/src/features/tax/gains/CapitalGainsTab.tsx. */
+/** RN port of apps/web-react/src/features/tax/gains/CapitalGainsTab.tsx. */
 export function CapitalGainsTab({ summary }: { summary: TaxSummary }) {
   const theme = useThemeColors();
   const { capGains, totalEquityLtcg, totalEquityStcg, totalOtherLtcg, totalOtherStcg } = summary;

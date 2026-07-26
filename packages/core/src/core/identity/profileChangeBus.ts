@@ -4,7 +4,9 @@
 // new consumers (including the mobile port) should use `subscribeProfileChanged` instead of touching
 // `window` directly.
 
-export const PROFILE_UPDATED_EVENT = 'penny-profile-updated';
+import { PROFILE_UPDATED_EVENT } from './profileChangeBus.constants';
+
+export { PROFILE_UPDATED_EVENT };
 
 export function notifyProfileChanged(): void {
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT));

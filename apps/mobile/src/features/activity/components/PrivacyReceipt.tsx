@@ -9,7 +9,7 @@ interface Props {
   entries: ActivityLog[];
 }
 
-/** RN port of apps/web-legacy/src/features/activity/components/PrivacyReceipt.tsx — slim one-line
+/** RN port of apps/web-react/src/features/activity/components/PrivacyReceipt.tsx — slim one-line
  *  privacy note at the top of the Timeline feed. */
 export function PrivacyReceipt({ entries }: Props) {
   const theme = useThemeColors();

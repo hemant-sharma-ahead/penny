@@ -72,7 +72,7 @@ interface TransactionsSliceProps {
 }
 
 /**
- * RN port of apps/web-legacy/src/features/expenses/transactions/TransactionsSlice.tsx. Groups is now
+ * RN port of apps/web-react/src/features/expenses/transactions/TransactionsSlice.tsx. Groups is now
  * ported — this restores web's `shareGroups`/`onShareToGroup`/`onShareLater`/`sharingExpense` (the
  * "Share with a group" swipe action + `ShareToGroupModal`), previously dropped here.
  */
