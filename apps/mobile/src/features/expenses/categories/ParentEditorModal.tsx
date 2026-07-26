@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { Button, ConfirmDialog, Modal, TextInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import type { ExpenseCategory } from '@/core/db/types';

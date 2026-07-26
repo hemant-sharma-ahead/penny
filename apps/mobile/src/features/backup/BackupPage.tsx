@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { View, Pressable, ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
@@ -284,9 +284,9 @@ export function BackupPage() {
             <View className="flex-row items-start gap-3">
               <View
                 className="w-10 h-10 rounded-xl items-center justify-center"
-                style={{ backgroundColor: `${theme.primary}1a` }}
+                style={{ backgroundColor: `${theme.info}1a` }}
               >
-                <Icon name="ti-brand-google-drive" size={20} color={theme.primary} />
+                <Icon name="ti-brand-google-drive" size={20} color={theme.info} />
               </View>
               <View className="flex-1">
                 <Text className="text-sm font-semibold text-primary">Back up to Google Drive</Text>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { epochToDateInput } from '@/lib/formatters';
 import { daysBetween } from '@/lib/date';
 import { Modal, Button, TextInput, DateInput, Card, Banner } from '~/components/ui';

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { View, Text, AppState, type AppStateStatus } from 'react-native';
+import { View, AppState, type AppStateStatus, Text } from 'react-native';
 import { TextInput, Button } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';

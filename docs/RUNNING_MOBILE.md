@@ -21,10 +21,9 @@ Two separate reasons, both permanent — there's no Expo Go version that will fi
    newest SDK by a bit (currently supports up to SDK 54), so you'll see `Project is incompatible with this
    version of Expo Go` even on the latest Expo Go.
 2. **The real reason, independent of SDK version:** Track 2 added `react-native-quick-crypto`, a
-   third-party native module. Expo Go only ships with a fixed set of pre-bundled native modules (mostly
-   first-party `expo-*` packages) — it cannot load a custom native module like this one at all, on any SDK
-   version. `expo-sqlite` (also added in Track 2) is a first-party module and likely *would* work in Expo
-   Go, but quick-crypto never will.
+   third-party native module, and the storage layer now uses `@op-engineering/op-sqlite` (see below) —
+   Expo Go only ships with a fixed set of pre-bundled native modules (mostly first-party `expo-*`
+   packages) — it cannot load a custom native module like either of these at all, on any SDK version.
 
 **The fix is always the same from here on: build a development build** (your own custom Expo Go
 equivalent, with this project's native modules baked in) instead of using the generic Expo Go app.
@@ -137,9 +136,12 @@ pnpm web          # runs in a browser via react-native-web — no native modules
 ## What's actually running right now
 
 Track 4 (all modules, including real onboarding) is complete — `AuthGuard` calls the real `@penny/core`
-security manager (backed by `expo-sqlite` + `react-native-quick-crypto`), and a real 13-screen onboarding
-flow sets the Data Master Key on-device via a real UI, not a stub. See `docs/plans/mobile-migration.md`
-for full track-by-track status and the current "▶ Resume here" open items.
+security manager (backed by `@op-engineering/op-sqlite` + `react-native-quick-crypto` — the storage
+adapter went `expo-sqlite` → `react-native-mmkv` → `@op-engineering/op-sqlite`, all on 2026-07-26, see
+`docs/plans/mobile-migration.md` for the full history and why each swap happened), and a real 13-screen
+onboarding flow sets the Data Master Key on-device via a real UI, not a stub. See
+`docs/plans/mobile-migration.md` for full track-by-track status and the current "▶ Resume here" open
+items.
 
 ## No system Java on this machine — `JAVA_HOME` for local Gradle builds
 

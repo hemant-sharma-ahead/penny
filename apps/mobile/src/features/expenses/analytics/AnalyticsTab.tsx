@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import Svg, { Circle, Text as SvgText } from 'react-native-svg';
 import { formatCurrency, formatCompact, toMonthYearKey } from '@/lib/formatters';
 import { ListContainer, SectionLabel, Banner, Modal } from '~/components/ui';
@@ -388,7 +388,7 @@ export function AnalyticsTab({
             <>
               {/* Savings-rate headline */}
               {annualSavings.income > 0 && (
-                <View className="surface rounded-2xl p-4 flex-row items-center justify-between">
+                <View className="bg-surface border border-theme rounded-2xl p-4 flex-row items-center justify-between">
                   <View>
                     <Text className="text-xs font-medium text-tertiary uppercase tracking-wide">
                       Saved in {analyticsYear}
@@ -410,7 +410,7 @@ export function AnalyticsTab({
               )}
 
               {/* Income vs expense chart */}
-              <View className="surface rounded-2xl p-4 gap-3">
+              <View className="bg-surface border border-theme rounded-2xl p-4 gap-3">
                 <View className="flex-row items-center justify-between">
                   <Text className="text-xs font-medium text-tertiary uppercase tracking-wide">Income vs spend</Text>
                   <Text className="text-sm font-semibold text-primary">
@@ -482,7 +482,7 @@ export function AnalyticsTab({
       ) : analyticsView === 'monthly' ? (
         <>
           {/* All-inclusive month total — daily-routine + set aside + events */}
-          <View className="surface rounded-xl p-4">
+          <View className="bg-surface border border-theme rounded-xl p-4">
             <Text className="text-xs text-secondary">Total spent · {monthLabel(selectedMonth)}</Text>
             <Text className="text-2xl font-bold text-primary mt-0.5">
               {!masked ? formatCurrency(monthTotal) : '••••'}
@@ -497,7 +497,7 @@ export function AnalyticsTab({
 
           {/* Spend velocity — current month only */}
           {spendVelocity && (
-            <View className="surface rounded-xl p-3.5 flex-row items-center gap-4">
+            <View className="bg-surface border border-theme rounded-xl p-3.5 flex-row items-center gap-4">
               <View className="flex-1 min-w-0">
                 <Text className="text-xs text-secondary">
                   {spendVelocity.daysElapsed} of {spendVelocity.daysInMonth} days elapsed
@@ -536,7 +536,7 @@ export function AnalyticsTab({
 
           {/* Monthly recap card */}
           {(recap.expense > 0 || recap.income > 0) && (
-            <View className="surface rounded-2xl p-4 gap-2.5">
+            <View className="bg-surface border border-theme rounded-2xl p-4 gap-2.5">
               <View className="flex-row items-center justify-between">
                 <Text className="text-xs font-semibold uppercase tracking-wide text-tertiary">
                   {monthLabel(recap.month)} recap
@@ -577,7 +577,7 @@ export function AnalyticsTab({
 
           {/* Donut — daily-routine groups only */}
           {analyticsData.length > 0 && (
-            <View className="surface rounded-2xl p-4 flex-row items-center gap-4">
+            <View className="bg-surface border border-theme rounded-2xl p-4 flex-row items-center gap-4">
               <View className="flex-shrink-0">
                 <IntentDonut segments={analyticsData} total={analyticsTotal} theme={theme} />
               </View>
@@ -607,7 +607,7 @@ export function AnalyticsTab({
               {eventsThisMonth.map((ev) => {
                 const isExpanded = expandedEventId === ev.id;
                 return (
-                  <View key={ev.id} className="surface rounded-xl overflow-hidden">
+                  <View key={ev.id} className="bg-surface border border-theme rounded-xl overflow-hidden">
                     <Pressable
                       className="px-4 py-3 flex-row items-center gap-3"
                       onPress={() => onChangeExpandedEventId(isExpanded ? null : ev.id)}
@@ -830,7 +830,7 @@ export function AnalyticsTab({
 
           {/* Non-event hashtag summary — with promote action */}
           {hashtagSummary.length > 0 && (
-            <View className="surface rounded-xl p-3.5 gap-2.5">
+            <View className="bg-surface border border-theme rounded-xl p-3.5 gap-2.5">
               <SectionLabel>Other hashtags</SectionLabel>
               {hashtagSummary.map(({ tag, amount }) => (
                 <View key={tag} className="flex-row items-center gap-2">

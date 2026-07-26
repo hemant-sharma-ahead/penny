@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { View, Pressable, ScrollView, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getJSON, setJSON } from '~/lib/storage';
 import { useThemeColors } from '~/theme/useThemeColors';

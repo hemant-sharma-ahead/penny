@@ -99,7 +99,7 @@ export function AutoBackupCard() {
         )}
       </View>
 
-      <Text className="text-[11px]" style={{ color: theme.textTertiary }}>
+      <Text className="text-[11px]" style={{ color: theme.neutral }}>
         Backups are encrypted on this device — no one but you can read them.
       </Text>
     </Card>

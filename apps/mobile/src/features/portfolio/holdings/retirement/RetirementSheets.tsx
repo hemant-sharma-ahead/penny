@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { useSettings } from '~/context/SettingsContext';
 import { Modal, Button, TextInput, DateInput, SegmentedControl, DetailRow, AmountInput } from '~/components/ui';

@@ -1,4 +1,4 @@
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import type { ActivityLog } from '@/core/db/types';
 import { maskAmounts } from '@/lib/maskAmounts';
 import { Icon } from '~/components/Icon';

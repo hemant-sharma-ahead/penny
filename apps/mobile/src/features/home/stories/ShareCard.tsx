@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ShareCardSpec } from './storyTypes';

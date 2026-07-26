@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { Badge } from '~/components/ui';
 import { ListRow } from '~/components/shared';
 import { Icon } from '~/components/Icon';
@@ -50,7 +50,10 @@ export function VehicleCard({
 
   return (
     <>
-      <Pressable onPress={() => setShowDetail(true)} className="surface rounded-2xl px-4 py-3 flex-col gap-3 w-full">
+      <Pressable
+        onPress={() => setShowDetail(true)}
+        className="bg-surface border border-theme rounded-2xl px-4 py-3 flex-col gap-3 w-full"
+      >
         {/* Header */}
         <ListRow
           icon={vehicleIcon}

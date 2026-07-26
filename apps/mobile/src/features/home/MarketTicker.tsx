@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -11,6 +11,7 @@ import Animated, {
 import { Modal, Toggle } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { useReduceMotion } from '~/hooks/useReduceMotion';
 import { getItem, setItem } from '~/lib/storage';
 import { TICKER_CONFIGS, fetchMarketTickers, type TickerId, type TickerResult } from '@/core/market/marketDataClient';
 
@@ -43,11 +44,12 @@ async function saveEnabledTickersAsync(ids: TickerId[]): Promise<void> {
 
 function MarqueeTrack({ shown }: { shown: TickerResult[] }) {
   const theme = useThemeColors();
+  const reduceMotion = useReduceMotion();
   const [copyWidth, setCopyWidth] = useState(0);
   const translateX = useSharedValue(0);
 
   useEffect(() => {
-    if (copyWidth <= 0) return;
+    if (reduceMotion || copyWidth <= 0) return;
     translateX.value = 0;
     translateX.value = withRepeat(
       withTiming(-copyWidth, { duration: MARQUEE_DURATION_MS, easing: Easing.linear }),
@@ -55,13 +57,18 @@ function MarqueeTrack({ shown }: { shown: TickerResult[] }) {
       false
     );
     return () => cancelAnimation(translateX);
-  }, [copyWidth, translateX]);
+  }, [reduceMotion, copyWidth, translateX]);
 
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ translateX: translateX.value }] }));
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ translateX: reduceMotion ? 0 : translateX.value }] }));
+
+  // Web's `@media (prefers-reduced-motion: reduce)` disables the `@keyframes` marquee entirely (found
+  // unhonored on mobile via the 2026-07-25 parity sweep) — a single static copy, not a paused animation,
+  // since the second copy exists only to make the loop seamless while scrolling.
+  const copies = reduceMotion ? [0] : [0, 1];
 
   return (
     <Animated.View className="flex-row" style={animatedStyle}>
-      {[0, 1].map((copy) => (
+      {copies.map((copy) => (
         <View
           key={copy}
           className="flex-row items-center gap-6 pr-6"

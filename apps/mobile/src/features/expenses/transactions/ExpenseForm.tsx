@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, TextInput as RNTextInput, Image, ScrollView } from 'react-native';
+import { View, Pressable, TextInput as RNTextInput, Image, ScrollView, Text } from 'react-native';
 import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type {

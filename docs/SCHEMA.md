@@ -16,43 +16,45 @@ Encrypted stores use `EncryptedRepository<T>`, which wraps Dexie and transparent
 
 ## Mobile (React Native) storage engine
 
-Since Track 2 of the [mobile migration](plans/mobile-migration.md), `apps/mobile` runs on `expo-sqlite`
-instead of Dexie — Metro resolves `packages/core/src/core/db/schema.native.ts` in place of `schema.ts` for
-any native build (verified via bundle inspection; web/`apps/web-legacy` is completely unaffected and keeps
-using Dexie unchanged). Every store — encrypted or plain — is a 2-column SQLite table:
+Since Track 2 of the [mobile migration](plans/mobile-migration.md), `apps/mobile` runs on
+`@op-engineering/op-sqlite` instead of Dexie — Metro resolves `packages/core/src/core/db/schema.native.ts`
+in place of `schema.ts` for any native build (verified via bundle inspection; web/`apps/web-legacy` is
+completely unaffected and keeps using Dexie unchanged). This is the third storage engine this file has
+used, each swap driven by a real on-device bug:
 
-```sql
-CREATE TABLE IF NOT EXISTS <store_name> (id TEXT PRIMARY KEY NOT NULL, data TEXT NOT NULL)
-```
+1. **`expo-sqlite`** (Track 2). Needed a single app-wide FIFO queue serializing every DB call — reads
+   included — because its native binding corrupted its statement handle under concurrent reads, not just
+   writes. That queue serialized every one of `useExpenses.ts`'s 8 independent table reads on mount, one
+   at a time, on top of an async bridge round-trip per call.
+2. **`react-native-mmkv`** (2026-07-26). Removed the queue and the per-call bridge cost — MMKV's calls are
+   synchronous JSI, no shared connection to corrupt. But every call runs inline on the JS thread, so a bulk
+   read of ~1,000 rows became 1,000 synchronous calls blocking the JS thread for the whole loop — user
+   confirmed on-device this still didn't feel as smooth as web.
+3. **`@op-engineering/op-sqlite`** (2026-07-26, same day). Real async SQLite: `execute()` dispatches to a
+   native thread and only the final result crosses back to JS — the same "off-thread, single result
+   handoff" shape Dexie/IndexedDB already has on web. WAL journal mode is enabled; only one connection is
+   opened, per op-sqlite's own guidance (no manual reader/writer pool).
 
-`data` holds `JSON.stringify(row)` — the exact same shape already on disk in the Dexie version (every row
-was already a plain JSON-serializable object, whether an `{id, iv, ciphertext}` encrypted record or a
-plain record like `security`/`price_cache`). This uniform shape means no store needed its own column
-schema, and it's why `schema.native.ts` doesn't need a store-by-store rewrite of the field lists documented
-below — the mapping is the same for every store.
-
-**Dexie version → SQLite migration correspondence** (a `_migrations(version INTEGER PRIMARY KEY)` table
-tracks what's applied, so a fresh RN install just runs all of them once and a future v10+ addition only
-adds its own migration):
-
-| Dexie version | Stores created                                             |
-| -------------- | ------------------------------------------------------------ |
-| v1              | `price_cache`, `privacy_stats`, `profile`, `holdings`, `expenses`, `expense_categories`, `budgets`, `hashtags`, `goals`, `goal_contributions`, `liabilities`, `insurance_policies`, `chip_insights`, `ai_call_log`, `security`, `subscriptions`, `personal_ious`, `credit_profile` |
-| v2              | `accounts`                                                   |
-| v3              | *(dropped `assets` — never existed on RN, nothing to create)* |
-| v4              | `activity_log`                                                |
-| v5              | `merchant_memory`                                             |
-| v6              | `transaction_templates`                                       |
-| v7              | `persons`, `ledger_entries`                                   |
-| v8              | `device_keys`, `group_keys`, `sync_cursor`                    |
-| v9              | `groups`, `group_members`, `group_events`                     |
+This version also fixes a second inefficiency present in *both* prior RN adapters (not unique to MMKV):
+both stored each encrypted row as `JSON.stringify({id, iv, ciphertext})` in a single text column/value — a
+wrapper layer Dexie never needed, since IndexedDB stores that same `{id, iv, ciphertext}` object directly
+via structured clone. The ~27 tables an `EncryptedRepository` always writes in that exact shape now get
+real typed columns (`id`/`iv`/`ciphertext` — `CREATE TABLE ... (id TEXT PRIMARY KEY, iv TEXT NOT NULL,
+ciphertext TEXT NOT NULL)`), no JSON wrapper at all. Only the 3 tables with genuinely arbitrary per-table
+shape (`security`/`price_cache`/`privacy_stats`) keep a JSON `data` column, since a generic `RowStore<T>`
+can't know their individual field lists ahead of time the way it can for the fixed `EncryptedRecord` shape.
+Unlike the original `expo-sqlite` version, there's no versioned migrations table — `CREATE TABLE IF NOT
+EXISTS` for every known table runs unconditionally on every launch (a no-op after the first), since a
+table's column set is fixed forever once created this way.
 
 The storage-engine seam is `packages/core/src/core/db/store.ts`'s `RowStore<T>` interface (`get/put/toArray/
 delete/count/update/clear`) — `EncryptedRepository<T>`'s constructor takes a `RowStore<EncryptedRecord>`
 instead of Dexie's `Table` directly; Dexie's `Table` already structurally satisfies this interface, so this
-was a type-only change on the web side. Cross-engine correctness (PBKDF2/AES-GCM/deterministic-Ed25519
-vectors run under Web Crypto here, to be reproduced on-device against `react-native-quick-crypto`) is
-tracked in `packages/core/tests/crypto/crossEngineVectors.test.ts`.
+was a type-only change on the web side, and each RN storage-engine swap needed zero changes to
+`EncryptedRepository`, `securityManager.ts`, `priceCache.ts`, or any other caller — they only ever depend
+on this interface, never on how storage works underneath it. Cross-engine correctness (PBKDF2/AES-GCM/
+deterministic-Ed25519 vectors run under Web Crypto here, to be reproduced on-device against
+`react-native-quick-crypto`) is tracked in `packages/core/tests/crypto/crossEngineVectors.test.ts`.
 
 ---
 

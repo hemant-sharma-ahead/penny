@@ -1,4 +1,4 @@
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import type { LedgerEntry, Person } from '@/core/db/types';
 import { formatCurrency, formatDateShort } from '@/lib/formatters';
 import { Modal, Button, Badge } from '~/components/ui';

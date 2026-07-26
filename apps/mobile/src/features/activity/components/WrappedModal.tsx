@@ -1,5 +1,5 @@
 import { forwardRef, useRef, useState } from 'react';
-import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
+import { Modal, View, Pressable, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
@@ -181,5 +181,9 @@ const styles = StyleSheet.create({
   title: { color: '#ffffff', fontWeight: 'bold', textAlign: 'center' },
   big: { color: '#ffffff', fontWeight: 'bold', textAlign: 'center' },
   line: { color: '#ffffff', textAlign: 'center' },
-  footer: { color: 'rgba(255,255,255,0.85)', textAlign: 'center', position: 'absolute' }
+  // `left`/`right` are required alongside `position: 'absolute'` — RN has no CSS auto-margin/inline-
+  // block centering fallback, so without an explicit horizontal anchor the view won't stretch to the
+  // card's width and `textAlign: 'center'` has no box to center within (found via the 2026-07-26 parity
+  // sweep — speculative there, confirmed here: this is exactly that missing-anchor bug).
+  footer: { color: 'rgba(255,255,255,0.85)', textAlign: 'center', position: 'absolute', left: 0, right: 0 }
 });

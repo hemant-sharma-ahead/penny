@@ -1,5 +1,5 @@
-import { useRef, type ReactNode } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { memo, useRef, type ReactNode } from 'react';
+import { Pressable, View, Text } from 'react-native';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Icon } from '~/components/Icon';
 
@@ -43,7 +43,7 @@ const ACTION_W = 72;
  * That's `renderRightActions` here (the actions live off the row's right edge, revealed as content
  * moves left) — `renderLeftActions` would be the mirror (swipe right), which this row never uses.
  */
-export function SwipeableRow({ actions, onTap, children, className = '' }: Props) {
+export const SwipeableRow = memo(function SwipeableRow({ actions, onTap, children, className = '' }: Props) {
   const ref = useRef<SwipeableMethods>(null);
   const openW = actions.length * ACTION_W;
 
@@ -79,4 +79,4 @@ export function SwipeableRow({ actions, onTap, children, className = '' }: Props
       </Pressable>
     </ReanimatedSwipeable>
   );
-}
+});

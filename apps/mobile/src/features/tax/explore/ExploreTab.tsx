@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { View, Pressable, ScrollView, Text } from 'react-native';
 import { Card, AmountInput, SegmentedControl, Banner, SectionLabel } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { formatCurrency, formatPercent, parseNumber } from '@/lib/formatters';

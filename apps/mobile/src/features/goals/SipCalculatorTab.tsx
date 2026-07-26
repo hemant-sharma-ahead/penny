@@ -1,4 +1,4 @@
-import { View, Text, ScrollView } from 'react-native';
+import { View, ScrollView, Text } from 'react-native';
 import { Card, TextInput, Button, SegmentedControl, AmountInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { formatCurrency, parseNumber } from '@/lib/formatters';

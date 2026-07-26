@@ -60,7 +60,7 @@ export function Button({
   const borderClass = variant === 'secondary' ? 'border border-theme' : '';
 
   const backgroundColor =
-    color ?? (variant === 'primary' ? theme.primary : variant === 'danger' ? theme.danger : undefined);
+    color ?? (variant === 'primary' ? theme.primary : variant === 'danger' ? theme.open : undefined);
   const textColor = textColorOverride ?? (backgroundColor ? '#fff' : theme.textSecondary);
 
   return (

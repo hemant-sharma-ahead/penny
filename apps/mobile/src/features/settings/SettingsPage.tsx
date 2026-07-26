@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { View, Text, Pressable, Image, ScrollView } from 'react-native';
+import { View, Pressable, Image, ScrollView, Text } from 'react-native';
 import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { PageHeader, Toggle, ConfirmDialog } from '~/components/ui';
 import { BackButton } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { tint } from '~/lib/color';
 import { useProfile } from '@/hooks/useProfile';
 import { useSettings, OPEN_MODE_DURATIONS, type ModuleVisibility, type FontScale } from '~/context/SettingsContext';
 import { type PersistedPrivacyMode } from '~/context/PrivacyContext';
@@ -23,13 +24,10 @@ import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
  *   `SettingsContext`-owned `theme`/`data-theme` — same 4 choices (Light/Penny Blue/Dark/System), same
  *   swatch-preview grid, translated to `Pressable`+`View` swatches instead of web's `<button>`/CSS.
  * - Font-size picker restored (`FontScale`, ported into mobile's own `SettingsContext.tsx` this pass) —
- *   the persisted preference is real and this screen's `Aa` grid drives it, but it does NOT yet apply
- *   globally: a 2026-07-25 attempt using NativeWind's `rem` observable (the real RN equivalent of CSS's
- *   `:root { font-size }`) was proven not to work via direct on-device pixel measurement — NativeWind
- *   statically resolves plain utility classes like `text-lg` at build time, bypassing that runtime
- *   mechanism. See `~/theme/fontScale.ts` for the full investigation and `docs/plans/mobile-migration.md`
- *   for the tracked follow-up (a dedicated `<AppText>` wrapper migrated across the app is the only real
- *   path left, out of scope for this pass).
+ *   the persisted preference is real and this screen's `Aa` grid drives it, and (2026-07-26) now applies
+ *   app-wide via `~/components/AppText.tsx` — see that file and `~/theme/fontScale.ts` for how (a
+ *   NativeWind `cssInterop`-registered `Text` wrapper, swapped in everywhere via a scripted codemod, not
+ *   a hand migration).
  * - "Contact & Feedback" and "Backup & Restore" nav rows restored once those modules were ported (see
  *   `FeedbackPage.tsx`/`~/features/backup/BackupPage.tsx`).
  * - Exit Demo Mode hands off to onboarding's "Let us know you" step by nested-navigating into the
@@ -245,23 +243,35 @@ export function SettingsPage() {
         <View className="px-4">
           {/* Profile hero */}
           <Pressable onPress={() => navigation.navigate('Profile')} className="flex-row items-center gap-3 py-4">
-            <View
-              className="w-14 h-14 rounded-full items-center justify-center overflow-hidden"
-              style={{ backgroundColor: theme.primary }}
+            {/* Web's `linear-gradient(135deg, var(--color-primary), #00c47e)`, not a flat fill — same
+             *  flattened-gradient bug class as the System theme swatch/MoneyStory/demo-data button
+             *  (2026-07-25 sweep), missed on this one (found in the 2026-07-26 re-sweep). */}
+            <LinearGradient
+              colors={[theme.primary, '#00c47e']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden'
+              }}
             >
               {profile?.avatarDataUrl ? (
                 <Image source={{ uri: profile.avatarDataUrl }} className="w-full h-full" resizeMode="cover" />
               ) : (
                 <Text className="text-white text-xl font-bold">{initial}</Text>
               )}
-            </View>
+            </LinearGradient>
             <View className="flex-1 min-w-0">
               <Text className="text-lg font-bold text-primary" numberOfLines={1}>
                 {name}
               </Text>
               {handleLine && <Text className="text-xs text-secondary">{handleLine}</Text>}
             </View>
-            <View className="rounded-full px-3 py-1.5 border" style={{ borderColor: theme.primary }}>
+            <View className="rounded-full px-3 py-1.5 border" style={{ borderColor: tint(theme.primary, 40) }}>
               <Text className="text-xs font-semibold" style={{ color: theme.primary }}>
                 Edit
               </Text>

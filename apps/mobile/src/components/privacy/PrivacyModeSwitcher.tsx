@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { Modal, Button, TextInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -49,7 +49,7 @@ export function PrivacyModeSwitcher() {
   const MODE: Record<PrivacyMode, { label: string; icon: string; color: string }> = {
     safe: { label: 'Safe', icon: 'ti-eye-off', color: theme.warning },
     privacy: { label: 'Private', icon: 'ti-shield-lock', color: theme.privacy },
-    open: { label: 'Open', icon: 'ti-eye', color: theme.danger }
+    open: { label: 'Open', icon: 'ti-eye', color: theme.open }
   };
   const active = MODE[mode];
 
@@ -114,7 +114,7 @@ export function PrivacyModeSwitcher() {
         {openCountdown && (
           <View
             className="absolute -bottom-1.5 self-center px-1 rounded-full"
-            style={{ backgroundColor: theme.danger, left: 4 }}
+            style={{ backgroundColor: theme.open, left: 4 }}
           >
             <Text className="font-bold text-white" style={{ fontSize: 8 }}>
               {openCountdown}
@@ -191,7 +191,7 @@ export function PrivacyModeSwitcher() {
           </View>
           <Text className="text-lg font-semibold text-center text-primary mb-2">Before switching to Open mode</Text>
 
-          <View className="rounded-xl px-4 py-3" style={{ backgroundColor: '#dc2626' }}>
+          <View className="rounded-xl px-4 py-3" style={{ backgroundColor: theme.open }}>
             <Text className="text-sm leading-relaxed text-white">
               Make sure no one can see your screen — check that you are not on a screen share, video call, or in a
               public place where someone could be looking over your shoulder. All your financial details including

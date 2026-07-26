@@ -13,12 +13,6 @@ import { CoverageSummary } from './CoverageSummary';
 import { PolicyForm } from './PolicyForm';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
-/**
- * RN port note: web's back button (`navigate(-1)`) is dropped for now — this screen is currently reached
- * as `AuthGuard`'s temporary stand-in (no `Stack.Navigator`, so no real "back" destination exists yet).
- * Every sub-page module ported before real navigation lands will make the same call; revisit once
- * onboarding + tab navigation are real. See docs/plans/mobile-migration.md's Track 4 progress log.
- */
 export function InsurancePage() {
   const modeBg = useModeBackgroundColor();
   const insets = useSafeAreaInsets();

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, FlatList, Text } from 'react-native';
 import { ListContainer, SectionLabel, EmptyState, Button } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { useModeAccentColor } from '~/theme/useModeAccentColor';
 import { formatCurrency } from '@/lib/formatters';
 import { profileRepo, groupMembersRepo } from '@/core/db/repositories';
 import { groupBalances, groupFeed, syncGroup } from '@/core/groups/groupSync';
@@ -22,6 +23,7 @@ const TYPE_ICON: Record<string, string> = {
  *  occurrences on web are single-cell centering here (`items-center justify-center`), not a real grid. */
 export function GroupDashboard({ group }: { group: Group }) {
   const theme = useThemeColors();
+  const accent = useModeAccentColor();
   const [balances, setBalances] = useState<Record<string, number>>({});
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [feed, setFeed] = useState<GroupEvent[]>([]);
@@ -59,11 +61,11 @@ export function GroupDashboard({ group }: { group: Group }) {
   const myNet = myId ? (balances[myId] ?? 0) : 0;
   const nameFor = (userId: string) => members.find((m) => m.userId === userId)?.displayName ?? 'Member';
 
-  return (
-    <View className="px-4 pt-3 pb-6 gap-4">
+  const header = (
+    <View className="gap-4 pb-2">
       {/* Group header */}
       <View className="flex-row items-center gap-3">
-        <View className="w-11 h-11 rounded-xl items-center justify-center" style={{ backgroundColor: '#6366f1' }}>
+        <View className="w-11 h-11 rounded-xl items-center justify-center" style={{ backgroundColor: accent }}>
           <Icon name={TYPE_ICON[group.type] ?? 'ti-users-group'} size={22} color="#fff" />
         </View>
         <View className="flex-1">
@@ -171,25 +173,32 @@ export function GroupDashboard({ group }: { group: Group }) {
         </ListContainer>
       </View>
 
-      {/* Shared-expense feed */}
-      <View>
-        <SectionLabel>Shared expenses</SectionLabel>
-        {loading ? (
-          <Text className="text-sm text-tertiary px-1">Loading…</Text>
-        ) : feed.length === 0 ? (
-          <EmptyState
-            icon="ti-receipt"
-            title="No shared expenses yet"
-            description="Add one to start splitting costs."
-          />
-        ) : (
-          <ListContainer>
-            {feed.map((e) => (
-              <FeedRow key={e.id} event={e} nameFor={nameFor} />
-            ))}
-          </ListContainer>
-        )}
-      </View>
+      <SectionLabel>Shared expenses</SectionLabel>
+      {loading && <Text className="text-sm text-tertiary px-1">Loading…</Text>}
+      {!loading && feed.length === 0 && (
+        <EmptyState icon="ti-receipt" title="No shared expenses yet" description="Add one to start splitting costs." />
+      )}
+    </View>
+  );
+
+  return (
+    <>
+      {/*
+       * A FlatList, not a plain `.map()` in a `ListContainer` — the shared-expense feed grows unbounded
+       * over a group's lifetime (flagged as a real jank risk in the 2026-07-26 parity sweep), unlike the
+       * Members list above it (naturally bounded by group size, left as-is). Everything above "Shared
+       * expenses" becomes the `ListHeaderComponent`; each feed row is its own rounded card (not the
+       * hairline-divided single box `ListContainer` draws — a `FlatList` has no single wrapping element
+       * to hang that technique on, same tradeoff already made for Loans'/Import's schedule/preview lists).
+       */}
+      <FlatList
+        className="flex-1"
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 96 }}
+        data={feed}
+        keyExtractor={(e: GroupEvent) => e.id}
+        ListHeaderComponent={header}
+        renderItem={({ item }) => <FeedRow event={item} nameFor={nameFor} />}
+      />
 
       {modal === 'add' && <SharedExpenseComposer group={group} onClose={() => setModal(null)} onSaved={bump} />}
       {modal === 'settle' && (
@@ -201,7 +210,7 @@ export function GroupDashboard({ group }: { group: Group }) {
         />
       )}
       {modal === 'members' && <GroupMembersModal group={group} onClose={() => setModal(null)} onChanged={bump} />}
-    </View>
+    </>
   );
 }
 
@@ -210,7 +219,7 @@ function FeedRow({ event, nameFor }: { event: GroupEvent; nameFor: (id: string) 
   if (event.type === 'settlement') {
     const p = event.payload as { from: string; to: string; amount: number };
     return (
-      <View className="px-4 py-3 flex-row items-center gap-3">
+      <View className="px-4 py-3 flex-row items-center gap-3 bg-surface border border-theme rounded-xl mb-2">
         <View
           className="w-9 h-9 rounded-lg items-center justify-center"
           style={{ backgroundColor: `${theme.success}1f` }}
@@ -230,7 +239,7 @@ function FeedRow({ event, nameFor }: { event: GroupEvent; nameFor: (id: string) 
   const p = event.payload as { amount: number; payer: string; shares?: Record<string, number>; description?: string };
   const participants = p.shares ? Object.keys(p.shares).length : 0;
   return (
-    <View className="px-4 py-3 flex-row items-center gap-3">
+    <View className="px-4 py-3 flex-row items-center gap-3 bg-surface border border-theme rounded-xl mb-2">
       <View className="w-9 h-9 rounded-lg items-center justify-center bg-surface-2">
         <Icon name="ti-receipt" size={17} color={theme.textSecondary} />
       </View>

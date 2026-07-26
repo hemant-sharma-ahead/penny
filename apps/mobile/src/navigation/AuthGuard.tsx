@@ -8,8 +8,9 @@ type CheckState = 'checking' | 'needs_onboarding' | 'ready';
 /**
  * Mirrors apps/web-legacy/src/router/AuthGuard.tsx's 3-state machine (checking → needs_onboarding →
  * ready), now calling the real @penny/core securityManager functions — this only became possible once
- * Track 2 shipped the expo-sqlite adapter (schema.native.ts); before that, these calls would have tried
- * to bundle Dexie/IndexedDB into Metro and crashed immediately (see Track 1's stub version in git history).
+ * Track 2 shipped a real native storage adapter (schema.native.ts — originally expo-sqlite, then MMKV,
+ * now op-sqlite, see that file for the full history); before that, these calls would have tried to
+ * bundle Dexie/IndexedDB into Metro and crashed immediately (see Track 1's stub version in git history).
  *
  * Track 4 (Onboarding) addition: also re-runs this check whenever `notifyAuthShouldRecheck()` fires
  * (see `authRecheckBus.ts`) — the onboarding screens that create/restore a vault call it once they're

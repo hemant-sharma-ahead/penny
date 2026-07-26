@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable, TextInput as RNTextInput } from 'react-native';
+import { View, Pressable, TextInput as RNTextInput, Text } from 'react-native';
 import { Modal, Button, DateInput, FormField } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';

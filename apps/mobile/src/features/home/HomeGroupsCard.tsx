@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { useModeAccentColor } from '~/theme/useModeAccentColor';
 import { formatCurrency } from '@/lib/formatters';
 import { hasEntitlement } from '@/core/entitlement/entitlement';
 import { useGroupContext } from '~/context/GroupContext';
@@ -31,6 +32,7 @@ const TYPE_ICON: Record<string, string> = {
  */
 export function HomeGroupsCard() {
   const theme = useThemeColors();
+  const accent = useModeAccentColor();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { groups, claimed, setContext } = useGroupContext();
   const { summaries } = useGroupSummaries(groups);
@@ -90,7 +92,7 @@ export function HomeGroupsCard() {
               className="w-full flex-row items-center gap-3 px-4 py-3"
               style={i > 0 ? { borderTopWidth: 1, borderTopColor: theme.border } : undefined}
             >
-              <View className="w-9 h-9 rounded-xl items-center justify-center" style={{ backgroundColor: '#6366f1' }}>
+              <View className="w-9 h-9 rounded-xl items-center justify-center" style={{ backgroundColor: accent }}>
                 <Icon name={TYPE_ICON[g.type] ?? 'ti-users-group'} size={18} color="#fff" />
               </View>
               <View className="flex-1">

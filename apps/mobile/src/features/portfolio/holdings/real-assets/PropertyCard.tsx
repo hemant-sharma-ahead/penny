@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { ListRow } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -36,7 +36,7 @@ export function PropertyCard({
 
   return (
     <>
-      <View className="surface rounded-2xl px-4 py-3 flex-col gap-2.5">
+      <View className="bg-surface border border-theme rounded-2xl px-4 py-3 flex-col gap-2.5">
         {/* Header row */}
         <ListRow
           icon="ti-building"

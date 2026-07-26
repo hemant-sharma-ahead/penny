@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { ScrollView } from 'react-native';
 import { useEventMode } from '~/context/EventModeContext';
 import type { Expense, ExpenseCategory } from '@/core/db/types';
 import { toMonthYearKey } from '@/lib/formatters';
@@ -19,8 +19,9 @@ interface AnalyticsSliceProps {
 /**
  * RN port of apps/web-legacy/src/features/expenses/analytics/AnalyticsSlice.tsx. Groups is now ported —
  * this restores the `familyGroupIds` prop, previously dropped here. Web's outer `overflow-y-auto` scroll
- * wrapper is still dropped since the parent Expenses tab strip owns scrolling on mobile (matches
- * Budgets/other slices' convention).
+ * wrapper becomes a real `ScrollView` here (previously missing entirely — `ExpensesPage.tsx`'s tab
+ * content area has no scroll of its own, unlike the comment here used to claim; `BudgetsSlice.tsx` is
+ * the correct reference for this same "slice owns its own scroll" convention).
  */
 export function AnalyticsSlice({
   expenses,
@@ -73,7 +74,7 @@ export function AnalyticsSlice({
   });
 
   return (
-    <View className="flex-1">
+    <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 96 }}>
       <AnalyticsTab
         analyticsView={analyticsView}
         onChangeAnalyticsView={setAnalyticsView}
@@ -107,6 +108,6 @@ export function AnalyticsSlice({
         masked={masked}
         promoteHashtagToEvent={promoteHashtagToEvent}
       />
-    </View>
+    </ScrollView>
   );
 }

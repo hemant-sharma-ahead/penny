@@ -1,4 +1,4 @@
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { formatCurrency } from '@/lib/formatters';
 import type { Budget, ExpenseCategory } from '@/core/db/types';
 import { isHiddenInSafeMode } from '@/core/expenses/categoryGroups';
@@ -35,7 +35,7 @@ export function BudgetsTab({
         const over = !!budget && spent > budget.limitAmount;
         const masked = shouldMask(isHiddenInSafeMode(cat));
         return (
-          <View key={cat.id} className="surface rounded-xl px-4 py-3">
+          <View key={cat.id} className="bg-surface border border-theme rounded-xl px-4 py-3">
             <View className="flex-row items-center gap-2">
               <View
                 className="w-7 h-7 rounded-lg items-center justify-center"

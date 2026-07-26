@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable, Share } from 'react-native';
+import { View, Pressable, Share, Text } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Modal, Button, ConfirmDialog } from '~/components/ui';
 import { Icon } from '~/components/Icon';

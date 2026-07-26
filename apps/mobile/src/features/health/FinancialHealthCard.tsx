@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { useToast } from '~/context/ToastContext';
 import { Icon } from '~/components/Icon';

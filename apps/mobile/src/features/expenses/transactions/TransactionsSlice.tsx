@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { View, Pressable, ScrollView, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SearchInput, DismissibleChip, Button, Modal, SelectInput, ConfirmDialog } from '~/components/ui';
 import { Icon } from '~/components/Icon';
@@ -32,6 +32,9 @@ import type { CategoryManager } from '../categories/types';
 import type { DueRecurring } from '@/core/expenses/recurringDue';
 
 interface TransactionsSliceProps {
+  /** True only during the initial decrypt-on-load — see `useExpenses.ts` — so the list can show a real
+   *  loading state instead of a misleading "No transactions yet" empty state while data is still arriving. */
+  loading: boolean;
   filters: ReturnType<typeof useTransactionFilters>;
   categoryMap: Map<string, ExpenseCategory>;
   accountMap: Map<string, Account>;
@@ -74,6 +77,7 @@ interface TransactionsSliceProps {
  * "Share with a group" swipe action + `ShareToGroupModal`), previously dropped here.
  */
 export function TransactionsSlice({
+  loading,
   filters,
   categoryMap,
   accountMap,
@@ -466,6 +470,7 @@ export function TransactionsSlice({
 
       {/* List — SectionList owns its own scroll/virtualization (see TransactionsTab.tsx) */}
       <TransactionsTab
+        loading={loading}
         grouped={grouped}
         categoryMap={categoryMap}
         accountMap={accountMap}

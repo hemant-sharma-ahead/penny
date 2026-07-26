@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { getItem, setItem, removeItem, getJSON, setJSON } from '~/lib/storage';
 import { type PersistedPrivacyMode } from './PrivacyContext';
 
@@ -310,36 +310,58 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  return (
-    <SettingsContext.Provider
-      value={{
-        modules,
-        safeModeVisibility,
-        fontScale,
-        defaultPrivacyMode,
-        openModeDurationMinutes,
-        lockOnBackground,
-        cashflowBuffer,
-        taxGrossIncomeOverride,
-        taxDirectOverride,
-        taxEpfOverride,
-        taxStatutoryOverride,
-        setModule,
-        setSafeModeVisibility,
-        setFontScale,
-        setDefaultPrivacyMode,
-        setOpenModeDurationMinutes,
-        setLockOnBackground,
-        setCashflowBuffer,
-        setTaxGrossIncomeOverride,
-        setTaxDirectOverride,
-        setTaxEpfOverride,
-        setTaxStatutoryOverride
-      }}
-    >
-      {children}
-    </SettingsContext.Provider>
+  const value = useMemo(
+    () => ({
+      modules,
+      safeModeVisibility,
+      fontScale,
+      defaultPrivacyMode,
+      openModeDurationMinutes,
+      lockOnBackground,
+      cashflowBuffer,
+      taxGrossIncomeOverride,
+      taxDirectOverride,
+      taxEpfOverride,
+      taxStatutoryOverride,
+      setModule,
+      setSafeModeVisibility,
+      setFontScale,
+      setDefaultPrivacyMode,
+      setOpenModeDurationMinutes,
+      setLockOnBackground,
+      setCashflowBuffer,
+      setTaxGrossIncomeOverride,
+      setTaxDirectOverride,
+      setTaxEpfOverride,
+      setTaxStatutoryOverride
+    }),
+    [
+      modules,
+      safeModeVisibility,
+      fontScale,
+      defaultPrivacyMode,
+      openModeDurationMinutes,
+      lockOnBackground,
+      cashflowBuffer,
+      taxGrossIncomeOverride,
+      taxDirectOverride,
+      taxEpfOverride,
+      taxStatutoryOverride,
+      setModule,
+      setSafeModeVisibility,
+      setFontScale,
+      setDefaultPrivacyMode,
+      setOpenModeDurationMinutes,
+      setLockOnBackground,
+      setCashflowBuffer,
+      setTaxGrossIncomeOverride,
+      setTaxDirectOverride,
+      setTaxEpfOverride,
+      setTaxStatutoryOverride
+    ]
   );
+
+  return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
 
 export function useSettings(): SettingsContextValue {

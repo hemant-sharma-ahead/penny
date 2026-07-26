@@ -1,10 +1,12 @@
 import { useState, type ReactNode } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Modal } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { useModeAccentColor } from '~/theme/useModeAccentColor';
+import { tint } from '~/lib/color';
 import { formatCurrency } from '@/lib/formatters';
 import { useGroupContext } from '~/context/GroupContext';
 import { useGroupSummaries } from './useGroupSummaries';
@@ -35,6 +37,7 @@ const TYPE_ICON: Record<string, string> = {
  */
 export function ContextSwitcher() {
   const theme = useThemeColors();
+  const accent = useModeAccentColor();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { activeContext, activeGroup, groups, claimed, setContext } = useGroupContext();
   const { summaries } = useGroupSummaries(groups);
@@ -54,12 +57,12 @@ export function ContextSwitcher() {
     <>
       <View
         className="flex-row items-center gap-2 px-4 py-2 border-b border-theme"
-        style={inGroup ? { backgroundColor: 'rgba(99, 102, 241, 0.12)' } : undefined}
+        style={inGroup ? { backgroundColor: tint(accent, 12) } : undefined}
       >
         <Pressable onPress={() => setOpen(true)} className="flex-row items-center gap-2 flex-1">
           <View
             className="w-6 h-6 rounded-lg items-center justify-center"
-            style={{ backgroundColor: inGroup ? '#6366f1' : theme.primary }}
+            style={{ backgroundColor: inGroup ? accent : theme.primary }}
           >
             <Icon
               name={inGroup && activeGroup ? (TYPE_ICON[activeGroup.type] ?? 'ti-users-group') : 'ti-user'}
@@ -81,7 +84,7 @@ export function ContextSwitcher() {
                 key={m.userId}
                 className="w-6 h-6 rounded-full items-center justify-center"
                 style={{
-                  backgroundColor: '#6366f1',
+                  backgroundColor: accent,
                   marginLeft: i === 0 ? 0 : -8,
                   borderWidth: 2,
                   borderColor: theme.surface

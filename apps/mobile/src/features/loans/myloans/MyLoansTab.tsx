@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, ScrollView, Text } from 'react-native';
 import type { Liability } from '@/core/db/types';
 import { formatCurrency, formatMonthsDuration } from '@/lib/formatters';
 import { deriveTenureMonths } from '@/core/loans/amortization';
 import { getLoanMeta } from '@/core/loans/meta';
 import { Card, Button, EmptyState, DetailRow, Badge, ConfirmDialog } from '~/components/ui';
 import { ListRow } from '~/components/shared';
+import { useThemeColors } from '~/theme/useThemeColors';
 import { AddLoanModal } from './AddLoanModal';
 
 interface MyLoansTabProps {
@@ -23,6 +24,7 @@ function estimatedMonthsLeft(l: Liability): number | null {
 }
 
 export function MyLoansTab({ emiLoans, masked, saveLiability, deleteLiability, onPlanLoan }: MyLoansTabProps) {
+  const theme = useThemeColors();
   const [showAddLoan, setShowAddLoan] = useState(false);
   const [editLoan, setEditLoan] = useState<Liability | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Liability | null>(null);
@@ -60,6 +62,7 @@ export function MyLoansTab({ emiLoans, masked, saveLiability, deleteLiability, o
                       <Button
                         variant="ghost"
                         icon="ti-pencil"
+                        textColor={theme.textTertiary}
                         accessibilityLabel={`Edit ${l.name}`}
                         className="w-8 h-8 rounded-lg"
                         onPress={() => setEditLoan(l)}
@@ -67,6 +70,7 @@ export function MyLoansTab({ emiLoans, masked, saveLiability, deleteLiability, o
                       <Button
                         variant="ghost"
                         icon="ti-trash"
+                        textColor={theme.textTertiary}
                         accessibilityLabel={`Delete ${l.name}`}
                         className="w-8 h-8 rounded-lg"
                         onPress={() => setDeleteTarget(l)}

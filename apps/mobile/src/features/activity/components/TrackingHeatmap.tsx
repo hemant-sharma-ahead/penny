@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import type { ActivityLog } from '@/core/db/types';
 import { DAY_MS, startOfToday, toDateKey, formatDate } from '@/lib/date';
 import { useThemeColors } from '~/theme/useThemeColors';

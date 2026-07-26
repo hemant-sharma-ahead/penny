@@ -13,10 +13,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Button, PageHeader, Banner, LifeRow, OptionalSeg, Modal } from '~/components/ui';
 import { BackButton } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { tint, ink } from '~/lib/color';
 import { profileRepo } from '@/core/db/repositories';
 import { logActivity } from '@/core/db/activityLog';
 import { reseedForEmployment } from '@/core/db/seedDemoData';
@@ -301,16 +303,28 @@ function ProfileEditor({ profile }: { profile: Profile }) {
             disabled={pickingPhoto}
             accessibilityLabel="Change profile photo"
           >
-            <View
-              className="w-16 h-16 rounded-full items-center justify-center overflow-hidden"
-              style={{ backgroundColor: theme.primary }}
+            {/* Web's `linear-gradient(135deg, var(--color-primary), #00c47e)`, not a flat fill — same
+             *  flattened-gradient bug class as the System theme swatch/MoneyStory/demo-data button
+             *  (2026-07-25 sweep), missed on this one (found in the 2026-07-26 re-sweep). */}
+            <LinearGradient
+              colors={[theme.primary, '#00c47e']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden'
+              }}
             >
               {avatarDataUrl ? (
                 <Image source={{ uri: avatarDataUrl }} className="w-full h-full" resizeMode="cover" />
               ) : (
                 <Text className="text-white text-2xl font-bold">{initial}</Text>
               )}
-            </View>
+            </LinearGradient>
             <View className="absolute -right-0.5 -bottom-0.5 w-6 h-6 rounded-full bg-surface border border-theme items-center justify-center">
               <Icon name="ti-camera" size={12} color={theme.textSecondary} />
             </View>
@@ -534,17 +548,30 @@ function ProfileEditor({ profile }: { profile: Profile }) {
 
         {showBackupNudge && (
           <View className="mt-3">
-            <Banner variant="warning">
-              <View className="gap-2">
-                <Text className="text-xs leading-relaxed" style={{ color: theme.textPrimary }}>
+            {/*
+             * Not `<Banner>` here — `Banner.tsx` always wraps `children` in a `<Text>`, and this needs a
+             * `Button` alongside the message, which RN's `Text` cannot contain (an invalid pattern found
+             * via the 2026-07-26 parity sweep; this is the only Banner call site in the app that needed
+             * non-Text children). Manually replicates Banner's warning-variant tint/border instead.
+             */}
+            <View
+              className="rounded-xl border p-3 gap-2"
+              style={{ backgroundColor: tint(theme.warning, 12), borderColor: tint(theme.warning, 30) }}
+            >
+              <View className="flex-row gap-2">
+                <Icon name="ti-alert-triangle" size={16} color={theme.warning} />
+                <Text
+                  className="text-xs leading-relaxed flex-1"
+                  style={{ color: ink(theme.warning, theme.textPrimary) }}
+                >
                   Turn on cloud backup so you can recover your account if you reinstall or switch devices. Without it,
                   your data and this handle can't be restored.
                 </Text>
-                <Button variant="primary" className="self-start" onPress={() => navigation.navigate('Backup')}>
-                  Set up backup
-                </Button>
               </View>
-            </Banner>
+              <Button variant="primary" className="self-start" onPress={() => navigation.navigate('Backup')}>
+                Set up backup
+              </Button>
+            </View>
           </View>
         )}
 

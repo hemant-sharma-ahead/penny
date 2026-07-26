@@ -228,23 +228,32 @@ export function EventModeProvider({ children }: { children: ReactNode }) {
     return set;
   }, [events, pastEvents]);
 
-  return (
-    <EventModeContext.Provider
-      value={{
-        events,
-        pastEvents,
-        allEventHashtags,
-        addEvent,
-        stopEvent,
-        updateEvent,
-        reactivateEvent,
-        promoteHashtagToEvent,
-        demoteEvent
-      }}
-    >
-      {children}
-    </EventModeContext.Provider>
+  const value = useMemo(
+    () => ({
+      events,
+      pastEvents,
+      allEventHashtags,
+      addEvent,
+      stopEvent,
+      updateEvent,
+      reactivateEvent,
+      promoteHashtagToEvent,
+      demoteEvent
+    }),
+    [
+      events,
+      pastEvents,
+      allEventHashtags,
+      addEvent,
+      stopEvent,
+      updateEvent,
+      reactivateEvent,
+      promoteHashtagToEvent,
+      demoteEvent
+    ]
   );
+
+  return <EventModeContext.Provider value={value}>{children}</EventModeContext.Provider>;
 }
 
 export function useEventMode() {

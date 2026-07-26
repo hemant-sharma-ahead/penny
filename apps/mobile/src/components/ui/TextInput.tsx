@@ -1,4 +1,4 @@
-import { View, Text, TextInput as RNTextInput, type TextInputProps as RNTextInputProps } from 'react-native';
+import { View, TextInput as RNTextInput, type TextInputProps as RNTextInputProps, Text } from 'react-native';
 import { FormField } from './FormField';
 import { useThemeColors } from '~/theme/useThemeColors';
 

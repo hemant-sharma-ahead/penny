@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { Button, ConfirmDialog, Modal, SelectInput, TextInput } from '~/components/ui';
 import type { ExpenseCategory } from '@/core/db/types';
 import { CAT_COLORS } from '@/core/expenses/categoryIcons';

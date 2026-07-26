@@ -4,8 +4,9 @@
  * verified against every call site in the codebase before narrowing this type. Dexie's `Table<T, string>`
  * (web) already structurally satisfies this interface, so narrowing `EncryptedRepository`'s constructor
  * param to `RowStore<T>` is a type-only change with zero behavior change on web. `schema.native.ts`'s
- * expo-sqlite adapter implements the same interface so no caller (repositories.ts, securityManager.ts,
- * priceCache.ts, etc.) needs to change.
+ * op-sqlite adapter (originally expo-sqlite, then MMKV, both replaced 2026-07-26 — see that file for the
+ * full history) implements the same
+ * interface so no caller (repositories.ts, securityManager.ts, priceCache.ts, etc.) needs to change.
  */
 export interface RowStore<T> {
   get(id: string): Promise<T | undefined>;

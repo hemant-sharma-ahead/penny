@@ -176,7 +176,7 @@ export function VehicleDetailModal({
         {/* Vehicle identity */}
         <View>
           <Text className="text-[10px] font-semibold text-tertiary uppercase tracking-wide mb-1.5">Vehicle</Text>
-          <View className="surface rounded-xl px-3">
+          <View className="bg-surface border border-theme rounded-xl px-3">
             <VehicleDetailRow mode={mode} label="Manufacturer" value={meta.vehicleMake} />
             <VehicleDetailRow mode={mode} label="Model" value={meta.vehicleModel} />
             <VehicleDetailRow
@@ -202,7 +202,7 @@ export function VehicleDetailModal({
             <Text className="text-[10px] font-semibold text-tertiary uppercase tracking-wide mb-1.5">
               Engine & specs
             </Text>
-            <View className="surface rounded-xl px-3">
+            <View className="bg-surface border border-theme rounded-xl px-3">
               <VehicleDetailRow mode={mode} label="Engine capacity (CC)" value={meta.vehicleCubicCap} />
               <VehicleDetailRow mode={mode} label="Fuel type" value={meta.vehicleFuelType} />
               <VehicleDetailRow mode={mode} label="Emission norms" value={meta.vehicleNorms} />
@@ -216,7 +216,7 @@ export function VehicleDetailModal({
         {/* Registration */}
         <View>
           <Text className="text-[10px] font-semibold text-tertiary uppercase tracking-wide mb-1.5">Registration</Text>
-          <View className="surface rounded-xl px-3">
+          <View className="bg-surface border border-theme rounded-xl px-3">
             <VehicleDetailRow mode={mode} label="Reg number" value={meta.vehicleRegNumber} masked />
             <VehicleDetailRow mode={mode} label="Registration date" value={meta.vehicleRegDate} />
             <VehicleDetailRow mode={mode} label="RTO" value={meta.vehicleRtoLocation} />
@@ -229,7 +229,7 @@ export function VehicleDetailModal({
         {/* Compliance */}
         <View>
           <Text className="text-[10px] font-semibold text-tertiary uppercase tracking-wide mb-1.5">Compliance</Text>
-          <View className="surface rounded-xl px-3">
+          <View className="bg-surface border border-theme rounded-xl px-3">
             <VehicleDetailRow mode={mode} label="Insurance company" value={meta.vehicleInsuranceCompany} />
             <VehicleDetailRow mode={mode} label="Policy number" value={meta.vehicleInsurancePolicyNo} masked />
             <VehicleDetailRow mode={mode} label="Insurance valid upto" value={dateStr(meta.vehicleInsuranceUpto)} />
@@ -242,7 +242,7 @@ export function VehicleDetailModal({
         {(meta.vehicleOwnerName || meta.vehiclePresentAddress) && (
           <View>
             <Text className="text-[10px] font-semibold text-tertiary uppercase tracking-wide mb-1.5">Owner</Text>
-            <View className="surface rounded-xl px-3">
+            <View className="bg-surface border border-theme rounded-xl px-3">
               <VehicleDetailRow mode={mode} label="Name" value={meta.vehicleOwnerName} masked />
               <VehicleDetailRow mode={mode} label="Present address" value={meta.vehiclePresentAddress} masked />
               <VehicleDetailRow mode={mode} label="Permanent address" value={meta.vehiclePermanentAddress} masked />
@@ -355,7 +355,7 @@ export function VehicleDetailModal({
                 })}
               </View>
             ) : (
-              <View className="surface rounded-xl px-3">
+              <View className="bg-surface border border-theme rounded-xl px-3">
                 <VehicleDetailRow mode={mode} label="Total" value={meta.vehicleChallanTotal ?? 0} />
                 <VehicleDetailRow mode={mode} label="Pending" value={meta.vehicleChallanPending ?? 0} />
                 {pendingChallans > 0 && (

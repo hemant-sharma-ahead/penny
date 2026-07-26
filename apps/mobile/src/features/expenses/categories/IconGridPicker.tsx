@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { Icon } from '~/components/Icon';
 import { SearchInput } from '~/components/ui';
 import { CATEGORY_ICON_GROUPS } from '@/core/expenses/categoryIcons';

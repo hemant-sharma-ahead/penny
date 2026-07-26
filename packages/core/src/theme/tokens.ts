@@ -30,6 +30,9 @@ export interface ThemeTokens {
   info: string;
   neutral: string;
   privacy: string;
+  /** Destructive-action red — distinct from `danger` (general error red). Fixed across all themes,
+   *  matching web's `--color-open` (`index.css`), not a per-palette value. */
+  open: string;
 }
 
 export const THEME_TOKENS = {
@@ -50,7 +53,8 @@ export const THEME_TOKENS = {
     warning: '#f59e0b',
     info: '#3b82f6',
     neutral: '#64748b',
-    privacy: '#7c3aed'
+    privacy: '#7c3aed',
+    open: '#dc2626'
   },
   pennyBlue: {
     primary: '#00a86b',
@@ -69,7 +73,8 @@ export const THEME_TOKENS = {
     warning: '#f59e0b',
     info: '#3b82f6',
     neutral: '#64748b',
-    privacy: '#7c3aed'
+    privacy: '#7c3aed',
+    open: '#dc2626'
   },
   dark: {
     primary: '#00a86b',
@@ -88,7 +93,8 @@ export const THEME_TOKENS = {
     warning: '#f59e0b',
     info: '#3b82f6',
     neutral: '#64748b',
-    privacy: '#7c3aed'
+    privacy: '#7c3aed',
+    open: '#dc2626'
   }
 } satisfies Record<'light' | 'pennyBlue' | 'dark', ThemeTokens>;
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { Card, StatBox, Banner, SectionLabel, AmountInput, Button, SelectInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { formatCurrency, formatPercent, parseNumber } from '@/lib/formatters';

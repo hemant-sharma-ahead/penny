@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { View, Text, Pressable, ScrollView, Linking, ActivityIndicator } from 'react-native';
+import { View, Pressable, ScrollView, FlatList, Linking, ActivityIndicator, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NEWS_SOURCES } from '@/core/news/newsClient';
-import type { NewsSourceId } from '@/core/news/newsTypes';
+import type { NewsItem, NewsSourceId } from '@/core/news/newsTypes';
 import type { SentimentLabel } from '@/core/sentiment';
 import { TabStrip } from '~/components/ui';
 import { BackButton } from '~/components/shared';
@@ -105,6 +105,27 @@ export function NewsPage() {
     ...holdingOptions.map((h) => ({ value: h.symbol, label: h.symbol, count: h.count }))
   ];
 
+  // Filter dropdowns — Source + Tone always; Holding only on the Holdings News tab
+  const filterRow = (
+    <View className="flex-row gap-2">
+      <FilterDropdown
+        label="Source"
+        value={activeFilters.source}
+        options={SOURCE_OPTIONS}
+        onChange={(v) => setActiveFilters((f) => ({ ...f, source: v as SourceFilter }))}
+      />
+      <FilterDropdown
+        label="Tone"
+        value={activeFilters.tone}
+        options={TONE_OPTIONS}
+        onChange={(v) => setActiveFilters((f) => ({ ...f, tone: v as ToneFilter }))}
+      />
+      {activeTab === 'holdings' && (
+        <FilterDropdown label="Holding" value={holding} options={holdingOptionsList} onChange={setHolding} />
+      )}
+    </View>
+  );
+
   return (
     <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
       {/* Header */}
@@ -147,107 +168,98 @@ export function NewsPage() {
       )}
 
       {/* Content */}
-      <ScrollView className="flex-1">
-        <View className="px-4 pt-3 pb-6">
-          {loading && items.length === 0 && (
-            <View className="items-center justify-center gap-3 pt-16">
-              <ActivityIndicator size="large" color={theme.textTertiary} />
-              <Text className="text-sm text-tertiary">Fetching latest headlines…</Text>
-            </View>
-          )}
-
-          {error && items.length === 0 && (
-            <View className="items-center justify-center gap-3 pt-16 px-6">
-              <Icon name="ti-wifi-off" size={36} color={theme.textTertiary} />
-              <Text className="text-sm font-medium text-primary">Couldn't load news</Text>
-              <Text className="text-xs text-tertiary">{error}</Text>
-              <Pressable onPress={refresh} className="mt-2 px-5 py-2 rounded-xl border border-theme">
-                <Text className="text-sm font-medium text-secondary">Try again</Text>
-              </Pressable>
-            </View>
-          )}
-
-          {!error && items.length > 0 && (
-            <>
-              {/* Filter dropdowns — Source + Tone always; Holding only on the Holdings News tab */}
-              <View className="flex-row gap-2 mb-3">
-                <FilterDropdown
-                  label="Source"
-                  value={activeFilters.source}
-                  options={SOURCE_OPTIONS}
-                  onChange={(v) => setActiveFilters((f) => ({ ...f, source: v as SourceFilter }))}
-                />
-                <FilterDropdown
-                  label="Tone"
-                  value={activeFilters.tone}
-                  options={TONE_OPTIONS}
-                  onChange={(v) => setActiveFilters((f) => ({ ...f, tone: v as ToneFilter }))}
-                />
-                {activeTab === 'holdings' && (
-                  <FilterDropdown label="Holding" value={holding} options={holdingOptionsList} onChange={setHolding} />
-                )}
-              </View>
-
-              {activeTab === 'holdings' ? (
-                <HoldingsInNews matches={filteredHoldingMatches} scoredById={scoredById} />
-              ) : visible.length === 0 ? (
-                <View className="items-center justify-center gap-3 pt-10">
-                  <Icon name="ti-news-off" size={36} color={theme.textTertiary} />
-                  <Text className="text-sm text-tertiary">No headlines for this filter</Text>
-                </View>
-              ) : (
-                <View className="gap-2">
-                  {visible.map((item) => {
-                    const src = SOURCE_MAP[item.sourceId];
-                    const scored = scoredById.get(item.id);
-                    return (
-                      <Pressable
-                        key={item.id}
-                        onPress={() => void Linking.openURL(item.link)}
-                        className="bg-surface rounded-2xl p-4 gap-2 active:opacity-70"
-                      >
-                        {/* Source chip + sentiment + time */}
-                        <View className="flex-row items-center justify-between gap-2">
-                          <View className="flex-row items-center gap-1.5 flex-1">
-                            <Text
-                              className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                              style={{ backgroundColor: tint(src?.color ?? '#6b7280'), color: src?.color ?? '#6b7280' }}
-                            >
-                              {src?.label ?? item.sourceId}
-                            </Text>
-                            {scored && <SentimentChip label={scored.label} />}
-                          </View>
-                          <Text className="text-[10px] text-tertiary">{relativeTime(item.publishedAt)}</Text>
-                        </View>
-
-                        {/* Title */}
-                        <Text className="text-sm font-medium text-primary leading-snug" numberOfLines={2}>
-                          {item.title}
-                        </Text>
-
-                        {/* Summary */}
-                        {item.summary && (
-                          <Text className="text-xs text-secondary leading-relaxed" numberOfLines={2}>
-                            {item.summary}
-                          </Text>
-                        )}
-
-                        {/* Read more indicator */}
-                        <View className="flex-row items-center gap-1 mt-0.5">
-                          <Text className="text-[10px] font-medium" style={{ color: theme.primary }}>
-                            Read full story
-                          </Text>
-                          <Icon name="ti-arrow-up-right" size={11} color={theme.primary} />
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
-            </>
-          )}
+      {loading && items.length === 0 && (
+        <View className="items-center justify-center gap-3 pt-16 px-4">
+          <ActivityIndicator size="large" color={theme.textTertiary} />
+          <Text className="text-sm text-tertiary">Fetching latest headlines…</Text>
         </View>
-      </ScrollView>
+      )}
+
+      {error && items.length === 0 && (
+        <View className="items-center justify-center gap-3 pt-16 px-6">
+          <Icon name="ti-wifi-off" size={36} color={theme.textTertiary} />
+          <Text className="text-sm font-medium text-primary">Couldn't load news</Text>
+          <Text className="text-xs text-tertiary">{error}</Text>
+          <Pressable onPress={refresh} className="mt-2 px-5 py-2 rounded-xl border border-theme">
+            <Text className="text-sm font-medium text-secondary">Try again</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {!error &&
+        items.length > 0 &&
+        (activeTab === 'holdings' ? (
+          // Holdings News is naturally bounded (only headlines matching stocks the user owns) — not the
+          // aggregated 80-150+ item feed the 2026-07-26 parity sweep flagged, so a plain ScrollView is fine.
+          <ScrollView className="flex-1">
+            <View className="px-4 pt-3 pb-6">
+              {filterRow}
+              <HoldingsInNews matches={filteredHoldingMatches} scoredById={scoredById} />
+            </View>
+          </ScrollView>
+        ) : (
+          // The aggregated "All News" feed (80-150+ items across 4 sources) is the one flagged as an
+          // unvirtualized risk — rendered as the page's own FlatList (not nested inside a ScrollView)
+          // instead of a `.map()` in a `View`, so it's actually windowed.
+          <FlatList
+            className="flex-1"
+            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 }}
+            data={visible}
+            keyExtractor={(item: NewsItem) => item.id}
+            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+            ListHeaderComponent={<View className="mb-3">{filterRow}</View>}
+            ListEmptyComponent={
+              <View className="items-center justify-center gap-3 pt-10">
+                <Icon name="ti-news-off" size={36} color={theme.textTertiary} />
+                <Text className="text-sm text-tertiary">No headlines for this filter</Text>
+              </View>
+            }
+            renderItem={({ item }) => {
+              const src = SOURCE_MAP[item.sourceId];
+              const scored = scoredById.get(item.id);
+              return (
+                <Pressable
+                  onPress={() => void Linking.openURL(item.link)}
+                  className="bg-surface rounded-2xl p-4 gap-2 active:opacity-70"
+                >
+                  {/* Source chip + sentiment + time */}
+                  <View className="flex-row items-center justify-between gap-2">
+                    <View className="flex-row items-center gap-1.5 flex-1">
+                      <Text
+                        className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: tint(src?.color ?? '#6b7280'), color: src?.color ?? '#6b7280' }}
+                      >
+                        {src?.label ?? item.sourceId}
+                      </Text>
+                      {scored && <SentimentChip label={scored.label} />}
+                    </View>
+                    <Text className="text-[10px] text-tertiary">{relativeTime(item.publishedAt)}</Text>
+                  </View>
+
+                  {/* Title */}
+                  <Text className="text-sm font-medium text-primary leading-snug" numberOfLines={2}>
+                    {item.title}
+                  </Text>
+
+                  {/* Summary */}
+                  {item.summary && (
+                    <Text className="text-xs text-secondary leading-relaxed" numberOfLines={2}>
+                      {item.summary}
+                    </Text>
+                  )}
+
+                  {/* Read more indicator */}
+                  <View className="flex-row items-center gap-1 mt-0.5">
+                    <Text className="text-[10px] font-medium" style={{ color: theme.primary }}>
+                      Read full story
+                    </Text>
+                    <Icon name="ti-arrow-up-right" size={11} color={theme.primary} />
+                  </View>
+                </Pressable>
+              );
+            }}
+          />
+        ))}
     </SafeAreaView>
   );
 }

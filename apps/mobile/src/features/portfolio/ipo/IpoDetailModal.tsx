@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, View, Text } from 'react-native';
 import { formatCurrency } from '@/lib/formatters';
 import { fetchIpoSubscription } from '@/core/ipo/ipoClient';
 import type { IpoItem, IpoStatus, IpoSubDetail } from '@/core/ipo/ipoTypes';
@@ -24,7 +24,7 @@ export function IpoDetailModal({ ipo, onClose }: { ipo: IpoItem; onClose: () => 
       .finally(() => setSubLoading(false));
   }, [ipo.id, ipo.status]);
 
-  const catColor = ipo.category === 'mainboard' ? theme.info : theme.warning;
+  const catColor = ipo.category === 'mainboard' ? '#6366f1' : theme.warning;
   const catLabel = ipo.category === 'mainboard' ? 'Mainboard' : 'SME';
   const safeGmpPct = !ipo.gmpPercent || isNaN(ipo.gmpPercent) ? 0 : ipo.gmpPercent;
   const minInvestment = ipo.price && ipo.lotSize ? ipo.price * ipo.lotSize : null;
@@ -32,7 +32,7 @@ export function IpoDetailModal({ ipo, onClose }: { ipo: IpoItem; onClose: () => 
     upcoming: { label: 'Upcoming', color: theme.warning },
     open: { label: 'Open', color: theme.success },
     closed: { label: 'Closed', color: theme.neutral },
-    listed: { label: 'Listed', color: theme.info }
+    listed: { label: 'Listed', color: '#6366f1' }
   };
   const sm = statusMeta[ipo.status];
   const lastRow = subDetail?.rows[subDetail.rows.length - 1];

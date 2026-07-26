@@ -1,4 +1,4 @@
-import { View, Text, TextInput as RNTextInput, Pressable } from 'react-native';
+import { View, TextInput as RNTextInput, Pressable, Text } from 'react-native';
 import { TextInput, DetailRow } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';

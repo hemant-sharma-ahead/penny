@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { EmptyState } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { fetchMetalPrices } from '@/core/metals/metalsClient';

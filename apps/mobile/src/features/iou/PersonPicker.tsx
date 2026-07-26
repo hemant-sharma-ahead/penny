@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, TextInput as RNTextInput, Pressable } from 'react-native';
+import { View, TextInput as RNTextInput, Pressable, Text } from 'react-native';
 import type { Person } from '@/core/db/types';
 import { FormField } from '~/components/ui';
 import { Icon } from '~/components/Icon';

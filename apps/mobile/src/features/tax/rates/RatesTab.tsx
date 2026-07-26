@@ -19,7 +19,7 @@ function rateLabel(band: TaxBand): string {
 /** A slab/levy card: rate badge + the items it taxes, as chips. */
 function RateCard({ band }: { band: TaxBand }) {
   const theme = useThemeColors();
-  const color = band.retiredOn ? theme.textTertiary : band.regime === 'gst' ? theme.info : theme.warning;
+  const color = band.retiredOn ? theme.neutral : band.regime === 'gst' ? theme.info : theme.warning;
   return (
     <Card padding="sm" className="gap-2">
       <View className="flex-row items-center justify-between gap-2">

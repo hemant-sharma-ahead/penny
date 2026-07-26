@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Modal, View, Text, Pressable } from 'react-native';
+import { Modal, View, Pressable, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ViewShotRef } from 'react-native-view-shot';

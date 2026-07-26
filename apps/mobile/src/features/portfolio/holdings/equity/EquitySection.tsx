@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
-import { EmptyState, IconBadge, Badge, Button } from '~/components/ui';
+import { forwardRef, useImperativeHandle, useState } from 'react';
+import { View, Pressable, Text } from 'react-native';
+import { EmptyState, IconBadge, Badge } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { AssetClass, Holding } from '@/core/db/types';
@@ -18,15 +18,26 @@ interface EquitySectionProps {
   onRemove: (id: string) => Promise<void>;
 }
 
+export interface EquitySectionHandle {
+  /** Opens the add-holding modal — called by `PortfolioPage.tsx`'s always-visible FAB, which lives
+   *  outside this section's scrolling content (see that file for why). */
+  openAdd: () => void;
+}
+
 // Stocks / Mutual-funds slice: groups holdings by symbol/scheme with expandable
-// lots, and owns its add (inline button) + edit modal.
-export function EquitySection({ holdings, assetClass, masked, onSave, onRemove }: EquitySectionProps) {
+// lots, and owns its add (FAB, rendered by the parent — see `EquitySectionHandle`) + edit modal.
+export const EquitySection = forwardRef<EquitySectionHandle, EquitySectionProps>(function EquitySection(
+  { holdings, assetClass, masked, onSave, onRemove },
+  ref
+) {
   const theme = useThemeColors();
   const [expandedSymbols, setExpandedSymbols] = useState<Set<string>>(new Set());
   const [form, setForm] = useState<{ editing: Holding | null } | null>(null);
 
   const openEdit = (h: Holding) => setForm({ editing: h });
   const close = () => setForm(null);
+
+  useImperativeHandle(ref, () => ({ openAdd: () => setForm({ editing: null }) }), []);
   const save = async (h: Holding) => {
     await onSave(h);
     close();
@@ -67,15 +78,7 @@ export function EquitySection({ holdings, assetClass, masked, onSave, onRemove }
   return (
     <>
       {holdings.length === 0 ? (
-        <EmptyState
-          icon={cfg?.icon ?? 'ti-wallet'}
-          title={cfg?.emptyMessage ?? 'Nothing here yet.'}
-          action={{
-            label: assetClass === 'stock' ? 'Add Stock' : 'Add Mutual Fund',
-            onPress: () => setForm({ editing: null }),
-            icon: 'ti-plus'
-          }}
-        />
+        <EmptyState icon={cfg?.icon ?? 'ti-wallet'} title={cfg?.emptyMessage ?? 'Nothing here yet.'} />
       ) : (
         <View className="py-2">
           {holdings.map((h) => {
@@ -405,14 +408,6 @@ export function EquitySection({ holdings, assetClass, masked, onSave, onRemove }
         </View>
       )}
 
-      {holdings.length > 0 && (
-        <View className="px-4 pb-2">
-          <Button variant="secondary" fullWidth icon="ti-plus" onPress={() => setForm({ editing: null })}>
-            {assetClass === 'stock' ? 'Add Stock' : 'Add Mutual Fund'}
-          </Button>
-        </View>
-      )}
-
       {form &&
         (activeClass === 'stock' ? (
           <StockModal editing={form.editing} onSave={save} onDelete={del} onClose={close} />
@@ -421,4 +416,4 @@ export function EquitySection({ holdings, assetClass, masked, onSave, onRemove }
         ))}
     </>
   );
-}
+});

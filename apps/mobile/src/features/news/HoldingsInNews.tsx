@@ -1,4 +1,4 @@
-import { View, Text, Pressable, Linking } from 'react-native';
+import { View, Pressable, Linking, Text } from 'react-native';
 import type { ScoredHeadline, SentimentLabel } from '@/core/sentiment';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';

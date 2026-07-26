@@ -1,4 +1,4 @@
-import { View, Text, ScrollView } from 'react-native';
+import { View, ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useProfile } from '@/hooks/useProfile';
 import { useGroupContext } from '~/context/GroupContext';
@@ -28,11 +28,11 @@ export function HomePage() {
 
   // When a group is the active context, Home becomes that group's dashboard.
   if (activeGroup) {
+    // GroupDashboard owns its own FlatList/scrolling (its shared-expense feed is virtualized — see its
+    // own file), so it isn't wrapped in a ScrollView here the way the personal-home view below still is.
     return (
       <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-        <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 96 }}>
-          <GroupDashboard group={activeGroup} />
-        </ScrollView>
+        <GroupDashboard group={activeGroup} />
       </SafeAreaView>
     );
   }

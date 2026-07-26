@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, ScrollView, Pressable, Text } from 'react-native';
 import { Button } from '~/components/ui';
 import { initialize } from '@/core/crypto/securityManager';
 import { profileRepo } from '@/core/db/repositories';

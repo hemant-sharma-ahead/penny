@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, TextInput as RNTextInput, ScrollView } from 'react-native';
+import { View, Pressable, TextInput as RNTextInput, ScrollView, Text } from 'react-native';
 import { Modal, Button, TextInput, AmountInput, SegmentedControl, SelectInput, Toggle } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { useModeAccentColor } from '~/theme/useModeAccentColor';
 import { useToast } from '~/context/ToastContext';
 import { formatCurrency } from '@/lib/formatters';
 import { profileRepo, groupMembersRepo, expenseCategoriesRepo, accountsRepo } from '@/core/db/repositories';
@@ -22,12 +23,13 @@ const METHODS: { value: SplitMethod; label: string }[] = [
 
 function Avatar({ name, on, dim, onPress }: { name: string; on?: boolean; dim?: boolean; onPress?: () => void }) {
   const theme = useThemeColors();
+  const accent = useModeAccentColor();
   return (
     <Pressable onPress={onPress} className="items-center gap-1" style={{ width: 52, opacity: dim ? 0.35 : 1 }}>
       <View
         className="w-9 h-9 rounded-full items-center justify-center"
         style={{
-          backgroundColor: '#6366f1',
+          backgroundColor: accent,
           borderWidth: on ? 2 : 0,
           borderColor: theme.primary
         }}

@@ -334,8 +334,11 @@ Superseded from this section's original sketch:
   drift between platforms.
 - Shared: `packages/core/` (moved from `src/core/` + `src/lib/` in Track 0) — business logic, formatters,
   calculators, repository pattern, all portable with near-zero changes.
-- Storage/crypto adapters: `expo-sqlite` (behind `EncryptedRepository<T>`'s existing interface) and
-  `react-native-quick-crypto` (polyfills `crypto.subtle`, so `engine.ts`/`securityManager.ts` need no logic changes).
+- Storage/crypto adapters: `@op-engineering/op-sqlite` (behind `EncryptedRepository<T>`'s existing
+  interface — went `expo-sqlite` → `react-native-mmkv` → `op-sqlite`, all on 2026-07-26, each swap driven
+  by a real perf bug, see [`docs/plans/mobile-migration.md`](plans/mobile-migration.md)) and
+  `react-native-quick-crypto` (polyfills
+  `crypto.subtle`, so `engine.ts`/`securityManager.ts` need no logic changes).
 - The component extraction in Pre-Phase 1.5 (semantic props API, no Tailwind leakage into feature code)
   is what made this migration's shared-core boundary clean to extract in Track 0.
 - **`react-native-reanimated`** (continuous/looping UI animation — e.g. a marquee ticker with no CSS

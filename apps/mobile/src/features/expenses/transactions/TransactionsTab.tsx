@@ -1,13 +1,16 @@
-import { SectionList, View, Text, Pressable } from 'react-native';
+import { memo, useCallback } from 'react';
+import { SectionList, View, Pressable, Text } from 'react-native';
 import { formatCurrency } from '@/lib/formatters';
 import { useThemeColors } from '~/theme/useThemeColors';
-import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { Icon } from '~/components/Icon';
 import type { Account, Expense, ExpenseCategory, Hashtag } from '@/core/db/types';
 import { isHiddenInSafeMode, isTagHiddenInSafeMode } from '@/core/expenses/categoryGroups';
 import { SwipeableRow, type SwipeAction } from './SwipeableRow';
 
 interface TransactionsTabProps {
+  /** True only during the initial decrypt-on-load (see `useExpenses.ts`) — distinguishes "still loading"
+   *  from "genuinely no transactions", which `grouped.length === 0` alone can't (both look identical). */
+  loading: boolean;
   grouped: { label: string; items: Expense[] }[];
   categoryMap: Map<string, ExpenseCategory>;
   accountMap: Map<string, Account>;
@@ -28,6 +31,158 @@ interface Section {
   data: Expense[];
 }
 
+interface RowProps {
+  txn: Expense;
+  categoryMap: Map<string, ExpenseCategory>;
+  accountMap: Map<string, Account>;
+  hashtags: Hashtag[];
+  shouldMask: (sensitive: boolean | undefined) => boolean;
+  onEdit: (expense: Expense) => void;
+  onDelete?: (id: string) => void;
+  onDuplicate?: (expense: Expense) => void;
+  onShare?: ((expense: Expense) => void) | undefined;
+  selectMode: boolean;
+  isSelected: boolean;
+  onToggleSelect?: (id: string) => void;
+  isLastRowOverall: boolean;
+}
+
+/**
+ * One transaction row, extracted out of `renderItem` and wrapped in `React.memo` — found via a real
+ * on-device bug (a user-reported screenshot: the whole list goes blank mid-scroll). This is a known
+ * `VirtualizedList` failure mode, not just "feels slow": each row mounts a `SwipeableRow`
+ * (`react-native-gesture-handler`'s `ReanimatedSwipeable` — a real native pan-gesture recognizer +
+ * Reanimated shared values, not a cheap `View`), and when `renderItem` was an inline closure recreated
+ * on every render of the parent, every visible row re-rendered (and its `SwipeableRow` child re-created
+ * its `actions` array) on any unrelated state change — competing with the JS thread's ability to mount
+ * *new* rows scrolling into view fast enough, which is what actually produces the blank recycled cells
+ * (RN's own documented behavior when a fast scroll outpaces `renderItem`). Memoizing the row doesn't
+ * reduce the inherent cost of mounting a new `SwipeableRow` as it scrolls into the window, but it removes
+ * the *extra*, avoidable re-render cost competing for the same JS thread during that critical window.
+ */
+const TransactionRow = memo(function TransactionRow({
+  txn,
+  categoryMap,
+  accountMap,
+  hashtags,
+  shouldMask,
+  onEdit,
+  onDelete,
+  onDuplicate,
+  onShare,
+  selectMode,
+  isSelected,
+  onToggleSelect,
+  isLastRowOverall
+}: RowProps) {
+  const theme = useThemeColors();
+  const txnType = txn.type ?? 'expense';
+  const cat = categoryMap.get(txn.categoryId);
+  const accent = txnType === 'income' ? '#10b981' : txnType === 'transfer' ? '#3b82f6' : (cat?.color ?? '#6b7280');
+  const icon =
+    txnType === 'income'
+      ? 'ti-arrow-up-circle'
+      : txnType === 'transfer'
+        ? 'ti-arrows-exchange'
+        : (cat?.icon ?? 'ti-dots');
+  const amountColor = txnType === 'income' ? theme.success : txnType === 'expense' ? theme.danger : theme.info;
+  const prefix = txnType === 'income' ? '+' : txnType === 'transfer' ? '' : '-';
+  const acc = txn.accountId ? accountMap.get(txn.accountId) : undefined;
+  const catLabel =
+    txnType === 'transfer' ? 'Transfer' : (cat?.name ?? (txnType === 'income' ? 'Income' : 'Uncategorized'));
+  const subtitle = acc?.name ? `${catLabel} · ${acc.name}` : catLabel;
+  const masked = shouldMask((cat && isHiddenInSafeMode(cat)) || isTagHiddenInSafeMode(txn.hashtags, hashtags));
+
+  const body = (
+    <>
+      <View
+        className="w-9 h-9 rounded-xl items-center justify-center shrink-0"
+        style={{ backgroundColor: `${accent}1f` }}
+      >
+        <Icon name={icon} size={18} color={accent} />
+      </View>
+      <View className="flex-1 min-w-0">
+        <View className="flex-row items-center">
+          <Text className="text-sm font-semibold text-primary shrink" numberOfLines={1}>
+            {txn.description}
+          </Text>
+          {txn.receiptDataUrl && (
+            <View className="ml-1">
+              <Icon name="ti-paperclip" size={12} color={theme.textTertiary} />
+            </View>
+          )}
+          {(txn.shareWith?.length ?? 0) > 0 && (
+            <View className="ml-1">
+              <Icon name="ti-users-group" size={12} color={theme.primary} />
+            </View>
+          )}
+        </View>
+        <View className="flex-row items-center mt-0.5">
+          <Text className="text-[11.5px] text-tertiary" numberOfLines={1}>
+            {subtitle}
+          </Text>
+          {txn.hashtags.map((tag) => (
+            <Text key={tag} className="ml-1.5 text-[11.5px] font-medium" style={{ color: theme.primary }}>
+              #{tag}
+            </Text>
+          ))}
+        </View>
+      </View>
+      <Text className="text-sm font-bold ml-2 shrink-0" style={{ color: masked ? theme.textPrimary : amountColor }}>
+        {masked ? '••••' : `${prefix}${formatCurrency(txn.amount)}`}
+      </Text>
+    </>
+  );
+
+  // Select mode: flat tappable row with a checkbox; no rail.
+  if (selectMode) {
+    return (
+      <Pressable
+        onPress={() => onToggleSelect?.(txn.id)}
+        className="w-full flex-row items-center gap-3 px-4 py-3"
+        style={isSelected ? { backgroundColor: theme.surfaceSecondary } : undefined}
+      >
+        <Icon
+          name={isSelected ? 'ti-circle-check-filled' : 'ti-circle'}
+          size={20}
+          color={isSelected ? theme.primary : theme.textTertiary}
+        />
+        {body}
+      </Pressable>
+    );
+  }
+
+  // Normal mode: timeline rail + dot live INSIDE the row; swipe-left → Copy/Delete; tap → edit.
+  const isShared = (txn.shareWith?.length ?? 0) > 0;
+  const actions: SwipeAction[] = [
+    ...(onDuplicate ? [{ icon: 'ti-copy', label: 'Copy', color: theme.info, onPress: () => onDuplicate(txn) }] : []),
+    ...(onShare && txnType === 'expense' && !isShared
+      ? [{ icon: 'ti-users-group', label: 'Share', color: theme.primary, onPress: () => onShare(txn) }]
+      : []),
+    ...(onDelete ? [{ icon: 'ti-trash', label: 'Delete', color: theme.danger, onPress: () => onDelete(txn.id) }] : [])
+  ];
+  return (
+    <SwipeableRow actions={actions} onTap={() => onEdit(txn)}>
+      <View
+        className="relative w-full flex-row items-center gap-3 pl-10 pr-4 py-3"
+        style={isShared ? { backgroundColor: `${theme.primary}0f` } : undefined}
+      >
+        {/* rail segment for this row */}
+        <View
+          className="absolute w-px"
+          style={{ left: 20, top: 0, bottom: isLastRowOverall ? '50%' : 0, backgroundColor: theme.border }}
+        />
+        {/* dot on the rail */}
+        <View
+          className="absolute w-2.5 h-2.5 rounded-full"
+          style={{ left: 15, top: '50%', marginTop: -5, backgroundColor: accent }}
+        />
+        {body}
+      </View>
+    </SwipeableRow>
+  );
+});
+
 /**
  * RN port of apps/web-legacy/src/features/expenses/transactions/TransactionsTab.tsx. Groups is now
  * ported — this restores web's `onShare`/`shareGroups`-driven "Share" swipe action and the
@@ -40,8 +195,16 @@ interface Section {
  * emulator process, not just the app. `SectionList` windows rendering to what's near the viewport, the
  * same fix web never needed (a browser's DOM has no equivalent per-row native gesture-recognizer cost).
  * `TransactionsSlice.tsx`'s wrapping `ScrollView` was removed — this owns its own scroll now.
+ *
+ * `windowSize`/`maxToRenderPerBatch`/`updateCellsBatchingPeriod` are explicitly tuned (not left at
+ * RN's defaults) alongside the `TransactionRow` memoization above — same on-device blank-mid-scroll bug.
+ * A larger `windowSize` keeps more off-screen rows pre-rendered ahead of the visible area, giving the JS
+ * thread more lead time before a fast scroll outruns it; a smaller `maxToRenderPerBatch` +
+ * `updateCellsBatchingPeriod` renders in smaller, more frequent chunks instead of one large blocking batch,
+ * so the thread yields sooner instead of stalling on a big batch of expensive `SwipeableRow` mounts.
  */
 export function TransactionsTab({
+  loading,
   grouped,
   categoryMap,
   accountMap,
@@ -56,7 +219,87 @@ export function TransactionsTab({
   onToggleSelect
 }: TransactionsTabProps) {
   const theme = useThemeColors();
-  const modeBg = useModeBackgroundColor();
+
+  // Skeleton rows instead of silently reusing the empty state — while `expensesRepo.getAll()` is still
+  // decrypting, `grouped` is indistinguishable from "genuinely no transactions" (both are `[]`), so
+  // without this the list flashed a wrong "No transactions yet" message during every load, not just a
+  // blank screen. Found via user report of the Transactions tab feeling laggy/broken on entry.
+  const sections: Section[] = grouped.map((g) => ({ title: g.label, data: g.items }));
+  const firstSectionTitle = sections[0]?.title;
+  const lastSectionTitle = sections[sections.length - 1]?.title;
+  const lastSectionCount = grouped[grouped.length - 1]?.items.length ?? 0;
+
+  const keyExtractor = useCallback((txn: Expense) => txn.id, []);
+
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: Section }) => {
+      const isFirst = section.title === firstSectionTitle;
+      return (
+        <View className="relative pl-10 pr-4 pt-4 pb-1.5" style={{ backgroundColor: theme.surfaceTertiary }}>
+          <View
+            className="absolute w-px"
+            style={{ left: 20, top: isFirst ? '55%' : 0, bottom: 0, backgroundColor: theme.border }}
+          />
+          <Text className="text-[11px] font-semibold uppercase tracking-wider text-tertiary">{section.title}</Text>
+        </View>
+      );
+    },
+    [firstSectionTitle, theme.surfaceTertiary, theme.border]
+  );
+
+  const renderItem = useCallback(
+    ({ item: txn, index, section }: { item: Expense; index: number; section: Section }) => {
+      const isLastRowOverall = section.title === lastSectionTitle && index === lastSectionCount - 1;
+      return (
+        <TransactionRow
+          txn={txn}
+          categoryMap={categoryMap}
+          accountMap={accountMap}
+          hashtags={hashtags}
+          shouldMask={shouldMask}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onDuplicate={onDuplicate}
+          onShare={onShare}
+          selectMode={selectMode}
+          isSelected={selectedIds?.has(txn.id) ?? false}
+          onToggleSelect={onToggleSelect}
+          isLastRowOverall={isLastRowOverall}
+        />
+      );
+    },
+    [
+      lastSectionTitle,
+      lastSectionCount,
+      categoryMap,
+      accountMap,
+      hashtags,
+      shouldMask,
+      onEdit,
+      onDelete,
+      onDuplicate,
+      onShare,
+      selectMode,
+      selectedIds,
+      onToggleSelect
+    ]
+  );
+
+  if (loading) {
+    return (
+      <View className="px-4 pt-4 gap-3">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <View key={i} className="flex-row items-center gap-3">
+            <View className="w-9 h-9 rounded-xl bg-surface-2" />
+            <View className="flex-1 gap-1.5">
+              <View className="h-3 rounded-sm bg-surface-2" style={{ width: `${55 + (i % 3) * 10}%` }} />
+              <View className="h-2.5 rounded-sm bg-surface-2" style={{ width: `${30 + (i % 4) * 8}%` }} />
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  }
 
   if (grouped.length === 0) {
     return (
@@ -67,148 +310,30 @@ export function TransactionsTab({
     );
   }
 
-  const sections: Section[] = grouped.map((g) => ({ title: g.label, data: g.items }));
-  const firstSectionTitle = sections[0]?.title;
-  const lastSectionTitle = sections[sections.length - 1]?.title;
-  const lastSectionCount = grouped[grouped.length - 1]?.items.length ?? 0;
-
   return (
     <SectionList
       className="flex-1"
-      style={{ backgroundColor: modeBg }}
+      // Both the list's own background and each section's date header use the same fixed
+      // `theme.surfaceTertiary` the row cards below use (see `SwipeableRow.tsx`'s `bg-surface-3`) —
+      // not the privacy-mode-tinted `modeBg` this used to be. Web's own `TransactionsTab` deliberately
+      // gives its rows a fixed, non-privacy-tinted background so "the list reads as one uniform
+      // surface" (see that file's comment) — matching that here means the date headers/gaps need the
+      // same fixed color the rows have, not the ambient page tint, or they visibly seam against the
+      // opaque row cards (found via user report: looked like a mistint, not a themed background).
+      style={{ backgroundColor: theme.surfaceTertiary }}
       contentContainerStyle={{ paddingBottom: 96 }}
       sections={sections}
-      keyExtractor={(txn) => txn.id}
+      keyExtractor={keyExtractor}
       stickySectionHeadersEnabled={false}
-      renderSectionHeader={({ section }) => {
-        const isFirst = section.title === firstSectionTitle;
-        return (
-          <View className="relative pl-10 pr-4 pt-4 pb-1.5" style={{ backgroundColor: modeBg }}>
-            <View
-              className="absolute w-px"
-              style={{ left: 20, top: isFirst ? '55%' : 0, bottom: 0, backgroundColor: theme.border }}
-            />
-            <Text className="text-[11px] font-semibold uppercase tracking-wider text-tertiary">{section.title}</Text>
-          </View>
-        );
-      }}
-      renderItem={({ item: txn, index, section }) => {
-        const txnType = txn.type ?? 'expense';
-        const cat = categoryMap.get(txn.categoryId);
-        const accent =
-          txnType === 'income' ? '#10b981' : txnType === 'transfer' ? '#3b82f6' : (cat?.color ?? '#6b7280');
-        const icon =
-          txnType === 'income'
-            ? 'ti-arrow-up-circle'
-            : txnType === 'transfer'
-              ? 'ti-arrows-exchange'
-              : (cat?.icon ?? 'ti-dots');
-        const amountColor = txnType === 'income' ? theme.success : txnType === 'expense' ? theme.danger : theme.info;
-        const prefix = txnType === 'income' ? '+' : txnType === 'transfer' ? '' : '-';
-        const acc = txn.accountId ? accountMap.get(txn.accountId) : undefined;
-        const catLabel =
-          txnType === 'transfer' ? 'Transfer' : (cat?.name ?? (txnType === 'income' ? 'Income' : 'Uncategorized'));
-        const subtitle = acc?.name ? `${catLabel} · ${acc.name}` : catLabel;
-        const isSel = selectedIds?.has(txn.id) ?? false;
-        const masked = shouldMask((cat && isHiddenInSafeMode(cat)) || isTagHiddenInSafeMode(txn.hashtags, hashtags));
-
-        const body = (
-          <>
-            <View
-              className="w-9 h-9 rounded-xl items-center justify-center shrink-0"
-              style={{ backgroundColor: `${accent}1f` }}
-            >
-              <Icon name={icon} size={18} color={accent} />
-            </View>
-            <View className="flex-1 min-w-0">
-              <View className="flex-row items-center">
-                <Text className="text-sm font-semibold text-primary shrink" numberOfLines={1}>
-                  {txn.description}
-                </Text>
-                {txn.receiptDataUrl && (
-                  <View className="ml-1">
-                    <Icon name="ti-paperclip" size={12} color={theme.textTertiary} />
-                  </View>
-                )}
-                {(txn.shareWith?.length ?? 0) > 0 && (
-                  <View className="ml-1">
-                    <Icon name="ti-users-group" size={12} color={theme.primary} />
-                  </View>
-                )}
-              </View>
-              <View className="flex-row items-center mt-0.5">
-                <Text className="text-[11.5px] text-tertiary" numberOfLines={1}>
-                  {subtitle}
-                </Text>
-                {txn.hashtags.map((tag) => (
-                  <Text key={tag} className="ml-1.5 text-[11.5px] font-medium" style={{ color: theme.primary }}>
-                    #{tag}
-                  </Text>
-                ))}
-              </View>
-            </View>
-            <Text
-              className="text-sm font-bold ml-2 shrink-0"
-              style={{ color: masked ? theme.textPrimary : amountColor }}
-            >
-              {masked ? '••••' : `${prefix}${formatCurrency(txn.amount)}`}
-            </Text>
-          </>
-        );
-
-        // Select mode: flat tappable row with a checkbox; no rail.
-        if (selectMode) {
-          return (
-            <Pressable
-              onPress={() => onToggleSelect?.(txn.id)}
-              className="w-full flex-row items-center gap-3 px-4 py-3"
-              style={isSel ? { backgroundColor: theme.surfaceSecondary } : undefined}
-            >
-              <Icon
-                name={isSel ? 'ti-circle-check-filled' : 'ti-circle'}
-                size={20}
-                color={isSel ? theme.primary : theme.textTertiary}
-              />
-              {body}
-            </Pressable>
-          );
-        }
-
-        // Normal mode: timeline rail + dot live INSIDE the row; swipe-left → Copy/Delete; tap → edit.
-        const isLastRowOverall = section.title === lastSectionTitle && index === lastSectionCount - 1;
-        const isShared = (txn.shareWith?.length ?? 0) > 0;
-        const actions: SwipeAction[] = [
-          ...(onDuplicate
-            ? [{ icon: 'ti-copy', label: 'Copy', color: theme.info, onPress: () => onDuplicate(txn) }]
-            : []),
-          ...(onShare && txnType === 'expense' && !isShared
-            ? [{ icon: 'ti-users-group', label: 'Share', color: theme.primary, onPress: () => onShare(txn) }]
-            : []),
-          ...(onDelete
-            ? [{ icon: 'ti-trash', label: 'Delete', color: theme.danger, onPress: () => onDelete(txn.id) }]
-            : [])
-        ];
-        return (
-          <SwipeableRow actions={actions} onTap={() => onEdit(txn)}>
-            <View
-              className="relative w-full flex-row items-center gap-3 pl-10 pr-4 py-3"
-              style={isShared ? { backgroundColor: `${theme.primary}0f` } : undefined}
-            >
-              {/* rail segment for this row */}
-              <View
-                className="absolute w-px"
-                style={{ left: 20, top: 0, bottom: isLastRowOverall ? '50%' : 0, backgroundColor: theme.border }}
-              />
-              {/* dot on the rail */}
-              <View
-                className="absolute w-2.5 h-2.5 rounded-full"
-                style={{ left: 15, top: '50%', marginTop: -5, backgroundColor: accent }}
-              />
-              {body}
-            </View>
-          </SwipeableRow>
-        );
-      }}
+      renderSectionHeader={renderSectionHeader}
+      renderItem={renderItem}
+      windowSize={12}
+      maxToRenderPerBatch={8}
+      updateCellsBatchingPeriod={30}
+      // Explicitly off, not just left at its default — `removeClippedSubviews` has documented
+      // incompatibilities with Reanimated shared values in clipped-out views (each row's `SwipeableRow`
+      // uses Reanimated internally), so enabling it risks trading one on-device bug for another.
+      removeClippedSubviews={false}
     />
   );
 }

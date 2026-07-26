@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ActivityLog } from '@/core/db/types';
 import { ChipAvatar } from '~/components/ui/ChipAvatar';

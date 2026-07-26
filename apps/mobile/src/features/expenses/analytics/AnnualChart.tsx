@@ -1,4 +1,4 @@
-import { View, Text, ScrollView } from 'react-native';
+import { View, ScrollView, Text } from 'react-native';
 import Svg, { G, Rect, Polyline, Circle, Text as SvgText } from 'react-native-svg';
 import { formatCompact } from '@/lib/formatters';
 import { useThemeColors } from '~/theme/useThemeColors';

@@ -9,8 +9,6 @@ import { AccountList } from './AccountList';
 import { AccountFormModal } from './AccountFormModal';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
-/** RN port note: back button dropped for now — see docs/plans/mobile-migration.md's Track 4 progress log
- *  (same reasoning as InsurancePage/LoanScenariosPage/IouPage). */
 export function AccountsPage() {
   const modeBg = useModeBackgroundColor();
   const { shouldMask } = usePrivacy();

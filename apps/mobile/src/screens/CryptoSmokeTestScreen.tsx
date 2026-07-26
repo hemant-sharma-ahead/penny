@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, ScrollView, Text } from 'react-native';
 import {
   generateSigningKeypair,
   generateWrappingKeypair,
@@ -123,8 +123,9 @@ export function CryptoSmokeTestScreen() {
 
       // Does btoa/atob correctly round-trip arbitrary binary bytes (0-255), not just ASCII? This is
       // exactly what EncryptedRepository's bufferToBase64/base64ToBuffer do to store IV+ciphertext as
-      // text in SQLite — if btoa/atob mishandle high bytes, ciphertext gets silently corrupted and
-      // AES-GCM's tag check fails on decrypt ("Cipher.final failed", not a helpful error).
+      // text in the native storage layer — if btoa/atob mishandle high bytes, ciphertext gets
+      // silently corrupted and AES-GCM's tag check fails on decrypt ("Cipher.final failed", not a
+      // helpful error).
       try {
         const bytes = new Uint8Array(256);
         for (let i = 0; i < 256; i++) bytes[i] = i;
@@ -161,8 +162,9 @@ export function CryptoSmokeTestScreen() {
         const decryptedText = new TextDecoder().decode(decrypted);
         log('decrypt round-trip: ' + (decryptedText === 'hello penny' ? 'OK' : 'FAILED: ' + decryptedText));
 
-        // Now the EXACT EncryptedRepository path: base64-encode iv+ciphertext (as if writing to SQLite
-        // as text), then decode back before decrypting — this is what my first isolated test skipped.
+        // Now the EXACT EncryptedRepository path: base64-encode iv+ciphertext (as if writing to the
+        // native storage layer as text), then decode back before decrypting — this is what my first
+        // isolated test skipped.
         const ivB64 = btoa(String.fromCharCode(...new Uint8Array(iv)));
         const ctB64 = btoa(String.fromCharCode(...new Uint8Array(ciphertext)));
         const ivBack = Uint8Array.from(atob(ivB64), (c) => c.charCodeAt(0)).buffer;

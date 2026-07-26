@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { IconBadge } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -66,7 +66,7 @@ export function RealAssetsSection({ holdings, mode, masked, onSave, onRemove }: 
         {vehicles.length === 0 ? (
           <Pressable
             onPress={() => setForm({ ac: 'vehicle', editing: null })}
-            className="w-full surface rounded-2xl px-4 py-5 items-center gap-2 border border-dashed"
+            className="w-full bg-surface border border-theme rounded-2xl px-4 py-5 items-center gap-2 border border-dashed"
             style={{ borderColor: theme.border }}
           >
             <Icon name="ti-car" size={28} color={`${theme.info}40`} />
@@ -112,7 +112,7 @@ export function RealAssetsSection({ holdings, mode, masked, onSave, onRemove }: 
         {properties.length === 0 ? (
           <Pressable
             onPress={() => setForm({ ac: 'property', editing: null })}
-            className="w-full surface rounded-2xl px-4 py-5 items-center gap-2 border border-dashed"
+            className="w-full bg-surface border border-theme rounded-2xl px-4 py-5 items-center gap-2 border border-dashed"
             style={{ borderColor: theme.border }}
           >
             <Icon name="ti-building" size={28} color="#8b5cf640" />
@@ -153,7 +153,7 @@ export function RealAssetsSection({ holdings, mode, masked, onSave, onRemove }: 
                 <Pressable
                   key={h.id}
                   onPress={() => setForm({ ac: 'other', editing: h })}
-                  className="surface rounded-2xl px-4 py-3 flex-row items-center gap-3 w-full"
+                  className="bg-surface border border-theme rounded-2xl px-4 py-3 flex-row items-center gap-3 w-full"
                 >
                   <IconBadge icon="ti-dots" color={theme.neutral} size="sm" />
                   <View className="flex-1">

@@ -652,6 +652,10 @@ export function useExpenses() {
 
   return {
     expenses,
+    // True only while the initial decrypt-on-load is in flight (`EncryptedRepository.getAll()` decrypts
+    // every row up front — see repository.ts) — lets the Transactions list show a real loading state
+    // instead of misreporting "No transactions yet" while data is still arriving.
+    loading: expensesLoading || categoriesLoading,
     saveExpense,
     removeExpense,
     accounts,

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { TextInput, SegmentedControl, OptionButton, AmountInput } from '~/components/ui';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { NPS_FUND_MANAGERS, LIFECYCLE_FUNDS } from '@/core/nps';

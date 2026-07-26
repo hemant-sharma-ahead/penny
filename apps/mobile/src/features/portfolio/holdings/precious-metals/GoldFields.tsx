@@ -1,4 +1,4 @@
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { TextInput, SegmentedControl, DetailRow } from '~/components/ui';
 import { useThemeColors } from '~/theme/useThemeColors';
 

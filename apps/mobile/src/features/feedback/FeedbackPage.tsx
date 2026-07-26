@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable, ScrollView, Linking, TextInput as RNTextInput } from 'react-native';
+import { View, Pressable, ScrollView, Linking, TextInput as RNTextInput, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { PageHeader } from '~/components/ui';

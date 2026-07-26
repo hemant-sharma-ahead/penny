@@ -10,7 +10,7 @@ export function CapGainRow({ item }: { item: CapGainItem }) {
   const isGain = item.gain > 0;
   const isLoss = item.gain < 0;
   const daysToLT = item.ltThresholdDays - item.holdingDays;
-  const gainColor = isGain ? theme.success : isLoss ? theme.danger : theme.textTertiary;
+  const gainColor = isGain ? theme.success : isLoss ? theme.danger : theme.neutral;
 
   return (
     <View className="rounded-xl p-3 bg-surface">

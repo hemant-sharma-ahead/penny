@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Modal as RNModal, View, Text, Pressable, ScrollView } from 'react-native';
+import { Modal as RNModal, View, Pressable, ScrollView, Text } from 'react-native';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 

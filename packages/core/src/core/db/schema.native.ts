@@ -1,4 +1,4 @@
-import * as SQLite from 'expo-sqlite';
+import { open } from '@op-engineering/op-sqlite';
 import type { RowStore } from './store';
 import type {
   Account,
@@ -34,207 +34,248 @@ import type {
 } from './types';
 
 /**
- * React Native storage adapter (Track 2 of the mobile migration) — replaces schema.ts's Dexie/IndexedDB
- * implementation with expo-sqlite. Never bundled on web: apps/web-legacy imports `./schema` (bare,
- * extensionless), and Metro/Vite each resolve that differently — Metro prefers `schema.native.ts` for RN,
- * Vite has no such convention and just resolves `schema.ts` as always. Zero web-side impact (verified via
- * bundle inspection — see the Track 2 progress log in docs/plans/mobile-migration.md).
+ * React Native storage adapter — third implementation of this file. History, each swap driven by a real
+ * on-device bug, not speculation:
  *
- * Every store (both the "encrypted" ones storing {id, iv, ciphertext} and the couple of plain ones like
- * `security`/`price_cache`) is represented as a 2-column table `(id TEXT PRIMARY KEY, data TEXT NOT NULL)`
- * holding `JSON.stringify(row)` — this mirrors exactly what's already on disk in the Dexie version (every
- * row is already a plain JSON-serializable object) without needing per-table column schemas, and satisfies
- * the same RowStore<T> interface repository.ts/securityManager.ts/priceCache.ts already call against.
+ * 1. **`expo-sqlite`** (Track 2). Needed a single app-wide FIFO queue serializing *every* DB call —
+ *    reads included — because its native binding corrupted its statement handle under concurrent access
+ *    (a real crash during demo-data seeding). That queue meant 8 independent table reads on
+ *    `useExpenses.ts` mount ran strictly one-at-a-time, on top of an async bridge round-trip per call.
+ * 2. **`react-native-mmkv`** (2026-07-26, earlier this session). Removed the queue and the per-call bridge
+ *    cost — every call is synchronous JSI, no shared connection to corrupt. Fast per-call, but that's the
+ *    problem: *every* call runs inline on the JS thread, so a bulk read of ~1,000 rows is 1,000 synchronous
+ *    calls back-to-back, monopolizing the JS thread for the whole loop with no chance for the UI to stay
+ *    responsive during it — unlike Dexie/IndexedDB on web (and Capacitor, which still runs the same Dexie
+ *    code), where the actual bulk scan happens off the JS thread inside the browser engine. User confirmed
+ *    on-device this still didn't feel as smooth as web.
+ * 3. **`@op-engineering/op-sqlite`** (this version). Real async SQLite: `execute()` dispatches to a native
+ *    thread and only the final result crosses back to JS, so a bulk read doesn't block the JS thread the
+ *    way MMKV's synchronous calls did — the same "off-thread, single result handoff" shape Dexie/IndexedDB
+ *    already has. WAL journal mode is enabled for standard SQLite concurrency/durability characteristics.
+ *    Also fixes a second, independent inefficiency present in *both* prior RN adapters (not just MMKV):
+ *    both stored each encrypted row as `JSON.stringify({id, iv, ciphertext})` in a single text
+ *    column/value — a wrapper layer Dexie never needed, since IndexedDB stores that same `{id, iv,
+ *    ciphertext}` object directly via structured clone. This version gives the ~27 always-`{id, iv,
+ *    ciphertext}`-shaped "encrypted" tables real typed columns (`id`/`iv`/`ciphertext`, no JSON wrapper at
+ *    all) — only the 3 tables with genuinely arbitrary per-table shape (`security`/`price_cache`/
+ *    `privacy_stats`) keep a JSON `data` column, since a generic `RowStore<T>` can't know their shape
+ *    ahead of time the way it can for the fixed `EncryptedRecord` shape every `EncryptedRepository`-wrapped
+ *    table always has.
+ *
+ * Never bundled on web: apps/web-legacy imports `./schema` (bare, extensionless), and Metro/Vite each
+ * resolve that differently — Metro prefers `schema.native.ts` for RN, Vite has no such convention and
+ * just resolves `schema.ts` as always.
+ *
+ * Only one connection is opened, per op-sqlite's own guidance ("recommended you only open one connection
+ * per App session") — no manual reader/writer connection pool. `execute()`'s own dispatch to a native
+ * thread is what removes JS-thread blocking, not multiple connections; op-sqlite's docs don't expose (or
+ * recommend) a multi-connection pattern the way some other bindings do.
  */
 
-let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+const sqlite = open({ name: 'penny.db' });
 
-function openDb(): Promise<SQLite.SQLiteDatabase> {
-  if (!dbPromise) {
-    dbPromise = SQLite.openDatabaseAsync('penny.db').then(async (database) => {
-      await runMigrations(database);
-      return database;
-    });
+// One-time PRAGMA setup — see the module doc comment. `IF NOT EXISTS` for every table means there's no
+// versioned migrations table needed (unlike the old `expo-sqlite` adapter): a fresh column set is fixed
+// forever once created this way, so re-running the same `CREATE TABLE IF NOT EXISTS` on every launch is
+// simply a no-op after the first.
+const ENCRYPTED_TABLES = [
+  'profile',
+  'holdings',
+  'expenses',
+  'expense_categories',
+  'budgets',
+  'hashtags',
+  'goals',
+  'goal_contributions',
+  'liabilities',
+  'insurance_policies',
+  'chip_insights',
+  'ai_call_log',
+  'subscriptions',
+  'personal_ious',
+  'persons',
+  'ledger_entries',
+  'credit_profile',
+  'accounts',
+  'activity_log',
+  'merchant_memory',
+  'transaction_templates',
+  'device_keys',
+  'group_keys',
+  'sync_cursor',
+  'groups',
+  'group_members',
+  'group_events'
+];
+const PLAIN_TABLES = ['security', 'price_cache', 'privacy_stats'];
+
+const ready = (async () => {
+  await sqlite.execute('PRAGMA journal_mode = WAL;');
+  for (const name of ENCRYPTED_TABLES) {
+    await sqlite.execute(
+      `CREATE TABLE IF NOT EXISTS ${name} (id TEXT PRIMARY KEY NOT NULL, iv TEXT NOT NULL, ciphertext TEXT NOT NULL)`
+    );
   }
-  return dbPromise;
+  for (const name of PLAIN_TABLES) {
+    await sqlite.execute(`CREATE TABLE IF NOT EXISTS ${name} (id TEXT PRIMARY KEY NOT NULL, data TEXT NOT NULL)`);
+  }
+})();
+
+interface EncryptedRow {
+  id: string;
+  iv: string;
+  ciphertext: string;
 }
 
-// Serializes every operation against the single shared connection. expo-sqlite's native binding isn't
-// safe against a large burst of concurrent statements on one connection — seedDemoData.ts/
-// seedGroupFixtures.ts's `Promise.all(items.map(repo.put))` pattern (up to a few hundred concurrent
-// `put`s across a handful of tables, several hitting `expenses` from three different call sites at once)
-// reproduced this exactly on-device: some writes were silently lost (rows missing after seeding
-// completed with no thrown error) and, separately, a later query failed with "Cannot use shared object
-// that was already released" — a corrupted native statement handle, severe enough to have crashed the
-// whole emulator process during testing, not just the app. A single FIFO queue over every call (reads
-// included, since the native error was in `prepareAsync`, not write-specific) is the simplest fix that
-// protects every current and future caller — not a per-call-site patch.
-let queue: Promise<unknown> = Promise.resolve();
-
-function enqueue<T>(fn: () => Promise<T>): Promise<T> {
-  const result = queue.then(fn, fn);
-  queue = result.then(
-    () => undefined,
-    () => undefined
-  );
-  return result;
-}
-
-/** Mirrors schema.ts's Dexie version history — every migration here is an additive table creation
- * (no data transforms), so replaying all of them on a fresh install just creates every table once. A
- * `_migrations` table tracks what's applied so a future v10+ addition only runs its own new statements. */
-async function runMigrations(database: SQLite.SQLiteDatabase): Promise<void> {
-  await database.execAsync('CREATE TABLE IF NOT EXISTS _migrations (version INTEGER PRIMARY KEY)');
-  const applied = await database.getAllAsync<{ version: number }>('SELECT version FROM _migrations');
-  const appliedVersions = new Set(applied.map((r) => r.version));
-
-  const createTable = (name: string) =>
-    `CREATE TABLE IF NOT EXISTS ${name} (id TEXT PRIMARY KEY NOT NULL, data TEXT NOT NULL)`;
-
-  const migrations: { version: number; tables: string[] }[] = [
-    {
-      version: 1,
-      tables: [
-        'price_cache',
-        'privacy_stats',
-        'profile',
-        'holdings',
-        'expenses',
-        'expense_categories',
-        'budgets',
-        'hashtags',
-        'goals',
-        'goal_contributions',
-        'liabilities',
-        'insurance_policies',
-        'chip_insights',
-        'ai_call_log',
-        'security',
-        'subscriptions',
-        'personal_ious',
-        'credit_profile'
-      ]
+/** Real typed columns (`id`/`iv`/`ciphertext`) for the ~27 tables an `EncryptedRepository` always writes
+ *  in this exact shape — no JSON wrapper layer, matching how Dexie/IndexedDB stores this same object
+ *  directly via structured clone on web. */
+function makeEncryptedRowStore(tableName: string): RowStore<EncryptedRow> {
+  return {
+    async get(id) {
+      await ready;
+      const { rows } = await sqlite.execute(`SELECT id, iv, ciphertext FROM ${tableName} WHERE id = ? LIMIT 1`, [id]);
+      return rows[0] as unknown as EncryptedRow | undefined;
     },
-    { version: 2, tables: ['accounts'] },
-    // v3 (dropped `assets`) — nothing to create; RN never had it.
-    { version: 4, tables: ['activity_log'] },
-    { version: 5, tables: ['merchant_memory'] },
-    { version: 6, tables: ['transaction_templates'] },
-    { version: 7, tables: ['persons', 'ledger_entries'] },
-    { version: 8, tables: ['device_keys', 'group_keys', 'sync_cursor'] },
-    { version: 9, tables: ['groups', 'group_members', 'group_events'] }
-  ];
-
-  for (const migration of migrations) {
-    if (appliedVersions.has(migration.version)) continue;
-    await database.withTransactionAsync(async () => {
-      for (const table of migration.tables) {
-        await database.execAsync(createTable(table));
-      }
-      await database.runAsync('INSERT INTO _migrations (version) VALUES (?)', migration.version);
-    });
-  }
+    async put(record) {
+      await ready;
+      await sqlite.execute(
+        `INSERT INTO ${tableName} (id, iv, ciphertext) VALUES (?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET iv = excluded.iv, ciphertext = excluded.ciphertext`,
+        [record.id, record.iv, record.ciphertext]
+      );
+    },
+    async toArray() {
+      await ready;
+      const { rows } = await sqlite.execute(`SELECT id, iv, ciphertext FROM ${tableName}`);
+      return rows as unknown as EncryptedRow[];
+    },
+    async delete(id) {
+      await ready;
+      await sqlite.execute(`DELETE FROM ${tableName} WHERE id = ?`, [id]);
+    },
+    async count() {
+      await ready;
+      const { rows } = await sqlite.execute(`SELECT COUNT(*) as n FROM ${tableName}`);
+      return Number((rows[0] as { n: number } | undefined)?.n ?? 0);
+    },
+    // Never actually called in practice — `EncryptedRepository` doesn't expose an `.update()` method at
+    // all, only the 3 plain tables' direct callers (`securityManager.ts`) use `RowStore.update()`.
+    // Implemented anyway for interface completeness.
+    async update(id, changes) {
+      await ready;
+      const { rows } = await sqlite.execute(`SELECT id, iv, ciphertext FROM ${tableName} WHERE id = ? LIMIT 1`, [id]);
+      const existing = rows[0] as unknown as EncryptedRow | undefined;
+      if (!existing) return undefined;
+      const merged = { ...existing, ...changes };
+      await sqlite.execute(`UPDATE ${tableName} SET iv = ?, ciphertext = ? WHERE id = ?`, [
+        merged.iv,
+        merged.ciphertext,
+        id
+      ]);
+      return merged;
+    },
+    async clear() {
+      await ready;
+      await sqlite.execute(`DELETE FROM ${tableName}`);
+    }
+  };
 }
 
-interface Row {
+interface JsonRow {
   id: string;
   data: string;
 }
 
-function makeRowStore<T>(tableName: string): RowStore<T> {
+/** Generic JSON-blob-column store for the 3 tables with genuinely arbitrary, per-table shape
+ *  (`SecurityRecord`/`PriceCache`/`PrivacyStat`) — a real column-per-field schema isn't possible here
+ *  without this factory knowing each table's individual field list ahead of time. */
+function makeJsonRowStore<T>(tableName: string): RowStore<T> {
   return {
     async get(id) {
-      return enqueue(async () => {
-        const database = await openDb();
-        const row = await database.getFirstAsync<Row>(`SELECT id, data FROM ${tableName} WHERE id = ?`, id);
-        return row ? (JSON.parse(row.data) as T) : undefined;
-      });
+      await ready;
+      const { rows } = await sqlite.execute(`SELECT id, data FROM ${tableName} WHERE id = ? LIMIT 1`, [id]);
+      const row = rows[0] as unknown as JsonRow | undefined;
+      return row ? (JSON.parse(row.data) as T) : undefined;
     },
     async put(record) {
-      return enqueue(async () => {
-        const database = await openDb();
-        const id = (record as { id: string }).id;
-        return database.runAsync(
-          `INSERT OR REPLACE INTO ${tableName} (id, data) VALUES (?, ?)`,
-          id,
-          JSON.stringify(record)
-        );
-      });
+      await ready;
+      const id = (record as { id: string }).id;
+      await sqlite.execute(
+        `INSERT INTO ${tableName} (id, data) VALUES (?, ?)
+         ON CONFLICT(id) DO UPDATE SET data = excluded.data`,
+        [id, JSON.stringify(record)]
+      );
     },
     async toArray() {
-      return enqueue(async () => {
-        const database = await openDb();
-        const rows = await database.getAllAsync<Row>(`SELECT id, data FROM ${tableName}`);
-        return rows.map((r) => JSON.parse(r.data) as T);
-      });
+      await ready;
+      const { rows } = await sqlite.execute(`SELECT id, data FROM ${tableName}`);
+      return (rows as unknown as JsonRow[]).map((r) => JSON.parse(r.data) as T);
     },
     async delete(id) {
-      return enqueue(async () => {
-        const database = await openDb();
-        return database.runAsync(`DELETE FROM ${tableName} WHERE id = ?`, id);
-      });
+      await ready;
+      await sqlite.execute(`DELETE FROM ${tableName} WHERE id = ?`, [id]);
     },
     async count() {
-      return enqueue(async () => {
-        const database = await openDb();
-        const row = await database.getFirstAsync<{ n: number }>(`SELECT COUNT(*) AS n FROM ${tableName}`);
-        return row?.n ?? 0;
-      });
+      await ready;
+      const { rows } = await sqlite.execute(`SELECT COUNT(*) as n FROM ${tableName}`);
+      return Number((rows[0] as { n: number } | undefined)?.n ?? 0);
     },
     async update(id, changes) {
-      return enqueue(async () => {
-        const database = await openDb();
-        const existing = await database.getFirstAsync<Row>(`SELECT id, data FROM ${tableName} WHERE id = ?`, id);
-        if (!existing) return undefined;
-        const merged = { ...JSON.parse(existing.data), ...changes };
-        return database.runAsync(`UPDATE ${tableName} SET data = ? WHERE id = ?`, JSON.stringify(merged), id);
-      });
+      await ready;
+      const { rows } = await sqlite.execute(`SELECT id, data FROM ${tableName} WHERE id = ? LIMIT 1`, [id]);
+      const row = rows[0] as unknown as JsonRow | undefined;
+      if (!row) return undefined;
+      const merged = { ...(JSON.parse(row.data) as object), ...changes };
+      await sqlite.execute(`UPDATE ${tableName} SET data = ? WHERE id = ?`, [JSON.stringify(merged), id]);
+      return merged as T;
     },
     async clear() {
-      return enqueue(async () => {
-        const database = await openDb();
-        return database.runAsync(`DELETE FROM ${tableName}`);
-      });
+      await ready;
+      await sqlite.execute(`DELETE FROM ${tableName}`);
     }
   };
 }
 
 // Explicit per-table typed properties (mirroring schema.ts's Dexie EntityTable<T,'id'> class fields) so
 // callers like securityManager.ts (`(await db.security.toArray())[0]` typed as SecurityRecord) keep their
-// real types instead of collapsing to `unknown` — only `tables` (below) is deliberately untyped, same as
-// Dexie's own `Table<any>[]`.
+// real types instead of collapsing to `unknown`. Every encrypted-table property is declared as
+// `RowStore<DomainType>` (matching schema.ts's Dexie typing exactly) even though the actual runtime store
+// is `RowStore<EncryptedRow>` — the same bridging cast `repositories.ts`'s `db.<table> as never` already
+// relies on to construct `EncryptedRepository<DomainType>`; only `tables` (below) is deliberately
+// untyped, same as Dexie's own `Table<any>[]`.
 const tableStores = {
-  price_cache: makeRowStore<PriceCache>('price_cache'),
-  privacy_stats: makeRowStore<PrivacyStat>('privacy_stats'),
+  price_cache: makeJsonRowStore<PriceCache>('price_cache'),
+  privacy_stats: makeJsonRowStore<PrivacyStat>('privacy_stats'),
+  security: makeJsonRowStore<SecurityRecord>('security'),
 
-  profile: makeRowStore<Profile>('profile'),
-  holdings: makeRowStore<Holding>('holdings'),
-  expenses: makeRowStore<Expense>('expenses'),
-  expense_categories: makeRowStore<ExpenseCategory>('expense_categories'),
-  budgets: makeRowStore<Budget>('budgets'),
-  hashtags: makeRowStore<Hashtag>('hashtags'),
-  goals: makeRowStore<Goal>('goals'),
-  goal_contributions: makeRowStore<GoalContribution>('goal_contributions'),
-  liabilities: makeRowStore<Liability>('liabilities'),
-  insurance_policies: makeRowStore<InsurancePolicy>('insurance_policies'),
-  chip_insights: makeRowStore<ChipInsight>('chip_insights'),
-  ai_call_log: makeRowStore<AiCallLog>('ai_call_log'),
-  security: makeRowStore<SecurityRecord>('security'),
-  subscriptions: makeRowStore<Subscription>('subscriptions'),
-  personal_ious: makeRowStore<PersonalIou>('personal_ious'),
-  credit_profile: makeRowStore<CreditProfile>('credit_profile'),
-  accounts: makeRowStore<Account>('accounts'),
-  activity_log: makeRowStore<ActivityLog>('activity_log'),
-  merchant_memory: makeRowStore<MerchantMemory>('merchant_memory'),
-  transaction_templates: makeRowStore<TransactionTemplate>('transaction_templates'),
-  persons: makeRowStore<Person>('persons'),
-  ledger_entries: makeRowStore<LedgerEntry>('ledger_entries'),
-  device_keys: makeRowStore<DeviceKey>('device_keys'),
-  group_keys: makeRowStore<GroupKey>('group_keys'),
-  sync_cursor: makeRowStore<SyncCursor>('sync_cursor'),
-  groups: makeRowStore<Group>('groups'),
-  group_members: makeRowStore<GroupMember>('group_members'),
-  group_events: makeRowStore<GroupEvent>('group_events')
+  profile: makeEncryptedRowStore('profile') as unknown as RowStore<Profile>,
+  holdings: makeEncryptedRowStore('holdings') as unknown as RowStore<Holding>,
+  expenses: makeEncryptedRowStore('expenses') as unknown as RowStore<Expense>,
+  expense_categories: makeEncryptedRowStore('expense_categories') as unknown as RowStore<ExpenseCategory>,
+  budgets: makeEncryptedRowStore('budgets') as unknown as RowStore<Budget>,
+  hashtags: makeEncryptedRowStore('hashtags') as unknown as RowStore<Hashtag>,
+  goals: makeEncryptedRowStore('goals') as unknown as RowStore<Goal>,
+  goal_contributions: makeEncryptedRowStore('goal_contributions') as unknown as RowStore<GoalContribution>,
+  liabilities: makeEncryptedRowStore('liabilities') as unknown as RowStore<Liability>,
+  insurance_policies: makeEncryptedRowStore('insurance_policies') as unknown as RowStore<InsurancePolicy>,
+  chip_insights: makeEncryptedRowStore('chip_insights') as unknown as RowStore<ChipInsight>,
+  ai_call_log: makeEncryptedRowStore('ai_call_log') as unknown as RowStore<AiCallLog>,
+  subscriptions: makeEncryptedRowStore('subscriptions') as unknown as RowStore<Subscription>,
+  personal_ious: makeEncryptedRowStore('personal_ious') as unknown as RowStore<PersonalIou>,
+  credit_profile: makeEncryptedRowStore('credit_profile') as unknown as RowStore<CreditProfile>,
+  accounts: makeEncryptedRowStore('accounts') as unknown as RowStore<Account>,
+  activity_log: makeEncryptedRowStore('activity_log') as unknown as RowStore<ActivityLog>,
+  merchant_memory: makeEncryptedRowStore('merchant_memory') as unknown as RowStore<MerchantMemory>,
+  transaction_templates: makeEncryptedRowStore('transaction_templates') as unknown as RowStore<TransactionTemplate>,
+  persons: makeEncryptedRowStore('persons') as unknown as RowStore<Person>,
+  ledger_entries: makeEncryptedRowStore('ledger_entries') as unknown as RowStore<LedgerEntry>,
+  device_keys: makeEncryptedRowStore('device_keys') as unknown as RowStore<DeviceKey>,
+  group_keys: makeEncryptedRowStore('group_keys') as unknown as RowStore<GroupKey>,
+  sync_cursor: makeEncryptedRowStore('sync_cursor') as unknown as RowStore<SyncCursor>,
+  groups: makeEncryptedRowStore('groups') as unknown as RowStore<Group>,
+  group_members: makeEncryptedRowStore('group_members') as unknown as RowStore<GroupMember>,
+  group_events: makeEncryptedRowStore('group_events') as unknown as RowStore<GroupEvent>
 };
 
 export const db = {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TextInput as RNTextInput, Pressable, ActivityIndicator } from 'react-native';
+import { View, ScrollView, TextInput as RNTextInput, Pressable, ActivityIndicator, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { exitDemoMode, initialize, isWeakPin } from '@/core/crypto/securityManager';
 import { EncryptedRepository } from '@/core/db/repository';

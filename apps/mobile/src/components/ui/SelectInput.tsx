@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { FormField } from './FormField';
 import { Modal } from './Modal';
 import { Icon } from '~/components/Icon';

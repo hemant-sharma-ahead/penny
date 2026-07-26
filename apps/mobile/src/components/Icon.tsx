@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react';
+import { useMemo, type ComponentType } from 'react';
 import * as TablerIcons from '@tabler/icons-react-native';
 
 /**
@@ -30,8 +30,16 @@ export interface IconProps {
 type TablerIconComponent = ComponentType<{ size?: number | string; color?: string }>;
 
 export function Icon({ name, size = 16, color }: IconProps) {
-  const componentName = toComponentName(name);
-  const IconComponent = (TablerIcons as unknown as Record<string, TablerIconComponent>)[componentName];
+  // Memoized per-instance on `name` so the string-parsing + dynamic lookup above only reruns when the
+  // icon name actually changes, not on every re-render of every mounted Icon (found in the 2026-07-26
+  // parity sweep — disproportionately costly given how many Icon instances mount at once across
+  // Transactions/Budgets/Analytics/Category tiles). A shared module-level cache was tried first but
+  // rejected: mutating module state during render trips this repo's React Compiler lint rules
+  // (`react-hooks/immutability`/`static-components`) — `useMemo` is the sanctioned mechanism instead.
+  const IconComponent = useMemo(() => {
+    const componentName = toComponentName(name);
+    return (TablerIcons as unknown as Record<string, TablerIconComponent>)[componentName] ?? null;
+  }, [name]);
   // Unmatched names render nothing rather than crash — this repo's no-console rule (see CLAUDE.md)
   // doesn't allow a dev-only warning here without disabling it, and a missing icon is a visible-in-UI
   // problem anyway (an empty spot), so it's self-evident during Track 4's manual per-screen checks.

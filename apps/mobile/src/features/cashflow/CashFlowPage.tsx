@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { View, Pressable, SectionList, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Line, Circle } from 'react-native-svg';
 import { usePrivacy } from '~/context/PrivacyContext';
@@ -10,10 +10,10 @@ import { Card, EmptyState, SegmentedControl, Banner, Button, Modal, AmountInput 
 import { Icon } from '~/components/Icon';
 import { BackButton } from '~/components/shared';
 import { useThemeColors } from '~/theme/useThemeColors';
-import type { BalanceForecast } from '@/core/cashflow/forecaster';
+import type { BalanceForecast, CashFlowEvent } from '@/core/cashflow/forecaster';
 import { useCashFlow, type Horizon } from './useCashFlow';
 import { useIncomeSuggestions } from './useIncomeSuggestions';
-import { CashFlowTimeline } from './CashFlowTimeline';
+import { CashFlowMonthHeader, CashFlowEventCard } from './CashFlowTimeline';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 
 const HORIZON_LABEL: Record<string, string> = {
@@ -62,7 +62,7 @@ function BalanceSparkline({
   const stroke = breached ? danger : primary;
 
   return (
-    <Svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H}>
+    <Svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none">
       {buffer > min && (
         <Line
           x1={0}
@@ -124,160 +124,185 @@ export function CashFlowPage() {
       ? `to last the next ${forecast.daysToPayday} day${forecast.daysToPayday === 1 ? '' : 's'} till payday`
       : `to last till month-end (${forecast.daysLeft} days)`;
 
+  const sections = !loading
+    ? grouped.map(([monthKey, events]) => ({
+        title: monthKey,
+        total: events.reduce((s, e) => s + e.amount, 0),
+        data: events
+      }))
+    : [];
+
+  const header = (
+    <View className="pt-4 gap-4">
+      <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center gap-1.5">
+          <BackButton />
+          <Text className="text-xl font-semibold text-primary">Cash Flow</Text>
+        </View>
+        <View className="w-44">
+          <SegmentedControl
+            options={[
+              { value: 'month', label: '1M' },
+              { value: 'quarter', label: '3M' },
+              { value: 'halfyear', label: '6M' }
+            ]}
+            value={horizon}
+            onChange={(v) => setHorizon(v as Horizon)}
+          />
+        </View>
+      </View>
+
+      {/* Safe-to-spend hero */}
+      <View className="rounded-2xl p-5" style={{ backgroundColor: theme.primary }}>
+        <Text className="text-sm text-white opacity-75 mb-1">Safe to spend</Text>
+        <Text className="text-3xl font-semibold text-white tracking-tight">{money(safe)}</Text>
+        {!loading && (
+          <Text className="text-sm text-white opacity-80 mt-1">
+            {overcommitted ? 'Upcoming commitments exceed your balance' : paydayLine}
+          </Text>
+        )}
+        {!loading && !overcommitted && safe > 0 && (
+          <Text className="text-xs text-white opacity-70 mt-2">≈ {money(Math.floor(forecast.perDay))}/day</Text>
+        )}
+      </View>
+
+      {/* Recurring-income suggestion */}
+      {incomeSuggestion && (
+        <Card radius="lg" className="gap-3">
+          <View className="flex-row items-start gap-3">
+            <View className="w-9 h-9 rounded-xl items-center justify-center bg-surface-2">
+              <Icon name="ti-cash" size={18} color={theme.success} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-medium text-primary">Recurring income detected</Text>
+              <Text className="text-xs text-secondary mt-0.5">
+                {money(incomeSuggestion.detectedAmount)} from "{incomeSuggestion.label}" every{' '}
+                {intervalLabel(incomeSuggestion.intervalDays)}. Add it to sharpen your forecast and payday countdown.
+              </Text>
+            </View>
+          </View>
+          {/* Same flex-1-per-button fix as the buffer modal footer below — found alongside it. */}
+          <View className="flex-row gap-2">
+            <View className="flex-1">
+              <Button variant="secondary" size="sm" fullWidth onPress={() => dismiss(incomeSuggestion)}>
+                Not recurring
+              </Button>
+            </View>
+            <View className="flex-1">
+              <Button size="sm" fullWidth onPress={() => void confirm(incomeSuggestion)}>
+                Add to forecast
+              </Button>
+            </View>
+          </View>
+        </Card>
+      )}
+
+      {/* Low-balance warning */}
+      {!loading && forecast.bufferBreachMs !== null && (
+        <Banner variant="danger">
+          Your balance is projected to dip to <Text className="font-bold">{money(forecast.lowest.balance)}</Text> on{' '}
+          {formatDateShort(forecast.lowest.dayMs)} — below your {money(cashflowBuffer)} safety cushion.
+        </Banner>
+      )}
+
+      {/* Balance projection */}
+      {!loading && (
+        <Card radius="lg" className="gap-3">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-sm text-secondary">Balance now</Text>
+            <Text className="text-sm font-semibold text-primary">{money(startBalance)}</Text>
+          </View>
+          <BalanceSparkline
+            forecast={forecast}
+            buffer={cashflowBuffer}
+            danger={theme.danger}
+            primary={theme.primary}
+            warning={theme.warning}
+          />
+          <View className="flex-row items-center justify-between">
+            <Text className="text-xs text-tertiary">
+              Lowest {money(forecast.lowest.balance)} · {formatDateShort(forecast.lowest.dayMs)}
+            </Text>
+            <Text className="text-xs" style={{ color: forecast.netFlow >= 0 ? theme.success : theme.danger }}>
+              Net {forecast.netFlow >= 0 ? '+' : '−'}
+              {money(Math.abs(forecast.netFlow))} {horizonLabel}
+            </Text>
+          </View>
+        </Card>
+      )}
+
+      {/* Buffer editor */}
+      <Pressable
+        onPress={() => {
+          setBufferDraft(String(cashflowBuffer));
+          setShowBuffer(true);
+        }}
+        className="flex-row items-center justify-between rounded-xl border border-theme bg-surface-2 px-3 py-2.5"
+      >
+        <Text className="text-sm text-secondary">Safety cushion</Text>
+        <View className="flex-row items-center gap-1.5">
+          <Text className="text-sm font-medium text-primary">{money(cashflowBuffer)}</Text>
+          <Icon name="ti-pencil" size={14} color={theme.textTertiary} />
+        </View>
+      </Pressable>
+
+      {/* Upcoming payments */}
+      {loading && (
+        <View className="gap-2">
+          {[1, 2, 3].map((i) => (
+            <View key={i} className="rounded-xl h-16 bg-surface-2" />
+          ))}
+        </View>
+      )}
+
+      {!loading && grouped.length > 0 && (
+        <View className="flex-row items-center justify-between">
+          <Text className="text-sm font-semibold text-primary">Upcoming payments</Text>
+          <Text className="text-xs text-tertiary">
+            {money(total)} · {summaryParts.join(' · ')}
+          </Text>
+        </View>
+      )}
+
+      {!loading && grouped.length === 0 && (
+        <Card radius="md">
+          <EmptyState
+            icon="ti-calendar-check"
+            title="No upcoming payments"
+            description="Add loans, subscriptions, or recurring expenses to see your cash flow forecast."
+          />
+        </Card>
+      )}
+    </View>
+  );
+
   return (
     <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <ScrollView>
-        <View className="px-4 pt-4 pb-6 gap-4">
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-1.5">
-              <BackButton />
-              <Text className="text-xl font-semibold text-primary">Cash Flow</Text>
-            </View>
-            <View className="w-44">
-              <SegmentedControl
-                options={[
-                  { value: 'month', label: '1M' },
-                  { value: 'quarter', label: '3M' },
-                  { value: 'halfyear', label: '6M' }
-                ]}
-                value={horizon}
-                onChange={(v) => setHorizon(v as Horizon)}
-              />
-            </View>
-          </View>
-
-          {/* Safe-to-spend hero */}
-          <View className="rounded-2xl p-5" style={{ backgroundColor: theme.primary }}>
-            <Text className="text-sm text-white opacity-75 mb-1">Safe to spend</Text>
-            <Text className="text-3xl font-semibold text-white tracking-tight">{money(safe)}</Text>
-            {!loading && (
-              <Text className="text-sm text-white opacity-80 mt-1">
-                {overcommitted ? 'Upcoming commitments exceed your balance' : paydayLine}
-              </Text>
-            )}
-            {!loading && !overcommitted && safe > 0 && (
-              <Text className="text-xs text-white opacity-70 mt-2">≈ {money(Math.floor(forecast.perDay))}/day</Text>
-            )}
-          </View>
-
-          {/* Recurring-income suggestion */}
-          {incomeSuggestion && (
-            <Card radius="lg" className="gap-3">
-              <View className="flex-row items-start gap-3">
-                <View className="w-9 h-9 rounded-xl items-center justify-center bg-surface-2">
-                  <Icon name="ti-cash" size={18} color={theme.success} />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-sm font-medium text-primary">Recurring income detected</Text>
-                  <Text className="text-xs text-secondary mt-0.5">
-                    {money(incomeSuggestion.detectedAmount)} from "{incomeSuggestion.label}" every{' '}
-                    {intervalLabel(incomeSuggestion.intervalDays)}. Add it to sharpen your forecast and payday
-                    countdown.
-                  </Text>
-                </View>
-              </View>
-              {/* Same flex-1-per-button fix as the buffer modal footer below — found alongside it. */}
-              <View className="flex-row gap-2">
-                <View className="flex-1">
-                  <Button variant="secondary" size="sm" fullWidth onPress={() => dismiss(incomeSuggestion)}>
-                    Not recurring
-                  </Button>
-                </View>
-                <View className="flex-1">
-                  <Button size="sm" fullWidth onPress={() => void confirm(incomeSuggestion)}>
-                    Add to forecast
-                  </Button>
-                </View>
-              </View>
-            </Card>
-          )}
-
-          {/* Low-balance warning */}
-          {!loading && forecast.bufferBreachMs !== null && (
-            <Banner variant="danger">
-              Your balance is projected to dip to {money(forecast.lowest.balance)} on{' '}
-              {formatDateShort(forecast.lowest.dayMs)} — below your {money(cashflowBuffer)} safety cushion.
-            </Banner>
-          )}
-
-          {/* Balance projection */}
-          {!loading && (
-            <Card radius="lg" className="gap-3">
-              <View className="flex-row items-center justify-between">
-                <Text className="text-sm text-secondary">Balance now</Text>
-                <Text className="text-sm font-semibold text-primary">{money(startBalance)}</Text>
-              </View>
-              <BalanceSparkline
-                forecast={forecast}
-                buffer={cashflowBuffer}
-                danger={theme.danger}
-                primary={theme.primary}
-                warning={theme.warning}
-              />
-              <View className="flex-row items-center justify-between">
-                <Text className="text-xs text-tertiary">
-                  Lowest {money(forecast.lowest.balance)} · {formatDateShort(forecast.lowest.dayMs)}
-                </Text>
-                <Text className="text-xs" style={{ color: forecast.netFlow >= 0 ? theme.success : theme.danger }}>
-                  Net {forecast.netFlow >= 0 ? '+' : '−'}
-                  {money(Math.abs(forecast.netFlow))} {horizonLabel}
-                </Text>
-              </View>
-            </Card>
-          )}
-
-          {/* Buffer editor */}
-          <Pressable
-            onPress={() => {
-              setBufferDraft(String(cashflowBuffer));
-              setShowBuffer(true);
-            }}
-            className="flex-row items-center justify-between rounded-xl border border-theme bg-surface-2 px-3 py-2.5"
-          >
-            <Text className="text-sm text-secondary">Safety cushion</Text>
-            <View className="flex-row items-center gap-1.5">
-              <Text className="text-sm font-medium text-primary">{money(cashflowBuffer)}</Text>
-              <Icon name="ti-pencil" size={14} color={theme.textTertiary} />
-            </View>
-          </Pressable>
-
-          {/* Upcoming payments */}
-          {loading && (
-            <View className="gap-2">
-              {[1, 2, 3].map((i) => (
-                <View key={i} className="rounded-xl h-16 bg-surface-2" />
-              ))}
-            </View>
-          )}
-
-          {!loading && grouped.length > 0 && (
-            <View className="gap-2">
-              <View className="flex-row items-center justify-between">
-                <Text className="text-sm font-semibold text-primary">Upcoming payments</Text>
-                <Text className="text-xs text-tertiary">
-                  {money(total)} · {summaryParts.join(' · ')}
-                </Text>
-              </View>
-              <CashFlowTimeline grouped={grouped} todayStart={todayStart} masked={masked} />
-            </View>
-          )}
-
-          {!loading && grouped.length === 0 && (
-            <Card radius="md">
-              <EmptyState
-                icon="ti-calendar-check"
-                title="No upcoming payments"
-                description="Add loans, subscriptions, or recurring expenses to see your cash flow forecast."
-              />
-            </Card>
-          )}
-
-          <Text className="text-xs text-center leading-relaxed text-tertiary">
+      {/*
+       * A SectionList, not the plain ScrollView this used to be — a 6-month horizon can produce
+       * 50-100+ rows across the nested month/event lists, flagged as an unvirtualized risk in the
+       * 2026-07-26 parity sweep. Everything above "Upcoming payments" (hero, income suggestion,
+       * warning, balance chart, buffer editor) becomes the `ListHeaderComponent`; only the actual
+       * month-grouped event rows are windowed.
+       */}
+      <SectionList
+        className="flex-1"
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+        sections={sections}
+        keyExtractor={(item: CashFlowEvent) => item.id}
+        stickySectionHeadersEnabled={false}
+        renderSectionHeader={({ section }) => (
+          <CashFlowMonthHeader monthKey={section.title} total={section.total} masked={masked} />
+        )}
+        renderItem={({ item }) => <CashFlowEventCard event={item} todayStart={todayStart} masked={masked} />}
+        ListHeaderComponent={header}
+        ListFooterComponent={
+          <Text className="text-xs text-center leading-relaxed text-tertiary mt-4">
             Projected from your accounts, loans, subscriptions, renewals, and recurring income & expenses. Actual
             amounts may vary.
           </Text>
-        </View>
-      </ScrollView>
+        }
+      />
 
       {showBuffer && (
         <Modal
@@ -315,7 +340,7 @@ export function CashFlowPage() {
             this cushion.
           </Text>
           <AmountInput label="Cushion amount" value={bufferDraft} onChange={setBufferDraft} autoFocus />
-          <Text className="mt-3 text-xs" style={{ color: theme.primary }}>
+          <Text className="mt-3 text-xs" style={{ color: theme.info }}>
             Tip: one month of essential expenses makes a solid cushion.
           </Text>
         </Modal>

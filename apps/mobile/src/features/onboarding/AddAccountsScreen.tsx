@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, ScrollView, Pressable, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -91,7 +91,9 @@ export function AddAccountsScreen() {
                   onPress={() => setType(t)}
                   className="items-center gap-1.5 rounded-2xl border p-3"
                   style={{
-                    width: '31%',
+                    // Web is a strict 2-column `grid-cols-2 gap-2` — `31%` (found in the 2026-07-26
+                    // parity sweep) produced 3-then-1 for these 4 account types instead of 2-then-2.
+                    width: '48%',
                     borderColor: selected ? theme.primary : theme.border,
                     backgroundColor: selected ? tint(theme.primary, 6) : undefined
                   }}

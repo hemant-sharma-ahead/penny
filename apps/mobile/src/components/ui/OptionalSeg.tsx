@@ -1,4 +1,4 @@
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { useThemeColors } from '~/theme/useThemeColors';
 
 /** Compact segmented control for an optional field — tap the active segment again to clear it.

@@ -18,6 +18,17 @@ module.exports = {
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
+      // Fixes `font-mono` being a silent no-op (2026-07-26 parity sweep): with no `fontFamily`
+      // extension, NativeWind fell back to Tailwind's web-oriented default monospace stack, none of
+      // which are valid RN font names, so the demo PIN/passphrase display, the live-encryption
+      // ciphertext box, and Import's CSV preview all silently lost their fixed-width alignment. RN
+      // has no CSS font-stack fallback mechanism (a single fontFamily string only), so this uses
+      // 'monospace' — a real generic family name on Android (this migration's verified platform so
+      // far); iOS has no built-in generic 'monospace' name and silently falls back to the system
+      // font instead of a real monospace face — a known, flagged gap, not a crash risk.
+      fontFamily: {
+        mono: 'monospace'
+      },
       colors: {
         surface: 'var(--color-surface)',
         'surface-2': 'var(--color-surface-secondary)',

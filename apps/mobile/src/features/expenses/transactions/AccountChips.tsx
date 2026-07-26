@@ -1,4 +1,4 @@
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { View, Pressable, ScrollView, Text } from 'react-native';
 import type { Account } from '@/core/db/types';
 import { Button } from '~/components/ui';
 import { Icon } from '~/components/Icon';

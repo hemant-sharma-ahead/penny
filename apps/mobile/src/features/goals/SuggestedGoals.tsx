@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { useToast } from '~/context/ToastContext';
 import { useProfile } from '@/hooks/useProfile';
 import { formatCompact } from '@/lib/formatters';

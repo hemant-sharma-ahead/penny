@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput as RNTextInput } from 'react-native';
+import { View, TextInput as RNTextInput, Text } from 'react-native';
 import { FormField } from './FormField';
 import { amountToWords } from '@/lib/amountToWords';
 import { formatField, groupForDisplay, isExpression as checkIsExpression, resolve, sanitize } from '@/lib/amountInput';

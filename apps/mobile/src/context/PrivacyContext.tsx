@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { loadDefaultPrivacyMode, loadOpenModeDurationMinutes } from './SettingsContext';
 
@@ -98,11 +98,14 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, [mode, revertToDefault]);
 
-  const maskValue = (value: string | number): string => {
-    if (mode === 'safe') return '••••';
-    if (mode === 'privacy') return '••••';
-    return String(value);
-  };
+  const maskValue = useCallback(
+    (value: string | number): string => {
+      if (mode === 'safe') return '••••';
+      if (mode === 'privacy') return '••••';
+      return String(value);
+    },
+    [mode]
+  );
 
   const shouldMask = useCallback(
     (sensitive: boolean | undefined) => {
@@ -113,13 +116,14 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
     [mode]
   );
 
-  const canUseAI = () => mode !== 'privacy';
+  const canUseAI = useCallback(() => mode !== 'privacy', [mode]);
 
-  return (
-    <PrivacyContext.Provider value={{ mode, setMode, maskValue, shouldMask, canUseAI, openModeExpiresAt }}>
-      {children}
-    </PrivacyContext.Provider>
+  const value = useMemo(
+    () => ({ mode, setMode, maskValue, shouldMask, canUseAI, openModeExpiresAt }),
+    [mode, setMode, maskValue, shouldMask, canUseAI, openModeExpiresAt]
   );
+
+  return <PrivacyContext.Provider value={value}>{children}</PrivacyContext.Provider>;
 }
 
 export function usePrivacy(): PrivacyContextValue {

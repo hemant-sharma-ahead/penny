@@ -40,6 +40,7 @@ export function ExpensesPage() {
   const { events, pastEvents } = useEventMode();
   const {
     expenses,
+    loading: expensesLoading,
     saveExpense,
     deleteExpense,
     accounts,
@@ -76,7 +77,15 @@ export function ExpensesPage() {
   } = useExpenses();
 
   const [activeTab, setActiveTab] = useState<ExpensesTab>(initialTab ?? 'transactions');
+  // Tabs mount lazily (once, on first visit) and then stay mounted forever after — see the render
+  // below for why. `useState(() => ...)` so the initial tab's own entry isn't lost on a later re-render.
+  const [visitedTabs, setVisitedTabs] = useState<Set<ExpensesTab>>(() => new Set([initialTab ?? 'transactions']));
   const [showBudgets, setShowBudgets] = useState(false);
+
+  function changeTab(tab: ExpensesTab) {
+    setActiveTab(tab);
+    setVisitedTabs((prev) => (prev.has(tab) ? prev : new Set(prev).add(tab)));
+  }
   const txnFilters = useTransactionFilters(expenses, categoryMap);
 
   // "Share with a group" from the entry form (Track E) — only for a claimed (username) account.
@@ -135,59 +144,87 @@ export function ExpensesPage() {
           { value: 'iou', label: 'IOU' }
         ]}
         value={activeTab}
-        onChange={(v) => setActiveTab(v as ExpensesTab)}
+        onChange={(v) => changeTab(v as ExpensesTab)}
       />
 
+      {/*
+       * Each tab mounts lazily — only once the user has actually visited it (`visitedTabs`) — and then
+       * stays mounted forever after, toggled only via `display`, instead of the previous
+       * `activeTab === 'x' && <Slice />` conditional mount. That pattern unmounted every inactive slice
+       * entirely, so switching away from Analytics and back threw away all of `useExpenseAnalytics`'s
+       * ~15 `useMemo`'d aggregates (annual series, savings rate, biggest movers, hashtag summary, etc.,
+       * each iterating the full expense array) and recomputed them from scratch on every single switch —
+       * the real cause of "switching to Analytics takes time" (found by user report, not the parity
+       * sweep). Mounting lazily rather than mounting all 4 up front avoids the opposite problem — paying
+       * every tab's setup cost at once would have made the *first* paint (Transactions, already slow —
+       * see `useExpenses.ts`'s decrypt-on-load cost) feel slower, not snappier. `display: 'none'` removes
+       * a hidden-but-mounted tab from layout/paint entirely (RN's real equivalent of CSS `display:
+       * none`) while keeping its component instance — and its memoization, scroll position, and local
+       * state (filters, expanded groups, search text) — alive. Net effect: the first visit to any tab
+       * still costs what it always cost; every visit after that is instant. Same "mount on first focus,
+       * keep alive after" behavior React Navigation's own tab navigator defaults to.
+       */}
       <View className="flex-1">
-        {activeTab === 'transactions' && (
-          <TransactionsSlice
-            filters={txnFilters}
-            categoryMap={categoryMap}
-            accountMap={accountMap}
-            accounts={accounts}
-            categories={categories}
-            hashtags={hashtags}
-            events={events}
-            pastEvents={pastEvents}
-            shouldMask={shouldMask}
-            onSaveExpense={saveExpenseWithHashtags}
-            onDeleteExpense={deleteExpense}
-            onOpenBudgets={() => setShowBudgets(true)}
-            iouPersons={persons}
-            onSeedIou={seedIouFromExpense}
-            iouLinkByTxn={iouLinkByTxn}
-            accountBalances={accountBalances}
-            shareGroups={shareGroups}
-            onShareToGroup={handleShareToGroup}
-            onShareLater={handleShareLater}
-            onPatchExpenses={patchExpenses}
-            onRemoveExpenses={removeExpenses}
-            searchMerchant={searchMerchant}
-            dueRecurring={dueRecurring}
-            onPostRecurring={postRecurring}
-            onSkipRecurring={skipRecurring}
-            templates={templates}
-            onSaveTemplate={saveTemplate}
-            onRemoveTemplate={removeTemplate}
-            categoryManager={categoryManager}
-          />
+        {visitedTabs.has('transactions') && (
+          <View style={{ flex: 1, display: activeTab === 'transactions' ? 'flex' : 'none' }}>
+            <TransactionsSlice
+              loading={expensesLoading}
+              filters={txnFilters}
+              categoryMap={categoryMap}
+              accountMap={accountMap}
+              accounts={accounts}
+              categories={categories}
+              hashtags={hashtags}
+              events={events}
+              pastEvents={pastEvents}
+              shouldMask={shouldMask}
+              onSaveExpense={saveExpenseWithHashtags}
+              onDeleteExpense={deleteExpense}
+              onOpenBudgets={() => setShowBudgets(true)}
+              iouPersons={persons}
+              onSeedIou={seedIouFromExpense}
+              iouLinkByTxn={iouLinkByTxn}
+              accountBalances={accountBalances}
+              shareGroups={shareGroups}
+              onShareToGroup={handleShareToGroup}
+              onShareLater={handleShareLater}
+              onPatchExpenses={patchExpenses}
+              onRemoveExpenses={removeExpenses}
+              searchMerchant={searchMerchant}
+              dueRecurring={dueRecurring}
+              onPostRecurring={postRecurring}
+              onSkipRecurring={skipRecurring}
+              templates={templates}
+              onSaveTemplate={saveTemplate}
+              onRemoveTemplate={removeTemplate}
+              categoryManager={categoryManager}
+            />
+          </View>
         )}
 
-        {activeTab === 'subscriptions' && (
-          <SubscriptionsSlice expenses={expenses} masked={shouldMask(!safeModeVisibility.subscriptions)} />
+        {visitedTabs.has('subscriptions') && (
+          <View style={{ flex: 1, display: activeTab === 'subscriptions' ? 'flex' : 'none' }}>
+            <SubscriptionsSlice expenses={expenses} masked={shouldMask(!safeModeVisibility.subscriptions)} />
+          </View>
         )}
 
-        {activeTab === 'iou' && <IouSlice />}
+        {visitedTabs.has('iou') && (
+          <View style={{ flex: 1, display: activeTab === 'iou' ? 'flex' : 'none' }}>
+            <IouSlice />
+          </View>
+        )}
 
-        {activeTab === 'analytics' && (
-          <AnalyticsSlice
-            expenses={expenses}
-            categoryMap={categoryMap}
-            masked={shouldMask(false)}
-            iouLinkedTxnIds={iouLinkedTxnIds}
-            familyGroupIds={familyGroupIds}
-            setAsideTagNames={setAsideTagNames}
-          />
+        {visitedTabs.has('analytics') && (
+          <View style={{ flex: 1, display: activeTab === 'analytics' ? 'flex' : 'none' }}>
+            <AnalyticsSlice
+              expenses={expenses}
+              categoryMap={categoryMap}
+              masked={shouldMask(false)}
+              iouLinkedTxnIds={iouLinkedTxnIds}
+              familyGroupIds={familyGroupIds}
+              setAsideTagNames={setAsideTagNames}
+            />
+          </View>
         )}
       </View>
 

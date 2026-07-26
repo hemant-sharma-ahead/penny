@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@op-engineering/op-sqlite": "^17.1.2",
     "@penny/core": "workspace:*",
     "@react-native-async-storage/async-storage": "^3.1.1",
     "@react-native-community/datetimepicker": "9.1.0",
@@ -20,7 +21,6 @@
     "expo-image-picker": "~57.0.6",
     "expo-linear-gradient": "~57.0.1",
     "expo-sharing": "~57.0.7",
-    "expo-sqlite": "~57.0.1",
     "expo-status-bar": "~57.0.1",
     "nativewind": "^4.2.6",
     "react": "19.2.3",
@@ -28,7 +28,6 @@
     "react-native": "0.86.0",
     "react-native-css-interop": "^0.2.6",
     "react-native-gesture-handler": "~2.32.0",
-    "react-native-nitro-modules": "^0.36.1",
     "react-native-quick-base64": "^3.0.1",
     "react-native-quick-crypto": "^1.1.6",
     "react-native-reanimated": "4.5.0",

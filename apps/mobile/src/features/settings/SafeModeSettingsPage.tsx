@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Banner, ListContainer, PageHeader, SectionLabel, Toggle } from '~/components/ui';
 import { BackButton } from '~/components/shared';
 import { Icon } from '~/components/Icon';
+import { useThemeColors } from '~/theme/useThemeColors';
 import { useRepository } from '@/hooks/useRepository';
 import { notifyAccountsChanged, notifyCategoriesChanged, notifyTagsChanged } from '@/hooks/useDataRefresh';
 import { accountsRepo, expenseCategoriesRepo, hashtagsRepo } from '@/core/db/repositories';
@@ -51,11 +52,15 @@ function ToggleRow({
   value: boolean;
   onChange: (value: boolean) => void;
 }) {
+  const theme = useThemeColors();
   return (
     <View className="flex-row items-center gap-3 px-3 py-2.5">
       <View
         className="w-8 h-8 rounded-[9px] items-center justify-center"
-        style={{ backgroundColor: iconColor ?? '#64748b' }}
+        // Web falls back to `var(--color-text-tertiary)` (theme-aware), not a hardcoded gray only
+        // correct for the Penny Blue theme — found via the 2026-07-26 parity sweep (the 6 "Other
+        // modules" rows here have no per-module color, so they always hit this fallback).
+        style={{ backgroundColor: iconColor ?? theme.textTertiary }}
       >
         <Icon name={icon} size={14} color="#fff" />
       </View>

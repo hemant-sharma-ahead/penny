@@ -32,7 +32,7 @@ export function CreateGroupModal({ onClose }: { onClose: () => void }) {
       const group = await createGroup({ name: trimmed, type, historyVisibility: visibility });
       refresh();
       setContext(group.id);
-      showToast({ message: `Created "${group.name}"` });
+      showToast({ message: `Created “${group.name}”` });
       onClose();
     } catch (err) {
       if (!onError(err, 'Could not create the group')) setSaving(false);
