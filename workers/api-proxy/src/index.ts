@@ -3,13 +3,14 @@
 // plus a permanent D1 cache + morning queue/Cron for the rate-limited vahandetails vehicle API.
 // This worker is the deploy template for Tracks B–E. See workers/api-proxy/README.md.
 
-import { CORS_HEADERS, json, passthrough, preflight } from './cors';
+import { CORS_HEADERS, json, passthrough, passthroughXml, preflight } from './cors';
 import { isRateLimited } from './ratelimit';
 import { parsePath, upstreamUrl, isKnownPrefix } from './lib/upstreams';
 import { cacheKey, ttlFor } from './lib/cachePolicy';
 import { decideVahan, istParts, inWorkingWindow, canSpend, normalizeReg, nextWindowStartMs } from './lib/vahan';
 import { fetchVahan } from './vahanFetch';
 import { buildMarketSnapshot, getMarketSnapshot } from './market';
+import { fetchNewsFeed, isKnownFeed } from './news';
 import {
   getVehicle,
   putVehicle,
@@ -44,6 +45,10 @@ export default {
     const ip = req.headers.get('cf-connecting-ip') ?? 'anon';
     if (await isRateLimited(env.CACHE, ip)) return json({ error: 'rate_limited' }, 429);
     if (req.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
+
+    // News RSS (fixed feed IDs, own cache — see news.ts for why this isn't the generic passthrough).
+    const rssMatch = /^\/rss\/([^/]+)$/.exec(url.pathname);
+    if (rssMatch?.[1]) return handleNews(rssMatch[1], env, ctx);
 
     // Vehicle (semantic: D1 permanent cache + queue).
     const vMatch = /^\/vehicle\/([^/]+)$/.exec(url.pathname);
@@ -110,6 +115,17 @@ async function handlePassthrough(
   // Cache in the background so we don't delay the response.
   ctx.waitUntil(env.CACHE.put(key, text, { expirationTtl: ttlFor(prefix, rest) }));
   return passthrough(text, 'MISS');
+}
+
+async function handleNews(feedId: string, env: Env, ctx: ExecutionContext): Promise<Response> {
+  if (!isKnownFeed(feedId)) return json({ error: 'not_found' }, 404);
+  try {
+    const result = await fetchNewsFeed(feedId, env, ctx);
+    if (!result) return json({ error: 'not_found' }, 404);
+    return passthroughXml(result.xml, result.cache);
+  } catch {
+    return json({ error: 'upstream_error' }, 502);
+  }
 }
 
 async function handleVehicle(rawReg: string, url: URL, env: Env): Promise<Response> {

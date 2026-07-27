@@ -1,5 +1,6 @@
 import type { NewsItem, NewsSource, NewsSourceId } from './newsTypes';
-import { NEWS_PROXY as PROXY, NEWS_TTL_MS, NEWS_SOURCES } from './newsClient.constants';
+import { NEWS_PROXY as ALLORIGINS_PROXY, NEWS_TTL_MS, NEWS_SOURCES } from './newsClient.constants';
+import { NEWS_PROXY_BASE } from '@/core/net/apiBase';
 
 export { NEWS_SOURCES };
 
@@ -83,7 +84,9 @@ function parseXml(xml: string, sourceId: NewsSourceId): NewsItem[] {
 }
 
 export async function fetchNewsFeed(source: NewsSource): Promise<NewsItem[]> {
-  const url = PROXY + encodeURIComponent(source.feedUrl);
+  const url = NEWS_PROXY_BASE
+    ? `${NEWS_PROXY_BASE}/${source.id}`
+    : ALLORIGINS_PROXY + encodeURIComponent(source.feedUrl);
   const res = await fetch(url);
   if (!res.ok) throw new Error(`News fetch failed: ${res.status}`);
   const xml = await res.text();

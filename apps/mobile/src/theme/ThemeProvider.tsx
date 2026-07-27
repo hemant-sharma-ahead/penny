@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { View, useColorScheme as useSystemColorScheme } from 'react-native';
+import { View, Platform, useColorScheme as useSystemColorScheme } from 'react-native';
 import { vars } from 'nativewind';
 import { THEME_TOKENS, type ThemeName, type ThemeTokens } from '@penny/core/theme/tokens';
 import { getItem, setItem } from '~/lib/storage';
@@ -79,6 +79,25 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setPreferenceState(next);
     void setItem(THEME_PREFERENCE_KEY, next);
   };
+
+  // Web only: `nativewind`'s `vars()` below sets these as an inline style on this component's own View,
+  // which works for every normal descendant — but react-native-web's `Modal` (see
+  // node_modules/react-native-web/dist/exports/Modal/ModalPortal.js) renders its children via
+  // `ReactDOM.createPortal` into a `<div>` appended directly to `document.body`, entirely outside this
+  // View's DOM subtree. CSS custom properties don't cross that boundary (they cascade through the real
+  // DOM tree, not the React tree), so every `bg-surface`/`border-theme`/etc. class inside any Modal
+  // resolved to nothing on web — found via on-device (well, on-web) testing, 2026-07-26: modals rendered
+  // fully transparent, showing the page behind them through the "empty" card. Mirroring the same
+  // variables onto `documentElement` keeps them in scope for portalled content too, since a portal div is
+  // still inside `<html>` even though it's outside this component's React-rendered DOM subtree.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const cssVars = toCssVars(THEME_TOKENS[activePalette]);
+    const root = document.documentElement;
+    for (const [key, value] of Object.entries(cssVars)) {
+      root.style.setProperty(key, value);
+    }
+  }, [activePalette]);
 
   const value = useMemo<ThemeContextValue>(
     () => ({ preference, setPreference, activePalette }),

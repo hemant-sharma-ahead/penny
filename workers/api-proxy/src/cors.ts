@@ -20,6 +20,13 @@ export function passthrough(text: string, cache: 'HIT' | 'MISS'): Response {
   });
 }
 
+/** Raw upstream XML (RSS) text passed through with CORS + a cache-status hint header. */
+export function passthroughXml(text: string, cache: 'HIT' | 'MISS'): Response {
+  return new Response(text, {
+    headers: { 'content-type': 'application/xml; charset=utf-8', 'x-proxy-cache': cache, ...CORS_HEADERS }
+  });
+}
+
 export function preflight(): Response {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }

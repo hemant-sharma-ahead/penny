@@ -25,6 +25,7 @@ This is also the **deploy template** for the later backend workers (Tracks B–E
 | `GET /mfapi/*` | `api.mfapi.in/*` | KV: NAV 24 h · search 1 h |
 | `GET /nps/*` | `npsnav.in/api/*` | KV: schemes 1 wk · NAV 1 h |
 | `GET /ig/*` | `webnodejs.investorgain.com/*` (IPO/GMP) | KV ~15 min |
+| `GET /rss/:feedId` | One of 4 fixed news RSS feeds (`et-markets`, `mint`, `rbi`, `sebi`) — see `src/news.ts` | KV 45 min |
 | `GET /vehicle/:regno[?refresh=1]` | vahandetails (RC + challans) | **D1 permanent** + queue |
 
 Vehicle returns `{ status: 'ok', data }`, or `{ status: 'queued', message, etaMorningIST }` when the
@@ -81,6 +82,7 @@ curl http://localhost:8787/health
 curl http://localhost:8787/market                                                # whole ticker strip (Cron snapshot)
 curl "http://localhost:8787/yf/v8/finance/chart/%5ENSEI?interval=1d&range=2d"   # Nifty 50
 curl "http://localhost:8787/mfapi/mf/140088"                                     # an MF NAV
+curl "http://localhost:8787/rss/sebi"                                            # SEBI RSS feed (XML)
 curl "http://localhost:8787/vehicle/KA03MN5678"                                  # vehicle (ok or queued)
 ```
 

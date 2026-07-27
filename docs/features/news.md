@@ -16,14 +16,19 @@ blocked by CORS regardless of CSP config. Three options were considered:
 
 | Option | Backend? | Privacy | Reliability | Decision |
 |---|---|---|---|---|
-| Public RSS→JSON proxy | None (3rd-party) | Feed URLs pass through a 3rd party — no personal data involved, only which public feeds are requested | Subject to rate limits | **Chosen for now** |
-| Cloudflare Worker | 1 Worker (self-owned) | Best — fully controlled | Best | Best long-term; not built yet |
+| Public RSS proxy (AllOrigins) | None (3rd-party) | Feed URLs pass through a 3rd party — no personal data involved, only which public feeds are requested | Subject to rate limits/timeouts | Fallback only, since 2026-07-27 |
+| Cloudflare Worker | 1 Worker (self-owned) | Best — fully controlled | Best | **Chosen, live since 2026-07-27** |
 | Direct fetch | None | Best | Fails on CORS | Not viable |
 
-**Chosen: a public RSS→JSON proxy** (AllOrigins, `api.allorigins.win/raw?url=<feed>`),
-behind a single `fetchNewsFeed(source)` abstraction so the transport stays swappable — a
-Cloudflare Worker (alongside the existing API Proxy worker) remains the clean upgrade path
-if proxy rate limits/reliability become a problem. See
+**Now: `workers/api-proxy`'s `/rss/:feedId` route** (`workers/api-proxy/src/news.ts`) —
+the same deployed Worker Yahoo/MFAPI/NPS/investorgain already route through, extended with
+a dedicated news route (not the generic prefix passthrough, since each feed lives on a
+different publisher host and returns XML, not JSON). `fetchNewsFeed(source)` in
+`newsClient.ts`/`newsClient.native.ts` prefers this (`NEWS_PROXY_BASE` from `apiBase.ts`)
+when a Worker is configured, and falls back to the public AllOrigins proxy
+(`api.allorigins.win/raw?url=<feed>`) only when no Worker is set up (e.g. local dev without
+`VITE_API_PROXY`/`apiProxyUrl`) — this fallback moved in after AllOrigins started
+408-timing-out on the RBI/SEBI feeds specifically. See
 [`docs/EXTERNAL_APIS.md`](../EXTERNAL_APIS.md) for the exact endpoint registry.
 
 ## Sources

@@ -28,6 +28,12 @@ export const VEHICLE_PROXY: string | null = PROXY ? `${PROXY}/vehicle` : null;
  *  backend is configured (client falls back to per-ticker fetches). */
 export const MARKET_SNAPSHOT: string | null = PROXY ? `${PROXY}/market` : null;
 
+/** News RSS proxy (`${PROXY}/rss/<feedId>`), or null when no backend is configured — the client then
+ *  falls back to the public AllOrigins proxy (see newsClient.constants.ts). Added after AllOrigins
+ *  started 408-timing-out on the RBI/SEBI feeds specifically (2026-07-27); routing through our own
+ *  cached Worker route (news.ts) removes that third-party dependency entirely once configured. */
+export const NEWS_PROXY_BASE: string | null = PROXY ? `${PROXY}/rss` : null;
+
 /** Auth/Identity worker base (Phase 1.5 Track C). Prefers a dedicated `VITE_AUTH_PROXY` (the
  *  penny-auth worker's own URL on `*.workers.dev`), falling back to `${VITE_API_PROXY}/auth` for the
  *  future single-gateway (custom-domain) routing. Null when no backend is configured — account claim

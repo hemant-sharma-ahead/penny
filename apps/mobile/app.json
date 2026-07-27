@@ -37,6 +37,7 @@
     "extra": {
       "authProxyUrl": "https://penny-auth.hesh.workers.dev",
       "groupsProxyUrl": "https://penny-groups.hesh.workers.dev",
+      "apiProxyUrl": "https://penny-api-proxy.hesh.workers.dev",
       "enableSync": true
     }
   }

@@ -33,6 +33,53 @@ app already owns its own complete build config (`apps/web-react/vite.config.ts`,
 - `pnpm` (`npm install -g pnpm` if you don't have it)
 - From the repo root: `pnpm install` (sets up the whole workspace at once)
 
+## Quick reference — running the apps
+
+One glance to pick a surface and get moving; each column links to its full section below
+for flags, troubleshooting, and prerequisites.
+
+| | [web-react](#running-appsweb-react-the-web-app) | [web-react + Capacitor](#running-appsweb-react-wrapped-in-capacitor-android-emulator-side-by-side-comparison) | [apps/mobile](#running-appsmobile-expo--react-native) | [RN Web](#running-appsmobile-expo--react-native) |
+| --- | --- | --- | --- | --- |
+| **Dev command** | `pnpm dev` (repo root) | `cd apps/web-react && npx cap open android` (no package-script shortcut yet — Capacitor isn't installed, see below) | `pnpm android` / `pnpm ios` (from `apps/mobile`)<br>— or directly: `npx expo run:android` / `run:ios` | `pnpm web` (from `apps/mobile`)<br>— or with a forced cache clear: `npx expo start --web --clear` |
+| **Runs at** | `http://localhost:5173` | Android Studio emulator/device | Emulator/AVD or a paired device, via a dev client | `http://localhost:8081` (or `:8082` if `:8081` is taken) in a browser |
+| **Prerequisite** | None — `pnpm install` is enough | `@capacitor/*` packages (not currently installed — see below) + Android Studio | Android Studio (Android) or Xcode (iOS) — **not** Expo Go | Just Expo, no native toolchain |
+| **Picks up code changes via** | Vite HMR — instant | `pnpm build && npx cap sync android`, then re-run from Android Studio | Fast Refresh for JS/TS; full native rebuild only for native deps, `metro.config.js`, `app.json`, or `android/`/`ios/` project file changes | `react-native-web` + Fast Refresh, same as web |
+| **Status** | Source of truth for functionality/design | Dormant — perf/behavior comparison tool only, not the primary mobile path | In progress — see `docs/MOBILE_PARITY.md` | Same JS as `apps/mobile`, rendered as real DOM — useful for quick browser checks of mobile code |
+| **Force a JS-only relaunch** (no rebuild — a stuck screen/state, not a stale Metro server) | Just refresh the browser tab | Re-run from Android Studio, or the same `adb`/simulator commands as `apps/mobile` | Android: `adb shell am force-stop com.anonymous.penny && adb shell monkey -p com.anonymous.penny -c android.intent.category.LAUNCHER 1`.<br>iOS: relaunch from the Simulator (⌘⇧H twice, or Device → Restart) | Just refresh the browser tab |
+| **Full native rebuild + reinstall** (native dep changed, or `app.json`/`android/`/`ios/` changed) | N/A — no native step | `pnpm build && npx cap sync android`, then re-run from Android Studio | `npx expo run:android` / `run:ios` again — recompiles, bakes in the current `app.json`, reinstalls onto the emulator/device | N/A — restart Metro (`npx expo start --web --clear`) is enough, no native step |
+
+`--clear` wipes the Metro bundler cache — worth adding any time you've hit a bundle that
+seems stuck on old code, or after changing `app.json`'s `extra` config; drop it for a
+faster day-to-day start once you know the cache is clean.
+
+`app.json`'s `extra` block (env-style config like `apiProxyUrl`) behaves differently by
+target: **RN Web** (`expo start --web`) re-reads it fresh every time Metro (re)starts, so a
+Metro restart is enough. A true **native dev-client build** (`expo run:android`/`run:ios`)
+bakes it into the compiled app at build time instead — changing `app.json` there needs a
+full rebuild (the same command again), not just a reload. See the native-rebuild note in
+[Running `apps/mobile`](#running-appsmobile-expo--react-native).
+
+## Quick reference — running the Workers
+
+All three share one template (Track A) — own `package.json`/lockfile, `wrangler dev` for
+local, `wrangler deploy` (+ `:staging`/`:prod`) to ship. See each worker's own README for
+full setup (KV/D1 resource creation, migrations, secrets).
+
+| | [api-proxy](workers/api-proxy/README.md) | [auth](workers/auth/README.md) | [groups](workers/groups/README.md) |
+| --- | --- | --- | --- |
+| **Purpose** | CORS-fixing passthrough + cache for Yahoo/MFAPI/NPS/investorgain/RSS news + vehicle lookup | Phone-less device identity/claim (Track C) | Shared-ledger relay for Groups & Household OS (Track E) |
+| **Local dev** | `cd workers/api-proxy && npm run dev` → `http://localhost:8787`<br>— or directly: `npx wrangler dev` | `cd workers/auth && npm run dev -- --port 8788` (a distinct port, since api-proxy's default is 8787)<br>— or directly: `npx wrangler dev --port 8788` | `cd workers/groups && npm run dev -- --port 8789` (a distinct port from the other two)<br>— or directly: `npx wrangler dev --port 8789` |
+| **Deploy** | `cd workers/api-proxy && npm run deploy`<br>— or directly: `npx wrangler deploy` | `cd workers/auth && npm run deploy`<br>— or directly: `npx wrangler deploy` | `cd workers/groups && npm run deploy`<br>— or directly: `npx wrangler deploy` |
+| **Deploy (staging/prod)** | `npm run deploy:staging` / `npm run deploy:prod`<br>— or directly: `npx wrangler deploy --env staging` / `--env production` | same, either form | same, either form |
+| **Point the app at it** | `VITE_API_PROXY` (web) / `app.json`'s `extra.apiProxyUrl` (mobile) | `VITE_AUTH_PROXY`, falls back to `${VITE_API_PROXY}/auth` | `VITE_GROUPS_PROXY`, falls back to `${VITE_API_PROXY}/groups` |
+| **Live URL** | `penny-api-proxy.hesh.workers.dev` | `penny-auth.hesh.workers.dev` | `penny-groups.hesh.workers.dev` (deployed, Track E1 not yet live end-to-end) |
+
+`npm run dev`/`npm run deploy` (each worker's own `package.json` scripts) and the direct
+`npx wrangler …` commands are equivalent — the table lists both since either is a normal
+way to run them. First-time setup per worker (creating KV/D1 resources, running
+migrations, `wrangler secret put`, etc.) isn't repeated here — see each worker's own
+README, linked in the header row above.
+
 ## Running `apps/web-react` (the web app)
 
 ```bash

@@ -36,7 +36,7 @@ export function Modal({ onClose, title, children, footer, size = 'md', scrollabl
         <View className="flex-1 items-center justify-center px-4" style={{ paddingTop: 56, paddingBottom: 72 }}>
           <View
             className={`w-full ${size === 'sm' ? 'max-w-sm' : 'max-w-[430px]'} bg-surface rounded-2xl border border-theme`}
-            style={{ maxHeight: '100%', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20 }}
+            style={{ maxHeight: '100%', boxShadow: '0px 0px 20px rgba(0, 0, 0, 0.2)' }}
           >
             {title !== undefined && (
               <View className="flex-row items-center justify-between px-5 pt-5">

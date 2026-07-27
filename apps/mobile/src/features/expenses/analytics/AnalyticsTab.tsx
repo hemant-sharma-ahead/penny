@@ -307,7 +307,7 @@ export function AnalyticsTab({
               className="px-3 py-1.5 rounded-md"
               style={
                 analyticsView === v
-                  ? { backgroundColor: theme.surface, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 3 }
+                  ? { backgroundColor: theme.surface, boxShadow: '0px 0px 3px rgba(0, 0, 0, 0.1)' }
                   : undefined
               }
             >
