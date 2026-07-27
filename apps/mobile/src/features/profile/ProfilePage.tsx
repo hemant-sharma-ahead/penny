@@ -56,7 +56,7 @@ export function ProfilePage() {
   const { profile, loading } = useProfile();
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
+    <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader leading={<BackButton />} title="Edit profile" />
       {loading ? (
         <View className="flex-1 items-center justify-center">
@@ -79,16 +79,21 @@ function Field({
   label,
   required,
   trailing,
+  first,
   children
 }: {
   label: string;
   required?: boolean;
   trailing?: ReactNode;
+  /** Web's `Field` is `border-t border-theme first:border-t-0` — the first field inside a `Card`
+   *  (which already has its own enclosing border) doesn't double up. RN has no `:first-child`
+   *  selector, so the caller marks whichever `Field` is actually first in each `Card`. */
+  first?: boolean;
   children: ReactNode;
 }) {
   const theme = useThemeColors();
   return (
-    <View className="py-3 border-t border-theme">
+    <View className={`py-3 ${first ? '' : 'border-t border-theme'}`}>
       <View className="flex-row items-center justify-between gap-2 mb-0.5" style={{ minHeight: 20 }}>
         <Text className="text-[11px] font-semibold text-tertiary">
           {label}
@@ -341,7 +346,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
             {syncOn && (
               <View
                 className="flex-row items-center gap-1 self-start rounded-full px-2 py-0.5 mt-1.5"
-                style={{ backgroundColor: claimed ? `${theme.success}1a` : theme.surfaceSecondary }}
+                style={{ backgroundColor: claimed ? tint(theme.success, 10) : theme.surfaceSecondary }}
               >
                 <Icon
                   name={claimed ? 'ti-circle-check' : 'ti-circle-dashed'}
@@ -362,7 +367,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
         {/* Your details */}
         <SectionLabel>Your details</SectionLabel>
         <Card>
-          <Field label="Full name" required>
+          <Field label="Full name" required first>
             <RNTextInput
               className="text-[15px] text-primary p-0"
               style={{ color: theme.textPrimary }}
@@ -376,7 +381,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
             label="Date of birth"
             trailing={
               ageBand ? (
-                <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: `${theme.primary}1a` }}>
+                <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: tint(theme.primary, 10) }}>
                   <Text className="text-[10.5px] font-bold" style={{ color: theme.primary }}>
                     age band {ageBand}
                   </Text>
@@ -433,6 +438,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
           {syncOn && claimed && !editingHandle ? (
             <Field
               label="Username"
+              first
               trailing={
                 <Pressable
                   onPress={() => {
@@ -454,6 +460,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
           ) : syncOn && claimed && editingHandle ? (
             <Field
               label="New username"
+              first
               trailing={
                 availability === 'checking' ? (
                   <Text className="text-[10.5px] text-tertiary">Checking…</Text>
@@ -487,6 +494,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
           ) : (
             <Field
               label="Username (optional)"
+              first
               trailing={
                 syncOn && !claimed ? (
                   <Pressable
@@ -618,8 +626,9 @@ function ProfileEditor({ profile }: { profile: Profile }) {
         <SectionLabel>Life &amp; household</SectionLabel>
         <Card>
           <Text className="text-[11px] text-tertiary leading-relaxed py-3">
-            Optional — add these to unlock personalized goals (a child's education corpus, the right cover, a retirement
-            target). Stored encrypted on your device; only a 5-year age band ever reaches Chip.
+            Optional — add these to unlock <Text className="font-bold text-secondary">personalized goals</Text> (a
+            child's education corpus, the right cover, a retirement target). Stored encrypted on your device; only a
+            5-year age band ever reaches Chip.
           </Text>
           <LifeRow icon="ti-heart" label="Relationship">
             <OptionalSeg

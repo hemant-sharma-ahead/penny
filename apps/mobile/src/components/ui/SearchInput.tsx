@@ -20,7 +20,7 @@ export function SearchInput({ value, onChange, placeholder = 'Search…', classN
         placeholder={placeholder}
         placeholderTextColor={theme.textTertiary}
         textAlignVertical="center"
-        style={{ includeFontPadding: false }}
+        style={{ includeFontPadding: false, padding: 0, margin: 0 }}
         className="flex-1 text-sm text-primary"
       />
       {value && (

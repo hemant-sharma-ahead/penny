@@ -25,7 +25,7 @@ export function InsurancePage() {
   const [editingPolicy, setEditingPolicy] = useState<InsurancePolicy | null>(null);
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
+    <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader
         leading={<BackButton />}
         title="Insurance"

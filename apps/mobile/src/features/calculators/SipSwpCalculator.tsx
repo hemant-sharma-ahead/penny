@@ -17,7 +17,10 @@ function lastedLabel(months: number): string {
 /** RN port of apps/web-react/src/features/calculators/SipSwpCalculator.tsx. Web's `divide-y` drawdown
  *  rows use the same border-top-on-non-first-row technique as `CalcUI.tsx`'s `ResultCard`. */
 export function SipSwpCalculator() {
-  const masked = usePrivacy().shouldMask(false);
+  // Calculator output (salary/income-derived figures) is always-sensitive in Safe mode, matching web's
+  // MaskedValue (masks whenever mode is 'safe' or 'privacy', regardless of any per-field flag) — pass
+  // `true`, not `false`; `shouldMask(false)` would leave Safe mode fully unmasked here.
+  const masked = usePrivacy().shouldMask(true);
   // Accumulation (SIP) inputs
   const [monthly, setMonthly] = useState('');
   const [stepUp, setStepUp] = useState('10');
@@ -52,7 +55,7 @@ export function SipSwpCalculator() {
   return (
     <View className="gap-4">
       {/* Accumulation inputs */}
-      <View className="rounded-2xl p-4 gap-4 bg-surface">
+      <View className="rounded-2xl p-4 gap-4 bg-surface border border-theme">
         <Text className="text-xs font-semibold uppercase tracking-wide text-tertiary">Accumulation — SIP</Text>
         <LabeledInput
           label="Starting monthly SIP"
@@ -74,7 +77,7 @@ export function SipSwpCalculator() {
       </View>
 
       {/* Withdrawal phase */}
-      <View className="rounded-2xl p-4 gap-4 bg-surface">
+      <View className="rounded-2xl p-4 gap-4 bg-surface border border-theme">
         <SegmentedToggle
           label="Add a withdrawal phase (SWP)?"
           value={swpOn}
@@ -157,7 +160,7 @@ export function SipSwpCalculator() {
 
               {/* Year-by-year drawdown */}
               {result.withdrawalSchedule.length > 0 && (
-                <View className="rounded-2xl p-4 bg-surface">
+                <View className="rounded-2xl p-4 bg-surface border border-theme">
                   <Text className="text-xs font-semibold uppercase tracking-wide text-tertiary mb-2">
                     Drawdown schedule
                   </Text>

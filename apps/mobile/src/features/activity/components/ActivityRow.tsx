@@ -5,6 +5,7 @@ import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { getActionMeta } from '../activityMeta';
 import { DiffChips } from './DiffChips';
+import { tint } from '~/lib/color';
 
 interface Props {
   entry: ActivityLog;
@@ -25,7 +26,7 @@ export function ActivityRow({ entry, masked, onRestore, restoring }: Props) {
     <View className="flex-row items-start gap-3 px-4 py-3">
       <View
         className="w-8 h-8 rounded-lg items-center justify-center flex-shrink-0 mt-0.5"
-        style={{ backgroundColor: `${meta.color}18` }}
+        style={{ backgroundColor: tint(meta.color, 9) }}
       >
         <Icon name={meta.icon} size={16} color={meta.color} />
       </View>

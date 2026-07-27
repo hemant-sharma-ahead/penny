@@ -3,6 +3,7 @@ import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSettings, type ModuleVisibility } from '~/context/SettingsContext';
 import { Card, IconBadge } from '~/components/ui';
+import { tint } from '~/lib/color';
 
 // Home tools now = News + Calculators only. Insurance & Loans → money stat card; Cash Flow → Safe-to-spend;
 // Health → folded into Home (advisor); Tax → a line in the money stat card.
@@ -29,7 +30,7 @@ export function ToolsGrid() {
               radius="md"
               className="items-center gap-1"
             >
-              <IconBadge icon={m.icon} color={m.color} bg={`${m.color}22`} size="sm" />
+              <IconBadge icon={m.icon} color={m.color} bg={tint(m.color, 13)} size="sm" />
               <Text className="text-[9px] font-medium text-secondary text-center leading-tight">{m.label}</Text>
             </Card>
           </View>

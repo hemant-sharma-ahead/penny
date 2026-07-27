@@ -14,7 +14,7 @@ The product direction is: _appealing, minimalistic, modern, inviting, user-frien
 
 - **Uncluttered first.** Every screen has one primary job — show that, defer the rest. Prefer whitespace and a short list over dense grids; if a surface feels busy, remove or collapse before adding. One clear primary action per screen; secondary actions are quiet (ghost/icon), not competing.
 - **Progressive disclosure = the real minimalism.** Smart defaults that just work (e.g. "Equal split by default, power on demand"); advanced controls stay hidden until asked for. **Reuse patterns the user already knows** rather than inventing new ones.
-- **Colour is wayfinding, not decoration.** Context/identity is signalled by colour (e.g. a group's colour tints the context bar + centre FAB; a selected option fills with `--color-primary`), so "where am I / what's selected?" is answered before reading. Semantic tokens only.
+- **Colour is wayfinding, not decoration.** Context/identity is signalled by colour (e.g. a group's color tints the context bar + centre FAB; a selected option fills with `--color-primary`), so "where am I / what's selected?" is answered before reading. Semantic tokens only.
 - **Calm, glanceable hierarchy.** One big number + a small plain-language sub-label (`₹3,200 · you're owed`). Plain language over jargon. Soft `color-mix` tints instead of hard borders.
 - **Spatial stability builds trust.** Nav never changes; header + nav always visible; modals centred. Predictability is a feature — especially for a money app.
 - **Positive zero/empty states.** `₹0` reads as "settled up" (a win), not an empty void.

@@ -8,6 +8,7 @@ import { useSettings } from '~/context/SettingsContext';
 import { formatCurrency } from '@/lib/formatters';
 import { formatDateShort } from '@/lib/date';
 import { Card, EmptyState, SegmentedControl, Banner, Button, Modal, AmountInput } from '~/components/ui';
+import { ink } from '~/lib/color';
 import { Icon } from '~/components/Icon';
 import { BackButton } from '~/components/shared';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -297,7 +298,7 @@ export function CashFlowPage() {
   );
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
+    <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       {/*
        * FlashList, not SectionList — a 6-month horizon can produce 50-100+ rows across the nested
        * month/event lists, flagged as an unvirtualized risk in the 2026-07-26 parity sweep, then found to
@@ -359,7 +360,7 @@ export function CashFlowPage() {
             this cushion.
           </Text>
           <AmountInput label="Cushion amount" value={bufferDraft} onChange={setBufferDraft} autoFocus />
-          <Text className="mt-3 text-xs" style={{ color: theme.info }}>
+          <Text className="mt-3 text-xs" style={{ color: ink(theme.info, theme.textPrimary) }}>
             Tip: one month of essential expenses makes a solid cushion.
           </Text>
         </Modal>

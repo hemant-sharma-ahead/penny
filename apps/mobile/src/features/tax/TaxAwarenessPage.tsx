@@ -43,7 +43,7 @@ export function TaxAwarenessPage() {
 
   if (!summary) {
     return (
-      <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
+      <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
         <PageHeader title="Tax Awareness" leading={<BackButton />} />
         <View className="flex-1 items-center justify-center">
           <Text className="text-sm text-tertiary">Loading…</Text>
@@ -56,7 +56,7 @@ export function TaxAwarenessPage() {
   const showNotes = (activeTab === 'footprint' || activeTab === 'optimize') && taxNotes.length > 0;
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
+    <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader title="Tax Awareness" leading={<BackButton />}>
         <View className="flex-row items-center gap-2 mt-0.5">
           <Text className="text-xs text-secondary">{fy.label}</Text>

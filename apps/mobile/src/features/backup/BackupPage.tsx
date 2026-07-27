@@ -15,6 +15,7 @@ import { hasEntitlement } from '@/core/entitlement/entitlement';
 import { notifyAuthShouldRecheck } from '~/navigation/authRecheckBus';
 import { AutoBackupCard } from './AutoBackupCard';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { tint } from '~/lib/color';
 
 type ExportState = 'idle' | 'exporting' | 'done' | 'error';
 type ImportState = 'idle' | 'importing' | 'done' | 'error';
@@ -166,7 +167,7 @@ export function BackupPage() {
   }
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
+    <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader title="Backup & Restore" leading={<BackButton />} />
       <ScrollView>
         <View className="px-4 pt-4 pb-6 gap-5">
@@ -191,7 +192,7 @@ export function BackupPage() {
             {exportState === 'done' && (
               <View
                 className="flex-row items-center gap-2 rounded-xl px-3 py-2"
-                style={{ backgroundColor: `${theme.success}1a` }}
+                style={{ backgroundColor: tint(theme.success, 10) }}
               >
                 <Icon name="ti-circle-check" size={16} color={theme.success} />
                 <Text className="text-xs font-medium" style={{ color: theme.success }}>
@@ -219,7 +220,7 @@ export function BackupPage() {
             <View className="flex-row items-start gap-3">
               <View
                 className="w-10 h-10 rounded-xl items-center justify-center"
-                style={{ backgroundColor: `${theme.warning}1a` }}
+                style={{ backgroundColor: tint(theme.warning, 10) }}
               >
                 <Icon name="ti-cloud-upload" size={20} color={theme.warning} />
               </View>
@@ -255,7 +256,7 @@ export function BackupPage() {
             {importState === 'done' && (
               <View
                 className="flex-row items-center gap-2 rounded-xl px-3 py-2"
-                style={{ backgroundColor: `${theme.success}1a` }}
+                style={{ backgroundColor: tint(theme.success, 10) }}
               >
                 <Icon name="ti-circle-check" size={16} color={theme.success} />
                 <Text className="text-xs font-medium" style={{ color: theme.success }}>
@@ -284,7 +285,7 @@ export function BackupPage() {
             <View className="flex-row items-start gap-3">
               <View
                 className="w-10 h-10 rounded-xl items-center justify-center"
-                style={{ backgroundColor: `${theme.info}1a` }}
+                style={{ backgroundColor: tint(theme.info, 10) }}
               >
                 <Icon name="ti-brand-google-drive" size={20} color={theme.info} />
               </View>
@@ -301,7 +302,7 @@ export function BackupPage() {
                 {cloudState === 'uploaded' && (
                   <View
                     className="flex-row items-center gap-2 rounded-xl px-3 py-2"
-                    style={{ backgroundColor: `${theme.success}1a` }}
+                    style={{ backgroundColor: tint(theme.success, 10) }}
                   >
                     <Icon name="ti-circle-check" size={16} color={theme.success} />
                     <Text className="text-xs font-medium" style={{ color: theme.success }}>
@@ -349,7 +350,7 @@ export function BackupPage() {
             <View className="flex-row items-start gap-3">
               <View
                 className="w-10 h-10 rounded-xl items-center justify-center"
-                style={{ backgroundColor: `${theme.danger}1a` }}
+                style={{ backgroundColor: tint(theme.danger, 10) }}
               >
                 <Icon name="ti-alert-triangle" size={20} color={theme.danger} />
               </View>

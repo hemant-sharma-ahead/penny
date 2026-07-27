@@ -237,7 +237,7 @@ export function SettingsPage() {
     .join(' · ');
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
+    <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader leading={<BackButton />} title="Settings" />
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-4">
@@ -352,7 +352,7 @@ export function SettingsPage() {
                     height: 56,
                     paddingBottom: 6,
                     borderColor: on ? theme.primary : theme.border,
-                    backgroundColor: on ? `${theme.primary}14` : 'transparent'
+                    backgroundColor: on ? tint(theme.primary, 8) : 'transparent'
                   }}
                 >
                   <Text
@@ -402,8 +402,10 @@ export function SettingsPage() {
                   onPress={() => setOpenModeDurationMinutes(minutes)}
                   className="flex-1 py-2 rounded-xl border items-center"
                   style={{
-                    backgroundColor: on ? theme.warning : 'transparent',
-                    borderColor: on ? theme.warning : theme.border
+                    // Open mode is a distinct destructive-red risk indicator on web (`var(--color-open)`),
+                    // not a plain warning — `theme.open` is the matching token (see PrivacyModeSwitcher.tsx).
+                    backgroundColor: on ? theme.open : 'transparent',
+                    borderColor: on ? theme.open : theme.border
                   }}
                 >
                   <Text className="text-xs font-bold" style={{ color: on ? '#fff' : theme.textSecondary }}>

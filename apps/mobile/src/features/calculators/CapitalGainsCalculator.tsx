@@ -15,7 +15,10 @@ const ASSET_OPTIONS: { value: CapitalAsset; label: string }[] = [
 
 /** RN port of apps/web-react/src/features/calculators/CapitalGainsCalculator.tsx. */
 export function CapitalGainsCalculator() {
-  const masked = usePrivacy().shouldMask(false);
+  // Calculator output (salary/income-derived figures) is always-sensitive in Safe mode, matching web's
+  // MaskedValue (masks whenever mode is 'safe' or 'privacy', regardless of any per-field flag) — pass
+  // `true`, not `false`; `shouldMask(false)` would leave Safe mode fully unmasked here.
+  const masked = usePrivacy().shouldMask(true);
   const [asset, setAsset] = useState<CapitalAsset>('equity');
   const [buy, setBuy] = useState('');
   const [sell, setSell] = useState('');
@@ -43,7 +46,7 @@ export function CapitalGainsCalculator() {
 
   return (
     <View className="gap-4">
-      <View className="rounded-2xl p-4 gap-4 bg-surface">
+      <View className="rounded-2xl p-4 gap-4 bg-surface border border-theme">
         <SegmentedToggle label="Asset type" value={asset} onChange={setAsset} options={ASSET_OPTIONS} />
         <LabeledInput label="Purchase value" value={buy} onChange={setBuy} prefix="₹" placeholder="e.g. 1,00,000" />
         <LabeledInput label="Sale value" value={sell} onChange={setSell} prefix="₹" placeholder="e.g. 1,80,000" />

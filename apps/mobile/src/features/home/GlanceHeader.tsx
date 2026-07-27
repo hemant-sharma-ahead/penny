@@ -146,7 +146,7 @@ export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabiliti
               <View>
                 {assetGroups.map(({ ac, value, meta }) => (
                   <Pressable key={ac} onPress={() => goToAsset(ac)} className="w-full flex-row items-center gap-3 py-2">
-                    <IconBadge icon={meta.icon} color={meta.color} bg={`${meta.color}22`} size="sm" />
+                    <IconBadge icon={meta.icon} color={meta.color} bg={tint(meta.color, 13)} size="sm" />
                     <View className="flex-1">
                       <View className="flex-row items-baseline gap-1.5 mb-1">
                         <Text className="text-[13px] font-medium text-primary">{meta.label}</Text>

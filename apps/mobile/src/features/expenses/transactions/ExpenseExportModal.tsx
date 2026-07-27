@@ -5,6 +5,7 @@ import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { Expense, ExpenseCategory } from '@/core/db/types';
 import { exportExpensesAsCsv, downloadProtectedZip } from '@/core/export/exportCsv';
+import { tint } from '~/lib/color';
 
 interface ExpenseExportModalProps {
   expenses: Expense[];
@@ -71,7 +72,7 @@ export function ExpenseExportModal({ expenses, expenseCategories, onClose }: Exp
               className="flex-row items-center gap-3 px-3 py-2.5 rounded-xl border"
               style={{
                 borderColor: isSelected ? theme.primary : theme.border,
-                backgroundColor: isSelected ? `${theme.primary}15` : 'transparent'
+                backgroundColor: isSelected ? tint(theme.primary, 8) : 'transparent'
               }}
             >
               <View

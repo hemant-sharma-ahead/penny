@@ -66,14 +66,14 @@ export function CapitalGainsTab({ summary }: { summary: TaxSummary }) {
       {/* Harvesting tips */}
       {totalEquityStcg > 0 && totalEquityLtcg === 0 && (
         <Banner variant="warning" icon="ti-bulb">
-          Tax-loss harvesting: If you have unrealised losses, consider booking them before March 31 to offset these STCG
-          gains.
+          <Text className="font-bold">Tax-loss harvesting:</Text> If you have unrealised losses, consider booking them
+          before March 31 to offset these STCG gains.
         </Banner>
       )}
       {totalEquityLtcg > EQUITY_LTCG_EXEMPTION && (
         <Banner variant="info" icon="ti-bulb">
-          LTCG grandfathering: If gains accumulated before Jan 31 2018, those are exempt. Consult your CA for the exact
-          grandfathered cost.
+          <Text className="font-bold">LTCG grandfathering:</Text> If gains accumulated before Jan 31 2018, those are
+          exempt. Consult your CA for the exact grandfathered cost.
         </Banner>
       )}
 

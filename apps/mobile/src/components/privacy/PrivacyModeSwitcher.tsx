@@ -6,6 +6,7 @@ import { useThemeColors } from '~/theme/useThemeColors';
 import { usePrivacy, type PrivacyMode } from '~/context/PrivacyContext';
 import { verifyPin } from '@/core/crypto/securityManager';
 import { notifyAuthShouldRecheck } from '~/navigation/authRecheckBus';
+import { tint } from '~/lib/color';
 
 const MODE_ORDER: PrivacyMode[] = ['safe', 'privacy', 'open'];
 
@@ -106,7 +107,7 @@ export function PrivacyModeSwitcher() {
         <Pressable
           onPress={() => setMenuOpen(true)}
           className="w-8 h-8 rounded-full items-center justify-center"
-          style={{ backgroundColor: `${active.color}24` }}
+          style={{ backgroundColor: tint(active.color, 14) }}
           accessibilityLabel={`Privacy mode: ${active.label}${openCountdown ? `, reverts in ${openCountdown}` : ''}. Tap to change.`}
         >
           <Icon name={active.icon} size={17} color={active.color} />
@@ -149,7 +150,7 @@ export function PrivacyModeSwitcher() {
         <Modal onClose={handleClose} size="sm">
           <View
             className="w-12 h-12 rounded-full items-center justify-center self-center mb-1"
-            style={{ backgroundColor: `${theme.primary}22` }}
+            style={{ backgroundColor: tint(theme.primary, 13) }}
           >
             <Icon name="ti-lock-open" size={24} color={theme.primary} />
           </View>
@@ -168,18 +169,28 @@ export function PrivacyModeSwitcher() {
             error={pinError || undefined}
           />
 
+          {/* Each button gets its own `flex-1` wrapper, not just `fullWidth` — two `fullWidth` (`w-full`)
+           *  siblings in a `flex-row` both try to take 100% width and overflow/overlap instead of
+           *  splitting the row evenly (the same bug class already fixed in CashFlowPage's buffer modal
+           *  and income-suggestion row — this component fell outside every module-scoped sweep since it
+           *  lives in `components/privacy/`, not a `features/` module, and was missed until an on-device
+           *  screenshot caught it). */}
           <View className="flex-row gap-3 mt-1">
-            <Button variant="secondary" fullWidth onPress={handleClose}>
-              Cancel
-            </Button>
-            <Button
-              fullWidth
-              onPress={() => void handlePinConfirm()}
-              disabled={pinInput.length !== 6 || verifying}
-              loading={verifying}
-            >
-              Unlock
-            </Button>
+            <View className="flex-1">
+              <Button variant="secondary" fullWidth onPress={handleClose}>
+                Cancel
+              </Button>
+            </View>
+            <View className="flex-1">
+              <Button
+                fullWidth
+                onPress={() => void handlePinConfirm()}
+                disabled={pinInput.length !== 6 || verifying}
+                loading={verifying}
+              >
+                Unlock
+              </Button>
+            </View>
           </View>
         </Modal>
       )}

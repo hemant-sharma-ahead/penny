@@ -69,7 +69,7 @@ export function TrackingHeatmap({ entries, weeks = 14 }: Props) {
   }, [entries, weeks]);
 
   return (
-    <View className="rounded-2xl bg-surface p-4">
+    <View className="rounded-2xl bg-surface border border-theme p-4">
       <View className="flex-row items-baseline justify-between mb-3">
         <Text className="text-sm font-semibold text-primary">Tracking streak</Text>
         <Text className="text-xs text-secondary">

@@ -14,6 +14,7 @@ import { useThemeColors } from '~/theme/useThemeColors';
 import { EventsModal } from './events/EventsModal';
 import { useEventEditor } from './events/useEventEditor';
 import { ExpenseExportModal } from './transactions/ExpenseExportModal';
+import { tint } from '~/lib/color';
 
 interface ExpensesHeaderProps {
   filteredTotal: number;
@@ -154,7 +155,7 @@ export function ExpensesHeader({
           <View className="flex-row items-center gap-3">
             <View
               className="w-10 h-10 rounded-xl items-center justify-center"
-              style={{ backgroundColor: `${theme.warning}22` }}
+              style={{ backgroundColor: tint(theme.warning, 13) }}
             >
               <Icon name="ti-alert-triangle" size={20} color={theme.warning} />
             </View>

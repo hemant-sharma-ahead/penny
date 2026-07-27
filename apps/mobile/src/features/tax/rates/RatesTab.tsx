@@ -71,10 +71,10 @@ export function RatesTab() {
 
       {/* Applicability — distinct from the rates */}
       <Banner variant="info" icon="ti-building-store">
-        When does GST actually apply? Only registered sellers charge it — those above ₹40L turnover (₹20L for services).
-        Small/local shops below that, and composition dealers (≤₹1.5cr), usually don't add GST to the bill. Fresh
-        produce and unbranded staples are exempt. So your real indirect tax can be lower than the estimate — which is
-        why the Footprint shows a range.
+        <Text className="font-bold">When does GST actually apply?</Text> Only registered sellers charge it — those above
+        ₹40L turnover (₹20L for services). Small/local shops below that, and composition dealers (≤₹1.5cr), usually
+        don't add GST to the bill. Fresh produce and unbranded staples are exempt. So your real indirect tax can be
+        lower than the estimate — which is why the Footprint shows a range.
       </Banner>
 
       {/* Beyond GST */}

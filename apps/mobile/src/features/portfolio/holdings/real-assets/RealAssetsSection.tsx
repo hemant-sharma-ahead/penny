@@ -10,6 +10,7 @@ import { PropertyCard } from './PropertyCard';
 import { VehicleModal } from './VehicleModal';
 import { PropertyModal } from './PropertyModal';
 import { OtherModal } from './OtherModal';
+import { tint } from '~/lib/color';
 
 type RealAssetClass = Extract<AssetClass, 'vehicle' | 'property' | 'other'>;
 
@@ -55,7 +56,7 @@ export function RealAssetsSection({ holdings, mode, masked, onSave, onRemove }: 
           <Pressable
             onPress={() => setForm({ ac: 'vehicle', editing: null })}
             className="flex-row items-center gap-1 px-2 py-0.5 rounded-full"
-            style={{ backgroundColor: `${theme.info}15` }}
+            style={{ backgroundColor: tint(theme.info, 8) }}
           >
             <Icon name="ti-plus" size={11} color={theme.info} />
             <Text className="text-[10px] font-semibold" style={{ color: theme.info }}>
@@ -69,7 +70,7 @@ export function RealAssetsSection({ holdings, mode, masked, onSave, onRemove }: 
             className="w-full bg-surface border border-theme rounded-2xl px-4 py-5 items-center gap-2 border border-dashed"
             style={{ borderColor: theme.border }}
           >
-            <Icon name="ti-car" size={28} color={`${theme.info}40`} />
+            <Icon name="ti-car" size={28} color={tint(theme.info, 25)} />
             <Text className="text-xs text-tertiary">Track your car, bike, or other vehicle</Text>
             <Text className="text-[10px] font-semibold" style={{ color: theme.info }}>
               + Add vehicle

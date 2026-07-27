@@ -87,7 +87,7 @@ export function TimelinePage() {
   }
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
+    <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader
         leading={<BackButton />}
         title="Timeline"
@@ -139,9 +139,10 @@ export function TimelinePage() {
                         <Pressable
                           key={f.value}
                           onPress={() => setActionFilter(f.value)}
-                          className="flex-shrink-0 px-3 py-1.5 rounded-full border"
+                          className="flex-shrink-0 px-3 py-1.5 rounded-full"
                           style={{
                             backgroundColor: active ? theme.primary : theme.surfaceSecondary,
+                            borderWidth: 0.5,
                             borderColor: active ? theme.primary : theme.border
                           }}
                         >

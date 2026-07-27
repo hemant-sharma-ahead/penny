@@ -25,7 +25,7 @@ import { HealthDetailModal } from './HealthDetailModal';
 /** Arc colour per component status — powers the segmented ring + the quick-win icons. */
 const STATUS_COLOR: Record<ComponentStatus, string> = {
   excellent: 'var(--color-success)',
-  good: '#10b981',
+  good: 'var(--color-success)',
   fair: 'var(--color-warning)',
   poor: 'var(--color-danger)',
   no_data: 'var(--color-border)'

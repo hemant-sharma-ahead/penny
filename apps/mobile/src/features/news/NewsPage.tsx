@@ -128,7 +128,7 @@ export function NewsPage() {
   );
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
+    <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       {/* Header */}
       <View className="px-4 pt-4 pb-2 flex-row items-center justify-between">
         <View className="flex-row items-center gap-2">
@@ -222,7 +222,7 @@ export function NewsPage() {
               return (
                 <Pressable
                   onPress={() => void Linking.openURL(item.link)}
-                  className="bg-surface rounded-2xl p-4 gap-2 active:opacity-70"
+                  className="bg-surface border border-theme rounded-2xl p-4 gap-2 active:opacity-70"
                 >
                   {/* Source chip + sentiment + time */}
                   <View className="flex-row items-center justify-between gap-2">

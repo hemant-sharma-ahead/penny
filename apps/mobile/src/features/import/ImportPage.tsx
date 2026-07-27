@@ -28,7 +28,7 @@ export function ImportPage() {
   const imp = useImport();
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
+    <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader
         title="Import expenses"
         leading={
@@ -81,8 +81,8 @@ export function ImportPage() {
           }
         />
       ) : (
-        <ScrollView>
-          <View className="px-4 py-4 gap-4">
+        <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+          <View className="flex-1 px-4 py-4 gap-4">
             {imp.step === 'upload' && (
               <UploadStep
                 format={imp.format}

@@ -55,12 +55,16 @@ export function BulkAccountPaymentModal({ accounts, count, onApply, onAddAccount
       title="Account & payment mode"
       footer={
         <View className="flex-row gap-3">
-          <Button variant="secondary" fullWidth onPress={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button fullWidth disabled={!accountId && !paymentMode} loading={busy} onPress={() => void handleApply()}>
-            Apply
-          </Button>
+          <View className="flex-1">
+            <Button variant="secondary" fullWidth onPress={onClose} disabled={busy}>
+              Cancel
+            </Button>
+          </View>
+          <View className="flex-1">
+            <Button fullWidth disabled={!accountId && !paymentMode} loading={busy} onPress={() => void handleApply()}>
+              Apply
+            </Button>
+          </View>
         </View>
       }
     >

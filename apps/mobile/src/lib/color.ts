@@ -35,3 +35,24 @@ export function ink(hex: string, towardHex: string, pct = 70): string {
   const mix = (ca: number, cb: number) => Math.round((ca * pct + cb * (100 - pct)) / 100);
   return `rgb(${mix(a.r, b.r)}, ${mix(a.g, b.g)}, ${mix(a.b, b.b)})`;
 }
+
+/**
+ * RN equivalent of a colored-tile picker's web `boxShadow` selection halo
+ * (`0 0 0 2px var(--color-surface), 0 0 0 3.5px ${item.color}`) — a surface-colored gap, then a ring in
+ * the item's own color. RN has no boxShadow, so this wraps the tile in a padded, bordered container
+ * instead: the padding is the gap, the border is the halo. Pass the inner tile's own `borderRadius` so
+ * the outer wrapper's radius (`innerRadius + padding`) stays concentric. Used by
+ * `AccountChips`/`PaymentModeChips`/`CategoryPickerModal`'s tile selection indicators — every one of
+ * these previously drew the ring in a static `theme.surface` color regardless of the item's own color,
+ * making the selected state hard to distinguish from the tile's own background.
+ */
+export function selectionRingStyle(selected: boolean, surfaceColor: string, itemColor: string, innerRadius = 10) {
+  const gap = 2;
+  return {
+    padding: gap,
+    borderRadius: innerRadius + gap,
+    borderWidth: gap,
+    borderColor: selected ? itemColor : 'transparent',
+    backgroundColor: selected ? surfaceColor : 'transparent'
+  } as const;
+}

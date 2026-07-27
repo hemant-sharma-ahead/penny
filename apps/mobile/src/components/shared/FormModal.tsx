@@ -14,6 +14,11 @@ interface FormModalProps {
   saveLabel?: string;
   /** Label for the danger delete button. Default "Delete". */
   deleteLabel?: string;
+  /** Adds an explicit Cancel button to the footer — most callers rely on the modal's own X/backdrop
+   *  dismissal (matching their web equivalent's `FormModal`, which also has no Cancel button), but a few
+   *  (e.g. Accounts) have a web counterpart with its own hand-rolled footer that does include one.
+   *  Default false. */
+  showCancel?: boolean;
   children: ReactNode;
   scrollable?: boolean;
   size?: 'sm' | 'md';
@@ -36,6 +41,7 @@ export function FormModal({
   saveDisabled = false,
   saveLabel = 'Save',
   deleteLabel = 'Delete',
+  showCancel = false,
   children,
   scrollable = true,
   size
@@ -48,6 +54,13 @@ export function FormModal({
       size={size}
       footer={
         <View className="flex-row gap-3">
+          {showCancel && (
+            <View className="flex-1">
+              <Button variant="secondary" fullWidth onPress={onClose}>
+                Cancel
+              </Button>
+            </View>
+          )}
           {onDelete && (
             <View className="flex-1">
               <Button variant="danger" fullWidth onPress={onDelete}>

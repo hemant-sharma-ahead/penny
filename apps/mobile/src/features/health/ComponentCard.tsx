@@ -32,7 +32,7 @@ export function ComponentCard({ c }: { c: ScoreComponent }) {
         </Text>
       </View>
 
-      <ProgressBar value={pct} color={s.bar} />
+      <ProgressBar value={pct} color={s.bar} animate />
 
       <View>
         <Text

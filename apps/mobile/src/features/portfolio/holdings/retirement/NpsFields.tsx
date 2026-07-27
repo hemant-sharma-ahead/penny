@@ -117,9 +117,13 @@ export function NpsFields({
           <View className="flex-row gap-3">
             <View className="flex-1">
               <Text className="text-xs font-medium text-secondary mb-1">Scheme type</Text>
-              <SegmentedControl
+              {/* Explicit generic param so `value` can be '' (unset) without a fake default forcing "E"
+                  to show as selected before the user has actually picked anything — found via the
+                  2026-07-26 audit: `|| 'E'` was a display-only default that didn't match the real,
+                  still-empty state, so a user who never tapped a pill would see one glowing anyway. */}
+              <SegmentedControl<NpsSchemeType | ''>
                 options={(['E', 'C', 'G', 'A'] as const).map((t) => ({ value: t, label: t }))}
-                value={npsSchemeType || 'E'}
+                value={npsSchemeType}
                 onChange={setNpsSchemeType}
               />
             </View>

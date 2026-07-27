@@ -54,12 +54,12 @@ export function IpoDetailModal({ ipo, onClose }: { ipo: IpoItem; onClose: () => 
         <View className="flex-1 gap-1.5">
           <Text className="text-base font-bold text-primary leading-snug">{ipo.name}</Text>
           <View className="flex-row items-center gap-2 flex-wrap">
-            <View className="px-1.5 py-0.5 rounded" style={{ backgroundColor: `${catColor}18` }}>
+            <View className="px-1.5 py-0.5 rounded" style={{ backgroundColor: tint(catColor, 9) }}>
               <Text className="text-[10px] font-bold uppercase tracking-wide" style={{ color: catColor }}>
                 {catLabel}
               </Text>
             </View>
-            <View className="px-1.5 py-0.5 rounded" style={{ backgroundColor: `${sm.color}18` }}>
+            <View className="px-1.5 py-0.5 rounded" style={{ backgroundColor: tint(sm.color, 9) }}>
               <Text className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: sm.color }}>
                 {sm.label}
               </Text>
@@ -80,14 +80,14 @@ export function IpoDetailModal({ ipo, onClose }: { ipo: IpoItem; onClose: () => 
         <View>
           <Text className="text-[11px] font-semibold uppercase tracking-wide text-tertiary mb-2.5">Offer Details</Text>
           <View className="flex-row flex-wrap gap-2">
-            {ipo.price ? <StatBox size="sm" className="w-[47%]" label="Price" value={`₹${ipo.price}/sh`} /> : null}
+            {ipo.price ? <StatBox size="sm" className="w-[22%]" label="Price" value={`₹${ipo.price}/sh`} /> : null}
             {ipo.lotSize ? (
-              <StatBox size="sm" className="w-[47%]" label="Lot Size" value={`${ipo.lotSize} sh`} />
+              <StatBox size="sm" className="w-[22%]" label="Lot Size" value={`${ipo.lotSize} sh`} />
             ) : null}
             {minInvestment ? (
-              <StatBox size="sm" className="w-[47%]" label="Min Invest" value={formatCurrency(minInvestment)} />
+              <StatBox size="sm" className="w-[22%]" label="Min Invest" value={formatCurrency(minInvestment)} />
             ) : null}
-            {ipo.issueSize ? <StatBox size="sm" className="w-[47%]" label="Issue Size" value={ipo.issueSize} /> : null}
+            {ipo.issueSize ? <StatBox size="sm" className="w-[22%]" label="Issue Size" value={ipo.issueSize} /> : null}
           </View>
         </View>
       )}
@@ -98,16 +98,16 @@ export function IpoDetailModal({ ipo, onClose }: { ipo: IpoItem; onClose: () => 
         {(ipo.openDate ?? ipo.closeDate ?? ipo.boaDate ?? ipo.listingDate) ? (
           <View className="flex-row flex-wrap gap-2">
             {ipo.openDate ? (
-              <StatBox size="sm" className="w-[47%]" label="Opens" value={formatIpoDate(ipo.openDate)} />
+              <StatBox size="sm" className="w-[22%]" label="Opens" value={formatIpoDate(ipo.openDate)} />
             ) : null}
             {ipo.closeDate ? (
-              <StatBox size="sm" className="w-[47%]" label="Closes" value={formatIpoDate(ipo.closeDate)} />
+              <StatBox size="sm" className="w-[22%]" label="Closes" value={formatIpoDate(ipo.closeDate)} />
             ) : null}
             {ipo.boaDate ? (
-              <StatBox size="sm" className="w-[47%]" label="Allotment" value={formatIpoDate(ipo.boaDate)} />
+              <StatBox size="sm" className="w-[22%]" label="Allotment" value={formatIpoDate(ipo.boaDate)} />
             ) : null}
             {ipo.listingDate ? (
-              <StatBox size="sm" className="w-[47%]" label="Listing" value={formatIpoDate(ipo.listingDate)} />
+              <StatBox size="sm" className="w-[22%]" label="Listing" value={formatIpoDate(ipo.listingDate)} />
             ) : null}
           </View>
         ) : (

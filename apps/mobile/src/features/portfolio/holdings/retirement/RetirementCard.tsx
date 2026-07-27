@@ -147,7 +147,7 @@ export function RetirementCard({
         {/* Header row */}
         <View className="flex-row items-start justify-between gap-2">
           <Pressable onPress={onEdit} className="flex-row items-center gap-2.5 flex-1">
-            <IconBadge icon={assetMeta.icon} color={assetMeta.color} size="sm" bg={`${assetMeta.color}15`} />
+            <IconBadge icon={assetMeta.icon} color={assetMeta.color} size="sm" bg={tint(assetMeta.color, 8)} />
             <View className="flex-1">
               <Text className="text-sm font-semibold text-primary" numberOfLines={1}>
                 {holding.name}
@@ -279,7 +279,7 @@ export function RetirementCard({
                     </Text>
                   )}
                 </View>
-                <ProgressBar value={Math.min(100, (ppfData.yearsElapsed / 15) * 100)} color="#8b5cf6" />
+                <ProgressBar value={Math.min(100, (ppfData.yearsElapsed / 15) * 100)} color="#8b5cf6" animate />
               </View>
             )}
 
@@ -294,6 +294,7 @@ export function RetirementCard({
               <ProgressBar
                 value={ppfData.fyPct}
                 color={ppfData.fyPct >= 100 ? theme.success : ppfData.fyPct >= 75 ? '#8b5cf6' : theme.warning}
+                animate
               />
             </View>
 
@@ -668,13 +669,13 @@ export function RetirementUntrackedCard({ type, onTrack }: { type: 'nps' | 'ppf'
     <View className="bg-surface rounded-2xl px-4 py-3 border border-theme">
       <View className="flex-row items-center justify-between gap-2 mb-1.5">
         <View className="flex-row items-center gap-2.5">
-          <IconBadge icon={cfg.icon} color={cfg.color} size="sm" bg={`${cfg.color}15`} />
+          <IconBadge icon={cfg.icon} color={cfg.color} size="sm" bg={tint(cfg.color, 8)} />
           <Text className="text-sm font-semibold text-primary">{label}</Text>
         </View>
         <Pressable
           onPress={onTrack}
           className="flex-row items-center gap-1 px-2.5 py-1 rounded-full"
-          style={{ backgroundColor: `${cfg.color}15` }}
+          style={{ backgroundColor: tint(cfg.color, 8) }}
         >
           <Icon name="ti-plus" size={12} color={cfg.color} />
           <Text className="text-xs font-semibold" style={{ color: cfg.color }}>

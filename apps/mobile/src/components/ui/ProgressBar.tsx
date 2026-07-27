@@ -10,23 +10,23 @@ interface ProgressBarProps {
   color?: string;
   /** Track height. Defaults to 'sm'. */
   size?: 'xs' | 'sm' | 'md';
+  /** Whether the fill transitions to its new width, matching web's opt-in `animate` prop (its CSS
+   *  `transition` on `width` is not the default — most call sites pass `animate` explicitly, but a few,
+   *  e.g. `GlanceHeader`/`OptimizeTab`/one bar in `RetirementCard`, deliberately don't). Defaults to
+   *  `false` so callers that don't pass it match web's static-by-default behavior. */
+  animate?: boolean;
 }
 
 const HEIGHT = { xs: 'h-1', sm: 'h-1.5', md: 'h-2.5' } as const;
 
-/**
- * Web's fill bar has a CSS `transition` on `width` (an `animate` prop, now dropped as unused since every
- * caller relied on the default). Ported now via `react-native-reanimated` (already a dependency, first
- * used by Home's `MarketTicker`) — found missing via the 2026-07-25 parity sweep.
- */
-export function ProgressBar({ value, color, size = 'sm' }: ProgressBarProps) {
+export function ProgressBar({ value, color, size = 'sm', animate = false }: ProgressBarProps) {
   const theme = useThemeColors();
   const pct = Math.min(100, Math.max(0, value));
   const animatedPct = useSharedValue(pct);
 
   useEffect(() => {
-    animatedPct.value = withTiming(pct, { duration: 400 });
-  }, [pct, animatedPct]);
+    animatedPct.value = animate ? withTiming(pct, { duration: 400 }) : pct;
+  }, [pct, animate, animatedPct]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     width: `${animatedPct.value}%`

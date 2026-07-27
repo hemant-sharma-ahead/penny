@@ -3,11 +3,12 @@ import { View, Pressable, ScrollView, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getJSON, setJSON } from '~/lib/storage';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { STORIES_SEEN_KEY } from '@/core/activity/storiesSeen.constants';
 import { useHomeStories } from './useHomeStories';
 import { StoryViewer } from './StoryViewer';
 import type { Story } from './storyTypes';
 
-const SEEN_KEY = 'penny_stories_seen';
+const SEEN_KEY = STORIES_SEEN_KEY;
 
 /** Instagram-style story rings on Home: unseen = gradient ring, seen = muted. Tap to open the viewer.
  *  RN port of apps/web-react/src/features/home/stories/StoriesRow.tsx — `localStorage` swapped for

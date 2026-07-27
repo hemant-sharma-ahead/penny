@@ -15,6 +15,7 @@ import {
   daysUntil
 } from './ipoHelpers';
 import { IpoDetailModal } from './IpoDetailModal';
+import { tint } from '~/lib/color';
 
 interface SubTabPillProps {
   label: string;
@@ -246,7 +247,7 @@ export function IpoTab() {
               {/* Name + category badge inline */}
               <View className="flex-row items-baseline gap-1.5 flex-wrap">
                 <Text className="text-sm font-semibold text-primary leading-snug">{ipo.name}</Text>
-                <View className="px-1 py-0.5 rounded" style={{ backgroundColor: `${catColor}18` }}>
+                <View className="px-1 py-0.5 rounded" style={{ backgroundColor: tint(catColor, 9) }}>
                   <Text className="text-[9px] font-bold uppercase tracking-wide" style={{ color: catColor }}>
                     {catLabel}
                   </Text>

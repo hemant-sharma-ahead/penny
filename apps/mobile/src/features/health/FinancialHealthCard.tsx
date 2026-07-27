@@ -120,7 +120,7 @@ export function FinancialHealthCard({ onNavigate }: { onNavigate?: (to: AppRoute
         </Pressable>
       </View>
 
-      <View className="bg-surface rounded-2xl p-4">
+      <View className="bg-surface border border-theme rounded-2xl p-4">
         <View className="flex-row items-center gap-4">
           <View className="w-[68px] h-[68px] items-center justify-center flex-shrink-0">
             <Svg viewBox={`0 0 ${RING_CX * 2} ${RING_CY * 2}`} width={68} height={68} style={{ position: 'absolute' }}>

@@ -28,6 +28,21 @@ import type {
   PpfTransactionType
 } from '@/core/db/types';
 
+/**
+ * Web's EPF month-only fields use native `<input type="month">`, which structurally can't accept
+ * malformed input. RN's `DateInput` only supports day-granularity `YYYY-MM-DD`, so these stay plain
+ * `TextInput`s — this validator is the RN equivalent of the browser's built-in constraint, surfaced via
+ * the shared `TextInput`'s `error` prop instead of silently letting a bad value flow into
+ * `new Date(\`${month}-01\`).getTime()` downstream (found via the 2026-07-26 parity sweep).
+ */
+function monthFieldError(value: string, min?: string, max?: string): string | undefined {
+  if (!value) return undefined;
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return 'Enter as YYYY-MM, e.g. 2026-06';
+  if (min && value < min) return `Must be on or after ${min}`;
+  if (max && value > max) return `Must be on or before ${max}`;
+  return undefined;
+}
+
 export function AllocationPills({ equity, corporate, govt }: { equity: number; corporate: number; govt: number }) {
   return (
     <View className="flex-row gap-1.5 flex-wrap">
@@ -343,7 +358,16 @@ export function EpfAllTransactionsSheet({
           <Text className="text-[10px] text-tertiary">
             {allMonths.length} months · {holding.assetMeta?.epfEmployers?.length ?? 0} employers
           </Text>
-          <Button variant="secondary" size="sm" icon="ti-plus" onPress={onAddTransaction}>
+          {/* Matches web's custom slate pill (not the shared Button's generic secondary variant) — the
+           *  consistent EPF-actions accent used throughout this file. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            icon="ti-plus"
+            color="#64748b15"
+            textColor="#64748b"
+            onPress={onAddTransaction}
+          >
             Add
           </Button>
         </View>
@@ -511,6 +535,7 @@ export function EpfTransactionSheet({
   onSave: (updated: Holding) => Promise<void>;
   onClose: () => void;
 }) {
+  const theme = useThemeColors();
   const currentEmp = epfCurrentEmployer(holding.assetMeta?.epfEmployers ?? []);
   const basic = currentEmp?.basicSalary ?? 0;
   const empPct = (currentEmp?.employeeContribPct ?? 12) / 100;
@@ -589,10 +614,10 @@ export function EpfTransactionSheet({
               style={
                 active
                   ? { backgroundColor: '#64748b', borderColor: '#64748b' }
-                  : { backgroundColor: 'transparent', borderColor: '#64748b40' }
+                  : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }
               }
             >
-              <Text className="text-xs font-medium" style={{ color: active ? '#fff' : '#64748b' }}>
+              <Text className="text-xs font-medium" style={{ color: active ? '#fff' : theme.textSecondary }}>
                 {label}
               </Text>
             </Pressable>
@@ -606,6 +631,7 @@ export function EpfTransactionSheet({
           value={wagesMonth}
           onChange={setWagesMonth}
           placeholder="e.g. 2026-06"
+          error={monthFieldError(wagesMonth)}
         />
       )}
 
@@ -672,7 +698,14 @@ export function EpfSalaryHikeSheet({
   const [hikeBasic, setHikeBasic] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const canSave = !!hikeMonth && parseFloat(hikeBasic) > 0;
+  const canSave =
+    !!hikeMonth &&
+    !monthFieldError(
+      hikeMonth,
+      new Date(emp?.fromDate ?? 0).toISOString().slice(0, 7),
+      emp?.toDate ? new Date(emp.toDate).toISOString().slice(0, 7) : undefined
+    ) &&
+    parseFloat(hikeBasic) > 0;
 
   function handleSave(id: string, ts: number) {
     if (!canSave || !emp) return;
@@ -697,6 +730,9 @@ export function EpfSalaryHikeSheet({
 
   if (!emp) return null;
 
+  const minMonth = new Date(emp.fromDate).toISOString().slice(0, 7);
+  const maxMonth = emp.toDate ? new Date(emp.toDate).toISOString().slice(0, 7) : undefined;
+
   return (
     <Modal onClose={onClose} title="Add Salary Hike">
       <Text className="text-xs text-tertiary -mt-2">{emp.companyName}</Text>
@@ -707,6 +743,7 @@ export function EpfSalaryHikeSheet({
         onChange={setHikeMonth}
         placeholder="e.g. 2026-04"
         autoFocus
+        error={monthFieldError(hikeMonth, minMonth, maxMonth)}
       />
 
       <AmountInput
@@ -757,7 +794,13 @@ export function EpfEmployerSheet({
   const [empPct, setEmpPct] = useState('12');
   const [saving, setSaving] = useState(false);
 
-  const canSave = !!company.trim() && parseFloat(basic) > 0 && !!fromMonth && !!toMonth;
+  const canSave =
+    !!company.trim() &&
+    parseFloat(basic) > 0 &&
+    !!fromMonth &&
+    !!toMonth &&
+    !monthFieldError(fromMonth) &&
+    !monthFieldError(toMonth, fromMonth || undefined);
 
   function handleSave() {
     if (!canSave) return;
@@ -797,10 +840,22 @@ export function EpfEmployerSheet({
 
       <View className="flex-row gap-3">
         <View className="flex-1">
-          <TextInput label="From (YYYY-MM)" value={fromMonth} onChange={setFromMonth} placeholder="e.g. 2018-06" />
+          <TextInput
+            label="From (YYYY-MM)"
+            value={fromMonth}
+            onChange={setFromMonth}
+            placeholder="e.g. 2018-06"
+            error={monthFieldError(fromMonth)}
+          />
         </View>
         <View className="flex-1">
-          <TextInput label="To (YYYY-MM)" value={toMonth} onChange={setToMonth} placeholder="e.g. 2022-05" />
+          <TextInput
+            label="To (YYYY-MM)"
+            value={toMonth}
+            onChange={setToMonth}
+            placeholder="e.g. 2022-05"
+            error={monthFieldError(toMonth, fromMonth || undefined)}
+          />
         </View>
       </View>
 

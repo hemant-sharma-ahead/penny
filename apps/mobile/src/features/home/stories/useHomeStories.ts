@@ -18,15 +18,17 @@ const INSIGHT_GRAD = ['#8b5cf6', '#6d28d9'] as const;
 const TIMELINE_GRAD = ['#0ea5e9', '#0369a1'] as const;
 
 // RN port of apps/web-react/src/features/home/stories/useHomeStories.ts. Web's `MODULE_PATH` maps a
-// `ChipInsight.moduleTag` to a route, falling back to Chip; mirrored here for the modules with a real
-// mobile route today. TAX/CASHFLOW have no ported mobile module yet, so they fall back to Chip too
-// (same as web's own fallback), not a fake destination.
+// `ChipInsight.moduleTag` to a route, falling back to Chip; mirrored here 1:1 — every entry below is a
+// screen name registered in `HomeStack.tsx`, resolved directly since this hook is used from `HomePage`
+// (itself a HomeStack screen), matching web's `useNavigate()` call shape.
 const MODULE_ROUTE: Record<string, string> = {
   EXPENSES: 'Expenses',
   SUBSCRIPTIONS: 'Subscriptions',
   PORTFOLIO: 'Portfolio',
   GOALS: 'Goals',
-  INSURANCE: 'Insurance'
+  TAX: 'Tax',
+  INSURANCE: 'Insurance',
+  CASHFLOW: 'CashFlow'
 };
 
 /** ISO-week key (year-week) so the weekly story re-lights every new week. */

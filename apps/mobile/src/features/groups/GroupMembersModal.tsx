@@ -102,7 +102,7 @@ export function GroupMembersModal({
                 className="flex-row items-center gap-3 px-3 py-2.5"
                 style={i > 0 ? { borderTopWidth: 1, borderTopColor: theme.border } : undefined}
               >
-                <View className="w-7 h-7 rounded-full bg-surface-2 items-center justify-center">
+                <View className="w-7 h-7 rounded-full bg-surface-3 items-center justify-center">
                   <Text className="text-xs font-semibold text-secondary">
                     {(m.displayName || '?').charAt(0).toUpperCase()}
                   </Text>
@@ -180,18 +180,18 @@ export function GroupMembersModal({
           </Button>
         )}
 
-        {/* Leave */}
-        <Pressable
-          onPress={() => setConfirmLeave(true)}
+        {/* Leave — matches web's <Button variant="ghost" className="w-full text-danger"> via the shared
+            Button's textColor override, rather than a bespoke Pressable. */}
+        <Button
+          variant="ghost"
+          fullWidth
+          icon="ti-logout"
+          textColor={theme.danger}
           disabled={busy}
-          className="w-full flex-row items-center justify-center gap-1.5 py-2.5 rounded-xl"
-          style={{ opacity: busy ? 0.5 : 1 }}
+          onPress={() => setConfirmLeave(true)}
         >
-          <Icon name="ti-logout" size={15} color={theme.danger} />
-          <Text className="text-sm font-semibold" style={{ color: theme.danger }}>
-            Leave group
-          </Text>
-        </Pressable>
+          Leave group
+        </Button>
       </View>
 
       <ConfirmDialog

@@ -8,7 +8,10 @@ import { LabeledInput, ResultCard, ResultRow, AmountRow, HeroResult } from './Ca
 
 /** RN port of apps/web-react/src/features/calculators/FireCalculator.tsx. */
 export function FireCalculator() {
-  const masked = usePrivacy().shouldMask(false);
+  // Calculator output (salary/income-derived figures) is always-sensitive in Safe mode, matching web's
+  // MaskedValue (masks whenever mode is 'safe' or 'privacy', regardless of any per-field flag) — pass
+  // `true`, not `false`; `shouldMask(false)` would leave Safe mode fully unmasked here.
+  const masked = usePrivacy().shouldMask(true);
   // Age is pre-filled from the profile's DOB but the user's own input always wins.
   const { profile } = useProfile();
   const derivedAge = profile?.dob ? deriveAge(profile.dob) : null;
@@ -38,7 +41,7 @@ export function FireCalculator() {
 
   return (
     <View className="gap-4">
-      <View className="rounded-2xl p-4 gap-4 bg-surface">
+      <View className="rounded-2xl p-4 gap-4 bg-surface border border-theme">
         <LabeledInput label="Current age" value={currentAge} onChange={setAgeOverride} suffix="yrs" placeholder="30" />
         <LabeledInput
           label="Monthly expenses (today)"

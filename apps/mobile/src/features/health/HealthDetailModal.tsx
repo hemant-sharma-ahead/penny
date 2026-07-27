@@ -38,7 +38,7 @@ export function HealthDetailModal({
           className="rounded-2xl border p-4"
           style={{
             backgroundColor: tint(incomeNeeded ? theme.warning : theme.success, 8),
-            borderColor: tint(incomeNeeded ? theme.warning : theme.success, 35)
+            borderColor: tint(incomeNeeded ? theme.warning : theme.success, incomeNeeded ? 35 : 30)
           }}
         >
           <AmountInput
@@ -51,8 +51,12 @@ export function HealthDetailModal({
 
         {healthScore && (
           <>
-            <View className="rounded-2xl px-4 pt-4 pb-3 bg-surface">
-              <View className="w-48 self-center">
+            <View className="rounded-2xl px-4 pt-4 pb-3 bg-surface border border-theme">
+              {/* `ScoreGauge`'s <Svg> has no intrinsic size — its width/height="100%" needs an explicit
+                  container height to resolve against, not just a width, or it collapses to 0 (found via
+                  the 2026-07-26 audit, alongside a report of this modal rendering blank below the income
+                  box). aspectRatio matches the viewBox's own 180:155 ratio so it scales at any width. */}
+              <View className="w-48 self-center" style={{ aspectRatio: 180 / 155 }}>
                 <ScoreGauge score={healthScore.total} color={healthScore.color} />
               </View>
               <View className="items-center -mt-2">

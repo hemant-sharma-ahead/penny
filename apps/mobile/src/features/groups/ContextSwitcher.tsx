@@ -192,7 +192,7 @@ function MenuRow({
       className="flex-row items-center gap-2.5 px-4 py-3"
       style={active ? { backgroundColor: theme.surfaceSecondary } : undefined}
     >
-      <View className="w-6 h-6 rounded-lg items-center justify-center bg-surface-2">
+      <View className="w-6 h-6 rounded-lg items-center justify-center bg-surface-3">
         <Icon name={icon} size={13} color={theme.textSecondary} />
       </View>
       <Text className="flex-1 text-sm font-medium text-primary" numberOfLines={1}>

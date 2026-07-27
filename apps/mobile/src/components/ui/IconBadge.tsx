@@ -1,5 +1,6 @@
 import { View } from 'react-native';
 import { Icon } from '~/components/Icon';
+import { tint } from '~/lib/color';
 
 interface IconBadgeProps {
   icon: string;
@@ -22,7 +23,7 @@ export function IconBadge({ icon, color, size = 'md', bg, className = '' }: Icon
   return (
     <View
       className={`${box} items-center justify-center shrink-0 ${className}`}
-      style={{ backgroundColor: bg ?? `${color}18` }}
+      style={{ backgroundColor: bg ?? tint(color, 9) }}
     >
       <Icon name={icon} size={iconSize} color={color} />
     </View>

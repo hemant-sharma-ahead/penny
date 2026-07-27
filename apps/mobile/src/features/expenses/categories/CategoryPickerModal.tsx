@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { View, Pressable, ScrollView, Text } from 'react-native';
 import { Banner, Button, ConfirmDialog, Modal, SelectInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
-import { tint } from '~/lib/color';
+import { tint, selectionRingStyle } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { ExpenseCategory } from '@/core/db/types';
 import { INTENT_GROUP_META } from '@/core/db/defaultCategories';
@@ -56,15 +56,10 @@ function QuickPickRow({
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
         {cats.map((cat) => (
           <Pressable key={cat.id} onPress={() => onSelect(cat.id)} className="items-center gap-1 w-12">
-            <View
-              className="w-10 h-10 rounded-xl items-center justify-center"
-              style={{
-                backgroundColor: cat.color,
-                borderWidth: selectedId === cat.id ? 2 : 0,
-                borderColor: theme.surface
-              }}
-            >
-              <Icon name={cat.icon} size={17} color="#fff" />
+            <View style={selectionRingStyle(selectedId === cat.id, theme.surface, cat.color, 12)}>
+              <View className="w-10 h-10 rounded-xl items-center justify-center" style={{ backgroundColor: cat.color }}>
+                <Icon name={cat.icon} size={17} color="#fff" />
+              </View>
             </View>
             <Text className="text-[8px] font-medium text-center leading-tight text-secondary w-full" numberOfLines={2}>
               {cat.name}
@@ -378,29 +373,27 @@ export function CategoryPickerModal({
                 const isSel = mode === 'select' ? selectedId === cat.id : selected.has(cat.id);
                 return (
                   <Pressable key={cat.id} onPress={() => handleTileClick(cat)} className="items-center gap-1 w-[15%]">
-                    <View
-                      className="relative w-9 h-9 rounded-[10px] items-center justify-center"
-                      style={{
-                        backgroundColor: cat.color,
-                        borderWidth: isSel ? 2 : 0,
-                        borderColor: theme.surface
-                      }}
-                    >
-                      <Icon name={cat.icon} size={14} color="#fff" />
-                      {mode === 'manage' && multiSelect && (
-                        <View className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-surface items-center justify-center">
-                          <Icon
-                            name={isSel ? 'ti-circle-check-filled' : 'ti-circle'}
-                            size={9}
-                            color={isSel ? cat.color : theme.textTertiary}
-                          />
-                        </View>
-                      )}
-                      {mode === 'manage' && !multiSelect && (
-                        <View className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-surface items-center justify-center">
-                          <Icon name="ti-pencil" size={8} color={theme.textTertiary} />
-                        </View>
-                      )}
+                    <View style={selectionRingStyle(isSel, theme.surface, cat.color)}>
+                      <View
+                        className="relative w-9 h-9 rounded-[10px] items-center justify-center"
+                        style={{ backgroundColor: cat.color }}
+                      >
+                        <Icon name={cat.icon} size={14} color="#fff" />
+                        {mode === 'manage' && multiSelect && (
+                          <View className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-surface items-center justify-center">
+                            <Icon
+                              name={isSel ? 'ti-circle-check-filled' : 'ti-circle'}
+                              size={9}
+                              color={isSel ? cat.color : theme.textTertiary}
+                            />
+                          </View>
+                        )}
+                        {mode === 'manage' && !multiSelect && (
+                          <View className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-surface items-center justify-center">
+                            <Icon name="ti-pencil" size={8} color={theme.textTertiary} />
+                          </View>
+                        )}
+                      </View>
                     </View>
                     <Text
                       className="text-[7px] font-medium text-center leading-tight text-secondary w-full"

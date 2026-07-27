@@ -12,7 +12,7 @@ export function ScoreGauge({ score, color }: { score: number; color: string }) {
   const filled = (arcLength * Math.min(100, Math.max(0, score))) / 100;
 
   return (
-    <Svg viewBox="0 0 180 155">
+    <Svg width="100%" height="100%" viewBox="0 0 180 155">
       <Circle
         cx={cx}
         cy={cy}

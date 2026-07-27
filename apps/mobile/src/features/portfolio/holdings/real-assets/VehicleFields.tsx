@@ -4,6 +4,7 @@ import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { RcDetails } from '@/core/vehicle/rcClient';
 import { ValidityBadge } from './ValidityBadge';
+import { tint } from '~/lib/color';
 
 interface VehicleFieldsProps {
   vehicleRegInput: string;
@@ -45,6 +46,7 @@ export function VehicleFields({
                 setVehicleFetchError('');
                 if (vehicleRcSnapshot) setVehicleRcSnapshot(null);
               }}
+              inputClassName="font-mono uppercase"
             />
           </View>
           <Pressable
@@ -85,7 +87,8 @@ export function VehicleFields({
             <View
               className="px-1.5 py-0.5 rounded-full"
               style={{
-                backgroundColor: vehicleRcSnapshot.rcStatus === 'ACTIVE' ? `${theme.success}15` : `${theme.danger}15`
+                backgroundColor:
+                  vehicleRcSnapshot.rcStatus === 'ACTIVE' ? tint(theme.success, 8) : tint(theme.danger, 8)
               }}
             >
               <Text

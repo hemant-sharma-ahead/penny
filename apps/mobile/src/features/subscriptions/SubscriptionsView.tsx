@@ -98,7 +98,7 @@ export function SubscriptionsView({
             />
           ) : (
             <>
-              <View className="bg-surface rounded-xl px-4 py-1">
+              <View className="bg-surface border border-theme rounded-xl px-4 py-1">
                 <DetailRow label="Monthly spend" value={!masked ? formatCurrency(monthlyTotal) : '••••'} size="md" />
                 <DetailRow label="Yearly spend" value={!masked ? formatCurrency(annualTotal) : '••••'} size="md" />
               </View>

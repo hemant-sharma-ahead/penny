@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { View, Pressable, TextInput as RNTextInput, Image, ScrollView, Text } from 'react-native';
 import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -39,6 +39,7 @@ import type { CategoryManager } from '../categories/types';
 import { AccountChips } from './AccountChips';
 import { PaymentModeChips } from './PaymentModeChips';
 import { couplePaymentToAccount } from './paymentModes';
+import { tint } from '~/lib/color';
 
 interface Props {
   categories: ExpenseCategory[];
@@ -111,7 +112,7 @@ function ExtraCircle({
         className="w-11 h-11 rounded-full items-center justify-center border"
         style={{
           borderColor: active ? accent : theme.border,
-          backgroundColor: active ? `${accent}1f` : theme.surfaceSecondary
+          backgroundColor: active ? tint(accent, 12) : theme.surfaceSecondary
         }}
       >
         <Icon name={icon} size={18} color={active ? accent : theme.textTertiary} />
@@ -247,6 +248,13 @@ export function ExpenseForm({
 
   const initEditing = useRef(editing);
 
+  // Scroll-to-focus refs for validation errors on conditionally-required panels — see `focusPanel()`.
+  const scrollRef = useRef<ScrollView>(null);
+  const tagsPanelRef = useRef<View>(null);
+  const iouPanelRef = useRef<View>(null);
+  const sharePanelRef = useRef<View>(null);
+  const repeatPanelRef = useRef<View>(null);
+
   useEffect(() => {
     accountsRepo.getAll().then((accs) => {
       const active = accs.filter((a) => !a.isArchived);
@@ -381,6 +389,17 @@ export function ExpenseForm({
     }
   }
 
+  /** Scrolls a conditionally-required panel into view on validation error, matching web's own
+   *  `focusPanel()` (`el.scrollIntoView({block: 'center'})`). RN has no `scrollIntoView` — this measures
+   *  the panel relative to the Modal's forwarded `scrollRef` and scrolls to it directly. */
+  function focusPanel(panelRef: RefObject<View | null>) {
+    panelRef.current?.measureLayout(
+      scrollRef.current as unknown as View,
+      (_x, y) => scrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true }),
+      () => {}
+    );
+  }
+
   function handleSave() {
     const amt = parseFloat(amount);
     const nextErrors = {
@@ -393,16 +412,19 @@ export function ExpenseForm({
       shareGroup: showShareSection && shareEnabled && !shareGroupId,
       repeatInterval: isRecurring && !intervalDays.trim()
     };
-    if (
-      nextErrors.amount ||
-      nextErrors.desc ||
-      nextErrors.cat ||
-      nextErrors.tags ||
-      nextErrors.iouPerson ||
-      nextErrors.shareGroup ||
-      nextErrors.repeatInterval
-    ) {
+    // Two-stage gate, matching web: block on the always-visible fields first (no panel to scroll to —
+    // they're already on screen), then check the conditionally-required panels and scroll to whichever
+    // one actually failed.
+    if (nextErrors.amount || nextErrors.desc || nextErrors.cat) {
       setErrors(nextErrors);
+      return;
+    }
+    if (nextErrors.tags || nextErrors.iouPerson || nextErrors.shareGroup || nextErrors.repeatInterval) {
+      setErrors(nextErrors);
+      if (nextErrors.tags) focusPanel(tagsPanelRef);
+      else if (nextErrors.iouPerson) focusPanel(iouPanelRef);
+      else if (nextErrors.shareGroup) focusPanel(sharePanelRef);
+      else focusPanel(repeatPanelRef);
       return;
     }
     setErrors({});
@@ -507,6 +529,7 @@ export function ExpenseForm({
       <Modal
         onClose={onClose}
         scrollable
+        scrollRef={scrollRef}
         footer={
           <View className="gap-2.5">
             <View className="flex-row gap-3">
@@ -630,33 +653,38 @@ export function ExpenseForm({
           )}
         </View>
 
-        {/* Category */}
-        {type !== 'transfer' && (
-          <Pressable
-            onPress={() => setShowCategoryPicker(true)}
-            className="flex-row items-center justify-between gap-2 rounded-xl border bg-surface-2 px-3 py-3"
-            style={{ borderColor: errors.cat ? theme.danger : selectedCat ? selectedCat.color : theme.border }}
-          >
-            <View className="flex-row items-center gap-2 flex-1">
-              <Icon
-                name={selectedCat ? selectedCat.icon : 'ti-layout-grid-add'}
-                size={17}
-                color={selectedCat ? selectedCat.color : theme.textTertiary}
-              />
-              <Text
-                className="text-sm font-medium flex-1"
-                numberOfLines={1}
-                style={{ color: selectedCat ? theme.textPrimary : theme.textTertiary }}
-              >
-                {selectedCat?.name ?? 'Select category'}
-              </Text>
-            </View>
-            <Icon name="ti-chevron-down" size={15} color={theme.textTertiary} />
-          </Pressable>
-        )}
+        {/* Category + Date chips — a paired row on web (docs/features/expenses.md), not two stacked
+            full-width rows; matches the flex-1-sibling pattern every other paired-field row in this
+            file already uses. */}
+        <View className="flex-row gap-2.5">
+          {type !== 'transfer' && (
+            <Pressable
+              onPress={() => setShowCategoryPicker(true)}
+              className="flex-1 flex-row items-center justify-between gap-2 rounded-xl border bg-surface-2 px-3 py-3"
+              style={{ borderColor: errors.cat ? theme.danger : selectedCat ? selectedCat.color : theme.border }}
+            >
+              <View className="flex-row items-center gap-2 flex-1">
+                <Icon
+                  name={selectedCat ? selectedCat.icon : 'ti-layout-grid-add'}
+                  size={17}
+                  color={selectedCat ? selectedCat.color : theme.textTertiary}
+                />
+                <Text
+                  className="text-sm font-medium flex-1"
+                  numberOfLines={1}
+                  style={{ color: selectedCat ? theme.textPrimary : theme.textTertiary }}
+                >
+                  {selectedCat?.name ?? 'Select category'}
+                </Text>
+              </View>
+              <Icon name="ti-chevron-down" size={15} color={theme.textTertiary} />
+            </Pressable>
+          )}
 
-        {/* Date — no native date picker wired up yet; plain text field like every other ported form. */}
-        <DateInput label="Date" value={date} onChange={setDate} />
+          <View className="flex-1">
+            <DateInput value={date} onChange={setDate} />
+          </View>
+        </View>
 
         {/* Account */}
         {type === 'transfer' ? (
@@ -748,7 +776,7 @@ export function ExpenseForm({
 
         {/* Tags panel */}
         {type !== 'transfer' && showTags && (
-          <View className="rounded-xl border border-theme bg-surface-3 p-3 gap-2">
+          <View ref={tagsPanelRef} className="rounded-xl border border-theme bg-surface-3 p-3 gap-2">
             <View className="flex-row items-center justify-between">
               <Text className="text-xs font-medium text-secondary">Tags</Text>
               <Pressable
@@ -812,7 +840,7 @@ export function ExpenseForm({
                   {frequentTags.map((h) => (
                     <Button key={h.id} variant="secondary" size="sm" onPress={() => applyTagSuggestion(h.name)}>
                       #{h.name}
-                      {h.setAside ? ' •' : ''}
+                      {h.setAside ? <Text style={{ color: '#ec4899' }}> •</Text> : ''}
                     </Button>
                   ))}
                 </View>
@@ -838,7 +866,7 @@ export function ExpenseForm({
                       className="flex-row items-center gap-1.5 px-2.5 py-1 rounded-full border-2"
                       style={
                         isTagged
-                          ? { borderColor: ev.color, backgroundColor: `${ev.color}18` }
+                          ? { borderColor: ev.color, backgroundColor: tint(ev.color, 9) }
                           : { borderColor: theme.border }
                       }
                     >
@@ -905,6 +933,7 @@ export function ExpenseForm({
         {/* Lent / Borrowed panel */}
         {showIouSection && iouEnabled && (
           <View
+            ref={iouPanelRef}
             className="rounded-xl border p-3 gap-2"
             style={{
               borderColor: errors.iouPerson ? theme.danger : theme.border,
@@ -927,24 +956,34 @@ export function ExpenseForm({
                   : "Adds a you-owe-them entry to this person's ledger."}
               </Text>
             )}
-            {(iouPersons ?? []).filter((p) => !p.isArchived).length > 0 && (
-              <View className="flex-row flex-wrap gap-1">
-                {(iouPersons ?? [])
-                  .filter((p) => !p.isArchived)
-                  .slice(0, 6)
-                  .map((p) => (
-                    <Button key={p.id} variant="secondary" size="sm" onPress={() => setIouPerson(p.name)}>
-                      {p.name}
-                    </Button>
-                  ))}
-              </View>
-            )}
+            {/* RN has no `<datalist>` — web's native browser autocomplete only surfaces options that
+             *  match what's typed, invisible until then; this filters the same way (case-insensitive,
+             *  hidden while empty) instead of always showing every known person. */}
+            {iouPerson.trim().length > 0 &&
+              (() => {
+                const q = iouPerson.trim().toLowerCase();
+                const matches = (iouPersons ?? [])
+                  .filter((p) => !p.isArchived && p.name.toLowerCase().includes(q) && p.name.toLowerCase() !== q)
+                  .slice(0, 6);
+                return (
+                  matches.length > 0 && (
+                    <View className="flex-row flex-wrap gap-1">
+                      {matches.map((p) => (
+                        <Button key={p.id} variant="secondary" size="sm" onPress={() => setIouPerson(p.name)}>
+                          {p.name}
+                        </Button>
+                      ))}
+                    </View>
+                  )
+                );
+              })()}
           </View>
         )}
 
         {/* Share with a group (Track E, screen 8) — toggle → group + split-between + live "you're owed". */}
         {showShareSection && (
           <View
+            ref={sharePanelRef}
             className="rounded-xl border p-3 gap-3"
             style={{ borderColor: errors.shareGroup ? theme.danger : theme.border }}
           >
@@ -1049,6 +1088,7 @@ export function ExpenseForm({
         {/* Recurring panel */}
         {isRecurring && (
           <View
+            ref={repeatPanelRef}
             className="rounded-xl border p-3"
             style={{
               borderColor: errors.repeatInterval ? theme.danger : theme.border,

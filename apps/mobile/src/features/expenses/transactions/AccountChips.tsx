@@ -3,6 +3,7 @@ import type { Account } from '@/core/db/types';
 import { Button } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { selectionRingStyle } from '~/lib/color';
 
 interface AccountChipsProps {
   accounts: Account[];
@@ -15,9 +16,11 @@ interface AccountChipsProps {
 
 /**
  * Horizontal, scrollable account selector used by the expense/income/transfer form. RN port note: web's
- * selection ring uses a `boxShadow` double-stop trick (surface gap + account-color ring) — RN has no
- * boxShadow, so selection is shown with a plain inner border against the tile's own background, same
- * pattern as CategoryPickerModal's tile selection indicator.
+ * selection ring is a `boxShadow` double-stop trick (`0 0 0 2px surface, 0 0 0 3.5px ${item.color}`) — a
+ * surface-colored gap, then a halo in the item's own color. RN has no boxShadow, so this is reproduced
+ * with an outer padded+bordered wrapper (padding = the gap, border = the halo, in the item's own color,
+ * not a static theme color) around the unchanged inner tile — same pattern used by
+ * `PaymentModeChips`/`CategoryPickerModal`'s tile selection indicators.
  */
 export function AccountChips({ accounts, value, onChange, showNone, disabledId, onAddAccount }: AccountChipsProps) {
   const theme = useThemeColors();
@@ -34,11 +37,10 @@ export function AccountChips({ accounts, value, onChange, showNone, disabledId, 
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
       {showNone && (
         <Pressable onPress={() => onChange('')} className="items-center gap-1 w-[56px]">
-          <View
-            className="w-9 h-9 rounded-[10px] items-center justify-center"
-            style={{ backgroundColor: '#6b7280', borderWidth: value === '' ? 2 : 0, borderColor: theme.surface }}
-          >
-            <Icon name="ti-circle-off" size={15} color="#fff" />
+          <View style={selectionRingStyle(value === '', theme.surface, '#6b7280')}>
+            <View className="w-9 h-9 rounded-[10px] items-center justify-center" style={{ backgroundColor: '#6b7280' }}>
+              <Icon name="ti-circle-off" size={15} color="#fff" />
+            </View>
           </View>
           <Text className="text-[8px] font-medium leading-tight text-secondary text-center">None</Text>
         </Pressable>
@@ -54,11 +56,13 @@ export function AccountChips({ accounts, value, onChange, showNone, disabledId, 
             className="items-center gap-1 w-[56px]"
             style={{ opacity: isDisabled ? 0.35 : 1 }}
           >
-            <View
-              className="w-9 h-9 rounded-[10px] items-center justify-center"
-              style={{ backgroundColor: acc.color, borderWidth: isSelected ? 2 : 0, borderColor: theme.surface }}
-            >
-              <Icon name={acc.icon} size={15} color="#fff" />
+            <View style={selectionRingStyle(isSelected, theme.surface, acc.color)}>
+              <View
+                className="w-9 h-9 rounded-[10px] items-center justify-center"
+                style={{ backgroundColor: acc.color }}
+              >
+                <Icon name={acc.icon} size={15} color="#fff" />
+              </View>
             </View>
             <Text className="text-[8px] font-medium text-center leading-tight text-secondary w-full" numberOfLines={2}>
               {acc.name}

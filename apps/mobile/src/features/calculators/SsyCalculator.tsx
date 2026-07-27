@@ -9,7 +9,10 @@ import { LabeledInput, ResultCard, AmountRow, HeroResult } from './CalcUI';
 /** RN port of apps/web-react/src/features/calculators/SsyCalculator.tsx. Web's `divide-y` passbook
  *  rows use the same border-top-on-non-first-child technique as `CalcUI.tsx`'s `ResultCard`. */
 export function SsyCalculator() {
-  const masked = usePrivacy().shouldMask(false);
+  // Calculator output (salary/income-derived figures) is always-sensitive in Safe mode, matching web's
+  // MaskedValue (masks whenever mode is 'safe' or 'privacy', regardless of any per-field flag) — pass
+  // `true`, not `false`; `shouldMask(false)` would leave Safe mode fully unmasked here.
+  const masked = usePrivacy().shouldMask(true);
   const [deposit, setDeposit] = useState('');
   const [rate, setRate] = useState(String(SSY_DEFAULT_RATE_PCT));
 
@@ -21,7 +24,7 @@ export function SsyCalculator() {
 
   return (
     <View className="gap-4">
-      <View className="rounded-2xl p-4 gap-4 bg-surface">
+      <View className="rounded-2xl p-4 gap-4 bg-surface border border-theme">
         <LabeledInput
           label="Yearly deposit"
           hint="₹250 – ₹1.5L per year"
@@ -57,7 +60,7 @@ export function SsyCalculator() {
           </ResultCard>
 
           {/* Year-by-year passbook */}
-          <View className="rounded-2xl p-4 bg-surface">
+          <View className="rounded-2xl p-4 bg-surface border border-theme">
             <Text className="text-xs font-semibold uppercase tracking-wide text-tertiary mb-2">
               Year-by-year growth
             </Text>

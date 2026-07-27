@@ -64,7 +64,11 @@ export function SimulatedDashboardScreen() {
 
           <View className="flex-row flex-wrap gap-3 mb-4">
             {tiles.map((tile) => (
-              <View key={tile.label} className="bg-surface rounded-xl p-3.5" style={{ width: '48%' }}>
+              <View
+                key={tile.label}
+                className="bg-surface border border-theme rounded-xl p-3.5"
+                style={{ width: '48%' }}
+              >
                 <View className="flex-row items-center gap-2 mb-2">
                   <Icon name={tile.icon} size={16} color={theme.primary} />
                   <Text className="text-xs font-medium text-secondary">{tile.label}</Text>
@@ -75,7 +79,7 @@ export function SimulatedDashboardScreen() {
             ))}
           </View>
 
-          <View className="bg-surface rounded-xl p-4 mb-6">
+          <View className="bg-surface border border-theme rounded-xl p-4 mb-6">
             <View className="flex-row items-center gap-2 mb-2">
               <View
                 className="w-6 h-6 rounded-full items-center justify-center"

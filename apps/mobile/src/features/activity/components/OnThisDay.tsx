@@ -26,7 +26,7 @@ export function OnThisDay({ entries, masked }: Props) {
   if (memories.length === 0) return null;
 
   return (
-    <View className="rounded-2xl bg-surface p-4">
+    <View className="rounded-2xl bg-surface border border-theme p-4">
       <View className="flex-row items-center gap-2 mb-2">
         <Icon name="ti-calendar-heart" size={16} color={theme.primary} />
         <Text className="text-sm font-semibold text-primary">On this day</Text>

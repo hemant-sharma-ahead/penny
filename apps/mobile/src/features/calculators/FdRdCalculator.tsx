@@ -6,7 +6,10 @@ import { LabeledInput, SegmentedToggle, ResultCard, AmountRow, HeroResult } from
 
 /** RN port of apps/web-react/src/features/calculators/FdRdCalculator.tsx. */
 export function FdRdCalculator() {
-  const masked = usePrivacy().shouldMask(false);
+  // Calculator output (salary/income-derived figures) is always-sensitive in Safe mode, matching web's
+  // MaskedValue (masks whenever mode is 'safe' or 'privacy', regardless of any per-field flag) — pass
+  // `true`, not `false`; `shouldMask(false)` would leave Safe mode fully unmasked here.
+  const masked = usePrivacy().shouldMask(true);
   const [mode, setMode] = useState<'fd' | 'rd'>('fd');
 
   // FD inputs
@@ -38,7 +41,7 @@ export function FdRdCalculator() {
 
   return (
     <View className="gap-4">
-      <View className="rounded-2xl p-4 gap-4 bg-surface">
+      <View className="rounded-2xl p-4 gap-4 bg-surface border border-theme">
         <SegmentedToggle
           label="Deposit type"
           value={mode}

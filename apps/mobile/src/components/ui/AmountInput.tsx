@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, TextInput as RNTextInput, Text } from 'react-native';
 import { FormField } from './FormField';
 import { amountToWords } from '@/lib/amountToWords';
@@ -50,10 +50,23 @@ export function AmountInput({
 }: AmountInputProps) {
   const theme = useThemeColors();
   const [text, setText] = useState(() => groupForDisplay(value));
+  const isFocusedRef = useRef(false);
+
+  // Re-sync when `value` changes from outside (autofill, loading an existing record into an edit
+  // form) — matching web's AmountInput.tsx effect. RN has no `document.activeElement`, so a focus ref
+  // stands in for it; never resync while the user is actively typing, same guard web has.
+  useEffect(() => {
+    if (isFocusedRef.current) return;
+    setText(groupForDisplay(value));
+  }, [value]);
 
   const isExpression = checkIsExpression(text);
   const numeric = Number(value);
   const words = showWords && value !== '' && Number.isFinite(numeric) && numeric !== 0 ? amountToWords(numeric) : '';
+
+  const handleFocus = () => {
+    isFocusedRef.current = true;
+  };
 
   const handleChange = (raw: string) => {
     const sanitized = sanitize(raw);
@@ -63,6 +76,7 @@ export function AmountInput({
   };
 
   const handleBlur = () => {
+    isFocusedRef.current = false;
     const r = resolve(sanitize(text));
     onChange(r === null ? '' : String(r));
     setText(r === null ? '' : groupForDisplay(String(r)));
@@ -89,6 +103,7 @@ export function AmountInput({
           <RNTextInput
             value={text}
             onChangeText={handleChange}
+            onFocus={handleFocus}
             onBlur={handleBlur}
             placeholder={placeholder}
             placeholderTextColor={theme.textTertiary}
@@ -124,6 +139,7 @@ export function AmountInput({
       <RNTextInput
         value={text}
         onChangeText={handleChange}
+        onFocus={handleFocus}
         onBlur={handleBlur}
         placeholder={placeholder}
         placeholderTextColor={theme.textTertiary}

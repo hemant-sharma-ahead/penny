@@ -6,6 +6,7 @@ import type { Holding } from '@/core/db/types';
 import { realAssetIsStale } from './realAssetHelpers';
 import { VehicleValidityBadge } from './VehicleValidityBadge';
 import { UpdateValueSheet } from './UpdateValueSheet';
+import { tint } from '~/lib/color';
 
 function VehicleDetailRow({
   label,
@@ -111,7 +112,7 @@ export function VehicleDetailModal({
             {meta.vehicleFuelType && (
               <Text
                 className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-full"
-                style={{ backgroundColor: `${fuelColor}18`, color: fuelColor }}
+                style={{ backgroundColor: tint(fuelColor, 9), color: fuelColor }}
               >
                 {meta.vehicleFuelType}
               </Text>
@@ -120,7 +121,7 @@ export function VehicleDetailModal({
               <Text
                 className="text-[9px] font-bold uppercase px-1 py-0.5 rounded"
                 style={{
-                  backgroundColor: meta.vehicleRcStatus === 'ACTIVE' ? `${theme.success}12` : `${theme.danger}12`,
+                  backgroundColor: meta.vehicleRcStatus === 'ACTIVE' ? tint(theme.success, 7) : tint(theme.danger, 7),
                   color: meta.vehicleRcStatus === 'ACTIVE' ? theme.success : theme.danger
                 }}
               >
@@ -259,7 +260,7 @@ export function VehicleDetailModal({
               {pendingChallans > 0 && (
                 <Text
                   className="text-[9px] font-bold px-2 py-0.5 rounded-full"
-                  style={{ backgroundColor: `${theme.danger}15`, color: theme.danger }}
+                  style={{ backgroundColor: tint(theme.danger, 8), color: theme.danger }}
                 >
                   ⚠ {pendingChallans} pending
                 </Text>
@@ -329,7 +330,7 @@ export function VehicleDetailModal({
                       <View className="flex-row items-center gap-1.5 pt-1 border-t border-theme flex-wrap">
                         <Text
                           className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                          style={{ backgroundColor: `${statusColor}15`, color: statusColor }}
+                          style={{ backgroundColor: tint(statusColor, 8), color: statusColor }}
                         >
                           {c.paymentStatus || 'UNKNOWN'}
                         </Text>

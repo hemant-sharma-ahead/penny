@@ -9,6 +9,7 @@ import { effectiveValue, HOLDINGS_SUBTABS } from '../../usePortfolioHoldings';
 import { ASSET_META } from '../shared/registry';
 import { StockModal } from './StockModal';
 import { MfModal } from './MfModal';
+import { tint } from '~/lib/color';
 
 interface EquitySectionProps {
   holdings: Holding[];
@@ -125,7 +126,7 @@ export const EquitySection = forwardRef<EquitySectionHandle, EquitySectionProps>
                       <IconBadge
                         icon={meta.icon}
                         color={meta.color}
-                        bg={`${meta.color}15`}
+                        bg={tint(meta.color, 8)}
                         size="sm"
                         className="mt-0.5"
                       />
@@ -284,7 +285,7 @@ export const EquitySection = forwardRef<EquitySectionHandle, EquitySectionProps>
                       <IconBadge
                         icon={meta.icon}
                         color={meta.color}
-                        bg={`${meta.color}15`}
+                        bg={tint(meta.color, 8)}
                         size="sm"
                         className="mt-0.5"
                       />

@@ -12,6 +12,7 @@ import type { Group, GroupEvent, GroupMember } from '@/core/db/types';
 import { SharedExpenseComposer } from './SharedExpenseComposer';
 import { SettleUpGroupModal } from './SettleUpGroupModal';
 import { GroupMembersModal } from './GroupMembersModal';
+import { tint } from '~/lib/color';
 
 const TYPE_ICON: Record<string, string> = {
   family: 'ti-home',
@@ -144,7 +145,7 @@ export function GroupDashboard({ group }: { group: Group }) {
                   : { text: `you owe ${formatCurrency(-net)}`, color: theme.danger };
             return (
               <View key={m.id} className="px-4 py-3 flex-row items-center gap-3">
-                <View className="w-8 h-8 rounded-full bg-surface-2 items-center justify-center">
+                <View className="w-8 h-8 rounded-full bg-surface-3 items-center justify-center">
                   <Text className="text-xs font-semibold text-secondary">
                     {(m.displayName || '?').charAt(0).toUpperCase()}
                   </Text>
@@ -225,7 +226,7 @@ function FeedRow({ event, nameFor }: { event: GroupEvent; nameFor: (id: string) 
       <View className="px-4 py-3 flex-row items-center gap-3 bg-surface border border-theme rounded-xl mb-2">
         <View
           className="w-9 h-9 rounded-lg items-center justify-center"
-          style={{ backgroundColor: `${theme.success}1f` }}
+          style={{ backgroundColor: tint(theme.success, 12) }}
         >
           <Icon name="ti-check" size={17} color={theme.success} />
         </View>
@@ -243,7 +244,7 @@ function FeedRow({ event, nameFor }: { event: GroupEvent; nameFor: (id: string) 
   const participants = p.shares ? Object.keys(p.shares).length : 0;
   return (
     <View className="px-4 py-3 flex-row items-center gap-3 bg-surface border border-theme rounded-xl mb-2">
-      <View className="w-9 h-9 rounded-lg items-center justify-center bg-surface-2">
+      <View className="w-9 h-9 rounded-lg items-center justify-center bg-surface-3">
         <Icon name="ti-receipt" size={17} color={theme.textSecondary} />
       </View>
       <View className="flex-1">

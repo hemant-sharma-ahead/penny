@@ -3,6 +3,7 @@ import { Card, ProgressBar, Badge } from '~/components/ui';
 import { ListRow } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { tint } from '~/lib/color';
 import { calcFdMaturity } from '@/core/fd/fdCalculations';
 import type { CompoundingFreq } from '@/core/fd/fdCalculations';
 import type { Holding } from '@/core/db/types';
@@ -70,7 +71,7 @@ export function FdCard({ holding, onEdit, masked }: { holding: Holding; onEdit: 
 
       {result && (
         <View className="flex flex-col gap-1">
-          <ProgressBar value={result.pctElapsed} />
+          <ProgressBar value={result.pctElapsed} animate />
           <View className="flex-row justify-between">
             <Text className="text-[9px] text-tertiary">{startDateStr}</Text>
             <Text className="text-[9px] text-tertiary">
@@ -109,7 +110,7 @@ export function FdCard({ holding, onEdit, masked }: { holding: Holding; onEdit: 
       {result && !result.isMatured && result.accruedInterest > 0 && (
         <View
           className="flex-row items-center gap-1.5 px-2.5 py-1.5 rounded-xl"
-          style={{ backgroundColor: `${theme.success}18` }}
+          style={{ backgroundColor: tint(theme.success, 12) }}
         >
           <Icon name="ti-trending-up" size={13} color={theme.success} />
           <Text className="text-[10px] font-medium" style={{ color: theme.success }}>

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import { Modal as RNModal, View, Pressable, ScrollView, Text } from 'react-native';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -12,6 +12,9 @@ interface ModalProps {
   size?: 'sm' | 'md' | undefined;
   /** true → body scrolls inside the card instead of growing */
   scrollable?: boolean;
+  /** Forwarded to the internal `ScrollView` when `scrollable` — lets a caller (e.g. `ExpenseForm`)
+   *  scroll a specific field into view on validation error, matching web's `focusPanel()`. */
+  scrollRef?: RefObject<ScrollView | null>;
 }
 
 /**
@@ -22,7 +25,7 @@ interface ModalProps {
  * Web's z-index stacking tiers (nested/level 1-3) aren't needed here — RN's Modal already stacks above
  * everything by being a separate native layer; multiple open Modals stack in mount order automatically.
  */
-export function Modal({ onClose, title, children, footer, size = 'md', scrollable = false }: ModalProps) {
+export function Modal({ onClose, title, children, footer, size = 'md', scrollable = false, scrollRef }: ModalProps) {
   const theme = useThemeColors();
   const body = <View className="px-5 pt-5 pb-5 gap-4">{children}</View>;
 
@@ -48,9 +51,9 @@ export function Modal({ onClose, title, children, footer, size = 'md', scrollabl
               </View>
             )}
 
-            {scrollable ? <ScrollView>{body}</ScrollView> : body}
+            {scrollable ? <ScrollView ref={scrollRef}>{body}</ScrollView> : body}
 
-            {footer !== undefined && <View className="px-5 pb-5 pt-4 border-t border-theme">{footer}</View>}
+            {footer !== undefined && <View className="px-5 pb-5 -mt-1 pt-4 border-t border-theme">{footer}</View>}
           </View>
         </View>
       </View>

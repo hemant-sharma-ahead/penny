@@ -5,6 +5,7 @@ import { Icon } from '~/components/Icon';
 import type { ExpenseCategory } from '@/core/db/types';
 import { CAT_COLORS } from '@/core/expenses/categoryIcons';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { tint } from '~/lib/color';
 
 interface Props {
   /** undefined ⇒ create mode */
@@ -137,7 +138,7 @@ export function ParentEditorModal({ editing, childCount = 0, type, onCreate, onS
                   <View
                     key={c}
                     className="flex-row items-center gap-1 px-2 py-1 rounded-full"
-                    style={{ backgroundColor: `${color}22` }}
+                    style={{ backgroundColor: tint(color, 13) }}
                   >
                     <Text className="text-xs" style={{ color }}>
                       {c}

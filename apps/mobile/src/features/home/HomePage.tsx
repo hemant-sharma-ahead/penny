@@ -1,5 +1,7 @@
 import { View, ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, type ParamListBase } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useProfile } from '@/hooks/useProfile';
 import { useGroupContext } from '~/context/GroupContext';
 import { GroupDashboard } from '~/features/groups/GroupDashboard';
@@ -13,6 +15,19 @@ import { FinancialHealthCard } from '~/features/health/FinancialHealthCard';
 import { HomeGroupsCard } from './HomeGroupsCard';
 import { useHome } from './useHome';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import type { AppRouteKey } from '@/core/advisor/guidance';
+
+/** Maps the advisor's platform-agnostic route keys to this app's actual screen names — RN port of
+ *  apps/web-react/src/features/health/FinancialHealthCard.tsx's `ROUTE_MAP`. Resolved from within
+ *  HomeStack (this hook is used from `HomePage`, a HomeStack screen), same bubble-up-to-parent-tab
+ *  pattern `GlanceHeader`/`useHomeStories` already rely on for `Portfolio`/`Expenses`/`Goals`. */
+const ROUTE_MAP: Record<AppRouteKey, string> = {
+  goals: 'Goals',
+  insurance: 'Insurance',
+  expenses: 'Expenses',
+  loans: 'Loans',
+  portfolio: 'Portfolio'
+};
 
 /**
  * RN port of apps/web-react/src/features/home/HomePage.tsx. Groups is now ported (mobile-migration
@@ -22,6 +37,7 @@ import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
  */
 export function HomePage() {
   const modeBg = useModeBackgroundColor();
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { activeGroup } = useGroupContext();
   const { summary, assetGroups, totalAssets, totalLiabilities } = useHome();
   const { profile } = useProfile();
@@ -61,7 +77,7 @@ export function HomePage() {
 
           <MoneyStatsCard />
 
-          <FinancialHealthCard />
+          <FinancialHealthCard onNavigate={(to) => navigation.navigate(ROUTE_MAP[to])} />
 
           <View className="mb-4">
             <StoriesRow />

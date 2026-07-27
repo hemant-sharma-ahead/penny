@@ -1,6 +1,7 @@
 import { View, Pressable, Text } from 'react-native';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { tint } from '~/lib/color';
 
 interface OptionButtonProps {
   label: string;
@@ -29,7 +30,7 @@ export function OptionButton({
 }: OptionButtonProps) {
   const theme = useThemeColors();
   const activeColor = color ?? theme.primary;
-  const selectedStyle = { borderColor: activeColor, backgroundColor: `${activeColor}14` };
+  const selectedStyle = { borderColor: activeColor, backgroundColor: tint(activeColor, 8) };
   const unselectedStyle = { borderColor: theme.border, backgroundColor: theme.surfaceSecondary };
 
   if (compact) {

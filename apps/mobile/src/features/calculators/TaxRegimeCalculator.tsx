@@ -47,7 +47,10 @@ function RegimeColumn({
 /** RN port of apps/web-react/src/features/calculators/TaxRegimeCalculator.tsx. */
 export function TaxRegimeCalculator() {
   const theme = useThemeColors();
-  const masked = usePrivacy().shouldMask(false);
+  // Calculator output (salary/income-derived figures) is always-sensitive in Safe mode, matching web's
+  // MaskedValue (masks whenever mode is 'safe' or 'privacy', regardless of any per-field flag) — pass
+  // `true`, not `false`; `shouldMask(false)` would leave Safe mode fully unmasked here.
+  const masked = usePrivacy().shouldMask(true);
   const [gross, setGross] = useState('');
   const [salaried, setSalaried] = useState<'yes' | 'no'>('yes');
   const [d80c, setD80c] = useState('');
@@ -76,7 +79,7 @@ export function TaxRegimeCalculator() {
     <View className="gap-4">
       <Text className="text-[11px] text-tertiary -mb-1">{TAX_FY_LABEL} · individuals below 60</Text>
 
-      <View className="rounded-2xl p-4 gap-4 bg-surface">
+      <View className="rounded-2xl p-4 gap-4 bg-surface border border-theme">
         <LabeledInput
           label="Gross annual income"
           value={gross}

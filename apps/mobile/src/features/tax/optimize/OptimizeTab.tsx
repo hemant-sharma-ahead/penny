@@ -203,7 +203,8 @@ export function OptimizeTab({ summary, deductions, profile, gross }: Props) {
           </View>
         </View>
         <Banner variant="success" icon="ti-coin">
-          With these deductions, the {whatIf?.recommended === 'new' ? 'new' : 'old'} regime is cheaper
+          With these deductions, the{' '}
+          <Text className="font-bold">{whatIf?.recommended === 'new' ? 'new' : 'old'} regime</Text> is cheaper
           {whatIf && whatIf.savings > 0 ? ` by ${formatCurrency(Math.round(whatIf.savings))}/yr` : ''}.
         </Banner>
       </Card>

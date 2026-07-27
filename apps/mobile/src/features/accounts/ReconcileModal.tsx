@@ -51,7 +51,7 @@ export function ReconcileModal({ account, currentBalance, onReconcile, onClose }
       <Text className="text-sm text-secondary mb-3">
         Count the actual balance in this account. Penny posts a small adjustment so the tracked balance matches reality.
       </Text>
-      <View className="bg-surface rounded-xl px-4 py-1 mb-3">
+      <View className="bg-surface border border-theme rounded-xl px-4 py-1 mb-3">
         <DetailRow label="Tracked balance" value={formatCurrency(currentBalance)} size="md" />
       </View>
       <AmountInput label="Actual balance now" value={actual} onChange={setActual} autoFocus />

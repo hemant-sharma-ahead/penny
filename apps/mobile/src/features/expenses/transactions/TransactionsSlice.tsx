@@ -471,7 +471,7 @@ export function TransactionsSlice({
         </Pressable>
       )}
 
-      {/* List — SectionList owns its own scroll/virtualization (see TransactionsTab.tsx) */}
+      {/* List — FlashList owns its own scroll/virtualization (see TransactionsTab.tsx) */}
       <TransactionsTab
         loading={loading}
         grouped={grouped}
@@ -527,10 +527,10 @@ export function TransactionsSlice({
       )}
 
       {/* Speed dial FAB (hidden in select mode). Positioned `absolute` as a sibling of the list's own
-          ScrollView (not inside it) — the same "Slice owns its scroll + its FAB" placement already
-          proven by IouView, which is embedded the same way (standalone page AND an Expenses tab slice)
-          and reads `useSafeAreaInsets` directly rather than relying on an ancestor Stack.Navigator/page
-          header, since that context is available anywhere under the root SafeAreaProvider. */}
+          ScrollView (not inside it) — the same "Slice owns its scroll + its FAB" placement `IouView`
+          also uses, which reads `useSafeAreaInsets` directly rather than relying on an ancestor
+          Stack.Navigator/page header, since that context is available anywhere under the root
+          SafeAreaProvider. */}
       {!selectMode && showDial && (
         <Pressable
           onPress={() => setShowDial(false)}
@@ -646,17 +646,21 @@ export function TransactionsSlice({
           title="Move to category"
           footer={
             <View className="flex-row gap-3">
-              <Button variant="secondary" fullWidth onPress={() => setShowBulkCategory(false)} disabled={bulkBusy}>
-                Cancel
-              </Button>
-              <Button
-                fullWidth
-                disabled={!bulkCategoryTarget}
-                loading={bulkBusy}
-                onPress={() => void handleBulkCategory()}
-              >
-                Move
-              </Button>
+              <View className="flex-1">
+                <Button variant="secondary" fullWidth onPress={() => setShowBulkCategory(false)} disabled={bulkBusy}>
+                  Cancel
+                </Button>
+              </View>
+              <View className="flex-1">
+                <Button
+                  fullWidth
+                  disabled={!bulkCategoryTarget}
+                  loading={bulkBusy}
+                  onPress={() => void handleBulkCategory()}
+                >
+                  Move
+                </Button>
+              </View>
             </View>
           }
         >

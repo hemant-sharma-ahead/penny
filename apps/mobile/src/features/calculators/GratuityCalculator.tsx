@@ -7,7 +7,10 @@ import { LabeledInput, ResultCard, AmountRow, HeroResult } from './CalcUI';
 
 /** RN port of apps/web-react/src/features/calculators/GratuityCalculator.tsx. */
 export function GratuityCalculator() {
-  const masked = usePrivacy().shouldMask(false);
+  // Calculator output (salary/income-derived figures) is always-sensitive in Safe mode, matching web's
+  // MaskedValue (masks whenever mode is 'safe' or 'privacy', regardless of any per-field flag) — pass
+  // `true`, not `false`; `shouldMask(false)` would leave Safe mode fully unmasked here.
+  const masked = usePrivacy().shouldMask(true);
   const [salary, setSalary] = useState('');
   const [years, setYears] = useState('');
   const [months, setMonths] = useState('0');
@@ -23,7 +26,7 @@ export function GratuityCalculator() {
 
   return (
     <View className="gap-4">
-      <View className="rounded-2xl p-4 gap-4 bg-surface">
+      <View className="rounded-2xl p-4 gap-4 bg-surface border border-theme">
         <LabeledInput
           label="Last drawn salary (Basic + DA)"
           hint="per month"

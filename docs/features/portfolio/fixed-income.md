@@ -40,7 +40,7 @@ Penny tracks Fixed Deposits (FD) and Recurring Deposits (RD) with auto-calculate
 - `src/features/portfolio/PortfolioPage.tsx` — Fixed Income sub-tab, FD/RD card rendering.
 - `src/core/fd/fdCalculations.ts` — `calcFdMaturity()` and `calcRdMaturity()` functions.
 
-**Mobile (`apps/mobile`):** ported in Track 4 (Portfolio module) — `apps/mobile/src/features/portfolio/holdings/fixed-income/` mirrors the web files above. `STATUS.x` colors (`FdCard.tsx`) and a raw hardcoded hex literal found in `RdCard.tsx` (same underlying bug, just not caught by a `STATUS.x` grep) both → `useThemeColors()`; CSS Grid → `flex-row`; date fields use plain `YYYY-MM-DD` text entry (no native date picker exists yet, same as every other module). No external live data fetching in this section — FD/RD math is local, pure `packages/core` logic.
+**Mobile (`apps/mobile`):** ported in Track 4 (Portfolio module) — `apps/mobile/src/features/portfolio/holdings/fixed-income/` mirrors the web files above. `STATUS.x` colors (`FdCard.tsx`) and a raw hardcoded hex literal found in `RdCard.tsx` (same underlying bug, just not caught by a `STATUS.x` grep) both → `useThemeColors()`; CSS Grid → `flex-row`; date fields use the shared `DateInput` component's native date picker. No external live data fetching in this section — FD/RD math is local, pure `packages/core` logic.
 
 ## Current limitations
 

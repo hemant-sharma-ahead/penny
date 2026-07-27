@@ -29,7 +29,7 @@ export function SubscriptionsPage() {
   } = useSubscriptions(expenses);
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
+    <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader
         leading={<BackButton />}
         title="Subscriptions"

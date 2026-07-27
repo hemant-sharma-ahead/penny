@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { View, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { PennyLogo } from '~/components/ui/PennyLogo';
@@ -17,7 +18,7 @@ export function SplashScreen() {
   }, [navigation]);
 
   return (
-    <View className="flex-1 items-center justify-center bg-surface-tertiary px-6">
+    <SafeAreaView edges={['top', 'bottom']} className="flex-1 items-center justify-center bg-surface-tertiary px-6">
       <View className="mb-6">
         <PennyLogo size={80} />
       </View>
@@ -29,6 +30,6 @@ export function SplashScreen() {
           Safe mode active
         </Text>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }

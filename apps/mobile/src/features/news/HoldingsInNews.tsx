@@ -40,7 +40,7 @@ export function HoldingsInNews({ matches, scoredById }: Props) {
 
   if (matches.length === 0) {
     return (
-      <View className="bg-surface rounded-2xl p-4 flex-row items-center gap-3">
+      <View className="bg-surface border border-theme rounded-2xl p-4 flex-row items-center gap-3">
         <Icon name="ti-mood-neutral" size={20} color={theme.textTertiary} />
         <View className="flex-1">
           <Text className="text-sm text-secondary">None of your holdings are in today's news.</Text>
@@ -61,7 +61,7 @@ export function HoldingsInNews({ matches, scoredById }: Props) {
             <Pressable
               key={item.id}
               onPress={() => void Linking.openURL(item.link)}
-              className="bg-surface rounded-2xl p-3 gap-1.5 active:opacity-70"
+              className="bg-surface border border-theme rounded-2xl p-3 gap-1.5 active:opacity-70"
             >
               <View className="flex-row items-center justify-between gap-2">
                 <View className="flex-row items-center gap-1.5 flex-wrap flex-1">

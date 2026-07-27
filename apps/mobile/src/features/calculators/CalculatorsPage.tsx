@@ -63,7 +63,7 @@ export function CalculatorsPage() {
   // ── Detail view ────────────────────────────────────────────────────────────────
   if (active) {
     return (
-      <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
+      <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
         <View className="px-4 pt-4 pb-3 border-b border-theme flex-row items-center gap-3">
           {/* Web just clears local `?calc=` state here, returning to the list within the same page —
               the shared `BackButton` calls `navigation.goBack()`, which would exit the whole feature
@@ -98,7 +98,7 @@ export function CalculatorsPage() {
 
   // ── Searchable list view ─────────────────────────────────────────────────────────
   return (
-    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: modeBg }}>
+    <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader leading={<BackButton />} title="Calculators">
         <Text className="text-xs mt-0.5 text-tertiary">On-device calculations — nothing leaves your phone</Text>
       </PageHeader>
@@ -120,7 +120,7 @@ export function CalculatorsPage() {
             <Pressable
               key={c.id}
               onPress={() => setActiveId(c.id)}
-              className="bg-surface rounded-2xl p-3.5 flex-row items-center gap-3"
+              className="bg-surface border border-theme rounded-2xl p-3.5 flex-row items-center gap-3"
             >
               <View
                 className="w-10 h-10 rounded-xl items-center justify-center"

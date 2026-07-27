@@ -147,12 +147,16 @@ export function FilterModal({ events, pastEvents, accounts, categories, initial,
         scrollable
         footer={
           <View className="flex-row gap-3">
-            <Button variant="secondary" fullWidth onPress={handleClear}>
-              Clear filters
-            </Button>
-            <Button variant="primary" fullWidth onPress={handleDone}>
-              Done
-            </Button>
+            <View className="flex-1">
+              <Button variant="secondary" fullWidth onPress={handleClear}>
+                Clear filters
+              </Button>
+            </View>
+            <View className="flex-1">
+              <Button variant="primary" fullWidth onPress={handleDone}>
+                Done
+              </Button>
+            </View>
           </View>
         }
       >

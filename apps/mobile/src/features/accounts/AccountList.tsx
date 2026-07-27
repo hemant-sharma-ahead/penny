@@ -7,6 +7,7 @@ import { getAccountMeta } from '@/core/accounts/meta';
 import { Card, Button, ConfirmDialog, EmptyState, IconBadge, ListContainer } from '~/components/ui';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { ReconcileModal } from './ReconcileModal';
+import { tint } from '~/lib/color';
 
 interface AccountListProps {
   accounts: Account[];
@@ -68,7 +69,7 @@ export function AccountList({
             const masked = shouldMask(acc.hideInSafeMode);
             return (
               <View key={acc.id} className="px-4 py-3.5 flex-row items-center gap-3">
-                <IconBadge icon={acc.icon} color={acc.color} bg={`${acc.color}20`} />
+                <IconBadge icon={acc.icon} color={acc.color} bg={tint(acc.color, 13)} />
                 <View className="flex-1">
                   <Text className="text-sm font-semibold text-primary" numberOfLines={1}>
                     {acc.name}

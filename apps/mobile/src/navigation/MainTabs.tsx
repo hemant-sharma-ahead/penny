@@ -1,6 +1,7 @@
+import { useEffect, useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useNavigation, type ParamListBase } from '@react-navigation/native';
+import { useNavigation, type NavigationState, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../components/Icon';
@@ -41,6 +42,24 @@ import { useSettings } from '../context/SettingsContext';
  */
 const Tab = createBottomTabNavigator();
 
+/**
+ * Mirrors web's `AppShell.tsx`'s `pinResetForced` check: walks down the currently-focused
+ * route at every nesting level (Stack → Tab → HomeStack) to see whether the active screen is
+ * `ChangePin` with `forcedPinReset: true`. Needed because `MainTabs` owns the persistent
+ * chrome (header + tab bar) but `ChangePin` itself lives several navigators deeper, inside
+ * `HomeStack` — there's no `route.params` available directly at this level the way web's
+ * single-`Outlet` router gets it from `useLocation()`.
+ */
+function isForcedPinResetActive(state: NavigationState | undefined): boolean {
+  if (!state) return false;
+  const route = state.routes[state.index ?? state.routes.length - 1];
+  if (!route) return false;
+  if (route.name === 'ChangePin' && (route.params as { forcedPinReset?: boolean } | undefined)?.forcedPinReset) {
+    return true;
+  }
+  return isForcedPinResetActive(route.state as NavigationState | undefined);
+}
+
 const ICON_COLORS: Record<string, string> = {
   Home: '#00a86b',
   Portfolio: '#6366f1',
@@ -55,13 +74,15 @@ const ICON_NAMES: Record<string, string> = {
   Goals: 'ti-target'
 };
 
-function HeaderLeft({ onPress }: { onPress: () => void }) {
+function HeaderLeft({ onPress, hideSettingsButton }: { onPress: () => void; hideSettingsButton: boolean }) {
   const theme = useThemeColors();
   return (
     <View className="flex-row items-center gap-3">
-      <Pressable onPress={onPress} hitSlop={8}>
-        <Icon name="ti-menu-2" size={22} color={theme.textSecondary} />
-      </Pressable>
+      {!hideSettingsButton && (
+        <Pressable onPress={onPress} hitSlop={8}>
+          <Icon name="ti-menu-2" size={22} color={theme.textSecondary} />
+        </Pressable>
+      )}
       <PennyWordmark height={22} />
     </View>
   );
@@ -88,8 +109,22 @@ export function MainTabs() {
   // component owns the whole persistent chrome (tab bar + header).
   const modeColors = getPrivacyModeColors(mode, activePalette);
 
+  // Mirrors web's `AppShell.tsx` `pinResetForced` gate: while a forced PIN reset is in progress
+  // (reached via SessionGate's "Forgot PIN?" after exhausting attempts), the persistent chrome must be
+  // genuinely non-dismissible — otherwise a user could tap the settings button or switch tabs and leave
+  // the flow unfinished. `ChangePinPage`'s own in-screen guards (`gestureEnabled`/`headerBackVisible` on
+  // its stack screen, `BackHandler` for the Android back button) only cover its own stack; they can't
+  // reach up into this component's header/tab-bar, which is why this needs its own listener.
+  const [pinResetForced, setPinResetForced] = useState(false);
+  useEffect(() => {
+    const update = () => setPinResetForced(isForcedPinResetActive(navigation.getState()));
+    update();
+    return navigation.addListener('state', update);
+  }, [navigation]);
+
   return (
     <View style={{ flex: 1 }}>
+      {!pinResetForced && <DemoModeBanner />}
       {/*
        * Persistent header — was `MainNavigator`'s `MainTabs` `Stack.Screen` options; moved here so it
        * survives navigation into HomeStack/ExpensesStack the same way the tab bar below does. The
@@ -103,19 +138,25 @@ export function MainTabs() {
           style={{ height: 44, borderBottomWidth: 2, borderBottomColor: modeColors.accent }}
         >
           <HeaderLeft
+            hideSettingsButton={pinResetForced}
             onPress={() => navigation.navigate('MainTabs', { screen: 'Home', params: { screen: 'Settings' } })}
           />
           <HeaderRight />
         </View>
       </View>
-      <DemoModeBanner />
       {hasEntitlement('sync') && <ContextSwitcher />}
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
           tabBarActiveTintColor: ICON_COLORS[route.name],
           tabBarInactiveTintColor: theme.textTertiary,
-          tabBarStyle: { backgroundColor: modeColors.headerBg, borderTopColor: theme.border },
+          tabBarStyle: pinResetForced
+            ? { display: 'none' }
+            : {
+                backgroundColor: modeColors.headerBg,
+                borderTopWidth: 2,
+                borderTopColor: modeColors.accent
+              },
           tabBarIcon:
             route.name === 'Chip'
               ? () => <ChipAvatar size={30} />

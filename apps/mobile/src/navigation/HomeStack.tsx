@@ -13,7 +13,6 @@ import { TimelinePage } from '../features/activity/TimelinePage';
 import { BackupPage } from '../features/backup/BackupPage';
 import { InsurancePage } from '../features/insurance/InsurancePage';
 import { LoanScenariosPage } from '../features/loans/LoanScenariosPage';
-import { IouPage } from '../features/iou/IouPage';
 import { AccountsPage } from '../features/accounts/AccountsPage';
 import { SubscriptionsPage } from '../features/subscriptions/SubscriptionsPage';
 import { FeedbackPage } from '../features/feedback/FeedbackPage';
@@ -57,7 +56,6 @@ export type HomeStackParamList = {
   Backup: undefined;
   Insurance: undefined;
   Loans: undefined;
-  IOU: undefined;
   Accounts: undefined;
   Subscriptions: undefined;
   Feedback: undefined;
@@ -93,7 +91,6 @@ export function HomeStack() {
       <Stack.Screen name="Backup" component={BackupPage} />
       <Stack.Screen name="Insurance" component={InsurancePage} />
       <Stack.Screen name="Loans" component={LoanScenariosPage} />
-      <Stack.Screen name="IOU" component={IouPage} />
       <Stack.Screen name="Accounts" component={AccountsPage} />
       <Stack.Screen name="Subscriptions" component={SubscriptionsPage} />
       <Stack.Screen name="Feedback" component={FeedbackPage} />

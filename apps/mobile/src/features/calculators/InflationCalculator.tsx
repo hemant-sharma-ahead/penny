@@ -6,7 +6,10 @@ import { LabeledInput, ResultCard, AmountRow, HeroResult } from './CalcUI';
 
 /** RN port of apps/web-react/src/features/calculators/InflationCalculator.tsx. */
 export function InflationCalculator() {
-  const masked = usePrivacy().shouldMask(false);
+  // Calculator output (salary/income-derived figures) is always-sensitive in Safe mode, matching web's
+  // MaskedValue (masks whenever mode is 'safe' or 'privacy', regardless of any per-field flag) — pass
+  // `true`, not `false`; `shouldMask(false)` would leave Safe mode fully unmasked here.
+  const masked = usePrivacy().shouldMask(true);
   const [cost, setCost] = useState('');
   const [inflation, setInflation] = useState('6');
   const [years, setYears] = useState('10');
@@ -20,7 +23,7 @@ export function InflationCalculator() {
 
   return (
     <View className="gap-4">
-      <View className="rounded-2xl p-4 gap-4 bg-surface">
+      <View className="rounded-2xl p-4 gap-4 bg-surface border border-theme">
         <LabeledInput label="Cost today" value={cost} onChange={setCost} prefix="₹" placeholder="e.g. 1,00,000" />
         <LabeledInput label="Expected inflation" value={inflation} onChange={setInflation} suffix="%" placeholder="6" />
         <LabeledInput label="Years from now" value={years} onChange={setYears} suffix="yrs" placeholder="10" />

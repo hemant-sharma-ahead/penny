@@ -1,6 +1,7 @@
 import { View, Pressable, Text } from 'react-native';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { tint } from '~/lib/color';
 
 interface EmptyStateAction {
   label: string;
@@ -22,7 +23,7 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
     <View className="items-center justify-center gap-3 py-10 px-6">
       <View
         className="w-14 h-14 rounded-2xl items-center justify-center"
-        style={{ backgroundColor: `${theme.primary}1a` }}
+        style={{ backgroundColor: tint(theme.primary, 10) }}
       >
         <Icon name={icon} size={26} color={theme.primary} />
       </View>

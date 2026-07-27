@@ -5,6 +5,7 @@ import { useThemeColors } from '~/theme/useThemeColors';
 import { calcRdMaturity } from '@/core/fd/fdCalculations';
 import type { Holding } from '@/core/db/types';
 import { nowMs } from '~/features/portfolio/holdings/shared/helpers';
+import { tint } from '~/lib/color';
 
 // View card for a Recurring Deposit — monthly installment, rate, months-completed
 // progress and projected maturity.
@@ -44,7 +45,7 @@ export function RdCard({ holding, onEdit, masked }: { holding: Holding; onEdit: 
               {rate > 0 && (
                 <Text
                   className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: `${theme.success}18`, color: theme.success }}
+                  style={{ backgroundColor: tint(theme.success, 9), color: theme.success }}
                 >
                   {rate}% p.a.
                 </Text>
@@ -56,7 +57,7 @@ export function RdCard({ holding, onEdit, masked }: { holding: Holding; onEdit: 
         {result?.isMatured ? (
           <Text
             className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-            style={{ backgroundColor: `${theme.success}18`, color: theme.success }}
+            style={{ backgroundColor: tint(theme.success, 9), color: theme.success }}
           >
             MATURED
           </Text>
@@ -67,7 +68,7 @@ export function RdCard({ holding, onEdit, masked }: { holding: Holding; onEdit: 
 
       {result && (
         <View className="flex flex-col gap-1">
-          <ProgressBar value={result.pctElapsed} />
+          <ProgressBar value={result.pctElapsed} animate />
           <View className="flex-row justify-between">
             <Text className="text-[9px] text-tertiary">
               {result.monthsCompleted}/{tenureMonths} months · {startDateStr}

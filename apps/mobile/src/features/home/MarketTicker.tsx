@@ -13,11 +13,17 @@ import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useReduceMotion } from '~/hooks/useReduceMotion';
 import { getItem, setItem } from '~/lib/storage';
-import { TICKER_CONFIGS, fetchMarketTickers, type TickerId, type TickerResult } from '@/core/market/marketDataClient';
+import {
+  TICKER_CONFIGS,
+  fetchMarketTickers,
+  MARKET_TICKERS_ENABLED_KEY,
+  type TickerId,
+  type TickerResult
+} from '@/core/market/marketDataClient';
 
-// Web's storage key (apps/web-react/src/features/home/MarketTicker.tsx via marketDataClient's
-// loadEnabledTickers/saveEnabledTickers) — kept identical so the two apps' persisted picks agree.
-const STORAGE_KEY = 'penny_market_tickers_enabled';
+// Shared with web's MarketTicker.tsx via marketDataClient's own loadEnabledTickers/saveEnabledTickers
+// (which use the same exported key) — no independently-duplicated literal to silently diverge.
+const STORAGE_KEY = MARKET_TICKERS_ENABLED_KEY;
 // Web's @keyframes penny-marquee (apps/web-react/src/index.css:303-315): translateX 0 → -50% of a
 // doubled track, linear, 32s, infinite, jump-cut back to 0 (not reverse). RN has no CSS keyframes, so
 // this is reanimated's standard seamless-marquee recipe: render the content twice back-to-back, measure

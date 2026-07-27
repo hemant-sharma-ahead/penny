@@ -13,7 +13,7 @@ export function CapGainRow({ item }: { item: CapGainItem }) {
   const gainColor = isGain ? theme.success : isLoss ? theme.danger : theme.neutral;
 
   return (
-    <View className="rounded-xl p-3 bg-surface">
+    <View className="rounded-xl p-3 bg-surface border border-theme">
       <View className="flex-row items-start justify-between gap-2">
         <View className="flex-1">
           <Text className="text-sm font-medium text-primary" numberOfLines={1}>

@@ -86,7 +86,11 @@ export function MoneyStory({ entries, masked }: Props) {
           <Text className="text-[11px] font-semibold uppercase tracking-wide text-tertiary mb-2">This week</Text>
           <View className="flex-row flex-wrap gap-2">
             {tiles.map((t) => (
-              <View key={t.label} className="bg-surface rounded-xl px-3 py-2.5" style={{ width: '48%' }}>
+              <View
+                key={t.label}
+                className="bg-surface border border-theme rounded-xl px-3 py-2.5"
+                style={{ width: '48%' }}
+              >
                 <Text className="text-xl font-bold text-primary leading-none">{t.value}</Text>
                 <Text className="text-[11px] text-secondary mt-1">{t.label}</Text>
               </View>

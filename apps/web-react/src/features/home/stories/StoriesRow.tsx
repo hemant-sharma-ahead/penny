@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
+import { STORIES_SEEN_KEY } from '@/core/activity/storiesSeen.constants';
 import { useHomeStories } from './useHomeStories';
 import { StoryViewer } from './StoryViewer';
 import type { Story } from './storyTypes';
 
-const SEEN_KEY = 'penny_stories_seen';
+const SEEN_KEY = STORIES_SEEN_KEY;
 
 function loadSeen(): Set<string> {
   try {

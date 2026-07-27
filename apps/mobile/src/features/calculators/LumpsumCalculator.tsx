@@ -7,7 +7,10 @@ import { LabeledInput, SegmentedToggle, ResultCard, ResultRow, AmountRow, HeroRe
 
 /** RN port of apps/web-react/src/features/calculators/LumpsumCalculator.tsx. */
 export function LumpsumCalculator() {
-  const masked = usePrivacy().shouldMask(false);
+  // Calculator output (salary/income-derived figures) is always-sensitive in Safe mode, matching web's
+  // MaskedValue (masks whenever mode is 'safe' or 'privacy', regardless of any per-field flag) — pass
+  // `true`, not `false`; `shouldMask(false)` would leave Safe mode fully unmasked here.
+  const masked = usePrivacy().shouldMask(true);
   const [mode, setMode] = useState<'fv' | 'cagr'>('fv');
 
   // Future-value inputs
@@ -39,7 +42,7 @@ export function LumpsumCalculator() {
 
   return (
     <View className="gap-4">
-      <View className="rounded-2xl p-4 gap-4 bg-surface">
+      <View className="rounded-2xl p-4 gap-4 bg-surface border border-theme">
         <SegmentedToggle
           label="What do you want to find?"
           value={mode}

@@ -66,7 +66,8 @@ export const TICKER_CONFIGS: TickerConfig[] = [
   }
 ];
 
-const LS_KEY = 'penny_market_tickers_enabled';
+export const MARKET_TICKERS_ENABLED_KEY = 'penny_market_tickers_enabled';
+const LS_KEY = MARKET_TICKERS_ENABLED_KEY;
 
 export function loadEnabledTickers(): Set<TickerId> {
   try {

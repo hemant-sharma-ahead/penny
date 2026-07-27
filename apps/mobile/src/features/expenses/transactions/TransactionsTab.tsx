@@ -7,6 +7,7 @@ import { Icon } from '~/components/Icon';
 import type { Account, Expense, ExpenseCategory, Hashtag } from '@/core/db/types';
 import { isHiddenInSafeMode, isTagHiddenInSafeMode } from '@/core/expenses/categoryGroups';
 import { SwipeableRow, type SwipeAction } from './SwipeableRow';
+import { tint } from '~/lib/color';
 
 interface TransactionsTabProps {
   /** True only during the initial decrypt-on-load (see `useExpenses.ts`) — distinguishes "still loading"
@@ -97,7 +98,7 @@ const TransactionRow = memo(function TransactionRow({
     <>
       <View
         className="w-9 h-9 rounded-xl items-center justify-center shrink-0"
-        style={{ backgroundColor: `${accent}1f` }}
+        style={{ backgroundColor: tint(accent, 12) }}
       >
         <Icon name={icon} size={18} color={accent} />
       </View>
@@ -165,7 +166,7 @@ const TransactionRow = memo(function TransactionRow({
     <SwipeableRow actions={actions} onTap={() => onEdit(txn)}>
       <View
         className="relative w-full flex-row items-center gap-3 pl-10 pr-4 py-3"
-        style={isShared ? { backgroundColor: `${theme.primary}0f` } : undefined}
+        style={isShared ? { backgroundColor: tint(theme.primary, 6) } : undefined}
       >
         {/* rail segment for this row */}
         <View

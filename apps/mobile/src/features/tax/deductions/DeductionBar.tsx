@@ -25,7 +25,7 @@ export function DeductionBar({ used, limit, label }: DeductionBarProps) {
           {formatCurrency(used)} / {formatCurrency(limit)}
         </Text>
       </View>
-      <ProgressBar value={pct} color={color} size="md" />
+      <ProgressBar value={pct} color={color} size="md" animate />
       {remaining > 0 ? (
         <Text className="text-[10px] mt-1 text-tertiary">{formatCurrency(remaining)} remaining to invest this FY</Text>
       ) : (

@@ -8,6 +8,7 @@ import type { Holding } from '@/core/db/types';
 import { realAssetIsStale, realAssetStalenessLabel } from './realAssetHelpers';
 import { VehicleValidityBadge } from './VehicleValidityBadge';
 import { VehicleDetailModal } from './VehicleDetailModal';
+import { tint } from '~/lib/color';
 
 export function VehicleCard({
   holding,
@@ -138,7 +139,7 @@ export function VehicleCard({
         {hasChallanData && (
           <View
             className="flex-row items-center gap-1.5 px-2.5 py-1.5 rounded-xl"
-            style={{ backgroundColor: pendingChallans > 0 ? `${theme.danger}12` : `${theme.success}12` }}
+            style={{ backgroundColor: pendingChallans > 0 ? tint(theme.danger, 7) : tint(theme.success, 7) }}
           >
             <Icon
               name={pendingChallans > 0 ? 'ti-alert-triangle' : 'ti-shield-check'}

@@ -6,6 +6,7 @@ import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { getItem, setItem } from '~/lib/storage';
 import { Confetti } from './Confetti';
+import { tint } from '~/lib/color';
 
 interface Props {
   entries: ActivityLog[];
@@ -45,7 +46,7 @@ export function MilestoneBanner({ entries }: Props) {
   return (
     <View
       className="relative overflow-hidden rounded-2xl px-4 py-3 flex-row items-center gap-3"
-      style={{ backgroundColor: `${theme.primary}1f` }}
+      style={{ backgroundColor: tint(theme.primary, 12) }}
     >
       {celebrate && <Confetti />}
       <View

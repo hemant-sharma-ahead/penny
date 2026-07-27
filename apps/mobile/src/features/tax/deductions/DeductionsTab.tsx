@@ -23,7 +23,7 @@ export function DeductionsTab({ summary, deductions }: DeductionsTabProps) {
   return (
     <>
       {/* 80C */}
-      <View className="rounded-2xl p-4 gap-4 bg-surface">
+      <View className="rounded-2xl p-4 gap-4 bg-surface border border-theme">
         <View>
           <Text className="text-sm font-semibold text-primary">Section 80C</Text>
           <Text className="text-xs text-tertiary">Tax-saving investments (max ₹1,50,000)</Text>
@@ -78,7 +78,7 @@ export function DeductionsTab({ summary, deductions }: DeductionsTabProps) {
       )}
 
       {/* 80D */}
-      <View className="rounded-2xl p-4 gap-4 bg-surface">
+      <View className="rounded-2xl p-4 gap-4 bg-surface border border-theme">
         <View>
           <Text className="text-sm font-semibold text-primary">Section 80D</Text>
           <Text className="text-xs text-tertiary">Health insurance premiums (max ₹25,000 self + ₹25,000 parents)</Text>
@@ -113,7 +113,7 @@ export function DeductionsTab({ summary, deductions }: DeductionsTabProps) {
       </View>
 
       {/* 24B */}
-      <View className="rounded-2xl p-4 gap-4 bg-surface">
+      <View className="rounded-2xl p-4 gap-4 bg-surface border border-theme">
         <View>
           <Text className="text-sm font-semibold text-primary">Section 24B</Text>
           <Text className="text-xs text-tertiary">Home loan interest deduction (max ₹2,00,000)</Text>
@@ -144,8 +144,9 @@ export function DeductionsTab({ summary, deductions }: DeductionsTabProps) {
       <View className="rounded-2xl p-4 bg-surface-2 border border-theme">
         <Text className="text-xs font-semibold mb-1 text-secondary">Old vs. New Regime</Text>
         <Text className="text-xs leading-relaxed text-secondary">
-          Deductions (80C/80D/24B) apply under the old tax regime. Under the new regime these are unavailable but slab
-          rates are lower. Compare both before filing — this tool covers old-regime deductions only.
+          Deductions (80C/80D/24B) apply under the <Text className="font-bold">old tax regime</Text>. Under the new
+          regime these are unavailable but slab rates are lower. Compare both before filing — this tool covers
+          old-regime deductions only.
         </Text>
       </View>
     </>

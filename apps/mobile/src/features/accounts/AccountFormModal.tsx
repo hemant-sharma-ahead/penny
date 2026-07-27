@@ -28,6 +28,7 @@ export function AccountFormModal({ form, saving }: AccountFormModalProps) {
       saving={saving}
       saveDisabled={!state.name.trim()}
       saveLabel={editing ? 'Save changes' : 'Add account'}
+      showCancel
     >
       <View className="flex-row flex-wrap gap-2">
         {ACCOUNT_TYPES.map((type) => {

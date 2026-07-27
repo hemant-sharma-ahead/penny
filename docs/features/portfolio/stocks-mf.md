@@ -41,7 +41,7 @@ Penny tracks your direct equity (stock) holdings and mutual fund (MF) investment
   the shared field-groups + pure mappers in `core/portfolio/holdingMappers.ts`).
 - `src/core/db/priceCache.ts` — Price fetch, cache read/write, TTL logic.
 
-**Mobile (`apps/mobile`):** ported in Track 4 (Portfolio module) — `apps/mobile/src/features/portfolio/holdings/equity/` mirrors the web files above. `EquitySection`'s add action is an inline `Button`, not a floating FAB — the web version's floating trigger would scroll with content instead of staying fixed since RN's `position: absolute` positions relative to its parent's own bounds, not the viewport, and this section renders inside `PortfolioPage`'s `ScrollView`; matches the inline-add convention already used by Fixed Income/Precious Metals/Real Assets. `STATUS.x` colors → `useThemeColors()`, CSS Grid → `flex-row flex-wrap`, same as every other section. Live price fetch (`stockApiClient.ts`/`mfApiClient.ts`) already resolves correctly on native via `apiBase.native.ts`.
+**Mobile (`apps/mobile`):** ported in Track 4 (Portfolio module) — `apps/mobile/src/features/portfolio/holdings/equity/` mirrors the web files above. `EquitySection`'s add action is a floating FAB (`EquitySectionHandle`, matching web's fixed always-visible button). `STATUS.x` colors → `useThemeColors()`, CSS Grid → `flex-row flex-wrap`, same as every other section. Live price fetch (`stockApiClient.ts`/`mfApiClient.ts`) already resolves correctly on native via `apiBase.native.ts`.
 
 ## Current limitations
 

@@ -46,7 +46,8 @@ export function ExploreTab() {
                 onPress={() => selectScenario(s.id)}
                 className="flex-row items-center gap-1.5 px-3 py-2 rounded-full border"
                 style={{
-                  backgroundColor: active ? theme.primary : undefined,
+                  // Web's inactive chip is a filled `surface` pill, not transparent — match that here.
+                  backgroundColor: active ? theme.primary : theme.surface,
                   borderColor: active ? theme.primary : theme.border
                 }}
               >

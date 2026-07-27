@@ -5,6 +5,7 @@ import { isHiddenInSafeMode } from '@/core/expenses/categoryGroups';
 import { Icon } from '~/components/Icon';
 import { ProgressBar } from '~/components/ui';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { tint } from '~/lib/color';
 
 interface BudgetsTabProps {
   expenseCategories: ExpenseCategory[];
@@ -39,7 +40,7 @@ export function BudgetsTab({
             <View className="flex-row items-center gap-2">
               <View
                 className="w-7 h-7 rounded-lg items-center justify-center"
-                style={{ backgroundColor: `${cat.color}18` }}
+                style={{ backgroundColor: tint(cat.color, 9) }}
               >
                 <Icon name={cat.icon} size={15} color={cat.color} />
               </View>
