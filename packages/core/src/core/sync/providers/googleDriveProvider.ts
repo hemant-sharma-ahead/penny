@@ -8,9 +8,8 @@
 // Drive v3 docs but is UNTESTED until a client ID + CSP are in place.
 import type { CloudProvider } from './types';
 import { NeedsConsentError, QuotaExceededError } from './types';
+import { DRIVE_SCOPE as SCOPE, DRIVE_BACKUP_FILE_NAME as FILE_NAME } from './googleDriveProvider.constants';
 
-const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
-const FILE_NAME = 'penny-backup.penny';
 const GIS_SRC = 'https://accounts.google.com/gsi/client';
 
 // Read lazily (Vite still inlines the value in production builds) so config is runtime-checkable.

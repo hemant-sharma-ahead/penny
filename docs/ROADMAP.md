@@ -206,6 +206,22 @@ incl. `tests/sync/*`, `tests/backup/openBundleWithDmk`, `tests/lib/debounce`). C
 (Drive needs `VITE_GOOGLE_CLIENT_ID` + CSP). **Deferred:** the native shell that activates iCloud;
 encrypted delta; etag CAS.
 
+**Track D update (2026-07-27):** consolidated Backup & Restore from 5 cards to 3 (Automatic backup /
+Restore / Reset) — Export and the standalone Drive card were duplicating what Automatic Backup's tabs
+already did (see `docs/DESIGN_GUIDELINES.md` §1). Drive/iCloud tabs are now always clickable (each shows
+its own info when selected; only the tab-specific "Back up now" disables if that provider isn't
+available yet). Shipped real native Google Drive backup (`@react-native-google-signin/google-signin` +
+Drive v3 REST, mirroring the web provider) and a real native on-device daily floor
+(`localBackup.native.ts`, `expo-file-system`'s persistent storage — previously a no-op, since OPFS
+doesn't exist on RN). Also fixed a real restore bug: a stale PIN lockout carried over from the backup's
+source device could block the (correct) original PIN after restore — `importBackup()` now resets
+`pinAttempts`/`lockedUntil`/etc. while leaving the key-wrapping material untouched. **Blocked on a user
+action:** native Google Drive backup can't be tested end-to-end until the Google Cloud Console setup is
+done (Android OAuth client keyed to this app's package + SHA-1, plus a Web OAuth client — full steps in
+`docs/features/backup.md`'s "Enabling Google Drive backup"); `app.json`'s `extra.googleWebClientId` and
+`apps/web-react`'s `VITE_GOOGLE_CLIENT_ID` both still need real values. Until then Drive stays disabled
+(honestly, not faked) on every platform.
+
 **Track E — Groups & Household OS · E1: worker + group crypto + client wiring (2026-07-01):** the third
 per-user backend (`workers/groups/` — `penny-groups`), mirroring the Track C template. **Model B /
 ciphertext-only:** D1 holds group metadata + membership + invites + wrapped key-grants + an event index
@@ -814,6 +830,7 @@ Most of Groups & Household OS is built (see Part 2 above). Still to do within Ph
 - **EPFO passbook PDF import** — Parse employment history + transactions from EPFO passbook PDF.
 - **Bank statement import** — Parse PDF bank statements (Indian banks vary — challenge: no standard format).
 - **SMS transaction parsing** — Auto-detect expenses from bank SMS alerts. Privacy concern: requires READ_SMS permission.
+- **"Import with Chip" conversational review** — Instead of (or as a toggle alongside) the tile-based review screen, let Chip ask about only the genuinely ambiguous items (an unresolved category, a suspected transfer pair) via quick-reply chips + free text, silently auto-applying high-confidence matches, with a "Show full review" escape hatch back to the tile view at any point. Explored as a concept sketch in `docs/mockups/proposals/import-wizard-redesign-v3.html`'s "out of the box" section. Open question flagged there: risk of hiding decisions from the user by auto-applying matches — needs a confidence-threshold and an always-visible audit trail (e.g. "12 rows auto-matched, tap to review") before this could ship, not just a chat UI.
 
 ### Export improvements
 

@@ -45,6 +45,14 @@ which is itself a finding worth surfacing).
   today (this exact gap has caused real, confirmed bugs more than once).
 - "Keep shared controls in sync" — if this pattern/control appears elsewhere in the app
   (or on the other platform), confirm your change doesn't leave the copies inconsistent.
+- **Duplicated capability is a consolidation signal, not several independent bugs.** If
+  the same capability is implemented in more than one place on a screen (e.g. a
+  dedicated card *and* a tab option both driving the same backend action), don't fix each
+  spot in place — that cements the duplication. Propose collapsing them into one control
+  via the mockup workflow above. This exact mistake happened once already (Backup &
+  Restore, 2026-07-27: cosmetic patches shipped instead of consolidating a duplicated
+  Google-Drive card into the Automatic Backup tab it duplicated) — treat multiple small
+  bugs in the same feature area as a prompt to check for this before patching anything.
 
 ## Verification
 

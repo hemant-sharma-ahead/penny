@@ -59,6 +59,19 @@ bakes it into the compiled app at build time instead — changing `app.json` the
 full rebuild (the same command again), not just a reload. See the native-rebuild note in
 [Running `apps/mobile`](#running-appsmobile-expo--react-native).
 
+## Resetting app data (start over from onboarding)
+
+Wipes all local data (encrypted DB, session/DMK, onboarding flag, everything) so the app
+next opens as if freshly installed. Useful for testing onboarding, or getting unstuck from
+a bad local state — this is a data reset, not a code reload; nothing here touches source
+files or the dev server.
+
+| | web-react (browser) | apps/mobile (Android, via `adb`) | apps/mobile (iOS Simulator) |
+| --- | --- | --- | --- |
+| **Command** | In the browser's DevTools console:<br>`localStorage.clear();`<br>`indexedDB.deleteDatabase('penny');`<br>`window.location.reload();` | `adb shell pm clear com.anonymous.penny`<br>then relaunch: `adb shell am force-stop com.anonymous.penny && adb shell monkey -p com.anonymous.penny -c android.intent.category.LAUNCHER 1` | Long-press the app icon → Remove App → Delete App (or `xcrun simctl uninstall booted <bundle-id>`), then reinstall: `npx expo run:ios` |
+| **What it clears** | Dexie (IndexedDB) + any `localStorage` (theme pref, plain caches like news/market) | Everything in the app's private storage — `op-sqlite` DB, `AsyncStorage`, session/DMK | Same as Android — a full uninstall is the only guaranteed full wipe (no `pm clear` equivalent on iOS) |
+| **Notes** | `indexedDB.deleteDatabase('penny')` must run before/without another tab holding the DB open, or it silently queues instead of deleting — close other tabs of the app first | Package name is `com.anonymous.penny` (from `app.json`'s `android.package`) — reinstalling isn't needed, `pm clear` alone resets state | iOS bundle id isn't set explicitly in `app.json` yet (defaults to one derived from the app slug) — check Xcode/the Simulator once `ios/` is prebuilt |
+
 ## Quick reference — running the Workers
 
 All three share one template (Track A) — own `package.json`/lockfile, `wrangler dev` for

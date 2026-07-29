@@ -131,6 +131,24 @@ export async function exportBackup(): Promise<Blob> {
   return new Blob([JSON.stringify(file)], { type: 'application/json' });
 }
 
+/** Strip lockout/attempt-counter state from a restored security record so a stale lockout carried
+ *  over from the backup's *original* device (or, worse, a backup taken mid-lockout) can't block PIN
+ *  entry here — the wrapped key material (`kekSalt`/`encryptedMasterKey`) is left untouched, so the
+ *  ORIGINAL PIN from when the backup was made is still what's required after restore (matching
+ *  web-react's existing, intended behavior), just no longer blocked by counters that belong to a
+ *  different device/moment. Found 2026-07-27: "no PIN worked after restore" on mobile traced to this,
+ *  not to the restored PIN itself being wrong. */
+function resetLockoutState(rows: unknown[]): unknown[] {
+  if (!rows.length) return rows;
+  return (rows as SecurityRecord[]).map((row) => ({
+    ...row,
+    pinAttempts: 0,
+    lockedUntil: undefined,
+    passphraseAttempts: 0,
+    passphraseLockedUntil: undefined
+  }));
+}
+
 export async function importBackup(fileText: string, passphrase: string): Promise<void> {
   let file: BackupFile;
   try {
@@ -171,7 +189,8 @@ export async function importBackup(fileText: string, passphrase: string): Promis
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const table = (db as any)[name] as { clear(): Promise<void>; bulkPut(rows: unknown[]): Promise<unknown> };
     await table.clear();
-    const rows = bundle.stores[name as BackupStore];
+    let rows = bundle.stores[name as BackupStore];
+    if (name === 'security' && rows) rows = resetLockoutState(rows);
     if (rows?.length) {
       await table.bulkPut(rows);
     }

@@ -56,10 +56,27 @@ reviewing or proposing:
 - **Consistency with itself**: if this control/pattern appears elsewhere in the app
   (e.g. privacy-mode iconography in both the header switcher and Settings), confirm it
   still matches after your change.
+- **Duplicated capability = a redesign signal, not N separate bugs.** If a bug-fix pass
+  turns up multiple small issues that all trace back to the same capability being
+  implemented twice (e.g. a dedicated "Back up to Google Drive" card *and* a "Drive" tab
+  in an Automatic Backup control, both driving the same provider), do not patch each
+  location in place (a toast here, a disabled state there) — that cements the
+  duplication instead of fixing it. Stop and treat it as a Step 4 consolidation
+  candidate: propose collapsing it into one control before touching the code further.
+  This exact mistake happened on Penny's Backup & Restore screen (2026-07-27): three
+  cosmetic patches were shipped (toast feedback, disabled tabs, a loading spinner) on top
+  of a screen that actually needed consolidating from 4 cards down to 3, with each
+  Automatic Backup tab becoming fully self-sufficient (its own "Back up now" doing the
+  tab-appropriate action — local save, Drive upload, iCloud upload — instead of a
+  separate card per destination). The user had to explicitly redirect after the fact.
+  Recognize this pattern *before* implementing, not after being corrected.
 
 ## Step 4. Proposing a new design (mockup workflow)
 
-Never jump straight to code for a UI change beyond a small, obvious fix:
+Never jump straight to code for a UI change beyond a small, obvious fix — and per the
+duplicated-capability heuristic above, "obvious fix" does not include patching multiple
+spots that all do the same thing; that's a consolidation, always routed through this
+mockup workflow:
 
 1. Build the improved layout as a **new static HTML mockup** in
    `docs/mockups/proposals/` (e.g. `<screen>-vN.html`), in the style of the existing

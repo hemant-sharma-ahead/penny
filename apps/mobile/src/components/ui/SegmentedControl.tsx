@@ -9,6 +9,8 @@ interface SegmentOption<T extends string> {
   icon?: string;
   /** Hex color for the active state background. Defaults to the theme's brand primary. */
   color?: string;
+  /** Renders dimmed and non-interactive — for options that exist but aren't available yet. */
+  disabled?: boolean;
 }
 
 interface SegmentedControlProps<T extends string> {
@@ -30,9 +32,10 @@ export function SegmentedControl<T extends string>({ options, value, onChange }:
         return (
           <Pressable
             key={opt.value}
+            disabled={opt.disabled}
             onPress={() => onChange(opt.value)}
             className="flex-1 flex-row items-center justify-center gap-1.5 py-2 rounded-lg"
-            style={active ? { backgroundColor: activeColor } : undefined}
+            style={[active ? { backgroundColor: activeColor } : undefined, opt.disabled ? { opacity: 0.4 } : undefined]}
           >
             {opt.icon && <Icon name={opt.icon} size={14} color={active ? '#fff' : theme.textSecondary} />}
             <Text className="text-xs font-semibold" style={{ color: active ? '#fff' : theme.textSecondary }}>

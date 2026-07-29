@@ -5,6 +5,8 @@ interface SegmentOption<T extends string> {
   icon?: string;
   /** CSS color for the active state background. Defaults to --color-primary. */
   color?: string;
+  /** Renders dimmed and non-interactive — for options that exist but aren't available yet. */
+  disabled?: boolean;
 }
 
 interface SegmentedControlProps<T extends string> {
@@ -29,8 +31,12 @@ export function SegmentedControl<T extends string>({ options, value, onChange, c
           <button
             key={opt.value}
             type="button"
+            disabled={opt.disabled}
+            aria-disabled={opt.disabled}
             onClick={() => onChange(opt.value)}
-            className="flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-colors"
+            className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
+              opt.disabled ? 'opacity-40 cursor-not-allowed' : ''
+            }`}
             style={
               active
                 ? { backgroundColor: activeColor, color: '#fff' }

@@ -269,7 +269,7 @@ export function SettingsPage() {
               <Text className="text-lg font-bold text-primary" numberOfLines={1}>
                 {name}
               </Text>
-              {handleLine && <Text className="text-xs text-secondary">{handleLine}</Text>}
+              {handleLine ? <Text className="text-xs text-secondary">{handleLine}</Text> : null}
             </View>
             <View className="rounded-full px-3 py-1.5 border" style={{ borderColor: tint(theme.primary, 40) }}>
               <Text className="text-xs font-semibold" style={{ color: theme.primary }}>

@@ -227,6 +227,14 @@ already platform-agnostic (most hooks needed only import-path changes). Notable 
   sparkline is redrawn with `react-native-svg`, and `useIncomeSuggestions`'s dismissed-set cache swaps
   `localStorage` for `~/lib/storage`.
 
+**Import update (2026-07-28):** the "mirrors 1:1" description above no longer holds for Import —
+`apps/web-react`'s pipeline was rewritten around a generic column-matching engine, per-distinct-value
+category/account resolution, and a partial-success-tolerant writer (see `docs/features/expenses.md`'s
+import section for the full detail). `apps/mobile`'s copy still runs the original pipeline unchanged and
+still works — `packages/core/src/core/import/importPipeline.ts` deliberately keeps a small legacy
+section (`matchCategory`/`buildPreviewRows`) alongside the new resolution-based one specifically so
+mobile's existing hook keeps compiling. Porting mobile to the new flow is a separate, later pass.
+
 Entry points previously flagged as no-ops pending these modules are now wired: Home's `ToolsGrid` (News,
 Calculators), `GlanceHeader` ("Safe to spend"), `MoneyStatsCard` ("Tax story"); Expenses' `ExpensesHeader`
 ("Import expenses", "Safe: ₹X"); `SettingsPage` gained "Backup & Restore"/"Contact & Feedback" rows. See

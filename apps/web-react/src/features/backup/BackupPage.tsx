@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { exportBackup, importBackup } from '@/core/backup/backupManager';
+import { importBackup } from '@/core/backup/backupManager';
 import { googleDriveBackup, isCloudBackupConfigured } from '@/core/backup/cloudBackup';
 import { wipeAllData } from '@/core/crypto/securityManager';
 import { deregisterAccount, getClaimState } from '@/core/identity/claim';
@@ -9,34 +9,18 @@ import { Card, TextInput, Button, ConfirmDialog, PageHeader } from '@/components
 import { STATUS } from '@/lib/statusColors';
 import { AutoBackupCard } from './AutoBackupCard';
 
-type ExportState = 'idle' | 'exporting' | 'done' | 'error';
 type ImportState = 'idle' | 'importing' | 'done' | 'error';
-type CloudState = 'idle' | 'uploading' | 'uploaded' | 'restoring' | 'error';
+type CloudRestoreState = 'idle' | 'restoring' | 'error';
 
+/**
+ * Only 3 cards now — Automatic backup, Restore from backup, Reset Penny — after consolidating away the
+ * standalone Export backup and Back up to Google Drive cards 2026-07-27 (they duplicated what
+ * AutoBackupCard's tabs already did; see docs/DESIGN_GUIDELINES.md §1 "One capability, one control").
+ * Restore keeps two sources: a picked .penny file, or (once Drive is configured) the latest Drive
+ * backup directly.
+ */
 export function BackupPage() {
   const navigate = useNavigate();
-  // ── Export ──────────────────────────────────────────────────────────────────
-  const [exportState, setExportState] = useState<ExportState>('idle');
-  const [exportError, setExportError] = useState('');
-
-  async function handleExport() {
-    setExportState('exporting');
-    setExportError('');
-    try {
-      const blob = await exportBackup();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const date = new Date().toISOString().slice(0, 10);
-      a.href = url;
-      a.download = `penny-backup-${date}.penny`;
-      a.click();
-      URL.revokeObjectURL(url);
-      setExportState('done');
-    } catch (err) {
-      setExportError(err instanceof Error ? err.message : 'Export failed');
-      setExportState('error');
-    }
-  }
 
   // ── Import ──────────────────────────────────────────────────────────────────
   const fileRef = useRef<HTMLInputElement>(null);
@@ -67,43 +51,31 @@ export function BackupPage() {
     }
   }
 
-  // ── Cloud backup (Google Drive) ───────────────────────────────────────────────
+  // ── Restore from Google Drive (alongside file-restore above) ─────────────────
   const cloudEnabled = isCloudBackupConfigured() && hasEntitlement('cloud_backup');
-  const [cloudState, setCloudState] = useState<CloudState>('idle');
+  const [cloudRestoreState, setCloudRestoreState] = useState<CloudRestoreState>('idle');
   const [cloudError, setCloudError] = useState('');
-
-  async function handleCloudBackup() {
-    setCloudState('uploading');
-    setCloudError('');
-    try {
-      await googleDriveBackup.upload(await exportBackup());
-      setCloudState('uploaded');
-    } catch (err) {
-      setCloudError(err instanceof Error ? err.message : 'Backup failed');
-      setCloudState('error');
-    }
-  }
 
   async function handleCloudRestore() {
     if (!passphrase) {
       setCloudError('Enter your passphrase above first.');
-      setCloudState('error');
+      setCloudRestoreState('error');
       return;
     }
-    setCloudState('restoring');
+    setCloudRestoreState('restoring');
     setCloudError('');
     try {
       const text = await googleDriveBackup.fetchLatest();
       if (!text) {
         setCloudError('No Penny backup found in your Drive.');
-        setCloudState('error');
+        setCloudRestoreState('error');
         return;
       }
       await importBackup(text, passphrase);
       window.location.reload();
     } catch (err) {
       setCloudError(err instanceof Error ? err.message : 'Restore failed');
-      setCloudState('error');
+      setCloudRestoreState('error');
     }
   }
 
@@ -153,38 +125,10 @@ export function BackupPage() {
         }
       />
       <div className="px-4 pt-4 pb-6 flex flex-col gap-5">
-        {/* Automatic backup + sync (Track D) */}
+        {/* Automatic backup + sync (Track D) — the one place This device / Drive / iCloud backup lives */}
         <AutoBackupCard />
 
-        {/* Export card */}
-        <Card padding="lg" className="flex flex-col gap-4">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
-              <i className="ti ti-cloud-download" style={{ fontSize: 20, color: '#00a86b' }} aria-hidden="true" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-primary">Export backup</p>
-              <p className="text-xs mt-0.5 leading-relaxed text-tertiary">
-                Downloads a <span className="font-medium">.penny</span> file encrypted with your passphrase. Store it
-                somewhere safe.
-              </p>
-            </div>
-          </div>
-
-          {exportState === 'done' && (
-            <div className="flex items-center gap-2 text-success bg-success-subtle rounded-xl px-3 py-2">
-              <i className="ti ti-circle-check" style={{ fontSize: 16 }} aria-hidden="true" />
-              <p className="text-xs font-medium">Backup downloaded successfully</p>
-            </div>
-          )}
-          {exportState === 'error' && <p className="text-xs text-danger">{exportError}</p>}
-
-          <Button variant="primary" fullWidth onClick={() => void handleExport()} loading={exportState === 'exporting'}>
-            {exportState === 'exporting' ? 'Preparing backup…' : 'Download backup'}
-          </Button>
-        </Card>
-
-        {/* Import card */}
+        {/* Restore card */}
         <Card padding="lg" className="flex flex-col gap-4">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-xl bg-warning-subtle flex items-center justify-center flex-shrink-0">
@@ -193,8 +137,10 @@ export function BackupPage() {
             <div>
               <p className="text-sm font-semibold text-primary">Restore from backup</p>
               <p className="text-xs mt-0.5 leading-relaxed text-tertiary">
-                Select a <span className="font-medium">.penny</span> file and enter your passphrase to restore. Your
-                current data will be replaced.
+                Select a <span className="font-medium">.penny</span> file
+                {cloudEnabled ? ', or restore straight from Google Drive,' : ''} and enter your passphrase. Your current
+                data will be replaced. Afterward, unlock with the PIN that was active when this backup was created — not
+                necessarily this device's current one.
               </p>
             </div>
           </div>
@@ -236,6 +182,7 @@ export function BackupPage() {
             </div>
           )}
           {importState === 'error' && <p className="text-xs text-danger">{importError}</p>}
+          {cloudRestoreState === 'error' && <p className="text-xs text-danger">{cloudError}</p>}
 
           <Button
             variant="primary"
@@ -246,60 +193,17 @@ export function BackupPage() {
           >
             {importState === 'importing' ? 'Restoring…' : 'Restore backup'}
           </Button>
-        </Card>
 
-        {/* Cloud backup card */}
-        <Card padding="lg" className="flex flex-col gap-4">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-info-subtle flex items-center justify-center flex-shrink-0">
-              <i className="ti ti-brand-google-drive" style={{ fontSize: 20, color: STATUS.info }} aria-hidden="true" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-primary">Back up to Google Drive</p>
-              <p className="text-xs mt-0.5 leading-relaxed text-tertiary">
-                Stores the same encrypted <span className="font-medium">.penny</span> file in your own Google Drive —
-                neither Google nor we can read it.
-              </p>
-            </div>
-          </div>
-
-          {cloudEnabled ? (
-            <>
-              {cloudState === 'uploaded' && (
-                <div className="flex items-center gap-2 text-success bg-success-subtle rounded-xl px-3 py-2">
-                  <i className="ti ti-circle-check" style={{ fontSize: 16 }} aria-hidden="true" />
-                  <p className="text-xs font-medium">Backed up to your Google Drive</p>
-                </div>
-              )}
-              {cloudState === 'error' && <p className="text-xs text-danger">{cloudError}</p>}
-              <div className="flex gap-3">
-                <Button
-                  variant="primary"
-                  className="flex-1"
-                  loading={cloudState === 'uploading'}
-                  onClick={() => void handleCloudBackup()}
-                >
-                  Back up now
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="flex-1"
-                  loading={cloudState === 'restoring'}
-                  onClick={() => void handleCloudRestore()}
-                >
-                  Restore
-                </Button>
-              </div>
-              <p className="text-[11px] text-tertiary">Restore uses the passphrase entered above.</p>
-            </>
-          ) : (
-            <div className="flex items-start gap-2 bg-surface-2 rounded-xl px-3 py-2.5">
-              <i className="ti ti-info-circle text-tertiary mt-0.5" style={{ fontSize: 15 }} aria-hidden="true" />
-              <p className="text-xs text-tertiary leading-relaxed">
-                Google Drive backup activates once a Google client ID (and the matching CSP entries) are configured.
-                Until then, use the encrypted file export above.
-              </p>
-            </div>
+          {cloudEnabled && (
+            <Button
+              variant="secondary"
+              fullWidth
+              onClick={() => void handleCloudRestore()}
+              disabled={!passphrase}
+              loading={cloudRestoreState === 'restoring'}
+            >
+              Restore from Google Drive
+            </Button>
           )}
         </Card>
 
@@ -330,6 +234,7 @@ export function BackupPage() {
           message="All current data — expenses, goals, portfolio, and settings — will be permanently replaced with the contents of the backup file. This cannot be undone."
           confirmLabel="Yes, restore"
           confirmVariant="danger"
+          loading={importState === 'importing'}
         />
 
         <ConfirmDialog

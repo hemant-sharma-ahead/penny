@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, ScrollView, Pressable, Text } from 'react-native';
+import { View, ScrollView, Pressable, Text, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
@@ -125,8 +125,7 @@ function NewTab({ onContinue }: { onContinue: () => void }) {
 function RestoreTab() {
   const theme = useThemeColors();
   const cloudEnabled = isCloudBackupConfigured() && hasEntitlement('cloud_backup');
-  const [fileUri, setFileUri] = useState<string | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [file, setFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [passphrase, setPassphrase] = useState('');
   const [busy, setBusy] = useState<null | 'file' | 'cloud'>(null);
   const [error, setError] = useState('');
@@ -138,21 +137,25 @@ function RestoreTab() {
   }
 
   async function pickFile() {
+    // See BackupPage.tsx's pickFile() for why RN Web needs '*/*' alone here (mixing a specific MIME
+    // type with the wildcard greys out .penny files in the browser's native file dialog).
     const result = await DocumentPicker.getDocumentAsync({
-      type: ['application/json', '*/*'],
+      type: Platform.OS === 'web' ? '*/*' : ['application/json', '*/*'],
       copyToCacheDirectory: true
     });
     if (result.canceled || !result.assets?.[0]) return;
-    setFileUri(result.assets[0].uri);
-    setFileName(result.assets[0].name);
+    setFile(result.assets[0]);
   }
 
   async function restoreFromFile() {
-    if (!fileUri || !passphrase || busy) return;
+    if (!file || !passphrase || busy) return;
     setBusy('file');
     setError('');
     try {
-      const text = await new File(fileUri).text();
+      // See apps/mobile/src/features/backup/BackupPage.tsx's handleImport for why this branches:
+      // expo-file-system's web build is a no-op stub, so `new File(uri)` throws on RN Web —
+      // expo-document-picker's own web build hands back a real browser File at `asset.file` instead.
+      const text = Platform.OS === 'web' && file.file ? await file.file.text() : await new File(file.uri).text();
       await importBackup(text, passphrase);
       await goToApp();
     } catch (err) {
@@ -211,9 +214,9 @@ function RestoreTab() {
           icon="ti-file-upload"
           onPress={() => void pickFile()}
         >
-          {fileName ?? 'Choose a backup file'}
+          {file?.name ?? 'Choose a backup file'}
         </Button>
-        {fileUri && (
+        {file && (
           <Button
             variant="primary"
             size="lg"
