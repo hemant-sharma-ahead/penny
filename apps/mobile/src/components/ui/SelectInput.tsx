@@ -20,6 +20,11 @@ interface SelectInputProps {
   disabled?: boolean;
   error?: string;
   hint?: string;
+  /** Extra classes merged onto the trigger `Pressable` only (not the field wrapper) — matches web's own
+   *  `SelectInput`'s `triggerClassName` prop, e.g. a pill/chip look for a compact kind-dropdown (see the
+   *  CSV import review screen's `CategoryTile`/`AccountsSection`). Non-breaking additive prop — every
+   *  existing caller keeps the plain rectangular default. */
+  triggerClassName?: string;
 }
 
 /**
@@ -37,7 +42,8 @@ export function SelectInput({
   required,
   disabled,
   error,
-  hint
+  hint,
+  triggerClassName = ''
 }: SelectInputProps) {
   const theme = useThemeColors();
   const [open, setOpen] = useState(false);
@@ -47,7 +53,7 @@ export function SelectInput({
     <Pressable
       disabled={disabled}
       onPress={() => setOpen(true)}
-      className={`bg-surface-2 border w-full rounded-xl px-3 py-2.5 flex-row items-center justify-between ${disabled ? 'opacity-50' : ''}`}
+      className={`bg-surface-2 border w-full rounded-xl px-3 py-2.5 flex-row items-center justify-between ${disabled ? 'opacity-50' : ''} ${triggerClassName}`}
       style={{ borderColor: error ? theme.danger : theme.border }}
     >
       <Text className={`text-sm ${selectedOption ? 'text-primary' : 'text-tertiary'}`} numberOfLines={1}>

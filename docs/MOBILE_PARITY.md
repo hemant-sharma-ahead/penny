@@ -66,6 +66,19 @@ The Web-react → Mobile Parity Program runs in numbered phases:
 - `docs/ROADMAP.md`'s Track 6/Track 7 detailed prose has not been trimmed — needs
   cross-checking against `docs/features/expenses.md`/`cash-flow.md`/`tax-awareness.md`/
   `subscriptions.md` first to confirm nothing unique would be lost.
+- **[New bug class, one instance fixed 2026-07-27] `stringVar && <Text>` renders a raw
+  empty-string text node under a `<View>` on RN Web, but not on true native.** Found via
+  `SettingsPage.tsx:272`'s `handleLine` (built with `.filter(Boolean).join(' · ')`, which
+  is `''` — falsy but still a string — when both parts are absent): `{handleLine &&
+  <Text>...}` then renders the empty string itself as a `View` child, and RN Web
+  validates that strictly ("Unexpected text node... cannot be a child of a `<View>`"),
+  while true native silently tolerates it. Fixed there via a ternary to `null` instead of
+  relying on `&&`'s short-circuit value. A grep for the same `stringVar && <Text>`/`<View>`
+  shape found ~33 other matches across `apps/mobile/src` — most looked to be gating on
+  `null`/booleans (safe), but none were individually verified; a dedicated sweep for this
+  exact pattern (specifically any that gate on a string built via `.join()`, template
+  literals, or `?? ''` fallbacks) is worth doing as its own pass, ideally tested under RN
+  Web where it actually surfaces.
 
 **Status legend**: ✅ verified (swept, no open gaps) · ⚠️ gaps open (swept, findings
 below) · 🔍 not yet audited (no formal sweep has run yet).
@@ -86,7 +99,7 @@ below) · 🔍 not yet audited (no formal sweep has run yet).
 | groups | ✅ | 2026-07-26 | — |
 | health | ✅ | 2026-07-26 | — |
 | home | ✅ | 2026-07-26 | — |
-| import | ✅ | 2026-07-26 | — |
+| import | ✅ | 2026-07-29 | — |
 | insurance | ✅ | 2026-07-26 | — |
 | iou | ✅ | 2026-07-26 | — |
 | [loans](#loans) | ⚠️ | 2026-07-26 | On-device verify |
@@ -119,3 +132,17 @@ the 2 modules with something still open.
    schedule via `write-excel-file/universal` instead of web's `xlsx` (which fails under
    Metro). Needs a real download-and-open check to confirm the output (columns, number
    formatting, headers) matches web's export.
+
+_Resolved 2026-07-29: **import** — `apps/mobile/src/features/import/` was fully rebuilt to
+match `apps/web-react`'s resolution-based rewrite + merged review-screen redesign (the
+platform-agnostic pipeline in `packages/core/src/core/import/*` was already shared and
+unchanged; only the wizard UI was behind). Now includes the Custom/map-your-own-columns
+format (`MapColumnsStep.tsx`, previously mobile-excluded), the merged live "review" accordion
+(`ReviewStep.tsx` + `src/features/import/review/`: `AccountsSection`, `PreviewSection`,
+`CategoryTile`, `TransferPairCard`, `UnparsedRows`, `CarryForwardExcluded`,
+`accountMergeSuggestion.ts`, `Pill`), and the retry/undo-capable `DoneStep`. RN-specific
+adaptations: `SelectInput` gained a `triggerClassName` prop (matching `TextInput`'s existing
+`inputClassName`) for the pill-styled kind-dropdown/tag-box treatment; web's `position:
+sticky` progress header became a fixed `View` above a `ScrollView` (RN has no CSS sticky).
+On-device end-to-end verification (multi-format files, transfer-pair collapsing,
+carry-forward exclusion, retry/undo) is still the user's own pass, not yet done here._

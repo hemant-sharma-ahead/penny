@@ -17,7 +17,7 @@ interface AccountFormModalProps {
 }
 
 export function AccountFormModal({ form, saving }: AccountFormModalProps) {
-  const { form: state, patch, selectType, editing } = form;
+  const { form: state, patch, selectType, editing, nameError } = form;
 
   return (
     <FormModal
@@ -26,7 +26,7 @@ export function AccountFormModal({ form, saving }: AccountFormModalProps) {
       onClose={form.close}
       onSave={form.save}
       saving={saving}
-      saveDisabled={!state.name.trim()}
+      saveDisabled={!state.name.trim() || !!nameError}
       saveLabel={editing ? 'Save changes' : 'Add account'}
       showCancel
     >
@@ -53,6 +53,7 @@ export function AccountFormModal({ form, saving }: AccountFormModalProps) {
         value={state.name}
         onChange={(v) => patch({ name: v })}
         placeholder={NAME_PLACEHOLDERS[state.type]}
+        error={nameError}
         autoFocus
       />
 

@@ -1,4 +1,4 @@
-import { View, Pressable, Text } from 'react-native';
+import { View, Pressable, Text, Platform } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import { Button, Card, OptionButton, SectionLabel } from '~/components/ui';
@@ -25,17 +25,24 @@ interface UploadStepProps {
  * `FileReader.readAsText` becomes `expo-document-picker`'s `getDocumentAsync` + `expo-file-system`'s
  * `File.text()` — same pattern already proven in onboarding's `AccountRecoveryScreen`. Template download
  * reuses `downloadCsv` (already ported to `expo-file-system`+`expo-sharing` for Expenses' CSV export).
+ * Adds the 'Custom / other' 5th tile (map-your-own-columns) web has always had — the prior mobile wizard
+ * excluded it entirely since it had no Map-columns step; that gap is closed by `MapColumnsStep.tsx`.
  */
 export function UploadStep({ format, setFormat, parseError, onText }: UploadStepProps) {
   const theme = useThemeColors();
 
   async function pickFile() {
+    // RN Web: mixing a specific MIME type with '*/*' greys out the file in the browser's native dialog
+    // (see BackupPage.tsx's pickFile() for the same fix) — '*/*' alone is the reliable filter there.
     const result = await DocumentPicker.getDocumentAsync({
-      type: ['text/csv', '*/*'],
+      type: Platform.OS === 'web' ? '*/*' : ['text/csv', '*/*'],
       copyToCacheDirectory: true
     });
     if (result.canceled || !result.assets?.[0]) return;
-    const text = await new File(result.assets[0].uri).text();
+    // expo-file-system's web build is a no-op stub, so `new File(uri)` throws on RN Web — use the
+    // picker asset's own browser File object instead there (see AccountRecoveryScreen.tsx's same fix).
+    const asset = result.assets[0];
+    const text = Platform.OS === 'web' && asset.file ? await asset.file.text() : await new File(asset.uri).text();
     onText(text);
   }
 
@@ -44,7 +51,7 @@ export function UploadStep({ format, setFormat, parseError, onText }: UploadStep
       <View className="gap-2">
         <SectionLabel>Format</SectionLabel>
         <View className="flex-row flex-wrap gap-2">
-          {IMPORT_FORMATS.map((f) => (
+          {[...IMPORT_FORMATS, 'custom' as const].map((f) => (
             <View key={f} className="w-[48%]">
               <OptionButton label={FORMAT_LABELS[f]} selected={format === f} onPress={() => setFormat(f)} compact />
             </View>

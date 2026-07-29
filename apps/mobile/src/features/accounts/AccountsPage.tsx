@@ -13,7 +13,7 @@ export function AccountsPage() {
   const modeBg = useModeBackgroundColor();
   const { shouldMask } = usePrivacy();
   const { accounts, txns, saving, totalBalance, saveAccount, deleteAccount, reconcileAccount } = useAccounts();
-  const form = useAccountForm(saveAccount);
+  const form = useAccountForm(saveAccount, accounts);
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
