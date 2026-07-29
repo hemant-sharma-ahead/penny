@@ -17,6 +17,9 @@ interface SelectInputProps {
   disabled?: boolean;
   error?: string;
   hint?: string;
+  /** Extra classes applied to the trigger button (e.g. a pill-shaped visual variant for a specific
+   *  usage) — the dropdown behavior is identical, only the trigger's look changes. */
+  triggerClassName?: string;
 }
 
 interface PanelPos {
@@ -39,7 +42,8 @@ export function SelectInput({
   required,
   disabled,
   error,
-  hint
+  hint,
+  triggerClassName = ''
 }: SelectInputProps) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -106,7 +110,12 @@ export function SelectInput({
         aria-haspopup="listbox"
         aria-expanded={open}
         style={error ? { borderColor: 'var(--color-open)' } : undefined}
-        className="input-surface border w-full rounded-xl px-3 py-2.5 text-sm text-left pr-8 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
+        className={[
+          'input-surface border w-full rounded-xl px-3 py-2.5 text-sm text-left pr-8 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] disabled:opacity-50 disabled:cursor-not-allowed',
+          triggerClassName
+        ]
+          .filter(Boolean)
+          .join(' ')}
       >
         <span className={`block truncate ${selectedOption ? '' : 'text-tertiary'}`}>
           {selectedOption ? selectedOption.label : (placeholder ?? 'Select…')}

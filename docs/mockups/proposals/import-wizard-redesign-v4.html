@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Import Expenses: v4 — accordion + dense preview (synthesis)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --ink: #0f172a; --sec: #475569; --ter: #94a3b8;
+        --bg: #f4f7fa; --surface: #fff; --surface2: #f6f8fb; --surface3: #eef2f7;
+        --border: #e8edf3; --primary: #00a86b;
+        --success: #16a34a; --danger: #dc2626; --warning: #d97706; --info: #2563eb;
+        --success-subtle: #eafaf1; --danger-subtle: #fdecec; --warning-subtle: #fef3e2; --info-subtle: #eaf1fd;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #e6ebf1; color: var(--ink); -webkit-font-smoothing: antialiased; }
+      h1 { text-align: center; margin: 28px 16px 4px; font-size: 21px; }
+      .sub { text-align: center; margin: 0 16px 18px; color: var(--sec); font-size: 13.5px; max-width: 720px; margin-left: auto; margin-right: auto; line-height: 1.55; }
+
+      .context-box { max-width: 720px; margin: 0 auto 22px; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; font-size: 12.5px; color: var(--sec); line-height: 1.6; }
+      .context-box b { color: var(--ink); }
+      .context-box ol { margin: 6px 0 0; padding-left: 18px; }
+
+      .dir-head { max-width: 720px; margin: 8px auto 20px; text-align: center; padding: 0 16px; }
+      .dir-head .tag { display: inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--primary); background: var(--success-subtle); padding: 3px 10px; border-radius: 999px; margin-bottom: 8px; }
+      .dir-head h2 { margin: 0 0 6px; font-size: 18px; }
+      .dir-head p { margin: 0; font-size: 13px; color: var(--sec); line-height: 1.6; }
+
+      .gallery { display: flex; flex-wrap: wrap; gap: 34px; justify-content: center; align-items: flex-start; padding: 0 20px 50px; }
+      .frame-wrap { width: 336px; }
+      .caption { margin-top: 12px; font-size: 12.5px; color: var(--sec); line-height: 1.55; text-align: center; }
+      .caption b { color: var(--ink); }
+
+      .phone { width: 336px; height: 730px; background: var(--bg); border-radius: 34px; border: 10px solid #0f172a; overflow: hidden; position: relative; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(15,23,42,.25); }
+      .statusbar { height: 22px; background: #fff; flex-shrink: 0; }
+      .body { flex: 1; overflow-y: auto; padding: 12px 14px 20px; display: flex; flex-direction: column; gap: 8px; }
+      .body::-webkit-scrollbar { width: 0; }
+
+      /* shared */
+      .section-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--ter); margin: 8px 2px 0; display: flex; align-items: center; justify-content: space-between; }
+      .section-label:first-child { margin-top: 0; }
+      .badge-count { background: var(--surface3); color: var(--sec); font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+      .btn { border: none; border-radius: 10px; font-weight: 700; font-size: 13px; padding: 11px 14px; cursor: pointer; text-align: center; }
+      .btn-primary { background: var(--primary); color: #fff; }
+      .btn-primary:disabled { opacity: .55; }
+      .btn-secondary { background: var(--surface3); color: var(--ink); }
+      .btn-row { display: flex; gap: 8px; margin-top: 4px; flex-shrink: 0; }
+      .btn-row .btn { flex: 1; }
+      .btn-row .btn-primary { flex: 2; }
+
+      .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+      .chip { font-size: 10.5px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--surface3); color: var(--sec); }
+      .chip.danger { background: var(--danger-subtle); color: var(--danger); }
+
+      /* Accordion mechanic — carried from v1's liked interaction pattern */
+      .sticky-progress { position: sticky; top: 0; background: #fff; border-bottom: 1px solid var(--border); padding: 9px 14px; z-index: 2; flex-shrink: 0; }
+      .sticky-progress .hd { display: flex; align-items: center; gap: 10px; }
+      .sticky-progress .back { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--sec); font-size: 15px; flex-shrink: 0; }
+      .sticky-progress .ttl { font-weight: 700; font-size: 14px; }
+      .sticky-progress .bar { height: 5px; background: var(--surface3); border-radius: 999px; overflow: hidden; margin-top: 7px; }
+      .sticky-progress .bar .fill { height: 100%; background: var(--primary); border-radius: 999px; }
+      .sticky-progress .lbl { font-size: 11px; color: var(--sec); display: flex; justify-content: space-between; margin-top: 5px; }
+
+      .accordion { border: 1px solid var(--border); border-radius: 12px; background: #fff; overflow: hidden; }
+      .accordion .ah { display: flex; align-items: center; justify-content: space-between; padding: 12px; cursor: pointer; }
+      .accordion .ah .left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+      .accordion .ah .num { width: 24px; height: 24px; border-radius: 7px; background: var(--surface3); color: var(--ter); font-size: 11px; font-weight: 800; display: grid; place-items: center; flex-shrink: 0; }
+      .accordion .ah .ttl { font-size: 13.5px; font-weight: 700; }
+      .accordion .ah .sub2 { font-size: 10.5px; color: var(--ter); }
+      .accordion .ab { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 10px; }
+      .accordion.done .ah .num { background: var(--success); color: #fff; }
+      .accordion.attn .ah { background: linear-gradient(180deg,#fffdf8,#fff); }
+      .accordion.attn .ah .num { background: var(--warning-subtle); color: var(--warning); }
+
+      /* Dense pill-row accounts (v2 kept treatment) */
+      .acct-row { display: flex; flex-direction: column; gap: 5px; padding: 9px 2px; border-bottom: 1px solid var(--border); }
+      .acct-row:last-child { border-bottom: none; }
+      .acct-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+      .acct-name { font-size: 12.5px; font-weight: 700; }
+      .acct-rows { font-size: 10.5px; color: var(--ter); flex-shrink: 0; }
+      .acct-sugg { font-size: 10px; color: var(--success); display: flex; align-items: center; gap: 4px; }
+      .acct-stats { font-size: 10.5px; color: var(--sec); }
+      .acct-stats b.rd { color: var(--success); font-weight: 700; }
+      .acct-stats b.at { color: var(--warning); font-weight: 700; }
+      .acct-stats b.dp { color: var(--ter); font-weight: 700; }
+      .acct-stats .sep { color: var(--border); margin: 0 5px; }
+
+      /* Compact pill actions — small filled-primary + outlined-secondary, per reference screenshot */
+      .pillrow { display: flex; gap: 5px; flex-wrap: wrap; }
+      .pill-btn { font-size: 10.5px; font-weight: 700; padding: 5px 10px; border-radius: 999px; border: 1.5px solid var(--border); color: var(--sec); background: #fff; white-space: nowrap; }
+      .pill-btn.primary { border-color: var(--primary); background: var(--primary); color: #fff; }
+      .pill-btn.sugg { border-color: var(--info); background: var(--info-subtle); color: var(--info); }
+
+      /* Headline summary card */
+      .headline-card { background: linear-gradient(180deg,#fff,#f7fafe); border: 1px solid #dbe6fb; border-radius: 12px; padding: 12px; }
+      .headline-card .h-top { display: flex; justify-content: space-between; align-items: baseline; }
+      .headline-card .h-rows { font-size: 11px; color: var(--ter); font-weight: 700; }
+      .headline-card .h-txns { font-size: 20px; font-weight: 800; }
+      .headline-card .h-txns small { font-size: 11px; font-weight: 700; color: var(--sec); }
+      .headline-card .h-stats { font-size: 11.5px; color: var(--sec); margin-top: 8px; }
+      .headline-card .h-stats b.rd { color: var(--success); font-weight: 800; }
+      .headline-card .h-stats b.at { color: var(--warning); font-weight: 800; }
+      .headline-card .h-stats b.dp { color: var(--ter); font-weight: 800; }
+      .headline-card .h-stats .sep { color: var(--border); margin: 0 6px; }
+
+      /* Unparsed-rows collapsible — near summary, before category tiles */
+      .unparsed { border: 1px solid #f6d9b3; border-radius: 12px; background: var(--warning-subtle); overflow: hidden; }
+      .unparsed .uh { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; cursor: pointer; }
+      .unparsed .uh .left { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: #92400e; }
+      .unparsed .ub { border-top: 1px dashed #f0c48a; padding: 8px 12px 10px; }
+      .unparsed .u-row { display: flex; justify-content: space-between; gap: 6px; padding: 6px 0; border-bottom: 1px solid #f6e2bc; font-size: 11px; }
+      .unparsed .u-row:last-child { border-bottom: none; }
+      .unparsed .u-row .desc { color: var(--ink); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .unparsed .u-row .why { color: var(--warning); font-size: 10px; flex-shrink: 0; }
+
+      /* Merged transfer diagram (v2 Q variation — kept) */
+      .transfer-diagram { display: flex; align-items: center; gap: 8px; background: var(--info-subtle); border: 1px solid #cfe0fb; border-radius: 12px; padding: 10px 12px; }
+      .transfer-diagram .td-node { text-align: center; flex: 1; }
+      .transfer-diagram .td-node .acct { font-size: 11px; font-weight: 800; }
+      .transfer-diagram .td-node .sub { font-size: 9.5px; color: var(--sec); }
+      .transfer-diagram .td-arrow { display: flex; flex-direction: column; align-items: center; color: var(--info); flex-shrink: 0; }
+      .transfer-diagram .td-arrow .amt { font-size: 12px; font-weight: 800; color: var(--info); }
+      .transfer-diagram .td-arrow i { font-size: 18px; }
+      .transfer-diagram .td-tag { font-size: 9.5px; font-weight: 700; color: var(--info); text-transform: uppercase; }
+
+      /* Category tiles (v3 kept, actions restyled as small pills) */
+      .cat-tile { background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+      .cat-tile.transfer-sugg-tile { border-color: #cfe0fb; }
+      .cat-tile .ct-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; cursor: pointer; }
+      .cat-tile .ct-map { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; font-size: 12px; font-weight: 700; }
+      .cat-tile .ct-src { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .cat-tile .ct-arrow { color: var(--ter); flex-shrink: 0; font-size: 12px; }
+      .cat-tile .ct-dst { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .cat-tile .ct-dst.blank { font-weight: 600; color: var(--ter); font-style: italic; border: 1px dashed var(--border); padding: 2px 8px; border-radius: 999px; font-size: 10.5px; }
+      .cat-tile .ct-count { font-size: 9.5px; font-weight: 700; padding: 3px 7px; border-radius: 999px; background: var(--surface3); color: var(--sec); flex-shrink: 0; }
+      .cat-tile .ct-chev { color: var(--ter); font-size: 13px; flex-shrink: 0; }
+      .cat-tile .ct-actions { display: flex; gap: 5px; flex-wrap: wrap; padding: 0 12px 10px; }
+      .cat-tile .ct-body { border-top: 1px dashed var(--border); padding: 8px 12px 10px; display: flex; flex-direction: column; gap: 0; }
+      .cat-tile .ct-txn { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+      .cat-tile .ct-txn:last-child { border-bottom: none; }
+      .cat-tile .ct-txn .desc { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .cat-tile .ct-txn .meta { font-size: 9.5px; color: var(--ter); }
+      .cat-tile .ct-txn .amt { font-size: 11px; font-weight: 700; flex-shrink: 0; }
+      .cat-tile .ct-txn .amt.in { color: var(--success); }
+      .cat-tile .ct-suggnote { margin: 0 12px 8px; font-size: 9.5px; color: var(--info); display: flex; align-items: center; gap: 4px; }
+
+      .recommend { max-width: 720px; margin: 40px auto 0; background: #fff; border: 1.5px solid var(--primary); border-radius: 14px; padding: 20px 22px; }
+      .recommend h3 { margin: 0 0 8px; font-size: 15px; color: var(--ink); }
+      .recommend p { font-size: 13px; color: var(--sec); line-height: 1.65; margin: 0 0 10px; }
+      .recommend ul { margin: 0 0 10px; padding-left: 18px; font-size: 13px; color: var(--sec); line-height: 1.6; }
+      .recommend .verdict { font-weight: 700; color: var(--ink); }
+    </style>
+  </head>
+  <body>
+    <h1>Import Expenses — v4: accordion + dense preview (synthesis)</h1>
+    <p class="sub">
+      Round 4 — one primary design only, no variation tabs. Combines: the <b>accordion + sticky-progress +
+      contextual-CTA interaction</b> you picked from v1 (adapted to 2 sections, not 3), the <b>dense pill-row
+      Accounts list + Merged Transfer Diagram</b> you picked from v2, and v3's <b>per-source-category tiles</b> —
+      with the boxed mini-stat-cards you disliked in v3 replaced everywhere by inline text/pills, and Preview's
+      internal order set to summary → linked transfer(s) → category tiles, with unparsed rows called out near
+      the summary so they never disappear.
+    </p>
+    <div class="context-box">
+      <b>What this round locks in vs. v1/v2/v3:</b>
+      <ol>
+        <li><b>No tabs anywhere.</b> Single continuous scroll; the two frames below are the same screen collapsed
+        vs. expanded to Preview — not alternate views.</li>
+        <li><b>Exactly 2 top-level sections: Accounts, then Preview.</b> No separate Categories accordion section —
+        category resolution lives inside Preview as tiles, per your ordering instruction.</li>
+        <li><b>No boxed mini-stat-cards anywhere.</b> Per-account and per-category Ready/Attention/Duplicate counts
+        are inline text (<code>26 ready · 3 attention · 1 duplicate</code>) or small pills — never a 3-box grid.</li>
+        <li><b>Preview's internal order:</b> (a) rows-read vs. actual-transactions summary + ready/attention/duplicate
+        counts → (b) a small "N rows need fixing" collapsible for rows that failed to parse (missing date/amount/
+        description) → (c) the linked-transfer diagram card(s) → (d) per-source-category tiles, collapsed by
+        default, pill actions styled after the small filled+outlined reference pair.</li>
+      </ol>
+    </div>
+
+    <div class="dir-head">
+      <span class="tag">Primary — build this</span>
+      <h2>Accordion Accounts + Preview, dense throughout</h2>
+      <p>
+        Frame 1: top of screen, Accounts expanded (still has one decision), Preview collapsed — CTA is honest
+        about what's blocking. Frame 2: scrolled down, Accounts collapsed to a one-line done state, Preview
+        auto-expanded showing its full internal order.
+      </p>
+    </div>
+    <div class="gallery">
+
+      <!-- Frame 1: Accounts expanded, Preview collapsed -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="sticky-progress">
+            <div class="hd"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="ttl">Review import</span></div>
+            <div class="lbl"><span>0 of 2 sections done</span><span>69 rows</span></div>
+            <div class="bar"><div class="fill" style="width:8%;"></div></div>
+          </div>
+          <div class="body">
+            <div class="accordion attn">
+              <div class="ah">
+                <div class="left"><div class="num">4</div><div><div class="ttl">Accounts</div><div class="sub2">1 needs a decision · 4 source accounts</div></div></div>
+                <i class="ti ti-chevron-up" style="color:var(--ter);"></i>
+              </div>
+              <div class="ab">
+                <div class="acct-row">
+                  <div class="acct-top"><span class="acct-name">"HDFC1234" &amp; "HDFC-x1234"</span><span class="acct-rows">35 rows</span></div>
+                  <div class="acct-sugg"><i class="ti ti-sparkles"></i> Same account, written two ways?</div>
+                  <div class="pillrow">
+                    <span class="pill-btn primary">Merge → "HDFC Bank ••1234"</span>
+                    <span class="pill-btn">Keep separate</span>
+                  </div>
+                  <div class="acct-stats"><b class="rd">26 ready</b><span class="sep">·</span><b class="at">3 attention</b><span class="sep">·</span><b class="dp">1 duplicate</b></div>
+                </div>
+
+                <div class="acct-row">
+                  <div class="acct-top"><span class="acct-name">"Cash"</span><span class="acct-rows">10 rows</span></div>
+                  <div class="pillrow">
+                    <span class="pill-btn primary">New account</span>
+                    <span class="pill-btn">Map existing</span>
+                  </div>
+                  <div class="acct-stats"><b class="rd">9 ready</b><span class="sep">·</span><b class="at">1 attention</b></div>
+                </div>
+
+                <div class="acct-row">
+                  <div class="acct-top"><span class="acct-name">"HSBC1234"</span><span class="acct-rows">24 rows</span></div>
+                  <div class="pillrow">
+                    <span class="pill-btn primary">New account</span>
+                    <span class="pill-btn">Map existing</span>
+                  </div>
+                  <div class="acct-stats"><b class="rd">20 ready</b><span class="sep">·</span><b class="at">2 attention</b><span class="sep">·</span><b class="dp">2 duplicate</b></div>
+                </div>
+
+                <p style="margin:2px 2px 0;font-size:10px;color:var(--ter);">4 source accounts → 3 Penny accounts after the merge above. Totals: <b style="color:var(--sec);">59 ready · 7 attention · 3 duplicate</b> — same as Preview below.</p>
+              </div>
+            </div>
+
+            <div class="accordion">
+              <div class="ah">
+                <div class="left"><div class="num">2</div><div><div class="ttl">Preview — 69 rows</div><div class="sub2">59 ready · 7 attention · 3 duplicate</div></div></div>
+                <i class="ti ti-chevron-down" style="color:var(--ter);"></i>
+              </div>
+            </div>
+
+            <p style="text-align:center;font-size:10.5px;color:var(--ter);margin-top:2px;">Resolve the account above, or tap Preview to see rows first</p>
+          </div>
+          <div class="btn-row" style="padding:0 14px 14px;"><button class="btn btn-primary" disabled>Resolve accounts to continue</button></div>
+        </div>
+        <p class="caption"><b>Top of screen.</b> Accounts is expanded because it's not done; each account is a
+        dense row — name, row count, merge suggestion where relevant, small pill actions, then one line of
+        inline ready/attention/duplicate text. No boxed stat cards. Preview stays collapsed with just its counts
+        as a one-line preview; the bottom CTA names exactly what's blocking, same as v1's liked pattern.</p>
+      </div>
+
+      <!-- Frame 2: Accounts done+collapsed, Preview expanded -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="sticky-progress">
+            <div class="hd"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="ttl">Review import</span></div>
+            <div class="lbl"><span>1 of 2 sections done</span><span>69 rows</span></div>
+            <div class="bar"><div class="fill" style="width:54%;"></div></div>
+          </div>
+          <div class="body">
+            <div class="accordion done">
+              <div class="ah">
+                <div class="left"><div class="num"><i class="ti ti-check"></i></div><div><div class="ttl">Accounts</div><div class="sub2">4 → 3 confirmed</div></div></div>
+                <i class="ti ti-chevron-down" style="color:var(--ter);"></i>
+              </div>
+            </div>
+
+            <div class="accordion attn" style="border-color:#f6d9b3;">
+              <div class="ah">
+                <div class="left"><div class="num">7</div><div><div class="ttl">Preview — 69 rows</div><div class="sub2">59 ready · 7 attention · 3 duplicate</div></div></div>
+                <i class="ti ti-chevron-up" style="color:var(--ter);"></i>
+              </div>
+              <div class="ab">
+
+                <!-- (a) summary -->
+                <div class="headline-card">
+                  <div class="h-top">
+                    <span class="h-rows">69 rows read</span>
+                    <span class="h-txns">65 <small>actual transactions</small></span>
+                  </div>
+                  <div class="h-stats"><b class="rd">59 ready</b><span class="sep">·</span><b class="at">7 attention</b><span class="sep">·</span><b class="dp">3 duplicate</b></div>
+                </div>
+
+                <!-- (b) unparsed / structurally-failed rows, kept visible near the summary -->
+                <div class="unparsed">
+                  <div class="uh">
+                    <div class="left"><i class="ti ti-alert-triangle"></i> 4 rows need fixing before they can be categorized</div>
+                    <i class="ti ti-chevron-down" style="color:#92400e;"></i>
+                  </div>
+                  <div class="ub">
+                    <div class="u-row"><span class="desc">Row 14 · Cash withdrawal for abc</span><span class="why">missing date</span></div>
+                    <div class="u-row"><span class="desc">Row 27 · Chai snacks</span><span class="why">invalid date 31/02</span></div>
+                    <div class="u-row"><span class="desc">Row 41 · (blank description)</span><span class="why">missing description</span></div>
+                    <div class="u-row"><span class="desc">Row 58 · Uber ride</span><span class="why">missing amount</span></div>
+                  </div>
+                </div>
+
+                <!-- (c) linked transfer diagram -->
+                <div class="section-label">Linked transfer <span class="badge-count">rows 3–4</span></div>
+                <div class="transfer-diagram">
+                  <div class="td-node"><div class="acct">HDFC1234</div><div class="sub">−₹1,40,000</div></div>
+                  <div class="td-arrow"><i class="ti ti-arrow-narrow-right"></i><span class="amt">₹1.4L</span><span class="td-tag">Transfer</span></div>
+                  <div class="td-node"><div class="acct">Cash</div><div class="sub">+₹1,40,000</div></div>
+                </div>
+                <p style="margin:2px 4px 0;font-size:9.5px;color:var(--ter);">Cash withdrawal · same date · counted once in the 65 total</p>
+
+                <!-- (d) category tiles -->
+                <div class="section-label">Categories <span class="badge-count">9 of 11 decided</span></div>
+
+                <div class="cat-tile">
+                  <div class="ct-head">
+                    <div class="ct-map"><span class="ct-src">"Others"</span><i class="ti ti-arrow-right ct-arrow"></i><span class="ct-dst blank">Choose…</span></div>
+                    <span class="ct-count">18 txns</span>
+                    <i class="ti ti-chevron-down ct-chev"></i>
+                  </div>
+                  <div class="ct-actions">
+                    <span class="pill-btn primary">Map Existing</span>
+                    <span class="pill-btn">New Category</span>
+                    <span class="pill-btn">Skip</span>
+                    <span class="pill-btn">Mark as Transfer</span>
+                  </div>
+                </div>
+
+                <div class="cat-tile transfer-sugg-tile">
+                  <div class="ct-head">
+                    <div class="ct-map"><span class="ct-src">"Balance Correction"</span><i class="ti ti-arrow-right ct-arrow"></i><span class="ct-dst" style="color:var(--info);">Transfer</span></div>
+                    <span class="ct-count">6 txns</span>
+                    <i class="ti ti-chevron-up ct-chev"></i>
+                  </div>
+                  <div class="ct-suggnote"><i class="ti ti-sparkles"></i> Suggested — looks like transfers, not spending</div>
+                  <div class="ct-actions">
+                    <span class="pill-btn sugg"><i class="ti ti-arrows-left-right" style="margin-right:3px;"></i>Mark as Transfer</span>
+                    <span class="pill-btn">Map Existing</span>
+                    <span class="pill-btn">New Category</span>
+                    <span class="pill-btn">Skip</span>
+                  </div>
+                  <div class="ct-body">
+                    <div class="ct-txn"><div><div class="desc">Cash withdrawal for abc</div><div class="meta">3 Jul · HDFC1234</div></div><span class="amt">−₹1,40,000</span></div>
+                    <div class="ct-txn"><div><div class="desc">ATM cash</div><div class="meta">11 Jul · HDFC1234</div></div><span class="amt">−₹10,000</span></div>
+                    <p style="text-align:center;font-size:9.5px;color:var(--ter);margin:2px 0 0;">+ 4 more</p>
+                  </div>
+                </div>
+
+                <div class="cat-tile">
+                  <div class="ct-head">
+                    <div class="ct-map"><span class="ct-src">"Groceries"</span><i class="ti ti-arrow-right ct-arrow"></i><span class="ct-dst">Groceries</span></div>
+                    <span class="ct-count">42 txns</span>
+                    <i class="ti ti-chevron-down ct-chev"></i>
+                  </div>
+                  <div class="ct-actions">
+                    <span class="pill-btn primary"><i class="ti ti-check" style="margin-right:3px;"></i>Map Existing</span>
+                    <span class="pill-btn">New Category</span>
+                    <span class="pill-btn">Skip</span>
+                  </div>
+                </div>
+
+                <div class="cat-tile">
+                  <div class="ct-head">
+                    <div class="ct-map"><span class="ct-src">"Food &amp; Drinks"</span><i class="ti ti-arrow-right ct-arrow"></i><span class="ct-dst">Dining &amp; Café</span></div>
+                    <span class="ct-count">14 txns</span>
+                    <i class="ti ti-chevron-down ct-chev"></i>
+                  </div>
+                  <div class="ct-actions">
+                    <span class="pill-btn primary"><i class="ti ti-check" style="margin-right:3px;"></i>Map Existing</span>
+                    <span class="pill-btn">New Category</span>
+                    <span class="pill-btn">Skip</span>
+                    <span class="pill-btn">Mark as Transfer</span>
+                  </div>
+                </div>
+
+                <div class="cat-tile">
+                  <div class="ct-head">
+                    <div class="ct-map"><span class="ct-src">"Salary"</span><i class="ti ti-arrow-right ct-arrow"></i><span class="ct-dst">Salary <span style="color:var(--ter);font-weight:600;">(new · Income)</span></span></div>
+                    <span class="ct-count">2 txns</span>
+                    <i class="ti ti-chevron-down ct-chev"></i>
+                  </div>
+                  <div class="ct-actions">
+                    <span class="pill-btn">Map Existing</span>
+                    <span class="pill-btn primary"><i class="ti ti-plus" style="margin-right:3px;"></i>New Category</span>
+                    <span class="pill-btn">Skip</span>
+                    <span class="pill-btn">Mark as Transfer</span>
+                  </div>
+                </div>
+
+                <div class="cat-tile">
+                  <div class="ct-head">
+                    <div class="ct-map"><span class="ct-src">"Fuel"</span><i class="ti ti-arrow-right ct-arrow"></i><span class="ct-dst">Transport</span></div>
+                    <span class="ct-count">7 txns</span>
+                    <i class="ti ti-chevron-down ct-chev"></i>
+                  </div>
+                  <div class="ct-actions">
+                    <span class="pill-btn primary"><i class="ti ti-check" style="margin-right:3px;"></i>Map Existing</span>
+                    <span class="pill-btn">New Category</span>
+                    <span class="pill-btn">Skip</span>
+                    <span class="pill-btn">Mark as Transfer</span>
+                  </div>
+                </div>
+
+                <div class="cat-tile">
+                  <div class="ct-head">
+                    <div class="ct-map"><span class="ct-src">"Rent"</span><i class="ti ti-arrow-right ct-arrow"></i><span class="ct-dst">Rent</span></div>
+                    <span class="ct-count">1 txn</span>
+                    <i class="ti ti-chevron-down ct-chev"></i>
+                  </div>
+                  <div class="ct-actions">
+                    <span class="pill-btn primary"><i class="ti ti-check" style="margin-right:3px;"></i>Map Existing</span>
+                    <span class="pill-btn">New Category</span>
+                    <span class="pill-btn">Skip</span>
+                    <span class="pill-btn">Mark as Transfer</span>
+                  </div>
+                </div>
+
+                <div class="cat-tile">
+                  <div class="ct-head">
+                    <div class="ct-map"><span class="ct-src">"Entertainment"</span><i class="ti ti-arrow-right ct-arrow"></i><span class="ct-dst">Entertainment</span></div>
+                    <span class="ct-count">5 txns</span>
+                    <i class="ti ti-chevron-down ct-chev"></i>
+                  </div>
+                  <div class="ct-actions">
+                    <span class="pill-btn primary"><i class="ti ti-check" style="margin-right:3px;"></i>Map Existing</span>
+                    <span class="pill-btn">New Category</span>
+                    <span class="pill-btn">Skip</span>
+                    <span class="pill-btn">Mark as Transfer</span>
+                  </div>
+                </div>
+
+                <div class="cat-tile transfer-sugg-tile">
+                  <div class="ct-head">
+                    <div class="ct-map"><span class="ct-src">"Cash Forward"</span><i class="ti ti-arrow-right ct-arrow"></i><span class="ct-dst" style="color:var(--info);">Transfer</span></div>
+                    <span class="ct-count">3 txns</span>
+                    <i class="ti ti-chevron-down ct-chev"></i>
+                  </div>
+                  <div class="ct-actions">
+                    <span class="pill-btn sugg"><i class="ti ti-check" style="margin-right:3px;"></i>Marked as Transfer</span>
+                    <span class="pill-btn">Map Existing</span>
+                    <span class="pill-btn">New Category</span>
+                    <span class="pill-btn">Skip</span>
+                  </div>
+                </div>
+
+                <div class="cat-tile transfer-sugg-tile">
+                  <div class="ct-head">
+                    <div class="ct-map"><span class="ct-src">"A/c to A/c"</span><i class="ti ti-arrow-right ct-arrow"></i><span class="ct-dst" style="color:var(--info);">Transfer</span></div>
+                    <span class="ct-count">2 txns</span>
+                    <i class="ti ti-chevron-down ct-chev"></i>
+                  </div>
+                  <div class="ct-actions">
+                    <span class="pill-btn sugg"><i class="ti ti-check" style="margin-right:3px;"></i>Marked as Transfer</span>
+                    <span class="pill-btn">Map Existing</span>
+                    <span class="pill-btn">New Category</span>
+                    <span class="pill-btn">Skip</span>
+                  </div>
+                </div>
+
+                <div class="cat-tile">
+                  <div class="ct-head">
+                    <div class="ct-map"><span class="ct-src">"Shopping"</span><i class="ti ti-arrow-right ct-arrow"></i><span class="ct-dst blank">Choose…</span></div>
+                    <span class="ct-count">4 txns</span>
+                    <i class="ti ti-chevron-down ct-chev"></i>
+                  </div>
+                  <div class="ct-actions">
+                    <span class="pill-btn primary">Map Existing</span>
+                    <span class="pill-btn">New Category</span>
+                    <span class="pill-btn">Skip</span>
+                    <span class="pill-btn">Mark as Transfer</span>
+                  </div>
+                </div>
+
+                <p style="text-align:center;font-size:9.5px;color:var(--ter);margin:4px 0 0;">All 11 source categories shown — 9 decided, 2 (<b style="color:var(--ter);">"Others", "Shopping"</b>) still need a choice</p>
+              </div>
+            </div>
+          </div>
+          <div class="btn-row" style="padding:0 14px 14px;"><button class="btn btn-secondary">Fix later</button><button class="btn btn-primary">Import 65 transactions</button></div>
+        </div>
+        <p class="caption"><b>Scrolled down — Preview expanded.</b> Internal order top to bottom: summary
+        (rows-read vs. transactions, inline ready/attention/duplicate) → the 4 rows that failed to parse
+        structurally (missing date/amount/description — distinct from unresolved category) in their own small
+        collapsible so they never disappear → the merged transfer diagram → category tiles, collapsed by
+        default, with small pill actions (filled primary / outlined secondary, per the reference pair) instead
+        of large buttons.</p>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <h3>Recommendation</h3>
+      <p>
+        Build this as the final design — it's a direct synthesis of what you approved across three rounds, not a
+        new direction: v1's accordion mechanic (now 2 sections), v2's dense Accounts list and Merged Transfer
+        Diagram, v3's category tiles reduced to inline stats and small pill actions. No open questions remain
+        that need a design decision; implementation notes below.
+      </p>
+      <ul>
+        <li>On web this is one route: two <code>&lt;details&gt;</code>-like accordion sections in a single
+        scroll, sticky progress header pinned via <code>position: sticky</code>, driven by the same
+        <code>readyRows</code>/<code>rejectedRows</code>/<code>categoryResolutions</code>/<code>accountResolutions</code>
+        shape the current <code>apps/web-react/src/features/import/</code> core already exposes.</li>
+        <li>The "N rows need fixing" collapsible maps directly to <code>rejectedRows</code> (rows that never
+        parsed) — keep it visually distinct (amber, not the neutral card style) from category tiles so a user
+        never confuses "structurally broken" with "category undecided."</li>
+        <li>Pill actions: 4 per category tile at this width is workable at 10.5px/compact padding as shown, but
+        test with a longer target-category name (e.g. "Subscriptions & Memberships") before committing — if it
+        wraps to 2 rows often, collapse to a primary pill + a single "More" overflow instead.</li>
+      </ul>
+      <p class="verdict">Verdict: ship this. Recommend a quick side-by-side against a 12+ category, 5+ account
+      real file before final sign-off, since density choices (pill wrapping, accordion scroll length) read
+      differently past this round's illustrative sample size.</p>
+      <p style="margin-top:12px;">
+        <b>Cross-platform note:</b> unchanged from prior rounds — <code>apps/mobile/src/features/import/ImportPage.tsx</code>
+        has no Resolve/Preview parity with the current <code>apps/web-react</code> import core at all yet (no
+        accordion, no accounts/preview split, stale <code>useImport()</code> shape). Whichever round is final,
+        mobile needs a full port of this accordion + dense-preview design — not a style pass — and this should
+        be tracked as its own follow-up in <code>docs/MOBILE_PARITY.md</code> once approved, per the project's
+        cross-platform-by-default rule.
+      </p>
+    </div>
+
+  </body>
+</html>

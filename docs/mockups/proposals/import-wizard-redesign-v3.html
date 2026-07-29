@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Import Expenses: v3 — single continuous scroll</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --ink: #0f172a; --sec: #475569; --ter: #94a3b8;
+        --bg: #f4f7fa; --surface: #fff; --surface2: #f6f8fb; --surface3: #eef2f7;
+        --border: #e8edf3; --primary: #00a86b;
+        --success: #16a34a; --danger: #dc2626; --warning: #d97706; --info: #2563eb;
+        --success-subtle: #eafaf1; --danger-subtle: #fdecec; --warning-subtle: #fef3e2; --info-subtle: #eaf1fd;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #e6ebf1; color: var(--ink); -webkit-font-smoothing: antialiased; }
+      h1 { text-align: center; margin: 28px 16px 4px; font-size: 21px; }
+      .sub { text-align: center; margin: 0 16px 18px; color: var(--sec); font-size: 13.5px; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.55; }
+
+      .context-box { max-width: 700px; margin: 0 auto 22px; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; font-size: 12.5px; color: var(--sec); line-height: 1.6; }
+      .context-box b { color: var(--ink); }
+      .context-box ol { margin: 6px 0 0; padding-left: 18px; }
+
+      .dir-head { max-width: 700px; margin: 8px auto 20px; text-align: center; padding: 0 16px; }
+      .dir-head .tag { display: inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--primary); background: var(--success-subtle); padding: 3px 10px; border-radius: 999px; margin-bottom: 8px; }
+      .dir-head.alt .tag { color: #7c3aed; background: #f3e8ff; }
+      .dir-head h2 { margin: 0 0 6px; font-size: 18px; }
+      .dir-head p { margin: 0; font-size: 13px; color: var(--sec); line-height: 1.6; }
+
+      .gallery { display: flex; flex-wrap: wrap; gap: 34px; justify-content: center; align-items: flex-start; padding: 0 20px 50px; }
+      .frame-wrap { width: 336px; }
+      .caption { margin-top: 12px; font-size: 12.5px; color: var(--sec); line-height: 1.55; text-align: center; }
+      .caption b { color: var(--ink); }
+
+      .phone { width: 336px; height: 730px; background: var(--bg); border-radius: 34px; border: 10px solid #0f172a; overflow: hidden; position: relative; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(15,23,42,.25); }
+      .statusbar { height: 22px; background: #fff; flex-shrink: 0; }
+      .body { flex: 1; overflow-y: auto; padding: 12px 14px 20px; display: flex; flex-direction: column; gap: 10px; }
+      .body::-webkit-scrollbar { width: 0; }
+
+      /* shared components */
+      .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+      .section-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--ter); margin: 10px 2px 0; display: flex; align-items: center; justify-content: space-between; }
+      .section-label:first-child { margin-top: 2px; }
+      .badge-count { background: var(--surface3); color: var(--sec); font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+      .btn { border: none; border-radius: 10px; font-weight: 700; font-size: 13px; padding: 11px 14px; cursor: pointer; text-align: center; }
+      .btn-primary { background: var(--primary); color: #fff; }
+      .btn-secondary { background: var(--surface3); color: var(--ink); }
+      .btn-row { display: flex; gap: 8px; margin-top: 4px; }
+      .btn-row .btn { flex: 1; }
+      .btn-row .btn-primary { flex: 2; }
+
+      .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+      .chip { font-size: 10.5px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--surface3); color: var(--sec); }
+      .chip.warn { background: var(--warning-subtle); color: var(--warning); }
+      .chip.danger { background: var(--danger-subtle); color: var(--danger); }
+      .chip.info { background: var(--info-subtle); color: var(--info); }
+      .chip.ok { background: var(--success-subtle); color: var(--success); }
+
+      .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+      .seg .so { font-size: 11px; font-weight: 700; padding: 6px 9px; border-radius: 8px; border: 1.5px solid var(--border); color: var(--sec); }
+      .seg .so.on { border-color: var(--primary); background: var(--success-subtle); color: var(--primary); }
+      .seg .so.transfer-sugg { border-color: var(--info); background: var(--info-subtle); color: var(--info); }
+
+      /* Sticky header — single continuous scroll, no tabs */
+      .sticky-progress { position: sticky; top: 0; background: #fff; border-bottom: 1px solid var(--border); padding: 9px 14px; z-index: 2; flex-shrink: 0; }
+      .sticky-progress .hd { display: flex; align-items: center; gap: 10px; }
+      .sticky-progress .back { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--sec); font-size: 15px; flex-shrink: 0; }
+      .sticky-progress .ttl { font-weight: 700; font-size: 14px; }
+      .sticky-progress .bar { height: 5px; background: var(--surface3); border-radius: 999px; overflow: hidden; margin-top: 7px; }
+      .sticky-progress .bar .fill { height: 100%; background: var(--primary); border-radius: 999px; }
+      .sticky-progress .lbl { font-size: 11px; color: var(--sec); display: flex; justify-content: space-between; margin-top: 5px; }
+
+      .anchor-jump { display: flex; gap: 6px; padding: 2px 0 4px; }
+      .anchor-jump a { flex: 1; text-align: center; font-size: 10.5px; font-weight: 700; color: var(--sec); background: var(--surface3); padding: 6px 4px; border-radius: 8px; text-decoration: none; }
+
+      /* Section 1: Accounts */
+      .acct-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+      .acct-card.merge { border-color: #cfe9d8; background: linear-gradient(180deg,#fff,#f7fdfa); }
+      .acct-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+      .acct-name { font-size: 13px; font-weight: 700; }
+      .acct-rows { font-size: 10.5px; color: var(--ter); }
+
+      .stat-chip-row { display: flex; gap: 6px; margin-top: 9px; }
+      .stat-chip { flex: 1; text-align: center; border-radius: 8px; padding: 5px 3px 4px; }
+      .stat-chip .n { display: block; font-size: 13px; font-weight: 800; line-height: 1.1; }
+      .stat-chip .l { font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
+      .stat-chip.ready { background: var(--success-subtle); }
+      .stat-chip.ready .n, .stat-chip.ready .l { color: var(--success); }
+      .stat-chip.attn { background: var(--warning-subtle); }
+      .stat-chip.attn .n, .stat-chip.attn .l { color: var(--warning); }
+      .stat-chip.dup { background: var(--surface3); }
+      .stat-chip.dup .n, .stat-chip.dup .l { color: var(--sec); }
+
+      /* Section 2: Category tiles */
+      .cat-tile { background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+      .cat-tile.transfer-sugg-tile { border-color: #cfe0fb; }
+      .cat-tile .ct-head { display: flex; align-items: center; gap: 8px; padding: 11px 12px; cursor: pointer; }
+      .cat-tile .ct-map { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; font-size: 12.5px; font-weight: 700; }
+      .cat-tile .ct-src { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .cat-tile .ct-arrow { color: var(--ter); flex-shrink: 0; }
+      .cat-tile .ct-dst { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .cat-tile .ct-dst.blank { font-weight: 600; color: var(--ter); font-style: italic; border: 1px dashed var(--border); padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+      .cat-tile .ct-count { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--surface3); color: var(--sec); flex-shrink: 0; }
+      .cat-tile .ct-chev { color: var(--ter); font-size: 13px; flex-shrink: 0; }
+      .cat-tile .ct-actions { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 12px 11px; }
+      .cat-tile .ct-body { border-top: 1px dashed var(--border); padding: 8px 12px 11px; display: flex; flex-direction: column; gap: 0; }
+      .cat-tile .ct-txn { display: flex; justify-content: space-between; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+      .cat-tile .ct-txn:last-child { border-bottom: none; }
+      .cat-tile .ct-txn .desc { font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .cat-tile .ct-txn .meta { font-size: 10px; color: var(--ter); }
+      .cat-tile .ct-txn .amt { font-size: 11.5px; font-weight: 700; flex-shrink: 0; }
+      .cat-tile .ct-txn .amt.in { color: var(--success); }
+      .cat-tile .ct-suggnote { margin: 0 12px 10px; font-size: 10px; color: var(--info); display: flex; align-items: center; gap: 4px; }
+
+      /* Headline card: rows read vs actual transactions */
+      .headline-card { background: linear-gradient(180deg,#fff,#f7fafe); border: 1px solid #dbe6fb; border-radius: 12px; padding: 12px; }
+      .headline-card .h-top { display: flex; justify-content: space-between; align-items: baseline; }
+      .headline-card .h-rows { font-size: 11px; color: var(--ter); font-weight: 700; }
+      .headline-card .h-txns { font-size: 20px; font-weight: 800; }
+      .headline-card .h-txns small { font-size: 11px; font-weight: 700; color: var(--sec); }
+      .headline-card .h-note { display: flex; align-items: flex-start; gap: 6px; margin-top: 8px; padding: 7px 8px; background: var(--info-subtle); border-radius: 8px; font-size: 10.5px; color: #1d4ed8; line-height: 1.5; }
+      .headline-card .h-note i { margin-top: 1px; }
+
+      .summary-stat-row { display: flex; gap: 8px; margin-top: 10px; }
+      .stat-box { flex: 1; background: var(--surface2); border-radius: 10px; padding: 8px 6px; text-align: center; }
+      .stat-box .n { font-size: 17px; font-weight: 800; line-height: 1.1; }
+      .stat-box .l { font-size: 9px; color: var(--sec); font-weight: 600; margin-top: 2px; }
+      .stat-box.warn .n { color: var(--warning); }
+      .stat-box.ok .n { color: var(--success); }
+
+      .txn-row { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 9px 10px; }
+      .txn-row + .txn-row { margin-top: 6px; }
+      .txn-top { display: flex; justify-content: space-between; gap: 6px; align-items: flex-start; }
+      .txn-desc { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .txn-amt { font-size: 12.5px; font-weight: 700; flex-shrink: 0; }
+      .txn-amt.in { color: var(--success); }
+      .txn-meta-row { display: flex; align-items: center; gap: 5px; margin-top: 3px; }
+      .txn-meta { font-size: 10.5px; color: var(--ter); }
+      .txn-row.attn { border-color: #f6d9b3; }
+      .txn-row.dup { border-color: var(--border); background: var(--surface2); opacity: .85; }
+      .dup-badge { font-size: 9.5px; font-weight: 700; color: var(--sec); }
+
+      /* Merged transfer diagram — chosen base per user feedback */
+      .transfer-diagram { display: flex; align-items: center; gap: 8px; background: var(--info-subtle); border: 1px solid #cfe0fb; border-radius: 12px; padding: 10px 12px; }
+      .transfer-diagram .td-node { text-align: center; flex: 1; }
+      .transfer-diagram .td-node .acct { font-size: 11px; font-weight: 800; }
+      .transfer-diagram .td-node .sub { font-size: 9.5px; color: var(--sec); }
+      .transfer-diagram .td-arrow { display: flex; flex-direction: column; align-items: center; color: var(--info); flex-shrink: 0; }
+      .transfer-diagram .td-arrow .amt { font-size: 12px; font-weight: 800; color: var(--info); }
+      .transfer-diagram .td-arrow i { font-size: 18px; }
+      .transfer-diagram .td-tag { font-size: 9.5px; font-weight: 700; color: var(--info); text-transform: uppercase; }
+
+      .recommend { max-width: 700px; margin: 40px auto 0; background: #fff; border: 1.5px solid var(--primary); border-radius: 14px; padding: 20px 22px; }
+      .recommend h3 { margin: 0 0 8px; font-size: 15px; color: var(--ink); }
+      .recommend p { font-size: 13px; color: var(--sec); line-height: 1.65; margin: 0 0 10px; }
+      .recommend ul { margin: 0 0 10px; padding-left: 18px; font-size: 13px; color: var(--sec); line-height: 1.6; }
+      .recommend .verdict { font-weight: 700; color: var(--ink); }
+
+      /* Divider between primary design and the optional exploration further down the page */
+      .big-divider { max-width: 700px; margin: 56px auto 8px; padding: 0 16px; display: flex; align-items: center; gap: 14px; }
+      .big-divider .line { flex: 1; height: 1px; background: var(--border); }
+      .big-divider span { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #7c3aed; white-space: nowrap; }
+
+      /* Chat/conversational exploration */
+      .chat-body { flex: 1; overflow-y: auto; padding: 12px 14px 16px; display: flex; flex-direction: column; gap: 10px; background: var(--bg); }
+      .chat-msg { display: flex; gap: 8px; max-width: 92%; }
+      .chat-msg.bot { align-self: flex-start; }
+      .chat-msg.user { align-self: flex-end; flex-direction: row-reverse; }
+      .chat-avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--success-subtle); color: var(--primary); display: grid; place-items: center; font-size: 13px; flex-shrink: 0; }
+      .chat-bubble { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 9px 12px; font-size: 12.5px; line-height: 1.55; color: var(--ink); }
+      .chat-msg.user .chat-bubble { background: var(--primary); color: #fff; border-color: var(--primary); }
+      .chat-quickrow { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+      .chat-quick { font-size: 11.5px; font-weight: 700; padding: 7px 11px; border-radius: 999px; border: 1.5px solid var(--border); color: var(--sec); background: #fff; }
+      .chat-quick.rec { border-color: var(--primary); background: var(--success-subtle); color: #05603a; }
+      .chat-inline-diagram { margin-top: 8px; }
+      .chat-input-bar { flex-shrink: 0; background: #fff; border-top: 1px solid var(--border); padding: 10px 12px; display: flex; gap: 8px; align-items: center; }
+      .chat-input-bar .fake-input { flex: 1; background: var(--surface3); border-radius: 999px; padding: 9px 14px; font-size: 12px; color: var(--ter); }
+      .chat-input-bar .send { width: 34px; height: 34px; border-radius: 50%; background: var(--primary); color: #fff; display: grid; place-items: center; flex-shrink: 0; }
+    </style>
+  </head>
+  <body>
+    <h1>Import Expenses — v3: single continuous scroll</h1>
+    <p class="sub">
+      Correction applied from v2 feedback: <b>no internal tabs of any kind</b> — this is Direction B exactly as
+      originally approved, one screen, three sections stacked and always reachable by scrolling (Accounts →
+      Categories → Preview). The tab strip in v2 was a comparison device for this document only, not part of the
+      proposal; it's gone here. Categories is back as its own section, redesigned as source-category tiles per
+      your latest note. The Preview transfer treatment uses the <b>Merged Transfer Diagram</b> variation you
+      picked from v2.
+    </p>
+    <div class="context-box">
+      <b>What v3 changes vs v2:</b>
+      <ol>
+        <li><b>Structure:</b> removed the two-tab review/compare shell entirely. The phone frames below show one
+        continuous page at three scroll positions (top, mid-scroll at Categories, and scrolled to Preview) — not
+        three alternate screens to switch between.</li>
+        <li><b>Categories, redesigned:</b> one tile per distinct source category (not per transaction, not inline
+        per-row like v2). Each tile shows <code>Source → Target</code> (target blank with a dashed "Choose…" pill
+        until decided), a transaction-count badge, collapses to that single line by default, and expands to the
+        individual transactions on tap. Same four actions as today's real resolver: Map Existing, New Category,
+        Skip, Mark as Transfer — with the transfer suggestion pre-highlighted for "Balance Correction," exactly as
+        <code>resolveCategories</code> already flags it.</li>
+        <li><b>Preview transfer pair:</b> HDFC1234 → Cash collapses into the merged from→to diagram card, not two
+        bracketed rows. Rows-read vs actual-transactions headline and the per-account Ready/Attention/Duplicate
+        chips carry over unchanged from v2.</li>
+      </ol>
+    </div>
+
+    <!-- ============================================================ PRIMARY — SINGLE CONTINUOUS SCROLL ============================================================ -->
+    <div class="dir-head">
+      <span class="tag">Primary proposal — build this</span>
+      <h2>One screen, three sections, zero tabs</h2>
+      <p>
+        Accounts → Categories → Preview, all on one scrollable page. The three frames below are the <i>same</i>
+        screen at three scroll positions — proof there's no tab switch anywhere, just scroll position.
+      </p>
+    </div>
+    <div class="gallery">
+
+      <!-- Frame 1: top of scroll — Accounts -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="sticky-progress">
+            <div class="hd"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="ttl">Review import</span></div>
+            <div class="lbl"><span>Scroll ↓ for Categories &amp; Preview</span><span>69 rows</span></div>
+            <div class="bar"><div class="fill" style="width:12%;"></div></div>
+          </div>
+          <div class="body">
+            <div class="anchor-jump"><a href="#">Accounts</a><a href="#">Categories</a><a href="#">Preview</a></div>
+
+            <div class="section-label">Accounts <span class="badge-count">1 needs a decision</span></div>
+
+            <div class="acct-card merge">
+              <div class="acct-head">
+                <span class="acct-name">"HDFC1234" &amp; "HDFC-x1234"</span>
+                <span class="acct-rows">35 rows</span>
+              </div>
+              <p style="margin:6px 0 0;font-size:10.5px;color:var(--success);"><i class="ti ti-sparkles"></i> Same account, written two ways?</p>
+              <div class="seg" style="margin-top:6px;">
+                <span class="so on" style="border-color:var(--primary);background:var(--success-subtle);color:#05603a;">Merge → "HDFC Bank ••1234"</span>
+                <span class="so">Keep separate</span>
+              </div>
+              <div class="stat-chip-row">
+                <div class="stat-chip ready"><span class="n">26</span><span class="l">Ready</span></div>
+                <div class="stat-chip attn"><span class="n">3</span><span class="l">Attn.</span></div>
+                <div class="stat-chip dup"><span class="n">1</span><span class="l">Dup.</span></div>
+              </div>
+              <p style="margin:6px 0 0;font-size:9.5px;color:var(--ter);">includes 1 row from the HDFC1234 → Cash transfer</p>
+            </div>
+
+            <div class="acct-card">
+              <div class="acct-head"><span class="acct-name">"Cash"</span><span class="acct-rows">10 rows</span></div>
+              <div class="seg" style="margin-top:8px;"><span class="so on">New account</span><span class="so">Map existing</span></div>
+              <div class="stat-chip-row">
+                <div class="stat-chip ready"><span class="n">9</span><span class="l">Ready</span></div>
+                <div class="stat-chip attn"><span class="n">1</span><span class="l">Attn.</span></div>
+                <div class="stat-chip dup"><span class="n">0</span><span class="l">Dup.</span></div>
+              </div>
+            </div>
+
+            <div class="acct-card">
+              <div class="acct-head"><span class="acct-name">"HSBC1234"</span><span class="acct-rows">24 rows</span></div>
+              <div class="seg" style="margin-top:8px;"><span class="so on">New account</span><span class="so">Map existing</span></div>
+              <div class="stat-chip-row">
+                <div class="stat-chip ready"><span class="n">20</span><span class="l">Ready</span></div>
+                <div class="stat-chip attn"><span class="n">2</span><span class="l">Attn.</span></div>
+                <div class="stat-chip dup"><span class="n">2</span><span class="l">Dup.</span></div>
+              </div>
+            </div>
+
+            <p style="text-align:center;font-size:10.5px;color:var(--ter);margin:4px 0 0;">
+              ↓ scroll for Categories (12) and Preview (69 rows) — same page, no tap needed
+            </p>
+          </div>
+        </div>
+        <p class="caption"><b>Top of scroll — Accounts.</b> Identical content to v2's Accounts tab (merge
+        suggestion + Ready/Attention/Duplicate chips), just no longer gated behind a tab click — it's simply the
+        first thing on the page.</p>
+      </div>
+
+      <!-- Frame 2: scrolled to Categories -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="sticky-progress">
+            <div class="hd"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="ttl">Review import</span></div>
+            <div class="lbl"><span>Categories · 12 source categories</span><span>69 rows</span></div>
+            <div class="bar"><div class="fill" style="width:50%;"></div></div>
+          </div>
+          <div class="body">
+            <div class="anchor-jump"><a href="#">Accounts</a><a href="#" style="background:var(--success-subtle);color:var(--primary);">Categories</a><a href="#">Preview</a></div>
+
+            <div class="section-label">Categories <span class="badge-count">4 of 12 decided</span></div>
+
+            <!-- Tile: undecided, blank target -->
+            <div class="cat-tile">
+              <div class="ct-head">
+                <div class="ct-map">
+                  <span class="ct-src">"Others"</span>
+                  <i class="ti ti-arrow-right ct-arrow"></i>
+                  <span class="ct-dst blank">Choose…</span>
+                </div>
+                <span class="ct-count">18 txns</span>
+                <i class="ti ti-chevron-down ct-chev"></i>
+              </div>
+              <div class="ct-actions">
+                <span class="so on">Map Existing</span><span class="so">New Category</span><span class="so">Skip</span><span class="so">Mark as Transfer</span>
+              </div>
+            </div>
+
+            <!-- Tile: transfer-suggested, expanded -->
+            <div class="cat-tile transfer-sugg-tile">
+              <div class="ct-head">
+                <div class="ct-map">
+                  <span class="ct-src">"Balance Correction"</span>
+                  <i class="ti ti-arrow-right ct-arrow"></i>
+                  <span class="ct-dst" style="color:var(--info);">Transfer</span>
+                </div>
+                <span class="ct-count">6 txns</span>
+                <i class="ti ti-chevron-up ct-chev"></i>
+              </div>
+              <div class="ct-suggnote"><i class="ti ti-sparkles"></i> Suggested — looks like transfers, not spending</div>
+              <div class="ct-actions">
+                <span class="so transfer-sugg on"><i class="ti ti-arrows-left-right" style="margin-right:3px;"></i>Mark as Transfer</span>
+                <span class="so">Map Existing</span><span class="so">New Category</span><span class="so">Skip</span>
+              </div>
+              <div class="ct-body">
+                <div class="ct-txn"><div><div class="desc">Cash withdrawal for abc</div><div class="meta">3 Jul · HDFC1234</div></div><span class="amt">−₹1,40,000</span></div>
+                <div class="ct-txn"><div><div class="desc">Balance Correction</div><div class="meta">3 Jul · Cash</div></div><span class="amt in">+₹1,40,000</span></div>
+                <div class="ct-txn"><div><div class="desc">ATM cash</div><div class="meta">11 Jul · HDFC1234</div></div><span class="amt">−₹10,000</span></div>
+                <p style="text-align:center;font-size:10px;color:var(--ter);margin:2px 0 0;">+ 3 more</p>
+              </div>
+            </div>
+
+            <!-- Tile: mapped -->
+            <div class="cat-tile">
+              <div class="ct-head">
+                <div class="ct-map">
+                  <span class="ct-src">"Groceries"</span>
+                  <i class="ti ti-arrow-right ct-arrow"></i>
+                  <span class="ct-dst">Groceries</span>
+                </div>
+                <span class="ct-count">42 txns</span>
+                <i class="ti ti-chevron-down ct-chev"></i>
+              </div>
+              <div class="ct-actions">
+                <span class="so on"><i class="ti ti-check" style="margin-right:3px;"></i>Map Existing</span><span class="so">New Category</span><span class="so">Skip</span><span class="so">Mark as Transfer</span>
+              </div>
+            </div>
+
+            <!-- Tile: new category -->
+            <div class="cat-tile">
+              <div class="ct-head">
+                <div class="ct-map">
+                  <span class="ct-src">"Salary"</span>
+                  <i class="ti ti-arrow-right ct-arrow"></i>
+                  <span class="ct-dst">Salary (new · Income)</span>
+                </div>
+                <span class="ct-count">4 txns</span>
+                <i class="ti ti-chevron-down ct-chev"></i>
+              </div>
+              <div class="ct-actions">
+                <span class="so">Map Existing</span><span class="so on"><i class="ti ti-plus" style="margin-right:3px;"></i>New Category</span><span class="so">Skip</span><span class="so">Mark as Transfer</span>
+              </div>
+            </div>
+
+            <p style="text-align:center;font-size:10.5px;color:var(--ter);margin:2px 0 0;">+ 8 more category tiles below</p>
+          </div>
+        </div>
+        <p class="caption"><b>Categories, mid-scroll.</b> One tile per source category, collapsed by default —
+        "Others" (18 txns) is still undecided with a dashed "Choose…" placeholder; "Balance Correction" is
+        expanded to show its 6 transactions with Mark as Transfer pre-highlighted, exactly matching what
+        <code>resolveCategories</code> already flags today. This replaces v2's inline per-row chip approach
+        entirely — a decision is made once per category, not once per transaction.</p>
+      </div>
+
+      <!-- Frame 3: scrolled to Preview -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="sticky-progress">
+            <div class="hd"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="ttl">Review import</span></div>
+            <div class="lbl"><span>Preview · 69 rows</span><span>69 rows</span></div>
+            <div class="bar"><div class="fill" style="width:100%;"></div></div>
+          </div>
+          <div class="body">
+            <div class="anchor-jump"><a href="#">Accounts</a><a href="#">Categories</a><a href="#" style="background:var(--success-subtle);color:var(--primary);">Preview</a></div>
+
+            <div class="headline-card">
+              <div class="h-top">
+                <span class="h-rows">69 rows read</span>
+                <span class="h-txns">65 <small>actual transactions</small></span>
+              </div>
+              <div class="h-note"><i class="ti ti-arrows-left-right"></i> 2 rows merged as 1 transfer below — see the linked diagram.</div>
+              <div class="summary-stat-row">
+                <div class="stat-box ok"><div class="n">59</div><div class="l">Ready</div></div>
+                <div class="stat-box warn"><div class="n">7</div><div class="l">Attention</div></div>
+                <div class="stat-box"><div class="n">3</div><div class="l">Duplicate</div></div>
+              </div>
+            </div>
+
+            <div class="section-label">Linked transfer <span class="badge-count">rows 3–4</span></div>
+            <div class="transfer-diagram">
+              <div class="td-node"><div class="acct">HDFC1234</div><div class="sub">−₹1,40,000</div></div>
+              <div class="td-arrow"><i class="ti ti-arrow-narrow-right"></i><span class="amt">₹1.4L</span><span class="td-tag">Transfer</span></div>
+              <div class="td-node"><div class="acct">Cash</div><div class="sub">+₹1,40,000</div></div>
+            </div>
+            <p style="margin:2px 4px 0;font-size:9.5px;color:var(--ter);">Cash withdrawal · same date · counted once in the 65 total</p>
+
+            <div class="section-label">Needs attention <span class="badge-count">7</span></div>
+            <div class="txn-row attn">
+              <div class="txn-top"><span class="txn-desc">Chai snacks</span><span class="txn-amt">−₹240</span></div>
+              <div class="txn-meta-row"><span class="txn-meta">Row 27 · invalid date "31/02/2026" · HDFC1234</span></div>
+            </div>
+            <p style="text-align:center;font-size:10px;color:var(--ter);">+ 6 more flagged rows below</p>
+
+            <div class="section-label">Ready <span class="badge-count">59</span></div>
+            <div class="txn-row">
+              <div class="txn-top"><span class="txn-desc">Big Bazaar</span><span class="txn-amt">−₹2,500</span></div>
+              <div class="txn-meta-row"><span class="txn-meta">14 Jul · Groceries · HDFC-x1234</span></div>
+            </div>
+            <div class="txn-row">
+              <div class="txn-top"><span class="txn-desc">Salary — Acme Corp</span><span class="txn-amt in">+₹85,000</span></div>
+              <div class="txn-meta-row"><span class="txn-meta">1 Jul · Salary · HSBC1234</span></div>
+            </div>
+            <div class="txn-row dup">
+              <div class="txn-top"><span class="txn-desc">Netflix</span><span class="txn-amt">−₹649</span></div>
+              <div class="txn-meta-row"><span class="txn-meta">3 Jul · HSBC1234</span><span class="dup-badge">Duplicate — already imported</span></div>
+            </div>
+
+            <div class="btn-row"><button class="btn btn-secondary">Fix later</button><button class="btn btn-primary">Import 65 transactions</button></div>
+          </div>
+        </div>
+        <p class="caption"><b>Preview, end of scroll.</b> Merged Transfer Diagram (your picked v2 variation) plus
+        the rows-vs-transactions headline and Ready/Attention/Duplicate summary — unchanged from v2. Category
+        chips no longer appear inline per row since categorization is now fully resolved in the Categories
+        section above; ready rows simply show their resolved category as plain text.</p>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <h3>Recommendation</h3>
+      <p>
+        Build this as one continuous page — no tab component in the implementation at all. On web this is a
+        single route rendering three stacked sections with anchor scroll (the "Accounts / Categories / Preview"
+        row at the top of each frame is a scroll-to-anchor jump list, not a tab switcher — no section is ever
+        unmounted). On mobile it's a single `ScrollView` with the same three sections and a `ref`-based
+        scroll-to on the jump chips. This is a direct, literal read of "one continuous screen" — the earlier v2
+        tab strip should not have existed even for comparison purposes; noted for future rounds.
+      </p>
+      <p class="verdict">Verdict: build the three-section single-scroll page above. Category tiles collapsed by
+      default keep the page from feeling long even with 12 categories, since only genuinely undecided or
+      transfer-suggested tiles need a glance.</p>
+      <p style="margin-top:12px;">
+        <b>Cross-platform note:</b> unchanged from prior rounds — <code>apps/mobile/src/features/import/ImportPage.tsx</code>
+        has no Resolve/Preview parity with the current <code>apps/web-react</code> import core yet. Whichever
+        design is approved needs a full mobile port, not a style pass, and should stay tracked in
+        <code>docs/MOBILE_PARITY.md</code> as its own follow-up once the web design is locked.
+      </p>
+    </div>
+
+    <!-- ============================================================ OPTIONAL EXPLORATION — OUT OF THE BOX ============================================================ -->
+    <div class="big-divider"><div class="line"></div><span>Optional exploration — not the proposal above</span><div class="line"></div></div>
+
+    <div class="dir-head alt">
+      <span class="tag">Genuinely different idea, for discussion only</span>
+      <h2>Conversational resolve: Chip walks you through only what's ambiguous</h2>
+      <p>
+        Since you explicitly invited a fresh idea: instead of any list/tile screen at all, Chip (Penny's existing
+        AI advisor) surfaces the import as a short conversation, but <b>only asks about what's actually
+        ambiguous</b> — categories it can't confidently map, the transfer pair, and flagged rows. Everything it's
+        confident about (the 59 ready rows, 4 of 12 categories with obvious matches) is silently applied and
+        just summarized, never asked about. This is not a chatbot replacing the review screen — it's a
+        progressive-disclosure front door: one clear question at a time, plain-language, with the full tile/list
+        view (the primary proposal above) always one tap away behind a "Show full review" link for anyone who
+        wants to see everything at once. Grounded in Penny's "uncluttered, calm, trustworthy" ethos: it reduces a
+        69-row, 12-category import to roughly 3–4 actual questions for a typical file, with Chip's existing voice
+        and avatar (no new persona to design).
+      </p>
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="sticky-progress">
+            <div class="hd"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="ttl">Import with Chip</span></div>
+            <div class="lbl"><span>3 questions left</span><span><a href="#" style="color:var(--info);text-decoration:none;font-weight:700;">Show full review</a></span></div>
+          </div>
+          <div class="chat-body">
+            <div class="chat-msg bot">
+              <div class="chat-avatar"><i class="ti ti-sparkles"></i></div>
+              <div class="chat-bubble">
+                I read your file — 69 rows, 65 actual transactions once I merge one transfer pair. I've already
+                matched 8 of your 12 categories with high confidence (Groceries, Food &amp; Drinks, and 6 others),
+                so 59 rows are ready to go as-is. I've got a few things to check with you first.
+              </div>
+            </div>
+            <div class="chat-msg bot">
+              <div class="chat-avatar"><i class="ti ti-sparkles"></i></div>
+              <div class="chat-bubble">
+                First — I noticed two rows that look like a cash withdrawal, not two separate transactions:
+                <div class="chat-inline-diagram">
+                  <div class="transfer-diagram" style="padding:8px 10px;">
+                    <div class="td-node"><div class="acct" style="font-size:10.5px;">HDFC1234</div><div class="sub">−₹1,40,000</div></div>
+                    <div class="td-arrow"><i class="ti ti-arrow-narrow-right" style="font-size:15px;"></i><span class="amt" style="font-size:11px;">₹1.4L</span></div>
+                    <div class="td-node"><div class="acct" style="font-size:10.5px;">Cash</div><div class="sub">+₹1,40,000</div></div>
+                  </div>
+                </div>
+                Should I treat this as one transfer?
+                <div class="chat-quickrow">
+                  <span class="chat-quick rec"><i class="ti ti-check" style="margin-right:3px;"></i>Yes, it's a transfer</span>
+                  <span class="chat-quick">No, keep as two</span>
+                </div>
+              </div>
+            </div>
+            <div class="chat-msg user"><div class="chat-avatar" style="background:var(--surface3);color:var(--sec);"><i class="ti ti-user"></i></div><div class="chat-bubble">Yes, it's a transfer</div></div>
+            <div class="chat-msg bot">
+              <div class="chat-avatar"><i class="ti ti-sparkles"></i></div>
+              <div class="chat-bubble">
+                Got it — counted once now. Next: your file has a category called <b>"Others"</b> on 18
+                transactions and I'm not confident where it should go. A few examples: "Amazon", "Swiggy",
+                "Uber". Want to map it, or skip these for now?
+                <div class="chat-quickrow">
+                  <span class="chat-quick">Map to existing category</span>
+                  <span class="chat-quick">Create new category</span>
+                  <span class="chat-quick">Skip these 18</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="chat-input-bar">
+            <div class="fake-input">Or just tell me what to do…</div>
+            <div class="send"><i class="ti ti-arrow-up"></i></div>
+          </div>
+        </div>
+        <p class="caption"><b>Concept sketch, not a full spec.</b> Every quick-reply chip is a real, bounded
+        action (same underlying Map/New/Skip/Transfer verbs as the tile design) — this is a different
+        <i>front door</i> to the same decisions, not a different decision model. A free-text input is included
+        for power users who'd rather type "map Others to Shopping" than tap through chips. Biggest open question
+        if this were pursued: whether "only ask about ambiguous things" ever hides a decision a careful user
+        would have wanted to see — the "Show full review" escape hatch in the header is meant to cover that, but
+        it would need real testing before trusting it as the default for every import.</p>
+      </div>
+    </div>
+
+  </body>
+</html>

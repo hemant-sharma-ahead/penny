@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Import Expenses: redesign directions</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --ink: #0f172a; --sec: #475569; --ter: #94a3b8;
+        --bg: #f4f7fa; --surface: #fff; --surface2: #f6f8fb; --surface3: #eef2f7;
+        --border: #e8edf3; --primary: #00a86b;
+        --success: #16a34a; --danger: #dc2626; --warning: #d97706; --info: #2563eb;
+        --success-subtle: #eafaf1; --danger-subtle: #fdecec; --warning-subtle: #fef3e2; --info-subtle: #eaf1fd;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #e6ebf1; color: var(--ink); -webkit-font-smoothing: antialiased; }
+      h1 { text-align: center; margin: 28px 16px 4px; font-size: 21px; }
+      .sub { text-align: center; margin: 0 16px 18px; color: var(--sec); font-size: 13.5px; max-width: 680px; margin-left: auto; margin-right: auto; line-height: 1.55; }
+
+      .context-box { max-width: 680px; margin: 0 auto 22px; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; font-size: 12.5px; color: var(--sec); line-height: 1.6; }
+      .context-box b { color: var(--ink); }
+      .context-box .bad { color: var(--danger); }
+
+      /* Tabs */
+      .tabs { display: flex; justify-content: center; gap: 8px; margin: 0 0 6px; flex-wrap: wrap; padding: 0 16px; position: sticky; top: 0; background: #e6ebf1; z-index: 5; padding-top: 10px; padding-bottom: 10px; }
+      .tab-btn { border: 1.5px solid var(--border); background: #fff; color: var(--sec); font-weight: 700; font-size: 13px; padding: 9px 18px; border-radius: 999px; cursor: pointer; transition: all .15s; }
+      .tab-btn:hover { border-color: var(--primary); }
+      .tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+      .direction { display: none; padding-bottom: 60px; }
+      .direction.active { display: block; }
+
+      .dir-head { max-width: 680px; margin: 8px auto 20px; text-align: center; padding: 0 16px; }
+      .dir-head .tag { display: inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--primary); background: var(--success-subtle); padding: 3px 10px; border-radius: 999px; margin-bottom: 8px; }
+      .dir-head h2 { margin: 0 0 6px; font-size: 18px; }
+      .dir-head p { margin: 0; font-size: 13px; color: var(--sec); line-height: 1.6; }
+
+      .gallery { display: flex; flex-wrap: wrap; gap: 34px; justify-content: center; align-items: flex-start; padding: 0 20px; }
+      .frame-wrap { width: 336px; }
+      .caption { margin-top: 12px; font-size: 12.5px; color: var(--sec); line-height: 1.55; text-align: center; }
+      .caption b { color: var(--ink); }
+
+      .phone { width: 336px; height: 730px; background: var(--bg); border-radius: 34px; border: 10px solid #0f172a; overflow: hidden; position: relative; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(15,23,42,.25); }
+      .statusbar { height: 22px; background: #fff; flex-shrink: 0; }
+      .hdr { flex-shrink: 0; background: #fff; border-bottom: 1px solid var(--border); padding: 10px 14px; display: flex; align-items: center; gap: 10px; }
+      .hdr .back { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; color: var(--sec); font-size: 16px; flex-shrink: 0; }
+      .hdr .title { font-weight: 700; font-size: 14.5px; }
+      .body { flex: 1; overflow-y: auto; padding: 12px 14px 20px; display: flex; flex-direction: column; gap: 10px; }
+      .body::-webkit-scrollbar { width: 0; }
+
+      /* shared components */
+      .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+      .section-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--ter); margin: 2px 2px 0; display: flex; align-items: center; justify-content: space-between; }
+      .badge-count { background: var(--surface3); color: var(--sec); font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+      .btn { border: none; border-radius: 10px; font-weight: 700; font-size: 13px; padding: 11px 14px; cursor: pointer; text-align: center; }
+      .btn-primary { background: var(--primary); color: #fff; }
+      .btn-secondary { background: var(--surface3); color: var(--ink); }
+      .btn-ghost { background: transparent; color: var(--primary); font-weight: 700; }
+      .btn-row { display: flex; gap: 8px; margin-top: 4px; }
+      .btn-row .btn { flex: 1; }
+      .btn-row .btn-primary { flex: 2; }
+
+      .pill-tabs { display: flex; gap: 6px; background: var(--surface3); padding: 3px; border-radius: 10px; }
+      .pill-tabs .pt { flex: 1; text-align: center; font-size: 12px; font-weight: 700; color: var(--sec); padding: 7px 4px; border-radius: 8px; }
+      .pill-tabs .pt.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(15,23,42,.12); }
+
+      .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+      .seg .so { font-size: 11.5px; font-weight: 700; padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--border); color: var(--sec); }
+      .seg .so.on { border-color: var(--primary); background: var(--success-subtle); color: var(--primary); }
+
+      .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+      .chip { font-size: 10.5px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--surface3); color: var(--sec); }
+      .chip.warn { background: var(--warning-subtle); color: var(--warning); }
+      .chip.danger { background: var(--danger-subtle); color: var(--danger); }
+      .chip.info { background: var(--info-subtle); color: var(--info); }
+
+      .raw-strip { display: flex; flex-wrap: wrap; gap: 5px; padding: 8px; background: var(--surface2); border-radius: 8px; border: 1px dashed var(--border); }
+      .raw-strip .rk { font-size: 9px; color: var(--ter); font-weight: 700; text-transform: uppercase; }
+      .raw-strip .rv { font-size: 11px; color: var(--ink); font-family: 'SFMono-Regular', Menlo, monospace; }
+      .raw-item { display: flex; flex-direction: column; gap: 1px; min-width: 64px; }
+      .raw-item.empty .rv { color: var(--danger); font-style: italic; }
+
+      .field-row { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 6px; }
+      .field { display: flex; flex-direction: column; gap: 2px; }
+      .field label { font-size: 9px; color: var(--ter); font-weight: 700; text-transform: uppercase; }
+      .field input { border: 1.5px solid var(--border); border-radius: 8px; padding: 7px 8px; font-size: 12px; font-family: inherit; background: #fff; color: var(--ink); }
+      .field input.err { border-color: var(--danger); background: var(--danger-subtle); }
+      .field input.ok { border-color: #cfe9d8; }
+
+      .summary-stat-row { display: flex; gap: 8px; }
+      .stat-box { flex: 1; background: var(--surface2); border-radius: 10px; padding: 8px 6px; text-align: center; }
+      .stat-box .n { font-size: 17px; font-weight: 800; line-height: 1.1; }
+      .stat-box .l { font-size: 9px; color: var(--sec); font-weight: 600; margin-top: 2px; }
+      .stat-box.warn .n { color: var(--warning); }
+      .stat-box.ok .n { color: var(--success); }
+
+      .row-item { display: flex; align-items: flex-start; gap: 8px; padding: 9px 2px; border-bottom: 1px solid var(--border); }
+      .row-item:last-child { border-bottom: none; }
+      .row-item .ri-main { flex: 1; min-width: 0; }
+      .row-item .ri-top { display: flex; justify-content: space-between; gap: 6px; }
+      .row-item .desc { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .row-item .amt { font-size: 12.5px; font-weight: 700; flex-shrink: 0; }
+      .row-item .meta { font-size: 10.5px; color: var(--ter); margin-top: 1px; }
+
+      .collapsible { border: 1px solid var(--border); border-radius: 12px; background: #fff; overflow: hidden; }
+      .collapsible .ch { display: flex; align-items: center; justify-content: space-between; padding: 12px; cursor: pointer; }
+      .collapsible .ch .left { display: flex; align-items: center; gap: 8px; }
+      .collapsible .ch .num { width: 24px; height: 24px; border-radius: 7px; background: var(--success-subtle); color: var(--primary); font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+      .collapsible .ch .ttl { font-size: 13px; font-weight: 700; }
+      .collapsible .ch .sub2 { font-size: 10.5px; color: var(--ter); }
+      .collapsible .cb { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 10px; }
+      .collapsible.done .ch .num { background: var(--success); color: #fff; }
+      .collapsible.attn .ch .num { background: var(--warning-subtle); color: var(--warning); }
+
+      .sticky-progress { position: sticky; top: 0; background: #fff; border-bottom: 1px solid var(--border); padding: 9px 14px; z-index: 2; }
+      .sticky-progress .bar { height: 5px; background: var(--surface3); border-radius: 999px; overflow: hidden; margin-top: 6px; }
+      .sticky-progress .bar .fill { height: 100%; background: var(--primary); border-radius: 999px; }
+      .sticky-progress .lbl { font-size: 11px; color: var(--sec); display: flex; justify-content: space-between; }
+
+      .card-stack { position: relative; height: 300px; margin: 6px 2px; }
+      .stack-card { position: absolute; inset: 0; background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 14px; box-shadow: 0 8px 20px rgba(15,23,42,.08); display: flex; flex-direction: column; gap: 10px; }
+      .stack-card.behind1 { transform: translateY(10px) scale(.96); opacity: .6; z-index: 1; }
+      .stack-card.behind2 { transform: translateY(18px) scale(.92); opacity: .35; z-index: 0; }
+      .stack-card.front { z-index: 2; }
+      .stack-card .sc-title { font-size: 15px; font-weight: 800; }
+      .stack-card .sc-count { font-size: 11px; color: var(--ter); }
+      .stack-card .sc-options { display: flex; flex-direction: column; gap: 6px; margin-top: auto; }
+      .sc-opt { border: 1.5px solid var(--border); border-radius: 10px; padding: 10px; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+      .sc-opt.rec { border-color: var(--primary); background: var(--success-subtle); color: #05603a; }
+      .sc-opt .ic { color: var(--primary); }
+      .stack-progress-dots { display: flex; justify-content: center; gap: 5px; margin-top: 8px; }
+      .stack-progress-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
+      .stack-progress-dots span.on { background: var(--primary); width: 16px; border-radius: 4px; }
+
+      .recommend { max-width: 680px; margin: 40px auto 0; background: #fff; border: 1.5px solid var(--primary); border-radius: 14px; padding: 20px 22px; }
+      .recommend h3 { margin: 0 0 8px; font-size: 15px; color: var(--ink); }
+      .recommend p { font-size: 13px; color: var(--sec); line-height: 1.65; margin: 0 0 10px; }
+      .recommend ul { margin: 0 0 10px; padding-left: 18px; font-size: 13px; color: var(--sec); line-height: 1.6; }
+      .recommend .verdict { font-weight: 700; color: var(--ink); }
+    </style>
+  </head>
+  <body>
+    <h1>Import Expenses — redesign directions</h1>
+    <p class="sub">
+      Three genuinely different visual directions for <b>Resolve (categories + accounts)</b> and
+      <b>Preview</b>, grounded in the real <code>apps/web-react/src/features/import/</code> screens and a
+      realistic Cashew/MoneyView-scale file (69 rows read, 61 ready, 8 needing attention). Switch between
+      directions with the tabs below — this file is a comparison artifact, not a single final design.
+    </p>
+    <div class="context-box">
+      <b>What's broken today:</b> Resolve shows a flat list of dropdown-only cards for every distinct source
+      category/account with no visual hierarchy or grouping cues. Preview's "Needs attention" cards show
+      <span class="bad">only "Row 3: Missing or unrecognised date" above three empty inputs</span> — the user
+      has no way to see what the source file actually contained for that row, so there's nothing to go on when
+      filling the blanks. And the wizard is 5 rigid steps when categories, accounts and preview are really one
+      decision session.
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-target="dirA">A · Wizard, Polished</button>
+      <button class="tab-btn" data-target="dirB">B · Single Review Screen</button>
+      <button class="tab-btn" data-target="dirC">C · Guided Card Stack</button>
+    </div>
+
+    <!-- ============================================================ DIRECTION A ============================================================ -->
+    <section class="direction active" id="dirA">
+      <div class="dir-head">
+        <span class="tag">Preserves today's step-by-step shape</span>
+        <h2>A · Wizard, Polished</h2>
+        <p>
+          Same 5-step flow (Upload → Map columns → Resolve → Preview → Done) — but Resolve gets a segmented
+          Categories/Accounts switcher with compact suggestion pills instead of bare dropdowns, and every
+          "needs attention" row in Preview now shows the <b>actual raw source columns</b> read-only above the
+          fixable fields, so the user can see what to type.
+        </p>
+      </div>
+      <div class="gallery">
+
+        <!-- Resolve: Categories -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="hdr"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="title">Resolve — Categories</span></div>
+            <div class="body">
+              <div class="card" style="background:var(--info-subtle); border:none;">
+                <p style="margin:0;font-size:11.5px;color:#1d4ed8;line-height:1.5;">One decision per source category, not per row — 12 distinct categories found across 69 rows.</p>
+              </div>
+              <div class="pill-tabs"><div class="pt on">Categories · 12</div><div class="pt">Accounts · 3</div></div>
+
+              <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:13px;font-weight:700;">"Groceries"</span>
+                  <span class="chip">42 txns</span>
+                </div>
+                <div class="seg" style="margin-top:8px;">
+                  <span class="so on"><i class="ti ti-check" style="margin-right:3px;"></i>Map to "Groceries"</span>
+                </div>
+              </div>
+
+              <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:13px;font-weight:700;">"Others"</span>
+                  <span class="chip">18 txns</span>
+                </div>
+                <div class="seg" style="margin-top:8px;">
+                  <span class="so on">Map existing</span><span class="so">New category</span><span class="so">Skip</span>
+                </div>
+                <div style="margin-top:8px;display:flex;align-items:center;gap:6px;">
+                  <span class="dot" style="background:#94a3b8;"></span>
+                  <span style="font-size:12px;color:var(--sec);">→ Other <i class="ti ti-chevron-down" style="font-size:11px;color:var(--ter);margin-left:auto;"></i></span>
+                </div>
+              </div>
+
+              <div class="card" style="border-color:#cfe0fb;background:linear-gradient(180deg,#fff,#f7fafe);">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:13px;font-weight:700;">"Balance Correction"</span>
+                  <span class="chip">6 txns</span>
+                </div>
+                <div class="seg" style="margin-top:8px;">
+                  <span class="so on" style="border-color:var(--info);background:var(--info-subtle);color:var(--info);"><i class="ti ti-arrows-left-right" style="margin-right:3px;"></i>Transfer</span>
+                  <span class="so">Map existing</span><span class="so">New</span>
+                </div>
+                <p style="margin:6px 0 0;font-size:10.5px;color:var(--info);">Suggested — looks like a transfer, not spending</p>
+              </div>
+
+              <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:13px;font-weight:700;">"Salary"</span>
+                  <span class="chip">4 txns</span>
+                </div>
+                <div class="seg" style="margin-top:8px;">
+                  <span class="so on">New category</span><span class="so">Map existing</span>
+                </div>
+                <div style="margin-top:8px;" class="field-row" style="grid-template-columns:1.4fr 1fr;">
+                  <div class="field"><label>Name</label><input class="ok" value="Salary" /></div>
+                  <div class="field"><label>Group</label><input class="ok" value="Income" /></div>
+                </div>
+              </div>
+
+              <p style="text-align:center;font-size:10.5px;color:var(--ter);margin:2px 0;">+ 8 more categories below</p>
+
+              <div class="btn-row"><button class="btn btn-secondary">Back</button><button class="btn btn-primary">Continue</button></div>
+            </div>
+          </div>
+          <p class="caption"><b>Categories tab</b> — compact segmented pills replace raw `&lt;select&gt;` dropdowns; the transfer suggestion for "Balance Correction" is visually called out (info tint + inline rationale), not just a pre-selected dropdown value indistinguishable from a guess.</p>
+        </div>
+
+        <!-- Resolve: Accounts -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="hdr"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="title">Resolve — Accounts</span></div>
+            <div class="body">
+              <div class="pill-tabs"><div class="pt">Categories · 12</div><div class="pt on">Accounts · 3</div></div>
+
+              <div class="card" style="border-color:#cfe9d8;background:linear-gradient(180deg,#fff,#f7fdfa);">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:13px;font-weight:700;">"HDFC1234" &amp; "HDFC-x1234"</span>
+                  <span class="chip">33 txns</span>
+                </div>
+                <p style="margin:6px 0 8px;font-size:10.5px;color:var(--success);"><i class="ti ti-sparkles"></i> These look like the same account, written two ways</p>
+                <div class="seg">
+                  <span class="so on" style="border-color:var(--primary);background:var(--success-subtle);color:#05603a;">Merge → "HDFC Bank ••1234"</span>
+                  <span class="so">Keep separate</span>
+                </div>
+              </div>
+
+              <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:13px;font-weight:700;">"HSBC1234"</span>
+                  <span class="chip">28 txns</span>
+                </div>
+                <div class="seg" style="margin-top:8px;">
+                  <span class="so on">New account</span><span class="so">Map existing</span>
+                </div>
+                <div class="field-row" style="grid-template-columns:1.4fr 1fr;margin-top:8px;">
+                  <div class="field"><label>Name</label><input class="ok" value="HSBC Bank ••1234" /></div>
+                  <div class="field"><label>Type</label><input class="ok" value="Bank" /></div>
+                </div>
+              </div>
+
+              <div class="card" style="background:var(--surface2);">
+                <p style="margin:0;font-size:11.5px;color:var(--sec);line-height:1.5;">
+                  <i class="ti ti-info-circle" style="color:var(--ter);"></i> 3 source accounts → 2 Penny accounts after the merge above.
+                </p>
+              </div>
+
+              <div class="btn-row"><button class="btn btn-secondary">Back</button><button class="btn btn-primary">Continue</button></div>
+            </div>
+          </div>
+          <p class="caption"><b>Accounts tab</b> — same segmented pill pattern for consistency, plus a fuzzy-match "these look like the same account" suggestion (a real gap today: "HDFC1234" and "HDFC-x1234" would silently become two duplicate accounts).</p>
+        </div>
+
+        <!-- Preview -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="hdr"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="title">Preview</span></div>
+            <div class="body">
+              <div class="card">
+                <p style="margin:0 0 8px;font-size:13px;font-weight:700;">69 rows read</p>
+                <div class="summary-stat-row">
+                  <div class="stat-box ok"><div class="n">61</div><div class="l">Ready</div></div>
+                  <div class="stat-box warn"><div class="n">8</div><div class="l">Attention</div></div>
+                  <div class="stat-box"><div class="n">3</div><div class="l">Duplicate</div></div>
+                </div>
+              </div>
+
+              <div class="section-label">Needs attention <span class="badge-count">8</span></div>
+
+              <div class="card" style="border-color:#f6d9b3;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span class="chip danger">Row 14 · missing date</span>
+                </div>
+                <div class="raw-strip" style="margin-top:8px;">
+                  <div class="raw-item empty"><span class="rk">Date</span><span class="rv">(blank)</span></div>
+                  <div class="raw-item"><span class="rk">Amount</span><span class="rv">1,40,000.00</span></div>
+                  <div class="raw-item"><span class="rk">Description</span><span class="rv">Cash withdrawal for abc</span></div>
+                  <div class="raw-item"><span class="rk">Category</span><span class="rv">Others</span></div>
+                  <div class="raw-item"><span class="rk">Account</span><span class="rv">HDFC1234</span></div>
+                </div>
+                <div class="field-row" style="margin-top:8px;">
+                  <div class="field"><label>Date</label><input class="err" placeholder="DD/MM/YYYY" /></div>
+                  <div class="field"><label>Amount</label><input class="ok" value="1,40,000.00" /></div>
+                  <div class="field"><label>Description</label><input class="ok" value="Cash withdrawal for abc" /></div>
+                </div>
+                <button class="btn btn-secondary" style="margin-top:8px;font-size:11.5px;padding:8px;">Include this row</button>
+              </div>
+
+              <div class="card" style="border-color:#f6d9b3;">
+                <span class="chip danger">Row 27 · invalid date "31/02/2026"</span>
+                <div class="raw-strip" style="margin-top:8px;">
+                  <div class="raw-item"><span class="rk">Date</span><span class="rv">31/02/2026</span></div>
+                  <div class="raw-item"><span class="rk">Amount</span><span class="rv">₹240</span></div>
+                  <div class="raw-item"><span class="rk">Description</span><span class="rv">Chai snacks</span></div>
+                </div>
+                <div class="field-row" style="margin-top:8px;">
+                  <div class="field"><label>Date</label><input class="err" placeholder="DD/MM/YYYY" /></div>
+                  <div class="field"><label>Amount</label><input class="ok" value="240" /></div>
+                  <div class="field"><label>Description</label><input class="ok" value="Chai snacks" /></div>
+                </div>
+                <button class="btn btn-secondary" style="margin-top:8px;font-size:11.5px;padding:8px;">Include this row</button>
+              </div>
+
+              <p style="text-align:center;font-size:10.5px;color:var(--ter);">+ 6 more flagged rows below</p>
+
+              <div class="section-label" style="margin-top:6px;">Ready <span class="badge-count">61</span></div>
+              <div class="card" style="padding:4px 10px;">
+                <div class="row-item"><div class="dot" style="background:var(--success);margin-top:4px;"></div><div class="ri-main"><div class="ri-top"><span class="desc">Big Bazaar</span><span class="amt">−₹2,500</span></div><div class="meta">14 Jul · Food &amp; Drinks · HDFC-x1234</div></div></div>
+                <div class="row-item"><div class="dot" style="background:var(--success);margin-top:4px;"></div><div class="ri-main"><div class="ri-top"><span class="desc">Salary — Acme Corp</span><span class="amt" style="color:var(--success);">+₹85,000</span></div><div class="meta">1 Jul · Salary · HSBC1234</div></div></div>
+              </div>
+
+              <div class="btn-row"><button class="btn btn-secondary">Back</button><button class="btn btn-primary">Import 61 expenses</button></div>
+            </div>
+          </div>
+          <p class="caption"><b>Preview</b> — every flagged row now leads with a read-only <b>raw-data strip</b> (dashed border, monospace values) showing exactly what the source file had, with the blank/invalid field visually flagged in red. The fixable inputs are pre-filled from whatever DID parse, so the user only ever types the one broken field.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ DIRECTION B ============================================================ -->
+    <section class="direction" id="dirB">
+      <div class="dir-head">
+        <span class="tag">Consolidates Resolve + Preview into one screen</span>
+        <h2>B · Single Review Screen</h2>
+        <p>
+          Answers the user's "if it can be a single screen, that's better" directly: Upload and (for Custom
+          format) Map Columns stay separate steps, but <b>Resolve-categories, Resolve-accounts and Preview
+          collapse into one scrollable "Review your import" screen</b> with three collapsible sections and a
+          sticky top progress bar. Two frames below show the same screen at scroll-top and scrolled to Preview.
+        </p>
+      </div>
+      <div class="gallery">
+
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="sticky-progress">
+              <div style="display:flex;align-items:center;gap:8px;"><span class="back"><i class="ti ti-arrow-left"></i></span><span style="font-weight:700;font-size:14px;">Review import</span></div>
+              <div class="lbl"><span>2 of 3 sections done</span><span>69 rows</span></div>
+              <div class="bar"><div class="fill" style="width:66%;"></div></div>
+            </div>
+            <div class="body">
+              <div class="collapsible done">
+                <div class="ch">
+                  <div class="left"><div class="num"><i class="ti ti-check"></i></div><div><div class="ttl">Categories</div><div class="sub2">12 confirmed</div></div></div>
+                  <i class="ti ti-chevron-down" style="color:var(--ter);"></i>
+                </div>
+              </div>
+
+              <div class="collapsible attn" style="border-color:#f6d9b3;">
+                <div class="ch">
+                  <div class="left"><div class="num">2</div><div><div class="ttl">Accounts</div><div class="sub2">1 needs a decision</div></div></div>
+                  <i class="ti ti-chevron-up" style="color:var(--ter);"></i>
+                </div>
+                <div class="cb">
+                  <div class="card" style="border-color:#cfe9d8;background:linear-gradient(180deg,#fff,#f7fdfa);">
+                    <div style="display:flex;justify-content:space-between;">
+                      <span style="font-size:12.5px;font-weight:700;">"HDFC1234" &amp; "HDFC-x1234"</span>
+                      <span class="chip">33 txns</span>
+                    </div>
+                    <p style="margin:6px 0 8px;font-size:10.5px;color:var(--success);"><i class="ti ti-sparkles"></i> Same account, written two ways?</p>
+                    <div class="seg"><span class="so on" style="border-color:var(--primary);background:var(--success-subtle);color:#05603a;">Merge → "HDFC Bank ••1234"</span><span class="so">Keep separate</span></div>
+                  </div>
+                  <div class="card">
+                    <div style="display:flex;justify-content:space-between;"><span style="font-size:12.5px;font-weight:700;">"HSBC1234"</span><span class="chip">28 txns</span></div>
+                    <div class="seg" style="margin-top:6px;"><span class="so on">New account</span><span class="so">Map existing</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="collapsible">
+                <div class="ch">
+                  <div class="left"><div class="num" style="background:var(--surface3);color:var(--ter);">3</div><div><div class="ttl">Preview — 69 rows</div><div class="sub2">61 ready · 8 flagged</div></div></div>
+                  <i class="ti ti-chevron-down" style="color:var(--ter);"></i>
+                </div>
+              </div>
+
+              <p style="text-align:center;font-size:10.5px;color:var(--ter);margin-top:2px;">Scroll down, or tap a section to expand it</p>
+              <div class="btn-row"><button class="btn btn-primary" style="flex:1;" disabled>Resolve accounts to continue</button></div>
+            </div>
+          </div>
+          <p class="caption"><b>Top of screen</b> — three collapsible sections replace three separate wizard pages. Categories is done and collapses to a one-line summary; Accounts is expanded because it has an outstanding decision; Preview stays collapsed until the first two are resolved, so the CTA at the bottom is honest about what's blocking.</p>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="sticky-progress">
+              <div style="display:flex;align-items:center;gap:8px;"><span class="back"><i class="ti ti-arrow-left"></i></span><span style="font-weight:700;font-size:14px;">Review import</span></div>
+              <div class="lbl"><span>3 of 3 sections done</span><span>69 rows</span></div>
+              <div class="bar"><div class="fill" style="width:100%;"></div></div>
+            </div>
+            <div class="body">
+              <div class="collapsible done"><div class="ch"><div class="left"><div class="num"><i class="ti ti-check"></i></div><div><div class="ttl">Categories</div><div class="sub2">12 confirmed</div></div></div></div></div>
+              <div class="collapsible done"><div class="ch"><div class="left"><div class="num"><i class="ti ti-check"></i></div><div><div class="ttl">Accounts</div><div class="sub2">3 → 2 confirmed</div></div></div></div></div>
+
+              <div class="collapsible attn" style="border-color:#f6d9b3;">
+                <div class="ch">
+                  <div class="left"><div class="num">8</div><div><div class="ttl">Preview — 69 rows</div><div class="sub2">61 ready · 8 flagged</div></div></div>
+                  <i class="ti ti-chevron-up" style="color:var(--ter);"></i>
+                </div>
+                <div class="cb">
+                  <div class="summary-stat-row">
+                    <div class="stat-box ok"><div class="n">61</div><div class="l">Ready</div></div>
+                    <div class="stat-box warn"><div class="n">8</div><div class="l">Attention</div></div>
+                    <div class="stat-box"><div class="n">3</div><div class="l">Duplicate</div></div>
+                  </div>
+                  <div class="card" style="border-color:#f6d9b3;">
+                    <span class="chip danger">Row 14 · missing date</span>
+                    <div class="raw-strip" style="margin-top:6px;">
+                      <div class="raw-item empty"><span class="rk">Date</span><span class="rv">(blank)</span></div>
+                      <div class="raw-item"><span class="rk">Amount</span><span class="rv">1,40,000.00</span></div>
+                      <div class="raw-item"><span class="rk">Descr.</span><span class="rv">Cash withdrawal…</span></div>
+                    </div>
+                    <div class="field-row" style="margin-top:6px;">
+                      <div class="field"><label>Date</label><input class="err" placeholder="DD/MM/YYYY" /></div>
+                      <div class="field"><label>Amount</label><input class="ok" value="1,40,000.00" /></div>
+                      <div class="field"><label>Description</label><input class="ok" value="Cash withdrawal…" /></div>
+                    </div>
+                  </div>
+                  <p style="text-align:center;font-size:10px;color:var(--ter);">+ 7 more flagged · 61 ready rows below</p>
+                </div>
+              </div>
+
+              <div class="btn-row"><button class="btn btn-secondary">Fix later</button><button class="btn btn-primary">Import 61 now</button></div>
+            </div>
+          </div>
+          <p class="caption"><b>Scrolled to Preview</b> — once Categories and Accounts collapse to done, Preview auto-expands with the same raw-data-strip treatment as Direction A. One screen, one continuous scroll, no step transitions — closest to what the user asked for ("if it can be achieved in a single screen, that's better").</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ DIRECTION C ============================================================ -->
+    <section class="direction" id="dirC">
+      <div class="dir-head">
+        <span class="tag">Most novel — one decision at a time</span>
+        <h2>C · Guided Card Stack</h2>
+        <p>
+          Instead of a list of 12 category cards or 3 account cards at once, each distinct category/account is
+          its own swipeable card in a stack — one decision fully in focus, a recommended action pre-highlighted,
+          tap to accept or override, then the next card slides up. Ends in the same Preview as Direction A.
+          Genuinely different rhythm from both other directions; higher risk (more taps for power users
+          resolving many categories at once) but the friendliest "I don't know what to do" experience.
+        </p>
+      </div>
+      <div class="gallery">
+
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="hdr"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="title">Confirm categories</span></div>
+            <div class="body">
+              <p style="text-align:center;font-size:11px;color:var(--ter);margin:2px 0 0;">Card 2 of 12</p>
+              <div class="card-stack">
+                <div class="stack-card behind2"></div>
+                <div class="stack-card behind1"></div>
+                <div class="stack-card front">
+                  <div class="sc-title">"Balance Correction"</div>
+                  <div class="sc-count">6 transactions · e.g. ₹1,40,000, ₹22,000</div>
+                  <div class="sc-options">
+                    <div class="sc-opt rec"><i class="ti ti-arrows-left-right ic"></i> Mark as a transfer <span style="margin-left:auto;font-size:10px;color:var(--success);">Suggested</span></div>
+                    <div class="sc-opt"><i class="ti ti-folder ic"></i> Map to existing category</div>
+                    <div class="sc-opt"><i class="ti ti-plus ic"></i> Create new category</div>
+                    <div class="sc-opt"><i class="ti ti-x ic"></i> Skip these rows</div>
+                  </div>
+                </div>
+              </div>
+              <div class="stack-progress-dots">
+                <span class="on"></span><span class="on"></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+              </div>
+              <div class="btn-row"><button class="btn btn-secondary">Back</button><button class="btn btn-primary">Accept &amp; next</button></div>
+            </div>
+          </div>
+          <p class="caption"><b>One category at a time</b> — full-width recommended action visually dominant (green tint + "Suggested" badge), alternatives underneath as plain rows. Dot progress at the bottom shows exactly how many decisions remain.</p>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="hdr"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="title">Confirm accounts</span></div>
+            <div class="body">
+              <p style="text-align:center;font-size:11px;color:var(--ter);margin:2px 0 0;">Card 1 of 2</p>
+              <div class="card-stack">
+                <div class="stack-card behind1"></div>
+                <div class="stack-card front">
+                  <div class="sc-title">"HDFC1234" &amp; "HDFC-x1234"</div>
+                  <div class="sc-count">33 transactions combined</div>
+                  <div class="sc-options">
+                    <div class="sc-opt rec"><i class="ti ti-sparkles ic"></i> Merge — same account, written two ways <span style="margin-left:auto;font-size:10px;color:var(--success);">Suggested</span></div>
+                    <div class="sc-opt"><i class="ti ti-folder ic"></i> Keep as separate accounts</div>
+                  </div>
+                </div>
+              </div>
+              <div class="stack-progress-dots"><span class="on"></span><span></span></div>
+              <div class="btn-row"><button class="btn btn-secondary">Back</button><button class="btn btn-primary">Accept &amp; next</button></div>
+            </div>
+          </div>
+          <p class="caption"><b>Same card pattern for accounts</b> — the fuzzy-match merge suggestion gets to be the hero of its own card instead of competing for attention in a list.</p>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="hdr"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="title">Preview</span></div>
+            <div class="body">
+              <div class="card">
+                <p style="margin:0 0 8px;font-size:13px;font-weight:700;">All decisions made — 69 rows read</p>
+                <div class="summary-stat-row">
+                  <div class="stat-box ok"><div class="n">61</div><div class="l">Ready</div></div>
+                  <div class="stat-box warn"><div class="n">8</div><div class="l">Attention</div></div>
+                  <div class="stat-box"><div class="n">3</div><div class="l">Duplicate</div></div>
+                </div>
+              </div>
+              <div class="section-label">Needs attention <span class="badge-count">8</span></div>
+              <div class="card" style="border-color:#f6d9b3;">
+                <span class="chip danger">Row 14 · missing date</span>
+                <div class="raw-strip" style="margin-top:8px;">
+                  <div class="raw-item empty"><span class="rk">Date</span><span class="rv">(blank)</span></div>
+                  <div class="raw-item"><span class="rk">Amount</span><span class="rv">1,40,000.00</span></div>
+                  <div class="raw-item"><span class="rk">Description</span><span class="rv">Cash withdrawal for abc</span></div>
+                </div>
+                <div class="field-row" style="margin-top:8px;">
+                  <div class="field"><label>Date</label><input class="err" placeholder="DD/MM/YYYY" /></div>
+                  <div class="field"><label>Amount</label><input class="ok" value="1,40,000.00" /></div>
+                  <div class="field"><label>Description</label><input class="ok" value="Cash withdrawal for abc" /></div>
+                </div>
+              </div>
+              <div class="btn-row"><button class="btn btn-secondary">Back</button><button class="btn btn-primary">Import 61 expenses</button></div>
+            </div>
+          </div>
+          <p class="caption">Preview is unchanged from Direction A once the card stack finishes — the raw-data-strip fix applies to every direction equally, since it's the actual complaint #2, independent of wizard shape.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="recommend">
+      <h3>Recommendation</h3>
+      <p>
+        Ship the <b>Preview raw-data-strip fix (complaint #2) regardless of direction</b> — it's the clearest,
+        lowest-risk win and the user's most concrete complaint. For the wizard-shape question:
+      </p>
+      <ul>
+        <li><b>Direction B (Single Review Screen)</b> is my pick. It directly answers "hoping for a single
+        screen" without losing clarity — collapsed/done sections keep it uncluttered per
+        <code>DESIGN_GUIDELINES.md</code>'s "uncluttered first," and the sticky progress bar keeps orientation
+        that a flat merge of three pages would otherwise lose.</li>
+        <li>Direction A (Wizard, Polished) is the safer fallback if Direction B's collapsible-section pattern
+        proves awkward on very long files (69 rows is easy; a 1,500-row bank statement export may make one
+        continuous scroll feel heavier than three focused steps) — worth a quick gut-check against a larger
+        sample file before committing.</li>
+        <li>Direction C (Guided Card Stack) is the weakest fit for Penny's actual usage: a file with 12 categories
+        means 12 forced sequential taps before seeing anything else, which cuts against "uncluttered first" more
+        than it helps — I'd park it unless user testing specifically shows people are lost by seeing all 12 at
+        once.</li>
+      </ul>
+      <p class="verdict">Verdict: build Direction B for real, keep Direction A's raw-data-strip Preview
+      component as the shared building block either way, drop Direction C.</p>
+      <p style="margin-top:12px;">
+        <b>Cross-platform note:</b> <code>apps/mobile/src/features/import/ImportPage.tsx</code> is currently
+        stale relative to this rewrite — it has no Resolve step, no Map Columns step, and its
+        <code>useImport()</code> shape (<code>toImport</code>/<code>unrecognisedCount</code>) doesn't match the
+        new core (<code>readyRows</code>/<code>rejectedRows</code>/<code>categoryResolutions</code>/
+        <code>accountResolutions</code>). Whichever direction is approved, mobile needs a full port of the new
+        import flow, not just a style pass — worth flagging in <code>docs/MOBILE_PARITY.md</code> as its own
+        follow-up once the web design is locked.
+      </p>
+    </div>
+
+    <script>
+      document.querySelectorAll('.tab-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+          document.querySelectorAll('.direction').forEach((d) => d.classList.remove('active'));
+          btn.classList.add('active');
+          document.getElementById(btn.dataset.target).classList.add('active');
+        });
+      });
+    </script>
+  </body>
+</html>

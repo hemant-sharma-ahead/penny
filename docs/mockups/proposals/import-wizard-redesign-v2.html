@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Import Expenses: v2 refinement (2-section base + variations)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --ink: #0f172a; --sec: #475569; --ter: #94a3b8;
+        --bg: #f4f7fa; --surface: #fff; --surface2: #f6f8fb; --surface3: #eef2f7;
+        --border: #e8edf3; --primary: #00a86b;
+        --success: #16a34a; --danger: #dc2626; --warning: #d97706; --info: #2563eb;
+        --success-subtle: #eafaf1; --danger-subtle: #fdecec; --warning-subtle: #fef3e2; --info-subtle: #eaf1fd;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #e6ebf1; color: var(--ink); -webkit-font-smoothing: antialiased; }
+      h1 { text-align: center; margin: 28px 16px 4px; font-size: 21px; }
+      .sub { text-align: center; margin: 0 16px 18px; color: var(--sec); font-size: 13.5px; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.55; }
+
+      .context-box { max-width: 700px; margin: 0 auto 22px; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; font-size: 12.5px; color: var(--sec); line-height: 1.6; }
+      .context-box b { color: var(--ink); }
+      .context-box ol { margin: 6px 0 0; padding-left: 18px; }
+
+      /* Tabs */
+      .tabs { display: flex; justify-content: center; gap: 8px; margin: 0 0 6px; flex-wrap: wrap; padding: 0 16px; position: sticky; top: 0; background: #e6ebf1; z-index: 5; padding-top: 10px; padding-bottom: 10px; }
+      .tab-btn { border: 1.5px solid var(--border); background: #fff; color: var(--sec); font-weight: 700; font-size: 13px; padding: 9px 18px; border-radius: 999px; cursor: pointer; transition: all .15s; }
+      .tab-btn:hover { border-color: var(--primary); }
+      .tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+      .tab-btn.rec::after { content: ' \2605'; }
+
+      .direction { display: none; padding-bottom: 60px; }
+      .direction.active { display: block; }
+
+      .dir-head { max-width: 700px; margin: 8px auto 20px; text-align: center; padding: 0 16px; }
+      .dir-head .tag { display: inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--primary); background: var(--success-subtle); padding: 3px 10px; border-radius: 999px; margin-bottom: 8px; }
+      .dir-head h2 { margin: 0 0 6px; font-size: 18px; }
+      .dir-head p { margin: 0; font-size: 13px; color: var(--sec); line-height: 1.6; }
+
+      .gallery { display: flex; flex-wrap: wrap; gap: 34px; justify-content: center; align-items: flex-start; padding: 0 20px; }
+      .frame-wrap { width: 336px; }
+      .caption { margin-top: 12px; font-size: 12.5px; color: var(--sec); line-height: 1.55; text-align: center; }
+      .caption b { color: var(--ink); }
+
+      .phone { width: 336px; height: 730px; background: var(--bg); border-radius: 34px; border: 10px solid #0f172a; overflow: hidden; position: relative; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(15,23,42,.25); }
+      .statusbar { height: 22px; background: #fff; flex-shrink: 0; }
+      .body { flex: 1; overflow-y: auto; padding: 12px 14px 20px; display: flex; flex-direction: column; gap: 10px; }
+      .body::-webkit-scrollbar { width: 0; }
+
+      /* shared components */
+      .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+      .section-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--ter); margin: 2px 2px 0; display: flex; align-items: center; justify-content: space-between; }
+      .badge-count { background: var(--surface3); color: var(--sec); font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+      .btn { border: none; border-radius: 10px; font-weight: 700; font-size: 13px; padding: 11px 14px; cursor: pointer; text-align: center; }
+      .btn-primary { background: var(--primary); color: #fff; }
+      .btn-secondary { background: var(--surface3); color: var(--ink); }
+      .btn-row { display: flex; gap: 8px; margin-top: 4px; }
+      .btn-row .btn { flex: 1; }
+      .btn-row .btn-primary { flex: 2; }
+
+      .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+      .chip { font-size: 10.5px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--surface3); color: var(--sec); }
+      .chip.warn { background: var(--warning-subtle); color: var(--warning); }
+      .chip.danger { background: var(--danger-subtle); color: var(--danger); }
+      .chip.info { background: var(--info-subtle); color: var(--info); }
+      .chip.ok { background: var(--success-subtle); color: var(--success); }
+
+      .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+      .seg .so { font-size: 11px; font-weight: 700; padding: 6px 9px; border-radius: 8px; border: 1.5px solid var(--border); color: var(--sec); }
+      .seg .so.on { border-color: var(--primary); background: var(--success-subtle); color: var(--primary); }
+
+      .sticky-progress { position: sticky; top: 0; background: #fff; border-bottom: 1px solid var(--border); padding: 9px 14px; z-index: 2; flex-shrink: 0; }
+      .sticky-progress .hd { display: flex; align-items: center; gap: 10px; }
+      .sticky-progress .back { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--sec); font-size: 15px; flex-shrink: 0; }
+      .sticky-progress .ttl { font-weight: 700; font-size: 14px; }
+      .sticky-progress .bar { height: 5px; background: var(--surface3); border-radius: 999px; overflow: hidden; margin-top: 7px; }
+      .sticky-progress .bar .fill { height: 100%; background: var(--primary); border-radius: 999px; }
+      .sticky-progress .lbl { font-size: 11px; color: var(--sec); display: flex; justify-content: space-between; margin-top: 5px; }
+
+      .pill-tabs2 { display: flex; gap: 6px; background: var(--surface3); padding: 3px; border-radius: 10px; }
+      .pill-tabs2 .pt { flex: 1; text-align: center; font-size: 12px; font-weight: 700; color: var(--sec); padding: 7px 4px; border-radius: 8px; }
+      .pill-tabs2 .pt.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(15,23,42,.12); }
+
+      /* Section 1: Accounts */
+      .acct-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+      .acct-card.merge { border-color: #cfe9d8; background: linear-gradient(180deg,#fff,#f7fdfa); }
+      .acct-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+      .acct-name { font-size: 13px; font-weight: 700; }
+      .acct-rows { font-size: 10.5px; color: var(--ter); }
+
+      /* stat chip row: per-account ready/attention/duplicate breakdown */
+      .stat-chip-row { display: flex; gap: 6px; margin-top: 9px; }
+      .stat-chip { flex: 1; text-align: center; border-radius: 8px; padding: 5px 3px 4px; }
+      .stat-chip .n { display: block; font-size: 13px; font-weight: 800; line-height: 1.1; }
+      .stat-chip .l { font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
+      .stat-chip.ready { background: var(--success-subtle); }
+      .stat-chip.ready .n, .stat-chip.ready .l { color: var(--success); }
+      .stat-chip.attn { background: var(--warning-subtle); }
+      .stat-chip.attn .n, .stat-chip.attn .l { color: var(--warning); }
+      .stat-chip.dup { background: var(--surface3); }
+      .stat-chip.dup .n, .stat-chip.dup .l { color: var(--sec); }
+
+      /* mini stat bar variant (variation C) */
+      .stat-bar { height: 8px; border-radius: 999px; overflow: hidden; display: flex; margin-top: 8px; background: var(--surface3); }
+      .stat-bar span { height: 100%; }
+      .stat-bar .b-ready { background: var(--success); }
+      .stat-bar .b-attn { background: var(--warning); }
+      .stat-bar .b-dup { background: var(--ter); }
+      .stat-bar-legend { display: flex; gap: 10px; margin-top: 5px; font-size: 9.5px; color: var(--sec); }
+      .stat-bar-legend .lg { display: flex; align-items: center; gap: 3px; }
+      .stat-bar-legend .sw { width: 6px; height: 6px; border-radius: 2px; }
+
+      /* inline stat pill row (variation B, denser) */
+      .stat-pill-row { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
+      .stat-pill { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; }
+      .stat-pill.ready { background: var(--success-subtle); color: var(--success); }
+      .stat-pill.attn { background: var(--warning-subtle); color: var(--warning); }
+      .stat-pill.dup { background: var(--surface3); color: var(--sec); }
+
+      /* Headline card: rows read vs actual transactions */
+      .headline-card { background: linear-gradient(180deg,#fff,#f7fafe); border: 1px solid #dbe6fb; border-radius: 12px; padding: 12px; }
+      .headline-card .h-top { display: flex; justify-content: space-between; align-items: baseline; }
+      .headline-card .h-rows { font-size: 11px; color: var(--ter); font-weight: 700; }
+      .headline-card .h-txns { font-size: 20px; font-weight: 800; }
+      .headline-card .h-txns small { font-size: 11px; font-weight: 700; color: var(--sec); }
+      .headline-card .h-note { display: flex; align-items: flex-start; gap: 6px; margin-top: 8px; padding: 7px 8px; background: var(--info-subtle); border-radius: 8px; font-size: 10.5px; color: #1d4ed8; line-height: 1.5; }
+      .headline-card .h-note i { margin-top: 1px; }
+
+      .summary-stat-row { display: flex; gap: 8px; margin-top: 10px; }
+      .stat-box { flex: 1; background: var(--surface2); border-radius: 10px; padding: 8px 6px; text-align: center; }
+      .stat-box .n { font-size: 17px; font-weight: 800; line-height: 1.1; }
+      .stat-box .l { font-size: 9px; color: var(--sec); font-weight: 600; margin-top: 2px; }
+      .stat-box.warn .n { color: var(--warning); }
+      .stat-box.ok .n { color: var(--success); }
+
+      /* Transaction row (Preview) with inline collapsed category */
+      .txn-row { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 9px 10px; }
+      .txn-row + .txn-row { margin-top: 6px; }
+      .txn-top { display: flex; justify-content: space-between; gap: 6px; align-items: flex-start; }
+      .txn-desc { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .txn-amt { font-size: 12.5px; font-weight: 700; flex-shrink: 0; }
+      .txn-amt.in { color: var(--success); }
+      .txn-meta-row { display: flex; align-items: center; gap: 5px; margin-top: 3px; }
+      .txn-meta { font-size: 10.5px; color: var(--ter); }
+      .cat-chip { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--surface3); color: var(--sec); cursor: pointer; margin-left: auto; }
+      .cat-chip i { font-size: 10px; }
+      .cat-chip.needs { background: var(--warning-subtle); color: var(--warning); }
+      .cat-expand { margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--border); }
+      .cat-expand .ce-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--sec); margin-bottom: 7px; }
+      .cat-expand .ce-row b { color: var(--ink); }
+      .txn-row.attn { border-color: #f6d9b3; }
+      .txn-row.dup { border-color: var(--border); background: var(--surface2); opacity: .85; }
+      .dup-badge { font-size: 9.5px; font-weight: 700; color: var(--sec); }
+
+      /* Linked transfer pair — Primary: bracket group */
+      .linked-group { border: 1.5px dashed var(--info); border-radius: 12px; padding: 8px 10px 9px; background: var(--info-subtle); position: relative; }
+      .linked-group .lg-label { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 800; color: var(--info); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 6px; }
+      .linked-group .lg-rows { display: flex; flex-direction: column; gap: 0; }
+      .linked-group .lg-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+      .linked-group .lg-row + .lg-row { border-top: 1px dashed #bcd4f7; }
+      .linked-group .lg-acct { font-size: 11px; font-weight: 700; min-width: 78px; }
+      .linked-group .lg-desc { font-size: 11px; color: var(--sec); flex: 1; }
+      .linked-group .lg-amt { font-size: 11.5px; font-weight: 700; }
+      .linked-group .lg-amt.out { color: var(--danger); }
+      .linked-group .lg-amt.in { color: var(--success); }
+      .linked-group .lg-foot { font-size: 10px; color: #1d4ed8; margin-top: 6px; display:flex; align-items:center; gap:4px; }
+
+      /* Variation B: merged single transfer card with mini diagram */
+      .transfer-diagram { display: flex; align-items: center; gap: 8px; background: var(--info-subtle); border: 1px solid #cfe0fb; border-radius: 12px; padding: 10px 12px; }
+      .transfer-diagram .td-node { text-align: center; flex: 1; }
+      .transfer-diagram .td-node .acct { font-size: 11px; font-weight: 800; }
+      .transfer-diagram .td-node .sub { font-size: 9.5px; color: var(--sec); }
+      .transfer-diagram .td-arrow { display: flex; flex-direction: column; align-items: center; color: var(--info); flex-shrink: 0; }
+      .transfer-diagram .td-arrow .amt { font-size: 12px; font-weight: 800; color: var(--info); }
+      .transfer-diagram .td-arrow i { font-size: 18px; }
+      .transfer-diagram .td-tag { font-size: 9.5px; font-weight: 700; color: var(--info); text-transform: uppercase; }
+
+      /* Variation C: timeline grouping with jump-link chip */
+      .jump-link-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 9.5px; font-weight: 700; color: var(--info); background: var(--info-subtle); padding: 3px 8px; border-radius: 999px; margin-top: 5px; }
+
+      .recommend { max-width: 700px; margin: 40px auto 0; background: #fff; border: 1.5px solid var(--primary); border-radius: 14px; padding: 20px 22px; }
+      .recommend h3 { margin: 0 0 8px; font-size: 15px; color: var(--ink); }
+      .recommend p { font-size: 13px; color: var(--sec); line-height: 1.65; margin: 0 0 10px; }
+      .recommend ul { margin: 0 0 10px; padding-left: 18px; font-size: 13px; color: var(--sec); line-height: 1.6; }
+      .recommend .verdict { font-weight: 700; color: var(--ink); }
+    </style>
+  </head>
+  <body>
+    <h1>Import Expenses — v2 refinement of Direction B</h1>
+    <p class="sub">
+      Base direction confirmed: <b>Direction B — Single Review Screen</b>. This round applies your three
+      pieces of feedback to it and offers the refined result as the <b>primary</b> tab, plus two further
+      variations that keep the same 2-section shape but explore different visual treatments for the
+      per-account breakdown and the transfer-pair link — not a return to the earlier A/B/C comparison.
+    </p>
+    <div class="context-box">
+      <b>What changed vs the approved Direction B:</b>
+      <ol>
+        <li><b>Accounts now shows a Ready/Attention/Duplicate breakdown per account</b> (small stat chips),
+        and every account's three numbers sum to the same totals shown in Preview's summary card — e.g.
+        HDFC1234's 26/3/1 + Cash's 9/1/0 + HSBC1234's 20/2/2 + HDFC-x1234's 4/1/0 = 59 ready / 7 attention /
+        3 duplicate, matching Preview exactly.</li>
+        <li><b>Transfer-pair awareness:</b> rows 3 &amp; 4 (HDFC1234 → Cash, ₹1,40,000, same date — a cash
+        withdrawal) are visually linked as one transaction instead of two unrelated rows, and the Preview
+        headline now separates <b>"69 rows read"</b> from <b>"65 actual transactions"</b>, explicitly calling
+        out the 1 pair merged.</li>
+        <li><b>Categories section is gone.</b> Category resolution now lives inline inside each transaction
+        row in Preview — collapsed by default (just a small category chip), tap to expand and confirm/change
+        the mapping right there, instead of resolving all 12 categories upfront before seeing any rows.</li>
+      </ol>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active rec" data-target="dirP">Primary · Refined 2-Section</button>
+      <button class="tab-btn" data-target="dirQ">Variation · Merged Transfer Diagram</button>
+      <button class="tab-btn" data-target="dirR">Variation · Stat-Bar Density</button>
+    </div>
+
+    <!-- ============================================================ PRIMARY ============================================================ -->
+    <section class="direction active" id="dirP">
+      <div class="dir-head">
+        <span class="tag">Recommended — build this</span>
+        <h2>Primary · Refined 2-Section</h2>
+        <p>
+          Just <b>Accounts</b> and <b>Preview</b>. Accounts carries a 3-chip Ready/Attention/Duplicate
+          breakdown per account plus the fuzzy-match merge suggestion. Preview leads with a headline card
+          distinguishing rows-read from actual-transactions, groups the HDFC1234→Cash transfer pair inside a
+          dashed "linked transfer" bracket, and every row's category is a small collapsed chip that expands
+          inline on tap.
+        </p>
+      </div>
+      <div class="gallery">
+
+        <!-- Frame 1: Accounts section -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="sticky-progress">
+              <div class="hd"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="ttl">Review import</span></div>
+              <div class="lbl"><span>1 of 2 sections done</span><span>69 rows</span></div>
+              <div class="bar"><div class="fill" style="width:50%;"></div></div>
+            </div>
+            <div class="body">
+              <div class="pill-tabs2"><div class="pt on">Accounts · 4</div><div class="pt">Preview · 69</div></div>
+
+              <div class="section-label">Accounts <span class="badge-count">1 needs a decision</span></div>
+
+              <div class="acct-card merge">
+                <div class="acct-head">
+                  <span class="acct-name">"HDFC1234" &amp; "HDFC-x1234"</span>
+                  <span class="acct-rows">35 rows</span>
+                </div>
+                <p style="margin:6px 0 0;font-size:10.5px;color:var(--success);"><i class="ti ti-sparkles"></i> Same account, written two ways?</p>
+                <div class="seg" style="margin-top:6px;">
+                  <span class="so on" style="border-color:var(--primary);background:var(--success-subtle);color:#05603a;">Merge → "HDFC Bank ••1234"</span>
+                  <span class="so">Keep separate</span>
+                </div>
+                <div class="stat-chip-row">
+                  <div class="stat-chip ready"><span class="n">26</span><span class="l">Ready</span></div>
+                  <div class="stat-chip attn"><span class="n">3</span><span class="l">Attn.</span></div>
+                  <div class="stat-chip dup"><span class="n">1</span><span class="l">Dup.</span></div>
+                </div>
+                <p style="margin:6px 0 0;font-size:9.5px;color:var(--ter);">includes 1 row from the linked HDFC1234 → Cash transfer</p>
+              </div>
+
+              <div class="acct-card">
+                <div class="acct-head">
+                  <span class="acct-name">"Cash"</span>
+                  <span class="acct-rows">10 rows</span>
+                </div>
+                <div class="seg" style="margin-top:8px;">
+                  <span class="so on">New account</span><span class="so">Map existing</span>
+                </div>
+                <div class="stat-chip-row">
+                  <div class="stat-chip ready"><span class="n">9</span><span class="l">Ready</span></div>
+                  <div class="stat-chip attn"><span class="n">1</span><span class="l">Attn.</span></div>
+                  <div class="stat-chip dup"><span class="n">0</span><span class="l">Dup.</span></div>
+                </div>
+                <p style="margin:6px 0 0;font-size:9.5px;color:var(--ter);">includes 1 row from the linked HDFC1234 → Cash transfer</p>
+              </div>
+
+              <div class="acct-card">
+                <div class="acct-head">
+                  <span class="acct-name">"HSBC1234"</span>
+                  <span class="acct-rows">24 rows</span>
+                </div>
+                <div class="seg" style="margin-top:8px;">
+                  <span class="so on">New account</span><span class="so">Map existing</span>
+                </div>
+                <div class="stat-chip-row">
+                  <div class="stat-chip ready"><span class="n">20</span><span class="l">Ready</span></div>
+                  <div class="stat-chip attn"><span class="n">2</span><span class="l">Attn.</span></div>
+                  <div class="stat-chip dup"><span class="n">2</span><span class="l">Dup.</span></div>
+                </div>
+              </div>
+
+              <div class="card" style="background:var(--surface2);">
+                <p style="margin:0;font-size:11px;color:var(--sec);line-height:1.5;">
+                  <i class="ti ti-info-circle" style="color:var(--ter);"></i>
+                  4 source accounts → 3 Penny accounts after the merge above. Totals across all accounts:
+                  <b>59 ready · 7 attention · 3 duplicate</b> — same numbers Preview shows below.
+                </p>
+              </div>
+
+              <div class="btn-row"><button class="btn btn-secondary">Cancel</button><button class="btn btn-primary">Continue to Preview</button></div>
+            </div>
+          </div>
+          <p class="caption"><b>Accounts</b> — each account card now carries the same 3-stat breakdown as
+          Preview's summary card, so the numbers are traceable end to end: 26+9+20 = 55 ready plus the 4th
+          account brings it to 59, matching Preview's 59 exactly. The two rows behind the linked transfer are
+          called out explicitly wherever they land.</p>
+        </div>
+
+        <!-- Frame 2: Preview section -->
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="sticky-progress">
+              <div class="hd"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="ttl">Review import</span></div>
+              <div class="lbl"><span>2 of 2 sections done</span><span>69 rows</span></div>
+              <div class="bar"><div class="fill" style="width:100%;"></div></div>
+            </div>
+            <div class="body">
+              <div class="pill-tabs2"><div class="pt">Accounts · 4</div><div class="pt on">Preview · 69</div></div>
+
+              <div class="headline-card">
+                <div class="h-top">
+                  <span class="h-rows">69 rows read</span>
+                  <span class="h-txns">65 <small>actual transactions</small></span>
+                </div>
+                <div class="h-note"><i class="ti ti-arrows-left-right"></i> 2 rows paired as 1 transfer: <b>HDFC1234 → Cash, ₹1,40,000</b> (same date — looks like a cash withdrawal). See the linked pair below.</div>
+                <div class="summary-stat-row">
+                  <div class="stat-box ok"><div class="n">59</div><div class="l">Ready</div></div>
+                  <div class="stat-box warn"><div class="n">7</div><div class="l">Attention</div></div>
+                  <div class="stat-box"><div class="n">3</div><div class="l">Duplicate</div></div>
+                </div>
+              </div>
+
+              <div class="section-label">Linked transfer</div>
+              <div class="linked-group">
+                <div class="lg-label"><i class="ti ti-link"></i> Rows 3 &amp; 4 · 1 transfer, not 2 transactions</div>
+                <div class="lg-rows">
+                  <div class="lg-row"><span class="lg-acct">HDFC1234</span><span class="lg-desc">Cash withdrawal</span><span class="lg-amt out">−₹1,40,000</span></div>
+                  <div class="lg-row"><span class="lg-acct">Cash</span><span class="lg-desc">Balance Correction</span><span class="lg-amt in">+₹1,40,000</span></div>
+                </div>
+                <div class="lg-foot"><i class="ti ti-check"></i> Counted once in the 65 total — category auto-set to "Transfer"</div>
+              </div>
+
+              <div class="section-label">Needs attention <span class="badge-count">7</span></div>
+
+              <div class="txn-row attn">
+                <div class="txn-top"><span class="txn-desc">Chai snacks</span><span class="txn-amt">−₹240</span></div>
+                <div class="txn-meta-row"><span class="txn-meta">Row 27 · invalid date "31/02/2026" · HDFC1234</span></div>
+                <div class="cat-expand">
+                  <div class="ce-row"><i class="ti ti-calendar-exclamation" style="color:var(--warning);"></i> Date needs fixing — <b>31/02/2026 isn't valid</b></div>
+                  <div class="seg"><span class="so" style="border-color:var(--warning);color:var(--warning);">Fix date</span><span class="so">Skip row</span></div>
+                </div>
+              </div>
+
+              <p style="text-align:center;font-size:10px;color:var(--ter);">+ 6 more flagged rows below</p>
+
+              <div class="section-label" style="margin-top:2px;">Ready <span class="badge-count">59</span></div>
+
+              <div class="txn-row">
+                <div class="txn-top">
+                  <span class="txn-desc">Big Bazaar</span>
+                  <span class="txn-amt">−₹2,500</span>
+                </div>
+                <div class="txn-meta-row">
+                  <span class="txn-meta">14 Jul · HDFC-x1234</span>
+                  <span class="cat-chip"><i class="ti ti-chevron-down"></i>Food &amp; Drinks</span>
+                </div>
+              </div>
+
+              <div class="txn-row">
+                <div class="txn-top">
+                  <span class="txn-desc">Salary — Acme Corp</span>
+                  <span class="txn-amt in">+₹85,000</span>
+                </div>
+                <div class="txn-meta-row">
+                  <span class="txn-meta">1 Jul · HSBC1234</span>
+                  <span class="cat-chip needs"><i class="ti ti-chevron-up"></i>"Salary" →?</span>
+                </div>
+                <div class="cat-expand">
+                  <div class="ce-row">Source category <b>"Salary"</b> isn't mapped yet — pick where it goes:</div>
+                  <div class="seg">
+                    <span class="so on">Create "Salary" (Income)</span>
+                    <span class="so">Map to existing</span>
+                  </div>
+                  <p style="margin:6px 0 0;font-size:9.5px;color:var(--ter);">Applies to all 4 rows with source category "Salary".</p>
+                </div>
+              </div>
+
+              <div class="txn-row dup">
+                <div class="txn-top"><span class="txn-desc">Netflix</span><span class="txn-amt">−₹649</span></div>
+                <div class="txn-meta-row"><span class="txn-meta">3 Jul · HSBC1234</span><span class="dup-badge">Duplicate — already imported</span></div>
+              </div>
+
+              <div class="btn-row"><button class="btn btn-secondary">Fix later</button><button class="btn btn-primary">Import 65 transactions</button></div>
+            </div>
+          </div>
+          <p class="caption"><b>Preview</b> — headline separates rows from transactions; the linked-transfer
+          bracket makes rows 3 &amp; 4 visually one unit instead of two unrelated line items; each ready row's
+          category is a collapsed chip (green dot state implied by no warning) that expands inline — no
+          separate Categories section exists anymore.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ VARIATION Q ============================================================ -->
+    <section class="direction" id="dirQ">
+      <div class="dir-head">
+        <span class="tag">Same 2-section base — different transfer visualization</span>
+        <h2>Variation · Merged Transfer Diagram</h2>
+        <p>
+          Instead of a dashed bracket around two stacked rows, the linked pair collapses into a <b>single
+          card with a mini from → to diagram</b> (account, account, one amount, one arrow) — reads faster at
+          a glance and takes less vertical space, at the cost of not showing each row's own description text
+          side by side.
+        </p>
+      </div>
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="sticky-progress">
+              <div class="hd"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="ttl">Review import</span></div>
+              <div class="lbl"><span>2 of 2 sections done</span><span>69 rows</span></div>
+              <div class="bar"><div class="fill" style="width:100%;"></div></div>
+            </div>
+            <div class="body">
+              <div class="pill-tabs2"><div class="pt">Accounts · 4</div><div class="pt on">Preview · 69</div></div>
+
+              <div class="headline-card">
+                <div class="h-top"><span class="h-rows">69 rows read</span><span class="h-txns">65 <small>actual transactions</small></span></div>
+                <div class="summary-stat-row">
+                  <div class="stat-box ok"><div class="n">59</div><div class="l">Ready</div></div>
+                  <div class="stat-box warn"><div class="n">7</div><div class="l">Attention</div></div>
+                  <div class="stat-box"><div class="n">3</div><div class="l">Duplicate</div></div>
+                </div>
+              </div>
+
+              <div class="section-label">Linked transfer <span class="badge-count">rows 3–4</span></div>
+              <div class="transfer-diagram">
+                <div class="td-node"><div class="acct">HDFC1234</div><div class="sub">−₹1,40,000</div></div>
+                <div class="td-arrow"><i class="ti ti-arrow-narrow-right"></i><span class="amt">₹1.4L</span><span class="td-tag">Transfer</span></div>
+                <div class="td-node"><div class="acct">Cash</div><div class="sub">+₹1,40,000</div></div>
+              </div>
+              <p style="margin:2px 4px 0;font-size:9.5px;color:var(--ter);">Cash withdrawal · same date · counted once in the 65 total</p>
+
+              <div class="section-label" style="margin-top:6px;">Needs attention <span class="badge-count">7</span></div>
+              <div class="txn-row attn">
+                <div class="txn-top"><span class="txn-desc">Chai snacks</span><span class="txn-amt">−₹240</span></div>
+                <div class="txn-meta-row"><span class="txn-meta">Row 27 · invalid date · HDFC1234</span></div>
+              </div>
+              <p style="text-align:center;font-size:10px;color:var(--ter);">+ 6 more flagged rows below</p>
+
+              <div class="section-label" style="margin-top:2px;">Ready <span class="badge-count">59</span></div>
+              <div class="txn-row">
+                <div class="txn-top"><span class="txn-desc">Big Bazaar</span><span class="txn-amt">−₹2,500</span></div>
+                <div class="txn-meta-row"><span class="txn-meta">14 Jul · HDFC-x1234</span><span class="cat-chip"><i class="ti ti-chevron-down"></i>Food &amp; Drinks</span></div>
+              </div>
+              <div class="txn-row">
+                <div class="txn-top"><span class="txn-desc">Salary — Acme Corp</span><span class="txn-amt in">+₹85,000</span></div>
+                <div class="txn-meta-row"><span class="txn-meta">1 Jul · HSBC1234</span><span class="cat-chip needs"><i class="ti ti-chevron-down"></i>"Salary" →?</span></div>
+              </div>
+
+              <div class="btn-row"><button class="btn btn-secondary">Fix later</button><button class="btn btn-primary">Import 65 transactions</button></div>
+            </div>
+          </div>
+          <p class="caption">The transfer becomes a single visual unit up front (before the row lists even
+          start), so it never has to compete for attention inside "Ready"/"Attention" — but it also means a
+          matched transfer is no longer literally "a row in the Ready list," which could read as inconsistent
+          with the 59 Ready count if a user goes looking for it there.</p>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="sticky-progress">
+              <div class="hd"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="ttl">Review import</span></div>
+              <div class="lbl"><span>1 of 2 sections done</span><span>69 rows</span></div>
+              <div class="bar"><div class="fill" style="width:50%;"></div></div>
+            </div>
+            <div class="body">
+              <div class="pill-tabs2"><div class="pt on">Accounts · 4</div><div class="pt">Preview · 69</div></div>
+              <div class="section-label">Accounts <span class="badge-count">1 needs a decision</span></div>
+
+              <div class="acct-card merge">
+                <div class="acct-head"><span class="acct-name">"HDFC1234" &amp; "HDFC-x1234"</span><span class="acct-rows">35 rows</span></div>
+                <p style="margin:6px 0 0;font-size:10.5px;color:var(--success);"><i class="ti ti-sparkles"></i> Same account, written two ways?</p>
+                <div class="seg" style="margin-top:6px;"><span class="so on" style="border-color:var(--primary);background:var(--success-subtle);color:#05603a;">Merge → "HDFC Bank ••1234"</span><span class="so">Keep separate</span></div>
+                <div class="stat-pill-row">
+                  <span class="stat-pill ready">26 ready</span><span class="stat-pill attn">3 attention</span><span class="stat-pill dup">1 duplicate</span>
+                </div>
+              </div>
+              <div class="acct-card">
+                <div class="acct-head"><span class="acct-name">"Cash"</span><span class="acct-rows">10 rows</span></div>
+                <div class="seg" style="margin-top:8px;"><span class="so on">New account</span><span class="so">Map existing</span></div>
+                <div class="stat-pill-row"><span class="stat-pill ready">9 ready</span><span class="stat-pill attn">1 attention</span></div>
+              </div>
+              <div class="acct-card">
+                <div class="acct-head"><span class="acct-name">"HSBC1234"</span><span class="acct-rows">24 rows</span></div>
+                <div class="seg" style="margin-top:8px;"><span class="so on">New account</span><span class="so">Map existing</span></div>
+                <div class="stat-pill-row"><span class="stat-pill ready">20 ready</span><span class="stat-pill attn">2 attention</span><span class="stat-pill dup">2 duplicate</span></div>
+              </div>
+
+              <div class="btn-row"><button class="btn btn-secondary">Cancel</button><button class="btn btn-primary">Continue to Preview</button></div>
+            </div>
+          </div>
+          <p class="caption">Accounts pairs with the denser look: single-line pill row instead of 3 boxes —
+          fits more accounts on screen before scrolling, at the cost of the numbers being less scannable at a
+          glance than the boxed version in the Primary tab.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ VARIATION R ============================================================ -->
+    <section class="direction" id="dirR">
+      <div class="dir-head">
+        <span class="tag">Same 2-section base — proportional stat bar instead of chips</span>
+        <h2>Variation · Stat-Bar Density</h2>
+        <p>
+          Per-account breakdown becomes a thin proportional segmented bar (like a mini progress bar) under
+          each account name, plus a "jump to linked transfer" chip anywhere the account participates in the
+          HDFC1234 → Cash pair — trades exact numbers-at-a-glance for a faster proportional read ("mostly
+          green, one duplicate sliver") across many accounts.
+        </p>
+      </div>
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="sticky-progress">
+              <div class="hd"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="ttl">Review import</span></div>
+              <div class="lbl"><span>1 of 2 sections done</span><span>69 rows</span></div>
+              <div class="bar"><div class="fill" style="width:50%;"></div></div>
+            </div>
+            <div class="body">
+              <div class="pill-tabs2"><div class="pt on">Accounts · 4</div><div class="pt">Preview · 69</div></div>
+              <div class="section-label">Accounts <span class="badge-count">1 needs a decision</span></div>
+
+              <div class="acct-card merge">
+                <div class="acct-head"><span class="acct-name">"HDFC1234" &amp; "HDFC-x1234"</span><span class="acct-rows">35 rows</span></div>
+                <p style="margin:6px 0 0;font-size:10.5px;color:var(--success);"><i class="ti ti-sparkles"></i> Same account, written two ways?</p>
+                <div class="seg" style="margin-top:6px;"><span class="so on" style="border-color:var(--primary);background:var(--success-subtle);color:#05603a;">Merge → "HDFC Bank ••1234"</span><span class="so">Keep separate</span></div>
+                <div class="stat-bar"><span class="b-ready" style="width:74%;"></span><span class="b-attn" style="width:9%;"></span><span class="b-dup" style="width:3%;"></span></div>
+                <div class="stat-bar-legend"><span class="lg"><span class="sw" style="background:var(--success);"></span>26 ready</span><span class="lg"><span class="sw" style="background:var(--warning);"></span>3 attn.</span><span class="lg"><span class="sw" style="background:var(--ter);"></span>1 dup.</span></div>
+                <span class="jump-link-chip"><i class="ti ti-link"></i> 1 row in linked transfer → Cash</span>
+              </div>
+
+              <div class="acct-card">
+                <div class="acct-head"><span class="acct-name">"Cash"</span><span class="acct-rows">10 rows</span></div>
+                <div class="seg" style="margin-top:8px;"><span class="so on">New account</span><span class="so">Map existing</span></div>
+                <div class="stat-bar"><span class="b-ready" style="width:90%;"></span><span class="b-attn" style="width:10%;"></span></div>
+                <div class="stat-bar-legend"><span class="lg"><span class="sw" style="background:var(--success);"></span>9 ready</span><span class="lg"><span class="sw" style="background:var(--warning);"></span>1 attn.</span></div>
+                <span class="jump-link-chip"><i class="ti ti-link"></i> 1 row in linked transfer → HDFC1234</span>
+              </div>
+
+              <div class="acct-card">
+                <div class="acct-head"><span class="acct-name">"HSBC1234"</span><span class="acct-rows">24 rows</span></div>
+                <div class="seg" style="margin-top:8px;"><span class="so on">New account</span><span class="so">Map existing</span></div>
+                <div class="stat-bar"><span class="b-ready" style="width:83%;"></span><span class="b-attn" style="width:9%;"></span><span class="b-dup" style="width:8%;"></span></div>
+                <div class="stat-bar-legend"><span class="lg"><span class="sw" style="background:var(--success);"></span>20 ready</span><span class="lg"><span class="sw" style="background:var(--warning);"></span>2 attn.</span><span class="lg"><span class="sw" style="background:var(--ter);"></span>2 dup.</span></div>
+              </div>
+
+              <div class="btn-row"><button class="btn btn-secondary">Cancel</button><button class="btn btn-primary">Continue to Preview</button></div>
+            </div>
+          </div>
+          <p class="caption">Proportional bars read faster across many accounts at once (spot the account
+          with the most red/amber), but lose the exact numbers unless you read the legend below each bar —
+          a tradeoff against the Primary tab's chip boxes, which lead with the number itself.</p>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="sticky-progress">
+              <div class="hd"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="ttl">Review import</span></div>
+              <div class="lbl"><span>2 of 2 sections done</span><span>69 rows</span></div>
+              <div class="bar"><div class="fill" style="width:100%;"></div></div>
+            </div>
+            <div class="body">
+              <div class="pill-tabs2"><div class="pt">Accounts · 4</div><div class="pt on">Preview · 69</div></div>
+              <div class="headline-card">
+                <div class="h-top"><span class="h-rows">69 rows read</span><span class="h-txns">65 <small>actual transactions</small></span></div>
+                <div class="h-note"><i class="ti ti-arrows-left-right"></i> 2 rows paired as 1 transfer: HDFC1234 → Cash, ₹1,40,000.</div>
+                <div class="summary-stat-row">
+                  <div class="stat-box ok"><div class="n">59</div><div class="l">Ready</div></div>
+                  <div class="stat-box warn"><div class="n">7</div><div class="l">Attention</div></div>
+                  <div class="stat-box"><div class="n">3</div><div class="l">Duplicate</div></div>
+                </div>
+              </div>
+
+              <div class="section-label">HDFC1234 <span class="badge-count">grouped by account</span></div>
+              <div class="linked-group">
+                <div class="lg-label"><i class="ti ti-link"></i> Linked to Cash · row 4 below</div>
+                <div class="lg-rows"><div class="lg-row"><span class="lg-acct">Row 3</span><span class="lg-desc">Cash withdrawal</span><span class="lg-amt out">−₹1,40,000</span></div></div>
+                <div class="lg-foot"><i class="ti ti-arrow-down"></i> Continues in the Cash group below</div>
+              </div>
+              <div class="txn-row"><div class="txn-top"><span class="txn-desc">Big Bazaar</span><span class="txn-amt">−₹2,500</span></div><div class="txn-meta-row"><span class="txn-meta">14 Jul</span><span class="cat-chip"><i class="ti ti-chevron-down"></i>Food &amp; Drinks</span></div></div>
+
+              <div class="section-label" style="margin-top:6px;">Cash <span class="badge-count">grouped by account</span></div>
+              <div class="linked-group">
+                <div class="lg-label"><i class="ti ti-link"></i> Linked to HDFC1234 · row 3 above</div>
+                <div class="lg-rows"><div class="lg-row"><span class="lg-acct">Row 4</span><span class="lg-desc">Balance Correction</span><span class="lg-amt in">+₹1,40,000</span></div></div>
+              </div>
+
+              <div class="btn-row"><button class="btn btn-secondary">Fix later</button><button class="btn btn-primary">Import 65 transactions</button></div>
+            </div>
+          </div>
+          <p class="caption">Preview grouped by account (rather than by ready/attention/duplicate status)
+          keeps each linked-transfer leg visible in its own account's context, with a jump reference to the
+          other leg — better for "why does this account have a weird row," worse for scanning all flagged
+          rows in one place like the Primary tab does.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="recommend">
+      <h3>Recommendation</h3>
+      <p>
+        Build the <b>Primary tab as-is</b>. It satisfies all three of your notes directly — traceable
+        per-account counts that sum to Preview's totals, an explicit rows-vs-transactions headline with the
+        transfer pair called out and visually bracketed, and category resolution folded into each row instead
+        of a standalone section — while staying closest to the Direction B shape you already approved (status
+        grouping in Preview, not account grouping), which keeps "Needs attention" scannable as one list rather
+        than scattered across account sub-groups.
+      </p>
+      <ul>
+        <li><b>Variation Q (Merged Transfer Diagram)</b> is worth adopting <i>if</i> you find the dashed
+        bracket in the Primary tab too visually heavy once there are multiple transfer pairs in a real file —
+        it's more compact, but only shows net amounts, not each row's own description, so a transfer with
+        mismatched descriptions (partial refund, fee-adjusted transfer) would be harder to sanity-check.</li>
+        <li><b>Variation R (Stat-Bar Density)</b> is the weakest fit today — proportional bars pay off once
+        you have many accounts (10+), but with 3–4 typical accounts per import the chip-box numbers in the
+        Primary tab are just as fast to read and clearer. The account-grouped Preview layout in its second
+        frame is a genuinely different idea worth keeping in mind for a later "group by account" view toggle,
+        but not as the default.</li>
+      </ul>
+      <p class="verdict">Verdict: ship the Primary tab. Keep Variation Q's diagram in your back pocket for
+      files with several transfer pairs; park Variation R.</p>
+      <p style="margin-top:12px;">
+        <b>Cross-platform note:</b> unchanged from the prior round — <code>apps/mobile/src/features/import/ImportPage.tsx</code>
+        has no Resolve/Preview parity with the current <code>apps/web-react</code> import core at all yet, so
+        whichever tab is approved needs a full mobile port (not a style pass) once the web design is locked;
+        this should stay tracked as its own follow-up in <code>docs/MOBILE_PARITY.md</code> rather than mirrored
+        line-by-line right now.
+      </p>
+    </div>
+
+    <script>
+      document.querySelectorAll('.tab-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+          document.querySelectorAll('.direction').forEach((d) => d.classList.remove('active'));
+          btn.classList.add('active');
+          document.getElementById(btn.dataset.target).classList.add('active');
+        });
+      });
+    </script>
+  </body>
+</html>

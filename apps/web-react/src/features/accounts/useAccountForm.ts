@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Account, AccountType } from '@/core/db/types';
 import { ACCOUNT_TYPE_META } from '@/core/accounts/meta';
+import { findDuplicateAccountName } from '@/core/accounts/accountValidation';
 import { parseNumber } from '@/lib/formatters';
 import type { AccountInput } from './useAccounts';
 
@@ -22,11 +23,20 @@ const DEFAULT_FORM: AccountFormState = {
   includeInNetWorth: true
 };
 
-/** Owns the add/edit account form lifecycle and bridges to the save mutation. */
-export function useAccountForm(saveAccount: (data: AccountInput, editing: Account | null) => Promise<unknown>) {
+/** Owns the add/edit account form lifecycle and bridges to the save mutation. `accounts` is the
+ *  current account list, used to reject a duplicate name (case-insensitive, trimmed) — no two
+ *  accounts may ever share the same name (app-wide rule, see accountValidation.ts). */
+export function useAccountForm(
+  saveAccount: (data: AccountInput, editing: Account | null) => Promise<unknown>,
+  accounts: Account[]
+) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
   const [form, setForm] = useState<AccountFormState>(DEFAULT_FORM);
+
+  const nameError = findDuplicateAccountName(form.name, accounts, editing?.id)
+    ? 'An account with this name already exists'
+    : undefined;
 
   function patch(updates: Partial<AccountFormState>) {
     setForm((f) => ({ ...f, ...updates }));
@@ -58,7 +68,7 @@ export function useAccountForm(saveAccount: (data: AccountInput, editing: Accoun
 
   async function save() {
     const name = form.name.trim();
-    if (!name) return;
+    if (!name || nameError) return;
     await saveAccount(
       {
         name,
@@ -73,5 +83,16 @@ export function useAccountForm(saveAccount: (data: AccountInput, editing: Accoun
     setShowForm(false);
   }
 
-  return { showForm, editing, form, patch, selectType, openAdd, openEdit, save, close: () => setShowForm(false) };
+  return {
+    showForm,
+    editing,
+    form,
+    nameError,
+    patch,
+    selectType,
+    openAdd,
+    openEdit,
+    save,
+    close: () => setShowForm(false)
+  };
 }

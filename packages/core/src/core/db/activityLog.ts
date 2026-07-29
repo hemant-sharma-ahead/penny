@@ -33,6 +33,17 @@ export function subscribeActivity(listener: ActivityListener): () => void {
   return () => listeners.delete(listener);
 }
 
+function notifyListeners(entry: ActivityLog): void {
+  // Notify subscribers synchronously; a listener must never throw into the caller.
+  for (const listener of listeners) {
+    try {
+      listener(entry);
+    } catch {
+      /* a broken listener must not disrupt the user action */
+    }
+  }
+}
+
 /** Record an activity entry. Returns the new id synchronously (for Undo wiring); writes in the background. */
 export function logActivity(input: LogActivityInput): string {
   const id = crypto.randomUUID();
@@ -43,14 +54,22 @@ export function logActivity(input: LogActivityInput): string {
     .catch(() => {
       /* logging must never disrupt the user action */
     });
-  // Notify subscribers synchronously; a listener must never throw into the caller.
-  for (const listener of listeners) {
-    try {
-      listener(entry);
-    } catch {
-      /* a broken listener must not disrupt the user action */
-    }
-  }
+  notifyListeners(entry);
+  return id;
+}
+
+/** Same as logActivity(), but awaits the write before returning. Use only when a caller needs the
+ *  entry to definitely exist immediately after (e.g. import's "Undo this import", which can be clicked
+ *  right after the batch finishes — logActivity()'s normal fire-and-forget write might not have landed
+ *  yet at that point, found 2026-07-28 as a real, if narrow, race via this exact test). Everywhere else
+ *  should keep using logActivity() — never blocking the primary user action on the log write is
+ *  deliberate (see this file's header comment). */
+export async function logActivityAwaited(input: LogActivityInput): Promise<string> {
+  const id = crypto.randomUUID();
+  const entry: ActivityLog = { id, timestamp: Date.now(), ...input };
+  await activityLogRepo.put(entry);
+  void prune();
+  notifyListeners(entry);
   return id;
 }
 

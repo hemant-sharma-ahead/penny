@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Button, Card, OptionButton, SectionLabel } from '@/components/ui';
 import { downloadCsv } from '@/core/export/exportCsv';
 import {
@@ -8,6 +8,7 @@ import {
   FORMAT_COLUMNS,
   type ImportFormat
 } from '@/core/import/importParsers';
+import { ImportCleanupPanel } from './ImportCleanupPanel';
 
 interface UploadStepProps {
   format: ImportFormat;
@@ -18,6 +19,7 @@ interface UploadStepProps {
 
 export function UploadStep({ format, setFormat, parseError, onText }: UploadStepProps) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [cleanupOpen, setCleanupOpen] = useState(false);
 
   function handleFile(file: File) {
     const reader = new FileReader();
@@ -31,7 +33,7 @@ export function UploadStep({ format, setFormat, parseError, onText }: UploadStep
       <div className="flex flex-col gap-2">
         <SectionLabel className="">Format</SectionLabel>
         <div className="grid grid-cols-2 gap-2">
-          {IMPORT_FORMATS.map((f) => (
+          {[...IMPORT_FORMATS, 'custom' as const].map((f) => (
             <OptionButton
               key={f}
               label={FORMAT_LABELS[f]}
@@ -89,6 +91,12 @@ export function UploadStep({ format, setFormat, parseError, onText }: UploadStep
         <p className="text-xs font-semibold text-secondary">Expected columns for {FORMAT_LABELS[format]}</p>
         <p className="text-xs text-tertiary font-mono leading-relaxed">{FORMAT_COLUMNS[format]}</p>
       </Card>
+
+      {/* Temporary — see ImportCleanupPanel's doc comment */}
+      <Button variant="ghost" size="sm" icon="ti-trash" onClick={() => setCleanupOpen(true)}>
+        Clean up unused categories &amp; accounts
+      </Button>
+      {cleanupOpen && <ImportCleanupPanel onClose={() => setCleanupOpen(false)} />}
     </>
   );
 }

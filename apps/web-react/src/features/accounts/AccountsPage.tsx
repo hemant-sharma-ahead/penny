@@ -11,7 +11,7 @@ export function AccountsPage() {
   const navigate = useNavigate();
   const { shouldMask } = usePrivacy();
   const { accounts, txns, saving, totalBalance, saveAccount, deleteAccount, reconcileAccount } = useAccounts();
-  const form = useAccountForm(saveAccount);
+  const form = useAccountForm(saveAccount, accounts);
 
   return (
     <div className="flex flex-col min-h-full">
