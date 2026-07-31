@@ -1,0 +1,38 @@
+{
+  "name": "web-react",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "gen:icons": "node scripts/build-icon-index.mjs",
+    "predev": "node scripts/build-icon-index.mjs",
+    "prebuild": "node scripts/build-icon-index.mjs",
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "type-check": "tsc -b",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@penny/core": "workspace:*",
+    "@fontsource/inter": "^5.2.8",
+    "@tabler/icons": "^3.44.0",
+    "@tabler/icons-webfont": "^3.44.0",
+    "@tailwindcss/vite": "^4.3.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-router-dom": "^7.17.0",
+    "tailwindcss": "^4.3.0",
+    "xlsx": "^0.18.5",
+    "zxcvbn": "^4.4.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/zxcvbn": "^4.4.5",
+    "@vitejs/plugin-react": "^6.0.1",
+    "vite": "^8.0.12",
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^4.1.8"
+  }
+}

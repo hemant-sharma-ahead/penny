@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Settings page: 3 options, full content</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --primary:#00a86b; --indigo:#6366f1; --sky:#3b82f6; --violet:#7c3aed; --tealx:#14b8a6; --orange:#f97316; --amber:#f59e0b; --danger:#dc2626;
+        --ink:#0f172a; --sec:#475569; --ter:#94a3b8; --bg:#f4f7fa; --surface:#fff; --surface2:#f6f8fb; --border:#e8edf3;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#e6ebf1; color:var(--ink); -webkit-font-smoothing:antialiased; }
+      h1.page-title { text-align:center; margin:28px 16px 4px; font-size:22px; }
+      p.page-sub { text-align:center; margin:0 16px 24px; color:var(--sec); font-size:14px; }
+      .gallery { display:flex; flex-wrap:wrap; gap:44px 30px; justify-content:center; align-items:flex-start; padding:20px 20px 70px; }
+      .frame-wrap { width:336px; }
+      .vtitle { font-size:15px; font-weight:800; margin:0 2px 3px; }
+      .vsub { font-size:12px; color:var(--sec); margin:0 2px 12px; line-height:1.5; }
+      .phone { width:336px; height:720px; background:var(--bg); border-radius:34px; border:10px solid #0f172a; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(15,23,42,.25); }
+      .status-bar { height:24px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; font-size:11px; color:var(--sec); background:var(--surface); }
+      .appbar { display:flex; align-items:center; gap:12px; padding:12px 15px; background:var(--surface); border-bottom:1px solid var(--border); }
+      .appbar i { font-size:20px; color:var(--sec); }
+      .appbar .t { font-size:17px; font-weight:800; letter-spacing:-0.3px; }
+      .scrollhint { position:absolute; right:6px; bottom:8px; font-size:9px; color:var(--ter); background:rgba(255,255,255,.7); border-radius:8px; padding:2px 6px; }
+      .body { flex:1; overflow-y:auto; padding:15px; }
+      .body::-webkit-scrollbar { width:0; }
+
+      .slbl { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--ter); margin:6px 4px 7px; }
+      .slbl.danger { color:var(--danger); }
+      .sw { width:38px; height:22px; border-radius:999px; background:var(--primary); position:relative; flex-shrink:0; }
+      .sw.off { background:#cbd5e1; }
+      .sw::after { content:''; position:absolute; top:2px; width:18px; height:18px; background:#fff; border-radius:50%; right:2px; }
+      .sw.off::after { right:18px; }
+
+      /* shared: appealing theme swatches + font scale */
+      .themes { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+      .th { border:1.5px solid var(--border); border-radius:12px; padding:5px; text-align:center; background:var(--surface); }
+      .th.on { border-color:var(--primary); box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 14%,transparent); }
+      .th .prev { height:42px; border-radius:8px; overflow:hidden; margin-bottom:5px; }
+      .th .cap { font-size:9.5px; font-weight:700; color:var(--sec); }
+      .th.on .cap { color:var(--primary); }
+      .prev .bar { height:6px; border-radius:2px; margin:6px 6px 0; }
+      .prev .ln { height:3px; border-radius:2px; margin:4px 6px 0; }
+      .fonts { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+      .fn { border:1.5px solid var(--border); border-radius:12px; padding:8px 4px 6px; text-align:center; background:var(--surface); color:var(--sec); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:3px; height:56px; }
+      .fn .aa { font-weight:800; line-height:1; }
+      .fn .cap { font-size:9px; color:var(--ter); font-weight:700; }
+      .fn.on { border-color:var(--primary); background:color-mix(in srgb,var(--primary) 8%,#fff); color:var(--primary); }
+      .fn.on .cap { color:var(--primary); }
+      .privseg { display:flex; gap:7px; }
+      .privseg .s { flex:1; text-align:center; border:1.5px solid var(--border); border-radius:10px; padding:9px; font-size:12.5px; font-weight:700; color:var(--sec); background:var(--surface); }
+      .privseg .s.on.open { background:var(--danger); border-color:var(--danger); color:#fff; }
+      .dangerbtn { display:block; width:100%; padding:12px; border:1.5px solid var(--danger); color:var(--danger); background:transparent; border-radius:12px; font-weight:700; font-size:13.5px; }
+
+      /* ---- A: grouped cards ---- */
+      .A .card { background:var(--surface); border:1px solid var(--border); border-radius:15px; overflow:hidden; margin-bottom:15px; }
+      .A .card.pad { padding:13px 14px; }
+      .A .row { display:flex; align-items:center; gap:12px; padding:12px 14px; }
+      .A .row + .row { border-top:1px solid var(--border); }
+      .A .ricon { width:30px; height:30px; border-radius:9px; background:var(--surface2); display:grid; place-items:center; }
+      .A .ricon i { font-size:16px; color:var(--sec); }
+      .A .lbl { font-size:14px; font-weight:500; flex:1; }
+      .A .lbl small { display:block; font-size:11px; color:var(--ter); font-weight:400; }
+      .A .chev { color:var(--ter); font-size:17px; }
+      .A .subhead { font-size:12px; font-weight:600; color:var(--sec); margin-bottom:8px; }
+      .A .mgrid { display:grid; grid-template-columns:repeat(5,1fr); gap:7px; padding:14px; }
+      .A .mtile { border:1.5px solid var(--border); border-radius:12px; padding:9px 2px; display:flex; flex-direction:column; align-items:center; gap:4px; font-size:8.5px; font-weight:600; color:var(--ter); text-align:center; background:var(--surface2); line-height:1.05; }
+      .A .mtile i { font-size:17px; }
+      .A .hint { font-size:11px; color:var(--ter); margin:-8px 2px 15px; }
+
+      /* ---- B: minimal flat + hero ---- */
+      .B .body { padding:0 0 10px; }
+      .B .hero { display:flex; align-items:center; gap:13px; padding:20px 18px 16px; }
+      .B .avatar { width:54px; height:54px; border-radius:50%; background:linear-gradient(135deg,var(--primary),#00c47e); display:grid; place-items:center; color:#fff; font-size:22px; font-weight:800; }
+      .B .hero .nm { font-size:18px; font-weight:800; }
+      .B .hero .hn { font-size:12.5px; color:var(--sec); }
+      .B .hero .edit { margin-left:auto; font-size:12px; font-weight:700; color:var(--primary); border:1.5px solid color-mix(in srgb,var(--primary) 40%,#fff); border-radius:999px; padding:5px 12px; }
+      .B .sec { padding:0 18px; }
+      .B .sh { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ter); margin:18px 0 8px; }
+      .B .frow { display:flex; align-items:center; gap:13px; padding:14px 0; }
+      .B .frow + .frow { border-top:1px solid var(--border); }
+      .B .frow i.lead { font-size:19px; color:var(--sec); width:22px; text-align:center; }
+      .B .frow .lbl { flex:1; font-size:14.5px; font-weight:500; }
+      .B .frow .lbl small { display:block; font-size:11px; color:var(--ter); font-weight:400; }
+      .B .frow .chev { color:var(--ter); font-size:17px; }
+      .B .mgrid { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; padding:4px 0 2px; }
+      .B .mtile { display:flex; flex-direction:column; align-items:center; gap:5px; font-size:8.5px; font-weight:600; color:var(--ter); text-align:center; line-height:1.05; }
+      .B .mtile .mi { width:46px; height:46px; border-radius:15px; display:grid; place-items:center; font-size:19px; background:var(--surface); border:1.5px solid var(--border); color:var(--ter); }
+      .B .mtile.on .mi { color:#fff; border:none; }
+      .B .divider { height:1px; background:var(--border); margin:2px 0; }
+
+      /* ---- C: quick tiles ---- */
+      .C .qgrid { display:grid; grid-template-columns:1fr 1fr; gap:11px; margin-bottom:16px; }
+      .C .qcard { border-radius:16px; padding:13px; color:#fff; min-height:76px; display:flex; flex-direction:column; justify-content:space-between; }
+      .C .qcard i { font-size:20px; }
+      .C .qcard .qt { font-size:13px; font-weight:700; }
+      .C .qcard .qv { font-size:10.5px; opacity:.88; font-weight:600; }
+      .C .card { background:var(--surface); border:1px solid var(--border); border-radius:15px; overflow:hidden; margin-bottom:15px; }
+      .C .card.pad { padding:13px 14px; }
+      .C .row { display:flex; align-items:center; gap:12px; padding:12px 14px; }
+      .C .row + .row { border-top:1px solid var(--border); }
+      .C .ricon { width:30px; height:30px; border-radius:9px; background:var(--surface2); display:grid; place-items:center; }
+      .C .ricon i { font-size:16px; color:var(--sec); }
+      .C .lbl { font-size:14px; font-weight:500; flex:1; }
+      .C .lbl small { display:block; font-size:11px; color:var(--ter); font-weight:400; }
+      .C .chev { color:var(--ter); font-size:17px; }
+      .C .mgrid { display:grid; grid-template-columns:repeat(5,1fr); gap:7px; padding:14px; }
+      .C .mtile { border:1.5px solid var(--border); border-radius:12px; padding:9px 2px; display:flex; flex-direction:column; align-items:center; gap:4px; font-size:8.5px; font-weight:600; color:var(--ter); text-align:center; background:var(--surface2); line-height:1.05; }
+      .C .mtile i { font-size:17px; }
+      .C .subhead { font-size:12px; font-weight:600; color:var(--sec); margin-bottom:8px; }
+
+      .legend { max-width:900px; margin:0 auto 40px; background:#fff; border:1px solid var(--border); border-radius:16px; padding:16px 22px; color:var(--sec); font-size:13.5px; line-height:1.7; }
+      .legend b { color:var(--ink); }
+    </style>
+  </head>
+  <body>
+    <h1 class="page-title">Settings page — 3 options, full &amp; scrollable</h1>
+    <p class="page-sub">Scroll inside each phone to see every section. Same content in all three; different design language.</p>
+
+    <div class="gallery">
+      <!-- ============ OPTION A ============ -->
+      <div class="frame-wrap A">
+        <div class="vtitle">A · Grouped cards</div>
+        <div class="vsub">Clean, familiar, safe-modern.</div>
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="appbar"><i class="ti ti-arrow-left"></i><span class="t">Settings</span></div>
+          <div class="body">
+            <div class="slbl">Account</div>
+            <div class="card">
+              <div class="row"><div class="ricon"><i class="ti ti-user"></i></div><span class="lbl">Edit profile<small>Aarav · @aarav_s</small></span><i class="ti ti-chevron-right chev"></i></div>
+              <div class="row"><div class="ricon"><i class="ti ti-history"></i></div><span class="lbl">Timeline</span><i class="ti ti-chevron-right chev"></i></div>
+            </div>
+            <div class="slbl">Modules</div>
+            <div class="card"><div class="mgrid">
+              <div class="mtile" style="border-color:var(--indigo);background:#6366f11a;color:var(--indigo)"><i class="ti ti-chart-pie"></i>Portfolio</div>
+              <div class="mtile" style="border-color:var(--primary);background:#00a86b1a;color:var(--primary)"><i class="ti ti-target"></i>Goals</div>
+              <div class="mtile" style="border-color:var(--sky);background:#3b82f61a;color:var(--sky)"><i class="ti ti-shield"></i>Insur.</div>
+              <div class="mtile"><i class="ti ti-calculator"></i>Loans</div>
+              <div class="mtile"><i class="ti ti-heart-rate-monitor"></i>Health</div>
+              <div class="mtile" style="border-color:var(--violet);background:#7c3aed1a;color:var(--violet)"><i class="ti ti-receipt-tax"></i>Tax</div>
+              <div class="mtile" style="border-color:var(--tealx);background:#14b8a61a;color:var(--tealx)"><i class="ti ti-trending-down"></i>Cash</div>
+              <div class="mtile"><i class="ti ti-news"></i>News</div>
+              <div class="mtile" style="border-color:var(--orange);background:#f973161a;color:var(--orange)"><i class="ti ti-math-function"></i>Calc →</div>
+            </div></div>
+            <p class="hint">Tap to show / hide. Home, Expenses &amp; Chip are always on.</p>
+            <div class="slbl">Appearance</div>
+            <div class="card pad">
+              <div class="subhead">Theme</div>
+              <div class="themes">
+                <div class="th on"><div class="prev" style="background:#fff;border:1px solid #e8edf3"><div class="bar" style="background:#00a86b"></div><div class="ln" style="background:#e2e8f0"></div><div class="ln" style="background:#eef2f7;width:60%"></div></div><div class="cap">Light</div></div>
+                <div class="th"><div class="prev" style="background:#1F3864"><div class="bar" style="background:#6ea8fe"></div><div class="ln" style="background:#3b5488"></div><div class="ln" style="background:#2c4272;width:60%"></div></div><div class="cap">Blue</div></div>
+                <div class="th"><div class="prev" style="background:#0b1220"><div class="bar" style="background:#00c47e"></div><div class="ln" style="background:#243247"></div><div class="ln" style="background:#1a2637;width:60%"></div></div><div class="cap">Dark</div></div>
+                <div class="th"><div class="prev" style="background:linear-gradient(135deg,#fff 50%,#0b1220 50%)"><div class="bar" style="background:#00a86b"></div><div class="ln" style="background:#94a3b8"></div></div><div class="cap">System</div></div>
+              </div>
+              <div class="subhead" style="margin-top:14px">Font size</div>
+              <div class="fonts">
+                <div class="fn"><span class="aa" style="font-size:12px">Aa</span><span class="cap">S</span></div>
+                <div class="fn on"><span class="aa" style="font-size:16px">Aa</span><span class="cap">A</span></div>
+                <div class="fn"><span class="aa" style="font-size:20px">Aa</span><span class="cap">A+</span></div>
+                <div class="fn"><span class="aa" style="font-size:24px">Aa</span><span class="cap">A++</span></div>
+              </div>
+            </div>
+            <div class="slbl">Privacy</div>
+            <div class="card pad">
+              <div class="subhead">Default mode when the app opens</div>
+              <div class="privseg"><div class="s">Safe</div><div class="s">Private</div><div class="s on open">Open</div></div>
+            </div>
+            <div class="slbl">Security</div>
+            <div class="card">
+              <div class="row"><div class="ricon"><i class="ti ti-lock"></i></div><span class="lbl">Change PIN</span><i class="ti ti-chevron-right chev"></i></div>
+              <div class="row"><div class="ricon"><i class="ti ti-key"></i></div><span class="lbl">Change passphrase</span><i class="ti ti-chevron-right chev"></i></div>
+              <div class="row"><div class="ricon"><i class="ti ti-lock-square"></i></div><span class="lbl">Lock when backgrounded</span><span class="sw"></span></div>
+            </div>
+            <div class="slbl">Data</div>
+            <div class="card">
+              <div class="row"><div class="ricon"><i class="ti ti-database-export"></i></div><span class="lbl">Backup &amp; Restore</span><i class="ti ti-chevron-right chev"></i></div>
+              <div class="row"><div class="ricon"><i class="ti ti-message-circle"></i></div><span class="lbl">Contact &amp; Feedback</span><i class="ti ti-chevron-right chev"></i></div>
+            </div>
+            <div class="slbl danger">Danger zone</div>
+            <div class="card pad" style="border-color:#f3c6c6">
+              <div class="row" style="padding:0 0 12px"><div class="ricon" style="background:#fee2e2"><i class="ti ti-trash-x" style="color:var(--danger)"></i></div><span class="lbl">Erase after 10 fails<small>Irreversible</small></span><span class="sw off"></span></div>
+              <button class="dangerbtn">Clear sample data</button>
+            </div>
+          </div>
+          <div class="scrollhint">scroll ↓</div>
+        </div>
+      </div>
+
+      <!-- ============ OPTION B (favourite) ============ -->
+      <div class="frame-wrap B">
+        <div class="vtitle">B · Minimal flat + hero ★</div>
+        <div class="vsub">Your pick — polished Appearance (theme swatches + Aa scale).</div>
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="appbar"><i class="ti ti-arrow-left"></i><span class="t">Settings</span></div>
+          <div class="body">
+            <div class="hero">
+              <div class="avatar">A</div>
+              <div><div class="nm">Aarav Sharma</div><div class="hn">@aarav_s · Free plan</div></div>
+              <span class="edit">Edit</span>
+            </div>
+            <div class="sec">
+              <div class="sh">Modules</div>
+              <div class="mgrid">
+                <div class="mtile on"><span class="mi" style="background:var(--indigo)"><i class="ti ti-chart-pie"></i></span>Portfolio</div>
+                <div class="mtile on"><span class="mi" style="background:var(--primary)"><i class="ti ti-target"></i></span>Goals</div>
+                <div class="mtile on"><span class="mi" style="background:var(--sky)"><i class="ti ti-shield"></i></span>Insur.</div>
+                <div class="mtile"><span class="mi"><i class="ti ti-calculator"></i></span>Loans</div>
+                <div class="mtile"><span class="mi"><i class="ti ti-heart-rate-monitor"></i></span>Health</div>
+                <div class="mtile on"><span class="mi" style="background:var(--violet)"><i class="ti ti-receipt-tax"></i></span>Tax</div>
+                <div class="mtile on"><span class="mi" style="background:var(--tealx)"><i class="ti ti-trending-down"></i></span>Cash</div>
+                <div class="mtile"><span class="mi"><i class="ti ti-news"></i></span>News</div>
+                <div class="mtile"><span class="mi" style="background:var(--orange);color:#fff;border:none"><i class="ti ti-math-function"></i></span>Calc →</div>
+              </div>
+
+              <div class="sh">Appearance · Theme</div>
+              <div class="themes">
+                <div class="th on"><div class="prev" style="background:#fff;border:1px solid #e8edf3"><div class="bar" style="background:#00a86b"></div><div class="ln" style="background:#e2e8f0"></div><div class="ln" style="background:#eef2f7;width:60%"></div></div><div class="cap">Light</div></div>
+                <div class="th"><div class="prev" style="background:#1F3864"><div class="bar" style="background:#6ea8fe"></div><div class="ln" style="background:#3b5488"></div><div class="ln" style="background:#2c4272;width:60%"></div></div><div class="cap">Blue</div></div>
+                <div class="th"><div class="prev" style="background:#0b1220"><div class="bar" style="background:#00c47e"></div><div class="ln" style="background:#243247"></div><div class="ln" style="background:#1a2637;width:60%"></div></div><div class="cap">Dark</div></div>
+                <div class="th"><div class="prev" style="background:linear-gradient(135deg,#fff 50%,#0b1220 50%)"><div class="bar" style="background:#00a86b"></div><div class="ln" style="background:#94a3b8"></div></div><div class="cap">System</div></div>
+              </div>
+
+              <div class="sh">Text size</div>
+              <div class="fonts">
+                <div class="fn"><span class="aa" style="font-size:12px">Aa</span><span class="cap">S</span></div>
+                <div class="fn on"><span class="aa" style="font-size:16px">Aa</span><span class="cap">A</span></div>
+                <div class="fn"><span class="aa" style="font-size:20px">Aa</span><span class="cap">A+</span></div>
+                <div class="fn"><span class="aa" style="font-size:24px">Aa</span><span class="cap">A++</span></div>
+              </div>
+
+              <div class="sh">General</div>
+              <div class="frow"><i class="ti ti-history lead"></i><span class="lbl">Timeline<small>Activity, undo &amp; restore</small></span><i class="ti ti-chevron-right chev"></i></div>
+              <div class="frow"><i class="ti ti-shield-lock lead"></i><span class="lbl">Default privacy mode<small>Open</small></span><i class="ti ti-chevron-right chev"></i></div>
+
+              <div class="sh">Security</div>
+              <div class="frow"><i class="ti ti-lock lead"></i><span class="lbl">Change PIN</span><i class="ti ti-chevron-right chev"></i></div>
+              <div class="frow"><i class="ti ti-key lead"></i><span class="lbl">Change passphrase</span><i class="ti ti-chevron-right chev"></i></div>
+              <div class="frow"><i class="ti ti-lock-square lead"></i><span class="lbl">Lock when backgrounded</span><span class="sw"></span></div>
+
+              <div class="sh">Data</div>
+              <div class="frow"><i class="ti ti-database-export lead"></i><span class="lbl">Backup &amp; Restore</span><i class="ti ti-chevron-right chev"></i></div>
+              <div class="frow"><i class="ti ti-message-circle lead"></i><span class="lbl">Contact &amp; Feedback</span><i class="ti ti-chevron-right chev"></i></div>
+
+              <div class="sh" style="color:var(--danger)">Danger zone</div>
+              <div class="frow"><i class="ti ti-trash-x lead" style="color:var(--danger)"></i><span class="lbl">Erase after 10 fails<small>Irreversible — no recovery</small></span><span class="sw off"></span></div>
+              <div style="padding:8px 0 18px"><button class="dangerbtn">Clear sample data</button></div>
+            </div>
+          </div>
+          <div class="scrollhint">scroll ↓</div>
+        </div>
+      </div>
+
+      <!-- ============ OPTION C ============ -->
+      <div class="frame-wrap C">
+        <div class="vtitle">C · Quick tiles + list</div>
+        <div class="vsub">Most visual — colourful shortcuts up top.</div>
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="appbar"><i class="ti ti-arrow-left"></i><span class="t">Settings</span></div>
+          <div class="body">
+            <div class="qgrid">
+              <div class="qcard" style="background:linear-gradient(135deg,#6366f1,#818cf8)"><i class="ti ti-palette"></i><div><div class="qt">Appearance</div><div class="qv">Light · A</div></div></div>
+              <div class="qcard" style="background:linear-gradient(135deg,#dc2626,#f87171)"><i class="ti ti-shield-lock"></i><div><div class="qt">Privacy</div><div class="qv">Opens Open</div></div></div>
+              <div class="qcard" style="background:linear-gradient(135deg,#0ea5e9,#38bdf8)"><i class="ti ti-database-export"></i><div><div class="qt">Backup</div><div class="qv">2d ago</div></div></div>
+              <div class="qcard" style="background:linear-gradient(135deg,#00a86b,#00c47e)"><i class="ti ti-user"></i><div><div class="qt">Profile</div><div class="qv">@aarav_s</div></div></div>
+            </div>
+            <div class="slbl">Modules</div>
+            <div class="card"><div class="mgrid">
+              <div class="mtile" style="border-color:var(--indigo);background:#6366f11a;color:var(--indigo)"><i class="ti ti-chart-pie"></i>Portfolio</div>
+              <div class="mtile" style="border-color:var(--primary);background:#00a86b1a;color:var(--primary)"><i class="ti ti-target"></i>Goals</div>
+              <div class="mtile" style="border-color:var(--sky);background:#3b82f61a;color:var(--sky)"><i class="ti ti-shield"></i>Insur.</div>
+              <div class="mtile"><i class="ti ti-calculator"></i>Loans</div>
+              <div class="mtile"><i class="ti ti-heart-rate-monitor"></i>Health</div>
+              <div class="mtile" style="border-color:var(--violet);background:#7c3aed1a;color:var(--violet)"><i class="ti ti-receipt-tax"></i>Tax</div>
+              <div class="mtile" style="border-color:var(--tealx);background:#14b8a61a;color:var(--tealx)"><i class="ti ti-trending-down"></i>Cash</div>
+              <div class="mtile"><i class="ti ti-news"></i>News</div>
+              <div class="mtile" style="border-color:var(--orange);background:#f973161a;color:var(--orange)"><i class="ti ti-math-function"></i>Calc →</div>
+            </div></div>
+            <div class="slbl">Appearance</div>
+            <div class="card pad">
+              <div class="subhead">Theme</div>
+              <div class="themes">
+                <div class="th on"><div class="prev" style="background:#fff;border:1px solid #e8edf3"><div class="bar" style="background:#00a86b"></div><div class="ln" style="background:#e2e8f0"></div><div class="ln" style="background:#eef2f7;width:60%"></div></div><div class="cap">Light</div></div>
+                <div class="th"><div class="prev" style="background:#1F3864"><div class="bar" style="background:#6ea8fe"></div><div class="ln" style="background:#3b5488"></div><div class="ln" style="background:#2c4272;width:60%"></div></div><div class="cap">Blue</div></div>
+                <div class="th"><div class="prev" style="background:#0b1220"><div class="bar" style="background:#00c47e"></div><div class="ln" style="background:#243247"></div><div class="ln" style="background:#1a2637;width:60%"></div></div><div class="cap">Dark</div></div>
+                <div class="th"><div class="prev" style="background:linear-gradient(135deg,#fff 50%,#0b1220 50%)"><div class="bar" style="background:#00a86b"></div><div class="ln" style="background:#94a3b8"></div></div><div class="cap">System</div></div>
+              </div>
+              <div class="subhead" style="margin-top:14px">Font size</div>
+              <div class="fonts">
+                <div class="fn"><span class="aa" style="font-size:12px">Aa</span><span class="cap">S</span></div>
+                <div class="fn on"><span class="aa" style="font-size:16px">Aa</span><span class="cap">A</span></div>
+                <div class="fn"><span class="aa" style="font-size:20px">Aa</span><span class="cap">A+</span></div>
+                <div class="fn"><span class="aa" style="font-size:24px">Aa</span><span class="cap">A++</span></div>
+              </div>
+            </div>
+            <div class="slbl">Security &amp; Data</div>
+            <div class="card">
+              <div class="row"><div class="ricon"><i class="ti ti-lock"></i></div><span class="lbl">Change PIN</span><i class="ti ti-chevron-right chev"></i></div>
+              <div class="row"><div class="ricon"><i class="ti ti-key"></i></div><span class="lbl">Change passphrase</span><i class="ti ti-chevron-right chev"></i></div>
+              <div class="row"><div class="ricon"><i class="ti ti-lock-square"></i></div><span class="lbl">Lock when backgrounded</span><span class="sw"></span></div>
+              <div class="row"><div class="ricon"><i class="ti ti-message-circle"></i></div><span class="lbl">Contact &amp; Feedback</span><i class="ti ti-chevron-right chev"></i></div>
+            </div>
+            <div class="slbl danger">Danger zone</div>
+            <div class="card pad" style="border-color:#f3c6c6">
+              <div class="row" style="padding:0 0 12px"><div class="ricon" style="background:#fee2e2"><i class="ti ti-trash-x" style="color:var(--danger)"></i></div><span class="lbl">Erase after 10 fails<small>Irreversible</small></span><span class="sw off"></span></div>
+              <button class="dangerbtn">Clear sample data</button>
+            </div>
+          </div>
+          <div class="scrollhint">scroll ↓</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <p><b>Appearance upgrade (all three):</b> Theme is now <b>live preview swatches</b> (Light / Penny Blue / Dark / System show their real palette), and Font size is a proper <b>Aa scale with all four steps</b> (S · A · A+ · A++) — no longer plain letters, and none missing.<br/><br/>
+      <b>B ★</b> is your favourite — polished here. Tell me any tweaks (e.g., hero style, spacing) and I'll finalise B, then implement.</p>
+    </div>
+  </body>
+</html>

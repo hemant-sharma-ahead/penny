@@ -83,6 +83,8 @@ Models **GST 2.0** (22 Sep 2025: 12% & 28% retired → mostly 5%/18%, new 40% de
 
 **FY boundary:** April 1 – March 31. The calculator uses `new Date()` to determine current FY and days remaining.
 
+**Mobile (`apps/mobile`):** ported alongside the rest of Track 4's remaining-modules pass (the largest of that pass) — `apps/mobile/src/features/tax/` mirrors the web files above 1:1 (all hooks — `useTaxData`, `useTaxDeductions`, `useFootprint` — unchanged beyond import paths). The "what-if" deduction sliders in Optimize needed a new native dependency, `@react-native-community/slider` (no RN equivalent to `<input type=range>` existed anywhere else in the app). `TaxStoryModal`'s shareable image reuses Home Stories' exact solution — an offscreen `ShareCard` (a real RN `View`) captured by `react-native-view-shot` and shared via `expo-sharing`, instead of web's procedural `<canvas>` + `navigator.share`. Entry points restored: the money-stats card's "Tax story" row (previously a flagged no-op) now navigates to the real `Tax` screen.
+
 ## Current limitations
 
 - Gross income is derived from FY income transactions (or annualised recurring income); accuracy depends on income being logged. A manual override is available on the Footprint tab.

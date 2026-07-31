@@ -351,3 +351,46 @@ relay + a few Crons.
 
 Reconcile [`plans/phase-1.5-groups-household-os.md`](plans/phase-1.5-groups-household-os.md) (Tracks C/D)
 and [`ROADMAP.md`](ROADMAP.md) to match when those tracks are built.
+
+---
+
+## 10. Contact/support email — setup & decision (folded in from a standalone doc)
+
+How Penny's user-facing **Contact us** address (e.g. `support@<yourdomain>`) will be
+hosted, once a domain is registered. Goal: users email a branded address → it lands in a
+real inbox → replies go out **as** the branded address (the user never sees a personal
+email). **Status: decision pending — no domain registered yet.** The in-app Contact/
+Feedback module itself is already built (see [`docs/features/feedback.md`](features/feedback.md))
+using a placeholder address — this section only covers the email-hosting side, a pure
+config value that never blocks code.
+
+**The one unavoidable cost is a domain** (~₹900-1,100/yr) — no reliable free *branded*
+domain exists. A domain is wanted anyway for the production PWA URL (vs `*.pages.dev`), so
+it does double duty. Free non-branded addresses (on a provider's domain) work as a
+temporary placeholder but read as untrustworthy for a finance app's Contact screen.
+
+**Options compared:**
+
+| Path | Receive | Reply-as | Cost beyond domain | Effort | Notes |
+|---|---|---|---|---|---|
+| **C · Domain + Zoho Mail Free** ⭐ | ✅ | ✅ | ₹0 | Low | Real send+receive mailbox, ≤5 users/1 domain. Webmail + app only (no IMAP on free). |
+| **A · Domain + Cloudflare Email Routing + Gmail "Send mail as"** | ✅ | ✅ | ₹0 | Medium | CF Routing forwards inbound (free); replying-as needs a free SMTP relay (Brevo ~300/day, Resend ~3k/mo) wired into Gmail's send-as + SPF/DKIM DNS. |
+| **B · Domain + SimpleLogin Premium** | ✅ | ✅ | ~₹2,500/yr | Low | Cleanest UX, but custom domain is a paid tier on top of the domain. |
+| **Placeholder · SimpleLogin Free** | ✅ | ✅ | ₹0 (no domain) | Low | Non-branded address, good only as a stop-gap. |
+
+**Recommendation: Path C** (Domain + Zoho Mail Free) — branded, send+receive, ₹0 beyond
+the domain, one service. Use Path A instead to keep everything inside an existing Gmail.
+Ship a SimpleLogin free alias as a placeholder if launching before the domain is sorted.
+
+**Setup outline (Path C):** register a domain (e.g. via Cloudflare Registrar) → add it to
+Cloudflare (free nameservers) → sign up Zoho Mail Forever Free, add + verify the domain,
+create `support@<domain>` → add Zoho's MX/SPF/DKIM records in Cloudflare DNS → access via
+Zoho webmail/app. Send + receive as `support@<domain>` — done. (Path A instead routes
+inbound via Cloudflare Email Routing — free but inbound-only — and outbound via a free SMTP
+relay wired into Gmail's "Send mail as".)
+
+**App wiring:** store the address as a single config constant, not hardcoded across the
+UI — swapping the placeholder for the real branded address later is a one-value change,
+no code churn. Cloudflare Email Routing itself is free/unlimited inbound forwarding and
+doesn't consume Workers/KV/D1 quota (see `workers/api-proxy/README.md` for the proxy
+worker's own limits).

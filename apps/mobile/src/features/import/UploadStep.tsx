@@ -1,0 +1,105 @@
+import { useState } from 'react';
+import { View, Pressable, Text, Platform } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import { File } from 'expo-file-system';
+import { Button, Card, OptionButton, SectionLabel } from '~/components/ui';
+import { Icon } from '~/components/Icon';
+import { useThemeColors } from '~/theme/useThemeColors';
+import { downloadCsv } from '@/core/export/exportCsv';
+import {
+  PENNY_TEMPLATE,
+  IMPORT_FORMATS,
+  FORMAT_LABELS,
+  FORMAT_COLUMNS,
+  type ImportFormat
+} from '@/core/import/importParsers';
+import { ImportCleanupPanel } from './ImportCleanupPanel';
+
+interface UploadStepProps {
+  format: ImportFormat;
+  setFormat: (f: ImportFormat) => void;
+  parseError: string;
+  onText: (text: string) => void;
+}
+
+/**
+ * RN port of apps/web-react/src/features/import/UploadStep.tsx. Web's `<input type=file>` +
+ * `FileReader.readAsText` becomes `expo-document-picker`'s `getDocumentAsync` + `expo-file-system`'s
+ * `File.text()` — same pattern already proven in onboarding's `AccountRecoveryScreen`. Template download
+ * reuses `downloadCsv` (already ported to `expo-file-system`+`expo-sharing` for Expenses' CSV export).
+ * Adds the 'Custom / other' 5th tile (map-your-own-columns) web has always had — the prior mobile wizard
+ * excluded it entirely since it had no Map-columns step; that gap is closed by `MapColumnsStep.tsx`.
+ */
+export function UploadStep({ format, setFormat, parseError, onText }: UploadStepProps) {
+  const theme = useThemeColors();
+  const [cleanupOpen, setCleanupOpen] = useState(false);
+
+  async function pickFile() {
+    // RN Web: mixing a specific MIME type with '*/*' greys out the file in the browser's native dialog
+    // (see BackupPage.tsx's pickFile() for the same fix) — '*/*' alone is the reliable filter there.
+    const result = await DocumentPicker.getDocumentAsync({
+      type: Platform.OS === 'web' ? '*/*' : ['text/csv', '*/*'],
+      copyToCacheDirectory: true
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    // expo-file-system's web build is a no-op stub, so `new File(uri)` throws on RN Web — use the
+    // picker asset's own browser File object instead there (see AccountRecoveryScreen.tsx's same fix).
+    const asset = result.assets[0];
+    const text = Platform.OS === 'web' && asset.file ? await asset.file.text() : await new File(asset.uri).text();
+    onText(text);
+  }
+
+  return (
+    <>
+      <View className="gap-2">
+        <SectionLabel>Format</SectionLabel>
+        <View className="flex-row flex-wrap gap-2">
+          {[...IMPORT_FORMATS, 'custom' as const].map((f) => (
+            <View key={f} className="w-[48%]">
+              <OptionButton label={FORMAT_LABELS[f]} selected={format === f} onPress={() => setFormat(f)} compact />
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {format === 'penny' && (
+        <Button
+          variant="ghost"
+          size="sm"
+          icon="ti-download"
+          textColor={theme.primary}
+          onPress={() => void downloadCsv(PENNY_TEMPLATE, 'penny-import-template.csv')}
+        >
+          Download Penny CSV template
+        </Button>
+      )}
+
+      <View className="gap-2">
+        <SectionLabel>File</SectionLabel>
+        <Pressable
+          onPress={() => void pickFile()}
+          className="bg-surface rounded-xl p-6 items-center gap-3 border-2 border-dashed border-theme"
+        >
+          <Icon name="ti-file-upload" size={32} color={theme.textTertiary} />
+          <Text className="text-sm text-secondary text-center">Tap to select a CSV file</Text>
+        </Pressable>
+        {parseError ? (
+          <Text className="text-xs" style={{ color: theme.danger }}>
+            {parseError}
+          </Text>
+        ) : null}
+      </View>
+
+      <Card padding="sm" radius="md" className="gap-1.5">
+        <Text className="text-xs font-semibold text-secondary">Expected columns for {FORMAT_LABELS[format]}</Text>
+        <Text className="text-xs text-tertiary font-mono leading-relaxed">{FORMAT_COLUMNS[format]}</Text>
+      </Card>
+
+      {/* Temporary — see ImportCleanupPanel's doc comment */}
+      <Button variant="ghost" size="sm" icon="ti-trash" onPress={() => setCleanupOpen(true)}>
+        Clean up unused categories &amp; accounts
+      </Button>
+      {cleanupOpen && <ImportCleanupPanel onClose={() => setCleanupOpen(false)} />}
+    </>
+  );
+}

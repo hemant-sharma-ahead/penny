@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Life &amp; Household section — proposals</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --primary:#00a86b; --indigo:#6366f1; --amber:#f59e0b; --danger:#dc2626; --success:#16a34a;
+        --ink:#0f172a; --sec:#475569; --ter:#94a3b8; --bg:#f4f7fa; --surface:#fff; --surface2:#f6f8fb; --border:#e8edf3;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#e6ebf1; color:var(--ink); -webkit-font-smoothing:antialiased; }
+      h1.page-title { text-align:center; margin:28px 16px 4px; font-size:22px; }
+      p.page-sub { text-align:center; margin:0 16px 24px; color:var(--sec); font-size:14px; }
+      .gallery { display:flex; flex-wrap:wrap; gap:44px 30px; justify-content:center; align-items:flex-start; padding:20px 20px 70px; }
+      .frame-wrap { width:352px; }
+      .vtitle { font-size:15px; font-weight:800; margin:0 2px 3px; }
+      .vsub { font-size:12px; color:var(--sec); margin:0 2px 12px; line-height:1.5; }
+      .tag { font-size:9px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; border-radius:999px; padding:2px 7px; color:var(--primary); background:color-mix(in srgb,var(--primary) 12%,#fff); }
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; }
+      .slbl { font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--ter); margin:0 2px 9px; }
+      .intro { font-size:11px; color:var(--ter); line-height:1.5; margin:0 0 14px; }
+      .intro b { color:var(--sec); }
+      .flbl { font-size:12px; font-weight:700; color:var(--sec); margin:14px 0 8px; }
+      .flbl:first-of-type { margin-top:0; }
+
+      /* icon tiles */
+      .tiles { display:grid; gap:9px; }
+      .tiles.c2 { grid-template-columns:repeat(2,1fr); }
+      .tiles.c3 { grid-template-columns:repeat(3,1fr); }
+      .tile { display:flex; flex-direction:column; align-items:center; gap:7px; padding:12px 6px; border:1.5px solid var(--border); border-radius:14px; background:var(--surface); font-size:12px; font-weight:700; color:var(--sec); cursor:pointer; }
+      .tile i { font-size:22px; color:var(--ter); }
+      .tile.on { border-color:var(--primary); background:color-mix(in srgb,var(--primary) 8%,#fff); color:var(--primary); }
+      .tile.on i { color:var(--primary); }
+      .tile .d { font-size:9.5px; font-weight:600; color:var(--ter); line-height:1.2; text-align:center; }
+      .tile.on .d { color:color-mix(in srgb,var(--primary) 80%,var(--sec)); }
+
+      /* segmented */
+      .rowline { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 0; border-top:1px solid var(--border); }
+      .rowline:first-of-type { border-top:none; }
+      .rowline .k { font-size:13px; font-weight:600; color:var(--sec); display:flex; align-items:center; gap:8px; }
+      .rowline .k i { color:var(--ter); font-size:17px; }
+      .seg { display:inline-flex; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:3px; gap:3px; }
+      .seg span { font-size:11.5px; font-weight:700; color:var(--sec); padding:6px 11px; border-radius:8px; }
+      .seg span.on { background:var(--surface); color:var(--primary); box-shadow:0 1px 2px rgba(15,23,42,.1); }
+
+      /* risk descriptive cards */
+      .risk { display:flex; flex-direction:column; gap:8px; }
+      .rcard { display:flex; align-items:center; gap:11px; border:1.5px solid var(--border); border-radius:13px; padding:11px 13px; cursor:pointer; }
+      .rcard i { font-size:20px; color:var(--ter); }
+      .rcard .t { font-size:13.5px; font-weight:700; color:var(--ink); }
+      .rcard .s { font-size:11px; color:var(--ter); margin-top:1px; }
+      .rcard.on { border-color:var(--primary); background:color-mix(in srgb,var(--primary) 7%,#fff); }
+      .rcard.on i, .rcard.on .t { color:var(--primary); }
+      .rcheck { margin-left:auto; color:var(--primary); font-size:18px; }
+
+      /* children */
+      .chips { display:flex; flex-wrap:wrap; align-items:center; gap:7px; }
+      .chip { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; color:var(--sec); background:var(--surface2); border:1px solid var(--border); border-radius:999px; padding:4px 6px 4px 11px; }
+      .chip i { color:var(--ter); font-size:13px; }
+      .addchild { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; color:var(--primary); border:1.5px dashed color-mix(in srgb,var(--primary) 45%,var(--border)); border-radius:999px; padding:5px 12px; background:transparent; cursor:pointer; }
+      .yearbox { display:inline-flex; align-items:center; gap:6px; border:1.5px solid var(--primary); border-radius:999px; padding:3px 4px 3px 12px; box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 12%,transparent); }
+      .yearbox input { border:none; outline:none; width:64px; font-size:13px; font-weight:600; background:transparent; color:var(--ink); }
+      .yearbox .go { background:var(--primary); color:#fff; border:none; border-radius:999px; width:26px; height:26px; display:grid; place-items:center; font-size:14px; }
+
+      .pill-old { display:inline-block; border:1.5px solid var(--border); border-radius:12px; padding:11px 0; text-align:center; font-size:13px; font-weight:700; color:var(--sec); background:var(--surface); }
+      .pill-old.on { border-color:var(--primary); background:var(--primary); color:#fff; }
+      .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+      .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
+
+      .caption { margin-top:12px; font-size:12.5px; color:var(--sec); line-height:1.55; }
+      .caption b { color:var(--ink); }
+      .legend { max-width:960px; margin:0 auto 50px; background:#fff; border:1px solid var(--border); border-radius:16px; padding:18px 24px; color:var(--sec); font-size:13.5px; line-height:1.75; }
+      .legend b { color:var(--ink); } .legend h3 { margin:0 0 8px; font-size:15px; color:var(--ink); }
+    </style>
+  </head>
+  <body>
+    <h1 class="page-title">Edit Profile — "Life &amp; Household" redesign</h1>
+    <p class="page-sub">Grounded in the real fields: Relationship · Home · Risk appetite · Children. Current state + three options.</p>
+
+    <div class="gallery">
+      <!-- CURRENT -->
+      <div class="frame-wrap">
+        <p class="vtitle">Current</p>
+        <p class="vsub">Plain text pills stacked; functional but flat.</p>
+        <div class="slbl">Life &amp; household</div>
+        <div class="card">
+          <p class="intro">Optional — add these to unlock <b>personalized goals</b>. Stored encrypted on your device; only a 5-year age band ever reaches Chip.</p>
+          <div class="flbl">Relationship</div>
+          <div class="grid2"><span class="pill-old on">Single</span><span class="pill-old">Married</span></div>
+          <div class="flbl">Home</div>
+          <div class="grid2"><span class="pill-old">Own</span><span class="pill-old on">Rent</span></div>
+          <div class="flbl">Risk appetite</div>
+          <div class="grid3"><span class="pill-old">Conservative</span><span class="pill-old on">Moderate</span><span class="pill-old">Aggressive</span></div>
+          <div class="flbl">Children (birth years)</div>
+          <div style="border-bottom:1px solid var(--border);width:110px;font-size:13px;color:var(--ter);padding-bottom:4px">e.g. 2018</div>
+        </div>
+      </div>
+
+      <!-- OPTION A -->
+      <div class="frame-wrap">
+        <p class="vtitle">Option A · Icon tiles <span class="tag">Recommended</span></p>
+        <p class="vsub">Matches the design system's canonical selector (same as Employment). Visual, scannable, consistent.</p>
+        <div class="slbl">Life &amp; household</div>
+        <div class="card">
+          <p class="intro">Optional — add these to unlock <b>personalized goals</b>. Encrypted on-device; only a 5-year age band reaches Chip.</p>
+          <div class="flbl">Relationship</div>
+          <div class="tiles c2">
+            <div class="tile on"><i class="ti ti-user"></i>Single</div>
+            <div class="tile"><i class="ti ti-heart"></i>Married</div>
+          </div>
+          <div class="flbl">Home</div>
+          <div class="tiles c2">
+            <div class="tile"><i class="ti ti-home"></i>Own</div>
+            <div class="tile on"><i class="ti ti-key"></i>Rent</div>
+          </div>
+          <div class="flbl">Risk appetite</div>
+          <div class="tiles c3">
+            <div class="tile"><i class="ti ti-shield-half"></i>Conservative</div>
+            <div class="tile on"><i class="ti ti-scale"></i>Moderate</div>
+            <div class="tile"><i class="ti ti-rocket"></i>Aggressive</div>
+          </div>
+          <div class="flbl">Children (birth years)</div>
+          <div class="chips">
+            <span class="chip">2015 <i class="ti ti-x"></i></span>
+            <span class="chip">2019 <i class="ti ti-x"></i></span>
+            <button class="addchild"><i class="ti ti-plus"></i> Add child</button>
+          </div>
+        </div>
+        <p class="caption"><b>Why recommended:</b> reuses the icon-tile pattern already in this same screen (Employment), so the whole profile reads as one system. Icons make each field glanceable.</p>
+      </div>
+
+      <!-- OPTION B -->
+      <div class="frame-wrap">
+        <p class="vtitle">Option B · Compact inline rows</p>
+        <p class="vsub">Label left, segmented control right — grouped rows like the identity card. Most space-efficient.</p>
+        <div class="slbl">Life &amp; household</div>
+        <div class="card">
+          <p class="intro">Optional — unlock <b>personalized goals</b>. Encrypted on-device; only a 5-year age band reaches Chip.</p>
+          <div class="rowline"><span class="k"><i class="ti ti-heart"></i>Relationship</span><span class="seg"><span class="on">Single</span><span>Married</span></span></div>
+          <div class="rowline"><span class="k"><i class="ti ti-home"></i>Home</span><span class="seg"><span>Own</span><span class="on">Rent</span></span></div>
+          <div class="rowline"><span class="k"><i class="ti ti-chart-line"></i>Risk</span><span class="seg"><span>Low</span><span class="on">Med</span><span>High</span></span></div>
+          <div class="rowline" style="align-items:flex-start">
+            <span class="k"><i class="ti ti-baby-carriage"></i>Children</span>
+            <span class="chips" style="justify-content:flex-end;max-width:200px">
+              <span class="chip">2015 <i class="ti ti-x"></i></span>
+              <button class="addchild"><i class="ti ti-plus"></i> Add</button>
+            </span>
+          </div>
+        </div>
+        <p class="caption">Tightest vertical footprint. Trade-off: "Low/Med/High" abbreviates risk; the tap targets are smaller than tiles.</p>
+      </div>
+
+      <!-- OPTION C -->
+      <div class="frame-wrap">
+        <p class="vtitle">Option C · Tiles + descriptive risk</p>
+        <p class="vsub">Option A, but Risk becomes explained cards — helpful since most people aren't sure what to pick.</p>
+        <div class="slbl">Life &amp; household</div>
+        <div class="card">
+          <p class="intro">Optional — unlock <b>personalized goals</b>. Encrypted on-device; only a 5-year age band reaches Chip.</p>
+          <div class="flbl">Relationship</div>
+          <div class="tiles c2">
+            <div class="tile on"><i class="ti ti-user"></i>Single</div>
+            <div class="tile"><i class="ti ti-heart"></i>Married</div>
+          </div>
+          <div class="flbl">Home</div>
+          <div class="tiles c2">
+            <div class="tile"><i class="ti ti-home"></i>Own</div>
+            <div class="tile on"><i class="ti ti-key"></i>Rent</div>
+          </div>
+          <div class="flbl">Risk appetite</div>
+          <div class="risk">
+            <div class="rcard"><i class="ti ti-shield-half"></i><div><div class="t">Conservative</div><div class="s">Steady — smaller ups &amp; downs</div></div></div>
+            <div class="rcard on"><i class="ti ti-scale"></i><div><div class="t">Moderate</div><div class="s">Balanced growth &amp; safety</div></div><i class="ti ti-circle-check rcheck"></i></div>
+            <div class="rcard"><i class="ti ti-rocket"></i><div><div class="t">Aggressive</div><div class="s">Higher growth, bigger swings</div></div></div>
+          </div>
+          <div class="flbl">Children (birth years)</div>
+          <div class="chips">
+            <span class="chip">2015 <i class="ti ti-x"></i></span>
+            <span class="yearbox"><input placeholder="2020" value="" /><button class="go"><i class="ti ti-check"></i></button></span>
+          </div>
+        </div>
+        <p class="caption">Best for comprehension (risk descriptors) + a friendlier year entry. Slightly taller than A.</p>
+      </div>
+    </div>
+
+    <div class="legend">
+      <h3>Notes for review</h3>
+      All options keep the exact same data (relationship, home own/rent, risk appetite, children birth-years) and the "optional / encrypted / 5-year band" reassurance — only the presentation changes.<br /><br />
+      <b>A — Icon tiles (recommended):</b> reuses the canonical icon-tile selector already used by Employment on this screen, so Edit Profile reads as one consistent system. <b>B — Inline rows:</b> most compact, good if we want the section to take less scroll, but abbreviates risk and shrinks tap targets. <b>C — Tiles + descriptive risk:</b> A plus explained risk cards + a nicer year entry — best for first-timers, a bit taller.<br /><br />
+      <b>Open questions:</b> (1) icon choices — Married = heart vs rings; Rent = key vs building; Risk = shield/scale/rocket ok? (2) Do you want risk descriptors (C) or keep single-word labels (A)? No app-code changes until you pick.
+    </div>
+  </body>
+</html>

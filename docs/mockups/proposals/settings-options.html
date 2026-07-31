@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Settings page: design options</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --primary: #00a86b; --indigo: #6366f1; --teal: #0ea5e9; --amber: #f59e0b;
+        --danger: #dc2626; --violet: #7c3aed; --success: #16a34a; --sky:#3b82f6; --cyan:#06b6d4; --pink:#ec4899; --tealx:#14b8a6; --orange:#f97316;
+        --ink: #0f172a; --sec: #475569; --ter: #94a3b8;
+        --bg: #f4f7fa; --surface: #ffffff; --surface2: #f6f8fb; --border: #e8edf3;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #e6ebf1; color: var(--ink); -webkit-font-smoothing: antialiased; }
+      h1.page-title { text-align: center; margin: 28px 16px 4px; font-size: 22px; }
+      p.page-sub { text-align: center; margin: 0 16px 24px; color: var(--sec); font-size: 14px; }
+      .gallery { display: flex; flex-wrap: wrap; gap: 44px 30px; justify-content: center; align-items: flex-start; padding: 20px 20px 70px; }
+      .frame-wrap { width: 336px; }
+      .vtitle { font-size: 15px; font-weight: 800; margin: 0 2px 3px; }
+      .vsub { font-size: 12px; color: var(--sec); margin: 0 2px 12px; line-height: 1.5; }
+      .phone { width: 336px; height: 700px; background: var(--bg); border-radius: 34px; border: 10px solid #0f172a; overflow: hidden; position: relative; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(15,23,42,.25); }
+      .status-bar { height: 24px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 11px; color: var(--sec); background: var(--surface); }
+      .appbar { display: flex; align-items: center; gap: 12px; padding: 12px 15px; background: var(--surface); border-bottom: 1px solid var(--border); }
+      .appbar i { font-size: 20px; color: var(--sec); }
+      .appbar .t { font-size: 17px; font-weight: 800; letter-spacing: -0.3px; }
+      .body { flex: 1; overflow-y: auto; padding: 15px; }
+      .body::-webkit-scrollbar { width: 0; }
+      .fade { text-align:center; font-size:10px; color:var(--ter); padding:6px 0 2px; }
+
+      .slbl { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ter); margin: 6px 4px 7px; }
+      .sw { width: 38px; height: 22px; border-radius: 999px; background: var(--primary); position: relative; flex-shrink: 0; }
+      .sw.off { background: #cbd5e1; }
+      .sw::after { content:''; position:absolute; top:2px; width:18px; height:18px; background:#fff; border-radius:50%; right:2px; }
+      .sw.off::after { right:18px; }
+
+      /* ============ Variant A: grouped cards ============ */
+      .A .card { background: var(--surface); border: 1px solid var(--border); border-radius: 15px; overflow: hidden; margin-bottom: 15px; }
+      .A .row { display:flex; align-items:center; gap:12px; padding:12px 14px; }
+      .A .row + .row { border-top: 1px solid var(--border); }
+      .A .ricon { width:30px; height:30px; border-radius:9px; background:var(--surface2); display:grid; place-items:center; }
+      .A .ricon i { font-size:16px; color:var(--sec); }
+      .A .lbl { font-size:14px; font-weight:500; flex:1; }
+      .A .lbl small { display:block; font-size:11px; color:var(--ter); font-weight:400; }
+      .A .chev { color:var(--ter); font-size:17px; }
+      .A .mgrid { display:grid; grid-template-columns:repeat(5,1fr); gap:7px; padding:14px; }
+      .A .mtile { border:1.5px solid var(--border); border-radius:12px; padding:9px 2px; display:flex; flex-direction:column; align-items:center; gap:4px; font-size:8.5px; font-weight:600; color:var(--ter); text-align:center; background:var(--surface2); line-height:1.05; }
+      .A .mtile i { font-size:17px; }
+      .A .subhead { font-size:12px; font-weight:600; color:var(--sec); padding:12px 14px 8px; }
+      .A .themes { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding:0 14px 14px; }
+      .A .th { border:1.5px solid var(--border); border-radius:12px; padding:11px 3px; display:flex; flex-direction:column; align-items:center; gap:5px; font-size:9.5px; color:var(--sec); font-weight:600; text-align:center; }
+      .A .th i { font-size:16px; }
+      .A .th.on { border-color:var(--primary); background:color-mix(in srgb,var(--primary) 8%,#fff); color:var(--primary); }
+
+      /* ============ Variant B: minimal flat + profile hero ============ */
+      .B .body { padding: 0; }
+      .B .hero { display:flex; align-items:center; gap:13px; padding:20px 18px 18px; }
+      .B .avatar { width:54px; height:54px; border-radius:50%; background:linear-gradient(135deg,var(--primary),#00c47e); display:grid; place-items:center; color:#fff; font-size:22px; font-weight:800; }
+      .B .hero .nm { font-size:18px; font-weight:800; }
+      .B .hero .hn { font-size:12.5px; color:var(--sec); }
+      .B .hero .edit { margin-left:auto; font-size:12px; font-weight:700; color:var(--primary); }
+      .B .sec { padding: 6px 18px 4px; }
+      .B .sh { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ter); margin:16px 0 4px; }
+      .B .frow { display:flex; align-items:center; gap:13px; padding:14px 0; }
+      .B .frow + .frow { border-top:1px solid var(--border); }
+      .B .frow i.lead { font-size:19px; color:var(--sec); width:22px; text-align:center; }
+      .B .frow .lbl { flex:1; font-size:14.5px; font-weight:500; }
+      .B .frow .chev { color:var(--ter); font-size:17px; }
+      .B .mgrid { display:grid; grid-template-columns:repeat(5,1fr); gap:9px; padding:10px 0 4px; }
+      .B .mtile { display:flex; flex-direction:column; align-items:center; gap:5px; font-size:8.5px; font-weight:600; color:var(--ter); text-align:center; line-height:1.05; }
+      .B .mtile .mi { width:46px; height:46px; border-radius:14px; display:grid; place-items:center; font-size:19px; background:var(--surface); border:1.5px solid var(--border); color:var(--ter); }
+      .B .mtile.on .mi { color:#fff; border:none; }
+      .B .segline { display:flex; align-items:center; gap:8px; padding:12px 0; }
+      .B .segline .k { font-size:14px; flex:1; }
+      .B .pill { display:flex; gap:6px; }
+      .B .pill b { font-size:11.5px; font-weight:700; padding:5px 11px; border-radius:999px; background:var(--surface); border:1.5px solid var(--border); color:var(--sec); }
+      .B .pill b.on { background:var(--ink); color:#fff; border-color:var(--ink); }
+
+      /* ============ Variant C: quick tiles + list ============ */
+      .C .qgrid { display:grid; grid-template-columns:1fr 1fr; gap:11px; margin-bottom:16px; }
+      .C .qcard { border-radius:16px; padding:14px; color:#fff; min-height:78px; display:flex; flex-direction:column; justify-content:space-between; }
+      .C .qcard i { font-size:20px; }
+      .C .qcard .qt { font-size:13px; font-weight:700; }
+      .C .qcard .qv { font-size:11px; opacity:.88; font-weight:600; }
+      .C .card { background:var(--surface); border:1px solid var(--border); border-radius:15px; overflow:hidden; margin-bottom:15px; }
+      .C .row { display:flex; align-items:center; gap:12px; padding:12px 14px; }
+      .C .row + .row { border-top:1px solid var(--border); }
+      .C .ricon { width:30px; height:30px; border-radius:9px; background:var(--surface2); display:grid; place-items:center; }
+      .C .ricon i { font-size:16px; color:var(--sec); }
+      .C .lbl { font-size:14px; font-weight:500; flex:1; }
+      .C .chev { color:var(--ter); font-size:17px; }
+      .C .mgrid { display:grid; grid-template-columns:repeat(5,1fr); gap:7px; padding:14px; }
+      .C .mtile { border:1.5px solid var(--border); border-radius:12px; padding:9px 2px; display:flex; flex-direction:column; align-items:center; gap:4px; font-size:8.5px; font-weight:600; color:var(--ter); text-align:center; background:var(--surface2); line-height:1.05; }
+      .C .mtile i { font-size:17px; }
+
+      .legend { max-width: 900px; margin: 0 auto 40px; background:#fff; border:1px solid var(--border); border-radius:16px; padding:16px 22px; }
+      .legend b { color: var(--ink); } .legend { color: var(--sec); font-size:13.5px; line-height:1.7; }
+    </style>
+  </head>
+  <body>
+    <h1 class="page-title">Settings page — design options</h1>
+    <p class="page-sub">All full-screen &amp; single-scroll, same content. Each frame shows the top; Privacy · Security · Data · Danger zone continue below.</p>
+
+    <div class="gallery">
+      <!-- ===================== OPTION A ===================== -->
+      <div class="frame-wrap A">
+        <div class="vtitle">A · Grouped cards</div>
+        <div class="vsub">Clean, familiar, safe-modern. Sectioned white cards + list rows.</div>
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="appbar"><i class="ti ti-arrow-left"></i><span class="t">Settings</span></div>
+          <div class="body">
+            <div class="slbl">Account</div>
+            <div class="card">
+              <div class="row"><div class="ricon"><i class="ti ti-user"></i></div><span class="lbl">Edit profile<small>Aarav · @aarav_s</small></span><i class="ti ti-chevron-right chev"></i></div>
+              <div class="row"><div class="ricon"><i class="ti ti-history"></i></div><span class="lbl">Timeline</span><i class="ti ti-chevron-right chev"></i></div>
+            </div>
+            <div class="slbl">Modules</div>
+            <div class="card">
+              <div class="mgrid">
+                <div class="mtile" style="border-color:var(--indigo);background:#6366f11a;color:var(--indigo)"><i class="ti ti-chart-pie"></i>Portfolio</div>
+                <div class="mtile" style="border-color:var(--primary);background:#00a86b1a;color:var(--primary)"><i class="ti ti-target"></i>Goals</div>
+                <div class="mtile" style="border-color:var(--sky);background:#3b82f61a;color:var(--sky)"><i class="ti ti-shield"></i>Insur.</div>
+                <div class="mtile"><i class="ti ti-calculator"></i>Loans</div>
+                <div class="mtile"><i class="ti ti-heart-rate-monitor"></i>Health</div>
+                <div class="mtile" style="border-color:var(--violet);background:#7c3aed1a;color:var(--violet)"><i class="ti ti-receipt-tax"></i>Tax</div>
+                <div class="mtile" style="border-color:var(--tealx);background:#14b8a61a;color:var(--tealx)"><i class="ti ti-trending-down"></i>Cash</div>
+                <div class="mtile"><i class="ti ti-news"></i>News</div>
+                <div class="mtile" style="border-color:var(--orange);background:#f973161a;color:var(--orange)"><i class="ti ti-math-function"></i>Calc →</div>
+              </div>
+            </div>
+            <div class="slbl">Appearance</div>
+            <div class="card">
+              <div class="subhead">Theme</div>
+              <div class="themes">
+                <div class="th on"><i class="ti ti-sun"></i>Light</div><div class="th"><i class="ti ti-droplet"></i>Blue</div><div class="th"><i class="ti ti-moon"></i>Dark</div><div class="th"><i class="ti ti-device-desktop"></i>System</div>
+              </div>
+            </div>
+            <div class="fade">↓ Privacy · Security · Data · Danger zone</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== OPTION B ===================== -->
+      <div class="frame-wrap B">
+        <div class="vtitle">B · Minimal flat + profile hero</div>
+        <div class="vsub">Ultra-minimalist. Personal hero header, borderless hairline rows, lots of air.</div>
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="appbar"><i class="ti ti-arrow-left"></i><span class="t">Settings</span></div>
+          <div class="body">
+            <div class="hero">
+              <div class="avatar">A</div>
+              <div><div class="nm">Aarav Sharma</div><div class="hn">@aarav_s · Free plan</div></div>
+              <span class="edit">Edit</span>
+            </div>
+            <div class="sec">
+              <div class="sh">Modules</div>
+              <div class="mgrid">
+                <div class="mtile on"><span class="mi" style="background:var(--indigo)"><i class="ti ti-chart-pie"></i></span>Portfolio</div>
+                <div class="mtile on"><span class="mi" style="background:var(--primary)"><i class="ti ti-target"></i></span>Goals</div>
+                <div class="mtile on"><span class="mi" style="background:var(--sky)"><i class="ti ti-shield"></i></span>Insur.</div>
+                <div class="mtile"><span class="mi"><i class="ti ti-calculator"></i></span>Loans</div>
+                <div class="mtile"><span class="mi"><i class="ti ti-heart-rate-monitor"></i></span>Health</div>
+                <div class="mtile on"><span class="mi" style="background:var(--violet)"><i class="ti ti-receipt-tax"></i></span>Tax</div>
+                <div class="mtile on"><span class="mi" style="background:var(--tealx)"><i class="ti ti-trending-down"></i></span>Cash</div>
+                <div class="mtile"><span class="mi"><i class="ti ti-news"></i></span>News</div>
+                <div class="mtile"><span class="mi" style="background:var(--orange);color:#fff;border:none"><i class="ti ti-math-function"></i></span>Calc →</div>
+              </div>
+              <div class="sh">Appearance</div>
+              <div class="segline"><span class="k">Theme</span><span class="pill"><b class="on">Light</b><b>Blue</b><b>Dark</b><b>Auto</b></span></div>
+              <div class="frow" style="border-top:1px solid var(--border)"><i class="ti ti-textsize lead"></i><span class="lbl">Font size</span><span class="pill"><b>S</b><b class="on">A</b><b>A+</b></span></div>
+              <div class="sh">General</div>
+              <div class="frow"><i class="ti ti-history lead"></i><span class="lbl">Timeline</span><i class="ti ti-chevron-right chev"></i></div>
+              <div class="frow"><i class="ti ti-shield-lock lead"></i><span class="lbl">Default privacy mode</span><i class="ti ti-chevron-right chev"></i></div>
+            </div>
+            <div class="fade">↓ Security · Data · Danger zone</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== OPTION C ===================== -->
+      <div class="frame-wrap C">
+        <div class="vtitle">C · Quick tiles + list</div>
+        <div class="vsub">Most visual/innovative. Colourful quick-setting tiles up top, tidy lists below.</div>
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+          <div class="appbar"><i class="ti ti-arrow-left"></i><span class="t">Settings</span></div>
+          <div class="body">
+            <div class="qgrid">
+              <div class="qcard" style="background:linear-gradient(135deg,#6366f1,#818cf8)"><i class="ti ti-palette"></i><div><div class="qt">Appearance</div><div class="qv">Light · A</div></div></div>
+              <div class="qcard" style="background:linear-gradient(135deg,#dc2626,#f87171)"><i class="ti ti-shield-lock"></i><div><div class="qt">Privacy</div><div class="qv">Opens in Open</div></div></div>
+              <div class="qcard" style="background:linear-gradient(135deg,#0ea5e9,#38bdf8)"><i class="ti ti-database-export"></i><div><div class="qt">Backup</div><div class="qv">Last: 2d ago</div></div></div>
+              <div class="qcard" style="background:linear-gradient(135deg,#00a86b,#00c47e)"><i class="ti ti-user"></i><div><div class="qt">Profile</div><div class="qv">Aarav · @aarav_s</div></div></div>
+            </div>
+            <div class="slbl">Modules</div>
+            <div class="card">
+              <div class="mgrid">
+                <div class="mtile" style="border-color:var(--indigo);background:#6366f11a;color:var(--indigo)"><i class="ti ti-chart-pie"></i>Portfolio</div>
+                <div class="mtile" style="border-color:var(--primary);background:#00a86b1a;color:var(--primary)"><i class="ti ti-target"></i>Goals</div>
+                <div class="mtile" style="border-color:var(--sky);background:#3b82f61a;color:var(--sky)"><i class="ti ti-shield"></i>Insur.</div>
+                <div class="mtile"><i class="ti ti-calculator"></i>Loans</div>
+                <div class="mtile"><i class="ti ti-heart-rate-monitor"></i>Health</div>
+                <div class="mtile" style="border-color:var(--violet);background:#7c3aed1a;color:var(--violet)"><i class="ti ti-receipt-tax"></i>Tax</div>
+                <div class="mtile" style="border-color:var(--tealx);background:#14b8a61a;color:var(--tealx)"><i class="ti ti-trending-down"></i>Cash</div>
+                <div class="mtile"><i class="ti ti-news"></i>News</div>
+                <div class="mtile" style="border-color:var(--orange);background:#f973161a;color:var(--orange)"><i class="ti ti-math-function"></i>Calc →</div>
+              </div>
+            </div>
+            <div class="slbl">More</div>
+            <div class="card">
+              <div class="row"><div class="ricon"><i class="ti ti-history"></i></div><span class="lbl">Timeline</span><i class="ti ti-chevron-right chev"></i></div>
+              <div class="row"><div class="ricon"><i class="ti ti-lock"></i></div><span class="lbl">Change PIN &amp; passphrase</span><i class="ti ti-chevron-right chev"></i></div>
+            </div>
+            <div class="fade">↓ Security · Data · Danger zone</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <p><b>A · Grouped cards</b> — safest & most familiar. Best if you want "clean & modern" with zero learning curve.<br/>
+      <b>B · Minimal flat + hero</b> — most minimalist/premium; a personal profile hero, borderless rows, generous whitespace. Fewer boxes, more air.<br/>
+      <b>C · Quick tiles</b> — most visual/innovative; colourful shortcut tiles for the things people change most (Appearance, Privacy, Backup, Profile), lists for the rest.<br/><br/>
+      Tell me which resonates — I can also <b>mix</b> (e.g., B's profile hero + A's cards, or C's quick tiles + B's flat lists) and refine the winner into a final v-next.</p>
+    </div>
+  </body>
+</html>

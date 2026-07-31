@@ -45,6 +45,8 @@ The forecast is a derived aggregate (a projection, not a single flagged item), s
 
 **No external API calls.** All projection is local.
 
+**Mobile (`apps/mobile`):** ported alongside the rest of Track 4's remaining-modules pass — `apps/mobile/src/features/cashflow/` mirrors the web files above 1:1 (`useCashFlow.ts` unchanged beyond import paths; `useIncomeSuggestions.ts`'s dismissed-suggestions cache swaps synchronous `localStorage` for `~/lib/storage`'s async AsyncStorage wrapper, hydrating in an effect instead of a `useState` initializer). The balance sparkline is redrawn with `react-native-svg` (`Path`/`Line`/`Circle`) instead of a DOM `<svg>`, same math as web. Entry points restored: Home's "Safe to spend" tile and Expenses' "Safe: ₹X" pill, both previously flagged no-ops pending this module, now navigate to the real `CashFlow` screen.
+
 ## Current limitations
 
 - Income counts as a projected inflow once marked recurring (the detector suggests this when a pattern exists, but a single payslip or irregular income won't be detected). Without a projected payday, safe-to-spend uses the more conservative month-end window.

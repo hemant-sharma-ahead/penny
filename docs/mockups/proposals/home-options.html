@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Home as a health & guidance hub: options</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --primary:#00a86b; --indigo:#6366f1; --sky:#0ea5e9; --violet:#7c3aed; --amber:#f59e0b; --danger:#dc2626; --success:#16a34a; --teal:#14b8a6; --orange:#f97316;
+        --ink:#0f172a; --sec:#475569; --ter:#94a3b8; --bg:#f4f7fa; --surface:#fff; --surface2:#f6f8fb; --border:#e8edf3;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#e6ebf1; color:var(--ink); -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:28px 16px 4px; font-size:22px; }
+      .sub { text-align:center; margin:0 16px 8px; color:var(--sec); font-size:14px; }
+      .ia { text-align:center; margin:0 16px 22px; color:var(--ter); font-size:12px; }
+      .gallery { display:flex; flex-wrap:wrap; gap:44px 30px; justify-content:center; align-items:flex-start; padding:16px 20px 70px; }
+      .frame-wrap { width:336px; }
+      .vtitle { font-size:15px; font-weight:800; margin:0 2px 3px; }
+      .vsub { font-size:12px; color:var(--sec); margin:0 2px 12px; line-height:1.5; }
+      .phone { width:336px; height:760px; background:var(--bg); border-radius:34px; border:10px solid #0f172a; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(15,23,42,.25); }
+      .statusbar { height:22px; background:#fff; }
+      .hdr { display:flex; align-items:center; justify-content:space-between; padding:9px 13px; background:#fff; border-bottom:2px solid var(--primary); }
+      .hdr .l { display:flex; align-items:center; gap:8px; }
+      .logo { width:20px;height:20px;border-radius:50%;border:2px solid var(--primary); }
+      .wm { font-weight:800; font-size:15px; } .wm span{color:var(--primary)}
+      .hdr .r { display:flex; align-items:center; gap:10px; color:var(--sec); font-size:17px; }
+      .modeic { width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--danger) 12%,#fff);color:var(--danger);font-size:15px; }
+      .body { flex:1; overflow-y:auto; padding:13px; }
+      .body::-webkit-scrollbar { width:0; }
+
+      .greet { font-size:19px; font-weight:800; margin:2px 2px 12px; }
+      .slbl { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--ter); margin:14px 4px 8px; display:flex; align-items:center; justify-content:space-between; }
+      .slbl .a { color:var(--primary); font-weight:700; text-transform:none; letter-spacing:0; }
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:15px; padding:13px; margin-bottom:6px; }
+
+      /* money glance */
+      .glance { display:flex; }
+      .glance .g { flex:1; padding:2px 6px; }
+      .glance .g + .g { border-left:1px solid var(--border); }
+      .glance .k { font-size:10px; color:var(--sec); font-weight:600; }
+      .glance .v { font-size:20px; font-weight:800; letter-spacing:-.4px; margin-top:2px; }
+      .glance .s { font-size:10px; color:var(--ter); margin-top:1px; }
+      .albar { height:7px; border-radius:4px; margin:10px 2px 2px; overflow:hidden; display:flex; }
+      .albar i { display:block; height:100%; }
+      .alrow { display:flex; justify-content:space-between; font-size:10px; color:var(--sec); margin:5px 2px 0; }
+
+      /* score ring (conic) */
+      .ring { width:64px; height:64px; border-radius:50%; display:grid; place-items:center; flex-shrink:0; background:conic-gradient(var(--success) 0 72%, #e8edf3 72% 100%); }
+      .ring .in { width:50px; height:50px; border-radius:50%; background:#fff; display:grid; place-items:center; flex-direction:column; }
+      .ring .n { font-size:18px; font-weight:800; line-height:1; }
+      .ring .l { font-size:8px; color:var(--sec); font-weight:700; }
+
+      /* vital chips */
+      .vital { display:flex; align-items:center; gap:9px; padding:9px 0; }
+      .vital + .vital { border-top:1px solid var(--border); }
+      .vic { width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:15px;flex-shrink:0; }
+      .vital .t { flex:1; font-size:13px; font-weight:600; }
+      .vital .t small { display:block; font-size:10.5px; color:var(--ter); font-weight:500; }
+      .vital .info { color:var(--ter); font-size:14px; }
+      .vbtn { font-size:11px; font-weight:800; border-radius:999px; padding:5px 11px; border:none; }
+      .vbtn.p { background:var(--primary); color:#fff; }
+      .vbtn.g { background:var(--surface2); color:var(--sec); border:1px solid var(--border); }
+
+      /* guidance card */
+      .gcard { border:1px solid var(--border); border-radius:14px; padding:12px; margin-bottom:8px; background:#fff; }
+      .gcard .h { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+      .gcard .h .ci { width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:#fff;font-size:14px; }
+      .gcard .h .ht { font-size:13px; font-weight:700; flex:1; }
+      .gcard p { margin:0 0 9px; font-size:11.5px; color:var(--sec); line-height:1.5; }
+      .gcard .act { display:flex; gap:8px; }
+
+      /* vitals row (option C) */
+      .vrow { display:flex; gap:8px; overflow-x:auto; }
+      .vrow .vc { min-width:82px; flex:1; border:1px solid var(--border); border-radius:13px; padding:10px 8px; text-align:center; background:#fff; }
+      .vrow .vc .mini { width:34px;height:34px;border-radius:50%;margin:0 auto 5px;display:grid;place-items:center;font-size:15px; }
+      .vrow .vc .k { font-size:9.5px; color:var(--sec); font-weight:700; }
+      .vrow .vc .v { font-size:12px; font-weight:800; margin-top:1px; }
+
+      /* segmented ring legend (option B) */
+      .pill-legend { display:grid; grid-template-columns:1fr 1fr; gap:7px 12px; margin-top:10px; }
+      .pill-legend .p { display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--sec); }
+      .pill-legend .p .d { width:9px;height:9px;border-radius:50%; }
+
+      /* misc compact sections */
+      .stories { display:flex; gap:12px; overflow-x:auto; padding:2px; }
+      .story { text-align:center; width:58px; flex-shrink:0; }
+      .story .c { width:52px;height:52px;border-radius:50%;border:2px solid var(--primary);display:grid;place-items:center;font-size:20px;color:var(--primary);margin:0 auto 3px; }
+      .story .lb { font-size:9px; color:var(--sec); font-weight:600; }
+      .grp { display:flex; align-items:center; gap:10px; padding:9px 0; }
+      .grp + .grp { border-top:1px solid var(--border); }
+      .gic { width:32px;height:32px;border-radius:9px;display:grid;place-items:center;color:#fff;font-size:15px; }
+      .grp .nm { flex:1; font-size:13px; font-weight:600; } .grp .nm small{display:block;font-size:10px;color:var(--ter);font-weight:500}
+      .grp .bal { font-size:12.5px; font-weight:800; color:var(--success); text-align:right } .grp .bal small{display:block;font-size:9px;color:var(--ter);font-weight:500}
+      .accts { display:flex; gap:9px; overflow-x:auto; }
+      .acct { min-width:104px; border:1px solid var(--border); border-radius:13px; padding:11px; background:#fff; }
+      .acct .ic { width:28px;height:28px;border-radius:8px;background:var(--surface2);display:grid;place-items:center;margin-bottom:16px;color:var(--sec) }
+      .acct .an { font-size:10.5px; color:var(--sec) } .acct .av { font-size:13px; font-weight:800; margin-top:1px }
+      .mkt { display:flex; gap:14px; overflow:hidden; border:1px solid var(--border); border-radius:11px; padding:8px 11px; background:#fff; font-size:11px; }
+      .mkt b { font-weight:800 } .mkt .up{color:var(--success)}
+      .tools { display:grid; grid-template-columns:repeat(4,1fr); gap:9px; }
+      .tool { text-align:center; }
+      .tool .ti2 { width:44px;height:44px;border-radius:14px;border:1px solid var(--border);display:grid;place-items:center;margin:0 auto 4px;font-size:19px;background:#fff }
+      .tool .tl { font-size:9px; color:var(--sec); font-weight:600 }
+
+      .legend { max-width:1040px; margin:0 auto 40px; background:#fff; border:1px solid var(--border); border-radius:16px; padding:16px 22px; color:var(--sec); font-size:13.5px; line-height:1.7; }
+      .legend b { color:var(--ink); }
+    </style>
+  </head>
+  <body>
+    <h1>Home — financial-health & guidance hub</h1>
+    <p class="sub">Three ways to present <b>Financial Health + Next best steps</b>. All share the same new IA.</p>
+    <p class="ia">Greeting → Money glance → <b>Financial Health</b> → <b>Next best steps</b> → Stories (incl. Timeline) → Groups → Accounts → Market → Tools (Insurance · Loans)</p>
+
+    <div class="gallery">
+      <!-- ============ OPTION A ============ -->
+      <div class="frame-wrap">
+        <div class="vtitle">A · Score + Top-3-to-improve</div>
+        <div class="vsub">Health &amp; guidance merged: score ring + the 3 highest-impact fixes, each actionable.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="hdr"><div class="l"><span class="logo"></span><span class="wm">Pen<span>ny</span></span></div><div class="r"><span class="modeic"><i class="ti ti-eye"></i></span><i class="ti ti-bell"></i></div></div>
+          <div class="body">
+            <div class="greet">Good afternoon, Hemant</div>
+
+            <div class="card glance-wrap">
+              <div class="glance">
+                <div class="g"><div class="k">Net worth</div><div class="v">₹1.45 Cr</div><div class="s">View breakdown ›</div></div>
+                <div class="g"><div class="k">Safe to spend</div><div class="v" style="color:var(--success)">₹80,444</div><div class="s">28 days till payday ›</div></div>
+              </div>
+              <div class="albar"><i style="width:80%;background:var(--teal)"></i><i style="width:20%;background:var(--violet)"></i></div>
+              <div class="alrow"><span>Assets ₹1.9Cr</span><span style="color:var(--danger)">Liabilities −₹48.4L</span></div>
+            </div>
+
+            <div class="slbl">Financial health</div>
+            <div class="card">
+              <div style="display:flex;align-items:center;gap:13px;margin-bottom:6px">
+                <div class="ring"><div class="in"><span class="n">72</span><span class="l">GOOD</span></div></div>
+                <div style="font-size:12px;color:var(--sec);line-height:1.5">You're on track. <b style="color:var(--ink)">3 quick wins</b> would push you to <b style="color:var(--success)">Excellent</b>.</div>
+              </div>
+              <div class="vital"><div class="vic" style="background:#fef3c7;color:var(--amber)"><i class="ti ti-umbrella"></i></div><div class="t">Emergency fund<small>2.1 of 6 months</small></div><i class="ti ti-info-circle info"></i><button class="vbtn p">Set goal</button></div>
+              <div class="vital"><div class="vic" style="background:#fee2e2;color:var(--danger)"><i class="ti ti-heart-plus"></i></div><div class="t">Term cover<small>None — aim ≈ 10× income</small></div><i class="ti ti-info-circle info"></i><button class="vbtn p">Add</button></div>
+              <div class="vital"><div class="vic" style="background:#dcfce7;color:var(--success)"><i class="ti ti-coin"></i></div><div class="t">Idle cash<small>₹1.4L earning ~3%</small></div><i class="ti ti-info-circle info"></i><button class="vbtn g">Optimize</button></div>
+            </div>
+
+            <div class="slbl">Stories</div>
+            <div class="stories">
+              <div class="story"><div class="c"><i class="ti ti-sparkles"></i></div><div class="lb">Your week</div></div>
+              <div class="story"><div class="c"><i class="ti ti-trophy"></i></div><div class="lb">Milestone</div></div>
+              <div class="story"><div class="c"><i class="ti ti-history"></i></div><div class="lb">Timeline</div></div>
+              <div class="story"><div class="c"><i class="ti ti-bulb"></i></div><div class="lb">Insights</div></div>
+            </div>
+
+            <div class="slbl">Groups <span class="a">+ New / Join</span></div>
+            <div class="card">
+              <div class="grp"><div class="gic" style="background:var(--sky)"><i class="ti ti-home"></i></div><div class="nm">Family<small>4 members</small></div><div class="bal">+₹2,250<small>you're owed</small></div></div>
+              <div class="grp"><div class="gic" style="background:var(--indigo)"><i class="ti ti-plane"></i></div><div class="nm">Goa Trip<small>4 members</small></div><div class="bal">+₹19,600<small>you're owed</small></div></div>
+            </div>
+
+            <div class="slbl">Accounts <span class="a">Manage →</span></div>
+            <div class="accts">
+              <div class="acct"><div class="ic"><i class="ti ti-building-bank"></i></div><div class="an">HDFC Savings</div><div class="av">₹80,11,838</div></div>
+              <div class="acct"><div class="ic"><i class="ti ti-cash"></i></div><div class="an">Cash Wallet</div><div class="av">₹97,742</div></div>
+            </div>
+
+            <div class="slbl">Markets</div>
+            <div class="mkt"><span>Sensex <b>77.76K</b> <b class="up">▲0.34%</b></span><span>Nifty <b>24.27K</b> <b class="up">▲0.39%</b></span></div>
+
+            <div class="slbl">Tools</div>
+            <div class="tools">
+              <div class="tool"><div class="ti2" style="color:var(--sky)"><i class="ti ti-shield"></i></div><div class="tl">Insurance</div></div>
+              <div class="tool"><div class="ti2" style="color:var(--cyan)"><i class="ti ti-calculator"></i></div><div class="tl">Loans</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="caption"></div>
+      </div>
+
+      <!-- ============ OPTION B ============ -->
+      <div class="frame-wrap">
+        <div class="vtitle">B · Segmented health ring</div>
+        <div class="vsub">A single ring split into pillars; tap a weak pillar → its guidance. Next steps below.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="hdr"><div class="l"><span class="logo"></span><span class="wm">Pen<span>ny</span></span></div><div class="r"><span class="modeic"><i class="ti ti-eye"></i></span><i class="ti ti-bell"></i></div></div>
+          <div class="body">
+            <div class="greet">Good afternoon, Hemant</div>
+
+            <div class="card">
+              <div class="glance">
+                <div class="g"><div class="k">Net worth</div><div class="v">₹1.45 Cr</div><div class="s">View breakdown ›</div></div>
+                <div class="g"><div class="k">Safe to spend</div><div class="v" style="color:var(--success)">₹80,444</div><div class="s">28 days till payday ›</div></div>
+              </div>
+              <div class="albar"><i style="width:80%;background:var(--teal)"></i><i style="width:20%;background:var(--violet)"></i></div>
+              <div class="alrow"><span>Assets ₹1.9Cr</span><span style="color:var(--danger)">Liabilities −₹48.4L</span></div>
+            </div>
+
+            <div class="slbl">Financial health</div>
+            <div class="card" style="text-align:center">
+              <div class="ring" style="width:104px;height:104px;margin:4px auto 4px;background:conic-gradient(var(--success) 0 30%, var(--amber) 30% 48%, var(--danger) 48% 60%, var(--success) 60% 82%, var(--indigo) 82% 100%)">
+                <div class="in" style="width:80px;height:80px"><span class="n" style="font-size:26px">72</span><span class="l">GOOD</span></div>
+              </div>
+              <div class="pill-legend">
+                <div class="p"><span class="d" style="background:var(--success)"></span>Protection</div>
+                <div class="p"><span class="d" style="background:var(--amber)"></span>Emergency ⚠</div>
+                <div class="p"><span class="d" style="background:var(--danger)"></span>Cover ⚠</div>
+                <div class="p"><span class="d" style="background:var(--success)"></span>Debt</div>
+                <div class="p"><span class="d" style="background:var(--success)"></span>Savings</div>
+                <div class="p"><span class="d" style="background:var(--indigo)"></span>Growth <i class="ti ti-info-circle" style="font-size:12px"></i></div>
+              </div>
+            </div>
+
+            <div class="slbl">Next best steps <span class="a">See all</span></div>
+            <div class="gcard"><div class="h"><span class="ci" style="background:var(--amber)"><i class="ti ti-umbrella"></i></span><span class="ht">Build your emergency fund</span><i class="ti ti-info-circle info"></i></div><p>Covers 2.1 months — aim for 6 (₹4.8L). Set aside ₹15k/mo → ready in ~10 months.</p><div class="act"><button class="vbtn p">Set as goal</button><button class="vbtn g">Not now</button></div></div>
+            <div class="gcard"><div class="h"><span class="ci" style="background:var(--danger)"><i class="ti ti-heart-plus"></i></span><span class="ht">Get term life cover</span><i class="ti ti-info-circle info"></i></div><p>No term cover found. With dependents, ≈ 10× income (₹1.2Cr) is recommended.</p><div class="act"><button class="vbtn p">Add as goal</button><button class="vbtn g">Not now</button></div></div>
+
+            <div class="slbl">Stories</div>
+            <div class="stories">
+              <div class="story"><div class="c"><i class="ti ti-sparkles"></i></div><div class="lb">Your week</div></div>
+              <div class="story"><div class="c"><i class="ti ti-trophy"></i></div><div class="lb">Milestone</div></div>
+              <div class="story"><div class="c"><i class="ti ti-history"></i></div><div class="lb">Timeline</div></div>
+            </div>
+            <div class="slbl">Groups · Accounts · Markets · Tools</div>
+            <div class="card" style="color:var(--ter);font-size:11.5px">… same as Option A below the fold …</div>
+          </div>
+        </div>
+        <div class="caption"></div>
+      </div>
+
+      <!-- ============ OPTION C ============ -->
+      <div class="frame-wrap">
+        <div class="vtitle">C · Vitals row + guidance feed</div>
+        <div class="vsub">Health as a compact "vitals" strip; a richer, separate Next-best-steps feed.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="hdr"><div class="l"><span class="logo"></span><span class="wm">Pen<span>ny</span></span></div><div class="r"><span class="modeic"><i class="ti ti-eye"></i></span><i class="ti ti-bell"></i></div></div>
+          <div class="body">
+            <div class="greet">Good afternoon, Hemant</div>
+
+            <div class="card">
+              <div class="glance">
+                <div class="g"><div class="k">Net worth</div><div class="v">₹1.45 Cr</div><div class="s">View breakdown ›</div></div>
+                <div class="g"><div class="k">Safe to spend</div><div class="v" style="color:var(--success)">₹80,444</div><div class="s">28 days till payday ›</div></div>
+              </div>
+              <div class="albar"><i style="width:80%;background:var(--teal)"></i><i style="width:20%;background:var(--violet)"></i></div>
+              <div class="alrow"><span>Assets ₹1.9Cr</span><span style="color:var(--danger)">Liabilities −₹48.4L</span></div>
+            </div>
+
+            <div class="slbl">Financial vitals <span class="a">Details</span></div>
+            <div class="vrow">
+              <div class="vc"><div class="mini" style="background:#dcfce7;color:var(--success)"><i class="ti ti-heart-rate-monitor"></i></div><div class="k">Health</div><div class="v">72 · Good</div></div>
+              <div class="vc"><div class="mini" style="background:#fef3c7;color:var(--amber)"><i class="ti ti-umbrella"></i></div><div class="k">Emergency</div><div class="v">2.1 mo ⚠</div></div>
+              <div class="vc"><div class="mini" style="background:#fee2e2;color:var(--danger)"><i class="ti ti-heart-plus"></i></div><div class="k">Cover</div><div class="v">None ⚠</div></div>
+              <div class="vc"><div class="mini" style="background:#dcfce7;color:var(--success)"><i class="ti ti-scale"></i></div><div class="k">Debt</div><div class="v">Healthy</div></div>
+            </div>
+
+            <div class="slbl">Next best steps <span class="a">See all</span></div>
+            <div class="gcard"><div class="h"><span class="ci" style="background:var(--amber)"><i class="ti ti-umbrella"></i></span><span class="ht">Build your emergency fund</span><i class="ti ti-info-circle info"></i></div><p>Covers 2.1 months — aim for 6. Set aside ₹15k/mo → ready in ~10 months.</p><div class="act"><button class="vbtn p">Set as goal</button><button class="vbtn g">Not now</button></div></div>
+            <div class="gcard"><div class="h"><span class="ci" style="background:var(--violet)"><i class="ti ti-receipt-tax"></i></span><span class="ht">₹40,000 left under 80C</span><i class="ti ti-info-circle info"></i></div><p>Invest before 31 Mar to save ≈ ₹12,000 in tax. (Tax, shown as an action — not a tile.)</p><div class="act"><button class="vbtn p">Plan it</button><button class="vbtn g">Not now</button></div></div>
+
+            <div class="slbl">Stories</div>
+            <div class="stories">
+              <div class="story"><div class="c"><i class="ti ti-sparkles"></i></div><div class="lb">Your week</div></div>
+              <div class="story"><div class="c"><i class="ti ti-trophy"></i></div><div class="lb">Milestone</div></div>
+              <div class="story"><div class="c"><i class="ti ti-history"></i></div><div class="lb">Timeline</div></div>
+            </div>
+            <div class="slbl">Groups · Accounts · Markets · Tools</div>
+            <div class="card" style="color:var(--ter);font-size:11.5px">… same as Option A below the fold …</div>
+          </div>
+        </div>
+        <div class="caption"></div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <p><b>Shared across all three:</b> greeting with first name up top · money glance (net worth + safe-to-spend + assets/liabilities) · Stories now include a <b>Timeline</b> story · Tax appears as a <b>guidance action</b>, not a tile · market tucked low · Tools trimmed to Insurance + Loans. The Health Score screen is gone — folded here; the "how it's scored" ratio detail lives behind the small <b>ⓘ</b>.</p>
+      <p><b>A · Score + Top-3</b> — most compact; health &amp; guidance are one card (the 3 fixes are the guidance). <br/>
+      <b>B · Segmented ring</b> — most visual; one ring shows every pillar at a glance, tap a weak arc → its step. <br/>
+      <b>C · Vitals + feed</b> — most "coach-like"; a quick vitals strip + a richer, scrollable action feed (best if guidance grows).</p>
+      <p>Tell me which direction (mix welcome), and I'll refine it + we lock the health presentation, then implement per the plan doc.</p>
+    </div>
+  </body>
+</html>

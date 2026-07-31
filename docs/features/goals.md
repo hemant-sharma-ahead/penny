@@ -36,6 +36,8 @@ Key files:
 - `src/features/goals/GoalForm.tsx` — create/edit goal form
 - `src/core/goals/sipCalculator.ts` — SIP math; `meta.ts` — risk colour/return metadata
 
+**Mobile (`apps/mobile`):** ported in Track 4 (fifth module) — `apps/mobile/src/features/goals/` mirrors the web files above 1:1 (`useGoals.ts`/`useSipCalculator.ts` unchanged beyond import paths). `GoalCard`'s "Suggested" pill and risk badge, and `SuggestedGoals`' icon/button backgrounds, replace their web `var(--color-primary)`/`color-mix(...)` CSS with the existing `Badge` component and `~/lib/color`'s `tint()` (same pattern as Insurance/Loans). `GoalForm`'s 3-column risk picker (`grid-cols-3`) becomes a `flex-row flex-wrap` of `compact` `OptionButton` tiles (RN has no CSS Grid). Verified on-device: `AmountInput`'s Indian-grouping/words helper confirmed again with a real value (₹20,00,000 → "Twenty Lakh"), and the full Add-goal form renders correctly including the pre-filled target date.
+
 ## Current limitations
 
 - Contributions must be logged manually — there is no way to automatically link an expense or bank transaction as a goal contribution

@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Categories: module-style density (4/5/6 per row)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root { --ink:#0f172a; --sec:#475569; --ter:#94a3b8; --bg:#f4f7fa; --surface:#fff; --surface2:#f6f8fb; --border:#e8edf3; --primary:#00a86b; }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#e6ebf1; color:var(--ink); -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:28px 16px 4px; font-size:21px; }
+      .sub { text-align:center; margin:0 16px 8px; color:var(--sec); font-size:13.5px; max-width:680px; margin-left:auto; margin-right:auto; line-height:1.5; }
+      .gallery { display:flex; flex-wrap:wrap; gap:34px; justify-content:center; align-items:flex-start; padding:16px 20px 70px; }
+      .frame-wrap { width:336px; }
+      .caption { margin-top:12px; font-size:12.5px; color:var(--sec); line-height:1.55; text-align:center; }
+      .caption b { color:var(--ink); }
+      .phone { width:336px; height:730px; background:var(--bg); border-radius:34px; border:10px solid #0f172a; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(15,23,42,.25); }
+      .statusbar { height:22px; background:#fff; }
+      .modalhdr { padding:12px 16px 10px; background:#fff; border-bottom:1px solid var(--border); position:relative; text-align:center; }
+      .modalhdr .title { font-weight:800; font-size:15px; }
+      .modalhdr .x { position:absolute; right:14px; top:12px; color:var(--ter); font-size:16px; }
+      .toolbar { display:flex; align-items:center; justify-content:space-between; padding:9px 13px 0; }
+      .toolbar .hint { font-size:11px; color:var(--ter); }
+      .toolbar .manage { font-size:11.5px; color:var(--primary); font-weight:700; display:flex; align-items:center; gap:4px; }
+      .body { flex:1; overflow-y:auto; padding:10px 13px 18px; }
+      .body::-webkit-scrollbar { width:0; }
+      .glabel { display:flex; align-items:center; gap:6px; margin:13px 2px 7px; }
+      .glabel:first-child { margin-top:6px; }
+      .glabel .dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+      .glabel .name { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+
+      .g4 { display:grid; grid-template-columns:repeat(4,1fr); gap:10px 4px; }
+      .g4 .ic { width:40px; height:40px; border-radius:13px; font-size:17px; }
+      .g4 .lbl { font-size:9px; max-width:60px; }
+
+      .g5 { display:grid; grid-template-columns:repeat(5,1fr); gap:9px 3px; }
+      .g5 .ic { width:36px; height:36px; border-radius:11px; font-size:15px; }
+      .g5 .lbl { font-size:8px; max-width:50px; }
+
+      .g6 { display:grid; grid-template-columns:repeat(6,1fr); gap:8px 3px; }
+      .g6 .ic { width:32px; height:32px; border-radius:10px; font-size:13.5px; }
+      .g6 .lbl { font-size:7.2px; max-width:44px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+
+      .tile { display:flex; flex-direction:column; align-items:center; gap:4px; }
+      .tile .ic { display:grid; place-items:center; color:#fff; }
+      .tile .lbl { font-weight:600; color:var(--sec); text-align:center; line-height:1.2; }
+    </style>
+  </head>
+  <body>
+    <h1>Categories — module-style density options</h1>
+    <p class="sub">
+      Same "B" filled-icon-tile, label-outside style, at three densities. Fewer columns = larger touch
+      targets and fully readable labels but a longer scroll; more columns trade tile/label size for less
+      scrolling.
+    </p>
+    <div class="gallery" id="gallery"></div>
+
+    <script>
+      const GROUPS = [
+        { key:'daily_living', label:'Daily Living', color:'#ef4444', items:[
+          { name:'Groceries', icon:'ti-basket', color:'#22c55e' },
+          { name:'Dining & Café', icon:'ti-pizza', color:'#ef4444' },
+          { name:'Transport', icon:'ti-car', color:'#f59e0b' },
+          { name:'Fuel', icon:'ti-gas-station', color:'#f59e0b' },
+          { name:'Salon & Grooming', icon:'ti-scissors', color:'#ec4899' },
+          { name:'Household Supplies', icon:'ti-home', color:'#3b82f6' }
+        ]},
+        { key:'home_utilities', label:'Home & Utilities', color:'#3b82f6', items:[
+          { name:'Rent', icon:'ti-building', color:'#6366f1' },
+          { name:'Bills & Utilities', icon:'ti-receipt', color:'#06b6d4' },
+          { name:'Internet & Phone', icon:'ti-wifi', color:'#8b5cf6' },
+          { name:'Maintenance', icon:'ti-tools', color:'#78716c' },
+          { name:'Home Services', icon:'ti-air-conditioning', color:'#06b6d4' }
+        ]},
+        { key:'renovation', label:'Renovation', color:'#b45309', items:[
+          { name:'Materials', icon:'ti-wall', color:'#b45309' },
+          { name:'Labour & Contractor', icon:'ti-hammer', color:'#92400e' },
+          { name:'Furniture', icon:'ti-sofa', color:'#a16207' },
+          { name:'Fixtures & Fittings', icon:'ti-bulb', color:'#ca8a04' },
+          { name:'Painting', icon:'ti-brush', color:'#d97706' },
+          { name:'Interior & Design', icon:'ti-ruler-2', color:'#c2410c' },
+          { name:'Appliances', icon:'ti-wash-machine', color:'#78716c' },
+          { name:'Other Renovation', icon:'ti-tools', color:'#6b7280' }
+        ]},
+        { key:'health', label:'Health', color:'#10b981', items:[
+          { name:'Medical & Pharmacy', icon:'ti-stethoscope', color:'#10b981' },
+          { name:'Fitness & Gym', icon:'ti-barbell', color:'#f43f5e' },
+          { name:'Personal Care', icon:'ti-sparkles', color:'#ec4899' }
+        ]},
+        { key:'financial', label:'Financial', color:'#22c55e', items:[
+          { name:'SIP & Investments', icon:'ti-chart-line', color:'#10b981' },
+          { name:'Insurance Premium', icon:'ti-shield', color:'#3b82f6' },
+          { name:'Loan EMI', icon:'ti-file-invoice', color:'#ef4444' },
+          { name:'Savings Transfer', icon:'ti-pig-money', color:'#22c55e' }
+        ]},
+        { key:'lifestyle', label:'Lifestyle', color:'#8b5cf6', items:[
+          { name:'Shopping & Apparel', icon:'ti-shopping-bag', color:'#8b5cf6' },
+          { name:'Entertainment', icon:'ti-device-tv', color:'#ec4899' },
+          { name:'Subscriptions', icon:'ti-refresh', color:'#7c3aed' },
+          { name:'Gifts & Presents', icon:'ti-gift', color:'#f43f5e' }
+        ]},
+        { key:'sin_goods', label:'Sin Goods', color:'#b91c1c', items:[
+          { name:'Alcohol', icon:'ti-bottle', color:'#b91c1c' },
+          { name:'Tobacco', icon:'ti-flame', color:'#7f1d1d' }
+        ]},
+        { key:'travel', label:'Travel', color:'#0ea5e9', items:[
+          { name:'Flights & Trains', icon:'ti-plane', color:'#0ea5e9' },
+          { name:'Hotels & Stay', icon:'ti-bed', color:'#6366f1' },
+          { name:'Local Travel', icon:'ti-map-pin', color:'#f59e0b' },
+          { name:'Food on Trip', icon:'ti-tools-kitchen-2', color:'#ef4444' },
+          { name:'Trip Prep', icon:'ti-luggage', color:'#0ea5e9' },
+          { name:'Trip Shopping', icon:'ti-shopping-bag', color:'#8b5cf6' },
+          { name:'Trip Fuel', icon:'ti-gas-station', color:'#0ea5e9' },
+          { name:'Vehicle Service', icon:'ti-tools', color:'#78716c' }
+        ]},
+        { key:'education', label:'Education', color:'#6366f1', items:[
+          { name:'Tuition & Courses', icon:'ti-school', color:'#6366f1' },
+          { name:'Books & Materials', icon:'ti-book', color:'#78716c' },
+          { name:'School Fees', icon:'ti-certificate', color:'#8b5cf6' },
+          { name:'Transportation Fee', icon:'ti-bus', color:'#f59e0b' },
+          { name:'School Trip', icon:'ti-backpack', color:'#10b981' },
+          { name:'Competition', icon:'ti-trophy', color:'#f97316' }
+        ]},
+        { key:'family_giving', label:'Family & Giving', color:'#ec4899', items:[
+          { name:'Family Support', icon:'ti-heart-handshake', color:'#ec4899' },
+          { name:'Occasions', icon:'ti-confetti', color:'#f59e0b' },
+          { name:'Religious & Cultural', icon:'ti-star', color:'#f97316' },
+          { name:'Donations', icon:'ti-coin', color:'#22c55e' }
+        ]},
+        { key:'legal', label:'Legal', color:'#475569', items:[
+          { name:'Advocate Fee', icon:'ti-gavel', color:'#475569' },
+          { name:'Court Fee', icon:'ti-building-bank', color:'#334155' },
+          { name:'Stamp Duty', icon:'ti-license', color:'#64748b' },
+          { name:'Notary Charges', icon:'ti-stamp', color:'#6366f1' },
+          { name:'Filing & Documentation', icon:'ti-files', color:'#0ea5e9' },
+          { name:'Affidavit Charges', icon:'ti-file-text', color:'#8b5cf6' },
+          { name:'Typing & Printing', icon:'ti-printer', color:'#78716c' },
+          { name:'Exemption Fee', icon:'ti-file-certificate', color:'#f59e0b' },
+          { name:'Legal Transport', icon:'ti-car', color:'#f97316' },
+          { name:'Legal Food & Refreshments', icon:'ti-cup', color:'#ef4444' },
+          { name:'Other Legal Fees', icon:'ti-scale', color:'#6b7280' }
+        ]},
+        { key:'other', label:'Other', color:'#6b7280', items:[
+          { name:'Other', icon:'ti-dots', color:'#6b7280' }
+        ]}
+      ];
+
+      const esc = (s) => s.replace(/&/g, '&amp;');
+
+      function grid(items, cls) {
+        return `<div class="${cls}">${items.map(c => `<div class="tile"><div class="ic" style="background:${c.color}"><i class="ti ${c.icon}"></i></div><span class="lbl">${esc(c.name)}</span></div>`).join('')}</div>`;
+      }
+
+      function frame(cls) {
+        const body = GROUPS.map(g => `
+          <div class="glabel"><span class="dot" style="background:${g.color}"></span><span class="name" style="color:${g.color}">${esc(g.label)}</span></div>
+          ${grid(g.items, cls)}`).join('');
+        return `
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="modalhdr"><span class="title">Select category</span><i class="ti ti-x x"></i></div>
+            <div class="toolbar"><span class="hint">Tap to pick</span><span class="manage"><i class="ti ti-settings"></i>Manage</span></div>
+            <div class="body">${body}</div>
+          </div>`;
+      }
+
+      const FRAMES = [
+        { cls:'g4', caption:'<b>4 per row</b> (original B). 40px tiles, full labels, most scroll.' },
+        { cls:'g5', caption:'<b>5 per row</b>. 36px tiles, labels still fully legible, noticeably less scroll.' },
+        { cls:'g6', caption:'<b>6 per row</b>. 32px tiles, labels clamp to 2 lines on long names — matches the current 6-col density but with the filled-tile look.' }
+      ];
+
+      document.getElementById('gallery').innerHTML = FRAMES.map(f => `
+        <div class="frame-wrap">
+          ${frame(f.cls)}
+          <p class="caption">${f.caption}</p>
+        </div>`).join('');
+    </script>
+  </body>
+</html>

@@ -1,0 +1,24 @@
+# workers/* are intentionally excluded — each is an independent Cloudflare Worker project
+# with its own npm lockfile/node_modules, and the migration plan requires zero changes to them.
+packages:
+  - 'packages/*'
+  - 'apps/*'
+allowBuilds:
+  ttf2woff2: true
+minimumReleaseAgeExclude:
+  - '@expo/cli@57.0.10'
+  - '@expo/config-plugins@57.0.6'
+  - '@expo/config@57.0.6'
+  - '@expo/fingerprint@0.20.6'
+  - '@expo/image-utils@0.11.4'
+  - '@expo/metro-config@57.0.7'
+  - '@expo/prebuild-config@57.0.9'
+  - '@expo/require-utils@57.0.4'
+  - '@expo/router-server@57.0.4'
+  - babel-preset-expo@57.0.4
+  - expo-asset@57.0.7
+  - expo-constants@57.0.7
+  - expo-modules-autolinking@57.0.9
+  - expo-modules-core@57.0.7
+  - expo-modules-jsi@57.0.4
+  - expo@57.0.8

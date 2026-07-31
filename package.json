@@ -4,70 +4,51 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "gen:icons": "node scripts/build-icon-index.mjs",
-    "predev": "node scripts/build-icon-index.mjs",
-    "prebuild": "node scripts/build-icon-index.mjs",
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix",
-    "format": "prettier --write src/",
-    "format:check": "prettier --check src/",
+    "dev": "pnpm --filter web-react dev",
+    "build": "tsc -b && pnpm --filter web-react build",
+    "lint": "eslint packages/*/src apps/*/src",
+    "lint:fix": "eslint packages/*/src apps/*/src --fix",
+    "format": "prettier --write packages/*/src apps/*/src",
+    "format:check": "prettier --check packages/*/src apps/*/src",
     "type-check": "tsc -b",
-    "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
+    "test": "pnpm --filter @penny/core test && pnpm --filter web-react test && pnpm test:workers",
+    "test:workers": "vitest run",
+    "test:watch": "pnpm --filter @penny/core test:watch",
+    "test:coverage": "pnpm --filter @penny/core test:coverage",
     "prepare": "husky"
   },
-  "dependencies": {
-    "@capacitor/android": "^8.4.1",
-    "@capacitor/core": "^8.4.1",
-    "@fontsource/inter": "^5.2.8",
-    "@tabler/icons-webfont": "^3.44.0",
-    "@tailwindcss/vite": "^4.3.0",
-    "@zip.js/zip.js": "^2.8.26",
-    "dexie": "^4.4.3",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6",
-    "react-router-dom": "^7.17.0",
-    "tailwindcss": "^4.3.0",
-    "xlsx": "^0.18.5",
-    "zxcvbn": "^4.4.2"
-  },
   "lint-staged": {
-    "src/**/*.{ts,tsx}": [
+    "packages/*/src/**/*.{ts,tsx}": [
       "prettier --check",
       "eslint --max-warnings 0"
     ],
-    "src/**/*.{css,json,md}": [
+    "apps/*/src/**/*.{ts,tsx}": [
+      "prettier --check",
+      "eslint --max-warnings 0"
+    ],
+    "packages/*/src/**/*.{css,json,md}": [
+      "prettier --check"
+    ],
+    "apps/*/src/**/*.{css,json,md}": [
       "prettier --check"
     ]
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.4.1",
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.13.2",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@types/zxcvbn": "^4.4.5",
     "@typescript-eslint/eslint-plugin": "^8.61.0",
     "@typescript-eslint/parser": "^8.61.0",
-    "@vitejs/plugin-react": "^6.0.1",
     "@vitest/coverage-v8": "^4.1.8",
     "eslint": "^10.4.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
-    "fake-indexeddb": "^6.2.5",
     "globals": "^17.6.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.7",
     "prettier": "^3.8.4",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
-    "vite": "^8.0.12",
-    "vite-plugin-pwa": "^1.3.0",
     "vitest": "^4.1.8"
   }
 }

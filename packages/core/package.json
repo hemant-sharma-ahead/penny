@@ -1,0 +1,45 @@
+{
+  "name": "@penny/core",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./theme/*": "./src/theme/*.ts",
+    "./lib/*": "./src/lib/*.ts",
+    "./crypto/*": "./src/core/crypto/*.ts",
+    "./identity/*": "./src/core/identity/*.ts",
+    "./session/*": "./src/core/session/*.ts",
+    "./db/*": "./src/core/db/*.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "type-check": "tsc -b"
+  },
+  "dependencies": {
+    "@op-engineering/op-sqlite": "^17.1.2",
+    "@react-native-async-storage/async-storage": "^3.1.1",
+    "@react-native-google-signin/google-signin": "^16.1.2",
+    "@zip.js/zip.js": "^2.8.26",
+    "dexie": "^4.4.3",
+    "expo-constants": "~57.0.7",
+    "expo-file-system": "~57.0.1",
+    "expo-sharing": "~57.0.7",
+    "react": "^19.2.6",
+    "react-native": "0.86.0",
+    "xlsx": "^0.18.5",
+    "zxcvbn": "^4.4.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/zxcvbn": "^4.4.5",
+    "fake-indexeddb": "^6.2.5",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.12",
+    "vitest": "^4.1.8"
+  }
+}

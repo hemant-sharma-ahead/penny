@@ -13,8 +13,9 @@
 The product direction is: _appealing, minimalistic, modern, inviting, user-friendly — and above all **uncluttered**._ These concrete principles make those adjectives enforceable, and apply to **every screen** across the app.
 
 - **Uncluttered first.** Every screen has one primary job — show that, defer the rest. Prefer whitespace and a short list over dense grids; if a surface feels busy, remove or collapse before adding. One clear primary action per screen; secondary actions are quiet (ghost/icon), not competing.
+- **One capability, one control.** If the same action (e.g. "back up to Google Drive") is reachable from two separate cards/buttons on the same screen, that's clutter and a maintenance trap, not redundancy for convenience — consolidate into a single control (e.g. one destination-picker whose action button behaves per destination) rather than fixing bugs in both copies independently. Found the hard way on the Backup & Restore screen (2026-07-27): a dedicated "Back up to Google Drive" card duplicated what an Automatic Backup destination tab already did; several small bugs there were symptoms of the duplication itself, not independent issues.
 - **Progressive disclosure = the real minimalism.** Smart defaults that just work (e.g. "Equal split by default, power on demand"); advanced controls stay hidden until asked for. **Reuse patterns the user already knows** rather than inventing new ones.
-- **Colour is wayfinding, not decoration.** Context/identity is signalled by colour (e.g. a group's colour tints the context bar + centre FAB; a selected option fills with `--color-primary`), so "where am I / what's selected?" is answered before reading. Semantic tokens only.
+- **Colour is wayfinding, not decoration.** Context/identity is signalled by colour (e.g. a group's color tints the context bar + centre FAB; a selected option fills with `--color-primary`), so "where am I / what's selected?" is answered before reading. Semantic tokens only.
 - **Calm, glanceable hierarchy.** One big number + a small plain-language sub-label (`₹3,200 · you're owed`). Plain language over jargon. Soft `color-mix` tints instead of hard borders.
 - **Spatial stability builds trust.** Nav never changes; header + nav always visible; modals centred. Predictability is a feature — especially for a money app.
 - **Positive zero/empty states.** `₹0` reads as "settled up" (a win), not an empty void.
@@ -38,6 +39,8 @@ The product direction is: _appealing, minimalistic, modern, inviting, user-frien
 - **Horizontal margin** — `px-4` on the overlay, `max-w-[430px]` on the card.
 - **Scrollable body** — long content scrolls inside the card (`overflow-y-auto flex-1`).
 - **Z-index ladder:** bottom nav `z-50` → app header `z-40` → modals `z-60` → nested modals `z-70` → third-tier modals `z-80` (e.g. category/parent editors opened from the category picker). `Modal` / `ConfirmDialog` accept `level={1|2|3}`.
+
+**On `apps/mobile` (React Native, since Track 3 of the mobile migration):** the same "centred, never a bottom sheet" rule is implemented with RN's own `Modal` component (transparent + fade animation) plus a full-screen dim `Pressable` backdrop and a centred card — not a portal library (there's no DOM to portal into) and not a third-party bottom-sheet package. The `paddingTop: 56, paddingBottom: 72` gap and `level`/z-index ladder aren't needed on RN: `Modal` is already a separate native layer above everything, and multiple open modals stack in mount order automatically, so `apps/mobile/src/components/ui/Modal.tsx` dropped the `level`/`nested` props entirely. `SelectInput`'s dropdown (a DOM-positioned portal panel on web, measuring the trigger's bounding rect) is reimplemented as the same centred `Modal` with an option list on RN, for the same reason — there's no equivalent anchored-popover primitive, and reaching for one would violate "no bottom sheets" in spirit anyway.
 
 ---
 

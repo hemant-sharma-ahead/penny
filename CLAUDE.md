@@ -1,137 +1,109 @@
 # Penny — Developer Guide for Claude Sessions
 
-This file is read at the start of every Claude Code session. It provides orientation. Deep reference lives in `docs/`. How-to patterns live in `.claude/commands/`.
-
----
+This file is read at the start of every Claude Code session. It's deliberately minimal —
+an orientation + a map of where everything actually lives, not a restatement of it. Deep
+reference lives in `docs/`; how-to patterns live in `.claude/commands/`; reusable
+methodology lives in `.claude/skills/`; specialized personas live in `.claude/agents/`.
 
 ## What this project is
 
-**Penny** is an India-first personal wealth management PWA with an AI advisor called **Chip**. Privacy-first: local-first, AES-256 encrypted, zero trackers, zero backend in Phase 1.
+**Penny** is an India-first personal wealth management app with an AI advisor called
+**Chip**. Privacy-first: local-first, AES-256 encrypted, zero trackers, zero backend in
+Phase 1.
 
 - Working directory: `/Users/hemant.sharma/Projects/penny`
-- Stack: React 19 + TypeScript (strict) + Vite + Tailwind v4 + Dexie.js + Web Crypto API
-- Target: Mobile-first PWA, `max-w-[430px] mx-auto` desktop layout
+- Monorepo (pnpm workspace): `packages/core/` (platform-agnostic business logic) +
+  `apps/web-react/` (React 19 + Vite + Tailwind, current source of truth for functionality/
+  behavior/design) + `apps/mobile/` (React Native/Expo, in progress) + `workers/`
+  (independent Cloudflare Workers, excluded from the pnpm workspace)
 - Currency/locale: `en-IN`, Indian Rupees (₹)
 
----
+## Current status — always check these, never assume from memory
 
-## Current milestone status
+- **Overall roadmap/phase status**: [`docs/ROADMAP.md`](docs/ROADMAP.md) (shipped history,
+  decided/in-progress phases, future ideas — merged from three previously separate docs)
+- **Mobile-vs-web parity status, per module, and what to work on next**:
+  [`docs/MOBILE_PARITY.md`](docs/MOBILE_PARITY.md) — read its "Program status" section
+  first, every session, before starting any parity-related work
+- **Mobile migration tech stack, rationale, and lessons-learned playbook**:
+  [`docs/plans/mobile-migration.md`](docs/plans/mobile-migration.md)
+- **Current git branch**: `feat/rn-migration` (mobile migration work)
 
-| Milestone                                                                              | Status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M0–M12: Foundation through portfolio enhancements                                      | ✅ Complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| M13: Financial calculators                                                             | ✅ Complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| M14: Finance news + Contact/Feedback                                                   | ✅ Complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| M15: UI polish + feature refinements                                                   | ✅ Complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| **Pre-Phase 1.5: Tracks 5, 1A–1E, 2, 3, 4, 6, 7 ✅ (Track 6 Step 3 skipped)**          | ✅ Complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Phase 1.5: Groups & Household OS — [plan](docs/plans/phase-1.5-groups-household-os.md) | 🚧 In progress. **Track 1 ✅** (pairwise IOU). **A ✅** API proxy (`penny-api-proxy`). **B ✅** client crypto (`device_keys`/`group_keys`/`sync_cursor`, `mergeBundle`). **C ✅** auth/identity (`workers/auth/`, signed-request auth, `signedFetch`/`claim`). **D ✅** backup+sync (`src/core/sync/`: Drive live, iCloud dormant, OPFS floor; Model B — user's own cloud). **E ✅ feature-complete + deployed, end-to-end verification pending** — E1–E5 + E5 tail (worker+crypto, lifecycle, split, sync, context switcher/dashboard/composer/settle/members, cash guard, share-with-group, vacation→group link, share-later, demo fixtures); `workers/groups/` deployed (reuses api-proxy KV; dedicated `penny_auth`/`penny_groups` D1s; **no R2** — event ciphertext inline in D1). `sync` is **env-gated** (`VITE_ENABLE_SYNC`); Groups require a **claimed username**. **Track F — Multi-Device, Sync & Recovery 🚧** ([plan](docs/plans/phase-1.5-track-F-multi-device-recovery.md)): **F1 ✅** phantom-claim fix (demo no longer fakes a claim; `claimed` honest); **F2 ✅** recovery hardening + restore-on-reinstall + account-start flow (Preview → Screen A cards → Screen B tabs → handle-recovery; mandatory username + claim at onboarding; deregister-failure surfacing); **F3 ✅** passphrase reclaim (Ed25519 challenge; auth worker `/recover/*` + migration `0003` — **worker needs redeploy+migrate before live verify**); **F4 device pairing/QR = next (discuss first)**; deferred: group-recovery-after-reclaim, groups-side account-delete cleanup. **Remaining before Phase 1.5 done: Track E live verification + F4 + Stage F closeout.** Resume/test: [track-E plan](docs/plans/phase-1.5-track-E-groups.md) "▶ Resume here"; recovery model: [track-F plan](docs/plans/phase-1.5-track-F-multi-device-recovery.md). Backend: [docs/BACKEND_STRATEGY.md](docs/BACKEND_STRATEGY.md). |
-| Phase 2: Chip AI, native apps, cloud sync                                              | ⏳ Future                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Phase 3: Regional languages, crypto, international equities                            | ⏳ Future                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+## Non-negotiable rules
 
-Full step-by-step milestone history → [`docs/MILESTONES.md`](docs/MILESTONES.md)
-Phase 1.5/2/3 architecture decisions → [`docs/ROADMAP.md`](docs/ROADMAP.md)
+**Architecture (enforced by ESLint — never disable with `eslint-disable`):**
 
----
+1. `@anthropic-ai/sdk` may only be imported from `packages/core/src/core/ai-safety/anthropicClient.ts`
+2. `dexie` may only be imported from `packages/core/src/core/db/`
+3. Feature modules (`apps/*/src/features/`) must not cross-import — only from `core/`,
+   `components/`, `context/`, `hooks/`, `lib/`
+4. `no-console` is a warning — never log PII
+5. Platform-suffixed files (`.native.ts`/`.web.ts`) must never duplicate a literal (URL,
+   storage key, event name, cache TTL) that's identical across variants — extract to an
+   unsuffixed `*.constants.ts` sibling instead. See
+   [`docs/EXTERNAL_APIS.md`](docs/EXTERNAL_APIS.md) and `docs/ARCHITECTURE.md`'s
+   platform-variance-minimization principle.
 
-## Architecture rules (enforced by ESLint)
+**Encryption:**
 
-1. **`@anthropic-ai/sdk`** may only be imported from `src/core/ai-safety/anthropicClient.ts`
-2. **`dexie`** may only be imported from `src/core/db/`
-3. **Feature modules** must not cross-import — only from `core/`, `components/`, `context/`, `hooks/`, `lib/`
-4. **`no-console`** is a warning — never log PII
+- Never access Dexie tables directly from feature code — always
+  `EncryptedRepository<T>` (`packages/core/src/core/db/repository.ts`)
+- The Data Master Key (DMK) lives in memory only, non-extractable, cleared on session
+  expiry — see `docs/TSD.md` for the full envelope-encryption model
+- DOB never leaves raw to AI — use `deriveAgeBand()` (5-year band), never exact date/age
 
-Never disable these rules with `eslint-disable` comments.
+**Privacy/PII:**
 
----
+- `buildUserContext()` is the only path from raw data to the Anthropic API
+- The PII gate (`packages/core/tests/pii-gate/piiGate.test.ts`) is a CI gate — never skip
 
-## Encryption rules
+**Design:**
 
-- **Never access Dexie tables directly** from feature code
-- Always use `EncryptedRepository<T>` from `src/core/db/repository.ts`
-- The Master Key (DMK) lives in memory only, non-extractable (`src/core/crypto/keystore.ts`) — cleared on session expiry
-- **Envelope encryption (Track 2):** a random Data Master Key (DMK) encrypts all data; it's wrapped independently by a passphrase-KEK (PBKDF2 600K) and a PIN-KEK (PBKDF2 200K). Changing passphrase/PIN re-wraps the DMK only — never re-encrypt data. Changing the passphrase requires the current passphrase. Never derive the data key directly from the passphrase. (See `docs/ROADMAP.md` → Track 2.)
-- **DOB never leaves raw to AI** — use `deriveAgeBand()` (5-year band), never the exact date/age
+- `docs/DESIGN_GUIDELINES.md` is the single source of truth for UI design — read it before
+  designing or adjusting any screen
+- Semantic tokens only — never hardcoded colors (documented domain/brand accents excepted)
+- Any chrome/navigation-level or screen-level background must be mode-reactive
+  (`useModeBackgroundColor()`/`useModeAccentColor()` on mobile, the CSS-var cascade on web)
+  — a flat static color is a real bug, found twice already
 
----
+## Documentation discipline (every session)
 
-## UI design
+After completing any implementation step, update whichever of these actually changed:
 
-**All UI design lives in [`docs/DESIGN_GUIDELINES.md`](docs/DESIGN_GUIDELINES.md)** — the single source of truth: design ethos, navigation/layout & modal rules, reusable patterns (identity hero, in-field labels, icon-tile selector, grouped cards, danger zone), themes, design tokens, semantic theme/status colour utilities, and the mockup proposal workflow. **Read it before designing or adjusting any screen**, and add new patterns/rules there as they emerge — keep design guidance in that one doc, not scattered here.
+1. `docs/features/<module>.md` if the feature's capabilities, data model, or limitations changed
+2. `docs/SCHEMA.md` if any Dexie store fields were added/changed/removed
+3. `docs/ARCHITECTURE.md` if new files, directories, hooks, or components were added
+4. `docs/DESIGN_GUIDELINES.md` if a UI pattern, rule, theme, or color token changed
+5. `docs/MOBILE_PARITY.md` if a mobile-vs-web parity gap was found or fixed
+6. `docs/ROADMAP.md` if a phase/track status or architectural decision changed
+7. `.claude/commands/penny-standards.md` if a new non-negotiable rule applies
+8. The relevant `docs/plans/` file if the approach or scope of an in-progress initiative changed
 
-Non-negotiables at a glance: centred modals (no bottom sheets); full-screen single-scroll over hidden tabs; a back button on every sub-page; **semantic tokens only — never hardcoded colours** (domain/brand accents excepted, as data in `core/*/meta.ts`).
+Never mark a step complete without checking this list.
 
-## Shared utilities
+## Where to find things
 
-- **All date logic lives in [`src/lib/date.ts`](src/lib/date.ts)** (keys, labels, `formatDate*`, `dueDateInfo`, `deriveAge`/`deriveAgeBand`, + `DAY_MS`/`startOfToday`/`daysUntil`/`daysBetween`). `lib/formatters.ts` is money/number only. Never re-implement day math or hardcode `86_400_000`. For DOB in AI context use `deriveAgeBand` (5-year band), never `deriveAge`/raw.
-
----
-
-## Navigation structure
-
-```
-/onboarding/*       Pre-auth: splash, privacy promise, setup, demo, intro, simulated dashboard
-/app/home           Home dashboard (default after onboarding)
-/app/portfolio      Portfolio module
-/app/expenses       Expenses module
-/app/goals          Goals module
-/app/insurance      Insurance (accessible from Home)
-/app/chip           Chip AI chat
-```
-
-Bottom nav: Home · Portfolio · Chip (FAB, centred) · Expenses · Goals
-
----
-
-## Key files
-
-| File                                     | Purpose                                                                   |
-| ---------------------------------------- | ------------------------------------------------------------------------- |
-| `src/core/db/schema.ts`                  | All Dexie stores — everything depends on this                             |
-| `src/core/db/types/index.ts`             | All TypeScript types for DB records                                       |
-| `src/core/db/repositories.ts`            | All repository instances                                                  |
-| `src/core/crypto/securityManager.ts`     | All reads/writes flow through this                                        |
-| `src/core/ai-safety/buildUserContext.ts` | Only path to Anthropic                                                    |
-| `src/core/ai-safety/mockChip.ts`         | All Phase 1 dev runs on this                                              |
-| `src/core/db/seedDemoData.ts`            | Demo data seeding                                                         |
-| `src/core/db/activityLog.ts`             | Activity log service — `logActivity`/`restoreActivity` (Track 4 Timeline) |
-| `src/hooks/useLoggedRepository.ts`       | Logging+Undo wrapper around `useRepository` for user mutations            |
-| `tests/pii-gate/piiGate.test.ts`         | CI gate — never skip                                                      |
-| `src/context/PrivacyContext.tsx`         | Privacy mode — wraps entire app                                           |
-| `src/context/SettingsContext.tsx`        | Module visibility + font scale                                            |
-| `src/router/index.tsx`                   | All routes + AuthGuard                                                    |
-
----
-
-## Documentation discipline (enforced in every session)
-
-After completing any implementation step:
-
-1. **Update `docs/features/<module>.md`** if the feature's capabilities, data model, or limitations changed
-2. **Update `docs/SCHEMA.md`** if any Dexie store fields were added, changed, or removed
-3. **Update `docs/ARCHITECTURE.md`** if new files, directories, hooks, or components were added
-   - **Update `docs/DESIGN_GUIDELINES.md`** if a UI design pattern, rule, theme, or colour token was introduced or changed (it's the single source of truth for UI design — keep it there, not scattered)
-4. **Sync status everywhere it's tracked** when a phase / track / step / module status changes — the `CLAUDE.md` milestone table, the matching row in `docs/MILESTONES.md` and `docs/ROADMAP.md`, and the **Status** line of the relevant plan in [`docs/plans/`](docs/plans/) (+ its index row). These must never disagree.
-5. **Update `.claude/commands/penny-standards.md`** if new non-negotiable rules apply
-6. **Update `docs/ROADMAP.md`** if any architectural decisions were made or changed
-7. **Update the plan in `docs/plans/`** (and add a new one for any new phase / large multi-step track) if the approach or scope changed
-
-Never mark a step as complete without checking this list.
-
----
-
-## Where to find detailed information
-
-| Topic                                                                   | Location                                                                               |
-| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Product vision, users, competitive positioning                          | [`docs/BRD.md`](docs/BRD.md)                                                           |
-| Full database schema with all fields                                    | [`docs/SCHEMA.md`](docs/SCHEMA.md)                                                     |
-| Privacy rules, PII definitions                                          | [`docs/PRIVACY.md`](docs/PRIVACY.md)                                                   |
-| **UI design** — ethos, patterns, themes, colours, mockup workflow       | [`docs/DESIGN_GUIDELINES.md`](docs/DESIGN_GUIDELINES.md)                               |
-| Codebase map, component inventory, decision log                         | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                                         |
-| Phase 1.5/2/3 plans + backend decisions                                 | [`docs/ROADMAP.md`](docs/ROADMAP.md)                                                   |
-| **Detailed approved phase/track plans** (why/what/how, step breakdowns) | [`docs/plans/`](docs/plans/)                                                           |
-| Full milestone history with steps                                       | [`docs/MILESTONES.md`](docs/MILESTONES.md)                                             |
-| Per-feature documentation                                               | [`docs/features/`](docs/features/)                                                     |
-| Code standards + best practices                                         | [`.claude/commands/penny-standards.md`](.claude/commands/penny-standards.md)           |
-| How to add a feature module                                             | [`.claude/commands/penny-feature-module.md`](.claude/commands/penny-feature-module.md) |
-| Contributing guide                                                      | [`CONTRIBUTING.md`](CONTRIBUTING.md)                                                   |
+| Need | Go to |
+| --- | --- |
+| Product vision, users, competitive positioning | [`docs/BRD.md`](docs/BRD.md) |
+| Encryption model, Chip AI architecture, PII pipeline | [`docs/TSD.md`](docs/TSD.md) |
+| Full database schema | [`docs/SCHEMA.md`](docs/SCHEMA.md) |
+| Privacy rules, PII definitions | [`docs/PRIVACY.md`](docs/PRIVACY.md) |
+| UI design — ethos, patterns, themes, colors | [`docs/DESIGN_GUIDELINES.md`](docs/DESIGN_GUIDELINES.md) |
+| Codebase map, architectural decision log | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| External API registry | [`docs/EXTERNAL_APIS.md`](docs/EXTERNAL_APIS.md) |
+| Backend strategy (Cloudflare Workers, Model B, scale) | [`docs/BACKEND_STRATEGY.md`](docs/BACKEND_STRATEGY.md) |
+| Roadmap — shipped, in-progress, future ideas | [`docs/ROADMAP.md`](docs/ROADMAP.md) |
+| Mobile parity status per module | [`docs/MOBILE_PARITY.md`](docs/MOBILE_PARITY.md) |
+| Detailed phase/track plans | [`docs/plans/`](docs/plans/) |
+| Per-feature documentation | [`docs/features/`](docs/features/) |
+| Running any surface (web, mobile, Capacitor, workers) | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
+| Code standards + best practices | [`.claude/commands/penny-standards.md`](.claude/commands/penny-standards.md) |
+| Adding a feature module | [`.claude/commands/penny-feature-module.md`](.claude/commands/penny-feature-module.md) |
+| Shared component library | [`.claude/commands/penny-components.md`](.claude/commands/penny-components.md) |
+| Adding an external API integration | [`.claude/commands/penny-api-client.md`](.claude/commands/penny-api-client.md) |
+| Auditing `apps/mobile` vs `apps/web-react` for parity gaps | [`.claude/skills/parity-sweep/`](.claude/skills/parity-sweep/SKILL.md) |
+| Keeping docs current after a change | [`.claude/skills/documentation-maintenance/`](.claude/skills/documentation-maintenance/SKILL.md) |
+| Reviewing/proposing UI, cross-platform design consistency | [`.claude/skills/ui-design-check/`](.claude/skills/ui-design-check/SKILL.md) |
+| Specialized subagents (mobile-developer, web-developer, parity-auditor, code-reviewer, test-writer, ui-designer) | [`.claude/agents/`](.claude/agents/) |
+| Current docs for a fast-moving library (RN/Expo/native packages) instead of relying on training data | Context7 MCP, configured project-wide in [`.mcp.json`](.mcp.json) — works anonymously; add an API key in Context7's dashboard only if you hit rate limits |

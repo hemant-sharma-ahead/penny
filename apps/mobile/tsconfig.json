@@ -1,0 +1,20 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    // @penny/core's exports map points at raw .ts source (no build step), and that source uses
+    // packages/core's own internal `@/*` alias (see packages/core/tsconfig.json). TypeScript resolves a
+    // file's imports using whichever program included it, not the target package's own tsconfig, so this
+    // app must define the same alias too whenever it pulls in a @penny/core file transitively.
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../../packages/core/src/*"],
+      "~/*": ["./src/*"]
+    },
+    // Mirrors Metro's platform-extension resolution (schema.native.ts, installCrypto.native.ts/.web.ts)
+    // so `tsc` picks the same file Metro would for a bare `./foo` import, instead of erroring when no
+    // plain `foo.ts` exists alongside the platform-specific variants.
+    "moduleSuffixes": [".native", ""]
+  }
+}

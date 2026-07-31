@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Account start (New / Restore / Reclaim) — proposals</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --primary:#00a86b; --indigo:#6366f1; --amber:#f59e0b; --danger:#dc2626; --success:#16a34a;
+        --ink:#0f172a; --sec:#475569; --ter:#94a3b8; --bg:#f4f7fa; --surface:#fff; --surface2:#f6f8fb; --border:#e8edf3;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#e6ebf1; color:var(--ink); -webkit-font-smoothing:antialiased; }
+      h1.page-title { text-align:center; margin:28px 16px 4px; font-size:22px; }
+      p.page-sub { text-align:center; margin:0 16px 24px; color:var(--sec); font-size:14px; }
+      .gallery { display:flex; flex-wrap:wrap; gap:44px 30px; justify-content:center; align-items:flex-start; padding:20px 20px 70px; }
+      .frame-wrap { width:336px; }
+      .vtitle { font-size:15px; font-weight:800; margin:0 2px 3px; }
+      .vsub { font-size:12px; color:var(--sec); margin:0 2px 12px; line-height:1.5; }
+      .phone { width:336px; height:720px; background:var(--bg); border-radius:34px; border:10px solid #0f172a; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(15,23,42,.25); }
+      .status-bar { height:24px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; font-size:11px; color:var(--sec); background:var(--surface); }
+      .appbar { display:flex; align-items:center; gap:12px; padding:12px 15px; background:var(--surface); border-bottom:1px solid var(--border); }
+      .appbar i { font-size:20px; color:var(--sec); }
+      .body { flex:1; overflow-y:auto; padding:22px 18px; }
+      .body::-webkit-scrollbar { width:0; }
+
+      .hd-ico { width:56px; height:56px; border-radius:18px; background:var(--primary); display:grid; place-items:center; margin:6px auto 14px; }
+      .hd-ico i { font-size:26px; color:#fff; }
+      .h2 { text-align:center; font-size:21px; font-weight:800; margin:0 0 6px; }
+      .sub { text-align:center; font-size:13px; color:var(--sec); line-height:1.5; margin:0 6px 22px; }
+
+      /* Choice card */
+      .choice { display:flex; align-items:flex-start; gap:13px; width:100%; text-align:left; background:var(--surface); border:1.5px solid var(--border); border-radius:16px; padding:15px; margin-bottom:12px; cursor:pointer; }
+      .choice:hover { border-color:color-mix(in srgb,var(--primary) 45%,var(--border)); }
+      .choice.primary { border-color:var(--primary); box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 10%,transparent); }
+      .choice .ci { width:44px; height:44px; border-radius:13px; display:grid; place-items:center; flex-shrink:0; font-size:22px; }
+      .ci.green { background:color-mix(in srgb,var(--primary) 12%,#fff); color:var(--primary); }
+      .ci.indigo { background:color-mix(in srgb,var(--indigo) 12%,#fff); color:var(--indigo); }
+      .ci.amber { background:color-mix(in srgb,var(--amber) 14%,#fff); color:var(--amber); }
+      .choice .ct { flex:1; min-width:0; }
+      .choice .ct .t { font-size:15px; font-weight:800; display:flex; align-items:center; gap:7px; }
+      .choice .ct .d { font-size:12px; color:var(--sec); line-height:1.5; margin-top:3px; }
+      .choice .chev { color:var(--ter); font-size:18px; align-self:center; }
+      .tag { font-size:9px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; border-radius:999px; padding:2px 7px; }
+      .tag.rec { color:var(--primary); background:color-mix(in srgb,var(--primary) 12%,#fff); }
+
+      /* Segmented tabs (Option B) */
+      .seg { display:flex; background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:4px; gap:4px; margin-bottom:18px; }
+      .seg button { flex:1; border:none; background:transparent; font-size:12.5px; font-weight:700; color:var(--sec); padding:8px 4px; border-radius:9px; cursor:pointer; }
+      .seg button.on { background:var(--surface); color:var(--primary); box-shadow:0 1px 3px rgba(15,23,42,.08); }
+
+      .lbl { font-size:12px; font-weight:600; color:var(--sec); margin:0 0 6px; display:block; }
+      .inp { width:100%; border:1.5px solid var(--border); border-radius:11px; padding:11px 13px; font-size:14px; color:var(--ink); background:var(--surface); margin-bottom:13px; }
+      .inp.ph { color:var(--ter); }
+      .btn { width:100%; padding:13px; border:none; border-radius:12px; background:var(--primary); color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center; gap:7px; cursor:pointer; }
+      .btn.sec { background:var(--surface); color:var(--sec); border:1.5px solid var(--border); margin-top:10px; }
+      .note { display:flex; gap:8px; align-items:flex-start; font-size:11px; color:var(--sec); line-height:1.5; background:color-mix(in srgb,var(--amber) 9%,#fff); border:1px solid color-mix(in srgb,var(--amber) 25%,#fff); border-radius:11px; padding:10px 12px; margin-top:14px; }
+      .note i { color:var(--amber); font-size:15px; flex-shrink:0; margin-top:1px; }
+      .back { font-size:20px; color:var(--sec); }
+
+      .caption { margin-top:12px; font-size:12.5px; color:var(--sec); line-height:1.55; }
+      .caption b { color:var(--ink); }
+      .legend { max-width:940px; margin:0 auto 50px; background:#fff; border:1px solid var(--border); border-radius:16px; padding:18px 24px; color:var(--sec); font-size:13.5px; line-height:1.75; }
+      .legend b { color:var(--ink); }
+      .legend h3 { margin:0 0 8px; font-size:15px; color:var(--ink); }
+    </style>
+  </head>
+  <body>
+    <h1 class="page-title">Account start — New / Restore / Reclaim on one screen</h1>
+    <p class="page-sub">Reached from the Preview Dashboard's "Set up my account". Two layout options below.</p>
+
+    <div class="gallery">
+      <!-- OPTION A — choice cards -->
+      <div class="frame-wrap">
+        <p class="vtitle">Option A · Three choice cards <span class="tag rec">Recommended</span></p>
+        <p class="vsub">Cleanest for mobile. One tap routes to the right flow; forms live on the next step.</p>
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span>Penny</span></div>
+          <div class="appbar"><i class="ti ti-arrow-left back"></i><span style="font-weight:800;font-size:15px">Get started</span></div>
+          <div class="body">
+            <div class="hd-ico"><i class="ti ti-user-shield"></i></div>
+            <h2 class="h2">How would you like to start?</h2>
+            <p class="sub">New to Penny, or coming back after a reinstall or new device?</p>
+
+            <button class="choice primary">
+              <div class="ci green"><i class="ti ti-sparkles"></i></div>
+              <div class="ct">
+                <div class="t">I'm new here</div>
+                <div class="d">Create a fresh account and set up your vault.</div>
+              </div>
+              <i class="ti ti-chevron-right chev"></i>
+            </button>
+
+            <button class="choice">
+              <div class="ci indigo"><i class="ti ti-cloud-download"></i></div>
+              <div class="ct">
+                <div class="t">Restore from backup</div>
+                <div class="d">Bring everything back — data, groups, and your handle — from Drive, iCloud, or a file. Needs your passphrase.</div>
+              </div>
+              <i class="ti ti-chevron-right chev"></i>
+            </button>
+
+            <button class="choice">
+              <div class="ci amber"><i class="ti ti-id-badge-2"></i></div>
+              <div class="ct">
+                <div class="t">Reclaim my handle</div>
+                <div class="d">No backup? Recover your username with your passphrase. Handle &amp; groups return; personal data needs a backup.</div>
+              </div>
+              <i class="ti ti-chevron-right chev"></i>
+            </button>
+          </div>
+        </div>
+        <p class="caption"><b>Why recommended:</b> three plainly-worded doors, each honest about what it recovers. Tapping "I'm new" → Let-us-know-you; "Restore" → the restore screen; "Reclaim" → the passphrase screen.</p>
+      </div>
+
+      <!-- OPTION B — segmented tabs, Restore active -->
+      <div class="frame-wrap">
+        <p class="vtitle">Option B · Segmented tabs (Restore)</p>
+        <p class="vsub">All three literally on one screen; the chosen tab reveals its form inline.</p>
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span>Penny</span></div>
+          <div class="appbar"><i class="ti ti-arrow-left back"></i><span style="font-weight:800;font-size:15px">Get started</span></div>
+          <div class="body">
+            <div class="hd-ico"><i class="ti ti-user-shield"></i></div>
+            <h2 class="h2">Set up your account</h2>
+            <p class="sub">New here, or restoring a previous account?</p>
+
+            <div class="seg">
+              <button>New</button>
+              <button class="on">Restore</button>
+              <button>Reclaim</button>
+            </div>
+
+            <label class="lbl">Passphrase</label>
+            <div class="inp ph">Your backup passphrase</div>
+
+            <button class="btn"><i class="ti ti-brand-google-drive"></i> Restore from Google Drive</button>
+            <button class="btn sec"><i class="ti ti-file-upload"></i> Choose a backup file</button>
+
+            <div class="note"><i class="ti ti-info-circle"></i><span>Restores everything — profile, data, groups, and your handle. No re-claim needed.</span></div>
+          </div>
+        </div>
+        <p class="caption">Matches "both on one screen" literally. Trade-off: taller, and mixes a chooser with a form.</p>
+      </div>
+
+      <!-- OPTION B — Reclaim active -->
+      <div class="frame-wrap">
+        <p class="vtitle">Option B · Segmented tabs (Reclaim)</p>
+        <p class="vsub">Same screen, "Reclaim" tab — the no-backup passphrase path (F3).</p>
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span>Penny</span></div>
+          <div class="appbar"><i class="ti ti-arrow-left back"></i><span style="font-weight:800;font-size:15px">Get started</span></div>
+          <div class="body">
+            <div class="hd-ico"><i class="ti ti-user-shield"></i></div>
+            <h2 class="h2">Set up your account</h2>
+            <p class="sub">New here, or restoring a previous account?</p>
+
+            <div class="seg">
+              <button>New</button>
+              <button>Restore</button>
+              <button class="on">Reclaim</button>
+            </div>
+
+            <label class="lbl">Username</label>
+            <div class="inp ph">e.g. aarav_s</div>
+            <label class="lbl">Passphrase</label>
+            <div class="inp ph">Your original passphrase</div>
+            <label class="lbl">New 6-digit PIN</label>
+            <div class="inp ph">Quick unlock on this device</div>
+
+            <button class="btn"><i class="ti ti-id-badge-2"></i> Reclaim account</button>
+
+            <div class="note"><i class="ti ti-alert-triangle"></i><span>Handle &amp; groups come back. Personal data &amp; group history need a backup or a re-share from a member.</span></div>
+          </div>
+        </div>
+        <p class="caption">The "New" tab would show a one-line intro + a "Continue" button into Let-us-know-you.</p>
+      </div>
+    </div>
+
+    <div class="legend">
+      <h3>Notes for review</h3>
+      <b>Placement:</b> this screen replaces the "Already have an account?" link — it opens from the Preview Dashboard's primary button. New users are one tap from their existing path; returning users no longer need a hidden link.<br /><br />
+      <b>Recovery semantics (kept honest per design ethos):</b> <b>Restore</b> = full recovery incl. claimed identity → no re-claim, no seed data. <b>Reclaim</b> = identity + group membership only (passphrase proof); personal data &amp; group history need a backup or a co-member re-grant.<br /><br />
+      <b>Open question for you:</b> Option A (route to dedicated sub-screens) vs Option B (tabs + inline forms on one screen). A is cleaner on mobile and keeps each form focused; B matches "both on one screen" most literally. I lean A. No app code changes until you pick.
+    </div>
+  </body>
+</html>

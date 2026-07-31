@@ -41,6 +41,8 @@ Penny's Retirement sub-tab tracks the three main long-term savings pillars for I
 
 **Key file:** `src/features/portfolio/PortfolioPage.tsx` — Retirement sub-tab rendering for all three account types.
 
+**Mobile (`apps/mobile`):** ported in Track 4 (Portfolio module) — `apps/mobile/src/features/portfolio/holdings/retirement/` mirrors the web files above; this is the single biggest sub-scope in the entire Portfolio port (~1,760 web lines in `RetirementCard.tsx`/`RetirementSheets.tsx` alone — bigger than the whole Loans module). `STATUS.x` colors appear at the highest concentration in the module here (10 sites in `RetirementCard.tsx` alone) → `useThemeColors()`. Three hand-rolled `fixed inset-0` modal overlays found and rebuilt on the real ported `Modal` component: `NpsLifecycleDetail`, a contribution-breakdown popup inside `RetirementSheets` (never converted to `Modal` even on web, despite that file already using `Modal` elsewhere), and a third one found during the port, `EpfAllTransactionsSheet`. `core/nps/npsClient.ts`'s scheme-list cache used synchronous `localStorage` (incompatible with RN) — fixed via `npsClient.native.ts`, which keeps the existing in-memory `schemesMemCache` but drops the persistent cross-session layer (re-fetches once per cold app start instead of once per week), per the same decision applied to IPO's cache.
+
 ## Current limitations
 
 - All data is entered manually — no EPFO passbook PDF import, no NPS PRAN statement import.

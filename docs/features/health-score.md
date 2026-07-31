@@ -39,6 +39,8 @@ A composite financial health score (0–100) that measures how well-structured y
 
 **Score is recalculated on every page open** — there is no caching or stored history today.
 
+**Mobile (`apps/mobile`):** ported in Track 4 as a prerequisite of the Home module — `apps/mobile/src/features/health/` mirrors `useHealthScore.ts`/`ComponentCard.tsx`/`ScoringGuide.tsx`/`HealthDetailModal.tsx` above unchanged beyond import paths (only `FinancialHealthCard`'s "See all" + Home's glance card are wired up; a standalone full-screen `HealthScorePage` equivalent hasn't been ported, matching Home's own usage). The one real gap: `FinancialHealthCard`'s segmented score ring is a CSS `conic-gradient` on web, which RN has no equivalent for (a harder gap than the already-known `color-mix()` one) — redrawn as a stack of `react-native-svg` `Circle`s, one full circle per component shown only as its own arc via `strokeDasharray` + `rotation`, the same technique `ScoreGauge`/`ProgressRing` already use for a single segment.
+
 ## Current limitations
 
 - Does not account for number of dependents — a family of four needs a larger emergency fund than a single person, but the score does not yet differentiate.

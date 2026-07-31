@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Set-aside tags, grounded in the real Add Expense form (v2)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root { --primary:#00a86b; --primary-dark:#007a4e; --pink:#ec4899; --danger:#dc2626; --info:#3b82f6; --amber:#f59e0b; --indigo:#6366f1;
+        --ink:#0f172a; --sec:#475569; --ter:#94a3b8; --bg:#f4f7fa; --surface:#fff; --surface2:#f6f8fb; --surface3:#f1f4f8; --border:#e8edf3; }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#e6ebf1; color:var(--ink); -webkit-font-smoothing:antialiased; }
+      h1.page-title { text-align:center; margin:28px 16px 4px; font-size:20px; }
+      p.page-sub { text-align:center; margin:0 16px 10px; color:var(--sec); font-size:13px; max-width:720px; margin-left:auto; margin-right:auto; line-height:1.55; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:34px; justify-content:center; align-items:flex-start; padding:18px 20px 30px; }
+      .frame-wrap { width:322px; }
+      .caption { margin-top:12px; font-size:12px; color:var(--sec); line-height:1.55; }
+      .caption b { color:var(--ink); }
+      .caption .tag { display:inline-block; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; margin-bottom:5px; }
+      .tag.new { background:color-mix(in srgb, var(--primary) 15%, #fff); color:var(--primary-dark); }
+      .tag.same { background:var(--surface2); color:var(--sec); }
+
+      .phone { width:322px; height:720px; background:#fff; border-radius:34px; border:10px solid #0f172a; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(15,23,42,.25); }
+      .statusbar { height:22px; background:#fff; flex-shrink:0; }
+      /* Real Modal: no separate sticky header bar — the type switch + close X are the first row inside the scrollable body. */
+      .body { flex:1; overflow-y:auto; padding:14px 16px 4px; scrollbar-width:none; display:flex; flex-direction:column; gap:13px; }
+      .body::-webkit-scrollbar { display:none; }
+
+      .toprow { display:flex; align-items:center; gap:8px; }
+      .segctrl { display:flex; gap:2px; background:var(--surface2); border-radius:11px; padding:3px; flex:1; max-width:210px; }
+      .segctrl .opt { flex:1; text-align:center; padding:6px 0; border-radius:8px; font-size:11px; font-weight:700; color:var(--ter); }
+      .segctrl .opt.on { background:#fff; color:var(--danger); box-shadow:0 1px 2px rgba(0,0,0,.08); }
+      .closex { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--ter); margin-left:auto; }
+
+      .heroamt { text-align:center; padding:6px 0 2px; }
+      .heroamt .cur { font-size:15px; color:var(--ter); vertical-align:top; }
+      .heroamt .amt { font-size:34px; font-weight:800; color:var(--ink); }
+
+      .descinput { border:1.5px solid var(--border); border-radius:11px; padding:11px 13px; font-size:13.5px; color:var(--ink); }
+      .descinput.ph { color:var(--ter); }
+
+      .chiprow { display:flex; gap:9px; }
+      .chip { flex:1; display:flex; align-items:center; justify-content:space-between; gap:6px; border:1.5px solid var(--border); border-radius:11px; padding:9px 11px; font-size:12.5px; }
+      .chip .l { display:flex; align-items:center; gap:6px; min-width:0; }
+      .chip .l span { color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+      .fieldlabelrow { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+      .fieldlabel { font-size:10.5px; font-weight:700; color:var(--sec); }
+      .managelink { font-size:10.5px; font-weight:700; color:var(--primary-dark); display:flex; align-items:center; gap:3px; }
+      .managelink i { font-size:11px; }
+      .rowlabel2 { font-size:9.5px; font-weight:700; color:var(--ter); text-transform:uppercase; letter-spacing:.04em; margin:2px 0 5px; }
+
+      .iconrow { display:flex; gap:6px; justify-content:center; padding-top:2px; }
+      .circlebtn { display:flex; flex-direction:column; align-items:center; gap:5px; width:62px; }
+      .circlebtn .c { width:44px; height:44px; border-radius:50%; border:1.5px solid var(--border); background:var(--surface2); display:flex; align-items:center; justify-content:center; }
+      .circlebtn .c.on { border-color:var(--primary); background:color-mix(in srgb, var(--primary) 12%, #fff); }
+      .circlebtn .c i { font-size:17px; color:var(--ter); }
+      .circlebtn .c.on i { color:var(--primary); }
+      .circlebtn .lbl { font-size:9.5px; font-weight:600; color:var(--ter); }
+      .circlebtn .lbl.on { color:var(--ink); }
+
+      .panel { border:1.5px solid var(--border); background:var(--surface3); border-radius:12px; padding:11px; display:flex; flex-direction:column; gap:9px; }
+      .tageditrow { display:flex; align-items:center; justify-content:space-between; }
+      .tageditrow .fake-input { flex:1; border:1.5px solid var(--border); border-radius:9px; padding:8px 10px; font-size:12.5px; background:#fff; }
+
+      .setasidebox { display:flex; align-items:center; justify-content:space-between; gap:8px; border-radius:9px; padding:7px 9px; }
+      .setasidebox.editable { background:color-mix(in srgb, var(--pink) 8%, #fff); border:1.5px dashed color-mix(in srgb, var(--pink) 45%, #fff); }
+      .setasidebox.readonly { background:var(--surface2); border:1px solid var(--border); }
+      .setasidebox .l { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:700; color:var(--ink); }
+      .setasidebox .l i { font-size:12px; color:var(--pink); }
+      .setasidebox .sub { font-size:9px; color:var(--ter); font-weight:500; }
+
+      .switch { width:34px; height:20px; border-radius:999px; background:var(--border); position:relative; flex-shrink:0; }
+      .switch.on { background:var(--pink); }
+      .switch.disabled { opacity:.55; }
+      .switch .knob { width:16px; height:16px; border-radius:50%; background:#fff; position:absolute; top:2px; left:2px; box-shadow:0 1px 2px rgba(0,0,0,.2); }
+      .switch.on .knob { left:16px; }
+
+      .pillbtn { font-size:11px; font-weight:700; padding:5px 10px; border-radius:8px; border:1.5px solid var(--border); color:var(--sec); background:#fff; }
+      .pillbtn.selected { border-color:var(--indigo); background:color-mix(in srgb, var(--indigo) 8%, #fff); color:var(--indigo); }
+      .suggestrow { display:flex; flex-wrap:wrap; gap:6px; }
+
+      .eventpill { display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; padding:5px 10px; border-radius:999px; border:2px solid var(--border); color:var(--sec); }
+      .eventpill .dot { width:6px; height:6px; border-radius:50%; }
+
+      .footer { border-top:1px solid var(--border); padding:10px 16px 14px; flex-shrink:0; }
+      .btn-save { display:block; width:100%; text-align:center; background:var(--primary); color:#fff; border:none; border-radius:12px; padding:12px; font-size:13.5px; font-weight:700; }
+
+      .checkboxrow { display:flex; align-items:center; gap:8px; }
+      .checkboxrow input { width:16px; height:16px; accent-color:var(--primary); }
+
+      .infobox { display:flex; gap:6px; padding:0 2px; }
+      .infobox i { font-size:11px; color:var(--info); margin-top:1.5px; flex-shrink:0; }
+      .infobox span { font-size:10px; color:var(--sec); line-height:1.4; }
+
+      /* Manage Tags */
+      .mhdr { display:flex; align-items:center; gap:10px; padding:14px 16px 8px; }
+      .mhdr .back { color:var(--sec); font-size:17px; }
+      .mhdr .t { font-weight:800; font-size:15px; }
+      .searchbar { display:flex; align-items:center; gap:7px; background:var(--surface2); border-radius:11px; padding:9px 11px; margin:0 16px 12px; }
+      .searchbar i { color:var(--ter); font-size:14px; }
+      .searchbar span { font-size:12px; color:var(--ter); }
+      .sectionhdr2 { display:flex; align-items:center; gap:6px; margin:4px 16px 8px; }
+      .sectionhdr2 .t { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--sec); }
+      .sectionhdr2 i { font-size:13px; color:var(--info); }
+      .infopopover { background:#0f172a; color:#fff; border-radius:12px; padding:11px 13px; font-size:11px; line-height:1.5; margin:0 16px 12px; }
+      .tagrow { display:flex; align-items:center; justify-content:space-between; padding:10px 16px; border-top:1px solid var(--border); }
+      .tagrow:first-of-type { border-top:none; }
+      .tagrow .l { display:flex; flex-direction:column; }
+      .tagrow .name { font-size:13px; font-weight:700; color:var(--ink); }
+      .tagrow .count { font-size:10.5px; color:var(--ter); margin-top:1px; }
+      .tagrow.setaside { background:color-mix(in srgb, var(--pink) 5%, transparent); }
+
+      .notebox { max-width:1050px; margin:10px auto 60px; background:#fff; border:1px solid var(--border); border-radius:14px; padding:16px 18px; font-size:12.5px; color:var(--sec); line-height:1.7; }
+      .notebox b { color:var(--ink); }
+      .notebox ul { margin:6px 0 0; padding-left:18px; }
+    </style>
+  </head>
+  <body>
+    <h1 class="page-title">Set-aside tags — grounded in the real Add Expense form</h1>
+    <p class="page-sub">
+      This is the actual current form's structure (type switch, hero amount, description, category/date
+      chips, account/paid-via chips, the circular Tags/Receipt/Lent/Repeat action row, then expandable
+      panels) with only the Tags panel changed. Lent/Borrowed and Share-with-group stay independent —
+      both can be open at once, exactly as Vacation Mode already relies on today. Frequent and event tags
+      are now always visible, no typing needed.
+    </p>
+
+    <div class="gallery">
+      <!-- Screen 0: Tags panel — default state, nothing typed yet -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="body">
+            <div class="toprow">
+              <div class="segctrl"><div class="opt on">Expense</div><div class="opt">Income</div><div class="opt">Transfer</div></div>
+              <span class="closex"><i class="ti ti-x"></i></span>
+            </div>
+            <div class="heroamt"><span class="cur">₹</span><span class="amt">2,400</span></div>
+            <div class="descinput">Groceries for mom</div>
+            <div class="chiprow">
+              <div class="chip"><span class="l"><i class="ti ti-basket" style="color:#22c55e;"></i><span>Groceries</span></span><i class="ti ti-chevron-down" style="color:var(--ter);font-size:12px;"></i></div>
+              <div class="chip"><span class="l"><i class="ti ti-calendar" style="color:var(--sec);"></i><span>Today</span></span><i class="ti ti-chevron-down" style="color:var(--ter);font-size:12px;"></i></div>
+            </div>
+
+            <div class="iconrow">
+              <div class="circlebtn"><span class="c on"><i class="ti ti-hash"></i></span><span class="lbl on">Tags</span></div>
+              <div class="circlebtn"><span class="c"><i class="ti ti-camera"></i></span><span class="lbl">Receipt</span></div>
+              <div class="circlebtn"><span class="c"><i class="ti ti-users"></i></span><span class="lbl">Lent</span></div>
+              <div class="circlebtn"><span class="c"><i class="ti ti-repeat"></i></span><span class="lbl">Repeat</span></div>
+            </div>
+
+            <div class="panel">
+              <div>
+                <div class="fieldlabelrow">
+                  <span class="fieldlabel">Tags</span>
+                  <span class="managelink">Manage tags <i class="ti ti-chevron-right"></i></span>
+                </div>
+                <div class="tageditrow"><div class="fake-input" style="color:var(--ter);">Search or create a tag</div></div>
+              </div>
+
+              <div>
+                <p class="rowlabel2">Frequent</p>
+                <div class="suggestrow">
+                  <span class="pillbtn">#momgroceries <i class="ti ti-point-filled" style="color:var(--pink);font-size:9px;"></i></span>
+                  <span class="pillbtn">#dadmedical <i class="ti ti-point-filled" style="color:var(--pink);font-size:9px;"></i></span>
+                  <span class="pillbtn">#worklunch</span>
+                  <span class="pillbtn">#weekend</span>
+                </div>
+              </div>
+
+              <div>
+                <p class="rowlabel2">From an active event</p>
+                <div class="suggestrow">
+                  <span class="eventpill"><span class="dot" style="background:#0ea5e9;"></span>Goa Trip</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="footer"><button class="btn-save">Add Expense</button></div>
+        </div>
+        <div class="caption"><span class="tag new">New</span> Placeholder now reads <b>"Search or create a tag"</b>. Frequent tags (pink dot = already Set Aside) and active-event tags are both visible the moment the panel opens — no typing required. <b>"Manage tags"</b> on the label row jumps straight to the full list.</div>
+      </div>
+
+      <!-- Screen 1: Tags panel — typing a brand-new tag, editable set-aside toggle -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="body">
+            <div class="toprow">
+              <div class="segctrl"><div class="opt on">Expense</div><div class="opt">Income</div><div class="opt">Transfer</div></div>
+              <span class="closex"><i class="ti ti-x"></i></span>
+            </div>
+            <div class="heroamt"><span class="cur">₹</span><span class="amt">2,400</span></div>
+            <div class="descinput">Groceries for mom</div>
+            <div class="chiprow">
+              <div class="chip"><span class="l"><i class="ti ti-basket" style="color:#22c55e;"></i><span>Groceries</span></span><i class="ti ti-chevron-down" style="color:var(--ter);font-size:12px;"></i></div>
+              <div class="chip"><span class="l"><i class="ti ti-calendar" style="color:var(--sec);"></i><span>Today</span></span><i class="ti ti-chevron-down" style="color:var(--ter);font-size:12px;"></i></div>
+            </div>
+
+            <div class="iconrow">
+              <div class="circlebtn"><span class="c on"><i class="ti ti-hash"></i></span><span class="lbl on">Tags</span></div>
+              <div class="circlebtn"><span class="c"><i class="ti ti-camera"></i></span><span class="lbl">Receipt</span></div>
+              <div class="circlebtn"><span class="c"><i class="ti ti-users"></i></span><span class="lbl">Lent</span></div>
+              <div class="circlebtn"><span class="c"><i class="ti ti-repeat"></i></span><span class="lbl">Repeat</span></div>
+            </div>
+
+            <div class="panel">
+              <div>
+                <div class="fieldlabelrow">
+                  <span class="fieldlabel">Tags</span>
+                  <span class="managelink">Manage tags <i class="ti ti-chevron-right"></i></span>
+                </div>
+                <div class="tageditrow"><div class="fake-input">momgroceries</div></div>
+              </div>
+
+              <div class="setasidebox editable">
+                <div class="l"><i class="ti ti-sparkles"></i>New tag — Set aside?<div class="sub" style="margin-left:4px;font-weight:500;">Won't count as daily living</div></div>
+                <span class="switch on"><span class="knob"></span></span>
+              </div>
+
+              <div class="suggestrow">
+                <span class="pillbtn">#dadmedical</span>
+                <span class="pillbtn">#worklunch</span>
+                <span class="pillbtn">#weekend</span>
+              </div>
+            </div>
+          </div>
+          <div class="footer"><button class="btn-save">Add Expense</button></div>
+        </div>
+        <div class="caption"><span class="tag new">New</span> Typing a tag that doesn't exist yet (<code>momgroceries</code>) shows an editable Set Aside toggle right there — dashed border marks it as "still being defined." Defaults to your last choice for a new tag (off, unless you flip it).</div>
+      </div>
+
+      <!-- Screen 2: Tags panel — selecting an existing tag, read-only highlighted state -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="body">
+            <div class="toprow">
+              <div class="segctrl"><div class="opt on">Expense</div><div class="opt">Income</div><div class="opt">Transfer</div></div>
+              <span class="closex"><i class="ti ti-x"></i></span>
+            </div>
+            <div class="heroamt"><span class="cur">₹</span><span class="amt">2,400</span></div>
+            <div class="descinput">Groceries for mom</div>
+            <div class="chiprow">
+              <div class="chip"><span class="l"><i class="ti ti-basket" style="color:#22c55e;"></i><span>Groceries</span></span><i class="ti ti-chevron-down" style="color:var(--ter);font-size:12px;"></i></div>
+              <div class="chip"><span class="l"><i class="ti ti-calendar" style="color:var(--sec);"></i><span>Today</span></span><i class="ti ti-chevron-down" style="color:var(--ter);font-size:12px;"></i></div>
+            </div>
+
+            <div class="iconrow">
+              <div class="circlebtn"><span class="c on"><i class="ti ti-hash"></i></span><span class="lbl on">Tags</span></div>
+              <div class="circlebtn"><span class="c"><i class="ti ti-camera"></i></span><span class="lbl">Receipt</span></div>
+              <div class="circlebtn"><span class="c"><i class="ti ti-users"></i></span><span class="lbl">Lent</span></div>
+              <div class="circlebtn"><span class="c"><i class="ti ti-repeat"></i></span><span class="lbl">Repeat</span></div>
+            </div>
+
+            <div class="panel">
+              <div>
+                <div class="fieldlabelrow">
+                  <span class="fieldlabel">Tags</span>
+                  <span class="managelink">Manage tags <i class="ti ti-chevron-right"></i></span>
+                </div>
+                <div class="tageditrow"><div class="fake-input">momgroceries</div></div>
+              </div>
+
+              <div class="suggestrow">
+                <span class="pillbtn selected">#momgroceries</span>
+                <span class="pillbtn">#dadmedical</span>
+                <span class="pillbtn">#worklunch</span>
+              </div>
+
+              <div class="setasidebox readonly">
+                <div class="l"><i class="ti ti-lock" style="color:var(--ter);"></i>#momgroceries — Set aside<div class="sub" style="margin-left:4px;">Change this in Manage Tags</div></div>
+                <span class="switch on disabled"><span class="knob"></span></span>
+              </div>
+            </div>
+          </div>
+          <div class="footer"><button class="btn-save">Add Expense</button></div>
+        </div>
+        <div class="caption"><span class="tag new">New</span> Tapping an <b>existing</b> tag from suggestions populates the field and shows its current Set Aside status — locked (grey, lock icon), not editable here. Changing an established tag's classification retroactively affects every past transaction with it, so that only happens in Manage Tags, deliberately.</div>
+      </div>
+
+      <!-- Screen 3: Lent/Borrowed + Share-with-group both open at once -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="body">
+            <div class="toprow">
+              <div class="segctrl"><div class="opt on">Expense</div><div class="opt">Income</div><div class="opt">Transfer</div></div>
+              <span class="closex"><i class="ti ti-x"></i></span>
+            </div>
+            <div class="heroamt"><span class="cur">₹</span><span class="amt">2,400</span></div>
+            <div class="descinput">Groceries for mom</div>
+
+            <div class="iconrow">
+              <div class="circlebtn"><span class="c on"><i class="ti ti-hash"></i></span><span class="lbl on">Tags</span></div>
+              <div class="circlebtn"><span class="c"><i class="ti ti-camera"></i></span><span class="lbl">Receipt</span></div>
+              <div class="circlebtn"><span class="c on"><i class="ti ti-users"></i></span><span class="lbl on">Lent</span></div>
+              <div class="circlebtn"><span class="c"><i class="ti ti-repeat"></i></span><span class="lbl">Repeat</span></div>
+            </div>
+
+            <div class="panel">
+              <div class="tageditrow"><div class="fake-input" style="color:var(--ter);">Person's name</div></div>
+              <p style="font-size:10px;color:var(--ter);margin:0;">Adds a they-owe-you entry to this person's ledger.</p>
+            </div>
+
+            <div class="panel" style="background:#fff;">
+              <label class="checkboxrow"><input type="checkbox" checked /><i class="ti ti-users-group" style="color:var(--primary);font-size:16px;"></i><span style="font-size:12px;font-weight:600;color:var(--sec);flex:1;">Share with a group</span></label>
+              <div class="chip" style="border-color:var(--border);"><span class="l"><span>Family</span></span><i class="ti ti-chevron-down" style="color:var(--ter);font-size:12px;"></i></div>
+            </div>
+
+            <div class="infobox">
+              <i class="ti ti-info-circle"></i>
+              <span>Lent/Borrowed and Share-with-group are independent — both can be on for the same transaction. (Vacation Mode already does this: sharing to a trip group auto-tags the expense too.)</span>
+            </div>
+          </div>
+          <div class="footer"><button class="btn-save">Add Expense</button></div>
+        </div>
+        <div class="caption"><span class="tag same">Confirms decision</span> Both circles active, both panels open, no conflict. Nothing changed here from today's real behaviour — just showing it deliberately since it was in question.</div>
+      </div>
+
+      <!-- Screen 4: Manage Tags — narrowed role -->
+      <div class="frame-wrap">
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="mhdr"><span class="back"><i class="ti ti-arrow-left"></i></span><span class="t">Manage Tags</span></div>
+          <div class="searchbar"><i class="ti ti-search"></i><span>Search tags…</span></div>
+          <div class="sectionhdr2"><span class="t">Set aside</span><i class="ti ti-info-circle"></i></div>
+          <div class="infopopover">Transactions tagged with a "Set aside" tag don't count toward your daily living total, health score, or budgets.</div>
+
+          <div class="tagrow setaside"><div class="l"><span class="name">#momgroceries</span><span class="count">12 transactions</span></div><span class="switch on"><span class="knob"></span></span></div>
+          <div class="tagrow setaside"><div class="l"><span class="name">#dadmedical</span><span class="count">18 transactions</span></div><span class="switch on"><span class="knob"></span></span></div>
+          <div class="tagrow"><div class="l"><span class="name">#worklunch</span><span class="count">31 transactions</span></div><span class="switch"><span class="knob"></span></span></div>
+          <div class="tagrow"><div class="l"><span class="name">#weekend</span><span class="count">24 transactions</span></div><span class="switch"><span class="knob"></span></span></div>
+          <div class="tagrow"><div class="l"><span class="name">#gift</span><span class="count">9 transactions</span></div><span class="switch"><span class="knob"></span></span></div>
+        </div>
+        <div class="caption"><span class="tag same">Still needed</span> Its job narrows now that most tags get their Set Aside choice made inline at creation — but it's still the only place to (a) browse every tag you've ever used and (b) change an <b>existing</b> tag's classification after the fact, which the popup deliberately won't let you do.</div>
+      </div>
+    </div>
+
+    <div class="notebox">
+      <b>On "do we need a separate Manage Tags screen?"</b> — yes, but its job shrinks rather than disappears:
+      the popup now handles the common case (deciding at the moment you create a new tag), so Manage Tags
+      becomes the place for the two things that can't safely live in the popup — browsing every tag you've
+      made, and changing an <i>existing</i> tag's classification (which retroactively affects every past
+      transaction carrying it, so it shouldn't be one accidental tap away while you're just logging today's
+      groceries).
+      <ul>
+        <li><b>Decided:</b> Frequent tags and active-event tags are now always visible the moment the Tags
+          panel opens — no typing required (Screen 0). Today's behaviour (suggestions only appear once you
+          start typing) is lifted.</li>
+        <li><b>Decided:</b> placeholder copy is <code>"Search or create a tag"</code>; the Tags field label
+          row now carries a <code>"Manage tags"</code> link straight to the full list (Screens 0–2).</li>
+      </ul>
+    </div>
+  </body>
+</html>

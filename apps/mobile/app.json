@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "Penny",
+    "slug": "penny",
+    "scheme": "penny",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.penny"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Penny needs access to your photos to attach a receipt image to an expense.",
+          "cameraPermission": "Penny needs access to your camera to photograph a receipt for an expense."
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ],
+    "extra": {
+      "authProxyUrl": "https://penny-auth.hesh.workers.dev",
+      "groupsProxyUrl": "https://penny-groups.hesh.workers.dev",
+      "apiProxyUrl": "https://penny-api-proxy.hesh.workers.dev",
+      "enableSync": true
+    }
+  }
+}
