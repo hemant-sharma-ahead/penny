@@ -18,6 +18,7 @@ import { Button, PageHeader, Banner, LifeRow, OptionalSeg, Modal } from '~/compo
 import { BackButton } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { useTheme } from '~/theme/ThemeProvider';
 import { tint, ink } from '~/lib/color';
 import { profileRepo } from '@/core/db/repositories';
 import { logActivity } from '@/core/db/activityLog';
@@ -50,6 +51,12 @@ import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
  *   the systemic no-date-picker gap found via the 2026-07-25 parity sweep. Inline within this row-style
  *   `Field` (not the shared `DateInput`, which renders its own bordered box) to preserve the plain-text
  *   list-row look every other field in this screen has.
+ * - On RN Web, `@react-native-community/datetimepicker` ships no web build at all (its platform-less
+ *   fallback renders `null` with a console.warn — same root cause as `DateInput.web.tsx`'s 2026-07-31
+ *   fix), so `openDobPicker()`'s non-Android branch would open a blank modal there. Since this field
+ *   deliberately doesn't use the shared `DateInput`/`DateInput.web` pair (see above), it needs its own
+ *   `Platform.OS === 'web'` branch: a real `<input type="date">` swapped in for the `Pressable`, styled
+ *   to match the same plain-text row look instead of `DateInput.web.tsx`'s bordered-box chrome.
  */
 export function ProfilePage() {
   const modeBg = useModeBackgroundColor();
@@ -113,6 +120,7 @@ function SectionLabel({ children }: { children: ReactNode }) {
 function ProfileEditor({ profile }: { profile: Profile }) {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const theme = useThemeColors();
+  const { activePalette } = useTheme();
   const { showToast } = useToast();
   const syncOn = hasEntitlement('sync');
 
@@ -389,14 +397,34 @@ function ProfileEditor({ profile }: { profile: Profile }) {
               ) : undefined
             }
           >
-            <Pressable onPress={openDobPicker}>
-              <Text
-                className={`text-[15px] ${dob ? '' : 'text-tertiary'}`}
-                style={dob ? { color: theme.textPrimary } : undefined}
-              >
-                {dob ? formatDate(new Date(`${dob}T00:00:00`).getTime()) : 'Select date of birth'}
-              </Text>
-            </Pressable>
+            {Platform.OS === 'web' ? (
+              <input
+                type="date"
+                value={dob}
+                max={toDobKey(new Date())}
+                onChange={(e: { target: { value: string } }) => edited(setDob)(e.target.value)}
+                style={{
+                  width: '100%',
+                  border: 'none',
+                  outline: 'none',
+                  background: 'transparent',
+                  padding: 0,
+                  fontSize: 15,
+                  fontFamily: 'inherit',
+                  color: dob ? theme.textPrimary : theme.textTertiary,
+                  colorScheme: activePalette === 'light' ? 'light' : 'dark'
+                }}
+              />
+            ) : (
+              <Pressable onPress={openDobPicker}>
+                <Text
+                  className={`text-[15px] ${dob ? '' : 'text-tertiary'}`}
+                  style={dob ? { color: theme.textPrimary } : undefined}
+                >
+                  {dob ? formatDate(new Date(`${dob}T00:00:00`).getTime()) : 'Select date of birth'}
+                </Text>
+              </Pressable>
+            )}
           </Field>
         </Card>
         {dob !== '' && !dobValid && (
@@ -408,7 +436,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
           Personalises FIRE, retirement &amp; tax context. Only a 5-year age band is shared with Chip.
         </Text>
 
-        {dobPickerOpen && (
+        {Platform.OS !== 'web' && dobPickerOpen && (
           <Modal onClose={() => setDobPickerOpen(false)} title="Date of birth" size="sm">
             <View className="items-center">
               <DateTimePicker

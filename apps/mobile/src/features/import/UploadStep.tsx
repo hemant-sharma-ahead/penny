@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View, Pressable, Text, Platform } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
@@ -12,6 +13,7 @@ import {
   FORMAT_COLUMNS,
   type ImportFormat
 } from '@/core/import/importParsers';
+import { ImportCleanupPanel } from './ImportCleanupPanel';
 
 interface UploadStepProps {
   format: ImportFormat;
@@ -30,6 +32,7 @@ interface UploadStepProps {
  */
 export function UploadStep({ format, setFormat, parseError, onText }: UploadStepProps) {
   const theme = useThemeColors();
+  const [cleanupOpen, setCleanupOpen] = useState(false);
 
   async function pickFile() {
     // RN Web: mixing a specific MIME type with '*/*' greys out the file in the browser's native dialog
@@ -91,6 +94,12 @@ export function UploadStep({ format, setFormat, parseError, onText }: UploadStep
         <Text className="text-xs font-semibold text-secondary">Expected columns for {FORMAT_LABELS[format]}</Text>
         <Text className="text-xs text-tertiary font-mono leading-relaxed">{FORMAT_COLUMNS[format]}</Text>
       </Card>
+
+      {/* Temporary — see ImportCleanupPanel's doc comment */}
+      <Button variant="ghost" size="sm" icon="ti-trash" onPress={() => setCleanupOpen(true)}>
+        Clean up unused categories &amp; accounts
+      </Button>
+      {cleanupOpen && <ImportCleanupPanel onClose={() => setCleanupOpen(false)} />}
     </>
   );
 }

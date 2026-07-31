@@ -48,7 +48,7 @@ export function StatBox({ label, value, tone, size = 'md', valueColor, sub, foot
         {label}
       </Text>
       <Text
-        className={`${box.value} font-bold mt-1 ${valueColor ? '' : 'text-primary'}`}
+        className={`${box.value} font-bold mt-1 tabular-nums ${valueColor ? '' : 'text-primary'}`}
         style={valueColor ? { color: valueColor } : undefined}
       >
         {value}

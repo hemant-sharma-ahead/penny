@@ -167,7 +167,7 @@ export function ExpensesHeader({
               </Text>
             </View>
           </View>
-          <Text className="text-xs leading-relaxed text-secondary mt-3">
+          <Text className="text-xs leading-relaxed text-secondary">
             You can keep them linked to this event, or unlink them so they appear in regular analytics instead.
           </Text>
         </Modal>

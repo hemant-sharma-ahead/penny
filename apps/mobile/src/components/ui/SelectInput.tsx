@@ -54,7 +54,7 @@ export function SelectInput({
       disabled={disabled}
       onPress={() => setOpen(true)}
       className={`bg-surface-2 border w-full rounded-xl px-3 py-2.5 flex-row items-center justify-between ${disabled ? 'opacity-50' : ''} ${triggerClassName}`}
-      style={{ borderColor: error ? theme.danger : theme.border }}
+      style={{ borderColor: error ? theme.open : theme.border }}
     >
       <Text className={`text-sm ${selectedOption ? 'text-primary' : 'text-tertiary'}`} numberOfLines={1}>
         {selectedOption ? selectedOption.label : (placeholder ?? 'Select…')}

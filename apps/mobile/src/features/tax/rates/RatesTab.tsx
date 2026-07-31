@@ -128,7 +128,7 @@ export function RatesTab() {
       <Card padding="sm" className="gap-2">
         {history.map((h, i) => (
           <View key={`${h.band.id}-${i}`} className="flex-row items-start gap-2">
-            <Text className="text-[11px] text-tertiary">{formatDate(h.effectiveFrom)}</Text>
+            <Text className="text-[11px] text-tertiary tabular-nums">{formatDate(h.effectiveFrom)}</Text>
             <Text className="text-[11px] text-secondary flex-1">
               <Text className="text-primary font-bold">{h.band.label}</Text>
               {h.retired

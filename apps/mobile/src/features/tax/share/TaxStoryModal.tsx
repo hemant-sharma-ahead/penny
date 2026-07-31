@@ -84,7 +84,7 @@ export function TaxStoryModal({ data, onClose }: { data: TaxStoryData; onClose: 
           </View>
 
           <View className="flex-1 items-center justify-center px-8">
-            <Text className="text-5xl font-bold mb-4 text-white text-center">{card.big}</Text>
+            <Text className="text-5xl font-bold mb-4 text-white text-center tabular-nums">{card.big}</Text>
             <Text className="text-lg font-medium text-white text-center" style={{ opacity: 0.95 }}>
               {card.caption}
             </Text>

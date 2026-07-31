@@ -80,7 +80,7 @@ export function PortfolioPage() {
               className="flex-row items-center gap-1 px-3 py-1.5 rounded-full border border-theme"
               style={{ opacity: refreshing ? 0.5 : 1 }}
             >
-              <Icon name="ti-refresh" size={13} color={theme.textSecondary} />
+              <Icon name="ti-refresh" size={13} color={theme.textSecondary} spin={refreshing} />
               <Text className="text-xs font-medium text-secondary">{refreshing ? 'Fetching…' : 'Refresh prices'}</Text>
             </Pressable>
           ) : undefined

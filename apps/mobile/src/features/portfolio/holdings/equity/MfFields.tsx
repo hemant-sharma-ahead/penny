@@ -76,7 +76,7 @@ export function MfFields({
             />
             {mfSearching && (
               <View className="absolute right-3">
-                <Icon name="ti-loader-2" size={16} color={theme.textTertiary} />
+                <Icon name="ti-loader-2" size={16} color={theme.textTertiary} spin />
               </View>
             )}
             {schemeCode && !mfSearching && (
@@ -149,7 +149,7 @@ export function MfFields({
         <View className="flex-row items-center gap-1.5 px-0.5">
           {priceFetching ? (
             <>
-              <Icon name="ti-loader-2" size={12} color={theme.textTertiary} />
+              <Icon name="ti-loader-2" size={12} color={theme.textTertiary} spin />
               <Text className="text-[11px] text-tertiary">Fetching NAV…</Text>
             </>
           ) : fetchedPrice !== null ? (

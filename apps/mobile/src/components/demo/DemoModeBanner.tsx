@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Pressable, Text } from 'react-native';
 import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Icon } from '../Icon';
 import { ConfirmDialog } from '../ui';
 import { useProfile } from '@/hooks/useProfile';
@@ -38,16 +39,21 @@ export function DemoModeBanner() {
 
   return (
     <>
-      <View className="flex-row items-center gap-2 px-4 py-2 bg-violet-600">
+      <LinearGradient
+        colors={['#7c3aed', '#9333ea']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8 }}
+      >
         <Icon name="ti-flask" size={12} color="#ffffff" />
         <View className="flex-1">
-          <Text className="text-[10px] font-bold leading-tight text-white">Demo Mode</Text>
-          <Text className="text-[9px] leading-tight text-white opacity-85">Exploring with sample data</Text>
+          <Text className="text-xs font-bold leading-tight text-white">Demo Mode</Text>
+          <Text className="text-[10px] leading-tight text-white opacity-85">Exploring with sample data</Text>
         </View>
         <Pressable onPress={() => setConfirming(true)} className="rounded-lg px-2.5 py-1.5 bg-white/20" hitSlop={4}>
-          <Text className="text-[9px] font-bold text-white">Exit Demo Mode</Text>
+          <Text className="text-[10px] font-bold text-white">Exit Demo Mode</Text>
         </Pressable>
-      </View>
+      </LinearGradient>
 
       <ConfirmDialog
         isOpen={confirming}

@@ -48,7 +48,7 @@ export function MoneyFlow({ waterfall }: { waterfall: IncomeWaterfall }) {
               <Text className="text-[11px] text-secondary" numberOfLines={1}>
                 {s.label}
               </Text>
-              <Text className="text-xs font-semibold text-primary">
+              <Text className="text-xs font-semibold text-primary tabular-nums">
                 {formatCurrency(Math.round(s.amount))}{' '}
                 <Text className="text-[10px] text-tertiary font-normal">
                   ({formatPercent((s.amount / total) * 100)})
@@ -96,7 +96,7 @@ export function WaterfallSteps({ waterfall: w }: { waterfall: IncomeWaterfall })
             className={`flex-row items-center justify-between py-1.5 ${i > 0 ? 'border-t border-theme' : ''}`}
           >
             <Text className={`text-xs ${isTotal ? 'font-semibold text-primary' : 'text-secondary'}`}>{s.label}</Text>
-            <Text className="text-xs font-semibold" style={{ color: isTotal ? theme.textPrimary : color }}>
+            <Text className="text-xs font-semibold tabular-nums" style={{ color: isTotal ? theme.textPrimary : color }}>
               {s.amount < 0 ? '−' : ''}
               {formatCurrency(Math.abs(Math.round(s.amount)))}
             </Text>

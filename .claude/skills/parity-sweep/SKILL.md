@@ -135,6 +135,25 @@ and have each caused real, confirmed, on-device-visible bugs:
   field renders visibly taller than its siblings. Compare against a `TextInput` where the
   padding is applied directly to the input (e.g. `components/ui/TextInput.tsx`) — those
   don't have this problem, because the input's own box is what's constrained.
+- **A native-only library (wraps real OS UI — a native dialog, a native widget) with no
+  RN-Web build, used unconditionally with no `.web.tsx` variant.** Found 2026-07-31:
+  `components/ui/DateInput.tsx` used `@react-native-community/datetimepicker`
+  unconditionally; the installed package has `.ios.js`/`.android.js`/`.windows.js` source
+  files but no `.web.js` anywhere, and its platform-less fallback
+  (`src/datetimepicker.js`) renders `null` with a `console.warn('...not supported on:
+  ' + Platform.OS)` — so on RN Web the component's `Modal` opened with a blank body and no
+  way to pick a date. Nothing about this is visible from the RN-side code alone (the
+  `Platform.OS === 'android'` branch reads as complete); it only shows up by checking
+  what the *library itself* ships. For every native-only dependency the module touches
+  (grep the file's imports against `find <pkg> -iname "*.web.*"` in the resolved
+  `node_modules` path — a wrapped native dialog, slider, camera view, biometric prompt,
+  etc.), confirm a `.web.js`/`.web.ts` actually exists upstream, or that the component has
+  its own hand-written `ComponentName.web.tsx` sibling providing a DOM-based equivalent
+  (see `DateInput.web.tsx`'s real `<input type="date">` for the pattern — reuse the exact
+  DOM element web-react itself uses wherever one exists, rather than hand-rolling a
+  lookalike). A library merely being importable and type-checking under `tsc -b` proves
+  nothing about its web behavior — `tsc -b`'s `moduleSuffixes` doesn't even include
+  `.web`, so it silently type-checks the native fallback path as if it were fine.
 
 ## Step 5. Systemic-pattern check (the meta-rule behind Step 4)
 

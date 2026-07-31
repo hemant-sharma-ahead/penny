@@ -115,7 +115,7 @@ export function ChangePassphrasePage() {
                 error={mismatch ? "Passphrases don't match" : undefined}
               />
 
-              {error && <Text className="text-danger text-sm text-center">{error}</Text>}
+              {error ? <Text className="text-danger text-sm text-center">{error}</Text> : null}
 
               <Button
                 variant="primary"

@@ -70,7 +70,7 @@ export function VehicleCard({
               {meta.vehicleYear && <Text className="text-[10px] text-tertiary">{meta.vehicleYear}</Text>}
               {meta.vehicleFuelType && <Badge label={meta.vehicleFuelType.toUpperCase()} color={fuelColor} size="sm" />}
               {meta.vehicleRegNumber && (
-                <Text className="text-[10px] text-tertiary">
+                <Text className="text-[10px] font-mono text-tertiary">
                   {mode === 'open' ? meta.vehicleRegNumber : `${meta.vehicleRegNumber.slice(0, 4)}••••`}
                 </Text>
               )}

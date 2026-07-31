@@ -81,7 +81,7 @@ export function DateInput({
       disabled={disabled}
       onPress={openPicker}
       className={`bg-surface-2 border w-full rounded-xl px-3 py-2.5 flex-row items-center justify-between ${disabled ? 'opacity-50' : ''}`}
-      style={{ borderColor: error ? theme.danger : theme.border }}
+      style={{ borderColor: error ? theme.open : theme.border }}
     >
       <Text className={`text-sm ${value ? 'text-primary' : 'text-tertiary'}`} numberOfLines={1}>
         {value ? formatDate(parseDateKey(value).getTime()) : placeholder}

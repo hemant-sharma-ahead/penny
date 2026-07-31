@@ -131,7 +131,7 @@ export function IpoTab() {
             style={{ opacity: ipos.refreshing || ipos.loading ? 0.4 : 1 }}
             accessibilityLabel="Refresh IPO data"
           >
-            <Icon name="ti-refresh" size={13} color={theme.textSecondary} />
+            <Icon name="ti-refresh" size={13} color={theme.textSecondary} spin={ipos.refreshing} />
             <Text className="text-xs font-medium text-secondary">{ipos.refreshing ? 'Refreshing…' : 'Refresh'}</Text>
           </Pressable>
         )}

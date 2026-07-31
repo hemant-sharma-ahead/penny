@@ -147,7 +147,7 @@ export function CategoryTile({
         {/* Row 1 — source → target, edit icon (existing only), count, expand-transactions toggle */}
         <View className="flex-row items-center gap-2">
           <View className="flex-1 flex-row items-center gap-1.5">
-            <Text className="text-xs font-semibold text-primary" numberOfLines={1}>
+            <Text className="text-xs font-semibold text-primary flex-shrink" numberOfLines={1}>
               &quot;{sourceName}&quot;
             </Text>
             <Icon name="ti-arrow-right" size={12} color={theme.textTertiary} />

@@ -98,9 +98,11 @@ export function FootprintTab({ data }: { data: FootprintData }) {
       {/* Headline */}
       <Card padding="lg" className="gap-3">
         <Text className="text-base font-semibold text-primary leading-relaxed">
-          Of the {formatCurrency(Math.round(w.consumed))} you didn't save,{' '}
-          <Text style={{ color: theme.danger }}>{formatCurrency(Math.round(w.directTax + w.indirectTax))}</Text> (
-          {formatPercent(taxOfConsumed)}) went to tax.
+          Of the <Text className="tabular-nums">{formatCurrency(Math.round(w.consumed))}</Text> you didn't save,{' '}
+          <Text className="tabular-nums" style={{ color: theme.danger }}>
+            {formatCurrency(Math.round(w.directTax + w.indirectTax))}
+          </Text>{' '}
+          ({formatPercent(taxOfConsumed)}) went to tax.
         </Text>
         <MoneyFlow waterfall={w} />
         {w.overspent && (
@@ -219,7 +221,9 @@ export function FootprintTab({ data }: { data: FootprintData }) {
               .map((r) => (
                 <View key={r.regime} className="flex-row items-center justify-between">
                   <Text className="text-xs text-secondary">{r.label}</Text>
-                  <Text className="text-xs font-medium text-primary">{formatCurrency(Math.round(r.tax))}</Text>
+                  <Text className="text-xs font-medium text-primary tabular-nums">
+                    {formatCurrency(Math.round(r.tax))}
+                  </Text>
                 </View>
               ))}
           </View>
@@ -241,7 +245,7 @@ export function FootprintTab({ data }: { data: FootprintData }) {
                       <Text className="text-[11px] text-secondary">
                         {b.label} · {b.count} txn{b.count === 1 ? '' : 's'}
                       </Text>
-                      <Text className="text-[11px] text-primary">{formatCurrency(Math.round(b.tax))}</Text>
+                      <Text className="text-[11px] text-primary tabular-nums">{formatCurrency(Math.round(b.tax))}</Text>
                     </View>
                   ))}
               </View>

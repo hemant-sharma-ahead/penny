@@ -37,7 +37,7 @@ function Slider({
     <View className="gap-1">
       <View className="flex-row items-center justify-between">
         <Text className="text-xs text-secondary">{label}</Text>
-        <Text className="text-xs font-semibold text-primary">{formatCurrency(value)}</Text>
+        <Text className="text-xs font-semibold text-primary tabular-nums">{formatCurrency(value)}</Text>
       </View>
       <RNSlider
         minimumValue={0}

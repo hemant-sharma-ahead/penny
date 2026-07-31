@@ -20,10 +20,8 @@ export function FormField({ label, required, hint, error, children }: FormFieldP
       </Text>
       {children}
       {hint && !error && <Text className="text-xs text-tertiary">{hint}</Text>}
-      {/* Web uses --color-open (privacy-mode red) here specifically; privacy-mode tokens aren't ported
-          to packages/core/src/theme/tokens.ts yet, so this substitutes theme.danger (same visual intent). */}
       {error && (
-        <Text className="text-xs" style={{ color: theme.danger }}>
+        <Text className="text-xs" style={{ color: theme.open }}>
           {error}
         </Text>
       )}

@@ -39,8 +39,33 @@ The Web-react → Mobile Parity Program runs in numbered phases:
   agent carry the accumulated methodology forward — read them, not this history, for what
   to check in the next sweep. Every fix was verified via `tsc -b` +
   `eslint --max-warnings 0` + the full test suite (401 core + 39 workers passing).
-- **▶ Next**: on-device verification of the open items below, then either another sweep
-  round or Phase 6 (component-folder reorganization).
+- **Phase 9 — full from-scratch re-sweep: done, 2026-07-31.** Triggered by a user report
+  that the date picker didn't work on RN Web. Root-caused first (`@react-native-community/
+  datetimepicker` ships no web build at all — its platform-less fallback silently renders
+  `null`), fixed, and added to the skill as a new permanent bug class. That triggered a
+  full, from-scratch re-audit of all 24 modules + chrome/shared components + an app-wide
+  popups/modals pass (10 parallel `parity-auditor` runs, none trusting the existing ✅
+  status per the skill's Step 7), specifically re-checking every native-only library used
+  anywhere in `apps/mobile` for the same "no web build" gap. Found and fixed 2 more
+  instances of that exact bug class (`ProfilePage.tsx`'s DOB field hand-rolled its own
+  raw `datetimepicker` call instead of routing through the fixed `DateInput`; `loans`'
+  `PlannerResults.tsx` called `expo-file-system` unconditionally, which throws on RN Web),
+  plus a re-surfacing of the 2026-07-27 empty-string-text-node bug class in `security`'s
+  two Change PIN/Passphrase screens, and ~14 smaller findings (a systemic `theme.danger`-
+  vs-`theme.open` error-color mismatch across the shared UI kit, a dropped `tabular-nums`
+  on numeric displays, a missing bottom scroll inset in `tax`, a duplicated `entitlement.
+  native.ts`/`.web.ts` pair, and several one-off style/spacing misses). All fixed,
+  verified via `tsc -b` + `eslint --max-warnings 0` + the full test suite (491 core/web +
+  43 workers passing), and now consistent between `apps/mobile` and `apps/web-react` — per
+  the skill's Step 9, the per-finding detail was cleared from "Findings by module" below
+  once the round's backlog was fully closed (see git history for file:line specifics). 2
+  net-new-scope items (an `Icon` spin capability; porting `ImportCleanupPanel` to mobile)
+  were surfaced separately from the parity-bug findings, since they're feature additions
+  rather than 1:1 parity fixes — both confirmed with the user and implemented.
+- **▶ Next**: on-device verification of the open items below (loans XLSX export, expenses
+  scroll-to-focus), then either another sweep round (the `numberOfLines`-without-
+  `flex-shrink` sweep is the natural next target) or Phase 6 (component-folder
+  reorganization).
 
 **Open items (all fixes below are code-complete, not yet confirmed on-device):**
 - **Loans' XLSX export** — the library was switched from web's `xlsx` to
@@ -66,54 +91,63 @@ The Web-react → Mobile Parity Program runs in numbered phases:
 - `docs/ROADMAP.md`'s Track 6/Track 7 detailed prose has not been trimmed — needs
   cross-checking against `docs/features/expenses.md`/`cash-flow.md`/`tax-awareness.md`/
   `subscriptions.md` first to confirm nothing unique would be lost.
-- **[New bug class, one instance fixed 2026-07-27] `stringVar && <Text>` renders a raw
-  empty-string text node under a `<View>` on RN Web, but not on true native.** Found via
-  `SettingsPage.tsx:272`'s `handleLine` (built with `.filter(Boolean).join(' · ')`, which
-  is `''` — falsy but still a string — when both parts are absent): `{handleLine &&
-  <Text>...}` then renders the empty string itself as a `View` child, and RN Web
-  validates that strictly ("Unexpected text node... cannot be a child of a `<View>`"),
-  while true native silently tolerates it. Fixed there via a ternary to `null` instead of
-  relying on `&&`'s short-circuit value. A grep for the same `stringVar && <Text>`/`<View>`
-  shape found ~33 other matches across `apps/mobile/src` — most looked to be gating on
-  `null`/booleans (safe), but none were individually verified; a dedicated sweep for this
-  exact pattern (specifically any that gate on a string built via `.join()`, template
-  literals, or `?? ''` fallbacks) is worth doing as its own pass, ideally tested under RN
-  Web where it actually surfaces.
+- **[New bug class, 3 instances fixed (2026-07-27, 2026-07-31)] `stringVar && <Text>`
+  renders a raw empty-string text node under a `<View>` on RN Web, but not on true
+  native.** Found via `SettingsPage.tsx:272`'s `handleLine` (built with
+  `.filter(Boolean).join(' · ')`, which is `''` — falsy but still a string — when both
+  parts are absent): `{handleLine && <Text>...}` then renders the empty string itself as a
+  `View` child, and RN Web validates that strictly ("Unexpected text node... cannot be a
+  child of a `<View>`"), while true native silently tolerates it. Fixed there via a
+  ternary to `null` instead of relying on `&&`'s short-circuit value; the same shape
+  re-surfaced and was fixed in `security`'s `ChangePinPage.tsx`/`ChangePassphrasePage.tsx`
+  (both gating on an `error` string reset to `''`). A grep for the same
+  `stringVar && <Text>`/`<View>` shape still finds ~30 other matches across
+  `apps/mobile/src` — most look to be gating on `null`/booleans (safe), but none have been
+  individually re-verified; a dedicated sweep for this exact pattern (specifically any
+  that gate on a string built via `.join()`, template literals, or `?? ''` fallbacks) is
+  worth doing as its own pass, ideally tested under RN Web where it actually surfaces.
+- **[Recommended, not yet done] App-wide sweep for `numberOfLines={1}` without a paired
+  `flex-1`/`flex-shrink`.** RN's Yoga engine defaults `flexShrink` to 0 (unlike CSS), so a
+  `Text` with `numberOfLines` but no `flex-1`/`flex-shrink` never actually gets constrained
+  to a shrinkable width and won't elide long content. One confirmed instance
+  (`features/import/review/CategoryTile.tsx`'s `sourceName`) was found and fixed; a
+  full-tree grep found 103 `numberOfLines={1}` hits total, too many to individually verify
+  in a single pass.
 
 **Status legend**: ✅ verified (swept, no open gaps) · ⚠️ gaps open (swept, findings
 below) · 🔍 not yet audited (no formal sweep has run yet).
 
 | Module | Status | Last audited | Priority |
 |---|---|---|---|
-| chrome/shared components | ✅ | 2026-07-26 | — |
-| popups/modals (app-wide) | ✅ | 2026-07-26 | — |
-| accounts | ✅ | 2026-07-26 | — |
-| activity | ✅ | 2026-07-26 | — |
-| backup | ✅ | 2026-07-26 | — |
-| calculators | ✅ | 2026-07-26 | — |
-| cashflow | ✅ | 2026-07-26 | — |
-| chip | ✅ | 2026-07-26 | — |
-| [expenses](#expenses) | ⚠️ | 2026-07-26 | On-device verify |
-| feedback | ✅ | 2026-07-26 | — |
-| goals | ✅ | 2026-07-26 | — |
-| groups | ✅ | 2026-07-26 | — |
-| health | ✅ | 2026-07-26 | — |
-| home | ✅ | 2026-07-26 | — |
-| import | ✅ | 2026-07-29 | — |
-| insurance | ✅ | 2026-07-26 | — |
-| iou | ✅ | 2026-07-26 | — |
-| [loans](#loans) | ⚠️ | 2026-07-26 | On-device verify |
-| news | ✅ | 2026-07-26 | — |
-| onboarding | ✅ | 2026-07-26 | — |
-| portfolio | ✅ | 2026-07-26 | — |
-| profile | ✅ | 2026-07-26 | — |
-| security | ✅ | 2026-07-26 | — |
-| settings | ✅ | 2026-07-26 | — |
-| subscriptions | ✅ | 2026-07-26 | — |
-| tax | ✅ | 2026-07-26 | — |
+| chrome/shared components | ✅ | 2026-07-31 | — |
+| popups/modals (app-wide) | ✅ | 2026-07-31 | — |
+| accounts | ✅ | 2026-07-31 | — |
+| activity | ✅ | 2026-07-31 | — |
+| backup | ✅ | 2026-07-31 | — |
+| calculators | ✅ | 2026-07-31 | — |
+| cashflow | ✅ | 2026-07-31 | — |
+| chip | ✅ | 2026-07-31 | — |
+| [expenses](#expenses) | ⚠️ | 2026-07-31 | On-device verify |
+| feedback | ✅ | 2026-07-31 | — |
+| goals | ✅ | 2026-07-31 | — |
+| groups | ✅ | 2026-07-31 | — |
+| health | ✅ | 2026-07-31 | — |
+| home | ✅ | 2026-07-31 | — |
+| import | ✅ | 2026-07-31 | — |
+| insurance | ✅ | 2026-07-31 | — |
+| iou | ✅ | 2026-07-31 | — |
+| [loans](#loans) | ⚠️ | 2026-07-31 | On-device verify |
+| news | ✅ | 2026-07-31 | — |
+| onboarding | ✅ | 2026-07-31 | — |
+| portfolio | ✅ | 2026-07-31 | — |
+| profile | ✅ | 2026-07-31 | — |
+| security | ✅ | 2026-07-31 | — |
+| settings | ✅ | 2026-07-31 | — |
+| subscriptions | ✅ | 2026-07-31 | — |
+| tax | ✅ | 2026-07-31 | — |
 
-Modules with no findings just show ✅ above — see "Findings by module" below only for
-the 2 modules with something still open.
+Modules with no findings just show ✅ above — see "Findings by module" below for the
+ones with something still open or worth a note.
 
 ## Findings by module
 
@@ -131,18 +165,6 @@ the 2 modules with something still open.
 1. **[On-device verify] XLSX export.** `PlannerResults.tsx` generates the amortization
    schedule via `write-excel-file/universal` instead of web's `xlsx` (which fails under
    Metro). Needs a real download-and-open check to confirm the output (columns, number
-   formatting, headers) matches web's export.
-
-_Resolved 2026-07-29: **import** — `apps/mobile/src/features/import/` was fully rebuilt to
-match `apps/web-react`'s resolution-based rewrite + merged review-screen redesign (the
-platform-agnostic pipeline in `packages/core/src/core/import/*` was already shared and
-unchanged; only the wizard UI was behind). Now includes the Custom/map-your-own-columns
-format (`MapColumnsStep.tsx`, previously mobile-excluded), the merged live "review" accordion
-(`ReviewStep.tsx` + `src/features/import/review/`: `AccountsSection`, `PreviewSection`,
-`CategoryTile`, `TransferPairCard`, `UnparsedRows`, `CarryForwardExcluded`,
-`accountMergeSuggestion.ts`, `Pill`), and the retry/undo-capable `DoneStep`. RN-specific
-adaptations: `SelectInput` gained a `triggerClassName` prop (matching `TextInput`'s existing
-`inputClassName`) for the pill-styled kind-dropdown/tag-box treatment; web's `position:
-sticky` progress header became a fixed `View` above a `ScrollView` (RN has no CSS sticky).
-On-device end-to-end verification (multi-format files, transfer-pair collapsing,
-carry-forward exclusion, retry/undo) is still the user's own pass, not yet done here._
+   formatting, headers) matches web's export. (`write-excel-file/universal` itself was
+   re-verified 2026-07-31 to be genuinely web-safe — pure JS, only depends on `fflate` +
+   the global `Blob` — so this item is scoped to output-fidelity, not a web-support gap.)

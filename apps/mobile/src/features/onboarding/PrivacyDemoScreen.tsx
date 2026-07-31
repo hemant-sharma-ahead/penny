@@ -111,7 +111,7 @@ export function PrivacyDemoScreen() {
             </View>
           </View>
 
-          <View className="rounded-xl bg-surface-2 px-4 py-3 mb-8">
+          <View className="rounded-xl bg-surface border border-theme px-4 py-3 mb-8">
             <Text className="text-xs text-secondary leading-relaxed">
               Every record is encrypted with a random key that never leaves your device — and that key is itself locked
               by your passphrase. Even if someone extracted your device storage, this is all they would see.

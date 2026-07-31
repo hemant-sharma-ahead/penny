@@ -78,7 +78,7 @@ export function TaxAwarenessPage() {
         onChange={setActiveTab}
       />
 
-      <ScrollView>
+      <ScrollView contentContainerStyle={{ paddingBottom: 96 }}>
         <View className="px-4 py-4 gap-4">
           {showNotes && (
             <Banner variant="info">

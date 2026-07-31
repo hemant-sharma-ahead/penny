@@ -90,7 +90,9 @@ export function ExploreTab() {
                     </Text>
                     {line.note && <Text className="text-[10px] text-tertiary">{line.note}</Text>}
                   </View>
-                  <Text className="text-xs font-semibold text-primary">{formatCurrency(Math.round(line.amount))}</Text>
+                  <Text className="text-xs font-semibold text-primary tabular-nums">
+                    {formatCurrency(Math.round(line.amount))}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -100,7 +102,7 @@ export function ExploreTab() {
                 <Text className="text-[11px] text-secondary">Government tax / levy</Text>
                 <Text className="text-[10px] text-tertiary">{formatPercent(r.effectivePct)} of the amount</Text>
               </View>
-              <Text className="text-lg font-bold" style={{ color: theme.danger }}>
+              <Text className="text-lg font-bold tabular-nums" style={{ color: theme.danger }}>
                 {formatCurrency(Math.round(r.totalTax))}
               </Text>
             </View>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Platform } from 'react-native';
 import { formatCurrency, formatMonthsDuration } from '@/lib/formatters';
 import { buildLoanPlanExport } from '@/core/loans/planExport';
 import type { AmortizationRow } from '@/core/loans/amortization';
@@ -45,7 +45,11 @@ interface PlannerSummaryCardProps {
  * (browser-oriented API) rather than raw bytes, so `Response(blob).arrayBuffer()` — RN's `fetch`
  * polyfill already implements `Response` over its own `Blob`, so this conversion works without a
  * dedicated native module — bridges to the same `File.write(Uint8Array)` + `expo-sharing` flow
- * Expenses' CSV/ZIP export already established.
+ * Expenses' CSV/ZIP export already established. On RN Web, `expo-file-system`'s `File`/`Paths` throw
+ * (no web build — same "no web build" bug class as `DateInput`'s 2026-07-31 fix, caught via the parity
+ * sweep since it was called unconditionally), so the native file-write/share step is guarded behind
+ * `Platform.OS === 'web'` and falls back to a plain `Blob` + `<a download>`, same as `AutoBackupCard.tsx`'s
+ * `exportToDevice()`.
  */
 export function PlannerSummaryCard({ planner, masked }: PlannerSummaryCardProps) {
   const { planParams, baseline, result, interestSaved, monthsSaved, hasAccelerators } = planner;
@@ -69,17 +73,26 @@ export function PlannerSummaryCard({ planner, masked }: PlannerSummaryCardProps)
         ],
         { fontFamily: 'Calibri', fontSize: 11 }
       ).toBlob();
-      const bytes = new Uint8Array(await new Response(blob).arrayBuffer());
 
-      const { File, Paths } = await import('expo-file-system');
-      const file = new File(Paths.cache, data.filename);
-      file.write(bytes);
+      if (Platform.OS === 'web') {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = data.filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        const bytes = new Uint8Array(await new Response(blob).arrayBuffer());
+        const { File, Paths } = await import('expo-file-system');
+        const file = new File(Paths.cache, data.filename);
+        file.write(bytes);
 
-      const Sharing = await import('expo-sharing');
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(file.uri, {
-          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        });
+        const Sharing = await import('expo-sharing');
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(file.uri, {
+            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          });
+        }
       }
     } catch {
       showToast({ message: "Couldn't export the plan. Please try again." });

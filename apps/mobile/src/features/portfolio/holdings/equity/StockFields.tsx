@@ -55,7 +55,7 @@ export function StockFields({
         />
         {priceFetching && (
           <View className="flex-row items-center gap-1.5 mt-1">
-            <Icon name="ti-loader-2" size={12} color={theme.textTertiary} />
+            <Icon name="ti-loader-2" size={12} color={theme.textTertiary} spin />
             <Text className="text-[11px] text-tertiary">Fetching…</Text>
           </View>
         )}

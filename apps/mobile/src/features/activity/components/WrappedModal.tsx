@@ -1,5 +1,5 @@
 import { forwardRef, useRef, useState } from 'react';
-import { Modal, View, Pressable, StyleSheet, Text } from 'react-native';
+import { Modal, View, Pressable, StyleSheet, Text, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
@@ -65,9 +65,20 @@ export function WrappedModal({ entries, onClose }: Props) {
     try {
       const uri = await shareRef.current?.capture?.();
       if (!uri) return;
-      const available = await Sharing.isAvailableAsync();
-      if (!available) return;
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'My week on Penny', UTI: 'public.png' });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'My week on Penny', UTI: 'public.png' });
+        return;
+      }
+      // `expo-sharing`'s web build resolves availability to `!!navigator.share` (RN-Web only, e.g.
+      // desktop Firefox/Safari) — web-react's own shareWeek() falls back to a download link in the same
+      // case, and `react-native-view-shot`'s web capture() already returns a data: URI (RNViewShot.web.ts),
+      // so the same `<a download>` trick works here without any extra image generation.
+      if (Platform.OS === 'web') {
+        const a = document.createElement('a');
+        a.href = uri;
+        a.download = 'penny-week.png';
+        a.click();
+      }
     } catch {
       /* user cancelled or share failed — no fallback needed, same as Home Stories' captureAndShareCard */
     }

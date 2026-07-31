@@ -14,7 +14,7 @@ export function DetailRow({ label, value, size = 'sm', className = '' }: DetailR
   return (
     <View className={`flex-row items-center justify-between gap-3 ${className}`}>
       <Text className={`${textSize} text-secondary`}>{label}</Text>
-      <Text className={`${textSize} font-semibold text-primary text-right`}>{value}</Text>
+      <Text className={`${textSize} font-semibold text-primary text-right tabular-nums`}>{value}</Text>
     </View>
   );
 }
