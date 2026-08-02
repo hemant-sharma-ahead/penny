@@ -25,6 +25,9 @@ interface AmountInputProps {
   hero?: boolean;
   /** Number hex color in hero mode (e.g. the transaction-type accent). Ignored when `error` is set. */
   accentColor?: string;
+  /** Hero-mode alignment — `'center'` (default, unchanged) or `'right'` (a smaller variant that sits
+   *  beside another control, e.g. `ExpenseForm.tsx`'s combined category+amount row). */
+  heroAlign?: 'center' | 'right';
 }
 
 /**
@@ -46,7 +49,8 @@ export function AmountInput({
   prefix = '₹',
   showWords = true,
   hero = false,
-  accentColor
+  accentColor,
+  heroAlign = 'center'
 }: AmountInputProps) {
   const theme = useThemeColors();
   const [text, setText] = useState(() => groupForDisplay(value));
@@ -96,10 +100,11 @@ export function AmountInput({
 
   if (hero) {
     const heroColor = error ? theme.danger : (accentColor ?? theme.textPrimary);
+    const isRight = heroAlign === 'right';
     return (
-      <View className="items-center gap-1">
-        <View className="flex-row items-baseline justify-center gap-1.5">
-          <Text style={{ color: theme.textTertiary, fontSize: 26, fontWeight: '600' }}>{prefix}</Text>
+      <View className={isRight ? 'items-end gap-1' : 'items-center gap-1'}>
+        <View className={`flex-row items-baseline gap-1.5 ${isRight ? 'justify-end' : 'justify-center'}`}>
+          <Text style={{ color: theme.textTertiary, fontSize: isRight ? 17 : 26, fontWeight: '600' }}>{prefix}</Text>
           <RNTextInput
             value={text}
             onChangeText={handleChange}
@@ -113,17 +118,18 @@ export function AmountInput({
             accessibilityLabel="Amount"
             textAlignVertical="center"
             style={{
-              fontSize: 42,
+              fontSize: isRight ? 28 : 42,
               fontWeight: '700',
               color: heroColor,
               padding: 0,
               minWidth: 40,
-              includeFontPadding: false
+              includeFontPadding: false,
+              textAlign: isRight ? 'right' : 'left'
             }}
           />
         </View>
         {error ? (
-          <Text className="text-xs text-center" style={{ color: theme.danger }}>
+          <Text className={isRight ? 'text-xs text-right' : 'text-xs text-center'} style={{ color: theme.danger }}>
             {error}
           </Text>
         ) : (

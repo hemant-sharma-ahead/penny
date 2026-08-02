@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { View, ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TabStrip, Badge, PageHeader, Banner } from '~/components/ui';
-import { BackButton } from '~/components/shared';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 import { useProfile } from '@/hooks/useProfile';
 import { deriveAge } from '@/lib/date';
 import { useTaxData } from './useTaxData';
@@ -26,6 +26,7 @@ export function TaxAwarenessPage() {
   const { profile } = useProfile();
   const footprintData = useFootprint(summary, deductions, profile);
   const [activeTab, setActiveTab] = useState<TaxTab>('footprint');
+  useDefaultHeaderBack('Tax');
 
   // Personalised, informational tax context from DOB + employment (no computation changes).
   const age = profile?.dob ? deriveAge(profile.dob) : null;
@@ -44,7 +45,6 @@ export function TaxAwarenessPage() {
   if (!summary) {
     return (
       <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-        <PageHeader title="Tax Awareness" leading={<BackButton />} />
         <View className="flex-1 items-center justify-center">
           <Text className="text-sm text-tertiary">Loading…</Text>
         </View>
@@ -57,7 +57,7 @@ export function TaxAwarenessPage() {
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <PageHeader title="Tax Awareness" leading={<BackButton />}>
+      <PageHeader>
         <View className="flex-row items-center gap-2 mt-0.5">
           <Text className="text-xs text-secondary">{fy.label}</Text>
           <Text style={{ color: theme.borderStrong }}>·</Text>

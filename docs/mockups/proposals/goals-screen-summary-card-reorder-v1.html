@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Goals screen: summary card up top, Suggested goals moved to the end</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --border:#2d333b; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --primary:#00a86b; --liquid1:#7fe0bd; --liquid2:#0f9d68; --blue1:#a3c9ff; --blue2:#3b82f6; --pink1:#f5b8d6; --pink2:#ec4899;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 20px; color:#9aa5b1; font-size:14px; max-width:900px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .thoughts { max-width:740px; margin:0 auto 34px; background:#101720; border:1px solid var(--border); border-radius:14px; padding:16px 20px; font-size:13px; line-height:1.75; color:#c3cad2; }
+      .thoughts b { color:#fff; }
+      .thoughts .rec { margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); color:#7ee6b8; }
+      .sectiontitle { text-align:center; font-size:15px; font-weight:800; color:#fff; margin:44px 0 4px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:760px; margin:0 auto 18px; line-height:1.6; }
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 40px; }
+      .frame-wrap { width:300px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#123524; color:#7ee6b8; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+      .phone { width:300px; height:560px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:16px; background:var(--bg); flex-shrink:0; }
+      .content { padding:12px; display:flex; flex-direction:column; gap:12px; overflow-y:auto; }
+
+      .summary { border-radius:18px; border:1px solid var(--border); background:var(--surface); padding:14px; }
+      .summary .head { display:flex; align-items:center; gap:6px; margin-bottom:10px; }
+      .summary .head i { color:var(--primary); font-size:14px; }
+      .summary .head span { font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.04em; }
+      .summary .hero { font-size:26px; font-weight:800; color:#fff; }
+      .summary .herolabel { font-size:11px; color:var(--text2); margin-top:1px; }
+      .summary .statsrow { display:flex; gap:14px; margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
+      .summary .stat { flex:1; }
+      .summary .stat .k { font-size:9.5px; color:var(--text3); text-transform:uppercase; letter-spacing:.04em; }
+      .summary .stat .v { font-size:15px; font-weight:700; color:#fff; margin-top:2px; }
+
+      .summaryB { border-radius:18px; border:1px solid var(--border); background:var(--surface); padding:14px; display:flex; align-items:center; gap:14px; }
+      .summaryB .ring { width:54px; height:54px; border-radius:27px; border:4px solid var(--primary); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .summaryB .ring span { font-size:13px; font-weight:800; color:#fff; }
+      .summaryB .mid { flex:1; }
+      .summaryB .mid .l1 { font-size:10.5px; color:var(--text2); }
+      .summaryB .mid .l2 { font-size:19px; font-weight:800; color:#fff; margin-top:1px; }
+      .summaryB .mid .l3 { font-size:10px; color:var(--text3); margin-top:2px; }
+
+      .sglabel { font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.04em; padding:0 2px; }
+      .sgcard { display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:10px 12px; }
+      .sgcard i.icn { font-size:16px; color:var(--primary); width:28px; height:28px; border-radius:8px; background:#123524; display:flex; align-items:center; justify-content:center; }
+      .sgcard .t { flex:1; }
+      .sgcard .t .n { font-size:12px; font-weight:700; color:#fff; }
+      .sgcard .t .s { font-size:10px; color:var(--text3); margin-top:1px; }
+      .sgcard .add { width:26px; height:26px; border-radius:8px; background:var(--surface2); display:flex; align-items:center; justify-content:center; }
+      .sgcard .add i { font-size:13px; color:var(--text2); }
+
+      .gcard { border-radius:16px; border:1px solid var(--border); overflow:hidden; position:relative; height:110px; padding:12px; display:flex; flex-direction:column; justify-content:space-between; }
+      .gcard .fill { position:absolute; left:0; right:0; bottom:0; }
+      .gcard .top { position:relative; z-index:1; }
+      .gcard .pct { font-size:18px; font-weight:800; color:#fff; }
+      .gcard .name { font-size:11.5px; font-weight:700; color:#fff; }
+      .gcard .bottom { position:relative; z-index:1; font-size:9.5px; color:rgba(255,255,255,.85); display:flex; justify-content:space-between; }
+    </style>
+  </head>
+  <body>
+    <h1>Goals screen — summary card up top, Suggested goals moved to the end</h1>
+    <p class="sub">
+      Two changes: "Suggested for you" moves from right below the header to the very bottom (after your
+      real goals) — your own goals get first attention, suggestions are a footer nudge. And a new summary
+      card leads the screen: total monthly SIP needed across every goal still in progress, plus how many
+      goals total / how many still remaining.
+    </p>
+    <div class="thoughts">
+      <b>Two summary-card layouts to pick from</b> — same three numbers (total SIP/mo, total goals,
+      remaining goals), different emphasis:
+      <div class="rec">Option 1 leads with the SIP number as the hero (biggest, most actionable — "this is
+      what you need to be investing monthly, in total, to hit everything"), with goal counts as a small
+      stat row below. Option 2 leads with a completion ring (X of Y goals) and puts the SIP figure
+      alongside it — better if you think of this card as "how am I doing" first, "what do I owe monthly"
+      second. I'd lean Option 1 since the SIP total is the number you'd actually act on (rebalance
+      investments), while the goal count is more contextual.</div>
+    </div>
+
+    <div class="sectiontitle">Option 1 — SIP-first hero</div>
+    <div class="sectionsub">Full screen shown in context: summary card → your goals → Suggested goals at the bottom.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Option 1<span class="tag">SIP hero</span></div>
+        <div class="vsub">Total SIP needed is the biggest number on the card.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="content">
+            <div class="summary">
+              <div class="head"><i class="ti ti-report-money"></i><span>Goals summary</span></div>
+              <div class="hero">₹34,908/mo</div>
+              <div class="herolabel">Total SIP needed across goals in progress</div>
+              <div class="statsrow">
+                <div class="stat"><div class="k">Total goals</div><div class="v">4</div></div>
+                <div class="stat"><div class="k">Remaining</div><div class="v">3</div></div>
+              </div>
+            </div>
+
+            <div class="gcard">
+              <div class="fill" style="height:20%; background:linear-gradient(180deg, var(--liquid1), var(--liquid2));"></div>
+              <div class="top"><div class="pct">20%</div><div class="name">Europe Trip</div></div>
+              <div class="bottom"><span>₹40,000 of ₹2,00,000</span><span>17mo left</span></div>
+            </div>
+            <div class="gcard">
+              <div class="fill" style="height:65%; background:linear-gradient(180deg, var(--blue1), var(--blue2));"></div>
+              <div class="top"><div class="pct">65%</div><div class="name">Emergency fund</div></div>
+              <div class="bottom"><span>₹2,60,000 of ₹4,00,000</span><span>9mo left</span></div>
+            </div>
+
+            <div class="sglabel">Suggested for you</div>
+            <div class="sgcard">
+              <div class="icn"><i class="ti ti-beach"></i></div>
+              <div class="t"><div class="n">Retirement corpus</div><div class="s">₹2Cr target · 20y</div></div>
+              <div class="add"><i class="ti ti-plus"></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle">Option 2 — Completion ring first</div>
+    <div class="sectionsub">Leads with "how many goals are on track", SIP figure sits beside it instead of dominating.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Option 2<span class="tag">ring first</span></div>
+        <div class="vsub">More "status" framed than "action" framed.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="content">
+            <div class="summaryB">
+              <div class="ring"><span>3/4</span></div>
+              <div class="mid">
+                <div class="l1">Goals in progress</div>
+                <div class="l2">₹34,908/mo</div>
+                <div class="l3">total SIP needed to stay on track</div>
+              </div>
+            </div>
+
+            <div class="gcard">
+              <div class="fill" style="height:20%; background:linear-gradient(180deg, var(--liquid1), var(--liquid2));"></div>
+              <div class="top"><div class="pct">20%</div><div class="name">Europe Trip</div></div>
+              <div class="bottom"><span>₹40,000 of ₹2,00,000</span><span>17mo left</span></div>
+            </div>
+            <div class="gcard">
+              <div class="fill" style="height:65%; background:linear-gradient(180deg, var(--blue1), var(--blue2));"></div>
+              <div class="top"><div class="pct">65%</div><div class="name">Emergency fund</div></div>
+              <div class="bottom"><span>₹2,60,000 of ₹4,00,000</span><span>9mo left</span></div>
+            </div>
+
+            <div class="sglabel">Suggested for you</div>
+            <div class="sgcard">
+              <div class="icn"><i class="ti ti-beach"></i></div>
+              <div class="t"><div class="n">Retirement corpus</div><div class="s">₹2Cr target · 20y</div></div>
+              <div class="add"><i class="ti ti-plus"></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

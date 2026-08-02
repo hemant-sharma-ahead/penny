@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Home layout options v1 (dark only, dense + uncluttered)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --green:#00c47d; --green-deep:#00a86b; --mint:#5eead4;
+        --ink:#eef7f2; --sec:rgba(238,247,242,.62); --ter:rgba(238,247,242,.38);
+        --bg:#070c0a; --bg2:#0d1512; --glass:rgba(255,255,255,.045); --glassb:rgba(255,255,255,.09);
+        --capsule:rgba(255,255,255,.08); --capsuleb:rgba(255,255,255,.14);
+        --danger:#ff6b6b; --amber:#ffb648; --violet:#a78bfa; --sky:#7dd3fc; --indigo:#818cf8;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,sans-serif; background:#e6ebf1; color:#0f172a; -webkit-font-smoothing:antialiased; }
+      .num { font-family:'Space Grotesk',sans-serif; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:23px; color:#0f172a; }
+      .sub { text-align:center; margin:0 16px 6px; color:#475569; font-size:14px; max-width:900px; margin-left:auto; margin-right:auto; line-height:1.7; }
+      .decided { max-width:900px; margin:16px auto; background:#fff; border:1px solid #e8edf3; border-radius:14px; padding:16px 20px; font-size:12.5px; color:#334155; line-height:1.8; }
+      .decided b { color:#0f172a; }
+
+      .concept-h { max-width:920px; margin:44px auto 2px; padding:0 20px; }
+      .concept-h .tag { display:inline-block; font-size:10px; font-weight:800; padding:2px 9px; border-radius:999px; text-transform:uppercase; letter-spacing:.04em; background:#f0fdf7; color:#00a86b; margin-bottom:6px; }
+      .concept-h h2 { font-size:17px; margin:0 0 6px; color:#0f172a; }
+      .concept-h p { font-size:13px; color:#475569; line-height:1.65; margin:0 0 4px; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:40px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 30px; }
+      .frame-wrap { width:300px; }
+      .vtitle { font-size:13.5px; font-weight:800; margin:0 2px 3px; color:#0f172a; }
+      .vsub { font-size:11px; color:#475569; margin:0 2px 12px; line-height:1.5; }
+
+      .phone { width:300px; height:800px; background:var(--bg); border-radius:30px; border:8px solid #0f172a; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 16px 38px rgba(15,23,42,.22); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .glow { position:absolute; top:-50px; left:-30px; width:190px; height:190px; background:radial-gradient(circle, rgba(0,196,125,.16), transparent 70%); pointer-events:none; }
+
+      .content { flex:1; overflow:hidden; padding:14px 16px 0; position:relative; }
+      .scrollmore { text-align:center; font-size:9px; color:var(--ter); padding:10px 0 6px; }
+
+      .toprow { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+      .av-solo { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,var(--green),var(--green-deep)); display:grid; place-items:center; color:#04150e; font-size:11.5px; font-weight:800; box-shadow:0 3px 10px rgba(0,196,125,.28); }
+      .icon-pair { display:flex; align-items:center; gap:8px; background:var(--capsule); backdrop-filter:blur(8px); border:1px solid var(--capsuleb); border-radius:999px; padding:6px 10px; }
+      .icon-pair i { font-size:15px; color:var(--sec); position:relative; }
+      .icon-pair i.priv { color:var(--amber); }
+      .icon-pair .bd { position:absolute; top:-4px; right:-6px; min-width:11px; height:11px; padding:0 2px; border-radius:999px; background:var(--danger); color:#fff; font-size:6.5px; font-weight:800; display:grid; place-items:center; }
+
+      .hero-lbl { font-size:10px; color:var(--ter); font-weight:600; text-transform:uppercase; letter-spacing:.06em; margin:2px 0 3px; }
+      .hero-num { font-size:32px; font-weight:700; letter-spacing:-1px; line-height:1.05; background:linear-gradient(135deg,#fff 15%, var(--mint) 100%); -webkit-background-clip:text; background-clip:text; color:transparent; }
+      .hero-delta { display:inline-flex; align-items:center; gap:4px; margin-top:6px; font-size:10.5px; font-weight:700; color:var(--green); background:rgba(0,196,125,.12); padding:3px 9px; border-radius:999px; }
+      .retire-toggle { display:inline-flex; background:var(--glass); border:1px solid var(--glassb); border-radius:999px; padding:2px; margin-left:6px; }
+      .retire-toggle span { font-size:9px; font-weight:700; padding:3px 9px; border-radius:999px; color:var(--ter); }
+      .retire-toggle span.on { background:var(--green); color:#04150e; }
+      .spark2 { margin:10px -2px 0; height:56px; display:block; }
+      .chart-legend { display:flex; gap:14px; margin-top:2px; }
+      .chart-legend .l { display:flex; align-items:center; gap:5px; font-size:9px; color:var(--ter); font-weight:600; }
+      .chart-legend .l i { width:9px; height:9px; border-radius:3px; display:inline-block; }
+      .corpus-callout { display:flex; align-items:center; gap:8px; background:rgba(129,140,248,.1); border:1px solid rgba(129,140,248,.24); border-radius:12px; padding:8px 10px; margin-top:10px; }
+      .corpus-callout i.main { color:var(--indigo); font-size:16px; }
+      .corpus-callout .t { font-size:10px; color:var(--sec); line-height:1.4; }
+      .corpus-callout .t b { color:var(--ink); }
+
+      .card { background:var(--glass); border:1px solid var(--glassb); border-radius:16px; padding:11px; }
+      .slbl { display:flex; justify-content:space-between; align-items:baseline; margin:16px 0 8px; }
+      .slbl .t { font-size:10.5px; font-weight:700; color:var(--sec); text-transform:uppercase; letter-spacing:.04em; }
+      .slbl .a { font-size:10px; font-weight:700; color:var(--green); }
+
+      /* compact stat chip row (option A) */
+      .chiprow { display:flex; gap:8px; overflow-x:auto; }
+      .statchip { flex-shrink:0; display:flex; align-items:center; gap:7px; background:var(--glass); border:1px solid var(--glassb); border-radius:12px; padding:8px 11px; }
+      .statchip .ic { width:22px; height:22px; border-radius:7px; display:grid; place-items:center; font-size:11px; flex-shrink:0; }
+      .statchip .k { font-size:8px; color:var(--ter); font-weight:600; } .statchip .v { font-size:11px; font-weight:700; color:var(--ink); }
+
+      /* accounts strip */
+      .acctstrip { display:flex; gap:8px; overflow-x:auto; }
+      .acct { flex-shrink:0; width:108px; background:var(--glass); border:1px solid var(--glassb); border-radius:13px; padding:9px; }
+      .acct .nm { font-size:9px; color:var(--ter); font-weight:600; } .acct .v { font-size:12px; font-weight:700; color:var(--ink); margin-top:3px; }
+
+      /* nav pills (tax/loans/cashflow) */
+      .navrow { display:flex; gap:8px; }
+      .navpill { flex:1; display:flex; flex-direction:column; gap:6px; background:var(--glass); border:1px solid var(--glassb); border-radius:13px; padding:10px; }
+      .navpill .ic { width:24px; height:24px; border-radius:8px; display:grid; place-items:center; font-size:12px; }
+      .navpill .t { font-size:9.5px; font-weight:700; color:var(--ink); }
+
+      .healthrow { display:flex; align-items:center; gap:11px; }
+      .ring2 { width:38px; height:38px; border-radius:50%; background:conic-gradient(var(--green) 0 40%, var(--glassb) 40% 100%); display:grid; place-items:center; flex-shrink:0; position:relative; }
+      .ring2::after { content:''; position:absolute; inset:4px; background:var(--bg2); border-radius:50%; }
+      .ring2 span { position:relative; font-size:12px; font-weight:700; color:var(--ink); }
+      .healthrow .t { font-size:11px; font-weight:700; color:var(--amber); } .healthrow .d { font-size:9px; color:var(--ter); margin-top:1px; line-height:1.4; }
+
+      .storiesrow { display:flex; gap:7px; }
+      .story { flex-shrink:0; width:44px; height:44px; border-radius:50%; padding:2px; background:conic-gradient(var(--green),var(--indigo),var(--violet)); }
+      .story .in { width:100%; height:100%; border-radius:50%; background:var(--bg2); }
+
+      /* ===== Bento grid (option B) ===== */
+      .bento { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+      .bento .span2 { grid-column:span 2; }
+      .bcell { background:var(--glass); border:1px solid var(--glassb); border-radius:14px; padding:10px; }
+      .bcell .k { font-size:8.5px; color:var(--ter); font-weight:700; text-transform:uppercase; }
+      .bcell .v { font-size:14px; font-weight:700; color:var(--ink); margin-top:4px; }
+      .bcell .v.sm { font-size:12px; }
+
+      /* ===== Editorial (option C) ===== */
+      .editorial-h { font-size:28px; font-weight:700; line-height:1.15; color:var(--ink); margin:6px 0 8px; }
+      .editorial-h b { background:linear-gradient(135deg,#fff, var(--mint)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+      .drawer { background:var(--glass); border:1px solid var(--glassb); border-radius:16px; padding:12px; margin-top:14px; }
+      .drawer .dh { display:flex; justify-content:space-between; align-items:center; font-size:10.5px; font-weight:700; color:var(--sec); }
+      .drawer-row { display:flex; gap:14px; overflow-x:auto; margin-top:10px; padding-top:10px; border-top:1px solid var(--glassb); }
+      .drawer-item { flex-shrink:0; text-align:center; }
+      .drawer-item .ic { width:34px; height:34px; border-radius:10px; display:grid; place-items:center; font-size:15px; margin:0 auto 4px; }
+      .drawer-item .k { font-size:7.5px; color:var(--ter); font-weight:600; } .drawer-item .v { font-size:10px; font-weight:700; color:var(--ink); }
+
+      /* floating context pill above tab bar */
+      .ctxfloat { position:absolute; left:16px; bottom:70px; display:flex; align-items:center; gap:6px; background:var(--capsule); backdrop-filter:blur(8px); border:1px solid var(--capsuleb); border-radius:999px; padding:7px 13px 7px 7px; z-index:4; box-shadow:0 6px 16px rgba(0,0,0,.3); }
+      .ctxfloat .dot { width:18px; height:18px; border-radius:6px; background:var(--green); display:grid; place-items:center; color:#04150e; font-size:9px; }
+      .ctxfloat .lbl { font-size:11px; font-weight:700; color:var(--ink); }
+      .ctxfloat i.chev { color:var(--ter); font-size:10px; }
+
+      .tabbar { display:flex; align-items:center; justify-content:space-around; height:56px; background:var(--bg2); border-top:1px solid var(--glassb); flex-shrink:0; position:relative; z-index:3; }
+      .tabitem { display:flex; flex-direction:column; align-items:center; gap:3px; font-size:8px; font-weight:600; color:var(--ter); }
+      .tabitem.active { color:var(--green); } .tabitem i { font-size:18px; }
+      .chipfab { width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg,var(--green),var(--green-deep)); display:grid; place-items:center; color:#04150e; font-size:14px; margin-bottom:-1px; box-shadow:0 4px 12px rgba(0,196,125,.35); }
+
+      .legend { max-width:900px; margin:10px auto 60px; background:#fff; border:1px solid #e8edf3; border-radius:16px; padding:22px 26px; color:#475569; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:#0f172a; }
+      .legend b { color:#0f172a; }
+      .legend .rec-box { background:color-mix(in srgb, #00a86b 8%, #fff); border:1px solid color-mix(in srgb, #00a86b 30%, #fff); border-radius:12px; padding:14px 16px; margin-top:12px; }
+      .legend .open-box { background:#fff7ed; border:1px solid #fde68a; border-radius:12px; padding:14px 16px; margin-top:12px; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend table { width:100%; border-collapse:collapse; margin:10px 0; font-size:12.5px; }
+      .legend td, .legend th { padding:7px 9px; border:1px solid #e8edf3; text-align:left; vertical-align:top; }
+      .legend th { background:#f8fafc; font-size:11px; text-transform:uppercase; letter-spacing:.03em; }
+    </style>
+  </head>
+  <body>
+    <h1>Home — 3 layout options, dark only</h1>
+    <p class="sub">
+      Dropped light-mode side-by-sides per your note — dark only until a direction is picked. All three include the
+      real content you called out (Insurance, Accounts, Tax/Loans/Cash-flow navigation, Financial health, Stories)
+      plus the two future features designed in fully: a retirement-corpus projection toggle and a benchmark line,
+      both built directly into the Net Worth hero chart, not bolted on separately. The "Personal ▾" switcher is now
+      a small floating pill above the tab bar (Home only) instead of sitting inline and taking vertical space.
+    </p>
+    <div class="decided">
+      <b>All three vary both layout and visual treatment together</b> (you asked for both axes at once) — so
+      they're genuinely different bets, not the same grid with different colours. Each is a complete Home,
+      scrollable past what's shown (noted where it continues) — none of these are meant to fit one single
+      screen-height without scrolling, that was never realistic given how much real content Home carries.
+    </div>
+
+    <div class="concept-h"><span class="tag">Option A</span><h2>Tiered priority — horizontal strips compress the low-priority rows</h2><p>Closest evolution of what's been shown. Net worth stays the one big hero; everything below it (Insurance/Spent, Accounts, Tax/Loans/Cash-flow nav) is compressed into horizontally-scrollable single rows instead of stacked full-width cards, so five separate "sections" fit in the space three used to take.</p></div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">A · Tiered strips</div>
+        <div class="vsub">Everything reachable, nothing stacked full-width except Net Worth and Financial Health.</div>
+        <div class="phone">
+          <div class="glow"></div><div class="statusbar"></div>
+          <div class="content">
+            <div class="toprow"><div class="av-solo">HS</div><div class="icon-pair"><i class="ti ti-eye-off priv"></i><i class="ti ti-bell">​<span class="bd">3</span></i></div></div>
+            <div class="hero-lbl">Net worth <span class="retire-toggle"><span class="on">Now</span><span>Retirement</span></span></div>
+            <div class="hero-num num">₹1.45Cr</div>
+            <div class="hero-delta"><i class="ti ti-trending-up"></i> +4.2% this month</div>
+            <svg class="spark2" viewBox="0 0 268 56" preserveAspectRatio="none">
+              <path d="M0,44 30,40 60,42 90,30 120,34 150,20 180,24 210,10 240,15 268,4" fill="none" stroke="#00c47d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M0,48 30,45 60,43 90,40 120,36 150,32 180,27 210,22 240,17 268,11" fill="none" stroke="rgba(238,247,242,.28)" stroke-width="2" stroke-dasharray="3 4" stroke-linecap="round"/>
+            </svg>
+            <div class="chart-legend"><span class="l"><i style="background:var(--green)"></i>Your net worth</span><span class="l"><i style="background:rgba(238,247,242,.28)"></i>Inflation-adjusted target</span></div>
+            <div class="corpus-callout"><i class="ti ti-parachute main"></i><div class="t"><b>₹4.2Cr</b> retirement corpus needed by 2049 (age 60) · on track at current savings rate</div></div>
+            <div class="slbl"><span class="t">This month</span></div>
+            <div class="chiprow">
+              <div class="statchip"><div class="ic" style="background:rgba(255,107,107,.15);color:var(--danger)"><i class="ti ti-receipt-2"></i></div><div><div class="k">Spent</div><div class="v">₹88,067</div></div></div>
+              <div class="statchip"><div class="ic" style="background:rgba(129,140,248,.15);color:var(--indigo)"><i class="ti ti-shield"></i></div><div><div class="k">Insurance</div><div class="v">₹1.1Cr</div></div></div>
+              <div class="statchip"><div class="ic" style="background:rgba(0,196,125,.15);color:var(--green)"><i class="ti ti-building-bank"></i></div><div><div class="k">Loans</div><div class="v">₹40.0L</div></div></div>
+            </div>
+            <div class="slbl"><span class="t">Accounts</span><span class="a">See all</span></div>
+            <div class="acctstrip">
+              <div class="acct"><div class="nm">HDFC Savings</div><div class="v">₹2.4L</div></div>
+              <div class="acct"><div class="nm">SBI Salary</div><div class="v">₹86K</div></div>
+              <div class="acct"><div class="nm">Cash</div><div class="v">₹4.2K</div></div>
+            </div>
+            <div class="slbl"><span class="t">Financial health</span><span class="a">See all</span></div>
+            <div class="card healthrow"><div class="ring2"><span>40</span></div><div><div class="t">Needs work</div><div class="d">A few quick wins would help.</div></div></div>
+            <div class="slbl"><span class="t">Explore</span></div>
+            <div class="navrow">
+              <div class="navpill"><div class="ic" style="background:rgba(255,182,72,.15);color:var(--amber)"><i class="ti ti-receipt-tax"></i></div><div class="t">Tax story</div></div>
+              <div class="navpill"><div class="ic" style="background:rgba(0,196,125,.15);color:var(--green)"><i class="ti ti-building-bank"></i></div><div class="t">Loans</div></div>
+              <div class="navpill"><div class="ic" style="background:rgba(125,211,252,.15);color:var(--sky)"><i class="ti ti-chart-line"></i></div><div class="t">Cash flow</div></div>
+            </div>
+            <div class="slbl"><span class="t">Stories</span></div>
+            <div class="storiesrow"><div class="story"><div class="in"></div></div><div class="story"><div class="in"></div></div><div class="story"><div class="in"></div></div><div class="story"><div class="in"></div></div></div>
+            <div class="scrollmore">↓ Market ticker, tools — continue below, same treatment</div>
+          </div>
+          <div class="ctxfloat"><span class="dot"><i class="ti ti-user"></i></span><span class="lbl">Personal</span><i class="ti ti-chevron-down chev"></i></div>
+          <div class="tabbar"><div class="tabitem active"><i class="ti ti-home"></i>Home</div><div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div><div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div><div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div><div class="tabitem"><i class="ti ti-target"></i>Goals</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="concept-h"><span class="tag">Option B</span><h2>Bento grid — density through grid cells, not stacking</h2><p>Directly from current fintech-redesign practice (this is the pattern the real HDFC Bank redesign case study used to fix exactly this "too much scrolling" complaint). Everything below the hero sits in a 2-column grid of mixed-size cells instead of one full-width card per section — roughly half the scroll length of A for the same content.</p></div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">B · Bento grid</div>
+        <div class="vsub">Insurance/Loans/Health/Tax/Cashflow all visible without scrolling past the hero.</div>
+        <div class="phone">
+          <div class="glow"></div><div class="statusbar"></div>
+          <div class="content">
+            <div class="toprow"><div class="av-solo">HS</div><div class="icon-pair"><i class="ti ti-eye-off priv"></i><i class="ti ti-bell">​<span class="bd">3</span></i></div></div>
+            <div class="hero-lbl">Net worth <span class="retire-toggle"><span class="on">Now</span><span>Retirement</span></span></div>
+            <div class="hero-num num">₹1.45Cr</div>
+            <div class="hero-delta"><i class="ti ti-trending-up"></i> +4.2% this month</div>
+            <svg class="spark2" viewBox="0 0 268 50" preserveAspectRatio="none">
+              <path d="M0,40 30,37 60,38 90,27 120,30 150,18 180,21 210,9 240,13 268,3" fill="none" stroke="#00c47d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M0,43 30,40 60,38 90,36 120,32 150,29 180,24 210,20 240,15 268,10" fill="none" stroke="rgba(238,247,242,.28)" stroke-width="2" stroke-dasharray="3 4" stroke-linecap="round"/>
+            </svg>
+            <div class="chart-legend"><span class="l"><i style="background:var(--green)"></i>Net worth</span><span class="l"><i style="background:rgba(238,247,242,.28)"></i>Inflation target</span></div>
+            <div class="bento" style="margin-top:12px">
+              <div class="bcell span2"><div class="k">Retirement corpus</div><div class="v sm">₹4.2Cr needed by 2049 · <span style="color:var(--green)">on track</span></div></div>
+              <div class="bcell"><div class="k">Spent this month</div><div class="v">₹88,067</div></div>
+              <div class="bcell"><div class="k">Insurance cover</div><div class="v">₹1.1Cr</div></div>
+              <div class="bcell"><div class="k">Loans outstanding</div><div class="v">₹40.0L</div></div>
+              <div class="bcell"><div class="k">Financial health</div><div class="v" style="color:var(--amber)">40 · Needs work</div></div>
+              <div class="bcell span2"><div class="k">Accounts</div><div style="display:flex;gap:10px;margin-top:6px"><div style="flex:1"><div style="font-size:9px;color:var(--ter)">HDFC</div><div class="v sm">₹2.4L</div></div><div style="flex:1"><div style="font-size:9px;color:var(--ter)">SBI</div><div class="v sm">₹86K</div></div><div style="flex:1"><div style="font-size:9px;color:var(--ter)">Cash</div><div class="v sm">₹4.2K</div></div></div></div>
+              <div class="bcell" style="background:rgba(255,182,72,.08);border-color:rgba(255,182,72,.2)"><div class="ic" style="width:22px;height:22px;border-radius:7px;background:rgba(255,182,72,.18);color:var(--amber);display:grid;place-items:center;font-size:11px;margin-bottom:6px"><i class="ti ti-receipt-tax"></i></div><div class="v sm">Tax story ›</div></div>
+              <div class="bcell" style="background:rgba(125,211,252,.08);border-color:rgba(125,211,252,.2)"><div class="ic" style="width:22px;height:22px;border-radius:7px;background:rgba(125,211,252,.18);color:var(--sky);display:grid;place-items:center;font-size:11px;margin-bottom:6px"><i class="ti ti-chart-line"></i></div><div class="v sm">Cash flow ›</div></div>
+            </div>
+            <div class="slbl"><span class="t">Stories</span></div>
+            <div class="storiesrow"><div class="story"><div class="in"></div></div><div class="story"><div class="in"></div></div><div class="story"><div class="in"></div></div><div class="story"><div class="in"></div></div></div>
+            <div class="scrollmore">↓ Market ticker, tools — continue below</div>
+          </div>
+          <div class="ctxfloat"><span class="dot"><i class="ti ti-user"></i></span><span class="lbl">Personal</span><i class="ti ti-chevron-down chev"></i></div>
+          <div class="tabbar"><div class="tabitem active"><i class="ti ti-home"></i>Home</div><div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div><div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div><div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div><div class="tabitem"><i class="ti ti-target"></i>Goals</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="concept-h"><span class="tag">Option C</span><h2>Editorial hero + one collapsed "snapshot" drawer</h2><p>Boldest cut: only Net Worth (with retirement/benchmark built in) gets full visual weight, framed as a headline statement, not a labelled card. Everything else — Insurance, Loans, Accounts, Tax/Cash-flow nav, Financial health — folds into a single horizontally-scrollable "snapshot" drawer, so the page reads as one clear story, not six competing sections.</p></div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">C · Editorial + drawer</div>
+        <div class="vsub">Most "uncluttered first" of the three — biggest bet, everything secondary is one tap-scroll away in the drawer, not stacked below.</div>
+        <div class="phone">
+          <div class="glow"></div><div class="statusbar"></div>
+          <div class="content">
+            <div class="toprow"><div class="av-solo">HS</div><div class="icon-pair"><i class="ti ti-eye-off priv"></i><i class="ti ti-bell">​<span class="bd">3</span></i></div></div>
+            <div class="editorial-h">You're worth <b class="num">₹1.45Cr</b> — up 4.2% this month.</div>
+            <svg class="spark2" viewBox="0 0 268 58" preserveAspectRatio="none">
+              <path d="M0,46 30,42 60,44 90,31 120,35 150,21 180,25 210,10 240,15 268,4" fill="none" stroke="#00c47d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M0,50 30,47 60,45 90,42 120,38 150,34 180,29 210,24 240,18 268,12" fill="none" stroke="rgba(238,247,242,.28)" stroke-width="2" stroke-dasharray="3 4" stroke-linecap="round"/>
+            </svg>
+            <div class="chart-legend"><span class="l"><i style="background:var(--green)"></i>You</span><span class="l"><i style="background:rgba(238,247,242,.28)"></i>Inflation-adjusted target</span></div>
+            <div class="retire-toggle" style="margin:10px 0 0;margin-left:0"><span class="on">Now</span><span>At retirement (60)</span></div>
+            <div class="corpus-callout"><i class="ti ti-parachute main"></i><div class="t">On track for a <b>₹4.2Cr</b> corpus by 2049 at your current savings rate.</div></div>
+            <div class="drawer">
+              <div class="dh"><span>Your snapshot</span><i class="ti ti-chevron-down"></i></div>
+              <div class="drawer-row">
+                <div class="drawer-item"><div class="ic" style="background:rgba(255,107,107,.15);color:var(--danger)"><i class="ti ti-receipt-2"></i></div><div class="k">Spent</div><div class="v">₹88K</div></div>
+                <div class="drawer-item"><div class="ic" style="background:rgba(129,140,248,.15);color:var(--indigo)"><i class="ti ti-shield"></i></div><div class="k">Insurance</div><div class="v">₹1.1Cr</div></div>
+                <div class="drawer-item"><div class="ic" style="background:rgba(0,196,125,.15);color:var(--green)"><i class="ti ti-building-bank"></i></div><div class="k">Loans</div><div class="v">₹40L</div></div>
+                <div class="drawer-item"><div class="ic" style="background:rgba(245,158,11,.15);color:var(--amber)"><i class="ti ti-heart-rate-monitor"></i></div><div class="k">Health</div><div class="v">40</div></div>
+                <div class="drawer-item"><div class="ic" style="background:rgba(125,211,252,.15);color:var(--sky)"><i class="ti ti-building-bank"></i></div><div class="k">Accounts</div><div class="v">3</div></div>
+                <div class="drawer-item"><div class="ic" style="background:rgba(255,182,72,.15);color:var(--amber)"><i class="ti ti-receipt-tax"></i></div><div class="k">Tax</div><div class="v">›</div></div>
+                <div class="drawer-item"><div class="ic" style="background:rgba(125,211,252,.15);color:var(--sky)"><i class="ti ti-chart-line"></i></div><div class="k">Cash flow</div><div class="v">›</div></div>
+              </div>
+            </div>
+            <div class="slbl"><span class="t">Stories</span></div>
+            <div class="storiesrow"><div class="story"><div class="in"></div></div><div class="story"><div class="in"></div></div><div class="story"><div class="in"></div></div></div>
+            <div class="scrollmore">↓ Market ticker, tools — continue below</div>
+          </div>
+          <div class="ctxfloat"><span class="dot"><i class="ti ti-user"></i></span><span class="lbl">Personal</span><i class="ti ti-chevron-down chev"></i></div>
+          <div class="tabbar"><div class="tabitem active"><i class="ti ti-home"></i>Home</div><div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div><div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div><div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div><div class="tabitem"><i class="ti ti-target"></i>Goals</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <h2>How to think about the three</h2>
+      <table>
+        <tr><th></th><th>A · Tiered strips</th><th>B · Bento grid</th><th>C · Editorial + drawer</th></tr>
+        <tr><td><b>Scroll length</b></td><td>Medium</td><td>Shortest — most fits above the fold</td><td>Short, but drawer hides detail behind one tap</td></tr>
+        <tr><td><b>Risk</b></td><td>Least risky, safest evolution</td><td>Grid can feel busy if cell sizes aren't disciplined</td><td>Insurance/Loans/Accounts numbers aren't glanceable without opening the drawer</td></tr>
+        <tr><td><b>Best if you believe</b></td><td>Users still scan top-to-bottom in order of importance</td><td>Users want maximum information per glance, dashboard-style</td><td>Net worth + trend is genuinely the only thing that matters at open; everything else is reference, not headline</td></tr>
+      </table>
+      <div class="rec-box">
+        <b>My pick: B, bento grid.</b> It's the one backed by the actual HDFC Bank redesign case study I researched
+        (their whole fix for "too much scrolling, hard to find things" was moving to a bento grid), it fits your
+        "don't waste space" note most literally, and unlike C it doesn't hide real numbers (Insurance, Loans,
+        Accounts) behind an extra tap — those are things you said you do want visible, just not taking a full card
+        each.
+      </div>
+      <div class="open-box">
+        <b>Still open:</b>
+        <ul>
+          <li>Is the retirement-corpus toggle + benchmark line the right shape for that future feature, or did you have something more specific in mind (a dedicated retirement calculator screen, linked from here, rather than a toggle on the same chart)?</li>
+          <li>Floating "Personal" pill's exact corner — shown bottom-left here to avoid the centre Chip FAB; confirm that's fine or if bottom-right (thumb-side) is preferred.</li>
+          <li>Stories and the Market ticker are shown minimized/deferred in all three, reflecting the "overkill?" flag on Stories from your last message — not removed, just deprioritized visually pending that decision.</li>
+        </ul>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Goals: Add contribution becomes the real Expense form</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --danger:#ef4444; --success:#10b981; --info:#3b82f6; --blue:#3b82f6;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 22px; color:#9aa5b1; font-size:14px; max-width:920px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .sectiontitle { text-align:center; font-size:15px; font-weight:800; color:#fff; margin:38px 0 4px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:760px; margin:0 auto 18px; line-height:1.6; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 10px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.new { background:#123524; color:#7ee6b8; }
+      .vtitle .tag.cur { background:#3a2412; color:#f0b060; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; height:560px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+
+      /* card */
+      .cardwrap { padding:14px; }
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:14px; }
+      .cardtop { display:flex; gap:12px; }
+      .ring { width:46px; height:46px; border-radius:50%; border:4px solid var(--blue); position:relative; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+      .ring::after { content:''; position:absolute; inset:-4px; border-radius:50%; border:4px solid transparent; border-top-color:var(--blue); border-right-color:var(--blue); transform:rotate(220deg); }
+      .ring span { font-size:10px; font-weight:800; color:var(--text); z-index:1; }
+      .cardmid { flex:1; }
+      .gname { font-size:13px; font-weight:700; color:var(--text); }
+      .gamt { font-size:11px; color:var(--text2); margin-top:2px; }
+      .badgerow { display:flex; align-items:center; gap:6px; margin-top:6px; }
+      .rbadge { font-size:9px; font-weight:700; padding:2px 8px; border-radius:999px; background:var(--blue); color:#04101f; }
+      .gmeta { font-size:9.5px; color:var(--text3); }
+      .contribline { display:flex; align-items:center; gap:4px; margin-top:6px; font-size:9.5px; color:var(--info); }
+      .quickbtn { margin-top:12px; border:1px solid var(--border); border-radius:11px; padding:9px; text-align:center; font-size:11.5px; font-weight:700; color:var(--text2); }
+      .btnrow2 { display:flex; gap:8px; margin-top:12px; }
+      .btnrow2 .b { flex:1; border-radius:11px; padding:9px; text-align:center; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:5px; }
+      .btnrow2 .b.sec { border:1px solid var(--border); color:var(--text2); }
+      .btnrow2 .b.pri { background:var(--primary); color:#04150e; }
+      .btnrow2 .b i { font-size:13px; }
+
+      /* form-current */
+      .flabel { font-size:10.5px; font-weight:600; color:var(--text2); margin-bottom:5px; }
+      .fpad { padding:12px 14px; }
+      .ftitlerow { display:flex; align-items:center; justify-content:space-between; padding:14px 14px 0; }
+      .ftitle { font-size:14px; font-weight:700; color:var(--text); }
+      .fsub { font-size:11px; color:var(--text3); margin-top:2px; padding:0 14px; }
+      .finput { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:11px 13px; font-size:12.5px; color:var(--text3); margin-bottom:12px; }
+      .fselect { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:11px 13px; font-size:12px; color:var(--text); margin-bottom:12px; display:flex; justify-content:space-between; }
+      .togglerow { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+      .togglerow .tl { font-size:11px; font-weight:600; color:var(--text2); }
+      .toggle { width:34px; height:19px; border-radius:999px; padding:2px; }
+      .toggle.on { background:var(--primary); }
+      .toggle.off { background:var(--surface3); }
+      .knob { width:15px; height:15px; border-radius:50%; background:#fff; }
+      .toggle.on .knob { margin-left:auto; }
+
+      /* form-new (matches real ExpenseForm) */
+      .typerow2 { display:flex; align-items:center; padding:12px 14px 8px; gap:8px; }
+      .typebtn2 { display:flex; align-items:center; gap:5px; padding:7px 12px; border-radius:10px; font-size:12px; font-weight:700; color:var(--text3); }
+      .typebtn2.on { background:var(--danger); color:#fff; }
+      .typebtn2 i { font-size:13px; }
+      .xbtn2 { margin-left:auto; color:var(--text3); font-size:16px; }
+      .goalcaption { display:flex; align-items:center; gap:5px; padding:0 14px 10px; font-size:11px; color:var(--info); font-weight:600; }
+      .goalcaption i { font-size:12px; }
+      .combrow { display:flex; align-items:center; gap:9px; margin-bottom:12px; padding:0 14px; }
+      .catbtn { width:88px; display:flex; flex-direction:column; align-items:flex-start; gap:6px; background:var(--surface2); border:1.5px solid var(--success); border-radius:14px; padding:11px; flex-shrink:0; }
+      .catbtn .ic2 { width:28px; height:28px; border-radius:9px; background:rgba(16,185,129,.15); display:flex; align-items:center; justify-content:center; }
+      .catbtn .catlabel { font-size:10.5px; font-weight:600; color:var(--text); }
+      .amtright { flex:1; text-align:right; }
+      .amtright .amtnum { font-size:24px; font-weight:800; color:var(--text); }
+      .fielddual2 { display:flex; gap:8px; margin-bottom:12px; padding:0 14px; }
+      .fielddual2 .finput { flex:1; margin-bottom:0; }
+      .seclabel2 { font-size:10px; font-weight:700; color:var(--text2); margin-bottom:7px; padding:0 14px; }
+      .accgrid2 { display:flex; gap:7px; margin-bottom:12px; padding:0 14px; }
+      .acctile2 { flex:1; align-items:center; text-align:center; }
+      .acctile2 .ic { width:38px; height:38px; border-radius:11px; margin:0 auto 4px; display:flex; align-items:center; justify-content:center; }
+      .acctile2 .lb { font-size:8.5px; color:var(--text2); }
+      .acctile2.addtile .ic { border:1.5px dashed var(--border); background:transparent; }
+      .acctile2.addtile .lb { color:var(--text3); }
+      .iconrow2 { display:flex; justify-content:center; gap:14px; padding:6px 14px 4px; }
+      .icircle { display:flex; flex-direction:column; align-items:center; gap:3px; }
+      .icircle .ic3 { width:36px; height:36px; border-radius:50%; border:1px solid var(--border); background:var(--surface2); display:flex; align-items:center; justify-content:center; }
+      .icircle .ic3 i { font-size:15px; color:var(--text3); }
+      .icircle .lb2 { font-size:8.5px; color:var(--text3); }
+
+      .footerbtn { position:absolute; bottom:14px; left:14px; right:14px; background:var(--primary); border-radius:13px; padding:12px; text-align:center; font-size:13px; font-weight:700; color:#04150e; }
+
+      .legend { max-width:920px; margin:14px auto 50px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:20px 24px; color:#c3ccd6; font-size:13px; line-height:1.7; }
+      .legend h2 { font-size:14px; margin:0 0 8px; color:#fff; }
+      .legend b { color:#fff; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:11.5px; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend li { margin-bottom:6px; }
+    </style>
+  </head>
+  <body>
+    <h1>Goals: Add contribution becomes the real Expense form</h1>
+    <p class="sub">Per your decision: the "log without a transaction" path is retired. Every contribution
+      from here on is a real Expense/Transfer — so instead of a look-alike form, "Add contribution" now
+      opens the actual <code>ExpenseForm</code>, just preset for this one goal.</p>
+
+    <div class="sectiontitle">1 — Goal card: 2 real actions instead of "Quick add"</div>
+    <div class="sectionsub">Quick add (manual, no transaction) is gone. "Link existing" and "Add contribution" — the same two actions Goal Detail's footer already has — sit directly on the card, so you don't have to open Detail first just to add money.</div>
+    <div class="gallery">
+
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">as shipped</span></div>
+        <div class="vsub">"Quick add" expands an inline amount box — creates a contribution with no linked transaction, bypassing accounts entirely. The two real actions are hidden one tap deeper, inside Goal Detail.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="cardwrap">
+            <div class="card">
+              <div class="cardtop">
+                <div class="ring"><span>49%</span></div>
+                <div class="cardmid">
+                  <div class="gname">Emergency Fund</div>
+                  <div class="gamt">₹1,47,000 of ₹3,00,000</div>
+                  <div class="badgerow"><div class="rbadge">Conservative</div><div class="gmeta">12mo left · 1 Aug 2027</div></div>
+                  <div class="contribline"><i class="ti ti-receipt" style="font-size:10px"></i>3 contributions</div>
+                </div>
+              </div>
+              <div class="quickbtn">+ Quick add</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">New <span class="tag new">2 real actions</span></div>
+        <div class="vsub">Same footer pairing as Goal Detail — "Link existing" (secondary) tags a past transaction, "Add contribution" (primary) opens the real Expense form below. Tapping the card body still opens the full ledger, same as today.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="cardwrap">
+            <div class="card">
+              <div class="cardtop">
+                <div class="ring"><span>49%</span></div>
+                <div class="cardmid">
+                  <div class="gname">Emergency Fund</div>
+                  <div class="gamt">₹1,47,000 of ₹3,00,000</div>
+                  <div class="badgerow"><div class="rbadge">Conservative</div><div class="gmeta">12mo left · 1 Aug 2027</div></div>
+                  <div class="contribline"><i class="ti ti-receipt" style="font-size:10px"></i>3 contributions</div>
+                </div>
+              </div>
+              <div class="btnrow2">
+                <div class="b sec"><i class="ti ti-link"></i>Link existing</div>
+                <div class="b pri"><i class="ti ti-plus"></i>Add contribution</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="sectiontitle">2 — Add contribution: the actual Expense form, preset</div>
+    <div class="sectionsub">Not a look-alike — the same <code>ExpenseForm</code> component you already use for every transaction, opened with the goal locked and a couple of fields prefilled. Type switch is Expense/Transfer only (Income was never a valid shape for a contribution); no Goal picker tile since there's only one goal in scope here.</div>
+    <div class="gallery">
+
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">GoalContributionForm</span></div>
+        <div class="vsub">Plain labeled fields, a dropdown for the account — visually a different form from the rest of the app, even though it ends up creating the same kind of Expense record.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="ftitlerow"><div class="ftitle">Add contribution</div><div class="xbtn2">✕</div></div>
+          <div class="fsub">Toward Emergency Fund</div>
+          <div class="fpad">
+            <div class="flabel">Amount</div>
+            <div class="finput">₹ 0</div>
+            <div class="flabel">Date</div>
+            <div class="finput">2 Aug 2026</div>
+            <div class="togglerow"><div class="tl">Record as a transaction</div><div class="toggle on"><div class="knob"></div></div></div>
+            <div class="flabel">Paid from</div>
+            <div class="fselect">HDFC Savings <i class="ti ti-chevron-down"></i></div>
+            <div class="togglerow"><div class="tl">Moving to a specific account?</div><div class="toggle off"><div class="knob"></div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">New <span class="tag new">real ExpenseForm, goal-preset</span></div>
+        <div class="vsub">Category+Amount combined row, description prefilled, Date+Time split, account chips with "+", Paid via — identical to logging any other expense. Tags/Receipt/Repeat still available; Goal and Lent/Borrowed tiles are hidden (not relevant when a goal is already fixed).</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="typerow2">
+            <div class="typebtn2 on"><i class="ti ti-arrow-down"></i>Expense</div>
+            <div class="typebtn2"><i class="ti ti-transfer"></i>Transfer</div>
+            <div class="xbtn2">✕</div>
+          </div>
+          <div class="goalcaption"><i class="ti ti-target"></i>Contributing to Emergency Fund</div>
+          <div class="combrow">
+            <div class="catbtn"><div class="ic2"><i class="ti ti-pig-money" style="color:var(--success);font-size:14px"></i></div><div class="catlabel">Savings</div></div>
+            <div class="amtright"><div class="amtnum">₹0</div></div>
+          </div>
+          <div style="padding:0 14px 12px"><div class="finput" style="margin-bottom:0">Contribution: Emergency Fund</div></div>
+          <div class="fielddual2">
+            <div class="finput">2 Aug 2026</div>
+            <div class="finput">11:42 AM</div>
+          </div>
+          <div class="seclabel2">Account</div>
+          <div class="accgrid2">
+            <div class="acctile2"><div class="ic" style="background:var(--info)"><i class="ti ti-building-bank" style="color:#fff;font-size:15px"></i></div><div class="lb">HDFC Savings</div></div>
+            <div class="acctile2"><div class="ic" style="background:var(--success)"><i class="ti ti-wallet" style="color:#fff;font-size:15px"></i></div><div class="lb">Cash Wallet</div></div>
+            <div class="acctile2 addtile"><div class="ic"><i class="ti ti-plus" style="font-size:13px;color:var(--text3)"></i></div><div class="lb">Add</div></div>
+          </div>
+          <div class="iconrow2">
+            <div class="icircle"><div class="ic3"><i class="ti ti-hash"></i></div><div class="lb2">Tags</div></div>
+            <div class="icircle"><div class="ic3"><i class="ti ti-camera"></i></div><div class="lb2">Receipt</div></div>
+            <div class="icircle"><div class="ic3"><i class="ti ti-repeat"></i></div><div class="lb2">Repeat</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="legend">
+      <h2>Notes / implementation shape</h2>
+      <ul>
+        <li><b>`ExpenseForm.tsx` gains a `goalPreset` prop</b> (e.g. <code>{ goalId, goalName }</code>):
+          hides the Goal `ExtraCircle`/picker panel entirely (goal is fixed, not chosen), shows the small
+          "Contributing to {name}" caption instead, restricts the type switch to Expense/Transfer only
+          (no Income tab), defaults <code>categoryId</code> to <code>cat-savings</code> and
+          <code>description</code> to <code>"Contribution: {name}"</code> (both still editable), and
+          hides the IOU Lent/Borrowed section (not relevant once a goal is already the fixed context).
+          Saving calls the existing goal-contribution save path (<code>reconcileLinkedGoalTxn</code> +
+          a matching <code>GoalContribution</code>, origin <code>manual</code>) instead of the plain
+          expense save — everything else (amount, date+time, account chips incl. the inline "+", paid
+          via, tags, receipt, repeat) is the exact same code path as any other transaction.</li>
+        <li><b>`GoalContributionForm.tsx` is retired</b> for new contributions. A tiny fallback
+          (amount + date only, no styling changes needed) remains solely for <b>editing pre-existing
+          manual/no-transaction contributions</b> from before this change — they have no linked
+          `Expense` record for `ExpenseForm` to open, so there's genuinely nothing else to show for
+          them. New contributions can never end up in this state again.</li>
+        <li><b>`GoalCard.tsx`</b> drops `onQuickContribute` and its inline amount-entry state entirely;
+          gains `onAddContribution(goal)` / `onLinkExisting(goal)`, wired in `GoalsTab.tsx` to the exact
+          same `setContributionForm`/`setLinkingGoalId` calls `GoalDetailView`'s footer already uses —
+          same handlers, two natural entry points (card for a quick add, Detail when you're already
+          reviewing the ledger), not two different implementations of the same thing.</li>
+        <li><b>`LinkTransactionModal.tsx`</b> — reviewed, already consistent (search + row list matching
+          the rest of the app); no changes proposed there.</li>
+      </ul>
+    </div>
+  </body>
+</html>

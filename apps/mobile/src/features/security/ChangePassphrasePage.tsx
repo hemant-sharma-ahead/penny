@@ -3,14 +3,14 @@ import { View, Pressable, ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Button, PageHeader, TextInput, Banner, PassphraseStrengthMeter } from '~/components/ui';
-import { BackButton } from '~/components/shared';
+import { Button, TextInput, Banner, PassphraseStrengthMeter } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { changePassphrase } from '@/core/crypto/securityManager';
 import { claimAccount, getClaimState } from '@/core/identity/claim';
 import { usePassphraseStrength } from '@/hooks/usePassphraseStrength';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 
 /**
  * RN port of apps/web-react/src/features/security/ChangePassphrasePage.tsx. Pure UI port —
@@ -28,6 +28,7 @@ export function ChangePassphrasePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
+  useDefaultHeaderBack('ChangePassphrase');
 
   const { score } = usePassphraseStrength(next);
   const mismatch = confirm.length > 0 && next !== confirm;
@@ -65,7 +66,6 @@ export function ChangePassphrasePage() {
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <PageHeader leading={<BackButton />} title="Change Passphrase" />
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-4 py-4 gap-4">
           <Text className="text-sm text-secondary">

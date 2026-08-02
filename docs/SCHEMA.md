@@ -193,27 +193,35 @@ Financial goals with SIP planning and progress tracking.
 | id             | string (UUID)                           | Primary key                                        |
 | name           | string                                  | User-given name e.g. `'House Down Payment'`        |
 | targetAmount   | number                                  | Goal target in ₹                                   |
-| currentAmount  | number                                  | Amount accumulated so far                          |
+| currentAmount  | number                                  | Baseline saved before/outside tracked contributions (2026-08-01) — see `goal_contributions` below; not the full total shown to the user |
 | targetDate     | number?                                 | Epoch ms — deadline                                |
 | sipAmount      | number?                                 | Planned monthly SIP in ₹                           |
 | sipFrequency   | `'monthly' \| 'quarterly' \| 'yearly'`? | SIP cadence                                        |
 | expectedReturn | number?                                 | Annual return assumption (%) for corpus projection |
 | icon           | string?                                 | Tabler icon name                                   |
 | color          | string?                                 | Hex color for UI card                              |
+| countsTowardSafeToSpend | boolean? | 2026-08-02 — undefined/true = this goal's saved amount is excluded from "Safe to spend" (Home/Expenses/Cash Flow); explicit `false` only for a goal the user personally wants to keep reading as spendable |
 
 ---
 
 ### `goal_contributions`
 
-Individual contributions credited toward a goal.
+Individual contributions credited toward a goal — as of 2026-08-01, the *only* place a contribution's
+amount lives; `goals.currentAmount` is a one-time baseline set via `GoalForm`'s "Already saved" field
+and never incremented again. The amount shown/used everywhere is `currentAmount` plus the live sum of
+that goal's `goal_contributions` — computed on read, never denormalized, the same way IOU's net balance
+is never a stored total either (`core/iou/ledger.ts`'s `netBalance`).
 
-| Field  | Type          | Notes                                     |
-| ------ | ------------- | ----------------------------------------- |
-| id     | string (UUID) | Primary key                               |
-| goalId | string        | FK → goals                                |
-| amount | number        | Contribution amount in ₹                  |
-| date   | number        | Epoch ms                                  |
-| note   | string?       | e.g. `'Bonus allocation'`, `'Annual SIP'` |
+| Field       | Type                    | Notes                                                                                                                            |
+| ----------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| id          | string (UUID)           | Primary key                                                                                                                        |
+| goalId      | string                  | FK → goals                                                                                                                         |
+| amount      | number                  | Contribution amount in ₹                                                                                                          |
+| date        | number                  | Epoch ms                                                                                                                          |
+| notes       | string?                 | e.g. `'Bonus allocation'`, `'Annual SIP'`                                                                                          |
+| origin      | `'manual' \| 'expense'` | `'expense'` = seeded by a linked Expense/Income/Transfer (`ExpenseForm.tsx`'s Goal toggle); `'manual'` = logged from the Goals tab |
+| linkedTxnId | string?                 | FK → expenses, both ways — deleting either cascades to the other. Mirrors `ledger_entries.linkedTxnId` (IOU's equivalent).       |
+| updatedAt   | number                  | Epoch ms                                                                                                                          |
 
 ---
 

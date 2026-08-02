@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { View, Text } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { Icon } from '~/components/Icon';
 import { tint, ink } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -18,6 +18,10 @@ interface BannerProps {
   title?: string;
   children: ReactNode;
   className?: string;
+  /** Shows a small close (×) button, top-right — for a note that shouldn't keep reappearing once read
+   *  (e.g. Category Picker's Vacation-mode explanation). The caller owns persisting "already dismissed";
+   *  this just renders the affordance and calls back on tap. */
+  onDismiss?: () => void;
 }
 
 const DEFAULT_ICON: Record<BannerVariant, string> = {
@@ -31,7 +35,7 @@ const DEFAULT_ICON: Record<BannerVariant, string> = {
  * Inline callout/alert — subtle tinted background, status-colored icon, and a readable
  * (theme-aware) message. RN equivalent of the web Banner (same variants/icons).
  */
-export function Banner({ variant, icon, title, children, className = '' }: BannerProps) {
+export function Banner({ variant, icon, title, children, className = '', onDismiss }: BannerProps) {
   const theme = useThemeColors();
   const color = theme[variant];
   const iconName = icon === undefined ? DEFAULT_ICON[variant] : icon;
@@ -43,7 +47,7 @@ export function Banner({ variant, icon, title, children, className = '' }: Banne
       style={{ backgroundColor: tint(color, 12), borderColor: tint(color, 30) }}
     >
       {iconName && <Icon name={iconName} size={16} color={color} />}
-      <View className="flex-1">
+      <View className="flex-1" style={onDismiss ? { paddingRight: 18 } : undefined}>
         {title && (
           <Text className="text-sm font-semibold" style={{ color: textColor }}>
             {title}
@@ -53,6 +57,16 @@ export function Banner({ variant, icon, title, children, className = '' }: Banne
           {children}
         </Text>
       </View>
+      {onDismiss && (
+        <Pressable
+          onPress={onDismiss}
+          hitSlop={8}
+          accessibilityLabel="Dismiss"
+          className="absolute top-2 right-2 w-5 h-5 items-center justify-center rounded-full"
+        >
+          <Icon name="ti-x" size={12} color={textColor} />
+        </Pressable>
+      )}
     </View>
   );
 }

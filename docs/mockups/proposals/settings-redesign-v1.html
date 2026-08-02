@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Settings redesign options</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --indigo:#6366f1; --amber:#f59e0b; --danger:#ef4444; --success:#10b981;
+        --violet:#8b5cf6; --teal:#14b8a6; --rose:#f43f5e;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 22px; color:#9aa5b1; font-size:14px; max-width:920px; margin-left:auto; margin-right:auto; line-height:1.65; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:40px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 30px; }
+      .frame-wrap { width:300px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.rec { background:#123524; color:#7ee6b8; }
+      .vtitle .tag.cur { background:#3a2412; color:#f0b060; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:300px; height:640px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .header { height:40px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .htitle { flex:1; text-align:center; font-size:13.5px; font-weight:700; color:var(--text); }
+
+      .content { flex:1; padding:12px 14px; overflow:hidden; }
+
+      /* Profile hero — shared by all variants */
+      .profile { display:flex; align-items:center; gap:11px; padding:8px 2px 14px; }
+      .avatar { width:50px; height:50px; border-radius:25px; background:linear-gradient(135deg,var(--primary),#00c47e); display:grid; place-items:center; color:#fff; font-size:19px; font-weight:800; flex-shrink:0; }
+      .profile .nm { font-size:15px; font-weight:700; color:var(--text); }
+      .profile .hd { font-size:10.5px; color:var(--text2); margin-top:1px; }
+      .profile .edit { margin-left:auto; border:1px solid rgba(0,168,107,.4); border-radius:999px; padding:5px 11px; }
+      .profile .edit span { font-size:10.5px; font-weight:700; color:var(--primary); }
+
+      .seclabel { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text3); margin:14px 2px 7px; }
+      .seclabel.danger { color:var(--danger); }
+      .seclabel:first-of-type { margin-top:2px; }
+
+      /* CURRENT baseline — flat rows, hairline dividers, no cards */
+      .flatrow { display:flex; align-items:center; gap:10px; padding:10px 2px; border-top:1px solid var(--border); }
+      .flatrow i.left { font-size:17px; color:var(--text2); width:20px; }
+      .flatrow .lbl { flex:1; }
+      .flatrow .lbl .t1 { font-size:12px; font-weight:600; color:var(--text); }
+      .flatrow .lbl .t2 { font-size:9.5px; color:var(--text3); margin-top:1px; }
+      .flatrow i.chev { font-size:14px; color:var(--text3); }
+      .swatchgrid { display:flex; gap:6px; }
+      .swatch { flex:1; border:1px solid var(--border); border-radius:10px; padding:5px; text-align:center; }
+      .swatch.on { border-color:var(--primary); }
+      .swatchbox { height:28px; border-radius:6px; margin-bottom:4px; }
+      .swatch .lb { font-size:8px; font-weight:700; color:var(--text2); }
+      .swatch.on .lb { color:var(--primary); }
+      .aabox { flex:1; border:1px solid var(--border); border-radius:10px; height:36px; display:flex; align-items:center; justify-content:center; }
+      .aabox.on { border-color:var(--primary); background:rgba(0,168,107,.08); }
+      .aabox span { font-weight:800; color:var(--text2); }
+      .aabox.on span { color:var(--primary); }
+
+      /* Card-wrapped grouped rows — Options A/C */
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-bottom:2px; }
+      .crow { display:flex; align-items:center; gap:10px; padding:10.5px 11px; }
+      .crow + .crow { border-top:1px solid var(--border); }
+      .crow .ic { width:28px; height:28px; border-radius:9px; display:grid; place-items:center; flex-shrink:0; }
+      .crow .lbl { flex:1; }
+      .crow .lbl .t1 { font-size:12px; font-weight:600; color:var(--text); }
+      .crow .lbl .t2 { font-size:9.5px; color:var(--text3); margin-top:1px; }
+      .crow i.chev { font-size:14px; color:var(--text3); }
+
+      /* Quick-access tile row (Option A) */
+      .quickrow { display:flex; gap:8px; margin-bottom:4px; }
+      .qtile { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:10px 8px; align-items:flex-start; }
+      .qtile .ic { width:30px; height:30px; border-radius:10px; display:grid; place-items:center; margin-bottom:7px; }
+      .qtile .t1 { font-size:10.5px; font-weight:700; color:var(--text); line-height:1.25; }
+
+      /* Compact Appearance row (Options A/B/C) */
+      .approw { display:flex; gap:8px; align-items:center; }
+      .approw .swrow { display:flex; gap:5px; }
+      .miniswatch { width:26px; height:26px; border-radius:8px; border:2px solid transparent; }
+      .miniswatch.on { border-color:var(--primary); }
+      .approw .divider { width:1px; height:28px; background:var(--border); }
+      .approw .aaseg { display:flex; gap:3px; flex:1; }
+      .aachip { flex:1; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; background:var(--surface2); }
+      .aachip.on { background:var(--primary); }
+      .aachip span { font-size:9px; font-weight:800; color:var(--text2); }
+      .aachip.on span { color:#04150e; }
+
+      /* Dashboard hero strip (Option C) */
+      .heropills { display:flex; gap:7px; margin-bottom:12px; }
+      .hpill { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:8px 6px; text-align:center; }
+      .hpill .ic { width:26px; height:26px; border-radius:9px; display:grid; place-items:center; margin:0 auto 5px; }
+      .hpill .t1 { font-size:8.5px; font-weight:700; color:var(--text2); }
+      .hpill .t2 { font-size:9.5px; font-weight:800; color:var(--text); margin-top:1px; }
+
+      .fade-up { opacity:.4; }
+
+      .legend { max-width:920px; margin:10px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:#fff; }
+      .legend b { color:#fff; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend li { margin-bottom:8px; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:12px; }
+      .legend .rec-box { background:color-mix(in srgb, var(--primary) 12%, #0e141b); border:1px solid color-mix(in srgb, var(--primary) 35%, #0e141b); border-radius:12px; padding:14px 16px; margin-top:12px; }
+      .legend .q-box { background:#1a1710; border:1px solid #3a3018; border-radius:12px; padding:14px 16px; margin-top:12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Settings — a few genuinely different directions</h1>
+    <p class="sub">Same content throughout — Profile stays fixed at top in all four. What changes: what
+      ranks near the top (Safe Mode/Manage Tags/Privacy default vs. Appearance/Security), whether
+      Theme+Text Size compress into one row, and how much visual "life" (colour, card grouping) gets
+      added to fix the flat/dull baseline.</p>
+
+    <div class="gallery">
+
+      <!-- CURRENT baseline -->
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">baseline</span></div>
+        <div class="vsub">Flat hairline-divided rows on the page background, no card grouping, gray icons throughout. Theme and Text Size are two separate full-width swatch grids. Appearance sits right under Profile; the 3 things you flagged as frequent (Privacy default, Safe Mode, Manage Tags) are 4th-6th down.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Settings</div></div>
+          <div class="content">
+            <div class="profile">
+              <div class="avatar">H</div>
+              <div><div class="nm">Hemant Sharma</div><div class="hd">@hemant · Free plan</div></div>
+              <div class="edit"><span>Edit</span></div>
+            </div>
+            <div class="seclabel">Appearance · Theme</div>
+            <div class="swatchgrid">
+              <div class="swatch on"><div class="swatchbox" style="background:#fff"></div><div class="lb">Light</div></div>
+              <div class="swatch"><div class="swatchbox" style="background:#0b1220"></div><div class="lb">Dark</div></div>
+              <div class="swatch"><div class="swatchbox" style="background:linear-gradient(135deg,#fff 50%,#0b1220 50%)"></div><div class="lb">System</div></div>
+            </div>
+            <div class="seclabel">Text size</div>
+            <div class="swatchgrid">
+              <div class="aabox on"><span style="font-size:13px">Aa</span></div>
+              <div class="aabox"><span style="font-size:16px">Aa</span></div>
+              <div class="aabox"><span style="font-size:19px">Aa</span></div>
+              <div class="aabox"><span style="font-size:22px">Aa</span></div>
+            </div>
+            <div class="seclabel fade-up">Privacy</div>
+            <div class="flatrow fade-up"><i class="ti ti-eye-off left"></i><div class="lbl"><div class="t1">Manage Safe Mode visibility</div></div><i class="ti ti-chevron-right chev"></i></div>
+            <div class="flatrow fade-up"><i class="ti ti-hash left"></i><div class="lbl"><div class="t1">Manage tags</div></div><i class="ti ti-chevron-right chev"></i></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPTION B: minimal-lift reorder -->
+      <div class="frame-wrap">
+        <div class="vtitle">B — Reordered, compact <span class="tag">minimal change</span></div>
+        <div class="vsub">Cheapest fix: same flat-row look, just reordered (your 3 frequent items right after Profile) and Theme+Text Size compressed into one row. No new visual language — least "renovation," but still fairly plain.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Settings</div></div>
+          <div class="content">
+            <div class="profile">
+              <div class="avatar">H</div>
+              <div><div class="nm">Hemant Sharma</div><div class="hd">@hemant · Free plan</div></div>
+              <div class="edit"><span>Edit</span></div>
+            </div>
+            <div class="seclabel">Privacy &amp; frequent</div>
+            <div class="flatrow"><i class="ti ti-shield-lock left"></i><div class="lbl"><div class="t1">Default privacy mode</div><div class="t2">Safe</div></div><i class="ti ti-chevron-right chev"></i></div>
+            <div class="flatrow"><i class="ti ti-eye-off left"></i><div class="lbl"><div class="t1">Manage Safe Mode visibility</div></div><i class="ti ti-chevron-right chev"></i></div>
+            <div class="flatrow"><i class="ti ti-hash left"></i><div class="lbl"><div class="t1">Manage tags</div></div><i class="ti ti-chevron-right chev"></i></div>
+            <div class="seclabel">Security</div>
+            <div class="flatrow"><i class="ti ti-lock left"></i><div class="lbl"><div class="t1">Change PIN</div></div><i class="ti ti-chevron-right chev"></i></div>
+            <div class="flatrow"><i class="ti ti-lock-square left"></i><div class="lbl"><div class="t1">Lock when backgrounded</div></div><i class="ti ti-chevron-right chev"></i></div>
+            <div class="seclabel">Appearance</div>
+            <div class="approw">
+              <div class="swrow">
+                <div class="miniswatch on" style="background:#fff"></div>
+                <div class="miniswatch" style="background:#0b1220"></div>
+                <div class="miniswatch" style="background:linear-gradient(135deg,#fff 50%,#0b1220 50%)"></div>
+              </div>
+              <div class="divider"></div>
+              <div class="aaseg">
+                <div class="aachip on"><span>S</span></div>
+                <div class="aachip"><span>A</span></div>
+                <div class="aachip"><span>A+</span></div>
+                <div class="aachip"><span>A++</span></div>
+              </div>
+            </div>
+            <div class="seclabel fade-up">Data &amp; activity</div>
+            <div class="flatrow fade-up"><i class="ti ti-history left"></i><div class="lbl"><div class="t1">Timeline</div></div><i class="ti ti-chevron-right chev"></i></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPTION A: grouped cards + quick row -->
+      <div class="frame-wrap">
+        <div class="vtitle">A — Grouped cards + quick row <span class="tag rec">recommended</span></div>
+        <div class="vsub">Follows a pattern already written into DESIGN_GUIDELINES.md but never actually built anywhere in Settings — hairline rows wrapped in a <code>bg-surface</code> card, colour-coded icon chips per category. A horizontal "Quick access" row (same shape as the app's existing QuickPickRow pattern) puts your 3 frequent items first, as tappable tiles, not buried in a list.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Settings</div></div>
+          <div class="content">
+            <div class="profile">
+              <div class="avatar">H</div>
+              <div><div class="nm">Hemant Sharma</div><div class="hd">@hemant · Free plan</div></div>
+              <div class="edit"><span>Edit</span></div>
+            </div>
+            <div class="seclabel">Quick access</div>
+            <div class="quickrow">
+              <div class="qtile"><div class="ic" style="background:rgba(245,158,11,.15)"><i class="ti ti-shield-lock" style="color:var(--amber);font-size:15px"></i></div><div class="t1">Privacy: Safe</div></div>
+              <div class="qtile"><div class="ic" style="background:rgba(245,158,11,.15)"><i class="ti ti-eye-off" style="color:var(--amber);font-size:15px"></i></div><div class="t1">Safe Mode items</div></div>
+              <div class="qtile"><div class="ic" style="background:rgba(99,102,241,.15)"><i class="ti ti-hash" style="color:var(--indigo);font-size:15px"></i></div><div class="t1">Manage tags</div></div>
+            </div>
+            <div class="seclabel">Appearance</div>
+            <div class="card">
+              <div class="crow">
+                <div style="flex:1">
+                  <div class="approw">
+                    <div class="swrow">
+                      <div class="miniswatch on" style="background:#fff"></div>
+                      <div class="miniswatch" style="background:#0b1220"></div>
+                      <div class="miniswatch" style="background:linear-gradient(135deg,#fff 50%,#0b1220 50%)"></div>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="aaseg">
+                      <div class="aachip on"><span>S</span></div>
+                      <div class="aachip"><span>A</span></div>
+                      <div class="aachip"><span>A+</span></div>
+                      <div class="aachip"><span>A++</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="seclabel">Security</div>
+            <div class="card">
+              <div class="crow"><div class="ic" style="background:rgba(244,63,94,.15)"><i class="ti ti-lock" style="color:var(--rose);font-size:14px"></i></div><div class="lbl"><div class="t1">Change PIN</div></div><i class="ti ti-chevron-right chev"></i></div>
+              <div class="crow"><div class="ic" style="background:rgba(244,63,94,.15)"><i class="ti ti-key" style="color:var(--rose);font-size:14px"></i></div><div class="lbl"><div class="t1">Change passphrase</div></div><i class="ti ti-chevron-right chev"></i></div>
+            </div>
+            <div class="seclabel fade-up">Data &amp; activity</div>
+            <div class="card fade-up">
+              <div class="crow"><div class="ic" style="background:rgba(20,184,166,.15)"><i class="ti ti-history" style="color:var(--teal);font-size:14px"></i></div><div class="lbl"><div class="t1">Timeline</div></div><i class="ti ti-chevron-right chev"></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPTION C: dashboard hero + categorized cards -->
+      <div class="frame-wrap">
+        <div class="vtitle">C — "At a glance" dashboard <span class="tag">boldest</span></div>
+        <div class="vsub">Most editorial: a status-pill strip right under Profile showing your current Theme/Privacy/PIN state at a glance (tap any pill to jump straight to that control) — Settings becomes a quick dashboard, not just a list to scroll. Everything else still organised into colour-coded cards.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Settings</div></div>
+          <div class="content">
+            <div class="profile">
+              <div class="avatar">H</div>
+              <div><div class="nm">Hemant Sharma</div><div class="hd">@hemant · Free plan</div></div>
+              <div class="edit"><span>Edit</span></div>
+            </div>
+            <div class="heropills">
+              <div class="hpill"><div class="ic" style="background:rgba(245,158,11,.15)"><i class="ti ti-shield-lock" style="color:var(--amber);font-size:13px"></i></div><div class="t1">PRIVACY</div><div class="t2">Safe</div></div>
+              <div class="hpill"><div class="ic" style="background:rgba(139,92,246,.15)"><i class="ti ti-moon" style="color:var(--violet);font-size:13px"></i></div><div class="t1">THEME</div><div class="t2">Dark</div></div>
+              <div class="hpill"><div class="ic" style="background:rgba(244,63,94,.15)"><i class="ti ti-lock" style="color:var(--rose);font-size:13px"></i></div><div class="t1">PIN</div><div class="t2">Set ✓</div></div>
+            </div>
+            <div class="seclabel">Frequent</div>
+            <div class="card">
+              <div class="crow"><div class="ic" style="background:rgba(245,158,11,.15)"><i class="ti ti-eye-off" style="color:var(--amber);font-size:14px"></i></div><div class="lbl"><div class="t1">Manage Safe Mode visibility</div></div><i class="ti ti-chevron-right chev"></i></div>
+              <div class="crow"><div class="ic" style="background:rgba(99,102,241,.15)"><i class="ti ti-hash" style="color:var(--indigo);font-size:14px"></i></div><div class="lbl"><div class="t1">Manage tags</div></div><i class="ti ti-chevron-right chev"></i></div>
+            </div>
+            <div class="seclabel">Appearance</div>
+            <div class="card">
+              <div class="crow">
+                <div style="flex:1">
+                  <div class="approw">
+                    <div class="swrow">
+                      <div class="miniswatch on" style="background:#fff"></div>
+                      <div class="miniswatch" style="background:#0b1220"></div>
+                      <div class="miniswatch" style="background:linear-gradient(135deg,#fff 50%,#0b1220 50%)"></div>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="aaseg">
+                      <div class="aachip"><span>S</span></div>
+                      <div class="aachip on"><span>A</span></div>
+                      <div class="aachip"><span>A+</span></div>
+                      <div class="aachip"><span>A++</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="seclabel fade-up">Security</div>
+            <div class="card fade-up">
+              <div class="crow"><div class="ic" style="background:rgba(244,63,94,.15)"><i class="ti ti-lock" style="color:var(--rose);font-size:14px"></i></div><div class="lbl"><div class="t1">Change PIN</div></div><i class="ti ti-chevron-right chev"></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="legend">
+      <h2>Notes on ordering + tradeoffs</h2>
+      <ul>
+        <li><b>New top-level order in B/A/C:</b> Profile → Quick/Frequent (Privacy default, Safe Mode visibility, Manage tags) → Security (PIN/passphrase/lock — still important, just not "daily-touch") → Appearance (Theme+Text Size, one compact row) → Data &amp; activity → Danger zone. Open mode duration stays grouped with the Privacy default picker (same section), not separately promoted.</li>
+        <li><b>Theme + Text Size, one row:</b> 3 small circular swatches + a 4-segment "S/A/A+/A++" chip strip side by side, divided by a thin vertical rule — both still fully visible/tappable, just ~70% shorter than today's two full grids.</li>
+        <li><b>Option A</b> is the strongest fit for "less dull" at moderate cost: it finally builds the "Grouped cards + section labels" pattern the design guidelines already describe, adds a genuine quick-access row for your 3 named items, and colour-codes categories (amber=privacy, rose=security, teal=data) the same way Home's MoneyStatsCard/IconBadge already does elsewhere — no new visual language for the app as a whole, just applied to a screen that never got it.</li>
+        <li><b>Option C</b> goes further with a glanceable status strip (current Theme/Privacy/PIN state, tap-through) — more "alive," but it's new UI vocabulary (a dashboard strip) that doesn't exist elsewhere yet, and duplicates state that's also shown one scroll down (e.g. Theme shown both in the pill and in the Appearance card) — worth weighing against "one capability, one control."</li>
+        <li><b>Option B</b> is the fallback if you'd rather ship the reordering/compaction now and treat colour/cards as a separate follow-up.</li>
+      </ul>
+      <div class="rec-box"><b>Recommendation: Option A.</b> It's the guideline-backed fix (grouped cards were already meant to be the pattern here), directly answers "most needed on top" with a real quick-access row instead of just reshuffling text rows, and the colour-coding alone should fix most of the "boring and dull" feeling without inventing a new pattern the rest of the app doesn't share.</li>
+      <div class="q-box"><b>One thing I'm not deciding for you:</b> where "Lock when backgrounded" and "Open mode duration" should rank — I folded Open mode duration into the same section as the Privacy default picker (they're both privacy-adjacent) and left "Lock when backgrounded" in Security. If you'd rather split Privacy into its own top section separate from Safe Mode/Manage Tags, say so and I'll adjust.</div>
+    </div>
+  </body>
+</html>

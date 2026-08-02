@@ -4,6 +4,8 @@ import {
   budgetsRepo,
   expenseCategoriesRepo,
   expensesRepo,
+  goalContributionsRepo,
+  goalsRepo,
   hashtagsRepo,
   ledgerEntriesRepo,
   merchantMemoryRepo,
@@ -11,17 +13,27 @@ import {
   transactionTemplatesRepo
 } from '@/core/db/repositories';
 import type {
+  Account,
   Expense,
   ExpenseCategory,
+  Goal,
+  GoalContribution,
   MerchantMemory,
   Person,
   TransactionTemplate,
   TransactionType
 } from '@/core/db/types';
 import { reconcileExpenseLink, type ExpenseIouIntent, type ExpenseSeedIntent } from '@/core/iou/expenseLink';
+import { reconcileGoalLink, type ExpenseGoalIntent } from '@/core/goals/goalLink';
 import { useRepository } from '@/hooks/useRepository';
 import { useTxnRefresh, notifyTxnChanged } from '@/hooks/useTxnRefresh';
-import { useCategoriesRefresh, useTagsRefresh } from '@/hooks/useDataRefresh';
+import {
+  useCategoriesRefresh,
+  useTagsRefresh,
+  useAccountsRefresh,
+  notifyAccountsChanged
+} from '@/hooks/useDataRefresh';
+import type { AccountInput } from '~/hooks/useAccountForm';
 import { ALL_DEFAULT_CATEGORIES, CATEGORY_MIGRATION_MAP } from '@/core/db/defaultCategories';
 import { dedupeDemoCategories, reconcileDefaultCategories, repairCategoryIcons } from '@/core/db/dedupeDemoCategories';
 import { calcSpendByCategory, calcTxnCountByCategory } from '@/core/expenses/filterAndAggregate';
@@ -63,16 +75,48 @@ export function useExpenses() {
     reload: reloadCategories
   } = useRepository(expenseCategoriesRepo);
   const { items: hashtags, save: saveHashtag, reload: reloadHashtags } = useRepository(hashtagsRepo);
-  const { items: accounts } = useRepository(accountsRepo);
+  const { items: accounts, reload: reloadAccounts } = useRepository(accountsRepo);
+  // The Accounts page (or Settings → Safe Mode) writes accounts through a separately-mounted repo
+  // instance — including the inline "+ Add account" in ExpenseForm.tsx's own account chips; reload here
+  // too so this screen's account list stays live without needing to remount.
+  useAccountsRefresh(reloadAccounts);
+
+  // Add an account from inside the expense form's own "+" tile (`AccountChips.tsx`), without leaving
+  // it. Mirrors `useAccounts.ts`'s own `saveAccount` (same shape, same repo) — that hook can't be
+  // imported here directly (a feature module importing another feature module's hook), so this is a
+  // second, independent implementation of the same mutation rather than a shared one; `notifyAccountsChanged()`
+  // is what keeps the two in sync afterward, the same signal Settings → Safe Mode's own account edits
+  // already rely on.
+  const saveAccount = useCallback(async (data: AccountInput, editing: Account | null): Promise<Account> => {
+    const now = Date.now();
+    const record: Account = editing
+      ? { ...editing, ...data, updatedAt: now }
+      : { id: crypto.randomUUID(), ...data, isArchived: false, createdAt: now, updatedAt: now };
+    await accountsRepo.put(record);
+    logActivity({
+      action: editing ? 'UPDATE' : 'CREATE',
+      entityType: 'account',
+      entityId: record.id,
+      summary: `${editing ? 'Updated' : 'Added'} account: ${record.name}`
+    });
+    notifyAccountsChanged();
+    return record;
+  }, []);
   const { items: persons, reload: reloadPersons } = useRepository<Person>(personsRepo);
   const { items: ledgerEntries, reload: reloadLedger } = useRepository(ledgerEntriesRepo);
+  const { items: goals, reload: reloadGoals } = useRepository<Goal>(goalsRepo);
+  const { items: goalContributions, reload: reloadGoalContributions } =
+    useRepository<GoalContribution>(goalContributionsRepo);
 
-  // The IOU screen writes expenses/ledger entries through separate repo instances; reload on its signal.
+  // The IOU/Goals screens write expenses/ledger entries/contributions through separate repo instances;
+  // reload on their signal.
   const refreshTxnData = useCallback(() => {
     reloadExpenses();
     reloadLedger();
     reloadPersons();
-  }, [reloadExpenses, reloadLedger, reloadPersons]);
+    reloadGoals();
+    reloadGoalContributions();
+  }, [reloadExpenses, reloadLedger, reloadPersons, reloadGoals, reloadGoalContributions]);
   useTxnRefresh(refreshTxnData);
   // Settings → Safe Mode edits categories through a separately-mounted repo instance; reload here too.
   useCategoriesRefresh(reloadCategories);
@@ -604,6 +648,58 @@ export function useExpenses() {
     return ids;
   }, [ledgerEntries]);
 
+  // Seed / reconcile the goal contribution an expense/income/transfer produces — mirrors
+  // `seedIouFromExpense` above, just simpler (a goal link only ever names one goal, no "kind").
+  // Pure reconcile logic lives in core/goals/goalLink.
+  const seedGoalFromExpense = useCallback(async (expenseId: string, intent: ExpenseGoalIntent | null) => {
+    const all = await goalContributionsRepo.getAll();
+    const { toPut, toDelete } = reconcileGoalLink(expenseId, all, intent, Date.now());
+    for (const contribution of toPut) {
+      await goalContributionsRepo.put(contribution);
+      logActivity({
+        action: 'CREATE',
+        entityType: 'goalContribution',
+        entityId: contribution.id,
+        summary: `₹${contribution.amount} toward goal (from transaction)`
+      });
+    }
+    for (const delId of toDelete) await goalContributionsRepo.delete(delId);
+    if (toPut.length > 0 || toDelete.length > 0) notifyTxnChanged();
+  }, []);
+
+  // For the edit form: which transactions have an expense-seeded goal contribution, and toward which goal.
+  const goalLinkByTxn = useMemo(() => {
+    const nameById = new Map(goals.map((g) => [g.id, g.name]));
+    const map = new Map<string, { goalId: string; goalName: string }>();
+    for (const c of goalContributions) {
+      if (c.origin === 'expense' && c.linkedTxnId) {
+        map.set(c.linkedTxnId, { goalId: c.goalId, goalName: nameById.get(c.goalId) ?? 'a goal' });
+      }
+    }
+    return map;
+  }, [goalContributions, goals]);
+
+  // Every transaction that backs a goal contribution — per your call, analytics treats these as
+  // non-routine too (money set aside toward a goal isn't daily-living spend), same reasoning as IOU above.
+  const goalLinkedTxnIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const c of goalContributions) if (c.linkedTxnId) ids.add(c.linkedTxnId);
+    return ids;
+  }, [goalContributions]);
+
+  // Every transaction linked to a given goal (any contribution origin, not just expense-seeded ones) —
+  // powers "Filter by goal" in `FilterModal.tsx`/`useTransactionFilters.ts`.
+  const txnIdsByGoal = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const c of goalContributions) {
+      if (!c.linkedTxnId) continue;
+      const set = map.get(c.goalId) ?? new Set<string>();
+      set.add(c.linkedTxnId);
+      map.set(c.goalId, set);
+    }
+    return map;
+  }, [goalContributions]);
+
   // Current balance per account — powers the cash-negative guard in the entry form (Track E, E5).
   const accountBalances = useMemo(() => {
     const map: Record<string, number> = {};
@@ -659,6 +755,7 @@ export function useExpenses() {
     saveExpense,
     removeExpense,
     accounts,
+    saveAccount,
     categories,
     hashtags,
     reloadCategories,
@@ -682,6 +779,11 @@ export function useExpenses() {
     seedIouFromExpense,
     iouLinkByTxn,
     iouLinkedTxnIds,
+    goals,
+    seedGoalFromExpense,
+    goalLinkByTxn,
+    goalLinkedTxnIds,
+    txnIdsByGoal,
     accountBalances,
     patchExpenses,
     removeExpenses,

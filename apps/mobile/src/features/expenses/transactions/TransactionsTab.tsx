@@ -18,7 +18,10 @@ interface TransactionsTabProps {
   accountMap: Map<string, Account>;
   hashtags: Hashtag[];
   shouldMask: (sensitive: boolean | undefined) => boolean;
-  onEdit: (expense: Expense) => void;
+  /** Omit for a read-only list (e.g. `EntityTransactionsModal`'s account/category/tag drill-down) — rows
+   *  render as plain, non-interactive `View`s instead of a `SwipeableRow` with nothing useful to swipe
+   *  or tap into. */
+  onEdit?: (expense: Expense) => void;
   onDelete?: (id: string) => void;
   onDuplicate?: (expense: Expense) => void;
   /** Share-later (Track E): opens the group picker for an as-yet-unshared expense. */
@@ -26,11 +29,20 @@ interface TransactionsTabProps {
   selectMode?: boolean;
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
+  /** Transactions that back a goal contribution — shown with a small target icon next to the title,
+   *  same treatment as the receipt/shared-expense icons already here. */
+  goalLinkedTxnIds?: Set<string>;
 }
 
-type Row =
-  | { kind: 'header'; key: string; title: string; isFirst: boolean }
-  | { kind: 'txn'; key: string; txn: Expense; isLastRowOverall: boolean };
+interface Row {
+  key: string;
+  txn: Expense;
+  isLastRowOverall: boolean;
+  /** Set only on the first transaction of a new day — rendered as a compact label sitting right on the
+   *  rail above this row, instead of a separate full-width header row (2026-08-02: keeps the "date shown
+   *  once per day" grouping while costing one small text line instead of a whole extra row's height). */
+  dateLabel?: string;
+}
 
 interface RowProps {
   txn: Expense;
@@ -38,7 +50,7 @@ interface RowProps {
   accountMap: Map<string, Account>;
   hashtags: Hashtag[];
   shouldMask: (sensitive: boolean | undefined) => boolean;
-  onEdit: (expense: Expense) => void;
+  onEdit?: (expense: Expense) => void;
   onDelete?: (id: string) => void;
   onDuplicate?: (expense: Expense) => void;
   onShare?: ((expense: Expense) => void) | undefined;
@@ -46,6 +58,8 @@ interface RowProps {
   isSelected: boolean;
   onToggleSelect?: (id: string) => void;
   isLastRowOverall: boolean;
+  isGoalLinked: boolean;
+  dateLabel?: string;
 }
 
 /**
@@ -74,7 +88,9 @@ const TransactionRow = memo(function TransactionRow({
   selectMode,
   isSelected,
   onToggleSelect,
-  isLastRowOverall
+  isLastRowOverall,
+  isGoalLinked,
+  dateLabel
 }: RowProps) {
   const theme = useThemeColors();
   const txnType = txn.type ?? 'expense';
@@ -91,17 +107,14 @@ const TransactionRow = memo(function TransactionRow({
   const acc = txn.accountId ? accountMap.get(txn.accountId) : undefined;
   const catLabel =
     txnType === 'transfer' ? 'Transfer' : (cat?.name ?? (txnType === 'income' ? 'Income' : 'Uncategorized'));
-  const subtitle = acc?.name ? `${catLabel} · ${acc.name}` : catLabel;
+  const subtitle = catLabel;
   const masked = shouldMask((cat && isHiddenInSafeMode(cat)) || isTagHiddenInSafeMode(txn.hashtags, hashtags));
 
-  const body = (
+  // No separate icon badge here anymore — normal mode's rail icon (below) already shows category/type,
+  // so repeating it next to the text would just be the same information twice. Select mode has no rail
+  // at all, so it renders its own badge (see below) using this same `icon`/`accent`.
+  const content = (
     <>
-      <View
-        className="w-9 h-9 rounded-xl items-center justify-center shrink-0"
-        style={{ backgroundColor: tint(accent, 12) }}
-      >
-        <Icon name={icon} size={18} color={accent} />
-      </View>
       <View className="flex-1 min-w-0">
         <View className="flex-row items-center">
           <Text className="text-sm font-semibold text-primary shrink" numberOfLines={1}>
@@ -117,6 +130,11 @@ const TransactionRow = memo(function TransactionRow({
               <Icon name="ti-users-group" size={12} color={theme.primary} />
             </View>
           )}
+          {isGoalLinked && (
+            <View className="ml-1">
+              <Icon name="ti-target" size={12} color={theme.success} />
+            </View>
+          )}
         </View>
         <View className="flex-row items-center mt-0.5">
           <Text className="text-[11.5px] text-tertiary" numberOfLines={1}>
@@ -129,13 +147,20 @@ const TransactionRow = memo(function TransactionRow({
           ))}
         </View>
       </View>
-      <Text className="text-sm font-bold ml-2 shrink-0" style={{ color: masked ? theme.textPrimary : amountColor }}>
-        {masked ? '••••' : `${prefix}${formatCurrency(txn.amount)}`}
-      </Text>
+      <View className="items-end ml-2 shrink-0">
+        <Text className="text-sm font-bold" style={{ color: masked ? theme.textPrimary : amountColor }}>
+          {masked ? '••••' : `${prefix}${formatCurrency(txn.amount)}`}
+        </Text>
+        {acc?.name && (
+          <Text className="text-[10px] text-tertiary mt-0.5" numberOfLines={1}>
+            {acc.name}
+          </Text>
+        )}
+      </View>
     </>
   );
 
-  // Select mode: flat tappable row with a checkbox; no rail.
+  // Select mode: flat tappable row with a checkbox; no rail, so it needs its own icon badge.
   if (selectMode) {
     return (
       <Pressable
@@ -148,12 +173,19 @@ const TransactionRow = memo(function TransactionRow({
           size={20}
           color={isSelected ? theme.primary : theme.textTertiary}
         />
-        {body}
+        <View
+          className="w-9 h-9 rounded-xl items-center justify-center shrink-0"
+          style={{ backgroundColor: tint(accent, 12) }}
+        >
+          <Icon name={icon} size={18} color={accent} />
+        </View>
+        {content}
       </Pressable>
     );
   }
 
-  // Normal mode: timeline rail + dot live INSIDE the row; swipe-left → Copy/Delete; tap → edit.
+  // Normal mode: timeline rail lives INSIDE the row, its dot now the category/type icon itself (filled,
+  // tinted) — doing what the separate icon badge above used to do; swipe-left → Copy/Delete; tap → edit.
   const isShared = (txn.shareWith?.length ?? 0) > 0;
   const actions: SwipeAction[] = [
     ...(onDuplicate ? [{ icon: 'ti-copy', label: 'Copy', color: theme.info, onPress: () => onDuplicate(txn) }] : []),
@@ -162,24 +194,52 @@ const TransactionRow = memo(function TransactionRow({
       : []),
     ...(onDelete ? [{ icon: 'ti-trash', label: 'Delete', color: theme.danger, onPress: () => onDelete(txn.id) }] : [])
   ];
-  return (
-    <SwipeableRow actions={actions} onTap={() => onEdit(txn)}>
+
+  const rowInner = (
+    <View>
+      {/* Date label — set only on the first transaction of a new day. Sits in normal flow, right on
+          the rail's own horizontal position, above the row it belongs to (never a negative-offset
+          overlay, which a virtualized list would risk clipping against the previous cell's bounds). */}
+      {dateLabel && (
+        <View className="pl-3 pr-4 pt-2 pb-0.5">
+          <Text className="text-[9px] font-extrabold uppercase tracking-wide text-tertiary">{dateLabel}</Text>
+        </View>
+      )}
       <View
-        className="relative w-full flex-row items-center gap-3 pl-10 pr-4 py-3"
+        className="relative w-full flex-row items-center gap-3 pl-12 pr-4 py-3"
         style={isShared ? { backgroundColor: tint(theme.primary, 6) } : undefined}
       >
-        {/* rail segment for this row */}
-        <View
-          className="absolute w-px"
-          style={{ left: 20, top: 0, bottom: isLastRowOverall ? '50%' : 0, backgroundColor: theme.border }}
-        />
-        {/* dot on the rail */}
-        <View
-          className="absolute w-2.5 h-2.5 rounded-full"
-          style={{ left: 15, top: '50%', marginTop: -5, backgroundColor: accent }}
-        />
-        {body}
+        {/* Rail + icon, truly centered on the row regardless of its actual rendered height (which now
+            varies — the account line under the amount makes some rows taller than others). A flex
+            column with two equal-flex fillers around the fixed-size icon tile, not `top: '50%'` +
+            `marginTop` — RN's percentage-of-parent positioning for an absolutely-positioned sibling
+            isn't reliable on-device under this project's NativeWind/interop setup (same class of bug
+            `MainTabs.tsx`'s `HeaderCenter` already hit once), where plain flex distribution inside a
+            top/bottom-anchored (so already definite-height) absolute container always resolves
+            correctly. */}
+        <View className="absolute" style={{ left: 12, top: 0, bottom: 0, width: 24, alignItems: 'center' }}>
+          <View style={{ width: 1, flex: 1, backgroundColor: theme.border }} />
+          <View
+            className="w-[22px] h-[22px] rounded-lg items-center justify-center"
+            style={{ backgroundColor: accent }}
+          >
+            <Icon name={icon} size={13} color="#fff" />
+          </View>
+          <View style={{ width: 1, flex: isLastRowOverall ? 0 : 1, backgroundColor: theme.border }} />
+        </View>
+        {content}
       </View>
+    </View>
+  );
+
+  // Read-only (no `onEdit`, e.g. `EntityTransactionsModal`'s drill-down lists): a plain row, no
+  // `SwipeableRow` — nothing to swipe into and nothing for a tap to do, so mounting a real
+  // gesture-handler instance for it would be pure overhead.
+  if (!onEdit) return rowInner;
+
+  return (
+    <SwipeableRow actions={actions} onTap={() => onEdit(txn)}>
+      {rowInner}
     </SwipeableRow>
   );
 });
@@ -198,8 +258,10 @@ const TransactionRow = memo(function TransactionRow({
  * (see git history) was fixed. `FlashList` uses cell **recycling** instead — a fixed pool of mounted row
  * components gets its props swapped in place as you scroll, the same strategy native list views (Android
  * `RecyclerView`, iOS `UITableView` reused cells) and cross-platform apps built on them use to handle much
- * larger datasets smoothly. Sections are flattened into one `Row[]` (`header`/`txn` variants) with
- * `getItemType` so headers and transaction rows recycle from separate pools instead of colliding.
+ * larger datasets smoothly. Sections are flattened into one `Row[]` — day boundaries used to be a
+ * separate `header` row type recycled from its own pool; as of 2026-08-02 there's only one row shape
+ * (a day's first transaction just carries an extra `dateLabel`, rendered inline on the rail instead of
+ * as its own list item), so every row recycles from the same single pool now.
  * `TransactionsSlice.tsx`'s wrapping `ScrollView` stays removed — this owns its own scroll.
  */
 export function TransactionsTab({
@@ -215,7 +277,8 @@ export function TransactionsTab({
   onShare,
   selectMode = false,
   selectedIds,
-  onToggleSelect
+  onToggleSelect,
+  goalLinkedTxnIds
 }: TransactionsTabProps) {
   const theme = useThemeColors();
 
@@ -231,52 +294,37 @@ export function TransactionsTab({
   const rows: Row[] = useMemo(() => {
     const out: Row[] = [];
     grouped.forEach((g, gi) => {
-      out.push({ kind: 'header', key: `h:${g.label}`, title: g.label, isFirst: gi === 0 });
       g.items.forEach((txn, ti) => {
         const isLastRowOverall = gi === grouped.length - 1 && ti === g.items.length - 1;
-        out.push({ kind: 'txn', key: txn.id, txn, isLastRowOverall });
+        out.push({ key: txn.id, txn, isLastRowOverall, ...(ti === 0 ? { dateLabel: g.label } : {}) });
       });
     });
     return out;
   }, [grouped]);
 
   const keyExtractor = useCallback((row: Row) => row.key, []);
-  const getItemType = useCallback((row: Row) => row.kind, []);
 
   const renderItem = useCallback(
-    ({ item }: ListRenderItemInfo<Row>) => {
-      if (item.kind === 'header') {
-        return (
-          <View className="relative pl-10 pr-4 pt-4 pb-1.5" style={{ backgroundColor: theme.surfaceTertiary }}>
-            <View
-              className="absolute w-px"
-              style={{ left: 20, top: item.isFirst ? '55%' : 0, bottom: 0, backgroundColor: theme.border }}
-            />
-            <Text className="text-[11px] font-semibold uppercase tracking-wider text-tertiary">{item.title}</Text>
-          </View>
-        );
-      }
-      return (
-        <TransactionRow
-          txn={item.txn}
-          categoryMap={categoryMap}
-          accountMap={accountMap}
-          hashtags={hashtags}
-          shouldMask={shouldMask}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onDuplicate={onDuplicate}
-          onShare={onShare}
-          selectMode={selectMode}
-          isSelected={selectedIds?.has(item.txn.id) ?? false}
-          onToggleSelect={onToggleSelect}
-          isLastRowOverall={item.isLastRowOverall}
-        />
-      );
-    },
+    ({ item }: ListRenderItemInfo<Row>) => (
+      <TransactionRow
+        txn={item.txn}
+        categoryMap={categoryMap}
+        accountMap={accountMap}
+        hashtags={hashtags}
+        shouldMask={shouldMask}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onDuplicate={onDuplicate}
+        onShare={onShare}
+        selectMode={selectMode}
+        isSelected={selectedIds?.has(item.txn.id) ?? false}
+        onToggleSelect={onToggleSelect}
+        isLastRowOverall={item.isLastRowOverall}
+        isGoalLinked={goalLinkedTxnIds?.has(item.txn.id) ?? false}
+        dateLabel={item.dateLabel}
+      />
+    ),
     [
-      theme.surfaceTertiary,
-      theme.border,
       categoryMap,
       accountMap,
       hashtags,
@@ -287,7 +335,8 @@ export function TransactionsTab({
       onShare,
       selectMode,
       selectedIds,
-      onToggleSelect
+      onToggleSelect,
+      goalLinkedTxnIds
     ]
   );
 
@@ -319,17 +368,16 @@ export function TransactionsTab({
   return (
     <FlashList
       style={{ flex: 1, backgroundColor: theme.surfaceTertiary }}
-      // Both the list's own background and each section's date header use the same fixed
-      // `theme.surfaceTertiary` the row cards below use (see `SwipeableRow.tsx`'s `bg-surface-3`) —
-      // not the privacy-mode-tinted `modeBg` this used to be. Web's own `TransactionsTab` deliberately
-      // gives its rows a fixed, non-privacy-tinted background so "the list reads as one uniform
-      // surface" (see that file's comment) — matching that here means the date headers/gaps need the
-      // same fixed color the rows have, not the ambient page tint, or they visibly seam against the
-      // opaque row cards (found via user report: looked like a mistint, not a themed background).
+      // The list's own background uses the same fixed `theme.surfaceTertiary` the row cards use (see
+      // `SwipeableRow.tsx`'s `bg-surface-3`) — not the privacy-mode-tinted `modeBg` this used to be.
+      // Web's own `TransactionsTab` deliberately gives its rows a fixed, non-privacy-tinted background so
+      // "the list reads as one uniform surface" (see that file's comment) — matching that here means the
+      // gaps between rows need the same fixed color the rows have, not the ambient page tint, or they
+      // visibly seam against the opaque row cards (found via user report: looked like a mistint, not a
+      // themed background).
       contentContainerStyle={{ paddingBottom: 96 }}
       data={rows}
       keyExtractor={keyExtractor}
-      getItemType={getItemType}
       renderItem={renderItem}
       // Default is 250dp — the buffer of off-screen rows kept pre-rendered ahead of the viewport.
       // Bumped after a user-reported blank flash during a fast fling: a larger buffer gives the recycler

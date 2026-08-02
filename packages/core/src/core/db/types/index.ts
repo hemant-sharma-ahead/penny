@@ -341,6 +341,14 @@ export interface Goal {
   id: string;
   name: string;
   targetAmount: number;
+  /**
+   * Baseline saved before/outside of tracked contributions — set once via `GoalForm`'s "Already saved"
+   * field, never auto-incremented afterward (2026-08-01 goal-transaction linking). The amount actually
+   * shown to the user ("₹X of ₹Y saved") is this baseline **plus** the sum of that goal's
+   * `GoalContribution`s — computed live, the same way IOU's net balance is never a stored/denormalized
+   * total either (see `core/iou/ledger.ts`'s `netBalance`). Mutating this field directly after creation
+   * would silently double-count against real contributions.
+   */
   currentAmount: number;
   targetDate: number;
   risk: GoalRisk;
@@ -351,6 +359,12 @@ export interface Goal {
   shareWith?: string[];
   /** How the goal was created. `suggested` = created from a Home advisor "Set as goal" nudge. */
   source?: 'manual' | 'suggested';
+  /** Whether this goal's saved amount (baseline + contributions) is treated as already spoken-for money
+   *  when computing "Safe to spend" (Home/Expenses/Cash Flow) — i.e. excluded from what's shown as
+   *  available. Undefined/true = counts (the default for every goal, new or existing); explicitly false
+   *  only for a goal the user personally decides should still read as spendable. See
+   *  `core/goals/progress.ts`'s `effectiveSaved`/`goalReservedAmount`. */
+  countsTowardSafeToSpend?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -361,7 +375,18 @@ export interface GoalContribution {
   amount: number;
   date: number;
   notes?: string;
+  /** 'expense' when seeded by a linked Expense/Income/Transfer transaction; 'manual' for a contribution
+   *  logged with no transaction behind it. Mirrors `LedgerEntry.origin` (IOU's equivalent field). */
+  origin: 'manual' | 'expense';
+  /**
+   * The account transaction (Expense for a contribution from one account, Transfer for a contribution
+   * moved between two) recording this contribution's real money movement, if any. Linked both ways —
+   * deleting either the transaction or this contribution cascades to the other. Mirrors
+   * `LedgerEntry.linkedTxnId`.
+   */
+  linkedTxnId?: string;
   createdAt: number;
+  updatedAt: number;
 }
 
 export type LiabilityType =

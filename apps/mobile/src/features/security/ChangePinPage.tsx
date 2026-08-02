@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, Pressable, ScrollView, BackHandler, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type ParamListBase, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Button, PageHeader, TextInput, Banner } from '~/components/ui';
-import { BackButton } from '~/components/shared';
+import { Button, TextInput, Banner } from '~/components/ui';
 import { changePin, isWeakPin, resetPinWithPassphrase } from '@/core/crypto/securityManager';
 import { notifyAuthShouldRecheck } from '~/navigation/authRecheckBus';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useRegisterHeaderScreen } from '~/navigation/HeaderBackContext';
 
 type ChangePinRouteParams = { forcedPinReset?: boolean } | undefined;
 
@@ -25,8 +25,10 @@ const isSixDigits = (v: string) => /^\d{6}$/.test(v);
  * — but neither intercepts Android's hardware back button, a separate OS-level event (found via the
  * 2026-07-25 rendering-model parity re-sweep: a locked-out user could press back and exit the forced-reset
  * screen entirely, bypassing recovery). Fixed with a `BackHandler` listener that swallows the event
- * whenever `forced` is true. The `leading` back button (this screen's own in-content header, not
- * native-stack's chrome) is still conditionally hidden below to match web's intent.
+ * whenever `forced` is true. The global header's back-chevron (`MainTabs`' `HeaderLeft`, since the
+ * 2026-08-01 chrome consolidation) is also hidden whenever `forced` is true — see `MainTabs.tsx`'s
+ * `pinResetForced` gate — so this screen registers no back handler at all while forced, matching web's
+ * intent that there's nothing to go back to during a forced reset.
  *
  * `handleSubmitViaPassphrase`/`handleSubmitViaPin` wrap their `securityManager` call in try/catch
  * (2026-07-25, found via audit): previously a thrown error (as opposed to a resolved failure `status`)
@@ -40,6 +42,8 @@ export function ChangePinPage() {
   // Reached via SessionGate's "Forgot PIN?" recovery — only possible once PIN attempts were exhausted,
   // so this is always a genuine recovery and the screen is made non-dismissible below.
   const forced = !!route.params?.forcedPinReset;
+  const goBack = useCallback(() => navigation.goBack(), [navigation]);
+  useRegisterHeaderScreen('ChangePin', forced ? null : goBack, forced);
 
   useEffect(() => {
     if (!forced) return;
@@ -156,7 +160,6 @@ export function ChangePinPage() {
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <PageHeader leading={forced ? undefined : <BackButton />} title="Change PIN" />
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-4 py-4 gap-4">
           {forced ? (

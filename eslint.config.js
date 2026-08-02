@@ -64,7 +64,8 @@ export default defineConfig([
       'packages/core/src/core/sync/SyncProvider.tsx',
       'packages/core/src/core/sync/SyncProvider.native.tsx',
       'apps/mobile/src/theme/ThemeProvider.tsx',
-      'apps/mobile/src/context/*.tsx'
+      'apps/mobile/src/context/*.tsx',
+      'apps/mobile/src/navigation/HeaderBackContext.tsx'
     ],
     rules: {
       'react-refresh/only-export-components': 'off'

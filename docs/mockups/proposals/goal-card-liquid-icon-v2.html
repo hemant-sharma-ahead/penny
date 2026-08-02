@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Liquid-fill goal card, final</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --blue:#3b82f6; --pink:#ec4899; --violet:#8b5cf6;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 22px; color:#9aa5b1; font-size:14px; max-width:900px; margin-left:auto; margin-right:auto; line-height:1.65; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:40px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 10px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#123524; color:#7ee6b8; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; height:620px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .header { height:40px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .htitle { flex:1; text-align:center; font-size:13.5px; font-weight:700; color:var(--text); }
+      .avatar { width:26px; height:26px; border-radius:50%; background:var(--primary); display:grid; place-items:center; color:#fff; font-size:11px; font-weight:800; }
+      .content { flex:1; padding:14px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; }
+
+      /* liquid card w/ icon ALWAYS on top of the fill (never dimmed by it) */
+      .liquidcard { position:relative; border-radius:18px; overflow:hidden; height:180px; border:1px solid var(--border); background:var(--surface); flex-shrink:0; }
+      .liquidcard svg.wave { position:absolute; z-index:1; bottom:0; left:0; width:100%; height:100%; }
+      .liquidcard .wm { position:absolute; z-index:2; color:#fff; opacity:.16; }
+      .liq-content { position:relative; z-index:3; padding:14px; height:100%; display:flex; flex-direction:column; justify-content:space-between; }
+      .liq-top .pct { font-size:24px; font-weight:800; color:#fff; }
+      .liq-top .nm { font-size:13px; font-weight:700; color:#fff; margin-top:2px; }
+      .liq-bottom .row { display:flex; justify-content:space-between; align-items:center; font-size:10.5px; color:rgba(255,255,255,.92); }
+      .liq-bottom .sip { font-size:9.5px; color:rgba(255,255,255,.72); margin-top:3px; }
+
+      .actrow { display:flex; gap:8px; }
+      .actrow .b { flex:1; border-radius:11px; padding:8px; text-align:center; font-size:10.5px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:5px; }
+      .actrow .b.sec { border:1px solid var(--border); color:var(--text2); }
+      .actrow .b.pri { background:var(--primary); color:#04150e; }
+      .actrow .b i { font-size:12px; }
+
+      .legend { max-width:900px; margin:14px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:22px 0 8px; color:#fff; }
+      .legend h2:first-child { margin-top:0; }
+      .legend b { color:#fff; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:12px; }
+      table.kwmap { width:100%; border-collapse:collapse; margin-top:8px; font-size:12.5px; }
+      table.kwmap th, table.kwmap td { text-align:left; padding:6px 10px; border-bottom:1px solid #1e2733; }
+      table.kwmap th { color:#9aa5b1; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.03em; }
+      table.kwmap td.icon { color:#7ee6b8; }
+      .changelist { margin:6px 0 0; padding-left:20px; }
+      .changelist li { margin-bottom:6px; }
+    </style>
+  </head>
+  <body>
+    <h1>Liquid-fill goal card — final</h1>
+    <p class="sub">Two fixes from your feedback: the icon now sits <b>above</b> the wave in the layer
+      stack (not behind it) so it stays equally crisp whether that part of the card is dark surface or
+      filled liquid — no more fading/tinting as the level rises. And <b>SIP needed</b> is back, as a
+      second small line under the amount/days-left row. Every goal gets an icon now (keyword-matched or
+      the plain fallback) — never blank.</p>
+
+    <div class="gallery">
+
+      <div class="frame-wrap">
+        <div class="vtitle">Final, in a real list <span class="tag">3 goals</span></div>
+        <div class="vsub">Emergency Fund (shield) at 49%, Goa Trip (plane) at 72% — icon still fully legible even though the wave has risen well past it — and Freedom Fund (no keyword match → plain target) at 15%.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Goals</div><div style="width:26px"></div></div>
+          <div class="content">
+
+            <!-- Emergency Fund 49% -->
+            <div class="liquidcard">
+              <svg class="wave" viewBox="0 0 300 180" preserveAspectRatio="none">
+                <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#3b82f6"/></linearGradient></defs>
+                <path d="M0,180 L0,98 Q40,84 80,96 T160,92 T240,98 T300,94 L300,180 Z" fill="url(#g1)"/>
+              </svg>
+              <i class="ti ti-shield wm" style="font-size:132px; right:-24px; bottom:-28px;"></i>
+              <div class="liq-content">
+                <div class="liq-top"><div class="pct">49%</div><div class="nm">Emergency Fund</div></div>
+                <div class="liq-bottom">
+                  <div class="row"><span>₹1,47,000 of ₹3,00,000</span><span>12mo left</span></div>
+                  <div class="sip">SIP needed: ₹11,489/mo</div>
+                </div>
+              </div>
+            </div>
+            <div class="actrow">
+              <div class="b sec"><i class="ti ti-link"></i>Link existing</div>
+              <div class="b pri"><i class="ti ti-plus"></i>Add contribution</div>
+            </div>
+
+            <!-- Goa Trip 72% -->
+            <div class="liquidcard">
+              <svg class="wave" viewBox="0 0 300 180" preserveAspectRatio="none">
+                <defs><linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f472b6"/><stop offset="100%" stop-color="#ec4899"/></linearGradient></defs>
+                <path d="M0,180 L0,50 Q40,36 80,48 T160,44 T240,50 T300,46 L300,180 Z" fill="url(#g2)"/>
+              </svg>
+              <i class="ti ti-plane wm" style="font-size:124px; right:-20px; bottom:-22px;"></i>
+              <div class="liq-content">
+                <div class="liq-top"><div class="pct">72%</div><div class="nm">Goa Trip</div></div>
+                <div class="liq-bottom">
+                  <div class="row"><span>₹72,000 of ₹1,00,000</span><span>3mo left</span></div>
+                  <div class="sip">SIP needed: ₹9,333/mo</div>
+                </div>
+              </div>
+            </div>
+            <div class="actrow">
+              <div class="b sec"><i class="ti ti-link"></i>Link existing</div>
+              <div class="b pri"><i class="ti ti-plus"></i>Add contribution</div>
+            </div>
+
+            <!-- Freedom Fund 15% (no keyword match -> fallback) -->
+            <div class="liquidcard">
+              <svg class="wave" viewBox="0 0 300 180" preserveAspectRatio="none">
+                <defs><linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient></defs>
+                <path d="M0,180 L0,155 Q40,144 80,153 T160,150 T240,155 T300,152 L300,180 Z" fill="url(#g3)"/>
+              </svg>
+              <i class="ti ti-target wm" style="font-size:112px; right:-18px; bottom:-18px;"></i>
+              <div class="liq-content">
+                <div class="liq-top"><div class="pct">15%</div><div class="nm">Freedom Fund</div></div>
+                <div class="liq-bottom">
+                  <div class="row"><span>₹75,000 of ₹5,00,000</span><span>4y left</span></div>
+                  <div class="sip">SIP needed: ₹8,854/mo</div>
+                </div>
+              </div>
+            </div>
+            <div class="actrow">
+              <div class="b sec"><i class="ti ti-link"></i>Link existing</div>
+              <div class="b pri"><i class="ti ti-plus"></i>Add contribution</div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="recommend-spacer" style="height:2px"></div>
+
+    <div class="legend">
+      <h2>What changed from the last round</h2>
+      <ul class="changelist">
+        <li><b>Icon is always present, never blank.</b> Keyword-matched against the goal name first; if
+          nothing matches, falls back to the plain target mark (Freedom Fund, above) — every goal gets
+          an icon, no exceptions.</li>
+        <li><b>Icon renders above the wave, not behind it.</b> Layer order is now: card background → wave
+          → icon watermark → text. Wherever the card is, dark surface or filled liquid, the icon sits on
+          top of that background at the same fixed ~16% white opacity — it no longer fades or tints as
+          the waterline rises past it (Goa Trip at 72% still shows a fully crisp plane, not a dimmed one).</li>
+        <li><b>SIP needed is back</b> — a second, smaller line right under the amount/days-left row,
+          exactly the same conditional logic as today (<code>sipNeeded > 0</code> — hidden once a goal is
+          fully funded or already overdue, same as the current card).</li>
+      </ul>
+      <h2>Icon keyword map (unchanged from last round)</h2>
+      <table class="kwmap">
+        <tr><th>Keywords in name (case-insensitive)</th><th>Icon</th></tr>
+        <tr><td>emergency, safety, buffer</td><td class="icon">ti-shield</td></tr>
+        <tr><td>trip, vacation, travel, goa, holiday</td><td class="icon">ti-plane</td></tr>
+        <tr><td>home, house, flat, down payment</td><td class="icon">ti-home</td></tr>
+        <tr><td>car, bike, vehicle</td><td class="icon">ti-car</td></tr>
+        <tr><td>wedding, marriage</td><td class="icon">ti-heart</td></tr>
+        <tr><td>education, college, school, course</td><td class="icon">ti-school</td></tr>
+        <tr><td>retirement</td><td class="icon">ti-beach</td></tr>
+        <tr><td>laptop, phone, gadget, electronics</td><td class="icon">ti-device-laptop</td></tr>
+        <tr><td><i>no match</i> (e.g. "Freedom Fund")</td><td class="icon">ti-target (fallback)</td></tr>
+      </table>
+      <p style="margin-top:10px">A goal's own <code>icon</code> field (set today only for the 4
+        life-stage suggestion templates) still wins over the guess when present — the keyword match only
+        fills the gap for manually-created goals, which is most of them.</p>
+    </div>
+  </body>
+</html>

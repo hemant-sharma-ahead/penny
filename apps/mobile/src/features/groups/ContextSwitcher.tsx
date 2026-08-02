@@ -21,10 +21,17 @@ const TYPE_ICON: Record<string, string> = {
 };
 
 /**
- * RN port of apps/web-react/src/features/groups/ContextSwitcher.tsx: the context bar under the app
- * header — shows the current scope (Personal or a group) and opens a menu to switch or create/join.
- * Rendered only when the `sync` entitlement is on (dark by default), mounted above `MainTabs`' tab
- * navigator (see `~/navigation/MainTabs.tsx`).
+ * RN port of apps/web-react/src/features/groups/ContextSwitcher.tsx: shows the current scope (Personal
+ * or a group) and opens a menu to switch or create/join. Rendered only when the `sync` entitlement is on.
+ *
+ * **`variant` (2026-07-31 chrome consolidation, `inline` replaced `floating` 2026-08-01)**: since
+ * "Personal ▾" only ever matters on Home (every other screen is always personal-scoped), this no longer
+ * lives in `MainTabs`' shared chrome as a full-width bar shown on every tab. `variant="bar"` (the
+ * default) keeps the original full-width bar-with-border look, still used by `GroupsSmokeTestScreen`'s
+ * manual test harness. `variant="inline"` renders with no background/border/shadow at all, sized to sit
+ * directly in `MainTabs`' global header center slot on the Home tab — the header's own background is
+ * already the immersive, theme-matching surface, so the switcher doesn't need its own. The modal/switch
+ * logic itself is identical either way.
  *
  * Web's menu is a hand-rolled `fixed inset-0` dropdown (a full-screen click-catcher behind an
  * absolutely-positioned panel). RN has no DOM z-index stacking to lean on for that trick, so this
@@ -35,7 +42,7 @@ const TYPE_ICON: Record<string, string> = {
  * the real `MainNavigator`/`MainTabs` routes (`Profile` screen exists since Onboarding; `MainTabs`'
  * nested `Home` tab is reached via the standard nested-navigate form).
  */
-export function ContextSwitcher() {
+export function ContextSwitcher({ variant = 'bar' }: { variant?: 'bar' | 'inline' }) {
   const theme = useThemeColors();
   const accent = useModeAccentColor();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
@@ -53,13 +60,17 @@ export function ContextSwitcher() {
     navigation.navigate('MainTabs', { screen: 'Home' });
   }
 
+  const inline = variant === 'inline';
+
   return (
     <>
       <View
-        className="flex-row items-center gap-2 px-4 py-2 border-b border-theme"
-        style={inGroup ? { backgroundColor: tint(accent, 12) } : undefined}
+        className={
+          inline ? 'flex-row items-center gap-2' : 'flex-row items-center gap-2 px-4 py-2 border-b border-theme'
+        }
+        style={!inline && inGroup ? { backgroundColor: tint(accent, 12) } : undefined}
       >
-        <Pressable onPress={() => setOpen(true)} className="flex-row items-center gap-2 flex-1">
+        <Pressable onPress={() => setOpen(true)} className={`flex-row items-center gap-2 ${inline ? '' : 'flex-1'}`}>
           <View
             className="w-6 h-6 rounded-lg items-center justify-center"
             style={{ backgroundColor: inGroup ? accent : theme.primary }}
@@ -70,14 +81,19 @@ export function ContextSwitcher() {
               color="#fff"
             />
           </View>
-          <Text className="text-sm font-semibold text-primary flex-1" numberOfLines={1}>
+          <Text
+            className={`text-sm font-semibold text-primary ${inline ? '' : 'flex-1'}`}
+            numberOfLines={1}
+            style={inline ? { maxWidth: 120 } : undefined}
+          >
             {inGroup && activeGroup ? activeGroup.name || 'Group' : 'Personal'}
           </Text>
           <Icon name="ti-chevron-down" size={14} color={theme.textTertiary} />
         </Pressable>
 
-        {/* Member avatar stack — a quick "who's in this group" cue (screen 3). */}
-        {inGroup && activeMembers.length > 0 && (
+        {/* Member avatar stack — a quick "who's in this group" cue (screen 3). Skipped for `inline`:
+            the header center slot is too narrow to fit it alongside the label + chevron. */}
+        {!inline && inGroup && activeMembers.length > 0 && (
           <View className="flex-row items-center">
             {activeMembers.slice(0, 4).map((m, i) => (
               <View

@@ -4,15 +4,22 @@ import { vars } from 'nativewind';
 import { THEME_TOKENS, type ThemeName, type ThemeTokens } from '@penny/core/theme/tokens';
 import { getItem, setItem } from '~/lib/storage';
 
-/** The 4 themes from docs/DESIGN_GUIDELINES.md. 'system' isn't a palette of its own — it resolves to
- * 'light' or 'dark' based on the OS appearance, same as apps/web-react's SettingsContext. */
-export type ThemePreference = ThemeName | 'system';
+/** The 2 selectable themes from docs/DESIGN_GUIDELINES.md (Light, Dark) — 'system' isn't a palette of
+ * its own, it resolves to 'light' or 'dark' based on the OS appearance, same as apps/web-react's
+ * SettingsContext. `ThemeName` (from shared core) still has a third member, `'pennyBlue'` — removed as a
+ * selectable option 2026-07-31, but the palette data stays in shared core rather than being deleted
+ * outright, since nothing forces it out of the type there. */
+export type ThemePreference = Exclude<ThemeName, 'pennyBlue'> | 'system';
 
 const THEME_PREFERENCE_KEY = 'penny_theme_preference';
 
 async function loadThemePreference(): Promise<ThemePreference> {
   const raw = await getItem(THEME_PREFERENCE_KEY);
-  if (raw === 'light' || raw === 'pennyBlue' || raw === 'dark' || raw === 'system') return raw;
+  // Penny Blue was a real, selectable theme before 2026-07-31 (removed) — migrate anyone who had it
+  // persisted to Dark rather than silently falling back to System (which could visibly change their
+  // theme on next launch in a way they didn't ask for).
+  if (raw === 'pennyBlue') return 'dark';
+  if (raw === 'light' || raw === 'dark' || raw === 'system') return raw;
   return 'system';
 }
 

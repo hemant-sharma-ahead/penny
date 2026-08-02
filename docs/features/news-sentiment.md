@@ -47,7 +47,16 @@ for later phases.
 - **No PII, no data leaves the device.** News is public; scoring + holdings cross-reference are local.
   Honors the `no-console`/PII and semantic-color rules.
 
-**Mobile (`apps/mobile`):** ported alongside the rest of Track 4's remaining-modules pass — `apps/mobile/src/features/news/` mirrors the web files above 1:1 (`useNews.ts`/`useNewsSentiment.ts`/`useHoldingsInNews.ts` unchanged beyond import paths). `core/news/newsClient.ts` needed a `.native.ts` sibling: RN has no `DOMParser` at all (unlike the usual `localStorage`-only swap elsewhere), so RSS parsing is a small regex-based tag extractor instead (handles `CDATA`-wrapped titles/descriptions); the 45-minute cache also drops to in-memory-only (session-scoped), same "flag, don't fake" precedent as `ipoClient.native.ts`. `FilterDropdown`'s hand-rolled DOM dropdown is rebuilt on the shared `Modal` component, same fix as `ContextSwitcher`/`SelectInput`. Home's "News" tools-grid tile (previously a flagged no-op) now navigates to the real `News` screen.
+**Mobile (`apps/mobile`):** ported alongside the rest of Track 4's remaining-modules pass — `useNews.ts`/`useNewsSentiment.ts`/`useHoldingsInNews.ts` unchanged beyond import paths. `core/news/newsClient.ts` needed a `.native.ts` sibling: RN has no `DOMParser` at all (unlike the usual `localStorage`-only swap elsewhere), so RSS parsing is a small regex-based tag extractor instead (handles `CDATA`-wrapped titles/descriptions); the 45-minute cache also drops to in-memory-only (session-scoped), same "flag, don't fake" precedent as `ipoClient.native.ts`.
+
+**2026-08-01 Portfolio consolidation + density pass:** News moved from a standalone Home tile into
+Portfolio's Equity tab as a sub-tab (`NewsPage.tsx` → `NewsView.tsx`), and mobile's presentation of the
+mood gauge and filters diverged from web here: the always-visible `NewsMoodGauge` banner + stacked
+Source/Tone/Holding filter dropdown boxes left too little room for actual headlines, so mobile replaced
+them with `NewsMoodNote.tsx` — a collapsible one-liner (same visual language as the `AssetTaxNote` "tax
+on this" cards) living as the first item of the scrolling feed instead of fixed chrome — plus a single
+"Filters" icon that opens one combined modal for all three fields instead of each having its own popup
+(`FilterDropdown.tsx` removed on mobile; web's still stands as the frozen reference).
 
 ## Current limitations
 

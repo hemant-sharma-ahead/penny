@@ -1,13 +1,10 @@
-import { useState } from 'react';
-import { Pressable, View, ScrollView } from 'react-native';
+import { useCallback, useState } from 'react';
+import { View, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { PageHeader } from '~/components/ui';
-import { BackButton } from '~/components/shared';
-import { Icon } from '~/components/Icon';
-import { useThemeColors } from '~/theme/useThemeColors';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useRegisterHeaderScreen } from '~/navigation/HeaderBackContext';
 import { useImport } from './useImport';
 import { UploadStep } from './UploadStep';
 import { MapColumnsStep } from './MapColumnsStep';
@@ -22,15 +19,15 @@ import { DoneStep } from './DoneStep';
  * lives unchanged in packages/core and is shared with useImport.ts.
  *
  * Web's back button either navigates to Expenses (upload/done steps, which have no earlier wizard step
- * to fall back into) or steps back one wizard stage (mapColumns/review) — mirrored here as: `BackButton`
- * (calls `navigation.goBack()`, popping this single pushed screen back to ExpensesMain — equivalent to
- * web's "navigate to Expenses" since Import has exactly one entry point) when there's no earlier step,
- * or a local `Pressable` that calls `imp.setStep(target)` otherwise.
+ * to fall back into) or steps back one wizard stage (mapColumns/review) — the global header's
+ * back-chevron (`MainTabs`' `HeaderLeft`, since the 2026-08-01 chrome consolidation) now needs the same
+ * branch: `useRegisterHeaderScreen` below registers `navigation.goBack()` (popping this single pushed
+ * screen back to ExpensesMain — equivalent to web's "navigate to Expenses" since Import has exactly one
+ * entry point) when there's no earlier step, or `imp.setStep(target)` otherwise.
  */
 export function ImportPage() {
   const modeBg = useModeBackgroundColor();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
-  const theme = useThemeColors();
   const imp = useImport();
   const [retrying, setRetrying] = useState(false);
 
@@ -41,27 +38,14 @@ export function ImportPage() {
     done: null
   };
   const target = backTarget[imp.step];
+  const stepBack = useCallback(() => {
+    if (target) imp.setStep(target);
+  }, [target, imp]);
+  const goBack = useCallback(() => navigation.goBack(), [navigation]);
+  useRegisterHeaderScreen('Import', target ? stepBack : goBack);
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <PageHeader
-        title="Import expenses"
-        leading={
-          target ? (
-            <Pressable
-              onPress={() => imp.setStep(target)}
-              accessibilityLabel="Back"
-              hitSlop={8}
-              className="w-9 h-9 items-center justify-center rounded-full -ml-2"
-            >
-              <Icon name="ti-arrow-left" size={20} color={theme.textSecondary} />
-            </Pressable>
-          ) : (
-            <BackButton />
-          )
-        }
-      />
-
       {imp.step === 'review' ? (
         // Its own flex-1 layout (fixed progress summary + internally-scrolling accordion body) — see
         // ReviewStep.tsx's doc comment for why this can't share the plain ScrollView the other steps use.

@@ -35,6 +35,24 @@ export function toDateKey(epochMs: number): string {
 /** Alias of {@link toDateKey} for the date-input use-site. */
 export const epochToDateInput = toDateKey;
 
+/** `HH:mm` (24-hour) key for an instant — the value format for a time-input use-site. */
+export function toTimeKey(epochMs: number): string {
+  const d = new Date(epochMs);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/** Alias of {@link toTimeKey} for the time-input use-site. */
+export const epochToTimeInput = toTimeKey;
+
+/** Combines a `YYYY-MM-DD` date key and an `HH:mm` time key into an epoch timestamp. */
+export function combineDateTime(dateStr: string, timeStr: string): number {
+  const base = new Date(`${dateStr}T00:00:00`);
+  if (isNaN(base.getTime())) return Date.now();
+  const [h, m] = timeStr.split(':').map(Number);
+  base.setHours(h || 0, m || 0, 0, 0);
+  return base.getTime();
+}
+
 /**
  * Convert a date-input value ('YYYY-MM-DD') to an epoch timestamp that includes the current
  * time-of-day — so multiple entries on the same day order by when they were entered, not by a
@@ -63,6 +81,19 @@ export function offsetMonth(m: string, delta: number): string {
   return toMonthYearKey(d);
 }
 
+/** Start (inclusive) / end (exclusive) epoch bounds for a `YYYY-MM` key, in local time. */
+export function monthBounds(monthKey: string): { start: number; end: number } {
+  const [y, m] = monthKey.split('-').map(Number);
+  const year = y ?? new Date().getFullYear();
+  const monthIndex = (m ?? 1) - 1;
+  return { start: new Date(year, monthIndex, 1).getTime(), end: new Date(year, monthIndex + 1, 1).getTime() };
+}
+
+/** Start (inclusive) / end (exclusive) epoch bounds for a calendar year, in local time. */
+export function yearBounds(year: number): { start: number; end: number } {
+  return { start: new Date(year, 0, 1).getTime(), end: new Date(year + 1, 0, 1).getTime() };
+}
+
 // ── Labels ───────────────────────────────────────────────────────────────────
 
 /** Relative day label for a date key: "Today" / "Yesterday" / "5 Jan 2026". */
@@ -88,6 +119,12 @@ export function formatDate(epochMs: number): string {
 
 export function formatDateShort(epochMs: number): string {
   return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short' }).format(new Date(epochMs));
+}
+
+export function formatTime(epochMs: number): string {
+  return new Intl.DateTimeFormat('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).format(
+    new Date(epochMs)
+  );
 }
 
 /** Formats a month count as a compact duration, e.g. 27 → "2y 3m", 12 → "1y", 5 → "5m". */

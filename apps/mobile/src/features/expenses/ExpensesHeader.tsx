@@ -8,7 +8,6 @@ import { usePrivacy } from '~/context/PrivacyContext';
 import { useEventMode } from '~/context/EventModeContext';
 import type { Expense, ExpenseCategory } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
-import { monthLabel } from '@/lib/date';
 import { useForecast } from '~/hooks/useForecast';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { EventsModal } from './events/EventsModal';
@@ -18,7 +17,8 @@ import { tint } from '~/lib/color';
 
 interface ExpensesHeaderProps {
   filteredTotal: number;
-  monthFilter: string | null;
+  /** Count of transactions the current filter set resolves to (drives the "N transactions" label). */
+  transactionCount: number;
   expenses: Expense[];
   expenseCategories: ExpenseCategory[];
   linkedCountByEventHashtag: Map<string, number>;
@@ -32,7 +32,7 @@ interface ExpensesHeaderProps {
  */
 export function ExpensesHeader({
   filteredTotal,
-  monthFilter,
+  transactionCount,
   expenses,
   expenseCategories,
   linkedCountByEventHashtag,
@@ -43,8 +43,7 @@ export function ExpensesHeader({
   const { shouldMask } = usePrivacy();
   const masked = shouldMask(false);
   const { events, updateEvent } = useEventMode();
-  const { loading: forecastLoading, forecast } = useForecast();
-  const safeToSpend = Math.max(0, forecast.discretionary);
+  const { loading: forecastLoading, safeToSpend } = useForecast();
   const [nowMs] = useState(() => Date.now());
   const [showEventSheet, setShowEventSheet] = useState(false);
   const [showExportSheet, setShowExportSheet] = useState(false);
@@ -54,54 +53,68 @@ export function ExpensesHeader({
 
   return (
     <>
-      <PageHeader
-        title="Transactions"
-        actions={
-          <>
-            <Pressable
-              onPress={() => setShowEventSheet(true)}
-              className="w-8 h-8 items-center justify-center rounded-lg"
-              accessibilityLabel="Manage events"
-            >
-              <Icon name="ti-flag-3" size={18} color={theme.textSecondary} />
-              {events.length > 0 && (
-                <View
-                  className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full"
-                  style={{ backgroundColor: events[0]?.color ?? '#ef4444' }}
-                />
-              )}
-            </Pressable>
-            <Button
-              variant="ghost"
-              icon="ti-file-import"
-              accessibilityLabel="Import expenses"
-              className="w-8 h-8 rounded-lg"
-              onPress={() => navigation.navigate('Import')}
-            />
-            <Button
-              variant="ghost"
-              icon="ti-file-export"
-              accessibilityLabel="Export expenses"
-              className="w-8 h-8 rounded-lg"
-              onPress={() => setShowExportSheet(true)}
-            />
-          </>
-        }
-      >
-        <View className="flex-row items-center justify-between mt-1">
-          <Text className="text-sm text-secondary">
-            {monthFilter ? monthLabel(monthFilter) : 'All transactions'}:{' '}
-            <Text className="font-medium text-primary">{masked ? '••••' : formatCurrency(filteredTotal)}</Text>
-          </Text>
-          <View className="flex-row items-center gap-2">
+      <PageHeader>
+        {/* Left: transaction count + amount. Centre: the active event, if any — a third equal-width
+            flex column (not absolute positioning) so it's genuinely centred over the whole row on both
+            axes without the on-device absolute+inset centering bug MainTabs.tsx's HeaderCenter already
+            hit once (see its own doc comment). Right: the 3 action icons stacked above the Safe pill. */}
+        <View className="flex-row items-center justify-between mt-1" style={{ minHeight: 52 }}>
+          <View className="flex-1 items-start">
+            <Text className="text-[11px] font-medium text-tertiary">
+              {transactionCount} transaction{transactionCount === 1 ? '' : 's'}
+            </Text>
+            <Text className="text-lg font-bold text-primary mt-0.5">
+              {masked ? '••••' : formatCurrency(filteredTotal)}
+            </Text>
+          </View>
+
+          <View className="flex-1 items-center">
             {immersiveEvent && (
-              <View className="flex-row items-center gap-1">
+              <View
+                className="flex-row items-center gap-1 rounded-full border px-2.5 py-1"
+                style={{
+                  backgroundColor: tint(immersiveEvent.color, 12),
+                  borderColor: tint(immersiveEvent.color, 30)
+                }}
+              >
                 <Icon name="ti-plane" size={11} color={immersiveEvent.color} />
-                <Text className="text-[10px] font-semibold" style={{ color: immersiveEvent.color }}>
+                <Text className="text-[10px] font-semibold" numberOfLines={1} style={{ color: immersiveEvent.color }}>
                   Vacation On · {immersiveEvent.name}
                 </Text>
               </View>
             )}
+          </View>
+
+          <View className="flex-1 items-end gap-2">
+            <View className="flex-row items-center gap-0.5">
+              <Pressable
+                onPress={() => setShowEventSheet(true)}
+                className="w-7 h-7 items-center justify-center rounded-lg"
+                accessibilityLabel="Manage events"
+              >
+                <Icon name="ti-flag-3" size={14} color={theme.textSecondary} />
+                {events.length > 0 && (
+                  <View
+                    className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: events[0]?.color ?? '#ef4444' }}
+                  />
+                )}
+              </Pressable>
+              <Button
+                variant="ghost"
+                icon="ti-download"
+                accessibilityLabel="Import expenses"
+                className="w-7 h-7 rounded-lg"
+                onPress={() => navigation.navigate('Import')}
+              />
+              <Button
+                variant="ghost"
+                icon="ti-upload"
+                accessibilityLabel="Export expenses"
+                className="w-7 h-7 rounded-lg"
+                onPress={() => setShowExportSheet(true)}
+              />
+            </View>
             {!forecastLoading && (
               <Pressable
                 onPress={() => navigation.navigate('Home', { screen: 'CashFlow' })}

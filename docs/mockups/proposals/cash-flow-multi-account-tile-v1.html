@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Cash Flow: multiple accounts, one tile</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --blue:#3b82f6; --danger:#ef4444; --amber:#f59e0b; --violet:#8b5cf6;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 20px; color:#9aa5b1; font-size:14px; max-width:900px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .thoughts { max-width:740px; margin:0 auto 34px; background:#101720; border:1px solid var(--border); border-radius:14px; padding:16px 20px; font-size:13px; line-height:1.75; color:#c3cad2; }
+      .thoughts b { color:#fff; }
+      .thoughts .q { margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); color:#f0b060; }
+      .sectiontitle { text-align:center; font-size:15px; font-weight:800; color:#fff; margin:44px 0 4px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:760px; margin:0 auto 18px; line-height:1.6; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 40px; }
+      .frame-wrap { width:300px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.cur { background:#3a2412; color:#f0b060; }
+      .vtitle .tag.new { background:#123524; color:#7ee6b8; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:300px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:16px; background:var(--bg); flex-shrink:0; }
+      .content { padding:14px 12px 16px; display:flex; flex-direction:column; gap:10px; }
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:13px 14px; }
+      .cardhead { font-size:11.5px; font-weight:700; color:var(--text); margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+      .cardhead i { color:var(--amber); font-size:14px; }
+
+      .acctrow { padding:9px 0; }
+      .acctrow + .acctrow { border-top:1px dashed var(--border); }
+      .acctrow .name { display:flex; align-items:center; gap:6px; margin-bottom:5px; }
+      .acctrow .name .aicn { width:20px; height:20px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:10.5px; flex-shrink:0; }
+      .acctrow .name span { font-size:11.5px; font-weight:700; color:var(--text); }
+      .eqrow { display:flex; align-items:baseline; flex-wrap:wrap; gap:2px; }
+      .eqrow .tok { font-size:12.5px; font-weight:700; }
+      .eqrow .op { font-size:11px; color:var(--text3); font-weight:600; margin:0 2px; }
+      .eqrow .init { color:var(--text); }
+      .eqrow .inc { color:var(--primary); }
+      .eqrow .exp { color:var(--danger); }
+      .eqrow .res { color:var(--primary); background:#123524; padding:1px 7px; border-radius:7px; font-weight:800; }
+
+      .callout { display:flex; gap:8px; background:#1e1420; border:1px solid #3d2a45; border-radius:12px; padding:10px 12px; font-size:11px; color:#c9a3d6; line-height:1.55; margin-top:2px; }
+      .callout i { color:#c084fc; font-size:14px; margin-top:1px; }
+    </style>
+  </head>
+  <body>
+    <h1>Cash Flow — one tile per account, or multiple in one tile?</h1>
+    <p class="sub">
+      Today's cash-flow card is scoped to just cash/wallet accounts (bank/card accounts already have a
+      clear paper trail, per the existing design note in <code>useExpenseAnalytics.ts</code>) — one card
+      per account. If you have more than one cash/wallet account, you'd see multiple stacked cards. Below:
+      the same idea, merged into a single tile.
+    </p>
+    <div class="thoughts">
+      <b>Two ways to read "other accounts" — I want to flag both before building:</b><br/>
+      Option 1 keeps the current scope (cash/wallet only) but merges every such account into <b>one</b> tile
+      instead of one card each — e.g. "Cash Wallet" + a second wallet, both rows in the same card.<br/>
+      Option 2 goes further and extends this equation-row treatment to <b>every</b> account type (savings,
+      current, credit card too) in that same merged tile — which is a bigger change: it overrides the
+      existing "bank/card accounts already have a clear paper trail" reasoning that scoped this to cash/
+      wallet only in the first place.
+      <div class="q">Which did you mean — just consolidate the cash/wallet accounts you already have into
+      one tile (Option 1), or show every account's flow here, including bank and credit card (Option 2)?</div>
+    </div>
+
+    <div class="sectiontitle">Current (just shipped)</div>
+    <div class="sectionsub">One card per cash/wallet account — fine with a single wallet, but stacks if you have more than one.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Current<span class="tag cur">today</span></div>
+        <div class="vsub">Two wallets → two separate cards.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="content">
+            <div class="card">
+              <div class="cardhead"><i class="ti ti-wallet"></i>Cash Wallet · Jul 2026</div>
+              <div class="eqrow"><span class="tok init">₹95,632</span><span class="op">+</span><span class="tok inc">₹14,490</span><span class="op">−</span><span class="tok exp">₹11,533</span><span class="op">=</span><span class="tok res">₹98,589</span></div>
+            </div>
+            <div class="card">
+              <div class="cardhead"><i class="ti ti-device-mobile"></i>PhonePe Wallet · Jul 2026</div>
+              <div class="eqrow"><span class="tok init">₹12,040</span><span class="op">+</span><span class="tok inc">₹3,200</span><span class="op">−</span><span class="tok exp">₹5,110</span><span class="op">=</span><span class="tok res">₹10,130</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle">Option 1 — Merge cash/wallet accounts into one tile</div>
+    <div class="sectionsub">Same scope as today (cash/wallet only), just consolidated: one "Cash Flow" card, one equation row per account inside it.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Option 1<span class="tag new">same scope, merged</span></div>
+        <div class="vsub">Minimal change from what's live — just fewer cards on screen.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="content">
+            <div class="card">
+              <div class="cardhead"><i class="ti ti-wallet"></i>Cash Flow · Jul 2026</div>
+              <div class="acctrow">
+                <div class="name"><div class="aicn" style="background:#3a2b12;color:var(--amber);"><i class="ti ti-wallet"></i></div><span>Cash Wallet</span></div>
+                <div class="eqrow"><span class="tok init">₹95,632</span><span class="op">+</span><span class="tok inc">₹14,490</span><span class="op">−</span><span class="tok exp">₹11,533</span><span class="op">=</span><span class="tok res">₹98,589</span></div>
+              </div>
+              <div class="acctrow">
+                <div class="name"><div class="aicn" style="background:#122b3a;color:var(--blue);"><i class="ti ti-device-mobile"></i></div><span>PhonePe Wallet</span></div>
+                <div class="eqrow"><span class="tok init">₹12,040</span><span class="op">+</span><span class="tok inc">₹3,200</span><span class="op">−</span><span class="tok exp">₹5,110</span><span class="op">=</span><span class="tok res">₹10,130</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle">Option 2 — Every account, same tile</div>
+    <div class="sectionsub">Extends the equation-row treatment to savings/current/credit-card accounts too, all inside the same merged tile.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Option 2<span class="tag new">all accounts, merged</span></div>
+        <div class="vsub">Bigger scope change — worth confirming you want this before it's built.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="content">
+            <div class="card">
+              <div class="cardhead"><i class="ti ti-wallet"></i>Cash Flow · Jul 2026</div>
+              <div class="acctrow">
+                <div class="name"><div class="aicn" style="background:#3a2b12;color:var(--amber);"><i class="ti ti-wallet"></i></div><span>Cash Wallet</span></div>
+                <div class="eqrow"><span class="tok init">₹95,632</span><span class="op">+</span><span class="tok inc">₹14,490</span><span class="op">−</span><span class="tok exp">₹11,533</span><span class="op">=</span><span class="tok res">₹98,589</span></div>
+              </div>
+              <div class="acctrow">
+                <div class="name"><div class="aicn" style="background:#122b3a;color:var(--blue);"><i class="ti ti-building-bank"></i></div><span>HDFC Savings</span></div>
+                <div class="eqrow"><span class="tok init">₹2,40,600</span><span class="op">+</span><span class="tok inc">₹95,000</span><span class="op">−</span><span class="tok exp">₹62,300</span><span class="op">=</span><span class="tok res">₹2,73,300</span></div>
+              </div>
+              <div class="acctrow">
+                <div class="name"><div class="aicn" style="background:#2b1230;color:var(--violet);"><i class="ti ti-credit-card"></i></div><span>HDFC Credit Card</span></div>
+                <div class="eqrow"><span class="tok init">₹0</span><span class="op">+</span><span class="tok inc">₹0</span><span class="op">−</span><span class="tok exp">₹18,450</span><span class="op">=</span><span class="tok res" style="background:#3a1414;color:var(--danger);">-₹18,450</span></div>
+              </div>
+            </div>
+            <div class="callout"><i class="ti ti-info-circle"></i><span>Bank/card accounts already have a bank-statement paper trail — this row mostly restates what the account list already shows. Still doable if you'd find having it all in one place useful.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

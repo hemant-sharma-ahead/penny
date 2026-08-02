@@ -14,8 +14,7 @@ import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Button, PageHeader, Banner, LifeRow, OptionalSeg, Modal } from '~/components/ui';
-import { BackButton } from '~/components/shared';
+import { Button, Banner, LifeRow, OptionalSeg, Modal } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useTheme } from '~/theme/ThemeProvider';
@@ -34,6 +33,7 @@ import { getBackupTarget } from '@/core/sync/backupPrefs';
 import { useProfile } from '@/hooks/useProfile';
 import { useToast } from '~/context/ToastContext';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 
 /**
  * RN port of apps/web-react/src/features/profile/ProfilePage.tsx. Deviations:
@@ -61,10 +61,10 @@ import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 export function ProfilePage() {
   const modeBg = useModeBackgroundColor();
   const { profile, loading } = useProfile();
+  useDefaultHeaderBack('Profile');
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <PageHeader leading={<BackButton />} title="Edit profile" />
       {loading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="small" color="#00a86b" />

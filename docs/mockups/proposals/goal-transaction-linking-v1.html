@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Linking transactions to Goals (Cashew-inspired, IOU-pattern)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --indigo:#6366f1; --amber:#f59e0b; --danger:#ef4444; --success:#10b981; --info:#3b82f6;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 22px; color:#9aa5b1; font-size:14px; max-width:960px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .research { max-width:960px; margin:0 auto 26px; background:#0e141b; border:1px solid #1e2733; border-radius:14px; padding:16px 20px; color:#c3ccd6; font-size:13px; line-height:1.7; }
+      .research h3 { color:#fff; font-size:13px; margin:0 0 6px; }
+      .research code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:12px; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 30px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.new { background:#123524; color:#7ee6b8; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; height:600px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .header { height:40px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .htitle { flex:1; text-align:center; font-size:13.5px; font-weight:700; color:var(--text); }
+      .content { flex:1; padding:12px 14px; overflow:hidden; }
+
+      .field { margin-bottom:12px; }
+      .flabel { font-size:10px; font-weight:700; color:var(--text3); text-transform:uppercase; margin-bottom:5px; }
+      .finput { background:var(--surface); border:1px solid var(--border); border-radius:11px; padding:10px 12px; font-size:13px; color:var(--text); }
+
+      .chiprow { display:flex; gap:6px; margin-bottom:12px; }
+      .chip { border:1px solid var(--border); border-radius:999px; padding:6px 12px; font-size:11px; font-weight:700; color:var(--text2); }
+      .chip.on { background:var(--primary); border-color:var(--primary); color:#fff; }
+
+      .linksection { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px; margin-bottom:12px; }
+      .linkrow { display:flex; align-items:center; justify-content:between; gap:8px; }
+      .linkrow .txt { flex:1; }
+      .linkrow .t1 { font-size:12.5px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px; }
+      .linkrow .t2 { font-size:10px; color:var(--text3); margin-top:2px; }
+      .toggle { width:34px; height:19px; border-radius:999px; background:var(--border); position:relative; flex-shrink:0; }
+      .toggle.on { background:var(--primary); }
+      .toggle::after { content:''; position:absolute; width:15px; height:15px; border-radius:50%; background:#fff; top:2px; left:2px; }
+      .toggle.on::after { left:17px; }
+
+      .goalpicker { margin-top:11px; padding-top:11px; border-top:1px solid var(--border); }
+      .goalpicker .selrow { display:flex; align-items:center; gap:8px; background:var(--surface2); border-radius:10px; padding:9px 10px; }
+      .goalpicker .selrow .gicon { width:26px; height:26px; border-radius:8px; background:rgba(16,185,129,.15); display:flex; align-items:center; justify-content:center; }
+      .goalpicker .selrow .glabel { flex:1; font-size:12px; font-weight:600; color:var(--text); }
+      .goalpicker .selrow i.chev { font-size:13px; color:var(--text3); }
+
+      .goallist { background:var(--surface); border-radius:14px; overflow:hidden; }
+      .goalopt { display:flex; align-items:center; gap:10px; padding:11px; border-bottom:1px solid var(--border); }
+      .goalopt:last-child { border-bottom:none; }
+      .goalopt .gicon { width:32px; height:32px; border-radius:10px; background:rgba(16,185,129,.15); display:flex; align-items:center; justify-content:center; }
+      .goalopt .txt { flex:1; }
+      .goalopt .t1 { font-size:12.5px; font-weight:700; color:var(--text); }
+      .goalopt .t2 { font-size:10px; color:var(--text3); margin-top:1px; }
+      .goalopt.sel { background:rgba(16,185,129,.08); }
+      .goalopt i.check { font-size:15px; color:var(--primary); }
+
+      /* Goal card */
+      .goalcard { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:13px; margin-bottom:10px; }
+      .goalcard .top { display:flex; gap:12px; align-items:center; }
+      .ring { width:46px; height:46px; border-radius:50%; border:4px solid #1c2128; border-top-color:var(--primary); border-right-color:var(--primary); transform:rotate(45deg); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .goalcard .nm { font-size:13px; font-weight:700; color:var(--text); }
+      .goalcard .amt { font-size:11px; color:var(--text2); margin-top:1px; }
+      .txnbadge { display:flex; align-items:center; gap:4px; margin-top:6px; }
+      .txnbadge i { font-size:11px; color:var(--info); }
+      .txnbadge span { font-size:10px; font-weight:700; color:var(--info); }
+      .goalcard i.chev2 { font-size:15px; color:var(--text3); }
+
+      /* Goal detail modal */
+      .modalbackdrop { position:absolute; inset:0; background:rgba(0,0,0,.55); }
+      .modalcard { position:absolute; left:14px; right:14px; top:60px; bottom:80px; background:var(--surface); border:1px solid var(--border); border-radius:18px; display:flex; flex-direction:column; box-shadow:0 0 24px rgba(0,0,0,.4); }
+      .mtitlerow { display:flex; align-items:center; justify-content:space-between; padding:14px 14px 0; }
+      .mtitle { font-size:14px; font-weight:700; color:var(--text); }
+      .mclose { width:24px; height:24px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--text3); }
+      .mbody { flex:1; padding:12px 14px; overflow:hidden; }
+      .progresshead { flex-direction:row; display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+      .bigring { width:56px; height:56px; border-radius:50%; border:5px solid #1c2128; border-top-color:var(--primary); border-right-color:var(--primary); border-bottom-color:var(--primary); transform:rotate(45deg); }
+      .progresshead .lbl { font-size:10px; color:var(--text3); }
+      .progresshead .val { font-size:17px; font-weight:800; color:var(--text); margin-top:1px; }
+      .txnseclabel { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text3); margin-bottom:8px; }
+      .txnrow { display:flex; align-items:center; gap:9px; background:var(--surface2); border-radius:12px; padding:9px 10px; margin-bottom:7px; }
+      .txnrow .tic { width:28px; height:28px; border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .txnrow .txt { flex:1; }
+      .txnrow .t1 { font-size:11.5px; font-weight:600; color:var(--text); }
+      .txnrow .t2 { font-size:9.5px; color:var(--text3); margin-top:1px; }
+      .txnrow .amt { font-size:12px; font-weight:700; }
+      .mfooter { display:flex; gap:8px; padding:12px 14px; border-top:1px solid var(--border); }
+      .fbtn { flex:1; border-radius:11px; padding:10px 0; text-align:center; font-size:11.5px; font-weight:700; }
+      .fbtn.primary { background:var(--primary); color:#fff; }
+      .fbtn.secondary { border:1px solid var(--border); color:var(--text2); }
+
+      /* Contribution form */
+      .amountbig { font-size:32px; font-weight:800; color:var(--text); text-align:center; padding:16px 0; }
+
+      .legend { max-width:960px; margin:10px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:#fff; }
+      .legend b { color:#fff; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend li { margin-bottom:8px; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:12px; }
+      .legend .rec-box { background:color-mix(in srgb, var(--primary) 12%, #0e141b); border:1px solid color-mix(in srgb, var(--primary) 35%, #0e141b); border-radius:12px; padding:14px 16px; margin-top:12px; }
+      .legend .q-box { background:#1a1710; border:1px solid #3a3018; border-radius:12px; padding:14px 16px; margin-top:12px; }
+      .legend table { width:100%; border-collapse:collapse; margin-top:8px; }
+      .legend td, .legend th { padding:6px 8px; font-size:12px; border-bottom:1px solid #1e2733; text-align:left; vertical-align:top; }
+      .legend th { color:#fff; }
+    </style>
+  </head>
+  <body>
+    <h1>Linking transactions to Goals</h1>
+    <p class="sub">Five screens change. Grounded in how Cashew actually does this (researched — see
+      below) and in Penny's existing IOU↔Expense two-way link, which already solves this exact shape of
+      problem for a different feature.</p>
+
+    <div class="research">
+      <h3>Research: how Cashew does it</h3>
+      From Cashew's own FAQ: <i>"When adding or editing a transaction, assign it to the goal by
+      selecting the goal in the Add/Edit Transaction page."</i> · <i>"Assign any transaction to a goal
+      when creating or editing it. You can contribute from any account."</i> · <i>"Transfer transactions
+      can also be added to goals. Pair goals with transfers to reflect real money movements between
+      funding and destination accounts."</i> · <i>"Goal progress is the sum of transactions assigned to
+      the goal compared against its target amount."</i> Cashew has <b>no separate contribution ledger at
+      all</b> — a goal is just a live sum over tagged transactions (income, expense, <i>and</i> transfer
+      all qualify), and there's no dedicated "all transactions for this goal" screen beyond the
+      progress total itself.<br /><br />
+      <b>Where Penny differs on purpose:</b> Penny already has a two-way link pattern for IOU
+      (<code>core/iou/expenseLink.ts</code>'s <code>reconcileExpenseLink</code>/<code>reconcileLinkedTxn</code>,
+      <code>ExpenseForm.tsx</code>'s Lent/Borrowed toggle, <code>EntryForm.tsx</code>'s "Record matching
+      transaction" toggle, <code>PersonLedgerView.tsx</code>'s per-person entry list) — and a real,
+      currently-unused <code>GoalContribution</code> table already exists in the schema (defined,
+      seeded for demo data, but never actually written to by any real user action on either platform —
+      "Add contribution" today just bumps <code>goal.currentAmount</code> directly). This design finishes
+      that table's job and mirrors IOU's exact shape rather than inventing something new — plus adds the
+      "see everything for this goal" view Cashew itself doesn't have.
+    </div>
+
+    <div class="gallery">
+
+      <!-- 1: ExpenseForm collapsed -->
+      <div class="frame-wrap">
+        <div class="vtitle">1 — Expense form <span class="tag new">new section</span></div>
+        <div class="vsub">A new "Goal" section, same shape as the existing Lent/Borrowed section right above it — collapsed by default. Shown for Expense, Income, <i>and</i> Transfer (Cashew supports all three; today's IOU section only shows for Expense/Income).</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Add Expense</div></div>
+          <div class="content">
+            <div class="field"><div class="flabel">Amount</div><div class="finput">₹2,500</div></div>
+            <div class="field"><div class="flabel">Category</div><div class="finput">Savings Transfer</div></div>
+            <div class="chiprow"><div class="chip">Lent</div><div class="chip">Borrowed</div></div>
+            <div class="linksection">
+              <div class="linkrow">
+                <div class="txt">
+                  <div class="t1"><i class="ti ti-target" style="color:var(--success);font-size:14px"></i>Contribute to a goal</div>
+                  <div class="t2">Counts this transaction toward a goal's progress</div>
+                </div>
+                <div class="toggle"></div>
+              </div>
+            </div>
+            <div class="field"><div class="flabel">Account</div><div class="finput">HDFC Savings</div></div>
+            <div class="field"><div class="flabel">Date</div><div class="finput">1 Aug 2026</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2: ExpenseForm expanded with goal picker -->
+      <div class="frame-wrap">
+        <div class="vtitle">2 — Goal picker, expanded <span class="tag new">new</span></div>
+        <div class="vsub">Toggled on → a compact "selected goal" row appears, tap to open a picker (not free-text like Lent/Borrowed's person field — goals already exist as a fixed list, so this is a proper picker, reusing <code>SelectInput</code>'s shared-Modal pattern).</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Add Expense</div></div>
+          <div class="content">
+            <div class="field"><div class="flabel">Amount</div><div class="finput">₹2,500</div></div>
+            <div class="field"><div class="flabel">Category</div><div class="finput">Savings Transfer</div></div>
+            <div class="linksection">
+              <div class="linkrow">
+                <div class="txt">
+                  <div class="t1"><i class="ti ti-target" style="color:var(--success);font-size:14px"></i>Contribute to a goal</div>
+                </div>
+                <div class="toggle on"></div>
+              </div>
+              <div class="goalpicker">
+                <div class="selrow">
+                  <div class="gicon"><i class="ti ti-home-2" style="color:var(--success);font-size:13px"></i></div>
+                  <div class="glabel">House down payment</div>
+                  <i class="ti ti-chevron-down chev"></i>
+                </div>
+              </div>
+            </div>
+            <div class="goallist">
+              <div class="goalopt sel"><div class="gicon"><i class="ti ti-home-2" style="color:var(--success);font-size:15px"></i></div><div class="txt"><div class="t1">House down payment</div><div class="t2">₹12,40,000 of ₹20,00,000</div></div><i class="ti ti-check check"></i></div>
+              <div class="goalopt"><div class="gicon"><i class="ti ti-plane" style="color:var(--success);font-size:15px"></i></div><div class="txt"><div class="t1">Europe trip</div><div class="t2">₹85,000 of ₹3,00,000</div></div></div>
+              <div class="goalopt"><div class="gicon"><i class="ti ti-school" style="color:var(--success);font-size:15px"></i></div><div class="txt"><div class="t1">Child's education</div><div class="t2">₹4,20,000 of ₹15,00,000</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3: GoalCard tappable -->
+      <div class="frame-wrap">
+        <div class="vtitle">3 — Goal card, now tappable</div>
+        <div class="vsub">Minimal change to the Goals list: the card itself becomes tappable (opens the new Goal Detail below) and gains a small linked-transactions count when &gt; 0. "Add contribution" quick-action stays on the card for fast one-tap logging.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Goals</div></div>
+          <div class="content">
+            <div class="goalcard">
+              <div class="top">
+                <div class="ring"></div>
+                <div style="flex:1">
+                  <div class="nm">House down payment</div>
+                  <div class="amt">₹12,40,000 of ₹20,00,000</div>
+                  <div class="txnbadge"><i class="ti ti-receipt"></i><span>7 linked transactions</span></div>
+                </div>
+                <i class="ti ti-chevron-right chev2"></i>
+              </div>
+            </div>
+            <div class="goalcard" style="opacity:.5">
+              <div class="top">
+                <div class="ring" style="border-top-color:#3b82f6;border-right-color:transparent"></div>
+                <div style="flex:1">
+                  <div class="nm">Europe trip</div>
+                  <div class="amt">₹85,000 of ₹3,00,000</div>
+                </div>
+                <i class="ti ti-chevron-right chev2"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4: Goal Detail modal -->
+      <div class="frame-wrap">
+        <div class="vtitle">4 — Goal Detail <span class="tag new">new</span></div>
+        <div class="vsub">Same shape as IOU's <code>PersonLedgerView</code>: a centred Modal (never a bottom sheet), progress up top, every linked transaction below, two footer actions. Tapping a transaction opens it in the real Expense edit form (where the goal link can be changed/removed).</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Goals</div></div>
+          <div class="content" style="filter:brightness(.4)">
+            <div class="goalcard"><div class="top"><div class="ring"></div><div style="flex:1"><div class="nm">House down payment</div></div></div></div>
+          </div>
+          <div class="modalbackdrop"></div>
+          <div class="modalcard">
+            <div class="mtitlerow"><div class="mtitle">House down payment</div><div class="mclose"><i class="ti ti-x"></i></div></div>
+            <div class="mbody">
+              <div class="progresshead">
+                <div class="bigring"></div>
+                <div><div class="lbl">62% funded</div><div class="val">₹12,40,000 <span style="font-size:11px;color:var(--text3);font-weight:600">of ₹20L</span></div></div>
+              </div>
+              <div class="txnseclabel">Linked transactions (7)</div>
+              <div class="txnrow"><div class="tic" style="background:rgba(16,185,129,.15)"><i class="ti ti-arrow-down-left" style="color:var(--success);font-size:13px"></i></div><div class="txt"><div class="t1">Salary savings transfer</div><div class="t2">HDFC Savings · 28 Jul</div></div><div class="amt" style="color:var(--success)">+₹50,000</div></div>
+              <div class="txnrow"><div class="tic" style="background:rgba(16,185,129,.15)"><i class="ti ti-arrow-down-left" style="color:var(--success);font-size:13px"></i></div><div class="txt"><div class="t1">Bonus contribution</div><div class="t2">HDFC Savings · 12 Jul</div></div><div class="amt" style="color:var(--success)">+₹1,00,000</div></div>
+              <div class="txnrow"><div class="tic" style="background:rgba(59,130,246,.15)"><i class="ti ti-arrows-left-right" style="color:var(--info);font-size:13px"></i></div><div class="txt"><div class="t1">Moved to goal account</div><div class="t2">Checking → Savings · 1 Jul</div></div><div class="amt" style="color:var(--info)">₹25,000</div></div>
+            </div>
+            <div class="mfooter">
+              <div class="fbtn secondary">Link existing</div>
+              <div class="fbtn primary">Add contribution</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5: Contribution form -->
+      <div class="frame-wrap">
+        <div class="vtitle">5 — Add contribution <span class="tag new">enhanced</span></div>
+        <div class="vsub">Same "Record matching transaction" toggle IOU's <code>EntryForm</code> already uses — on by default. When on, this actually creates a real Expense (category defaults to the existing "Savings Transfer" category) instead of just bumping <code>currentAmount</code> like today.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Add contribution</div></div>
+          <div class="content">
+            <div class="amountbig">₹15,000</div>
+            <div class="field"><div class="flabel">Date</div><div class="finput">1 Aug 2026</div></div>
+            <div class="linksection">
+              <div class="linkrow">
+                <div class="txt">
+                  <div class="t1">Record money into an account</div>
+                  <div class="t2">Creates a real transaction, not just a note</div>
+                </div>
+                <div class="toggle on"></div>
+              </div>
+              <div class="goalpicker">
+                <div class="selrow">
+                  <div class="gicon" style="background:rgba(59,130,246,.15)"><i class="ti ti-building-bank" style="color:var(--info);font-size:13px"></i></div>
+                  <div class="glabel">Paid from: HDFC Savings</div>
+                  <i class="ti ti-chevron-down chev"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="legend">
+      <h2>What each screen actually does, and the open questions</h2>
+      <table>
+        <tr><th>Screen</th><th>Change</th></tr>
+        <tr><td><code>ExpenseForm.tsx</code></td><td>New "Contribute to a goal" toggle + picker, mirroring the existing Lent/Borrowed section. Shown for expense/income/transfer (IOU's own section stays expense/income-only, unchanged). On save, resolves to a new pure <code>reconcileGoalLink()</code> in a new <code>core/goals/goalLink.ts</code> — same shape as <code>reconcileExpenseLink()</code>.</td></tr>
+        <tr><td><code>useExpenses.ts</code></td><td>New <code>seedGoalFromExpense</code> (mirrors <code>seedIouFromExpense</code>) + <code>goalLinkByTxn</code> derived map (mirrors <code>iouLinkByTxn</code>), writing real <code>GoalContribution</code> records (finally using that dormant table) instead of leaving goal linkage as a UI-only concept.</td></tr>
+        <tr><td><code>GoalCard.tsx</code> / <code>GoalsTab.tsx</code></td><td>Card becomes tappable → opens Goal Detail. Linked-transaction count badge added. Existing inline "Add contribution" quick-action kept as-is for fast logging without opening the detail view.</td></tr>
+        <tr><td><b>New:</b> <code>GoalDetailView.tsx</code></td><td>Centred <code>Modal</code>, same family as <code>PersonLedgerView.tsx</code> — progress ring, full linked-transaction list (tap → opens that transaction in the real Expense form), footer: "Link existing" (retroactively tag an already-recorded transaction) + "Add contribution" (primary).</td></tr>
+        <tr><td><code>GoalContribution</code> (add/edit)</td><td>Gains a "Record matching transaction" toggle (mirrors <code>EntryForm.tsx</code>'s, on by default) + account picker. On: creates a real Expense (category <code>cat-savings</code>, "Savings Transfer") via a new <code>reconcileLinkedGoalTxn()</code> — mirrors <code>reconcileLinkedTxn()</code> exactly. Off: behaves like today (a note-only bump to <code>currentAmount</code>, no transaction).</td></tr>
+      </table>
+      <ul style="margin-top:14px">
+        <li>Goals screen itself doesn't need a structural overhaul — just cards → tappable, plus the one new Detail modal. No new navigation route/pushed screen needed, same as IOU never needed one for <code>PersonLedgerView</code>.</li>
+        <li>A transaction could theoretically be linked to <i>both</i> an IOU entry and a Goal at once (e.g. lending money that's also earmarked toward a goal) — this design doesn't forbid it, since the two toggles are independent, but it's an edge case worth a explicit yes/no from you rather than assuming.</li>
+      </ul>
+      <div class="q-box"><b>Two things I'd rather you decide than guess:</b>
+        <ul style="margin:8px 0 0">
+          <li><b>Contribution transactions — Expense or Transfer?</b> Cashew treats a goal contribution as a Transfer when you track a separate destination account for it, or an Expense otherwise. Frame 5 above defaults to Expense (simpler, always available even with one account) — but if most of your goals map to a real dedicated savings account, Transfer (source account → destination account) would be more accurate. Happy to support both and let the toggle pick, but wanted your steer on the default.</li>
+          <li><b>Should linking to a goal exclude that transaction from spending analytics</b>, the same way IOU-linked transactions already are (<code>iouLinkedTxnIds</code> — "lending isn't daily-living consumption")? A goal contribution arguably isn't routine spending either.</li>
+        </ul>
+      </div>
+    </div>
+  </body>
+</html>

@@ -17,8 +17,6 @@ import { AccountsPage } from '../features/accounts/AccountsPage';
 import { SubscriptionsPage } from '../features/subscriptions/SubscriptionsPage';
 import { FeedbackPage } from '../features/feedback/FeedbackPage';
 import { CashFlowPage } from '../features/cashflow/CashFlowPage';
-import { NewsPage } from '../features/news/NewsPage';
-import { CalculatorsPage } from '../features/calculators/CalculatorsPage';
 import { TaxAwarenessPage } from '../features/tax/TaxAwarenessPage';
 
 /**
@@ -34,7 +32,7 @@ import { TaxAwarenessPage } from '../features/tax/TaxAwarenessPage';
  * itself) stays visible exactly like web's chrome.
  *
  * Everything here is reachable from Home's own widgets (`GlanceHeader`/`AccountsStrip`/
- * `MoneyStatsCard`/`ToolsGrid`/`HomeGroupsCard`) or from Settings' own sub-navigation (which lives
+ * `MoneyStatsCard`/`HomeGroupsCard`) or from Settings' own sub-navigation (which lives
  * here too, since Settings is reached via the global header's menu button, which always targets
  * `navigate('MainTabs', { screen: 'Home', params: { screen: 'Settings' } })` regardless of which tab
  * is currently active — switching to Home when opening Settings is standard, accepted behavior, same
@@ -60,8 +58,6 @@ export type HomeStackParamList = {
   Subscriptions: undefined;
   Feedback: undefined;
   CashFlow: undefined;
-  News: undefined;
-  Calculators: undefined;
   Tax: undefined;
 };
 
@@ -95,8 +91,6 @@ export function HomeStack() {
       <Stack.Screen name="Subscriptions" component={SubscriptionsPage} />
       <Stack.Screen name="Feedback" component={FeedbackPage} />
       <Stack.Screen name="CashFlow" component={CashFlowPage} />
-      <Stack.Screen name="News" component={NewsPage} />
-      <Stack.Screen name="Calculators" component={CalculatorsPage} />
       <Stack.Screen name="Tax" component={TaxAwarenessPage} />
     </Stack.Navigator>
   );

@@ -13,21 +13,23 @@ Phase 1.
 
 - Working directory: `/Users/hemant.sharma/Projects/penny`
 - Monorepo (pnpm workspace): `packages/core/` (platform-agnostic business logic) +
-  `apps/web-react/` (React 19 + Vite + Tailwind, current source of truth for functionality/
-  behavior/design) + `apps/mobile/` (React Native/Expo, in progress) + `workers/`
-  (independent Cloudflare Workers, excluded from the pnpm workspace)
+  `apps/web-react/` (React 19 + Vite + Tailwind — **legacy, frozen as of 2026-07-31: no
+  further changes**, kept only as a historical design/behavior reference) + `apps/mobile/`
+  (React Native/Expo — **the primary, actively-developed app: all new features, fixes, and
+  UI changes land here**) + `workers/` (independent Cloudflare Workers, excluded from the
+  pnpm workspace)
 - Currency/locale: `en-IN`, Indian Rupees (₹)
 
 ## Current status — always check these, never assume from memory
 
 - **Overall roadmap/phase status**: [`docs/ROADMAP.md`](docs/ROADMAP.md) (shipped history,
   decided/in-progress phases, future ideas — merged from three previously separate docs)
-- **Mobile-vs-web parity status, per module, and what to work on next**:
-  [`docs/MOBILE_PARITY.md`](docs/MOBILE_PARITY.md) — read its "Program status" section
-  first, every session, before starting any parity-related work
+- **Mobile-vs-web parity status, per module**: [`docs/MOBILE_PARITY.md`](docs/MOBILE_PARITY.md)
+  — historical record of the migration's parity effort (now complete, merged 2026-07-31).
+  Since `apps/web-react` is frozen, this is no longer an active "catch up to web" checklist
+  for new work, just a reference for what was verified.
 - **Mobile migration tech stack, rationale, and lessons-learned playbook**:
   [`docs/plans/mobile-migration.md`](docs/plans/mobile-migration.md)
-- **Current git branch**: `feat/rn-migration` (mobile migration work)
 
 ## Non-negotiable rules
 
@@ -62,9 +64,22 @@ Phase 1.
 - `docs/DESIGN_GUIDELINES.md` is the single source of truth for UI design — read it before
   designing or adjusting any screen
 - Semantic tokens only — never hardcoded colors (documented domain/brand accents excepted)
-- Any chrome/navigation-level or screen-level background must be mode-reactive
-  (`useModeBackgroundColor()`/`useModeAccentColor()` on mobile, the CSS-var cascade on web)
-  — a flat static color is a real bug, found twice already
+- As of 2026-07-31, backgrounds are **theme-reactive, not privacy-mode-reactive** — Safe/
+  Private/Open no longer tint the screen differently (that ambient tinting was removed by
+  deliberate decision; `getPrivacyModeColors()` now returns one fixed pair of colors per
+  theme). `useModeBackgroundColor()`/`useModeAccentColor()` on mobile (the CSS-var cascade
+  on web) still exist and should still be used for chrome/screen backgrounds instead of a
+  hardcoded value — they're just theme-only now, not mode-tinted
+- **Every UI design change goes through a mockup first, no exceptions.** Build it as a new
+  HTML mockup in `docs/mockups/proposals/` (never edit an existing mockup without asking),
+  grounded in the real current screen — get it approved before touching `apps/mobile` code.
+  See `.claude/skills/ui-design-check/`.
+
+**Legacy app:**
+
+- `apps/web-react` is frozen — do not edit it for feature work, bug fixes, or design
+  changes. It's kept only as a historical reference for what `apps/mobile` was built to
+  match. If a change genuinely requires touching it, confirm with the user first.
 
 ## Documentation discipline (every session)
 

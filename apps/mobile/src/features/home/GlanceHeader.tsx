@@ -11,13 +11,20 @@ import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';
 import type { HomeSummary, AssetGroup } from './useHome';
 
-function assetSubTab(ac: string): string {
-  if (ac === 'nps' || ac === 'ppf' || ac === 'epf') return 'retirement';
-  if (ac === 'gold') return 'precious_metals';
-  if (ac === 'vehicle' || ac === 'property' || ac === 'other') return 'real_assets';
-  if (ac === 'fd') return 'fixed_income';
-  if (ac === 'stock') return 'stocks';
-  return ac;
+/**
+ * Maps a net-worth breakdown row's asset class to where it lands in Portfolio — 2026-08-01 Equity
+ * consolidation grew this from a single flat `holdingsSubTab` string to a `{ mainTab, equitySubTab }`
+ * pair, since Stocks/MF now live one level deeper (under the new Equity main tab) while the other 4
+ * asset classes each got promoted straight to their own main tab.
+ */
+function assetPortfolioTarget(ac: string): { mainTab: string; equitySubTab?: string } {
+  if (ac === 'nps' || ac === 'ppf' || ac === 'epf') return { mainTab: 'retirement' };
+  if (ac === 'gold') return { mainTab: 'precious_metals' };
+  if (ac === 'vehicle' || ac === 'property' || ac === 'other') return { mainTab: 'real_assets' };
+  if (ac === 'fd') return { mainTab: 'fixed_income' };
+  if (ac === 'stock') return { mainTab: 'equity', equitySubTab: 'stocks' };
+  if (ac === 'mf') return { mainTab: 'equity', equitySubTab: 'mf' };
+  return { mainTab: 'equity' };
 }
 
 const LIABILITY_META: Record<string, { label: string; icon: string }> = {
@@ -52,7 +59,7 @@ interface Props {
 export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabilities }: Props) {
   const { shouldMask } = usePrivacy();
   const theme = useThemeColors();
-  const { loading: forecastLoading, forecast } = useForecast();
+  const { loading: forecastLoading, forecast, safeToSpend } = useForecast();
   const [detailOpen, setDetailOpen] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   // Net worth is an aggregate, not a specific sensitive item — Safe Mode keeps it visible;
@@ -62,10 +69,10 @@ export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabiliti
   const goToAsset = (ac: string) => {
     if (ac === 'liquid') navigation.navigate('Accounts');
     else if (ac === 'iou') navigation.navigate('Expenses', { screen: 'ExpensesMain', params: { initialTab: 'iou' } });
-    else navigation.navigate('Portfolio', { holdingsSubTab: assetSubTab(ac) });
+    else navigation.navigate('Portfolio', assetPortfolioTarget(ac));
   };
 
-  const safe = Math.max(0, forecast.discretionary);
+  const safe = safeToSpend;
   const breached = forecast.bufferBreachMs !== null;
   const safeSub = forecastLoading
     ? ''

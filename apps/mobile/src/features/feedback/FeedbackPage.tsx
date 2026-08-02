@@ -3,11 +3,11 @@ import { View, Pressable, ScrollView, Linking, TextInput as RNTextInput, Text } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { PageHeader } from '~/components/ui';
-import { BackButton } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { tint } from '~/lib/color';
+import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 
 // Placeholder — swap for real support inbox before release
 const SUPPORT_EMAIL = 'feedback@penny.app';
@@ -43,6 +43,7 @@ export function FeedbackPage() {
   const theme = useThemeColors();
   const [type, setType] = useState<FeedbackType>('suggestion');
   const [message, setMessage] = useState('');
+  useDefaultHeaderBack('Feedback');
 
   const selected = TYPES.find((t) => t.id === type) ?? TYPES[0];
 
@@ -59,11 +60,7 @@ export function FeedbackPage() {
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <PageHeader
-        leading={<BackButton />}
-        title="Contact & Feedback"
-        subtitle="We read every message. Your feedback shapes what gets built next."
-      />
+      <PageHeader subtitle="We read every message. Your feedback shapes what gets built next." />
       <ScrollView>
         <View className="px-4 pt-4 pb-6 gap-5">
           <View>

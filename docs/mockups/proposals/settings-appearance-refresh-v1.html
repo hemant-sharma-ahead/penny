@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Appearance card: a more modern, minimal Theme/Text size</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --danger:#ef4444;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 22px; color:#9aa5b1; font-size:14px; max-width:880px; margin-left:auto; margin-right:auto; line-height:1.65; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 30px; }
+      .frame-wrap { width:300px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.rec { background:#123524; color:#7ee6b8; }
+      .vtitle .tag.cur { background:#3a2412; color:#f0b060; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      /* just the card, not a full phone — the rest of Settings is already approved */
+      .card { width:300px; background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:0 14px 30px rgba(0,0,0,.4); }
+      .block { padding:14px; }
+      .block + .block { border-top:1px solid var(--border); }
+      .caption { font-size:11px; font-weight:600; color:var(--text2); margin-bottom:10px; }
+
+      /* CURRENT baseline — matches the screenshot */
+      .swrow { display:flex; gap:8px; }
+      .sw { flex:1; border:1.5px solid var(--border); border-radius:12px; padding:8px; }
+      .sw.on { border-color:var(--primary); }
+      .swbox { height:34px; border-radius:7px; margin-bottom:7px; padding:6px; }
+      .swln { height:3px; border-radius:2px; margin-bottom:3px; }
+      .sw .lb { font-size:10px; font-weight:700; color:var(--text2); text-align:center; }
+      .sw.on .lb { color:var(--primary); }
+      .aarow-cur { display:flex; gap:8px; }
+      .aabox-cur { flex:1; border:1.5px solid var(--border); border-radius:12px; height:58px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; }
+      .aabox-cur.on { border-color:var(--primary); }
+      .aabox-cur .big { font-weight:800; color:var(--text2); }
+      .aabox-cur.on .big { color:var(--primary); }
+      .aabox-cur .sm { font-size:9px; font-weight:700; color:var(--text3); }
+
+      /* OPTION 1 — icon segmented pill + Apple-style slider */
+      .segpill { display:flex; background:var(--surface2); border-radius:12px; padding:3px; gap:2px; }
+      .seg { flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; padding:9px 0; border-radius:9px; }
+      .seg.on { background:var(--primary); }
+      .seg i { font-size:16px; color:var(--text2); }
+      .seg.on i { color:#04150e; }
+      .seg span { font-size:10px; font-weight:700; color:var(--text2); }
+      .seg.on span { color:#04150e; }
+
+      .sliderwrap { display:flex; align-items:center; gap:10px; }
+      .sliderwrap .Asm { font-size:12px; font-weight:700; color:var(--text3); }
+      .sliderwrap .Alg { font-size:19px; font-weight:800; color:var(--text3); }
+      .track { flex:1; height:4px; border-radius:2px; background:var(--surface2); position:relative; }
+      .track .fill { position:absolute; left:0; top:0; bottom:0; width:38%; border-radius:2px; background:var(--primary); }
+      .track .stop { position:absolute; top:50%; width:8px; height:8px; border-radius:50%; background:var(--border); transform:translate(-50%,-50%); }
+      .track .stop.on { background:var(--primary); width:16px; height:16px; box-shadow:0 0 0 4px rgba(0,168,107,.2); }
+      .ticklabels { display:flex; justify-content:space-between; margin-top:8px; }
+      .ticklabels span { font-size:9px; font-weight:600; color:var(--text3); }
+      .ticklabels span.on { color:var(--primary); font-weight:800; }
+
+      /* OPTION 2 — flat swatch dots + plain text-size chips, no boxes */
+      .dotrow { display:flex; gap:18px; justify-content:center; padding:4px 0 2px; }
+      .dotcol { display:flex; flex-direction:column; align-items:center; gap:7px; }
+      .dot { width:44px; height:44px; border-radius:50%; border:2px solid transparent; display:flex; align-items:center; justify-content:center; position:relative; }
+      .dot.on { border-color:var(--primary); }
+      .dotinner { width:36px; height:36px; border-radius:50%; }
+      .dot .check { position:absolute; bottom:-2px; right:-2px; width:16px; height:16px; border-radius:50%; background:var(--primary); display:flex; align-items:center; justify-content:center; border:2px solid var(--surface); }
+      .dot .check i { font-size:9px; color:#04150e; }
+      .dotcol .lb { font-size:10px; font-weight:600; color:var(--text2); }
+      .dotcol.on .lb { color:var(--primary); font-weight:700; }
+
+      .chiprow { display:flex; justify-content:space-between; padding:2px 4px; }
+      .chip { display:flex; flex-direction:column; align-items:center; gap:4px; padding:4px 10px; border-radius:10px; }
+      .chip.on { background:rgba(0,168,107,.12); }
+      .chip .A { font-weight:800; color:var(--text3); }
+      .chip.on .A { color:var(--primary); }
+      .chip .sm { font-size:8.5px; font-weight:700; color:var(--text3); }
+      .chip.on .sm { color:var(--primary); }
+
+      /* OPTION 3 — single compact row, tap-to-expand affordance implied via chevron (still no popup — expands inline) */
+      .crow { display:flex; align-items:center; gap:10px; }
+      .crow .ic2 { width:32px; height:32px; border-radius:10px; background:rgba(59,130,246,.15); display:flex; align-items:center; justify-content:center; }
+      .crow .txt { flex:1; }
+      .crow .t1 { font-size:12.5px; font-weight:600; color:var(--text); }
+      .crow .t2 { font-size:10px; color:var(--text3); margin-top:1px; }
+      .crow .segpill.compact { width:150px; }
+      .crow .segpill.compact .seg { padding:6px 0; }
+      .crow .segpill.compact i { font-size:13px; }
+      .crow .segpill.compact span { font-size:8.5px; }
+
+      .legend { max-width:880px; margin:10px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:#fff; }
+      .legend b { color:#fff; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend li { margin-bottom:8px; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:12px; }
+      .legend .rec-box { background:color-mix(in srgb, var(--primary) 12%, #0e141b); border:1px solid color-mix(in srgb, var(--primary) 35%, #0e141b); border-radius:12px; padding:14px 16px; margin-top:12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Appearance card — a more modern, minimal Theme &amp; Text size</h1>
+    <p class="sub">Just this card — the rest of Settings (grouped cards, colours, ordering) is already
+      approved and unchanged. Grounded in your actual screenshot: same card, same "Theme" / "Text size"
+      captions, same green accent.</p>
+
+    <div class="gallery">
+
+      <!-- CURRENT (from screenshot) -->
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">from your screenshot</span></div>
+        <div class="vsub">Each swatch redraws a tiny fake screenshot (bars mimicking app UI) inside a bordered box — busy for what's really just "pick one of three." The 4 text-size boxes work, but boxy/heavy for a simple scale choice.</div>
+        <div class="card">
+          <div class="block">
+            <div class="caption">Theme</div>
+            <div class="swrow">
+              <div class="sw"><div class="swbox" style="background:#fff"><div class="swln" style="background:#00a86b;width:80%"></div><div class="swln" style="background:#e2e8f0;width:60%"></div><div class="swln" style="background:#e2e8f0;width:40%"></div></div><div class="lb">Light</div></div>
+              <div class="sw on"><div class="swbox" style="background:#0b1220"><div class="swln" style="background:#00c47e;width:80%"></div><div class="swln" style="background:#243247;width:60%"></div><div class="swln" style="background:#243247;width:40%"></div></div><div class="lb">Dark</div></div>
+              <div class="sw"><div class="swbox" style="background:linear-gradient(135deg,#fff 50%,#0b1220 50%)"><div class="swln" style="background:#00a86b;width:70%"></div><div class="swln" style="background:#94a3b8;width:50%"></div></div><div class="lb">System</div></div>
+            </div>
+          </div>
+          <div class="block">
+            <div class="caption">Text size</div>
+            <div class="aarow-cur">
+              <div class="aabox-cur"><span class="big" style="font-size:14px">Aa</span><span class="sm">S</span></div>
+              <div class="aabox-cur on"><span class="big" style="font-size:18px">Aa</span><span class="sm">A</span></div>
+              <div class="aabox-cur"><span class="big" style="font-size:21px">Aa</span><span class="sm">A+</span></div>
+              <div class="aabox-cur"><span class="big" style="font-size:24px">Aa</span><span class="sm">A++</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPTION 1 -->
+      <div class="frame-wrap">
+        <div class="vtitle">1 — Icon pill + slider <span class="tag rec">recommended</span></div>
+        <div class="vsub">Theme becomes a 3-way icon+label segmented pill (sun/moon/device) — no more mini fake-UI screenshots, just a clean iconographic choice. Text size becomes a single slider track with 4 stops and small→large "A" bookends, same shape as iOS's own text-size control — the most immediately familiar "modern minimal" pattern for this exact choice.</div>
+        <div class="card">
+          <div class="block">
+            <div class="caption">Theme</div>
+            <div class="segpill">
+              <div class="seg"><i class="ti ti-sun"></i><span>Light</span></div>
+              <div class="seg on"><i class="ti ti-moon"></i><span>Dark</span></div>
+              <div class="seg"><i class="ti ti-device-desktop"></i><span>System</span></div>
+            </div>
+          </div>
+          <div class="block">
+            <div class="caption">Text size</div>
+            <div class="sliderwrap">
+              <span class="Asm">A</span>
+              <div class="track">
+                <div class="fill"></div>
+                <div class="stop" style="left:0%"></div>
+                <div class="stop on" style="left:38%"></div>
+                <div class="stop" style="left:69%"></div>
+                <div class="stop" style="left:100%"></div>
+              </div>
+              <span class="Alg">A</span>
+            </div>
+            <div class="ticklabels">
+              <span>S</span><span class="on">A</span><span>A+</span><span>A++</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPTION 2 -->
+      <div class="frame-wrap">
+        <div class="vtitle">2 — Flat swatch dots + plain chips</div>
+        <div class="vsub">Theme becomes 3 plain colour dots (no fake UI lines at all) with a small check badge on the selected one. Text size drops the boxes entirely — just "Aa" at 4 real sizes with a soft tinted background on the active one. Lighter-weight than Option 1, but the theme dots carry slightly less information (no live palette preview) than today's swatches.</div>
+        <div class="card">
+          <div class="block">
+            <div class="caption">Theme</div>
+            <div class="dotrow">
+              <div class="dotcol"><div class="dot"><div class="dotinner" style="background:#fff"></div></div><div class="lb">Light</div></div>
+              <div class="dotcol on"><div class="dot on"><div class="dotinner" style="background:#0b1220"></div><div class="check"><i class="ti ti-check"></i></div></div><div class="lb">Dark</div></div>
+              <div class="dotcol"><div class="dot"><div class="dotinner" style="background:linear-gradient(135deg,#fff 50%,#0b1220 50%)"></div></div><div class="lb">System</div></div>
+            </div>
+          </div>
+          <div class="block">
+            <div class="caption">Text size</div>
+            <div class="chiprow">
+              <div class="chip"><span class="A" style="font-size:13px">Aa</span><span class="sm">S</span></div>
+              <div class="chip on"><span class="A" style="font-size:16px">Aa</span><span class="sm">A</span></div>
+              <div class="chip"><span class="A" style="font-size:19px">Aa</span><span class="sm">A+</span></div>
+              <div class="chip"><span class="A" style="font-size:22px">Aa</span><span class="sm">A++</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPTION 3 -->
+      <div class="frame-wrap">
+        <div class="vtitle">3 — Single compact rows</div>
+        <div class="vsub">Most space-efficient: Theme and Text size each collapse to one row (icon + label + current value + a small inline pill selector on the right), same visual weight as a normal settings row rather than its own visual block. Fastest to scan, but the "live palette preview" quality of today's swatches is gone entirely.</div>
+        <div class="card">
+          <div class="block">
+            <div class="crow">
+              <div class="ic2"><i class="ti ti-moon" style="color:#3b82f6;font-size:15px"></i></div>
+              <div class="txt"><div class="t1">Theme</div><div class="t2">Dark</div></div>
+              <div class="segpill compact">
+                <div class="seg"><i class="ti ti-sun"></i></div>
+                <div class="seg on"><i class="ti ti-moon"></i></div>
+                <div class="seg"><i class="ti ti-device-desktop"></i></div>
+              </div>
+            </div>
+          </div>
+          <div class="block">
+            <div class="crow">
+              <div class="ic2"><i class="ti ti-text-size" style="color:#3b82f6;font-size:15px"></i></div>
+              <div class="txt"><div class="t1">Text size</div><div class="t2">Default</div></div>
+              <div class="segpill compact">
+                <div class="seg"><span>S</span></div>
+                <div class="seg on"><span>A</span></div>
+                <div class="seg"><span>A+</span></div>
+                <div class="seg"><span>A++</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="legend">
+      <h2>Notes</h2>
+      <ul>
+        <li><b>Option 1</b> keeps the most information density (icon + label per theme, precise size steps via a slider) while looking noticeably cleaner than the fake-mini-screenshot swatches — the slider pattern is instantly recognisable from iOS's own Text Size control, so it costs no learning curve.</li>
+        <li><b>Option 2</b> is the lightest-weight visually but the theme dots lose the "see the real palette" quality your current swatches have (`docs/DESIGN_GUIDELINES.md`'s "Live, visual controls" principle) — a plain dark/light circle doesn't show what Dark mode's surfaces actually look like the way a mini rendered card does.</li>
+        <li><b>Option 3</b> is the most compact but gives up the swatch preview entirely and reads more like a generic settings row than a considered "Appearance" moment — probably too far in the minimal direction for a control this visual by nature.</li>
+      </ul>
+      <div class="rec-box"><b>Recommendation: Option 1.</b> It solves the actual complaint (the theme swatches look busy/dated) without losing the "live preview" principle for the part that still needs it, and the text-size slider is a well-worn, instantly-familiar pattern rather than something invented for this screen alone.</div>
+    </div>
+  </body>
+</html>

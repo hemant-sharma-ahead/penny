@@ -33,21 +33,28 @@ export interface IconProps {
    *  buttons) was static on mobile. `ActivityIndicator`-based loading states are unaffected by this gap
    *  (native RN primitive, already spins on its own) and don't need this prop. */
   spin?: boolean;
+  /** Renders Tabler's solid "Filled" variant of this icon instead of the outline one (2026-08-02, added
+   *  for the Goal card's icon-fill gauge — `GoalCard.tsx`'s `IconFillGauge`). Not every icon has one;
+   *  falls back to the outline component rather than rendering nothing if `${name}Filled` doesn't exist,
+   *  so a caller doesn't need to know in advance which icons Tabler shipped a filled variant for. */
+  filled?: boolean;
 }
 
 type TablerIconComponent = ComponentType<{ size?: number | string; color?: string }>;
 
-export function Icon({ name, size = 16, color, spin }: IconProps) {
-  // Memoized per-instance on `name` so the string-parsing + dynamic lookup above only reruns when the
-  // icon name actually changes, not on every re-render of every mounted Icon (found in the 2026-07-26
+export function Icon({ name, size = 16, color, spin, filled }: IconProps) {
+  // Memoized per-instance on `name`/`filled` so the string-parsing + dynamic lookup above only reruns
+  // when either actually changes, not on every re-render of every mounted Icon (found in the 2026-07-26
   // parity sweep — disproportionately costly given how many Icon instances mount at once across
   // Transactions/Budgets/Analytics/Category tiles). A shared module-level cache was tried first but
   // rejected: mutating module state during render trips this repo's React Compiler lint rules
   // (`react-hooks/immutability`/`static-components`) — `useMemo` is the sanctioned mechanism instead.
   const IconComponent = useMemo(() => {
+    const table = TablerIcons as unknown as Record<string, TablerIconComponent>;
     const componentName = toComponentName(name);
-    return (TablerIcons as unknown as Record<string, TablerIconComponent>)[componentName] ?? null;
-  }, [name]);
+    if (filled) return table[`${componentName}Filled`] ?? table[componentName] ?? null;
+    return table[componentName] ?? null;
+  }, [name, filled]);
 
   const rotation = useSharedValue(0);
   useEffect(() => {

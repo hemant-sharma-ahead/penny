@@ -7,6 +7,7 @@ import type { Holding } from '@/core/db/types';
 import { FdCard } from './FdCard';
 import { RdCard } from './RdCard';
 import { FdModal } from './FdModal';
+import { CalculatorsSection } from '~/features/calculators/CalculatorsSection';
 
 interface FixedIncomeSectionProps {
   holdings: Holding[];
@@ -48,6 +49,10 @@ export function FixedIncomeSection({ holdings, masked, onSave, onRemove }: Fixed
         <Icon name="ti-plus" size={16} color={theme.textTertiary} />
         <Text className="text-sm font-medium text-tertiary">Add FD / RD</Text>
       </Pressable>
+
+      {/* FD/RD Maturity calculator — 2026-08-01 relocation out of Home's generic hub, into the tab
+          whose holdings it's actually about. */}
+      <CalculatorsSection ids={['fd-rd']} />
 
       {form && (
         <FdModal

@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Goal card redesign: 4 genuinely different directions</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --blue:#3b82f6; --danger:#ef4444; --success:#10b981; --amber:#f59e0b;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 22px; color:#9aa5b1; font-size:14px; max-width:900px; margin-left:auto; margin-right:auto; line-height:1.65; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:40px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 10px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.now { background:#2a2a2a; color:#c7ccd1; }
+      .vtitle .tag.rec { background:#123524; color:#7ee6b8; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; height:520px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .header { height:40px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .htitle { flex:1; text-align:center; font-size:13.5px; font-weight:700; color:var(--text); }
+      .avatar { width:26px; height:26px; border-radius:50%; background:var(--primary); display:grid; place-items:center; color:#fff; font-size:11px; font-weight:800; }
+      .content { flex:1; padding:14px; overflow:hidden; }
+      .ghostcard { height:60px; border-radius:16px; background:var(--surface); border:1px solid var(--border); margin-top:14px; opacity:.4; }
+
+      /* shared card chrome */
+      .cardname { font-size:14px; font-weight:700; color:var(--text); }
+      .cardsub { font-size:11px; color:var(--text2); margin-top:2px; }
+      .actrow { display:flex; gap:8px; margin-top:12px; }
+      .actrow .b { flex:1; border-radius:11px; padding:9px; text-align:center; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:5px; }
+      .actrow .b.sec { border:1px solid var(--border); color:var(--text2); }
+      .actrow .b.pri { background:var(--primary); color:#04150e; }
+      .actrow .b i { font-size:13px; }
+
+      /* ── CURRENT ── */
+      .curcard { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:14px; }
+      .curtop { display:flex; gap:12px; }
+      .ring { width:46px; height:46px; border-radius:50%; position:relative; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:conic-gradient(var(--blue) 0% 49%, #2a2f38 49% 100%); }
+      .ring::before { content:''; position:absolute; inset:5px; border-radius:50%; background:var(--surface); }
+      .ring span { font-size:10px; font-weight:800; color:var(--text); z-index:1; }
+      .rbadge { font-size:9px; font-weight:700; padding:2px 8px; border-radius:999px; background:var(--blue); color:#04101f; display:inline-block; margin-top:6px; }
+      .gmeta { font-size:9.5px; color:var(--text3); margin-top:6px; }
+      .sipline { font-size:9.5px; color:var(--text3); margin-top:4px; }
+      .contribline { display:flex; align-items:center; gap:4px; margin-top:6px; font-size:9.5px; color:var(--blue); }
+
+      /* ── A: liquid fill ── */
+      .liquidcard { position:relative; border-radius:18px; overflow:hidden; height:170px; border:1px solid var(--border); background:var(--surface); }
+      .liquidcard svg { position:absolute; bottom:0; left:0; width:100%; height:100%; }
+      .liq-content { position:relative; z-index:2; padding:14px; height:100%; display:flex; flex-direction:column; justify-content:space-between; }
+      .liq-top .pct { font-size:26px; font-weight:800; color:#fff; }
+      .liq-top .nm { font-size:13px; font-weight:700; color:#fff; margin-top:2px; }
+      .liq-bottom { font-size:10.5px; color:rgba(255,255,255,.85); }
+      .liq-bottom .row { display:flex; justify-content:space-between; align-items:center; }
+
+      /* ── B: milestone roadmap ── */
+      .roadcard { background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:14px; }
+      .road-top { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
+      .road-top .nm { font-size:14px; font-weight:700; color:var(--text); }
+      .road-top .pct { font-size:16px; font-weight:800; color:var(--blue); }
+      .roadsvg { width:100%; height:64px; display:block; }
+      .road-labels { display:flex; justify-content:space-between; font-size:8px; color:var(--text3); margin-top:2px; font-weight:700; }
+      .road-bottom { font-size:10.5px; color:var(--text2); margin-top:8px; }
+
+      /* ── C: block tower ── */
+      .blockcard { background:#0d1117; border:1.5px solid var(--border); border-radius:8px; padding:14px; box-shadow:6px 6px 0 rgba(59,130,246,.18); }
+      .block-row { display:flex; gap:14px; align-items:flex-end; }
+      .tower { display:flex; flex-direction:column-reverse; gap:3px; width:34px; height:90px; }
+      .tower .blk { flex:1; border-radius:2px; background:#1c2128; border:1px solid var(--border); }
+      .tower .blk.on { background:var(--blue); border-color:var(--blue); }
+      .block-mid { flex:1; }
+      .block-mid .pctmono { font-size:30px; font-weight:900; color:var(--text); font-variant-numeric:tabular-nums; letter-spacing:-1px; }
+      .block-mid .nm { font-size:12.5px; font-weight:700; color:var(--text2); margin-top:2px; }
+      .block-foot { display:flex; justify-content:space-between; margin-top:12px; padding-top:10px; border-top:1px dashed var(--border); font-size:9.5px; color:var(--text3); }
+
+      /* ── D: trajectory hero ── */
+      .trajcard { background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:16px; }
+      .traj-status { display:inline-flex; align-items:center; gap:4px; font-size:9px; font-weight:800; letter-spacing:.03em; padding:3px 9px; border-radius:999px; background:rgba(16,185,129,.15); color:var(--success); text-transform:uppercase; }
+      .traj-hero { font-size:40px; font-weight:900; color:var(--text); margin-top:8px; letter-spacing:-1.5px; }
+      .traj-nm { font-size:12.5px; color:var(--text2); margin-top:1px; }
+      .traj-bar { height:5px; border-radius:3px; background:#2a2f38; margin-top:12px; overflow:hidden; }
+      .traj-bar .fill { height:100%; width:49%; background:linear-gradient(90deg, var(--blue), #60a5fa); }
+      .traj-foot { display:flex; justify-content:space-between; margin-top:8px; font-size:9.5px; color:var(--text3); }
+
+      .legend { max-width:960px; margin:14px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:22px 0 8px; color:#fff; }
+      .legend h2:first-child { margin-top:0; }
+      .legend b { color:#fff; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:12px; }
+      .recommend { max-width:960px; margin:0 auto 20px; background:#0f2419; border:1px solid #1c3d2a; border-radius:16px; padding:18px 22px; color:#d7f5e6; font-size:13.5px; line-height:1.7; }
+      .recommend b { color:#7ee6b8; }
+    </style>
+  </head>
+  <body>
+    <h1>Goal card — 4 genuinely different directions</h1>
+    <p class="sub">Researched how Jar (literal jar-fill), Qapital (illustrated buckets), INDmoney (data-dense
+      rings), Monarch (trajectory/status), and CRED's NeoPOP (engineered blocks) each solve "show progress
+      toward a goal" — then built 4 real directions for Penny, not placement variants of the same ring.
+      Same real data throughout: Emergency Fund, 49%, ₹1,47,000 of ₹3,00,000, Conservative, 12mo left,
+      SIP ₹11,489/mo, 3 contributions.</p>
+
+    <div class="gallery">
+
+      <!-- CURRENT -->
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag now">as shipped</span></div>
+        <div class="vsub">Ring + text stack — same shape every fintech app defaults to. Nothing wrong with it, just forgettable.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Goals</div><div style="width:26px"></div></div>
+          <div class="content">
+            <div class="curcard">
+              <div class="curtop">
+                <div class="ring"><span>49%</span></div>
+                <div>
+                  <div class="cardname">Emergency Fund</div>
+                  <div class="cardsub">₹1,47,000 of ₹3,00,000</div>
+                  <div><span class="rbadge">Conservative</span></div>
+                  <div class="gmeta">12mo left · 1 Aug 2027</div>
+                  <div class="sipline">SIP needed: ₹11,489/mo</div>
+                  <div class="contribline"><i class="ti ti-receipt" style="font-size:10px"></i>3 contributions</div>
+                </div>
+              </div>
+              <div class="actrow">
+                <div class="b sec"><i class="ti ti-link"></i>Link existing</div>
+                <div class="b pri"><i class="ti ti-plus"></i>Add contribution</div>
+              </div>
+            </div>
+            <div class="ghostcard"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- A: LIQUID FILL -->
+      <div class="frame-wrap">
+        <div class="vtitle">A · Liquid fill</div>
+        <div class="vsub">Inspired by Jar's literal jar-fill (minus the 3D coin gimmick) — the card <i>is</i> the vessel. Waterline sits at 49% height; the fill colour is the goal's own risk colour. Reads instantly, no ring/number decoding needed.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Goals</div><div style="width:26px"></div></div>
+          <div class="content">
+            <div class="liquidcard">
+              <svg viewBox="0 0 300 170" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="liqgrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#60a5fa" />
+                    <stop offset="100%" stop-color="#3b82f6" />
+                  </linearGradient>
+                </defs>
+                <path d="M0,170 L0,95 Q40,80 80,92 T160,88 T240,95 T300,90 L300,170 Z" fill="url(#liqgrad)" opacity="0.9" />
+                <path d="M0,170 L0,100 Q40,88 80,98 T160,94 T240,100 T300,96 L300,170 Z" fill="url(#liqgrad)" />
+              </svg>
+              <div class="liq-content">
+                <div class="liq-top">
+                  <div class="pct">49%</div>
+                  <div class="nm">Emergency Fund</div>
+                </div>
+                <div class="liq-bottom">
+                  <div class="row"><span>₹1,47,000 of ₹3,00,000</span><span>12mo left</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="actrow" style="margin-top:10px">
+              <div class="b sec"><i class="ti ti-link"></i>Link existing</div>
+              <div class="b pri"><i class="ti ti-plus"></i>Add contribution</div>
+            </div>
+            <div class="ghostcard"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- B: MILESTONE ROADMAP -->
+      <div class="frame-wrap">
+        <div class="vtitle">B · Milestone roadmap</div>
+        <div class="vsub">Progress as a journey, not a stat — a winding path with waypoints at 25/50/75/100%. The travelled trail is bright, what's ahead is a dashed ghost line. Turns "49%" into "you're between the first two markers, 12 months to the finish."</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Goals</div><div style="width:26px"></div></div>
+          <div class="content">
+            <div class="roadcard">
+              <div class="road-top"><div class="nm">Emergency Fund</div><div class="pct">49%</div></div>
+              <svg class="roadsvg" viewBox="0 0 260 64">
+                <path d="M6,50 C50,50 50,14 95,14 C140,14 140,50 185,50 C220,50 220,20 254,20" fill="none" stroke="#2a2f38" stroke-width="4" stroke-dasharray="1 9" stroke-linecap="round" />
+                <path d="M6,50 C50,50 50,14 95,14 C118,14 118,32 128,32" fill="none" stroke="#3b82f6" stroke-width="4" stroke-linecap="round" />
+                <circle cx="6" cy="50" r="5" fill="#3b82f6" />
+                <circle cx="95" cy="14" r="5" fill="#3b82f6" />
+                <circle cx="185" cy="50" r="5" fill="#2a2f38" stroke="#2d333b" />
+                <circle cx="254" cy="20" r="6" fill="none" stroke="#f59e0b" stroke-width="2" />
+                <circle cx="128" cy="32" r="7" fill="#0b0f14" stroke="#3b82f6" stroke-width="3" />
+              </svg>
+              <div class="road-labels"><span>Start</span><span>25%</span><span>50%</span><span>100%</span></div>
+              <div class="road-bottom">₹1,47,000 of ₹3,00,000 · 12mo left · SIP ₹11,489/mo</div>
+              <div class="actrow">
+                <div class="b sec"><i class="ti ti-link"></i>Link existing</div>
+                <div class="b pri"><i class="ti ti-plus"></i>Add contribution</div>
+              </div>
+            </div>
+            <div class="ghostcard"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- C: BLOCK TOWER -->
+      <div class="frame-wrap">
+        <div class="vtitle">C · Engineered block tower</div>
+        <div class="vsub">Inspired by CRED's NeoPOP language — hard edges, offset drop-shadow, no soft gradients. Each block is a "rung"; filled rungs = progress, built like something under construction rather than a % you have to compute.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Goals</div><div style="width:26px"></div></div>
+          <div class="content">
+            <div class="blockcard">
+              <div class="block-row">
+                <div class="tower">
+                  <div class="blk on"></div><div class="blk on"></div><div class="blk on"></div><div class="blk on"></div>
+                  <div class="blk"></div><div class="blk"></div><div class="blk"></div><div class="blk"></div>
+                </div>
+                <div class="block-mid">
+                  <div class="pctmono">49%</div>
+                  <div class="nm">Emergency Fund</div>
+                  <div class="gmeta">₹1,47,000 / ₹3,00,000</div>
+                </div>
+              </div>
+              <div class="block-foot"><span>12mo left</span><span>SIP ₹11,489/mo</span><span>3 contrib.</span></div>
+              <div class="actrow">
+                <div class="b sec"><i class="ti ti-link"></i>Link existing</div>
+                <div class="b pri"><i class="ti ti-plus"></i>Add contribution</div>
+              </div>
+            </div>
+            <div class="ghostcard"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- D: TRAJECTORY HERO -->
+      <div class="frame-wrap">
+        <div class="vtitle">D · Trajectory hero <span class="tag rec">recommended</span></div>
+        <div class="vsub">Inspired by Monarch's status-vs-trajectory idea — leads with an "ON TRACK" verdict (computed from pace vs. target date), not a bare %. The number itself becomes the hero (40px), ring dropped entirely for a thin gradient bar underneath.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Goals</div><div style="width:26px"></div></div>
+          <div class="content">
+            <div class="trajcard">
+              <div class="traj-status"><i class="ti ti-trending-up" style="font-size:10px"></i>On track</div>
+              <div class="traj-hero">49%</div>
+              <div class="traj-nm">Emergency Fund · ₹1,47,000 of ₹3,00,000</div>
+              <div class="traj-bar"><div class="fill"></div></div>
+              <div class="traj-foot"><span>12mo left</span><span>SIP ₹11,489/mo</span><span>3 contrib.</span></div>
+              <div class="actrow">
+                <div class="b sec"><i class="ti ti-link"></i>Link existing</div>
+                <div class="b pri"><i class="ti ti-plus"></i>Add contribution</div>
+              </div>
+            </div>
+            <div class="ghostcard"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="recommend">
+      <b>Leaning toward D (Trajectory hero).</b> It's the one idea here that changes what the card actually
+      <i>tells</i> you, not just how it looks — "On track" vs. a silent 49% is the difference between a
+      status update and a number you have to interpret yourself, and it scales cleanly to every goal
+      shape (short/long horizon, ahead/behind) without needing custom art. B (Roadmap) is the most
+      delightful/story-driven and would be my second pick if you want more personality than D's clean
+      dashboard read. A (Liquid) and C (Blocks) are the most visually bold but risk feeling gimmicky at
+      list-scroll speed once you have 5+ goals on screen — worth prototyping with a full list before
+      picking, not just one card in isolation.
+    </div>
+
+    <div class="legend">
+      <h2>What "on track" would actually mean (Direction D)</h2>
+      <p>Not decorative — computed from the same data already on the card: required monthly pace
+        (<code>targetAmount − effectiveSaved</code> over months remaining) vs. the actual average
+        monthly contribution rate so far (same input Chip's existing "reach this goal in X months"
+        insight already uses). <b>On track</b> = actual pace ≥ required pace; <b>Behind</b> = below it,
+        shown in amber/red instead of green. This is new logic, not currently computed anywhere — happy
+        to scope it as part of implementation once a direction is picked.</p>
+      <h2>Research grounding</h2>
+      <ul style="margin:6px 0 0; padding-left:20px;">
+        <li><b>Jar</b> (India) — literal 3D jar that fills with coins per deposit; physicality reportedly
+          drove +30% completion in their own case study. Direction A is this idea in flat/abstract form.</li>
+        <li><b>Qapital</b> (US) — illustrated, personalized goal art over a plain bar; considered but not
+          built here since Penny's goals are financial categories, not always mood-board-able ("Emergency
+          Fund" doesn't have an obvious illustration the way "Rainy Day" does).</li>
+        <li><b>Monarch Money</b> — explicit On track/Ahead/At risk status computed from trajectory, not
+          just %. Direction D's core idea.</li>
+        <li><b>CRED (NeoPOP)</b> — hard shadows, sharp edges, "engineered object" material language.
+          Direction C borrows this treatment for a stacked-block hero.</li>
+        <li><b>INDmoney</b> — data-dense but visually plain rings; the "current" card here is already
+          basically this pattern, which is exactly why it reads as generic.</li>
+      </ul>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Goal card v2: top-right icon actions + always-shown Spendable/Non-spendable tag</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --border:#2d333b; --text:#e6edf3; --text2:#8b949e;
+        --liquid1:#7fe0bd; --liquid2:#0f9d68; --blue1:#a3c9ff; --blue2:#3b82f6;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 20px; color:#9aa5b1; font-size:14px; max-width:900px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .thoughts { max-width:740px; margin:0 auto 34px; background:#101720; border:1px solid var(--border); border-radius:14px; padding:16px 20px; font-size:13px; line-height:1.75; color:#c3cad2; }
+      .thoughts b { color:#fff; }
+      .sectiontitle { text-align:center; font-size:15px; font-weight:800; color:#fff; margin:44px 0 4px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:760px; margin:0 auto 18px; line-height:1.6; }
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 40px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#123524; color:#7ee6b8; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+      .phone { width:290px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:16px; background:var(--bg); flex-shrink:0; }
+      .content { padding:14px 12px; display:flex; flex-direction:column; gap:12px; }
+
+      .card { border-radius:18px; border:1px solid var(--border); overflow:hidden; position:relative; background:var(--surface); }
+      .liquid { position:relative; height:150px; padding:14px; display:flex; flex-direction:column; justify-content:space-between; overflow:hidden; }
+      .liquid .fill { position:absolute; left:0; right:0; bottom:0; }
+      .liquid .icnwatermark { position:absolute; right:-18px; bottom:-20px; font-size:110px; color:#fff; opacity:.16; }
+      .liquid .top { position:relative; z-index:1; max-width:68%; }
+      .liquid .pct { font-size:24px; font-weight:800; color:#fff; }
+      .liquid .name { font-size:13px; font-weight:700; color:#fff; margin-top:1px; }
+      .liquid .spendtag { display:inline-flex; align-items:center; gap:4px; margin-top:5px; background:rgba(0,0,0,.3); border-radius:999px; padding:3px 8px; }
+      .liquid .spendtag i { font-size:10px; color:#fff; }
+      .liquid .spendtag span { font-size:9.5px; font-weight:700; color:#fff; }
+      .liquid .bottom { position:relative; z-index:1; }
+      .liquid .row1 { display:flex; justify-content:space-between; font-size:10.5px; color:rgba(255,255,255,.92); }
+      .liquid .sip { font-size:9.5px; color:rgba(255,255,255,.72); margin-top:2px; }
+
+      .actionchips { position:absolute; top:12px; right:12px; z-index:2; display:flex; gap:6px; }
+      .chip { width:30px; height:30px; border-radius:15px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.34); border:1px solid rgba(255,255,255,.22); }
+      .chip.pri { background:#fff; }
+      .chip i { font-size:14px; color:#fff; }
+      .chip.pri i { color:var(--liquid2); }
+    </style>
+  </head>
+  <body>
+    <h1>Goal card — actions top-right, Spendable/Non-spendable always shown</h1>
+    <p class="sub">
+      Per your last note: the two action icon chips (Option B's style) move to the top-right corner, and
+      a status tag — "Spendable" or "Non-spendable" — sits right under the goal name on every card, not
+      just the exception.
+    </p>
+    <div class="thoughts">
+      <b>Wording check:</b> "Non-spendable" = this goal counts toward Safe to spend (the default for every
+      goal) — money is reserved, not available today. "Spendable" = you've toggled this goal off — the
+      money still reads as available cash. Icon chips: link (top) and plus (bottom/right) sit directly on
+      the liquid, top-right — tapping either still behaves exactly as today (Link existing / Add
+      contribution), just relocated. Whole card still opens Goal Detail on tap anywhere else.
+    </div>
+
+    <div class="sectiontitle">Both states</div>
+    <div class="sectionsub">Same Europe Trip / New laptop examples as before, updated to the new layout.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Non-spendable (default)<span class="tag">counts</span></div>
+        <div class="vsub">Most goals look like this — reserved, excluded from Safe to spend.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="content">
+            <div class="card">
+              <div class="liquid">
+                <div class="fill" style="height:20%; background:linear-gradient(180deg, var(--liquid1), var(--liquid2));"></div>
+                <i class="ti ti-plane icnwatermark"></i>
+                <div class="actionchips">
+                  <div class="chip"><i class="ti ti-link"></i></div>
+                  <div class="chip pri"><i class="ti ti-plus"></i></div>
+                </div>
+                <div class="top">
+                  <div class="pct">20%</div>
+                  <div class="name">Europe Trip</div>
+                  <div class="spendtag"><i class="ti ti-lock"></i><span>Non-spendable</span></div>
+                </div>
+                <div class="bottom">
+                  <div class="row1"><span>₹40,000 of ₹2,00,000</span><span>17mo left</span></div>
+                  <div class="sip">SIP needed: ₹8,374/mo</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Spendable (toggled off)<span class="tag">exception</span></div>
+        <div class="vsub">A goal you personally excluded from Safe to spend.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="content">
+            <div class="card">
+              <div class="liquid">
+                <div class="fill" style="height:31%; background:linear-gradient(180deg, var(--blue1), var(--blue2));"></div>
+                <i class="ti ti-device-laptop icnwatermark"></i>
+                <div class="actionchips">
+                  <div class="chip"><i class="ti ti-link"></i></div>
+                  <div class="chip pri"><i class="ti ti-plus"></i></div>
+                </div>
+                <div class="top">
+                  <div class="pct">31%</div>
+                  <div class="name">New laptop</div>
+                  <div class="spendtag"><i class="ti ti-wallet"></i><span>Spendable</span></div>
+                </div>
+                <div class="bottom">
+                  <div class="row1"><span>₹25,000 of ₹80,000</span><span>6mo left</span></div>
+                  <div class="sip">SIP needed: ₹9,167/mo</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

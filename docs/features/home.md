@@ -18,7 +18,12 @@ links to every module.
 6. **Groups** (`HomeGroupsCard`) — your household/shared-expense groups; tapping through enters a group context (see "Group context" below).
 7. **Accounts** (`AccountsStrip`) — horizontal strip of accounts + live balances (credit cards show usage).
 8. **Market ticker** — a slim, scrollable tape sitting **near the bottom** (markets sit below your own money, not above it). Tap the ⋯ to choose which tickers appear.
-9. **Tools** (`ToolsGrid`) — shortcut tiles to Insurance, Loans, Health, Tax, Cash Flow.
+9. **Tools** (`ToolsGrid`) — shortcut tiles to Insurance, Loans, Health, Tax, Cash Flow. **`apps/web-react`
+   (frozen) only** — on `apps/mobile`, this section had already shrunk to a single "Calculators" tile
+   (Insurance/Loans/Health/Tax/Cash Flow all had their own money-stat-card/stories/other homes by then);
+   as of 2026-08-01, Calculators itself relocated out into Portfolio/Goals/Tax Awareness (see
+   [`docs/features/calculators.md`](calculators.md)), so `ToolsGrid.tsx` was deleted on mobile and this
+   whole layout row doesn't exist there anymore.
 
 ## Group context
 
@@ -79,6 +84,12 @@ Key files:
 > generalised version of that same tap-through pattern.
 
 **Mobile (`apps/mobile`):** ported in Track 4 (seventh module) — `apps/mobile/src/features/home/` mirrors the web files above (`useHome.ts`/`useHomeStats.ts` unchanged beyond import paths). Initially scoped personal-only, same precedent as IOU (the `useGroupContext`/`activeGroup` branch and `HomeGroupsCard` were dropped until Groups was ported to mobile) — **restored once Groups landed**: `apps/mobile/src/features/home/HomeGroupsCard.tsx` ports the web card, and `HomePage.tsx` now renders `GroupDashboard` in place of the personal view when a group is the active context, same as web. A prerequisite `apps/mobile/src/features/health/` ports the Financial Health card, and a standalone `apps/mobile/src/hooks/useForecast.ts` ports the "safe to spend" hook. Three platform gaps with no direct RN equivalent were solved rather than dropped: `FinancialHealthCard`'s CSS `conic-gradient` score ring is redrawn as a multi-arc `react-native-svg` ring; `MarketTicker`'s CSS `@keyframes` marquee becomes a `react-native-reanimated` seamless `translateX` loop; Stories' canvas + Web Share API share button becomes `react-native-view-shot` (snapshot a real off-screen RN view) + `expo-sharing` (native share sheet), with `expo-linear-gradient` reproducing story-card gradients. Back button dropped, same reasoning as every other module. Full detail: [`docs/plans/mobile-migration.md`](../plans/mobile-migration.md)'s Home and Groups progress-log entries.
+
+**Mobile — 2026-08-01 Calculators relocation:** `MarketTicker.tsx` had already moved to
+`features/portfolio/` (see `docs/features/portfolio/overview.md`), and `ToolsGrid.tsx` — down to a
+single "Calculators" tile by then — was deleted outright once that calculator relocated too. Mobile's
+`HomePage.tsx` composition is now: greeting + GlanceHeader + MoneyStatsCard + FinancialHealthCard +
+StoriesRow + HomeGroupsCard + AccountsStrip, full stop.
 
 ## Current limitations
 

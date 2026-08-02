@@ -28,4 +28,5 @@ export { StatBox } from './StatBox';
 export { SelectInput } from './SelectInput';
 export { TabStrip } from './TabStrip';
 export { TextInput } from './TextInput';
+export { TimeInput } from './TimeInput';
 export { Toggle } from './Toggle';

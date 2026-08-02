@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — View transactions for an Account / Category / Set Aside line, in place</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --blue:#3b82f6; --danger:#ef4444; --amber:#f59e0b; --pink:#ec4899; --violet:#8b5cf6;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 22px; color:#9aa5b1; font-size:14px; max-width:920px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .sectiontitle { text-align:center; font-size:15px; font-weight:800; color:#fff; margin:40px 0 4px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:780px; margin:0 auto 18px; line-height:1.6; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 10px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.cur { background:#3a2412; color:#f0b060; }
+      .vtitle .tag.new { background:#123524; color:#7ee6b8; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .header { height:40px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .htitle { flex:1; text-align:center; font-size:13.5px; font-weight:700; color:var(--text); }
+      .avatar { width:26px; height:26px; border-radius:50%; background:var(--primary); display:grid; place-items:center; color:#fff; font-size:11px; font-weight:800; }
+      .content { padding:12px 14px; }
+
+      /* account rows */
+      .acctrow { display:flex; align-items:center; gap:10px; padding:11px 4px; border-bottom:1px solid var(--border); }
+      .acctrow .aicn { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .acctrow .amid { flex:1; min-width:0; }
+      .acctrow .amid .t1 { font-size:13px; font-weight:600; color:var(--text); }
+      .acctrow .amid .t2 { font-size:10.5px; color:var(--text3); margin-top:1px; }
+      .acctrow .aright { text-align:right; }
+      .acctrow .aright .bal { font-size:13px; font-weight:700; color:var(--text); }
+      .acctrow .aactions { display:flex; gap:4px; margin-left:6px; }
+      .acctrow .aactions .ib { width:24px; height:24px; border-radius:7px; display:flex; align-items:center; justify-content:center; color:var(--text3); }
+      .acctrow .aactions .ib i { font-size:13px; }
+      .chevbadge { width:20px; height:20px; border-radius:10px; background:var(--surface2); display:flex; align-items:center; justify-content:center; color:var(--text3); margin-left:4px; }
+      .chevbadge i { font-size:11px; }
+
+      /* modal overlay */
+      .modalbackdrop { position:absolute; inset:0; background:rgba(0,0,0,.65); z-index:5; }
+      .modalcard { position:absolute; left:14px; right:14px; top:56px; bottom:40px; background:var(--surface); border:1px solid var(--border); border-radius:20px; z-index:6; display:flex; flex-direction:column; box-shadow:0 0 30px rgba(0,0,0,.5); overflow:hidden; }
+      .mtitlerow { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 0; }
+      .mtitle { font-size:14px; font-weight:700; color:var(--text); }
+      .msub { font-size:10.5px; color:var(--text3); margin-top:1px; }
+      .mclose { color:var(--text3); font-size:16px; }
+      .mstat { padding:10px 16px 4px; display:flex; justify-content:space-between; align-items:baseline; }
+      .mstat .k { font-size:10.5px; color:var(--text2); }
+      .mstat .v { font-size:16px; font-weight:800; color:var(--primary); }
+      .mbody { flex:1; overflow:hidden; padding-top:6px; }
+
+      /* reused real timeline row style (rail icon + tight date) */
+      .datelbl { font-size:9px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; color:var(--text3); padding:8px 0 2px 20px; }
+      .txnrow { display:flex; align-items:center; gap:12px; padding:8px 16px; position:relative; }
+      .rail { position:absolute; left:18px; top:0; bottom:0; width:22px; display:flex; flex-direction:column; align-items:center; }
+      .rail .seg { width:1px; flex:1; background:var(--border); }
+      .rail .ricn { width:22px; height:22px; border-radius:7px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+      .rail .ricn i { font-size:12px; color:#fff; }
+      .txnmid { flex:1; min-width:0; margin-left:32px; }
+      .txnmid .t1 { font-size:12px; font-weight:600; color:var(--text); }
+      .txnmid .t2 { font-size:10px; color:var(--text3); margin-top:1px; }
+      .txnright { text-align:right; flex-shrink:0; }
+      .txnright .amt { font-size:12px; font-weight:700; }
+      .txnright .acc { font-size:8.5px; color:var(--text3); margin-top:2px; }
+
+      /* analytics rows */
+      .grouprow { display:flex; align-items:center; gap:10px; padding:10px 4px; }
+      .grouprow .gicn { width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .grouprow .gmid { flex:1; }
+      .grouprow .gmid .t1 { font-size:12px; font-weight:600; color:var(--text); }
+      .grouprow .gmid .t2 { font-size:10px; color:var(--text3); }
+      .grouprow .gval { font-size:12px; font-weight:700; color:var(--text); }
+      .sectionlbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--text3); padding:10px 4px 4px; }
+
+      .legend { max-width:940px; margin:14px auto 24px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:20px 0 8px; color:#fff; }
+      .legend h2:first-child { margin-top:0; }
+      .legend b { color:#fff; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:12px; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend li { margin-bottom:6px; }
+      .mythoughts { max-width:940px; margin:0 auto 60px; background:#0f2419; border:1px solid #1c3d2a; border-radius:16px; padding:20px 26px; color:#d7f5e6; font-size:13.5px; line-height:1.75; }
+      .mythoughts h2 { font-size:15px; margin:16px 0 8px; color:#7ee6b8; }
+      .mythoughts h2:first-child { margin-top:0; }
+      .mythoughts b { color:#fff; }
+      .mythoughts code { background:#0a1f16; padding:1px 6px; border-radius:5px; font-size:12px; color:#a8e6c9; }
+    </style>
+  </head>
+  <body>
+    <h1>Viewing an entity's transactions, in place</h1>
+    <p class="sub">Your call — no tab navigation, no Filter modal, stay right where you are. Tapping an
+      account, a category, an intent group, a tag, or a Set-Aside line opens a modal listing exactly
+      those transactions, right there on Accounts or Analytics.</p>
+
+    <!-- Accounts -->
+    <div class="sectiontitle">1 — Accounts screen</div>
+    <div class="sectionsub">Rows are plain today (no tap action at all — only the pencil/reconcile/trash icons work). Tapping the row body now opens that account's transactions.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">no tap action</span></div>
+        <div class="vsub">The row itself does nothing when tapped.</div>
+        <div class="phone" style="height:260px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Accounts</div><div style="width:26px"></div></div>
+          <div class="content">
+            <div class="acctrow">
+              <div class="aicn" style="background:var(--blue)"><i class="ti ti-building-bank" style="color:#fff"></i></div>
+              <div class="amid"><div class="t1">HDFC Savings</div><div class="t2">Savings account</div></div>
+              <div class="aright"><div class="bal">₹2,84,610</div></div>
+              <div class="aactions"><div class="ib"><i class="ti ti-pencil"></i></div><div class="ib"><i class="ti ti-trash"></i></div></div>
+            </div>
+            <div class="acctrow">
+              <div class="aicn" style="background:var(--success)"><i class="ti ti-wallet" style="color:#fff"></i></div>
+              <div class="amid"><div class="t1">Cash Wallet</div><div class="t2">Cash</div></div>
+              <div class="aright"><div class="bal">₹4,200</div></div>
+              <div class="aactions"><div class="ib"><i class="ti ti-refresh"></i></div><div class="ib"><i class="ti ti-pencil"></i></div><div class="ib"><i class="ti ti-trash"></i></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Proposed <span class="tag new">tap row → transactions</span></div>
+        <div class="vsub">Row body becomes tappable (a small chevron hints it), icons unchanged. Opens a modal, right here.</div>
+        <div class="phone" style="height:260px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Accounts</div><div style="width:26px"></div></div>
+          <div class="content">
+            <div class="acctrow">
+              <div class="aicn" style="background:var(--blue)"><i class="ti ti-building-bank" style="color:#fff"></i></div>
+              <div class="amid"><div class="t1">HDFC Savings</div><div class="t2">Savings account</div></div>
+              <div class="aright"><div class="bal">₹2,84,610</div></div>
+              <div class="chevbadge"><i class="ti ti-chevron-right"></i></div>
+              <div class="aactions"><div class="ib"><i class="ti ti-pencil"></i></div><div class="ib"><i class="ti ti-trash"></i></div></div>
+            </div>
+            <div class="acctrow">
+              <div class="aicn" style="background:var(--success)"><i class="ti ti-wallet" style="color:#fff"></i></div>
+              <div class="amid"><div class="t1">Cash Wallet</div><div class="t2">Cash</div></div>
+              <div class="aright"><div class="bal">₹4,200</div></div>
+              <div class="chevbadge"><i class="ti ti-chevron-right"></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Modal <span class="tag new">HDFC Savings tapped</span></div>
+        <div class="vsub">Reuses the real timeline row style (rail icon, tight date) — same list you already know, just scoped and shown in place.</div>
+        <div class="phone" style="height:400px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Accounts</div><div style="width:26px"></div></div>
+          <div class="content" style="opacity:.35"><div class="acctrow"><div class="aicn" style="background:var(--blue)"><i class="ti ti-building-bank" style="color:#fff"></i></div><div class="amid"><div class="t1">HDFC Savings</div></div></div></div>
+          <div class="modalbackdrop"></div>
+          <div class="modalcard">
+            <div class="mtitlerow"><div><div class="mtitle">HDFC Savings</div><div class="msub">All transactions</div></div><div class="mclose"><i class="ti ti-x"></i></div></div>
+            <div class="mstat"><div class="k">Current balance</div><div class="v">₹2,84,610</div></div>
+            <div class="mbody">
+              <div class="datelbl">Yesterday</div>
+              <div class="txnrow">
+                <div class="rail"><div class="seg"></div><div class="ricn" style="background:var(--primary)"><i class="ti ti-arrow-up-circle"></i></div><div class="seg"></div></div>
+                <div class="txnmid"><div class="t1">Monthly salary credit</div><div class="t2">Salary</div></div>
+                <div class="txnright"><div class="amt" style="color:var(--primary)">+₹85,000</div></div>
+              </div>
+              <div class="datelbl">29 Jul 2026</div>
+              <div class="txnrow">
+                <div class="rail"><div class="seg"></div><div class="ricn" style="background:var(--blue)"><i class="ti ti-file-text"></i></div><div class="seg"></div></div>
+                <div class="txnmid"><div class="t1">Broadband bill</div><div class="t2">Bills & Utilities</div></div>
+                <div class="txnright"><div class="amt" style="color:var(--danger)">-₹1,199</div></div>
+              </div>
+              <div class="txnrow">
+                <div class="rail"><div class="seg"></div><div class="ricn" style="background:var(--blue)"><i class="ti ti-file-text"></i></div><div class="seg" style="flex:0"></div></div>
+                <div class="txnmid"><div class="t1">Mobile postpaid bill</div><div class="t2">Bills & Utilities</div></div>
+                <div class="txnright"><div class="amt" style="color:var(--danger)">-₹799</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analytics -->
+    <div class="sectiontitle">2 — Analytics tab: Category / Intent group / Tag / Set-Aside</div>
+    <div class="sectionsub">Category rows already expand today (to a breakdown, not transactions); Set-Aside rows aren't tappable at all. Same modal mechanism as Accounts, opened from wherever you already are in Analytics.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">breakdown only, no drill-down</span></div>
+        <div class="vsub">Expanding "Bills & Utilities" shows category rows with amounts — not transactions. Set Aside rows (bottom) aren't tappable.</div>
+        <div class="phone" style="height:340px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Analytics</div><div style="width:26px"></div></div>
+          <div class="content">
+            <div class="sectionlbl">Daily-routine spending</div>
+            <div class="grouprow"><div class="gicn" style="background:rgba(59,130,246,.15)"><i class="ti ti-file-text" style="color:var(--blue)"></i></div><div class="gmid"><div class="t1">Bills & Utilities</div><div class="t2">2 transactions</div></div><div class="gval">₹1,998</div></div>
+            <div class="sectionlbl">Set aside · not daily-routine</div>
+            <div class="grouprow"><div class="gicn" style="background:rgba(139,92,246,.15)"><i class="ti ti-users" style="color:var(--violet)"></i></div><div class="gmid"><div class="t1">Lending & IOU</div></div><div class="gval">₹5,000</div></div>
+            <div class="grouprow"><div class="gicn" style="background:rgba(16,185,129,.15)"><i class="ti ti-target" style="color:var(--primary)"></i></div><div class="gmid"><div class="t1">Goal contributions</div></div><div class="gval">₹12,000</div></div>
+            <div class="grouprow"><div class="gicn" style="background:rgba(236,72,153,.15)"><i class="ti ti-hash" style="color:var(--pink)"></i></div><div class="gmid"><div class="t1">#vacation</div></div><div class="gval">₹8,400</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Proposed <span class="tag new">every row tappable</span></div>
+        <div class="vsub">Same rows, a chevron added — category rows, the group header itself, and every Set-Aside line all open the same modal, each scoped to what you tapped.</div>
+        <div class="phone" style="height:340px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Analytics</div><div style="width:26px"></div></div>
+          <div class="content">
+            <div class="sectionlbl">Daily-routine spending</div>
+            <div class="grouprow"><div class="gicn" style="background:rgba(59,130,246,.15)"><i class="ti ti-file-text" style="color:var(--blue)"></i></div><div class="gmid"><div class="t1">Bills & Utilities</div><div class="t2">2 transactions</div></div><div class="gval">₹1,998</div><div class="chevbadge"><i class="ti ti-chevron-right"></i></div></div>
+            <div class="sectionlbl">Set aside · not daily-routine</div>
+            <div class="grouprow"><div class="gicn" style="background:rgba(139,92,246,.15)"><i class="ti ti-users" style="color:var(--violet)"></i></div><div class="gmid"><div class="t1">Lending & IOU</div></div><div class="gval">₹5,000</div><div class="chevbadge"><i class="ti ti-chevron-right"></i></div></div>
+            <div class="grouprow"><div class="gicn" style="background:rgba(16,185,129,.15)"><i class="ti ti-target" style="color:var(--primary)"></i></div><div class="gmid"><div class="t1">Goal contributions</div></div><div class="gval">₹12,000</div><div class="chevbadge"><i class="ti ti-chevron-right"></i></div></div>
+            <div class="grouprow"><div class="gicn" style="background:rgba(236,72,153,.15)"><i class="ti ti-hash" style="color:var(--pink)"></i></div><div class="gmid"><div class="t1">#vacation</div></div><div class="gval">₹8,400</div><div class="chevbadge"><i class="ti ti-chevron-right"></i></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Modal <span class="tag new">"#vacation" tapped</span></div>
+        <div class="vsub">Same reusable modal component as Accounts — just a different pre-filtered list handed to it.</div>
+        <div class="phone" style="height:340px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Analytics</div><div style="width:26px"></div></div>
+          <div class="content" style="opacity:.35"></div>
+          <div class="modalbackdrop"></div>
+          <div class="modalcard">
+            <div class="mtitlerow"><div><div class="mtitle">#vacation</div><div class="msub">Set aside · Jul 2026</div></div><div class="mclose"><i class="ti ti-x"></i></div></div>
+            <div class="mstat"><div class="k">Total</div><div class="v" style="color:var(--pink)">₹8,400</div></div>
+            <div class="mbody">
+              <div class="datelbl">26 Jul 2026</div>
+              <div class="txnrow">
+                <div class="rail"><div class="seg"></div><div class="ricn" style="background:var(--pink)"><i class="ti ti-device-tv"></i></div><div class="seg" style="flex:0"></div></div>
+                <div class="txnmid"><div class="t1">Rafting, Khardung La permit</div><div class="t2">Entertainment · Cash Wallet</div></div>
+                <div class="txnright"><div class="amt" style="color:var(--danger)">-₹2,800</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mythoughts">
+      <h2>My honest take on your suggestion vs. what I first proposed</h2>
+      <p>I'd originally proposed deep-linking to the Transactions tab with a preset filter (mirroring how
+        "Owed to others" already jumps to the IOU tab). <b>Your in-place-modal idea is better, and I'd go
+        with it</b> — for a concrete reason, not just preference: navigating away loses your scroll
+        position and whatever month/view you had open in Analytics, and you'd have to re-navigate back.
+        A modal keeps you exactly where you were — dismiss it and you're back to browsing, mid-scroll,
+        no state lost. It also sidesteps a real gap I flagged last time: the Filter modal has no tag
+        filter and no "linked to IOU" filter today, so deep-linking those specifically would've meant
+        adding new `FilterState` dimensions just for this. Your approach needs none of that — the caller
+        (Accounts or Analytics, which already has the full `expenses` array in scope) just filters
+        transactions with plain JS (<code>expenses.filter(e => e.accountId === account.id)</code>, or by
+        `categoryId`, hashtag, or whatever the synthetic group already tracks) and hands the modal a list.
+        No new filter plumbing at all.</p>
+      <p><b>One real technical thing worth flagging:</b> "all transactions for HDFC Savings" over a few
+        years could be hundreds or thousands of rows — not naturally bounded the way, say, Goal's
+        "unlinked transactions" candidate list is. A plain <code>.map()</code> (like `LinkTransactionModal.tsx`'s
+        capped-at-50 picker) would either need a similar hard cap (losing older history silently) or get
+        slow. My plan: reuse the real `TransactionsTab.tsx` renderer itself (already virtualized via
+        `FlashList`, already has the rail-icon/inline-date treatment we just built) inside this new modal,
+        rather than writing a second, simpler list component — same performance characteristics as the
+        main list, and any future improvement to row rendering benefits both places at once.</p>
+      <h2>What I'd build</h2>
+      <ul>
+        <li>One new shared component, <code>EntityTransactionsModal.tsx</code> (or similar) —
+          <code>{ title, subtitle?, statLabel?, statValue?, expenses, categoryMap, accountMap, hashtags,
+          shouldMask, onEdit, onClose }</code> — a centred `Modal` wrapping the real `TransactionsTab`.
+          Every caller (Accounts, Analytics) just computes its own filtered `expenses` array and a title;
+          the modal doesn't know or care whether that's "one account," "one category," "one tag," or "one
+          synthetic Set-Aside group."</li>
+        <li><b>Accounts:</b> row becomes tappable (small chevron added), opens the modal filtered by
+          `accountId` (or `accountId`/`toAccountId` for transfers), with the account's live balance as
+          the header stat.</li>
+        <li><b>Analytics:</b> category rows (in the existing expanded breakdown), the intent-group header
+          itself, every Set-Aside line (Lending & IOU, Goal contributions, Family share, per-tag lines),
+          all open the same modal — each already has (or can trivially compute) its own matching
+          transaction ids from data Analytics already holds (`iouLinkedTxnIds`, `goalLinkedTxnIds`,
+          `familyGroupIds`, per-tag hashtag match).</li>
+      </ul>
+    </div>
+  </body>
+</html>

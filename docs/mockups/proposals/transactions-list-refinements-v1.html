@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Transactions list: icons + compact date header</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --blue:#3b82f6; --danger:#ef4444; --amber:#f59e0b; --pink:#ec4899;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 22px; color:#9aa5b1; font-size:14px; max-width:900px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .sectiontitle { text-align:center; font-size:15px; font-weight:800; color:#fff; margin:40px 0 4px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:760px; margin:0 auto 18px; line-height:1.6; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 10px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.cur { background:#3a2412; color:#f0b060; }
+      .vtitle .tag.rec { background:#123524; color:#7ee6b8; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .header { height:40px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .htitle { flex:1; text-align:center; font-size:13.5px; font-weight:700; color:var(--text); }
+      .avatar { width:26px; height:26px; border-radius:50%; background:var(--primary); display:grid; place-items:center; color:#fff; font-size:11px; font-weight:800; }
+
+      /* icon swatch compare */
+      .iconrow { display:flex; align-items:center; justify-content:center; gap:6px; padding:10px 12px; }
+      .iconrow .ibtn { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--text2); background:var(--surface2); border:1px solid var(--border); }
+      .iconrow .lbl { font-size:9.5px; color:var(--text3); text-align:center; margin-top:4px; }
+      .iconcompare { display:flex; justify-content:center; gap:28px; padding:16px 10px 6px; }
+      .iconcompare .col { text-align:center; }
+
+      /* actions row (real header icons context) */
+      .actrow { display:flex; align-items:center; justify-content:flex-end; gap:2px; padding:8px 12px 0; }
+      .actrow .ibtn { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--text2); }
+      .actrow .ibtn i { font-size:15px; }
+
+      /* transaction rows */
+      .content { padding:0 14px 14px; }
+      .datehdr { padding:16px 4px 6px; }
+      .datehdr .t { font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--text3); }
+      .datehdr-tight { padding:6px 4px 3px; }
+      .datehdr-tight .t { font-size:9.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text3); }
+      .txnrow { display:flex; align-items:center; gap:10px; padding:10px 4px; position:relative; }
+      .rail { position:absolute; left:5px; top:0; bottom:0; width:10px; display:flex; flex-direction:column; align-items:center; }
+      .rail .seg { width:1px; flex:1; background:var(--border); }
+      .rail .dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+      .icn { width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-left:14px; }
+      .txnmid { flex:1; min-width:0; }
+      .txnmid .t1 { font-size:12.5px; font-weight:600; color:var(--text); }
+      .txnmid .t2 { font-size:10.5px; color:var(--text3); margin-top:1px; }
+      .txnright { text-align:right; flex-shrink:0; }
+      .txnright .amt { font-size:12.5px; font-weight:700; }
+      .txnright .acc { font-size:9px; color:var(--text3); margin-top:2px; }
+
+      /* inline compact date pill on the rail */
+      .datepill { position:absolute; left:0; top:2px; font-size:8px; font-weight:800; color:var(--text3); background:var(--bg); padding-right:4px; letter-spacing:.03em; text-transform:uppercase; }
+
+      .legend { max-width:920px; margin:14px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:22px 0 8px; color:#fff; }
+      .legend h2:first-child { margin-top:0; }
+      .legend b { color:#fff; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:12px; }
+      .recommend { max-width:920px; margin:0 auto 20px; background:#0f2419; border:1px solid #1c3d2a; border-radius:16px; padding:18px 22px; color:#d7f5e6; font-size:13.5px; line-height:1.7; }
+      .recommend b { color:#7ee6b8; }
+    </style>
+  </head>
+  <body>
+    <h1>Transactions list — icon clarity + compact date header</h1>
+    <p class="sub">Two open questions from the last round. Dot-centering, the responsive category grid,
+      and the goal filter icon were all clear bug/consistency fixes and are already built — these two are
+      genuine design calls, so here's a mockup for both before touching code.</p>
+
+    <!-- Import/Export icons -->
+    <div class="sectiontitle">1 — Import/Export icons</div>
+    <div class="sectionsub">Both current icons are a "file" glyph with a tiny arrow — nearly identical silhouettes at 14px, which is exactly why they're hard to tell apart at a glance. Swapping to plain up/down arrows gives two genuinely different shapes instead of one shape with a small detail changed.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">ti-file-import / ti-file-export</span></div>
+        <div class="vsub">Same "page" shape both times — the only difference is a small arrow inside it.</div>
+        <div class="phone" style="height:120px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Expenses</div><div style="width:26px"></div></div>
+          <div class="iconcompare">
+            <div class="col"><div class="ibtn" style="margin:0 auto"><i class="ti ti-file-import"></i></div><div class="lbl">Import</div></div>
+            <div class="col"><div class="ibtn" style="margin:0 auto"><i class="ti ti-file-export"></i></div><div class="lbl">Export</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Recommended <span class="tag rec">ti-download / ti-upload</span></div>
+        <div class="vsub">Opposite-facing arrows — the dominant shape itself is different, not just a detail inside a shared shape. Also a more universal "import/export" convention across apps generally.</div>
+        <div class="phone" style="height:120px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Expenses</div><div style="width:26px"></div></div>
+          <div class="iconcompare">
+            <div class="col"><div class="ibtn" style="margin:0 auto"><i class="ti ti-download"></i></div><div class="lbl">Import</div></div>
+            <div class="col"><div class="ibtn" style="margin:0 auto"><i class="ti ti-upload"></i></div><div class="lbl">Export</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Date header compression -->
+    <div class="sectiontitle">2 — Compact date header</div>
+    <div class="sectionsub">Keeping exactly what you liked — date shown once per day, not per transaction — just spending less permanent vertical space on it. Two real ways to get there.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">your screenshot</span></div>
+        <div class="vsub">A full banded row (16px top padding + label) — costs close to a whole extra transaction's worth of height per day.</div>
+        <div class="phone" style="height:340px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Transactions</div><div style="width:26px"></div></div>
+          <div class="content">
+            <div class="datehdr"><div class="t">Yesterday</div></div>
+            <div class="txnrow">
+              <div class="rail"><div class="seg"></div><div class="dot" style="background:var(--primary)"></div><div class="seg"></div></div>
+              <div class="icn" style="background:rgba(16,185,129,.15);color:var(--primary)"><i class="ti ti-arrow-up-circle"></i></div>
+              <div class="txnmid"><div class="t1">Monthly salary credit</div><div class="t2">Salary <span style="color:var(--primary)">#sample</span></div></div>
+              <div class="txnright"><div class="amt" style="color:var(--primary)">+₹85,000</div><div class="acc">HDFC Savings</div></div>
+            </div>
+            <div class="datehdr"><div class="t">29 Jul 2026</div></div>
+            <div class="txnrow">
+              <div class="rail"><div class="seg"></div><div class="dot" style="background:var(--blue)"></div><div class="seg"></div></div>
+              <div class="icn" style="background:rgba(59,130,246,.15);color:var(--blue)"><i class="ti ti-file-text"></i></div>
+              <div class="txnmid"><div class="t1">Broadband bill</div><div class="t2">Bills & Utilities <span style="color:var(--primary)">#sample</span></div></div>
+              <div class="txnright"><div class="amt" style="color:var(--danger)">-₹1,199</div><div class="acc">HDFC Savings</div></div>
+            </div>
+            <div class="txnrow">
+              <div class="rail"><div class="seg"></div><div class="dot" style="background:var(--blue)"></div><div class="seg" style="flex:0"></div></div>
+              <div class="icn" style="background:rgba(59,130,246,.15);color:var(--blue)"><i class="ti ti-file-text"></i></div>
+              <div class="txnmid"><div class="t1">Mobile postpaid bill</div><div class="t2">Bills & Utilities <span style="color:var(--primary)">#sample</span></div></div>
+              <div class="txnright"><div class="amt" style="color:var(--danger)">-₹799</div><div class="acc">HDFC Savings</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">A · Tightened padding <span class="tag rec">same look, less height</span></div>
+        <div class="vsub">Identical style/typography — just less top/bottom padding around the label. Roughly half the height, same "banded row" feel you already liked.</div>
+        <div class="phone" style="height:340px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Transactions</div><div style="width:26px"></div></div>
+          <div class="content">
+            <div class="datehdr-tight"><div class="t">Yesterday</div></div>
+            <div class="txnrow">
+              <div class="rail"><div class="seg"></div><div class="dot" style="background:var(--primary)"></div><div class="seg"></div></div>
+              <div class="icn" style="background:rgba(16,185,129,.15);color:var(--primary)"><i class="ti ti-arrow-up-circle"></i></div>
+              <div class="txnmid"><div class="t1">Monthly salary credit</div><div class="t2">Salary <span style="color:var(--primary)">#sample</span></div></div>
+              <div class="txnright"><div class="amt" style="color:var(--primary)">+₹85,000</div><div class="acc">HDFC Savings</div></div>
+            </div>
+            <div class="datehdr-tight"><div class="t">29 Jul 2026</div></div>
+            <div class="txnrow">
+              <div class="rail"><div class="seg"></div><div class="dot" style="background:var(--blue)"></div><div class="seg"></div></div>
+              <div class="icn" style="background:rgba(59,130,246,.15);color:var(--blue)"><i class="ti ti-file-text"></i></div>
+              <div class="txnmid"><div class="t1">Broadband bill</div><div class="t2">Bills & Utilities <span style="color:var(--primary)">#sample</span></div></div>
+              <div class="txnright"><div class="amt" style="color:var(--danger)">-₹1,199</div><div class="acc">HDFC Savings</div></div>
+            </div>
+            <div class="txnrow">
+              <div class="rail"><div class="seg"></div><div class="dot" style="background:var(--blue)"></div><div class="seg"></div></div>
+              <div class="icn" style="background:rgba(59,130,246,.15);color:var(--blue)"><i class="ti ti-file-text"></i></div>
+              <div class="txnmid"><div class="t1">Mobile postpaid bill</div><div class="t2">Bills & Utilities <span style="color:var(--primary)">#sample</span></div></div>
+              <div class="txnright"><div class="amt" style="color:var(--danger)">-₹799</div><div class="acc">HDFC Savings</div></div>
+            </div>
+            <div class="datehdr-tight"><div class="t">26 Jul 2026</div></div>
+            <div class="txnrow">
+              <div class="rail"><div class="seg"></div><div class="dot" style="background:var(--pink)"></div><div class="seg" style="flex:0"></div></div>
+              <div class="icn" style="background:rgba(236,72,153,.15);color:var(--pink)"><i class="ti ti-device-tv"></i></div>
+              <div class="txnmid"><div class="t1">Movies & events</div><div class="t2">Entertainment <span style="color:var(--primary)">#sample</span></div></div>
+              <div class="txnright"><div class="amt" style="color:var(--danger)">-₹1,337</div><div class="acc">HDFC Regalia CC</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">B · Inline on the rail <span class="tag">most compact</span></div>
+        <div class="vsub">No separate row at all — the date sits directly on the rail, right where its day's dot would be, reusing the space the rail already occupies instead of adding a new one.</div>
+        <div class="phone" style="height:340px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Transactions</div><div style="width:26px"></div></div>
+          <div class="content" style="padding-top:14px">
+            <div class="txnrow" style="position:relative">
+              <div class="datepill">Yesterday</div>
+              <div class="rail" style="top:14px"><div class="seg"></div><div class="dot" style="background:var(--primary)"></div><div class="seg"></div></div>
+              <div class="icn" style="background:rgba(16,185,129,.15);color:var(--primary);margin-top:14px"><i class="ti ti-arrow-up-circle"></i></div>
+              <div class="txnmid" style="margin-top:14px"><div class="t1">Monthly salary credit</div><div class="t2">Salary <span style="color:var(--primary)">#sample</span></div></div>
+              <div class="txnright" style="margin-top:14px"><div class="amt" style="color:var(--primary)">+₹85,000</div><div class="acc">HDFC Savings</div></div>
+            </div>
+            <div class="txnrow" style="position:relative">
+              <div class="datepill">29 Jul</div>
+              <div class="rail" style="top:14px"><div class="seg"></div><div class="dot" style="background:var(--blue)"></div><div class="seg"></div></div>
+              <div class="icn" style="background:rgba(59,130,246,.15);color:var(--blue);margin-top:14px"><i class="ti ti-file-text"></i></div>
+              <div class="txnmid" style="margin-top:14px"><div class="t1">Broadband bill</div><div class="t2">Bills & Utilities <span style="color:var(--primary)">#sample</span></div></div>
+              <div class="txnright" style="margin-top:14px"><div class="amt" style="color:var(--danger)">-₹1,199</div><div class="acc">HDFC Savings</div></div>
+            </div>
+            <div class="txnrow">
+              <div class="rail"><div class="seg"></div><div class="dot" style="background:var(--blue)"></div><div class="seg"></div></div>
+              <div class="icn" style="background:rgba(59,130,246,.15);color:var(--blue)"><i class="ti ti-file-text"></i></div>
+              <div class="txnmid"><div class="t1">Mobile postpaid bill</div><div class="t2">Bills & Utilities <span style="color:var(--primary)">#sample</span></div></div>
+              <div class="txnright"><div class="amt" style="color:var(--danger)">-₹799</div><div class="acc">HDFC Savings</div></div>
+            </div>
+            <div class="txnrow" style="position:relative">
+              <div class="datepill">26 Jul</div>
+              <div class="rail" style="top:14px"><div class="seg"></div><div class="dot" style="background:var(--pink)"></div><div class="seg" style="flex:0"></div></div>
+              <div class="icn" style="background:rgba(236,72,153,.15);color:var(--pink);margin-top:14px"><i class="ti ti-device-tv"></i></div>
+              <div class="txnmid" style="margin-top:14px"><div class="t1">Movies & events</div><div class="t2">Entertainment <span style="color:var(--primary)">#sample</span></div></div>
+              <div class="txnright" style="margin-top:14px"><div class="amt" style="color:var(--danger)">-₹1,337</div><div class="acc">HDFC Regalia CC</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <b>Recommendation: Option A (tightened padding).</b> It gets you most of the space back (roughly
+      half the header's current height) with zero risk to readability or to `FlashList`'s cell-recycling
+      setup — headers and transaction rows stay two cleanly separate recyclable types, just a smaller one.
+      Option B (inline-on-rail) saves a bit more space and looks slick in isolation, but it means the first
+      transaction of every day needs a taller top margin to make room for the date label above it —
+      inconsistent row heights across a day boundary, and a fussier one-off case for `FlashList`'s
+      recycling (that row can no longer be visually identical to every other transaction row). Not worth
+      the extra space for the added complexity, but happy to build it if you'd rather have the tightest
+      possible list.
+    </div>
+
+    <div class="legend">
+      <h2>What's already built (no mockup needed, shipped directly)</h2>
+      <ul>
+        <li><b>Dot/rail centering</b> — `TransactionsTab.tsx`'s dot used `top: '50%'` + `marginTop: -5` on
+          an absolutely-positioned sibling, which isn't reliable on-device under this project's
+          NativeWind/interop setup once row heights started varying (same class of bug `MainTabs.tsx`'s
+          `HeaderCenter` hit once). Replaced with a flex column (two equal-flex rail segments around a
+          fixed-size dot) — pure flexbox distribution, no percentage-of-parent math.</li>
+        <li><b>Responsive Account/Category grid</b> — tiles measure the modal's actual available width
+          (`onLayout`) and compute 4–6 columns to fit it, instead of a fixed 64px tile that left unused
+          space on wider screens.</li>
+        <li><b>Goal filter icon</b> — each Goal chip in the Filter popup now shows its resolved icon
+          (`resolveGoalIcon()`, the same keyword-inference built for the Goal card), tinted by its risk
+          colour — same treatment Event chips already get with their colour dot.</li>
+      </ul>
+    </div>
+  </body>
+</html>

@@ -1,7 +1,7 @@
 import type { Expense } from '@/core/db/types';
 
 /** How a single transaction moves `accountId`'s balance (+in / −out / 0 if unrelated). */
-function delta(accountId: string, t: Pick<Expense, 'accountId' | 'toAccountId' | 'amount' | 'type'>): number {
+export function delta(accountId: string, t: Pick<Expense, 'accountId' | 'toAccountId' | 'amount' | 'type'>): number {
   const type = t.type ?? 'expense';
   if (type === 'income' && t.accountId === accountId) return t.amount;
   if (type === 'expense' && t.accountId === accountId) return -t.amount;

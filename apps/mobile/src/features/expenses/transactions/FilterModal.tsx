@@ -3,12 +3,13 @@ import { View, Pressable, Text } from 'react-native';
 import { Modal, Button } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
-import type { Account, ExpenseCategory } from '@/core/db/types';
+import type { Account, ExpenseCategory, Goal } from '@/core/db/types';
 import type { ActiveEvent } from '~/context/EventModeContext';
 import { MonthPickerModal } from './MonthPickerModal';
 import { monthLabel } from '@/lib/date';
 import { toMonthYearKey } from '@/lib/formatters';
 import { buildParentCategoryMap, groupKey, groupMeta } from '@/core/expenses/categoryGroups';
+import { resolveGoalIcon, getRiskColor } from '@/core/goals/meta';
 
 type TxnTypeFilter = 'all' | 'expense' | 'income' | 'transfer';
 
@@ -19,6 +20,7 @@ export interface FilterState {
   parentCategoryFilters: Set<string>;
   categoryFilters: Set<string>;
   eventFilters: Set<string>;
+  goalFilters: Set<string>;
 }
 
 interface FilterModalProps {
@@ -26,12 +28,22 @@ interface FilterModalProps {
   pastEvents: ActiveEvent[];
   accounts: Account[];
   categories: ExpenseCategory[];
+  goals: Goal[];
   initial: FilterState;
   onApply: (filters: FilterState) => void;
   onClose: () => void;
 }
 
-export function FilterModal({ events, pastEvents, accounts, categories, initial, onApply, onClose }: FilterModalProps) {
+export function FilterModal({
+  events,
+  pastEvents,
+  accounts,
+  categories,
+  goals,
+  initial,
+  onApply,
+  onClose
+}: FilterModalProps) {
   const theme = useThemeColors();
   const [monthFilter, setMonthFilter] = useState<string | null>(initial.monthFilter);
   const [typeFilter, setTypeFilter] = useState<TxnTypeFilter>(initial.typeFilter);
@@ -41,10 +53,33 @@ export function FilterModal({ events, pastEvents, accounts, categories, initial,
   );
   const [categoryFilters, setCategoryFilters] = useState<Set<string>>(new Set(initial.categoryFilters));
   const [eventFilters, setEventFilters] = useState<Set<string>>(new Set(initial.eventFilters));
+  const [goalFilters, setGoalFilters] = useState<Set<string>>(new Set(initial.goalFilters));
   const [showMonthPicker, setShowMonthPicker] = useState(false);
 
+  // Tile grid (Account/Category) auto-adjusts its column count to the actual available width instead of
+  // a fixed 64px tile always yielding ~4 per row — a wider screen fits 5 or 6 comfortably. Measured once
+  // (both grids share the same modal width) rather than a fixed-percentage width, which would just be a
+  // different hardcoded count instead of a genuinely responsive one.
+  const [gridWidth, setGridWidth] = useState(0);
+  const GRID_GAP = 8;
+  const MIN_TILE_WIDTH = 64;
+  const MAX_TILE_COLUMNS = 6;
+  const tileColumns =
+    gridWidth > 0
+      ? Math.min(MAX_TILE_COLUMNS, Math.max(4, Math.floor((gridWidth + GRID_GAP) / (MIN_TILE_WIDTH + GRID_GAP))))
+      : 4;
+  const tileWidth = gridWidth > 0 ? (gridWidth - GRID_GAP * (tileColumns - 1)) / tileColumns : MIN_TILE_WIDTH;
+
   function handleDone() {
-    onApply({ monthFilter, typeFilter, accountFilters, parentCategoryFilters, categoryFilters, eventFilters });
+    onApply({
+      monthFilter,
+      typeFilter,
+      accountFilters,
+      parentCategoryFilters,
+      categoryFilters,
+      eventFilters,
+      goalFilters
+    });
     onClose();
   }
 
@@ -55,6 +90,7 @@ export function FilterModal({ events, pastEvents, accounts, categories, initial,
     setParentCategoryFilters(new Set());
     setCategoryFilters(new Set());
     setEventFilters(new Set());
+    setGoalFilters(new Set());
   }
 
   const parentCategoryMap = buildParentCategoryMap(categories);
@@ -86,7 +122,7 @@ export function FilterModal({ events, pastEvents, accounts, categories, initial,
     isSelected: boolean,
     label: string,
     onPress: () => void,
-    opts?: { dotColor?: string; disabled?: boolean; key?: string }
+    opts?: { dotColor?: string; icon?: string; iconColor?: string; disabled?: boolean; key?: string }
   ) => (
     <Pressable
       key={opts?.key ?? label}
@@ -102,6 +138,9 @@ export function FilterModal({ events, pastEvents, accounts, categories, initial,
     >
       {opts?.dotColor && (
         <View className="w-2 h-2 rounded-full" style={{ backgroundColor: isSelected ? '#fff' : opts.dotColor }} />
+      )}
+      {opts?.icon && (
+        <Icon name={opts.icon} size={13} color={isSelected ? '#fff' : (opts.iconColor ?? theme.textSecondary)} />
       )}
       <Text className="text-xs font-medium" style={{ color: isSelected ? '#fff' : theme.textSecondary }}>
         {label}
@@ -123,7 +162,7 @@ export function FilterModal({ events, pastEvents, accounts, categories, initial,
       onPress={onPress}
       className="items-center gap-1 p-2 rounded-xl border-2"
       style={{
-        width: 64,
+        width: tileWidth,
         borderColor: isSelected ? color : 'transparent',
         backgroundColor: theme.surfaceSecondary
       }}
@@ -228,6 +267,32 @@ export function FilterModal({ events, pastEvents, accounts, categories, initial,
           </View>
         )}
 
+        {/* Goal */}
+        {goals.length > 0 && (
+          <View>
+            <Text className="text-xs font-medium text-secondary mb-2">Goal</Text>
+            <View className="flex-row flex-wrap gap-2">
+              {chip(goalFilters.size === 0, 'All goals', () => setGoalFilters(new Set()), {
+                key: 'all-goals'
+              })}
+              {goals.map((g) =>
+                chip(
+                  goalFilters.has(g.id),
+                  g.name,
+                  () =>
+                    setGoalFilters((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(g.id)) next.delete(g.id);
+                      else next.add(g.id);
+                      return next;
+                    }),
+                  { icon: resolveGoalIcon(g), iconColor: getRiskColor(g.risk), key: g.id }
+                )
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Account */}
         {accounts.filter((a) => !a.isArchived).length > 0 && (
           <View>
@@ -301,7 +366,7 @@ export function FilterModal({ events, pastEvents, accounts, categories, initial,
         {/* Category */}
         <View>
           <Text className="text-xs font-medium text-secondary mb-2">Category</Text>
-          <View className="flex-row flex-wrap gap-2">
+          <View className="flex-row flex-wrap gap-2" onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}>
             {tile(
               categoryFilters.size === 0,
               'ti-layout-grid',

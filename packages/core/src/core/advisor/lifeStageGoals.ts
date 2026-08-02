@@ -71,7 +71,7 @@ export function lifeStageGoalTemplates(
     targetAmount: RETIREMENT_CORPUS,
     currentAmount: 0,
     risk,
-    icon: 'ti-beach',
+    icon: 'ti-umbrella', // matches core/goals/meta.ts's 'retirement' keyword icon — see its 2026-08-02 note
     targetDate: nowMs + 20 * 365 * DAY_MS
   });
 

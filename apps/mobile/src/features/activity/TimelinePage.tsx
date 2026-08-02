@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { View, Pressable, ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, PageHeader, TabStrip, ListContainer, EmptyState, SearchInput } from '~/components/ui';
-import { BackButton } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { usePrivacy } from '~/context/PrivacyContext';
@@ -14,6 +13,7 @@ import { ActivityRow } from './components/ActivityRow';
 import { PrivacyReceipt } from './components/PrivacyReceipt';
 import { MoneyStory } from './components/MoneyStory';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 
 type TimelineTab = 'story' | 'timeline' | 'deleted';
 type ActionFilter = 'all' | 'added' | 'edited' | 'deleted' | 'moved';
@@ -44,6 +44,7 @@ export function TimelinePage() {
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [actionFilter, setActionFilter] = useState<ActionFilter>('all');
+  useDefaultHeaderBack('Timeline');
 
   const filtering = query.trim().length > 0 || actionFilter !== 'all';
   const filteredGrouped = useMemo(() => {
@@ -89,8 +90,6 @@ export function TimelinePage() {
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader
-        leading={<BackButton />}
-        title="Timeline"
         subtitle="Every change you make, on your device"
         actions={
           <Button variant="ghost" size="sm" icon="ti-flag" onPress={() => void setCheckpoint()}>

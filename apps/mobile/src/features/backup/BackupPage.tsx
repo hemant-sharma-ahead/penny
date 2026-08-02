@@ -3,8 +3,7 @@ import { View, Pressable, ScrollView, Text, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
-import { Card, TextInput, Button, ConfirmDialog, PageHeader } from '~/components/ui';
-import { BackButton } from '~/components/shared';
+import { Card, TextInput, Button, ConfirmDialog } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { importBackup } from '@/core/backup/backupManager';
@@ -16,6 +15,7 @@ import { notifyAuthShouldRecheck } from '~/navigation/authRecheckBus';
 import { AutoBackupCard } from './AutoBackupCard';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { tint } from '~/lib/color';
+import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 
 type ImportState = 'idle' | 'importing' | 'done' | 'error';
 type CloudRestoreState = 'idle' | 'restoring' | 'error';
@@ -41,6 +41,7 @@ type CloudRestoreState = 'idle' | 'restoring' | 'error';
 export function BackupPage() {
   const modeBg = useModeBackgroundColor();
   const theme = useThemeColors();
+  useDefaultHeaderBack('Backup');
 
   // ── Import ──────────────────────────────────────────────────────────────────
   const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
@@ -141,7 +142,6 @@ export function BackupPage() {
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <PageHeader title="Backup & Restore" leading={<BackButton />} />
       <ScrollView>
         <View className="px-4 pt-4 pb-6 gap-5">
           <AutoBackupCard />

@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Bold dark redesign v1 (research-grounded)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --green:#00c47d; --green-deep:#00a86b; --mint:#5eead4;
+        --ink:#eef7f2; --sec:rgba(238,247,242,.62); --ter:rgba(238,247,242,.38);
+        --bg:#070c0a; --bg2:#0d1512; --glass:rgba(255,255,255,.045); --glassb:rgba(255,255,255,.09);
+        --danger:#ff6b6b; --amber:#ffb648; --violet:#a78bfa;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,sans-serif; background:#e6ebf1; color:#0f172a; -webkit-font-smoothing:antialiased; }
+      .num { font-family:'Space Grotesk',sans-serif; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:23px; color:#0f172a; }
+      .sub { text-align:center; margin:0 16px 6px; color:#475569; font-size:14px; max-width:860px; margin-left:auto; margin-right:auto; line-height:1.7; }
+      .research { max-width:860px; margin:16px auto; background:#fff; border:1px solid #e8edf3; border-radius:14px; padding:16px 20px; font-size:12.5px; color:#334155; line-height:1.8; }
+      .research b { color:#0f172a; }
+      .research .src { color:#00a86b; font-weight:700; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:44px 26px; justify-content:center; align-items:flex-start; padding:16px 20px 30px; }
+      .frame-wrap { width:300px; }
+      .vtitle { font-size:14px; font-weight:800; margin:0 2px 3px; color:#0f172a; }
+      .vsub { font-size:11.5px; color:#475569; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:300px; height:640px; background:var(--bg); border-radius:32px; border:9px solid #0f172a; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 44px rgba(15,23,42,.24); }
+      .statusbar { height:20px; background:var(--bg); flex-shrink:0; }
+      .glow { position:absolute; top:-60px; left:-40px; width:220px; height:220px; background:radial-gradient(circle, rgba(0,196,125,.22), transparent 70%); pointer-events:none; }
+
+      .content { flex:1; overflow:hidden; padding:16px 18px 0; position:relative; }
+
+      .ctxpill { display:inline-flex; align-items:center; gap:6px; background:var(--glass); border:1px solid var(--glassb); border-radius:999px; padding:5px 12px 5px 6px; margin-bottom:16px; }
+      .ctxpill .dot { width:16px; height:16px; border-radius:5px; background:var(--green); display:grid; place-items:center; color:#04150e; font-size:8px; }
+      .ctxpill .lbl { font-size:11px; font-weight:700; color:var(--ink); }
+      .ctxpill i.chev { color:var(--ter); font-size:11px; }
+
+      .greet { font-size:13px; color:var(--sec); margin:0 0 2px; font-weight:500; }
+      .hero-lbl { font-size:11px; color:var(--ter); font-weight:600; text-transform:uppercase; letter-spacing:.06em; margin:14px 0 4px; }
+      .hero-num { font-size:40px; font-weight:700; letter-spacing:-1px; line-height:1.05; background:linear-gradient(135deg,#fff 20%, var(--mint) 100%); -webkit-background-clip:text; background-clip:text; color:transparent; }
+      .hero-delta { display:inline-flex; align-items:center; gap:4px; margin-top:8px; font-size:12px; font-weight:700; color:var(--green); background:rgba(0,196,125,.12); padding:4px 10px; border-radius:999px; }
+      .spark { margin:14px -2px 0; height:46px; }
+
+      .stsplit { display:flex; gap:20px; margin-top:18px; padding-top:16px; border-top:1px solid var(--glassb); }
+      .stsplit .s { flex:1; }
+      .stsplit .k { font-size:10px; color:var(--ter); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+      .stsplit .v { font-size:17px; font-weight:700; margin-top:4px; color:var(--ink); }
+      .stsplit .v.safe { color:var(--green); }
+
+      .slbl { display:flex; justify-content:space-between; align-items:baseline; margin:22px 0 10px; }
+      .slbl .t { font-size:12px; font-weight:700; color:var(--sec); text-transform:uppercase; letter-spacing:.04em; }
+      .slbl .a { font-size:11px; font-weight:700; color:var(--green); }
+
+      .healthrow { display:flex; align-items:center; gap:14px; background:var(--glass); border:1px solid var(--glassb); border-radius:18px; padding:14px; }
+      .ring2 { width:52px; height:52px; border-radius:50%; background:conic-gradient(var(--green) 0 40%, rgba(255,255,255,.08) 40% 100%); display:grid; place-items:center; flex-shrink:0; position:relative; }
+      .ring2::after { content:''; position:absolute; inset:6px; background:var(--bg2); border-radius:50%; }
+      .ring2 span { position:relative; font-size:16px; font-weight:700; color:var(--ink); }
+      .healthrow .t { font-size:13px; font-weight:700; color:var(--amber); }
+      .healthrow .d { font-size:10.5px; color:var(--ter); margin-top:2px; line-height:1.4; }
+
+      .toolsrow { display:flex; gap:22px; margin:22px 0 4px; justify-content:flex-start; }
+      .tool { display:flex; flex-direction:column; align-items:center; gap:6px; }
+      .tool .ic { width:48px; height:48px; border-radius:50%; display:grid; place-items:center; font-size:20px; background:var(--glass); border:1px solid var(--glassb); }
+      .tool .lbl { font-size:9px; color:var(--ter); font-weight:600; }
+
+      /* the floating cluster, restyled: frosted glass, glow ring = mode signal */
+      .cluster { position:absolute; right:16px; bottom:78px; display:flex; flex-direction:column; align-items:center; gap:10px; z-index:4; }
+      .c-avatar { width:42px; height:42px; border-radius:50%; background:rgba(255,255,255,.08); backdrop-filter:blur(6px); display:grid; place-items:center; font-size:13px; font-weight:700; color:var(--ink); box-shadow:0 0 0 2px var(--amber), 0 6px 18px rgba(0,0,0,.4); }
+      .c-dot { width:32px; height:32px; border-radius:50%; background:rgba(255,255,255,.06); backdrop-filter:blur(6px); border:1px solid var(--glassb); display:grid; place-items:center; font-size:14px; color:var(--amber); }
+      .c-bell { width:32px; height:32px; border-radius:50%; background:rgba(255,255,255,.06); backdrop-filter:blur(6px); border:1px solid var(--glassb); display:grid; place-items:center; font-size:14px; color:var(--sec); position:relative; }
+      .c-bell .badge { position:absolute; top:-3px; right:-3px; min-width:14px; height:14px; padding:0 3px; border-radius:999px; background:var(--danger); color:#1a0505; font-size:8px; font-weight:800; display:grid; place-items:center; }
+
+      .tabbar { display:flex; align-items:center; justify-content:space-around; height:60px; background:var(--bg2); border-top:1px solid var(--glassb); flex-shrink:0; position:relative; z-index:3; }
+      .tabitem { display:flex; flex-direction:column; align-items:center; gap:3px; font-size:8.5px; font-weight:600; color:var(--ter); }
+      .tabitem.active { color:var(--green); }
+      .tabitem i { font-size:19px; }
+      .chipfab { width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,var(--green),var(--green-deep)); display:grid; place-items:center; color:#04150e; font-size:15px; margin-bottom:-1px; box-shadow:0 4px 14px rgba(0,196,125,.4); }
+
+      .legend { max-width:860px; margin:10px auto 60px; background:#fff; border:1px solid #e8edf3; border-radius:16px; padding:22px 26px; color:#475569; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:#0f172a; }
+      .legend b { color:#0f172a; }
+      .legend .rec-box { background:color-mix(in srgb, var(--green-deep) 8%, #fff); border:1px solid color-mix(in srgb, var(--green-deep) 30%, #fff); border-radius:12px; padding:14px 16px; margin-top:12px; }
+      .legend .open-box { background:#fff7ed; border:1px solid #fde68a; border-radius:12px; padding:14px 16px; margin-top:12px; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+    </style>
+  </head>
+  <body>
+    <h1>Home, redesigned — bold, dark, one committed accent</h1>
+    <p class="sub">
+      Went and researched actual current fintech UI direction (see below) instead of inventing another palette.
+      Every previous round was, without realizing it, the exact "copies Stripe's surface without the logic" failure
+      mode the research names directly — light cards, small pastel icon badges, no conviction. This one is dark by
+      default (now the baseline expectation, not a style choice), commits hard to Penny's own green instead of
+      diluting it with five pastel accents, and gives the one number that matters most real typographic weight.
+    </p>
+    <div class="research">
+      <b>What actually changed, and why:</b>
+      <ul style="margin:8px 0 0;padding-left:18px">
+        <li><b>Dark, not light.</b> <span class="src">"Dark mode is now expected by default... apps that force light mode [read as] low-quality and outdated."</span> Every mockup so far was light/cream — that alone made it feel dated regardless of layout.</li>
+        <li><b>One colour, with conviction, not five soft accents.</b> Brex commits to orange+black in an all-blue category specifically to signal "we're not a bank." Mercury commits to purple + a custom typeface. Penny already has a real point of difference — green, not the standard fintech blue — but I'd been diluting it with a pastel-icon-per-stat treatment that signals nothing. This version puts the whole gradient/glow budget on the one number that matters (net worth) and lets everything else stay quiet and high-contrast.</li>
+        <li><b>The hero number gets real typographic weight</b> — Bloomberg Terminal's "every pixel is accountable" principle: the figure the user opens the app to see is the single largest, highest-contrast thing on screen, with a sparkline behind it instead of a decorative allocation bar of five thin colour slivers.</li>
+        <li><b>Fewer, bigger, quieter icons</b> instead of many small boxed pastel badges (the "generic SaaS dashboard" tell called out in the INDmoney critique — "spacing issue with cards took up too much space," "improper visual hierarchy").</li>
+      </ul>
+    </div>
+
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Home</div>
+        <div class="vsub">One hero moment (net worth, gradient text + sparkline), everything else quiet and high-contrast beneath it. Floating cluster now frosted glass, not a flat white circle.</div>
+        <div class="phone">
+          <div class="glow"></div>
+          <div class="statusbar"></div>
+          <div class="content">
+            <div class="ctxpill"><span class="dot"><i class="ti ti-user"></i></span><span class="lbl">Personal</span><i class="ti ti-chevron-down chev"></i></div>
+            <div class="greet">Good evening, Hemant</div>
+            <div class="hero-lbl">Net worth</div>
+            <div class="hero-num num">₹1.45Cr</div>
+            <div class="hero-delta"><i class="ti ti-trending-up"></i> +4.2% this month</div>
+            <svg class="spark" viewBox="0 0 280 46" preserveAspectRatio="none">
+              <defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#00c47d" stop-opacity=".35"/><stop offset="100%" stop-color="#00c47d" stop-opacity="0"/></linearGradient></defs>
+              <path d="M0,34 L20,30 L40,32 L60,22 L80,26 L100,16 L120,20 L140,10 L160,15 L180,8 L200,12 L220,4 L240,9 L260,2 L280,6 L280,46 L0,46 Z" fill="url(#sg)"/>
+              <path d="M0,34 L20,30 L40,32 L60,22 L80,26 L100,16 L120,20 L140,10 L160,15 L180,8 L200,12 L220,4 L240,9 L260,2 L280,6" fill="none" stroke="#00c47d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div class="stsplit">
+              <div class="s"><div class="k">Safe to spend</div><div class="v safe num">₹81,078</div></div>
+              <div class="s"><div class="k">Liabilities</div><div class="v num" style="color:var(--danger)">−₹48.5L</div></div>
+            </div>
+            <div class="slbl"><span class="t">Financial health</span><span class="a">See all</span></div>
+            <div class="healthrow">
+              <div class="ring2"><span>40</span></div>
+              <div><div class="t">Needs work</div><div class="d">A few quick wins would lift your score toward excellent.</div></div>
+            </div>
+            <div class="toolsrow">
+              <div class="tool"><div class="ic" style="color:var(--green)"><i class="ti ti-sparkles"></i></div><div class="lbl">Chip</div></div>
+              <div class="tool"><div class="ic" style="color:var(--violet)"><i class="ti ti-bulb"></i></div><div class="lbl">Insights</div></div>
+              <div class="tool"><div class="ic" style="color:#7dd3fc"><i class="ti ti-clock"></i></div><div class="lbl">Recent</div></div>
+            </div>
+          </div>
+          <div class="cluster">
+            <div class="c-avatar">HS</div>
+            <div class="c-dot"><i class="ti ti-eye-off"></i></div>
+            <div class="c-bell"><i class="ti ti-bell"></i><span class="badge">3</span></div>
+          </div>
+          <div class="tabbar">
+            <div class="tabitem active"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <h2>Where this leaves things</h2>
+      <p>This is one confident direction, not a menu — deliberately, since presenting more variants after "you're
+        giving me boring options every time" would repeat the exact mistake. It keeps the structural agreement from
+        the last round (no top bar, floating cluster near the thumb, avatar → Settings) and puts real design energy
+        into the part that was actually missing: colour conviction, typographic hierarchy, and a dark-first surface.</p>
+      <div class="rec-box">
+        <b>If this direction lands</b>, the next real step is applying the same language (dark surface, one hero
+        number per screen, sparkline/data-texture instead of decorative bars, frosted-glass floating cluster) to
+        Portfolio, Expenses, and Goals — each screen gets its own single most-important number treated with this
+        same weight (Portfolio: current value + return; Expenses: this month's spend; Goals: nearest goal's
+        progress), not a repeat of Home's specific layout.
+      </div>
+      <div class="open-box">
+        <b>Real constraint worth naming honestly:</b> the gradient hero text and frosted-glass blur are easy in CSS
+        here but need a real check in React Native — gradient text needs <code>react-native-svg</code>'s
+        <code>MaskedView</code>/<code>LinearGradient</code> combo (not free), and backdrop blur needs
+        <code>expo-blur</code> (not currently a dependency). Both are buildable, just flagging they're not
+        drop-in like a CSS gradient/blur is. This must also still work in Light and Penny Blue themes per
+        <code>DESIGN_GUIDELINES.md</code> — the same principles (one confident accent, real hierarchy, sparkline
+        texture) apply there, just inverted contrast, not a second unrelated design.
+      </div>
+    </div>
+  </body>
+</html>

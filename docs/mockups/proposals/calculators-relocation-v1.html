@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Relocating Calculators out of Home</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --indigo:#6366f1; --amber:#f59e0b; --danger:#ef4444; --success:#10b981;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 22px; color:#9aa5b1; font-size:14px; max-width:920px; margin-left:auto; margin-right:auto; line-height:1.65; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:40px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 30px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#123524; color:#7ee6b8; }
+      .vtitle .tag.rm { background:#3a1e1e; color:#ff9a8a; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; height:600px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .header { height:40px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .htitle { flex:1; text-align:center; font-size:13.5px; font-weight:700; color:var(--text); }
+
+      .maintabs { display:flex; gap:14px; padding:8px 14px 0; border-bottom:1px solid var(--border); }
+      .maintabs .t { font-size:11.5px; font-weight:600; color:var(--text3); padding-bottom:8px; border-bottom:2px solid transparent; white-space:nowrap; }
+      .maintabs .t.on { color:var(--primary); border-color:var(--primary); font-weight:700; }
+
+      .content { flex:1; padding:12px 14px; overflow:hidden; }
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:11px; margin-bottom:9px; }
+      .card .title { font-size:12px; font-weight:700; color:var(--text); }
+      .card .sub2 { font-size:10px; color:var(--text3); margin-top:2px; }
+
+      .seclabel { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text3); margin:6px 2px 8px; }
+
+      .calc-row { display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px; margin-bottom:7px; }
+      .calc-row .ic { width:30px; height:30px; border-radius:9px; display:grid; place-items:center; flex-shrink:0; }
+      .calc-row .txt { flex:1; }
+      .calc-row .t1 { font-size:11.5px; font-weight:700; color:var(--text); }
+      .calc-row .t2 { font-size:9px; color:var(--text3); margin-top:1px; }
+      .calc-row i.chev { font-size:14px; color:var(--text3); }
+
+      .fade-up { opacity:.4; }
+
+      .settingslist { }
+      .setrow { display:flex; align-items:center; gap:10px; padding:11px 4px; border-bottom:1px solid var(--border); }
+      .setrow i.left { font-size:16px; color:var(--text2); width:20px; }
+      .setrow .lbl { flex:1; font-size:12.5px; font-weight:600; color:var(--text); }
+      .setrow i.chev { font-size:14px; color:var(--text3); }
+
+      .homeblock { padding:10px 14px; }
+      .greeting { font-size:15px; font-weight:700; color:var(--text); margin-bottom:10px; }
+      .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:14px; margin-bottom:10px; }
+      .stat-card .k { font-size:9px; color:var(--text3); text-transform:uppercase; font-weight:700; }
+      .stat-card .v { font-size:20px; font-weight:800; color:var(--text); margin-top:2px; }
+      .strike { text-decoration:line-through; opacity:.35; }
+
+      .goalcard { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px; margin-bottom:9px; }
+      .goalcard .t1 { font-size:12px; font-weight:700; color:var(--text); }
+      .goalcard .bar { height:6px; border-radius:3px; background:var(--surface2); margin-top:8px; overflow:hidden; }
+      .goalcard .bar div { height:100%; background:var(--success); width:62%; }
+
+      .legend { max-width:920px; margin:10px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:#fff; }
+      .legend b { color:#fff; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend li { margin-bottom:8px; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:12px; }
+      .legend table { width:100%; border-collapse:collapse; margin-top:10px; }
+      .legend td, .legend th { padding:6px 8px; font-size:12px; border-bottom:1px solid #1e2733; text-align:left; }
+      .legend th { color:#fff; }
+    </style>
+  </head>
+  <body>
+    <h1>Calculators move out of Home — into context</h1>
+    <p class="sub">All 10 calculator UIs stay exactly as-is (same forms, same logic) — only their entry
+      point changes: from one generic searchable "Calculators" hub tile on Home, to small entry rows
+      inside whichever screen the calculator is actually about. Home's Tools section and Settings'
+      Modules section both go away as a result.</p>
+
+    <div class="gallery">
+
+      <!-- Goals -->
+      <div class="frame-wrap">
+        <div class="vtitle">Goals <span class="tag">+FIRE, +SIP &amp; SWP</span></div>
+        <div class="vsub">Extends the existing Goals/SIP Calculator tab strip with two more tabs, reusing the pattern already there rather than inventing a new one. Renamed "SIP Calculator" → "Goal SIP" to disambiguate from the new "SIP &amp; SWP" tab (same underlying tool, different question).</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Goals</div></div>
+          <div class="maintabs" style="overflow-x:hidden">
+            <div class="t on">Goals</div><div class="t">Goal SIP</div><div class="t">FIRE</div><div class="t">SIP &amp; SWP</div>
+          </div>
+          <div class="content">
+            <div class="goalcard">
+              <div class="t1">🏠 House down payment</div>
+              <div class="bar"><div></div></div>
+            </div>
+            <div class="goalcard fade-up">
+              <div class="t1">🎓 Child's education</div>
+              <div class="bar"><div style="width:38%"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Portfolio Retirement -->
+      <div class="frame-wrap">
+        <div class="vtitle">Portfolio · Retirement <span class="tag">+Gratuity, +SSY</span></div>
+        <div class="vsub">A small "Calculators" section appended below the NPS/PPF/EPF cards — tapping either row opens that calculator's existing detail screen (reused as-is) as a pushed screen.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Portfolio</div></div>
+          <div class="maintabs">
+            <div class="t">Equity</div><div class="t">Fixed Income</div><div class="t">Metals</div><div class="t on">Retirement</div>
+          </div>
+          <div class="content">
+            <div class="card"><div class="title">NPS</div><div class="sub2">₹4,12,000 · Tier I</div></div>
+            <div class="card fade-up"><div class="title">PPF</div><div class="sub2">₹2,80,500</div></div>
+            <div class="seclabel">Calculators</div>
+            <div class="calc-row">
+              <div class="ic" style="background:#2a2010"><i class="ti ti-cash-banknote" style="color:#f59e0b"></i></div>
+              <div class="txt"><div class="t1">Gratuity</div><div class="t2">End-of-service payout estimate</div></div>
+              <i class="ti ti-chevron-right chev"></i>
+            </div>
+            <div class="calc-row">
+              <div class="ic" style="background:#2a1a24"><i class="ti ti-baby-carriage" style="color:#ec4899"></i></div>
+              <div class="txt"><div class="t1">Sukanya Samriddhi (SSY)</div><div class="t2">Girl-child scheme maturity at 21</div></div>
+              <i class="ti ti-chevron-right chev"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Portfolio Fixed Income -->
+      <div class="frame-wrap">
+        <div class="vtitle">Portfolio · Fixed Income <span class="tag">+FD/RD Maturity</span></div>
+        <div class="vsub">Same pattern — one calculator row, since FD/RD is the one clean 1:1 fit (the calculator computes exactly what these holdings already track).</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Portfolio</div></div>
+          <div class="maintabs">
+            <div class="t">Equity</div><div class="t on">Fixed Income</div><div class="t">Metals</div><div class="t">Retirement</div>
+          </div>
+          <div class="content">
+            <div class="card"><div class="title">HDFC Bank FD</div><div class="sub2">₹5,00,000 · matures Mar 2027</div></div>
+            <div class="card fade-up"><div class="title">SBI RD</div><div class="sub2">₹8,000/mo</div></div>
+            <div class="seclabel">Calculators</div>
+            <div class="calc-row">
+              <div class="ic" style="background:#0f2a28"><i class="ti ti-building-bank" style="color:#14b8a6"></i></div>
+              <div class="txt"><div class="t1">FD / RD Maturity</div><div class="t2">Maturity &amp; interest, any compounding</div></div>
+              <i class="ti ti-chevron-right chev"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Portfolio Equity -->
+      <div class="frame-wrap">
+        <div class="vtitle">Portfolio · Equity <span class="tag">+Lumpsum/CAGR, +Cap. Gains</span></div>
+        <div class="vsub">Placed below the Stocks/MF summary card. Capital Gains here stays the generic "what-if I sell" scratch tool — distinct from Tax Awareness's own Capital Gains, which computes from your real transactions.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Portfolio</div></div>
+          <div class="maintabs">
+            <div class="t on">Equity</div><div class="t">Fixed Income</div><div class="t">Metals</div><div class="t">Retirement</div>
+          </div>
+          <div class="content">
+            <div class="card"><div class="title">Current Value</div><div class="sub2">₹42,18,900 · +18.2%</div></div>
+            <div class="seclabel">Calculators</div>
+            <div class="calc-row">
+              <div class="ic" style="background:#0a2a2e"><i class="ti ti-coin" style="color:#06b6d4"></i></div>
+              <div class="txt"><div class="t1">Lumpsum &amp; CAGR</div><div class="t2">Future value or annualised return</div></div>
+              <i class="ti ti-chevron-right chev"></i>
+            </div>
+            <div class="calc-row">
+              <div class="ic" style="background:#2a1020"><i class="ti ti-chart-candle" style="color:#ec4899"></i></div>
+              <div class="txt"><div class="t1">Capital Gains (estimate)</div><div class="t2">What-if tax on a hypothetical sale</div></div>
+              <i class="ti ti-chevron-right chev"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Home -->
+      <div class="frame-wrap">
+        <div class="vtitle">Home <span class="tag rm">Tools section removed</span></div>
+        <div class="vsub">Calculators was the only tile left in Home's "Tools" grid — with it gone, the whole section (label + grid) is removed rather than left empty.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Home</div></div>
+          <div class="content homeblock">
+            <div class="greeting">Good evening, Hemant</div>
+            <div class="stat-card">
+              <div class="k">Net Worth</div>
+              <div class="v">₹1,84,20,500</div>
+            </div>
+            <div class="stat-card fade-up">
+              <div class="k">Safe to spend today</div>
+              <div class="v">₹2,340</div>
+            </div>
+            <div style="text-align:center;color:#4a5561;font-size:10px;margin-top:6px;">— no "Tools" section below —</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div class="frame-wrap">
+        <div class="vtitle">Settings <span class="tag rm">Modules section removed</span></div>
+        <div class="vsub">Portfolio/Goals tabs are always shown now (per your call) — the hide-a-tab capability drops along with Calc's now-meaningless toggle. Profile card flows straight into Appearance.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Settings</div></div>
+          <div class="content">
+            <div class="card"><div class="title">Hemant Sharma</div><div class="sub2">hemant.sharma@ahead.com</div></div>
+            <div class="settingslist">
+              <div class="seclabel">Appearance · Theme</div>
+              <div class="setrow"><i class="ti ti-moon left"></i><div class="lbl">Dark</div><i class="ti ti-chevron-right chev"></i></div>
+              <div class="seclabel">Privacy</div>
+              <div class="setrow"><i class="ti ti-shield-lock left"></i><div class="lbl">Privacy mode</div><i class="ti ti-chevron-right chev"></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="legend">
+      <h2>Full relocation map (all 10)</h2>
+      <table>
+        <tr><th>Calculator</th><th>New home</th><th>Note</th></tr>
+        <tr><td>Tax Regime</td><td>Tax Awareness (already there)</td><td>Delete the standalone duplicate in the generic hub</td></tr>
+        <tr><td>HRA</td><td>Tax Awareness (already there)</td><td>Delete the standalone duplicate</td></tr>
+        <tr><td>Capital Gains</td><td>Portfolio → Equity <i>(kept as a distinct tool)</i></td><td>Tax's own version stays separate — real-data vs. hypothetical</td></tr>
+        <tr><td>FD / RD Maturity</td><td>Portfolio → Fixed Income</td><td>Clean 1:1 fit</td></tr>
+        <tr><td>Gratuity</td><td>Portfolio → Retirement</td><td>Retirement benefit, sits with NPS/PPF/EPF</td></tr>
+        <tr><td>Sukanya Samriddhi (SSY)</td><td>Portfolio → Retirement</td><td>Per your call — grouped with other govt schemes</td></tr>
+        <tr><td>FIRE</td><td>Goals (new tab)</td><td>Early retirement is a goal</td></tr>
+        <tr><td>SIP &amp; SWP Planner</td><td>Goals (new tab)</td><td>Distinct from the existing goal-driven SIP calc</td></tr>
+        <tr><td>Lumpsum &amp; CAGR</td><td>Portfolio → Equity</td><td>Investment growth math</td></tr>
+        <tr><td>Inflation</td><td>Goals (inline helper, not a screen)</td><td>Per your call — dissolves into the goal-amount field</td></tr>
+      </table>
+      <ul style="margin-top:16px">
+        <li><b>Removed entirely:</b> the searchable Calculators hub screen + its route + registry search; `ToolsGrid.tsx`/Home's "Tools" section; Settings' "Modules" section and `ModuleVisibility` (`portfolio`/`goals`/`subscriptions`/`iou`/`backup`/`calc`); `MainTabs.tsx`'s tab-hiding logic. `subscriptions`/`iou`/`backup` were already dead flags (defined, never read) — cleaned up as part of the same pass.</li>
+        <li><b>Kept unchanged:</b> every `Calculator*.tsx` component and its `packages/core` logic — this is purely an entry-point relocation, no calculator math or layout changes.</li>
+        <li>Each new "Calculators" section (Retirement/Fixed Income/Equity) reuses the same row style, so it reads as one consistent pattern across Portfolio rather than three different one-offs.</li>
+      </ul>
+    </div>
+  </body>
+</html>

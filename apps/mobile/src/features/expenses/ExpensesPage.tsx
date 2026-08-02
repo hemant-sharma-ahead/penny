@@ -10,6 +10,7 @@ import { useGroupContext } from '~/context/GroupContext';
 import { hasEntitlement } from '@/core/entitlement/entitlement';
 import { shareExpenseToGroup } from '@/core/groups/groupsService';
 import type { Expense } from '@/core/db/types';
+import { useRegisterHeaderScreen } from '~/navigation/HeaderBackContext';
 import { useExpenses } from './useExpenses';
 import { ExpensesHeader } from './ExpensesHeader';
 import { useTransactionFilters } from './transactions/useTransactionFilters';
@@ -35,6 +36,7 @@ export function ExpensesPage() {
   const route = useRoute();
   const initialTab = (route.params as { initialTab?: ExpensesTab } | undefined)?.initialTab;
   const modeBg = useModeBackgroundColor();
+  useRegisterHeaderScreen('ExpensesMain');
   const { shouldMask } = usePrivacy();
   const { safeModeVisibility } = useSettings();
   const { events, pastEvents } = useEventMode();
@@ -65,6 +67,12 @@ export function ExpensesPage() {
     persons,
     iouLinkByTxn,
     iouLinkedTxnIds,
+    goals,
+    seedGoalFromExpense,
+    goalLinkByTxn,
+    goalLinkedTxnIds,
+    txnIdsByGoal,
+    saveAccount,
     accountBalances,
     patchExpenses,
     removeExpenses,
@@ -86,7 +94,7 @@ export function ExpensesPage() {
     setActiveTab(tab);
     setVisitedTabs((prev) => (prev.has(tab) ? prev : new Set(prev).add(tab)));
   }
-  const txnFilters = useTransactionFilters(expenses, categoryMap);
+  const txnFilters = useTransactionFilters(expenses, categoryMap, txnIdsByGoal);
 
   // "Share with a group" from the entry form (Track E) — only for a claimed (username) account.
   const { groups, claimed } = useGroupContext();
@@ -128,7 +136,7 @@ export function ExpensesPage() {
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <ExpensesHeader
         filteredTotal={txnFilters.filteredTotal}
-        monthFilter={txnFilters.monthFilter}
+        transactionCount={txnFilters.filteredExpenses.length}
         expenses={expenses}
         expenseCategories={expenseCategories}
         linkedCountByEventHashtag={linkedCountByEventHashtag}
@@ -184,6 +192,11 @@ export function ExpensesPage() {
               iouPersons={persons}
               onSeedIou={seedIouFromExpense}
               iouLinkByTxn={iouLinkByTxn}
+              goals={goals}
+              onSeedGoal={seedGoalFromExpense}
+              goalLinkByTxn={goalLinkByTxn}
+              goalLinkedTxnIds={goalLinkedTxnIds}
+              saveAccount={saveAccount}
               accountBalances={accountBalances}
               shareGroups={shareGroups}
               onShareToGroup={handleShareToGroup}
@@ -219,8 +232,12 @@ export function ExpensesPage() {
             <AnalyticsSlice
               expenses={expenses}
               categoryMap={categoryMap}
+              accountMap={accountMap}
+              accounts={accounts}
+              hashtags={hashtags}
               masked={shouldMask(false)}
               iouLinkedTxnIds={iouLinkedTxnIds}
+              goalLinkedTxnIds={goalLinkedTxnIds}
               familyGroupIds={familyGroupIds}
               setAsideTagNames={setAsideTagNames}
             />

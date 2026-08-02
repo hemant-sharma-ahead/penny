@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Portfolio: Equity consolidation (Stocks/MF/IPO/News as sub-tabs)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --indigo:#6366f1; --amber:#f59e0b; --danger:#ef4444; --success:#10b981;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 20px; color:#9aa5b1; font-size:14px; max-width:820px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .decided { max-width:820px; margin:0 auto 20px; background:color-mix(in srgb, var(--primary) 14%, #0b0f14); border:1px solid color-mix(in srgb, var(--primary) 40%, #0b0f14); border-radius:12px; padding:14px 18px; font-size:12.5px; color:#c8f5e2; line-height:1.7; }
+      .decided b { color:#fff; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:40px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 30px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; }
+      .vtitle .tag.old { background:#3a2020; color:#f3a5a5; }
+      .vtitle .tag.new { background:#123524; color:#7ee6b8; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 10px; line-height:1.55; }
+
+      .phone { width:290px; height:600px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .header { height:46px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; }
+      .avatar { width:32px; height:32px; border-radius:50%; background:var(--primary); display:grid; place-items:center; color:#fff; font-size:12px; font-weight:800; }
+      .htitle { flex:1; text-align:center; font-size:14.5px; font-weight:700; color:var(--text); }
+      .hicons { display:flex; align-items:center; gap:12px; flex-shrink:0; }
+      .hicons i { font-size:17px; color:var(--text2); }
+
+      .stats-row { padding:8px 14px 0; display:flex; align-items:baseline; gap:8px; }
+      .stats-row .amt { font-size:13px; color:var(--text); font-weight:600; }
+      .stats-row .pct { font-size:11.5px; font-weight:700; color:var(--success); }
+
+      /* main asset-class tab strip */
+      .maintabs { display:flex; gap:16px; padding:10px 14px 0; border-bottom:1px solid var(--border); overflow-x:auto; }
+      .maintabs .t { font-size:12.5px; font-weight:600; color:var(--text3); padding-bottom:9px; border-bottom:2px solid transparent; white-space:nowrap; }
+      .maintabs .t.on { color:var(--primary); border-color:var(--primary); font-weight:700; }
+
+      /* old 6-pill sub-tab row (2 rows of 3) */
+      .pillrow { display:flex; gap:6px; padding:8px 14px 0; }
+      .pill { flex:1; display:flex; align-items:center; justify-content:center; gap:4px; padding:6px 6px; border-radius:999px; background:var(--surface2); font-size:10px; font-weight:600; color:var(--text2); }
+      .pill.on { background:var(--primary); color:#fff; }
+
+      /* new equity sub-tab strip (underline style, matches main tabs visually one level down) */
+      .subtabs { display:flex; gap:14px; padding:8px 14px 0; }
+      .subtabs .t { font-size:11.5px; font-weight:600; color:var(--text3); padding-bottom:7px; border-bottom:2px solid transparent; display:flex; align-items:center; gap:4px; }
+      .subtabs .t.on { color:var(--indigo); border-color:var(--indigo); font-weight:700; }
+      .subtabs .t i { font-size:12px; }
+
+      .content { flex:1; padding:12px 14px; overflow:hidden; }
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:11px; }
+      .holding { display:flex; align-items:center; gap:9px; padding:9px 0; }
+      .holding + .holding { border-top:1px solid var(--border); }
+      .hic { width:26px; height:26px; border-radius:8px; display:grid; place-items:center; font-size:12px; flex-shrink:0; }
+      .holding .nm { flex:1; font-size:12px; font-weight:600; color:var(--text); } .holding .nm small { display:block; font-size:9.5px; color:var(--text3); }
+      .holding .val { font-size:11.5px; font-weight:700; color:var(--text); }
+      .holding .val small { display:block; font-size:9px; font-weight:600; text-align:right; }
+
+      .news-item { padding:9px 0; border-top:1px solid var(--border); }
+      .news-item:first-child { border-top:none; }
+      .news-item .src { font-size:9px; font-weight:700; color:var(--amber); text-transform:uppercase; letter-spacing:.03em; }
+      .news-item .hl { font-size:11.5px; color:var(--text); margin-top:2px; line-height:1.4; }
+      .news-item .meta { font-size:9px; color:var(--text3); margin-top:3px; }
+
+      .ipo-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px; margin-bottom:8px; }
+      .ipo-card .nm { font-size:12px; font-weight:700; color:var(--text); }
+      .ipo-card .meta { font-size:9.5px; color:var(--text3); margin-top:3px; }
+      .ipo-card .badge { display:inline-block; font-size:8.5px; font-weight:700; color:#fff; background:var(--success); padding:2px 7px; border-radius:999px; margin-top:6px; }
+
+      .tabbar { display:flex; align-items:center; justify-content:space-around; height:54px; background:var(--surface); border-top:1px solid var(--border); flex-shrink:0; }
+      .tabitem { display:flex; flex-direction:column; align-items:center; gap:2px; font-size:8px; font-weight:700; color:var(--text3); }
+      .tabitem.active { color:var(--indigo); }
+      .tabitem i { font-size:18px; }
+      .chipfab { width:28px; height:28px; border-radius:50%; background:var(--primary); display:grid; place-items:center; color:#fff; font-size:13px; }
+
+      .legend { max-width:820px; margin:10px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:#fff; }
+      .legend b { color:#fff; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend .rec-box { background:color-mix(in srgb, var(--primary) 12%, #0e141b); border:1px solid color-mix(in srgb, var(--primary) 35%, #0e141b); border-radius:12px; padding:14px 16px; margin-top:12px; }
+      .legend .open-box { background:#241c0e; border:1px solid #4a3a12; border-radius:12px; padding:14px 16px; margin-top:12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Portfolio — Equity consolidation</h1>
+    <p class="sub">
+      Today's "Holdings" (6-pill sub-tab row: Stocks/MF/Fixed Income/Precious Metals/Retirement/Real Assets)
+      and "IPO" main tabs collapse into 5 asset-class main tabs — <b>Equity</b>, Fixed Income, Precious Metals,
+      Retirement, Real Assets — with Equity gaining its own second-level tab strip: <b>Stocks · Mutual Funds ·
+      IPO · News</b>. News moves out of Home entirely into this one home.
+    </p>
+    <div class="decided">
+      <b>Confirmed:</b> Fixed Income, Precious Metals, Retirement, and Real Assets stay exactly as they are
+      today, just promoted from sub-tab pills to their own main tabs (same content, same components) — only
+      Stocks/Mutual Funds/IPO/News consolidate under the new Equity main tab.
+    </div>
+
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Portfolio <span class="tag old">today</span></div>
+        <div class="vsub">2 main tabs (Holdings/IPO). Holdings' own sub-tab row crams 6 asset classes into pills across 2 rows — Stocks and Mutual Funds have no more visual priority than Retirement or Real Assets.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Portfolio</div><div class="hicons"><i class="ti ti-eye"></i><i class="ti ti-bell"></i></div></div>
+          <div class="stats-row"><span class="amt">₹64.2L</span><span class="pct">+12.4%</span></div>
+          <div class="maintabs">
+            <span class="t on">Holdings</span>
+            <span class="t">IPO</span>
+          </div>
+          <div class="pillrow">
+            <span class="pill on">Stocks</span>
+            <span class="pill">Mutual Funds</span>
+            <span class="pill">Fixed Income</span>
+          </div>
+          <div class="pillrow" style="margin-top:6px">
+            <span class="pill">Precious Metals</span>
+            <span class="pill">Retirement</span>
+            <span class="pill">Real Assets</span>
+          </div>
+          <div class="content">
+            <div class="card">
+              <div class="holding"><div class="hic" style="background:#132b1f;color:var(--success)"><i class="ti ti-trending-up"></i></div><div class="nm">Reliance Industries<small>142 shares</small></div><div class="val">₹18.6L<small style="color:var(--success)">+9.2%</small></div></div>
+              <div class="holding"><div class="hic" style="background:#132b1f;color:var(--success)"><i class="ti ti-trending-up"></i></div><div class="nm">HDFC Bank<small>85 shares</small></div><div class="val">₹12.1L<small style="color:var(--danger)">−2.1%</small></div></div>
+            </div>
+          </div>
+          <div class="tabbar">
+            <div class="tabitem"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem active"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Portfolio → Equity → Stocks <span class="tag new">proposed</span></div>
+        <div class="vsub">5 main tabs now (Fixed Income/Precious Metals/Retirement/Real Assets unchanged, just promoted). Equity gets its own 4-item sub-strip — Stocks selected here.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Portfolio</div><div class="hicons"><i class="ti ti-eye"></i><i class="ti ti-bell"></i></div></div>
+          <div class="stats-row"><span class="amt">₹64.2L</span><span class="pct">+12.4%</span></div>
+          <div class="maintabs">
+            <span class="t on">Equity</span>
+            <span class="t">Fixed Income</span>
+            <span class="t">Precious Metals</span>
+            <span class="t">Retirement</span>
+            <span class="t">Real Assets</span>
+          </div>
+          <div class="subtabs">
+            <span class="t on"><i class="ti ti-trending-up"></i>Stocks</span>
+            <span class="t"><i class="ti ti-chart-donut"></i>Mutual Funds</span>
+            <span class="t"><i class="ti ti-ticket"></i>IPO</span>
+            <span class="t"><i class="ti ti-news"></i>News</span>
+          </div>
+          <div class="content">
+            <div class="card">
+              <div class="holding"><div class="hic" style="background:#132b1f;color:var(--success)"><i class="ti ti-trending-up"></i></div><div class="nm">Reliance Industries<small>142 shares</small></div><div class="val">₹18.6L<small style="color:var(--success)">+9.2%</small></div></div>
+              <div class="holding"><div class="hic" style="background:#132b1f;color:var(--success)"><i class="ti ti-trending-up"></i></div><div class="nm">HDFC Bank<small>85 shares</small></div><div class="val">₹12.1L<small style="color:var(--danger)">−2.1%</small></div></div>
+            </div>
+          </div>
+          <div class="tabbar">
+            <div class="tabitem"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem active"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Portfolio → Equity → IPO <span class="tag new">proposed</span></div>
+        <div class="vsub">Same sub-strip, IPO selected — today's separate IPO main tab's content, unchanged, just one level deeper.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Portfolio</div><div class="hicons"><i class="ti ti-eye"></i><i class="ti ti-bell"></i></div></div>
+          <div class="maintabs">
+            <span class="t on">Equity</span>
+            <span class="t">Fixed Income</span>
+            <span class="t">Precious Metals</span>
+            <span class="t">Retirement</span>
+            <span class="t">Real Assets</span>
+          </div>
+          <div class="subtabs">
+            <span class="t"><i class="ti ti-trending-up"></i>Stocks</span>
+            <span class="t"><i class="ti ti-chart-donut"></i>Mutual Funds</span>
+            <span class="t on"><i class="ti ti-ticket"></i>IPO</span>
+            <span class="t"><i class="ti ti-news"></i>News</span>
+          </div>
+          <div class="content">
+            <div class="ipo-card">
+              <div class="nm">Vishal Mega Mart</div>
+              <div class="meta">Price band ₹74–78 · Lot 190 shares</div>
+              <span class="badge">Open · closes in 2 days</span>
+            </div>
+            <div class="ipo-card">
+              <div class="nm">Waaree Energies</div>
+              <div class="meta">Price band ₹1,427–1,503 · Lot 9 shares</div>
+              <span class="badge" style="background:var(--amber);color:#1c1408">Opens in 5 days</span>
+            </div>
+          </div>
+          <div class="tabbar">
+            <div class="tabitem"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem active"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Portfolio → Equity → News <span class="tag new">proposed</span></div>
+        <div class="vsub">News lives here now, not on Home or its own tab — same headline-feed content, filters trimmed to fit (source/tone dropdowns still available above the list, not drawn here for space).</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Portfolio</div><div class="hicons"><i class="ti ti-eye"></i><i class="ti ti-bell"></i></div></div>
+          <div class="maintabs">
+            <span class="t on">Equity</span>
+            <span class="t">Fixed Income</span>
+            <span class="t">Precious Metals</span>
+            <span class="t">Retirement</span>
+            <span class="t">Real Assets</span>
+          </div>
+          <div class="subtabs">
+            <span class="t"><i class="ti ti-trending-up"></i>Stocks</span>
+            <span class="t"><i class="ti ti-chart-donut"></i>Mutual Funds</span>
+            <span class="t"><i class="ti ti-ticket"></i>IPO</span>
+            <span class="t on"><i class="ti ti-news"></i>News</span>
+          </div>
+          <div class="content">
+            <div class="news-item">
+              <div class="src">ET Markets</div>
+              <div class="hl">Sensex ends 340 pts higher, banking stocks lead rally</div>
+              <div class="meta">2h ago</div>
+            </div>
+            <div class="news-item">
+              <div class="src">Mint</div>
+              <div class="hl">RBI holds repo rate steady at 6.5% for fourth straight meeting</div>
+              <div class="meta">5h ago</div>
+            </div>
+            <div class="news-item">
+              <div class="src">SEBI</div>
+              <div class="hl">New disclosure norms for mutual fund expense ratios from Oct 1</div>
+              <div class="meta">1d ago</div>
+            </div>
+          </div>
+          <div class="tabbar">
+            <div class="tabitem"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem active"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <h2>What changes in code</h2>
+      <p><b>`PortfolioPage.tsx`</b>: `activeTab` grows from <code>'holdings' | 'ipo'</code> to a 5-way asset-class
+        union (<code>'equity' | 'fixed_income' | 'precious_metals' | 'retirement' | 'real_assets'</code>); the
+        existing 6-item <code>HOLDINGS_SUBTABS</code> config splits into a 4-item <code>EQUITY_SUBTABS</code>
+        (<code>stocks</code>/<code>mf</code>/<code>ipo</code>/<code>news</code>) rendered only when Equity is
+        active, while Fixed Income/Precious Metals/Retirement/Real Assets each become their own top-level
+        tab rendering the same <code>FixedIncomeSection</code>/<code>PreciousMetalsSection</code>/
+        <code>RetirementSection</code>/<code>RealAssetsSection</code> components unchanged. <code>IpoTab</code>
+        and the News screen's content (<code>NewsPage.tsx</code>'s feed/filter logic) get pulled in as
+        sub-tab content instead of standalone screens — their virtualized lists stay virtualized, just
+        re-parented. <b>Home</b> loses its News tile; <code>ToolsGrid.tsx</code> (or wherever it lives) needs
+        that entry removed. <b>Settings' "Modules" section</b> may need a look afterward too, since visibility
+        toggles keyed to the old Holdings/IPO/News structure won't map cleanly to the new one.</p>
+      <div class="rec-box">
+        <b>Recommendation:</b> this direction, as drawn — it's a faithful, minimal-risk re-parenting (every
+        section component is reused as-is) that fixes the real complaint (Stocks/MF buried among 6
+        equal-weight pills) without inventing new visual language: the sub-tab strip reuses the same
+        underline style Portfolio's main tabs already have, just recolored to signal "one level in."
+      </div>
+      <div class="open-box">
+        <b>Still worth deciding:</b>
+        <ul>
+          <li>Does News's own source/tone/holding filter row still fit above the sub-tab content, or does
+            it need trimming for the narrower space one level deeper?</li>
+          <li>The floating "+" add-holding FAB currently only shows on Stocks/MF — should it also appear on
+            the new top-level Fixed Income/Precious Metals/Retirement/Real Assets tabs (it doesn't today
+            either, so likely no change, just confirming).</li>
+        </ul>
+      </div>
+    </div>
+  </body>
+</html>

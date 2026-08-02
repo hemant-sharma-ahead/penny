@@ -4,25 +4,26 @@ import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { PageHeader, Toggle, ConfirmDialog } from '~/components/ui';
-import { BackButton } from '~/components/shared';
+import { Toggle, ConfirmDialog } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';
 import { useProfile } from '@/hooks/useProfile';
-import { useSettings, OPEN_MODE_DURATIONS, type ModuleVisibility, type FontScale } from '~/context/SettingsContext';
+import { useSettings, OPEN_MODE_DURATIONS, type FontScale } from '~/context/SettingsContext';
 import { type PersistedPrivacyMode } from '~/context/PrivacyContext';
 import { useTheme, type ThemePreference } from '~/theme/ThemeProvider';
 import { useToast } from '~/context/ToastContext';
 import { wipeDemoData, isDemoSeeded } from '@/core/db/seedDemoData';
 import { getWipeAfterAttempts, setWipeAfterAttempts, WIPE_THRESHOLD } from '@/core/crypto/securityManager';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 
 /**
  * RN port of apps/web-react/src/features/settings/SettingsPage.tsx. Deviations from the web version:
  * - Theme picker restored, driving mobile's own `ThemeProvider` (Track 3) instead of web's
- *   `SettingsContext`-owned `theme`/`data-theme` — same 4 choices (Light/Penny Blue/Dark/System), same
- *   swatch-preview grid, translated to `Pressable`+`View` swatches instead of web's `<button>`/CSS.
+ *   `SettingsContext`-owned `theme`/`data-theme` — swatch-preview grid, translated to `Pressable`+`View`
+ *   swatches instead of web's `<button>`/CSS. 3 choices (Light/Dark/System) as of 2026-07-31 — Penny
+ *   Blue was removed as a selectable theme (see `ThemeProvider.tsx`'s migration note).
  * - Font-size picker restored (`FontScale`, ported into mobile's own `SettingsContext.tsx` this pass) —
  *   the persisted preference is real and this screen's `Aa` grid drives it, and (2026-07-26) now applies
  *   app-wide via `~/components/AppText.tsx` — see that file and `~/theme/fontScale.ts` for how (a
@@ -36,28 +37,33 @@ import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
  *   an `AuthGuard` re-check).
  * - Navigation route names ('SafeModeSettings', 'ManageTags', 'ChangePin', 'ChangePassphrase', 'Profile',
  *   'Timeline') are registered in `MainNavigator.tsx`.
- * Module grid: `grid-cols-5` → `flex-row flex-wrap`, established Track 4 pattern.
+ * - **2026-08-01 Calculators relocation**: the "Modules" section (Portfolio/Goals tab-hide toggles +
+ *   Calc's Home-tile toggle) was removed entirely — Portfolio/Goals are now always-on tabs
+ *   (`MainTabs.tsx`), and Calc's toggle became meaningless once Calculators moved out of Home into
+ *   contextual entry points across Tax Awareness/Portfolio/Goals (see `docs/ARCHITECTURE.md`).
+ * - **2026-08-01 redesign**: flat hairline-divided rows → `bg-surface` rounded cards (the "Grouped
+ *   cards + section labels" pattern `docs/DESIGN_GUIDELINES.md` already described but this screen never
+ *   actually built), one accent colour per section instead of uniform gray icons, and reordered so the
+ *   most-touched controls (Privacy default/Safe Mode visibility/Manage tags/Timeline) sit in a
+ *   "Frequent" group right after Profile — Appearance (set-and-forget) moved down. A glanceable,
+ *   display-only status-pill strip (Privacy/Theme/PIN) sits under Profile — no `onPress` at all, not a
+ *   shortcut, just a summary; every real control is still the same short scroll below it. Approved via
+ *   `docs/mockups/proposals/settings-redesign-v2.html` after two rounds — see that file's legend for the
+ *   full rationale and what changed between v1/v2 (mockup review flagged: no popups from the pill row,
+ *   Theme and Text Size stay two separate rows not one, nothing dropped from the real screen).
+ * - **2026-08-01 Appearance follow-up**: the Theme/Text Size rows in the redesign above still rendered
+ *   as their v2-mockup form (a live-palette swatch grid + a 4-box "Aa" grid) — on-device review found
+ *   that busy/dated next to the rest of the card. Replaced with a single compact row each (icon + current
+ *   value + an inline `CompactSegmentedControl`), per "Option 3" of
+ *   `docs/mockups/proposals/settings-appearance-refresh-v1.html` — a live-theme-preview swatch grid and
+ *   an iOS-style text-size slider were both mocked up and passed over for this denser, plainer option.
+ *   `ThemePreview` (the mini rendered-palette swatch) was deleted, since nothing renders it anymore.
  */
 
-interface ModuleDef {
-  key: keyof ModuleVisibility;
-  label: string;
-  icon: string;
-  color: string;
-}
-
-const MODULES: ModuleDef[] = [
-  { key: 'portfolio', label: 'Portfolio', icon: 'ti-chart-pie', color: '#6366f1' },
-  { key: 'goals', label: 'Goals', icon: 'ti-target', color: '#10b981' },
-  { key: 'news', label: 'News', icon: 'ti-news', color: '#f59e0b' },
-  { key: 'calc', label: 'Calc', icon: 'ti-math-function', color: '#f97316' }
-];
-
-const THEMES: { value: ThemePreference; label: string }[] = [
-  { value: 'light', label: 'Light' },
-  { value: 'pennyBlue', label: 'Penny Blue' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'system', label: 'System' }
+const THEMES: { value: ThemePreference; label: string; icon: string }[] = [
+  { value: 'light', label: 'Light', icon: 'ti-sun' },
+  { value: 'dark', label: 'Dark', icon: 'ti-moon' },
+  { value: 'system', label: 'System', icon: 'ti-device-desktop' }
 ];
 
 const FONT_SCALES: { value: FontScale; label: string; px: number }[] = [
@@ -67,46 +73,22 @@ const FONT_SCALES: { value: FontScale; label: string; px: number }[] = [
   { value: 'xl', label: 'A++', px: 24 }
 ];
 
-/** Miniature palette preview for a theme swatch — RN port of web's `ThemePreview` (brand palette =
- *  domain data, kept inline like web's version). */
-function ThemePreview({ theme }: { theme: ThemePreference }) {
-  const styles: Record<Exclude<ThemePreference, 'system'>, { bg: string; bar: string; ln: string }> = {
-    light: { bg: '#ffffff', bar: '#00a86b', ln: '#e2e8f0' },
-    pennyBlue: { bg: '#1F3864', bar: '#6ea8fe', ln: '#3b5488' },
-    dark: { bg: '#0b1220', bar: '#00c47e', ln: '#243247' }
-  };
+/** Friendlier text for the Text size row's current-value sub-label — `FONT_SCALES`' own `label` field
+ *  stays the short "S/A/A+/A++" used on the compact segmented control itself. */
+const FONT_SCALE_NAMES: Record<FontScale, string> = {
+  small: 'Small',
+  default: 'Default',
+  large: 'Large',
+  xl: 'Extra large'
+};
 
-  // Web's "System" swatch is a 135deg diagonal light/dark split (`linear-gradient(135deg,#fff 50%,
-  // #0b1220 50%)`) rather than a flat gray fill — the flat version (found via the 2026-07-25 parity
-  // sweep) looked like a fifth, unthemed color instead of "follows OS light/dark". `expo-linear-gradient`
-  // (already a dependency, used by Home Stories) reproduces the same diagonal split.
-  if (theme === 'system') {
-    return (
-      <LinearGradient
-        colors={['#ffffff', '#ffffff', '#0b1220', '#0b1220']}
-        locations={[0, 0.5, 0.5, 1]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ height: 40, borderRadius: 8, overflow: 'hidden', marginBottom: 6 }}
-      >
-        <View className="h-1.5 rounded-sm mx-1.5 mt-1.5" style={{ backgroundColor: '#00a86b' }} />
-        <View className="h-1 rounded-sm mx-1.5 mt-1" style={{ backgroundColor: '#94a3b8' }} />
-        <View className="h-1 rounded-sm mx-1.5 mt-0.5" style={{ backgroundColor: '#94a3b8', width: '60%' }} />
-      </LinearGradient>
-    );
-  }
-
-  const s = styles[theme];
-  return (
-    <View
-      className="h-10 rounded-lg overflow-hidden mb-1.5"
-      style={{ backgroundColor: s.bg, borderWidth: theme === 'light' ? 1 : 0, borderColor: '#e2e8f0' }}
-    >
-      <View className="h-1.5 rounded-sm mx-1.5 mt-1.5" style={{ backgroundColor: s.bar }} />
-      <View className="h-1 rounded-sm mx-1.5 mt-1" style={{ backgroundColor: s.ln }} />
-      <View className="h-1 rounded-sm mx-1.5 mt-0.5" style={{ backgroundColor: s.ln, width: '60%' }} />
-    </View>
-  );
+/** One accent colour per section (not per row) — reused by that section's `Row`/`InlineBlock` icons
+ *  *and* the matching status pill above, so the pill visually cross-references where its control lives.
+ *  Decorative variety per-row would fight "colour is wayfinding, not decoration" (`DESIGN_GUIDELINES.md`
+ *  §1) since these rows don't carry distinct app-wide meaning the way, say, income/expense colours do. */
+function useSectionColors() {
+  const theme = useThemeColors();
+  return { frequent: theme.warning, security: theme.privacy, appearance: theme.info, data: theme.neutral };
 }
 
 // Icons + colours mirror the header's PrivacyModeSwitcher — keep the two in sync. Open is deliberately
@@ -137,25 +119,52 @@ function SectionLabel({ children, danger }: { children: ReactNode; danger?: bool
   );
 }
 
+/** A `bg-surface` rounded card grouping `Row`/`InlineBlock` children — the "Grouped cards + section
+ *  labels" pattern from `docs/DESIGN_GUIDELINES.md` §3. */
+function Card({ children, borderColor }: { children: ReactNode; borderColor?: string }) {
+  const theme = useThemeColors();
+  return (
+    <View
+      className="rounded-2xl overflow-hidden border"
+      style={{ backgroundColor: theme.surface, borderColor: borderColor ?? theme.border }}
+    >
+      {children}
+    </View>
+  );
+}
+
 function Row({
   icon,
+  color,
   label,
   sub,
   trailing,
   onPress,
-  danger
+  danger,
+  first
 }: {
   icon: string;
+  /** Icon badge accent — defaults to the section's shared colour via caller; ignored (→ danger red)
+   *  when `danger` is set. */
+  color?: string;
   label: string;
   sub?: string;
   trailing?: ReactNode;
   onPress?: () => void;
   danger?: boolean;
+  /** First row in its `Card` — skips the top divider so it doesn't double up with the card's own border. */
+  first?: boolean;
 }) {
   const theme = useThemeColors();
+  const badgeColor = danger ? theme.danger : (color ?? theme.textSecondary);
   const inner = (
     <>
-      <Icon name={icon} size={19} color={danger ? theme.danger : theme.textSecondary} />
+      <View
+        className="w-8 h-8 rounded-lg items-center justify-center shrink-0"
+        style={{ backgroundColor: tint(badgeColor, 10) }}
+      >
+        <Icon name={icon} size={16} color={badgeColor} />
+      </View>
       <View className="flex-1 min-w-0">
         <Text className="text-sm font-medium" style={{ color: danger ? theme.danger : theme.textPrimary }}>
           {label}
@@ -165,7 +174,7 @@ function Row({
       {trailing}
     </>
   );
-  const cls = 'flex-row items-center gap-3 py-3.5 border-t border-theme';
+  const cls = `flex-row items-center gap-3 py-3 px-3 ${first ? '' : 'border-t border-theme'}`;
   return onPress ? (
     <Pressable onPress={onPress} className={cls}>
       {inner}
@@ -175,18 +184,83 @@ function Row({
   );
 }
 
+/** Non-row content inside a `Card` (button groups, swatch grids) — same first-child divider rule as `Row`. */
+function InlineBlock({ children, first }: { children: ReactNode; first?: boolean }) {
+  return <View className={`p-3 ${first ? '' : 'border-t border-theme'}`}>{children}</View>;
+}
+
+/** Display-only summary chip — deliberately has no `onPress`. It's a glance at current state (Privacy/
+ *  Theme/PIN), not a shortcut; the real controls are the short scroll immediately below. Reviewed and
+ *  confirmed via mockup: adding a tap action here would read as a hidden shortcut/popup, which is
+ *  exactly what this redesign was asked to avoid. */
+function StatusPill({ icon, color, label, value }: { icon: string; color: string; label: string; value: string }) {
+  const theme = useThemeColors();
+  return (
+    <View
+      className="flex-1 rounded-xl border items-center py-2.5"
+      style={{ borderColor: theme.border, backgroundColor: theme.surface }}
+    >
+      <View
+        className="w-6 h-6 rounded-lg items-center justify-center mb-1"
+        style={{ backgroundColor: tint(color, 10) }}
+      >
+        <Icon name={icon} size={13} color={color} />
+      </View>
+      <Text className="text-[8px] font-bold uppercase tracking-wide text-tertiary">{label}</Text>
+      <Text className="text-[11px] font-bold text-primary mt-0.5">{value}</Text>
+    </View>
+  );
+}
+
+/** A compact inline segmented control for a `Row`'s `trailing` slot (Theme/Text size) — icon-only or
+ *  short-label segments in a fixed-width pill, filled `theme.primary` on the active one. Mockup-approved
+ *  ("Option 3 — single compact rows", `settings-appearance-refresh-v1.html`) over redrawing a live theme
+ *  preview or a slider: collapses Theme/Text size to one row each instead of their own multi-line block. */
+function CompactSegmentedControl<T extends string>({
+  options,
+  value,
+  onChange
+}: {
+  options: { value: T; icon?: string; label?: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  const theme = useThemeColors();
+  return (
+    <View className="flex-row bg-surface-2 rounded-xl p-1 gap-0.5" style={{ width: 152 }}>
+      {options.map((opt) => {
+        const on = opt.value === value;
+        return (
+          <Pressable
+            key={opt.value}
+            onPress={() => onChange(opt.value)}
+            className="flex-1 items-center justify-center py-1.5 rounded-lg"
+            style={{ backgroundColor: on ? theme.primary : 'transparent' }}
+          >
+            {opt.icon && <Icon name={opt.icon} size={13} color={on ? '#fff' : theme.textSecondary} />}
+            {opt.label && (
+              <Text className="text-[8.5px] font-bold" style={{ color: on ? '#fff' : theme.textSecondary }}>
+                {opt.label}
+              </Text>
+            )}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export function SettingsPage() {
   const modeBg = useModeBackgroundColor();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const theme = useThemeColors();
+  const sectionColor = useSectionColors();
   const { profile } = useProfile();
   const {
-    modules,
     fontScale,
     defaultPrivacyMode,
     openModeDurationMinutes,
     lockOnBackground,
-    setModule,
     setFontScale,
     setDefaultPrivacyMode,
     setOpenModeDurationMinutes,
@@ -198,6 +272,7 @@ export function SettingsPage() {
   const [wipeEnabled, setWipeEnabled] = useState(false);
   const [exiting, setExiting] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
+  useDefaultHeaderBack('Settings');
 
   useEffect(() => {
     void getWipeAfterAttempts().then((n) => setWipeEnabled(n != null));
@@ -236,9 +311,11 @@ export function SettingsPage() {
     .filter(Boolean)
     .join(' · ');
 
+  const activePrivacyMode = privacyModes.find((m) => m.mode === defaultPrivacyMode) ?? privacyModes[0];
+  const activeTheme = THEMES.find((t) => t.value === themePreference) ?? THEMES[0];
+
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <PageHeader leading={<BackButton />} title="Settings" />
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-4">
           {/* Profile hero */}
@@ -278,219 +355,205 @@ export function SettingsPage() {
             </View>
           </Pressable>
 
-          {/* Modules */}
-          <SectionLabel>Modules</SectionLabel>
-          <View className="flex-row flex-wrap gap-2.5">
-            {MODULES.map((m) => {
-              const on = modules[m.key];
-              return (
-                <Pressable
-                  key={m.key}
-                  onPress={() => setModule(m.key, !on)}
-                  accessibilityState={{ selected: on }}
-                  className="items-center gap-1.5"
-                  style={{ width: 56 }}
-                >
-                  <View
-                    className="w-12 h-12 rounded-2xl items-center justify-center border"
-                    style={{
-                      backgroundColor: on ? m.color : theme.surface,
-                      borderColor: on ? m.color : theme.border
-                    }}
-                  >
-                    <Icon name={m.icon} size={20} color={on ? '#fff' : theme.textTertiary} />
-                  </View>
-                  <Text
-                    className="text-[9px] font-medium text-center leading-tight"
-                    style={{ color: on ? theme.textSecondary : theme.textTertiary }}
-                  >
-                    {m.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          <Text className="text-[11px] text-tertiary mt-2.5">
-            Tap to show / hide. Home, Expenses &amp; Chip are always on.
-          </Text>
-
-          {/* Appearance */}
-          <SectionLabel>Appearance · Theme</SectionLabel>
-          <View className="flex-row flex-wrap gap-2">
-            {THEMES.map((t) => {
-              const on = themePreference === t.value;
-              return (
-                <Pressable
-                  key={t.value}
-                  onPress={() => setThemePreference(t.value)}
-                  className="rounded-xl border p-1.5"
-                  style={{ width: '23%', borderColor: on ? theme.primary : theme.border }}
-                >
-                  <ThemePreview theme={t.value} />
-                  <Text
-                    className="text-[9.5px] font-bold text-center"
-                    style={{ color: on ? theme.primary : theme.textSecondary }}
-                  >
-                    {t.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          {/* Status strip — display-only, deliberately not pressable (see StatusPill's doc comment) */}
+          <View className="flex-row gap-2 mb-1">
+            <StatusPill
+              icon={activePrivacyMode.icon}
+              color={activePrivacyMode.color}
+              label="Privacy"
+              value={activePrivacyMode.label}
+            />
+            <StatusPill
+              icon={activeTheme.icon}
+              color={sectionColor.appearance}
+              label="Theme"
+              value={activeTheme.label}
+            />
+            <StatusPill icon="ti-lock" color={sectionColor.security} label="PIN" value="Set" />
           </View>
 
-          <SectionLabel>Text size</SectionLabel>
-          <View className="flex-row flex-wrap gap-2">
-            {FONT_SCALES.map((s) => {
-              const on = fontScale === s.value;
-              return (
-                <Pressable
-                  key={s.value}
-                  onPress={() => setFontScale(s.value)}
-                  className="rounded-xl border items-center justify-end gap-1"
-                  style={{
-                    width: '23%',
-                    height: 56,
-                    paddingBottom: 6,
-                    borderColor: on ? theme.primary : theme.border,
-                    backgroundColor: on ? tint(theme.primary, 8) : 'transparent'
-                  }}
-                >
-                  <Text
-                    className="font-extrabold"
-                    style={{ fontSize: s.px, color: on ? theme.primary : theme.textSecondary, lineHeight: s.px }}
-                  >
-                    Aa
-                  </Text>
-                  <Text className="text-[9px] font-bold text-tertiary">{s.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          {/* Frequent — the controls you actually touch often, right after Profile */}
+          <SectionLabel>Frequent</SectionLabel>
+          <Card>
+            <InlineBlock first>
+              <Text className="text-xs text-secondary mb-2">Default privacy mode when the app opens</Text>
+              <View className="flex-row gap-2">
+                {privacyModes.map(({ mode, label, icon, color }) => {
+                  const on = defaultPrivacyMode === mode;
+                  return (
+                    <Pressable
+                      key={mode}
+                      onPress={() => setDefaultPrivacyMode(mode)}
+                      className="flex-1 py-2.5 rounded-xl border flex-row items-center justify-center gap-1.5"
+                      style={{ backgroundColor: on ? color : 'transparent', borderColor: on ? color : theme.border }}
+                    >
+                      <Icon name={icon} size={16} color={on ? '#fff' : theme.textSecondary} />
+                      <Text className="text-xs font-bold" style={{ color: on ? '#fff' : theme.textSecondary }}>
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </InlineBlock>
 
-          {/* Privacy */}
-          <SectionLabel>Privacy</SectionLabel>
-          <Text className="text-xs text-secondary mb-2">Default mode when the app opens</Text>
-          <View className="flex-row gap-2">
-            {privacyModes.map(({ mode, label, icon, color }) => {
-              const on = defaultPrivacyMode === mode;
-              return (
-                <Pressable
-                  key={mode}
-                  onPress={() => setDefaultPrivacyMode(mode)}
-                  className="flex-1 py-2.5 rounded-xl border flex-row items-center justify-center gap-1.5"
-                  style={{ backgroundColor: on ? color : 'transparent', borderColor: on ? color : theme.border }}
-                >
-                  <Icon name={icon} size={16} color={on ? '#fff' : theme.textSecondary} />
-                  <Text className="text-xs font-bold" style={{ color: on ? '#fff' : theme.textSecondary }}>
-                    {label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+            <InlineBlock>
+              <Text className="text-xs text-secondary mb-2">
+                Open mode auto-reverts after — it's never a starting state, always a temporary switch (from the header)
+                that resets on its own, on backgrounding, or on relaunch.
+              </Text>
+              <View className="flex-row gap-1.5">
+                {OPEN_MODE_DURATIONS.map((minutes) => {
+                  const on = openModeDurationMinutes === minutes;
+                  return (
+                    <Pressable
+                      key={minutes}
+                      onPress={() => setOpenModeDurationMinutes(minutes)}
+                      className="flex-1 py-2 rounded-xl border items-center"
+                      style={{
+                        // Open mode is a distinct destructive-red risk indicator on web (`var(--color-open)`),
+                        // not a plain warning — `theme.open` is the matching token (see PrivacyModeSwitcher.tsx).
+                        backgroundColor: on ? theme.open : 'transparent',
+                        borderColor: on ? theme.open : theme.border
+                      }}
+                    >
+                      <Text className="text-xs font-bold" style={{ color: on ? '#fff' : theme.textSecondary }}>
+                        {minutes}m
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </InlineBlock>
 
-          <Text className="text-xs text-secondary mt-4 mb-2">
-            Open mode duration — how long "Open" lasts before it auto-reverts. Open is never a starting state; it's
-            always a temporary switch (from the header) that resets on its own, on backgrounding, or on relaunch.
-          </Text>
-          <View className="flex-row gap-1.5">
-            {OPEN_MODE_DURATIONS.map((minutes) => {
-              const on = openModeDurationMinutes === minutes;
-              return (
-                <Pressable
-                  key={minutes}
-                  onPress={() => setOpenModeDurationMinutes(minutes)}
-                  className="flex-1 py-2 rounded-xl border items-center"
-                  style={{
-                    // Open mode is a distinct destructive-red risk indicator on web (`var(--color-open)`),
-                    // not a plain warning — `theme.open` is the matching token (see PrivacyModeSwitcher.tsx).
-                    backgroundColor: on ? theme.open : 'transparent',
-                    borderColor: on ? theme.open : theme.border
-                  }}
-                >
-                  <Text className="text-xs font-bold" style={{ color: on ? '#fff' : theme.textSecondary }}>
-                    {minutes}m
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <Row
-            icon="ti-eye-off"
-            label="Manage Safe Mode visibility"
-            sub="Choose what stays hidden in Safe Mode"
-            onPress={() => navigation.navigate('SafeModeSettings')}
-            trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
-          />
-          <Row
-            icon="ti-hash"
-            label="Manage tags"
-            sub="Set aside tags from your daily living total"
-            onPress={() => navigation.navigate('ManageTags')}
-            trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
-          />
+            <Row
+              icon="ti-eye-off"
+              color={sectionColor.frequent}
+              label="Manage Safe Mode visibility"
+              sub="Choose what stays hidden in Safe Mode"
+              onPress={() => navigation.navigate('SafeModeSettings')}
+              trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
+            />
+            <Row
+              icon="ti-hash"
+              color={sectionColor.frequent}
+              label="Manage tags"
+              sub="Set aside tags from your daily living total"
+              onPress={() => navigation.navigate('ManageTags')}
+              trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
+            />
+            <Row
+              icon="ti-history"
+              color={sectionColor.frequent}
+              label="Timeline"
+              sub="Activity, undo & restore"
+              onPress={() => navigation.navigate('Timeline')}
+              trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
+            />
+          </Card>
 
           {/* Security */}
           <SectionLabel>Security</SectionLabel>
-          <Row
-            icon="ti-lock"
-            label="Change PIN"
-            onPress={() => navigation.navigate('ChangePin')}
-            trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
-          />
-          <Row
-            icon="ti-key"
-            label="Change passphrase"
-            onPress={() => navigation.navigate('ChangePassphrase')}
-            trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
-          />
-          <Row
-            icon="ti-lock-square"
-            label="Lock when backgrounded"
-            sub="Require unlock on return"
-            trailing={
-              <Toggle
-                value={lockOnBackground}
-                onChange={setLockOnBackground}
-                accessibilityLabel="Lock when backgrounded"
-              />
-            }
-          />
+          <Card>
+            <Row
+              first
+              icon="ti-lock"
+              color={sectionColor.security}
+              label="Change PIN"
+              onPress={() => navigation.navigate('ChangePin')}
+              trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
+            />
+            <Row
+              icon="ti-key"
+              color={sectionColor.security}
+              label="Change passphrase"
+              onPress={() => navigation.navigate('ChangePassphrase')}
+              trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
+            />
+            <Row
+              icon="ti-lock-square"
+              color={sectionColor.security}
+              label="Lock when backgrounded"
+              sub="Require unlock on return"
+              trailing={
+                <Toggle
+                  value={lockOnBackground}
+                  onChange={setLockOnBackground}
+                  accessibilityLabel="Lock when backgrounded"
+                />
+              }
+            />
+          </Card>
+
+          {/* Appearance — set-and-forget, so it moved down from directly-under-Profile. Theme/Text size
+              collapsed to one compact row each (2026-08-01, "Option 3" of settings-appearance-refresh-v1.html)
+              — a live-palette-preview swatch grid and a slider were both considered and passed over in
+              favour of this denser, plainer treatment. */}
+          <SectionLabel>Appearance</SectionLabel>
+          <Card>
+            <Row
+              first
+              icon={activeTheme.icon}
+              color={sectionColor.appearance}
+              label="Theme"
+              sub={activeTheme.label}
+              trailing={
+                <CompactSegmentedControl
+                  options={THEMES.map((t) => ({ value: t.value, icon: t.icon }))}
+                  value={themePreference}
+                  onChange={setThemePreference}
+                />
+              }
+            />
+            <Row
+              icon="ti-text-size"
+              color={sectionColor.appearance}
+              label="Text size"
+              sub={FONT_SCALE_NAMES[fontScale]}
+              trailing={
+                <CompactSegmentedControl
+                  options={FONT_SCALES.map((s) => ({ value: s.value, label: s.label }))}
+                  value={fontScale}
+                  onChange={setFontScale}
+                />
+              }
+            />
+          </Card>
 
           {/* Data & activity */}
           <SectionLabel>Data &amp; activity</SectionLabel>
-          <Row
-            icon="ti-history"
-            label="Timeline"
-            sub="Activity, undo & restore"
-            onPress={() => navigation.navigate('Timeline')}
-            trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
-          />
-          <Row
-            icon="ti-database-export"
-            label="Backup & Restore"
-            onPress={() => navigation.navigate('Backup')}
-            trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
-          />
-          <Row
-            icon="ti-message-circle"
-            label="Contact & Feedback"
-            onPress={() => navigation.navigate('Feedback')}
-            trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
-          />
+          <Card>
+            <Row
+              first
+              icon="ti-database-export"
+              color={sectionColor.data}
+              label="Backup & Restore"
+              onPress={() => navigation.navigate('Backup')}
+              trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
+            />
+            <Row
+              icon="ti-message-circle"
+              color={sectionColor.data}
+              label="Contact & Feedback"
+              onPress={() => navigation.navigate('Feedback')}
+              trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
+            />
+          </Card>
 
           {/* Danger zone */}
           <SectionLabel danger>Danger zone</SectionLabel>
-          <Row
-            icon="ti-trash-x"
-            label={`Erase after ${WIPE_THRESHOLD} failed unlocks`}
-            sub="Irreversible — no recovery"
-            danger
-            trailing={
-              <Toggle value={wipeEnabled} onChange={toggleWipe} accessibilityLabel="Erase after failed attempts" />
-            }
-          />
+          <Card borderColor={tint(theme.danger, 30)}>
+            <Row
+              first
+              icon="ti-trash-x"
+              label={`Erase after ${WIPE_THRESHOLD} failed unlocks`}
+              sub="Irreversible — no recovery"
+              danger
+              trailing={
+                <Toggle value={wipeEnabled} onChange={toggleWipe} accessibilityLabel="Erase after failed attempts" />
+              }
+            />
+          </Card>
           {(profile?.demoSeeded || isDemoSeeded()) && (
             <Pressable
               onPress={() => setConfirmExit(true)}

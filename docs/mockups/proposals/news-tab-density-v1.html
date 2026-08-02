@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — News: fixing the "too much before news" problem</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --indigo:#6366f1; --amber:#f59e0b; --danger:#ef4444; --success:#10b981;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 22px; color:#9aa5b1; font-size:14px; max-width:900px; margin-left:auto; margin-right:auto; line-height:1.65; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:40px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 30px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.rec { background:#123524; color:#7ee6b8; }
+      .vtitle .tag.cur { background:#3a2412; color:#f0b060; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; height:600px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .header { height:40px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .htitle { flex:1; font-size:13.5px; font-weight:700; color:var(--text); }
+      .hicons { display:flex; align-items:center; gap:12px; flex-shrink:0; }
+      .hicons i { font-size:16px; color:var(--text2); }
+
+      .subtabs { display:flex; align-items:center; gap:14px; padding:7px 14px; flex-shrink:0; }
+      .subtabs .t { font-size:11px; font-weight:600; color:var(--text3); display:flex; align-items:center; gap:4px; padding-bottom:5px; border-bottom:2px solid transparent; }
+      .subtabs .t.on { color:var(--primary); border-color:var(--primary); font-weight:700; }
+      .subtabs .t i { font-size:12px; }
+      .subtabs .refresh-inline { margin-left:auto; width:22px; height:22px; border-radius:7px; display:grid; place-items:center; background:var(--surface2); color:var(--text2); }
+      .subtabs .refresh-inline i { font-size:12px; }
+
+      /* CURRENT: stacked chrome */
+      .src-line { font-size:10.5px; color:var(--text3); padding:9px 14px 6px; flex-shrink:0; }
+      .mood-banner { display:flex; align-items:center; gap:9px; padding:8px 14px; border-bottom:1px solid #1d3b2c; background:#0f1f17; flex-shrink:0; }
+      .mood-banner .ic { width:28px; height:28px; border-radius:50%; background:#123524; display:grid; place-items:center; color:var(--success); font-size:14px; flex-shrink:0; }
+      .mood-banner .lbl { font-size:12px; font-weight:700; color:var(--success); }
+      .mood-banner .cnt { font-size:9px; color:var(--text2); margin-top:1px; }
+      .mood-banner .bar { display:flex; height:5px; width:34px; border-radius:4px; overflow:hidden; flex-shrink:0; }
+      .mood-banner .tot { text-align:right; flex-shrink:0; }
+      .mood-banner .tot b { font-size:13px; color:var(--text); display:block; }
+      .mood-banner .tot span { font-size:7.5px; color:var(--text3); }
+      .disclaimer { font-size:8px; color:var(--text3); padding:4px 14px; border-bottom:1px solid var(--border); flex-shrink:0; }
+      .tabstrip-full { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; }
+      .tabstrip-full .t { font-size:12px; font-weight:600; color:var(--text3); padding:8px 14px; border-bottom:2px solid transparent; }
+      .tabstrip-full .t.on { color:var(--primary); border-color:var(--primary); font-weight:700; }
+      .filterrow { display:flex; gap:6px; padding:10px 14px; flex-shrink:0; }
+      .filterrow .f { flex:1; border:1px solid var(--border); border-radius:9px; padding:5px 8px; }
+      .filterrow .f .k { font-size:7px; font-weight:700; color:var(--text3); text-transform:uppercase; }
+      .filterrow .f .v { font-size:10px; font-weight:600; color:var(--text); margin-top:1px; }
+
+      /* shared card */
+      .content { flex:1; padding:10px 14px; overflow:hidden; }
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:10px; margin-bottom:8px; }
+      .card .row1 { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+      .badge { font-size:9px; font-weight:700; padding:2px 7px; border-radius:999px; }
+      .badge.sebi { background:#1e2a4a; color:#8ab4ff; }
+      .badge.et { background:#3a1e1e; color:#ff9a8a; }
+      .badge.pos { background:#123524; color:#7ee6b8; margin-left:5px; }
+      .time { font-size:8.5px; color:var(--text3); }
+      .card .title { font-size:11.5px; font-weight:600; color:var(--text); line-height:1.4; }
+      .card .rm { font-size:9px; font-weight:600; color:var(--primary); margin-top:6px; }
+
+      .empty-tip { text-align:center; padding:14px 10px; border:1px dashed #333c47; border-radius:12px; color:var(--text3); font-size:9.5px; margin-top:2px; }
+
+      /* Option A: compact strip */
+      .compact-strip { display:flex; align-items:center; gap:8px; padding:8px 14px; border-bottom:1px solid var(--border); flex-shrink:0; }
+      .compact-strip .ctabs { display:flex; gap:12px; }
+      .compact-strip .ctabs .t { font-size:11.5px; font-weight:600; color:var(--text3); padding-bottom:2px; border-bottom:2px solid transparent; }
+      .compact-strip .ctabs .t.on { color:var(--primary); border-color:var(--primary); font-weight:700; }
+      .compact-strip .mood-chip { margin-left:auto; display:flex; align-items:center; gap:4px; background:#123524; border-radius:999px; padding:3px 8px 3px 6px; }
+      .compact-strip .mood-chip i { font-size:11px; color:var(--success); }
+      .compact-strip .mood-chip span { font-size:9.5px; font-weight:700; color:var(--success); }
+      .filter-pill-row { display:flex; align-items:center; gap:6px; padding:8px 14px; flex-shrink:0; }
+      .filter-pill-row .pill { display:flex; align-items:center; gap:4px; border:1px solid var(--border); border-radius:999px; padding:5px 10px; }
+      .filter-pill-row .pill span { font-size:9.5px; font-weight:600; color:var(--text2); }
+      .filter-pill-row .pill i { font-size:11px; color:var(--text3); }
+      .filter-pill-row .pill.active { border-color:var(--primary); }
+      .filter-pill-row .pill.active span { color:var(--primary); }
+
+      /* Option B: card-first, sheet-driven */
+      .minimal-row { display:flex; align-items:center; gap:10px; padding:9px 14px; border-bottom:1px solid var(--border); flex-shrink:0; }
+      .minimal-row .ctabs { display:flex; gap:12px; }
+      .minimal-row .ctabs .t { font-size:11.5px; font-weight:600; color:var(--text3); padding-bottom:2px; border-bottom:2px solid transparent; }
+      .minimal-row .ctabs .t.on { color:var(--primary); border-color:var(--primary); font-weight:700; }
+      .minimal-row .icons { margin-left:auto; display:flex; align-items:center; gap:12px; }
+      .minimal-row .icons i { font-size:15px; color:var(--text2); }
+      .minimal-row .dot { width:7px; height:7px; border-radius:50%; background:var(--success); position:relative; top:-5px; left:-9px; border:1.5px solid #05070a; }
+      .sheet { position:absolute; left:8px; right:8px; bottom:8px; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:14px; box-shadow:0 -10px 30px rgba(0,0,0,.5); }
+      .sheet .handle { width:32px; height:4px; border-radius:2px; background:var(--border); margin:0 auto 10px; }
+      .sheet .row { display:flex; align-items:center; gap:9px; margin-bottom:8px; }
+      .sheet .ic2 { width:26px; height:26px; border-radius:50%; background:#123524; display:grid; place-items:center; color:var(--success); font-size:13px; }
+      .sheet .lbl { font-size:12px; font-weight:700; color:var(--success); }
+      .sheet .cnt { font-size:9px; color:var(--text2); }
+      .sheet .disc { font-size:8.5px; color:var(--text3); line-height:1.5; margin-top:4px; }
+
+      /* Option C: collapses on scroll */
+      .scrollhint { position:absolute; top:88px; left:0; right:0; text-align:center; font-size:8.5px; color:var(--text3); z-index:2; }
+      .fade-up { opacity:.35; }
+
+      .legend { max-width:900px; margin:10px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:#fff; }
+      .legend b { color:#fff; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend li { margin-bottom:8px; }
+      .legend .rec-box { background:color-mix(in srgb, var(--primary) 12%, #0e141b); border:1px solid color-mix(in srgb, var(--primary) 35%, #0e141b); border-radius:12px; padding:14px 16px; margin-top:12px; }
+    </style>
+  </head>
+  <body>
+    <h1>News tab — too much chrome before the first headline</h1>
+    <p class="sub">Today: source line + mood banner + disclaimer + All/Holdings tabs + 3 filter boxes all stack
+      above the list, so only ~2 cards fit on screen (matches your screenshot). Three genuinely different ways
+      to compress that stack — not just moving boxes around.</p>
+
+    <div class="gallery">
+
+      <!-- CURRENT -->
+      <div class="frame-wrap">
+        <div class="vtitle">Current (today) <span class="tag cur">baseline</span></div>
+        <div class="vsub">5 fixed rows before any card: source line, mood banner, disclaimer, tab strip, filter row. Only 2 cards visible.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Equity</div></div>
+          <div class="subtabs">
+            <div class="t"><i class="ti ti-trending-up"></i>Stocks</div>
+            <div class="t"><i class="ti ti-chart-donut"></i>MF</div>
+            <div class="t"><i class="ti ti-ticket"></i>IPO</div>
+            <div class="t on"><i class="ti ti-news"></i>News</div>
+            <div class="refresh-inline"><i class="ti ti-refresh"></i></div>
+          </div>
+          <div class="src-line">ET Markets · Mint · RBI · SEBI</div>
+          <div class="mood-banner">
+            <div class="ic"><i class="ti ti-trending-up"></i></div>
+            <div style="flex:1">
+              <div class="lbl">Leaning positive</div>
+              <div class="cnt">52 pos · 61 neutral · 12 neg</div>
+            </div>
+            <div class="bar">
+              <div style="width:42%;background:var(--success)"></div>
+              <div style="width:49%;background:#6e7681"></div>
+              <div style="width:9%;background:var(--danger)"></div>
+            </div>
+            <div class="tot"><b>125</b><span>headlines</span></div>
+          </div>
+          <div class="disclaimer">Informational only — a summary of news tone, not investment advice or a market prediction.</div>
+          <div class="tabstrip-full">
+            <div class="t on">All News</div>
+            <div class="t">Holdings News</div>
+          </div>
+          <div class="filterrow">
+            <div class="f"><div class="k">Source</div><div class="v">All</div></div>
+            <div class="f"><div class="k">Tone</div><div class="v">All tones</div></div>
+          </div>
+          <div class="content">
+            <div class="card">
+              <div class="row1"><div><span class="badge sebi">SEBI</span><span class="badge pos">Positive</span></div><div class="time">just now</div></div>
+              <div class="title">SEBI Order for Compliance – General Remittance Order for Recovery Certificate...</div>
+            </div>
+            <div class="card fade-up">
+              <div class="row1"><div><span class="badge et">ET</span></div><div class="time">12m ago</div></div>
+              <div class="title">Markets rally as IT stocks lead gains ahead of...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPTION A -->
+      <div class="frame-wrap">
+        <div class="vtitle">A — Compact strip <span class="tag rec">recommended</span></div>
+        <div class="vsub">Mood becomes a small chip riding the tab row (tap → detail sheet with breakdown + disclaimer). Source line drops (shown once in the mood sheet instead). 3 filter boxes → tappable pills that only take space when actually changed from "All". Result: 2 fixed rows, 4+ cards visible.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Equity</div></div>
+          <div class="subtabs">
+            <div class="t"><i class="ti ti-trending-up"></i>Stocks</div>
+            <div class="t"><i class="ti ti-chart-donut"></i>MF</div>
+            <div class="t"><i class="ti ti-ticket"></i>IPO</div>
+            <div class="t on"><i class="ti ti-news"></i>News</div>
+            <div class="refresh-inline"><i class="ti ti-refresh"></i></div>
+          </div>
+          <div class="compact-strip">
+            <div class="ctabs">
+              <div class="t on">All News</div>
+              <div class="t">Holdings</div>
+            </div>
+            <div class="mood-chip"><i class="ti ti-trending-up"></i><span>Positive · 125</span></div>
+          </div>
+          <div class="filter-pill-row">
+            <div class="pill"><i class="ti ti-adjustments-horizontal"></i><span>Filters</span></div>
+          </div>
+          <div class="content">
+            <div class="card">
+              <div class="row1"><div><span class="badge sebi">SEBI</span><span class="badge pos">Positive</span></div><div class="time">just now</div></div>
+              <div class="title">SEBI Order for Compliance – General Remittance Order for Recovery Certificate...</div>
+            </div>
+            <div class="card">
+              <div class="row1"><div><span class="badge et">ET</span></div><div class="time">12m ago</div></div>
+              <div class="title">Markets rally as IT stocks lead gains ahead of...</div>
+            </div>
+            <div class="card">
+              <div class="row1"><div><span class="badge sebi">SEBI</span></div><div class="time">40m ago</div></div>
+              <div class="title">RBI holds repo rate steady, signals cautious...</div>
+            </div>
+            <div class="card fade-up">
+              <div class="row1"><div><span class="badge et">ET</span><span class="badge pos">Positive</span></div><div class="time">1h ago</div></div>
+              <div class="title">Mutual fund inflows hit record high in July...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPTION B -->
+      <div class="frame-wrap">
+        <div class="vtitle">B — Card-first, sheet-driven</div>
+        <div class="vsub">Maximum cards, minimum chrome: one row with tabs + a filter icon + a small pulsing dot on a "mood" icon (no number/label until tapped). Tapping the mood icon opens a bottom sheet with the full gauge, breakdown and disclaimer — same info, but opt-in instead of always-on.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Equity</div></div>
+          <div class="subtabs">
+            <div class="t"><i class="ti ti-trending-up"></i>Stocks</div>
+            <div class="t"><i class="ti ti-chart-donut"></i>MF</div>
+            <div class="t"><i class="ti ti-ticket"></i>IPO</div>
+            <div class="t on"><i class="ti ti-news"></i>News</div>
+            <div class="refresh-inline"><i class="ti ti-refresh"></i></div>
+          </div>
+          <div class="minimal-row">
+            <div class="ctabs">
+              <div class="t on">All News</div>
+              <div class="t">Holdings</div>
+            </div>
+            <div class="icons">
+              <i class="ti ti-filter"></i>
+              <span style="position:relative"><i class="ti ti-mood-smile"></i><span class="dot"></span></span>
+            </div>
+          </div>
+          <div class="content">
+            <div class="card">
+              <div class="row1"><div><span class="badge sebi">SEBI</span><span class="badge pos">Positive</span></div><div class="time">just now</div></div>
+              <div class="title">SEBI Order for Compliance – General Remittance Order for Recovery Certificate...</div>
+            </div>
+            <div class="card">
+              <div class="row1"><div><span class="badge et">ET</span></div><div class="time">12m ago</div></div>
+              <div class="title">Markets rally as IT stocks lead gains ahead of...</div>
+            </div>
+            <div class="card">
+              <div class="row1"><div><span class="badge sebi">SEBI</span></div><div class="time">40m ago</div></div>
+              <div class="title">RBI holds repo rate steady, signals cautious...</div>
+            </div>
+            <div class="card">
+              <div class="row1"><div><span class="badge et">ET</span><span class="badge pos">Positive</span></div><div class="time">1h ago</div></div>
+              <div class="title">Mutual fund inflows hit record high in July...</div>
+            </div>
+            <div class="card fade-up">
+              <div class="row1"><div><span class="badge sebi">SEBI</span></div><div class="time">2h ago</div></div>
+              <div class="title">New IPO listing norms proposed by regulator...</div>
+            </div>
+          </div>
+          <div class="sheet">
+            <div class="handle"></div>
+            <div class="row">
+              <div class="ic2"><i class="ti ti-trending-up"></i></div>
+              <div><div class="lbl">Leaning positive</div><div class="cnt">52 pos · 61 neutral · 12 neg · 125 total</div></div>
+            </div>
+            <div class="disc">Informational only — a summary of news tone, not investment advice or a market prediction. Sources: ET Markets · Mint · RBI · SEBI</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPTION C -->
+      <div class="frame-wrap">
+        <div class="vtitle">C — Collapse on scroll</div>
+        <div class="vsub">Keeps today's full mood banner and filters, but only when at the top of the list. Scrolling down collapses the banner + filters and shrinks to just the sticky tab row, so the reading view still gets full card density without removing anything.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Equity</div></div>
+          <div class="subtabs">
+            <div class="t"><i class="ti ti-trending-up"></i>Stocks</div>
+            <div class="t"><i class="ti ti-chart-donut"></i>MF</div>
+            <div class="t"><i class="ti ti-ticket"></i>IPO</div>
+            <div class="t on"><i class="ti ti-news"></i>News</div>
+            <div class="refresh-inline"><i class="ti ti-refresh"></i></div>
+          </div>
+          <div class="tabstrip-full" style="border-bottom:1px solid var(--border)">
+            <div class="t on">All News</div>
+            <div class="t">Holdings News</div>
+          </div>
+          <div class="scrollhint"><i class="ti ti-chevron-up"></i> scroll up for mood + filters</div>
+          <div class="content" style="padding-top:24px">
+            <div class="card">
+              <div class="row1"><div><span class="badge sebi">SEBI</span><span class="badge pos">Positive</span></div><div class="time">just now</div></div>
+              <div class="title">SEBI Order for Compliance – General Remittance Order for Recovery Certificate...</div>
+            </div>
+            <div class="card">
+              <div class="row1"><div><span class="badge et">ET</span></div><div class="time">12m ago</div></div>
+              <div class="title">Markets rally as IT stocks lead gains ahead of...</div>
+            </div>
+            <div class="card">
+              <div class="row1"><div><span class="badge sebi">SEBI</span></div><div class="time">40m ago</div></div>
+              <div class="title">RBI holds repo rate steady, signals cautious...</div>
+            </div>
+            <div class="card fade-up">
+              <div class="row1"><div><span class="badge et">ET</span><span class="badge pos">Positive</span></div><div class="time">1h ago</div></div>
+              <div class="title">Mutual fund inflows hit record high in July...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="legend">
+      <h2>Notes</h2>
+      <ul>
+        <li><b>Same underlying data, different disclosure timing.</b> None of these drop the mood gauge, disclaimer, or filters — the SEBI/PII/compliance-relevant disclaimer text stays reachable in all three, just not force-fed above every scroll.</li>
+        <li><b>Option A (compact strip)</b> is the safest structural change: same always-visible mood signal (now a chip, tap for the full breakdown+disclaimer in a sheet), filters collapse to a single "Filters" pill (opens the existing 2-3-field modal — <code>FilterDropdown</code> already opens a `Modal`, so a combined one is the same pattern, just triggered from one pill instead of 2-3 boxes). Straightforward to build on the existing components.</li>
+        <li><b>Option B (card-first)</b> is the most aggressive — best card density, but hides the mood reading behind a tap by default, which slightly undercuts "Chip's sentiment read" as a headline feature of this tab.</li>
+        <li><b>Option C (collapse-on-scroll)</b> preserves the current full layout exactly at rest, so it's the least visually different, but needs real scroll-position-driven animation (Reanimated `useAnimatedScrollHandler` + interpolated height) — more implementation cost for a smaller structural win than A.</li>
+        <li>All three remove the standalone "ET Markets · Mint · RBI · SEBI" line from fixed chrome — attribution is still shown, just inside the mood detail (A/B) or unchanged (C, since C keeps everything at rest).</li>
+      </ul>
+      <div class="rec-box"><b>Recommendation:</b> Option A. It keeps the sentiment read glanceable (unlike B), costs far less to build than the scroll-driven animation in C, and turns 5 stacked fixed rows into 2 — enough to get 4+ cards on screen like your screenshot implies you want, without losing any information, just changing what's default-visible vs. one-tap-away.</div>
+    </div>
+  </body>
+</html>

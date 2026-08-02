@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Portfolio: Equity + market strip + summary card</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --indigo:#6366f1; --amber:#f59e0b; --danger:#ef4444; --success:#10b981;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 20px; color:#9aa5b1; font-size:14px; max-width:840px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .decided { max-width:840px; margin:0 auto 12px; background:color-mix(in srgb, var(--primary) 14%, #0b0f14); border:1px solid color-mix(in srgb, var(--primary) 40%, #0b0f14); border-radius:12px; padding:14px 18px; font-size:12.5px; color:#c8f5e2; line-height:1.7; }
+      .decided b { color:#fff; }
+      .decided ul { margin:6px 0 0; padding-left:18px; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:40px 24px; justify-content:center; align-items:flex-start; padding:20px 20px 30px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 10px; line-height:1.55; }
+
+      .phone { width:290px; height:620px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .header { height:46px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; }
+      .avatar { width:32px; height:32px; border-radius:50%; background:var(--primary); display:grid; place-items:center; color:#fff; font-size:12px; font-weight:800; }
+      .htitle { flex:1; text-align:center; font-size:14.5px; font-weight:700; color:var(--text); }
+      .hicons { display:flex; align-items:center; gap:12px; flex-shrink:0; }
+      .hicons i { font-size:17px; color:var(--text2); }
+
+      /* market strip — small static cards, single row, horizontally swipeable */
+      .mkt-wrap { padding:8px 14px 0; }
+      .mkt-row { display:flex; gap:7px; overflow-x:auto; padding-bottom:2px; }
+      .mkt-card { flex-shrink:0; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:6px 10px; min-width:74px; }
+      .mkt-card .lbl { font-size:8.5px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:.02em; }
+      .mkt-card .val { font-size:12px; font-weight:700; color:var(--text); margin-top:1px; }
+      .mkt-card .chg { font-size:9px; font-weight:600; margin-top:1px; }
+      .mkt-dots { width:26px; height:26px; border-radius:8px; display:grid; place-items:center; color:var(--text3); flex-shrink:0; align-self:center; }
+
+      .maintabs { display:flex; gap:14px; padding:8px 14px 0; border-bottom:1px solid var(--border); overflow-x:auto; }
+      .maintabs .t { font-size:12px; font-weight:600; color:var(--text3); padding-bottom:9px; border-bottom:2px solid transparent; white-space:nowrap; }
+      .maintabs .t.on { color:var(--primary); border-color:var(--primary); font-weight:700; }
+
+      .subtabs { display:flex; gap:14px; padding:8px 14px 0; }
+      .subtabs .t { font-size:11.5px; font-weight:600; color:var(--text3); padding-bottom:7px; border-bottom:2px solid transparent; display:flex; align-items:center; gap:4px; }
+      .subtabs .t.on { color:var(--indigo); border-color:var(--indigo); font-weight:700; }
+      .subtabs .t i { font-size:12px; }
+
+      .content { flex:1; padding:12px 14px; overflow:hidden; }
+
+      /* new stocks/mf summary card */
+      .summary { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:13px; margin-bottom:10px; }
+      .summary .amt { font-size:21px; font-weight:800; color:var(--text); letter-spacing:-.3px; }
+      .summary .d1 { font-size:11px; font-weight:600; color:var(--success); margin-top:2px; }
+      .summary .row3 { display:flex; margin-top:11px; padding-top:11px; border-top:1px solid var(--border); }
+      .summary .row3 .c { flex:1; }
+      .summary .row3 .c + .c { border-left:1px solid var(--border); padding-left:10px; margin-left:10px; }
+      .summary .row3 .k { font-size:8.5px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:.02em; }
+      .summary .row3 .v { font-size:12.5px; font-weight:700; color:var(--text); margin-top:2px; }
+
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:11px; }
+      .holding { display:flex; align-items:center; gap:9px; padding:9px 0; }
+      .holding + .holding { border-top:1px solid var(--border); }
+      .hic { width:26px; height:26px; border-radius:8px; display:grid; place-items:center; font-size:12px; flex-shrink:0; }
+      .holding .nm { flex:1; font-size:12px; font-weight:600; color:var(--text); } .holding .nm small { display:block; font-size:9.5px; color:var(--text3); }
+      .holding .val { font-size:11.5px; font-weight:700; color:var(--text); }
+      .holding .val small { display:block; font-size:9px; font-weight:600; text-align:right; }
+
+      .gauge-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px; margin-bottom:8px; display:flex; align-items:center; gap:10px; }
+      .gauge-ring { width:34px; height:34px; border-radius:50%; background:conic-gradient(var(--success) 0 62%, var(--border) 62% 100%); display:grid; place-items:center; flex-shrink:0; position:relative; }
+      .gauge-ring::after { content:''; position:absolute; inset:4px; background:var(--surface); border-radius:50%; }
+      .gauge-ring span { position:relative; font-size:9px; font-weight:800; color:var(--success); }
+      .gauge-txt .t { font-size:11px; font-weight:700; color:var(--text); }
+      .gauge-txt .s { font-size:9px; color:var(--text3); margin-top:1px; }
+
+      .filters-row { display:flex; gap:6px; margin-bottom:8px; }
+      .filter-chip { font-size:9.5px; font-weight:600; color:var(--text2); background:var(--surface2); border:1px solid var(--border); border-radius:999px; padding:4px 10px; display:flex; align-items:center; gap:3px; }
+
+      .mini-tabstrip { display:flex; gap:14px; margin-bottom:8px; }
+      .mini-tabstrip span { font-size:10.5px; font-weight:600; color:var(--text3); padding-bottom:5px; border-bottom:2px solid transparent; }
+      .mini-tabstrip span.on { color:var(--indigo); border-color:var(--indigo); font-weight:700; }
+
+      .news-item { padding:8px 0; border-top:1px solid var(--border); }
+      .news-item:first-child { border-top:none; }
+      .news-item .src { font-size:9px; font-weight:700; color:var(--amber); text-transform:uppercase; letter-spacing:.03em; }
+      .news-item .hl { font-size:11px; color:var(--text); margin-top:2px; line-height:1.4; }
+
+      .tabbar { display:flex; align-items:center; justify-content:space-around; height:54px; background:var(--surface); border-top:1px solid var(--border); flex-shrink:0; }
+      .tabitem { display:flex; flex-direction:column; align-items:center; gap:2px; font-size:8px; font-weight:700; color:var(--text3); }
+      .tabitem.active { color:var(--indigo); }
+      .tabitem i { font-size:18px; }
+      .chipfab { width:28px; height:28px; border-radius:50%; background:var(--primary); display:grid; place-items:center; color:#fff; font-size:13px; }
+
+      .legend { max-width:840px; margin:10px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:#fff; }
+      .legend b { color:#fff; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend .open-box { background:#241c0e; border:1px solid #4a3a12; border-radius:12px; padding:14px 16px; margin-top:12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Portfolio v2 — market strip relocated, Stocks/MF get a summary card</h1>
+    <p class="sub">Builds on v1's Equity consolidation. Three additions from your last round: the market strip
+      moves here from Home (small static cards, swipe to see more — no more auto-scrolling marquee); Stocks and
+      Mutual Funds each get a summary card (Portfolio Value + 1-day change, then Invested/Returns/Returns% below);
+      News's full screen — mood gauge, All/Holdings tabs, source/tone/holding filters — moves in as-is under the
+      Equity → News sub-tab, nothing trimmed.</p>
+    <div class="decided">
+      <b>Locked in from your answers:</b>
+      <ul>
+        <li>"Mutual Funds" shortens to "MF" in the sub-tab strip (matches your note on wrapping).</li>
+        <li>News sub-tab carries the whole existing News screen over unchanged — mood gauge, tabs, filters, all of it.</li>
+        <li>The "+" add-holding FAB stays Stocks/MF-only, no change there.</li>
+        <li>Market strip: static row, swipe to scroll — no auto-scroll motion in the new card layout.</li>
+      </ul>
+    </div>
+
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Portfolio → Equity → Stocks</div>
+        <div class="vsub">Market strip now sits at the very top of Portfolio, above the main tabs — visible on every asset-class tab, not just Equity, same as it was global-ish on Home. New summary card sits above the holdings list.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Portfolio</div><div class="hicons"><i class="ti ti-eye"></i><i class="ti ti-bell"></i></div></div>
+          <div class="mkt-wrap">
+            <div class="mkt-row">
+              <div class="mkt-card"><div class="lbl">Sensex</div><div class="val">81.2K</div><div class="chg" style="color:var(--success)">▲ 0.42%</div></div>
+              <div class="mkt-card"><div class="lbl">Nifty 50</div><div class="val">24.8K</div><div class="chg" style="color:var(--success)">▲ 0.38%</div></div>
+              <div class="mkt-card"><div class="lbl">Gold · 24K/g</div><div class="val">₹7,412</div><div class="chg" style="color:var(--danger)">▼ 0.12%</div></div>
+              <div class="mkt-card"><div class="lbl">USD/INR</div><div class="val">₹83.41</div><div class="chg" style="color:var(--text3)">— 0.00%</div></div>
+              <div class="mkt-dots"><i class="ti ti-dots"></i></div>
+            </div>
+          </div>
+          <div class="maintabs">
+            <span class="t on">Equity</span>
+            <span class="t">Fixed Income</span>
+            <span class="t">Prec. Metals</span>
+            <span class="t">Retirement</span>
+            <span class="t">Real Assets</span>
+          </div>
+          <div class="subtabs">
+            <span class="t on"><i class="ti ti-trending-up"></i>Stocks</span>
+            <span class="t"><i class="ti ti-chart-donut"></i>MF</span>
+            <span class="t"><i class="ti ti-ticket"></i>IPO</span>
+            <span class="t"><i class="ti ti-news"></i>News</span>
+          </div>
+          <div class="content">
+            <div class="summary">
+              <div class="amt">₹18.6L</div>
+              <div class="d1">▲ ₹12,400 (0.67%) today</div>
+              <div class="row3">
+                <div class="c"><div class="k">Invested</div><div class="v">₹15.2L</div></div>
+                <div class="c"><div class="k">Returns</div><div class="v" style="color:var(--success)">+₹3.4L</div></div>
+                <div class="c"><div class="k">Returns %</div><div class="v" style="color:var(--success)">+22.4%</div></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="holding"><div class="hic" style="background:#132b1f;color:var(--success)"><i class="ti ti-trending-up"></i></div><div class="nm">Reliance Industries<small>142 shares</small></div><div class="val">₹18.6L<small style="color:var(--success)">+9.2%</small></div></div>
+            </div>
+          </div>
+          <div class="tabbar">
+            <div class="tabitem"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem active"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Portfolio → Equity → News</div>
+        <div class="vsub">The whole News screen ported as-is one level in — mood gauge, All/Holdings mini-tabs, Source/Tone filter chips, headline feed. Market strip stays pinned above regardless of tab.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Portfolio</div><div class="hicons"><i class="ti ti-eye"></i><i class="ti ti-bell"></i></div></div>
+          <div class="mkt-wrap">
+            <div class="mkt-row">
+              <div class="mkt-card"><div class="lbl">Sensex</div><div class="val">81.2K</div><div class="chg" style="color:var(--success)">▲ 0.42%</div></div>
+              <div class="mkt-card"><div class="lbl">Nifty 50</div><div class="val">24.8K</div><div class="chg" style="color:var(--success)">▲ 0.38%</div></div>
+              <div class="mkt-card"><div class="lbl">Gold · 24K/g</div><div class="val">₹7,412</div><div class="chg" style="color:var(--danger)">▼ 0.12%</div></div>
+              <div class="mkt-dots"><i class="ti ti-dots"></i></div>
+            </div>
+          </div>
+          <div class="maintabs">
+            <span class="t on">Equity</span>
+            <span class="t">Fixed Income</span>
+            <span class="t">Prec. Metals</span>
+            <span class="t">Retirement</span>
+            <span class="t">Real Assets</span>
+          </div>
+          <div class="subtabs">
+            <span class="t"><i class="ti ti-trending-up"></i>Stocks</span>
+            <span class="t"><i class="ti ti-chart-donut"></i>MF</span>
+            <span class="t"><i class="ti ti-ticket"></i>IPO</span>
+            <span class="t on"><i class="ti ti-news"></i>News</span>
+          </div>
+          <div class="content">
+            <div class="gauge-card">
+              <div class="gauge-ring"><span>62</span></div>
+              <div class="gauge-txt"><div class="t">Mildly bullish mood</div><div class="s">Based on today's 40 headlines</div></div>
+            </div>
+            <div class="mini-tabstrip"><span class="on">All</span><span>Your holdings</span></div>
+            <div class="filters-row">
+              <div class="filter-chip">Source <i class="ti ti-chevron-down"></i></div>
+              <div class="filter-chip">Tone <i class="ti ti-chevron-down"></i></div>
+            </div>
+            <div class="news-item"><div class="src">ET Markets</div><div class="hl">Sensex ends 340 pts higher, banking stocks lead rally</div></div>
+            <div class="news-item"><div class="src">Mint</div><div class="hl">RBI holds repo rate steady at 6.5% for fourth straight meeting</div></div>
+          </div>
+          <div class="tabbar">
+            <div class="tabitem"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem active"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Portfolio → Fixed Income</div>
+        <div class="vsub">Market strip stays pinned even on non-Equity main tabs (it's portfolio-wide context, not Equity-specific) — no sub-tab strip here, same as today's Fixed Income content.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Portfolio</div><div class="hicons"><i class="ti ti-eye"></i><i class="ti ti-bell"></i></div></div>
+          <div class="mkt-wrap">
+            <div class="mkt-row">
+              <div class="mkt-card"><div class="lbl">Sensex</div><div class="val">81.2K</div><div class="chg" style="color:var(--success)">▲ 0.42%</div></div>
+              <div class="mkt-card"><div class="lbl">Nifty 50</div><div class="val">24.8K</div><div class="chg" style="color:var(--success)">▲ 0.38%</div></div>
+              <div class="mkt-card"><div class="lbl">Gold · 24K/g</div><div class="val">₹7,412</div><div class="chg" style="color:var(--danger)">▼ 0.12%</div></div>
+              <div class="mkt-dots"><i class="ti ti-dots"></i></div>
+            </div>
+          </div>
+          <div class="maintabs">
+            <span class="t">Equity</span>
+            <span class="t on">Fixed Income</span>
+            <span class="t">Prec. Metals</span>
+            <span class="t">Retirement</span>
+            <span class="t">Real Assets</span>
+          </div>
+          <div class="content" style="padding-top:14px">
+            <div class="card">
+              <div class="holding"><div class="hic" style="background:#1f2a4d;color:var(--indigo)"><i class="ti ti-building-bank"></i></div><div class="nm">HDFC Bank FD<small>Matures Mar 2027</small></div><div class="val">₹5.0L<small style="color:var(--text3)">7.1% p.a.</small></div></div>
+              <div class="holding"><div class="hic" style="background:#1f2a4d;color:var(--indigo)"><i class="ti ti-building-bank"></i></div><div class="nm">SBI RD<small>Matures Jun 2026</small></div><div class="val">₹2.4L<small style="color:var(--text3)">6.8% p.a.</small></div></div>
+            </div>
+          </div>
+          <div class="tabbar">
+            <div class="tabitem"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem active"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <h2>Open point — where exactly does the market strip live?</h2>
+      <p>Drawn here <b>pinned above the main asset-class tabs</b>, so it's visible on Equity, Fixed Income,
+        Precious Metals, Retirement, and Real Assets alike — since Sensex/Nifty/Gold/Silver/USD-INR aren't
+        Equity-specific, this reads as "portfolio-wide market context," matching roughly where it sat on Home
+        (global, not buried in one asset class). The alternative would be showing it only inside Equity
+        (arguably more relevant there specifically for stocks) — but that hides Gold/Silver's own price
+        context from the Precious Metals tab, which seems worse. Recommend the pinned-above-all-tabs
+        placement as drawn, but flagging it since your message didn't say explicitly which main tab it
+        should live under.</p>
+      <p><b>Code-wise:</b> `MarketTicker.tsx`'s `MarqueeTrack` component is replaced by a plain horizontal
+        `ScrollView` of small cards (no more `reanimated` marquee — `useSharedValue`/`withRepeat` and the
+        seamless-loop double-copy trick all go away, simplifying the component); the existing 3-dot →
+        `Modal` + `Toggle` configure flow is unchanged, just re-skinned to match. It moves from
+        `HomePage.tsx` into `PortfolioPage.tsx`, rendered once above the main tab row regardless of which
+        tab is active. The new summary card is a small new component (e.g. `EquitySummaryCard.tsx`) reading
+        the same `totalInvested`/`totalCurrent` math `PortfolioPage.tsx` already computes today, scoped per
+        sub-tab (Stocks vs MF each get their own numbers, not a combined Equity total).</p>
+      <div class="open-box">
+        <b>Please confirm or correct:</b>
+        <ul>
+          <li>Market strip placement — pinned above all 5 main tabs (as drawn), or Equity-only?</li>
+          <li>Summary card's middle stat — read your "Invested, Current Returns, Returns %" as <b>Invested /
+            absolute Returns (₹) / Returns %</b> (drawn above). If you meant "Current Value" instead of
+            "Returns" for the middle stat, let me know — that'd be Invested / Current Value / Returns%.</li>
+        </ul>
+      </div>
+    </div>
+  </body>
+</html>

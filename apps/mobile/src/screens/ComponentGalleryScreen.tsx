@@ -55,7 +55,10 @@ export function ComponentGalleryScreen() {
 
   return (
     <ScrollView className="flex-1 bg-surface-3">
-      <PageHeader title="Component gallery" subtitle="Track 3 verification screen" />
+      <View className="px-4 pt-4">
+        <Text className="text-xl font-semibold text-primary">Component gallery</Text>
+      </View>
+      <PageHeader subtitle="Track 3 verification screen" />
       <View className="p-4 gap-6">
         <View className="flex-row items-center gap-4">
           <PennyLogo />

@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Full app bold redesign v2 (no greeting, avatar left, Personal in Home body)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --green:#00c47d; --green-deep:#00a86b; --mint:#5eead4;
+        --ink:#eef7f2; --sec:rgba(238,247,242,.62); --ter:rgba(238,247,242,.38);
+        --bg:#070c0a; --bg2:#0d1512; --glass:rgba(255,255,255,.045); --glassb:rgba(255,255,255,.09);
+        --capsule:rgba(255,255,255,.08); --capsuleb:rgba(255,255,255,.14);
+        --danger:#ff6b6b; --amber:#ffb648; --violet:#a78bfa; --sky:#7dd3fc;
+        --grad-a:#fff; --grad-b:var(--mint);
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,sans-serif; background:#e6ebf1; color:#0f172a; -webkit-font-smoothing:antialiased; }
+      .num { font-family:'Space Grotesk',sans-serif; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:23px; color:#0f172a; }
+      .sub { text-align:center; margin:0 16px 6px; color:#475569; font-size:14px; max-width:880px; margin-left:auto; margin-right:auto; line-height:1.7; }
+      .decided { max-width:880px; margin:16px auto; background:#fff; border:1px solid #e8edf3; border-radius:14px; padding:16px 20px; font-size:12.5px; color:#334155; line-height:1.8; }
+      .decided b { color:#0f172a; }
+
+      .section-h { text-align:center; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#00a86b; margin:46px 0 -8px; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:40px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 30px; }
+      .frame-wrap { width:296px; }
+      .vtitle { font-size:13.5px; font-weight:800; margin:0 2px 3px; color:#0f172a; }
+      .vsub { font-size:11px; color:#475569; margin:0 2px 12px; line-height:1.5; }
+
+      .phone { width:296px; height:630px; background:var(--bg); border-radius:30px; border:8px solid #0f172a; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 16px 38px rgba(15,23,42,.22); }
+      .phone.light { --bg:#f6faf8; --bg2:#ffffff; --ink:#0b1912; --sec:rgba(11,25,18,.6); --ter:rgba(11,25,18,.38);
+        --glass:rgba(11,25,18,.035); --glassb:rgba(11,25,18,.09); --capsule:rgba(255,255,255,.75); --capsuleb:rgba(11,25,18,.08);
+        --danger:#e11d48; --amber:#c2740a; --violet:#7c3aed; --sky:#0284c7; --grad-a:#0b1912; --grad-b:#00875c;
+        box-shadow:0 16px 38px rgba(15,23,42,.14);
+      }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .glow { position:absolute; top:-50px; left:-30px; width:190px; height:190px; background:radial-gradient(circle, rgba(0,196,125,.18), transparent 70%); pointer-events:none; }
+      .phone.light .glow { background:radial-gradient(circle, rgba(0,196,125,.09), transparent 70%); }
+
+      .content { flex:1; overflow:hidden; padding:14px 16px 0; position:relative; }
+
+      /* ===== v2 top row: avatar alone, left. Nothing in the middle (no title/greeting anywhere). Privacy+reminders pair, right. ===== */
+      .toprow { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+      .av-solo { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,var(--green),var(--green-deep)); display:grid; place-items:center; color:#04150e; font-size:12.5px; font-weight:800; box-shadow:0 3px 10px rgba(0,196,125,.28); }
+      .icon-pair { display:flex; align-items:center; gap:8px; background:var(--capsule); backdrop-filter:blur(8px); border:1px solid var(--capsuleb); border-radius:999px; padding:7px 11px; }
+      .icon-pair i { font-size:16px; color:var(--sec); position:relative; }
+      .icon-pair i.priv { color:var(--amber); }
+      .icon-pair .bd { position:absolute; top:-4px; right:-6px; min-width:11px; height:11px; padding:0 2px; border-radius:999px; background:var(--danger); color:#fff; font-size:6.5px; font-weight:800; display:grid; place-items:center; }
+
+      /* Personal — now Home's own first content line, not chrome */
+      .ctxpill { display:inline-flex; align-items:center; gap:5px; background:var(--glass); border:1px solid var(--glassb); border-radius:999px; padding:4px 11px 4px 5px; margin-bottom:16px; }
+      .ctxpill .dot { width:15px; height:15px; border-radius:5px; background:var(--green); display:grid; place-items:center; color:#04150e; font-size:7.5px; }
+      .ctxpill .lbl { font-size:10.5px; font-weight:700; color:var(--ink); }
+      .ctxpill i.chev { color:var(--ter); font-size:10px; }
+
+      .hero-lbl { font-size:10.5px; color:var(--ter); font-weight:600; text-transform:uppercase; letter-spacing:.06em; margin:2px 0 4px; }
+      .hero-num { font-size:34px; font-weight:700; letter-spacing:-1px; line-height:1.05; background:linear-gradient(135deg,var(--grad-a) 15%, var(--grad-b) 100%); -webkit-background-clip:text; background-clip:text; color:transparent; }
+      .hero-delta { display:inline-flex; align-items:center; gap:4px; margin-top:7px; font-size:11px; font-weight:700; color:var(--green); background:rgba(0,196,125,.12); padding:3px 9px; border-radius:999px; }
+      .spark { margin:12px -2px 0; height:38px; display:block; }
+
+      .stsplit { display:flex; gap:18px; margin-top:14px; padding-top:13px; border-top:1px solid var(--glassb); }
+      .stsplit .s { flex:1; } .stsplit .k { font-size:9.5px; color:var(--ter); font-weight:600; text-transform:uppercase; letter-spacing:.03em; }
+      .stsplit .v { font-size:15px; font-weight:700; margin-top:3px; color:var(--ink); } .stsplit .v.safe { color:var(--green); }
+
+      .slbl { display:flex; justify-content:space-between; align-items:baseline; margin:18px 0 9px; }
+      .slbl .t { font-size:11px; font-weight:700; color:var(--sec); text-transform:uppercase; letter-spacing:.04em; }
+      .slbl .a { font-size:10.5px; font-weight:700; color:var(--green); }
+
+      .card { background:var(--glass); border:1px solid var(--glassb); border-radius:16px; padding:12px; }
+
+      .healthrow { display:flex; align-items:center; gap:12px; }
+      .ring2 { width:44px; height:44px; border-radius:50%; background:conic-gradient(var(--green) 0 40%, var(--glassb) 40% 100%); display:grid; place-items:center; flex-shrink:0; position:relative; }
+      .ring2::after { content:''; position:absolute; inset:5px; background:var(--bg2); border-radius:50%; }
+      .ring2 span { position:relative; font-size:14px; font-weight:700; color:var(--ink); }
+      .healthrow .t { font-size:12px; font-weight:700; color:var(--amber); } .healthrow .d { font-size:9.5px; color:var(--ter); margin-top:2px; line-height:1.4; }
+
+      .toolsrow { display:flex; gap:20px; margin:18px 0 4px; }
+      .tool { display:flex; flex-direction:column; align-items:center; gap:5px; }
+      .tool .ic { width:42px; height:42px; border-radius:50%; display:grid; place-items:center; font-size:18px; background:var(--glass); border:1px solid var(--glassb); }
+      .tool .lbl { font-size:8.5px; color:var(--ter); font-weight:600; }
+
+      .ticker { display:flex; gap:8px; overflow:hidden; margin-bottom:12px; }
+      .tick { flex-shrink:0; background:var(--glass); border:1px solid var(--glassb); border-radius:12px; padding:6px 10px; }
+      .tick .n { font-size:9px; color:var(--ter); font-weight:600; } .tick .p { font-size:11px; font-weight:700; color:var(--ink); margin-top:1px; }
+      .tick .c.up { color:var(--green); } .tick .c.dn { color:var(--danger); }
+
+      .bench { display:flex; align-items:center; gap:10px; }
+      .bench .row { flex:1; }
+      .bench .k { font-size:9.5px; color:var(--ter); display:flex; justify-content:space-between; }
+      .bench .k b { color:var(--ink); font-size:11px; }
+      .bench .bar { height:5px; border-radius:3px; background:var(--glassb); margin-top:4px; overflow:hidden; }
+      .bench .bar i { display:block; height:100%; border-radius:3px; }
+
+      .maintabs { display:flex; gap:16px; overflow-x:auto; padding-bottom:9px; border-bottom:1px solid var(--glassb); margin-bottom:10px; }
+      .maintabs .t { font-size:11.5px; font-weight:700; color:var(--ter); white-space:nowrap; padding-bottom:9px; margin-bottom:-10px; border-bottom:2px solid transparent; }
+      .maintabs .t.on { color:var(--green); border-color:var(--green); }
+      .subtabs { display:flex; gap:7px; margin-bottom:10px; }
+      .subtabs .t { font-size:10px; font-weight:700; padding:5px 11px; border-radius:999px; color:var(--ter); background:var(--glass); border:1px solid var(--glassb); }
+      .subtabs .t.on { color:#04150e; background:var(--green); border-color:var(--green); }
+
+      .callout { background:linear-gradient(135deg, rgba(255,182,72,.14), rgba(255,182,72,.03)); border:1px solid rgba(255,182,72,.28); border-radius:14px; padding:11px; margin-bottom:11px; }
+      .callout .h { display:flex; align-items:center; gap:7px; font-size:11px; font-weight:700; color:var(--amber); margin-bottom:3px; }
+      .callout .b { font-size:10.5px; color:var(--sec); line-height:1.5; }
+      .callout .alt { font-size:10px; font-weight:700; color:var(--green); margin-top:5px; display:inline-block; }
+
+      .holding { display:flex; align-items:center; gap:9px; padding:9px 0; }
+      .holding + .holding { border-top:1px solid var(--glassb); }
+      .hic { width:26px; height:26px; border-radius:8px; display:grid; place-items:center; font-size:12px; flex-shrink:0; }
+      .holding .nm { flex:1; font-size:12px; font-weight:600; color:var(--ink); } .holding .nm small { display:block; font-size:9.5px; color:var(--ter); font-weight:500; }
+      .holding .val { font-size:11.5px; font-weight:700; color:var(--ink); text-align:right; } .holding .val small{display:block;font-weight:600;font-size:9px;}
+
+      .txn { display:flex; align-items:center; gap:9px; padding:9px 0; }
+      .txn + .txn { border-top:1px solid var(--glassb); }
+      .txn .nm { flex:1; font-size:12px; font-weight:600; color:var(--ink); } .txn .nm small{display:block;font-size:9.5px;color:var(--ter);font-weight:500;}
+      .txn .val { font-size:12px; font-weight:700; }
+
+      .insight-card { background:var(--glass); border:1px solid var(--glassb); border-radius:16px; padding:12px; margin-bottom:10px; }
+      .insight-card .h { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+      .insight-card .ic { width:26px; height:26px; border-radius:8px; background:rgba(167,139,250,.15); color:var(--violet); display:grid; place-items:center; font-size:13px; flex-shrink:0; }
+      .insight-card .ttl { font-size:12px; font-weight:700; color:var(--ink); }
+      .insight-card .body-txt { font-size:11px; color:var(--sec); line-height:1.5; }
+
+      .goalcard { background:var(--glass); border:1px solid var(--glassb); border-radius:16px; padding:12px; margin-bottom:10px; }
+      .goalcard .h { display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:var(--ink); margin-bottom:7px; }
+      .goalcard .bar { height:6px; border-radius:4px; background:var(--glassb); overflow:hidden; } .goalcard .bar i { display:block; height:100%; background:linear-gradient(90deg,var(--green-deep),var(--green)); }
+      .goalcard .sub { font-size:9.5px; color:var(--ter); margin-top:5px; }
+
+      .chip-title { display:flex; align-items:center; gap:9px; margin-bottom:14px; }
+      .chip-badge { width:32px; height:32px; border-radius:10px; background:linear-gradient(135deg,var(--green),var(--green-deep)); color:#04150e; display:grid; place-items:center; font-size:15px; }
+      .chip-title .t { font-size:15px; font-weight:800; color:var(--ink); } .chip-title .s { font-size:10px; color:var(--ter); }
+
+      .tabbar { display:flex; align-items:center; justify-content:space-around; height:56px; background:var(--bg2); border-top:1px solid var(--glassb); flex-shrink:0; position:relative; z-index:3; }
+      .tabitem { display:flex; flex-direction:column; align-items:center; gap:3px; font-size:8px; font-weight:600; color:var(--ter); }
+      .tabitem.active { color:var(--green); } .tabitem i { font-size:18px; }
+      .chipfab { width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg,var(--green),var(--green-deep)); display:grid; place-items:center; color:#04150e; font-size:14px; margin-bottom:-1px; box-shadow:0 4px 12px rgba(0,196,125,.35); }
+
+      .legend { max-width:880px; margin:10px auto 60px; background:#fff; border:1px solid #e8edf3; border-radius:16px; padding:22px 26px; color:#475569; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:#0f172a; }
+      .legend b { color:#0f172a; }
+      .legend .rec-box { background:color-mix(in srgb, #00a86b 8%, #fff); border:1px solid color-mix(in srgb, #00a86b 30%, #fff); border-radius:12px; padding:14px 16px; margin-top:12px; }
+      .legend .open-box { background:#fff7ed; border:1px solid #fde68a; border-radius:12px; padding:14px 16px; margin-top:12px; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+    </style>
+  </head>
+  <body>
+    <h1>Full app, v2 — no greeting anywhere, avatar left, Personal lives in Home's own content</h1>
+    <p class="sub">
+      Three changes from v1, applied everywhere: (1) the "Good evening, Name" greeting is gone entirely — and so
+      is every other screen's title text, since the bottom tab bar already says where you are and each screen's
+      own hero number makes the context obvious (flagging this as my own extrapolation from "get rid of the
+      greeting" — say so if you wanted titles kept on non-Home screens). (2) Avatar moved to the top-left, alone.
+      (3) "Personal ▾" is no longer in any top bar — it's Home's own first line of content, below the (now
+      title-less) top row.
+    </p>
+    <div class="decided">
+      <b>Left deliberately unresolved:</b> the eye/privacy icon still appears in the top-right pair below, but your
+      broader note that privacy-mode switching itself might be "overkill" (since the app always reopens in Safe
+      mode anyway) is logged and not acted on here — removing it would be a bigger, separate decision, not a
+      chrome-styling one.
+    </div>
+
+    <div class="section-h">Home</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Home · Dark</div>
+        <div class="vsub">Top row: just avatar + privacy/reminders pair, nothing else. "Personal ▾" is now the first thing in the scroll content, directly above Net worth.</div>
+        <div class="phone">
+          <div class="glow"></div>
+          <div class="statusbar"></div>
+          <div class="content">
+            <div class="toprow"><div class="av-solo">HS</div><div class="icon-pair"><i class="ti ti-eye-off priv"></i><i class="ti ti-bell">​<span class="bd">3</span></i></div></div>
+            <div class="ctxpill"><span class="dot"><i class="ti ti-user"></i></span><span class="lbl">Personal</span><i class="ti ti-chevron-down chev"></i></div>
+            <div class="hero-lbl">Net worth</div>
+            <div class="hero-num num">₹1.45Cr</div>
+            <div class="hero-delta"><i class="ti ti-trending-up"></i> +4.2% this month</div>
+            <svg class="spark" viewBox="0 0 260 40" preserveAspectRatio="none"><defs><linearGradient id="sgd" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#00c47d" stop-opacity=".35"/><stop offset="100%" stop-color="#00c47d" stop-opacity="0"/></linearGradient></defs><path d="M0,30 20,26 40,28 60,19 80,23 100,14 120,17 140,9 160,13 180,7 200,10 220,3 240,7 260,2 260,40 0,40Z" fill="url(#sgd)"/><path d="M0,30 20,26 40,28 60,19 80,23 100,14 120,17 140,9 160,13 180,7 200,10 220,3 240,7 260,2" fill="none" stroke="#00c47d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="stsplit"><div class="s"><div class="k">Safe to spend</div><div class="v safe num">₹81,078</div></div><div class="s"><div class="k">Liabilities</div><div class="v num" style="color:var(--danger)">−₹48.5L</div></div></div>
+            <div class="slbl"><span class="t">Financial health</span><span class="a">See all</span></div>
+            <div class="card healthrow"><div class="ring2"><span>40</span></div><div><div class="t">Needs work</div><div class="d">A few quick wins would lift your score.</div></div></div>
+            <div class="toolsrow"><div class="tool"><div class="ic" style="color:var(--green)"><i class="ti ti-sparkles"></i></div><div class="lbl">Chip</div></div><div class="tool"><div class="ic" style="color:var(--violet)"><i class="ti ti-bulb"></i></div><div class="lbl">Insights</div></div><div class="tool"><div class="ic" style="color:var(--sky)"><i class="ti ti-clock"></i></div><div class="lbl">Recent</div></div></div>
+          </div>
+          <div class="tabbar"><div class="tabitem active"><i class="ti ti-home"></i>Home</div><div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div><div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div><div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div><div class="tabitem"><i class="ti ti-target"></i>Goals</div></div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Home · Light</div>
+        <div class="vsub">Same structure, inverted contrast.</div>
+        <div class="phone light">
+          <div class="glow"></div>
+          <div class="statusbar"></div>
+          <div class="content">
+            <div class="toprow"><div class="av-solo">HS</div><div class="icon-pair"><i class="ti ti-eye-off priv"></i><i class="ti ti-bell">​<span class="bd">3</span></i></div></div>
+            <div class="ctxpill"><span class="dot"><i class="ti ti-user"></i></span><span class="lbl">Personal</span><i class="ti ti-chevron-down chev"></i></div>
+            <div class="hero-lbl">Net worth</div>
+            <div class="hero-num num">₹1.45Cr</div>
+            <div class="hero-delta"><i class="ti ti-trending-up"></i> +4.2% this month</div>
+            <svg class="spark" viewBox="0 0 260 40" preserveAspectRatio="none"><defs><linearGradient id="sgl" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#00875c" stop-opacity=".25"/><stop offset="100%" stop-color="#00875c" stop-opacity="0"/></linearGradient></defs><path d="M0,30 20,26 40,28 60,19 80,23 100,14 120,17 140,9 160,13 180,7 200,10 220,3 240,7 260,2 260,40 0,40Z" fill="url(#sgl)"/><path d="M0,30 20,26 40,28 60,19 80,23 100,14 120,17 140,9 160,13 180,7 200,10 220,3 240,7 260,2" fill="none" stroke="#00875c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="stsplit"><div class="s"><div class="k">Safe to spend</div><div class="v safe num">₹81,078</div></div><div class="s"><div class="k">Liabilities</div><div class="v num" style="color:var(--danger)">−₹48.5L</div></div></div>
+            <div class="slbl"><span class="t">Financial health</span><span class="a">See all</span></div>
+            <div class="card healthrow"><div class="ring2"><span>40</span></div><div><div class="t">Needs work</div><div class="d">A few quick wins would lift your score.</div></div></div>
+            <div class="toolsrow"><div class="tool"><div class="ic" style="color:var(--green)"><i class="ti ti-sparkles"></i></div><div class="lbl">Chip</div></div><div class="tool"><div class="ic" style="color:var(--violet)"><i class="ti ti-bulb"></i></div><div class="lbl">Insights</div></div><div class="tool"><div class="ic" style="color:var(--sky)"><i class="ti ti-clock"></i></div><div class="lbl">Recent</div></div></div>
+          </div>
+          <div class="tabbar"><div class="tabitem active"><i class="ti ti-home"></i>Home</div><div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div><div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div><div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div><div class="tabitem"><i class="ti ti-target"></i>Goals</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-h">Portfolio</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Portfolio · Dark</div>
+        <div class="vsub">No title text — content starts directly with the Current value hero.</div>
+        <div class="phone">
+          <div class="glow"></div><div class="statusbar"></div>
+          <div class="content">
+            <div class="toprow"><div class="av-solo">HS</div><div class="icon-pair"><i class="ti ti-eye-off priv"></i><i class="ti ti-bell">​<span class="bd">3</span></i></div></div>
+            <div class="hero-lbl">Current value</div>
+            <div class="hero-num num">₹64.2L</div>
+            <div class="hero-delta"><i class="ti ti-trending-up"></i> +12.4% · ₹7.1L since you started</div>
+            <div class="card" style="margin-top:12px">
+              <div class="bench"><div class="row"><div class="k">You <b>+12.4%</b></div><div class="bar"><i style="width:78%;background:var(--green)"></i></div></div></div>
+              <div class="bench" style="margin-top:7px"><div class="row"><div class="k">Nifty 50 <b style="color:var(--ter)">+9.8%</b></div><div class="bar"><i style="width:61%;background:var(--ter)"></i></div></div></div>
+            </div>
+            <div class="ticker" style="margin-top:14px">
+              <div class="tick"><div class="n">SENSEX</div><div class="p">79,442 <span class="c up">▲.6%</span></div></div>
+              <div class="tick"><div class="n">NIFTY</div><div class="p">24,010 <span class="c up">▲.5%</span></div></div>
+              <div class="tick"><div class="n">GOLD</div><div class="p">₹73.1K <span class="c dn">▼.2%</span></div></div>
+            </div>
+            <div class="maintabs"><span class="t on">Equity</span><span class="t">Fixed Income</span><span class="t">Metals</span><span class="t">Retirement</span><span class="t">Real Assets</span></div>
+            <div class="subtabs"><span class="t on">Stocks</span><span class="t">Mutual Funds</span><span class="t">IPO</span><span class="t">News</span></div>
+            <div class="callout"><div class="h"><i class="ti ti-alert-triangle"></i> Underperforming</div><div class="b">Axis Bluechip Fund is 2.1% behind its benchmark over 12 months.</div><span class="alt">See alternatives ›</span></div>
+            <div class="card">
+              <div class="holding"><div class="hic" style="background:rgba(94,234,212,.15);color:var(--mint)"><i class="ti ti-chart-candle"></i></div><div class="nm">HDFC Bank<small>120 shares</small></div><div class="val">₹1.94L<small style="color:var(--green)">+8.2%</small></div></div>
+              <div class="holding"><div class="hic" style="background:rgba(255,107,107,.15);color:var(--danger)"><i class="ti ti-chart-candle"></i></div><div class="nm">Axis Bluechip Fund<small>Mutual fund</small></div><div class="val">₹3.10L<small style="color:var(--danger)">−1.4%</small></div></div>
+            </div>
+          </div>
+          <div class="tabbar"><div class="tabitem"><i class="ti ti-home"></i>Home</div><div class="tabitem active"><i class="ti ti-chart-pie"></i>Portfolio</div><div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div><div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div><div class="tabitem"><i class="ti ti-target"></i>Goals</div></div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Portfolio · Light</div>
+        <div class="vsub">Same content, inverted contrast.</div>
+        <div class="phone light">
+          <div class="glow"></div><div class="statusbar"></div>
+          <div class="content">
+            <div class="toprow"><div class="av-solo">HS</div><div class="icon-pair"><i class="ti ti-eye-off priv"></i><i class="ti ti-bell">​<span class="bd">3</span></i></div></div>
+            <div class="hero-lbl">Current value</div>
+            <div class="hero-num num">₹64.2L</div>
+            <div class="hero-delta"><i class="ti ti-trending-up"></i> +12.4% · ₹7.1L since you started</div>
+            <div class="card" style="margin-top:12px">
+              <div class="bench"><div class="row"><div class="k">You <b>+12.4%</b></div><div class="bar"><i style="width:78%;background:var(--green)"></i></div></div></div>
+              <div class="bench" style="margin-top:7px"><div class="row"><div class="k">Nifty 50 <b style="color:var(--ter)">+9.8%</b></div><div class="bar"><i style="width:61%;background:var(--ter)"></i></div></div></div>
+            </div>
+            <div class="ticker" style="margin-top:14px">
+              <div class="tick"><div class="n">SENSEX</div><div class="p">79,442 <span class="c up">▲.6%</span></div></div>
+              <div class="tick"><div class="n">NIFTY</div><div class="p">24,010 <span class="c up">▲.5%</span></div></div>
+              <div class="tick"><div class="n">GOLD</div><div class="p">₹73.1K <span class="c dn">▼.2%</span></div></div>
+            </div>
+            <div class="maintabs"><span class="t on">Equity</span><span class="t">Fixed Income</span><span class="t">Metals</span><span class="t">Retirement</span><span class="t">Real Assets</span></div>
+            <div class="subtabs"><span class="t on">Stocks</span><span class="t">Mutual Funds</span><span class="t">IPO</span><span class="t">News</span></div>
+            <div class="callout"><div class="h"><i class="ti ti-alert-triangle"></i> Underperforming</div><div class="b">Axis Bluechip Fund is 2.1% behind its benchmark over 12 months.</div><span class="alt">See alternatives ›</span></div>
+            <div class="card">
+              <div class="holding"><div class="hic" style="background:rgba(0,135,92,.12);color:var(--green-deep)"><i class="ti ti-chart-candle"></i></div><div class="nm">HDFC Bank<small>120 shares</small></div><div class="val">₹1.94L<small style="color:var(--green)">+8.2%</small></div></div>
+              <div class="holding"><div class="hic" style="background:rgba(225,29,72,.1);color:var(--danger)"><i class="ti ti-chart-candle"></i></div><div class="nm">Axis Bluechip Fund<small>Mutual fund</small></div><div class="val">₹3.10L<small style="color:var(--danger)">−1.4%</small></div></div>
+            </div>
+          </div>
+          <div class="tabbar"><div class="tabitem"><i class="ti ti-home"></i>Home</div><div class="tabitem active"><i class="ti ti-chart-pie"></i>Portfolio</div><div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div><div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div><div class="tabitem"><i class="ti ti-target"></i>Goals</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-h">Chip</div>
+    <div class="gallery">
+      <div class="frame-wrap"><div class="vtitle">Chip · Dark</div><div class="vsub">No title row — content opens directly with Chip's own badge treatment.</div>
+        <div class="phone">
+          <div class="glow"></div><div class="statusbar"></div>
+          <div class="content">
+            <div class="toprow"><div class="av-solo">HS</div><div class="icon-pair"><i class="ti ti-eye-off priv"></i><i class="ti ti-bell">​<span class="bd">3</span></i></div></div>
+            <div class="chip-title"><div class="chip-badge"><i class="ti ti-sparkles"></i></div><div><div class="t">Chip</div><div class="s">Your AI money coach</div></div></div>
+            <div class="insight-card"><div class="h"><div class="ic"><i class="ti ti-bulb"></i></div><div class="ttl">Spending 22% more on dining this month</div></div><div class="body-txt">Based on the last 4 weeks vs your 6-month average.</div></div>
+            <div class="insight-card"><div class="h"><div class="ic" style="background:rgba(0,196,125,.15);color:var(--green)"><i class="ti ti-trending-up"></i></div><div class="ttl">SIP step-up due next month</div></div><div class="body-txt">Axis Bluechip is due its annual 10% step-up on Aug 1.</div></div>
+          </div>
+          <div class="tabbar"><div class="tabitem"><i class="ti ti-home"></i>Home</div><div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div><div class="tabitem active"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div><div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div><div class="tabitem"><i class="ti ti-target"></i>Goals</div></div>
+        </div>
+      </div>
+      <div class="frame-wrap"><div class="vtitle">Chip · Light</div><div class="vsub">Same content, inverted contrast.</div>
+        <div class="phone light">
+          <div class="glow"></div><div class="statusbar"></div>
+          <div class="content">
+            <div class="toprow"><div class="av-solo">HS</div><div class="icon-pair"><i class="ti ti-eye-off priv"></i><i class="ti ti-bell">​<span class="bd">3</span></i></div></div>
+            <div class="chip-title"><div class="chip-badge"><i class="ti ti-sparkles"></i></div><div><div class="t">Chip</div><div class="s">Your AI money coach</div></div></div>
+            <div class="insight-card"><div class="h"><div class="ic"><i class="ti ti-bulb"></i></div><div class="ttl">Spending 22% more on dining this month</div></div><div class="body-txt">Based on the last 4 weeks vs your 6-month average.</div></div>
+            <div class="insight-card"><div class="h"><div class="ic" style="background:rgba(0,135,92,.12);color:var(--green-deep)"><i class="ti ti-trending-up"></i></div><div class="ttl">SIP step-up due next month</div></div><div class="body-txt">Axis Bluechip is due its annual 10% step-up on Aug 1.</div></div>
+          </div>
+          <div class="tabbar"><div class="tabitem"><i class="ti ti-home"></i>Home</div><div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div><div class="tabitem active"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div><div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div><div class="tabitem"><i class="ti ti-target"></i>Goals</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-h">Expenses</div>
+    <div class="gallery">
+      <div class="frame-wrap"><div class="vtitle">Expenses · Dark</div><div class="vsub">No title row — hero is this month's spend vs budget directly.</div>
+        <div class="phone">
+          <div class="glow"></div><div class="statusbar"></div>
+          <div class="content">
+            <div class="toprow"><div class="av-solo">HS</div><div class="icon-pair"><i class="ti ti-eye-off priv"></i><i class="ti ti-bell">​<span class="bd">3</span></i></div></div>
+            <div class="hero-lbl">Spent this month</div>
+            <div class="hero-num num">₹88,067</div>
+            <div class="hero-delta" style="color:var(--amber);background:rgba(255,182,72,.12)"><i class="ti ti-alert-circle"></i> 76% of ₹1.15L budget</div>
+            <div class="maintabs" style="margin-top:14px"><span class="t on">Transactions</span><span class="t">Budgets</span><span class="t">Analytics</span></div>
+            <div class="card">
+              <div class="txn"><div class="hic" style="background:rgba(255,107,107,.15);color:var(--danger)"><i class="ti ti-tools-kitchen-2"></i></div><div class="nm">Swiggy<small>Food · Today</small></div><div class="val" style="color:var(--ink)">−₹640</div></div>
+              <div class="txn"><div class="hic" style="background:rgba(94,234,212,.15);color:var(--mint)"><i class="ti ti-briefcase"></i></div><div class="nm">Salary<small>Income · Yesterday</small></div><div class="val" style="color:var(--green)">+₹1,20,000</div></div>
+              <div class="txn"><div class="hic" style="background:rgba(167,139,250,.15);color:var(--violet)"><i class="ti ti-car"></i></div><div class="nm">Uber<small>Transport · Yesterday</small></div><div class="val" style="color:var(--ink)">−₹280</div></div>
+            </div>
+          </div>
+          <div class="tabbar"><div class="tabitem"><i class="ti ti-home"></i>Home</div><div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div><div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div><div class="tabitem active"><i class="ti ti-wallet"></i>Expenses</div><div class="tabitem"><i class="ti ti-target"></i>Goals</div></div>
+        </div>
+      </div>
+      <div class="frame-wrap"><div class="vtitle">Expenses · Light</div><div class="vsub">Same content, inverted contrast.</div>
+        <div class="phone light">
+          <div class="glow"></div><div class="statusbar"></div>
+          <div class="content">
+            <div class="toprow"><div class="av-solo">HS</div><div class="icon-pair"><i class="ti ti-eye-off priv"></i><i class="ti ti-bell">​<span class="bd">3</span></i></div></div>
+            <div class="hero-lbl">Spent this month</div>
+            <div class="hero-num num">₹88,067</div>
+            <div class="hero-delta" style="color:var(--amber);background:rgba(194,116,10,.1)"><i class="ti ti-alert-circle"></i> 76% of ₹1.15L budget</div>
+            <div class="maintabs" style="margin-top:14px"><span class="t on">Transactions</span><span class="t">Budgets</span><span class="t">Analytics</span></div>
+            <div class="card">
+              <div class="txn"><div class="hic" style="background:rgba(225,29,72,.1);color:var(--danger)"><i class="ti ti-tools-kitchen-2"></i></div><div class="nm">Swiggy<small>Food · Today</small></div><div class="val" style="color:var(--ink)">−₹640</div></div>
+              <div class="txn"><div class="hic" style="background:rgba(0,135,92,.12);color:var(--green-deep)"><i class="ti ti-briefcase"></i></div><div class="nm">Salary<small>Income · Yesterday</small></div><div class="val" style="color:var(--green)">+₹1,20,000</div></div>
+              <div class="txn"><div class="hic" style="background:rgba(124,58,237,.1);color:var(--violet)"><i class="ti ti-car"></i></div><div class="nm">Uber<small>Transport · Yesterday</small></div><div class="val" style="color:var(--ink)">−₹280</div></div>
+            </div>
+          </div>
+          <div class="tabbar"><div class="tabitem"><i class="ti ti-home"></i>Home</div><div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div><div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div><div class="tabitem active"><i class="ti ti-wallet"></i>Expenses</div><div class="tabitem"><i class="ti ti-target"></i>Goals</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-h">Goals</div>
+    <div class="gallery">
+      <div class="frame-wrap"><div class="vtitle">Goals · Dark</div><div class="vsub">No title row — hero is total saved-vs-target directly.</div>
+        <div class="phone">
+          <div class="glow"></div><div class="statusbar"></div>
+          <div class="content">
+            <div class="toprow"><div class="av-solo">HS</div><div class="icon-pair"><i class="ti ti-eye-off priv"></i><i class="ti ti-bell">​<span class="bd">3</span></i></div></div>
+            <div class="hero-lbl">Saved toward goals</div>
+            <div class="hero-num num">₹6.2L</div>
+            <div class="hero-delta"><i class="ti ti-target"></i> of ₹15L across 3 goals</div>
+            <div class="slbl" style="margin-top:18px"><span class="t">Your goals</span></div>
+            <div class="goalcard"><div class="h"><span>Emergency Fund</span><span style="color:var(--green)">62%</span></div><div class="bar"><i style="width:62%"></i></div><div class="sub">₹3.1L of ₹5L · 1.0 months covered</div></div>
+            <div class="goalcard"><div class="h"><span>Europe Trip</span><span style="color:var(--green)">40%</span></div><div class="bar"><i style="width:40%"></i></div><div class="sub">₹2.0L of ₹5L · by Dec 2027</div></div>
+            <div class="goalcard"><div class="h"><span>Child's Education</span><span style="color:var(--green)">22%</span></div><div class="bar"><i style="width:22%"></i></div><div class="sub">₹1.1L of ₹5L · by 2035</div></div>
+          </div>
+          <div class="tabbar"><div class="tabitem"><i class="ti ti-home"></i>Home</div><div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div><div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div><div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div><div class="tabitem active"><i class="ti ti-target"></i>Goals</div></div>
+        </div>
+      </div>
+      <div class="frame-wrap"><div class="vtitle">Goals · Light</div><div class="vsub">Same content, inverted contrast.</div>
+        <div class="phone light">
+          <div class="glow"></div><div class="statusbar"></div>
+          <div class="content">
+            <div class="toprow"><div class="av-solo">HS</div><div class="icon-pair"><i class="ti ti-eye-off priv"></i><i class="ti ti-bell">​<span class="bd">3</span></i></div></div>
+            <div class="hero-lbl">Saved toward goals</div>
+            <div class="hero-num num">₹6.2L</div>
+            <div class="hero-delta"><i class="ti ti-target"></i> of ₹15L across 3 goals</div>
+            <div class="slbl" style="margin-top:18px"><span class="t">Your goals</span></div>
+            <div class="goalcard"><div class="h"><span>Emergency Fund</span><span style="color:var(--green)">62%</span></div><div class="bar"><i style="width:62%"></i></div><div class="sub">₹3.1L of ₹5L · 1.0 months covered</div></div>
+            <div class="goalcard"><div class="h"><span>Europe Trip</span><span style="color:var(--green)">40%</span></div><div class="bar"><i style="width:40%"></i></div><div class="sub">₹2.0L of ₹5L · by Dec 2027</div></div>
+            <div class="goalcard"><div class="h"><span>Child's Education</span><span style="color:var(--green)">22%</span></div><div class="bar"><i style="width:22%"></i></div><div class="sub">₹1.1L of ₹5L · by 2035</div></div>
+          </div>
+          <div class="tabbar"><div class="tabitem"><i class="ti ti-home"></i>Home</div><div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div><div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div><div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div><div class="tabitem active"><i class="ti ti-target"></i>Goals</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <h2>What's still open</h2>
+      <div class="rec-box">
+        <b>Assumption made, please confirm:</b> "get rid of the greeting" was said in the context of Home, but I
+        removed title text on every screen (Portfolio/Chip/Expenses/Goals too) since the tab bar already labels
+        them and each hero number makes context obvious on its own. If you actually wanted those screens to keep a
+        plain title, that's a one-line change to bring back, not a rebuild.
+      </div>
+      <div class="open-box">
+        <b>Not touched, deliberately:</b> the eye icon (privacy mode) is still in the top-right pair — your
+        "overkill features" list questions whether privacy-mode switching is worth keeping at all. That's a
+        product decision bigger than this chrome pass; I left it in for now rather than guessing. Also unresolved:
+        avatar tap behavior for non-<code>sync</code>-entitled users (flagged in an earlier round, still open).
+      </div>
+    </div>
+  </body>
+</html>

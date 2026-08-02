@@ -2,24 +2,24 @@ import { ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { Button, PageHeader } from '~/components/ui';
-import { BackButton } from '~/components/shared';
 import { useAccounts } from './useAccounts';
-import { useAccountForm } from './useAccountForm';
+import { useAccountForm } from '~/hooks/useAccountForm';
 import { AccountList } from './AccountList';
-import { AccountFormModal } from './AccountFormModal';
+import { AccountFormModal } from '~/components/shared';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 
 export function AccountsPage() {
   const modeBg = useModeBackgroundColor();
   const { shouldMask } = usePrivacy();
-  const { accounts, txns, saving, totalBalance, saveAccount, deleteAccount, reconcileAccount } = useAccounts();
+  const { accounts, txns, saving, totalBalance, saveAccount, deleteAccount, reconcileAccount, categoryMap, hashtags } =
+    useAccounts();
   const form = useAccountForm(saveAccount, accounts);
+  useDefaultHeaderBack('Accounts');
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader
-        leading={<BackButton />}
-        title="Accounts"
         actions={
           <Button
             variant="primary"
@@ -37,6 +37,8 @@ export function AccountsPage() {
           txns={txns}
           totalBalance={totalBalance}
           shouldMask={shouldMask}
+          categoryMap={categoryMap}
+          hashtags={hashtags}
           onAdd={form.openAdd}
           onEdit={form.openEdit}
           deleteAccount={deleteAccount}

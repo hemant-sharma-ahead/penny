@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { View, Text } from 'react-native';
-import type { Account, Expense } from '@/core/db/types';
+import { useMemo, useState } from 'react';
+import { View, Pressable, Text } from 'react-native';
+import type { Account, Expense, ExpenseCategory, Hashtag } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
 import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { getAccountMeta } from '@/core/accounts/meta';
 import { Card, Button, ConfirmDialog, EmptyState, IconBadge, ListContainer } from '~/components/ui';
+import { EntityTransactionsModal } from '~/components/shared';
+import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { ReconcileModal } from './ReconcileModal';
 import { tint } from '~/lib/color';
@@ -14,6 +16,8 @@ interface AccountListProps {
   txns: Expense[];
   totalBalance: number;
   shouldMask: (sensitive: boolean | undefined) => boolean;
+  categoryMap: Map<string, ExpenseCategory>;
+  hashtags: Hashtag[];
   onAdd: () => void;
   onEdit: (acc: Account) => void;
   deleteAccount: (id: string) => Promise<unknown>;
@@ -27,6 +31,8 @@ export function AccountList({
   txns,
   totalBalance,
   shouldMask,
+  categoryMap,
+  hashtags,
   onAdd,
   onEdit,
   deleteAccount,
@@ -36,6 +42,8 @@ export function AccountList({
   const totalMasked = shouldMask(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [reconciling, setReconciling] = useState<{ account: Account; balance: number } | null>(null);
+  const [viewingAccount, setViewingAccount] = useState<Account | null>(null);
+  const accountMap = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
 
   return (
     <View className="px-4 py-4 gap-3">
@@ -68,7 +76,12 @@ export function AccountList({
             const isNeg = balance < 0;
             const masked = shouldMask(acc.hideInSafeMode);
             return (
-              <View key={acc.id} className="px-4 py-3.5 flex-row items-center gap-3">
+              <Pressable
+                key={acc.id}
+                onPress={() => setViewingAccount(acc)}
+                className="px-4 py-3.5 flex-row items-center gap-3"
+                accessibilityLabel={`View transactions for ${acc.name}`}
+              >
                 <IconBadge icon={acc.icon} color={acc.color} bg={tint(acc.color, 13)} />
                 <View className="flex-1">
                   <Text className="text-sm font-semibold text-primary" numberOfLines={1}>
@@ -84,6 +97,9 @@ export function AccountList({
                     {masked ? '••••' : formatCurrency(balance)}
                   </Text>
                   {acc.includeInNetWorth && <Text className="text-[10px] text-tertiary">in net worth</Text>}
+                </View>
+                <View className="w-5 h-5 rounded-full bg-surface-2 items-center justify-center">
+                  <Icon name="ti-chevron-right" size={12} color={theme.textTertiary} />
                 </View>
                 {RECONCILABLE.has(acc.type) && (
                   <Button
@@ -108,7 +124,7 @@ export function AccountList({
                   className="w-8 h-8 rounded-lg"
                   onPress={() => setDeletingId(acc.id)}
                 />
-              </View>
+              </Pressable>
             );
           })}
         </ListContainer>
@@ -133,6 +149,25 @@ export function AccountList({
           currentBalance={reconciling.balance}
           onReconcile={reconcileAccount}
           onClose={() => setReconciling(null)}
+        />
+      )}
+
+      {viewingAccount && (
+        <EntityTransactionsModal
+          key={viewingAccount.id}
+          title={viewingAccount.name}
+          statLabel="Current balance"
+          statValue={
+            shouldMask(viewingAccount.hideInSafeMode)
+              ? '••••'
+              : formatCurrency(computeBalance(viewingAccount.id, viewingAccount.openingBalance, txns))
+          }
+          expenses={txns.filter((t) => t.accountId === viewingAccount.id || t.toAccountId === viewingAccount.id)}
+          categoryMap={categoryMap}
+          accountMap={accountMap}
+          hashtags={hashtags}
+          shouldMask={shouldMask}
+          onClose={() => setViewingAccount(null)}
         />
       )}
     </View>

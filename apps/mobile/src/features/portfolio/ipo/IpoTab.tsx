@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, FlatList, View, Text } from 'react-native';
-import { Icon } from '~/components/Icon';
+import { ActivityIndicator, Pressable, ScrollView, FlatList, RefreshControl, View, Text } from 'react-native';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { Card, EmptyState, SearchInput, SegmentedControl } from '~/components/ui';
 import { useIpos } from '@/core/ipo/useIpos';
@@ -16,6 +15,7 @@ import {
 } from './ipoHelpers';
 import { IpoDetailModal } from './IpoDetailModal';
 import { tint } from '~/lib/color';
+import type { OnRefreshStateChange } from '../SubTabRefreshState';
 
 interface SubTabPillProps {
   label: string;
@@ -51,7 +51,14 @@ function SubTabPill({ label, count, active, onPress }: SubTabPillProps) {
 
 // IPO tab: upcoming/open/closed/listed sub-tabs with GMP, subscription and a
 // detail modal. Fully self-contained — owns its own data fetching and state.
-export function IpoTab() {
+interface IpoTabProps {
+  /** Reports this tab's current refresh action up to `PortfolioPage`'s single header button — see
+   *  `SubTabRefreshState.ts`. `null` while on the "Listed" internal sub-tab, which has nothing live to
+   *  refresh (matches this tab's own previous behavior of hiding its refresh button there). */
+  onRefreshStateChange?: OnRefreshStateChange;
+}
+
+export function IpoTab({ onRefreshStateChange }: IpoTabProps) {
   const theme = useThemeColors();
   const [ipoSubTab, setIpoSubTab] = useState<IpoStatus>('upcoming');
   const [ipoShowMainboardOnly, setIpoShowMainboardOnly] = useState(false);
@@ -61,6 +68,21 @@ export function IpoTab() {
   const [historicalLoadedFy, setHistoricalLoadedFy] = useState<string | null>(null);
   const [selectedIpo, setSelectedIpo] = useState<IpoItem | null>(null);
   const ipos = useIpos();
+
+  useEffect(() => {
+    if (ipoSubTab === 'listed') {
+      onRefreshStateChange?.(null);
+      return;
+    }
+    onRefreshStateChange?.({ refresh: ipos.refresh, refreshing: ipos.refreshing });
+  }, [ipoSubTab, ipos.refresh, ipos.refreshing, onRefreshStateChange]);
+
+  // Clear this tab's contributed refresh state on unmount (switching away to a different Equity
+  // sub-tab) — otherwise the header would keep calling a stale handler for a tab no longer on screen.
+  useEffect(() => {
+    return () => onRefreshStateChange?.(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (ipoSubTab !== 'listed') return;
@@ -106,35 +128,22 @@ export function IpoTab() {
 
   const header = (
     <View>
-      {/* Sub-tabs + refresh */}
-      <View className="flex-row items-center justify-between px-4 py-2.5 border-b border-theme">
-        <View className="flex-row gap-1.5">
-          {IPO_SUBTAB_ORDER.map((key) => {
-            const { label } = IPO_SUBTAB_META[key];
-            const count = key === 'listed' ? historicalListedIpos.length : ipos[key].length;
-            return (
-              <SubTabPill
-                key={key}
-                label={label}
-                count={count}
-                active={ipoSubTab === key}
-                onPress={() => setIpoSubTab(key)}
-              />
-            );
-          })}
-        </View>
-        {ipoSubTab !== 'listed' && (
-          <Pressable
-            onPress={ipos.refresh}
-            disabled={ipos.refreshing || ipos.loading}
-            className="flex-row items-center gap-1 px-2.5 py-1 rounded-full border border-theme ml-2"
-            style={{ opacity: ipos.refreshing || ipos.loading ? 0.4 : 1 }}
-            accessibilityLabel="Refresh IPO data"
-          >
-            <Icon name="ti-refresh" size={13} color={theme.textSecondary} spin={ipos.refreshing} />
-            <Text className="text-xs font-medium text-secondary">{ipos.refreshing ? 'Refreshing…' : 'Refresh'}</Text>
-          </Pressable>
-        )}
+      {/* Sub-tabs — refresh moved to `PortfolioPage`'s header (one consolidated button for all of
+          Equity's sub-tabs instead of each having its own, found via your 2026-08-01 review) */}
+      <View className="flex-row gap-1.5 px-4 py-2.5 border-b border-theme">
+        {IPO_SUBTAB_ORDER.map((key) => {
+          const { label } = IPO_SUBTAB_META[key];
+          const count = key === 'listed' ? historicalListedIpos.length : ipos[key].length;
+          return (
+            <SubTabPill
+              key={key}
+              label={label}
+              count={count}
+              active={ipoSubTab === key}
+              onPress={() => setIpoSubTab(key)}
+            />
+          );
+        })}
       </View>
 
       {/* Last updated */}
@@ -203,6 +212,14 @@ export function IpoTab() {
         keyExtractor={(ipo: IpoItem) => String(ipo.id)}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         ListHeaderComponent={header}
+        // Pull-to-refresh — only wired when there's actually something live to refresh (not on the
+        // "Listed" internal sub-tab, same gating as the header's consolidated refresh action reported
+        // via `onRefreshStateChange` above).
+        refreshControl={
+          ipoSubTab !== 'listed' ? (
+            <RefreshControl refreshing={ipos.refreshing} onRefresh={ipos.refresh} tintColor={theme.primary} />
+          ) : undefined
+        }
         ListEmptyComponent={
           loadingContent ? (
             <View className="p-10 items-center">

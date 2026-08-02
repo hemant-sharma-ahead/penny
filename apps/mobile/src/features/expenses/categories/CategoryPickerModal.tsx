@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Pressable, ScrollView, Text } from 'react-native';
 import { Banner, Button, ConfirmDialog, Modal, SelectInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
@@ -7,9 +7,14 @@ import { useThemeColors } from '~/theme/useThemeColors';
 import type { ExpenseCategory } from '@/core/db/types';
 import { INTENT_GROUP_META } from '@/core/db/defaultCategories';
 import { groupKey } from '@/core/expenses/categoryGroups';
+import { getJSON, setJSON } from '~/lib/storage';
 import { CategoryEditorModal, type GroupOption } from './CategoryEditorModal';
 import { ParentEditorModal } from './ParentEditorModal';
 import type { CategoryManager } from './types';
+
+/** AsyncStorage key for which vacation events' explanatory note the user has already dismissed —
+ *  keyed by event id, not just a one-time-ever flag, so a *future* trip still gets to show it once. */
+const VACATION_NOTE_DISMISSED_KEY = 'penny_vacation_note_dismissed';
 
 interface Props {
   type: 'expense' | 'income';
@@ -22,7 +27,7 @@ interface Props {
   manager?: CategoryManager;
   /** Active Vacation (immersive event) mode, if any — leads with Travel picks instead of Frequent,
    *  with a note on why, but never hides other groups. Soft default, not a hard restriction. */
-  activeVacationEvent?: { name: string } | undefined;
+  activeVacationEvent?: { id: string; name: string } | undefined;
 }
 
 /** Horizontally-scrollable quick-pick row shared by "Frequent" and "Travel picks". */
@@ -117,6 +122,22 @@ export function CategoryPickerModal({
   } = manager ?? NOOP_MANAGER;
   const [mode, setMode] = useState<'select' | 'manage'>('select');
   const [multiSelect, setMultiSelect] = useState(false);
+
+  // Vacation-mode explanatory note — dismissible per event (not just per session), so it stops
+  // reappearing on every category pick for the rest of *this* trip but still shows once on a future one.
+  const [dismissedVacationNotes, setDismissedVacationNotes] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    void getJSON<string[]>(VACATION_NOTE_DISMISSED_KEY).then((stored) => {
+      if (stored) setDismissedVacationNotes(new Set(stored));
+    });
+  }, []);
+  function dismissVacationNote(eventId: string) {
+    setDismissedVacationNotes((prev) => {
+      const next = new Set(prev).add(eventId);
+      void setJSON(VACATION_NOTE_DISMISSED_KEY, [...next]);
+      return next;
+    });
+  }
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editor, setEditor] = useState<Editor | null>(null);
   const [bulkMoveTarget, setBulkMoveTarget] = useState('');
@@ -324,11 +345,13 @@ export function CategoryPickerModal({
                 Vacation On · {activeVacationEvent.name}
               </Text>
             </View>
-            <Banner variant="info" className="mb-2.5">
-              Travel-tagged spend is kept separate from your everyday budget, so this trip won&apos;t skew your regular
-              numbers. Pick a different category only for things that aren&apos;t really trip expenses — like an EMI or
-              subscription still due.
-            </Banner>
+            {!dismissedVacationNotes.has(activeVacationEvent.id) && (
+              <Banner variant="info" className="mb-2.5" onDismiss={() => dismissVacationNote(activeVacationEvent.id)}>
+                Travel-tagged spend is kept separate from your everyday budget, so this trip won&apos;t skew your
+                regular numbers. Pick a different category only for things that aren&apos;t really trip expenses — like
+                an EMI or subscription still due.
+              </Banner>
+            )}
             <QuickPickRow
               icon="ti-plane"
               accentColor={travelColor}

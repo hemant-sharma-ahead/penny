@@ -15,6 +15,10 @@ interface ModalProps {
   /** Forwarded to the internal `ScrollView` when `scrollable` — lets a caller (e.g. `ExpenseForm`)
    *  scroll a specific field into view on validation error, matching web's `focusPanel()`. */
   scrollRef?: RefObject<ScrollView | null>;
+  /** Fires once the native modal has actually finished presenting — the reliable point to focus an
+   *  inner input (a plain `autoFocus` on a TextInput mounted before the modal's native window is
+   *  visible is unreliable and often no-ops; see `ExpenseForm.tsx`'s description field). */
+  onShow?: () => void;
 }
 
 /**
@@ -25,12 +29,21 @@ interface ModalProps {
  * Web's z-index stacking tiers (nested/level 1-3) aren't needed here — RN's Modal already stacks above
  * everything by being a separate native layer; multiple open Modals stack in mount order automatically.
  */
-export function Modal({ onClose, title, children, footer, size = 'md', scrollable = false, scrollRef }: ModalProps) {
+export function Modal({
+  onClose,
+  title,
+  children,
+  footer,
+  size = 'md',
+  scrollable = false,
+  scrollRef,
+  onShow
+}: ModalProps) {
   const theme = useThemeColors();
   const body = <View className="px-5 pt-5 pb-5 gap-4">{children}</View>;
 
   return (
-    <RNModal transparent animationType="fade" onRequestClose={onClose}>
+    <RNModal transparent animationType="fade" onRequestClose={onClose} onShow={onShow}>
       <View className="flex-1">
         <Pressable className="absolute inset-0 bg-black/50" onPress={onClose} accessibilityLabel="Close" />
         <View className="flex-1 items-center justify-center px-4" style={{ paddingTop: 56, paddingBottom: 72 }}>

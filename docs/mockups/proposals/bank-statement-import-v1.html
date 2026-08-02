@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Bank Statement Import, full flow v1</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --blue:#3b82f6; --danger:#ef4444; --amber:#f59e0b; --violet:#8b5cf6; --pink:#ec4899;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 20px; color:#9aa5b1; font-size:14px; max-width:920px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .thoughts { max-width:820px; margin:0 auto 30px; background:#101720; border:1px solid var(--border); border-radius:14px; padding:16px 22px; font-size:13px; line-height:1.8; color:#c3cad2; }
+      .thoughts b { color:#fff; }
+      .thoughts ul { margin:8px 0 0; padding-left:18px; }
+      .thoughts li { margin-bottom:4px; }
+
+      .flowbar { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; padding:0 20px 10px; }
+      .flowbar a { font-size:10.5px; font-weight:700; color:#9aa5b1; background:#141a22; border:1px solid var(--border); border-radius:999px; padding:5px 11px; text-decoration:none; }
+      .flowbar a:hover { color:#fff; border-color:#3a4451; }
+
+      .sectiontitle { text-align:center; font-size:15px; font-weight:800; color:#fff; margin:46px 0 4px; scroll-margin-top:20px; }
+      .stepnum { display:inline-flex; width:20px; height:20px; border-radius:10px; background:var(--primary); color:#04150d; font-size:11px; font-weight:800; align-items:center; justify-content:center; margin-right:6px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:760px; margin:0 auto 18px; line-height:1.65; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 10px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:16px; background:var(--bg); flex-shrink:0; }
+      .header { height:42px; display:flex; align-items:center; justify-content:space-between; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .header .t { font-size:13px; font-weight:700; color:#fff; }
+      .header .t .s { display:block; font-size:9.5px; font-weight:600; color:var(--text3); margin-top:1px; }
+      .content { padding:10px 12px; overflow-y:auto; }
+      .content.tall { height:560px; }
+      .content.med { height:460px; }
+
+      /* generic bits */
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:11px 12px; }
+      .row { display:flex; align-items:center; }
+      .between { justify-content:space-between; }
+      .lbl { font-size:9.5px; color:var(--text3); text-transform:uppercase; letter-spacing:.04em; }
+      .btn { display:flex; align-items:center; justify-content:center; gap:6px; border-radius:11px; padding:10px 0; font-size:12px; font-weight:700; }
+      .btn.pri { background:var(--primary); color:#04150d; }
+      .btn.sec { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+      .chip { display:inline-flex; align-items:center; gap:4px; background:var(--surface2); border:1px solid var(--border); border-radius:999px; padding:4px 9px; font-size:10.5px; font-weight:700; color:var(--text2); }
+      .chip.on { background:#123524; border-color:#1d4d34; color:#7ee6b8; }
+
+      /* ===== 1. Accounts row ===== */
+      .acctrow { display:flex; align-items:center; gap:9px; padding:11px 4px; border-bottom:1px solid var(--border); }
+      .acctrow .aicn { width:34px; height:34px; border-radius:10px; background:#3a2b12; display:flex; align-items:center; justify-content:center; color:var(--amber); font-size:15px; flex-shrink:0; }
+      .acctrow .amid { flex:1; min-width:0; }
+      .acctrow .amid .t1 { font-size:12.5px; font-weight:700; color:var(--text); }
+      .acctrow .amid .t2 { font-size:10px; color:var(--text3); margin-top:1px; }
+      .acctrow .aright { text-align:right; margin-right:6px; }
+      .acctrow .aright .bal { font-size:12.5px; font-weight:700; color:var(--text); }
+      .acctrow .aactions { display:flex; gap:3px; }
+      .acctrow .aactions .ib { width:24px; height:24px; border-radius:7px; display:flex; align-items:center; justify-content:center; color:var(--text3); background:var(--surface2); }
+      .acctrow .aactions .ib.import { color:var(--primary); background:#123524; }
+      .acctrow .aactions .ib i { font-size:12px; }
+
+      /* ===== 2. Upload / preset ===== */
+      .bankgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+      .bankgrid .b { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px 4px; text-align:center; font-size:10.5px; font-weight:700; color:var(--text2); }
+      .bankgrid .b.sel { background:#123524; border-color:#1d4d34; color:#7ee6b8; }
+      .dropzone { border:1.5px dashed var(--border); border-radius:14px; padding:22px 10px; text-align:center; color:var(--text3); font-size:11px; }
+      .dropzone i { font-size:26px; color:var(--text3); display:block; margin-bottom:6px; }
+      .maprow { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--border); }
+      .maprow .k { font-size:10.5px; color:var(--text2); }
+      .maprow .v { font-size:11px; font-weight:700; color:var(--text); background:var(--surface2); border-radius:8px; padding:4px 9px; }
+
+      /* ===== 3. Review screen ===== */
+      .summarystrip { display:flex; gap:8px; margin-bottom:10px; }
+      .summarystrip .s { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:11px; padding:7px 4px; text-align:center; }
+      .summarystrip .s .n { font-size:14px; font-weight:800; color:#fff; }
+      .summarystrip .s .l { font-size:8px; color:var(--text3); text-transform:uppercase; margin-top:1px; }
+      .bucket { margin-bottom:10px; }
+      .buckethead { display:flex; align-items:center; gap:6px; padding:8px 2px; }
+      .buckethead i.chev { margin-left:auto; color:var(--text3); font-size:12px; }
+      .buckethead .dot { width:7px; height:7px; border-radius:4px; }
+      .buckethead .lab { font-size:11.5px; font-weight:700; color:var(--text); flex:1; }
+      .buckethead .cnt { font-size:10px; color:var(--text3); }
+
+      .pairtile { display:flex; border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:6px; }
+      .pairtile .half { flex:1; padding:8px 9px; }
+      .pairtile .half.stmt { background:var(--surface2); }
+      .pairtile .half.rec { background:var(--surface); border-left:1px dashed var(--border); }
+      .pairtile .k { font-size:8px; text-transform:uppercase; letter-spacing:.03em; color:var(--text3); }
+      .pairtile .desc { font-size:10.5px; font-weight:700; color:var(--text); margin-top:2px; }
+      .pairtile .amt { font-size:10.5px; font-weight:700; color:var(--text2); margin-top:2px; }
+
+      .plainrow { display:flex; align-items:center; gap:8px; padding:8px 9px; border:1px solid var(--border); border-radius:12px; margin-bottom:6px; background:var(--surface); }
+      .plainrow .picn { width:26px; height:26px; border-radius:8px; background:var(--surface2); display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:12px; flex-shrink:0; }
+      .plainrow .pmid { flex:1; min-width:0; }
+      .plainrow .pmid .t1 { font-size:10.5px; font-weight:700; color:var(--text); }
+      .plainrow .pmid .t2 { font-size:9px; color:var(--text3); margin-top:1px; }
+      .plainrow .pamt { font-size:10.5px; font-weight:700; }
+
+      .grouphead { display:flex; align-items:center; gap:8px; padding:8px 9px; background:var(--surface); border:1px solid var(--border); border-radius:12px 12px 0 0; }
+      .grouphead .gicn { width:26px; height:26px; border-radius:8px; background:#3a2412; display:flex; align-items:center; justify-content:center; color:var(--amber); font-size:12px; }
+      .grouphead .gname { flex:1; font-size:11.5px; font-weight:700; color:var(--text); }
+      .grouphead .gcnt { font-size:9.5px; color:var(--text3); }
+      .grouplist { border:1px solid var(--border); border-top:none; border-radius:0 0 12px 12px; margin-bottom:6px; }
+      .grouprow { display:flex; align-items:center; gap:8px; padding:7px 9px; border-top:1px dashed var(--border); }
+      .cb { width:16px; height:16px; border-radius:5px; border:1.5px solid var(--border); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+      .cb.on { background:var(--primary); border-color:var(--primary); }
+      .cb.on i { font-size:10px; color:#04150d; }
+      .grouprow .gr1 { flex:1; font-size:10px; color:var(--text2); }
+      .grouprow .gr2 { font-size:10px; font-weight:700; color:var(--text); }
+
+      .lonewolf { display:flex; align-items:center; gap:8px; padding:8px 9px; border:1px solid #4a2a1c; background:#1f150e; border-radius:12px; margin-bottom:6px; }
+      .lonewolf .licn { width:26px; height:26px; border-radius:8px; background:#3a2412; display:flex; align-items:center; justify-content:center; color:var(--amber); font-size:12px; flex-shrink:0; }
+      .lonewolf .lmid { flex:1; min-width:0; }
+      .lonewolf .lmid .t1 { font-size:10.5px; font-weight:700; color:var(--text); }
+      .lonewolf .lmid .t2 { font-size:9px; color:#f0b060; margin-top:1px; }
+      .lonewolf .lacts { display:flex; gap:3px; }
+      .lonewolf .lacts .ib { width:22px; height:22px; border-radius:6px; background:var(--surface2); display:flex; align-items:center; justify-content:center; color:var(--text2); }
+      .lonewolf .lacts .ib i { font-size:11px; }
+
+      .stickybar { position:sticky; bottom:0; background:var(--surface); border-top:1px solid var(--border); padding:9px 12px; margin:0 -12px -10px; display:flex; align-items:center; gap:8px; }
+      .stickybar .info { flex:1; font-size:10px; color:var(--text2); }
+      .stickybar .info b { color:#fff; font-size:12px; display:block; }
+
+      /* ===== 5. bulk categorize ===== */
+      .fieldlabel { font-size:10px; font-weight:700; color:var(--text2); margin-bottom:4px; margin-top:10px; }
+      .fieldbox { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:9px 10px; font-size:11px; color:var(--text); }
+      .fieldbox.focused { border-color:var(--primary); }
+      .fieldbox.ph { color:var(--text3); }
+      .caret { display:inline-block; width:1.5px; height:12px; background:var(--primary); vertical-align:middle; margin-left:1px; }
+
+      /* ===== 6/7 tx form ===== */
+      .lockrow { display:flex; justify-content:space-between; align-items:center; background:var(--surface2); border-radius:10px; padding:8px 10px; margin-bottom:6px; }
+      .lockrow .lk { font-size:9.5px; color:var(--text3); }
+      .lockrow .lv { font-size:11px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:4px; }
+      .lockrow .lv i { font-size:10px; color:var(--text3); }
+
+      /* ===== 8. modal picker ===== */
+      .searchbox { display:flex; align-items:center; gap:6px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:8px 10px; margin-bottom:8px; }
+      .searchbox input { border:none; background:none; outline:none; color:var(--text); font-size:11px; flex:1; }
+      .searchbox i { color:var(--text3); font-size:12px; }
+      .rangepills { display:flex; gap:6px; margin-bottom:8px; }
+      .candrow { display:flex; align-items:center; gap:8px; padding:8px 9px; background:var(--surface2); border-radius:10px; margin-bottom:5px; }
+      .candrow .cmid { flex:1; }
+      .candrow .cmid .t1 { font-size:10.5px; font-weight:700; color:var(--text); }
+      .candrow .cmid .t2 { font-size:9px; color:var(--text3); margin-top:1px; }
+      .candrow .camt { font-size:10.5px; font-weight:700; color:var(--text); }
+
+      /* ===== 9. normalization screen ===== */
+      .normrow { display:flex; align-items:center; gap:8px; padding:9px 4px; border-bottom:1px solid var(--border); }
+      .normrow .nfrom { font-size:9.5px; color:var(--text3); font-family:monospace; }
+      .normrow i.arr { color:var(--text3); font-size:11px; }
+      .normrow .nto { font-size:11px; font-weight:700; color:var(--text); }
+      .normrow .ntag { font-size:8px; font-weight:800; text-transform:uppercase; padding:2px 6px; border-radius:999px; background:var(--surface2); color:var(--text3); margin-left:auto; }
+      .normrow .ntag.custom { background:#123524; color:#7ee6b8; }
+
+      /* ===== 10. balance nudge ===== */
+      .nudge { display:flex; gap:8px; background:#3a2412; border:1px solid #5c3a17; border-radius:12px; padding:10px 11px; }
+      .nudge i { color:var(--amber); font-size:14px; margin-top:1px; }
+      .nudge .txt { font-size:10.5px; color:#f0d0a0; line-height:1.5; }
+    </style>
+  </head>
+  <body>
+    <h1>Bank Statement Import — full flow, first pass</h1>
+    <p class="sub">
+      Every screen the requirements doc (<code>docs/plans/bank-statement-import.md</code>) calls for, in
+      the order you'd actually move through them: add the account row's Import action → pick your bank &amp;
+      confirm column mapping → review (four buckets) → resolve a possible match → bulk-categorize a
+      repeat merchant → record a brand-new one → handle a lone wolf → commit → manage normalization
+      overrides → the post-import balance nudge. This is a structural first pass — happy to refine any
+      individual screen's visual style once the flow itself is right.
+    </p>
+    <div class="flowbar">
+      <a href="#s1">1. Accounts row</a><a href="#s2">2. Upload &amp; mapping</a><a href="#s3">3. Review screen</a>
+      <a href="#s4">4. Possible-match picker</a><a href="#s5">5. Bulk merchant group</a><a href="#s6">6. Record new</a>
+      <a href="#s7">7. Lone wolf</a><a href="#s8">8. Commit bar</a><a href="#s9">9. Normalization overrides</a><a href="#s10">10. Balance nudge</a>
+    </div>
+
+    <div class="sectiontitle" id="s1"><span class="stepnum">1</span>Accounts page — new Import action</div>
+    <div class="sectionsub">Added alongside the existing Reconcile / Edit / Delete icons — statement import is scoped to whichever account row it's tapped from.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Account row<span class="tag">updated</span></div>
+        <div class="vsub">New green "Import" icon, distinct colour so it reads as the newer/featured action.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Accounts</span><i class="ti ti-plus" style="color:#8b949e;"></i></div>
+          <div class="content">
+            <div class="acctrow">
+              <div class="aicn"><i class="ti ti-building-bank"></i></div>
+              <div class="amid"><div class="t1">HDFC Savings</div><div class="t2">Savings account</div></div>
+              <div class="aright"><div class="bal">₹1,44,820</div></div>
+              <div class="aactions">
+                <div class="ib import"><i class="ti ti-upload"></i></div>
+                <div class="ib"><i class="ti ti-scale"></i></div>
+                <div class="ib"><i class="ti ti-pencil"></i></div>
+                <div class="ib"><i class="ti ti-trash"></i></div>
+              </div>
+            </div>
+            <div class="acctrow">
+              <div class="aicn" style="background:#122b3a;color:var(--blue);"><i class="ti ti-wallet"></i></div>
+              <div class="amid"><div class="t1">Cash Wallet</div><div class="t2">Cash</div></div>
+              <div class="aright"><div class="bal">₹8,400</div></div>
+              <div class="aactions">
+                <div class="ib"><i class="ti ti-scale"></i></div>
+                <div class="ib"><i class="ti ti-pencil"></i></div>
+                <div class="ib"><i class="ti ti-trash"></i></div>
+              </div>
+            </div>
+            <div style="font-size:9.5px;color:var(--text3);text-align:center;margin-top:10px;">Import only shown for bank/card accounts — a cash wallet has no statement.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle" id="s2"><span class="stepnum">2</span>Upload + bank preset + column mapping</div>
+    <div class="sectionsub">CSV only for v1. Selecting a bank pre-fills the column map below it; delimiter and every column stay user-editable.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Select bank<span class="tag">step 1</span></div>
+        <div class="vsub">The 7 confirmed presets, plus a Custom fallback.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Import statement<span class="s">HDFC Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content">
+            <div class="fieldlabel" style="margin-top:0;">Which bank is this statement from?</div>
+            <div class="bankgrid">
+              <div class="b sel">HDFC</div><div class="b">ICICI</div><div class="b">Kotak</div>
+              <div class="b">SBI</div><div class="b">IndusInd</div><div class="b">HSBC</div>
+              <div class="b">Bank of Baroda</div><div class="b">Other / Custom</div>
+            </div>
+            <div class="fieldlabel">Upload CSV file</div>
+            <div class="dropzone"><i class="ti ti-file-upload"></i>Tap to choose a file<br/>or drop it here</div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Confirm column mapping<span class="tag">step 2</span></div>
+        <div class="vsub">Pre-filled from the HDFC preset; every row opens a column picker on tap.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Column mapping<span class="s">statement_july.csv</span></span><span style="width:16px;"></span></div>
+          <div class="content">
+            <div class="card">
+              <div class="maprow"><span class="k">Delimiter</span><span class="v">Comma ( , )</span></div>
+              <div class="maprow"><span class="k">Date</span><span class="v">Column 1 · "Txn Date"</span></div>
+              <div class="maprow"><span class="k">Narration</span><span class="v">Column 2 · "Narration"</span></div>
+              <div class="maprow"><span class="k">Debit</span><span class="v">Column 4 · "Withdrawal Amt"</span></div>
+              <div class="maprow"><span class="k">Credit</span><span class="v">Column 5 · "Deposit Amt"</span></div>
+              <div class="maprow" style="border-bottom:none;"><span class="k">Balance</span><span class="v">Column 6 · "Closing Balance"</span></div>
+            </div>
+            <div style="font-size:9.5px;color:var(--text3);margin-top:8px;">312 rows detected · 1–31 Jul 2026</div>
+            <div class="btn pri" style="margin-top:10px;">Continue to review</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle" id="s3"><span class="stepnum">3</span>Review screen — four buckets</div>
+    <div class="sectionsub">Matched is collapsed by default (audit-only); Possible matches, Not yet logged, and Recorded-not-in-statement are expanded since they need a decision.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Full review screen<span class="tag">main screen</span></div>
+        <div class="vsub">Scrollable — this shows the whole default state at once.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-x" style="color:#8b949e;"></i><span class="t">Review import<span class="s">HDFC Savings · Jul 2026</span></span><span style="width:16px;"></span></div>
+          <div class="content tall">
+            <div class="summarystrip">
+              <div class="s"><div class="n">312</div><div class="l">Lines</div></div>
+              <div class="s"><div class="n" style="color:#7ee6b8;">268</div><div class="l">Matched</div></div>
+              <div class="s"><div class="n" style="color:var(--amber);">6</div><div class="l">Possible</div></div>
+              <div class="s"><div class="n" style="color:var(--blue);">34</div><div class="l">New</div></div>
+              <div class="s"><div class="n" style="color:var(--danger);">4</div><div class="l">Lone</div></div>
+            </div>
+
+            <div class="bucket">
+              <div class="buckethead"><div class="dot" style="background:var(--primary);"></div><span class="lab">✓ Matched</span><span class="cnt">268 · tap to review</span><i class="ti ti-chevron-down chev"></i></div>
+            </div>
+
+            <div class="bucket">
+              <div class="buckethead"><div class="dot" style="background:var(--amber);"></div><span class="lab">Possible matches</span><span class="cnt">6</span><i class="ti ti-chevron-up chev"></i></div>
+              <div class="plainrow">
+                <div class="picn"><i class="ti ti-help-circle"></i></div>
+                <div class="pmid"><div class="t1">UPI-AMAZON-PAY-88213</div><div class="t2">28 Jul · ₹1,299 · closest: "Amazon order" (₹1,249, 26 Jul)</div></div>
+                <div class="pamt" style="color:var(--amber);">Choose ›</div>
+              </div>
+              <div class="plainrow">
+                <div class="picn"><i class="ti ti-help-circle"></i></div>
+                <div class="pmid"><div class="t1">NEFT-N123-XYZTRAD</div><div class="t2">15 Jul · ₹5,000 · 2 possible matches</div></div>
+                <div class="pamt" style="color:var(--amber);">Choose ›</div>
+              </div>
+            </div>
+
+            <div class="bucket">
+              <div class="buckethead"><div class="dot" style="background:var(--blue);"></div><span class="lab">Not yet logged</span><span class="cnt">34 · 6 merchants</span><i class="ti ti-chevron-up chev"></i></div>
+              <div class="grouphead">
+                <div class="gicn"><i class="ti ti-tools-kitchen-2"></i></div>
+                <div class="gname">ZOMATO</div>
+                <div class="gcnt">7 transactions</div>
+              </div>
+              <div class="grouplist">
+                <div class="grouprow"><div class="cb on"><i class="ti ti-check"></i></div><div class="gr1">3 Jul</div><div class="gr2">₹410</div></div>
+                <div class="grouprow"><div class="cb on"><i class="ti ti-check"></i></div><div class="gr1">6 Jul</div><div class="gr2">₹690</div></div>
+                <div class="grouprow"><div class="cb"></div><div class="gr1">9 Jul · <span style="color:#f0b060;">unchecked</span></div><div class="gr2">₹1,240</div></div>
+                <div class="grouprow"><div class="cb on"><i class="ti ti-check"></i></div><div class="gr1">14 Jul</div><div class="gr2">₹520</div></div>
+                <div class="grouprow"><div class="cb on"><i class="ti ti-check"></i></div><div class="gr1">19 Jul</div><div class="gr2">₹380</div></div>
+                <div class="grouprow"><div class="cb"></div><div class="gr1">22 Jul · <span style="color:#f0b060;">unchecked</span></div><div class="gr2">₹1,155</div></div>
+                <div class="grouprow"><div class="cb on"><i class="ti ti-check"></i></div><div class="gr1">27 Jul</div><div class="gr2">₹465</div></div>
+              </div>
+              <div class="btn sec" style="margin-bottom:8px;"><i class="ti ti-category" style="font-size:12px;"></i>Categorize 5 selected ›</div>
+
+              <div class="grouphead">
+                <div class="gicn" style="background:#122b3a;color:var(--blue);"><i class="ti ti-receipt-2"></i></div>
+                <div class="gname">Electricity Board</div>
+                <div class="gcnt">1 transaction</div>
+              </div>
+              <div class="grouplist" style="margin-bottom:8px;">
+                <div class="grouprow"><div class="cb on"><i class="ti ti-check"></i></div><div class="gr1">10 Jul</div><div class="gr2">₹2,340</div></div>
+              </div>
+            </div>
+
+            <div class="bucket">
+              <div class="buckethead"><div class="dot" style="background:var(--danger);"></div><span class="lab">Recorded, not in statement</span><span class="cnt">4</span><i class="ti ti-chevron-up chev"></i></div>
+              <div class="lonewolf">
+                <div class="licn"><i class="ti ti-alert-triangle"></i></div>
+                <div class="lmid"><div class="t1">"Coffee shop" — ₹350</div><div class="t2">Logged 12 Jul · no statement line found</div></div>
+                <div class="lacts"><div class="ib"><i class="ti ti-pencil"></i></div><div class="ib"><i class="ti ti-trash"></i></div></div>
+              </div>
+              <div class="lonewolf">
+                <div class="licn"><i class="ti ti-alert-triangle"></i></div>
+                <div class="lmid"><div class="t1">"Grocery run" — ₹1,890</div><div class="t2">Logged 31 Jul · near statement edge — may be in Aug's statement</div></div>
+                <div class="lacts"><div class="ib"><i class="ti ti-pencil"></i></div><div class="ib"><i class="ti ti-trash"></i></div></div>
+              </div>
+            </div>
+
+            <div class="stickybar">
+              <div class="info"><b>29 ready to import</b>6 confirmed, 23 new, 0 lone-wolf actions yet</div>
+              <div class="btn pri" style="padding:9px 16px;">Import</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Matched bucket, expanded<span class="tag">zoom-in</span></div>
+        <div class="vsub">Tapping "268 · tap to review" reveals paired tiles — statement line and recorded line side by side.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Matched<span class="s">268 transactions</span></span><span style="width:16px;"></span></div>
+          <div class="content med">
+            <div class="pairtile">
+              <div class="half stmt"><div class="k">Statement</div><div class="desc">UPI-SWIGGY-4471-YBL</div><div class="amt">−₹410 · 3 Jul</div></div>
+              <div class="half rec"><div class="k">Recorded</div><div class="desc">Lunch order</div><div class="amt">−₹410 · 3 Jul</div></div>
+            </div>
+            <div class="pairtile">
+              <div class="half stmt"><div class="k">Statement</div><div class="desc">SALARY CREDIT ACME CORP</div><div class="amt">+₹85,000 · 1 Jul</div></div>
+              <div class="half rec"><div class="k">Recorded</div><div class="desc">Salary</div><div class="amt">+₹85,000 · 1 Jul</div></div>
+            </div>
+            <div class="pairtile">
+              <div class="half stmt"><div class="k">Statement</div><div class="desc">NETFLIX.COM 4498</div><div class="amt">−₹649 · 5 Jul</div></div>
+              <div class="half rec"><div class="k">Recorded</div><div class="desc">Netflix subscription</div><div class="amt">−₹649 · 5 Jul</div></div>
+            </div>
+            <div class="btn sec" style="font-size:10.5px;padding:8px;">Disagree with a match? Tap any pair to re-choose ›</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle" id="s4"><span class="stepnum">4</span>Resolving a "possible match"</div>
+    <div class="sectionsub">Adapted from Goals' existing "Link existing transaction" modal — defaults to ±3 days, widen or view the whole month, search, or add as new.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Possible-match picker<span class="tag">modal</span></div>
+        <div class="vsub">The statement line in question sits at the top for reference.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-x" style="color:#8b949e;"></i><span class="t">Choose the match</span><span style="width:16px;"></span></div>
+          <div class="content med">
+            <div class="card" style="margin-bottom:10px;">
+              <div class="lbl">Statement line</div>
+              <div style="font-size:11.5px;font-weight:700;margin-top:2px;">NEFT-N123-XYZTRAD</div>
+              <div style="font-size:10.5px;color:var(--text2);margin-top:1px;">15 Jul · ₹5,000</div>
+            </div>
+            <div class="searchbox"><i class="ti ti-search"></i><input placeholder="Search your transactions…"/></div>
+            <div class="rangepills">
+              <div class="chip on">± 3 days</div><div class="chip">Widen range</div><div class="chip">View whole month</div>
+            </div>
+            <div class="candrow"><div class="cmid"><div class="t1">Freelance payment</div><div class="t2">14 Jul · HDFC Savings</div></div><div class="camt">₹5,000</div></div>
+            <div class="candrow"><div class="cmid"><div class="t1">Consulting fee — XYZ</div><div class="t2">16 Jul · HDFC Savings</div></div><div class="camt">₹5,000</div></div>
+            <div class="btn sec" style="margin-top:6px;">No match — add as new</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle" id="s5"><span class="stepnum">5</span>Bulk-categorizing a repeat merchant</div>
+    <div class="sectionsub">Opened from "Categorize 5 selected" — one shared category/description/tags/payment-mode applied to every checked occurrence. No merchant memory yet in this example, so the fields start blank.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">First time seeing this merchant<span class="tag">blank fields</span></div>
+        <div class="vsub">Description auto-focused, per the existing Add Expense convention.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-x" style="color:#8b949e;"></i><span class="t">Categorize · ZOMATO<span class="s">5 of 7 selected</span></span><span style="width:16px;"></span></div>
+          <div class="content med">
+            <div class="fieldlabel" style="margin-top:0;">Description</div>
+            <div class="fieldbox focused">Lunch order<span class="caret"></span></div>
+            <div class="fieldlabel">Category</div>
+            <div class="fieldbox">Food &amp; Dining</div>
+            <div class="fieldlabel">Payment mode <span style="color:var(--primary);font-weight:700;">· guessed from "UPI"</span></div>
+            <div class="fieldbox">UPI</div>
+            <div class="fieldlabel">Tags (optional)</div>
+            <div class="fieldbox ph">#lunch, #office</div>
+            <div style="font-size:9.5px;color:var(--text3);margin-top:10px;">Applies to the 5 checked transactions — each keeps its own date and amount.</div>
+            <div class="btn pri" style="margin-top:8px;">Apply to 5 transactions</div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Same merchant, next month<span class="tag">memory pre-fills</span></div>
+        <div class="vsub">Everything pre-filled from last time — just review and confirm.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-x" style="color:#8b949e;"></i><span class="t">Categorize · ZOMATO<span class="s">4 of 4 selected</span></span><span style="width:16px;"></span></div>
+          <div class="content med">
+            <div class="chip on" style="margin-bottom:10px;"><i class="ti ti-sparkles" style="font-size:10px;"></i>Remembered from last import</div>
+            <div class="fieldlabel" style="margin-top:0;">Description</div>
+            <div class="fieldbox">Lunch order</div>
+            <div class="fieldlabel">Category</div>
+            <div class="fieldbox">Food &amp; Dining</div>
+            <div class="fieldlabel">Payment mode</div>
+            <div class="fieldbox">UPI</div>
+            <div class="fieldlabel">Tags (optional)</div>
+            <div class="fieldbox">#lunch, #office</div>
+            <div class="btn pri" style="margin-top:12px;">Apply to 4 transactions</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle" id="s6"><span class="stepnum">6</span>Recording a single new transaction</div>
+    <div class="sectionsub">The real Expense form, locked/pre-filled via a new "statement" preset — same pattern already used for Goal contributions.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Statement-preset Expense form<span class="tag">real form, reused</span></div>
+        <div class="vsub">Date, amount, account, type and payment-mode guess are locked-in from the statement; only category + description need you.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-x" style="color:#8b949e;"></i><span class="t">Add transaction</span><span style="width:16px;"></span></div>
+          <div class="content med">
+            <div class="lockrow"><span class="lk">Amount</span><span class="lv">₹2,340 <i class="ti ti-lock"></i></span></div>
+            <div class="lockrow"><span class="lk">Date</span><span class="lv">10 Jul 2026 <i class="ti ti-lock"></i></span></div>
+            <div class="lockrow"><span class="lk">Account</span><span class="lv">HDFC Savings <i class="ti ti-lock"></i></span></div>
+            <div class="lockrow"><span class="lk">Type</span><span class="lv">Expense <i class="ti ti-lock"></i></span></div>
+            <div class="lockrow"><span class="lk">Payment mode <span style="color:var(--primary);">· guessed</span></span><span class="lv">NEFT</span></div>
+            <div class="fieldlabel">Category</div>
+            <div class="fieldbox ph">Choose a category…</div>
+            <div class="fieldlabel">Description</div>
+            <div class="fieldbox focused">Electricity bill<span class="caret"></span></div>
+            <div style="font-size:9.5px;color:var(--text3);margin-top:8px;">"NEFT" doesn't exist yet as a payment mode — created once, on save.</div>
+            <div class="btn pri" style="margin-top:8px;">Save</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle" id="s7"><span class="stepnum">7</span>A lone wolf, up close</div>
+    <div class="sectionsub">Recorded in Penny, but no statement line matches it — could be a duplicate, a mis-logged account, or genuinely fine.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Lone-wolf detail<span class="tag">expanded row</span></div>
+        <div class="vsub">Tapping the row (not the action icons) could open the real transaction for more context — same nested-tap pattern used elsewhere.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Recorded, not in statement</span><span style="width:16px;"></span></div>
+          <div class="content med">
+            <div class="lonewolf" style="align-items:flex-start;">
+              <div class="licn"><i class="ti ti-alert-triangle"></i></div>
+              <div class="lmid">
+                <div class="t1">"Coffee shop" — ₹350</div>
+                <div class="t2">Logged 12 Jul · HDFC Savings · no statement line within ±3 days</div>
+                <div style="font-size:9px;color:var(--text3);margin-top:4px;line-height:1.5;">This could be a duplicate entry, logged against the wrong account, or a real transaction the statement simply doesn't show. Nothing happens automatically — choose below.</div>
+              </div>
+            </div>
+            <div class="btn sec" style="margin-bottom:6px;"><i class="ti ti-check" style="font-size:12px;"></i>Keep as-is</div>
+            <div class="btn sec" style="margin-bottom:6px;"><i class="ti ti-pencil" style="font-size:12px;"></i>Edit transaction</div>
+            <div class="btn sec" style="color:var(--danger);"><i class="ti ti-trash" style="font-size:12px;color:var(--danger);"></i>Delete (likely duplicate)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle" id="s8"><span class="stepnum">8</span>Final commit</div>
+    <div class="sectionsub">Nothing touches the real vault until this tap — everything resolved during review is staged, then written all at once.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Confirm &amp; import<span class="tag">final step</span></div>
+        <div class="vsub">A last checkpoint before the one-shot write.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-x" style="color:#8b949e;"></i><span class="t">Ready to import</span><span style="width:16px;"></span></div>
+          <div class="content">
+            <div class="card" style="margin-bottom:8px;">
+              <div class="row between" style="margin-bottom:6px;"><span style="font-size:11px;color:var(--text2);">New transactions</span><span style="font-size:12px;font-weight:700;">23</span></div>
+              <div class="row between" style="margin-bottom:6px;"><span style="font-size:11px;color:var(--text2);">Confirmed matches</span><span style="font-size:12px;font-weight:700;">6</span></div>
+              <div class="row between"><span style="font-size:11px;color:var(--text2);">Lone-wolf actions</span><span style="font-size:12px;font-weight:700;">2 (1 edited, 1 deleted)</span></div>
+            </div>
+            <div style="font-size:9.5px;color:var(--text3);margin-bottom:10px;">Leaving this screen without importing discards everything above — nothing is saved until you tap Import.</div>
+            <div class="btn pri">Import 29 transactions</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle" id="s9"><span class="stepnum">9</span>Normalization overrides (global)</div>
+    <div class="sectionsub">Reachable from the Accounts page — global, since merchant memory spans every account. Lets the user fix a normalization the automatic heuristic gets wrong, keyed on a stable keyword rather than the full (ever-changing) raw line.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Manage merchant normalization<span class="tag">global screen</span></div>
+        <div class="vsub">Custom overrides always win over the automatic guess.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Merchant recognition</span><span style="width:16px;"></span></div>
+          <div class="content med">
+            <div class="normrow"><span class="nfrom">UPI-SWIGGY-*</span><i class="ti ti-arrow-right arr"></i><span class="nto">SWIGGY</span><span class="ntag">auto</span></div>
+            <div class="normrow"><span class="nfrom">UPI-ZOMATO-*</span><i class="ti ti-arrow-right arr"></i><span class="nto">ZOMATO</span><span class="ntag">auto</span></div>
+            <div class="normrow"><span class="nfrom">POS-XYZSHOP99*</span><i class="ti ti-arrow-right arr"></i><span class="nto">Local Chai Shop</span><span class="ntag custom">custom</span></div>
+            <div class="normrow"><span class="nfrom">NEFT-N123-XYZTRAD</span><i class="ti ti-arrow-right arr"></i><span class="nto">XYZ Traders</span><span class="ntag custom">custom</span></div>
+            <div class="btn pri" style="margin-top:12px;"><i class="ti ti-plus" style="font-size:12px;"></i>Add override</div>
+            <div class="fieldlabel">Keyword in statement</div>
+            <div class="fieldbox ph">e.g. XYZSHOP99</div>
+            <div class="fieldlabel">Normalizes to</div>
+            <div class="fieldbox ph">e.g. Local Chai Shop</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle" id="s10"><span class="stepnum">10</span>Post-import balance check</div>
+    <div class="sectionsub">Optional confidence nudge only — never auto-corrects anything, just points to the existing Reconcile feature.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Balance mismatch nudge<span class="tag">post-import</span></div>
+        <div class="vsub">Shown only if the statement's own closing-balance column doesn't match Penny's computed balance after import.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">HDFC Savings</span></div>
+          <div class="content">
+            <div class="nudge">
+              <i class="ti ti-alert-triangle"></i>
+              <div class="txt">Statement shows a closing balance of <b>₹1,45,320</b> on 31 Jul, but Penny computes <b>₹1,44,820</b> — a ₹500 gap. <span style="color:#7ee6b8;font-weight:700;">Reconcile now ›</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

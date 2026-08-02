@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Date header: on the rail, corrected</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --blue:#3b82f6; --danger:#ef4444; --pink:#ec4899;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 22px; color:#9aa5b1; font-size:14px; max-width:760px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 10px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .header { height:40px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .htitle { flex:1; text-align:center; font-size:13.5px; font-weight:700; color:var(--text); }
+      .avatar { width:26px; height:26px; border-radius:50%; background:var(--primary); display:grid; place-items:center; color:#fff; font-size:11px; font-weight:800; }
+
+      .content { padding:8px 14px 14px; }
+      /* the date label itself sits ON the rail column — same x as the dot/line, not indented over to
+         where the icon/content starts. */
+      .datelbl { font-size:9px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; color:var(--text3); padding:8px 0 2px 5px; }
+      .txnrow { display:flex; align-items:center; gap:10px; padding:8px 4px; position:relative; }
+      .rail { position:absolute; left:5px; top:0; bottom:0; width:10px; display:flex; flex-direction:column; align-items:center; }
+      .rail .seg { width:1px; flex:1; background:var(--border); }
+      .rail .dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+      .icn { width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-left:14px; }
+      .txnmid { flex:1; min-width:0; }
+      .txnmid .t1 { font-size:12.5px; font-weight:600; color:var(--text); }
+      .txnmid .t2 { font-size:10.5px; color:var(--text3); margin-top:1px; }
+      .txnright { text-align:right; flex-shrink:0; }
+      .txnright .amt { font-size:12.5px; font-weight:700; }
+      .txnright .acc { font-size:9px; color:var(--text3); margin-top:2px; }
+
+      .legend { max-width:760px; margin:14px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13.5px; line-height:1.75; }
+      .legend b { color:#fff; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Date header — corrected: right on the rail</h1>
+    <p class="sub">Fixed from last round — the label now starts at the rail's own x-position (same column
+      as the dot/line), not indented over to where the icon/content begins. Still one small tight line,
+      full year included.</p>
+
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">On the rail, tight</div>
+        <div class="vsub">Label sits directly above that day's dot, in the rail's own column.</div>
+        <div class="phone" style="height:400px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Transactions</div><div style="width:26px"></div></div>
+          <div class="content">
+            <div class="datelbl">Yesterday</div>
+            <div class="txnrow">
+              <div class="rail"><div class="seg"></div><div class="dot" style="background:var(--primary)"></div><div class="seg"></div></div>
+              <div class="icn" style="background:rgba(16,185,129,.15);color:var(--primary)"><i class="ti ti-arrow-up-circle"></i></div>
+              <div class="txnmid"><div class="t1">Monthly salary credit</div><div class="t2">Salary <span style="color:var(--primary)">#sample</span></div></div>
+              <div class="txnright"><div class="amt" style="color:var(--primary)">+₹85,000</div><div class="acc">HDFC Savings</div></div>
+            </div>
+
+            <div class="datelbl">29 Jul 2026</div>
+            <div class="txnrow">
+              <div class="rail"><div class="seg"></div><div class="dot" style="background:var(--blue)"></div><div class="seg"></div></div>
+              <div class="icn" style="background:rgba(59,130,246,.15);color:var(--blue)"><i class="ti ti-file-text"></i></div>
+              <div class="txnmid"><div class="t1">Broadband bill</div><div class="t2">Bills & Utilities <span style="color:var(--primary)">#sample</span></div></div>
+              <div class="txnright"><div class="amt" style="color:var(--danger)">-₹1,199</div><div class="acc">HDFC Savings</div></div>
+            </div>
+            <div class="txnrow">
+              <div class="rail"><div class="seg"></div><div class="dot" style="background:var(--blue)"></div><div class="seg"></div></div>
+              <div class="icn" style="background:rgba(59,130,246,.15);color:var(--blue)"><i class="ti ti-file-text"></i></div>
+              <div class="txnmid"><div class="t1">Mobile postpaid bill</div><div class="t2">Bills & Utilities <span style="color:var(--primary)">#sample</span></div></div>
+              <div class="txnright"><div class="amt" style="color:var(--danger)">-₹799</div><div class="acc">HDFC Savings</div></div>
+            </div>
+
+            <div class="datelbl">26 Jul 2026</div>
+            <div class="txnrow">
+              <div class="rail"><div class="seg"></div><div class="dot" style="background:var(--pink)"></div><div class="seg"></div></div>
+              <div class="icn" style="background:rgba(236,72,153,.15);color:var(--pink)"><i class="ti ti-device-tv"></i></div>
+              <div class="txnmid"><div class="t1">Movies & events</div><div class="t2">Entertainment <span style="color:var(--primary)">#sample</span></div></div>
+              <div class="txnright"><div class="amt" style="color:var(--danger)">-₹1,337</div><div class="acc">HDFC Regalia CC</div></div>
+            </div>
+            <div class="txnrow">
+              <div class="rail"><div class="seg"></div><div class="dot" style="background:var(--pink)"></div><div class="seg" style="flex:0"></div></div>
+              <div class="icn" style="background:rgba(236,72,153,.15);color:var(--pink)"><i class="ti ti-device-tv"></i></div>
+              <div class="txnmid"><div class="t1">Rafting, Khardung La permit & activities</div><div class="t2">Entertainment <span style="color:var(--primary)">#sample #leh-ladakh #vacation</span></div></div>
+              <div class="txnright"><div class="amt" style="color:var(--danger)">-₹2,800</div><div class="acc">Cash Wallet</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      Same implementation shape as before (a <code>dateLabel?</code> field on the day's first
+      transaction row, not a separate list item) — only the horizontal position changed, from indented
+      over the content to sitting in the rail's own column.
+    </div>
+  </body>
+</html>
