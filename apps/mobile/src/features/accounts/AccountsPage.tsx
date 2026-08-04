@@ -1,33 +1,52 @@
-import { ScrollView } from 'react-native';
+import { View, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { Account } from '@/core/db/types';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { Button, PageHeader } from '~/components/ui';
-import { BackButton } from '~/components/shared';
 import { useAccounts } from './useAccounts';
-import { useAccountForm } from './useAccountForm';
+import { useAccountForm } from '~/hooks/useAccountForm';
 import { AccountList } from './AccountList';
-import { AccountFormModal } from './AccountFormModal';
+import { PaymentModesSection } from './PaymentModesSection';
+import { AccountFormModal } from '~/components/shared';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
+import type { HomeStackParamList } from '~/navigation/HomeStack';
 
 export function AccountsPage() {
   const modeBg = useModeBackgroundColor();
   const { shouldMask } = usePrivacy();
-  const { accounts, txns, saving, totalBalance, saveAccount, deleteAccount, reconcileAccount } = useAccounts();
+  const navigation = useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
+  const { accounts, txns, saving, totalBalance, saveAccount, deleteAccount, reconcileAccount, categoryMap, hashtags } =
+    useAccounts();
   const form = useAccountForm(saveAccount, accounts);
+  useDefaultHeaderBack('Accounts');
+
+  function handleImport(acc: Account) {
+    navigation.navigate('BankImport', { accountId: acc.id });
+  }
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader
-        leading={<BackButton />}
-        title="Accounts"
         actions={
-          <Button
-            variant="primary"
-            icon="ti-plus"
-            accessibilityLabel="Add account"
-            className="w-8 h-8 rounded-lg"
-            onPress={form.openAdd}
-          />
+          <View className="flex-row gap-2">
+            <Button
+              variant="ghost"
+              icon="ti-adjustments-horizontal"
+              accessibilityLabel="Merchant recognition settings"
+              className="w-8 h-8 rounded-lg"
+              onPress={() => navigation.navigate('BankImportOverrides')}
+            />
+            <Button
+              variant="primary"
+              icon="ti-plus"
+              accessibilityLabel="Add account"
+              className="w-8 h-8 rounded-lg"
+              onPress={form.openAdd}
+            />
+          </View>
         }
       />
 
@@ -37,11 +56,15 @@ export function AccountsPage() {
           txns={txns}
           totalBalance={totalBalance}
           shouldMask={shouldMask}
+          categoryMap={categoryMap}
+          hashtags={hashtags}
           onAdd={form.openAdd}
           onEdit={form.openEdit}
+          onImport={handleImport}
           deleteAccount={deleteAccount}
           reconcileAccount={reconcileAccount}
         />
+        <PaymentModesSection />
       </ScrollView>
 
       {form.showForm && <AccountFormModal form={form} saving={saving} />}

@@ -193,15 +193,6 @@ function parseChallans(json: RawChallanResponse): ChallanSummary {
 }
 
 const normReg = (reg: string) => reg.toUpperCase().replace(/\s+/g, '');
-const emptyChallans = (): ChallanSummary => ({
-  total: 0,
-  pending: 0,
-  paid: 0,
-  disposed: 0,
-  pendingAmount: 0,
-  records: [],
-  fetchedAt: Date.now()
-});
 
 export async function fetchRcDetails(regNumber: string): Promise<RcDetails> {
   const res = await fetch(`${BASE}/get-rc-details`, {
@@ -226,8 +217,17 @@ export async function fetchChallans(regNumber: string): Promise<ChallanSummary> 
 /**
  * Fetch RC + challans for a registration number. Through the API proxy when configured (which may
  * return a `queued` status → {@link VehicleQueuedError}); otherwise two direct POSTs as before.
+ *
+ * RC and challan failure are handled differently on purpose: RC is the vehicle's actual identity
+ * (make/model/year/etc.) — if it fails, there is nothing meaningful to save, so it propagates as a
+ * real rejection. Challan is a bonus enrichment on top of an already-identified vehicle — its own
+ * endpoint is the flakier of the two in practice, and a challan-only failure must never discard RC
+ * data that was already successfully fetched. `challans: null` (not a thrown error, not an empty
+ * summary) is the signal for "RC succeeded, challan specifically failed" — `null` is also what a
+ * proxy response with no `challans` field means, rather than silently treating "no data" as "zero
+ * challans, all clean" (misleading — those are different, distinguishable states).
  */
-export async function fetchVehicleData(regNumber: string): Promise<{ rc: RcDetails; challans: ChallanSummary }> {
+export async function fetchVehicleData(regNumber: string): Promise<{ rc: RcDetails; challans: ChallanSummary | null }> {
   if (VEHICLE_PROXY) {
     const res = await fetch(`${VEHICLE_PROXY}/${encodeURIComponent(normReg(regNumber))}`);
     if (!res.ok) throw new Error(`Vehicle fetch failed: ${res.status}`);
@@ -246,9 +246,15 @@ export async function fetchVehicleData(regNumber: string): Promise<{ rc: RcDetai
     if (!body.data?.rc) throw new Error('Vehicle not found');
     return {
       rc: parseRc(body.data.rc, regNumber),
-      challans: body.data.challans ? parseChallans(body.data.challans) : emptyChallans()
+      challans: body.data.challans ? parseChallans(body.data.challans) : null
     };
   }
-  const [rc, challans] = await Promise.all([fetchRcDetails(regNumber), fetchChallans(regNumber)]);
+  const rc = await fetchRcDetails(regNumber);
+  let challans: ChallanSummary | null;
+  try {
+    challans = await fetchChallans(regNumber);
+  } catch {
+    challans = null;
+  }
   return { rc, challans };
 }

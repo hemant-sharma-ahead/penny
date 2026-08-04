@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Goal linking, refined to match the real Expense form</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --danger:#ef4444; --success:#10b981; --info:#3b82f6;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 22px; color:#9aa5b1; font-size:14px; max-width:960px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .research { max-width:960px; margin:0 auto 26px; background:#0e141b; border:1px solid #1e2733; border-radius:14px; padding:16px 20px; color:#c3ccd6; font-size:13px; line-height:1.75; }
+      .research h3 { color:#fff; font-size:13px; margin:0 0 6px; }
+      .research code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:12px; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 30px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.new { background:#123524; color:#7ee6b8; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; height:600px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+
+      .typerow { display:flex; align-items:center; padding:12px 12px 8px; gap:8px; }
+      .typebtn { display:flex; align-items:center; gap:5px; padding:7px 12px; border-radius:10px; font-size:12px; font-weight:700; color:var(--text3); }
+      .typebtn.on { background:var(--danger); color:#fff; }
+      .typebtn i { font-size:13px; }
+      .xbtn { margin-left:auto; color:var(--text3); font-size:16px; }
+
+      .content { flex:1; padding:6px 14px 14px; overflow:hidden; }
+      .bigamt { text-align:center; font-size:34px; font-weight:800; color:var(--text3); padding:10px 0 16px; }
+      .finput { background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:12px 14px; font-size:13px; color:var(--text3); margin-bottom:10px; }
+      .fielddual { display:flex; gap:8px; margin-bottom:14px; }
+      .fielddual .finput { flex:1; margin-bottom:0; }
+
+      .seclabel { font-size:10.5px; font-weight:700; color:var(--text2); margin-bottom:8px; }
+      .accgrid { display:flex; gap:8px; margin-bottom:14px; }
+      .acctile { flex:1; align-items:center; text-align:center; }
+      .acctile .ic { width:44px; height:44px; border-radius:12px; margin:0 auto 5px; display:flex; align-items:center; justify-content:center; }
+      .acctile .lb { font-size:9px; color:var(--text2); }
+
+      .circlerow { display:flex; justify-content:center; gap:9px; padding:6px 0 14px; }
+      .circletile { width:60px; display:flex; flex-direction:column; align-items:center; gap:5px; }
+      .circletile .ic { width:44px; height:44px; border-radius:50%; border:1.5px solid var(--border); background:var(--surface2); display:flex; align-items:center; justify-content:center; }
+      .circletile.on .ic { border-color:var(--danger); background:rgba(239,68,68,.15); }
+      .circletile .ic i { font-size:17px; color:var(--text3); }
+      .circletile.on .ic i { color:var(--danger); }
+      .circletile .lb { font-size:9.5px; font-weight:600; color:var(--text3); }
+      .circletile.on .lb { color:var(--text); }
+
+      .panel { background:var(--surface3); border:1px solid var(--border); border-radius:14px; padding:12px; margin-bottom:12px; }
+      .panelhead { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+      .panelhead .t1 { font-size:12px; font-weight:700; color:var(--text2); }
+      .panelhead .link { font-size:11px; font-weight:700; color:var(--primary); }
+
+      .goalpill { display:flex; align-items:center; gap:6px; padding:7px 12px; border-radius:999px; border:2px solid var(--border); margin-right:6px; margin-bottom:6px; }
+      .goalpill .dot { width:7px; height:7px; border-radius:50%; }
+      .goalpill span { font-size:11.5px; font-weight:600; color:var(--text2); }
+      .goalpill.on { background:rgba(16,185,129,.12); }
+      .pillwrap { display:flex; flex-wrap:wrap; }
+
+      /* Transaction list */
+      .listcontent { padding:10px 14px; }
+      .txnrow { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); }
+      .txnrow .tic { width:34px; height:34px; border-radius:11px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .txnrow .txt { flex:1; min-width:0; }
+      .txnrow .t1row { display:flex; align-items:center; gap:4px; }
+      .txnrow .t1 { font-size:12.5px; font-weight:700; color:var(--text); }
+      .txnrow .t2 { font-size:10.5px; color:var(--text3); margin-top:1px; }
+      .txnrow .amt { font-size:12.5px; font-weight:700; flex-shrink:0; }
+      .txnrow i.goalind { font-size:11px; color:var(--success); }
+
+      .legend { max-width:960px; margin:10px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:#fff; }
+      .legend b { color:#fff; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend li { margin-bottom:8px; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:12px; }
+      .legend .rec-box { background:color-mix(in srgb, var(--primary) 12%, #0e141b); border:1px solid color-mix(in srgb, var(--primary) 35%, #0e141b); border-radius:12px; padding:14px 16px; margin-top:12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Goal linking, matched to the real Expense form</h1>
+    <p class="sub">Grounded directly in your screenshot's actual icon-circle row (Tags/Receipt/Lent/
+      Repeat) and Cashew's real Flutter source (not just its FAQ this time).</p>
+
+    <div class="research">
+      <h3>Deeper research: Cashew's actual source code (github.com/jameskokoska/Cashew)</h3>
+      Fetched <code>addTransactionPage.dart</code> and <code>transactionEntries.dart</code> directly. The
+      goal picker is a real widget class, <code>SelectObjective</code>, built on a shared
+      <code>SelectChips</code> component with <code>allowMultipleSelected: false</code> — a horizontal
+      row of pills, one per goal, plus an implicit "no goal" pill and a trailing "+" pill to create a new
+      goal inline. Each pill's border is tinted with that goal's own colour. Selecting a pill just calls
+      <code>setSelectedObjective(goal.id)</code>; tapping a different pill (or the "no goal" one) swaps
+      the selection — true single-select, not a toggle-per-pill. <b>Difference from Cashew:</b> Cashew
+      shows this pill row <i>always</i> (whenever goals exist), with no separate "enable" step — the
+      "no goal" pill inside the row <i>is</i> the off-state. You specifically want it behind a Tags-style
+      icon toggle instead, matching Penny's own convention rather than Cashew's, so that's what's mocked
+      up here — Cashew's row confirms this exact pill-based selector look, just relocated behind a toggle
+      to match the form you already have.
+    </div>
+
+    <div class="gallery">
+
+      <!-- Frame 1: real form with new Goal tile, off -->
+      <div class="frame-wrap">
+        <div class="vtitle">1 — New "Goal" tile <span class="tag new">new</span></div>
+        <div class="vsub">Same circular icon-tile style as Tags/Receipt/Lent/Repeat (your screenshot's exact <code>ExtraCircle</code> component) — placed between Receipt and Lent. Unlike Tags/Receipt/Lent (expense/income only), the Goal tile shows for <b>all three</b> types, including Transfer.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="typerow">
+            <div class="typebtn on"><i class="ti ti-arrow-down"></i>Expense</div>
+            <div class="typebtn"><i class="ti ti-arrow-up"></i>Income</div>
+            <div class="typebtn"><i class="ti ti-transfer"></i>Transfer</div>
+            <div class="xbtn">✕</div>
+          </div>
+          <div class="content">
+            <div class="bigamt">₹0</div>
+            <div class="finput">What was this for?</div>
+            <div class="fielddual">
+              <div class="finput">▦ Select category</div>
+              <div class="finput">📅 1 Aug 2026</div>
+            </div>
+            <div class="seclabel">Account</div>
+            <div class="accgrid">
+              <div class="acctile"><div class="ic" style="background:rgba(59,130,246,.15)"><i class="ti ti-building-bank" style="color:var(--info)"></i></div><div class="lb">HDFC Savings</div></div>
+              <div class="acctile"><div class="ic" style="background:rgba(239,68,68,.15)"><i class="ti ti-credit-card" style="color:var(--danger)"></i></div><div class="lb">HDFC Regalia</div></div>
+              <div class="acctile"><div class="ic" style="background:rgba(16,185,129,.15)"><i class="ti ti-wallet" style="color:var(--success)"></i></div><div class="lb">Cash Wallet</div></div>
+            </div>
+            <div class="circlerow">
+              <div class="circletile"><div class="ic"><i class="ti ti-hash"></i></div><div class="lb">Tags</div></div>
+              <div class="circletile"><div class="ic"><i class="ti ti-camera"></i></div><div class="lb">Receipt</div></div>
+              <div class="circletile"><div class="ic"><i class="ti ti-target"></i></div><div class="lb">Goal</div></div>
+              <div class="circletile"><div class="ic"><i class="ti ti-users"></i></div><div class="lb">Lent</div></div>
+              <div class="circletile"><div class="ic"><i class="ti ti-repeat"></i></div><div class="lb">Repeat</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frame 2: Goal tile on, pill panel -->
+      <div class="frame-wrap">
+        <div class="vtitle">2 — Goal panel, enabled <span class="tag new">new</span></div>
+        <div class="vsub">Tap the tile → same panel container style as the Tags panel, but content is a single-select pill row (Cashew's <code>SelectObjective</code> shape) instead of a multi-select tag list. Tapping a pill selects it; tapping the same pill again clears it.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="typerow">
+            <div class="typebtn on"><i class="ti ti-arrow-down"></i>Expense</div>
+            <div class="typebtn"><i class="ti ti-arrow-up"></i>Income</div>
+            <div class="typebtn"><i class="ti ti-transfer"></i>Transfer</div>
+            <div class="xbtn">✕</div>
+          </div>
+          <div class="content">
+            <div class="bigamt" style="color:var(--text)">₹15,000</div>
+            <div class="finput" style="color:var(--text)">Savings top-up</div>
+            <div class="circlerow" style="padding-top:0">
+              <div class="circletile"><div class="ic"><i class="ti ti-hash"></i></div><div class="lb">Tags</div></div>
+              <div class="circletile"><div class="ic"><i class="ti ti-camera"></i></div><div class="lb">Receipt</div></div>
+              <div class="circletile on"><div class="ic"><i class="ti ti-target"></i></div><div class="lb">Goal</div></div>
+              <div class="circletile"><div class="ic"><i class="ti ti-users"></i></div><div class="lb">Lent</div></div>
+              <div class="circletile"><div class="ic"><i class="ti ti-repeat"></i></div><div class="lb">Repeat</div></div>
+            </div>
+            <div class="panel">
+              <div class="panelhead"><div class="t1">Goal</div><div class="link">Manage goals ›</div></div>
+              <div class="pillwrap">
+                <div class="goalpill on"><div class="dot" style="background:var(--success)"></div><span>House down payment</span></div>
+                <div class="goalpill"><div class="dot" style="background:#3b82f6"></div><span>Europe trip</span></div>
+                <div class="goalpill"><div class="dot" style="background:#f59e0b"></div><span>Child's education</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frame 3: Transaction list indicator -->
+      <div class="frame-wrap">
+        <div class="vtitle">3 — Transaction list indicator <span class="tag new">new</span></div>
+        <div class="vsub">Same treatment the row already uses for a receipt attachment (📎) or a shared expense (👥) — both live in <code>TransactionsTab.tsx</code> right next to the title today. A small target icon joins that same spot for goal-linked transactions.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="listcontent">
+            <div class="txnrow">
+              <div class="tic" style="background:rgba(239,68,68,.15)"><i class="ti ti-shopping-cart" style="color:var(--danger)"></i></div>
+              <div class="txt">
+                <div class="t1row"><span class="t1">Groceries</span></div>
+                <div class="t2">Food · HDFC Savings</div>
+              </div>
+              <span class="amt" style="color:var(--danger)">-₹1,240</span>
+            </div>
+            <div class="txnrow">
+              <div class="tic" style="background:rgba(16,185,129,.15)"><i class="ti ti-arrow-down" style="color:var(--success)"></i></div>
+              <div class="txt">
+                <div class="t1row"><span class="t1">Savings top-up</span><i class="ti ti-target goalind"></i></div>
+                <div class="t2">Savings Transfer · HDFC Savings</div>
+              </div>
+              <span class="amt" style="color:var(--success)">+₹15,000</span>
+            </div>
+            <div class="txnrow">
+              <div class="tic" style="background:rgba(59,130,246,.15)"><i class="ti ti-transfer" style="color:var(--info)"></i></div>
+              <div class="txt">
+                <div class="t1row"><span class="t1">To Goal Savings a/c</span><i class="ti ti-target goalind"></i></div>
+                <div class="t2">Transfer · Checking → HDFC Savings</div>
+              </div>
+              <span class="amt" style="color:var(--info)">₹25,000</span>
+            </div>
+            <div class="txnrow">
+              <div class="tic" style="background:rgba(239,68,68,.15)"><i class="ti ti-bolt" style="color:var(--danger)"></i></div>
+              <div class="txt">
+                <div class="t1row"><span class="t1">Electricity bill</span></div>
+                <div class="t2">Utilities · HDFC Savings</div>
+              </div>
+              <span class="amt" style="color:var(--danger)">-₹2,100</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="legend">
+      <h2>Implementation notes</h2>
+      <ul>
+        <li><b>Where the tile lives:</b> <code>ExpenseForm.tsx</code>'s existing <code>ExtraCircle</code> row (line ~740) — a new tile between the Receipt and Lent/Borrowed ones. Only the Goal tile skips the <code>type !== 'transfer'</code> guard the other three have.</li>
+        <li><b>The pill panel</b> reuses the exact visual style already in this file for the Vacation-event tag pills (rounded-full, 2px border, coloured dot, tinted fill when selected) — no new pill component needed, just single-select wiring instead of multi-select.</li>
+        <li><b>Single-select behaviour:</b> tapping a pill sets <code>selectedGoalId</code>; tapping the already-selected pill again clears it (sets to <code>undefined</code>) — same "tap again to deselect" idiom, no separate "no goal" pill needed in Penny's version since the toggle tile itself is the on/off switch.</li>
+        <li><b>List indicator:</b> a small <code>ti-target</code> icon (green, matching the goal accent) next to the title in <code>TransactionsTab.tsx</code>'s <code>TransactionRow</code> — same row, same styling convention as the existing receipt-paperclip and shared-expense-people icons.</li>
+        <li>"Manage goals" link in the panel header jumps to the Goals tab — lets someone create a goal without leaving the expense flow if none exist yet (mirrors Cashew's inline "+" pill, but as a link to the real Goals screen instead of a nested add-goal dialog, since Penny already has a full <code>GoalForm</code>).</li>
+      </ul>
+      <div class="rec-box"><b>This matches your ask directly:</b> Goal behaves like Tags/Receipt (icon toggle → panel), the panel itself is genuinely Cashew's own pattern (existing-goals-as-pills, single-select), and linked transactions get the same kind of small inline indicator the list already uses for receipts/shared expenses — nothing here invents a new visual language, it composes patterns that already exist in Penny plus the one borrowed from Cashew.</div>
+    </div>
+  </body>
+</html>

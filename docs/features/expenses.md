@@ -9,17 +9,111 @@ The expense tracking module — the heart of Penny's day-to-day usage. You log e
 - Add, edit, and delete transactions of three types: expense (money out), income (money in), and transfer (between your own accounts)
 - Attach a merchant name, amount, category, date, account, notes, and free-form hashtags to every transaction
 - Enter amounts with live Indian thousands grouping, a built-in calculator (type `120+45`), and an amount-in-words helper beneath the field (`1,00,000` → "One Lakh")
-- The **Add/Edit screen** leads with a large **hero amount** in the transaction-type colour (expense red · income green · transfer blue), a compact left-aligned type switch with the close (X) at the top right, **category + date chips**, the **account** and **Paid via** icon rows, and circular icons for **Tags / Receipt / Lent-or-Borrowed / Recurring** that expand inline on tap. Description holds first focus. Saving without a required field (**amount, description, category**) highlights the missing one — the same applies to each conditional panel's own required field (Lent/Borrowed's person, Share-with-group's group, Recurring's interval) **only while that panel's toggle is on**: submitting with one on-but-empty scrolls to, focuses, and highlights it instead of silently succeeding or silently dropping it.
+- The **Add/Edit screen** leads with a compact left-aligned type switch and the close (X) at the top
+  right. **`apps/mobile`, 2026-08-01:** for expense/income, the **category picker and amount now share
+  one row** — a dashed placeholder tile, sized to its content rather than stretched full-width (fills
+  solid with the category's own colour/icon once chosen), on the left, the amount right-aligned on the
+  right, replacing the previous full-width centred **hero amount** sitting above a separate "Select
+  category" row (transfer, which has no category, keeps the original centred hero on its own). **Date and
+  Time** now sit side by side as two equal-width fields below — both default to right now but are
+  independently editable (`TimeInput`, a `DateInput`-style native/web-split component), for logging an
+  expense after the fact or backdating one. The **account** and **Paid via** icon rows follow, then
+  circular icons for **Tags / Receipt / Goal / Lent-or-Borrowed / Recurring** that expand inline on tap —
+  each of Tags/Receipt/Goal/Lent-or-Borrowed stays highlighted whenever it already has content (a tag, a
+  receipt, a picked goal, a person) even while its own panel is collapsed, exactly like Tags always did;
+  collapsing a panel is a pure visibility toggle and never clears what's already filled in (removing a
+  goal/person still requires reopening the panel and deselecting/clearing it, same as clearing a tag).
+  Description holds first focus, reliably — `Modal`'s new `onShow` prop (fires once the native modal has
+  actually finished presenting, unlike a bare `autoFocus` on a `TextInput` mounted before that) drives a
+  ref-based `.focus()` instead. Saving without a required field (**amount, description, category**)
+  highlights the missing one — the same applies to each conditional panel's own required field (Goal's
+  picker, Lent/Borrowed's person, Share-with-group's group, Recurring's interval) **only while that
+  panel's toggle is on**: submitting with one on-but-empty scrolls to, focuses, and highlights it instead
+  of silently succeeding or silently dropping it.
+- **`apps/mobile`, 2026-08-01:** the Account row's chips gained a persistent **"+ Add"** tile (after
+  every real account, not just the empty-state fallback) — opens the real Add Account form as a second
+  centred `Modal` stacked on top, without leaving or losing progress on the transaction you're mid-way
+  through. Saving refreshes this form's own account list immediately (and auto-selects the new account,
+  for the single-account case) and also the Accounts page's own list, via the same cross-hook
+  `notifyAccountsChanged`/`useAccountsRefresh` signal Settings → Safe Mode's account edits already use.
+- **`apps/mobile`, 2026-08-01:** the "+" FAB on the Transactions list now opens the Add form directly
+  (defaulted to Expense) instead of first revealing an Expense/Income/Transfer speed-dial to pick from —
+  cut from 2 taps to 1, since the form's own type switch at the top already covers what the speed-dial
+  did.
+- **`apps/mobile`, 2026-08-01:** the Expenses tab's own header row (`ExpensesHeader.tsx`) was
+  decluttered — a single row now reads, left-to-right, as **transaction count** ("N transactions") with
+  the **filtered total** below it, the active **vacation event** (if any) centred over the whole row on
+  both axes, and the **Events/Import/Export** icons stacked above the **Safe-to-spend** pill on the
+  right. Previously these were two separate rows (an icon-only actions row, then a label+total crammed
+  against a Vacation text label and a bordered Safe pill) reading as visually noisy. The centre column is
+  a third equal-width flex column, not absolute positioning — `MainTabs.tsx`'s own `HeaderCenter` already
+  hit an on-device-only centering bug with `position: absolute` + matching insets under this project's
+  NativeWind/interop setup, so the same three-equal-`flex: 1`-column technique used there is reused here.
+  The vacation pill simply doesn't render on a day with no active event — no placeholder gap, no layout
+  shift.
 - The **Tags panel** shows a horizontally-scrollable **Frequent** row (your top-8 tags by usage) and any active-event tags immediately when opened — no typing required — plus a **Manage tags** link straight to the full list. Typing a genuinely new tag surfaces an inline, editable **Set aside** toggle; picking an existing tag instead shows its current Set Aside status read-only (changing an already-established tag's classification only happens in Manage Tags, since it retroactively affects every past transaction carrying it).
-- Transactions render as a **day-grouped timeline** — a continuous left rail with category-coloured dots, newest first; same-day items order by the **time they were entered** (`Expense.date` now carries the time-of-day)
+- Transactions render as a **day-grouped timeline** — a continuous left rail, newest first; same-day items order by the **time they were entered** (`Expense.date` now carries the time-of-day). **`apps/mobile`, 2026-08-02:** the account name moved from the subtitle line (which crammed category, account, and tags onto one row) to a small second line under the amount, right-aligned — the subtitle is now just category + tags.
+- **`apps/mobile`, 2026-08-02:** the rail's plain colour dot is now the transaction's own category/type
+  icon (filled, tinted), doing what the separate icon badge next to the description used to — that badge
+  is gone, since it was showing the same thing twice. The day-boundary "date header" (a separate
+  full-width banded row) is gone too: the date now sits directly on the rail, right above that day's
+  first transaction, as a small tight label — still shown exactly once per day, just costing one small
+  text line instead of a whole extra row's height. Mocked up first (`docs/mockups/proposals/
+  transactions-date-header-inline-tight-v3.html` and its predecessors).
+- **`apps/mobile`, 2026-08-02:** the Category Picker's Vacation-mode explanation banner (why travel
+  spend is tracked separately) is now dismissible — persisted per-event (`AsyncStorage`, not just
+  per-session), so closing it once means it stays gone for the rest of that trip specifically, not just
+  until the app restarts. The "Vacation On · {name}" status pill above it stays always-visible.
 - Description is the first field in the Add form; as you type, Penny shows ranked type-ahead suggestions of remembered merchants beneath it (substring match). Each suggestion fills the merchant, category, account, and payment mode on tap — nothing changes until you tap. A merchant you've logged under more than one category surfaces as a separate suggestion per category, ranked by how often you use each.
 - View annual analytics: an income line over monthly expense bars, last-year ghost bars for context, a 3-month forward projection (faded), a savings-rate headline, biggest category movers vs your trailing average, and a per-month breakdown
-- Monthly analytics surfaces **anomaly nudges** (a category spending notably above its trailing-3-month average) and a **recap card** (spent, net, vs-last-month, transactions, top category)
+- **`apps/mobile`, 2026-08-02: Annual view now mirrors Monthly** — the Daily Living ring + top groups,
+  the "Total spent" pulse card, the Cash Flow tile, the Events/Set-aside/Daily-routine-spending/hashtag
+  breakdowns all appear in the annual view too, computed over the whole calendar year instead of one
+  month (same aggregation helpers in `useExpenseAnalytics.ts`, scoped by year instead of month — not a
+  second implementation). Nothing existing was removed: the savings-rate headline, income-vs-spend chart,
+  and biggest-movers list are all still there. Order in both views: Daily Living card, (annual only:
+  savings-rate headline, income-vs-spend chart), Total spent, Cash Flow, (annual only: biggest movers),
+  Events, Set aside, Daily-routine spending, hashtags.
+- **`apps/mobile`, 2026-08-02: "Total spent" pulse card** — the period total, the routine/set-aside/
+  events breakdown (as dot+amount chips instead of a run-on sentence), the vs-prior-period trend, and the
+  **recap** stats — net, transactions, top category, **avg/day** — all in one non-wrapping row. (Monthly
+  only) **anomaly nudges** (a category spending notably above its trailing-3-month average) sit in the
+  same card. The recap's own "spent" figure was dropped since it repeated the card's own hero number.
+  Shown in **both** the monthly view ("vs last month") and the annual view ("vs last year") — same
+  `PulseCard` component in `AnalyticsTab.tsx`.
+- **`apps/mobile`, 2026-08-02: Cash Flow card** — one merged tile (monthly **and** annual), a 4-column
+  grid — Initial / Income / Spend / **Computed left** — with the column labels shown once, above every
+  account row (not repeated per row): that single header is what keeps every account's figures lined up
+  in the same vertical columns. Values use a compact ₹79.6L-style format with an auto-shrink safety net so
+  a large balance never wraps to a second line. "Computed left" is labelled explicitly (not just "Left")
+  because it's a derived figure from your logged transactions — it matches the account's real running
+  balance carried into the next period *unless* that account was reconciled during this one, in which case
+  the row also shows the real reconciled figure and the gap against the computed one ("You reconciled to
+  ₹X — ₹Y more/less than your logged transactions account for") — the one genuinely useful part of apps
+  like Money Manager's monthly cash ritual, surfaced as a passive insight instead of a forced monthly step.
+  Not a new "Cash Forward" ledger concept — entirely derived from the account's existing continuous balance
+  model (`core/expenses/cashFlowSummary.ts`, generalized to take an explicit `{start, end}` range so the
+  same function serves a month via `monthBounds()` or a year via `yearBounds()`), no period-bucketed
+  storage.
+- **`apps/mobile`, 2026-08-02: "View transactions" drill-down** — tapping a daily-routine category (in
+  the expanded group breakdown), "View all transactions in {group}", any Set-Aside line (Lending & IOU,
+  Goal contributions, Shared with family, a per-tag line), or an "Other hashtags" row opens a modal
+  listing exactly those transactions for the selected month, right there in Analytics — no navigating to
+  the Transactions tab, no manually reconfiguring the Filter popup one category at a time. Same drill-down
+  exists on the **Accounts** page — tap any account row (previously inert) to see all its transactions.
+  See `docs/features/accounts.md` and the `EntityTransactionsModal` architecture note for why this is an
+  in-place modal rather than a deep-link.
 - A "due to log" inbox surfaces recurring items (rent, bills, SIPs, salary) whose next occurrence has fallen due; confirm to log the real transaction, or skip — it reappears when the next period falls due
 - Duplicate a transaction (from the edit form) and save any transaction as a reusable **template/favorite** — saved templates appear as one-tap chips above the transactions list (`transaction_templates` store)
 - Swipe a transaction row left to reveal quick **Copy / Delete** actions; tap to edit
 - Attach a **receipt photo** to a transaction — compressed and stored locally (encrypted); a paperclip marks rows that have one
-- Filter transactions by date range, category, hashtag, account, event, or transaction type — mix and match
+- Filter transactions by date range, category, hashtag, account, event, goal, or transaction type — mix
+  and match. **`apps/mobile`, 2026-08-02:** filtering by goal reuses whichever transactions any
+  `GoalContribution` (any origin — manual or expense-seeded) links to, via `useExpenses.ts`'s
+  `txnIdsByGoal` map; each Goal pill also shows the goal's own resolved icon (tinted by risk colour),
+  matching the colour dot Event pills already had. The Account/Category tile grids in this same Filter
+  popup now auto-fit 4–6 columns to the modal's actual measured width instead of a fixed-width tile that
+  left unused space on a wider screen.
 - View spending analytics: pie chart and bar chart by category, month-over-month comparison, and a spending trend line
 - Set monthly budgets per category — opened from the **🎯 budget icon in the Transactions toolbar** (centred modal), not a separate tab — and see real-time progress bars; receive alerts when close to or over budget
 - Mark an expense **Lent to** / an income **Borrowed from** a person to seed an IOU ledger entry; conversely, recording from the IOU screen creates the matching expense/income on a chosen account (see the IOU feature doc)
@@ -41,6 +135,8 @@ The category system has three levels: intentGroup (parent group), ExpenseCategor
 
 **Daily-routine vs set-aside (analytics separation).** Each intent group carries a `routine` flag in `INTENT_GROUP_META` (`isRoutineGroup()` in `defaultCategories.ts`). The monthly Analytics tab leads with an **all-inclusive "Total spent this month"** (daily-routine + set-aside + events — `monthTotal`), then shows only **daily-routine** groups in the donut + "Daily-routine spending" list, so a vacation, family support, legal matter, financial move, or money lent never distorts the everyday picture. Travel carries **Trip Prep, Trip Shopping, Trip Fuel, Vehicle Service**; Daily Living adds **Fuel** (everyday) and **Salon & Grooming**; Home & Utilities adds **Home Services**; a new set-aside **Renovation** intent group ships Materials, Labour & Contractor, Furniture, Fixtures & Fittings, Painting, Interior & Design, Appliances, Other Renovation; Education adds **Transportation Fee, School Trip, Competition**. **Income** splits Dividends/Interest into two and adds **Capital Gains, Bonus & Incentive, Reimbursements**. Definition changes that must reach already-seeded records (renames/regroups, blank-icon repairs) are applied by once-flagged migrations in `dedupeDemoCategories.ts` (`repairCategoryIcons`, `reconcileDefaultCategories`); new categories arrive via the additive `penny_cats_v6` seed. Everything non-routine is summarised in a separate **"Set aside · not daily-routine"** card. Non-routine = the set-aside intent groups (**Financial, Travel, Family & Giving, Legal, Other**) **+ money you lent** (any IOU-linked transaction, regardless of its category) under a synthetic **Lending & IOU** bucket **+ (2026-07)** any expense shared into a **Family-type group** (its own **"Shared with family"** line) **+** any expense carrying a **Set Aside tag** (its own `#tagname` line, per tag — see below). Event/vacation-tagged transactions remain excluded from categories and shown under their own **Events** card (unchanged). Recap, anomalies, spend-velocity and the previous-month comparison all run on the daily-routine basis. Family support is a category (`cat-family-support` under `family_giving`), alongside **Occasions, Religious & Cultural, Donations,** and **Miscellaneous** (2026-07) — no IOU-model change. Legal categories are also wired into the Tax Footprint band map (`core/tax/categoryTaxMap.ts`): advocate/court/government fees are GST-exempt; ancillary spend (typing/printing, transport, food) carries GST.
 
+**Three new default categories (2026-08-03)**, back-filled via the additive `penny_cats_v8` seed: **Food & Drinks** (`cat-food-drinks`, Daily Living — alongside the existing Groceries/Dining & Café, kept deliberately distinct despite the overlap), **Lending** (`cat-lending`, Family & Giving, expense), and **Borrowed Money** (`cat-inc-borrowed`, Income). The latter two exist for `ExpenseForm`'s Lent/Borrowed panel and bank-import's bulk equivalent, but are **free choice, not auto-assigned/locked** — a shared-bill split with a friend is often deliberately kept under its real category (e.g. Dining) for future reference, so forcing a generic category would lose that context; the existing Lending & IOU exclusion from daily-routine analytics (above) already works off the transaction's IOU link, not its category, so this doesn't weaken that separation. `cat-food-drinks` is `gst-5` and `cat-lending` is `exempt` (and excluded from the spend base entirely, alongside `cat-sip`/`cat-savings`) in `categoryTaxMap.ts`.
+
 **Family spend that shouldn't count as your own daily living (2026-07).** Two independent, non-exclusive paths land in the same "set aside" bucket, deliberately without a dedicated boolean field on the expense itself (a flag scoped to "family" doesn't generalise to a friend, colleague, or anyone else you support — see the design discussion for the fuller reasoning):
 - **Set Aside tags** — any `hashtags` record can be marked `setAside` (once, per tag, in **Manage Tags** — Settings → Manage tags, or inline in the Add form's Tags panel the moment a brand-new tag is created). Every transaction carrying that tag is excluded from the daily-living split regardless of category, budgets are unaffected (a tagged grocery run still counts against your Groceries budget — tags only change the routine/set-aside split, not the money). `hideInSafeMode` is a second, independent field on the same record (Settings → Safe Mode → Tags) — a tag can be set aside without being hidden, or hidden without being set aside.
 - **Sharing to a Family-type group** — any expense shared into a Family-type group (as opposed to Trip/Roommates) is excluded the same way, whether or not it ends up actually split. Family-type groups default the participant picker to just the person sharing it (no split) when enabled, since Indian family spend is usually one-directional; Trip/Roommates keep the existing "split evenly" default.
@@ -50,6 +146,27 @@ The category system has three levels: intentGroup (parent group), ExpenseCategor
 **Category management (Track 3)** lives in `src/features/expenses/categories/`. The `CategoryPickerModal` has a Select mode (tap to pick) and a Manage mode (edit/move/bulk/parent groups), opening `CategoryEditorModal` / `ParentEditorModal` (z-80) on top. Icons are stored as `ti-*` strings; the picker (`IconGridPicker`) shows a curated set from `core/expenses/categoryIcons.ts` and lazy-fetches `public/tablerIconIndex.json` (built by `scripts/build-icon-index.mjs` via `npm run gen:icons` / `predev` / `prebuild`) for search. Default categories are editable but not deletable. Custom parent groups are `ExpenseCategory` records flagged `isGroup`; children reference them via `parentId`. Grouping in the picker, analytics, and filters is unified through `groupKey`/`groupMeta` in `core/expenses/categoryGroups.ts` (`parentId ?? intentGroup ?? 'other'`). "Move transactions" reassigns `categoryId` (source survives); deleting a custom empty category also removes its budgets. Transaction-level bulk edits (`patchExpenses`/`removeExpenses` in `useExpenses`) power the Transactions-tab select mode.
 
 **Category tile style + quick-pick rows.** Category tiles use the **icon-tile selector** pattern (see `docs/DESIGN_GUIDELINES.md`): a filled, colour-coded rounded-square icon with the label outside/below it, 6 per row — replacing an earlier bordered-box tile that crammed icon + label into one box. `AccountChips` and `PaymentModeChips` (the Account / Paid via rows on the Add/Edit form) use the same tile treatment for visual consistency. Above the grouped grid, a `QuickPickRow` (shared between Frequent and Travel picks) renders a horizontally-scrollable row of larger tiles: normally **Frequent** (top 8 by `txnCountByCategory`, count > 0); while an `activeVacationEvent` is passed in (an active `immersive`-subtype event from `EventModeContext`), it swaps to **Travel picks** (categories under the `travel` intent group, declared order) with a "Vacation On · {name}" pill and an info banner explaining that travel spend is tracked separately from everyday budget — no category is ever hidden or blocked, the full grouped list is unchanged below either row.
+
+**`apps/mobile`, 2026-08-03: payment mode is a creatable, editable entity.**
+`PaymentModeChips` (the "Paid via" row) ends with a dashed "+" tile, same pattern as
+`AccountChips`' own inline "+ Add account" — opens `PaymentModeFormModal` (name, icon via the
+shared `IconGridPicker`, colour swatch) and writes to the `payment_modes` store
+(`core/expenses/paymentModes.ts`'s `generatePaymentModeId` slugifies the name into a stable id,
+deduping against whatever already exists). This was originally built to let **Bank Statement
+Import** (see [`docs/features/bank-import.md`](bank-import.md)) create a rail-specific mode
+(NEFT/IMPS/RTGS/Cheque) it infers from a bank narration; the manual "+" tile is the equivalent
+user-initiated path onto the same store.
+
+Unlike the first pass (which kept the 5 built-ins as a never-persisted, read-time-only overlay),
+all 5 (cash/upi/card/net/wallet) are now seeded as real rows too (`~/hooks/usePaymentModes.ts`,
+mirroring how `expense_categories`' own defaults are seeded) — this is what makes editing a
+default's icon/colour/label possible at all, the same way a default `ExpenseCategory` already
+works. The Accounts page's new **Payment modes** section (`features/accounts/PaymentModesSection.tsx`)
+lists every mode as an icon tile with a small pencil badge — tap to edit (defaults included) or
+add a new one; delete lives in the same popup, blocked for defaults and for any custom mode still
+in use by an existing transaction. `IconGridPicker` (previously `features/expenses/categories/`-
+only) moved to `components/shared/` so this form and `CategoryEditorModal` can both use it without
+a cross-feature import.
 
 **Safe Mode masking (per-category).** Each `ExpenseCategory` carries an optional `hideInSafeMode` flag toggled from Settings → Safe Mode (ON = hidden in Safe Mode, matching the field name). An explicit value always wins; when unset, `isHiddenInSafeMode()` (`core/expenses/categoryGroups.ts`) falls back to a per-intent-group default — **income, transfers, family & giving, legal, sin goods, and financial default hidden (toggle ON)**; everyday categories (daily living, home & utilities, lifestyle, etc.) and custom categories default **visible (toggle OFF)**. `TransactionsTab` and `BudgetsTab` resolve masking per row via `usePrivacy().shouldMask(isHiddenInSafeMode(cat))` — Open never masks, Privacy always masks, Safe masks only that category's rows. Aggregates (the "Total spent" header, monthly/annual analytics totals and category-breakdown segments, "Safe to spend") are treated as summary views and stay visible in Safe Mode (`shouldMask(false)`), hidden only in Privacy — Analytics does not currently drill down to per-category Safe Mode masking, only the flat Transactions list and Budgets do. See `docs/ARCHITECTURE.md` → Context providers for the `shouldMask` contract, and `docs/SCHEMA.md` → `expense_categories`/`accounts` for the flag definitions.
 

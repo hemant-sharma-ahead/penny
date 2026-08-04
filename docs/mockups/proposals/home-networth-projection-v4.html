@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Home — Net worth + Retirement Corpus, one fused hero unit — v4</title>
+<style>
+  :root{
+    --bg:#0a0a0d; --card:#16161c; --card2:#1c1c24; --border:rgba(255,255,255,.08);
+    --text:#f5f5f7; --text2:#b4b4bc; --text3:#7c7c86; --violet:#8b5cf6; --amber:#f0b060; --green:#34d399;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:#050507; color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased;}
+  .tabular{font-variant-numeric:tabular-nums;}
+  .topbar{position:sticky; top:0; z-index:50; padding:18px 32px; background:rgba(5,5,7,.9);
+    backdrop-filter:blur(12px); border-bottom:1px solid var(--border);}
+  .topbar h1{font-size:16px; margin:0 0 4px; font-weight:700;}
+  .topbar p{margin:0; font-size:12.5px; color:var(--text3);}
+  .gallery{display:flex; gap:36px; padding:40px 32px 80px; overflow-x:auto; align-items:flex-start;}
+  .column{display:flex; flex-direction:column; align-items:center; gap:14px; flex:0 0 auto;}
+  .col-head{width:360px; text-align:left;}
+  .col-tag{display:inline-flex; align-items:center; gap:6px; font-size:10.5px; font-weight:700;
+    letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:99px; margin-bottom:8px;
+    background:rgba(139,92,246,.15); color:#c4b5fd;}
+  .col-title{font-size:15px; font-weight:700; margin:0 0 4px;}
+  .col-pitch{font-size:12px; color:var(--text3); line-height:1.5; margin:0;}
+  .flag-note{margin-top:12px; padding:10px 12px; border-radius:10px; background:rgba(240,176,96,.1);
+    border:1px solid rgba(240,176,96,.25); font-size:11.5px; color:#f0b060; line-height:1.5;}
+
+  .phone{position:relative; width:328px; height:640px; border-radius:38px; background:var(--bg);
+    border:8px solid #1a1a1e; box-shadow:0 30px 60px -20px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.04); overflow:hidden;}
+  .notch{position:absolute; top:8px; left:50%; transform:translateX(-50%); width:110px; height:22px;
+    background:#1a1a1e; border-radius:0 0 16px 16px; z-index:40;}
+  .screen{height:100%; overflow-y:auto; overflow-x:hidden; padding:36px 14px 24px; position:relative;}
+
+  .section-label{font-size:9.5px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--text3);}
+
+  /* ── One fused hero unit: net worth text lives ON the chart, not above it ── */
+  .hero-unit{cursor:pointer;}
+  .bleed-chart-wrap{position:relative; margin:0 -14px; height:212px;}
+  .bleed-chart-wrap svg{position:absolute; inset:0;}
+  .glow-corner{position:absolute; border-radius:50%; pointer-events:none; z-index:1;}
+  .sheen-diag{position:absolute; top:-30%; left:-10%; width:140%; height:160%; transform:rotate(-8deg); pointer-events:none; z-index:2;
+    background:linear-gradient(115deg, transparent 42%, rgba(255,255,255,.08) 50%, transparent 58%);}
+
+  .nw-overlay{position:absolute; left:14px; top:16px; z-index:4;}
+  .nw-overlay .hero-num{font-size:25px; font-weight:800; letter-spacing:-.02em; margin:3px 0 2px;}
+  .nw-overlay .nw-chip{font-size:10px; color:var(--text3);}
+
+  .flag-pill{position:absolute; right:8px; top:14px; z-index:5; font-size:9.5px; font-weight:800; padding:4px 9px; border-radius:8px;
+    color:#1a1206; background:var(--amber); box-shadow:0 4px 12px rgba(0,0,0,.4); white-space:nowrap;}
+  .chart-value-tag{position:absolute; z-index:3; font-size:9px; font-weight:700; color:#c4b5fd;}
+  .chart-value-tag.muted{color:var(--text3); font-weight:600;}
+
+  .below-chart{padding:8px 2px 0; display:flex; align-items:center; gap:16px;}
+  .gauge{position:relative; width:78px; height:78px; flex-shrink:0;}
+  .gauge svg{transform:rotate(-90deg);}
+  .gauge-label{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;}
+  .gauge-label b{font-size:19px; font-weight:800;}
+  .gauge-label span{font-size:8px; color:var(--text3); text-align:center; line-height:1.2; margin-top:1px;}
+  .stat-col{flex:1; display:flex; flex-direction:column; gap:8px;}
+  .stat-row{display:flex; justify-content:space-between; font-size:11.5px;}
+  .stat-row .l{color:var(--text3);}
+  .stat-row .v{font-weight:700;}
+
+  .cta-chip{margin:14px 2px 0; padding:9px 12px; border-radius:12px; font-size:11px; font-weight:600;
+    background:rgba(139,92,246,.14); color:#c4b5fd; display:flex; align-items:center; gap:7px;}
+  .tap-hint{margin:9px 2px 0; font-size:10px; color:var(--text3); display:flex; align-items:center; gap:4px;}
+
+  .rest-fade{margin-top:22px; opacity:.32;}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:16px;}
+  .stats-row{display:flex; gap:8px;}
+  .stat-tile{flex:1; padding:10px; text-align:left;}
+  .stat-tile .v{font-size:12px; font-weight:700; margin-top:3px;}
+  .stat-tile .l{font-size:9px; color:var(--text3);}
+  .health-card{padding:14px; margin-top:10px; display:flex; gap:12px; align-items:center;}
+  .ring-mini{width:38px; height:38px; border-radius:50%; background:conic-gradient(#f87171 0deg 126deg, #2a2a30 126deg 360deg); flex-shrink:0;}
+
+  .sheet-scrim{position:absolute; inset:0; background:rgba(0,0,0,.55); opacity:0; pointer-events:none; transition:opacity .28s ease; z-index:60;}
+  .sheet{position:absolute; left:0; right:0; bottom:0; height:70%; background:#131318;
+    border-radius:22px 22px 0 0; border:1px solid rgba(255,255,255,.08); border-bottom:none;
+    transform:translateY(100%); transition:transform .32s cubic-bezier(.32,.72,0,1); z-index:61;
+    padding:10px 18px 22px;}
+  .sheet-overlay.open .sheet{transform:translateY(0);}
+  .sheet-overlay.open .sheet-scrim{opacity:1; pointer-events:auto;}
+  .drag-handle{width:36px; height:4px; border-radius:99px; background:#3a3a42; margin:2px auto 14px;}
+  .sheet-head{display:flex; justify-content:space-between; align-items:center;}
+  .sheet-title{font-size:14px; font-weight:700;}
+  .sheet-close{width:26px; height:26px; border-radius:50%; background:var(--card2); display:flex; align-items:center; justify-content:center; color:var(--text3); font-size:13px;}
+  .sheet-sub{font-size:11px; color:var(--text3); margin-top:2px; margin-bottom:14px;}
+  .field-row{display:flex; gap:8px; margin-top:14px;}
+  .field{flex:1; background:var(--card2); border-radius:12px; padding:10px 12px; border:1px solid var(--border);}
+  .field .l{font-size:9.5px; color:var(--text3); margin-bottom:4px;}
+  .field .v{font-size:14px; font-weight:700;}
+  .stepper{display:flex; align-items:center; gap:10px;}
+  .step-btn{width:22px; height:22px; border-radius:6px; background:#26262e; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px;}
+  .info-note{margin-top:14px; font-size:10px; color:var(--text3); display:flex; gap:6px; line-height:1.5;}
+  .axis-labels{display:flex; justify-content:space-between; font-size:9.5px; color:var(--text3); margin-top:2px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Net worth + Retirement Corpus — one fused hero unit (v4)</h1>
+  <p>Net worth now lives directly on the chart's top-left corner instead of stacked above it — same genre as INDmoney/Robinhood/Apple Stocks' "value + sparkline in one card"</p>
+</div>
+
+<div class="gallery">
+  <div class="column">
+    <div class="col-head">
+      <span class="col-tag">A3 refined again · Fused unit</span>
+      <p class="col-title">One unit, not two stacked blocks</p>
+      <p class="col-pitch">Net worth's label, number, and "View breakdown" now sit directly over the chart's top-left corner — which is naturally empty space, since the curve only rises into view further right. The retirement flag moved to top-right, over the curve's high point. Tapping the net worth text still opens its own breakdown (unrelated to the sheet below); tapping anywhere else on the unit opens the expense drill-down — same as before, just visually merged now.</p>
+      <div class="flag-note">
+        ⚠ One thing to flag: the chart still plots <b>investable corpus</b> (₹38L → ₹5.95Cr), not the ₹1.49Cr net worth number sitting on top of it — they're deliberately different figures (net worth includes your property/vehicles, the retirement number can't). Fusing them into one visual unit makes that easy to misread as one series. I've added small value tags directly on the curve's start/end points to keep it honest — take a look and tell me if that's enough disambiguation, or if you'd rather solve it differently.
+      </div>
+    </div>
+
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen">
+
+        <div class="hero-unit" onclick="toggleSheet('sheet-v4')">
+          <div class="bleed-chart-wrap">
+            <div class="glow-corner" style="right:-10px; top:-30px; width:170px; height:170px; background:#8b5cf6; opacity:.28;"></div>
+            <div class="glow-corner" style="left:-30px; bottom:-40px; width:130px; height:130px; background:#000; opacity:.3;"></div>
+            <svg viewBox="0 0 328 212" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="v4fill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#8b5cf6" stop-opacity=".5"/>
+                  <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path d="M0,178 C40,170 80,153 120,130 C160,107 200,82 240,62 C264,52 292,46 316,44 L316,212 L0,212 Z" fill="url(#v4fill)"/>
+              <path d="M0,178 C40,170 80,153 120,130 C160,107 200,82 240,62 C264,52 292,46 316,44" fill="none" stroke="#a78bfa" stroke-width="2.75" stroke-linecap="round"/>
+              <line x1="316" y1="44" x2="316" y2="24" stroke="#f0b060" stroke-width="1.6" stroke-dasharray="3,3"/>
+              <circle cx="316" cy="24" r="3.5" fill="#f0b060"/>
+              <circle cx="316" cy="44" r="4.5" fill="#a78bfa"/>
+              <circle cx="2" cy="178" r="4.5" fill="#c4b5fd" style="filter:drop-shadow(0 0 5px #c4b5fd)"/>
+            </svg>
+            <div class="sheen-diag"></div>
+
+            <div class="nw-overlay" onclick="event.stopPropagation();">
+              <div class="section-label">Net worth</div>
+              <div class="hero-num tabular">₹1,49,33,023</div>
+              <div class="nw-chip">View breakdown ›</div>
+            </div>
+
+            <div class="flag-pill">🏁 Retiring 2044</div>
+            <div class="chart-value-tag muted" style="left:8px; bottom:30px;">Corpus ₹38L · today</div>
+            <div class="chart-value-tag" style="right:8px; bottom:64px; text-align:right;">₹5.95Cr proj.</div>
+          </div>
+
+          <div class="below-chart">
+            <div class="gauge">
+              <svg viewBox="0 0 78 78" width="78" height="78">
+                <circle cx="39" cy="39" r="33" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="7"/>
+                <circle cx="39" cy="39" r="33" fill="none" stroke="#a78bfa" stroke-width="7" stroke-linecap="round"
+                  stroke-dasharray="207.3" stroke-dashoffset="39.4"/>
+              </svg>
+              <div class="gauge-label"><b>81%</b><span>funded</span></div>
+            </div>
+            <div class="stat-col">
+              <div class="stat-row"><span class="l">Needed</span><span class="v tabular">₹7,30,00,000</span></div>
+              <div class="stat-row"><span class="l">Projected</span><span class="v tabular">₹5,95,00,000</span></div>
+              <div class="stat-row"><span class="l">Monthly SIP</span><span class="v tabular">₹40,000</span></div>
+            </div>
+          </div>
+
+          <div class="cta-chip">↗ <span>+₹18,000/mo closes this gap by 2044</span></div>
+          <div class="tap-hint">Tap for expense projection ›</div>
+        </div>
+
+        <div class="rest-fade">
+          <div class="stats-row">
+            <div class="card stat-tile"><div class="l">Spent</div><div class="v">₹1,500</div></div>
+            <div class="card stat-tile"><div class="l">Insurance</div><div class="v">₹1.1Cr</div></div>
+            <div class="card stat-tile"><div class="l">Loans</div><div class="v">₹40.0L</div></div>
+          </div>
+          <div class="card health-card">
+            <div class="ring-mini"></div>
+            <div style="font-size:11px; color:var(--text3);">Financial health · Critical (35)</div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="sheet-overlay" id="sheet-v4">
+        <div class="sheet-scrim" onclick="toggleSheet('sheet-v4')"></div>
+        <div class="sheet">
+          <div class="drag-handle"></div>
+          <div class="sheet-head">
+            <div class="sheet-title">Expense projection</div>
+            <div class="sheet-close" onclick="toggleSheet('sheet-v4')">✕</div>
+          </div>
+          <div class="sheet-sub">Inflation-adjusted · 6% p.a. assumed</div>
+
+          <svg viewBox="0 0 284 120" width="100%" height="100">
+            <path d="M14,96 C70,93 130,86 180,70 C210,60 236,44 260,26" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="260" y1="26" x2="260" y2="108" stroke="#8b5cf6" stroke-width="1" stroke-dasharray="2,4" opacity=".35"/>
+            <circle cx="14" cy="96" r="4" fill="#c4b5fd"/>
+            <circle cx="260" cy="26" r="4" fill="#a78bfa"/>
+          </svg>
+          <div class="axis-labels" style="margin-top:-4px;">
+            <span>₹85,000/mo · today</span>
+            <span style="color:#c4b5fd; font-weight:700;">₹2,43,000/mo · at 50</span>
+          </div>
+
+          <div class="field-row">
+            <div class="field"><div class="l">Monthly expense today</div><div class="v tabular">₹85,000</div></div>
+            <div class="field"><div class="l">Retirement age</div>
+              <div class="stepper"><div class="step-btn">−</div><div class="v">50</div><div class="step-btn">+</div></div>
+            </div>
+          </div>
+          <div class="info-note">ⓘ Updates your retirement plan everywhere — this Home card and the FIRE Calculator share the same numbers.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function toggleSheet(id){
+    var el = document.getElementById(id);
+    if (el) el.classList.toggle('open');
+  }
+</script>
+</body>
+</html>

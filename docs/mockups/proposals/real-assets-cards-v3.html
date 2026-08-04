@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Real Assets — Gradient Hero, 5 layout options — v3</title>
+<style>
+  :root{
+    --bg:#0a0a0d; --card:#16161c; --border:rgba(255,255,255,.08);
+    --text3:#7c7c86; --green:#34d399; --red:#f87171; --amber:#f0b060; --blue:#4d7aff; --violet:#8b5cf6;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:#050507; color:#f5f5f7;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased;}
+  .tabular{font-variant-numeric:tabular-nums;}
+  .topbar{position:sticky; top:0; z-index:50; padding:18px 32px; background:rgba(5,5,7,.9);
+    backdrop-filter:blur(12px); border-bottom:1px solid var(--border);}
+  .topbar h1{font-size:16px; margin:0 0 4px; font-weight:700;}
+  .topbar p{margin:0; font-size:12.5px; color:var(--text3);}
+  .gallery{display:flex; gap:32px; padding:36px 32px 80px; overflow-x:auto; align-items:flex-start;}
+  .column{display:flex; flex-direction:column; align-items:center; gap:14px; flex:0 0 auto;}
+  .col-head{width:330px; text-align:left;}
+  .col-tag{display:inline-flex; align-items:center; gap:6px; font-size:10.5px; font-weight:700;
+    letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:99px; margin-bottom:8px;}
+  .col-title{font-size:15px; font-weight:700; margin:0 0 4px;}
+  .col-pitch{font-size:12px; color:var(--text3); line-height:1.5; margin:0;}
+
+  .phone{width:330px; border-radius:30px; background:var(--bg); border:8px solid #1a1a1e;
+    box-shadow:0 24px 50px -16px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.04); padding:18px 12px; display:flex; flex-direction:column; gap:14px;}
+  .section-label{font-size:11px; font-weight:700; color:#b4b4bc; display:flex; align-items:center; justify-content:space-between;}
+  .add-pill{font-size:10.5px; font-weight:700; color:var(--blue);}
+
+  .card{position:relative; border-radius:18px; overflow:hidden; padding:14px; display:flex; flex-direction:column; gap:10px;
+    background:linear-gradient(135deg,#16234f,#0c1530); box-shadow:0 10px 22px rgba(0,0,0,.4);}
+  .card.violet{background:linear-gradient(135deg,#4a1d6b,#1f0d2e);}
+  .glow{position:absolute; border-radius:50%; pointer-events:none;}
+  .sheen{position:absolute; top:-40%; left:-15%; width:150%; height:180%; transform:rotate(-8deg);
+    background:linear-gradient(115deg,transparent 42%, rgba(255,255,255,.10) 50%, transparent 58%); pointer-events:none;}
+
+  .top{display:flex; align-items:center; gap:10px; position:relative;}
+  .icontile{width:32px; height:32px; border-radius:9px; background:rgba(255,255,255,.16); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0;}
+  .name{flex:1; font-size:14px; font-weight:700; color:#fff;}
+  .chevron{color:rgba(255,255,255,.55); font-size:15px;}
+  .divider{height:1px; background:rgba(255,255,255,.14); position:relative;}
+  .status{display:flex; justify-content:space-between; align-items:center; font-size:10px; color:rgba(255,255,255,.6); position:relative;}
+  .status b{color:rgba(255,255,255,.85); font-weight:600;}
+  .challan{display:flex; align-items:center; gap:6px; background:rgba(248,113,113,.22); border-radius:10px; padding:7px 9px; font-size:10.5px; color:#fff; font-weight:600; position:relative;}
+
+  /* ---- D1: Big Number Hero ---- */
+  .d1-hero{position:relative;}
+  .d1-hero .l{font-size:9.5px; color:rgba(255,255,255,.55);}
+  .d1-hero .v{font-size:30px; font-weight:800; color:#fff; line-height:1.1;}
+  .d1-hero .sub{font-size:10.5px; color:rgba(255,255,255,.65); margin-top:2px;}
+  .d1-chips{display:flex; gap:6px; position:relative;}
+  .d1-chip{flex:1; background:rgba(255,255,255,.1); border-radius:9px; padding:5px 6px; text-align:center; font-size:9.5px; color:rgba(255,255,255,.85); font-weight:600;}
+
+  /* ---- D2: Full Iconography Grid ---- */
+  .d2-mid{display:flex; gap:16px; position:relative;}
+  .d2-col{flex:1; display:flex; flex-direction:column; gap:7px;}
+  .d2-row{display:flex; align-items:center; gap:6px; font-size:10px; color:rgba(255,255,255,.85);}
+  .d2-row .ic{font-size:11px; width:14px; text-align:center; flex-shrink:0;}
+  .d2-row b{color:#fff; font-weight:700;}
+  .d2-hero{text-align:right;}
+  .d2-hero .v{font-size:16px; font-weight:800; color:#fff;}
+
+  /* ---- D3: Radial ring ---- */
+  .d3-top{display:flex; align-items:center; gap:10px; position:relative;}
+  .d3-ring{position:relative; width:56px; height:56px; flex-shrink:0;}
+  .d3-ring svg{transform:rotate(-90deg);}
+  .d3-ringlabel{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;}
+  .d3-ringlabel b{font-size:14px; font-weight:800; color:#fff; line-height:1;}
+  .d3-ringlabel span{font-size:6.5px; color:rgba(255,255,255,.6); text-align:center; line-height:1.1; margin-top:1px;}
+  .d3-hero{display:flex; justify-content:space-between; align-items:flex-end; position:relative;}
+  .d3-hero .v{font-size:20px; font-weight:800; color:#fff;}
+  .d3-chiprow{display:flex; gap:6px; position:relative;}
+  .d3-chip{flex:1; display:flex; align-items:center; justify-content:center; gap:4px; background:rgba(255,255,255,.1); border-radius:9px; padding:5px 4px; font-size:9px; color:rgba(255,255,255,.85); font-weight:600;}
+
+  /* ---- D4: Chip cloud ---- */
+  .d4-hero{display:flex; justify-content:space-between; align-items:center; position:relative;}
+  .d4-hero .v{font-size:19px; font-weight:800; color:#fff;}
+  .d4-hero .sub{font-size:10px; color:rgba(255,255,255,.6);}
+  .d4-cloud{display:flex; flex-wrap:wrap; gap:6px; position:relative;}
+  .d4-chip{display:flex; align-items:center; gap:4px; background:rgba(255,255,255,.1); border-radius:99px; padding:4px 9px; font-size:9.5px; color:rgba(255,255,255,.88); font-weight:600;}
+  .d4-chip.warn{background:rgba(248,113,113,.28);}
+
+  /* ---- D5: Glass tiles ---- */
+  .d5-tilerow{display:flex; gap:6px; position:relative;}
+  .d5-tile{flex:1; background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.12); border-radius:11px; padding:7px 6px; text-align:center;}
+  .d5-tile .ic{font-size:13px;}
+  .d5-tile .l{font-size:8px; color:rgba(255,255,255,.55); margin-top:2px;}
+  .d5-tile .v{font-size:10px; font-weight:700; color:#fff; margin-top:1px;}
+  .d5-valuetile{background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.12); border-radius:11px; padding:9px 11px; display:flex; justify-content:space-between; align-items:center; position:relative;}
+  .d5-valuetile .l{font-size:9.5px; color:rgba(255,255,255,.55);}
+  .d5-valuetile .v{font-size:18px; font-weight:800; color:#fff;}
+  .d5-valuetile .sub{font-size:9.5px; color:rgba(255,255,255,.6); text-align:right;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Real Assets — Gradient Hero, 5 layout explorations (v3)</h1>
+  <p>Same gradient/glow language + icon accents throughout (not just the status bar this time) — 5 genuinely different arrangements of the same information</p>
+</div>
+
+<div class="gallery">
+
+  <!-- ============ D1 — Big Number Hero ============ -->
+  <div class="column">
+    <div class="col-head">
+      <span class="col-tag" style="background:rgba(77,122,255,.15); color:#93a9ff;">D1 · Big Number Hero</span>
+      <p class="col-title">Current value dominates</p>
+      <p class="col-pitch">The one number people actually check first (current value) is oversized and unmissable. Validity dates shrink to compact icon+date chips underneath — present, but not competing for attention.</p>
+    </div>
+    <div class="phone">
+      <div class="section-label">Vehicles <span class="add-pill">+ Add</span></div>
+      <div class="card">
+        <div class="glow" style="right:-20px; top:-30px; width:110px; height:110px; background:#4d7aff; opacity:.3;"></div>
+        <div class="glow" style="left:-20px; bottom:-30px; width:90px; height:90px; background:#000; opacity:.25;"></div>
+        <div class="sheen"></div>
+        <div class="top">
+          <div class="icontile">🚗</div>
+          <div class="name">Maruti Suzuki Swift VXI</div>
+          <div class="chevron">›</div>
+        </div>
+        <div class="d1-hero">
+          <div class="l">Current value</div>
+          <div class="v tabular">₹5,80,000</div>
+          <div class="sub">Purchase ₹7,50,000 · <span style="color:var(--red); font-weight:700;">-22.7%</span></div>
+        </div>
+        <div class="d1-chips">
+          <div class="d1-chip">🛡 20 Aug 26</div>
+          <div class="d1-chip">🌿 10 Dec 26</div>
+          <div class="d1-chip">📄 14 Jun 36</div>
+        </div>
+        <div class="challan">⚠ 1 pending challan · ₹500</div>
+        <div class="divider"></div>
+        <div class="status">
+          <span><b>2021</b> · Petrol · KA03•••• · <b style="color:var(--green);">Active</b></span>
+          <span>⏱ 3mo ago</span>
+        </div>
+      </div>
+      <div class="section-label" style="margin-top:6px;">Property <span class="add-pill">+ Add</span></div>
+      <div class="card violet">
+        <div class="glow" style="right:-20px; top:-30px; width:110px; height:110px; background:#8b5cf6; opacity:.3;"></div>
+        <div class="glow" style="left:-20px; bottom:-30px; width:90px; height:90px; background:#000; opacity:.25;"></div>
+        <div class="sheen"></div>
+        <div class="top">
+          <div class="icontile">🏢</div>
+          <div class="name">2BHK — Koramangala</div>
+          <div class="chevron">›</div>
+        </div>
+        <div class="d1-hero">
+          <div class="l">Current value</div>
+          <div class="v tabular">₹85,00,000</div>
+          <div class="sub">vs purchase · <span style="color:var(--green); font-weight:700;">+41.7%</span></div>
+        </div>
+        <div class="d1-chips">
+          <div class="d1-chip">🏠 Flat</div>
+          <div class="d1-chip">📍 Blr</div>
+          <div class="d1-chip">📐 1050 sqft</div>
+        </div>
+        <div class="divider"></div>
+        <div class="status">
+          <span>Purchased Mar 2019</span>
+          <span>⏱ 1mo ago</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ D2 — Full Iconography Grid ============ -->
+  <div class="column">
+    <div class="col-head">
+      <span class="col-tag" style="background:rgba(52,211,153,.15); color:#6ee7b7;">D2 · Full Iconography Grid</span>
+      <p class="col-title">Every line carries its own icon</p>
+      <p class="col-pitch">Extends the icon language you liked to every single fact, not just the status row — a small glyph for insurance, PUC, RC, value, purchase, and depreciation each. Reads like a clean spec sheet.</p>
+    </div>
+    <div class="phone">
+      <div class="section-label">Vehicles <span class="add-pill">+ Add</span></div>
+      <div class="card">
+        <div class="glow" style="right:-20px; top:-30px; width:110px; height:110px; background:#4d7aff; opacity:.3;"></div>
+        <div class="glow" style="left:-20px; bottom:-30px; width:90px; height:90px; background:#000; opacity:.25;"></div>
+        <div class="sheen"></div>
+        <div class="top">
+          <div class="icontile">🚗</div>
+          <div class="name">Maruti Suzuki Swift VXI</div>
+          <div class="chevron">›</div>
+        </div>
+        <div class="d2-mid">
+          <div class="d2-col">
+            <div class="d2-row"><span class="ic">🛡</span>Ins <b>20 Aug 26</b></div>
+            <div class="d2-row"><span class="ic">🌿</span>PUC <b>10 Dec 26</b></div>
+            <div class="d2-row"><span class="ic">📄</span>RC <b>14 Jun 36</b></div>
+          </div>
+          <div class="d2-col d2-hero">
+            <div class="v tabular">₹5,80,000</div>
+            <div class="d2-row" style="justify-content:flex-end;">🏷 ₹7,50,000</div>
+            <div class="d2-row" style="justify-content:flex-end; color:var(--red);">📉 -22.7%</div>
+          </div>
+        </div>
+        <div class="challan">⚠ 1 pending challan · ₹500</div>
+        <div class="divider"></div>
+        <div class="status">
+          <span>🚗 <b>2021</b> · ⛽ Petrol · 🔖 KA03•••• · ✅ <b style="color:var(--green);">Active</b></span>
+        </div>
+        <div class="status" style="justify-content:flex-end;"><span>⏱ Updated 3 months ago</span></div>
+      </div>
+      <div class="section-label" style="margin-top:6px;">Property <span class="add-pill">+ Add</span></div>
+      <div class="card violet">
+        <div class="glow" style="right:-20px; top:-30px; width:110px; height:110px; background:#8b5cf6; opacity:.3;"></div>
+        <div class="glow" style="left:-20px; bottom:-30px; width:90px; height:90px; background:#000; opacity:.25;"></div>
+        <div class="sheen"></div>
+        <div class="top">
+          <div class="icontile">🏢</div>
+          <div class="name">2BHK — Koramangala</div>
+          <div class="chevron">›</div>
+        </div>
+        <div class="d2-mid">
+          <div class="d2-col">
+            <div class="d2-row"><span class="ic">🏠</span>Flat</div>
+            <div class="d2-row"><span class="ic">📍</span>Bengaluru</div>
+            <div class="d2-row"><span class="ic">📐</span>1,050 sqft</div>
+          </div>
+          <div class="d2-col d2-hero">
+            <div class="v tabular">₹85,00,000</div>
+            <div class="d2-row" style="justify-content:flex-end; color:var(--green);">📈 +41.7%</div>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="status">
+          <span>📅 Purchased Mar 2019</span>
+          <span>⏱ 1mo ago</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ D3 — Radial ring ============ -->
+  <div class="column">
+    <div class="col-head">
+      <span class="col-tag" style="background:rgba(240,176,96,.15); color:var(--amber);">D3 · Radial Ring</span>
+      <p class="col-title">A gauge as the focal point</p>
+      <p class="col-pitch">Reuses the same radial-gauge technique as Home's Retirement Corpus card — here showing days to the soonest-expiring document, so renewal urgency is glanceable at a angle a plain date list doesn't give you. Ties this screen's visual language to Home's.</p>
+    </div>
+    <div class="phone">
+      <div class="section-label">Vehicles <span class="add-pill">+ Add</span></div>
+      <div class="card">
+        <div class="glow" style="right:-20px; top:-30px; width:110px; height:110px; background:#4d7aff; opacity:.3;"></div>
+        <div class="glow" style="left:-20px; bottom:-30px; width:90px; height:90px; background:#000; opacity:.25;"></div>
+        <div class="sheen"></div>
+        <div class="d3-top">
+          <div class="icontile">🚗</div>
+          <div class="name" style="margin-right:auto;">Maruti Suzuki Swift VXI</div>
+          <div class="d3-ring">
+            <svg viewBox="0 0 56 56" width="56" height="56">
+              <circle cx="28" cy="28" r="23" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="6"/>
+              <circle cx="28" cy="28" r="23" fill="none" stroke="#f0b060" stroke-width="6" stroke-linecap="round"
+                stroke-dasharray="144.5 0" stroke-dashoffset="30"/>
+            </svg>
+            <div class="d3-ringlabel"><b>128</b><span>days to<br/>PUC</span></div>
+          </div>
+        </div>
+        <div class="d3-hero">
+          <div><div style="font-size:9.5px; color:rgba(255,255,255,.55);">Current value</div><div class="v tabular">₹5,80,000</div></div>
+          <div style="text-align:right;"><div style="font-size:9.5px; color:rgba(255,255,255,.55);">Purchase</div><div style="font-size:11px; color:rgba(255,255,255,.8);">₹7,50,000 · <span style="color:var(--red); font-weight:700;">-22.7%</span></div></div>
+        </div>
+        <div class="d3-chiprow">
+          <div class="d3-chip">🛡 Ins 20 Aug</div>
+          <div class="d3-chip">📄 RC 14 Jun 36</div>
+        </div>
+        <div class="challan">⚠ 1 pending challan · ₹500</div>
+        <div class="divider"></div>
+        <div class="status">
+          <span><b>2021</b> · Petrol · KA03••••</span>
+          <span>⏱ 3mo ago</span>
+        </div>
+      </div>
+      <div class="section-label" style="margin-top:6px;">Property <span class="add-pill">+ Add</span></div>
+      <div class="card violet">
+        <div class="glow" style="right:-20px; top:-30px; width:110px; height:110px; background:#8b5cf6; opacity:.3;"></div>
+        <div class="glow" style="left:-20px; bottom:-30px; width:90px; height:90px; background:#000; opacity:.25;"></div>
+        <div class="sheen"></div>
+        <div class="d3-top">
+          <div class="icontile">🏢</div>
+          <div class="name" style="margin-right:auto;">2BHK — Koramangala</div>
+          <div class="d3-ring">
+            <svg viewBox="0 0 56 56" width="56" height="56">
+              <circle cx="28" cy="28" r="23" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="6"/>
+              <circle cx="28" cy="28" r="23" fill="none" stroke="#34d399" stroke-width="6" stroke-linecap="round"
+                stroke-dasharray="144.5 144.5" stroke-dashoffset="30"/>
+            </svg>
+            <div class="d3-ringlabel"><b>6y</b><span>held</span></div>
+          </div>
+        </div>
+        <div class="d3-hero">
+          <div><div style="font-size:9.5px; color:rgba(255,255,255,.55);">Current value</div><div class="v tabular">₹85,00,000</div></div>
+          <div style="text-align:right;"><div style="font-size:9.5px; color:rgba(255,255,255,.55);">vs purchase</div><div style="font-size:13px; font-weight:700; color:var(--green);">+41.7%</div></div>
+        </div>
+        <div class="d3-chiprow">
+          <div class="d3-chip">🏠 Flat</div>
+          <div class="d3-chip">📐 1,050 sqft</div>
+        </div>
+        <div class="divider"></div>
+        <div class="status">
+          <span>Bengaluru</span>
+          <span>⏱ 1mo ago</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ D4 — Chip cloud ============ -->
+  <div class="column">
+    <div class="col-head">
+      <span class="col-tag" style="background:rgba(255,255,255,.1); color:#e5e5ea;">D4 · Chip Cloud</span>
+      <p class="col-title">Everything flows as one tag cloud</p>
+      <p class="col-pitch">No columns or rows to align — every fact (validity, spec, challan) is just a wrapping row of icon+text chips beneath a clean value hero. Feels light and modern; scales gracefully whether a vehicle has 2 facts or 6.</p>
+    </div>
+    <div class="phone">
+      <div class="section-label">Vehicles <span class="add-pill">+ Add</span></div>
+      <div class="card">
+        <div class="glow" style="right:-20px; top:-30px; width:110px; height:110px; background:#4d7aff; opacity:.3;"></div>
+        <div class="glow" style="left:-20px; bottom:-30px; width:90px; height:90px; background:#000; opacity:.25;"></div>
+        <div class="sheen"></div>
+        <div class="top">
+          <div class="icontile">🚗</div>
+          <div class="name">Maruti Suzuki Swift VXI</div>
+          <div class="chevron">›</div>
+        </div>
+        <div class="d4-hero">
+          <div class="v tabular">₹5,80,000</div>
+          <div class="sub">₹7,50,000 · <span style="color:var(--red); font-weight:700;">-22.7%</span></div>
+        </div>
+        <div class="d4-cloud">
+          <div class="d4-chip">🛡 20 Aug 26</div>
+          <div class="d4-chip">🌿 10 Dec 26</div>
+          <div class="d4-chip">📄 14 Jun 36</div>
+          <div class="d4-chip">⛽ Petrol</div>
+          <div class="d4-chip">🔖 KA03••••</div>
+          <div class="d4-chip warn">⚠ 1 challan · ₹500</div>
+        </div>
+        <div class="divider"></div>
+        <div class="status" style="justify-content:flex-end;"><span>⏱ Updated 3 months ago</span></div>
+      </div>
+      <div class="section-label" style="margin-top:6px;">Property <span class="add-pill">+ Add</span></div>
+      <div class="card violet">
+        <div class="glow" style="right:-20px; top:-30px; width:110px; height:110px; background:#8b5cf6; opacity:.3;"></div>
+        <div class="glow" style="left:-20px; bottom:-30px; width:90px; height:90px; background:#000; opacity:.25;"></div>
+        <div class="sheen"></div>
+        <div class="top">
+          <div class="icontile">🏢</div>
+          <div class="name">2BHK — Koramangala</div>
+          <div class="chevron">›</div>
+        </div>
+        <div class="d4-hero">
+          <div class="v tabular">₹85,00,000</div>
+          <div class="sub" style="color:var(--green); font-weight:700;">+41.7%</div>
+        </div>
+        <div class="d4-cloud">
+          <div class="d4-chip">🏠 Flat</div>
+          <div class="d4-chip">📍 Bengaluru</div>
+          <div class="d4-chip">📐 1,050 sqft</div>
+          <div class="d4-chip">📅 Mar 2019</div>
+        </div>
+        <div class="divider"></div>
+        <div class="status" style="justify-content:flex-end;"><span>⏱ Updated 1 month ago</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ D5 — Glass Tile Segments ============ -->
+  <div class="column">
+    <div class="col-head">
+      <span class="col-tag" style="background:rgba(196,181,253,.18); color:#c4b5fd;">D5 · Glass Tile Segments</span>
+      <p class="col-title">Card-within-a-card, premium feel</p>
+      <p class="col-pitch">Each cluster of facts sits in its own frosted-glass tile (translucent fill + hairline border) — validity dates as 3 small tiles, value info as one wider tile. Most tactile/segmented of the five; reads as a small dashboard rather than a form summary.</p>
+    </div>
+    <div class="phone">
+      <div class="section-label">Vehicles <span class="add-pill">+ Add</span></div>
+      <div class="card">
+        <div class="glow" style="right:-20px; top:-30px; width:110px; height:110px; background:#4d7aff; opacity:.3;"></div>
+        <div class="glow" style="left:-20px; bottom:-30px; width:90px; height:90px; background:#000; opacity:.25;"></div>
+        <div class="sheen"></div>
+        <div class="top">
+          <div class="icontile">🚗</div>
+          <div class="name">Maruti Suzuki Swift VXI</div>
+          <div class="chevron">›</div>
+        </div>
+        <div class="d5-tilerow">
+          <div class="d5-tile"><div class="ic">🛡</div><div class="l">Insurance</div><div class="v">20 Aug 26</div></div>
+          <div class="d5-tile"><div class="ic">🌿</div><div class="l">PUC</div><div class="v">10 Dec 26</div></div>
+          <div class="d5-tile"><div class="ic">📄</div><div class="l">RC valid</div><div class="v">14 Jun 36</div></div>
+        </div>
+        <div class="d5-valuetile">
+          <div><div class="l">Current value</div><div class="v tabular">₹5,80,000</div></div>
+          <div class="sub">Purchase ₹7,50,000<br/><span style="color:var(--red); font-weight:700;">-22.7%</span></div>
+        </div>
+        <div class="challan">⚠ 1 pending challan · ₹500</div>
+        <div class="divider"></div>
+        <div class="status">
+          <span><b>2021</b> · Petrol · KA03••••</span>
+          <span>⏱ 3mo ago</span>
+        </div>
+      </div>
+      <div class="section-label" style="margin-top:6px;">Property <span class="add-pill">+ Add</span></div>
+      <div class="card violet">
+        <div class="glow" style="right:-20px; top:-30px; width:110px; height:110px; background:#8b5cf6; opacity:.3;"></div>
+        <div class="glow" style="left:-20px; bottom:-30px; width:90px; height:90px; background:#000; opacity:.25;"></div>
+        <div class="sheen"></div>
+        <div class="top">
+          <div class="icontile">🏢</div>
+          <div class="name">2BHK — Koramangala</div>
+          <div class="chevron">›</div>
+        </div>
+        <div class="d5-tilerow">
+          <div class="d5-tile"><div class="ic">🏠</div><div class="l">Type</div><div class="v">Flat</div></div>
+          <div class="d5-tile"><div class="ic">📐</div><div class="l">Area</div><div class="v">1,050 sqft</div></div>
+          <div class="d5-tile"><div class="ic">📅</div><div class="l">Since</div><div class="v">Mar 2019</div></div>
+        </div>
+        <div class="d5-valuetile">
+          <div><div class="l">Current value</div><div class="v tabular">₹85,00,000</div></div>
+          <div class="sub" style="color:var(--green); font-weight:700;">+41.7%</div>
+        </div>
+        <div class="divider"></div>
+        <div class="status">
+          <span>Bengaluru</span>
+          <span>⏱ 1mo ago</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

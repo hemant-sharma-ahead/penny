@@ -3,13 +3,11 @@ import { usePrivacy } from '~/context/PrivacyContext';
 import { getPrivacyModeColors } from '@penny/core/theme/privacyModeColors';
 
 /**
- * The live `--color-mode-accent` web reads via CSS cascade (`[data-privacy-mode=...]` overrides in
- * index.css) — always one of the three privacy-mode accent colors (amber/violet/red for Safe/Private/
- * Open), never the literal `#6366f1` fallback in web's `var(--color-mode-accent, #6366f1)` (that
- * fallback is unreachable in practice since `data-privacy-mode` is always set). Mobile has no CSS
- * cascade, so Groups (the one area that reads this token) must call this hook directly instead of
- * hardcoding the fallback hex (found in the 2026-07-26 parity sweep: `ContextSwitcher`/`GroupDashboard`/
- * `SharedExpenseComposer`/`HomeGroupsCard` all hardcoded indigo, never reflecting theme or privacy mode).
+ * A theme-appropriate accent color for Groups' UI (`ContextSwitcher`/`GroupDashboard`/
+ * `SharedExpenseComposer`/`HomeGroupsCard` — the one area that reads this token), read via this hook
+ * instead of each hardcoding a fallback hex (found in the 2026-07-26 parity sweep: all four hardcoded
+ * indigo, never reflecting theme). As of 2026-07-31 this is theme-only — it no longer varies by Privacy
+ * Mode (that ambient tinting was removed by deliberate decision, see `getPrivacyModeColors`).
  */
 export function useModeAccentColor(): string {
   const { activePalette } = useTheme();

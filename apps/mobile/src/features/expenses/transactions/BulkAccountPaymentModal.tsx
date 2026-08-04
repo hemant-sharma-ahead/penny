@@ -2,9 +2,7 @@ import { useMemo, useState } from 'react';
 import { View, Text } from 'react-native';
 import { Button, Modal } from '~/components/ui';
 import type { Account } from '@/core/db/types';
-import { AccountChips } from './AccountChips';
-import { PaymentModeChips } from './PaymentModeChips';
-import { couplePaymentToAccount } from './paymentModes';
+import { AccountChips, PaymentModeChips, couplePaymentToAccount } from '~/components/shared';
 
 interface Props {
   accounts: Account[];

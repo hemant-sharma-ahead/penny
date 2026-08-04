@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Penny — App Icon Directions v1</title>
+<style>
+  :root {
+    --green: #00a86b;
+    --green-dark: #067a4f;
+    --green-deep: #045538;
+    --cream: #fff8ec;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 32px 100px;
+    background: #12151a;
+    color: #eef1f4;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lead { color: #9aa3ad; font-size: 14px; max-width: 760px; line-height: 1.6; margin-bottom: 36px; }
+  .lead b { color: #eef1f4; }
+  section { margin-bottom: 56px; }
+  .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #6f7a86; margin-bottom: 14px; font-weight: 600; }
+  .row { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+  .card {
+    background: #1b1f26;
+    border: 1px solid #2a2f38;
+    border-radius: 16px;
+    padding: 20px;
+    width: 260px;
+  }
+  .card.pick { border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+  .card h3 { font-size: 14px; margin: 12px 0 4px; color: #eef1f4; }
+  .card p { font-size: 12px; color: #9aa3ad; line-height: 1.5; margin: 0 0 12px; }
+  .badge {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+    color: var(--green); background: rgba(0,168,107,0.15); border: 1px solid rgba(0,168,107,0.4);
+    border-radius: 999px; padding: 3px 9px; margin-bottom: 8px; text-transform: uppercase;
+  }
+  .icon-tray { display: flex; align-items: center; gap: 18px; justify-content: center; padding: 16px 0; }
+  .tile-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .tile-label { font-size: 9px; color: #6f7a86; }
+  .squircle {
+    border-radius: 22.5%;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .home-strip {
+    display: flex; gap: 10px; padding: 14px; border-radius: 14px; margin-top: 6px;
+  }
+  .home-strip.light { background: linear-gradient(180deg,#dfe7ee,#c9d4de); }
+  .home-strip.dark { background: linear-gradient(180deg,#20242c,#14171c); }
+  .home-strip .squircle { width: 40px; height: 40px; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+
+<h1>Penny — App Icon Directions</h1>
+<div class="lead">
+  Today the real <b>apps/mobile</b> launcher icon (<code>assets/icon.png</code>) is a leftover generic
+  blue chevron placeholder — the coin/leaf mark only ever existed as <code>apps/web-react/public/icons/icon.svg</code>
+  and was never wired in. All directions below keep the brand green (<code>--color-primary: #00a86b</code>)
+  and the coin + leaf idea, but push toward reading clearly as a <b>coin</b> at a glance — and, since
+  Groww's own mark is also a thin-stroke sprout, steer away from that so Penny doesn't read as a lookalike
+  at small sizes.
+</div>
+
+<!-- CURRENT -->
+<section>
+  <div class="section-title">Current (web-react icon.svg — not actually wired to the app)</div>
+  <div class="row">
+    <div class="card">
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="200" stroke="white" stroke-width="24" fill="none"/>
+            <circle cx="256" cy="256" r="144" stroke="white" stroke-width="16" fill="none" opacity="0.5"/>
+            <path d="M256 368V224" stroke="white" stroke-width="28" stroke-linecap="round"/>
+            <path d="M256 288 C216 272 168 240 184 176 C200 112 256 152 256 232" fill="white" opacity="0.9"/>
+            <path d="M256 256 C296 240 344 208 328 144 C312 80 256 120 256 200" fill="white"/>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="200" stroke="white" stroke-width="24" fill="none"/>
+            <circle cx="256" cy="256" r="144" stroke="white" stroke-width="16" fill="none" opacity="0.5"/>
+            <path d="M256 368V224" stroke="white" stroke-width="28" stroke-linecap="round"/>
+            <path d="M256 288 C216 272 168 240 184 176 C200 112 256 152 256 232" fill="white" opacity="0.9"/>
+            <path d="M256 256 C296 240 344 208 328 144 C312 80 256 120 256 200" fill="white"/>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="200" stroke="white" stroke-width="24" fill="none"/>
+            <circle cx="256" cy="256" r="144" stroke="white" stroke-width="16" fill="none" opacity="0.5"/>
+            <path d="M256 368V224" stroke="white" stroke-width="28" stroke-linecap="round"/>
+            <path d="M256 288 C216 272 168 240 184 176 C200 112 256 152 256 232" fill="white" opacity="0.9"/>
+            <path d="M256 256 C296 240 344 208 328 144 C312 80 256 120 256 200" fill="white"/>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>Ring (coin edge) + thin two-blade sprout. At 24px the rings vanish and the sprout reads as a
+      generic "growth" glyph, not specifically a coin — and it's close enough to Groww's own mark to
+      cause confusion.</p>
+    </div>
+  </div>
+</section>
+
+<!-- A -->
+<section>
+  <div class="section-title">Direction A — Refined Coin + Sprout (evolution of current)</div>
+  <div class="row">
+    <div class="card">
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="216" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="10"/>
+            <circle cx="256" cy="256" r="188" fill="none" stroke="white" stroke-width="20"/>
+            <path d="M256 336V208" stroke="white" stroke-width="34" stroke-linecap="round"/>
+            <path d="M256 260 C210 244 172 206 190 150 C206 100 256 132 256 204" fill="white"/>
+            <path d="M256 236 C300 216 336 180 322 128 C308 78 256 108 256 176" fill="white"/>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="216" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="10"/>
+            <circle cx="256" cy="256" r="188" fill="none" stroke="white" stroke-width="20"/>
+            <path d="M256 336V208" stroke="white" stroke-width="34" stroke-linecap="round"/>
+            <path d="M256 260 C210 244 172 206 190 150 C206 100 256 132 256 204" fill="white"/>
+            <path d="M256 236 C300 216 336 180 322 128 C308 78 256 108 256 176" fill="white"/>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="216" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="10"/>
+            <circle cx="256" cy="256" r="188" fill="none" stroke="white" stroke-width="20"/>
+            <path d="M256 336V208" stroke="white" stroke-width="34" stroke-linecap="round"/>
+            <path d="M256 260 C210 244 172 206 190 150 C206 100 256 132 256 204" fill="white"/>
+            <path d="M256 236 C300 216 336 180 322 128 C308 78 256 108 256 176" fill="white"/>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>Single bold rim (not two thin rings), fatter leaf blades, tighter crop. Reads better at 48px but
+      still thins out at 24px, and still close in silhouette to a generic sprout mark.</p>
+    </div>
+  </div>
+</section>
+
+<!-- B -->
+<section>
+  <div class="section-title">Direction B — ₹ Leaf Ligature</div>
+  <div class="row">
+    <div class="card pick">
+      <div class="badge">Distinctive</div>
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="216" fill="none" stroke="white" stroke-width="18"/>
+            <!-- Rupee glyph -->
+            <path d="M188 156H328" stroke="white" stroke-width="26" stroke-linecap="round"/>
+            <path d="M188 156C188 156 260 156 268 200C276 244 188 244 188 244" stroke="white" stroke-width="26" fill="none" stroke-linecap="round"/>
+            <path d="M188 244H320" stroke="white" stroke-width="26" stroke-linecap="round"/>
+            <path d="M212 244L320 356" stroke="white" stroke-width="26" stroke-linecap="round"/>
+            <!-- leaf tip terminating the top stroke -->
+            <path d="M328 156 C356 140 372 108 356 84 C332 92 320 116 328 156Z" fill="white"/>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="216" fill="none" stroke="white" stroke-width="18"/>
+            <path d="M188 156H328" stroke="white" stroke-width="26" stroke-linecap="round"/>
+            <path d="M188 156C188 156 260 156 268 200C276 244 188 244 188 244" stroke="white" stroke-width="26" fill="none" stroke-linecap="round"/>
+            <path d="M188 244H320" stroke="white" stroke-width="26" stroke-linecap="round"/>
+            <path d="M212 244L320 356" stroke="white" stroke-width="26" stroke-linecap="round"/>
+            <path d="M328 156 C356 140 372 108 356 84 C332 92 320 116 328 156Z" fill="white"/>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="216" fill="none" stroke="white" stroke-width="18"/>
+            <path d="M188 156H328" stroke="white" stroke-width="26" stroke-linecap="round"/>
+            <path d="M188 156C188 156 260 156 268 200C276 244 188 244 188 244" stroke="white" stroke-width="26" fill="none" stroke-linecap="round"/>
+            <path d="M188 244H320" stroke="white" stroke-width="26" stroke-linecap="round"/>
+            <path d="M212 244L320 356" stroke="white" stroke-width="26" stroke-linecap="round"/>
+            <path d="M328 156 C356 140 372 108 356 84 C332 92 320 116 328 156Z" fill="white"/>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>Coin disc with a ₹ glyph — the top stroke tapers into a small leaf instead of a square terminal.
+      Directly ties "coin" (currency, India-first) + "leaf" (growth) into one ownable mark, no other
+      fintech app owns a ₹-leaf ligature. Risk: the leaf detail is small and may not survive down to 24px
+      as a leaf specifically (reads as a slightly organic ₹ at that size, which is still fine).</p>
+    </div>
+  </div>
+</section>
+
+<!-- C -->
+<section>
+  <div class="section-title">Direction C — Embossed Leaf Medallion <span style="color:#6f7a86; font-weight: 400; text-transform: none; letter-spacing: 0;">(recommended)</span></div>
+  <div class="row">
+    <div class="card pick">
+      <div class="badge">Most legible small</div>
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="200" fill="var(--green-dark)"/>
+            <circle cx="256" cy="256" r="200" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="8"/>
+            <!-- solid leaf medallion, knocked out as negative space -->
+            <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+            <path d="M256 366V166" stroke="var(--green-dark)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M256 320 C220 300 196 270 210 236" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M256 270 C292 250 316 220 302 186" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="200" fill="var(--green-dark)"/>
+            <circle cx="256" cy="256" r="200" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="8"/>
+            <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+            <path d="M256 366V166" stroke="var(--green-dark)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M256 320 C220 300 196 270 210 236" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M256 270 C292 250 316 220 302 186" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="200" fill="var(--green-dark)"/>
+            <circle cx="256" cy="256" r="200" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="8"/>
+            <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+            <path d="M256 366V166" stroke="var(--green-dark)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M256 320 C220 300 196 270 210 236" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M256 270 C292 250 316 220 302 186" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>A solid coin disc (two-tone green rim + deeper-green face, like a struck medal) with a solid
+      cream leaf stamped into the center — engraved veins, not thin outlined strokes. Solid silhouettes
+      survive down-scaling far better than line art (this is why most launcher icons — WhatsApp, Google
+      Pay, PhonePe — are solid shapes, not outlines), and a filled leaf-on-a-disc reads as "coin" first,
+      unlike a sprout growing off a rim. Furthest in silhouette from Groww's thin sprout mark.</p>
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-bottom:10px;">On a home screen</div>
+      <div class="home-strip light">
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512">
+          <rect width="512" height="512" rx="112" fill="var(--green)"/>
+          <circle cx="256" cy="256" r="200" fill="var(--green-dark)"/>
+          <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+          <path d="M256 366V166" stroke="var(--green-dark)" stroke-width="14" stroke-linecap="round"/>
+        </svg>
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#3b82f6"/></svg>
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#111827"/></svg>
+      </div>
+      <div class="home-strip dark">
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512">
+          <rect width="512" height="512" rx="112" fill="var(--green)"/>
+          <circle cx="256" cy="256" r="200" fill="var(--green-dark)"/>
+          <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+          <path d="M256 366V166" stroke="var(--green-dark)" stroke-width="14" stroke-linecap="round"/>
+        </svg>
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#3b82f6"/></svg>
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#111827"/></svg>
+      </div>
+      <p style="margin-top:12px;">Holds up next to neighbouring icons at real launcher scale, both wallpapers.</p>
+    </div>
+  </div>
+</section>
+
+<!-- D -->
+<section>
+  <div class="section-title">Direction D — Coin Stack + Leaf</div>
+  <div class="row">
+    <div class="card">
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <ellipse cx="256" cy="356" rx="118" ry="34" fill="var(--green-deep)"/>
+            <ellipse cx="256" cy="332" rx="118" ry="34" fill="white" opacity="0.95"/>
+            <ellipse cx="256" cy="308" rx="118" ry="34" fill="var(--green-dark)"/>
+            <ellipse cx="256" cy="284" rx="118" ry="34" fill="white"/>
+            <path d="M256 284 C256 284 250 200 288 168 C310 148 336 156 336 156 C336 156 328 196 296 216 C272 230 256 284 256 284Z" fill="white"/>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <ellipse cx="256" cy="356" rx="118" ry="34" fill="var(--green-deep)"/>
+            <ellipse cx="256" cy="332" rx="118" ry="34" fill="white" opacity="0.95"/>
+            <ellipse cx="256" cy="308" rx="118" ry="34" fill="var(--green-dark)"/>
+            <ellipse cx="256" cy="284" rx="118" ry="34" fill="white"/>
+            <path d="M256 284 C256 284 250 200 288 168 C310 148 336 156 336 156 C336 156 328 196 296 216 C272 230 256 284 256 284Z" fill="white"/>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <ellipse cx="256" cy="356" rx="118" ry="34" fill="var(--green-deep)"/>
+            <ellipse cx="256" cy="332" rx="118" ry="34" fill="white" opacity="0.95"/>
+            <ellipse cx="256" cy="308" rx="118" ry="34" fill="var(--green-dark)"/>
+            <ellipse cx="256" cy="284" rx="118" ry="34" fill="white"/>
+            <path d="M256 284 C256 284 250 200 288 168 C310 148 336 156 336 156 C336 156 328 196 296 216 C272 230 256 284 256 284Z" fill="white"/>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>Most literal "wealth growing" narrative (stack of coins, a leaf sprouting off the top). Reads
+      well large; at 24px the stack lines and single leaf blade blur into a soft blob — the weakest of
+      the four at launcher scale.</p>
+    </div>
+  </div>
+</section>
+
+<!-- E -->
+<section>
+  <div class="section-title">Direction E — Coin + Chip Notch <span style="color:#6f7a86; font-weight: 400; text-transform: none; letter-spacing: 0;">(Penny + Chip naming tie-in)</span></div>
+  <div class="row">
+    <div class="card pick">
+      <div class="badge">Names both products</div>
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <!-- coin disc with small IC-chip pin notches top/bottom, nodding to "Chip" -->
+            <path d="M256 96 C331 96 392 157 392 232 L392 232 L376 232 L376 216 L392 216 L392 296 L376 296 L376 280 L392 280 L392 280 C392 355 331 416 256 416 C181 416 120 355 120 280 L136 280 L136 296 L120 296 L120 216 L136 216 L136 232 L120 232 C120 157 181 96 256 96Z" fill="var(--green-dark)"/>
+            <circle cx="256" cy="256" r="200" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="8"/>
+            <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+            <path d="M256 366V166" stroke="var(--green-dark)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M256 320 C220 300 196 270 210 236" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M256 270 C292 250 316 220 302 186" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <path d="M256 96 C331 96 392 157 392 232 L392 232 L376 232 L376 216 L392 216 L392 296 L376 296 L376 280 L392 280 L392 280 C392 355 331 416 256 416 C181 416 120 355 120 280 L136 280 L136 296 L120 296 L120 216 L136 216 L136 232 L120 232 C120 157 181 96 256 96Z" fill="var(--green-dark)"/>
+            <circle cx="256" cy="256" r="200" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="8"/>
+            <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+            <path d="M256 366V166" stroke="var(--green-dark)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M256 320 C220 300 196 270 210 236" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M256 270 C292 250 316 220 302 186" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <path d="M256 96 C331 96 392 157 392 232 L392 232 L376 232 L376 216 L392 216 L392 296 L376 296 L376 280 L392 280 L392 280 C392 355 331 416 256 416 C181 416 120 355 120 280 L136 280 L136 296 L120 296 L120 216 L136 216 L136 232 L120 232 C120 157 181 96 256 96Z" fill="var(--green-dark)"/>
+            <circle cx="256" cy="256" r="200" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="8"/>
+            <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+            <path d="M256 366V166" stroke="var(--green-dark)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M256 320 C220 300 196 270 210 236" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M256 270 C292 250 316 220 302 186" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>Same solid leaf-medallion face as C, but the coin's own rim grows four small squared-off pin
+      notches (top/bottom) — the silhouette of an IC chip package wrapped around a coin. Reads as "Penny"
+      (coin, leaf = growth) at a glance, with "Chip" (the AI advisor) as a found-later detail once you
+      know to look for it. Honest tradeoff: at 24px those pin notches are the first thing to disappear
+      (down to a slightly bumpy circle), so the Chip nod only really survives at 48px and up — the coin +
+      leaf reading (Direction C) is what actually carries the icon at real launcher scale.</p>
+    </div>
+  </div>
+</section>
+
+<!-- F -->
+<section>
+  <div class="section-title">Direction F — Leaf Medallion Coin Stack <span style="color:#6f7a86; font-weight: 400; text-transform: none; letter-spacing: 0;">(C + D combined — new top pick)</span></div>
+  <div class="row">
+    <div class="card pick">
+      <div class="badge">Top pick</div>
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <!-- back coin, offset down-right, mostly hidden behind the front coin -->
+            <circle cx="288" cy="288" r="200" fill="var(--green-deep)" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
+            <!-- front coin, same face treatment as Direction C -->
+            <circle cx="256" cy="256" r="200" fill="var(--green-dark)" stroke="rgba(255,255,255,0.55)" stroke-width="8"/>
+            <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+            <path d="M256 366V166" stroke="var(--green-dark)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M256 320 C220 300 196 270 210 236" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M256 270 C292 250 316 220 302 186" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <circle cx="288" cy="288" r="200" fill="var(--green-deep)" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
+            <circle cx="256" cy="256" r="200" fill="var(--green-dark)" stroke="rgba(255,255,255,0.55)" stroke-width="8"/>
+            <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+            <path d="M256 366V166" stroke="var(--green-dark)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M256 320 C220 300 196 270 210 236" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M256 270 C292 250 316 220 302 186" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <rect width="512" height="512" rx="112" fill="var(--green)"/>
+            <circle cx="288" cy="288" r="200" fill="var(--green-deep)" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
+            <circle cx="256" cy="256" r="200" fill="var(--green-dark)" stroke="rgba(255,255,255,0.55)" stroke-width="8"/>
+            <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+            <path d="M256 366V166" stroke="var(--green-dark)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M256 320 C220 300 196 270 210 236" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M256 270 C292 250 316 220 302 186" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>Two solid overlapping discs instead of D's edge-on ellipse stack — a second coin (deeper green)
+      sits offset behind the front one, showing only a crescent sliver at the bottom-right. The front
+      coin carries C's full leaf medallion face unchanged. Because both coins are solid filled circles
+      (not thin stacked lines), the "more than one coin / wealth accumulating" story from D survives
+      scaling: at 24px the sliver reads as a subtle thicker shadow/bevel on one edge rather than vanishing
+      into mush the way D's stack lines did — still unambiguously a coin with a leaf, with the stack as a
+      bonus detail once you're looking at it larger (96px+, app-store listing, splash screen).</p>
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-bottom:10px;">On a home screen</div>
+      <div class="home-strip light">
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512">
+          <rect width="512" height="512" rx="112" fill="var(--green)"/>
+          <circle cx="288" cy="288" r="200" fill="var(--green-deep)" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
+          <circle cx="256" cy="256" r="200" fill="var(--green-dark)" stroke="rgba(255,255,255,0.55)" stroke-width="8"/>
+          <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+          <path d="M256 366V166" stroke="var(--green-dark)" stroke-width="14" stroke-linecap="round"/>
+        </svg>
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#3b82f6"/></svg>
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#111827"/></svg>
+      </div>
+      <div class="home-strip dark">
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512">
+          <rect width="512" height="512" rx="112" fill="var(--green)"/>
+          <circle cx="288" cy="288" r="200" fill="var(--green-deep)" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
+          <circle cx="256" cy="256" r="200" fill="var(--green-dark)" stroke="rgba(255,255,255,0.55)" stroke-width="8"/>
+          <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+          <path d="M256 366V166" stroke="var(--green-dark)" stroke-width="14" stroke-linecap="round"/>
+        </svg>
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#3b82f6"/></svg>
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#111827"/></svg>
+      </div>
+      <p style="margin-top:12px;">The stacked-coin sliver still reads cleanly at real launcher size next to neighbouring icons.</p>
+    </div>
+  </div>
+</section>
+
+<div class="lead" style="margin-top: -20px;">
+  <b>Recommendation: Direction F.</b> It keeps everything Direction C got right — solid filled shapes
+  that hold up at 24–48px, a coin-first silhouette, distinct from Groww's thin sprout mark — while adding
+  back D's "growing wealth stack" idea via a second overlapping disc rather than thin edge-on ellipse
+  lines, so nothing gets lost at small size the way D did. If you want the stack more prominent (visible
+  even at 24px), the tradeoff is offsetting the coins further apart, but that starts pushing the leaf
+  medallion off-center — happy to tune the offset once you've picked this direction.
+</div>
+
+</body>
+</html>

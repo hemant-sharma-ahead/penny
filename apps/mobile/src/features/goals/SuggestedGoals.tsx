@@ -10,6 +10,17 @@ import { Icon } from '~/components/Icon';
 import { tint } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
 
+/** Loose match for goal-name dedup — punctuation/casing/spacing shouldn't matter (found via a real
+ *  mismatch: demo data seeds "Home Down Payment", the template's fixed name is "Home down-payment" —
+ *  a plain trim+lowercase compare treats those as different goals and keeps suggesting a duplicate). */
+function normalizeGoalName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
 /**
  * "Suggested for you" — life-stage goal templates from the opt-in profile (education corpus, home
  * down-payment, retirement…). One tap adds a `source:'suggested'` goal. Deduped against existing goals;
@@ -21,8 +32,8 @@ export function SuggestedGoals({ goals }: { goals: Goal[] }) {
   const { showToast } = useToast();
   const [adding, setAdding] = useState<string | null>(null);
 
-  const existing = new Set(goals.map((g) => g.name.trim().toLowerCase()));
-  const templates = lifeStageGoalTemplates(profile).filter((t) => !existing.has(t.name.trim().toLowerCase()));
+  const existing = new Set(goals.map((g) => normalizeGoalName(g.name)));
+  const templates = lifeStageGoalTemplates(profile).filter((t) => !existing.has(normalizeGoalName(t.name)));
   if (templates.length === 0) return null;
 
   async function add(name: string) {

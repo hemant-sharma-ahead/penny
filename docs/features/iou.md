@@ -100,6 +100,12 @@ Key files:
 - Phase 1.5 Track E: link a person to a real group member (`linkedMemberId`) so two ledgers reconcile
 - Phase 1.5 Track E: N-party split engine (shared expense → shares → who-paid → multi-party settle)
 
+**2026-08-01 — this exact two-way link pattern was reused for Goals:** `core/goals/goalLink.ts`
+(`reconcileGoalLink`/`reconcileLinkedGoalTxn`) mirrors `expenseLink.ts` field-for-field —
+`ExpenseForm.tsx`'s Goal toggle is `Lent`/`Borrowed`'s sibling (shown for expense/income/**and**
+transfer, unlike IOU), and `GoalContributionForm.tsx`'s "Record as a transaction" toggle mirrors
+`EntryForm.tsx`'s. See [`docs/features/goals.md`](goals.md).
+
 ## Ideas welcome
 
 - Should expense→IOU seeding support uneven splits (not just even/full) before groups land?

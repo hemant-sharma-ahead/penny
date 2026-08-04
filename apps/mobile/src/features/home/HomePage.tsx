@@ -1,20 +1,18 @@
-import { View, ScrollView, Text } from 'react-native';
+import { View, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useProfile } from '@/hooks/useProfile';
 import { useGroupContext } from '~/context/GroupContext';
 import { GroupDashboard } from '~/features/groups/GroupDashboard';
-import { MarketTicker } from './MarketTicker';
 import { StoriesRow } from './stories/StoriesRow';
 import { GlanceHeader } from './GlanceHeader';
 import { AccountsStrip } from './AccountsStrip';
-import { ToolsGrid } from './ToolsGrid';
 import { MoneyStatsCard } from './MoneyStatsCard';
 import { FinancialHealthCard } from '~/features/health/FinancialHealthCard';
 import { HomeGroupsCard } from './HomeGroupsCard';
 import { useHome } from './useHome';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useRegisterHeaderScreen } from '~/navigation/HeaderBackContext';
 import type { AppRouteKey } from '@/core/advisor/guidance';
 
 /** Maps the advisor's platform-agnostic route keys to this app's actual screen names — RN port of
@@ -39,10 +37,13 @@ export function HomePage() {
   const modeBg = useModeBackgroundColor();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { activeGroup } = useGroupContext();
-  const { summary, assetGroups, totalAssets, totalLiabilities } = useHome();
-  const { profile } = useProfile();
+  const { summary, assetGroups, totalAssets } = useHome();
+  useRegisterHeaderScreen('HomeMain');
 
-  // When a group is the active context, Home becomes that group's dashboard.
+  // When a group is the active context, Home becomes that group's dashboard. "Personal ▾"/the group
+  // name itself is no longer rendered here at all — 2026-08-01 chrome consolidation moved it into
+  // `MainTabs`' own global header (center slot, Home only), replacing the floating pill this file used
+  // to render (2026-07-31) above the tab bar.
   if (activeGroup) {
     // GroupDashboard owns its own FlatList/scrolling (its shared-expense feed is virtualized — see its
     // own file), so it isn't wrapped in a ScrollView here the way the personal-home view below still is.
@@ -53,27 +54,11 @@ export function HomePage() {
     );
   }
 
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const firstName = profile?.displayName?.trim().split(/\s+/)[0];
-
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 96 }}>
         <View className="px-4 pt-3 pb-6">
-          <Text className="text-xl font-semibold text-primary mb-3">
-            {greeting}
-            {firstName ? `, ${firstName}` : ''}
-          </Text>
-
-          {summary && (
-            <GlanceHeader
-              summary={summary}
-              assetGroups={assetGroups}
-              totalAssets={totalAssets}
-              totalLiabilities={totalLiabilities}
-            />
-          )}
+          {summary && <GlanceHeader summary={summary} assetGroups={assetGroups} totalAssets={totalAssets} />}
 
           <MoneyStatsCard />
 
@@ -90,12 +75,6 @@ export function HomePage() {
               <AccountsStrip accounts={summary.accountBalances} />
             </View>
           )}
-
-          <View className="mb-4">
-            <MarketTicker />
-          </View>
-
-          <ToolsGrid />
         </View>
       </ScrollView>
     </SafeAreaView>

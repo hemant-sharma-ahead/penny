@@ -10,13 +10,13 @@ import { formatDateShort } from '@/lib/date';
 import { Card, EmptyState, SegmentedControl, Banner, Button, Modal, AmountInput } from '~/components/ui';
 import { ink } from '~/lib/color';
 import { Icon } from '~/components/Icon';
-import { BackButton } from '~/components/shared';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { BalanceForecast, CashFlowEvent } from '@/core/cashflow/forecaster';
 import { useCashFlow, type Horizon } from './useCashFlow';
 import { useIncomeSuggestions } from './useIncomeSuggestions';
 import { CashFlowMonthHeader, CashFlowEventCard } from './CashFlowTimeline';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 
 const HORIZON_LABEL: Record<string, string> = {
   month: 'this month',
@@ -105,6 +105,11 @@ export function CashFlowPage() {
     todayStart,
     startBalance,
     forecast,
+    goalReserved,
+    goalBreakdown,
+    safeToSpendRaw,
+    safeToSpend,
+    safeToSpendPerDay,
     nowMs,
     reload
   } = useCashFlow();
@@ -113,14 +118,17 @@ export function CashFlowPage() {
 
   const [showBuffer, setShowBuffer] = useState(false);
   const [bufferDraft, setBufferDraft] = useState(String(cashflowBuffer));
+  useDefaultHeaderBack('CashFlow');
 
   const masked = shouldMask(false);
   const open = !masked;
   const money = (n: number) => (open ? formatCurrency(n) : '••••');
   const horizonLabel = HORIZON_LABEL[horizon] ?? 'this month';
 
-  const safe = Math.max(0, forecast.discretionary);
-  const overcommitted = forecast.discretionary < 0;
+  const safe = safeToSpend;
+  const overcommitted = safeToSpendRaw < 0;
+  const [showGoalBreakdown, setShowGoalBreakdown] = useState(false);
+  const countedGoals = goalBreakdown.filter((g) => g.amount > 0);
   const paydayLine =
     forecast.daysToPayday !== null
       ? `to last the next ${forecast.daysToPayday} day${forecast.daysToPayday === 1 ? '' : 's'} till payday`
@@ -155,11 +163,7 @@ export function CashFlowPage() {
 
   const header = (
     <View className="pt-4 gap-4">
-      <View className="flex-row items-center justify-between">
-        <View className="flex-row items-center gap-1.5">
-          <BackButton />
-          <Text className="text-xl font-semibold text-primary">Cash Flow</Text>
-        </View>
+      <View className="flex-row items-center justify-end">
         <View className="w-44">
           <SegmentedControl
             options={[
@@ -173,7 +177,11 @@ export function CashFlowPage() {
         </View>
       </View>
 
-      {/* Safe-to-spend hero */}
+      {/* Safe-to-spend hero — 2026-08-02: now excludes money saved toward any "counts" goal (Emergency
+          Fund, Home Down Payment, PPF, etc. — every goal by default, see `GoalForm.tsx`'s toggle), not
+          just upcoming committed outflows + buffer. The "Excludes ₹X" line + tap-to-expand breakdown
+          keeps that reduction legible instead of a silently-smaller number — see
+          docs/mockups/proposals/safe-to-spend-goals-exclusion-v1.html. */}
       <View className="rounded-2xl p-5" style={{ backgroundColor: theme.primary }}>
         <Text className="text-sm text-white opacity-75 mb-1">Safe to spend</Text>
         <Text className="text-3xl font-semibold text-white tracking-tight">{money(safe)}</Text>
@@ -183,7 +191,32 @@ export function CashFlowPage() {
           </Text>
         )}
         {!loading && !overcommitted && safe > 0 && (
-          <Text className="text-xs text-white opacity-70 mt-2">≈ {money(Math.floor(forecast.perDay))}/day</Text>
+          <Text className="text-xs text-white opacity-70 mt-2">≈ {money(Math.floor(safeToSpendPerDay))}/day</Text>
+        )}
+        {!loading && goalReserved > 0 && (
+          <Pressable
+            onPress={() => setShowGoalBreakdown((v) => !v)}
+            className="flex-row items-center gap-1.5 rounded-lg px-2.5 py-1.5 mt-2.5"
+            style={{ backgroundColor: 'rgba(255,255,255,0.14)' }}
+          >
+            <Icon name="ti-target" size={13} color="#fff" />
+            <Text className="text-[11px] text-white flex-1" numberOfLines={1}>
+              Excludes {money(goalReserved)} saved for goals
+            </Text>
+            <Icon name={showGoalBreakdown ? 'ti-chevron-up' : 'ti-chevron-down'} size={13} color="#fff" />
+          </Pressable>
+        )}
+        {showGoalBreakdown && countedGoals.length > 0 && (
+          <View className="mt-2 rounded-xl bg-surface p-3 gap-1.5">
+            {countedGoals.map((g) => (
+              <View key={g.goalId} className="flex-row items-center justify-between">
+                <Text className="text-xs text-secondary flex-1" numberOfLines={1}>
+                  {g.name}
+                </Text>
+                <Text className="text-xs font-semibold text-primary">{g.counts ? money(g.amount) : 'not counted'}</Text>
+              </View>
+            ))}
+          </View>
         )}
       </View>
 

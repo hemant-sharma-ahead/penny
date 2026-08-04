@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Global chrome consolidation v2 (mobile)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --primary:#00a86b; --indigo:#6366f1; --amber:#f59e0b; --violet:#7c3aed; --danger:#dc2626; --success:#16a34a; --teal:#14b8a6; --cyan:#06b6d4;
+        --ink:#0f172a; --sec:#475569; --ter:#94a3b8; --bg:#f4f7fa; --surface:#fff; --surface2:#f6f8fb; --border:#e8edf3;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#e6ebf1; color:var(--ink); -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:23px; }
+      .sub { text-align:center; margin:0 16px 6px; color:var(--sec); font-size:14px; max-width:800px; margin-left:auto; margin-right:auto; line-height:1.6; }
+      .ia { text-align:center; margin:0 16px 10px; color:var(--ter); font-size:12px; max-width:820px; margin-left:auto; margin-right:auto; }
+      .redo { max-width:800px; margin:14px auto 30px; background:#fff7ed; border:1px solid #fde68a; border-radius:12px; padding:12px 16px; font-size:12.5px; color:#92400e; line-height:1.6; }
+      .redo b { color:#78350f; }
+
+      .concept-h { max-width:900px; margin:44px auto 2px; padding:0 20px; }
+      .concept-h .tag { display:inline-block; font-size:10px; font-weight:800; padding:2px 9px; border-radius:999px; text-transform:uppercase; letter-spacing:.04em; background:color-mix(in srgb, var(--indigo) 14%, #fff); color:var(--indigo); margin-bottom:6px; }
+      .concept-h .tag.rec { background:color-mix(in srgb, var(--primary) 16%, #fff); color:var(--primary); }
+      .concept-h h2 { font-size:17px; margin:0 0 6px; }
+      .concept-h p { font-size:13px; color:var(--sec); line-height:1.65; margin:0 0 4px; max-width:860px; }
+      .concept-h .tradeoff { font-size:12.5px; color:#9a3412; background:#fff7ed; border:1px solid #fde68a; border-radius:10px; padding:8px 12px; margin-top:8px; line-height:1.6; }
+      .section-h { text-align:center; font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--sec); margin:36px 0 -6px; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:44px 26px; justify-content:center; align-items:flex-start; padding:16px 20px 30px; }
+      .frame-wrap { width:300px; }
+      .vtitle { font-size:14px; font-weight:800; margin:0 2px 3px; display:flex; align-items:center; gap:6px; }
+      .vtitle .mini { font-size:9.5px; font-weight:800; padding:2px 7px; border-radius:999px; background:var(--surface2); color:var(--sec); border:1px solid var(--border); }
+      .vsub { font-size:11.5px; color:var(--sec); margin:0 2px 12px; line-height:1.55; }
+      .vsub b { color:var(--ink); }
+
+      .phone { width:300px; height:600px; background:var(--bg); border-radius:32px; border:9px solid #0f172a; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 44px rgba(15,23,42,.24); }
+      .statusbar { height:20px; background:#fff; flex-shrink:0; z-index:2; position:relative; }
+
+      /* ===== TODAY (ground truth) ===== */
+      .hbar-today { display:flex; align-items:center; justify-content:space-between; padding:0 13px; height:44px; background:#fff; border-bottom:2px solid var(--amber); flex-shrink:0; gap:8px; }
+      .hbar-today .left { display:flex; align-items:center; gap:8px; }
+      .hbar-today .ham { font-size:19px; color:var(--sec); }
+      .hbar-today .logo-wm { display:flex; align-items:center; gap:6px; }
+      .hbar-today .logo { width:17px; height:17px; border-radius:50%; border:2px solid var(--primary); }
+      .hbar-today .wm { font-weight:800; font-size:14px; color:var(--ink); } .hbar-today .wm span{ color:var(--primary); }
+      .hbar-today .right { display:flex; align-items:center; gap:2px; }
+      .eyeicon { width:28px; height:28px; border-radius:50%; display:grid; place-items:center; background:color-mix(in srgb, var(--amber) 14%, #fff); color:var(--amber); font-size:14px; }
+      .bellicon { width:28px; height:28px; display:grid; place-items:center; position:relative; color:var(--sec); font-size:17px; }
+      .bellicon .dot { position:absolute; top:1px; right:2px; min-width:14px; height:14px; padding:0 3px; border-radius:999px; background:var(--danger); color:#fff; font-size:8.5px; font-weight:800; display:grid; place-items:center; }
+      .ctxbar-today { display:flex; align-items:center; gap:6px; padding:8px 13px; background:#fff; border-bottom:1px solid var(--border); flex-shrink:0; }
+      .ctxbar-today .dot { width:20px; height:20px; border-radius:6px; background:var(--primary); display:grid; place-items:center; color:#fff; font-size:10px; }
+      .ctxbar-today .lbl { flex:1; font-size:12px; font-weight:700; color:var(--ink); }
+
+      .body { flex:1; overflow:hidden; padding:12px; background:var(--bg); }
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:11px; }
+      .glance { display:flex; }
+      .glance .g { flex:1; padding:1px 6px; }
+      .glance .g + .g { border-left:1px solid var(--border); }
+      .glance .k { font-size:9.5px; color:var(--sec); font-weight:600; }
+      .glance .v { font-size:19px; font-weight:800; letter-spacing:-.3px; margin-top:2px; }
+      .glance .s { font-size:9.5px; color:var(--ter); margin-top:1px; }
+      .albar { height:6px; border-radius:4px; margin:9px 2px 2px; overflow:hidden; display:flex; }
+      .albar i { display:block; height:100%; }
+      .alrow { display:flex; justify-content:space-between; font-size:9.5px; color:var(--sec); margin:4px 2px 0; }
+      .slbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--ter); margin:13px 4px 7px; }
+      .holding { display:flex; align-items:center; gap:9px; padding:8px 0; }
+      .holding + .holding { border-top:1px solid var(--border); }
+      .hic { width:26px; height:26px; border-radius:8px; display:grid; place-items:center; font-size:13px; flex-shrink:0; }
+      .holding .nm { flex:1; font-size:12.5px; font-weight:600; } .holding .nm small { display:block; font-size:10px; color:var(--ter); font-weight:500; }
+      .holding .val { font-size:12px; font-weight:700; text-align:right; }
+      .greet-plain { font-size:16px; font-weight:700; color:var(--ink); margin:2px 2px 10px; }
+
+      /* Portfolio's own PageHeader (unchanged across all frames — real component) */
+      .pf-header { padding:10px 13px 0; background:var(--bg); }
+      .pf-title { font-size:17px; font-weight:800; color:var(--ink); }
+      .pf-stats { display:flex; align-items:baseline; gap:8px; margin-top:3px; }
+      .pf-stats .amt { font-size:12px; color:var(--sec); }
+      .pf-stats .pct { font-size:11px; font-weight:700; color:var(--success); }
+      .pf-tabs { display:flex; gap:18px; padding:9px 13px 0; border-bottom:1px solid var(--border); background:var(--bg); margin-bottom:0; }
+      .pf-tabs .t { font-size:12px; font-weight:700; padding-bottom:8px; border-bottom:2px solid transparent; color:var(--sec); }
+      .pf-tabs .t.on { color:var(--primary); border-color:var(--primary); }
+
+      /* bottom tab bar */
+      .tabbar { display:flex; align-items:center; justify-content:space-around; height:58px; background:#fff; border-top:2px solid var(--amber); flex-shrink:0; padding-bottom:4px; position:relative; z-index:2; }
+      .tabitem { display:flex; flex-direction:column; align-items:center; gap:2px; font-size:8.5px; font-weight:700; color:var(--ter); position:relative; }
+      .tabitem.active { color:var(--tab-color, var(--primary)); }
+      .tabitem i { font-size:19px; }
+      .chipavatar { width:30px; height:30px; border-radius:50%; background:var(--indigo); display:grid; place-items:center; color:#fff; font-size:14px; margin-bottom:-1px; }
+
+      /* generic centred modal (menu) */
+      .backdrop { position:absolute; inset:0; background:rgba(15,23,42,.5); display:flex; align-items:center; justify-content:center; padding:0 20px; z-index:5; }
+      .menucard { width:100%; background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 20px 40px rgba(15,23,42,.3); }
+      .mrow { display:flex; align-items:center; gap:10px; padding:12px 14px; }
+      .mrow + .mrow { border-top:1px solid var(--border); }
+      .mic { width:30px; height:30px; border-radius:9px; display:grid; place-items:center; font-size:15px; flex-shrink:0; }
+      .mrow .ml { flex:1; font-size:13.5px; font-weight:700; color:var(--ink); }
+      .mrow .mr { display:flex; align-items:center; gap:5px; }
+      .modepill { font-size:11px; font-weight:800; padding:2px 8px; border-radius:999px; }
+      .badge { min-width:18px; height:18px; padding:0 5px; border-radius:999px; background:var(--danger); color:#fff; font-size:10px; font-weight:800; display:grid; place-items:center; }
+      .mrow .chev { color:var(--ter); font-size:15px; }
+
+      /* ===== CONCEPT A: ambient colour + long-press tab bar ===== */
+      .accentline { height:3px; flex-shrink:0; }
+      .a-greet { display:flex; align-items:center; justify-content:space-between; padding:8px 13px 2px; }
+      .a-greet .txt { font-size:15px; font-weight:700; }
+      .ctxpill-inline { display:inline-flex; align-items:center; gap:4px; background:var(--surface2); border:1px solid var(--border); border-radius:999px; padding:3px 9px 3px 6px; font-size:10.5px; font-weight:700; color:var(--sec); margin:4px 13px 8px; width:fit-content; }
+      .ctxpill-inline .dot { width:13px; height:13px; border-radius:5px; background:var(--primary); display:grid; place-items:center; color:#fff; font-size:8px; }
+      .lp-ring { position:absolute; inset:-6px; border-radius:50%; border:2px dashed var(--primary); animation:pulse 1.4s infinite; }
+      @keyframes pulse { 0%{opacity:.35;transform:scale(.9)} 50%{opacity:.9;transform:scale(1.08)} 100%{opacity:.35;transform:scale(.9)} }
+      .callout { position:absolute; background:var(--ink); color:#fff; font-size:10px; font-weight:700; padding:5px 9px; border-radius:8px; white-space:nowrap; }
+      .callout::after { content:''; position:absolute; bottom:-5px; left:50%; transform:translateX(-50%); border:5px solid transparent; border-top-color:var(--ink); }
+
+      /* ===== CONCEPT B: pull-down shade ===== */
+      .pulltab-row { display:flex; justify-content:center; padding:5px 0 3px; background:var(--bg); flex-shrink:0; }
+      .pulltab { width:34px; height:4px; border-radius:4px; background:var(--border); }
+      .shade { position:absolute; top:20px; left:0; right:0; background:#fff; border-radius:0 0 20px 20px; box-shadow:0 16px 30px rgba(15,23,42,.28); z-index:6; padding:14px 14px 6px; }
+      .shade-grabber { width:36px; height:4px; border-radius:4px; background:var(--border); margin:0 auto 12px; }
+      .shade-seg { display:flex; gap:8px; margin-bottom:14px; }
+      .shade-seg .s { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:9px 0; border-radius:12px; border:1.5px solid var(--border); font-size:10px; font-weight:700; color:var(--sec); }
+      .shade-seg .s.on { border-color:var(--amber); background:color-mix(in srgb, var(--amber) 12%, #fff); color:var(--amber); }
+      .shade-seg .s i { font-size:16px; }
+      .shade-rem { border-top:1px solid var(--border); padding-top:10px; margin-bottom:8px; }
+      .shade-rem .h { font-size:10px; font-weight:800; text-transform:uppercase; color:var(--ter); margin-bottom:6px; letter-spacing:.04em; }
+      .shade-rem .row { display:flex; align-items:center; gap:8px; font-size:11.5px; padding:5px 0; }
+      .shade-rem .row .n { flex:1; font-weight:600; color:var(--ink); }
+      .shade-rem .row .d { color:var(--danger); font-weight:700; font-size:10.5px; }
+      .shade-settings { display:flex; align-items:center; gap:8px; padding:10px 2px; border-top:1px solid var(--border); font-size:12.5px; font-weight:700; color:var(--ink); }
+
+      /* ===== CONCEPT C: greeting-card avatar ===== */
+      .avatarchip { width:26px; height:26px; border-radius:50%; display:grid; place-items:center; font-size:10px; font-weight:800; color:#fff; background:var(--indigo); border:2px solid var(--amber); flex-shrink:0; }
+      .avatarchip.sm { width:22px; height:22px; font-size:9px; border-width:1.5px; }
+      .c-greet-row { display:flex; align-items:center; justify-content:space-between; padding:10px 13px 2px; }
+      .pf-header-row { display:flex; align-items:center; justify-content:space-between; }
+
+      /* ===== CONCEPT D: floating avatar bubble ===== */
+      .floatbubble { position:absolute; top:26px; right:12px; width:34px; height:34px; border-radius:50%; background:#fff; border:2px solid var(--amber); box-shadow:0 6px 14px rgba(15,23,42,.22); display:grid; place-items:center; z-index:4; }
+      .floatbubble .init { font-size:12px; font-weight:800; color:var(--indigo); }
+      .floatbubble .rdot { position:absolute; top:-2px; right:-2px; width:10px; height:10px; border-radius:50%; background:var(--danger); border:1.5px solid #fff; }
+
+      .legend { max-width:940px; margin:10px auto 60px; background:#fff; border:1px solid var(--border); border-radius:16px; padding:20px 24px; color:var(--sec); font-size:13.5px; line-height:1.7; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:var(--ink); }
+      .legend h3 { font-size:13px; margin:16px 0 6px; color:var(--ink); }
+      .legend b { color:var(--ink); }
+      .legend .rec-box { background:color-mix(in srgb, var(--primary) 8%, #fff); border:1px solid color-mix(in srgb, var(--primary) 30%, #fff); border-radius:12px; padding:14px 16px; margin-top:10px; }
+      .legend .open-box { background:#fff7ed; border:1px solid #fde68a; border-radius:12px; padding:14px 16px; margin-top:10px; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend table { width:100%; border-collapse:collapse; margin:10px 0; font-size:12.5px; }
+      .legend td, .legend th { padding:6px 8px; border:1px solid var(--border); text-align:left; vertical-align:top; }
+      .legend th { background:var(--surface2); font-size:11px; text-transform:uppercase; letter-spacing:.03em; }
+    </style>
+  </head>
+  <body>
+    <h1>Global chrome consolidation v2 — Home vs. other tabs</h1>
+    <p class="sub">
+      Redo of <code>chrome-consolidation-v1.html</code>, which was rejected: all 3 options were placement
+      variants of one idea ("a slim bar with a single ⋮ icon"), and it never actually rendered today's real
+      screen for comparison. This version starts with two accurate <b>current-state</b> frames, then proposes
+      <b>4 structurally different interaction concepts</b> — different mental models, not reskins of the same bar.
+    </p>
+    <p class="ia">
+      Ground truth re-read for this pass: <code>MainTabs.tsx</code> (persistent header + tab navigator mount
+      point) · <code>ContextSwitcher.tsx</code> · <code>PrivacyModeSwitcher.tsx</code> · <code>RemindersBell.tsx</code>
+      · <code>HomePage.tsx</code> / <code>GlanceHeader.tsx</code> · <code>PortfolioPage.tsx</code> (has its own
+      <code>PageHeader</code> already) · <code>GoalsPage.tsx</code> / <code>ExpensesHeader.tsx</code> (also have
+      their own <code>PageHeader</code>) · <code>ChipPage.tsx</code> (does <b>not</b> have a <code>PageHeader</code>
+      today — relies entirely on <code>MainTabs</code>' chrome, a real gap called out below) ·
+      <code>docs/DESIGN_GUIDELINES.md</code> (updated 2026-07-31) · <code>header-options.html</code> /
+      <code>home-v2.html</code> / <code>chrome-consolidation-v1.html</code> for reconciliation.
+    </p>
+    <div class="redo">
+      <b>What v1 got wrong, specifically:</b> it read the source correctly but never built an HTML frame that
+      actually looked like today's app — so there was nothing to compare the 3 new options against. Every
+      section below places a proposed concept directly next to the two "Today" frames. It also proposed only
+      one shape (icon bar, blank/wordmark/title on the left) three times; this pass treats "a top bar" itself as
+      one option among several, not a given.
+    </div>
+
+    <div class="section-h">Today — ground truth (for direct comparison against every concept below)</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Today · Portfolio <span class="mini">non-Home tab</span></div>
+        <div class="vsub">Real stack, top to bottom: <b>MainTabs</b> header (hamburger → Settings, wordmark left;
+          eye icon + bell right, amber border = Safe mode) → <b>ContextSwitcher</b> "Personal ▾" bar → Portfolio's
+          <b>own</b> <code>PageHeader</code> ("Portfolio" title + total + return%) → Holdings/IPO tabs → list.
+          Three separate horizontal bars before any real content.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="hbar-today">
+            <div class="left"><i class="ti ti-menu-2 ham"></i><div class="logo-wm"><span class="logo"></span><span class="wm">Pen<span>ny</span></span></div></div>
+            <div class="right"><span class="eyeicon"><i class="ti ti-eye-off"></i></span><span class="bellicon"><i class="ti ti-bell"></i><span class="dot">3</span></span></div>
+          </div>
+          <div class="ctxbar-today"><span class="dot"><i class="ti ti-user"></i></span><span class="lbl">Personal</span><i class="ti ti-chevron-down" style="color:var(--ter);font-size:12px"></i></div>
+          <div class="pf-header">
+            <div class="pf-title">Portfolio</div>
+            <div class="pf-stats"><span class="amt">₹64.2L</span><span class="pct">+12.4%</span></div>
+          </div>
+          <div class="pf-tabs"><span class="t on">Holdings</span><span class="t">IPO</span></div>
+          <div class="body" style="padding-top:8px">
+            <div class="card">
+              <div class="holding"><div class="hic" style="background:#e0e7ff;color:var(--indigo)"><i class="ti ti-chart-pie"></i></div><div class="nm">Mutual Funds<small>6 folios</small></div><div class="val">₹42.1L</div></div>
+              <div class="holding"><div class="hic" style="background:#dcfce7;color:var(--success)"><i class="ti ti-chart-candle"></i></div><div class="nm">Stocks<small>14 holdings</small></div><div class="val">₹18.6L</div></div>
+              <div class="holding"><div class="hic" style="background:#fef3c7;color:var(--amber)"><i class="ti ti-coin"></i></div><div class="nm">Gold<small>Digital + SGB</small></div><div class="val">₹3.2L</div></div>
+            </div>
+          </div>
+          <div class="tabbar">
+            <div class="tabitem"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem active" style="--tab-color:var(--indigo)"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipavatar"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Today · Home</div>
+        <div class="vsub">Same <b>MainTabs</b> header + <b>ContextSwitcher</b> bar as every tab, then Home's own
+          greeting is <b>plain text, no icons</b> — "Good evening, Hemant". All the mode/reminders/settings access
+          lives entirely in the chrome above; Home adds nothing to it.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="hbar-today">
+            <div class="left"><i class="ti ti-menu-2 ham"></i><div class="logo-wm"><span class="logo"></span><span class="wm">Pen<span>ny</span></span></div></div>
+            <div class="right"><span class="eyeicon"><i class="ti ti-eye-off"></i></span><span class="bellicon"><i class="ti ti-bell"></i><span class="dot">3</span></span></div>
+          </div>
+          <div class="ctxbar-today"><span class="dot"><i class="ti ti-user"></i></span><span class="lbl">Personal</span><i class="ti ti-chevron-down" style="color:var(--ter);font-size:12px"></i></div>
+          <div class="body" style="padding-top:10px">
+            <div class="greet-plain">Good evening, Hemant</div>
+            <div class="card">
+              <div class="glance">
+                <div class="g"><div class="k">Net worth</div><div class="v">₹1.45 Cr</div><div class="s">View breakdown ›</div></div>
+                <div class="g"><div class="k">Safe to spend</div><div class="v" style="color:var(--success)">₹80,444</div><div class="s">28 days to payday ›</div></div>
+              </div>
+              <div class="albar"><i style="width:80%;background:var(--teal)"></i><i style="width:20%;background:var(--violet)"></i></div>
+              <div class="alrow"><span>Assets ₹1.9Cr</span><span style="color:var(--danger)">Liabilities −₹48.4L</span></div>
+            </div>
+            <div class="slbl">Financial health</div>
+            <div class="card" style="color:var(--ter);font-size:11px">…stories, groups, accounts, markets, tools — unchanged, see home-v2.html…</div>
+          </div>
+          <div class="tabbar">
+            <div class="tabitem active" style="--tab-color:var(--primary)"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipavatar"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CONCEPT A ============ -->
+    <div class="concept-h">
+      <span class="tag">Concept A</span>
+      <h2>Ambient colour only, zero top-chrome icons — long-press the tab bar for actions</h2>
+      <p>Deletes the header row entirely on every tab. All that's left up top is a <b>3px colour strip</b> tinted
+        by privacy mode — literally the same amber border that already exists today, just promoted to be the
+        <i>entire</i> remaining top chrome once the row above it is gone. Settings / Reminders / Privacy-mode
+        switching move to a <b>long-press on any bottom tab icon</b> (the one element already persistent and
+        thumb-reachable on every screen) — the same centred menu opens regardless of which tab you held. Home's
+        "Personal ▾" context pill folds inline into the greeting text itself (page content, not chrome).</p>
+      <div class="tradeoff"><b>Tradeoff:</b> maximum decluttering (reclaims the full 44px header + the
+        ContextSwitcher bar's height on every non-Home tab), but long-press has <b>no visual affordance</b> — DESIGN_GUIDELINES's
+        "reuse patterns the user already knows" cuts against this: RN tab bars don't have a standing long-press-for-menu
+        convention the way, say, iOS home-screen icons do (and that's a different context — jiggle mode, not a menu).
+        Would need a one-time coach-mark on first run, and it's genuinely unclear whether a 3px line still satisfies
+        DESIGN_GUIDELINES §2's "header + nav always visible" or reads as having removed the header.</div>
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">A · Portfolio</div>
+        <div class="vsub">3px amber strip under the status bar is the <i>only</i> chrome above Portfolio's own header — no bar, no icons.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="accentline" style="background:var(--amber)"></div>
+          <div class="pf-header" style="padding-top:12px">
+            <div class="pf-title">Portfolio</div>
+            <div class="pf-stats"><span class="amt">₹64.2L</span><span class="pct">+12.4%</span></div>
+          </div>
+          <div class="pf-tabs"><span class="t on">Holdings</span><span class="t">IPO</span></div>
+          <div class="body" style="padding-top:8px">
+            <div class="card">
+              <div class="holding"><div class="hic" style="background:#e0e7ff;color:var(--indigo)"><i class="ti ti-chart-pie"></i></div><div class="nm">Mutual Funds<small>6 folios</small></div><div class="val">₹42.1L</div></div>
+              <div class="holding"><div class="hic" style="background:#dcfce7;color:var(--success)"><i class="ti ti-chart-candle"></i></div><div class="nm">Stocks<small>14 holdings</small></div><div class="val">₹18.6L</div></div>
+            </div>
+          </div>
+          <div class="tabbar" style="border-top-color:var(--amber)">
+            <div class="tabitem"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem active" style="--tab-color:var(--indigo)"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipavatar"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">A · Home</div>
+        <div class="vsub">Greeting reclaims the header's vertical space; context pill now sits inline under the greeting text, not a separate full-width bar.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="accentline" style="background:var(--amber)"></div>
+          <div class="a-greet"><span class="txt">Good evening, Hemant</span></div>
+          <div class="ctxpill-inline"><span class="dot"><i class="ti ti-user"></i></span>Personal<i class="ti ti-chevron-down" style="font-size:9px"></i></div>
+          <div class="body" style="padding-top:2px">
+            <div class="card">
+              <div class="glance">
+                <div class="g"><div class="k">Net worth</div><div class="v">₹1.45 Cr</div><div class="s">View breakdown ›</div></div>
+                <div class="g"><div class="k">Safe to spend</div><div class="v" style="color:var(--success)">₹80,444</div><div class="s">28 days to payday ›</div></div>
+              </div>
+              <div class="albar"><i style="width:80%;background:var(--teal)"></i><i style="width:20%;background:var(--violet)"></i></div>
+            </div>
+          </div>
+          <div class="tabbar" style="border-top-color:var(--amber)">
+            <div class="tabitem active" style="--tab-color:var(--primary)"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipavatar"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">A · Long-press interaction</div>
+        <div class="vsub">Holding the Home tab icon (any icon works identically) shows a pulsing ring, then opens the same centred menu every entry point uses.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="accentline" style="background:var(--amber)"></div>
+          <div class="body" style="position:relative">
+            <div class="backdrop" style="position:absolute; top:-2px; left:-12px; right:-12px; bottom:-2px;">
+              <div class="menucard">
+                <div class="mrow"><div class="mic" style="background:color-mix(in srgb, var(--amber) 14%, #fff); color:var(--amber)"><i class="ti ti-eye-off"></i></div><div class="ml">Privacy mode</div><div class="mr"><span class="modepill" style="background:color-mix(in srgb, var(--amber) 16%, #fff); color:var(--amber)">Safe</span><i class="ti ti-chevron-right chev"></i></div></div>
+                <div class="mrow"><div class="mic" style="background:color-mix(in srgb, var(--sec) 10%, #fff); color:var(--sec)"><i class="ti ti-bell"></i></div><div class="ml">Reminders</div><div class="mr"><span class="badge">3</span><i class="ti ti-chevron-right chev"></i></div></div>
+                <div class="mrow"><div class="mic" style="background:color-mix(in srgb, var(--sec) 10%, #fff); color:var(--sec)"><i class="ti ti-settings"></i></div><div class="ml">Settings</div><div class="mr"><i class="ti ti-chevron-right chev"></i></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="tabbar" style="border-top-color:var(--amber); opacity:.6; position:relative">
+            <div class="tabitem active" style="--tab-color:var(--primary); position:relative"><div class="lp-ring"></div><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipavatar"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CONCEPT B ============ -->
+    <div class="concept-h">
+      <span class="tag">Concept B</span>
+      <h2>Pull-down quick-actions shade — the OS notification-shade gesture</h2>
+      <p>Borrows the one gesture every phone owner already knows: swipe down from the top of any screen to reveal
+        a drawer of quick actions; swipe up or tap outside to dismiss. The one persistent hint — identical on
+        every tab, so it never looks "populated on Home, empty elsewhere" the way v1's rejected options did — is a
+        small centred <b>handle pill</b> just under the status bar. Pulled open, the drawer shows a one-tap privacy-mode
+        segmented row (still centred, still PIN-gates Open mode via its own follow-up modal), a 2-line Reminders
+        preview, and a Settings row.</p>
+      <div class="tradeoff"><b>Tradeoff:</b> the gesture itself is maximally familiar (satisfies "reuse patterns the
+        user already knows" better than any other concept here), but it's a <b>brand-new interaction language for
+        Penny specifically</b> — nothing in the app today responds to a swipe-from-top. Real build cost (gesture-handler,
+        conflicts with any future pull-to-refresh on Home/Portfolio). And structurally this is an edge-anchored
+        overlay, not a centred one — DESIGN_GUIDELINES's "no bottom sheets" rule doesn't literally cover a *top*
+        sheet, but it's the same shape-class the rule exists to avoid; worth an explicit sign-off rather than
+        assuming it's fine by the letter of the rule.</div>
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">B · Portfolio (shade closed)</div>
+        <div class="vsub">Only the small grabber pill remains above Portfolio's own header — reclaims almost the full 44px+ContextSwitcher height budget.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="pulltab-row" style="border-bottom:2px solid var(--amber)"><div class="pulltab"></div></div>
+          <div class="pf-header" style="padding-top:10px">
+            <div class="pf-title">Portfolio</div>
+            <div class="pf-stats"><span class="amt">₹64.2L</span><span class="pct">+12.4%</span></div>
+          </div>
+          <div class="pf-tabs"><span class="t on">Holdings</span><span class="t">IPO</span></div>
+          <div class="body" style="padding-top:8px">
+            <div class="card">
+              <div class="holding"><div class="hic" style="background:#e0e7ff;color:var(--indigo)"><i class="ti ti-chart-pie"></i></div><div class="nm">Mutual Funds<small>6 folios</small></div><div class="val">₹42.1L</div></div>
+              <div class="holding"><div class="hic" style="background:#dcfce7;color:var(--success)"><i class="ti ti-chart-candle"></i></div><div class="nm">Stocks<small>14 holdings</small></div><div class="val">₹18.6L</div></div>
+            </div>
+          </div>
+          <div class="tabbar" style="border-top-color:var(--amber)">
+            <div class="tabitem"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem active" style="--tab-color:var(--indigo)"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipavatar"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">B · Home (shade closed)</div>
+        <div class="vsub">Same grabber pill, same height budget reclaimed. Context pill inline as in Concept A.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="pulltab-row" style="border-bottom:2px solid var(--amber)"><div class="pulltab"></div></div>
+          <div class="a-greet" style="padding-top:10px"><span class="txt">Good evening, Hemant</span></div>
+          <div class="ctxpill-inline"><span class="dot"><i class="ti ti-user"></i></span>Personal<i class="ti ti-chevron-down" style="font-size:9px"></i></div>
+          <div class="body" style="padding-top:2px">
+            <div class="card">
+              <div class="glance">
+                <div class="g"><div class="k">Net worth</div><div class="v">₹1.45 Cr</div><div class="s">View breakdown ›</div></div>
+                <div class="g"><div class="k">Safe to spend</div><div class="v" style="color:var(--success)">₹80,444</div><div class="s">28 days to payday ›</div></div>
+              </div>
+              <div class="albar"><i style="width:80%;background:var(--teal)"></i><i style="width:20%;background:var(--violet)"></i></div>
+            </div>
+          </div>
+          <div class="tabbar" style="border-top-color:var(--amber)">
+            <div class="tabitem active" style="--tab-color:var(--primary)"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipavatar"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">B · Shade pulled open</div>
+        <div class="vsub">Same drawer from any tab: one-tap mode switch (still PIN-gates Open), Reminders preview, Settings — rest of the screen dims behind it, same scrim as a centred modal.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="pulltab-row" style="border-bottom:2px solid var(--amber)"><div class="pulltab"></div></div>
+          <div class="body" style="position:relative; background:rgba(15,23,42,.35)">
+            <div class="shade">
+              <div class="shade-grabber"></div>
+              <div class="shade-seg">
+                <div class="s on"><i class="ti ti-eye-off"></i>Safe</div>
+                <div class="s"><i class="ti ti-shield-lock"></i>Private</div>
+                <div class="s"><i class="ti ti-eye"></i>Open</div>
+              </div>
+              <div class="shade-rem">
+                <div class="h">Reminders</div>
+                <div class="row"><span class="n">Credit card bill</span><span class="d">Overdue</span></div>
+                <div class="row"><span class="n">SIP — Axis Bluechip</span><span class="d" style="color:var(--sec)">in 3 days</span></div>
+              </div>
+              <div class="shade-settings"><i class="ti ti-settings"></i>Settings</div>
+            </div>
+          </div>
+          <div class="tabbar" style="border-top-color:var(--amber); opacity:.5">
+            <div class="tabitem active" style="--tab-color:var(--primary)"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipavatar"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CONCEPT C ============ -->
+    <div class="concept-h">
+      <span class="tag">Concept C</span>
+      <h2>Greeting-card avatar as command centre — no new global chrome at all</h2>
+      <p>Instead of adding anything, this <b>deletes</b> <code>MainTabs</code>' persistent header + the always-mounted
+        <code>ContextSwitcher</code> outright — a real structural simplification, not just a visual one, since
+        Portfolio/Goals/Expenses <i>already</i> render their own <code>PageHeader</code> today (MainTabs was
+        stacking a redundant second header above it). One small circular avatar chip — initials, ringed in the
+        privacy-mode colour as a passive signal — gets added to the trailing side of whatever header each screen
+        already has: Portfolio/Goals/Expenses' existing <code>PageHeader</code>, and Home's own greeting row. Tap it
+        anywhere → the same centred command menu.</p>
+      <div class="tradeoff"><b>Tradeoff:</b> cheapest to build (deletes a layer instead of adding one) and keeps the
+        letter of "header + nav always visible" fully intact — but two real gaps: (1) <b>Chip's screen has no
+        <code>PageHeader</code> today</b>, so this concept requires giving it one first, a small but real dependency;
+        (2) Home's greeting row <b>scrolls away</b> with the rest of the page today (unlike the other tabs' pinned
+        <code>PageHeader</code>) — so on Home specifically, the one access point to Settings/Privacy/Reminders would
+        become unreachable once the user scrolls past the first screenful, a real regression from today where the
+        header is always pinned. Would need Home's greeting row to become sticky, which it isn't today.</div>
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">C · Portfolio</div>
+        <div class="vsub">Avatar chip added to the trailing side of Portfolio's real, already-existing <code>PageHeader</code> — no new row.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="pf-header" style="padding-top:14px">
+            <div class="pf-header-row">
+              <div><div class="pf-title">Portfolio</div><div class="pf-stats"><span class="amt">₹64.2L</span><span class="pct">+12.4%</span></div></div>
+              <div class="avatarchip">HS</div>
+            </div>
+          </div>
+          <div class="pf-tabs"><span class="t on">Holdings</span><span class="t">IPO</span></div>
+          <div class="body" style="padding-top:8px">
+            <div class="card">
+              <div class="holding"><div class="hic" style="background:#e0e7ff;color:var(--indigo)"><i class="ti ti-chart-pie"></i></div><div class="nm">Mutual Funds<small>6 folios</small></div><div class="val">₹42.1L</div></div>
+              <div class="holding"><div class="hic" style="background:#dcfce7;color:var(--success)"><i class="ti ti-chart-candle"></i></div><div class="nm">Stocks<small>14 holdings</small></div><div class="val">₹18.6L</div></div>
+            </div>
+          </div>
+          <div class="tabbar" style="border-top-color:var(--amber)">
+            <div class="tabitem"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem active" style="--tab-color:var(--indigo)"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipavatar"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">C · Home</div>
+        <div class="vsub">Avatar chip ends the greeting row; context pill sits beneath. <b>Caveat shown here:</b> this whole row scrolls away with the page — see tradeoff above.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="c-greet-row" style="padding-top:14px">
+            <span class="txt" style="font-size:15px;font-weight:700">Good evening, Hemant</span>
+            <div class="avatarchip">HS</div>
+          </div>
+          <div class="ctxpill-inline"><span class="dot"><i class="ti ti-user"></i></span>Personal<i class="ti ti-chevron-down" style="font-size:9px"></i></div>
+          <div class="body" style="padding-top:2px">
+            <div class="card">
+              <div class="glance">
+                <div class="g"><div class="k">Net worth</div><div class="v">₹1.45 Cr</div><div class="s">View breakdown ›</div></div>
+                <div class="g"><div class="k">Safe to spend</div><div class="v" style="color:var(--success)">₹80,444</div><div class="s">28 days to payday ›</div></div>
+              </div>
+              <div class="albar"><i style="width:80%;background:var(--teal)"></i><i style="width:20%;background:var(--violet)"></i></div>
+            </div>
+          </div>
+          <div class="tabbar" style="border-top-color:var(--amber)">
+            <div class="tabitem active" style="--tab-color:var(--primary)"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipavatar"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">C · Avatar tapped</div>
+        <div class="vsub">Same centred menu as every other concept — only the entry point changes.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="pf-header" style="padding-top:14px; opacity:.5">
+            <div class="pf-header-row">
+              <div><div class="pf-title">Portfolio</div><div class="pf-stats"><span class="amt">₹64.2L</span><span class="pct">+12.4%</span></div></div>
+              <div class="avatarchip">HS</div>
+            </div>
+          </div>
+          <div class="body" style="position:relative">
+            <div class="backdrop" style="position:absolute; top:-40px; left:-12px; right:-12px; bottom:-2px;">
+              <div class="menucard">
+                <div class="mrow"><div class="mic" style="background:color-mix(in srgb, var(--amber) 14%, #fff); color:var(--amber)"><i class="ti ti-eye-off"></i></div><div class="ml">Privacy mode</div><div class="mr"><span class="modepill" style="background:color-mix(in srgb, var(--amber) 16%, #fff); color:var(--amber)">Safe</span><i class="ti ti-chevron-right chev"></i></div></div>
+                <div class="mrow"><div class="mic" style="background:color-mix(in srgb, var(--sec) 10%, #fff); color:var(--sec)"><i class="ti ti-bell"></i></div><div class="ml">Reminders</div><div class="mr"><span class="badge">3</span><i class="ti ti-chevron-right chev"></i></div></div>
+                <div class="mrow"><div class="mic" style="background:color-mix(in srgb, var(--sec) 10%, #fff); color:var(--sec)"><i class="ti ti-settings"></i></div><div class="ml">Settings</div><div class="mr"><i class="ti ti-chevron-right chev"></i></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="tabbar" style="border-top-color:var(--amber); opacity:.5">
+            <div class="tabitem"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem active" style="--tab-color:var(--indigo)"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipavatar"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CONCEPT D ============ -->
+    <div class="concept-h">
+      <span class="tag tag rec">Concept D · recommended</span>
+      <h2>Persistent floating avatar bubble — one universal element, pinned everywhere</h2>
+      <p>A single small circular button, pinned to the same top-right corner on <b>every</b> tab including Home,
+        overlapping the top edge of whatever content is underneath (the same "always-on-top bubble" pattern a
+        video-call app uses for a self-view). Ring-tinted by privacy mode; shows initials by default and a small
+        red dot when reminders are due. Because it's pinned rather than living inside any card or header row, it
+        stays reachable at <b>any scroll position, on every tab, identically</b> — solving both v1's "empty header
+        on 4 of 5 tabs" inconsistency <i>and</i> Concept C's "scrolls away on Home" regression in the same move.
+        Tap it → the same centred command menu as every other concept here.</p>
+      <div class="tradeoff"><b>Tradeoff:</b> it's the one genuinely new visual language in this whole set — nothing
+        in Penny floats over content today, so it needs its own entry in DESIGN_GUIDELINES's z-index ladder (above
+        page content, below modals) and a documented collision rule for any screen that already places its own
+        action in that corner. That collision is real and visible below: Portfolio's "Refresh prices" pill already
+        lives top-right of its own header — the bubble needs to sit clearly above/beside it, not on top of it.</div>
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">D · Portfolio</div>
+        <div class="vsub">Bubble pinned top-right, overlapping the status bar/header boundary. <b>Flagged collision:</b> sits directly above Portfolio's own "Refresh prices" pill — needs to clear it, shown offset here.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="pf-header" style="padding-top:14px">
+            <div class="pf-title">Portfolio</div>
+            <div class="pf-stats"><span class="amt">₹64.2L</span><span class="pct">+12.4%</span></div>
+          </div>
+          <div class="pf-tabs"><span class="t on">Holdings</span><span class="t">IPO</span></div>
+          <div class="body" style="padding-top:8px; position:relative">
+            <div class="card">
+              <div class="holding"><div class="hic" style="background:#e0e7ff;color:var(--indigo)"><i class="ti ti-chart-pie"></i></div><div class="nm">Mutual Funds<small>6 folios</small></div><div class="val">₹42.1L</div></div>
+              <div class="holding"><div class="hic" style="background:#dcfce7;color:var(--success)"><i class="ti ti-chart-candle"></i></div><div class="nm">Stocks<small>14 holdings</small></div><div class="val">₹18.6L</div></div>
+            </div>
+          </div>
+          <div class="floatbubble"><span class="init">HS</span><span class="rdot"></span></div>
+          <div class="tabbar" style="border-top-color:var(--amber)">
+            <div class="tabitem"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem active" style="--tab-color:var(--indigo)"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipavatar"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">D · Home</div>
+        <div class="vsub">Full header + ContextSwitcher height budget reclaimed; bubble stays fixed in the corner even as the page scrolls (unlike Concept C).</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="a-greet" style="padding-top:16px"><span class="txt">Good evening, Hemant</span></div>
+          <div class="ctxpill-inline"><span class="dot"><i class="ti ti-user"></i></span>Personal<i class="ti ti-chevron-down" style="font-size:9px"></i></div>
+          <div class="body" style="padding-top:2px; position:relative">
+            <div class="card">
+              <div class="glance">
+                <div class="g"><div class="k">Net worth</div><div class="v">₹1.45 Cr</div><div class="s">View breakdown ›</div></div>
+                <div class="g"><div class="k">Safe to spend</div><div class="v" style="color:var(--success)">₹80,444</div><div class="s">28 days to payday ›</div></div>
+              </div>
+              <div class="albar"><i style="width:80%;background:var(--teal)"></i><i style="width:20%;background:var(--violet)"></i></div>
+            </div>
+          </div>
+          <div class="floatbubble"><span class="init">HS</span><span class="rdot"></span></div>
+          <div class="tabbar" style="border-top-color:var(--amber)">
+            <div class="tabitem active" style="--tab-color:var(--primary)"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipavatar"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">D · Bubble tapped</div>
+        <div class="vsub">Same centred menu again — the recurring pattern across all 4 concepts is deliberate: only the entry point changes, never what's behind it.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="a-greet" style="padding-top:16px; opacity:.5"><span class="txt">Good evening, Hemant</span></div>
+          <div class="body" style="position:relative">
+            <div class="backdrop" style="position:absolute; top:-30px; left:-12px; right:-12px; bottom:-2px;">
+              <div class="menucard">
+                <div class="mrow"><div class="mic" style="background:color-mix(in srgb, var(--amber) 14%, #fff); color:var(--amber)"><i class="ti ti-eye-off"></i></div><div class="ml">Privacy mode</div><div class="mr"><span class="modepill" style="background:color-mix(in srgb, var(--amber) 16%, #fff); color:var(--amber)">Safe</span><i class="ti ti-chevron-right chev"></i></div></div>
+                <div class="mrow"><div class="mic" style="background:color-mix(in srgb, var(--sec) 10%, #fff); color:var(--sec)"><i class="ti ti-bell"></i></div><div class="ml">Reminders</div><div class="mr"><span class="badge">3</span><i class="ti ti-chevron-right chev"></i></div></div>
+                <div class="mrow"><div class="mic" style="background:color-mix(in srgb, var(--sec) 10%, #fff); color:var(--sec)"><i class="ti ti-settings"></i></div><div class="ml">Settings</div><div class="mr"><i class="ti ti-chevron-right chev"></i></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="tabbar" style="border-top-color:var(--amber); opacity:.5">
+            <div class="tabitem active" style="--tab-color:var(--primary)"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipavatar"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <h2>Findings &amp; recommendation</h2>
+      <p><b>What today's chrome actually costs</b> (verified in <code>MainTabs.tsx</code>): every non-Home tab pays
+        for a 44px header + (when the <code>sync</code> entitlement is on) a further ContextSwitcher bar, <i>on top
+        of</i> its own <code>PageHeader</code> that Portfolio/Goals/Expenses already render — two stacked headers
+        doing overlapping jobs. Chip is the one tab with no <code>PageHeader</code> of its own at all, so it's
+        currently the most dependent on <code>MainTabs</code>' chrome surviving in some form.</p>
+
+      <table>
+        <tr><th>Concept</th><th>Mental model</th><th>Biggest strength</th><th>Biggest risk</th></tr>
+        <tr><td><b>A</b> — Ambient colour + long-press tab bar</td><td>Nothing to look at; everything felt via colour + a hidden gesture</td><td>Maximum decluttering; reuses the accent border that already exists</td><td>Long-press has no discoverability — violates "reuse known patterns" without a coach-mark</td></tr>
+        <tr><td><b>B</b> — Pull-down shade</td><td>OS notification-shade gesture, borrowed wholesale</td><td>Most familiar gesture of any concept here</td><td>Brand-new interaction language for this app specifically; an edge-anchored sheet in spirit, if not letter, of "no bottom sheets"</td></tr>
+        <tr><td><b>C</b> — Greeting-card avatar</td><td>No new chrome; consolidate into what each screen already has</td><td>Cheapest to build; literally deletes a redundant layer</td><td>Home's entry point scrolls away (regression); Chip has no header to attach to yet</td></tr>
+        <tr><td><b>D</b> — Floating avatar bubble</td><td>One pinned, universal element, identical on every tab and scroll position</td><td>Solves both A/B's discoverability problem and C's persistence problem at once</td><td>The one genuinely novel visual pattern; needs a documented z-index rule and a collision fix on Portfolio</td></tr>
+      </table>
+
+      <div class="rec-box">
+        <b>Recommendation: D, built on top of C's structural insight.</b> Delete <code>MainTabs</code>' persistent
+        header and always-mounted <code>ContextSwitcher</code> outright (that redundant layer should go regardless
+        of which concept ships) and replace the single global mount point with the floating avatar bubble, pinned
+        per-screen. It's the only concept that satisfies DESIGN_GUIDELINES's "spatial stability builds trust" in
+        the way that principle is actually meant — reachable identically from anywhere, not just at the top of a
+        scroll — while still being a real, one-tap-away entry point (satisfies "minimal clicks") and passively
+        signalling privacy mode through its ring colour without a dedicated icon (satisfies "privacy is the product,
+        not a feature"). B is the runner-up on pure familiarity grounds but carries real build risk this doesn't;
+        A is rejected outright for the same reason v1 was — invisible affordances aren't "uncluttered," they're
+        just hidden.
+      </div>
+
+      <div class="open-box">
+        <b>Open for you to weigh in on:</b>
+        <ul>
+          <li>Sign off on the floating-bubble visual language itself — it's new for Penny; if that novelty is
+            unwanted, Concept C (with Home's greeting row made sticky, closing its one real gap) is the safer
+            fallback and should be said explicitly rather than defaulted into.</li>
+          <li>How to resolve the Portfolio top-right collision between the bubble and the existing "Refresh prices"
+            pill (options: bubble sits a half-row higher overlapping the status bar; Refresh prices moves inline
+            with the Holdings/IPO tab row instead).</li>
+          <li>Badge treatment on the bubble when reminders are due — a plain dot (shown here) vs. a numbered badge
+            like today's bell.</li>
+          <li>Chip's screen has no header today under any of these 4 concepts except D (which doesn't need one) —
+            confirm D avoids that dependency, or if C is picked instead, Chip needs a minimal header added first.</li>
+          <li>Exact command-menu row order (Privacy → Reminders → Settings shown here, matching today's left-to-right
+            header order) and whether Home's inline "Personal ▾" pill should also be reachable from the bubble's
+            menu for consistency, even though functionally it's only ever needed on Home.</li>
+        </ul>
+      </div>
+    </div>
+  </body>
+</html>

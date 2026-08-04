@@ -9,6 +9,8 @@ import { calcCapitalGains } from '@/core/calculators/capitalGains';
 import { calcGratuity, GRATUITY_TAX_FREE_CAP } from '@/core/calculators/gratuity';
 import { calcSsy, SSY_MATURITY_YEARS } from '@/core/calculators/ssy';
 import { calcInflation } from '@/core/calculators/inflation';
+import { calcRetirementProjection, calcInvestableCorpus } from '@/core/calculators/retirementProjection';
+import type { Holding } from '@/core/db/types';
 
 describe('calcFire', () => {
   it('computes the FIRE number from the safe withdrawal rate', () => {
@@ -348,5 +350,107 @@ describe('calcInflation', () => {
 
   it('rejects invalid input', () => {
     expect(calcInflation({ currentCost: 0, inflationPct: 6, years: 10 })).toBeNull();
+  });
+});
+
+describe('calcRetirementProjection', () => {
+  const nowMs = new Date('2026-01-01').getTime();
+  const base = {
+    currentAge: 32,
+    retirementAge: 50,
+    investableCorpusToday: 38_00_000,
+    monthlyExpenseToday: 85_000,
+    monthlyInvestment: 40_000,
+    expectedReturnPct: 12,
+    inflationPct: 6,
+    swrPct: 4
+  };
+
+  it('projects a yearly path to a fixed retirement age, inflation-adjusting the target', () => {
+    const res = calcRetirementProjection(base, nowMs);
+    expect(res.yearsToRetirement).toBe(18);
+    expect(res.yearlyPath).toHaveLength(19);
+    expect(res.yearlyPath[0]).toEqual({ year: 2026, age: 32, corpus: base.investableCorpusToday });
+    expect(res.yearlyPath[18]?.age).toBe(50);
+    const expectedExpense = 85_000 * Math.pow(1.06, 18);
+    expect(res.expenseAtRetirement).toBeCloseTo(expectedExpense, 0);
+    expect(res.corpusNeeded).toBeCloseTo((expectedExpense * 12) / 0.04, 0);
+    expect(res.corpusProjected).toBeGreaterThan(base.investableCorpusToday);
+  });
+
+  it('flags an underfunded plan with a positive monthly gap to close', () => {
+    const res = calcRetirementProjection({ ...base, monthlyInvestment: 5_000 }, nowMs);
+    expect(res.percentFunded).toBeLessThan(100);
+    expect(res.monthlyGapToClose).toBeGreaterThan(0);
+  });
+
+  it('treats retirementAge <= currentAge as already retired — no projection beyond today', () => {
+    const atAge = calcRetirementProjection({ ...base, retirementAge: 32 }, nowMs);
+    expect(atAge.yearsToRetirement).toBe(0);
+    expect(atAge.yearlyPath).toHaveLength(1);
+    expect(atAge.corpusProjected).toBe(base.investableCorpusToday);
+
+    const pastAge = calcRetirementProjection({ ...base, retirementAge: 28 }, nowMs);
+    expect(pastAge.yearsToRetirement).toBe(0);
+    expect(pastAge.yearlyPath).toHaveLength(1);
+  });
+
+  it('guards corpusNeeded <= 0 (zero safe withdrawal rate) without dividing by zero', () => {
+    const res = calcRetirementProjection({ ...base, swrPct: 0 }, nowMs);
+    expect(res.corpusNeeded).toBe(0);
+    expect(res.percentFunded).toBe(0);
+    expect(res.monthlyGapToClose).toBe(0);
+    expect(Number.isFinite(res.monthlyGapToClose)).toBe(true);
+  });
+
+  it('monthlyGapToClose actually closes the gap when plugged back into the same projection', () => {
+    const underfunded = { ...base, monthlyInvestment: 10_000 };
+    const res = calcRetirementProjection(underfunded, nowMs);
+    expect(res.monthlyGapToClose).toBeGreaterThan(0);
+    const boosted = calcRetirementProjection(
+      { ...underfunded, monthlyInvestment: underfunded.monthlyInvestment + res.monthlyGapToClose },
+      nowMs
+    );
+    expect(boosted.corpusProjected).toBeCloseTo(res.corpusNeeded, -1);
+  });
+});
+
+describe('calcInvestableCorpus', () => {
+  const holdings: Holding[] = [
+    {
+      id: '1',
+      assetClass: 'mf',
+      name: 'Fund',
+      investedAmount: 1_00_000,
+      currentValue: 1_20_000,
+      createdAt: 0,
+      updatedAt: 0
+    },
+    { id: '2', assetClass: 'stock', name: 'Stock', investedAmount: 50_000, createdAt: 0, updatedAt: 0 },
+    {
+      id: '3',
+      assetClass: 'property',
+      name: 'Flat',
+      investedAmount: 50_00_000,
+      currentValue: 60_00_000,
+      createdAt: 0,
+      updatedAt: 0
+    },
+    { id: '4', assetClass: 'vehicle', name: 'Car', investedAmount: 8_00_000, createdAt: 0, updatedAt: 0 }
+  ];
+
+  it('sums only investable asset classes (mf/stock/fd/nps/ppf/epf/gold) plus liquid funds', () => {
+    const total = calcInvestableCorpus(holdings, 2_00_000);
+    // 1,20,000 (mf, currentValue wins) + 50,000 (stock, no currentValue → investedAmount) + 2,00,000 liquid
+    expect(total).toBe(1_20_000 + 50_000 + 2_00_000);
+  });
+
+  it('excludes property/vehicle/other — that equity cannot fund a 4%-withdrawal retirement', () => {
+    const withRealAssets = calcInvestableCorpus(holdings, 0);
+    const withoutRealAssets = calcInvestableCorpus(
+      holdings.filter((h) => h.assetClass !== 'property' && h.assetClass !== 'vehicle'),
+      0
+    );
+    expect(withRealAssets).toBe(withoutRealAssets);
   });
 });

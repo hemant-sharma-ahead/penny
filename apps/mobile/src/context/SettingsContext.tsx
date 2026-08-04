@@ -6,7 +6,7 @@ import { type PersistedPrivacyMode } from './PrivacyContext';
  * RN port of apps/web-react/src/context/SettingsContext.tsx. Ported in full (not just the
  * subscriptions-relevant slice) since the Track 4 dependency survey showed most near-term modules touch
  * this context. `theme` itself is NOT ported here — mobile's own `ThemeProvider` (Track 3) is already
- * the source of truth for palette selection (light/pennyBlue/dark/system); `fontScale` IS ported (see
+ * the source of truth for palette selection (light/dark/system); `fontScale` IS ported (see
  * `FONT_SCALE_MAP` below and `~/theme/fontScale.ts`, which applies it globally via a `Text`/`TextInput`
  * render patch since NativeWind's font-size utilities don't reference a runtime-adjustable rem unit the
  * way web's `--font-scale` CSS variable does).
@@ -21,26 +21,6 @@ export const FONT_SCALE_MAP: Record<FontScale, number> = {
   default: 1,
   large: 1.125,
   xl: 1.25
-};
-
-export interface ModuleVisibility {
-  portfolio: boolean;
-  goals: boolean;
-  subscriptions: boolean;
-  iou: boolean;
-  backup: boolean;
-  news: boolean;
-  calc: boolean;
-}
-
-const DEFAULT_MODULES: ModuleVisibility = {
-  portfolio: true,
-  goals: true,
-  subscriptions: true,
-  iou: true,
-  backup: true,
-  news: true,
-  calc: true
 };
 
 /** Modules without a natural "category" to hang a per-item Safe Mode flag on — one toggle each. */
@@ -62,7 +42,6 @@ const DEFAULT_SAFE_MODE_VISIBILITY: SafeModeVisibility = {
   subscriptions: true
 };
 
-const MODULES_KEY = 'penny_settings_modules';
 const SAFE_MODE_VISIBILITY_KEY = 'penny_settings_safe_mode_visibility';
 const FONT_SCALE_KEY = 'penny_settings_font_scale';
 export const DEFAULT_PRIVACY_KEY = 'penny_settings_default_privacy';
@@ -93,11 +72,6 @@ async function loadOptionalAmount(key: string): Promise<number | null> {
 /** Read directly (no React) — used by the session gate's visibility listener. */
 export async function loadLockOnBackground(): Promise<boolean> {
   return (await getItem(LOCK_ON_BACKGROUND_KEY)) === '1';
-}
-
-async function loadModules(): Promise<ModuleVisibility> {
-  const raw = await getJSON<Partial<ModuleVisibility>>(MODULES_KEY);
-  return { ...DEFAULT_MODULES, ...(raw ?? {}) };
 }
 
 async function loadSafeModeVisibility(): Promise<SafeModeVisibility> {
@@ -133,7 +107,6 @@ export async function loadOpenModeDurationMinutes(): Promise<OpenModeDuration> {
 }
 
 interface SettingsContextValue {
-  modules: ModuleVisibility;
   safeModeVisibility: SafeModeVisibility;
   fontScale: FontScale;
   defaultPrivacyMode: PersistedPrivacyMode;
@@ -148,7 +121,6 @@ interface SettingsContextValue {
   taxEpfOverride: number | null;
   /** Manual annual statutory levies (professional tax + LWF); null = default (~₹2,400). */
   taxStatutoryOverride: number | null;
-  setModule: (key: keyof ModuleVisibility, visible: boolean) => void;
   setSafeModeVisibility: (key: keyof SafeModeVisibility, visible: boolean) => void;
   setFontScale: (scale: FontScale) => void;
   setDefaultPrivacyMode: (mode: PersistedPrivacyMode) => void;
@@ -164,7 +136,6 @@ interface SettingsContextValue {
 const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [modules, setModules] = useState<ModuleVisibility>(DEFAULT_MODULES);
   const [safeModeVisibility, setSafeModeVisibilityState] = useState<SafeModeVisibility>(DEFAULT_SAFE_MODE_VISIBILITY);
   const [fontScale, setFontScaleState] = useState<FontScale>('default');
   const [defaultPrivacyMode, setDefaultPrivacyModeState] = useState<PersistedPrivacyMode>('safe');
@@ -180,7 +151,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      loadModules(),
       loadSafeModeVisibility(),
       loadFontScale(),
       loadDefaultPrivacyMode(),
@@ -193,7 +163,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       loadOptionalAmount(TAX_STATUTORY_KEY)
     ]).then(
       ([
-        loadedModules,
         loadedSafeMode,
         loadedFontScale,
         loadedDefaultPrivacy,
@@ -206,7 +175,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         loadedTaxStatutory
       ]) => {
         if (cancelled) return;
-        setModules(loadedModules);
         setSafeModeVisibilityState(loadedSafeMode);
         setFontScaleState(loadedFontScale);
         setDefaultPrivacyModeState(loadedDefaultPrivacy);
@@ -222,14 +190,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const setModule = useCallback((key: keyof ModuleVisibility, visible: boolean) => {
-    setModules((prev) => {
-      const next = { ...prev, [key]: visible };
-      void setJSON(MODULES_KEY, next);
-      return next;
-    });
   }, []);
 
   const setSafeModeVisibility = useCallback((key: keyof SafeModeVisibility, visible: boolean) => {
@@ -312,7 +272,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
-      modules,
       safeModeVisibility,
       fontScale,
       defaultPrivacyMode,
@@ -323,7 +282,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       taxDirectOverride,
       taxEpfOverride,
       taxStatutoryOverride,
-      setModule,
       setSafeModeVisibility,
       setFontScale,
       setDefaultPrivacyMode,
@@ -336,7 +294,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setTaxStatutoryOverride
     }),
     [
-      modules,
       safeModeVisibility,
       fontScale,
       defaultPrivacyMode,
@@ -347,7 +304,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       taxDirectOverride,
       taxEpfOverride,
       taxStatutoryOverride,
-      setModule,
       setSafeModeVisibility,
       setFontScale,
       setDefaultPrivacyMode,

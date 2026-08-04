@@ -4,7 +4,7 @@ import { Button, ConfirmDialog, Modal, SelectInput, TextInput } from '~/componen
 import type { ExpenseCategory } from '@/core/db/types';
 import { CAT_COLORS } from '@/core/expenses/categoryIcons';
 import { useThemeColors } from '~/theme/useThemeColors';
-import { IconGridPicker } from './IconGridPicker';
+import { IconGridPicker } from '~/components/shared/IconGridPicker';
 
 export interface GroupOption {
   value: string;

@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Portfolio: collapsible header + News pill switcher</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --indigo:#6366f1; --amber:#f59e0b; --danger:#ef4444; --success:#10b981;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 22px; color:#9aa5b1; font-size:14px; max-width:820px; margin-left:auto; margin-right:auto; line-height:1.65; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:40px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 30px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#123524; color:#7ee6b8; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; height:600px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .header { height:40px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .htitle { flex:1; text-align:center; font-size:13.5px; font-weight:700; color:var(--text); }
+      .hicons { display:flex; align-items:center; gap:10px; }
+      .hicons i { font-size:15px; color:var(--text2); }
+      .avatar { width:26px; height:26px; border-radius:50%; background:var(--primary); display:grid; place-items:center; color:#fff; font-size:11px; font-weight:800; }
+
+      .summary { padding:9px 14px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+      .summary .toprow { display:flex; align-items:center; }
+      .summary .k { font-size:8.5px; font-weight:700; color:var(--text3); text-transform:uppercase; }
+      .summary .v { font-size:13px; font-weight:700; color:var(--text); margin-top:1px; }
+      .summary .v.big { font-size:19px; }
+      .summary .chev-btn { margin-left:auto; width:22px; height:22px; border-radius:7px; display:grid; place-items:center; color:var(--text3); }
+      .summary .grid4 { display:flex; gap:16px; margin-top:8px; }
+      .summary .grid4 .c { flex:1; }
+      .summary .collapsed-row { display:flex; align-items:flex-end; gap:18px; }
+      .summary .collapsed-row .c1 .v { font-size:20px; }
+      .summary .collapsed-row .pct { font-size:14px; font-weight:800; }
+
+      .ticker { display:flex; gap:6px; padding:9px 14px; flex-shrink:0; }
+      .tcard { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:6px 8px; }
+      .tcard .k { font-size:7.5px; color:var(--text3); font-weight:700; }
+      .tcard .v { font-size:10.5px; font-weight:700; color:var(--text); margin-top:1px; }
+      .tcard .chg { font-size:8.5px; font-weight:700; margin-top:1px; }
+      .tcard .chg.up { color:var(--success); } .tcard .chg.down { color:var(--danger); }
+
+      .maintabs { display:flex; gap:14px; padding:8px 14px 0; border-bottom:1px solid var(--border); overflow:hidden; }
+      .maintabs .t { font-size:11.5px; font-weight:600; color:var(--text3); padding-bottom:8px; border-bottom:2px solid transparent; white-space:nowrap; }
+      .maintabs .t.on { color:var(--primary); border-color:var(--primary); font-weight:700; }
+
+      .subtabs { display:flex; align-items:center; gap:14px; padding:8px 14px; }
+      .subtabs .t { font-size:11px; font-weight:600; color:var(--text3); display:flex; align-items:center; gap:4px; padding-bottom:5px; border-bottom:2px solid transparent; }
+      .subtabs .t.on { color:var(--primary); border-color:var(--primary); font-weight:700; }
+      .subtabs .t i { font-size:12px; }
+      .subtabs .refresh-inline { margin-left:auto; width:22px; height:22px; border-radius:7px; display:grid; place-items:center; background:var(--surface2); color:var(--text2); }
+      .subtabs .refresh-inline i { font-size:12px; }
+
+      .pillrow { display:flex; align-items:center; gap:8px; padding:9px 14px; flex-shrink:0; }
+      .pillswitch { display:flex; background:var(--surface2); border-radius:999px; padding:3px; gap:2px; }
+      .pillswitch .p { padding:5px 12px; border-radius:999px; font-size:11px; font-weight:700; color:var(--text3); display:flex; align-items:center; gap:5px; }
+      .pillswitch .p.on { background:var(--primary); color:#04150e; }
+      .pillswitch .p .cnt { font-size:9.5px; font-weight:800; opacity:.75; }
+      .filter-btn { margin-left:auto; width:26px; height:26px; border-radius:8px; display:grid; place-items:center; background:var(--surface2); border:1px solid var(--border); color:var(--text2); }
+      .filter-btn i { font-size:13px; }
+
+      .content { flex:1; padding:10px 14px; overflow:hidden; }
+      .mood-note { border-radius:12px; margin-bottom:10px; background:#0f2419; border:1px solid #1c3d2a; }
+      .mood-note .row { display:flex; align-items:center; gap:8px; padding:10px; }
+      .mood-note .row i.lead { font-size:15px; color:var(--success); }
+      .mood-note .row .t { font-size:12px; font-weight:600; color:var(--success); flex:1; }
+      .mood-note .row i.chev { font-size:15px; color:var(--success); }
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:10px; margin-bottom:8px; }
+      .card .row1 { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+      .badge { font-size:9px; font-weight:700; padding:2px 7px; border-radius:999px; }
+      .badge.sebi { background:#1e2a4a; color:#8ab4ff; }
+      .badge.neu { background:#2a2a2a; color:#9aa5b1; margin-left:5px; }
+      .badge.pos { background:#123524; color:#7ee6b8; margin-left:5px; }
+      .time { font-size:8.5px; color:var(--text3); }
+      .card .title { font-size:11.5px; font-weight:600; color:var(--text); line-height:1.4; }
+      .fade-up { opacity:.35; }
+
+      .annotate { position:absolute; border:2px dashed #f0b060; border-radius:10px; pointer-events:none; }
+      .annotate-lbl { position:absolute; background:#f0b060; color:#1a1200; font-size:8.5px; font-weight:800; padding:2px 6px; border-radius:6px; white-space:nowrap; }
+
+      .legend { max-width:820px; margin:10px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:#fff; }
+      .legend b { color:#fff; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend li { margin-bottom:8px; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Two fixes: collapsible header + a 4th tab layer</h1>
+    <p class="sub">1) The Total Invested/Current Value/Return/Return% grid collapses to just Current
+      Value + Return % (tap to expand back). 2) All News/Holdings News becomes a pill/segmented switch
+      instead of an underlined tab row — so with Equity's main tabs + Stocks/MF/IPO/News sub-tabs it
+      reads as 2 tab layers + 1 switch, not 3 stacked tab rows.</p>
+
+    <div class="gallery">
+
+      <!-- Header collapsed -->
+      <div class="frame-wrap">
+        <div class="vtitle">Header — collapsed <span class="tag">default</span></div>
+        <div class="vsub">Just Current Value (large) + Return % — tap the chevron (or the row itself) to expand. Frees up ~40px for the ticker/tabs/cards below.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="avatar">H</div>
+            <div class="htitle">Portfolio</div>
+            <div class="hicons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="summary">
+            <div class="collapsed-row">
+              <div class="c1"><div class="k">Current Value</div><div class="v">₹1,12,41,892</div></div>
+              <div class="pct" style="color:var(--success)">+28.7%</div>
+              <div class="chev-btn"><i class="ti ti-chevron-down"></i></div>
+            </div>
+          </div>
+          <div class="ticker">
+            <div class="tcard"><div class="k">Sensex</div><div class="v">78.09K</div><div class="chg up">▲ 0.21%</div></div>
+            <div class="tcard"><div class="k">Nifty 50</div><div class="v">24.38K</div><div class="chg up">▲ 0.27%</div></div>
+            <div class="tcard"><div class="k">Gold</div><div class="v">₹11725</div><div class="chg down">▼ 0.36%</div></div>
+          </div>
+          <div class="maintabs">
+            <div class="t on">Equity</div><div class="t">Fixed Income</div><div class="t">Metals</div>
+          </div>
+          <div class="subtabs">
+            <div class="t"><i class="ti ti-trending-up"></i>Stocks</div>
+            <div class="t"><i class="ti ti-chart-donut"></i>MF</div>
+            <div class="t"><i class="ti ti-ticket"></i>IPO</div>
+            <div class="t on"><i class="ti ti-news"></i>News</div>
+            <div class="refresh-inline"><i class="ti ti-refresh"></i></div>
+          </div>
+          <div class="pillrow">
+            <div class="pillswitch">
+              <div class="p on">All News</div>
+              <div class="p">Holdings <span class="cnt">3</span></div>
+            </div>
+            <div class="filter-btn"><i class="ti ti-filter"></i></div>
+          </div>
+          <div class="content">
+            <div class="mood-note"><div class="row"><i class="ti ti-trending-up lead"></i><div class="t">Leaning positive · 125 headlines</div><i class="ti ti-chevron-down chev"></i></div></div>
+            <div class="card"><div class="row1"><div><span class="badge sebi">SEBI</span><span class="badge neu">Neutral</span></div><div class="time">18m ago</div></div><div class="title">Exemption Order in the matter of Hindustan Composites Limited</div></div>
+            <div class="card fade-up"><div class="row1"><div><span class="badge sebi">SEBI</span><span class="badge pos">Positive</span></div><div class="time">18m ago</div></div><div class="title">Notice of Demand under Recovery Certificate number 9270...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Header expanded -->
+      <div class="frame-wrap">
+        <div class="vtitle">Header — expanded <span class="tag">on tap</span></div>
+        <div class="vsub">Exactly today's layout (Invested/Current/Return/Return% 2×2), chevron flips up. Tapping the row again (or the chevron) collapses it back.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="avatar">H</div>
+            <div class="htitle">Portfolio</div>
+            <div class="hicons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="summary">
+            <div class="toprow"><div style="flex:1"></div><div class="chev-btn"><i class="ti ti-chevron-up"></i></div></div>
+            <div class="grid4">
+              <div class="c"><div class="k">Total Invested</div><div class="v">₹87,35,024</div></div>
+              <div class="c"><div class="k">Current Value</div><div class="v">₹1,12,41,892</div></div>
+            </div>
+            <div class="grid4" style="margin-top:8px">
+              <div class="c"><div class="k">Return</div><div class="v" style="color:var(--success)">+₹25,06,868</div></div>
+              <div class="c"><div class="k">Return %</div><div class="v" style="color:var(--success)">+28.7%</div></div>
+            </div>
+          </div>
+          <div class="maintabs">
+            <div class="t on">Equity</div><div class="t">Fixed Income</div><div class="t">Metals</div>
+          </div>
+          <div class="subtabs">
+            <div class="t"><i class="ti ti-trending-up"></i>Stocks</div>
+            <div class="t"><i class="ti ti-chart-donut"></i>MF</div>
+            <div class="t"><i class="ti ti-ticket"></i>IPO</div>
+            <div class="t on"><i class="ti ti-news"></i>News</div>
+            <div class="refresh-inline"><i class="ti ti-refresh"></i></div>
+          </div>
+          <div class="pillrow">
+            <div class="pillswitch">
+              <div class="p on">All News</div>
+              <div class="p">Holdings <span class="cnt">3</span></div>
+            </div>
+            <div class="filter-btn"><i class="ti ti-filter"></i></div>
+          </div>
+          <div class="content" style="padding-top:6px">
+            <div class="card"><div class="row1"><div><span class="badge sebi">SEBI</span></div><div class="time">18m ago</div></div><div class="title">Exemption Order in the matter of...</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="legend">
+      <h2>Notes</h2>
+      <ul>
+        <li><b>Header collapse</b>: local <code>open</code> state in <code>PortfolioPage.tsx</code>, defaulting to collapsed. Collapsed shows Current Value (large) + Return % only — matches what you asked for exactly; Total Invested/Return (absolute ₹) move into the expanded state only.</li>
+        <li><b>News pills</b>: same underlying <code>tab</code>/<code>setTab</code> state as today, just rendered as a compact segmented pill (active pill filled green, count badge for Holdings) instead of <code>TabStrip</code>'s underlined-tab look — visually reads as a filter/switch, not a 3rd tab row.</li>
+        <li>Both changes are additive to what's already shipped (mood note, Filters icon, market ticker) — nothing else on the page moves.</li>
+      </ul>
+    </div>
+  </body>
+</html>

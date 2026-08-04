@@ -6,10 +6,10 @@ import { expensesRepo } from '@/core/db/repositories';
 import { useRepository } from '@/hooks/useRepository';
 import { formatCurrency } from '@/lib/formatters';
 import { PageHeader } from '~/components/ui';
-import { BackButton } from '~/components/shared';
 import { useSubscriptions } from './useSubscriptions';
 import { SubscriptionsView } from './SubscriptionsView';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 
 export function SubscriptionsPage() {
   const modeBg = useModeBackgroundColor();
@@ -27,12 +27,11 @@ export function SubscriptionsPage() {
     cancelSubscription,
     addSubscription
   } = useSubscriptions(expenses);
+  useDefaultHeaderBack('Subscriptions');
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader
-        leading={<BackButton />}
-        title="Subscriptions"
         subtitle={
           activeSubs.length > 0 ? `${masked ? '••••' : formatCurrency(subsMonthlyTotal)}/month total` : undefined
         }

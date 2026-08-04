@@ -70,6 +70,26 @@ Exponential backoff on failed PIN attempts:
 
 PIN rotation reminder fires after 21 days of the last PIN change. Shown in the AuthGuard after each successful unlock — not a blocking modal.
 
+### Adversarial self-check
+
+Before shipping anything touching crypto, backup, or storage, review it from a hostile
+reverse-engineer's perspective, not just a happy-path one — given the actual shipped
+`apps/mobile` APK (a static asset anyone can pull apart), ask concretely:
+
+- Could a decompiled build leak plaintext data at rest, in a log, or in a crash report?
+  (`no-console`/no-PII-logging is enforced for exactly this reason — see `CLAUDE.md`.)
+- Does anything in the encryption chain above depend on a secret that's actually bundled
+  in the APK/JS bundle itself (a hardcoded key, a guessable salt, a debug bypass) rather
+  than derived from something only the user knows (passphrase/PIN)?
+- Could the exported backup file (`.penny`/JSON) be decrypted or forged without the
+  passphrase, given full access to the file and the app's own (public) source?
+- Does any code path make PIN/passphrase verification skippable — a flag, a stale dev
+  build, a race in `AuthGuard` — that a patched/rebuilt APK could flip?
+
+This isn't a formal audit process, just the standing lens for any change in this area —
+if the answer to any of the above is "yes" or "not sure," treat it as a real finding, not
+a nitpick.
+
 ---
 
 ## Database schema

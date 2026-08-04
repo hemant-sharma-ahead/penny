@@ -74,7 +74,9 @@ show instantly; refresh happens in the background, plus a manual pull-to-refresh
 ## UI
 
 - Headline card: title (2-line clamp), coloured source chip, relative time ("2h ago").
-- Filter chips: All · Markets · Regulatory (or per-source).
+- Filter chips: All · Markets · Regulatory (or per-source). On mobile, Source/Tone/Holding
+  live behind one "Filters" icon opening a combined modal, rather than each field having
+  its own dropdown — see mobile note below.
 - No amounts/PII on this screen → privacy modes don't affect it, nothing to mask.
 - Tapping a headline opens the source link externally — link-out only; Penny never
   reproduces full article text (copyright-safe: headline + short summary + attribution +
@@ -96,11 +98,21 @@ browser API with no direct RN equivalent found so far. The "All News" feed list 
 items across 4 sources) is rebuilt on `@shopify/flash-list`'s `FlashList` for scroll
 performance — see `docs/plans/mobile-migration.md`'s playbook.
 
+As of 2026-08-01, News is no longer its own routed screen — it's a sub-tab of Portfolio's
+Equity tab (`NewsPage.tsx` → `NewsView.tsx`, reports its own pull-to-refresh state up to
+`PortfolioPage` instead of owning a refresh button). The same pass replaced the
+always-visible mood banner + stacked filter dropdown boxes (too much fixed chrome, too few
+visible headlines) with `NewsMoodNote.tsx` — collapsible, `AssetTaxNote`-style, living as
+the first item of the scrolling feed — and one "Filters" icon opening a combined
+Source/Tone/Holding modal. See [`docs/features/news-sentiment.md`](news-sentiment.md) for
+detail.
+
 ## Files
 
 - `packages/core/src/core/news/newsClient.ts` (+ `.native.ts`) — `NEWS_SOURCES`,
   `fetchNewsFeed(source)`, `fetchAllNews(ids)`, XML→`NewsItem[]` parsing, caching + TTL.
 - `packages/core/src/core/news/newsTypes.ts` — types above.
-- `features/news/NewsPage.tsx` — source filter chips, headline card list, empty/error/
-  loading states, refresh button.
+- `features/news/NewsPage.tsx` (web) / `features/news/NewsView.tsx` (mobile) — headline
+  card list, empty/error/loading states; filter UI and mood display diverge between the two
+  (see mobile note above).
 - `features/news/useNews.ts` — hook wrapping the client (loading/error/data).

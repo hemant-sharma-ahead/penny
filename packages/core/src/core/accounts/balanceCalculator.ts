@@ -1,7 +1,7 @@
-import type { Expense } from '@/core/db/types';
+import type { Account, Expense } from '@/core/db/types';
 
 /** How a single transaction moves `accountId`'s balance (+in / −out / 0 if unrelated). */
-function delta(accountId: string, t: Pick<Expense, 'accountId' | 'toAccountId' | 'amount' | 'type'>): number {
+export function delta(accountId: string, t: Pick<Expense, 'accountId' | 'toAccountId' | 'amount' | 'type'>): number {
   const type = t.type ?? 'expense';
   if (type === 'income' && t.accountId === accountId) return t.amount;
   if (type === 'expense' && t.accountId === accountId) return -t.amount;
@@ -30,4 +30,19 @@ export function projectedBalance(
   candidate: CandidateTxn
 ): number {
   return computeBalance(accountId, openingBalance, txns) + delta(accountId, candidate);
+}
+
+/**
+ * Sum of live balances across every account that counts toward net worth (`includeInNetWorth`,
+ * excluding archived ones) — extracted from `apps/mobile/src/features/home/useHome.ts`'s inline
+ * filter+reduce so `apps/mobile/src/hooks/useInvestableCorpus.ts` (used by the FIRE Calculator, a
+ * different feature module) can compute the exact same figure without duplicating the logic. Clamped
+ * ≥0, matching `useHome.ts`'s own `Math.max(0, liquidFunds)` convention.
+ */
+export function calcLiquidFunds(accounts: Account[], txns: Expense[]): number {
+  const liquidAccs = accounts.filter((a) => a.includeInNetWorth && !a.isArchived);
+  return Math.max(
+    0,
+    liquidAccs.reduce((sum, a) => sum + computeBalance(a.id, a.openingBalance, txns), 0)
+  );
 }

@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Expense/Income/Transfer form: three improvements</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --danger:#ef4444; --success:#10b981; --info:#3b82f6;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 22px; color:#9aa5b1; font-size:14px; max-width:960px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .sectiontitle { text-align:center; font-size:15px; font-weight:800; color:#fff; margin:36px 0 4px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:760px; margin:0 auto 18px; line-height:1.6; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 10px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.new { background:#123524; color:#7ee6b8; }
+      .vtitle .tag.cur { background:#3a2412; color:#f0b060; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; height:600px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .typerow { display:flex; align-items:center; padding:12px 12px 8px; gap:8px; }
+      .typebtn { display:flex; align-items:center; gap:5px; padding:7px 12px; border-radius:10px; font-size:12px; font-weight:700; color:var(--text3); }
+      .typebtn.on { background:var(--danger); color:#fff; }
+      .typebtn i { font-size:13px; }
+      .xbtn { margin-left:auto; color:var(--text3); font-size:16px; }
+      .content { flex:1; padding:6px 14px 14px; overflow:hidden; }
+
+      .bigamt { text-align:center; font-size:34px; font-weight:800; color:var(--text3); padding:10px 0 16px; }
+      .finput { background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:12px 14px; font-size:13px; color:var(--text3); margin-bottom:10px; }
+      .fielddual { display:flex; gap:8px; margin-bottom:14px; }
+      .fielddual .finput { flex:1; margin-bottom:0; }
+      .seclabel { font-size:10.5px; font-weight:700; color:var(--text2); margin-bottom:8px; }
+      .accgrid { display:flex; gap:8px; margin-bottom:14px; }
+      .acctile { flex:1; align-items:center; text-align:center; }
+      .acctile .ic { width:44px; height:44px; border-radius:12px; margin:0 auto 5px; display:flex; align-items:center; justify-content:center; }
+      .acctile .lb { font-size:9px; color:var(--text2); }
+      .acctile.addtile .ic { border:1.5px dashed var(--border); background:transparent; }
+      .acctile.addtile .lb { color:var(--text3); }
+
+      /* Combined amount + category row */
+      .combrow { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+      .catbtn { flex:1; display:flex; flex-direction:column; align-items:flex-start; gap:6px; background:var(--surface); border:1.5px dashed var(--border); border-radius:14px; padding:12px; }
+      .catbtn.chosen { border-style:solid; border-color:var(--danger); }
+      .catbtn .ic2 { width:32px; height:32px; border-radius:10px; background:var(--surface2); display:flex; align-items:center; justify-content:center; }
+      .catbtn.chosen .ic2 { background:rgba(239,68,68,.15); }
+      .catbtn .catlabel { font-size:11px; font-weight:600; color:var(--text3); }
+      .catbtn.chosen .catlabel { color:var(--text); }
+      .amtright { flex:1.3; text-align:right; }
+      .amtright .amtnum { font-size:28px; font-weight:800; color:var(--text); }
+      .amtright .amtwords { font-size:9px; color:var(--text3); margin-top:2px; }
+
+      .legend { max-width:900px; margin:14px auto 50px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:20px 24px; color:#c3ccd6; font-size:13px; line-height:1.7; }
+      .legend h2 { font-size:14px; margin:0 0 8px; color:#fff; }
+      .legend b { color:#fff; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:11.5px; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend li { margin-bottom:6px; }
+
+      /* modal-on-modal for the Add Account preview */
+      .modalbackdrop2 { position:absolute; inset:0; background:rgba(0,0,0,.6); z-index:5; }
+      .modalcard2 { position:absolute; left:16px; right:16px; top:70px; bottom:60px; background:var(--surface); border:1px solid var(--border); border-radius:18px; z-index:6; display:flex; flex-direction:column; box-shadow:0 0 24px rgba(0,0,0,.4); }
+      .mtitlerow2 { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 0; }
+      .mtitle2 { font-size:14px; font-weight:700; color:var(--text); }
+      .mbody2 { padding:14px 16px; overflow:hidden; }
+      .typetiles { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+      .typetile { width:23%; border:1.5px solid var(--border); border-radius:11px; padding:8px 4px; align-items:center; text-align:center; }
+      .typetile.on { border-color:var(--info); background:rgba(59,130,246,.1); }
+      .typetile i { font-size:16px; color:var(--text2); display:block; margin:0 auto 4px; }
+      .typetile.on i { color:var(--info); }
+      .typetile .tl { font-size:8px; color:var(--text2); }
+
+      /* FAB comparison */
+      .fabcompare { position:relative; height:100%; }
+      .dialopt { display:flex; align-items:center; gap:6px; padding:8px 12px; border-radius:999px; margin-bottom:8px; box-shadow:0 4px 10px rgba(0,0,0,.3); }
+      .fabbtn { width:52px; height:52px; border-radius:26px; background:var(--primary); display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,.3); }
+      .tapbadge { position:absolute; width:26px; height:26px; border-radius:50%; background:#fff; color:#111; font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,.4); }
+    </style>
+  </head>
+  <body>
+    <h1>Expense form — three targeted improvements</h1>
+    <p class="sub">Grounded in your actual screenshot and the real code (<code>ExpenseForm.tsx</code>,
+      <code>AccountChips.tsx</code>, <code>TransactionsSlice.tsx</code>'s speed-dial FAB). Three
+      independent changes — happy to build any subset first.</p>
+
+    <div class="sectiontitle">1 — Amount shifts right, Category fills the freed space</div>
+    <div class="sectionsub">Category and Amount become one combined row instead of Amount being its own big centered hero above a separate "Select category" row below. Category defaults to a dashed placeholder tile (tap to open the same category picker as today) — filled/solid once chosen. Date moves to its own full-width row underneath (still saves net vertical space overall).</div>
+    <div class="gallery">
+
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">from your screenshot</span></div>
+        <div class="vsub">Amount is a big centered hero with empty space either side; Category is a separate "Select category" row paired with Date below it.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="typerow">
+            <div class="typebtn on"><i class="ti ti-arrow-down"></i>Expense</div>
+            <div class="typebtn"><i class="ti ti-arrow-up"></i>Income</div>
+            <div class="typebtn"><i class="ti ti-transfer"></i>Transfer</div>
+            <div class="xbtn">✕</div>
+          </div>
+          <div class="content">
+            <div class="bigamt">₹0</div>
+            <div class="finput">What was this for?</div>
+            <div class="fielddual">
+              <div class="finput">▦ Select category</div>
+              <div class="finput">1 Aug 2026</div>
+            </div>
+            <div class="seclabel">Account</div>
+            <div class="accgrid">
+              <div class="acctile"><div class="ic" style="background:var(--info)"><i class="ti ti-building-bank" style="color:#fff"></i></div><div class="lb">HDFC Savings</div></div>
+              <div class="acctile"><div class="ic" style="background:var(--danger)"><i class="ti ti-credit-card" style="color:#fff"></i></div><div class="lb">HDFC Regalia</div></div>
+              <div class="acctile"><div class="ic" style="background:var(--success)"><i class="ti ti-wallet" style="color:#fff"></i></div><div class="lb">Cash Wallet</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">New — before picking a category <span class="tag new">new</span></div>
+        <div class="vsub">One combined row: a dashed "pick category" tile on the left (roughly the space Amount used to waste), Amount right-aligned on the right — still large, still the visual focal point, just not centered with dead space around it.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="typerow">
+            <div class="typebtn on"><i class="ti ti-arrow-down"></i>Expense</div>
+            <div class="typebtn"><i class="ti ti-arrow-up"></i>Income</div>
+            <div class="typebtn"><i class="ti ti-transfer"></i>Transfer</div>
+            <div class="xbtn">✕</div>
+          </div>
+          <div class="content">
+            <div class="combrow">
+              <div class="catbtn">
+                <div class="ic2"><i class="ti ti-layout-grid-add" style="color:var(--text3);font-size:16px"></i></div>
+                <span class="catlabel">Select category</span>
+              </div>
+              <div class="amtright">
+                <div class="amtnum">₹0</div>
+              </div>
+            </div>
+            <div class="finput">What was this for?</div>
+            <div class="finput" style="margin-bottom:14px">📅 1 Aug 2026</div>
+            <div class="seclabel">Account</div>
+            <div class="accgrid">
+              <div class="acctile"><div class="ic" style="background:var(--info)"><i class="ti ti-building-bank" style="color:#fff"></i></div><div class="lb">HDFC Savings</div></div>
+              <div class="acctile"><div class="ic" style="background:var(--danger)"><i class="ti ti-credit-card" style="color:#fff"></i></div><div class="lb">HDFC Regalia</div></div>
+              <div class="acctile"><div class="ic" style="background:var(--success)"><i class="ti ti-wallet" style="color:#fff"></i></div><div class="lb">Cash Wallet</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">New — category chosen <span class="tag new">new</span></div>
+        <div class="vsub">Once picked, the tile fills solid with the category's own colour + icon (same accent-by-category convention already used in the Transactions list), amount stays right-aligned and grows as you type.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="typerow">
+            <div class="typebtn on"><i class="ti ti-arrow-down"></i>Expense</div>
+            <div class="typebtn"><i class="ti ti-arrow-up"></i>Income</div>
+            <div class="typebtn"><i class="ti ti-transfer"></i>Transfer</div>
+            <div class="xbtn">✕</div>
+          </div>
+          <div class="content">
+            <div class="combrow">
+              <div class="catbtn chosen">
+                <div class="ic2"><i class="ti ti-shopping-cart" style="color:var(--danger);font-size:16px"></i></div>
+                <span class="catlabel">Groceries</span>
+              </div>
+              <div class="amtright">
+                <div class="amtnum">₹1,240</div>
+                <div class="amtwords">One thousand two hundred forty rupees</div>
+              </div>
+            </div>
+            <div class="finput" style="color:var(--text)">Weekly groceries</div>
+            <div class="finput" style="margin-bottom:14px">📅 1 Aug 2026</div>
+            <div class="seclabel">Account</div>
+            <div class="accgrid">
+              <div class="acctile"><div class="ic" style="background:var(--info)"><i class="ti ti-building-bank" style="color:#fff"></i></div><div class="lb">HDFC Savings</div></div>
+              <div class="acctile"><div class="ic" style="background:var(--danger)"><i class="ti ti-credit-card" style="color:#fff"></i></div><div class="lb">HDFC Regalia</div></div>
+              <div class="acctile"><div class="ic" style="background:var(--success)"><i class="ti ti-wallet" style="color:#fff"></i></div><div class="lb">Cash Wallet</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="sectiontitle">2 — "+" tile in Accounts, opens Add Account without leaving the form</div>
+    <div class="sectionsub">A dashed "+" tile appended to the account chip row. Tapping it opens the real Add Account form as a second modal stacked on top (RN's Modal already stacks automatically — no new pattern). Saving closes just that modal, refreshes this form's account list (the new one appears immediately, selectable), and also refreshes the Accounts page's own list via the same cross-hook signal Settings → Safe Mode already uses (<code>notifyAccountsChanged</code>/<code>useAccountsRefresh</code>).</div>
+    <div class="gallery">
+
+      <div class="frame-wrap">
+        <div class="vtitle">Accounts row + "+" tile <span class="tag new">new</span></div>
+        <div class="vsub">Appended after your existing accounts, not replacing anything — same chip size/style.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="typerow">
+            <div class="typebtn on"><i class="ti ti-arrow-down"></i>Expense</div>
+            <div class="typebtn"><i class="ti ti-arrow-up"></i>Income</div>
+            <div class="typebtn"><i class="ti ti-transfer"></i>Transfer</div>
+            <div class="xbtn">✕</div>
+          </div>
+          <div class="content">
+            <div class="combrow">
+              <div class="catbtn chosen"><div class="ic2"><i class="ti ti-shopping-cart" style="color:var(--danger);font-size:16px"></i></div><span class="catlabel">Groceries</span></div>
+              <div class="amtright"><div class="amtnum">₹1,240</div></div>
+            </div>
+            <div class="finput" style="color:var(--text)">Weekly groceries</div>
+            <div class="finput" style="margin-bottom:14px">📅 1 Aug 2026</div>
+            <div class="seclabel">Account</div>
+            <div class="accgrid">
+              <div class="acctile"><div class="ic" style="background:var(--info)"><i class="ti ti-building-bank" style="color:#fff"></i></div><div class="lb">HDFC Savings</div></div>
+              <div class="acctile"><div class="ic" style="background:var(--danger)"><i class="ti ti-credit-card" style="color:#fff"></i></div><div class="lb">HDFC Regalia</div></div>
+              <div class="acctile"><div class="ic" style="background:var(--success)"><i class="ti ti-wallet" style="color:#fff"></i></div><div class="lb">Cash Wallet</div></div>
+              <div class="acctile addtile"><div class="ic"><i class="ti ti-plus" style="color:var(--text3)"></i></div><div class="lb">Add</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Tapping "+" → Add Account, stacked <span class="tag new">new</span></div>
+        <div class="vsub">The real Add Account form (type tiles, name, opening balance, "include in net worth"), unchanged — just reached from here now, not by leaving the expense form.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="typerow" style="opacity:.3">
+            <div class="typebtn on"><i class="ti ti-arrow-down"></i>Expense</div>
+          </div>
+          <div class="content" style="opacity:.3">
+            <div class="finput">Weekly groceries</div>
+          </div>
+          <div class="modalbackdrop2"></div>
+          <div class="modalcard2">
+            <div class="mtitlerow2"><div class="mtitle2">Add account</div><i class="ti ti-x" style="color:var(--text3)"></i></div>
+            <div class="mbody2">
+              <div class="typetiles">
+                <div class="typetile on"><i class="ti ti-cash"></i><div class="tl">Cash</div></div>
+                <div class="typetile"><i class="ti ti-building-bank"></i><div class="tl">Bank</div></div>
+                <div class="typetile"><i class="ti ti-credit-card"></i><div class="tl">Credit card</div></div>
+                <div class="typetile"><i class="ti ti-wallet"></i><div class="tl">Wallet</div></div>
+              </div>
+              <div class="finput" style="color:var(--text3)">Account name</div>
+              <div class="finput" style="color:var(--text3)">₹ Current balance</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="sectiontitle">3 — Opening the form: 2 taps → 1 tap</div>
+    <div class="sectionsub">Today: tap the "+" FAB (reveals a speed-dial of Expense/Income/Transfer) → tap one of those three → form opens. Since the form itself already has an Expense/Income/Transfer switcher at the very top (visible in your screenshot), the speed-dial is a redundant extra step — the FAB can just open the form directly, defaulting to Expense, and you switch type inside the form if needed (1 tap total).</div>
+    <div class="gallery">
+
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">2 taps</span></div>
+        <div class="vsub">Tap ① the FAB → speed-dial appears → tap ② a type pill → form opens on that type.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="content" style="opacity:.25">
+            <div class="finput">Transactions list…</div>
+          </div>
+          <div class="fabcompare">
+            <div style="position:absolute; right:20px; bottom:90px">
+              <div class="dialopt" style="background:var(--success)"><i class="ti ti-arrow-up-circle" style="color:#fff;font-size:14px"></i><span style="color:#fff;font-size:11px;font-weight:700">Income</span></div>
+              <div class="dialopt" style="background:var(--info)"><i class="ti ti-arrows-exchange" style="color:#fff;font-size:14px"></i><span style="color:#fff;font-size:11px;font-weight:700">Transfer</span></div>
+              <div class="dialopt" style="background:var(--danger)"><i class="ti ti-arrow-down-circle" style="color:#fff;font-size:14px"></i><span style="color:#fff;font-size:11px;font-weight:700">Expense</span></div>
+            </div>
+            <div class="tapbadge" style="right:56px; bottom:186px">②</div>
+            <div style="position:absolute; right:16px; bottom:16px" class="fabbtn"><i class="ti ti-plus" style="color:#fff;font-size:22px"></i></div>
+            <div class="tapbadge" style="right:10px; bottom:60px">①</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">New <span class="tag new">1 tap</span></div>
+        <div class="vsub">Tap ① the FAB → the form opens immediately, defaulted to Expense (today's default anyway) — switch type inside the form if you actually meant Income/Transfer, using the switcher that's already there.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="content" style="opacity:.25">
+            <div class="finput">Transactions list…</div>
+          </div>
+          <div class="fabcompare">
+            <div style="position:absolute; right:16px; bottom:16px" class="fabbtn"><i class="ti ti-plus" style="color:#fff;font-size:22px"></i></div>
+            <div class="tapbadge" style="right:10px; bottom:60px">①</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="legend">
+      <h2>Notes</h2>
+      <ul>
+        <li><b>#1</b> reuses the exact same category picker (<code>CategoryPickerModal</code>) and amount logic (<code>AmountInput</code>'s grouping/words/calculator) — only the layout container changes, not the underlying fields. Date moves to its own row below (still net shorter than today, since Category no longer needs a row of its own).</li>
+        <li><b>#2</b> reuses <code>AccountFormModal.tsx</code>/<code>useAccountForm.ts</code> completely unchanged — the "+" tile just mounts them locally inside <code>ExpenseForm.tsx</code>. The cross-screen refresh (<code>notifyAccountsChanged</code>/<code>useAccountsRefresh</code>) already exists and is already used by Settings → Safe Mode for exactly this kind of "account changed elsewhere" case.</li>
+        <li><b>#3</b> is the simplest change of the three — delete the speed-dial state/UI, have the FAB call the existing "open with default type" function directly. No loss of capability: the type switcher already at the top of the form covers what the speed-dial did.</li>
+      </ul>
+    </div>
+  </body>
+</html>

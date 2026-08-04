@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Expenses header declutter</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --pink:#ec4899; --amber:#f59e0b; --danger:#ef4444; --success:#10b981;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 22px; color:#9aa5b1; font-size:14px; max-width:820px; margin-left:auto; margin-right:auto; line-height:1.65; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:40px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 30px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#123524; color:#7ee6b8; }
+      .vtitle .tag.now { background:#2a2a2a; color:#c7ccd1; }
+      .vtitle .tag.rec { background:#123524; color:#7ee6b8; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; height:340px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .header { height:40px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .htitle { flex:1; text-align:center; font-size:13.5px; font-weight:700; color:var(--text); }
+      .hicons { display:flex; align-items:center; gap:10px; }
+      .hicons i { font-size:15px; color:var(--text2); }
+      .avatar { width:26px; height:26px; border-radius:50%; background:var(--primary); display:grid; place-items:center; color:#fff; font-size:11px; font-weight:800; }
+
+      /* ── current (today) ── */
+      .actrow { display:flex; align-items:center; justify-content:flex-end; gap:2px; padding:8px 12px 0; flex-shrink:0; }
+      .actrow .ibtn { position:relative; width:28px; height:28px; border-radius:8px; display:grid; place-items:center; color:var(--text2); }
+      .actrow .ibtn i { font-size:15px; }
+      .actrow .ibtn .dot { position:absolute; top:5px; right:5px; width:6px; height:6px; border-radius:50%; background:var(--danger); }
+      .statrow { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 12px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+      .statrow .tot { font-size:11.5px; color:var(--text2); }
+      .statrow .tot b { color:var(--text); font-weight:600; }
+      .statrow .pills { display:flex; align-items:center; gap:5px; }
+      .pill-vac { display:flex; align-items:center; gap:3px; font-size:9px; font-weight:700; color:var(--pink); white-space:nowrap; }
+      .pill-vac i { font-size:10px; }
+      .pill-safe { display:flex; align-items:center; gap:3px; font-size:9.5px; font-weight:600; color:var(--text2); background:var(--surface2); border:1px solid var(--border); border-radius:999px; padding:3px 8px; white-space:nowrap; }
+      .pill-safe i { font-size:11px; color:var(--primary); }
+      .pill-safe b { color:var(--text); }
+
+      /* ── option 1: overflow icons + detoxed pills ── */
+      .ov-btn { width:28px; height:28px; border-radius:8px; display:grid; place-items:center; color:var(--text2); background:var(--surface2); border:1px solid var(--border); }
+      .ov-btn i { font-size:14px; }
+      .statrow2 { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+      .statrow2 .tot { font-size:12px; color:var(--text2); }
+      .statrow2 .tot b { color:var(--text); font-weight:700; }
+      .statrow2 .right { display:flex; align-items:center; gap:6px; }
+      .safe-quiet { font-size:10.5px; color:var(--text3); }
+      .safe-quiet b { color:var(--text2); font-weight:600; }
+      .vac-dot { width:7px; height:7px; border-radius:50%; background:var(--pink); }
+
+      /* ── option 2: two-tier, banner only while relevant ── */
+      .vac-banner { display:flex; align-items:center; gap:6px; padding:6px 12px; background:#2a1220; border-bottom:1px solid #45182c; flex-shrink:0; }
+      .vac-banner i { font-size:12px; color:var(--pink); }
+      .vac-banner span { font-size:10.5px; font-weight:700; color:var(--pink); }
+      .actrow3 { display:flex; align-items:center; justify-content:flex-end; padding:8px 12px 0; flex-shrink:0; }
+      .bigstat { padding:4px 12px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+      .bigstat .k { font-size:9.5px; color:var(--text3); font-weight:600; }
+      .bigstat .v { font-size:19px; font-weight:700; color:var(--text); margin-top:1px; }
+      .bigstat .safe-line { font-size:10.5px; color:var(--text2); margin-top:3px; }
+      .bigstat .safe-line b { color:var(--primary); font-weight:700; }
+
+      /* ── option 3: collapsed summary chip, tap to expand ── */
+      .chip-row { display:flex; align-items:center; justify-content:space-between; padding:9px 12px; border-bottom:1px solid var(--border); flex-shrink:0; }
+      .chip-row .left { font-size:13px; font-weight:700; color:var(--text); }
+      .chip-row .chev { width:24px; height:24px; border-radius:7px; display:grid; place-items:center; color:var(--text3); }
+      .chip-row .chev i { font-size:13px; }
+      .expand-panel { padding:8px 12px 10px; border-bottom:1px solid var(--border); flex-shrink:0; background:var(--surface); }
+      .expand-panel .row { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+      .expand-panel .row:last-child { margin-bottom:0; }
+      .expand-panel .lbl { font-size:10.5px; color:var(--text2); }
+      .expand-panel .val { font-size:11.5px; font-weight:600; color:var(--text); }
+      .expand-panel .iconrow { display:flex; gap:8px; }
+      .expand-panel .iconrow .ib { display:flex; align-items:center; gap:4px; font-size:10px; color:var(--text2); background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:5px 8px; }
+      .expand-panel .iconrow .ib i { font-size:12px; }
+
+      .content { flex:1; padding:10px 14px; overflow:hidden; }
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:9px 10px; margin-bottom:8px; display:flex; align-items:center; gap:9px; }
+      .card .icn { width:30px; height:30px; border-radius:9px; display:grid; place-items:center; background:#3a2418; color:#f59e0b; flex-shrink:0; }
+      .card .mid { flex:1; min-width:0; }
+      .card .t1 { font-size:11.5px; font-weight:600; color:var(--text); }
+      .card .t2 { font-size:9.5px; color:var(--text3); margin-top:1px; }
+      .card .amt { font-size:11.5px; font-weight:700; color:var(--danger); }
+
+      .legend { max-width:820px; margin:10px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:#fff; }
+      .legend b { color:#fff; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend li { margin-bottom:8px; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:12px; }
+      .recommend { max-width:820px; margin:0 auto; background:#0f2419; border:1px solid #1c3d2a; border-radius:16px; padding:18px 22px; color:#d7f5e6; font-size:13.5px; line-height:1.7; }
+      .recommend b { color:#7ee6b8; }
+    </style>
+  </head>
+  <body>
+    <h1>Expenses header — decluttering the actions + stats row</h1>
+    <p class="sub">Today: 3 icon buttons (Events/Import/Export) crammed top-right, then a second row
+      squeezing the running total against a pink Vacation pill <i>and</i> a bordered Safe-to-spend pill —
+      three colours and two pill styles fighting for space in ~40px of height. Three genuinely different
+      ways to cut that down, all grounded in the real <code>ExpensesHeader.tsx</code> layout.</p>
+
+    <div class="gallery">
+
+      <!-- CURRENT -->
+      <div class="frame-wrap">
+        <div class="vtitle">Current (today) <span class="tag now">as shipped</span></div>
+        <div class="vsub">Exactly what's in your screenshot: icons row, then total + 2 pills, 2 accent colours (pink, green) plus a border, all visible at once.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="avatar">H</div>
+            <div class="htitle">Expenses</div>
+            <div class="hicons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="actrow">
+            <div class="ibtn"><i class="ti ti-flag-3"></i><div class="dot"></div></div>
+            <div class="ibtn"><i class="ti ti-file-import"></i></div>
+            <div class="ibtn"><i class="ti ti-file-export"></i></div>
+          </div>
+          <div class="statrow">
+            <div class="tot">All transactions: <b>₹38,27,767</b></div>
+            <div class="pills">
+              <div class="pill-vac"><i class="ti ti-plane"></i>Vacation On · Goa Trip</div>
+              <div class="pill-safe"><i class="ti ti-wallet"></i>Safe: <b>₹82,30,595</b></div>
+            </div>
+          </div>
+          <div class="content">
+            <div class="card"><div class="icn"><i class="ti ti-shopping-cart"></i></div><div class="mid"><div class="t1">Zomato</div><div class="t2">Today · Food</div></div><div class="amt">-₹450</div></div>
+            <div class="card"><div class="icn"><i class="ti ti-shopping-cart"></i></div><div class="mid"><div class="t1">Groceries</div><div class="t2">Today · Daily Living</div></div><div class="amt">-₹1,240</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPTION 1 -->
+      <div class="frame-wrap">
+        <div class="vtitle">1 · Overflow icons, detoxed pills</div>
+        <div class="vsub">Events/Import/Export collapse into one "⋯" menu. Vacation becomes a single dot next to the total (tap for the name); Safe-to-spend loses its border/pill chrome, reads as plain text. Same info, 1 accent colour on screen instead of 3.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="avatar">H</div>
+            <div class="htitle">Expenses</div>
+            <div class="hicons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="actrow" style="padding-top:8px">
+            <div class="ov-btn"><i class="ti ti-dots"></i></div>
+          </div>
+          <div class="statrow2">
+            <div class="tot"><span class="vac-dot" style="display:inline-block;margin-right:5px;vertical-align:middle"></span>All transactions: <b>₹38,27,767</b></div>
+            <div class="right"><div class="safe-quiet">Safe <b>₹82,30,595</b></div></div>
+          </div>
+          <div class="content">
+            <div class="card"><div class="icn"><i class="ti ti-shopping-cart"></i></div><div class="mid"><div class="t1">Zomato</div><div class="t2">Today · Food</div></div><div class="amt">-₹450</div></div>
+            <div class="card"><div class="icn"><i class="ti ti-shopping-cart"></i></div><div class="mid"><div class="t1">Groceries</div><div class="t2">Today · Daily Living</div></div><div class="amt">-₹1,240</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPTION 2 -->
+      <div class="frame-wrap">
+        <div class="vtitle">2 · Priority stack, banner only if relevant <span class="tag rec">recommended</span></div>
+        <div class="vsub">The total gets its own clean line (what matters most, always). Safe-to-spend sits right under it as quiet secondary text — no border, one colour. Vacation isn't squeezed in at all; it only appears as a full-width strip <i>when actually active</i> (most months: gone entirely). Icons still collapse to one "⋯".</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="avatar">H</div>
+            <div class="htitle">Expenses</div>
+            <div class="hicons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="vac-banner"><i class="ti ti-plane"></i><span>Vacation On · Goa Trip</span></div>
+          <div class="actrow3"><div class="ov-btn"><i class="ti ti-dots"></i></div></div>
+          <div class="bigstat">
+            <div class="k">All transactions</div>
+            <div class="v">₹38,27,767</div>
+            <div class="safe-line">Safe to spend: <b>₹82,30,595</b></div>
+          </div>
+          <div class="content">
+            <div class="card"><div class="icn"><i class="ti ti-shopping-cart"></i></div><div class="mid"><div class="t1">Zomato</div><div class="t2">Today · Food</div></div><div class="amt">-₹450</div></div>
+            <div class="card"><div class="icn"><i class="ti ti-shopping-cart"></i></div><div class="mid"><div class="t1">Groceries</div><div class="t2">Today · Daily Living</div></div><div class="amt">-₹1,240</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPTION 3 -->
+      <div class="frame-wrap">
+        <div class="vtitle">3 · Collapsed summary, tap to expand</div>
+        <div class="vsub">Most aggressive: just the total shows by default, chevron to expand. Expanded reveals Safe-to-spend, Vacation status, and the 3 action icons in one panel. Everything's still reachable, nothing's ever on screen unless asked for.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="avatar">H</div>
+            <div class="htitle">Expenses</div>
+            <div class="hicons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="chip-row">
+            <div class="left">₹38,27,767</div>
+            <div class="chev"><i class="ti ti-chevron-down"></i></div>
+          </div>
+          <div class="expand-panel">
+            <div class="row"><div class="lbl">Safe to spend</div><div class="val" style="color:var(--primary)">₹82,30,595</div></div>
+            <div class="row"><div class="lbl">Vacation</div><div class="val" style="color:var(--pink)">On · Goa Trip</div></div>
+            <div class="iconrow">
+              <div class="ib"><i class="ti ti-flag-3"></i>Events</div>
+              <div class="ib"><i class="ti ti-file-import"></i>Import</div>
+              <div class="ib"><i class="ti ti-file-export"></i>Export</div>
+            </div>
+          </div>
+          <div class="content">
+            <div class="card"><div class="icn"><i class="ti ti-shopping-cart"></i></div><div class="mid"><div class="t1">Zomato</div><div class="t2">Today · Food</div></div><div class="amt">-₹450</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="recommend">
+      <b>Recommendation: Option 2.</b> Safe-to-spend is a number people check almost every time they open
+      Expenses to decide whether they can afford something — it shouldn't cost an extra tap (ruling out
+      Option 3). Vacation mode is rare and short-lived, so it doesn't deserve permanent real estate next
+      to the total every single day — better as a banner that only exists while it's true, not a pill
+      that's either shown-and-crowding or a placeholder gap when there's no trip on. Events/Import/Export
+      are all low-frequency actions (you don't reach for them daily) so folding them into one "⋯" is a
+      clean, safe win in every option — no reason not to take it regardless of which stat layout wins.
+    </div>
+
+    <div class="legend">
+      <h2>Notes</h2>
+      <ul>
+        <li><b>Overflow menu</b> (all 3 options): tapping "⋯" opens a small centred `Modal` (per
+          `docs/DESIGN_GUIDELINES.md`'s "centered modals, never bottom sheets" rule) with 3 rows — Manage
+          events (badge dot if any active), Import expenses, Export expenses — each triggering exactly what
+          the 3 icons already do today. Same capability, one entry point instead of three always-visible
+          icons.</li>
+        <li><b>Vacation banner</b> (Option 2): conditionally rendered only when `immersiveEvent` exists —
+          on every other month (the overwhelming majority), this row doesn't render at all, so nothing is
+          lost, no placeholder gap either.</li>
+        <li>All three keep <code>ExpensesHeader.tsx</code>'s existing data (`filteredTotal`, `safeToSpend`,
+          `immersiveEvent`, the 3 action handlers) — this is a presentation-only change, no new state or
+          props needed beyond a `showOverflow`/`bannerExpanded` local toggle.</li>
+      </ul>
+    </div>
+  </body>
+</html>

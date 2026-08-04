@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react';
 import { View, Pressable, ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ListContainer, PageHeader, SearchInput, Toggle } from '~/components/ui';
-import { BackButton } from '~/components/shared';
+import { ListContainer, SearchInput, Toggle } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useRepository } from '@/hooks/useRepository';
 import { notifyTagsChanged } from '@/hooks/useDataRefresh';
 import { hashtagsRepo } from '@/core/db/repositories';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 
 /**
  * RN port of apps/web-react/src/features/settings/ManageTagsPage.tsx. The only place an *existing*
@@ -21,6 +21,7 @@ export function ManageTagsPage() {
   const { items: hashtags, save: saveHashtag, loading } = useRepository(hashtagsRepo);
   const [search, setSearch] = useState('');
   const [showInfo, setShowInfo] = useState(false);
+  useDefaultHeaderBack('ManageTags');
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -30,7 +31,6 @@ export function ManageTagsPage() {
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <PageHeader leading={<BackButton />} title="Manage Tags" />
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-4 py-4 gap-4">
           <SearchInput value={search} onChange={setSearch} placeholder="Search tags…" />

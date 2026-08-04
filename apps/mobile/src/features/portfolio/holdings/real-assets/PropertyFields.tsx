@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import { TextInput, SelectInput } from '~/components/ui';
+import { TextInput, SelectInput, DateInput } from '~/components/ui';
 import type { PropertyType } from '@/core/portfolio/holdingMappers';
 
 interface PropertyFieldsProps {
@@ -9,17 +9,24 @@ interface PropertyFieldsProps {
   setPropertyAreaSqft: (v: string) => void;
   propertyCity: string;
   setPropertyCity: (v: string) => void;
+  propertyPurchaseDate: string;
+  setPropertyPurchaseDate: (v: string) => void;
+  /** Set only after a failed save attempt with no date — see PropertyModal.handleSave. */
+  purchaseDateError?: string;
 }
 
-// Property fields: type, area, and city. Market/purchase value is entered via
-// the shared amount fields.
+// Property fields: type, area, city, and purchase date. Market/purchase value
+// is entered via the shared amount fields.
 export function PropertyFields({
   propertyType,
   setPropertyType,
   propertyAreaSqft,
   setPropertyAreaSqft,
   propertyCity,
-  setPropertyCity
+  setPropertyCity,
+  propertyPurchaseDate,
+  setPropertyPurchaseDate,
+  purchaseDateError
 }: PropertyFieldsProps) {
   return (
     <View className="flex-col gap-3">
@@ -49,6 +56,14 @@ export function PropertyFields({
         </View>
       </View>
       <TextInput label="City" placeholder="e.g. Bangalore" value={propertyCity} onChange={setPropertyCity} />
+      <DateInput
+        label="Purchase date"
+        value={propertyPurchaseDate}
+        onChange={setPropertyPurchaseDate}
+        required
+        error={purchaseDateError}
+        maximumDate={new Date()}
+      />
     </View>
   );
 }

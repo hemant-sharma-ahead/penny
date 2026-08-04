@@ -6,12 +6,12 @@ import { useSettings } from '~/context/SettingsContext';
 import type { InsurancePolicy } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
 import { Button, Banner, PageHeader, EmptyState } from '~/components/ui';
-import { BackButton } from '~/components/shared';
 import { useInsurance } from './useInsurance';
 import { PolicyCard } from './PolicyCard';
 import { CoverageSummary } from './CoverageSummary';
 import { PolicyForm } from './PolicyForm';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 
 export function InsurancePage() {
   const modeBg = useModeBackgroundColor();
@@ -20,6 +20,7 @@ export function InsurancePage() {
   const { safeModeVisibility } = useSettings();
   const masked = shouldMask(!safeModeVisibility.insurance);
   const { policies, savePolicy, removePolicy, totalAnnualPremium, expiringCount, sorted } = useInsurance();
+  useDefaultHeaderBack('Insurance');
 
   const [showForm, setShowForm] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<InsurancePolicy | null>(null);
@@ -27,8 +28,6 @@ export function InsurancePage() {
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader
-        leading={<BackButton />}
-        title="Insurance"
         subtitle={
           policies.length > 0
             ? `${policies.length} ${policies.length === 1 ? 'policy' : 'policies'} · ${masked ? '••••' : formatCurrency(totalAnnualPremium)}/yr`

@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Real Assets — Vehicle &amp; Property cards redesign — v1</title>
+<style>
+  :root{
+    --bg:#0a0a0d; --card:#16161c; --card2:#1c1c24; --border:rgba(255,255,255,.08);
+    --text:#f5f5f7; --text2:#b4b4bc; --text3:#7c7c86;
+    --green:#34d399; --red:#f87171; --amber:#f0b060; --blue:#4d7aff; --violet:#8b5cf6;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:#050507; color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased;}
+  .tabular{font-variant-numeric:tabular-nums;}
+  .topbar{position:sticky; top:0; z-index:50; padding:18px 32px; background:rgba(5,5,7,.9);
+    backdrop-filter:blur(12px); border-bottom:1px solid var(--border);}
+  .topbar h1{font-size:16px; margin:0 0 4px; font-weight:700;}
+  .topbar p{margin:0; font-size:12.5px; color:var(--text3);}
+  .gallery{display:flex; gap:32px; padding:36px 32px 80px; overflow-x:auto; align-items:flex-start;}
+  .column{display:flex; flex-direction:column; align-items:center; gap:14px; flex:0 0 auto;}
+  .col-head{width:320px; text-align:left;}
+  .col-tag{display:inline-flex; align-items:center; gap:6px; font-size:10.5px; font-weight:700;
+    letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:99px; margin-bottom:8px;}
+  .col-title{font-size:15px; font-weight:700; margin:0 0 4px;}
+  .col-pitch{font-size:12px; color:var(--text3); line-height:1.5; margin:0;}
+
+  .phone{width:320px; border-radius:30px; background:var(--bg); border:8px solid #1a1a1e;
+    box-shadow:0 24px 50px -16px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.04); padding:18px 12px; display:flex; flex-direction:column; gap:14px;}
+  .section-label{font-size:11px; font-weight:700; color:var(--text2); display:flex; align-items:center; justify-content:space-between;}
+  .add-pill{font-size:10.5px; font-weight:700; color:var(--blue);}
+
+  /* ---------- shared bits ---------- */
+  .badge{font-size:9.5px; font-weight:700; padding:2px 7px; border-radius:99px;}
+  .icon-tile{width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0;}
+  .chevron{color:var(--text3); font-size:13px;}
+
+  /* ============ CURRENT (reference) ============ */
+  .cur-card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:13px 14px; display:flex; flex-direction:column; gap:9px;}
+  .cur-head{display:flex; align-items:center; gap:9px;}
+  .cur-head .meta{flex:1; min-width:0;}
+  .cur-title{font-size:13.5px; font-weight:700;}
+  .cur-chipsrow{display:flex; gap:5px; flex-wrap:wrap; margin-top:3px;}
+  .cur-chip{font-size:9px; color:var(--text3); background:rgba(255,255,255,.05); padding:2px 6px; border-radius:6px;}
+  .cur-valid-row{display:flex; gap:6px;}
+  .cur-valid{flex:1; background:rgba(240,176,96,.1); border-radius:9px; padding:6px 7px; text-align:center;}
+  .cur-valid .l{font-size:8.5px; color:var(--amber); opacity:.8;}
+  .cur-valid .v{font-size:10.5px; font-weight:700; color:var(--amber);}
+  .cur-valuerow{display:flex; justify-content:space-between; align-items:flex-end;}
+  .cur-valuerow .l{font-size:9px; color:var(--text3);}
+  .cur-valuerow .v{font-size:15px; font-weight:800;}
+  .cur-challan{display:flex; align-items:center; gap:6px; background:rgba(248,113,113,.14); border-radius:10px; padding:7px 9px; font-size:10px; color:var(--red); font-weight:600;}
+  .cur-footer{display:flex; justify-content:space-between; align-items:center; padding-top:6px; border-top:1px solid var(--border); font-size:9.5px; color:var(--amber);}
+  .cur-footer .r{color:var(--text3);}
+  .cur-editpencil{width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--text3); flex-shrink:0;}
+  .cur-updatepill{display:inline-flex; align-items:center; gap:4px; background:rgba(139,92,246,.12); color:var(--violet); font-size:9.5px; font-weight:700; padding:3px 9px; border-radius:99px;}
+
+  /* ============ A — Refined structured ============ */
+  .a-card{background:var(--card); border:1px solid var(--border); border-radius:18px; padding:14px; display:flex; flex-direction:column; gap:10px;}
+  .a-head{display:flex; align-items:center; gap:10px;}
+  .a-icon{background:rgba(77,122,255,.14); color:var(--blue);}
+  .a-icon.violet{background:rgba(139,92,246,.14); color:var(--violet);}
+  .a-name{font-size:14px; font-weight:700;}
+  .a-sub{font-size:10px; color:var(--text3); margin-top:1px;}
+  .a-hero{display:flex; justify-content:space-between; align-items:flex-end;}
+  .a-hero .cv-l{font-size:9.5px; color:var(--text3);}
+  .a-hero .cv-v{font-size:19px; font-weight:800; margin-top:1px;}
+  .a-hero .pct{font-size:11px; font-weight:700;}
+  .a-strip{display:flex; align-items:center; gap:5px; flex-wrap:wrap; font-size:10px; color:var(--text2); padding:8px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border);}
+  .a-strip .dot{color:var(--text3); margin:0 1px;}
+  .a-strip .ok{color:var(--green); font-weight:600;}
+  .a-validrow{display:flex; gap:6px;}
+  .a-valid{flex:1; display:flex; align-items:center; gap:4px; background:var(--card2); border-radius:9px; padding:5px 8px;}
+  .a-valid .ic{font-size:10px;}
+  .a-valid .txt{font-size:9px; color:var(--text2);}
+  .a-valid.warn .txt{color:var(--amber); font-weight:700;}
+  .a-challan-inline{display:flex; align-items:center; gap:5px; font-size:10px; color:var(--red); font-weight:600;}
+  .a-challan-inline .dot2{width:6px; height:6px; border-radius:50%; background:var(--red);}
+  .a-footer{display:flex; justify-content:space-between; align-items:center; font-size:9.5px; color:var(--text3);}
+  .a-footer .stale{color:var(--amber); font-weight:600;}
+
+  /* ============ B — Identity gradient hero ============ */
+  .b-card{position:relative; border-radius:18px; overflow:hidden; padding:14px; display:flex; flex-direction:column; gap:10px;
+    background:linear-gradient(135deg,#16234f,#0c1530); box-shadow:0 10px 22px rgba(0,0,0,.4);}
+  .b-card.violet{background:linear-gradient(135deg,#4a1d6b,#1f0d2e);}
+  .b-glow{position:absolute; border-radius:50%; pointer-events:none;}
+  .b-sheen{position:absolute; top:-40%; left:-15%; width:150%; height:180%; transform:rotate(-8deg);
+    background:linear-gradient(115deg,transparent 42%, rgba(255,255,255,.10) 50%, transparent 58%); pointer-events:none;}
+  .b-top{display:flex; justify-content:space-between; align-items:center; position:relative;}
+  .b-icontile{width:32px; height:32px; border-radius:9px; background:rgba(255,255,255,.16); display:flex; align-items:center; justify-content:center; font-size:14px;}
+  .b-pill{font-size:9px; font-weight:700; text-transform:uppercase; background:rgba(255,255,255,.14); color:rgba(255,255,255,.75); padding:3px 9px; border-radius:99px;}
+  .b-mid{display:flex; justify-content:space-between; align-items:flex-end; position:relative;}
+  .b-name{font-size:13.5px; font-weight:700; color:#fff; max-width:150px;}
+  .b-val{text-align:right;}
+  .b-val .v{font-size:17px; font-weight:800; color:#fff;}
+  .b-val .cap{font-size:9px; color:rgba(255,255,255,.6); margin-top:1px;}
+  .b-strip{font-size:9.5px; color:rgba(255,255,255,.65); position:relative;}
+  .b-divider{height:1px; background:rgba(255,255,255,.14); position:relative;}
+  .b-actions{display:flex; align-items:center; gap:7px; position:relative;}
+  .b-actbtn{width:26px; height:26px; border-radius:8px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff;}
+  .b-actbtn.warnbtn{background:rgba(248,113,113,.35);}
+  .b-actbtn.ml-auto{margin-left:auto;}
+
+  /* ============ C — Compact list row ============ */
+  .c-card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:11px 13px; display:flex; align-items:center; gap:10px;}
+  .c-icon{width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0;}
+  .c-mid{flex:1; min-width:0;}
+  .c-name{font-size:12.5px; font-weight:700;}
+  .c-sub{font-size:9.5px; color:var(--text3); margin-top:1px;}
+  .c-dots{display:flex; gap:4px; margin-top:4px;}
+  .c-dot{width:5px; height:5px; border-radius:50%;}
+  .c-right{text-align:right; flex-shrink:0;}
+  .c-right .v{font-size:13px; font-weight:800;}
+  .c-right .pct{font-size:9.5px; font-weight:700; margin-top:1px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Real Assets — Vehicle &amp; Property cards (v1)</h1>
+  <p>Same Maruti Suzuki Swift / 2BHK Koramangala sample data across every column, for a fair comparison · 3 directions + current</p>
+</div>
+
+<div class="gallery">
+
+  <!-- ============ CURRENT ============ -->
+  <div class="column">
+    <div class="col-head">
+      <span class="col-tag" style="background:rgba(255,255,255,.08); color:var(--text2);">Current</span>
+      <p class="col-title">What ships today</p>
+      <p class="col-pitch">Reference, from your screenshot. Clashing badge colours, 3 separate translucent validity boxes, a loud red challan banner, and an inconsistent tap model (Vehicle = tap-whole-card, Property = separate edit-pencil + pill button).</p>
+    </div>
+    <div class="phone">
+      <div class="section-label">Vehicles <span class="add-pill">+ Add</span></div>
+      <div class="cur-card">
+        <div class="cur-head">
+          <div class="icon-tile" style="background:rgba(77,122,255,.14); color:var(--blue);">🚗</div>
+          <div class="meta">
+            <div class="cur-title">Maruti Suzuki Swift VXI</div>
+            <div class="cur-chipsrow">
+              <span class="cur-chip">2021</span>
+              <span class="badge" style="background:rgba(240,176,96,.18); color:var(--amber);">PETROL</span>
+              <span class="cur-chip">KA03••••</span>
+              <span class="badge" style="background:rgba(52,211,153,.16); color:var(--green);">ACTIVE</span>
+            </div>
+          </div>
+          <span class="chevron">›</span>
+        </div>
+        <div class="cur-valid-row">
+          <div class="cur-valid"><div class="l">Insurance</div><div class="v">20 Aug 26</div></div>
+          <div class="cur-valid" style="background:rgba(52,211,153,.1);"><div class="l" style="color:var(--green);">PUC</div><div class="v" style="color:var(--green);">10 Dec 26</div></div>
+          <div class="cur-valid" style="background:rgba(52,211,153,.1);"><div class="l" style="color:var(--green);">RC valid</div><div class="v" style="color:var(--green);">14 Jun 36</div></div>
+        </div>
+        <div class="cur-valuerow">
+          <div><div class="l">Purchase price</div><div class="v">₹7,50,000</div><div style="font-size:9px;color:var(--red);font-weight:700;">-22.7% depreciation</div></div>
+          <div style="text-align:right;"><div class="l">Current value</div><div class="v">₹5,80,000</div></div>
+        </div>
+        <div class="cur-challan">⚠ 1 pending challan · ₹500</div>
+        <div class="cur-footer"><span>⏱ Updated 3 months ago</span><span class="r">Tap for details →</span></div>
+      </div>
+
+      <div class="section-label" style="margin-top:6px;">Property <span class="add-pill">+ Add</span></div>
+      <div class="cur-card">
+        <div class="cur-head">
+          <div class="icon-tile" style="background:rgba(139,92,246,.14); color:var(--violet);">🏢</div>
+          <div class="meta">
+            <div class="cur-title">2BHK Apartment — Koramangala</div>
+            <div class="cur-chipsrow"><span class="cur-chip">Flat · Bengaluru · 1,050 sqft</span></div>
+          </div>
+          <div class="cur-editpencil">✎</div>
+        </div>
+        <div class="cur-valuerow">
+          <div><div class="l">Current value</div><div class="v">₹85,00,000</div></div>
+          <div style="text-align:right;"><div class="l">vs purchase</div><div class="v" style="color:var(--green); font-size:13px;">+41.7%</div></div>
+        </div>
+        <div class="cur-footer"><span class="r">⏱ Updated 1 month ago</span><span class="cur-updatepill">↻ Update value</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ A — Refined structured ============ -->
+  <div class="column">
+    <div class="col-head">
+      <span class="col-tag" style="background:rgba(77,122,255,.15); color:#93a9ff;">A · Refined Structured</span>
+      <p class="col-title">Same density, calmer hierarchy</p>
+      <p class="col-pitch">One hero stat (current value), one quiet info strip instead of clashing badges, validity consolidated into 3 small neutral chips (colour appears only when something's actually expiring soon), challan demoted to a proportionate inline flag. Property now shows purchase date and uses the same tap-whole-card model as Vehicle — no more separate edit-pencil.</p>
+    </div>
+    <div class="phone">
+      <div class="section-label">Vehicles <span class="add-pill">+ Add</span></div>
+      <div class="a-card">
+        <div class="a-head">
+          <div class="icon-tile a-icon">🚗</div>
+          <div style="flex:1;">
+            <div class="a-name">Maruti Suzuki Swift VXI</div>
+            <div class="a-sub">KA03•••• · Active</div>
+          </div>
+          <span class="chevron">›</span>
+        </div>
+        <div class="a-hero">
+          <div><div class="cv-l">Current value</div><div class="cv-v">₹5,80,000</div></div>
+          <div style="text-align:right;"><div class="cv-l">Purchase ₹7,50,000</div><div class="pct" style="color:var(--red);">-22.7%</div></div>
+        </div>
+        <div class="a-strip">2021 <span class="dot">·</span> Petrol <span class="dot">·</span> <span class="a-challan-inline"><span class="dot2"></span>1 pending · ₹500</span></div>
+        <div class="a-validrow">
+          <div class="a-valid"><span class="ic">🛡</span><span class="txt">Ins 20 Aug 26</span></div>
+          <div class="a-valid"><span class="ic">🌿</span><span class="txt">PUC 10 Dec 26</span></div>
+          <div class="a-valid"><span class="ic">📄</span><span class="txt">RC 14 Jun 36</span></div>
+        </div>
+        <div class="a-footer"><span class="stale">⏱ Updated 3 months ago</span><span>Tap for details ›</span></div>
+      </div>
+
+      <div class="section-label" style="margin-top:6px;">Property <span class="add-pill">+ Add</span></div>
+      <div class="a-card">
+        <div class="a-head">
+          <div class="icon-tile a-icon violet">🏢</div>
+          <div style="flex:1;">
+            <div class="a-name">2BHK Apartment — Koramangala</div>
+            <div class="a-sub">Flat · Bengaluru</div>
+          </div>
+          <span class="chevron">›</span>
+        </div>
+        <div class="a-hero">
+          <div><div class="cv-l">Current value</div><div class="cv-v">₹85,00,000</div></div>
+          <div style="text-align:right;"><div class="cv-l">vs purchase</div><div class="pct" style="color:var(--green);">+41.7%</div></div>
+        </div>
+        <div class="a-strip">1,050 sqft <span class="dot">·</span> Purchased Mar 2019</div>
+        <div class="a-footer"><span class="stale">⏱ Updated 1 month ago</span><span>Update value ›</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ B — Identity gradient hero ============ -->
+  <div class="column">
+    <div class="col-head">
+      <span class="col-tag" style="background:rgba(139,92,246,.15); color:#c4b5fd;">B · Identity Gradient Hero</span>
+      <p class="col-title">Same language as the Accounts mini-cards</p>
+      <p class="col-pitch">Ports the Accounts redesign's gradient/glow/sheen identity-card treatment here too — icon-left/pill-right, name-left/value-right, action icons along the bottom. Makes Portfolio's Real Assets feel like the same designed system as Accounts, not a separate leftover screen. Best if you liked that direction and want it to spread.</p>
+    </div>
+    <div class="phone">
+      <div class="section-label">Vehicles <span class="add-pill">+ Add</span></div>
+      <div class="b-card">
+        <div class="b-glow" style="right:-20px; top:-30px; width:110px; height:110px; background:#4d7aff; opacity:.3;"></div>
+        <div class="b-glow" style="left:-20px; bottom:-30px; width:90px; height:90px; background:#000; opacity:.25;"></div>
+        <div class="b-sheen"></div>
+        <div class="b-top">
+          <div class="b-icontile">🚗</div>
+          <div class="b-pill">Active · Petrol</div>
+        </div>
+        <div class="b-mid">
+          <div class="b-name">Maruti Suzuki Swift VXI</div>
+          <div class="b-val"><div class="v">₹5,80,000</div><div class="cap">-22.7% · KA03••••</div></div>
+        </div>
+        <div class="b-strip">Ins 20 Aug 26 · PUC 10 Dec 26 · RC 14 Jun 36</div>
+        <div class="b-divider"></div>
+        <div class="b-actions">
+          <div class="b-actbtn warnbtn">⚠ 1</div>
+          <div class="b-actbtn">✎</div>
+          <div class="b-actbtn ml-auto">🗑</div>
+        </div>
+      </div>
+
+      <div class="section-label" style="margin-top:6px;">Property <span class="add-pill">+ Add</span></div>
+      <div class="b-card violet">
+        <div class="b-glow" style="right:-20px; top:-30px; width:110px; height:110px; background:#8b5cf6; opacity:.3;"></div>
+        <div class="b-glow" style="left:-20px; bottom:-30px; width:90px; height:90px; background:#000; opacity:.25;"></div>
+        <div class="b-sheen"></div>
+        <div class="b-top">
+          <div class="b-icontile">🏢</div>
+          <div class="b-pill">Flat</div>
+        </div>
+        <div class="b-mid">
+          <div class="b-name">2BHK — Koramangala</div>
+          <div class="b-val"><div class="v">₹85,00,000</div><div class="cap">+41.7% · 1,050 sqft</div></div>
+        </div>
+        <div class="b-strip">Bengaluru · Purchased Mar 2019</div>
+        <div class="b-divider"></div>
+        <div class="b-actions">
+          <div class="b-actbtn">↻ Update</div>
+          <div class="b-actbtn ml-auto">🗑</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ C — Compact list row ============ -->
+  <div class="column">
+    <div class="col-head">
+      <span class="col-tag" style="background:rgba(52,211,153,.15); color:#6ee7b7;">C · Compact Decluttered</span>
+      <p class="col-title">Trust the detail view to carry the weight</p>
+      <p class="col-pitch">Most aggressive declutter — a single list row per asset, small status dots instead of full validity/challan text (green = fine, amber/red = needs attention), everything else lives in the existing tap-through Detail modal. Best if the real goal is fitting more assets on screen at once, not richer cards.</p>
+    </div>
+    <div class="phone">
+      <div class="section-label">Vehicles <span class="add-pill">+ Add</span></div>
+      <div class="c-card">
+        <div class="c-icon" style="background:rgba(77,122,255,.14); color:var(--blue);">🚗</div>
+        <div class="c-mid">
+          <div class="c-name">Maruti Suzuki Swift VXI</div>
+          <div class="c-sub">2021 · Petrol · KA03••••</div>
+          <div class="c-dots">
+            <div class="c-dot" style="background:var(--green);" title="RC active"></div>
+            <div class="c-dot" style="background:var(--green);" title="Insurance valid"></div>
+            <div class="c-dot" style="background:var(--red);" title="1 pending challan"></div>
+          </div>
+        </div>
+        <div class="c-right"><div class="v">₹5,80,000</div><div class="pct" style="color:var(--red);">-22.7%</div></div>
+      </div>
+
+      <div class="section-label" style="margin-top:6px;">Property <span class="add-pill">+ Add</span></div>
+      <div class="c-card">
+        <div class="c-icon" style="background:rgba(139,92,246,.14); color:var(--violet);">🏢</div>
+        <div class="c-mid">
+          <div class="c-name">2BHK — Koramangala</div>
+          <div class="c-sub">Flat · Bengaluru · 1,050 sqft</div>
+        </div>
+        <div class="c-right"><div class="v">₹85,00,000</div><div class="pct" style="color:var(--green);">+41.7%</div></div>
+      </div>
+
+      <p style="font-size:10.5px; color:var(--text3); margin-top:8px; line-height:1.5;">Dots (Vehicle only): RC status · insurance validity · challan status. Tap a dot's row for the full breakdown in Detail.</p>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

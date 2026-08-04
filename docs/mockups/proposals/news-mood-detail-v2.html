@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — News mood as a collapsible note (AssetTaxNote pattern)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --indigo:#6366f1; --amber:#f59e0b; --danger:#ef4444; --success:#10b981;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 22px; color:#9aa5b1; font-size:14px; max-width:800px; margin-left:auto; margin-right:auto; line-height:1.65; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:40px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 30px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#123524; color:#7ee6b8; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; height:600px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .header { height:40px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .htitle { flex:1; font-size:13.5px; font-weight:700; color:var(--text); }
+
+      .subtabs { display:flex; align-items:center; gap:14px; padding:7px 14px; flex-shrink:0; }
+      .subtabs .t { font-size:11px; font-weight:600; color:var(--text3); display:flex; align-items:center; gap:4px; padding-bottom:5px; border-bottom:2px solid transparent; }
+      .subtabs .t.on { color:var(--primary); border-color:var(--primary); font-weight:700; }
+      .subtabs .t i { font-size:12px; }
+      .subtabs .refresh-inline { margin-left:auto; width:22px; height:22px; border-radius:7px; display:grid; place-items:center; background:var(--surface2); color:var(--text2); }
+      .subtabs .refresh-inline i { font-size:12px; }
+
+      .minimal-row { display:flex; align-items:center; gap:10px; padding:9px 14px; border-bottom:1px solid var(--border); flex-shrink:0; }
+      .minimal-row .ctabs { display:flex; gap:12px; }
+      .minimal-row .ctabs .t { font-size:11.5px; font-weight:600; color:var(--text3); padding-bottom:2px; border-bottom:2px solid transparent; }
+      .minimal-row .ctabs .t.on { color:var(--primary); border-color:var(--primary); font-weight:700; }
+      .minimal-row .icons { margin-left:auto; display:flex; align-items:center; gap:12px; }
+      .minimal-row .icons i { font-size:15px; color:var(--text2); }
+
+      .content { flex:1; padding:10px 14px; overflow:hidden; }
+
+      /* mood note — same visual language as AssetTaxNote.tsx: tinted bg/border, icon+title+chevron row,
+         expands to a bullet list, all inline within the scrolling content (not fixed chrome) */
+      .mood-note { border-radius:12px; margin-bottom:10px; background:#0f2419; border:1px solid #1c3d2a; }
+      .mood-note .row { display:flex; align-items:center; gap:8px; padding:10px; }
+      .mood-note .row i.lead { font-size:15px; color:var(--success); }
+      .mood-note .row .t { font-size:12px; font-weight:600; color:var(--success); flex:1; }
+      .mood-note .row i.chev { font-size:15px; color:var(--success); }
+      .mood-note .expanded { padding:0 12px 12px; }
+      .mood-note .bar { display:flex; height:6px; border-radius:3px; overflow:hidden; margin-bottom:8px; }
+      .mood-note .bullets { display:flex; flex-direction:column; gap:6px; }
+      .mood-note .bullet { display:flex; align-items:flex-start; gap:6px; }
+      .mood-note .bullet i { font-size:10px; color:var(--success); margin-top:3px; }
+      .mood-note .bullet span { font-size:10.5px; color:#c9e8d8; line-height:1.5; flex:1; }
+      .mood-note .disc { font-size:9px; color:#7fa896; line-height:1.5; margin-top:2px; }
+
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:10px; margin-bottom:8px; }
+      .card .row1 { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+      .badge { font-size:9px; font-weight:700; padding:2px 7px; border-radius:999px; }
+      .badge.sebi { background:#1e2a4a; color:#8ab4ff; }
+      .badge.et { background:#3a1e1e; color:#ff9a8a; }
+      .badge.pos { background:#123524; color:#7ee6b8; margin-left:5px; }
+      .time { font-size:8.5px; color:var(--text3); }
+      .card .title { font-size:11.5px; font-weight:600; color:var(--text); line-height:1.4; }
+      .fade-up { opacity:.35; }
+
+      .legend { max-width:800px; margin:10px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:#fff; }
+      .legend b { color:#fff; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend li { margin-bottom:8px; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:12px; }
+      .legend .rec-box { background:color-mix(in srgb, var(--primary) 12%, #0e141b); border:1px solid color-mix(in srgb, var(--primary) 35%, #0e141b); border-radius:12px; padding:14px 16px; margin-top:12px; }
+    </style>
+  </head>
+  <body>
+    <h1>News mood — a collapsible note, like the tax-implication cards</h1>
+    <p class="sub">Same visual language and interaction as <code>AssetTaxNote</code> (the "Tax on this" card
+      already used on Stocks/MF/FD/Gold/etc.): one tinted one-liner row with an icon + chevron, tap to
+      expand for the breakdown + disclaimer. Placed as the first item inside the scrolling news list itself
+      — not fixed chrome, so it scrolls away with everything else, and disappears when a filter/search
+      empties the tone data.</p>
+
+    <div class="gallery">
+
+      <!-- Collapsed state -->
+      <div class="frame-wrap">
+        <div class="vtitle">Collapsed <span class="tag">at rest</span></div>
+        <div class="vsub">Sits at the very top of the news tiles, styled exactly like the tax note — colored for the mood (green here for "Leaning positive", would read amber/red/grey for mixed/negative/quiet).</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Equity</div></div>
+          <div class="subtabs">
+            <div class="t"><i class="ti ti-trending-up"></i>Stocks</div>
+            <div class="t"><i class="ti ti-chart-donut"></i>MF</div>
+            <div class="t"><i class="ti ti-ticket"></i>IPO</div>
+            <div class="t on"><i class="ti ti-news"></i>News</div>
+            <div class="refresh-inline"><i class="ti ti-refresh"></i></div>
+          </div>
+          <div class="minimal-row">
+            <div class="ctabs"><div class="t on">All News</div><div class="t">Holdings</div></div>
+            <div class="icons"><i class="ti ti-filter"></i></div>
+          </div>
+          <div class="content">
+            <div class="mood-note">
+              <div class="row">
+                <i class="ti ti-trending-up lead"></i>
+                <div class="t">Leaning positive · 125 headlines</div>
+                <i class="ti ti-chevron-down chev"></i>
+              </div>
+            </div>
+            <div class="card"><div class="row1"><div><span class="badge sebi">SEBI</span><span class="badge pos">Positive</span></div><div class="time">just now</div></div><div class="title">SEBI Order for Compliance – General Remittance Order for Recovery Certificate...</div></div>
+            <div class="card"><div class="row1"><div><span class="badge et">ET</span></div><div class="time">12m ago</div></div><div class="title">Markets rally as IT stocks lead gains ahead of...</div></div>
+            <div class="card"><div class="row1"><div><span class="badge sebi">SEBI</span></div><div class="time">40m ago</div></div><div class="title">RBI holds repo rate steady, signals cautious...</div></div>
+            <div class="card fade-up"><div class="row1"><div><span class="badge et">ET</span><span class="badge pos">Positive</span></div><div class="time">1h ago</div></div><div class="title">Mutual fund inflows hit record high in July...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Expanded state -->
+      <div class="frame-wrap">
+        <div class="vtitle">Expanded <span class="tag">on tap</span></div>
+        <div class="vsub">Tapping the row pushes the cards down in place (same as tax note today) — breakdown counts + disclaimer + source list appear inline, chevron flips up.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Equity</div></div>
+          <div class="subtabs">
+            <div class="t"><i class="ti ti-trending-up"></i>Stocks</div>
+            <div class="t"><i class="ti ti-chart-donut"></i>MF</div>
+            <div class="t"><i class="ti ti-ticket"></i>IPO</div>
+            <div class="t on"><i class="ti ti-news"></i>News</div>
+            <div class="refresh-inline"><i class="ti ti-refresh"></i></div>
+          </div>
+          <div class="minimal-row">
+            <div class="ctabs"><div class="t on">All News</div><div class="t">Holdings</div></div>
+            <div class="icons"><i class="ti ti-filter"></i></div>
+          </div>
+          <div class="content">
+            <div class="mood-note">
+              <div class="row">
+                <i class="ti ti-trending-up lead"></i>
+                <div class="t">Leaning positive · 125 headlines</div>
+                <i class="ti ti-chevron-up chev"></i>
+              </div>
+              <div class="expanded">
+                <div class="bar">
+                  <div style="width:42%;background:var(--success)"></div>
+                  <div style="width:49%;background:#6e7681"></div>
+                  <div style="width:9%;background:var(--danger)"></div>
+                </div>
+                <div class="bullets">
+                  <div class="bullet"><i class="ti ti-point-filled"></i><span>52 positive · 61 neutral · 12 negative headlines today</span></div>
+                  <div class="bullet"><i class="ti ti-point-filled"></i><span>Sources: ET Markets · Mint · RBI · SEBI</span></div>
+                </div>
+                <div class="disc">Informational only — a summary of news tone, not investment advice or a market prediction.</div>
+              </div>
+            </div>
+            <div class="card"><div class="row1"><div><span class="badge sebi">SEBI</span><span class="badge pos">Positive</span></div><div class="time">just now</div></div><div class="title">SEBI Order for Compliance – General Remittance Order for Recovery Certificate...</div></div>
+            <div class="card fade-up"><div class="row1"><div><span class="badge et">ET</span></div><div class="time">12m ago</div></div><div class="title">Markets rally as IT stocks lead gains ahead of...</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="legend">
+      <h2>Notes</h2>
+      <ul>
+        <li>Built the same way as <code>AssetTaxNote.tsx</code>: local <code>open</code> state, tinted background/border derived from a color (here <code>theme.success</code>/<code>warning</code>/<code>danger</code>/<code>neutral</code> per mood skew instead of <code>theme.info</code>), icon + one-line label + chevron row, expandable body below.</li>
+        <li>Lives as the first entry of the scrollable list (FlashList's <code>ListHeaderComponent</code>, right where the filter row used to sit) — it scrolls with the feed instead of pinning as fixed chrome, so it costs zero permanent vertical space once you've scrolled past it.</li>
+        <li>The disclaimer and source attribution move inside the expanded state, same as today, just opt-in instead of always-shown — nothing is dropped, only what's default-visible changes.</li>
+        <li>The "Filters" icon in the tab row stays from the earlier B mockup (opens the Source/Tone/Holding modal) — separate from this note entirely.</li>
+      </ul>
+      <div class="rec-box"><b>This one.</b> Reuses an existing, already-approved interaction pattern verbatim, sits inline with the content instead of as an overlay, and gets out of the way completely once collapsed or scrolled past.</div>
+    </div>
+  </body>
+</html>

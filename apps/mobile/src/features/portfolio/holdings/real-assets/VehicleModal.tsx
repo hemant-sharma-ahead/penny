@@ -25,9 +25,11 @@ export function VehicleModal({ editing, onSave, onDelete, onClose }: VehicleModa
     vehicleFetchError,
     setVehicleFetchError,
     vehicleNotice,
+    vehicleQueued,
     vehicleRcSnapshot,
     setVehicleRcSnapshot,
     vehicleChallanSnapshot,
+    vehicleChallanError,
     lookup
   } = useVehicleLookup(editing, {
     setName: shared.setName,
@@ -38,7 +40,15 @@ export function VehicleModal({ editing, onSave, onDelete, onClose }: VehicleModa
   });
   const [saving, setSaving] = useState(false);
 
+  // Adding a *new* vehicle requires the RC fetch to have actually succeeded (or, for the queued
+  // case, the app allowing a reg-number-only placeholder to be saved now and completed later — see
+  // the queued-follow-up decision) — no manual-entry fallback if RC genuinely fails. Editing an
+  // existing vehicle keeps today's unrestricted behaviour: the record already exists, so a retry
+  // that fails shouldn't newly block saving other field edits.
+  const canSave = !!editing || !!vehicleRcSnapshot || vehicleQueued;
+
   function handleSave() {
+    if (!canSave) return;
     const effectiveName = shared.name.trim() || vehicleRegInput.trim();
     if (!effectiveName) return;
     setSaving(true);
@@ -55,6 +65,7 @@ export function VehicleModal({ editing, onSave, onDelete, onClose }: VehicleModa
     applyVehicleFields(holding, {
       rcSnapshot: vehicleRcSnapshot,
       challanSnapshot: vehicleChallanSnapshot,
+      challanFetchFailed: vehicleChallanError,
       vehicleRegInput,
       ...(editing?.assetMeta && { existingMeta: editing.assetMeta })
     });
@@ -75,6 +86,7 @@ export function VehicleModal({ editing, onSave, onDelete, onClose }: VehicleModa
       onDelete={editing && onDelete ? handleDelete : undefined}
       saving={saving}
       saveLabel={editing ? 'Update' : 'Add holding'}
+      saveDisabled={!canSave}
       scrollable
     >
       <VehicleFields
@@ -86,6 +98,7 @@ export function VehicleModal({ editing, onSave, onDelete, onClose }: VehicleModa
         vehicleNotice={vehicleNotice}
         vehicleRcSnapshot={vehicleRcSnapshot}
         setVehicleRcSnapshot={setVehicleRcSnapshot}
+        vehicleChallanError={vehicleChallanError}
         lookup={lookup}
       />
     </FormModal>

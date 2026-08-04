@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
 import { View, ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Banner, ListContainer, PageHeader, SectionLabel, Toggle } from '~/components/ui';
-import { BackButton } from '~/components/shared';
+import { Banner, ListContainer, SectionLabel, Toggle } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useRepository } from '@/hooks/useRepository';
@@ -13,6 +12,7 @@ import { buildParentCategoryMap, groupKey, isHiddenInSafeMode } from '@/core/exp
 import { useSettings, type SafeModeVisibility } from '~/context/SettingsContext';
 import type { ExpenseCategory } from '@/core/db/types';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 
 /** RN port of apps/web-react/src/features/settings/SafeModeSettingsPage.tsx — straightforward
  *  list/toggle port, no CSS grids or hand-rolled overlays to translate. */
@@ -74,6 +74,7 @@ function ToggleRow({
 
 export function SafeModeSettingsPage() {
   const modeBg = useModeBackgroundColor();
+  useDefaultHeaderBack('SafeModeSettings');
   const { safeModeVisibility, setSafeModeVisibility } = useSettings();
   const { items: categories, save: saveCategory, loading: categoriesLoading } = useRepository(expenseCategoriesRepo);
   const { items: accounts, save: saveAccount, loading: accountsLoading } = useRepository(accountsRepo);
@@ -105,7 +106,6 @@ export function SafeModeSettingsPage() {
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <PageHeader leading={<BackButton />} title="Safe Mode" />
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-4 py-4 gap-4">
           <Banner variant="info">

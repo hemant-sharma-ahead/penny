@@ -1,26 +1,25 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { accountsRepo, expensesRepo } from '@/core/db/repositories';
-import type { Account, AccountType, Expense } from '@/core/db/types';
+import { accountsRepo, expenseCategoriesRepo, expensesRepo, hashtagsRepo } from '@/core/db/repositories';
+import type { Account, Expense } from '@/core/db/types';
 import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { logActivity, restoreActivity, summarizeDiff } from '@/core/db/activityLog';
 import { useToast } from '~/context/ToastContext';
 import { useTxnRefresh } from '@/hooks/useTxnRefresh';
-import { useAccountsRefresh } from '@/hooks/useDataRefresh';
-
-export interface AccountInput {
-  name: string;
-  type: AccountType;
-  openingBalance: number;
-  color: string;
-  icon: string;
-  includeInNetWorth: boolean;
-}
+import { useAccountsRefresh, useCategoriesRefresh, useTagsRefresh } from '@/hooks/useDataRefresh';
+import { useRepository } from '@/hooks/useRepository';
+import type { AccountInput } from '~/hooks/useAccountForm';
 
 export function useAccounts() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [txns, setTxns] = useState<Expense[]>([]);
   const [saving, setSaving] = useState(false);
   const { showToast } = useToast();
+
+  // Read-only — just enough for the "view transactions for this account" drill-down
+  // (`EntityTransactionsModal`) to render categories/tags the same way the Transactions tab does.
+  const { items: categories, reload: reloadCategories } = useRepository(expenseCategoriesRepo);
+  const { items: hashtags, reload: reloadHashtags } = useRepository(hashtagsRepo);
+  const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
   const reload = useCallback(() => {
     Promise.all([accountsRepo.getAll(), expensesRepo.getAll()]).then(([accs, exps]) => {
@@ -31,8 +30,10 @@ export function useAccounts() {
 
   useEffect(() => reload(), [reload]);
   useTxnRefresh(reload);
-  // Settings → Safe Mode edits accounts through a separately-mounted repo instance; reload here too.
+  // Settings → Safe Mode edits accounts/categories/tags through separately-mounted repo instances.
   useAccountsRefresh(reload);
+  useCategoriesRefresh(reloadCategories);
+  useTagsRefresh(reloadHashtags);
 
   const totalBalance = useMemo(
     () =>
@@ -133,5 +134,15 @@ export function useAccounts() {
     [txns]
   );
 
-  return { accounts, txns, saving, totalBalance, saveAccount, deleteAccount, reconcileAccount };
+  return {
+    accounts,
+    txns,
+    saving,
+    totalBalance,
+    saveAccount,
+    deleteAccount,
+    reconcileAccount,
+    categoryMap,
+    hashtags
+  };
 }

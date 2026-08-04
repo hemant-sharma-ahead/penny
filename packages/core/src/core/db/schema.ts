@@ -3,6 +3,8 @@ import type {
   Account,
   ActivityLog,
   AiCallLog,
+  BankNarrationOverride,
+  BankStatementImportRecord,
   Budget,
   ChipInsight,
   CreditProfile,
@@ -21,11 +23,14 @@ import type {
   LedgerEntry,
   Liability,
   MerchantMemory,
+  NetWorthSnapshot,
+  PaymentMode,
   Person,
   PersonalIou,
   PriceCache,
   PrivacyStat,
   Profile,
+  RetirementPlan,
   SecurityRecord,
   Subscription,
   SyncCursor,
@@ -66,6 +71,11 @@ export class PennyDatabase extends Dexie {
   groups!: EntityTable<Group, 'id'>;
   group_members!: EntityTable<GroupMember, 'id'>;
   group_events!: EntityTable<GroupEvent, 'id'>;
+  bank_statement_imports!: EntityTable<BankStatementImportRecord, 'id'>;
+  bank_narration_overrides!: EntityTable<BankNarrationOverride, 'id'>;
+  payment_modes!: EntityTable<PaymentMode, 'id'>;
+  retirement_plan!: EntityTable<RetirementPlan, 'id'>;
+  net_worth_snapshots!: EntityTable<NetWorthSnapshot, 'id'>;
 
   constructor() {
     super('penny');
@@ -130,6 +140,20 @@ export class PennyDatabase extends Dexie {
     // Encrypted; id-only index. No .upgrade() (encrypted; runs pre-unlock). Populated post-unlock via
     // the groups worker, so no backfill is needed.
     this.version(9).stores({ groups: 'id', group_members: 'id', group_events: 'id' });
+
+    // v10 — Bank Statement Import (docs/plans/bank-statement-import.md): resolved-line audit trail
+    // + merchant-memory backing store, and manual normalization overrides. Encrypted; id-only index.
+    this.version(10).stores({ bank_statement_imports: 'id', bank_narration_overrides: 'id' });
+
+    // v11 — user/import-created payment modes (core/expenses/paymentModes.ts). Only custom ones are
+    // stored here; the 5 built-in modes are never persisted as rows. Encrypted; id-only index.
+    this.version(11).stores({ payment_modes: 'id' });
+
+    // v12 — Retirement Corpus (Home hero + FIRE Calculator, shared plan): `retirement_plan` is a
+    // singleton (same `items[0] ?? null` pattern as `profile`, lazily created by `useRetirementPlan()`);
+    // `net_worth_snapshots` captures one row per calendar month so a real historical line can build up
+    // over time. Both encrypted; id-only index. No .upgrade() (encrypted; runs pre-unlock).
+    this.version(12).stores({ retirement_plan: 'id', net_worth_snapshots: 'id' });
   }
 }
 

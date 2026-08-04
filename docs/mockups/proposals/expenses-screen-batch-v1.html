@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Expenses: 4 targeted changes</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --blue:#3b82f6; --danger:#ef4444; --success:#10b981; --amber:#f59e0b;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 22px; color:#9aa5b1; font-size:14px; max-width:900px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .sectiontitle { text-align:center; font-size:15px; font-weight:800; color:#fff; margin:40px 0 4px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:760px; margin:0 auto 18px; line-height:1.6; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 10px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.cur { background:#3a2412; color:#f0b060; }
+      .vtitle .tag.new { background:#123524; color:#7ee6b8; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .header { height:40px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .htitle { flex:1; text-align:center; font-size:13.5px; font-weight:700; color:var(--text); }
+      .avatar { width:26px; height:26px; border-radius:50%; background:var(--primary); display:grid; place-items:center; color:#fff; font-size:11px; font-weight:800; }
+      .content { padding:14px; }
+
+      /* Section 1: transaction row */
+      .txnrow { display:flex; align-items:center; gap:10px; padding:11px 4px; border-bottom:1px solid var(--border); }
+      .txnrow:last-child { border-bottom:none; }
+      .icn { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:rgba(59,130,246,.14); color:var(--blue); }
+      .txnmid { flex:1; min-width:0; }
+      .txnmid .t1 { font-size:13px; font-weight:600; color:var(--text); }
+      .txnmid .t2 { font-size:11px; color:var(--text3); margin-top:2px; }
+      .txnmid .t2 .tag { color:var(--primary); font-weight:600; margin-left:4px; background:none; padding:0; }
+      .txnright { text-align:right; flex-shrink:0; }
+      .txnright .amt { font-size:13.5px; font-weight:700; color:var(--danger); }
+      .txnright .acc { font-size:9.5px; color:var(--text3); margin-top:2px; }
+
+      /* Section 2: vacation note */
+      .pill-vac { display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; color:var(--blue); background:rgba(59,130,246,.14); border:1px solid rgba(59,130,246,.3); border-radius:999px; padding:4px 10px; margin-bottom:8px; }
+      .vacbanner { position:relative; display:flex; gap:8px; background:rgba(59,130,246,.1); border:1px solid rgba(59,130,246,.28); border-radius:12px; padding:10px 30px 10px 10px; margin-bottom:10px; }
+      .vacbanner i.lead { font-size:14px; color:var(--blue); margin-top:1px; }
+      .vacbanner p { margin:0; font-size:10.5px; line-height:1.5; color:#c9d8f5; }
+      .vacbanner .closebtn { position:absolute; top:7px; right:7px; width:18px; height:18px; border-radius:9px; display:flex; align-items:center; justify-content:center; color:var(--text3); }
+      .vacbanner .closebtn i { font-size:11px; }
+
+      /* Section 3: filter modal */
+      .flabel { font-size:10.5px; font-weight:700; color:var(--text2); margin-bottom:7px; margin-top:14px; }
+      .flabel:first-child { margin-top:0; }
+      .pillrow { display:flex; flex-wrap:wrap; gap:6px; }
+      .fpill { font-size:10.5px; font-weight:600; padding:5px 11px; border-radius:999px; border:1px solid var(--border); color:var(--text2); }
+      .fpill.on { background:var(--primary); border-color:var(--primary); color:#04150e; }
+      .fpill.new { border-style:dashed; border-color:#7ee6b8; color:#7ee6b8; }
+
+      /* Section 4: cash flow card */
+      .cfcard { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:14px; }
+      .cfcard .hd { display:flex; align-items:center; gap:6px; margin-bottom:10px; }
+      .cfcard .hd i { font-size:14px; color:var(--amber); }
+      .cfcard .hd .t { font-size:12.5px; font-weight:700; color:var(--text); }
+      .cfrow { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px dashed var(--border); }
+      .cfrow:last-of-type { border-bottom:none; }
+      .cfrow .k { font-size:11.5px; color:var(--text2); }
+      .cfrow .v { font-size:12px; font-weight:700; color:var(--text); }
+      .cfrow.total .v { color:var(--primary); font-size:13.5px; }
+      .cfvariance { margin-top:10px; display:flex; gap:8px; background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.28); border-radius:10px; padding:9px; }
+      .cfvariance i { font-size:13px; color:var(--amber); margin-top:1px; }
+      .cfvariance p { margin:0; font-size:10.5px; line-height:1.5; color:#f5d9a8; }
+
+      .legend { max-width:920px; margin:14px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:22px 0 8px; color:#fff; }
+      .legend h2:first-child { margin-top:0; }
+      .legend b { color:#fff; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:12px; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend li { margin-bottom:6px; }
+    </style>
+  </head>
+  <body>
+    <h1>Expenses screen — 4 targeted changes</h1>
+    <p class="sub">Grounded in the real code: <code>TransactionsTab.tsx</code>'s row, <code>CategoryPickerModal.tsx</code>'s
+      vacation banner, <code>FilterModal.tsx</code>'s existing Event pill section, and a new card for
+      <code>AnalyticsSlice.tsx</code>. Tags (item 4) needs no UI change — already multi-tag, kept as-is.</p>
+
+    <!-- 1 -->
+    <div class="sectiontitle">1 — Account moves under the amount</div>
+    <div class="sectionsub">Subtitle line drops the account (just category + tags now); the account name gets its own small line right-aligned under the amount, where you're already looking to see what you paid.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">your screenshot</span></div>
+        <div class="vsub">Category · Account · #tag all crammed onto one subtitle line.</div>
+        <div class="phone" style="height:170px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Transactions</div><div style="width:26px"></div></div>
+          <div class="content">
+            <div class="txnrow">
+              <div class="icn"><i class="ti ti-file-text"></i></div>
+              <div class="txnmid">
+                <div class="t1">Broadband bill</div>
+                <div class="t2">Bills & Utilities · HDFC Savings <span class="tag">#sample</span></div>
+              </div>
+              <div class="txnright"><div class="amt">-₹1,199</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">New <span class="tag new">account under amount</span></div>
+        <div class="vsub">Subtitle is just "Bills & Utilities #sample" — one clear idea. Account sits quietly under the amount instead.</div>
+        <div class="phone" style="height:170px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Transactions</div><div style="width:26px"></div></div>
+          <div class="content">
+            <div class="txnrow">
+              <div class="icn"><i class="ti ti-file-text"></i></div>
+              <div class="txnmid">
+                <div class="t1">Broadband bill</div>
+                <div class="t2">Bills & Utilities <span class="tag">#sample</span></div>
+              </div>
+              <div class="txnright"><div class="amt">-₹1,199</div><div class="acc">HDFC Savings</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2 -->
+    <div class="sectiontitle">2 — Vacation/Travel note becomes dismissible</div>
+    <div class="sectionsub">The "Vacation On · {name}" pill stays always-visible (a useful status, not noise). The longer explanation banner gets a close button — dismissed once, it stays gone for the rest of that trip (persisted per-event, not just per-session), instead of re-appearing every single time you log an expense.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">every category-picker open</span></div>
+        <div class="vsub">Same paragraph, every time, for the whole trip.</div>
+        <div class="phone" style="height:220px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Select category</div><div style="width:26px"></div></div>
+          <div class="content">
+            <div class="pill-vac"><i class="ti ti-plane-departure"></i>Vacation On · Goa Trip</div>
+            <div class="vacbanner" style="padding-right:10px">
+              <i class="ti ti-info-circle lead"></i>
+              <p>Travel-tagged spend is kept separate from your everyday budget, so this trip won't skew your regular numbers. Pick a different category only for things that aren't really trip expenses.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">New <span class="tag new">closable, once per trip</span></div>
+        <div class="vsub">Tap ✕ once; gone for the rest of "Goa Trip" specifically. Pill above stays.</div>
+        <div class="phone" style="height:220px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Select category</div><div style="width:26px"></div></div>
+          <div class="content">
+            <div class="pill-vac"><i class="ti ti-plane-departure"></i>Vacation On · Goa Trip</div>
+            <div class="vacbanner">
+              <i class="ti ti-info-circle lead"></i>
+              <p>Travel-tagged spend is kept separate from your everyday budget, so this trip won't skew your regular numbers.</p>
+              <div class="closebtn"><i class="ti ti-x"></i></div>
+            </div>
+            <div style="font-size:10px;color:var(--text3);margin-top:-2px">↳ after dismissing (next open, same trip):</div>
+            <div class="pill-vac" style="margin-top:8px">Vacation On · Goa Trip</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 -->
+    <div class="sectiontitle">3 — Filter by Goal</div>
+    <div class="sectionsub">A new pill section in the existing Filter popup, same treatment as the current Event section right above it — multi-select, "All goals" default.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">New section <span class="tag new">mirrors Event filter</span></div>
+        <div class="vsub">Sits directly under Event in the same filter sheet.</div>
+        <div class="phone" style="height:300px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Filter transactions</div><div style="width:26px"></div></div>
+          <div class="content">
+            <div class="flabel">Event</div>
+            <div class="pillrow">
+              <div class="fpill on">All events</div>
+              <div class="fpill">Goa Trip</div>
+              <div class="fpill">Diwali</div>
+            </div>
+            <div class="flabel">Goal</div>
+            <div class="pillrow">
+              <div class="fpill on">All goals</div>
+              <div class="fpill">Emergency Fund</div>
+              <div class="fpill">Goa Trip</div>
+              <div class="fpill">Freedom Fund</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5 -->
+    <div class="sectiontitle">5 — Monthly Cash Flow card (Analytics)</div>
+    <div class="sectionsub">Not a new "Cash Forward" transaction type — a computed summary card for the selected month, using your existing cash-account balance + transactions. If you reconciled that account this month, it also shows the gap between what your logged transactions say and what you actually counted — the one genuinely useful part of the Money Manager idea, done as an insight instead of a monthly ritual.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">New card <span class="tag new">Analytics tab</span></div>
+        <div class="vsub">Initial → Income → Expenses → Computed left, exactly the arithmetic you described. The amber note only appears in months where a Reconcile actually happened.</div>
+        <div class="phone" style="height:400px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="avatar">H</div><div class="htitle">Analytics</div><div style="width:26px"></div></div>
+          <div class="content">
+            <div class="cfcard">
+              <div class="hd"><i class="ti ti-wallet"></i><div class="t">Cash Wallet · Aug 2026</div></div>
+              <div class="cfrow"><div class="k">Initial cash (1 Aug)</div><div class="v">₹5,000</div></div>
+              <div class="cfrow"><div class="k">+ Cash income</div><div class="v" style="color:var(--success)">₹0</div></div>
+              <div class="cfrow"><div class="k">− Cash expenses</div><div class="v" style="color:var(--danger)">₹3,200</div></div>
+              <div class="cfrow total"><div class="k">Computed left</div><div class="v">₹1,800</div></div>
+              <div class="cfvariance">
+                <i class="ti ti-alert-triangle"></i>
+                <p><b>You reconciled to ₹2,000</b> on 28 Aug — ₹200 more than your logged transactions account for. Missed logging a cash top-up?</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <h2>How the Cash Flow card computes (all from existing data, no schema change)</h2>
+      <ul>
+        <li><b>Initial cash</b> — the account's balance as of the 1st of the selected month, reusing
+          <code>computeBalance()</code> (`core/accounts/balanceCalculator.ts`) bounded to transactions
+          before that date. Already a pure function, no new logic needed for this part.</li>
+        <li><b>Cash income / Cash expenses</b> — sum of income/expense-type transactions on that account
+          within the month, <i>excluding</i> any "Balance reconciliation" entries (a fixed, already-unique
+          description `useAccounts.ts`'s `reconcileAccount()` posts) — kept separate so "computed" reflects
+          only what you actually logged, not a correction.</li>
+        <li><b>Computed left</b> = Initial + Income − Expenses. This is the arithmetic you described.</li>
+        <li><b>Variance note</b> — only rendered if a reconciliation happened during the month: compares
+          Computed Left against the reconciled actual balance at that point, surfacing the gap as a
+          number, not silently absorbing it into "Cash expenses."</li>
+        <li>Scope: shown per cash-<i>type</i> account (not bank/card, which already have a clear paper
+          trail). If more than one cash/wallet account exists, one card per account, same as today's
+          per-account balance list.</li>
+      </ul>
+    </div>
+  </body>
+</html>

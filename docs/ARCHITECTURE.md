@@ -65,7 +65,7 @@ penny/
 
 **Storage + crypto adapters (Track 2, done; storage engine swapped twice, 2026-07-26):** `packages/core/src/core/db/schema.native.ts` — an `@op-engineering/op-sqlite` implementation of the same `db` shape `schema.ts` (Dexie) exports, satisfying a `RowStore<T>` interface (`packages/core/src/core/db/store.ts`: `get/put/toArray/delete/count/update/clear`) that `EncryptedRepository`'s constructor takes instead of Dexie's `Table` directly. History: originally `expo-sqlite` (Track 2); replaced with `react-native-mmkv` after a user-reported "Transactions tab feels laggy" bug traced to `expo-sqlite`'s single app-wide FIFO queue (needed because its native binding corrupted its statement handle under concurrent reads, not just writes) serializing every one of `useExpenses.ts`'s 8 independent table reads on mount; then MMKV itself was replaced with `op-sqlite` after the user reported it still didn't feel as smooth as web — MMKV's calls are synchronous JSI, so a bulk read of ~1,000 rows is 1,000 calls running inline on the JS thread, blocking it for the whole loop (unlike Dexie/IndexedDB, where the bulk scan happens off-thread in the browser engine). `op-sqlite`'s `execute()` is real async — dispatched to a native thread, only the final result crosses back to JS, matching Dexie's off-thread shape. Also fixed in the same pass: both prior RN adapters stored each encrypted row as `JSON.stringify({id, iv, ciphertext})` in one text column/value, a wrapper layer Dexie never pays (IndexedDB stores that object directly via structured clone) — the ~27 tables an `EncryptedRepository` always writes in that exact shape now get real typed `id`/`iv`/`ciphertext` columns instead; only the 3 tables with genuinely arbitrary shape (`security`/`price_cache`/`privacy_stats`) keep a JSON `data` column. WAL journal mode is enabled; only one connection is opened, per op-sqlite's own guidance. Metro resolves `schema.native.ts` over `schema.ts` for any native build (Vite has no such convention and always resolves `schema.ts`) — verified by inspecting real iOS/Android/web bundles, not just by inference (see the Track 2 progress log in `docs/plans/mobile-migration.md`). Full store-by-store mapping: `docs/SCHEMA.md` → "Mobile (React Native) storage engine". Crypto: `react-native-quick-crypto`'s `install()` (called from a `.native.ts`/`.web.ts`-split polyfill entry, `apps/mobile/src/polyfills/installCrypto.*`) polyfills `global.crypto.subtle` — `engine.ts`/`securityManager.ts`/`identityKeys.ts`/`recovery.ts` needed **zero logic changes**. (One plan assumption turned out to be moot: React Native has shipped native `atob`/`btoa` globals since RN 0.74, so no base64-helper seam was needed either.)
 
-**Core UI component library (Track 3, done):** `apps/mobile/src/components/ui/` — NativeWind + View/Text/Pressable ports of all ~28 components in `apps/web-react/src/components/ui/`, same prop APIs (RN naming conventions aside — `onPress` not `onClick`), same barrel (`index.ts`). Supporting infra: `apps/mobile/src/components/Icon.tsx` (resolves the web app's `ti-*` Tabler webfont-class convention to `@tabler/icons-react-native` SVG components via a name-transform lookup, so callers across the whole app keep using the exact same icon-name strings), `apps/mobile/src/lib/color.ts` (real hex-math `tint()`/`ink()` — RN has no `color-mix()`; `tint` maps directly to RN's native `rgba()` alpha support, `ink` does real channel blending), `apps/mobile/src/theme/useThemeColors.ts` (resolves real hex from the active theme instead of the `var(--color-*)` strings web components use inline). `packages/core/src/lib/amountInput.ts` is a new shared extraction (pure parsing/grouping/inline-calculator logic pulled out of web's `AmountInput.tsx`, which duplicated it locally) — both platforms' `AmountInput` now import the same functions.
+**Core UI component library (Track 3, done):** `apps/mobile/src/components/ui/` — NativeWind + View/Text/Pressable ports of all ~28 components in `apps/web-react/src/components/ui/`, same prop APIs (RN naming conventions aside — `onPress` not `onClick`), same barrel (`index.ts`). Supporting infra: `apps/mobile/src/components/Icon.tsx` (resolves the web app's `ti-*` Tabler webfont-class convention to `@tabler/icons-react-native` SVG components via a name-transform lookup, so callers across the whole app keep using the exact same icon-name strings; gained a `filled` prop 2026-08-02 — resolves `${name}Filled` first, falling back to the outline component if Tabler didn't ship one for that icon — added for the Goal card's icon-fill gauge, see `docs/features/goals.md`), `apps/mobile/src/lib/color.ts` (real hex-math `tint()`/`ink()` — RN has no `color-mix()`; `tint` maps directly to RN's native `rgba()` alpha support, `ink` does real channel blending), `apps/mobile/src/theme/useThemeColors.ts` (resolves real hex from the active theme instead of the `var(--color-*)` strings web components use inline). `packages/core/src/lib/amountInput.ts` is a new shared extraction (pure parsing/grouping/inline-calculator logic pulled out of web's `AmountInput.tsx`, which duplicated it locally) — both platforms' `AmountInput` now import the same functions.
 
 **`apps/mobile/src/components/AppText.tsx` (2026-07-26):** app-wide replacement for RN's own `Text`. No file needs to import it directly, and none should — `apps/mobile/metro.config.js`'s custom `resolveRequest` transparently redirects every `import { Text } from 'react-native'` written in app source (not `node_modules`) to `apps/mobile/src/lib/reactNativeShim.ts`, which re-exports everything from real `react-native` except `Text` (swapped for this component). An earlier version of this fix used a one-time scripted codemod to physically rewrite the import across all 189 files that had it — it worked, but wasn't the right shape of fix (every file carried a slightly different import than it would naturally have, and a new file written the normal way would silently opt back out of scaling with no warning); reverted in favor of the Metro-alias version, which has zero per-file footprint and applies automatically to files that don't exist yet. `AppText` itself registers with NativeWind's `cssInterop` so `className="text-sm"` etc. keeps resolving exactly as before, then reads the resolved `fontSize`/`lineHeight` back out and multiplies both by `~/theme/fontScale.ts`'s `useFontScale()` — the real fix for Settings' font-size picker, previously persisted but not applied anywhere (see that file's own comment for the full investigation, including why NativeWind's `rem.set()` doesn't work for this and why RN's `Text` has no monkey-patch seam to use instead). `~/hooks/useReduceMotion.ts` (reads `AccessibilityInfo.isReduceMotionEnabled()`, live-subscribed) is the same-day RN equivalent of web's `@media (prefers-reduced-motion: reduce)`, wired into Home's `MarketTicker` marquee.
 
@@ -80,6 +80,7 @@ Full dependency survey (every `apps/web-react/src/features/*`'s context/hook imp
 `apps/mobile/src/features/subscriptions/` ports `apps/web-react/src/features/subscriptions/` (`useSubscriptions.ts` unchanged beyond import paths; `SubscriptionsView`/`DetectedSubCard`/`ActiveSubCard`/`SubscriptionForm`/`SubscriptionsPage` rebuilt in RN using the Track 3 kit). `RootNavigator.tsx`'s `onNeedsOnboarding` now renders `SubscriptionsPage` instead of `ComponentGalleryScreen`.
 
 **Two real bugs found and fixed during on-device verification (worth flagging for every later Track 4 module):**
+
 1. Screens rendered outside a `Stack.Navigator` (i.e. straight out of `AuthGuard`, not inside a `Screen`) get no automatic safe-area handling — the status bar overlapped `PageHeader`'s title. Fixed by wrapping `SubscriptionsPage`'s root in `SafeAreaView` (`edges={['top']}`) from `react-native-safe-area-context`.
 2. Two sibling `Button`s with `fullWidth` (`w-full`) inside a `flex-row` container overflow off-screen instead of splitting the row evenly — Yoga (RN's layout engine) defaults `flexShrink` to `0`, unlike CSS flexbox's default of `1`, so an explicit `width: 100%` on each sibling doesn't shrink to fit. Every web modal footer / button-pair with this exact `fullWidth`+`flex-row` pattern will hit the same bug when ported. Fix: wrap each `Button` in its own `<View className="flex-1">` instead of relying on `fullWidth` alone.
 
@@ -90,22 +91,537 @@ Full dependency survey (every `apps/web-react/src/features/*`'s context/hook imp
 **IOU (Track 4, fourth module, done):** `apps/mobile/src/features/iou/` ports `apps/web-react/src/features/iou/` 1:1 (`useIou.ts` unchanged beyond import paths + the `localStorage`→AsyncStorage migration-flag swap). **Scoped as personal-only** — web's `IouView` reads `GroupContext` (Tier 2, not ported) only for one informational banner shown when the user has groups; dropped entirely rather than pulling in Groups' sync/multi-device machinery early, matching the "personal-only IOU" option the Track 4 dependency survey already anticipated. `PersonPicker`'s DOM-positioned overlay suggestion list becomes an inline (normal-flow) list — same reasoning as `SelectInput`'s port note, no RN portal/absolute-over-siblings equivalent. Added `IouPage.tsx`, a mobile-only `PageHeader` wrapper, since web never gives IOU its own page (always embedded in the not-yet-ported Expenses module).
 
 **Two more real bugs found and fixed via on-device verification, both in shared `packages/core` code — not mobile-only files:**
+
 1. `packages/core/src/hooks/useTxnRefresh.ts` used browser-only `window.addEventListener`/`dispatchEvent` to broadcast "transactions changed" between independent hook instances — crashed immediately (`TypeError: undefined is not a function`) the first time a module (IOU) actually called it; Subscriptions/Insurance/Loans never exercised this hook. Fixed with `packages/core/src/hooks/useTxnRefresh.native.ts` (Metro resolves `.native.ts` over the plain file for native builds, Vite always resolves the plain one — same convention as `schema.native.ts`), replacing the DOM event with a plain in-memory listener `Set`.
-2. `packages/core/src/lib/statusColors.ts`'s `STATUS` object (`STATUS.success`/`danger`/`warning`/`info`/`neutral`) is entirely literal CSS var strings (`'var(--color-success)'`, …) — meaningless as RN color values, and unlike the crash above this failed *silently* (RN's style engine logs a warning and drops the color rather than throwing), so it had been shipping unnoticed in Subscriptions/Loans since their first on-device verification passes. IOU's on-device check happened to catch the warning in logcat. Fixed by replacing every mobile `STATUS.x` usage with `theme.x` from `useThemeColors()` (which already exposes real hex for the exact same semantic names) across `DetectedSubCard`/`ActiveSubCard` (Subscriptions), `PlannerResults` (Loans), and `EntryForm`/`PersonListView`/`PersonLedgerView`/`SettleUpModal` (IOU) — 7 files across 3 modules. **Any future module importing `STATUS` from core must do the same swap** — `packages/core`'s `STATUS` stays web-only by design (mirrors `tint()`/`ink()` in the same file), so mobile code should never import it directly.
+2. `packages/core/src/lib/statusColors.ts`'s `STATUS` object (`STATUS.success`/`danger`/`warning`/`info`/`neutral`) is entirely literal CSS var strings (`'var(--color-success)'`, …) — meaningless as RN color values, and unlike the crash above this failed _silently_ (RN's style engine logs a warning and drops the color rather than throwing), so it had been shipping unnoticed in Subscriptions/Loans since their first on-device verification passes. IOU's on-device check happened to catch the warning in logcat. Fixed by replacing every mobile `STATUS.x` usage with `theme.x` from `useThemeColors()` (which already exposes real hex for the exact same semantic names) across `DetectedSubCard`/`ActiveSubCard` (Subscriptions), `PlannerResults` (Loans), and `EntryForm`/`PersonListView`/`PersonLedgerView`/`SettleUpModal` (IOU) — 7 files across 3 modules. **Any future module importing `STATUS` from core must do the same swap** — `packages/core`'s `STATUS` stays web-only by design (mirrors `tint()`/`ink()` in the same file), so mobile code should never import it directly.
 
 **Known limitation surfaced during IOU, applies to every module ported so far:** on-device save/write actions throw `Error: Session locked — master key not available` (`packages/core/src/core/crypto/keystore.ts`). Every ported screen is currently rendered at `AuthGuard`'s `needs_onboarding` stand-in slot specifically because `isOnboardingComplete()` is false — meaning the Data Master Key is never set (only `initialize()`/`unlock()`, part of onboarding, sets it). Reads work fine; **any save in any already-ported module** would hit this. A fix exists (Demo Mode's `initialize(DEMO_PASSPHRASE, DEMO_PIN)`, the same mechanism web's "Explore with Demo Data" onboarding screen uses, which wouldn't flip `isOnboardingComplete()` since it doesn't create a profile record) but is **deliberately deferred per user decision** — only render/layout verification is possible on-device until real onboarding lands.
 
 **Goals (Track 4, fifth module, done):** `apps/mobile/src/features/goals/` ports `apps/web-react/src/features/goals/` 1:1 (`useGoals.ts`/`useSipCalculator.ts` unchanged beyond import paths). `GoalCard`'s "Suggested" pill/risk badge and `SuggestedGoals`' icon backgrounds swap their `var(--color-primary)`/`color-mix(...)` CSS for the existing `Badge` component and `~/lib/color`'s `tint()` — same pattern as Insurance/Loans, no new gotchas. `GoalForm`'s 3-column risk picker (`grid-cols-3`) becomes `flex-row flex-wrap` with `compact` `OptionButton` tiles.
 
-**Accounts (Track 4, sixth module, done):** `apps/mobile/src/features/accounts/` ports `apps/web-react/src/features/accounts/` 1:1 (`useAccounts.ts`/`useAccountForm.ts` unchanged beyond import paths). **Found and fixed a real bug in shared `packages/core` proactively, before it could crash on-device:** `packages/core/src/hooks/useDataRefresh.ts` (cross-instance refresh signals for accounts/categories/tags edited from Settings) used the exact same browser-only `window.addEventListener`/`dispatchEvent` pattern as `useTxnRefresh.ts` — recognized on sight from the IOU fix and pre-empted with `packages/core/src/hooks/useDataRefresh.native.ts` (same `.native.ts`/Metro-resolution convention) instead of waiting to rediscover it via a crash. `ReconcileModal`'s `ink()` usage moves to `~/lib/color`'s version, which takes the "toward" color as an explicit second argument (`ink(color, theme.textPrimary)`) since RN has no CSS var to default to. `AccountFormModal` uses the shared `FormModal` (web used a raw `Modal` here since it has no delete action) for consistency with every other add/edit form ported so far. Back button dropped, same reasoning as Insurance/Loans/IOU.
+**Accounts (Track 4, sixth module, done):** `apps/mobile/src/features/accounts/` ports `apps/web-react/src/features/accounts/` 1:1 (`useAccounts.ts`/`useAccountForm.ts` unchanged beyond import paths). **Found and fixed a real bug in shared `packages/core` proactively, before it could crash on-device:** `packages/core/src/hooks/useDataRefresh.ts` (cross-instance refresh signals for accounts/categories/tags edited from Settings) used the exact same browser-only `window.addEventListener`/`dispatchEvent` pattern as `useTxnRefresh.ts` — recognized on sight from the IOU fix and pre-empted with `packages/core/src/hooks/useDataRefresh.native.ts` (same `.native.ts`/Metro-resolution convention) instead of waiting to rediscover it via a crash. `ReconcileModal`'s `ink()` usage moves to `~/lib/color`'s version, which takes the "toward" color as an explicit second argument (`ink(color, theme.textPrimary)`) since RN has no CSS var to default to. `AccountFormModal` uses the shared `FormModal` (web used a raw `Modal` here since it has no delete action) for consistency with every other add/edit form ported so far. Back button dropped, same reasoning as Insurance/Loans/IOU. **2026-08-03 redesign (`docs/mockups/proposals/accounts-list-v1.html`, "Direction D — Mini Cards"):** `AccountList.tsx`'s dense single-line rows became per-account gradient mini cards, reusing the `expo-linear-gradient` dependency Home/Stories already added rather than a new one. Text/icon colours drawn on top of the gradient are fixed white/translucent-white regardless of theme (a local `ON_GRADIENT` constant in `AccountList.tsx`), the same "colour is relative to its own card, not the palette" reasoning as `ShareCard.tsx`.
+
+**2026-08-03 v2 follow-up (same day, "Direction D — Mini Cards v2"):** the v1 pass's `accentCardGradient(hex)` derived one gradient per account _type_ from `meta.ts`'s type accent, so two accounts sharing a type (e.g. two "Bank" accounts) rendered an identical, flat card — the reported bug. Replaced with `~/lib/color.ts`'s `accountCardPalette(id, isCashLike)`: two curated arrays of hand-picked dark jewel-tone gradient + bright-glow pairs (`JEWEL_PALETTE`, and a green-only `GREEN_PALETTE` hard-clamped for `cash`/`wallet`), assigned deterministically per account via a simple string hash of `acc.id` modulo the pool length — same `id` always resolves to the same card, no stored assignment needed. `AccountList.tsx`'s card markup also gained three "real card" sheen layers on top of the gradient (an inset top highlight, a diagonal light-sheen streak via a rotated `expo-linear-gradient`, and a second darker glow blob opposite the existing corner glow) as pragmatic RN approximations of the mockup's CSS inset-shadow/blur-filter/repeating-gradient, none of which RN's style engine supports natively; a fourth layer (a repeating diagonal micro-line texture) was judged not worth approximating and was skipped.
 
 **Home (Track 4, seventh module, done) + prerequisite Health module:** `apps/mobile/src/features/home/` ports `apps/web-react/src/features/home/` — `useHome.ts`/`useHomeStats.ts` unchanged beyond import paths; `HomePage.tsx`/`GlanceHeader.tsx`/`AccountsStrip.tsx`/`MoneyStatsCard.tsx`/`ToolsGrid.tsx`/`MarketTicker.tsx`/`stories/*` rebuilt in RN. **Scoped personal-only**, same precedent as IOU: web's `useGroupContext`/`activeGroup` branch (swaps the whole screen for `GroupDashboard`) and `HomeGroupsCard` are both dropped until Groups is ported. A prerequisite `apps/mobile/src/features/health/` ports `apps/web-react/src/features/health/` (`useHealthScore.ts` unchanged; `ScoreGauge`/`ComponentCard`/`ScoringGuide`/`HealthDetailModal`/`FinancialHealthCard` rebuilt), and a standalone `apps/mobile/src/hooks/useForecast.ts` ports the web hook unchanged beyond import paths. **Three genuine "no RN equivalent" gaps, each solved (not dropped) per explicit user decision:** (1) `FinancialHealthCard`'s CSS `conic-gradient` segmented score ring → a stack of `react-native-svg` `Circle`s, one full circle per component shown only as its own arc via `strokeDasharray` + `rotation` (same technique `ProgressRing` already used for one segment). (2) `MarketTicker`'s CSS `@keyframes` marquee → `react-native-reanimated` (new dep, v4.5.0, + `react-native-worklets` peer + a `babel.config.js` plugin entry): render the ticker list twice back-to-back, measure one copy's width via `onLayout`, drive `translateX` with `withRepeat(withTiming(-copyWidth, {duration: 32000}), -1, false)` so each loop restarts exactly on the second copy — confirmed animating on-device. (3) Stories' canvas+Web-Share-API share button → a new `ShareCard.tsx` (rendered off-screen, real mounted RN `View`) wrapped in a `react-native-view-shot` `ViewShot` ref, captured to a temp PNG, shared via `expo-sharing`'s `Sharing.shareAsync()` (two new deps); `expo-linear-gradient` (new dep) reproduces Stories' CSS gradient card backgrounds as a `[string, string]` hex tuple. **Two more `packages/core` bugs found and fixed:** `marketDataClient.ts` called `localStorage` directly (reimplemented against `~/lib/storage`'s `AsyncStorage` wrapper, same storage key); `apiBase.ts` read `import.meta.env` (see the Track 0 seam note below — now fixed for real via `apiBase.native.ts`, not just flagged). `useHome.ts` is the canonical source of the shared `AccountBalance`/`HomeSummary`/`CreditCardAccount`/`AssetGroup` types (`GlanceHeader.tsx`/`AccountsStrip.tsx` import them, having briefly carried local duplicates since they were ported in parallel before `useHome.ts` landed). `StoryViewer`'s `window.addEventListener('keydown', ...)` Escape/Arrow navigation is dropped (tap zones already cover it). Back button dropped, same reasoning as every prior module.
 
-**Portfolio (Track 4, eighth module, done) — largest yet:** `apps/mobile/src/features/portfolio/` ports `apps/web-react/src/features/portfolio/` (~7,462 web lines across 53 files — the original 4,957-line monolithic `PortfolioPage.tsx` was already split by Pre-Phase 1.5 into per-asset-class files, which made this port tractable). Structure: `usePortfolioHoldings.ts`/`PortfolioPage.tsx` (tab shell: Holdings sub-tabs + IPO tab), `holdings/shared/` (reusable field helpers), one directory per asset class (`equity/` — Stocks+MF, `fixed-income/` — FD/RD, `precious-metals/` — Gold/Silver, `real-assets/` — Vehicle/Property/Other, `retirement/` — NPS/PPF/EPF, the single biggest sub-scope at ~1,760 lines), and `ipo/`. Ported in parallel by asset class (independent directories, no shared mutable state) after shared infra landed first. **Unlike IOU/Home, no personal-only scoping decision was needed** — a full dependency survey found zero `GroupContext`/`EventModeContext`/`OnboardingDraftContext` imports anywhere in the module; ported in full. **Two more `packages/core` `localStorage` bugs, a harder variant than `marketDataClient.ts`'s:** `core/ipo/ipoClient.ts` and `core/nps/npsClient.ts` both cache data via *synchronous* `localStorage` feeding otherwise-async fetch functions — a mechanical `AsyncStorage` swap doesn't drop in cleanly, so both got `.native.ts` siblings keeping an in-memory-only cache (session-scoped, not persisted across cold starts) instead. **A real mid-port lesson:** the first draft of `ipoClient.native.ts` dropped `fetchIpos`'s `forceRefresh` parameter on the assumption that only Metro (not `tsc`) resolves `.native.ts` files — wrong for this repo, since `apps/mobile/tsconfig.json`'s `moduleSuffixes: [".native", ""]` makes `tsc` itself resolve them too for any mobile-reachable `packages/core` file; the mismatch surfaced only once the IPO tab actually imported `useIpos`. Fixed by restoring a real in-memory cache instead of dropping the parameter — **`.native.ts` siblings must match their web counterpart's exported signatures exactly**. Several hand-rolled `fixed inset-0` modal overlays (Real Assets' `VehicleDetailModal`, Retirement's `NpsLifecycleDetail`/an `EpfAllTransactionsSheet`/an inline `RetirementSheets` popup, IPO's `IpoDetailModal`) rebuilt on the real ported `Modal` component instead of translated, same rationale as Track 3's `SelectInput` redesign. `STATUS.x` colors (~30+ sites across 9 files, worst in `RetirementCard.tsx`) → `useThemeColors()`, including one variant found in `RdCard.tsx` that hardcoded a literal hex directly rather than referencing `STATUS`. Two integration-time bugs caught and fixed during the final wiring pass: Equity's `MfModal`/`StockModal` were missing the established sibling-`fullWidth`-Buttons-in-a-`flex-row` fix (flagged by a different section's porting agent while reading a neighboring file); and `EquitySection`'s floating FAB used `position: absolute` correctly in isolation but incorrectly here since the section renders *inside* `PortfolioPage`'s own `ScrollView` (absolute positions relative to the section's own content box, not the viewport) — replaced with an inline `Button`, matching every other section's already-independent convention. No new native deps needed — reused everything Home already installed (`react-native-svg`, `react-native-view-shot`, `expo-sharing`, `expo-linear-gradient`, `react-native-reanimated`).
+**Portfolio (Track 4, eighth module, done) — largest yet:** `apps/mobile/src/features/portfolio/` ports `apps/web-react/src/features/portfolio/` (~7,462 web lines across 53 files — the original 4,957-line monolithic `PortfolioPage.tsx` was already split by Pre-Phase 1.5 into per-asset-class files, which made this port tractable). Structure: `usePortfolioHoldings.ts`/`PortfolioPage.tsx` (tab shell: Holdings sub-tabs + IPO tab), `holdings/shared/` (reusable field helpers), one directory per asset class (`equity/` — Stocks+MF, `fixed-income/` — FD/RD, `precious-metals/` — Gold/Silver, `real-assets/` — Vehicle/Property/Other, `retirement/` — NPS/PPF/EPF, the single biggest sub-scope at ~1,760 lines), and `ipo/`. Ported in parallel by asset class (independent directories, no shared mutable state) after shared infra landed first. **Unlike IOU/Home, no personal-only scoping decision was needed** — a full dependency survey found zero `GroupContext`/`EventModeContext`/`OnboardingDraftContext` imports anywhere in the module; ported in full. **Two more `packages/core` `localStorage` bugs, a harder variant than `marketDataClient.ts`'s:** `core/ipo/ipoClient.ts` and `core/nps/npsClient.ts` both cache data via _synchronous_ `localStorage` feeding otherwise-async fetch functions — a mechanical `AsyncStorage` swap doesn't drop in cleanly, so both got `.native.ts` siblings keeping an in-memory-only cache (session-scoped, not persisted across cold starts) instead. **A real mid-port lesson:** the first draft of `ipoClient.native.ts` dropped `fetchIpos`'s `forceRefresh` parameter on the assumption that only Metro (not `tsc`) resolves `.native.ts` files — wrong for this repo, since `apps/mobile/tsconfig.json`'s `moduleSuffixes: [".native", ""]` makes `tsc` itself resolve them too for any mobile-reachable `packages/core` file; the mismatch surfaced only once the IPO tab actually imported `useIpos`. Fixed by restoring a real in-memory cache instead of dropping the parameter — **`.native.ts` siblings must match their web counterpart's exported signatures exactly**. Several hand-rolled `fixed inset-0` modal overlays (Real Assets' `VehicleDetailModal`, Retirement's `NpsLifecycleDetail`/an `EpfAllTransactionsSheet`/an inline `RetirementSheets` popup, IPO's `IpoDetailModal`) rebuilt on the real ported `Modal` component instead of translated, same rationale as Track 3's `SelectInput` redesign. `STATUS.x` colors (~30+ sites across 9 files, worst in `RetirementCard.tsx`) → `useThemeColors()`, including one variant found in `RdCard.tsx` that hardcoded a literal hex directly rather than referencing `STATUS`. Two integration-time bugs caught and fixed during the final wiring pass: Equity's `MfModal`/`StockModal` were missing the established sibling-`fullWidth`-Buttons-in-a-`flex-row` fix (flagged by a different section's porting agent while reading a neighboring file); and `EquitySection`'s floating FAB used `position: absolute` correctly in isolation but incorrectly here since the section renders _inside_ `PortfolioPage`'s own `ScrollView` (absolute positions relative to the section's own content box, not the viewport) — replaced with an inline `Button`, matching every other section's already-independent convention. No new native deps needed — reused everything Home already installed (`react-native-svg`, `react-native-view-shot`, `expo-sharing`, `expo-linear-gradient`, `react-native-reanimated`).
+
+**Portfolio — Equity consolidation (2026-08-01, `apps/mobile` only, `apps/web-react` untouched/frozen):**
+`PortfolioPage.tsx`'s main tabs went from `Holdings`/`IPO` (2 tabs, Holdings' own 6-item sub-tab pill
+row) to 5 asset-class main tabs — `equity` (new) plus `fixed_income`/`precious_metals`/`retirement`/
+`real_assets`, the last 4 now typed as `Exclude<HoldingsSubTab, 'stocks' | 'mf'>` and still driven
+entirely by the existing `HOLDINGS_SUBTABS` config in `usePortfolioHoldings.ts` (untouched — single
+source of truth for label/icon/asset-classes/empty-message on all 4). Equity gained its own second-level
+tab strip (`stocks`/`mf`/`ipo`/`news`). Three moves, not new features: `ipo/IpoTab.tsx` now renders as
+Equity's IPO sub-tab (unchanged, still owns its own virtualized list); `features/news/NewsPage.tsx` →
+`NewsView.tsx` (renamed to reflect it's no longer a routed screen — dropped its own `SafeAreaView`/
+background/`useDefaultHeaderBack` call, otherwise identical) renders as Equity's News sub-tab, and is no
+longer reachable from Home at all — `HomeStack.tsx`'s `News` route, `ToolsGrid.tsx`'s News tile, and
+Settings' matching "Modules" toggle (`ModuleVisibility.news`) were all removed, since nothing points at
+a standalone News screen anymore; `MarketTicker.tsx` moved `features/home/` → `features/portfolio/` and
+now renders pinned above Portfolio's main tabs (visible regardless of which asset class is active —
+Sensex/Nifty/Gold aren't Equity-specific) instead of on Home. `MarketTicker` itself also dropped its
+continuously-auto-scrolling `react-native-reanimated` marquee (`useSharedValue`/`withRepeat`/the
+double-copy width-measuring trick, all removed) for a plain static `ScrollView` row of small cards,
+manually swiped — same underlying ticker data/config, same "⋮" → `Modal`+`Toggle` configure flow. One
+new component, `holdings/equity/EquitySummaryCard.tsx`: a per-sub-tab summary (Portfolio Value, then
+Invested/Returns/Returns %) shown on Stocks and MF specifically, reusing `effectiveValue()` from
+`usePortfolioHoldings.ts` — deliberately no "1-day change" line, since `Holding` only stores the latest
+fetched price (no prior-day snapshot exists anywhere yet to diff against; flagged during mockup review,
+shipped without it rather than something misleading). `GlanceHeader.tsx`'s net-worth-breakdown deep link
+(`navigate('Portfolio', ...)`) grew from a flat `holdingsSubTab` param to `{ mainTab, equitySubTab }` to
+address the new two-level structure — `assetSubTab()` renamed `assetPortfolioTarget()` accordingly.
+
+**News density pass (2026-08-01 follow-up, `apps/mobile` only):** after consolidation, News's own
+chrome (source line + `NewsMoodGauge`'s always-visible banner+disclaimer + 2-3 stacked Source/Tone/
+Holding filter dropdown boxes) left only ~2 headline cards visible on screen. Fixed with a mockup-
+approved redesign, not a placement tweak: `NewsMoodGauge.tsx` and `FilterDropdown.tsx` deleted (mobile-
+only; web's originals stand untouched as the frozen reference) and replaced with (1) `NewsMoodNote.tsx`
+— a collapsible one-liner reusing `AssetTaxNote`'s exact visual language (tinted bg/border by color,
+icon + label + chevron, expands in place to the pos/neutral/negative breakdown + source attribution +
+the disclaimer) — living as the first item of the scrolling feed (FlashList's `ListHeaderComponent` /
+top of the Holdings-News `ScrollView`) instead of fixed chrome above it; (2) a single "Filters" icon
+(`ti-filter`) replacing all 2-3 dropdown boxes, opening one combined `Modal` with a `FilterSection`
+per field (Source/Tone always, Holding only on the Holdings-News tab) instead of each field owning its
+own popup.
+
+**News pill switch (2026-08-01, second follow-up):** with Equity's own main tabs + Stocks/MF/IPO/News
+sub-tabs already stacked above News, `TabStrip`'s underlined All News/Holdings News row read as a 3rd
+tab layer — replaced with a compact pill switch, hugging its own label width rather than filling the
+row. First tried reusing `components/ui/SegmentedControl.tsx` (already used by `IpoTab.tsx`'s
+Mainboard/All filter), but its options are `flex-1` — equal-width, meant to fill its container
+edge-to-edge — which stretched to push the Filters icon off-screen next to it (caught on-device, not in
+the mockup). Built locally in `NewsView.tsx` instead: two plain `Pressable`s in a `rounded-full
+bg-surface-2` container, active one filled `theme.primary`. The Filters modal's `FilterSection` rows
+(Source/Tone/Holding) were also restyled to match this same minimal filled-pill look (`flex-row
+flex-wrap` of pills) instead of a checkmarked list, per the same round of feedback. Holdings' match
+count is now inline text next to the "Holdings" label rather than a separate badge. Also collapsed
+`PortfolioPage.tsx`'s own header total: the Total Invested/Current Value/Return/Return % 2×2 grid now
+defaults collapsed to just Current Value + Return % (`summaryExpanded` state, tap the row to expand
+back to the full grid) — freed-up header space was the actual ask driving both changes this round.
+
+**Calculators relocation (2026-08-01, `apps/mobile` only, `apps/web-react` untouched/frozen):** Home's
+"Tools" grid (`ToolsGrid.tsx`) had shrunk to a single "Calculators" tile over prior passes; per direct
+review, calculators moved out of Home entirely into contextual entry points on the screens they're
+actually about, extending a principle `docs/features/calculators.md` already stated for the 2 originally
+skipped calculators (PPF/NPS, EMI — "redundant with what's already tracked/built elsewhere") to the
+remaining 8. New shared component: `features/calculators/CalculatorsSection.tsx` — an icon+title+
+subtitle `CalculatorEntryRow` that opens a calculator's existing, unchanged form inside the shared
+centred `Modal` (never a bottom sheet, per `docs/DESIGN_GUIDELINES.md`) instead of a pushed screen, so
+Portfolio didn't need its own nested `Stack.Navigator` just for this (see `MainTabs.tsx`'s doc comment
+on why Portfolio/Chip/Goals render directly, no nested stack, today). Placement: **Tax Regime + HRA**
+stay exactly where they already were (`tax/calculators/CalculatorsPillar.tsx`, imported as components
+directly — unaffected by this pass); **Capital Gains** stays Tax-only too (`CapitalGainsTab.tsx`,
+computed from real transactions) — the generic scratch `CapitalGainsCalculator.tsx` had no other host
+once the hub was gone and was deleted (mobile-only; web's copy is untouched); **FD/RD Maturity** →
+`holdings/fixed-income/FixedIncomeSection.tsx` (`CalculatorsSection ids={['fd-rd']}`); **Gratuity + SSY**
+→ `holdings/retirement/RetirementSection.tsx` (`ids={['gratuity', 'ssy']}`); **FIRE, SIP & SWP Planner,
+Lumpsum & CAGR** → `GoalsPage.tsx`'s tab strip, rendered inline exactly like the pre-existing "SIP
+Calculator" tab (renamed **"Goal SIP"** to disambiguate from the new "SIP & SWP" tab — same topic,
+different question); `TabStrip` gained `scrollable` here since 5 tabs no longer fit one screen width.
+**Inflation** dissolved into an inline "adjusted for inflation" note on `GoalForm.tsx`'s target-amount/
+date fields (assumes 6% p.a., gated on the target being >~6 months out) — `calcInflation()` from
+`packages/core/src/core/calculators/inflation.ts` is called directly rather than reusing
+`InflationCalculator.tsx`'s full-form UI (deleted on mobile, same reasoning as Capital Gains above: an
+orphaned component once nothing hosted its original form-based UI). `calculatorRegistry.ts` shrank from
+10 to 6 `CalculatorId`s (only the ones with a `CalculatorsSection` entry point need registry metadata
+now — Tax's two are imported directly, Inflation has no detail screen at all) and dropped
+`searchCalculators()`/`keywords` (dead once the searchable hub was gone). **Removed as a direct
+consequence, not a separate decision:** `CalculatorsPage.tsx` + `HomeStack.tsx`'s `Calculators` route;
+`ToolsGrid.tsx` and `HomePage.tsx`'s render of it (no "Tools" section at all now, not left empty);
+Settings' entire "Modules" section (`SettingsPage.tsx`'s `MODULES` grid) and the `ModuleVisibility`
+concept in `SettingsContext.tsx` (`portfolio`/`goals`/`subscriptions`/`iou`/`backup`/`calc` —
+the last three were already-dead flags, defined but never read by any consumer, cleaned up in the same
+pass); `MainTabs.tsx`'s `tabBarButton: () => null` hiding logic for the Portfolio/Goals tabs — both are
+now permanently-shown tabs, per explicit decision that this capability wasn't worth preserving elsewhere
+once Calc's toggle (the only one of the three that was ever about a Home tile) became meaningless.
+
+**Settings redesign (2026-08-01, `apps/mobile` only, `apps/web-react` untouched/frozen):** on review, the
+screen read as flat/dull (uniform gray icons, hairline-divided rows directly on the page background, no
+card grouping) and buried the most-touched controls (Default privacy mode, Safe Mode visibility, Manage
+tags, Timeline) several sections down, under Appearance's two full-height Theme/Text-size grids. Went
+through two mockup rounds (`docs/mockups/proposals/settings-redesign-v1.html` →
+`settings-redesign-v2.html`, the approved one — its legend has the full before/after reasoning) before
+touching code. **New shared local components in `SettingsPage.tsx`:** `Card` (a `bg-surface` rounded
+container — finally builds the "Grouped cards + section labels" pattern `docs/DESIGN_GUIDELINES.md` §3
+already described, which no Settings-family screen had actually implemented), `Row` gained a `color`
+prop (a small tinted icon badge instead of a plain gray icon) and a `first` prop (skips its own
+`border-t` so it doesn't double up with the card's outer border), `InlineBlock` (same first-child
+divider rule as `Row`, for non-row content like the privacy-mode button group or theme swatches),
+`StatusPill` (deliberately **not** pressable — a glance at current Privacy/Theme/PIN state, not a
+shortcut; reviewed specifically to make sure this redesign didn't introduce a popup/hidden-navigation
+surface, per direct feedback on the v1 mockup). **Colour is per-section, not per-row** (`useSectionColors()`
+→ `theme.warning` for Frequent, `theme.privacy` for Security, `theme.info` for Appearance, `theme.neutral`
+for Data & activity, `theme.danger` for Danger zone) — deliberately not a rainbow per row, since these
+rows don't carry distinct app-wide meaning the way, say, income/expense colours do (`DESIGN_GUIDELINES.md`
+§1's "colour is wayfinding, not decoration"). **Reordered:** Profile → status-pill strip → **Frequent**
+(Default privacy mode + Open mode duration inline, then Safe Mode visibility/Manage tags/Timeline as nav
+rows — Timeline moved here from Data & activity) → Security → Appearance (Theme and Text Size, explicitly
+kept as _two_ separate controls, not merged into one, per a v1→v2 correction) → Data & activity (Backup &
+Restore, Contact & Feedback) → Danger zone. No control was removed or hidden behind a new screen/modal —
+every row from the pre-redesign screen is still here, same navigation targets, same toggles; only layout,
+grouping, colour, and order changed.
+
+**Settings — Appearance follow-up (2026-08-01):** the redesign above initially kept Theme/Text Size as
+they'd looked in the approved mockup — a live-palette swatch grid (`ThemePreview`, a mini rendered card
+per theme) and a 4-box "Aa" grid, each its own `InlineBlock`. On-device review flagged this as still
+busy/dated next to the rest of the redesigned card. Two more directions were mocked up
+(`docs/mockups/proposals/settings-appearance-refresh-v1.html`) — a live-theme-preview swatch grid kept as
+a segmented icon pill, and an iOS-style text-size slider — both passed over for **"Option 3": one
+compact `Row` each**, icon badge + current value (e.g. "Dark", "Default") + a new `CompactSegmentedControl`
+(icon-only for Theme, short S/A/A+/A++ labels for Text size) in the row's `trailing` slot. `ThemePreview`
+was deleted (nothing renders it anymore) — the live-palette-preview quality it gave up is a real
+tradeoff, made deliberately in favour of density.
+
+**Goal-transaction linking (2026-08-01, `apps/mobile` only, `apps/web-react` untouched/frozen):**
+researched Cashew's (github.com/jameskokoska/Cashew) own goal-linking feature directly from its Flutter
+source before designing — its `SelectObjective` widget (`addTransactionPage.dart`) confirmed the
+single-select pill pattern for choosing a goal (`SelectChips`, `allowMultipleSelected: false`), though
+Cashew shows that row always (an implicit "no goal" pill is the off-state) where this puts it behind a
+Tags-style icon toggle instead, to match `ExpenseForm.tsx`'s existing convention. Rather than adopt
+Cashew's simpler "goal = live sum over tagged transactions, no separate ledger" model, this reuses
+Penny's own two-way IOU↔Expense link shape instead (**"similar to how IOU works both ways" was the
+explicit ask**) — a real, previously-dormant `GoalContribution` table already existed in the schema
+(defined, demo-seeded, registered for Undo/restore) but nothing had ever actually written to it from a
+real user action; "Add contribution" used to just bump `goal.currentAmount` directly. This pass finally
+uses it. New pure module, `core/goals/goalLink.ts`, mirrors `core/iou/expenseLink.ts` field-for-field:
+`reconcileGoalLink(txnId, existingContributions, intent, now)` (transaction → goal, simpler than IOU's
+since a goal link has no "kind" dimension — one relationship, "counts toward X") and
+`reconcileLinkedGoalTxn(existing, intent, now)` (goal contribution → transaction, mirrors
+`reconcileLinkedTxn` — `intent.destinationAccountId` set ⇒ Transfer, unset ⇒ Expense categorised
+`cat-savings`/`cat-tr-bank`, a genuine product decision made via question rather than assumed).
+
+**A real architecture call, not just a port:** `Goal.currentAmount` is redefined as a one-time baseline
+(set only via `GoalForm`'s "Already saved" field) rather than a denormalized running total — the amount
+shown/used everywhere (`useGoals.ts`'s `effectiveSaved(goal)`) is that baseline **plus** the live sum of
+the goal's `GoalContribution`s, computed on read. This mirrors IOU's own `netBalance()`
+(`core/iou/ledger.ts`) never storing a denormalized total either — the alternative (keep incrementing
+`currentAmount` by delta on every contribution create/edit/delete, across two directions) is exactly the
+kind of permanent-drift footgun IOU's design already avoids, so it wasn't worth reintroducing here.
+Demo data's three seeded goals had their `currentAmount` reduced by their existing `goalContributions`
+sum to keep the same displayed totals under the new model (`seedDemoData.ts`).
+
+**Forward direction (transaction → goal):** `ExpenseForm.tsx` gained a "Goal" `ExtraCircle` tile between
+Receipt and Lent/Borrowed — shown for expense, income, **and** transfer (IOU's tile stays
+expense/income-only). Its panel reuses the exact pill styling this file's Vacation-event tags already
+use (rounded-full, 2px border, tinted fill when selected, coloured dot) rather than a new component —
+single-select, tinted by each goal's own risk colour (`getRiskColor`). `useExpenses.ts` gained
+`seedGoalFromExpense`/`goalLinkByTxn`/`goalLinkedTxnIds`, mirroring `seedIouFromExpense`/`iouLinkByTxn`/
+`iouLinkedTxnIds` exactly, threaded through `ExpensesPage.tsx` → `TransactionsSlice.tsx` →
+`ExpenseForm.tsx`/`TransactionsTab.tsx`. A goal-linked transaction shows a small `theme.success`-tinted
+`ti-target` icon next to its title in the list — same slot/treatment as the existing receipt-paperclip
+and shared-expense-people icons — and is excluded from spending analytics via a new synthetic
+`goal_contribution` set-aside group in `useExpenseAnalytics.ts`'s `classify()`, right next to the
+existing `iou_lending` one (per explicit product decision — a goal contribution isn't daily-living
+spend, same reasoning IOU-linked transactions already get).
+
+**Reverse direction (goal → transaction):** `useGoals.ts` grew from a thin `goalsRepo` wrapper into the
+full domain hook (mirroring `useIou.ts`'s scope) — reads `accountsRepo`/`expensesRepo` directly (all
+`core/db/repositories` imports, no cross-feature-folder import needed, since Goals and Expenses are
+siblings under `apps/*/features/`), exposes `contributionsByGoal`, `effectiveSaved`, `saveContribution`
+(create/edit a manual contribution, optional linked transaction via `syncLinkedGoalTxn` — mirrors
+`IouView.tsx`'s `syncLinkedTxn`), `removeContribution` (cascades to a manual contribution's own linked
+transaction; expense-origin ones aren't deletable from here at all — that link only comes off by editing
+the transaction and toggling Goal off, "one capability, one control" per `docs/DESIGN_GUIDELINES.md`),
+and `linkTransaction` (retroactively tag an existing unlinked transaction, reusing `reconcileGoalLink`
+directly). Three new components: `GoalDetailView.tsx` (a centred `Modal`, same family as IOU's
+`PersonLedgerView.tsx` — progress ring, every contribution listed with an "in account" `Badge` when
+linked, footer: "Link existing" / "Add contribution"); `GoalContributionForm.tsx` (amount/date +
+"Record as a transaction" toggle mirroring `EntryForm.tsx`'s exactly, plus the optional destination-
+account toggle for the Transfer case); `LinkTransactionModal.tsx` (a search-filtered, capped-at-50,
+non-virtualized picker over every not-yet-linked transaction — same bounded-list tradeoff IOU's own
+pickers already make). `GoalCard.tsx` is now tappable (opens `GoalDetailView`) and shows a linked-
+contribution-count badge; its existing inline "Quick add" button still creates a fast, no-transaction
+manual contribution (unchanged speed, now correctness-safe under the baseline+live-sum model instead of
+silently double-counting against real contributions).
+
+**Known gap, scoped out deliberately:** deleting a manual contribution + its linked transaction isn't
+yet a single atomically-restorable Undo the way IOU's `deleteEntryAndTxn` is — two separate activity-log
+entries for now, noted in `docs/features/goals.md`'s limitations rather than blocking this pass on it.
+
+**"Add contribution" becomes the real Expense form (2026-08-02, `apps/mobile` only) — a redesign review,
+not just a restyle:** a real on-device screenshot of `GoalContributionForm.tsx` prompted a wider look at
+Goals, which surfaced four overlapping entry points for "this money counts toward a goal" — Quick Add
+(card, no transaction at all), Add Contribution (Detail, optionally a transaction via a toggle),
+Link Existing (Detail, retags a past transaction), and `ExpenseForm.tsx`'s own Goal picker tile (tags a
+new transaction). Quick Add was pure duplication — functionally identical to Add Contribution's toggle
+switched off — and `GoalContributionForm.tsx`'s plain labeled fields + `SelectInput` dropdown visibly
+predated `ExpenseForm.tsx`'s own redesign, even though both end up creating the same kind of Expense
+record. Fixed at the root instead of re-skinning a lookalike:
+
+1. **`ExpenseForm.tsx` relocated** from `features/expenses/transactions/` to
+   `apps/mobile/src/components/shared/ExpenseForm.tsx` — it's no longer an Expenses-tab-specific form,
+   it's the app's one form for creating/editing a transaction, and Goals is now a second feature module
+   that genuinely needs it (the same "needed by 2+ feature modules ⇒ promote to shared" reasoning
+   `useAccountForm.ts`/`AccountFormModal.tsx` were promoted under on 2026-08-01). Its own
+   `AccountChips.tsx`/`PaymentModeChips.tsx`/`paymentModes.ts` moved alongside it for the same reason (all
+   three are generic transaction-entry UI, not Expense-domain-specific) — `BulkAccountPaymentModal.tsx`
+   (stayed in `features/expenses/transactions/`) updated its imports accordingly.
+   `CategoryPickerModal.tsx`/`categories/types.ts` and `ItemHistory.tsx` **stayed** in their original
+   `features/expenses/`/`features/activity/` locations and are now referenced from the relocated
+   `ExpenseForm.tsx` via absolute `~/features/...` imports — a deliberate, smaller-scope trade-off rather
+   than relocating an entire category-management subsystem for one conditional dependency; not a new
+   pattern either, since `CategoryPickerModal.tsx` was already imported cross-feature by
+   `features/groups/SharedExpenseComposer.tsx` and `features/import/review/CategoryTile.tsx` before this
+   change.
+2. **`ExpenseForm.tsx` gained a `goalPreset?: { goalId, goalName }` prop.** When set: the type switch
+   drops Income (Expense/Transfer only — Income was never a valid shape for
+   `LinkedGoalTxnIntent`/`reconcileLinkedGoalTxn`); a small "Contributing to {name}" caption renders below
+   the header; the category tile becomes locked/non-interactive (`disabled`, no `CategoryPickerModal`,
+   `categoryManager` made optional on the `Props` interface) defaulting to `cat-savings`/`cat-tr-bank`
+   (re-applied on type change too); the description defaults to `Contribution: {name}`. The
+   Goal/Lent-Borrowed `ExtraCircle`s+panels need **no explicit hiding logic at all** — they're already
+   gated on `!!onSeedGoal`/`!!onSeedIou`, and `GoalsTab.tsx` simply never passes those two props when
+   opening this form, so `showGoalSection`/`showIouSection` are naturally `false`. This was a deliberate,
+   considered choice: the goalPreset flow does **not** reuse `onSeedGoal`/`reconcileGoalLink` (which would
+   produce an `origin: 'expense'` contribution, non-deletable from Goal Detail) — it keeps today's
+   `origin: 'manual'` ownership (goal-owned, still editable/deletable from Goal Detail) via a new
+   `useGoals.ts` function instead (below), so this redesign doesn't silently change what "delete from Goal
+   Detail" does.
+3. **`useGoals.ts` grew its own independent `categories`/`hashtags`/`saveAccount`** (same shape as
+   `useExpenses.ts`'s and `useAccounts.ts`'s own copies of `saveAccount` — still can't import another
+   feature module's hook directly) plus `useAccountsRefresh`/`useTagsRefresh` wiring (the same
+   previously-missing-elsewhere gap already closed in `useExpenses.ts` on 2026-08-01), and a new
+   **`saveGoalContributionTxn(goalId, expense, editingContribution, newTagSetAside?)`**: persists the
+   fully-assembled `Expense` `ExpenseForm` produced (category, tags, receipt, payment mode, custom
+   description — everything, unlike `syncLinkedGoalTxn`/`reconcileLinkedGoalTxn`'s narrower reconstruction
+   from a `{amount, date, sourceAccountId, destinationAccountId}` intent) directly via `expensesRepo.put`,
+   bumps hashtag usage counts, logs the expense's own activity entry, then upserts a matching
+   `origin: 'manual'` `GoalContribution` with `linkedTxnId` pointing at it. The pre-existing
+   `saveContribution`/`syncLinkedGoalTxn`/`ContributionTxnOption` path is untouched and still used — just
+   narrowed to one caller now (below).
+4. **`GoalCard.tsx`'s "Quick add"** (inline amount box, `onQuickContribute`, no linked transaction) is
+   removed entirely, replaced by **"Link existing" / "Add contribution"** — the exact same pairing
+   `GoalDetailView.tsx`'s footer already had — now surfaced directly on the card too (`onLinkExisting`/
+   `onAddContribution` props), wired in `GoalsTab.tsx` to the same `setLinkingGoalId`/`setContributionForm`
+   state Detail's footer already used. Not a new duplication: same handlers, two natural entry points
+   (card for a fast add, Detail when already reviewing the ledger) — the thing being eliminated was two
+   _different implementations_ of the same idea, not the idea of reaching it from two places.
+5. **`GoalContributionForm.tsx` renamed `LegacyContributionEditModal.tsx`** and trimmed to amount + date
+   only, no txn-recording options — since "Add contribution" always goes through `ExpenseForm` now (step
+   2), a contribution can never again end up bookkeeping-only (no linked transaction); this component
+   exists solely so one created _before_ this change can still be edited/deleted. `GoalsTab.tsx` branches
+   on tap: `contribution.linkedTxnId` set ⇒ opens `ExpenseForm` in edit mode for that `Expense` (with
+   `goalPreset` still applied); unset ⇒ opens this legacy fallback instead.
+
+**Liquid-fill goal card (2026-08-02, `apps/mobile` only) — a design exploration, not a targeted fix:**
+a real screenshot review flagged the ring+text `GoalCard.tsx` layout as "boring" and asked for something
+genuinely novel, not a recolour. Researched how Jar (literal 3D jar-fill), Qapital (illustrated bucket
+goals), INDmoney (data-dense rings), Monarch Money (trajectory/status framing), and CRED's NeoPOP
+(engineered-block material language) each solve "show progress toward a goal," then mocked up 4 real
+directions grounded in that research (`docs/mockups/proposals/goal-card-redesign-v1.html`) before the
+user picked "liquid fill" — the card itself is the vessel, filled bottom-up to the goal's actual
+percentage. Two further refinement rounds
+(`goal-card-liquid-icon-v1.html`/`v2.html`) added a large per-goal icon watermark and fixed two issues
+found along the way: the icon must never be blank (every goal needs one, not just the 4 suggestion
+templates that happen to set `Goal.icon`) and must stay legible **above** the fill, not fade as the
+waterline rises past it; "SIP needed" — dropped in an earlier pass — had to come back, since it's
+information the user actually relies on, not decoration.
+
+Implementation: `GoalCard.tsx` renders a fixed-height (152dp) rounded box whose background is a plain
+`View` sized to `${pct}%` height (bottom-anchored), filled with an `expo-linear-gradient` `LinearGradient`
+(lighter risk-colour tint at the waterline → full risk colour at the bottom, via `~/lib/color`'s `ink()`)
+plus a small decorative sine-like `react-native-svg` `Path` sitting right at that seam (a fixed-shape
+"wave cap", not a recomputed-per-percentage path — simpler and cheap to render for something mounted once
+per goal in a list) so a flat percentage-height reads as a liquid surface rather than a hard-edged bar.
+The icon watermark is a plain `Icon` (132px, white, 16% opacity, bottom-right, bled off the corner)
+rendered **after** the fill `View` in JSX order (later siblings paint on top in RN, same as CSS without
+explicit `zIndex`) — this is what keeps it legible over filled liquid, not just empty surface. `core/
+goals/meta.ts` gained `resolveGoalIcon(goal)`/`inferGoalIcon(name)`: an explicit `Goal.icon` always wins;
+otherwise a small ordered keyword-to-icon table (emergency→shield, trip/vacation/goa→plane, home→house,
+car→car, wedding→heart, education→school, retirement→beach, laptop/phone→device) is checked against the
+lowercased name, falling back to a plain target icon (`DEFAULT_GOAL_ICON`) if nothing matches — every
+goal resolves to _some_ icon, by construction. The risk badge, target date, per-goal "N contributions"
+line, "Suggested" pill, and the card's own inline edit-pencil button were all dropped as part of this
+redesign (risk reads through the liquid colour now; editing a goal is still one tap away via
+`GoalDetailView`'s own pencil, reached by tapping the card) — SIP needed was deliberately kept, per
+explicit user correction mid-review.
+
+**Suggested-goals dedup fix, found during the same review:** `SuggestedGoals.tsx`'s existing-goal dedup
+compared names via a plain `trim().toLowerCase()`, which missed a real collision — `seedDemoData.ts`
+seeds a goal named "Home Down Payment", while `lifeStageGoalTemplates()`'s fixed template name is "Home
+down-payment" (different casing/punctuation) — so the panel kept suggesting an effectively-duplicate
+goal. Fixed with `normalizeGoalName()` (strips everything but letters/digits before lowercasing/
+comparing), which closes this specific case and the broader class of casing/spacing/hyphenation
+mismatches between a template's canonical name and however a real goal ended up named.
+
+**Expenses screen — 4 targeted changes (2026-08-02, `apps/mobile` only), mocked up first
+(`docs/mockups/proposals/expenses-screen-batch-v1.html`):**
+
+1. **Account moves under the amount.** `TransactionsTab.tsx`'s row subtitle used to be
+   `"{category} · {account}"`, crammed onto one line alongside tags. The account name moved to a small
+   second line under the amount (right-aligned); the subtitle is now just category + tags.
+2. **Vacation note becomes dismissible, per event.** `CategoryPickerModal.tsx`'s explanatory `Banner`
+   (why travel spend is tracked separately) re-rendered on every single category pick for the whole
+   trip. `Banner` (`components/ui/Banner.tsx`) gained an optional `onDismiss` prop (a small × button,
+   top-right) — generic, not vacation-specific, so any future banner that shouldn't keep reappearing can
+   reuse it. `CategoryPickerModal` persists dismissal per event id (`AsyncStorage` key
+   `penny_vacation_note_dismissed`, same `getJSON`/`setJSON` pattern `useExpenses.ts`'s dismissed-due-
+   recurring set already uses) — dismissed once, gone for the rest of _that_ trip, but a future one still
+   shows it once. Required threading the event's `id` through: `activeVacationEvent`'s shape widened from
+   `{ name }` to `{ id, name }` in both `CategoryPickerModal.tsx`'s `Props` and
+   `ExpenseForm.tsx`'s pass-through. The "Vacation On · {name}" status pill stays always-visible
+   (unaffected) — only the longer paragraph is dismissible.
+3. **Filter by goal.** `FilterModal.tsx`'s `FilterState` gained `goalFilters: Set<string>`, rendered as
+   a new pill section directly mirroring the existing Event section (same `chip()` helper, "All goals"
+   default). Matching needed a `goalId → linked transaction ids` map — `useExpenses.ts` already fetches
+   every `GoalContribution` (for `goalLinkByTxn`/`goalLinkedTxnIds`), so the new `txnIdsByGoal` derivation
+   is a small addition there, not new plumbing; `useTransactionFilters.ts` takes it as a third parameter
+   and matches identically to how `eventFilters` already works. `goals` itself needed no new prop
+   threading — `TransactionsSlice.tsx` already received it for `ExpenseForm`'s own Goal picker tile, just
+   wasn't passed into `<FilterModal>` yet.
+4. **Monthly Cash Flow card (Analytics).** Not a new "Cash Forward" ledger concept the way Money
+   Manager or MoneyView-style imports (`core/import/importCarryForward.ts`) model it — Penny's balance is
+   already continuous (`openingBalance + sum of deltas`, no month buckets), so a native carry-forward
+   transaction type would fight that model rather than fit it. Instead, a new pure function,
+   `core/expenses/cashFlowSummary.ts`'s `computeCashFlowSummary(account, allTxns, monthKey)`, derives
+   everything from data that already exists: **Initial** = `computeBalance()` (now also exporting its
+   internal `delta()` helper, reused here) bounded to transactions before the month starts (`lib/date.ts`'s
+   new `monthBounds(monthKey)`); **Income/Expenses** = the signed sum of every in-month transaction's own
+   `delta()`, _excluding_ any entry with `useAccounts.ts`'s fixed `"Balance reconciliation"` description
+   (the one reliable way to tell an organic transaction apart from a reconciliation adjustment);
+   **Computed left** = `initial + income − expenses`. If the account was reconciled that month, the
+   reconciliation's own delta is added on top (`reconciledActual`) and surfaced as a variance note against
+   Computed left — arithmetically exact (`reconciledActual` = the same `computeBalance()` would return
+   including reconciliation entries, just derived without a second full recompute). Wired through
+   `useExpenseAnalytics.ts` (`accounts` is now an input; `cashFlowSummaries` — filtered to
+   `type === 'cash' || 'wallet'`, bank/card accounts already have a clear paper trail and don't need this
+   — is a new output) → `AnalyticsSlice.tsx` (now also takes `accounts`) → `AnalyticsTab.tsx`, rendering
+   one card per account right after the existing "Total spent" card in the monthly view.
+
+**Transactions list — timeline rail merge + dot centering fix (2026-08-02, `apps/mobile` only), a real
+on-device screenshot review, mocked up through several rounds
+(`docs/mockups/proposals/transactions-list-refinements-v1.html` →
+`transactions-date-header-inline-tight-v1/v2/v3.html`):**
+
+1. **Dot centering fixed.** `TransactionsTab.tsx`'s rail dot used `top: '50%'` + `marginTop: -5` on an
+   absolutely-positioned sibling — reliable only while every row was the same height, which stopped being
+   true once the account line was added under the amount (previous entry). Replaced with a flex column
+   (two equal-flex rail segments around the fixed-size marker) inside a top/bottom-anchored (so already
+   definite-height) absolute container — pure flexbox distribution, no percentage-of-parent math, the same
+   class of fix `MainTabs.tsx`'s `HeaderCenter` needed once for its own on-device-only centering bug.
+2. **Rail marker becomes the category/type icon, not a plain dot** — filled, tinted background,
+   ~22×22dp, the icon rendered inside at 13px. This is the exact same `accent`/`icon` `TransactionRow`
+   already computed for the now-removed separate `w-9 h-9` icon badge next to the description — showing
+   it twice (a colour-only dot _and_ a full icon badge) was redundant, so the badge is gone in normal mode
+   (select mode, which has no rail at all, keeps its own copy of that badge).
+3. **Day header removed; date now sits inline on the rail.** The separate full-width `{ kind: 'header' }`
+   row (its own `FlashList` item type, ~40dp of banded background + padding per day) is gone. `Row` is
+   now a single shape — `{ key, txn, isLastRowOverall, dateLabel? }` — where `dateLabel` (from
+   `groupExpensesByDate`'s existing `g.label`) is set only on a day's _first_ transaction. That row
+   renders the label in an ordinary (non-absolute, non-negative-offset) block sitting in normal flow
+   right above the transaction's own content, positioned at the rail's own horizontal offset — a
+   negative-top overlay was deliberately avoided since a virtualized list may clip a cell's content to its
+   own bounds, and content escaping above a cell's box would render unreliably. Net effect: a day
+   boundary now costs about one small text line instead of a whole extra row, while the date is still
+   shown exactly once per day (never repeated per transaction) — and `getItemType` is gone from the
+   `FlashList` entirely, since every row recycles from one pool now instead of two.
+
+**"View transactions" in-place drill-down — Accounts + Analytics (2026-08-02, `apps/mobile` only), a
+design discussion, mocked up first (`docs/mockups/proposals/entity-transactions-drilldown-v1.html`):**
+the user wanted to see all transactions for a specific account/category/intent group/tag/Set-Aside line
+without configuring the Filter modal one dimension at a time. Two shapes were considered: deep-linking to
+the Transactions tab with a preset filter (mirroring `GlanceHeader`'s existing `{ initialTab: 'iou' }`
+convention), or an in-place modal opened right where the entity is browsed. **The user's preference (an
+in-place modal) is what got built, for reasons beyond taste**: navigating away loses whatever
+scroll/month/tab state the caller had; a modal preserves it. It also needed no new `FilterState`
+dimensions — the Filter modal has no tag filter or "linked to IOU" filter today, so deep-linking those
+specifically would have meant adding filter plumbing just for this; the in-place approach just has the
+caller (which already holds the full `expenses` array) filter it with plain JS instead.
+
+1. **`TransactionsTab.tsx`'s `onEdit` is now optional.** Read-only rows (no `SwipeableRow` wrapper, no
+   tap handler, no swipe actions) render when it's omitted — mounting a real gesture-handler instance for
+   a row with nothing to swipe into or tap for would be pure overhead. `TransactionRow` now builds its
+   `rowInner` JSX once and only wraps it in `SwipeableRow` when `onEdit` is present; select mode is
+   unaffected (it never used `onEdit`).
+2. **New shared component: `components/shared/EntityTransactionsModal.tsx`** — `{ title, subtitle?,
+statLabel?, statValue?, statColor?, expenses, categoryMap, accountMap, hashtags, shouldMask,
+goalLinkedTxnIds?, onClose }`. Internally: `groupExpensesByDate()` on the caller-filtered `expenses`,
+   then a centred `Modal` wrapping the real `TransactionsTab` (read-only, `onEdit` omitted) inside a
+   `View` sized to `screenHeight * 0.55` — `Modal`'s own card sizes to content by default (no
+   `justifyContent: 'stretch'`), so `TransactionsTab`'s internal `FlashList` needs an explicit height to
+   size itself against, or it has nothing to fill. Reuses `TransactionsTab` itself rather than a second,
+   simpler list renderer (matching `LinkTransactionModal.tsx`'s capped `.map()` picker) since "all
+   transactions for an account" isn't naturally small the way a bounded candidate list is — it needed the
+   same virtualization the main list already has, not a second implementation to keep in sync.
+   `TransactionsTab.tsx` itself stays in `features/expenses/transactions/` rather than moving to shared —
+   same trade-off `ExpenseForm.tsx`'s own relocation note documents (imported cross-feature via an
+   absolute path instead of relocating a whole subsystem for one new consumer).
+3. **Accounts**: `AccountList.tsx`'s row (previously a plain `View`) is now a `Pressable` opening the
+   modal, filtered to `accountId === acc.id || toAccountId === acc.id` (so transfers touching the account
+   from either side show up) — a small chevron added before the existing edit/reconcile/delete icons,
+   which are unaffected (still their own `Button`s, still intercept their own taps). `useAccounts.ts`
+   gained its own independent `categoryMap`/`hashtags` reads (same "feature module can't import another
+   feature module's hook" reasoning as every other per-feature `saveAccount` copy this session) purely so
+   the modal has what it needs to render rows the same way the main list does.
+4. **Analytics**: `useExpenseAnalytics.ts` now also returns `classify` (previously internal-only) — the
+   exact function `analyticsData`/`setAsideData` already use to bucket each expense into a routine group,
+   a synthetic Set-Aside group, or an event. `AnalyticsSlice.tsx` uses it directly to answer "which
+   transactions are in this group/category/tag" without a second classification implementation, and now
+   also calls `usePrivacy()` itself (previously only received a precomputed `masked` boolean for aggregate
+   rows — the drill-down modal needs the real `shouldMask` function for per-row masking, same as the main
+   Transactions list). `AnalyticsTab.tsx` gained `onViewGroup`/`onViewCategory`/`onViewTag` callback props,
+   wired to: each category row inside an expanded group's breakdown, a new "View all transactions in
+   {group}" link at the bottom of that same expanded section, every Set-Aside line (Lending & IOU, Goal
+   contributions, Shared with family, per-tag lines), and each "Other hashtags" row (the general tag
+   breakdown, separate from Set-Aside's own per-tag lines) — the existing "promote to event" icon on that
+   last one stays a separate, unaffected tap target.
+
+**Expense form — three targeted fixes (2026-08-01, `apps/mobile` only, `apps/web-react` untouched/frozen):**
+on-device review of the real add-transaction flow, mocked up first
+(`docs/mockups/proposals/expense-form-improvements-v1.html`), then built.
+
+1. **Category + Amount combined row.** The amount hero used to sit centred above its own full-width
+   "Select category" row — for expense/income, both now share one row: a dashed placeholder tile (fills
+   solid with the category's own colour/icon once chosen, tinted the same way the Transactions list
+   already colours a category) on the left, the amount right-aligned on the right. `AmountInput.tsx`
+   gained a `heroAlign?: 'center' | 'right'` prop for this (`'center'` stays the default everywhere
+   else, including `CashFlowPage.tsx`'s own unrelated hero-amount usage — a purely additive change).
+   Transfer has no category, so it keeps the original centred hero unchanged. Date, previously paired
+   with Category in that row, now stands alone below.
+2. **Inline "+ Add account."** `AccountChips.tsx` gained a persistent dashed "+" tile after every real
+   account (previously `onAddAccount` only ever showed as an empty-state fallback button, and even then
+   just navigated away to the Accounts page, closing the form and discarding progress). Tapping it now
+   opens the real `AccountFormModal` as a second `Modal` stacked on top — RN's `Modal` already supports
+   this, no new pattern needed. **Required a real architecture fix, not just a UI one:** `ExpenseForm.tsx`
+   (the `expenses` feature module) needed `useAccountForm`/`AccountFormModal`, which lived inside
+   `features/accounts/` — a feature-module-to-feature-module import `CLAUDE.md`'s architecture rules
+   disallow. Both moved to shared locations any feature may import from: `useAccountForm.ts` →
+   `apps/mobile/src/hooks/useAccountForm.ts` (now also home to the `AccountInput` shape, previously
+   defined inside `features/accounts/useAccounts.ts`), `AccountFormModal.tsx` →
+   `apps/mobile/src/components/shared/AccountFormModal.tsx`. `useExpenses.ts` gained its own independent
+   `saveAccount` (mirrors `useAccounts.ts`'s implementation — can't import that hook directly for the
+   same reason — same repo, same shape, returns the saved `Account` so `ExpenseForm.tsx` can merge it
+   straight into its own local account list and auto-select it for the single-account case) plus
+   `useAccountsRefresh(reloadAccounts)`, a pre-existing cross-hook signal (`useDataRefresh.ts`) Settings →
+   Safe Mode's own account edits already relied on — `useExpenses.ts` just hadn't been wired to listen for
+   it yet, a real gap (found while implementing this) beyond what this feature strictly needed to fix but
+   worth closing in the same pass. See `docs/features/accounts.md`'s 2026-08-01 note for the full
+   before/after paths.
+3. **FAB: 2 taps → 1.** `TransactionsSlice.tsx`'s "+" FAB used to reveal an Expense/Income/Transfer
+   speed-dial (`showDial`, `DIAL_OPTIONS`) as a mandatory intermediate step before the form opened —
+   removed entirely; the FAB now calls `openAdd()` directly (defaulted to Expense), since the form's own
+   type switch at the top already covers picking a different type, making the speed-dial a genuinely
+   redundant second control for the same choice.
+
+**Expense form — same-day follow-up (2026-08-01, `apps/mobile` only), 4 real-screenshot fixes to the
+above pass:**
+
+1. **Category tile width.** The category tile's `flex-1` stretched it to fill roughly half the row —
+   content (a small icon + one line of text, left-aligned) left most of that width empty, reading as an
+   oversized, half-finished-looking box. Changed to a fixed `width: 108` (amount's container takes the
+   freed-up `flex: 1` instead), so the tile is sized close to its content like every other tile in this
+   form (`AccountChips`, `PaymentModeChips`).
+2. **Date + Time, equal width, both editable.** `Expense.date` already carried a time-of-day, but it was
+   never user-editable — `dateInputToEpoch()` silently stamped whatever `Date.now()` was at save time.
+   Added `TimeInput`/`TimeInput.web` (`components/ui/`), a `DateInput`-style native/web split built on the
+   same `@react-native-community/datetimepicker` (`mode="time"` instead of `"date"`; web falls back to a
+   real `<input type="time">` for the same reason `DateInput.web.tsx` does — the native picker package
+   ships no web build at all). `lib/date.ts` gained `toTimeKey`/`epochToTimeInput` (the `HH:mm` value-
+   format pair, mirroring `toDateKey`/`epochToDateInput`) and `combineDateTime(dateStr, timeStr)`, which
+   `ExpenseForm.tsx` now calls instead of `dateInputToEpoch` — both fields default to right now but stay
+   independently editable, so a purchase logged later or backdated can carry its real time rather than
+   whenever the user happened to open the form. (`dateInputToEpoch` is untouched and still used as-is by
+   `GoalContributionForm.tsx`/`iou/EntryForm.tsx` — this only changed `ExpenseForm.tsx`'s own call site.)
+3. **Persistent highlight on collapse, for Goal and Lent/Borrowed.** Tags and Receipt already behaved
+   correctly: `showTags`/`showReceipt` are pure UI-disclosure toggles, decoupled from the actual saved
+   content (`tagInput`/`receipt`), so their `ExtraCircle` stays highlighted whenever content exists even
+   after the panel is collapsed. Goal and IOU had conflated the two — `goalEnabled`/`iouEnabled` was both
+   "is the panel open" AND "should this be saved," so collapsing the panel (a tap on the circle) silently
+   cleared the link too, and the circle went dark even when a goal/person was still filled in. Renamed to
+   `showGoalPanel`/`showIouPanel` (pure disclosure, mirroring `showTags`), changed each `ExtraCircle`'s
+   `active` to check the underlying value instead (`showGoalPanel || !!selectedGoalId`,
+   `showIouPanel || iouPerson.trim().length > 0`), and changed `goalIntent`/`iouIntent`'s save-gating to
+   drop the panel-open check entirely (saved whenever `selectedGoalId`/`iouPerson` is actually filled,
+   exactly like `hashtags: parseTags(tagInput)` never checks `showTags`). The on-open validation guard
+   (submitting with the panel open but nothing picked → scroll-to-and-highlight) is unchanged — it still
+   reads `showGoalPanel`/`showIouPanel`, same as `showTags` already did.
+4. **Reliable description autofocus.** A bare `autoFocus` on the description `TextInput` was already
+   present but unreliable — RN's `Modal` (`animationType="fade"`) mounts its children before the native
+   modal window has actually finished presenting, so `autoFocus` often fired before the view was focusable
+   and silently no-op'd. `Modal.tsx` gained an `onShow` passthrough to RN's own `Modal.onShow` (fires once
+   presentation genuinely completes); `ExpenseForm.tsx` now focuses a `descriptionRef` from there instead
+   of relying on mount-time `autoFocus`.
+
+**Expenses header declutter (2026-08-01, `apps/mobile` only), a follow-up mockup round
+(`docs/mockups/proposals/expenses-header-declutter-v2.html`) after a real screenshot flagged
+`ExpensesHeader.tsx`'s own two-row actions+stats block as visually noisy:** collapsed into one row —
+left column shows the **transaction count** ("N transactions", from `filteredExpenses.length`, replacing
+the old "All transactions"/month-label text) with the **filtered total** below it; right column now
+stacks the **Events/Import/Export** icons above the **Safe-to-spend** pill (previously a separate
+icon-only row above the stats row); the active **vacation event**, when one exists, sits in a third
+column dead-centre of the whole row. All three are equal-width `flex: 1` columns in one `flex-row` — not
+`position: absolute` + centering insets, which `MainTabs.tsx`'s own `HeaderCenter` already found renders
+correctly on web but off-centre on-device under this project's NativeWind/`react-native-css-interop`
+setup (see that component's doc comment). The centre column simply renders nothing when there's no active
+event — same row height either way, no placeholder gap. `ExpensesHeaderProps` gained `transactionCount`
+(passed from `ExpensesPage.tsx` as `txnFilters.filteredExpenses.length`) and dropped `monthFilter` (no
+longer read now that the label is a count, not a month name).
 
 **Expenses (Track 4, ninth module, done) — CLAUDE.md's own flagged "hardest port":** `apps/mobile/src/features/expenses/` ports `apps/web-react/src/features/expenses/` (~7,532 web lines across 33 files — comparable size to Portfolio, but ported more sequentially since its pieces share state through one hook rather than being independent like Portfolio's asset classes). Structure: `useExpenses.ts` (shared data/mutation hook — every one-time category/merchant-memory migration effect's synchronous `localStorage` check became an async `~/lib/storage` check inside the same effect, no behavior change), `ExpensesPage.tsx`/`ExpensesHeader.tsx` (tab shell), `categories/`, `budgets/`, `analytics/`, `events/`, `transactions/`, and thin `subscriptions/`/`iou/` slice wrappers reusing the already-ported Subscriptions/IOU modules directly. **The two flagged-hardest UI translations, both solved per explicit user decision (not simplified):** (1) swipe-to-reveal row actions (`transactions/SwipeableRow.tsx`) rebuilt on `react-native-gesture-handler`'s `ReanimatedSwipeable` (new native dep; `App.tsx`'s root now wraps in `GestureHandlerRootView`) rather than web's hand-rolled Pointer-Events implementation or a hand-rolled Reanimated-only reimplementation — web's manual tap-vs-drag threshold logic wasn't reimplemented since `Swipeable`'s built-in tap gesture already auto-enables/closes based on open state; (2) both SVG charts (`analytics/AnnualChart.tsx`'s bar+line chart, `analytics/AnalyticsTab.tsx`'s `IntentDonut`) ported as plain `react-native-svg`, no new charting library — the donut reuses the exact multi-arc-via-stroked-circles technique already proven in Health's `FinancialHealthCard`, confirming that technique generalizes to a second ring visualization. **Two more capability gaps built now, not dropped:** receipt photo capture (web: `<input type="file">` + canvas-downscale; RN: a new mobile-only `apps/mobile/src/lib/receiptImage.ts`, not a `.native.ts` sibling since the input type differs fundamentally from a browser `File` — wraps two new native deps, `expo-image-picker` + `expo-image-manipulator`, into `captureReceiptPhoto()`/`pickReceiptPhoto()`, returning the same downscaled JPEG data-URL shape web stores) and CSV/ZIP export (`core/export/exportCsv.native.ts`, a new sibling using `expo-file-system`'s `File`/`Paths` API + `expo-sharing`, same share-sheet pattern as Home's Stories flow, with `Uint8ArrayWriter` instead of `BlobWriter` for the AES-256 ZIP since RN's `Blob` shim doesn't support everything `@zip.js/zip.js` needs internally; `expo-file-system`/`expo-sharing` added as direct `packages/core` dependencies, following the `expo-sqlite` precedent from Track 2). **`EventModeContext` (vacation/trip mode) ported as a real prerequisite, not dropped** — unlike every other module's droppable Groups dependency, event tagging is threaded through filtering/analytics/the header banner, so dropping it wasn't a clean option (`apps/mobile/src/context/EventModeContext.tsx`, AsyncStorage-backed, wired into `App.tsx`). `GroupContext` itself is still dropped everywhere it appears: `ShareToGroupModal.tsx` skipped entirely (not ported at all); `shareGroups`/`onShareToGroup`/`onShareLater`/the Share swipe action removed from `ExpenseForm.tsx`/`TransactionsTab.tsx`/`TransactionsSlice.tsx`; `familyGroupIds` removed outright from `useExpenseAnalytics.ts`'s args (the whole classification branch was dead code without it); `EventsModal.tsx`'s entitlement-gated vacation→group-link sub-section dropped along with its now-unused imports. `IconGridPicker.tsx`'s ~620KB icon-search index (`tablerIconIndex.json`, fetched at runtime on web via `import.meta.env.BASE_URL`) is bundled as a static JSON import on mobile instead — no runtime fetch, and the entire fetch/cache/loading-state machinery web needed became unnecessary. A second hand-rolled `fixed inset-0` modal found (`AnalyticsTab.tsx`'s own local `MonthPickerModal`, distinct from the already-`Modal`-based one in `transactions/`) rebuilt on the real ported `Modal`. A real cross-file bug caught by a different section's porting agent (same pattern as Portfolio's Precious-Metals-catches-Equity's-bug): `CategoryPickerModal`'s sticky bulk-action bar (web: `sticky bottom-0`) has no RN sticky-within-`ScrollView` primitive — solved by moving the buttons into the ported `Modal`'s `footer` prop, which already renders outside the `ScrollView` and stays pinned. **A real shared-component bug found during on-device verification, not Expenses-specific:** `apps/mobile/src/components/ui/TabStrip.tsx`'s `scrollable` mode wrapped its tab row in a bare `<ScrollView horizontal>` with no `flexGrow: 0` — an unconstrained horizontal `ScrollView` as a flex child in a column layout stretches to fill all remaining vertical space, pushing its content down to vertically center inside the oversized box (surfaced as a blank gap between `ExpensesPage`'s header and tab strip). Fixed with `style={{ flexGrow: 0 }}` — benefits every other `TabStrip` consumer, not just Expenses.
 
-**Track C (identity/auth) prerequisite, done ahead of Groups:** unlike every module surveyed before it (IOU, Home, Portfolio, Expenses), Groups' feature UI (`apps/web-react/src/context/GroupContext.tsx` + `apps/web-react/src/features/groups/`, ~1,573 lines — the smallest Track-4-sized scope so far) is gated behind a *hard, server-verified* claimed identity with no local-only stand-in: `GroupContext`'s `claimed = Boolean(profile?.deviceId && username)` only becomes true after a real `claimAccount()` round-trip against the live `penny-auth` Cloudflare Worker. Rather than port Groups' UI first (which would render but be unable to create/join/sync/settle-up anything), ported the real Track C client chain: `core/identity/claim.ts` (`claimAccount`/`reclaimAccount`/`checkUsername`/`getClaimState`), `core/identity/signedFetch.ts`, `core/crypto/identityKeys.ts` (device signing/wrapping P-256 keypairs), all reused **completely unmodified** on RN — confirmed via a crypto smoke-test screen (`apps/mobile/src/screens/CryptoSmokeTestScreen.tsx`, kept as a reference tool) that `react-native-quick-crypto`'s ECDSA/ECDH/Ed25519 (including `recovery.ts`'s manually-constructed-PKCS#8 trick) all work correctly on-device, and that the ECDSA signature format is exactly 64 bytes (raw IEEE P1363, matching the worker's `crypto.subtle.verify` expectation — a DER/raw mismatch would have silently broken every signed request). Device-key storage needed no new work at all — it already rides the same `expo-sqlite`-backed `EncryptedRepository` every other table uses. Three real gaps found and fixed: (1) `entitlement.native.ts` (new — see the updated "Known seam" note below) reading `Constants.expoConfig?.extra?.enableSync` via a new `expo-constants` dependency (added to both `apps/mobile` and `packages/core`, following the `expo-sqlite`-in-`packages/core` precedent from Track 2); (2) `apiBase.native.ts`'s `AUTH_BASE`/`GROUPS_BASE` (previously hardcoded `null`) now read the real deployed worker URLs (`https://penny-auth.hesh.workers.dev`, `https://penny-groups.hesh.workers.dev`) from `app.json`'s `extra` field — the same non-secret public URLs already committed in `apps/web-react/.env.production`; (3) `claim.ts`'s one `window.dispatchEvent`-based notification (`PROFILE_UPDATED_EVENT`) was extracted into a new tiny platform-split module, `core/identity/profileChangeBus.ts`/`.native.ts` (native: in-memory listener `Set`, same pattern as `useDataRefresh.native.ts`), rather than duplicating all of `claim.ts`'s security-critical logic into a `.native.ts` sibling just to swap one internal primitive — `claim.ts` itself is otherwise byte-for-byte unchanged. **Verified end-to-end on-device against the live worker** via a second scratch tool (`apps/mobile/src/screens/ClaimSmokeTestScreen.tsx`, also kept as a reference tool): `checkUsername` → real availability check; `claimAccount` → real `userId` from the worker; `signedFetch('/whoami')` → `200` confirming the full challenge→sign→verify loop. As a side effect of finally calling `securityManager.initialize()` on a real device for the first time in this whole migration, this also proves real DMK-based `EncryptedRepository` encrypt/decrypt genuinely works on-device (every prior module hit "Session locked" before ever exercising it) — see the plan's Track C progress-log entry for a debugging false-alarm worth knowing about (a "Cipher.final failed" error that turned out to be a self-inflicted double-tap test artifact, not a real crypto bug).
+**Track C (identity/auth) prerequisite, done ahead of Groups:** unlike every module surveyed before it (IOU, Home, Portfolio, Expenses), Groups' feature UI (`apps/web-react/src/context/GroupContext.tsx` + `apps/web-react/src/features/groups/`, ~1,573 lines — the smallest Track-4-sized scope so far) is gated behind a _hard, server-verified_ claimed identity with no local-only stand-in: `GroupContext`'s `claimed = Boolean(profile?.deviceId && username)` only becomes true after a real `claimAccount()` round-trip against the live `penny-auth` Cloudflare Worker. Rather than port Groups' UI first (which would render but be unable to create/join/sync/settle-up anything), ported the real Track C client chain: `core/identity/claim.ts` (`claimAccount`/`reclaimAccount`/`checkUsername`/`getClaimState`), `core/identity/signedFetch.ts`, `core/crypto/identityKeys.ts` (device signing/wrapping P-256 keypairs), all reused **completely unmodified** on RN — confirmed via a crypto smoke-test screen (`apps/mobile/src/screens/CryptoSmokeTestScreen.tsx`, kept as a reference tool) that `react-native-quick-crypto`'s ECDSA/ECDH/Ed25519 (including `recovery.ts`'s manually-constructed-PKCS#8 trick) all work correctly on-device, and that the ECDSA signature format is exactly 64 bytes (raw IEEE P1363, matching the worker's `crypto.subtle.verify` expectation — a DER/raw mismatch would have silently broken every signed request). Device-key storage needed no new work at all — it already rides the same `expo-sqlite`-backed `EncryptedRepository` every other table uses. Three real gaps found and fixed: (1) `entitlement.native.ts` (new — see the updated "Known seam" note below) reading `Constants.expoConfig?.extra?.enableSync` via a new `expo-constants` dependency (added to both `apps/mobile` and `packages/core`, following the `expo-sqlite`-in-`packages/core` precedent from Track 2); (2) `apiBase.native.ts`'s `AUTH_BASE`/`GROUPS_BASE` (previously hardcoded `null`) now read the real deployed worker URLs (`https://penny-auth.hesh.workers.dev`, `https://penny-groups.hesh.workers.dev`) from `app.json`'s `extra` field — the same non-secret public URLs already committed in `apps/web-react/.env.production`; (3) `claim.ts`'s one `window.dispatchEvent`-based notification (`PROFILE_UPDATED_EVENT`) was extracted into a new tiny platform-split module, `core/identity/profileChangeBus.ts`/`.native.ts` (native: in-memory listener `Set`, same pattern as `useDataRefresh.native.ts`), rather than duplicating all of `claim.ts`'s security-critical logic into a `.native.ts` sibling just to swap one internal primitive — `claim.ts` itself is otherwise byte-for-byte unchanged. **Verified end-to-end on-device against the live worker** via a second scratch tool (`apps/mobile/src/screens/ClaimSmokeTestScreen.tsx`, also kept as a reference tool): `checkUsername` → real availability check; `claimAccount` → real `userId` from the worker; `signedFetch('/whoami')` → `200` confirming the full challenge→sign→verify loop. As a side effect of finally calling `securityManager.initialize()` on a real device for the first time in this whole migration, this also proves real DMK-based `EncryptedRepository` encrypt/decrypt genuinely works on-device (every prior module hit "Session locked" before ever exercising it) — see the plan's Track C progress-log entry for a debugging false-alarm worth knowing about (a "Cipher.final failed" error that turned out to be a self-inflicted double-tap test artifact, not a real crypto bug).
 
 **Groups (Track 4, tenth module, done) + Home/Expenses integration restored:** `apps/mobile/src/context/GroupContext.tsx` ports `apps/web-react/src/context/GroupContext.tsx` (74 lines) — `localStorage` becomes `~/lib/storage` (async AsyncStorage; `selected` starts at `'personal'` and hydrates once in a `useEffect`, same `PrivacyContext` pattern) and the raw `window.addEventListener(PROFILE_UPDATED_EVENT, ...)` becomes `subscribeProfileChanged`, imported directly from `core/identity/profileChangeBus` (not re-exported through `claim.ts`, which only re-exports the constant). `apps/mobile/src/features/groups/` ports all 9 `apps/web-react/src/features/groups/*` files (`ContextSwitcher`, `GroupDashboard`, `SharedExpenseComposer`, `SettleUpGroupModal`, `GroupMembersModal`, `CreateGroupModal`, `JoinGroupModal`, `useGroupSummaries`, `useServerActionError`) 1:1, flat layout. `packages/core/src/core/groups/*` (943 lines: `groupsClient`/`groupsService`/`groupSync`/`keys`/`split`/`accountBridge`) needed zero `.native.ts` siblings — confirmed platform-agnostic by grep before assuming otherwise, the first Track-4-sized `packages/core` scope this migration didn't need to touch at all. Two real platform swaps, both new to this migration: `GroupMembersModal`'s `navigator.clipboard.writeText` → `expo-clipboard`'s `Clipboard.setStringAsync` (new native dep, `~57.0.1`), and `navigator.share` → RN's built-in `Share.share()` (no new dep), same try/fallback-to-clipboard structure as web. `ContextSwitcher`'s hand-rolled `fixed inset-0` dropdown rebuilt on the real ported `Modal`, same fix pattern as every other hand-rolled-overlay case this migration (Portfolio, Retirement, IPO, Expenses' `AnalyticsTab`). **User decision, beyond a standalone module port:** also restored the three Groups integration points IOU/Home/Portfolio/Expenses had each dropped as personal-only scoping — Home's `activeGroup → GroupDashboard` branch + `HomeGroupsCard.tsx` (new); Expenses' `ShareToGroupModal.tsx` (new) + `shareGroups`/`onShareToGroup`/`onShareLater`/the Share swipe action restored in `ExpensesPage.tsx`/`TransactionsTab.tsx`/`TransactionsSlice.tsx`/`ExpenseForm.tsx`, plus `familyGroupIds` restored in `useExpenseAnalytics.ts`/`AnalyticsSlice.tsx`; and `EventsModal.tsx`'s inline `VacationGroupLink` sub-section restored. IOU stays personal-only, unchanged (not requested). **Verified end-to-end on-device against the live `penny-auth`/`penny-groups` workers** — not just render-only, per Track C's precedent — via a third scratch tool, `apps/mobile/src/screens/GroupsSmokeTestScreen.tsx`: claim → create a group (real worker round-trip + ECDH key wrap/unwrap via `keys.ts`) → `GroupDashboard` renders with the owner member (Home restoration confirmed) → `GroupMembersModal`'s "Create invite link" hit the real worker, copied via `expo-clipboard`, and opened the real Android share sheet via `Share.share()` → `SharedExpenseComposer` renders with live split-breakdown → `ExpenseForm`'s restored "Share with a group" toggle appears once a group exists (Expenses restoration confirmed). One real non-blocking bug found, not fixed here: `groupsService.ts`'s `buildJoinLink` falls back to an empty origin on RN (`location` is undefined), producing a hostless invite link — doesn't crash, flagged for a future pass once mobile has a real deep-link scheme. See the plan's Groups progress-log entry for full detail.
 
@@ -186,12 +702,53 @@ settings button) already consumes — visible as a gap above "Good morning" on H
 `edges={[]}` on those four specifically; pushed screens with `headerShown: false` (Insurance, Loans, etc.)
 correctly keep `edges={['top']}` since they have no Stack header to double up against.
 
+**Chrome consolidation, two passes (2026-07-31 + 2026-08-01):** `MainTabs.tsx`'s persistent header
+went from a hamburger-as-Settings-shortcut + logo + eye + bell row, plus a separate full-width
+`ContextSwitcher` bar, down to one row: `HeaderAvatar` (profile-initial circle, itself the Settings
+entry point) on the left of every tab root, `PrivacyModeSwitcher` + `RemindersBell` always on the
+right, a center slot showing either the current tab's title or — Home only — `ContextSwitcher`
+rendered `variant="inline"` (no background/border/shadow, sized for the header). The Penny Blue
+theme and ambient privacy-mode screen-tinting were dropped in the same pass (2026-07-31; see
+`ThemeProvider.tsx`/`privacyModeColors.ts`).
+
+The second pass (2026-08-01) went further: every pushed screen inside `HomeStack`/`ExpensesStack`
+used to render its _own_ title + back button too (via `PageHeader`'s `title`/`leading`, or a
+hand-rolled equivalent in `CashFlowPage.tsx`/`NewsView.tsx`/`CalculatorsPage.tsx`'s detail view) —
+a second header row stacked directly below `MainTabs`' own. That row is gone; `MainTabs`' header is
+now the _only_ title/back-button any screen renders. Two problems this created, both solved by a
+new file, `apps/mobile/src/navigation/HeaderBackContext.tsx`:
+
+1. **Which back, and which stack.** `MainTabs` sits _above_ `Tab.Navigator` as a sibling of
+   `HomeStack`/`ExpensesStack` — its own `navigation.goBack()` would pop `MainTabs` itself, not the
+   nested stack screen actually on top. Only a pushed screen's _own_ `useNavigation()` reliably
+   pops that screen, so the back action has to originate from inside the screen. `HeaderBackContext`
+   exports a `HeaderBackProvider` (wraps `MainTabs`' whole subtree) plus `useRegisterHeaderBack`
+   (a screen registers its back handler while focused, via `useFocusEffect`, clearing it on
+   blur/unmount) and `useDefaultHeaderBack` (the common case — just `navigation.goBack()`).
+   `MainTabs`' `HeaderBackChevron` calls whatever's currently registered.
+2. **Non-default back behavior.** A few screens don't just want to leave — `ImportPage` steps back
+   one wizard stage (`imp.setStep(target)`) before falling through to a real `goBack()`;
+   `CalculatorsPage`'s detail view returns to its own list first; `ChangePinPage` registers no
+   handler at all during a forced PIN reset (mirroring `MainTabs`' `pinResetForced` gate, which
+   already hides the header's whole left slot then). Each of these calls
+   `useRegisterHeaderBack` directly with its own custom handler instead of the default hook.
+
+`PageHeader.tsx` lost its `title`/`leading` props entirely — it's now only for what's genuinely
+screen-specific (a `subtitle` line, right-aligned `actions`, or free-form `children`), and several
+screens (Settings, Loans, Manage Tags, Safe Mode, Change PIN, Change Passphrase, Backup & Restore,
+Edit Profile) no longer render it at all, having had nothing but a title to show. The header's
+background also changed from a distinct `modeColors.headerBg` (with a 2px accent border underneath)
+to the same `modeColors.bg` every screen's own content sits on — no border, no seam — so the header
+reads as part of the screen rather than a fixed bar drawn on top of it (the tab bar below keeps its
+accent border; only the top header changed).
+
 **Feature-folder gap closed — 7 modules ported (2026-07-25):** a full audit of
 `apps/web-react/src/features/` (24 folders) against `apps/mobile/src/features/` (16) found 7 modules had
 never been ported at all, beyond the two known-open items above — Feedback, Import (expenses CSV import),
 Backup & Restore, Cashflow, News, Calculators, and Tax Awareness (Chip is the one remaining gap, out of
 scope for Phase 2). All 7 mirror their web files 1:1 wherever the underlying `packages/core` logic was
 already platform-agnostic (most hooks needed only import-path changes). Notable platform-specific work:
+
 - **Backup & Restore** (`apps/mobile/src/features/backup/`) — export/import/reset use the established
   `expo-file-system`+`expo-sharing`/`expo-document-picker` patterns, and post-import/-reset use
   `notifyAuthShouldRecheck()` in place of web's full-page reload. The bigger piece: the automatic backup
@@ -208,8 +765,9 @@ already platform-agnostic (most hooks needed only import-path changes). Notable 
   case in this migration was `localStorage`/a `window` event, always swappable). RSS parsing became a
   small regex-based tag extractor (`extractTag`, handles `CDATA`-wrapped fields) instead; the 45-minute
   cache drops to in-memory/session-scoped, same precedent as `ipoClient.native.ts`. `FilterDropdown`'s
-  hand-rolled DOM dropdown was rebuilt on the shared `Modal`, same fix pattern as every prior
-  hand-rolled-overlay case.
+  hand-rolled DOM dropdown was originally rebuilt on the shared `Modal` (same fix pattern as every prior
+  hand-rolled-overlay case), then removed entirely in the 2026-08-01 density pass in favor of one
+  combined Filters modal — see that entry above.
 - **Calculators** (`apps/mobile/src/features/calculators/`, 10 individual calculators + shared
   `CalcUI.tsx`) — `AmountRow`/`HeroResult` take a `masked` boolean from `usePrivacy().shouldMask(false)`
   instead of porting web's tap-to-peek `MaskedValue` component (no precedent for that interaction
@@ -261,7 +819,7 @@ Metro restart to take effect (platform config is read once at server startup, no
 **Onboarding layout bug found + fixed across all 11 screens (2026-07-25):** `OnboardingBack`
 (`position: absolute`, `top-5 left-5`, meant to sit flush at the top-left of a "full-bleed" screen) was
 rendered as the first child inside a `ScrollView` with its own `px-6 py-10` padding. RN's `<ScrollView>`
-renders children inside an *inner* scrollable content view, distinct from the *outer* frame the padding
+renders children inside an _inner_ scrollable content view, distinct from the _outer_ frame the padding
 attaches to — so the back button ended up offset ~40px from the true corner. Fixed by moving
 `<OnboardingBack />` outside the `ScrollView` (a sibling inside `SafeAreaView`, which has no padding)
 across all 11 onboarding screens that use it. `SimulatedDashboardScreen` ("Here's a preview") additionally
@@ -272,6 +830,177 @@ back arrow + centered title in the same row instead of the shared component.
 **Known seam surfaced during Track 0 (flagged then, fixed for mobile during Home/Track 4/Track C/RN-web):** `packages/core/src/core/entitlement/entitlement.ts`, `core/net/apiBase.ts`, and `core/sync/providers/googleDriveProvider.ts` read `import.meta.env.VITE_*` directly — a Vite-ism with no Metro/RN equivalent. All three now have both a `.native.ts` (iOS/Android, Track C/Backup) and a `.web.ts` (RN-web, this pass) sibling — `core/net/apiBase.ts`'s finance-data bases reproduce the existing "no backend configured" fallback on both, while `AUTH_BASE`/`GROUPS_BASE` read real worker URLs from `expo-constants` on both. `googleDriveProvider.ts`'s `.native.ts`/`.web.ts` both return `isCloudBackupConfigured() === false` (no native/RN-web Google Sign-In flow built yet), same "dormant until built" shape as `icloudProvider.ts`'s own precedent, so every other provider method stays unreachable in practice rather than needing individual porting.
 
 **Also surfaced:** `packages/core/src/core/advisor/guidance.ts` used to import `PATHS` from the web router to build "navigate to X" recommendation actions — a real core→app coupling. Fixed during Track 0 (not deferred, since it was a one-line-risk mechanical change): `guidance.ts` now returns a semantic `AppRouteKey` (`'goals' | 'insurance' | ...`), and the one caller (`FinancialHealthCard.tsx`) maps that key to an actual `PATHS` value via a small local lookup. Behavior is unchanged; `packages/core` no longer imports anything router-specific.
+
+**Bank Statement Import (new feature, `apps/mobile` only, 2026-08-02):** full spec in
+`docs/plans/bank-statement-import.md`. A deliberately separate module from the multi-app CSV
+importer, per an explicit user decision that bank-statement parsing and other-apps'-export parsing
+must be able to evolve independently: `packages/core/src/core/bank-import/` (CSV
+tokenizer/parser tolerant of Indian bank date formats, 7 named bank presets + a Custom fallback,
+a keyword-stripping merchant-normalization heuristic with a user-overridable escape hatch, a
+one-shot ±3-day matching engine with strict 1:1 pairing and a description-similarity tie-break,
+merchant-memory lookup, and a payment-mode keyword inferrer) and `apps/mobile/src/features/bank-import/`
+(a single `useBankImport.ts` hook owning a `setup → review → done` step machine — `setup` merges
+bank selection/upload/mapping review into one screen, see the 2026-08-03 entry below — mirroring
+`features/import/useImport.ts`'s overall shape but never importing from it). Nothing
+writes to the real vault until one final commit (stage-then-single-write model): every resolution
+during review — a confirmed/reassigned match, a bulk-categorized merchant group, an individually
+recorded new transaction, a lone-wolf deletion — only mutates the hook's own in-memory state.
+Reviewed and fixed post-first-pass: the review screen initially had no scroll container (a real
+statement runs 100–300+ lines, most of which are expanded-by-default buckets); a transaction bumped
+by the "trust the user, reassign" cascade (or freed up by dismissing a possible-match as new)
+initially vanished from the review entirely instead of resurfacing as a lone wolf — fixed by
+extracting `matcher.ts`'s lone-wolf filter into an exported `deriveLoneWolves()` the hook now calls
+reactively off live staged state, not the one-shot pass's frozen result.
+
+**Payment mode made a real creatable entity (2026-08-02):** previously `Expense.paymentMode` drew
+from a hardcoded 5-value list (`components/shared/paymentModes.ts`) with no way to add to it. Bank
+Statement Import needed this — bank narrations carry rail keywords (NEFT/IMPS/RTGS/Cheque) that
+aren't among the 5 defaults, and the plan calls for creating each one exactly once per import
+batch. New encrypted `payment_modes` store (Dexie v11) holds only custom/created modes; the 5
+built-ins (`core/expenses/paymentModes.ts`'s `DEFAULT_PAYMENT_MODES`) are never persisted as rows —
+the full selectable set is always defaults merged with the store's contents (`mergePaymentModes`).
+`PaymentModeChips.tsx` now reads live from `paymentModesRepo` instead of a static import, so any
+mode created via bank import shows up as a normal chip in the regular Add Expense form afterward
+too, and accepts an optional `pendingCandidate` prop so a not-yet-created inferred mode still
+displays its real label/icon/color before the batch that would create it actually commits.
+
+**Manual payment-mode creation (2026-08-03):** `PaymentModeChips.tsx` gained a dashed "+" tile
+(same pattern as `AccountChips.tsx`'s inline "+ Add account"), opening a new
+`PaymentModeFormModal.tsx` (name, icon, colour) that writes to the same `payment_modes` store —
+the user-initiated equivalent of what Bank Statement Import already does automatically.
+`core/expenses/paymentModes.ts`'s new `generatePaymentModeId()` slugifies the name into a stable,
+deterministic id (deduped against whatever already exists), so a manually-created mode's id has the
+same shape as an inferred one. `IconGridPicker.tsx` (previously `features/expenses/categories/`-
+only, used by `CategoryEditorModal`) moved to `components/shared/` so both this new form and
+category editing can use it without a cross-feature import.
+
+**Payment modes made real rows + editable + Accounts-screen management, and the bank-import setup
+screens merged (2026-08-03, per explicit user feedback):** two follow-ups landed together.
+
+1. The 5 built-ins are no longer a read-time-only overlay (`mergePaymentModes`, now removed) — they're
+   seeded as real `payment_modes` rows once (`~/hooks/usePaymentModes.ts`, mirroring how
+   `expense_categories`' own defaults are seeded via `useExpenses.ts`'s additive-seeding effect). Real
+   rows from the start is what makes a default's icon/colour/label actually editable, the same way a
+   default `ExpenseCategory` already is. `PaymentMode` gained `isDefault: boolean` (mirrors
+   `ExpenseCategory.isDefault`): editable, never deletable; a custom mode is both, but delete is
+   blocked while any transaction still uses it. `PaymentModeFormModal.tsx` gained `editing`/`onDelete`/
+   `usageCount` props for this. New `features/accounts/PaymentModesSection.tsx` lists every mode on the
+   Accounts page as an icon tile with a small pencil badge (tap to edit) plus a trailing "+" tile (tap
+   to add) — the manage-everything surface, distinct from `PaymentModeChips`' quick-select-plus-create
+   role inside the Add-transaction form. `generatePaymentModeId()` no longer needs the merge step
+   either — `existing` is always the real, full list now.
+2. Bank Statement Import's `PresetStep.tsx`/`UploadStep.tsx`/`MappingStep.tsx` (3 separate wizard
+   steps) were deleted and replaced by one `SetupStep.tsx`: a bank **dropdown** (not a tile grid — the
+   preset list can grow) that reveals the upload dropzone once a bank is picked, which in turn reveals
+   an inline column-mapping review card (Date/Narration/Debit/Credit/Balance → the file's real headers,
+   table-style) once a file is uploaded, with one "Edit mapping" action opening a single popup
+   (`MappingEditModal.tsx`) with every field editable together (the user's explicit preference over a
+   per-field pencil icon). `useBankImport.ts`'s step type collapsed from `'bank'|'upload'|'mapping'|
+'review'|'done'` to `'setup'|'review'|'done'` — `selectPreset()`/`importFromText()` no longer change
+   step at all, they just reveal more of the same screen.
+
+**Bulk-categorize mirrors the real expense form; hashtag/IOU bookkeeping added to bank-import
+(2026-08-03, per explicit feedback that "Not yet logged"'s category field and the bulk-categorize
+modal should reuse real app UI, not a plain dropdown):**
+
+1. `UnmatchedBucket.tsx`'s "Categorize N selected" flow (`BulkCategorizeModal.tsx`) swapped its plain
+   `SelectInput` category field for the real `CategoryPickerModal` (select-only, `manager` omitted) —
+   another cross-feature import (`features/bank-import/` → `features/expenses/categories/`), the same
+   already-established, deliberate exception noted above (§`ExpenseForm.tsx` relocation).
+   `pickerType`/direction-majority logic mirrors `features/import/review/CategoryTile.tsx`'s own
+   approach for the same problem.
+2. Its Tags field grew the same frequent-tags/startsWith-suggestions/inline-Set-Aside UI as
+   `ExpenseForm.tsx`'s own Tags panel (new `hashtags: Hashtag[]` prop), and it gained a new,
+   bulk-shared Lent/Borrowed panel (new optional `iouPersons?: Person[]` prop) — one person name
+   applied to every checked occurrence, kind (lent/borrowed) derived from the group's own
+   majority direction, never stored separately.
+3. **Hashtag usage-count bookkeeping and IOU ledger-entry creation now happen at all** for bank-import
+   staged transactions — a real, previously-silent gap: `commitAndImport()` wrote `Expense.hashtags`
+   directly but never created/updated the corresponding `Hashtag` rows (no usage count, invisible to
+   Manage Tags/Frequent), and there was no IOU path at all. Fixed once, generically, in
+   `commitAndImport()`'s existing `stagedNewTxns` loop (applies to every staged new txn regardless of
+   which flow created it — bulk or the single-row statementPreset `ExpenseForm`), resolved against a
+   fresh `hashtagsRepo`/`personsRepo` read + a local cache so N occurrences of the same new tag/person
+   in one batch resolve to exactly one row, mirroring the existing per-batch payment-mode
+   resolve-once pattern. `StagedNewTxn` gained optional `newTagSetAside`/`iouPersonName` fields to
+   carry this through from staging to commit. `stageNewTxnFromForm()` and `PossibleBucket.tsx`'s
+   "add as new" `onSave` now also thread `ExpenseForm`'s own `newTagSetAside` save argument, previously
+   silently dropped.
+4. The two bottom informational notes ("payment mode is guessed per line…", "applies to N checked
+   transactions…") moved to the top as one `Banner variant="info"` card, replacing plain
+   `text-tertiary` lines below the fold.
+5. **Follow-up (same day):** the Tags and Lent/Borrowed panels were always-visible/manually-toggled
+   respectively — didn't match `ExpenseForm`'s icon-toggle affordance. `ExtraCircle` (the circular
+   icon-button-with-caption used for Tags/Receipt/Goal/Lent/Repeat) was extracted from
+   `ExpenseForm.tsx` into its own `components/shared/ExtraCircle.tsx` (no behavior change, pure
+   relocation) so `BulkCategorizeModal.tsx` could reuse the exact same component instead of a
+   lookalike custom toggle row. Both panels are now hidden by default and revealed by tapping their
+   `ExtraCircle` (Tags: `ti-hash`; Lent/Borrowed: `ti-users`, label/color following the group's own
+   expense-or-income direction) — active state lights up once the panel is open or already has a
+   value, same rule `ExpenseForm` uses. Also: the Description field now defaults to a generalized,
+   still-fully-editable guess (`prettifyMerchantKey()`, new in `core/bank-import/normalization.ts`)
+   derived from the merchant's own normalized key when no `MerchantSuggestion` exists yet (first time
+   seeing that merchant) — short (≤3-letter) tokens are kept upper-case (acronyms/suffixes like ACH/
+   TCS/LTD are common in Indian bank narrations), longer ones are title-cased.
+6. **Follow-up (same day): normalization heuristic tuned against 7 real sample bank statements** (one
+   per supported preset). Running every distinct narration through `normalizeNarration()` surfaced 3
+   rail/direction-indicator keywords leaking into the merchant key as noise, now added to
+   `CONNECTOR_KEYWORDS`: `ACH` (dividend/mutual-fund-redemption credits — same treatment as the
+   already-stripped NEFT/IMPS/RTGS), `INW` (IMPS inward-transfer indicator), `REV` (reversal
+   indicator, e.g. a UPI refund). `OUT` was added proactively as `INW`'s natural counterpart, though
+   not directly evidenced in the samples. `paymentModeInference.ts` also gained its own `ach` rail
+   (previously fell through to the generic "Net" fallback), mirroring NEFT/IMPS/RTGS.
+   **Deliberately NOT changed**: `SENT TO X` / `RECEIVED FROM X` narrations still normalize to two
+   different keys per person (`SENT <NAME>` / `RECEIVED <NAME>`) rather than merging to one — raised
+   as an explicit question, user confirmed keep-separate: bulk-categorize's Lent/Borrowed panel
+   depends on that direction split (a "sent" group gets marked lent, a "received" group gets marked
+   borrowed) — merging would force one shared category across both directions for the same person.
+7. **Follow-up (same day): normalization visibility + settle-up decision + new categories**, after a
+   thorough discussion (external research against Cashew/Splitwise for settle-up precedent) before any
+   code:
+   - `BankImportOverridesPage.tsx` ("Merchant recognition") gained a read-only collapsible "How
+     automatic recognition works" card, listing the fixed heuristic in plain English plus the actual
+     current keyword list (`CONNECTOR_KEYWORDS_LIST`, new export from `normalization.ts`) — the screen
+     previously only ever showed the user's own editable overrides, never the underlying algorithm.
+   - **Settle-up/repayment linking deliberately not built** — Cashew and Splitwise were both
+     researched and neither cleanly solves "one transaction represents two ledger effects" (e.g.
+     ₹22,000 in = ₹2,000 collecting an old debt + ₹20,000 a new loan); explicit user call: log the
+     transaction exactly as the statement shows it (income → `borrowed`, expense → `lent`, unchanged
+     from today) and let the free-text Description carry the nuance instead. A standing invariant was
+     written down as a result: **one statement line always produces exactly one app transaction** —
+     any future feature must preserve this (a ledger-only remainder must be a `LedgerEntry` with no
+     `linkedTxnId`, never a second `Expense`/`Income` record).
+   - Three new default categories, additive-seeded via `useExpenses.ts`'s new v8 seeding effect
+     (`penny_cats_v8`): `cat-food-drinks` ("Food & Drinks", Daily Living — added despite overlapping
+     Groceries/Dining & Café, per explicit user request), `cat-lending` ("Lending", Family & Giving,
+     expense), `cat-inc-borrowed` ("Borrowed Money", Income). Both IOU categories are **free choice,
+     not auto-locked** to the Lent/Borrowed panel (unlike `goalPreset`'s auto-locked category) —
+     deliberate, since a shared-bill split is often kept under its real category (e.g. Dining) "for
+     remembrance" rather than a generic bucket. `categoryTaxMap.ts` gained `cat-food-drinks` (`gst-5`)
+     and `cat-lending` (`exempt`, also added to `SPEND_EXCLUDED` — lending isn't consumption); income
+     categories were already outside this map (indirect tax only applies to spend).
+
+**Retirement Corpus — Home hero redesign (2026-08-03, `apps/mobile` only, `apps/web-react` untouched/frozen):**
+replaced Home's Net worth/Safe-to-spend two-column hero (plus the colored asset-proportion bar and the
+Assets/Liabilities summary line) with a single fused, borderless hero unit: Net worth's label/number/"View
+breakdown" now sit directly over a new full-bleed `RetirementCorpusChart` (violet area/line chart, plotting
+**investable corpus** — a deliberately smaller figure than net worth, excluding vehicle/property/other —
+projected forward to a fixed retirement year), with a "% funded" gauge + Needed/Projected/Monthly SIP stat
+rows (`RetirementFundedSummary`) below it, not overlapping. Tapping the net-worth text (a nested
+`Pressable` — RN's responder system gives the innermost `Pressable` the touch, no explicit
+stopPropagation needed) opens the existing net-worth breakdown `Modal` unchanged; tapping anywhere else
+opens `RetirementDrilldownModal`, a **centered** `Modal` (never a bottom sheet, per
+`docs/DESIGN_GUIDELINES.md`) for editing the shared plan's monthly-expense/retirement-age inputs.
+Safe-to-spend was dropped from Home entirely (it already lives on Cash Flow). New core layer:
+`core/calculators/retirementProjection.ts` (`calcRetirementProjection()` — a fixed-target-year sibling to
+`fire.ts`'s `calcFire()`, plus `calcInvestableCorpus()`), a new `retirement_plan` (singleton, shared by
+Home and the FIRE Calculator — editing either updates both, see `useRetirementPlan.ts`) and
+`net_worth_snapshots` (one row per calendar month, never backfilled synthetically) Dexie/op-sqlite store
+pair (schema v12), and two mobile-only shared hooks (`useInvestableCorpus.ts`/`useTrailingLivingSpend.ts`)
+extracted specifically so `features/home` and `features/calculators` — which may not cross-import each
+other — can compute the same investable-corpus/trailing-spend figures via shared
+`core/accounts/balanceCalculator.ts`/`core/expenses/monthlySpend.ts` pure functions instead of duplicating
+that math. Full writeup: `docs/features/home.md`.
 
 ---
 
@@ -330,38 +1059,38 @@ back arrow + centered title in the same row instead of the shared component.
 
 ### `src/components/demo/`
 
-| File                | Props | Purpose                                                                                                                                                                                                                                                       |
-| ------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| File                 | Props | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| -------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DemoModeBanner.tsx` | —     | Persistent purple strip mounted in `AppShell`, gated on `profile.demoSeeded`. "Exit Demo Mode" opens a `ConfirmDialog`; confirming calls `wipeDemoData()` and navigates to `/onboarding/let-us-know-you` with `{ state: { fromDemoMode: true } }`, handing off to the real-setup sequence. `SettingsPage`'s danger-zone "Exit Demo Mode" button (same visibility guard, `profile.demoSeeded`) does the identical thing — the two are separate entry points into one behaviour, not two different actions. |
 
 ### `src/components/ui/`
 
-| File                          | Key Props                                                                                                                                  | Purpose                                                                                                                                                                                                                                                                                                                                                     |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ChipAvatar.tsx`              | —                                                                                                                                          | Chip AI avatar SVG                                                                                                                                                                                                                                                                                                                                          |
-| `PennyLogo.tsx`               | —                                                                                                                                          | Penny coin + wordmark SVG                                                                                                                                                                                                                                                                                                                                   |
-| `Card.tsx`                    | `padding?` xs/sm/md/lg · `radius?` md/lg · `onClick?` · `className?`                                                                       | Surface card. Padding tiers: xs=p-3, sm=p-3.5, md=p-4 (default), lg=p-5. Renders `<button>` when `onClick` is provided. Layout classes allowed via `className`; never pass colour/spacing overrides.                                                                                                                                                        |
-| `Modal.tsx`                   | `onClose` · `title?` · `footer?` · `size?` sm/md · `nested?` · `level?` 1/2/3 · `scrollable?`                                              | Fixed-overlay centred modal. `nested=true` bumps to `z-70`; `level={3}` → `z-80` (third-tier, e.g. category editors above the picker). Always uses `paddingTop:56, paddingBottom:72` so header + nav remain visible.                                                                                                                                        |
-| `Button.tsx`                  | `variant` primary/secondary/danger/ghost · `size?` sm/md/lg · `loading?` · `icon?` · `fullWidth?` · `color?` · `style?`                    | All interactive buttons. `color` overrides background with a runtime hex value. `style` merges with variant styles for one-off positioning (e.g. FAB `bottom`/`right`). Primary/danger use CSS vars; secondary/ghost use semantic tokens.                                                                                                                   |
-| `OptionButton.tsx`            | `label` · `selected` · `onClick` · `icon?` · `description?` · `color?` · `disabled?` · `compact?`                                          | Bordered option selector. Default: horizontal card (icon left, label right, `w-full`). `compact=true`: vertical tile (icon above, label below, no `w-full`) for use in 3–4-column grids (policy types, account types, asset classes). `color` defaults to `--color-primary`.                                                                                |
-| `ConfirmDialog.tsx`           | `isOpen` · `onClose` · `onConfirm` · `title` · `message` · `confirmLabel?` · `confirmVariant?` · `loading?` · `level?` 1/2/3               | Two-button confirmation dialog. Wraps `Modal` (default `level=2`/`z-70`) + two `Button`s.                                                                                                                                                                                                                                                                   |
-| `FormField.tsx`               | `label` · `required?` · `hint?` · `error?`                                                                                                 | Label wrapper. Shows required star, hint text, or error (error takes priority over hint).                                                                                                                                                                                                                                                                   |
-| `TextInput.tsx`               | `label?` · `value` · `onChange(value)` · `error?` · `hint?` · `prefix?` · `suffix?` · `inputClassName?`                                    | Controlled text input. `inputClassName` adds extra classes to the inner `<input>` element (e.g. `font-mono uppercase` for ticker inputs). When `label` is provided, wraps with `FormField`.                                                                                                                                                                 |
-| `AmountInput.tsx`             | `label?` · `value` (plain numeric string) · `onChange(value)` · `prefix?` (default `₹`) · `showWords?` · `error?` · `hint?` · `autoFocus?` | Money entry field. Live Indian-grouped display, inline calculator (`120+45`, safe hand-rolled evaluator — no `eval`), and an amount-in-words helper beneath (via `lib/amountToWords`). Groups on blur, shows raw draft while focused (no cursor jump). Use for all money inputs in place of a raw `TextInput type="number"`.                                |
-| `EmptyState.tsx`              | `icon` · `title` · `description?` · `action?`                                                                                              | Icon + title + optional description + optional CTA button. Use for zero-data states.                                                                                                                                                                                                                                                                        |
-| `TabStrip.tsx`                | `options[]{value,label,icon?,count?}` · `value` · `onChange` · `scrollable?`                                                               | Underline-style tab strip. Generic over the tab value type. Horizontally scrollable when `scrollable=true`.                                                                                                                                                                                                                                                 |
-| `Badge.tsx`                   | `label` · `color?` · `variant?` solid/subtle · `size?` sm/md                                                                               | Coloured pill. `subtle` variant uses `color` at 10% opacity background.                                                                                                                                                                                                                                                                                     |
-| `PageHeader.tsx`              | `title` · `subtitle?` · `leading?` · `actions?` · `children?` · `className?`                                                               | Standard page header: `px-4 pt-4 pb-3` bottom-bordered block. `leading` (e.g. back button) sits left of the title, `actions` right-aligned, `subtitle` renders as a `text-sm text-secondary` line, `children` is a full-width slot below the title row. Use at the top of every feature page.                                                               |
-| `SectionLabel.tsx`            | `children` · `className?`                                                                                                                  | Small uppercase `text-tertiary` label titling a section between cards/lists. Spacing is caller-controlled via `className` (default `mb-2`; pass `-mb-2` when the parent supplies a gap).                                                                                                                                                                    |
-| `PassphraseStrengthMeter.tsx` | `score` 0–4                                                                                                                                | Five-bar zxcvbn strength meter + label. Used by onboarding setup and Change Passphrase.                                                                                                                                                                                                                                                                     |
-| `ListContainer.tsx`           | `children` · `className?`                                                                                                                  | Bordered rounded `surface` that hairline-divides its direct children (`divide-[var(--color-border)]`). Standard wrapper for grouped list rows (accounts, transactions, previews).                                                                                                                                                                           |
-| `ProgressBar.tsx`             | `value` 0–100 · `color?` · `size?` xs/sm/md · `animate?`                                                                                   | Horizontal fill bar. Clamps value to 0–100.                                                                                                                                                                                                                                                                                                                 |
-| `SegmentedControl.tsx`        | `options[]{value,label,icon?,color?}` · `value` · `onChange` · `cols?`                                                                     | 2–4 option radio group. Active option fills with `color` (default `--color-primary`). Background: `bg-surface-2`.                                                                                                                                                                                                                                           |
-| `SelectInput.tsx`             | `label?` · `value` · `onChange(value)` · `options[]{value,label}` · `placeholder?` · `required?` · `disabled?` · `error?` · `hint?`        | Custom dropdown: styled trigger + portal-rendered listbox anchored directly below the field (flips above when space is tight). Renders to `document.body` at `z-index:90` so it escapes modal `overflow` clipping and stacks above `z-80` modals; dismisses on outside-click/Escape; repositions on scroll/resize. Wraps `FormField` when `label` provided. |
-| `Toggle.tsx`                  | `value` · `onChange(value)` · `disabled?` · `aria-label?`                                                                                  | iOS-style sliding boolean switch. Active: `--color-primary`; inactive: `--color-surface-3`.                                                                                                                                                                                                                                                                 |
-| `LifeRow.tsx`                 | `icon` · `label` · `alignTop?` · `children`                                                                                                | Labelled row for one optional "Life & household" field (icon + label left, control right). Shared by Edit Profile and onboarding's `LifeHouseholdScreen`.                                                                                                                                                                                                   |
-| `OptionalSeg.tsx`             | `options[]{value,label}` · `value` · `onChange(v \| undefined)`                                                                            | Compact segmented control for an optional, clearable field — tap the active segment again to unset it. Distinct from `SegmentedControl` (which requires a value). Shared by Edit Profile and `LifeHouseholdScreen`.                                                                                                                                        |
-| `index.ts`                    | —                                                                                                                                          | Barrel export for all ui components. Import shared primitives from `@/components/ui` (never deep-import the file).                                                                                                                                                                                                                                          |
+| File                          | Key Props                                                                                                                                  | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ChipAvatar.tsx`              | —                                                                                                                                          | Chip AI avatar SVG                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `PennyLogo.tsx`               | —                                                                                                                                          | Penny coin + wordmark SVG                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `Card.tsx`                    | `padding?` xs/sm/md/lg · `radius?` md/lg · `onClick?` · `className?`                                                                       | Surface card. Padding tiers: xs=p-3, sm=p-3.5, md=p-4 (default), lg=p-5. Renders `<button>` when `onClick` is provided. Layout classes allowed via `className`; never pass colour/spacing overrides.                                                                                                                                                                                                                                                                  |
+| `Modal.tsx`                   | `onClose` · `title?` · `footer?` · `size?` sm/md · `nested?` · `level?` 1/2/3 · `scrollable?`                                              | Fixed-overlay centred modal. `nested=true` bumps to `z-70`; `level={3}` → `z-80` (third-tier, e.g. category editors above the picker). Always uses `paddingTop:56, paddingBottom:72` so header + nav remain visible.                                                                                                                                                                                                                                                  |
+| `Button.tsx`                  | `variant` primary/secondary/danger/ghost · `size?` sm/md/lg · `loading?` · `icon?` · `fullWidth?` · `color?` · `style?`                    | All interactive buttons. `color` overrides background with a runtime hex value. `style` merges with variant styles for one-off positioning (e.g. FAB `bottom`/`right`). Primary/danger use CSS vars; secondary/ghost use semantic tokens.                                                                                                                                                                                                                             |
+| `OptionButton.tsx`            | `label` · `selected` · `onClick` · `icon?` · `description?` · `color?` · `disabled?` · `compact?`                                          | Bordered option selector. Default: horizontal card (icon left, label right, `w-full`). `compact=true`: vertical tile (icon above, label below, no `w-full`) for use in 3–4-column grids (policy types, account types, asset classes). `color` defaults to `--color-primary`.                                                                                                                                                                                          |
+| `ConfirmDialog.tsx`           | `isOpen` · `onClose` · `onConfirm` · `title` · `message` · `confirmLabel?` · `confirmVariant?` · `loading?` · `level?` 1/2/3               | Two-button confirmation dialog. Wraps `Modal` (default `level=2`/`z-70`) + two `Button`s.                                                                                                                                                                                                                                                                                                                                                                             |
+| `FormField.tsx`               | `label` · `required?` · `hint?` · `error?`                                                                                                 | Label wrapper. Shows required star, hint text, or error (error takes priority over hint).                                                                                                                                                                                                                                                                                                                                                                             |
+| `TextInput.tsx`               | `label?` · `value` · `onChange(value)` · `error?` · `hint?` · `prefix?` · `suffix?` · `inputClassName?`                                    | Controlled text input. `inputClassName` adds extra classes to the inner `<input>` element (e.g. `font-mono uppercase` for ticker inputs). When `label` is provided, wraps with `FormField`.                                                                                                                                                                                                                                                                           |
+| `AmountInput.tsx`             | `label?` · `value` (plain numeric string) · `onChange(value)` · `prefix?` (default `₹`) · `showWords?` · `error?` · `hint?` · `autoFocus?` | Money entry field. Live Indian-grouped display, inline calculator (`120+45`, safe hand-rolled evaluator — no `eval`), and an amount-in-words helper beneath (via `lib/amountToWords`). Groups on blur, shows raw draft while focused (no cursor jump). Use for all money inputs in place of a raw `TextInput type="number"`.                                                                                                                                          |
+| `EmptyState.tsx`              | `icon` · `title` · `description?` · `action?`                                                                                              | Icon + title + optional description + optional CTA button. Use for zero-data states.                                                                                                                                                                                                                                                                                                                                                                                  |
+| `TabStrip.tsx`                | `options[]{value,label,icon?,count?}` · `value` · `onChange` · `scrollable?`                                                               | Underline-style tab strip. Generic over the tab value type. Horizontally scrollable when `scrollable=true`.                                                                                                                                                                                                                                                                                                                                                           |
+| `Badge.tsx`                   | `label` · `color?` · `variant?` solid/subtle · `size?` sm/md                                                                               | Coloured pill. `subtle` variant uses `color` at 10% opacity background.                                                                                                                                                                                                                                                                                                                                                                                               |
+| `PageHeader.tsx`              | `subtitle?` · `actions?` · `children?` · `className?`                                                                                      | Secondary, screen-specific content row below `apps/mobile`'s global header (2026-08-01 chrome consolidation: the title + back-button row this used to own via `title`/`leading` moved into `MainTabs`' own header — see the navigation section below). `subtitle` renders as a `text-sm text-secondary` line, `actions` right-aligned, `children` a full-width slot below. Only render this component when a screen actually has a subtitle/actions/children to show. |
+| `SectionLabel.tsx`            | `children` · `className?`                                                                                                                  | Small uppercase `text-tertiary` label titling a section between cards/lists. Spacing is caller-controlled via `className` (default `mb-2`; pass `-mb-2` when the parent supplies a gap).                                                                                                                                                                                                                                                                              |
+| `PassphraseStrengthMeter.tsx` | `score` 0–4                                                                                                                                | Five-bar zxcvbn strength meter + label. Used by onboarding setup and Change Passphrase.                                                                                                                                                                                                                                                                                                                                                                               |
+| `ListContainer.tsx`           | `children` · `className?`                                                                                                                  | Bordered rounded `surface` that hairline-divides its direct children (`divide-[var(--color-border)]`). Standard wrapper for grouped list rows (accounts, transactions, previews).                                                                                                                                                                                                                                                                                     |
+| `ProgressBar.tsx`             | `value` 0–100 · `color?` · `size?` xs/sm/md · `animate?`                                                                                   | Horizontal fill bar. Clamps value to 0–100.                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `SegmentedControl.tsx`        | `options[]{value,label,icon?,color?}` · `value` · `onChange` · `cols?`                                                                     | 2–4 option radio group. Active option fills with `color` (default `--color-primary`). Background: `bg-surface-2`.                                                                                                                                                                                                                                                                                                                                                     |
+| `SelectInput.tsx`             | `label?` · `value` · `onChange(value)` · `options[]{value,label}` · `placeholder?` · `required?` · `disabled?` · `error?` · `hint?`        | Custom dropdown: styled trigger + portal-rendered listbox anchored directly below the field (flips above when space is tight). Renders to `document.body` at `z-index:90` so it escapes modal `overflow` clipping and stacks above `z-80` modals; dismisses on outside-click/Escape; repositions on scroll/resize. Wraps `FormField` when `label` provided.                                                                                                           |
+| `Toggle.tsx`                  | `value` · `onChange(value)` · `disabled?` · `aria-label?`                                                                                  | iOS-style sliding boolean switch. Active: `--color-primary`; inactive: `--color-surface-3`.                                                                                                                                                                                                                                                                                                                                                                           |
+| `LifeRow.tsx`                 | `icon` · `label` · `alignTop?` · `children`                                                                                                | Labelled row for one optional "Life & household" field (icon + label left, control right). Shared by Edit Profile and onboarding's `LifeHouseholdScreen`.                                                                                                                                                                                                                                                                                                             |
+| `OptionalSeg.tsx`             | `options[]{value,label}` · `value` · `onChange(v \| undefined)`                                                                            | Compact segmented control for an optional, clearable field — tap the active segment again to unset it. Distinct from `SegmentedControl` (which requires a value). Shared by Edit Profile and `LifeHouseholdScreen`.                                                                                                                                                                                                                                                   |
+| `index.ts`                    | —                                                                                                                                          | Barrel export for all ui components. Import shared primitives from `@/components/ui` (never deep-import the file).                                                                                                                                                                                                                                                                                                                                                    |
 
 ---
 
@@ -369,16 +1098,16 @@ back arrow + centered title in the same row instead of the shared component.
 
 ### `src/hooks/`
 
-| File                       | Returns                                                                                | Purpose                                                                                                                                                                                                                                                                                                                                                                      |
-| -------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `useRepository.ts`         | `{ items, loading, error, save, remove, reload }`                                      | Generic hook to load/write from any EncryptedRepository. Used in most feature pages.                                                                                                                                                                                                                                                                                         |
-| `useLoggedRepository.ts`   | same shape as `useRepository`                                                          | Wraps `useRepository`, recording CREATE/UPDATE on save + DELETE on remove to the activity log, and firing an Undo toast (restore + reload). Single-entity modules adopt it with `{ entityType, summarize, diffFields? }`.                                                                                                                                                    |
-| `usePassphraseStrength.ts` | `{ score, ready }`                                                                     | Lazy-loads zxcvbn and scores a passphrase (0–4). Used by onboarding setup and Change Passphrase.                                                                                                                                                                                                                                                                             |
-| `useProfile.ts`            | `{ profile, loading }`                                                                 | The single profile record (or null). Used by FIRE, tax, health, retirement, and the profile editor to read dob/employmentType.                                                                                                                                                                                                                                               |
-| `useForecast.ts`           | `{ loading, nowMs, todayStart, startBalance, events, forecast, dueRecurring, reload }` | Loads recurring-flow sources + accounts, computes current liquid balance, and projects it forward via `core/cashflow` (running balance, lowest point, buffer breach, liquidity-based safe-to-spend) plus the due-recurring set. Shared by the Cash Flow page, the safe-to-spend surfaces (Home, Expenses header), and reminders — lives here so features don't cross-import. |
-| `useReminders.ts`          | `{ loading, nowMs, reminders, counts, snooze, markDone, log, cancelSub }`              | Builds the header bell's in-app reminders from `useForecast` + `core/reminders`, holding snooze/done state in localStorage. Actions: snooze, mark done, log a due bill (reuses the recurring occurrence builder), cancel a subscription.                                                                                                                                     |
-| `useTxnRefresh.ts`         | `notifyTxnChanged()` + `useTxnRefresh(reload)`                                         | Cross-instance live-refresh for transactions/balances. The IOU screen writes expenses through separate repo instances and calls `notifyTxnChanged()` (a `penny:txn-changed` window event); `useExpenses`, `useForecast`, `useHome`, and `useAccounts` subscribe via `useTxnRefresh` so lists, balances, forecast, and net worth reload live.                                 |
-| `useDataRefresh.ts`        | `notifyCategoriesChanged()`/`useCategoriesRefresh(reload)`, `notifyAccountsChanged()`/`useAccountsRefresh(reload)`, `notifyTagsChanged()`/`useTagsRefresh(reload)` | Same pattern as `useTxnRefresh`, for categories/accounts/tags. `SafeModeSettingsPage` and `ManageTagsPage` edit these through their own repo instances (separate routes from Expenses); `useExpenses` subscribes to all three events, so a Safe Mode or Manage Tags change reflects immediately without waiting for those screens to remount. |
+| File                       | Returns                                                                                                                                                             | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useRepository.ts`         | `{ items, loading, error, save, remove, reload }`                                                                                                                   | Generic hook to load/write from any EncryptedRepository. Used in most feature pages.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `useLoggedRepository.ts`   | same shape as `useRepository`                                                                                                                                       | Wraps `useRepository`, recording CREATE/UPDATE on save + DELETE on remove to the activity log, and firing an Undo toast (restore + reload). Single-entity modules adopt it with `{ entityType, summarize, diffFields? }`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `usePassphraseStrength.ts` | `{ score, ready }`                                                                                                                                                  | Lazy-loads zxcvbn and scores a passphrase (0–4). Used by onboarding setup and Change Passphrase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `useProfile.ts`            | `{ profile, loading }`                                                                                                                                              | The single profile record (or null). Used by FIRE, tax, health, retirement, and the profile editor to read dob/employmentType.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `useForecast.ts`           | `{ loading, nowMs, todayStart, startBalance, events, forecast, dueRecurring, goalReserved, goalBreakdown, safeToSpendRaw, safeToSpend, safeToSpendPerDay, reload }` | Loads recurring-flow sources + accounts, computes current liquid balance, and projects it forward via `core/cashflow` (running balance, lowest point, buffer breach, `forecast.discretionary` — a pure, goal-agnostic balance/commitments/buffer figure). Shared by the Cash Flow page, the safe-to-spend surfaces (Home, Expenses header), and reminders — lives here so features don't cross-import. **2026-08-02:** also independently loads goals + `GoalContribution`s (can't import `features/goals/useGoals.ts` — a shared hook depending on one feature's own hook) and uses `core/goals/progress.ts` to exclude every "counts" goal's saved amount from `forecast.discretionary`, exposed as `safeToSpend` (clamped ≥0) / `safeToSpendRaw` (unclamped, for an overcommitted check) / `safeToSpendPerDay`; `goalBreakdown` feeds Cash Flow's expandable "Excludes ₹X saved for goals" list. All three "Safe to spend" surfaces read `safeToSpend`, not `forecast.discretionary`. |
+| `useReminders.ts`          | `{ loading, nowMs, reminders, counts, snooze, markDone, log, cancelSub }`                                                                                           | Builds the header bell's in-app reminders from `useForecast` + `core/reminders`, holding snooze/done state in localStorage. Actions: snooze, mark done, log a due bill (reuses the recurring occurrence builder), cancel a subscription.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `useTxnRefresh.ts`         | `notifyTxnChanged()` + `useTxnRefresh(reload)`                                                                                                                      | Cross-instance live-refresh for transactions/balances. The IOU screen writes expenses through separate repo instances and calls `notifyTxnChanged()` (a `penny:txn-changed` window event); `useExpenses`, `useForecast`, `useHome`, and `useAccounts` subscribe via `useTxnRefresh` so lists, balances, forecast, and net worth reload live.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `useDataRefresh.ts`        | `notifyCategoriesChanged()`/`useCategoriesRefresh(reload)`, `notifyAccountsChanged()`/`useAccountsRefresh(reload)`, `notifyTagsChanged()`/`useTagsRefresh(reload)`  | Same pattern as `useTxnRefresh`, for categories/accounts/tags. `SafeModeSettingsPage` and `ManageTagsPage` edit these through their own repo instances (separate routes from Expenses); `useExpenses` subscribes to all three events, so a Safe Mode or Manage Tags change reflects immediately without waiting for those screens to remount.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 _(Track 1 adds: `useDisclosure.ts`, `useAsync.ts`)_
 
@@ -390,26 +1119,26 @@ _(Track 1 adds: `useDisclosure.ts`, `useAsync.ts`)_
 
 Three files, one responsibility each:
 
-| File                 | Purpose                                                                                                                                                                                                                                                                                                                                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `engine.ts`          | Pure crypto: symmetric (`deriveKey()`, `encrypt()`, `decrypt()`, `wrapKey()`, `unwrapKey()`, `generateSalt()`, `deriveVerifier()`) + asymmetric device-identity primitives (Track B): `generateSigningKeypair()`/`generateWrappingKeypair()` (ECDSA/ECDH P-256), `sign()`/`verify()`, JWK export/import, `deriveSharedWrappingKey()` (ECDH → AES-GCM KEK). Only file that calls `window.crypto.subtle`. |
-| `keystore.ts`        | In-memory Master Key holder. `setMasterKey()`, `getMasterKey()`, `isUnlocked()`, `lock()`. Never writes to storage.                                                                                                                                                                                                                                                                                     |
-| `securityManager.ts` | Orchestrates auth lifecycle: `initialize()`, `unlock()`, `verifyPin()`, `changePin()`, `changePassphrase()` (once/24h throttle), `isOnboardingComplete()`, `isPinRotationDue()`. **Track F Forgot-PIN recovery**: `unlockWithPassphrase()` and `resetPinWithPassphrase()` — an independent passphrase-attempt counter/lockout (`getPassphraseLockoutState()`) kept separate from the PIN's own, so exhausting one factor never blocks the other. **Demo Mode**: `DEMO_PIN`/`DEMO_PASSPHRASE` (fixed, shown constants) + `exitDemoMode()` — re-keys the throwaway demo vault to real credentials, deliberately bypassing the once/24h throttle since the vault is seconds old. Reads/writes the `security` Dexie store.                                                                                                                                                                                                                                        |
-| `identityKeys.ts`    | Device identity keypair lifecycle (Track B): `ensureIdentityKeys()` (lazy + idempotent, called at claim), `getSigningKeypair()`/`getWrappingKeypair()`, `getPublicJwks()`. Stores JWKs in the DMK-encrypted `device_keys` table.                                                                                                                                                                        |
+| File                 | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `engine.ts`          | Pure crypto: symmetric (`deriveKey()`, `encrypt()`, `decrypt()`, `wrapKey()`, `unwrapKey()`, `generateSalt()`, `deriveVerifier()`) + asymmetric device-identity primitives (Track B): `generateSigningKeypair()`/`generateWrappingKeypair()` (ECDSA/ECDH P-256), `sign()`/`verify()`, JWK export/import, `deriveSharedWrappingKey()` (ECDH → AES-GCM KEK). Only file that calls `window.crypto.subtle`.                                                                                                                                                                                                                                                                                                                |
+| `keystore.ts`        | In-memory Master Key holder. `setMasterKey()`, `getMasterKey()`, `isUnlocked()`, `lock()`. Never writes to storage.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `securityManager.ts` | Orchestrates auth lifecycle: `initialize()`, `unlock()`, `verifyPin()`, `changePin()`, `changePassphrase()` (once/24h throttle), `isOnboardingComplete()`, `isPinRotationDue()`. **Track F Forgot-PIN recovery**: `unlockWithPassphrase()` and `resetPinWithPassphrase()` — an independent passphrase-attempt counter/lockout (`getPassphraseLockoutState()`) kept separate from the PIN's own, so exhausting one factor never blocks the other. **Demo Mode**: `DEMO_PIN`/`DEMO_PASSPHRASE` (fixed, shown constants) + `exitDemoMode()` — re-keys the throwaway demo vault to real credentials, deliberately bypassing the once/24h throttle since the vault is seconds old. Reads/writes the `security` Dexie store. |
+| `identityKeys.ts`    | Device identity keypair lifecycle (Track B): `ensureIdentityKeys()` (lazy + idempotent, called at claim), `getSigningKeypair()`/`getWrappingKeypair()`, `getPublicJwks()`. Stores JWKs in the DMK-encrypted `device_keys` table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 ### `src/core/db/`
 
-| File                   | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema.ts`            | `PennyDatabase` extends `Dexie`. Defines v1→v8 migrations and all store definitions. Exports `db` singleton. (v7 adds `persons` + `ledger_entries` for the IOU ledger; v8 adds `device_keys` + `group_keys` + `sync_cursor` for Track B sync/identity crypto.)                                                                                                                                                                                                                                            |
-| `repository.ts`        | `EncryptedRepository<T>` class. Encrypts on `put()`, decrypts on `get()`/`getAll()`. Uses Master Key from keystore.                                                                                                                                                                                                                                                                                                                                                                                       |
-| `repositories.ts`      | Pre-instantiated repositories for all encrypted stores. Import from here — never instantiate directly in features.                                                                                                                                                                                                                                                                                                                                                                                        |
-| `types/index.ts`       | TypeScript interfaces for all 40+ entity types.                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `defaultCategories.ts` | `ALL_DEFAULT_CATEGORIES`, `INTENT_GROUP_META`, `CATEGORY_MIGRATION_MAP`.                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `priceCache.ts`        | Helpers for reading/writing the `price_cache` plain store with TTL support.                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| File                   | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema.ts`            | `PennyDatabase` extends `Dexie`. Defines v1→v8 migrations and all store definitions. Exports `db` singleton. (v7 adds `persons` + `ledger_entries` for the IOU ledger; v8 adds `device_keys` + `group_keys` + `sync_cursor` for Track B sync/identity crypto.)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `repository.ts`        | `EncryptedRepository<T>` class. Encrypts on `put()`, decrypts on `get()`/`getAll()`. Uses Master Key from keystore.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `repositories.ts`      | Pre-instantiated repositories for all encrypted stores. Import from here — never instantiate directly in features.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `types/index.ts`       | TypeScript interfaces for all 40+ entity types.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `defaultCategories.ts` | `ALL_DEFAULT_CATEGORIES`, `INTENT_GROUP_META`, `CATEGORY_MIGRATION_MAP`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `priceCache.ts`        | Helpers for reading/writing the `price_cache` plain store with TTL support.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `seedDemoData.ts`      | Seeds a realistic **multi-year (Jan 2017 → today)** demo dataset, tailored per `employmentType` via a per-persona config. Salary steps through a career arc (`SALARY_ARC`/`salaryFor`, aligned to the EPF employer history) with April/July hikes; the latest 12 months are fully detailed, older months carry the core recurring rows (scaled back by a ~5%/yr `grow()` factor). Only ever called from `DemoVaultScreen` (the "Explore with Demo Data" branch) — never from the real-setup sequence. Exports `seedDemoData(employmentType?)`, `wipeDemoData()` (wholesale `.clear()` on every financial table, no reload/navigation — both `DemoModeBanner`'s "Exit Demo Mode" and Settings' equivalent button call it directly, then hand off to the real-setup sequence), and `reseedForEmployment(employmentType)`. |
-| `activityLog.ts`       | Timeline service: `logActivity` (fire-and-forget + prune), `restoreActivity` (restores `snapshot` + any other-type `cascade` records — atomic combined Undo), `restoreDeletionsSince`, `summarizeDiff`.                                                                                                                                                                                                                                                                                                   |
-| `entityRegistry.ts`    | `entityType → repo.put` map so `restoreActivity` re-inserts snapshots (and cascade records) generically.                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `activityLog.ts`       | Timeline service: `logActivity` (fire-and-forget + prune), `restoreActivity` (restores `snapshot` + any other-type `cascade` records — atomic combined Undo), `restoreDeletionsSince`, `summarizeDiff`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `entityRegistry.ts`    | `entityType → repo.put` map so `restoreActivity` re-inserts snapshots (and cascade records) generically.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 ### `src/core/iou/`
 
@@ -520,12 +1249,12 @@ group UX (create/invite/join/split/settle) lands in E2–E5. See
 
 ## Context providers
 
-| Context            | Stored in                  | Key values                                                                    |
-| ------------------ | -------------------------- | ----------------------------------------------------------------------------- |
-| `PrivacyContext`   | React state + localStorage | `mode: PrivacyMode`, `setMode()`, `maskValue()`, `shouldMask(sensitive)`, `canUseAI()`, `openModeExpiresAt: number \| null` — `shouldMask` is the single source of truth for amount masking: Open never masks, Privacy always masks, Safe masks only when `sensitive` is true. Open is never a persistent state — `mode` always starts at `defaultPrivacyMode` (Safe or Privacy) on launch, and `setMode('open')` arms an auto-revert `setTimeout` (duration from `openModeDurationMinutes`) plus an immediate revert on `visibilitychange`/backgrounding |
-| `SettingsContext`  | localStorage               | `moduleVisibility`, `safeModeVisibility` (`loans`/`iou`/`portfolio`/`goals`/`insurance`/`subscriptions`, all default visible), `fontScale`, `theme`, `defaultPrivacyMode: PersistedPrivacyMode` (Safe/Privacy only — Open excluded from the type, legacy `'open'` values coerce to Safe), `openModeDurationMinutes` (1/5/10/15/30, default 1) + `setOpenModeDurationMinutes()`, `setModule()`, `setSafeModeVisibility()` |
-| `EventModeContext` | Dexie (`hashtags` store)   | `activeEvent`, `addEvent()`, `stopEvent()`, `promoteHashtagToEvent()`         |
-| `OnboardingDraftContext` | React state (in-memory only) | `fullName`/`username`/`dob`/`employmentType`, Life & household fields (`maritalStatus`/`children`/`homeOwner`/`riskAppetite`), `accountsToCreate: DraftAccount[]`, `backupChoice`, `fromDemoMode` (set from router location state when reached via Exit Demo Mode) + `setDraft(patch)`. Scoped to the `/onboarding/*` route tree (mounted by `OnboardingLayout`) — nothing here persists until the final vault step writes it. |
+| Context                  | Stored in                    | Key values                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PrivacyContext`         | React state + localStorage   | `mode: PrivacyMode`, `setMode()`, `maskValue()`, `shouldMask(sensitive)`, `canUseAI()`, `openModeExpiresAt: number \| null` — `shouldMask` is the single source of truth for amount masking: Open never masks, Privacy always masks, Safe masks only when `sensitive` is true. Open is never a persistent state — `mode` always starts at `defaultPrivacyMode` (Safe or Privacy) on launch, and `setMode('open')` arms an auto-revert `setTimeout` (duration from `openModeDurationMinutes`) plus an immediate revert on `visibilitychange`/backgrounding |
+| `SettingsContext`        | localStorage                 | `moduleVisibility`, `safeModeVisibility` (`loans`/`iou`/`portfolio`/`goals`/`insurance`/`subscriptions`, all default visible), `fontScale`, `theme`, `defaultPrivacyMode: PersistedPrivacyMode` (Safe/Privacy only — Open excluded from the type, legacy `'open'` values coerce to Safe), `openModeDurationMinutes` (1/5/10/15/30, default 1) + `setOpenModeDurationMinutes()`, `setModule()`, `setSafeModeVisibility()`                                                                                                                                  |
+| `EventModeContext`       | Dexie (`hashtags` store)     | `activeEvent`, `addEvent()`, `stopEvent()`, `promoteHashtagToEvent()`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `OnboardingDraftContext` | React state (in-memory only) | `fullName`/`username`/`dob`/`employmentType`, Life & household fields (`maritalStatus`/`children`/`homeOwner`/`riskAppetite`), `accountsToCreate: DraftAccount[]`, `backupChoice`, `fromDemoMode` (set from router location state when reached via Exit Demo Mode) + `setDraft(patch)`. Scoped to the `/onboarding/*` route tree (mounted by `OnboardingLayout`) — nothing here persists until the final vault step writes it.                                                                                                                            |
 
 ---
 
@@ -770,14 +1499,14 @@ Bridge functions that read UI state then call a hook mutation live in the page.
 
 This table reflects the approved plan in [`docs/plans/mobile-migration.md`](plans/mobile-migration.md) (single Expo codebase, targeting iOS/Android/web via `react-native-web`; NativeWind for styling; `@op-engineering/op-sqlite` + `react-native-quick-crypto` as native adapters — the storage adapter went `expo-sqlite` → `react-native-mmkv` → `op-sqlite`, all on 2026-07-26). Track 0 (done) physically separated the two layers below into `packages/core/` and `apps/web-react/`; the remaining rows land in later tracks.
 
-| Layer                                | RN effort                                        | Why                                                                        |
-| ------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------- |
-| `packages/core/src/`                  | Near-zero changes                                 | Pure TypeScript; one flagged seam (`import.meta.env`, see above) to abstract |
-| Feature hooks (`use{Name}.ts`)         | Zero changes                                      | React hooks work identically in RN                                          |
-| Feature UI (`{Name}Page.tsx`)          | Full rewrite (Track 4)                            | NativeWind + View/Text/Pressable, not Tailwind/DOM elements                  |
-| `apps/web-react/src/components/ui/`  | ✅ Done — rewritten as `apps/mobile/src/components/ui/` | Same prop APIs, different renderer (Track 3)                          |
-| `packages/core/src/core/db/`          | ✅ Done — `@op-engineering/op-sqlite` adapter behind `RowStore<T>` (was `expo-sqlite`, then `react-native-mmkv`, both swapped 2026-07-26) | `EncryptedRepository<T>`'s constructor narrowed from Dexie's `Table` to `RowStore<T>` — type-only change on web |
-| `packages/core/src/core/crypto/`      | ✅ Done — `react-native-quick-crypto` polyfills `crypto.subtle` | `engine.ts`/`securityManager.ts`/`identityKeys.ts`/`recovery.ts` needed **zero logic changes** |
+| Layer                               | RN effort                                                                                                                                 | Why                                                                                                             |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `packages/core/src/`                | Near-zero changes                                                                                                                         | Pure TypeScript; one flagged seam (`import.meta.env`, see above) to abstract                                    |
+| Feature hooks (`use{Name}.ts`)      | Zero changes                                                                                                                              | React hooks work identically in RN                                                                              |
+| Feature UI (`{Name}Page.tsx`)       | Full rewrite (Track 4)                                                                                                                    | NativeWind + View/Text/Pressable, not Tailwind/DOM elements                                                     |
+| `apps/web-react/src/components/ui/` | ✅ Done — rewritten as `apps/mobile/src/components/ui/`                                                                                   | Same prop APIs, different renderer (Track 3)                                                                    |
+| `packages/core/src/core/db/`        | ✅ Done — `@op-engineering/op-sqlite` adapter behind `RowStore<T>` (was `expo-sqlite`, then `react-native-mmkv`, both swapped 2026-07-26) | `EncryptedRepository<T>`'s constructor narrowed from Dexie's `Table` to `RowStore<T>` — type-only change on web |
+| `packages/core/src/core/crypto/`    | ✅ Done — `react-native-quick-crypto` polyfills `crypto.subtle`                                                                           | `engine.ts`/`securityManager.ts`/`identityKeys.ts`/`recovery.ts` needed **zero logic changes**                  |
 
 ---
 
@@ -872,7 +1601,7 @@ identical correction). Auditing every `.native.ts`/`.web.ts` pair in `packages/c
 more file groups with the same shape. **Rule going forward:** a platform-suffixed file may only
 contain logic that's genuinely platform-different (a different storage API, reading
 `import.meta.env` vs `expo-constants`, etc.). Any literal — or, per `exportCsv.*`'s case, any
-*pure logic* — that's identical across variants belongs in an unsuffixed sibling file (the
+_pure logic_ — that's identical across variants belongs in an unsuffixed sibling file (the
 `*.constants.ts` convention for literals, or a plain descriptively-named file like
 `exportCsv.shared.ts` when whole functions are shared), imported by every variant that needs it.
 This is safe under both bundlers: Metro's platform-suffix resolution only matches a fixed short

@@ -15,7 +15,20 @@ const HORIZON_DAYS: Record<Horizon, number> = { month: 31, quarter: 92, halfyear
  */
 export function useCashFlow() {
   const [horizon, setHorizon] = useState<Horizon>('quarter');
-  const { loading, nowMs, todayStart, startBalance, events, forecast, reload } = useForecast(HORIZON_DAYS[horizon]);
+  const {
+    loading,
+    nowMs,
+    todayStart,
+    startBalance,
+    events,
+    forecast,
+    goalReserved,
+    goalBreakdown,
+    safeToSpendRaw,
+    safeToSpend,
+    safeToSpendPerDay,
+    reload
+  } = useForecast(HORIZON_DAYS[horizon]);
 
   const outflowEvents = useMemo(() => events.filter((e) => e.direction === 'out'), [events]);
 
@@ -51,6 +64,11 @@ export function useCashFlow() {
     todayStart,
     startBalance,
     forecast,
+    goalReserved,
+    goalBreakdown,
+    safeToSpendRaw,
+    safeToSpend,
+    safeToSpendPerDay,
     nowMs,
     reload
   };

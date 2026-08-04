@@ -4,6 +4,8 @@ import type {
   Account,
   ActivityLog,
   AiCallLog,
+  BankNarrationOverride,
+  BankStatementImportRecord,
   Budget,
   ChipInsight,
   CreditProfile,
@@ -22,11 +24,14 @@ import type {
   LedgerEntry,
   Liability,
   MerchantMemory,
+  NetWorthSnapshot,
+  PaymentMode,
   Person,
   PersonalIou,
   PriceCache,
   PrivacyStat,
   Profile,
+  RetirementPlan,
   SecurityRecord,
   Subscription,
   SyncCursor,
@@ -105,7 +110,12 @@ const ENCRYPTED_TABLES = [
   'sync_cursor',
   'groups',
   'group_members',
-  'group_events'
+  'group_events',
+  'bank_statement_imports',
+  'bank_narration_overrides',
+  'payment_modes',
+  'retirement_plan',
+  'net_worth_snapshots'
 ];
 const PLAIN_TABLES = ['security', 'price_cache', 'privacy_stats'];
 
@@ -275,7 +285,16 @@ const tableStores = {
   sync_cursor: makeEncryptedRowStore('sync_cursor') as unknown as RowStore<SyncCursor>,
   groups: makeEncryptedRowStore('groups') as unknown as RowStore<Group>,
   group_members: makeEncryptedRowStore('group_members') as unknown as RowStore<GroupMember>,
-  group_events: makeEncryptedRowStore('group_events') as unknown as RowStore<GroupEvent>
+  group_events: makeEncryptedRowStore('group_events') as unknown as RowStore<GroupEvent>,
+  bank_statement_imports: makeEncryptedRowStore(
+    'bank_statement_imports'
+  ) as unknown as RowStore<BankStatementImportRecord>,
+  bank_narration_overrides: makeEncryptedRowStore(
+    'bank_narration_overrides'
+  ) as unknown as RowStore<BankNarrationOverride>,
+  payment_modes: makeEncryptedRowStore('payment_modes') as unknown as RowStore<PaymentMode>,
+  retirement_plan: makeEncryptedRowStore('retirement_plan') as unknown as RowStore<RetirementPlan>,
+  net_worth_snapshots: makeEncryptedRowStore('net_worth_snapshots') as unknown as RowStore<NetWorthSnapshot>
 };
 
 export const db = {

@@ -3,21 +3,31 @@ import { View, Pressable, Text } from 'react-native';
 import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { usePrivacy } from '~/context/PrivacyContext';
-import { useForecast } from '~/hooks/useForecast';
-import { formatCompact, formatCurrency } from '@/lib/formatters';
+import { formatCurrency } from '@/lib/formatters';
 import { IconBadge, Modal, ProgressBar } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';
+import { useRetirementProjection } from './useRetirementProjection';
+import { RetirementCorpusChart } from './RetirementCorpusChart';
+import { RetirementFundedSummary } from './RetirementFundedSummary';
+import { RetirementDrilldownModal } from './RetirementDrilldownModal';
 import type { HomeSummary, AssetGroup } from './useHome';
 
-function assetSubTab(ac: string): string {
-  if (ac === 'nps' || ac === 'ppf' || ac === 'epf') return 'retirement';
-  if (ac === 'gold') return 'precious_metals';
-  if (ac === 'vehicle' || ac === 'property' || ac === 'other') return 'real_assets';
-  if (ac === 'fd') return 'fixed_income';
-  if (ac === 'stock') return 'stocks';
-  return ac;
+/**
+ * Maps a net-worth breakdown row's asset class to where it lands in Portfolio — 2026-08-01 Equity
+ * consolidation grew this from a single flat `holdingsSubTab` string to a `{ mainTab, equitySubTab }`
+ * pair, since Stocks/MF now live one level deeper (under the new Equity main tab) while the other 4
+ * asset classes each got promoted straight to their own main tab.
+ */
+function assetPortfolioTarget(ac: string): { mainTab: string; equitySubTab?: string } {
+  if (ac === 'nps' || ac === 'ppf' || ac === 'epf') return { mainTab: 'retirement' };
+  if (ac === 'gold') return { mainTab: 'precious_metals' };
+  if (ac === 'vehicle' || ac === 'property' || ac === 'other') return { mainTab: 'real_assets' };
+  if (ac === 'fd') return { mainTab: 'fixed_income' };
+  if (ac === 'stock') return { mainTab: 'equity', equitySubTab: 'stocks' };
+  if (ac === 'mf') return { mainTab: 'equity', equitySubTab: 'mf' };
+  return { mainTab: 'equity' };
 }
 
 const LIABILITY_META: Record<string, { label: string; icon: string }> = {
@@ -39,98 +49,102 @@ interface Props {
   summary: HomeSummary;
   assetGroups: AssetGroup[];
   totalAssets: number;
-  totalLiabilities: number;
 }
 
-/** Light, minimal Home header: the two numbers that matter most (net worth + safe-to-spend),
- *  a slim asset bar, and a tap-through to the full breakdown. Breakdown rows navigate to the matching
- *  module's real route (Accounts/Expenses/Portfolio/Loans), same mapping as web's `GlanceHeader` —
- *  web's `assetSubTab`/`{ state: { tab: 'iou' } }` deep-link hints are now restored too (found missing
- *  via the 2026-07-25 parity sweep): `PortfolioPage`/`ExpensesPage` both read an initial sub-tab param
- *  off `useRoute()` now. "Safe to spend" navigates to the real `CashFlow` screen (restored once that
- *  module was ported — see `~/features/cashflow/CashFlowPage.tsx`). */
-export function GlanceHeader({ summary, assetGroups, totalAssets, totalLiabilities }: Props) {
+/**
+ * Home's money hero. As of the Retirement Corpus redesign, Net worth and the new Retirement Corpus
+ * card are fused into one borderless unit — no card background on either: Net worth's label/number/
+ * "View breakdown" sit directly over `RetirementCorpusChart`'s naturally-empty top-left corner, and
+ * everything below the chart (the "% funded" gauge, stat rows, CTA chip, tap hint) opens the
+ * expense-projection drill-down on tap. Net worth's own tap target is a nested `Pressable` so it opens
+ * its breakdown `Modal` instead of also triggering the drill-down (RN's responder system gives the
+ * innermost `Pressable` the touch, same pattern `AccountList.tsx`'s row + trailing action buttons
+ * already rely on — no explicit stopPropagation call needed).
+ *
+ * Safe-to-spend and the colored asset-proportion bar/assets-liabilities line were removed from Home
+ * entirely (2026-08 declutter) — Safe-to-spend already lives on the Cash Flow screen, and the bar/line
+ * didn't say anything the tap-through breakdown below doesn't already say better. That breakdown modal
+ * (assetPortfolioTarget/LIABILITY_META + the assets/liabilities rows) is unchanged.
+ */
+export function GlanceHeader({ summary, assetGroups, totalAssets }: Props) {
   const { shouldMask } = usePrivacy();
   const theme = useThemeColors();
-  const { loading: forecastLoading, forecast } = useForecast();
   const [detailOpen, setDetailOpen] = useState(false);
+  const [drilldownOpen, setDrilldownOpen] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   // Net worth is an aggregate, not a specific sensitive item — Safe Mode keeps it visible;
   // only Privacy Mode hides it (same as everywhere else "sensitive" defaults to false).
   const open = !shouldMask(false);
 
+  const { plan, projection, currentAge, monthlyExpenseToday, points, updatePlan } = useRetirementProjection(summary);
+  const retirementYear = projection?.yearlyPath[projection.yearlyPath.length - 1]?.year ?? new Date().getFullYear();
+
   const goToAsset = (ac: string) => {
     if (ac === 'liquid') navigation.navigate('Accounts');
     else if (ac === 'iou') navigation.navigate('Expenses', { screen: 'ExpensesMain', params: { initialTab: 'iou' } });
-    else navigation.navigate('Portfolio', { holdingsSubTab: assetSubTab(ac) });
+    else navigation.navigate('Portfolio', assetPortfolioTarget(ac));
   };
-
-  const safe = Math.max(0, forecast.discretionary);
-  const breached = forecast.bufferBreachMs !== null;
-  const safeSub = forecastLoading
-    ? ''
-    : breached
-      ? 'dips below your cushion soon'
-      : forecast.daysToPayday !== null
-        ? `${forecast.daysToPayday} day${forecast.daysToPayday === 1 ? '' : 's'} till payday`
-        : `${forecast.daysLeft} days to month-end`;
 
   return (
     <>
-      {/* Money hero — net worth + safe-to-spend, with the assets/liabilities bar inside the same card */}
-      <View className="rounded-[18px] overflow-hidden bg-surface border border-theme mb-4">
-        <View className="flex-row">
-          <Pressable onPress={() => setDetailOpen(true)} className="flex-1 px-4 py-3.5 active:bg-surface-2">
-            <Text className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">Net worth</Text>
-            <Text className="text-[24px] font-bold tracking-tight text-primary leading-tight mt-0.5">
+      {/* Fused hero — Net worth + Retirement Corpus, one borderless unit (no card bg/border). Only the
+          "Tap for expense projection" row (inside RetirementFundedSummary) opens the drill-down — the
+          chart itself has its own scrub gesture (RetirementCorpusChart), and shouldn't also double as a
+          tap target for a different action. */}
+      <View className="mb-4">
+        <View style={{ position: 'relative' }}>
+          {projection && points.length > 0 ? (
+            <RetirementCorpusChart points={points} retirementYear={retirementYear} open={open} />
+          ) : (
+            <View style={{ height: 244 }} />
+          )}
+
+          {/* Net worth text overlay — nested Pressable, own tap target (see doc comment above). */}
+          <Pressable
+            onPress={() => setDetailOpen(true)}
+            className="absolute left-0 top-4"
+            accessibilityLabel="View net worth breakdown"
+          >
+            <Text className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: theme.textTertiary }}>
+              Net worth
+            </Text>
+            <Text
+              className="text-[25px] font-extrabold tracking-tight leading-tight mt-0.5"
+              style={{ color: theme.textPrimary }}
+            >
               {open ? formatCurrency(summary.netWorth) : '••••'}
             </Text>
             <View className="flex-row items-center gap-1 mt-0.5">
-              <Text className="text-[11px] text-tertiary">View breakdown</Text>
-              <Icon name="ti-chevron-right" size={12} color={theme.textTertiary} />
+              <Text className="text-[10px]" style={{ color: theme.textTertiary }}>
+                View breakdown
+              </Text>
+              <Icon name="ti-chevron-right" size={11} color={theme.textTertiary} />
             </View>
-          </Pressable>
-          <Pressable
-            onPress={() => navigation.navigate('CashFlow')}
-            className="flex-1 px-4 py-3.5 border-l border-theme active:bg-surface-2"
-          >
-            <Text className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">Safe to spend</Text>
-            <Text
-              className="text-[24px] font-bold tracking-tight leading-tight mt-0.5"
-              style={{ color: breached ? theme.danger : theme.primary }}
-            >
-              {open ? formatCurrency(safe) : '••••'}
-            </Text>
-            <Text className="text-[11px] text-tertiary mt-0.5" numberOfLines={1}>
-              {safeSub}
-            </Text>
           </Pressable>
         </View>
 
-        {/* Slim asset bar + assets/liabilities line — inside the card */}
-        {open && totalAssets > 0 && (
-          <Pressable onPress={() => setDetailOpen(true)} className="w-full px-4 pb-3.5">
-            <View className="flex-row rounded-full overflow-hidden mb-1.5" style={{ height: 6, gap: 2 }}>
-              {assetGroups.map(({ ac, value, meta }) => (
-                <View key={ac} style={{ flex: value / totalAssets, backgroundColor: meta.color }} />
-              ))}
-            </View>
-            <View className="flex-row items-center justify-between">
-              <Text className="text-[11px] text-tertiary">
-                Assets <Text className="text-secondary font-medium">{formatCompact(totalAssets)}</Text>
-              </Text>
-              {totalLiabilities > 0 && (
-                <Text className="text-[11px] text-tertiary">
-                  Liabilities{' '}
-                  <Text className="font-medium" style={{ color: theme.danger }}>
-                    −{formatCompact(totalLiabilities)}
-                  </Text>
-                </Text>
-              )}
-            </View>
-          </Pressable>
+        {projection && (
+          <RetirementFundedSummary
+            projection={projection}
+            monthlyInvestment={plan?.monthlyInvestment ?? 0}
+            retirementYear={retirementYear}
+            open={open}
+            onOpenDrilldown={() => setDrilldownOpen(true)}
+          />
         )}
       </View>
+
+      {drilldownOpen && projection && plan && (
+        <RetirementDrilldownModal
+          plan={plan}
+          monthlyExpenseToday={monthlyExpenseToday}
+          projection={projection}
+          currentAge={currentAge}
+          open={open}
+          onUpdate={updatePlan}
+          onClose={() => setDrilldownOpen(false)}
+        />
+      )}
 
       {detailOpen && (
         <Modal onClose={() => setDetailOpen(false)} title="Net worth" scrollable>

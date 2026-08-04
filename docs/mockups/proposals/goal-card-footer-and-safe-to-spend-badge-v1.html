@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Goal card: unified footer + Safe-to-spend badge</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --danger:#ef4444; --amber:#f59e0b; --liquid1:#7fe0bd; --liquid2:#0f9d68;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 20px; color:#9aa5b1; font-size:14px; max-width:900px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .thoughts { max-width:740px; margin:0 auto 34px; background:#101720; border:1px solid var(--border); border-radius:14px; padding:16px 20px; font-size:13px; line-height:1.75; color:#c3cad2; }
+      .thoughts b { color:#fff; }
+      .thoughts .rec { margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); color:#7ee6b8; }
+      .sectiontitle { text-align:center; font-size:15px; font-weight:800; color:#fff; margin:44px 0 4px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:760px; margin:0 auto 18px; line-height:1.6; }
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 40px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.cur { background:#3a2412; color:#f0b060; }
+      .vtitle .tag.rec { background:#123524; color:#7ee6b8; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+      .phone { width:290px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:16px; background:var(--bg); flex-shrink:0; }
+      .content { padding:14px 12px; }
+
+      /* ===== card shell (shared) ===== */
+      .card { border-radius:18px; border:1px solid var(--border); overflow:hidden; position:relative; background:var(--surface); }
+      .liquid { position:relative; height:132px; padding:14px; display:flex; flex-direction:column; justify-content:space-between; overflow:hidden; }
+      .liquid .fill { position:absolute; left:0; right:0; bottom:0; background:linear-gradient(180deg, var(--liquid1), var(--liquid2)); }
+      .liquid .icnwatermark { position:absolute; right:-18px; bottom:-20px; font-size:110px; color:#fff; opacity:.16; }
+      .liquid .top { position:relative; z-index:1; }
+      .liquid .pct { font-size:24px; font-weight:800; color:#fff; }
+      .liquid .name { font-size:13px; font-weight:700; color:#fff; margin-top:1px; }
+      .liquid .bottom { position:relative; z-index:1; }
+      .liquid .row1 { display:flex; justify-content:space-between; font-size:10.5px; color:rgba(255,255,255,.92); }
+      .liquid .sip { font-size:9.5px; color:rgba(255,255,255,.72); margin-top:2px; }
+
+      .badge-notcounted { position:absolute; top:10px; right:10px; z-index:2; display:flex; align-items:center; gap:4px; background:rgba(0,0,0,.38); border-radius:999px; padding:3px 8px; }
+      .badge-notcounted i { font-size:10px; color:#fff; }
+      .badge-notcounted span { font-size:9px; font-weight:700; color:#fff; }
+
+      /* current (buttons outside) */
+      .btnrow-outside { display:flex; gap:8px; margin-top:8px; }
+      .btnrow-outside .btn { flex:1; display:flex; align-items:center; justify-content:center; gap:5px; border-radius:12px; padding:9px 0; font-size:11.5px; font-weight:700; }
+      .btnrow-outside .btn.sec { background:var(--surface2); border:1px solid var(--border); color:var(--text); }
+      .btnrow-outside .btn.pri { background:var(--primary); color:#04150d; }
+
+      /* option A: unified footer inside card border */
+      .footer-inside { display:flex; gap:8px; padding:10px; border-top:1px solid var(--border); background:var(--surface); }
+      .footer-inside .btn { flex:1; display:flex; align-items:center; justify-content:center; gap:5px; border-radius:11px; padding:8px 0; font-size:11px; font-weight:700; }
+      .footer-inside .btn.sec { background:var(--surface2); color:var(--text); }
+      .footer-inside .btn.pri { background:var(--primary); color:#04150d; }
+
+      /* option B: icon chip bar overlaid on liquid */
+      .chipbar { position:absolute; left:12px; right:12px; bottom:10px; z-index:1; display:flex; gap:8px; justify-content:flex-end; }
+      .chip { width:34px; height:34px; border-radius:17px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.32); border:1px solid rgba(255,255,255,.25); }
+      .chip.pri { background:#fff; }
+      .chip i { font-size:15px; color:#fff; }
+      .chip.pri i { color:var(--liquid2); }
+
+      /* option C: one primary footer button, link tucked as icon */
+      .footer-single { display:flex; align-items:center; gap:8px; padding:10px; border-top:1px solid var(--border); background:var(--surface); }
+      .footer-single .btn { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; border-radius:11px; padding:9px 0; font-size:12px; font-weight:700; background:var(--primary); color:#04150d; }
+      .footer-single .iconbtn { width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center; background:var(--surface2); border:1px solid var(--border); flex-shrink:0; }
+      .footer-single .iconbtn i { font-size:15px; color:var(--text2); }
+    </style>
+  </head>
+  <body>
+    <h1>Goal card — unified footer + Safe-to-spend badge</h1>
+    <p class="sub">
+      Same data as your screenshot: Europe Trip, ₹40,000 of ₹2,00,000 (20%), 17mo left, SIP needed
+      ₹8,374/mo. Today "Add contribution"/"Link existing" sit in a separate row below the card — these
+      options fold them into the card itself, plus show where the new Safe-to-spend flag would appear.
+    </p>
+    <div class="thoughts">
+      <b>On the Safe-to-spend badge:</b> since every goal defaults to "counts" (the common case), stamping
+      an affirmative badge on every single card would just be noise repeating the same fact everywhere.
+      Instead, the badge only appears on the rare goal you've personally flipped <i>off</i> — an exception
+      worth flagging, not a default worth restating. A normal (counted) goal card looks exactly like
+      today, just with the buttons relocated.
+      <div class="rec">My pick is <b>Option A</b> — closest to today's card, reads as one clear unit, and
+      keeps both actions equally prominent (you use both regularly, per Goal Detail already offering
+      both). Option B is the most compact/modern if you want to reclaim vertical space across a whole
+      goals list. Option C is worth considering only if "Link existing" is actually rare for you — it
+      demotes it to an icon-only secondary action.</div>
+    </div>
+
+    <div class="sectiontitle">Current (today)</div>
+    <div class="sectionsub">Buttons float in their own row below the card — visually disconnected.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Current<span class="tag cur">today</span></div>
+        <div class="vsub">Matches your screenshot exactly.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="content">
+            <div class="card">
+              <div class="liquid">
+                <div class="fill" style="height:20%;"></div>
+                <i class="ti ti-plane icnwatermark"></i>
+                <div class="top"><div class="pct">20%</div><div class="name">Europe Trip</div></div>
+                <div class="bottom">
+                  <div class="row1"><span>₹40,000 of ₹2,00,000</span><span>17mo left</span></div>
+                  <div class="sip">SIP needed: ₹8,374/mo</div>
+                </div>
+              </div>
+            </div>
+            <div class="btnrow-outside">
+              <div class="btn sec"><i class="ti ti-link"></i>Link existing</div>
+              <div class="btn pri"><i class="ti ti-plus"></i>Add contribution</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle">Option A — Unified footer <span style="color:#7ee6b8;font-size:12px;font-weight:700;">(recommended)</span></div>
+    <div class="sectionsub">Buttons move inside the same rounded border as the liquid card, separated by a thin divider — one visual unit.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Option A · counted goal<span class="tag rec">unified footer</span></div>
+        <div class="vsub">Default state — no badge, since "counts" is the norm.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="content">
+            <div class="card">
+              <div class="liquid">
+                <div class="fill" style="height:20%;"></div>
+                <i class="ti ti-plane icnwatermark"></i>
+                <div class="top"><div class="pct">20%</div><div class="name">Europe Trip</div></div>
+                <div class="bottom">
+                  <div class="row1"><span>₹40,000 of ₹2,00,000</span><span>17mo left</span></div>
+                  <div class="sip">SIP needed: ₹8,374/mo</div>
+                </div>
+              </div>
+              <div class="footer-inside">
+                <div class="btn sec"><i class="ti ti-link"></i>Link existing</div>
+                <div class="btn pri"><i class="ti ti-plus"></i>Add contribution</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Option A · goal toggled off<span class="tag rec">badge shown</span></div>
+        <div class="vsub">A goal you personally excluded from Safe to spend — the exception gets flagged.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="content">
+            <div class="card">
+              <div class="liquid">
+                <div class="fill" style="height:31%; background:linear-gradient(180deg,#a3c9ff,#3b82f6);"></div>
+                <i class="ti ti-device-laptop icnwatermark"></i>
+                <div class="badge-notcounted"><i class="ti ti-wallet"></i><span>Spendable</span></div>
+                <div class="top"><div class="pct">31%</div><div class="name">New laptop</div></div>
+                <div class="bottom">
+                  <div class="row1"><span>₹25,000 of ₹80,000</span><span>6mo left</span></div>
+                  <div class="sip">SIP needed: ₹9,167/mo</div>
+                </div>
+              </div>
+              <div class="footer-inside">
+                <div class="btn sec"><i class="ti ti-link"></i>Link existing</div>
+                <div class="btn pri"><i class="ti ti-plus"></i>Add contribution</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle">Option B — Icon chip bar</div>
+    <div class="sectionsub">Most compact: two round icon chips sit directly on the liquid fill's bottom edge, no separate footer strip at all.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Option B<span class="tag">icon chips</span></div>
+        <div class="vsub">Saves ~40px per card — matters most when scrolling a long goals list.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="content">
+            <div class="card">
+              <div class="liquid" style="height:150px;">
+                <div class="fill" style="height:20%;"></div>
+                <i class="ti ti-plane icnwatermark"></i>
+                <div class="top"><div class="pct">20%</div><div class="name">Europe Trip</div></div>
+                <div class="chipbar">
+                  <div class="chip"><i class="ti ti-link"></i></div>
+                  <div class="chip pri"><i class="ti ti-plus"></i></div>
+                </div>
+                <div class="bottom" style="margin-bottom:30px;">
+                  <div class="row1"><span>₹40,000 of ₹2,00,000</span><span>17mo left</span></div>
+                  <div class="sip">SIP needed: ₹8,374/mo</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle">Option C — One primary action, link demoted</div>
+    <div class="sectionsub">If "Link existing" is rare for you, this makes "Add contribution" the obvious single action and tucks the other behind a small icon button.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Option C<span class="tag">single primary</span></div>
+        <div class="vsub">Full-width primary CTA + a small secondary icon button beside it.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="content">
+            <div class="card">
+              <div class="liquid">
+                <div class="fill" style="height:20%;"></div>
+                <i class="ti ti-plane icnwatermark"></i>
+                <div class="top"><div class="pct">20%</div><div class="name">Europe Trip</div></div>
+                <div class="bottom">
+                  <div class="row1"><span>₹40,000 of ₹2,00,000</span><span>17mo left</span></div>
+                  <div class="sip">SIP needed: ₹8,374/mo</div>
+                </div>
+              </div>
+              <div class="footer-single">
+                <div class="iconbtn"><i class="ti ti-link"></i></div>
+                <div class="btn"><i class="ti ti-plus"></i>Add contribution</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

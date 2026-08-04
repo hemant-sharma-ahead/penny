@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Global chrome v5: no top chrome, floating cluster near the thumb</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --primary:#00a86b; --indigo:#6366f1; --amber:#f59e0b; --violet:#8b5cf6; --danger:#dc2626; --success:#16a34a; --teal:#14b8a6;
+        --ink:#1c1408; --sec:#7a6a45; --ter:#a89968; --border:#f0dfa8;
+        --safe-bg:#fdf3d6; --card:#ffffff;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#e6ebf1; color:#0f172a; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:23px; color:#0f172a; }
+      .sub { text-align:center; margin:0 16px 6px; color:#475569; font-size:14px; max-width:840px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .decided { max-width:840px; margin:14px auto 6px; background:color-mix(in srgb, var(--primary) 8%, #fff); border:1px solid color-mix(in srgb, var(--primary) 30%, #fff); border-radius:12px; padding:14px 18px; font-size:12.5px; color:#065f46; line-height:1.7; }
+      .decided b { color:#064e3b; }
+      .reasoning { max-width:840px; margin:14px auto 30px; background:#fff; border:1px solid #e8edf3; border-radius:12px; padding:14px 18px; font-size:12.5px; color:#334155; line-height:1.75; }
+      .reasoning b { color:#0f172a; }
+      .reasoning ul { margin:6px 0 0; padding-left:20px; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:44px 26px; justify-content:center; align-items:flex-start; padding:16px 20px 30px; }
+      .frame-wrap { width:300px; }
+      .vtitle { font-size:14px; font-weight:800; margin:0 2px 3px; color:#0f172a; }
+      .vsub { font-size:11.5px; color:#475569; margin:0 2px 12px; line-height:1.55; }
+      .vsub b { color:#0f172a; }
+
+      .phone { width:300px; height:610px; background:var(--safe-bg); border-radius:32px; border:9px solid #0f172a; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 44px rgba(15,23,42,.24); }
+      .statusbar { height:20px; background:var(--safe-bg); flex-shrink:0; }
+
+      /* No header row anywhere — every screen's own content starts immediately. */
+      .content { flex:1; overflow:hidden; padding:14px 14px 0; }
+
+      .ctxpill { display:inline-flex; align-items:center; gap:5px; background:#fff; border:1px solid var(--border); border-radius:999px; padding:4px 10px 4px 6px; margin-bottom:10px; }
+      .ctxpill .dot { width:16px; height:16px; border-radius:5px; background:var(--primary); display:grid; place-items:center; color:#fff; font-size:8px; }
+      .ctxpill .lbl { font-size:11px; font-weight:700; color:var(--ink); }
+      .ctxpill i.chev { color:var(--ter); font-size:11px; }
+
+      .greet { font-size:19px; font-weight:700; color:var(--ink); margin:0 0 10px; }
+
+      .card { background:var(--card); border-radius:16px; padding:12px; box-shadow:0 1px 2px rgba(28,20,8,.04); }
+      .glance { display:flex; }
+      .glance .g { flex:1; padding:1px 8px; }
+      .glance .g + .g { border-left:1px solid #eee0ba; }
+      .glance .k { font-size:9.5px; color:#8a7a52; font-weight:700; text-transform:uppercase; letter-spacing:.03em; }
+      .glance .v { font-size:19px; font-weight:800; letter-spacing:-.3px; margin-top:3px; color:var(--ink); }
+      .glance .s { font-size:9.5px; color:#a89968; margin-top:2px; }
+      .albar { height:6px; border-radius:4px; margin:10px 2px 3px; overflow:hidden; display:flex; }
+      .albar i { display:block; height:100%; }
+      .alrow { display:flex; justify-content:space-between; font-size:9.5px; color:#8a7a52; margin:5px 2px 0; }
+
+      .statrow { display:flex; gap:8px; margin-top:10px; }
+      .stat { flex:1; background:var(--card); border-radius:14px; padding:9px 8px; }
+      .stat .ic { width:20px; height:20px; border-radius:6px; display:grid; place-items:center; font-size:11px; margin-bottom:5px; }
+      .stat .v { font-size:12.5px; font-weight:800; color:var(--ink); }
+      .stat .s { font-size:8.5px; color:#a89968; margin-top:1px; }
+
+      .slbl { font-size:10.5px; font-weight:700; color:#8a7a52; margin:14px 2px 7px; display:flex; justify-content:space-between; }
+
+      .health { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+      .ring { width:44px; height:44px; border-radius:50%; background:conic-gradient(var(--success) 0 40%, #f1e0ae 40% 100%); display:grid; place-items:center; flex-shrink:0; position:relative; }
+      .ring::after { content:''; position:absolute; inset:5px; background:var(--card); border-radius:50%; }
+      .ring span { position:relative; font-size:14px; font-weight:800; color:var(--ink); }
+      .health .t { font-size:12px; font-weight:700; color:#d97706; }
+      .health .d { font-size:9.5px; color:#8a7a52; margin-top:1px; line-height:1.4; }
+      .hrow { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-top:1px solid #f3e6bd; font-size:10.5px; }
+      .hrow .l { color:var(--ink); font-weight:600; } .hrow .l small{display:block;color:#a89968;font-weight:500;font-size:9px;}
+      .hrow .pill { font-size:9px; font-weight:700; color:var(--success); background:#eaf7ee; padding:3px 9px; border-radius:999px; }
+
+      .toolsrow { display:flex; gap:10px; margin:14px 0 4px; }
+      .tool { width:38px; height:38px; border-radius:50%; display:grid; place-items:center; font-size:16px; box-shadow:0 2px 5px rgba(28,20,8,.08); }
+
+      /* Portfolio's own existing header — unchanged from today, now the ONLY title on screen */
+      .pf-title { font-size:19px; font-weight:800; color:var(--ink); }
+      .pf-stats { display:flex; align-items:baseline; gap:8px; margin-top:2px; }
+      .pf-stats .amt { font-size:12.5px; color:#8a7a52; } .pf-stats .pct { font-size:12px; font-weight:700; color:var(--success); }
+      .pf-tabs { display:flex; gap:20px; margin-top:12px; border-bottom:1px solid var(--border); }
+      .pf-tabs .t { font-size:12.5px; font-weight:700; padding-bottom:9px; border-bottom:2px solid transparent; color:#8a7a52; }
+      .pf-tabs .t.on { color:var(--primary); border-color:var(--primary); }
+      .holding { display:flex; align-items:center; gap:9px; padding:9px 0; }
+      .holding + .holding { border-top:1px solid #f3e6bd; }
+      .hic { width:27px; height:27px; border-radius:8px; display:grid; place-items:center; font-size:13px; flex-shrink:0; }
+      .holding .nm { flex:1; font-size:12.5px; font-weight:600; color:var(--ink); } .holding .nm small { display:block; font-size:10px; color:#a89968; }
+      .holding .val { font-size:12px; font-weight:700; color:var(--ink); }
+
+      /* Chip's own existing hand-rolled header — unchanged from today */
+      .chip-title { display:flex; align-items:center; gap:9px; margin-bottom:14px; }
+      .chip-badge { width:34px; height:34px; border-radius:10px; background:var(--primary); color:#fff; display:grid; place-items:center; font-size:16px; }
+      .chip-title .t { font-size:16px; font-weight:800; color:var(--ink); } .chip-title .s { font-size:10.5px; color:#8a7a52; }
+      .insight-card { background:var(--card); border-radius:14px; padding:12px; margin-bottom:10px; }
+      .insight-card .h { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+      .insight-card .ic { width:26px; height:26px; border-radius:8px; background:#e0e7ff; color:var(--indigo); display:grid; place-items:center; font-size:13px; flex-shrink:0; }
+      .insight-card .ttl { font-size:12.5px; font-weight:700; color:var(--ink); }
+      .insight-card .body-txt { font-size:11.5px; color:#8a7a52; line-height:1.5; }
+
+      /* Bottom tab bar — unchanged shell, amber top border matches Safe mode as today */
+      .tabbar { display:flex; align-items:center; justify-content:space-around; height:58px; background:var(--safe-bg); border-top:2px solid var(--amber); flex-shrink:0; position:relative; z-index:3; }
+      .tabitem { display:flex; flex-direction:column; align-items:center; gap:2px; font-size:8.5px; font-weight:700; color:#c2a55f; }
+      .tabitem.active { color:var(--tab-color, var(--primary)); }
+      .tabitem i { font-size:19px; }
+      .chipfab { width:30px; height:30px; border-radius:50%; background:var(--primary); display:grid; place-items:center; color:#fff; font-size:14px; margin-bottom:-1px; }
+
+      /* THE FLOATING CLUSTER — the only persistent chrome anywhere, same position/contents on every screen */
+      .cluster { position:absolute; right:14px; bottom:74px; display:flex; flex-direction:column; align-items:center; gap:8px; z-index:4; }
+      .c-avatar { width:40px; height:40px; border-radius:50%; background:#fff; display:grid; place-items:center; font-size:13px; font-weight:800; color:var(--indigo); box-shadow:0 4px 12px rgba(28,20,8,.18); border:2.5px solid var(--amber); position:relative; }
+      .c-dot { width:30px; height:30px; border-radius:50%; background:#fff; display:grid; place-items:center; font-size:14px; color:var(--amber); box-shadow:0 3px 8px rgba(28,20,8,.14); }
+      .c-bell { width:30px; height:30px; border-radius:50%; background:#fff; display:grid; place-items:center; font-size:14px; color:#7a6a45; box-shadow:0 3px 8px rgba(28,20,8,.14); position:relative; }
+      .c-bell .badge { position:absolute; top:-3px; right:-3px; min-width:14px; height:14px; padding:0 3px; border-radius:999px; background:var(--danger); color:#fff; font-size:8px; font-weight:800; display:grid; place-items:center; }
+      .c-label { position:absolute; right:48px; background:#1c1408; color:#fff; font-size:9px; font-weight:700; padding:4px 8px; border-radius:7px; white-space:nowrap; opacity:.92; }
+
+      .legend { max-width:840px; margin:10px auto 60px; background:#fff; border:1px solid #e8edf3; border-radius:16px; padding:22px 26px; color:#475569; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:#0f172a; }
+      .legend b { color:#0f172a; }
+      .legend .rec-box { background:color-mix(in srgb, var(--primary) 8%, #fff); border:1px solid color-mix(in srgb, var(--primary) 30%, #fff); border-radius:12px; padding:14px 16px; margin-top:12px; }
+      .legend .open-box { background:#fff7ed; border:1px solid #fde68a; border-radius:12px; padding:14px 16px; margin-top:12px; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+    </style>
+  </head>
+  <body>
+    <h1>v5 — Delete the top entirely. Everything secondary lives near the thumb.</h1>
+    <p class="sub">
+      Colors/spacing pulled from your actual screenshot (Safe mode's real cream background, the real
+      Financial-health ring, the real quick-tool circles), not an invented palette. Two rounds in a row kept
+      re-skinning the same "identity + icons, pinned at the top" rectangle — that shape itself was the boring
+      part, not its styling. This round drops the top-of-screen entirely: every screen starts directly with its
+      own content, and the only persistent, always-in-the-same-place element is a small floating cluster near the
+      bottom-right, close to where a thumb already rests.
+    </p>
+    <div class="decided">
+      <b>Corrected per your last message:</b> avatar = one direct tap → Settings (not a menu, nothing to open first).
+      No "⋮" anywhere — it's gone, folded into the avatar. "Personal ▾" is <b>always visible on Home</b> as Home's
+      own first line of content (not global chrome, not hidden behind any tap) — switching context is a tap on
+      that pill itself, exactly as today, just no longer a separate full-width bar.
+    </div>
+    <div class="reasoning">
+      <b>Why this shape, not another top bar:</b>
+      <ul>
+        <li>If "Personal/Groups" only ever matters on Home and must always be visible there, it was never global chrome to begin with — it belongs to Home's own content, the same way <code>GlanceHeader</code> or the stat row already do. Trying to also represent it in a shared top bar was the wrong instinct from the start.</li>
+        <li>Once Personal/Groups moves out of global chrome and Settings collapses into a single avatar tap, there's nothing left that genuinely needs to sit at the very top of <b>every</b> screen — Portfolio/Chip/Expenses/Goals already have their own title moment. A second, redundant identity row above it was the actual source of "this still feels like a header," not its border or background.</li>
+        <li>Privacy mode is already ambient in this app — Safe mode's warm cream tint <i>is</i> the signal, today, in your own screenshot. A dedicated icon for it doesn't need top-of-screen prominence; a small quiet dot near the thumb is enough to change it when needed.</li>
+        <li>Bottom-right, just above the tab bar, is where a thumb already lives on a one-handed phone — putting the 3 remaining utility actions there (not top-right, where every other app puts them) is the deliberate "not the obvious pattern" choice.</li>
+      </ul>
+    </div>
+
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Home</div>
+        <div class="vsub">"Personal ▾" is the first thing in the scroll content — always visible, never hidden. Everything below (net worth, financial health, tools) is your real screen, unchanged.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="content">
+            <div class="ctxpill"><span class="dot"><i class="ti ti-user"></i></span><span class="lbl">Personal</span><i class="ti ti-chevron-down chev"></i></div>
+            <div class="greet">Good evening, Hemant</div>
+            <div class="card">
+              <div class="glance">
+                <div class="g"><div class="k">Net worth</div><div class="v">₹1,45,40,430</div><div class="s">View breakdown ›</div></div>
+                <div class="g"><div class="k">Safe to spend</div><div class="v" style="color:var(--success)">₹81,03,078</div><div class="s">0 days till payday</div></div>
+              </div>
+              <div class="albar"><i style="width:55%;background:var(--teal)"></i><i style="width:8%;background:#f59e0b"></i><i style="width:10%;background:var(--success)"></i><i style="width:8%;background:#64748b"></i><i style="width:19%;background:var(--violet)"></i></div>
+              <div class="alrow"><span>Assets ₹1.9Cr</span><span style="color:var(--danger)">Liabilities −₹48.5L</span></div>
+            </div>
+            <div class="statrow">
+              <div class="stat"><div class="ic" style="background:#fde3e3;color:var(--danger)"><i class="ti ti-receipt-2"></i></div><div class="v">₹88,067</div><div class="s">Living ₹70.1K</div></div>
+              <div class="stat"><div class="ic" style="background:#e0e7ff;color:var(--indigo)"><i class="ti ti-shield"></i></div><div class="v">₹1.1Cr</div><div class="s">cover</div></div>
+              <div class="stat"><div class="ic" style="background:#dcfce7;color:var(--success)"><i class="ti ti-building-bank"></i></div><div class="v">₹40.0L</div><div class="s">outstanding</div></div>
+            </div>
+            <div class="slbl">Financial health <span style="color:var(--success)">See all</span></div>
+            <div class="card">
+              <div class="health">
+                <div class="ring"><span>40</span></div>
+                <div><div class="t">Needs work</div><div class="d">A few quick wins would lift your score.</div></div>
+              </div>
+              <div class="hrow"><div class="l">Emergency Fund<small>1.0 months — aim for 6</small></div><span class="pill">Top up</span></div>
+            </div>
+            <div class="toolsrow">
+              <div class="tool" style="background:#dcfce7;color:var(--success)"><i class="ti ti-sparkles"></i></div>
+              <div class="tool" style="background:#ede9fe;color:var(--violet)"><i class="ti ti-bulb"></i></div>
+              <div class="tool" style="background:#dbeafe;color:#2563eb"><i class="ti ti-clock"></i></div>
+            </div>
+          </div>
+          <div class="cluster">
+            <div class="c-avatar">HS</div>
+            <div class="c-dot"><i class="ti ti-eye-off"></i></div>
+            <div class="c-bell"><i class="ti ti-bell"></i><span class="badge">3</span></div>
+          </div>
+          <div class="tabbar">
+            <div class="tabitem active" style="--tab-color:var(--primary)"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Portfolio</div>
+        <div class="vsub">No global title duplicated above it anymore — Portfolio's own existing title/stats/tabs are now the only heading on screen, exactly as they already render today.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="content">
+            <div class="pf-title">Portfolio</div>
+            <div class="pf-stats"><span class="amt">Current value</span><span class="amt" style="color:var(--ink);font-weight:700">₹64.2L</span><span class="pct">+12.4%</span></div>
+            <div class="pf-tabs"><span class="t on">Holdings</span><span class="t">IPO</span></div>
+            <div style="margin-top:12px" class="card">
+              <div class="holding"><div class="hic" style="background:#e0e7ff;color:var(--indigo)"><i class="ti ti-chart-pie"></i></div><div class="nm">Mutual Funds<small>6 folios</small></div><div class="val">₹42.1L</div></div>
+              <div class="holding"><div class="hic" style="background:#dcfce7;color:var(--success)"><i class="ti ti-chart-candle"></i></div><div class="nm">Stocks<small>14 holdings</small></div><div class="val">₹18.6L</div></div>
+              <div class="holding"><div class="hic" style="background:#fef3c7;color:var(--amber)"><i class="ti ti-coin"></i></div><div class="nm">Gold<small>Digital + SGB</small></div><div class="val">₹3.2L</div></div>
+            </div>
+          </div>
+          <div class="cluster">
+            <div class="c-avatar">HS</div>
+            <div class="c-dot"><i class="ti ti-eye-off"></i></div>
+            <div class="c-bell"><i class="ti ti-bell"></i><span class="badge">3</span></div>
+          </div>
+          <div class="tabbar">
+            <div class="tabitem"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem active" style="--tab-color:var(--indigo)"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Chip</div>
+        <div class="vsub">Chip already has its own hand-rolled title (sparkle badge + "Chip" + subtitle) today — nothing added, nothing removed, it was never actually missing a header, just not using the shared component.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="content">
+            <div class="chip-title"><div class="chip-badge"><i class="ti ti-sparkles"></i></div><div><div class="t">Chip</div><div class="s">Your AI money coach</div></div></div>
+            <div class="insight-card">
+              <div class="h"><div class="ic"><i class="ti ti-bulb"></i></div><div class="ttl">You're spending 22% more on dining this month</div></div>
+              <div class="body-txt">Based on the last 4 weeks vs. your 6-month average.</div>
+            </div>
+            <div class="insight-card">
+              <div class="h"><div class="ic" style="background:#dcfce7;color:var(--success)"><i class="ti ti-trending-up"></i></div><div class="ttl">SIP step-up due next month</div></div>
+              <div class="body-txt">Axis Bluechip is due for its annual 10% step-up on Aug 1.</div>
+            </div>
+          </div>
+          <div class="cluster">
+            <div class="c-avatar">HS</div>
+            <div class="c-dot"><i class="ti ti-eye-off"></i></div>
+            <div class="c-bell"><i class="ti ti-bell"></i><span class="badge">3</span></div>
+          </div>
+          <div class="tabbar">
+            <div class="tabitem"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem active"><div class="chipfab"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">The cluster, close up</div>
+        <div class="vsub">Three separate single-tap targets, not a menu: avatar → Settings directly. Amber ring on the avatar = current privacy mode (ambient, matches the whole screen's tint). The dot below it is the direct mode-change tap. Bell = Reminders, badge unchanged from today.</div>
+        <div class="phone" style="height:230px">
+          <div class="statusbar"></div>
+          <div class="content" style="display:flex;align-items:center;justify-content:center;color:#a89968;font-size:11px">(screen content)</div>
+          <div class="cluster" style="position:relative;bottom:auto;right:auto;margin:0 auto 20px;">
+            <div class="c-avatar" style="position:relative">HS<div class="c-label" style="top:-2px">Settings</div></div>
+            <div class="c-dot"><i class="ti ti-eye-off"></i><div class="c-label">Privacy mode</div></div>
+            <div class="c-bell"><i class="ti ti-bell"></i><span class="badge">3</span><div class="c-label">Reminders</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <h2>What this replaces, and what's still open</h2>
+      <p><b>Deletes entirely:</b> <code>MainTabs.tsx</code>'s current header row (hamburger/logo/eye/bell) and the
+        separately-mounted <code>ContextSwitcher</code> bar — both gone, no replacement row of any kind at the top.
+        <b>Adds:</b> one small floating cluster (avatar/mode-dot/bell), rendered once, positioned fixed relative to
+        the tab bar so it's identical on every tab and never scrolls away. <b>Home gains</b> a "Personal ▾" pill as
+        its own first content line (not chrome). <b>Portfolio/Goals/Expenses/Chip are untouched</b> beyond losing
+        the redundant global row that used to sit above their own existing headers.</p>
+      <div class="rec-box">
+        <b>Recommendation:</b> this direction. It's the first pass that doesn't just restyle "a bar at the top" —
+        it questions whether anything needs to be at the top at all once Settings is one avatar tap and
+        Personal/Groups is Home's own content, and answers no. The floating cluster is the one piece of real new
+        surface area, deliberately placed where a thumb already is instead of copying every other app's top-right
+        convention.
+      </div>
+      <div class="open-box">
+        <b>Still worth your call:</b>
+        <ul>
+          <li>Cluster position: bottom-right (shown) vs. bottom-left vs. bottom-center — bottom-right assumes
+            right-handed one-thumb use, which is the common default but not universal.</li>
+          <li>Whether the amber ring around the avatar (ambient mode signal) is wanted, or redundant now that the
+            whole screen's background already carries the same tint — could drop it and keep the avatar plain.</li>
+          <li>Does the cluster need to be reachable from inside a modal/nested screen too, or is tab-root-only fine
+            (nested screens already have their own back button + content, arguably don't need it)?</li>
+        </ul>
+      </div>
+    </div>
+  </body>
+</html>

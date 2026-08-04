@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Global chrome consolidation v4 (borderless, no bar feel)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --primary:#00a86b; --indigo:#6366f1; --amber:#f59e0b; --violet:#7c3aed; --danger:#dc2626; --success:#16a34a; --teal:#14b8a6; --cyan:#06b6d4;
+        --ink:#0f172a; --sec:#475569; --ter:#94a3b8; --bg:#f4f7fa; --surface:#fff; --surface2:#f6f8fb; --border:#e8edf3;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#e6ebf1; color:var(--ink); -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:23px; }
+      .sub { text-align:center; margin:0 16px 6px; color:var(--sec); font-size:14px; max-width:820px; margin-left:auto; margin-right:auto; line-height:1.6; }
+      .decided { max-width:820px; margin:14px auto 30px; background:color-mix(in srgb, var(--primary) 8%, #fff); border:1px solid color-mix(in srgb, var(--primary) 30%, #fff); border-radius:12px; padding:12px 16px; font-size:12.5px; color:#065f46; line-height:1.65; }
+      .decided b { color:#064e3b; }
+
+      .concept-h { max-width:900px; margin:10px auto 2px; padding:0 20px; }
+      .concept-h h2 { font-size:17px; margin:0 0 6px; }
+      .concept-h p { font-size:13px; color:var(--sec); line-height:1.65; margin:0 0 4px; max-width:860px; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:44px 26px; justify-content:center; align-items:flex-start; padding:16px 20px 30px; }
+      .frame-wrap { width:300px; }
+      .vtitle { font-size:14px; font-weight:800; margin:0 2px 3px; }
+      .vsub { font-size:11.5px; color:var(--sec); margin:0 2px 12px; line-height:1.55; }
+      .vsub b { color:var(--ink); }
+
+      .phone { width:300px; height:600px; background:var(--bg); border-radius:32px; border:9px solid #0f172a; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 44px rgba(15,23,42,.24); }
+      .statusbar { height:20px; background:var(--bg); flex-shrink:0; z-index:2; position:relative; }
+
+      /* ===== v4: no bar at all — same background as the page, no border, no shadow. ===== */
+      .top-v4 { display:flex; align-items:center; padding:12px 16px 14px; gap:12px; background:var(--bg); flex-shrink:0; }
+      .avatar-v4 { width:38px; height:38px; border-radius:50%; background:var(--indigo); color:#fff; font-size:14px; font-weight:800; display:grid; place-items:center; flex-shrink:0; box-shadow:0 3px 8px rgba(99,102,241,.28); }
+      .top-v4 .mid { flex:1; min-width:0; }
+      .top-v4 .mid .t { font-size:18px; font-weight:800; color:var(--ink); letter-spacing:-.3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .top-v4 .icons { display:flex; align-items:center; gap:16px; flex-shrink:0; }
+      .ig { font-size:20px; color:var(--sec); position:relative; line-height:1; }
+      .ig.eye { color:var(--amber); }
+      .ig .dot { position:absolute; top:-4px; right:-6px; min-width:13px; height:13px; padding:0 3px; border-radius:999px; background:var(--danger); color:#fff; font-size:7.5px; font-weight:800; display:grid; place-items:center; }
+
+      .body { flex:1; overflow:hidden; padding:0 12px 12px; background:var(--bg); }
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:11px; }
+      .glance { display:flex; }
+      .glance .g { flex:1; padding:1px 6px; }
+      .glance .g + .g { border-left:1px solid var(--border); }
+      .glance .k { font-size:9.5px; color:var(--sec); font-weight:600; }
+      .glance .v { font-size:19px; font-weight:800; letter-spacing:-.3px; margin-top:2px; }
+      .glance .s { font-size:9.5px; color:var(--ter); margin-top:1px; }
+      .albar { height:6px; border-radius:4px; margin:9px 2px 2px; overflow:hidden; display:flex; }
+      .albar i { display:block; height:100%; }
+      .alrow { display:flex; justify-content:space-between; font-size:9.5px; color:var(--sec); margin:4px 2px 0; }
+      .slbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--ter); margin:13px 4px 7px; }
+      .holding { display:flex; align-items:center; gap:9px; padding:8px 0; }
+      .holding + .holding { border-top:1px solid var(--border); }
+      .hic { width:26px; height:26px; border-radius:8px; display:grid; place-items:center; font-size:13px; flex-shrink:0; }
+      .holding .nm { flex:1; font-size:12.5px; font-weight:600; } .holding .nm small { display:block; font-size:10px; color:var(--ter); font-weight:500; }
+      .holding .val { font-size:12px; font-weight:700; text-align:right; }
+
+      .pf-header { padding:0 12px; }
+      .pf-stats { display:flex; align-items:baseline; gap:8px; }
+      .pf-stats .amt { font-size:14px; font-weight:700; color:var(--ink); }
+      .pf-stats .pct { font-size:11px; font-weight:700; color:var(--success); }
+      .pf-tabs { display:flex; gap:18px; padding:9px 12px 0; border-bottom:1px solid var(--border); background:var(--bg); margin-bottom:8px; margin-top:8px; }
+      .pf-tabs .t { font-size:12px; font-weight:700; padding-bottom:8px; border-bottom:2px solid transparent; color:var(--sec); }
+      .pf-tabs .t.on { color:var(--primary); border-color:var(--primary); }
+
+      .insight-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px; margin-bottom:10px; }
+      .insight-card .h { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+      .insight-card .ic { width:26px; height:26px; border-radius:8px; background:color-mix(in srgb, var(--indigo) 14%, #fff); color:var(--indigo); display:grid; place-items:center; font-size:13px; flex-shrink:0; }
+      .insight-card .ttl { font-size:12.5px; font-weight:700; color:var(--ink); }
+      .insight-card .body-txt { font-size:11.5px; color:var(--sec); line-height:1.5; }
+
+      .tabbar { display:flex; align-items:center; justify-content:space-around; height:58px; background:#fff; border-top:2px solid var(--amber); flex-shrink:0; padding-bottom:4px; position:relative; z-index:2; }
+      .tabitem { display:flex; flex-direction:column; align-items:center; gap:2px; font-size:8.5px; font-weight:700; color:var(--ter); position:relative; }
+      .tabitem.active { color:var(--tab-color, var(--primary)); }
+      .tabitem i { font-size:19px; }
+      .chipavatar { width:30px; height:30px; border-radius:50%; background:var(--indigo); display:grid; place-items:center; color:#fff; font-size:14px; margin-bottom:-1px; }
+
+      .backdrop { position:absolute; inset:0; background:rgba(15,23,42,.5); display:flex; align-items:center; justify-content:center; padding:0 20px; z-index:5; }
+      .menucard { width:100%; background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 20px 40px rgba(15,23,42,.3); max-height:420px; }
+      .menucard .mhead { padding:12px 14px; border-bottom:1px solid var(--border); font-size:13px; font-weight:800; color:var(--ink); }
+      .mrow { display:flex; align-items:center; gap:10px; padding:11px 14px; }
+      .mrow + .mrow { border-top:1px solid var(--border); }
+      .mic { width:26px; height:26px; border-radius:8px; display:grid; place-items:center; font-size:13px; flex-shrink:0; background:var(--surface2); color:var(--sec); }
+      .mrow .ml { flex:1; font-size:13px; font-weight:600; color:var(--ink); }
+      .mrow.on { background:var(--surface2); }
+
+      .legend { max-width:820px; margin:10px auto 60px; background:#fff; border:1px solid var(--border); border-radius:16px; padding:20px 24px; color:var(--sec); font-size:13.5px; line-height:1.7; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:var(--ink); }
+      .legend b { color:var(--ink); }
+      .legend .rec-box { background:color-mix(in srgb, var(--primary) 8%, #fff); border:1px solid color-mix(in srgb, var(--primary) 30%, #fff); border-radius:12px; padding:14px 16px; margin-top:10px; }
+      .legend .open-box { background:#fff7ed; border:1px solid #fde68a; border-radius:12px; padding:14px 16px; margin-top:10px; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+    </style>
+  </head>
+  <body>
+    <h1>Global chrome consolidation v4 — no bar, just the top of the page</h1>
+    <p class="sub">
+      Same agreed structure as v3 — avatar (left) · greeting/title (middle) · eye + bell + ⋮ (right), one row,
+      identical everywhere — but re-executed so it stops reading as "a header": no white strip, no border, no
+      boxed icon buttons. It's the same background as the page underneath it, so it feels like the top of the
+      content, not chrome sitting on top of it. Skipping the "today" comparison and style-variant gallery this
+      round — direction is decided, this is the one confident cut.
+    </p>
+    <div class="decided">
+      <b>What changed from v3, concretely:</b> the row's background is <code>--bg</code> (identical to the body),
+      not white — no seam between "chrome" and "content." No bottom border/mode-accent line. Icons lost their
+      circular button backgrounds — they're just glyphs now, coloured (privacy = amber) instead of boxed, with
+      generous tap spacing instead of a tight toolbar-height row. The avatar is a touch bigger (38px) with a soft
+      shadow instead of a flat fill, so it reads as a personal identity mark, not a nav-bar leading icon. Greeting/
+      title text is bigger and bolder (18px/800) — closer to how <code>GlanceHeader</code>'s own numbers already
+      lead with a big, confident figure, so the top of the screen feels continuous with the content below it
+      rather than a distinct rail above it.
+    </div>
+
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Home</div>
+        <div class="vsub">Greeting is now the visual opener of the page, not a caption inside a bar — avatar and icons sit at the same baseline, breathing room instead of a fixed 44px row.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="top-v4">
+            <div class="avatar-v4">HS</div>
+            <div class="mid"><div class="t">Good evening, Hemant</div></div>
+            <div class="icons">
+              <i class="ti ti-eye-off ig eye"></i>
+              <span class="ig"><i class="ti ti-bell"></i><span class="dot">3</span></span>
+              <i class="ti ti-dots-vertical ig"></i>
+            </div>
+          </div>
+          <div class="body" style="padding-top:8px">
+            <div class="card">
+              <div class="glance">
+                <div class="g"><div class="k">Net worth</div><div class="v">₹1.45 Cr</div><div class="s">View breakdown ›</div></div>
+                <div class="g"><div class="k">Safe to spend</div><div class="v" style="color:var(--success)">₹80,444</div><div class="s">28 days to payday ›</div></div>
+              </div>
+              <div class="albar"><i style="width:80%;background:var(--teal)"></i><i style="width:20%;background:var(--violet)"></i></div>
+              <div class="alrow"><span>Assets ₹1.9Cr</span><span style="color:var(--danger)">Liabilities −₹48.4L</span></div>
+            </div>
+            <div class="slbl">Financial health</div>
+            <div class="card" style="color:var(--ter);font-size:11px">…stories, groups, accounts, markets, tools — unchanged…</div>
+          </div>
+          <div class="tabbar">
+            <div class="tabitem active" style="--tab-color:var(--primary)"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipavatar"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Portfolio</div>
+        <div class="vsub">"Portfolio" reads as a section opener, same weight as the greeting on Home — Portfolio's own stat row + tabs continue directly beneath with no seam or second chrome layer.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="top-v4">
+            <div class="avatar-v4">HS</div>
+            <div class="mid"><div class="t">Portfolio</div></div>
+            <div class="icons">
+              <i class="ti ti-eye-off ig eye"></i>
+              <span class="ig"><i class="ti ti-bell"></i><span class="dot">3</span></span>
+              <i class="ti ti-dots-vertical ig"></i>
+            </div>
+          </div>
+          <div class="pf-header">
+            <div class="pf-stats"><span class="amt">₹64.2L</span><span class="pct">+12.4%</span></div>
+          </div>
+          <div class="pf-tabs"><span class="t on">Holdings</span><span class="t">IPO</span></div>
+          <div class="body" style="padding-top:0">
+            <div class="card">
+              <div class="holding"><div class="hic" style="background:#e0e7ff;color:var(--indigo)"><i class="ti ti-chart-pie"></i></div><div class="nm">Mutual Funds<small>6 folios</small></div><div class="val">₹42.1L</div></div>
+              <div class="holding"><div class="hic" style="background:#dcfce7;color:var(--success)"><i class="ti ti-chart-candle"></i></div><div class="nm">Stocks<small>14 holdings</small></div><div class="val">₹18.6L</div></div>
+              <div class="holding"><div class="hic" style="background:#fef3c7;color:var(--amber)"><i class="ti ti-coin"></i></div><div class="nm">Gold<small>Digital + SGB</small></div><div class="val">₹3.2L</div></div>
+            </div>
+          </div>
+          <div class="tabbar">
+            <div class="tabitem"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem active" style="--tab-color:var(--indigo)"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipavatar"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Chip</div>
+        <div class="vsub">Same treatment, no longer a special case with zero header at all.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="top-v4">
+            <div class="avatar-v4">HS</div>
+            <div class="mid"><div class="t">Chip</div></div>
+            <div class="icons">
+              <i class="ti ti-eye-off ig eye"></i>
+              <span class="ig"><i class="ti ti-bell"></i><span class="dot">3</span></span>
+              <i class="ti ti-dots-vertical ig"></i>
+            </div>
+          </div>
+          <div class="body" style="padding-top:10px">
+            <div class="insight-card">
+              <div class="h"><div class="ic"><i class="ti ti-bulb"></i></div><div class="ttl">You're spending 22% more on dining this month</div></div>
+              <div class="body-txt">Based on the last 4 weeks vs. your 6-month average.</div>
+            </div>
+            <div class="insight-card">
+              <div class="h"><div class="ic" style="background:color-mix(in srgb, var(--success) 14%, #fff); color:var(--success)"><i class="ti ti-trending-up"></i></div><div class="ttl">SIP step-up due next month</div></div>
+              <div class="body-txt">Axis Bluechip is due for its annual 10% step-up on Aug 1.</div>
+            </div>
+          </div>
+          <div class="tabbar">
+            <div class="tabitem"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem active"><div class="chipavatar"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Avatar tapped</div>
+        <div class="vsub">Same centred "Personal / Groups" modal as before — only the entry point's look changed.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="top-v4" style="opacity:.5">
+            <div class="avatar-v4">HS</div>
+            <div class="mid"><div class="t">Good evening, Hemant</div></div>
+            <div class="icons">
+              <i class="ti ti-eye-off ig eye"></i>
+              <span class="ig"><i class="ti ti-bell"></i><span class="dot">3</span></span>
+              <i class="ti ti-dots-vertical ig"></i>
+            </div>
+          </div>
+          <div class="body" style="position:relative">
+            <div class="backdrop" style="position:absolute; top:-2px; left:-12px; right:-12px; bottom:-2px;">
+              <div class="menucard">
+                <div class="mhead">Switch context</div>
+                <div class="mrow on"><div class="mic"><i class="ti ti-user"></i></div><div class="ml">Personal</div><i class="ti ti-check" style="color:var(--primary)"></i></div>
+                <div class="mrow"><div class="mic"><i class="ti ti-home"></i></div><div class="ml">Family</div><span style="font-size:12px;color:var(--success);font-weight:700">+₹2,400</span></div>
+                <div class="mrow"><div class="mic" style="color:var(--primary)"><i class="ti ti-plus"></i></div><div class="ml" style="color:var(--primary);font-weight:700">Create a group</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="tabbar" style="opacity:.5">
+            <div class="tabitem active" style="--tab-color:var(--primary)"><i class="ti ti-home"></i>Home</div>
+            <div class="tabitem"><i class="ti ti-chart-pie"></i>Portfolio</div>
+            <div class="tabitem"><div class="chipavatar"><i class="ti ti-sparkles"></i></div></div>
+            <div class="tabitem"><i class="ti ti-wallet"></i>Expenses</div>
+            <div class="tabitem"><i class="ti ti-target"></i>Goals</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <h2>Why this reads differently, and what's still open</h2>
+      <p>Removing the white background + border was the single biggest lever — that hard edge is what made v3 read
+        as "a header component" no matter how its contents were arranged. Once the top row shares the page's own
+        background and the icons stop being boxed buttons, the same information (avatar, greeting/title, three
+        controls) reads as the top of the page rather than a fixed rail bolted onto it — closer to how a lot of
+        modern, well-regarded apps treat their "top," as an extension of the content rather than a distinct system
+        layer.</p>
+      <p>Everything functional from before still holds: avatar opens the same context-switch modal, eye/bell are
+        the same real components, ⋮ is a plain direct Settings tap — nothing about behavior changed, only the
+        visual weight of the container.</p>
+      <div class="rec-box">
+        <b>Recommendation:</b> go with this. It keeps the exact structural agreement from last round while actually
+        answering "make it feel less like a header" instead of re-decorating the same box.
+      </div>
+      <div class="open-box">
+        <b>Still open from last round, unresolved by this pass:</b>
+        <ul>
+          <li>Avatar behaviour for users without the <code>sync</code> entitlement (no context-switcher exists for them today).</li>
+          <li>Trimming Portfolio/Goals/Expenses' own <code>PageHeader</code> title line (shown already trimmed above).</li>
+        </ul>
+      </div>
+    </div>
+  </body>
+</html>

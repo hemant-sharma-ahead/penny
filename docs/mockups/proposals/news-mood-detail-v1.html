@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — News: showing mood detail without a floating card</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --indigo:#6366f1; --amber:#f59e0b; --danger:#ef4444; --success:#10b981;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 22px; color:#9aa5b1; font-size:14px; max-width:880px; margin-left:auto; margin-right:auto; line-height:1.65; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:40px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 30px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.rec { background:#123524; color:#7ee6b8; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; height:600px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .header { height:40px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .htitle { flex:1; font-size:13.5px; font-weight:700; color:var(--text); }
+
+      .subtabs { display:flex; align-items:center; gap:14px; padding:7px 14px; flex-shrink:0; }
+      .subtabs .t { font-size:11px; font-weight:600; color:var(--text3); display:flex; align-items:center; gap:4px; padding-bottom:5px; border-bottom:2px solid transparent; }
+      .subtabs .t.on { color:var(--primary); border-color:var(--primary); font-weight:700; }
+      .subtabs .t i { font-size:12px; }
+      .subtabs .refresh-inline { margin-left:auto; width:22px; height:22px; border-radius:7px; display:grid; place-items:center; background:var(--surface2); color:var(--text2); }
+      .subtabs .refresh-inline i { font-size:12px; }
+
+      .minimal-row { display:flex; align-items:center; gap:10px; padding:9px 14px; border-bottom:1px solid var(--border); flex-shrink:0; }
+      .minimal-row .ctabs { display:flex; gap:12px; }
+      .minimal-row .ctabs .t { font-size:11.5px; font-weight:600; color:var(--text3); padding-bottom:2px; border-bottom:2px solid transparent; }
+      .minimal-row .ctabs .t.on { color:var(--primary); border-color:var(--primary); font-weight:700; }
+      .minimal-row .icons { margin-left:auto; display:flex; align-items:center; gap:12px; }
+      .minimal-row .icons i { font-size:15px; color:var(--text2); }
+      .minimal-row .mood-btn { display:flex; align-items:center; gap:4px; position:relative; }
+      .minimal-row .mood-btn i.mi { font-size:15px; color:var(--success); }
+      .minimal-row .dot { width:6px; height:6px; border-radius:50%; background:var(--success); position:absolute; top:-2px; right:-4px; border:1.5px solid #05070a; }
+
+      .content { flex:1; padding:10px 14px; overflow:hidden; }
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:10px; margin-bottom:8px; }
+      .card .row1 { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+      .badge { font-size:9px; font-weight:700; padding:2px 7px; border-radius:999px; }
+      .badge.sebi { background:#1e2a4a; color:#8ab4ff; }
+      .badge.et { background:#3a1e1e; color:#ff9a8a; }
+      .badge.pos { background:#123524; color:#7ee6b8; margin-left:5px; }
+      .time { font-size:8.5px; color:var(--text3); }
+      .card .title { font-size:11.5px; font-weight:600; color:var(--text); line-height:1.4; }
+      .fade-up { opacity:.35; }
+
+      /* Option 1: centered Modal (matches components/ui/Modal.tsx exactly) */
+      .backdrop { position:absolute; inset:0; background:rgba(0,0,0,.55); z-index:5; }
+      .modal-card { position:absolute; left:16px; right:16px; top:70px; bottom:88px; background:var(--surface); border:1px solid var(--border); border-radius:16px; z-index:6; box-shadow:0 0 20px rgba(0,0,0,.35); display:flex; flex-direction:column; }
+      .modal-card .mtitle-row { display:flex; align-items:center; justify-content:space-between; padding:16px 18px 0; }
+      .modal-card .mtitle { font-size:14px; font-weight:700; color:var(--text); }
+      .modal-card .mclose { width:26px; height:26px; border-radius:8px; display:grid; place-items:center; color:var(--text3); }
+      .modal-card .mbody { padding:16px 18px 18px; }
+      .modal-card .headline { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+      .modal-card .ic2 { width:36px; height:36px; border-radius:50%; background:#123524; display:grid; place-items:center; color:var(--success); font-size:17px; }
+      .modal-card .lbl { font-size:14px; font-weight:700; color:var(--success); }
+      .modal-card .cnt { font-size:10.5px; color:var(--text2); margin-top:1px; }
+      .modal-card .bar { display:flex; height:8px; border-radius:4px; overflow:hidden; margin:12px 0; }
+      .modal-card .legend2 { display:flex; justify-content:space-between; margin-bottom:14px; }
+      .modal-card .legend2 .li { display:flex; align-items:center; gap:5px; }
+      .modal-card .legend2 .dotc { width:7px; height:7px; border-radius:50%; }
+      .modal-card .legend2 span { font-size:9.5px; color:var(--text2); }
+      .modal-card .disc { font-size:10px; color:var(--text3); line-height:1.6; padding-top:12px; border-top:1px solid var(--border); }
+      .modal-card .srcs { font-size:9.5px; color:var(--text3); margin-top:8px; }
+
+      /* Option 2: inline expanding row (push-down, no overlay) */
+      .expand-row { padding:12px 14px; border-bottom:1px solid var(--border); background:#0f1710; flex-shrink:0; }
+      .expand-row .headline { display:flex; align-items:center; gap:9px; }
+      .expand-row .ic2 { width:30px; height:30px; border-radius:50%; background:#123524; display:grid; place-items:center; color:var(--success); font-size:14px; flex-shrink:0; }
+      .expand-row .lbl { font-size:12.5px; font-weight:700; color:var(--success); }
+      .expand-row .cnt { font-size:9.5px; color:var(--text2); }
+      .expand-row .bar { display:flex; height:6px; border-radius:3px; overflow:hidden; margin:9px 0 7px; }
+      .expand-row .disc { font-size:8.5px; color:var(--text3); line-height:1.5; }
+      .expand-row .collapse { margin-left:auto; color:var(--text3); font-size:13px; }
+
+      /* Option 3: anchored popover under the icon */
+      .popover { position:absolute; top:82px; right:14px; width:220px; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:13px; box-shadow:0 10px 24px rgba(0,0,0,.45); z-index:6; }
+      .popover::before { content:''; position:absolute; top:-6px; right:22px; width:12px; height:12px; background:var(--surface); border-left:1px solid var(--border); border-top:1px solid var(--border); transform:rotate(45deg); }
+      .popover .headline { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+      .popover .ic2 { width:26px; height:26px; border-radius:50%; background:#123524; display:grid; place-items:center; color:var(--success); font-size:13px; }
+      .popover .lbl { font-size:12px; font-weight:700; color:var(--success); }
+      .popover .cnt { font-size:9px; color:var(--text2); }
+      .popover .bar { display:flex; height:5px; border-radius:3px; overflow:hidden; margin:7px 0; }
+      .popover .disc { font-size:8px; color:var(--text3); line-height:1.5; }
+      .popover-dim { position:absolute; inset:0; z-index:5; }
+
+      .legend { max-width:880px; margin:10px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:#fff; }
+      .legend b { color:#fff; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend li { margin-bottom:8px; }
+      .legend .rec-box { background:color-mix(in srgb, var(--primary) 12%, #0e141b); border:1px solid color-mix(in srgb, var(--primary) 35%, #0e141b); border-radius:12px; padding:14px 16px; margin-top:12px; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:12px; }
+    </style>
+  </head>
+  <body>
+    <h1>News mood detail — without the floating card</h1>
+    <p class="sub">Sticking with Option B's card-first layout (tab row + filter icon + mood icon with a dot,
+      no persistent banner). The question is only how tapping the mood icon reveals the breakdown +
+      disclaimer. Three ways, none of them a floating bottom card.</p>
+
+    <div class="gallery">
+
+      <!-- OPTION 1: Centered Modal -->
+      <div class="frame-wrap">
+        <div class="vtitle">1 — Centered modal <span class="tag rec">recommended</span></div>
+        <div class="vsub">Reuses the app's existing <code>Modal</code> component exactly as-is — the same one <code>FilterDropdown</code> already opens. Dimmed backdrop, card between header and bottom nav, tap outside or the × to close. Zero new UI paradigm.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Equity</div></div>
+          <div class="subtabs">
+            <div class="t"><i class="ti ti-trending-up"></i>Stocks</div>
+            <div class="t"><i class="ti ti-chart-donut"></i>MF</div>
+            <div class="t"><i class="ti ti-ticket"></i>IPO</div>
+            <div class="t on"><i class="ti ti-news"></i>News</div>
+            <div class="refresh-inline"><i class="ti ti-refresh"></i></div>
+          </div>
+          <div class="minimal-row">
+            <div class="ctabs"><div class="t on">All News</div><div class="t">Holdings</div></div>
+            <div class="icons">
+              <i class="ti ti-filter"></i>
+              <span class="mood-btn"><i class="ti ti-mood-smile mi"></i><span class="dot"></span></span>
+            </div>
+          </div>
+          <div class="content" style="filter:brightness(.5)">
+            <div class="card"><div class="row1"><div><span class="badge sebi">SEBI</span></div><div class="time">just now</div></div><div class="title">SEBI Order for Compliance...</div></div>
+            <div class="card"><div class="row1"><div><span class="badge et">ET</span></div><div class="time">12m ago</div></div><div class="title">Markets rally as IT stocks lead...</div></div>
+          </div>
+          <div class="backdrop"></div>
+          <div class="modal-card">
+            <div class="mtitle-row"><div class="mtitle">Today's news mood</div><div class="mclose"><i class="ti ti-x"></i></div></div>
+            <div class="mbody">
+              <div class="headline">
+                <div class="ic2"><i class="ti ti-trending-up"></i></div>
+                <div><div class="lbl">Leaning positive</div><div class="cnt">125 headlines analyzed</div></div>
+              </div>
+              <div class="bar">
+                <div style="width:42%;background:var(--success)"></div>
+                <div style="width:49%;background:#6e7681"></div>
+                <div style="width:9%;background:var(--danger)"></div>
+              </div>
+              <div class="legend2">
+                <div class="li"><div class="dotc" style="background:var(--success)"></div><span>52 positive</span></div>
+                <div class="li"><div class="dotc" style="background:#6e7681"></div><span>61 neutral</span></div>
+                <div class="li"><div class="dotc" style="background:var(--danger)"></div><span>12 negative</span></div>
+              </div>
+              <div class="disc">Informational only — a summary of news tone, not investment advice or a market prediction.</div>
+              <div class="srcs">Sources: ET Markets · Mint · RBI · SEBI</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPTION 2: Inline expanding row -->
+      <div class="frame-wrap">
+        <div class="vtitle">2 — Inline expanding row</div>
+        <div class="vsub">No overlay at all — tapping the mood icon expands a detail row directly under the tab row, in-flow (pushes cards down, doesn't cover them). Tap again (or the chevron) collapses it. Feels lighter than a modal, but eats list space while open.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Equity</div></div>
+          <div class="subtabs">
+            <div class="t"><i class="ti ti-trending-up"></i>Stocks</div>
+            <div class="t"><i class="ti ti-chart-donut"></i>MF</div>
+            <div class="t"><i class="ti ti-ticket"></i>IPO</div>
+            <div class="t on"><i class="ti ti-news"></i>News</div>
+            <div class="refresh-inline"><i class="ti ti-refresh"></i></div>
+          </div>
+          <div class="minimal-row">
+            <div class="ctabs"><div class="t on">All News</div><div class="t">Holdings</div></div>
+            <div class="icons">
+              <i class="ti ti-filter"></i>
+              <span class="mood-btn"><i class="ti ti-mood-smile mi"></i></span>
+            </div>
+          </div>
+          <div class="expand-row">
+            <div class="headline">
+              <div class="ic2"><i class="ti ti-trending-up"></i></div>
+              <div style="flex:1"><div class="lbl">Leaning positive</div><div class="cnt">52 pos · 61 neutral · 12 neg · 125 total</div></div>
+              <i class="ti ti-chevron-up collapse"></i>
+            </div>
+            <div class="bar">
+              <div style="width:42%;background:var(--success)"></div>
+              <div style="width:49%;background:#6e7681"></div>
+              <div style="width:9%;background:var(--danger)"></div>
+            </div>
+            <div class="disc">Informational only — a summary of news tone, not investment advice or a market prediction.</div>
+          </div>
+          <div class="content">
+            <div class="card"><div class="row1"><div><span class="badge sebi">SEBI</span></div><div class="time">just now</div></div><div class="title">SEBI Order for Compliance...</div></div>
+            <div class="card fade-up"><div class="row1"><div><span class="badge et">ET</span></div><div class="time">12m ago</div></div><div class="title">Markets rally as IT stocks lead...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPTION 3: Anchored popover -->
+      <div class="frame-wrap">
+        <div class="vtitle">3 — Anchored popover</div>
+        <div class="vsub">A small card that appears right under the tapped icon (with a pointer/caret), not full dim-backdrop-centered. Common iOS pattern, but it's a third overlay style alongside this app's existing Modal — more UI vocabulary to maintain for one screen.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><div class="htitle">Equity</div></div>
+          <div class="subtabs">
+            <div class="t"><i class="ti ti-trending-up"></i>Stocks</div>
+            <div class="t"><i class="ti ti-chart-donut"></i>MF</div>
+            <div class="t"><i class="ti ti-ticket"></i>IPO</div>
+            <div class="t on"><i class="ti ti-news"></i>News</div>
+            <div class="refresh-inline"><i class="ti ti-refresh"></i></div>
+          </div>
+          <div class="minimal-row">
+            <div class="ctabs"><div class="t on">All News</div><div class="t">Holdings</div></div>
+            <div class="icons">
+              <i class="ti ti-filter"></i>
+              <span class="mood-btn"><i class="ti ti-mood-smile mi"></i></span>
+            </div>
+          </div>
+          <div class="content" style="filter:brightness(.6)">
+            <div class="card"><div class="row1"><div><span class="badge sebi">SEBI</span></div><div class="time">just now</div></div><div class="title">SEBI Order for Compliance...</div></div>
+            <div class="card"><div class="row1"><div><span class="badge et">ET</span></div><div class="time">12m ago</div></div><div class="title">Markets rally as IT stocks lead...</div></div>
+          </div>
+          <div class="popover-dim"></div>
+          <div class="popover">
+            <div class="headline">
+              <div class="ic2"><i class="ti ti-trending-up"></i></div>
+              <div><div class="lbl">Leaning positive</div><div class="cnt">52 pos · 61 neu · 12 neg</div></div>
+            </div>
+            <div class="bar">
+              <div style="width:42%;background:var(--success)"></div>
+              <div style="width:49%;background:#6e7681"></div>
+              <div style="width:9%;background:var(--danger)"></div>
+            </div>
+            <div class="disc">Informational only — not investment advice or a market prediction.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="legend">
+      <h2>Notes</h2>
+      <ul>
+        <li>The bottom floating card you flagged is a real inconsistency, not just a look — <code>docs/DESIGN_GUIDELINES.md</code> has a non-negotiable rule ("centered modals, never bottom sheets") that <code>components/ui/Modal.tsx</code> is built around specifically to enforce. Every other tap-for-detail surface in this app (source/tone/holding filters, group switcher, etc.) already uses it.</li>
+        <li><b>Option 1 (centered Modal)</b> costs almost nothing to build — it's a direct reuse of the existing component with a title + the same mood content already in <code>NewsMoodGauge.tsx</code>, just relocated from an always-visible banner into an on-demand modal body.</li>
+        <li><b>Option 2 (inline expand)</b> avoids any overlay/dimming at all, which is nice for a quick glance, but it's a new interaction pattern (expand/collapse in place) that doesn't exist anywhere else in the app yet.</li>
+        <li><b>Option 3 (popover)</b> is the most visually slick but introduces a third overlay style (dim-modal, inline-expand, anchored-popover) for the app to carry going forward — more surface area for one screen's sake.</li>
+      </ul>
+      <div class="rec-box"><b>Recommendation:</b> Option 1. It directly satisfies "no bottom sheets," reuses a component the rest of the app already relies on, and needs the least new code — the mood icon in the tab row just becomes a <code>Pressable</code> that opens the existing <code>Modal</code> with the gauge's content inside.</div>
+    </div>
+  </body>
+</html>

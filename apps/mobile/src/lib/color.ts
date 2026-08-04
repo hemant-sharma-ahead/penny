@@ -46,6 +46,65 @@ export function ink(hex: string, towardHex: string, pct = 70): string {
  * these previously drew the ring in a static `theme.surface` color regardless of the item's own color,
  * making the selected state hard to distinguish from the tile's own background.
  */
+export interface AccountCardPalette {
+  /** Two gradient stops, dark → darker, for the card's full-bleed background. */
+  readonly gradient: readonly [string, string];
+  /** Bright accent used only for the low-opacity corner glow blob, never as a solid fill. */
+  readonly glow: string;
+}
+
+/**
+ * Curated dark jewel-tone gradient pairs for `AccountList.tsx`'s mini cards
+ * (`docs/mockups/proposals/accounts-list-v1.html`, "Direction D — Mini Cards v2"). Supersedes the old
+ * `accentCardGradient(acc.color)` (derived from the account's own free-pick `color` field via `ink()`),
+ * which is why the first shipped version looked flat/dull and near-identical for same-typed accounts —
+ * a user-customizable single hex has no guaranteed contrast or "real card" richness. These are hand-picked
+ * to match in saturation/darkness; assignment (not colour choice) is what varies per account — see
+ * `accountCardPalette()` below.
+ */
+const JEWEL_PALETTE: readonly AccountCardPalette[] = [
+  { gradient: ['#7a1d3f', '#2e0f1f'], glow: '#ff4d7a' }, // wine
+  { gradient: ['#16234f', '#0c1530'], glow: '#4d7aff' }, // sapphire
+  { gradient: ['#5c3a12', '#241505'], glow: '#f0b060' }, // bronze/gold
+  { gradient: ['#4a1d6b', '#1f0d2e'], glow: '#b06bff' }, // violet
+  { gradient: ['#6b1d35', '#2e0f18'], glow: '#ff6b95' }, // rose
+  { gradient: ['#6b4a12', '#2e1f05'], glow: '#ffce54' }, // amber
+  { gradient: ['#2a1d6b', '#100d2e'], glow: '#6b7aff' }, // indigo
+  { gradient: ['#5c1d5c', '#241024'], glow: '#e06bff' } // plum
+];
+
+/**
+ * Cash/wallet accounts are always clamped to this green-only subset (never fall through to
+ * `JEWEL_PALETTE`), so "green = cash" stays a reliable visual cue regardless of the per-account hash.
+ */
+const GREEN_PALETTE: readonly AccountCardPalette[] = [
+  { gradient: ['#155c3f', '#0a2e20'], glow: '#10b981' }, // emerald
+  { gradient: ['#0f5c50', '#082e28'], glow: '#2de0c0' }, // teal-green
+  { gradient: ['#1a4a2e', '#0a2214'], glow: '#4ade80' }, // forest
+  { gradient: ['#0d4d42', '#052620'], glow: '#34d399' } // jade
+];
+
+function hashToIndex(id: string, length: number): number {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) % length;
+}
+
+/**
+ * Deterministically assigns one of the curated palettes above to an account, hashed off its `id` — NOT
+ * its type and NOT its user-chosen `color` — so two accounts sharing a type (e.g. two "Bank" accounts)
+ * reliably land on different cards, which is the whole point of this v2 pass (see module doc comment on
+ * `JEWEL_PALETTE`). `isCashLike` is the one hard rule: pass `true` for `cash`/`wallet` account types to
+ * clamp into `GREEN_PALETTE` regardless of the hash; every other type hashes freely into `JEWEL_PALETTE`.
+ * The same `id` always resolves to the same card on every render/relaunch — no stored assignment needed.
+ */
+export function accountCardPalette(id: string, isCashLike: boolean): AccountCardPalette {
+  const pool = isCashLike ? GREEN_PALETTE : JEWEL_PALETTE;
+  return pool[hashToIndex(id, pool.length)];
+}
+
 export function selectionRingStyle(selected: boolean, surfaceColor: string, itemColor: string, innerRadius = 10) {
   const gap = 2;
   return {

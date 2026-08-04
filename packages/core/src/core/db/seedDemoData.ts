@@ -417,7 +417,9 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
       id: 'demo-goal-emergency',
       name: 'Emergency Fund',
       targetAmount: 300000,
-      currentAmount: 120000,
+      // Baseline only — the demo's ₹20,000 in goalContributions below adds to this at display time
+      // (2026-08-01 goal-transaction linking; total shown is still ₹1,20,000, unchanged).
+      currentAmount: 100000,
       targetDate: from(365),
       risk: 'conservative',
       icon: 'ti-shield',
@@ -429,7 +431,8 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
       id: 'demo-goal-europe',
       name: 'Europe Trip',
       targetAmount: 200000,
-      currentAmount: 30000,
+      // Baseline only — see the Emergency Fund goal's comment above (total shown still ₹30,000).
+      currentAmount: 20000,
       targetDate: from(540),
       risk: 'moderate',
       sipAmount: 5000,
@@ -442,7 +445,8 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
       id: 'demo-goal-home',
       name: 'Home Down Payment',
       targetAmount: 2500000,
-      currentAmount: 1700000,
+      // Baseline only — see the Emergency Fund goal's comment above (total shown still ₹17,00,000).
+      currentAmount: 1650000,
       targetDate: from(720),
       risk: 'aggressive',
       sipAmount: 25000,
@@ -454,14 +458,63 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
   ];
   await Promise.all(goals.map((g) => goalsRepo.put(g)));
 
-  // Goal contributions (a few for each goal)
+  // Goal contributions (a few for each goal) — all 'manual' origin (no linked transaction) since this
+  // is historical demo data, not a live expense/income being seeded.
   const goalContributions: GoalContribution[] = [
-    { id: 'demo-gc-1', goalId: 'demo-goal-emergency', amount: 10000, date: ago(60), createdAt: ago(60) },
-    { id: 'demo-gc-2', goalId: 'demo-goal-emergency', amount: 10000, date: ago(30), createdAt: ago(30) },
-    { id: 'demo-gc-3', goalId: 'demo-goal-europe', amount: 5000, date: ago(60), createdAt: ago(60) },
-    { id: 'demo-gc-4', goalId: 'demo-goal-europe', amount: 5000, date: ago(30), createdAt: ago(30) },
-    { id: 'demo-gc-5', goalId: 'demo-goal-home', amount: 25000, date: ago(60), createdAt: ago(60) },
-    { id: 'demo-gc-6', goalId: 'demo-goal-home', amount: 25000, date: ago(30), createdAt: ago(30) }
+    {
+      id: 'demo-gc-1',
+      goalId: 'demo-goal-emergency',
+      amount: 10000,
+      date: ago(60),
+      origin: 'manual',
+      createdAt: ago(60),
+      updatedAt: ago(60)
+    },
+    {
+      id: 'demo-gc-2',
+      goalId: 'demo-goal-emergency',
+      amount: 10000,
+      date: ago(30),
+      origin: 'manual',
+      createdAt: ago(30),
+      updatedAt: ago(30)
+    },
+    {
+      id: 'demo-gc-3',
+      goalId: 'demo-goal-europe',
+      amount: 5000,
+      date: ago(60),
+      origin: 'manual',
+      createdAt: ago(60),
+      updatedAt: ago(60)
+    },
+    {
+      id: 'demo-gc-4',
+      goalId: 'demo-goal-europe',
+      amount: 5000,
+      date: ago(30),
+      origin: 'manual',
+      createdAt: ago(30),
+      updatedAt: ago(30)
+    },
+    {
+      id: 'demo-gc-5',
+      goalId: 'demo-goal-home',
+      amount: 25000,
+      date: ago(60),
+      origin: 'manual',
+      createdAt: ago(60),
+      updatedAt: ago(60)
+    },
+    {
+      id: 'demo-gc-6',
+      goalId: 'demo-goal-home',
+      amount: 25000,
+      date: ago(30),
+      origin: 'manual',
+      createdAt: ago(30),
+      updatedAt: ago(30)
+    }
   ];
   await Promise.all(goalContributions.map((gc) => goalContributionsRepo.put(gc)));
 

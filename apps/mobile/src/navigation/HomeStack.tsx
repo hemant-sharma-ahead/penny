@@ -17,9 +17,9 @@ import { AccountsPage } from '../features/accounts/AccountsPage';
 import { SubscriptionsPage } from '../features/subscriptions/SubscriptionsPage';
 import { FeedbackPage } from '../features/feedback/FeedbackPage';
 import { CashFlowPage } from '../features/cashflow/CashFlowPage';
-import { NewsPage } from '../features/news/NewsPage';
-import { CalculatorsPage } from '../features/calculators/CalculatorsPage';
 import { TaxAwarenessPage } from '../features/tax/TaxAwarenessPage';
+import { BankImportPage } from '../features/bank-import/BankImportPage';
+import { BankImportOverridesPage } from '../features/bank-import/BankImportOverridesPage';
 
 /**
  * The Home tab's own navigation stack — Track: chrome-persistence fix. Previously all of these
@@ -34,7 +34,7 @@ import { TaxAwarenessPage } from '../features/tax/TaxAwarenessPage';
  * itself) stays visible exactly like web's chrome.
  *
  * Everything here is reachable from Home's own widgets (`GlanceHeader`/`AccountsStrip`/
- * `MoneyStatsCard`/`ToolsGrid`/`HomeGroupsCard`) or from Settings' own sub-navigation (which lives
+ * `MoneyStatsCard`/`HomeGroupsCard`) or from Settings' own sub-navigation (which lives
  * here too, since Settings is reached via the global header's menu button, which always targets
  * `navigate('MainTabs', { screen: 'Home', params: { screen: 'Settings' } })` regardless of which tab
  * is currently active — switching to Home when opening Settings is standard, accepted behavior, same
@@ -60,9 +60,13 @@ export type HomeStackParamList = {
   Subscriptions: undefined;
   Feedback: undefined;
   CashFlow: undefined;
-  News: undefined;
-  Calculators: undefined;
   Tax: undefined;
+  /** Bank statement import (docs/plans/bank-statement-import.md) — scoped to one account, entered from
+   *  that account's own row on the Accounts page (`AccountList.tsx`'s Import action). */
+  BankImport: { accountId: string };
+  /** Global normalization-override management screen (§9a) — reachable from the Accounts page header,
+   *  not scoped to any one account (merchant memory spans every account). */
+  BankImportOverrides: undefined;
 };
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
@@ -95,9 +99,9 @@ export function HomeStack() {
       <Stack.Screen name="Subscriptions" component={SubscriptionsPage} />
       <Stack.Screen name="Feedback" component={FeedbackPage} />
       <Stack.Screen name="CashFlow" component={CashFlowPage} />
-      <Stack.Screen name="News" component={NewsPage} />
-      <Stack.Screen name="Calculators" component={CalculatorsPage} />
       <Stack.Screen name="Tax" component={TaxAwarenessPage} />
+      <Stack.Screen name="BankImport" component={BankImportPage} />
+      <Stack.Screen name="BankImportOverrides" component={BankImportOverridesPage} />
     </Stack.Navigator>
   );
 }

@@ -1,0 +1,18 @@
+<!--
+  Penny app icon — Direction F ("Leaf Medallion Coin Stack"), approved via
+  docs/mockups/proposals/app-icon-v1.html (2026-08-04). Canonical vector master for
+  icon.png, favicon.png, android-icon-foreground.png, android-icon-background.png,
+  and android-icon-monochrome.png — those are all derived renders/crops of this same
+  composition, not independent designs. To regenerate a PNG at a new size: render this
+  file (or the transparent/monochrome variants used for the Android adaptive-icon
+  layers, not checked in separately) with any SVG rasterizer at the target pixel size.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#00A86B"/>
+  <circle cx="288" cy="288" r="200" fill="#045538" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
+  <circle cx="256" cy="256" r="200" fill="#067A4F" stroke="rgba(255,255,255,0.55)" stroke-width="8"/>
+  <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="#FFF8EC"/>
+  <path d="M256 366V166" stroke="#067A4F" stroke-width="14" stroke-linecap="round"/>
+  <path d="M256 320 C220 300 196 270 210 236" stroke="#067A4F" stroke-width="10" fill="none" stroke-linecap="round"/>
+  <path d="M256 270 C292 250 316 220 302 186" stroke="#067A4F" stroke-width="10" fill="none" stroke-linecap="round"/>
+</svg>

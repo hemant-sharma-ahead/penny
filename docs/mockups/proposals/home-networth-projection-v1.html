@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Home — Net Worth Projection &amp; Retirement Corpus — v1</title>
+<style>
+  :root{
+    --bg:#0a0a0d; --card:#16161c; --card2:#1c1c24; --border:rgba(255,255,255,.08);
+    --text:#f5f5f7; --text2:#b4b4bc; --text3:#7c7c86;
+    --green:#34d399; --violet:#8b5cf6; --teal:#2dd4bf; --blue:#4d7aff; --amber:#f0b060;
+    --danger:#f87171;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:#050507; color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .tabular{font-variant-numeric:tabular-nums;}
+
+  /* ── Page chrome ── */
+  .topbar{
+    position:sticky; top:0; z-index:50; padding:18px 32px; background:rgba(5,5,7,.9);
+    backdrop-filter:blur(12px); border-bottom:1px solid var(--border);
+    display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+  }
+  .topbar h1{font-size:16px; margin:0; font-weight:700;}
+  .topbar p{margin:0; font-size:12.5px; color:var(--text3);}
+  .legend{display:flex; gap:16px; margin-left:auto; font-size:11px; color:var(--text3); align-items:center;}
+  .legend b{color:var(--text2); font-weight:600;}
+
+  .gallery{
+    display:flex; gap:36px; padding:40px 32px 80px; overflow-x:auto; align-items:flex-start;
+  }
+  .column{display:flex; flex-direction:column; align-items:center; gap:14px; flex:0 0 auto;}
+  .col-head{width:328px; text-align:left;}
+  .col-tag{
+    display:inline-flex; align-items:center; gap:6px; font-size:10.5px; font-weight:700;
+    letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:99px;
+    margin-bottom:8px;
+  }
+  .col-title{font-size:15px; font-weight:700; margin:0 0 4px;}
+  .col-pitch{font-size:12px; color:var(--text3); line-height:1.5; margin:0;}
+  .rec-ribbon{
+    position:absolute; top:14px; right:-8px; background:var(--violet); color:#fff; font-size:10px;
+    font-weight:700; letter-spacing:.04em; padding:5px 12px 5px 14px; border-radius:6px 0 0 6px;
+    box-shadow:0 4px 14px rgba(139,92,246,.4); text-transform:uppercase;
+  }
+
+  /* ── Phone frame ── */
+  .phone{
+    position:relative; width:328px; height:712px; border-radius:38px; background:var(--bg);
+    border:8px solid #1a1a1e; box-shadow:0 30px 60px -20px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.04);
+    overflow:hidden;
+  }
+  .notch{
+    position:absolute; top:8px; left:50%; transform:translateX(-50%); width:110px; height:22px;
+    background:#1a1a1e; border-radius:0 0 16px 16px; z-index:40;
+  }
+  .screen{height:100%; overflow-y:auto; padding:36px 14px 24px; scrollbar-width:none;}
+  .screen::-webkit-scrollbar{display:none;}
+
+  /* ── Shared card bits ── */
+  .card{background:var(--card); border:1px solid var(--border); border-radius:16px;}
+  .section-label{font-size:9.5px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--text3);}
+  .divider{height:1px; background:var(--border);}
+
+  /* ── CURRENT (today) frame ── */
+  .hero-split{display:flex;}
+  .hero-half{flex:1; padding:13px 14px;}
+  .hero-half + .hero-half{border-left:1px solid var(--border);}
+  .hero-num{font-size:21px; font-weight:800; letter-spacing:-.02em; margin:3px 0 2px;}
+  .hero-sub{font-size:10.5px; color:var(--text3); display:flex; align-items:center; gap:3px;}
+  .assetbar{display:flex; height:6px; border-radius:99px; overflow:hidden; margin:0 14px 8px;}
+  .assetbar-row{display:flex; justify-content:space-between; padding:0 14px 12px; font-size:10.5px; color:var(--text3);}
+  .stats-row{display:flex; gap:8px; margin-top:12px;}
+  .stat-tile{flex:1; padding:10px; text-align:left;}
+  .stat-tile .v{font-size:13px; font-weight:700; margin-top:3px;}
+  .stat-tile .l{font-size:9.5px; color:var(--text3);}
+  .health-card{padding:14px; margin-top:12px;}
+  .health-top{display:flex; gap:12px; align-items:center;}
+  .ring{width:44px; height:44px; border-radius:50%; background:conic-gradient(#f87171 0deg 126deg, #2a2a30 126deg 360deg); display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .ring-inner{width:34px; height:34px; border-radius:50%; background:var(--card2); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; color:#f87171;}
+  .icon-row{display:flex; justify-content:space-between; margin-top:14px; padding:0 4px;}
+  .icon-item{display:flex; flex-direction:column; align-items:center; gap:5px; font-size:9px; color:var(--text3);}
+  .icon-circ{width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px;}
+  .fade-note{text-align:center; font-size:10.5px; color:var(--text3); margin-top:16px; padding:10px; border:1px dashed var(--border); border-radius:10px;}
+
+  /* ── New hero (trimmed) shared across directions ── */
+  .nw-hero{padding:15px 16px;}
+  .nw-hero .hero-num{font-size:26px;}
+  .nw-chip{display:inline-flex; align-items:center; gap:4px; font-size:10px; color:var(--text3); margin-top:2px;}
+
+  /* ── Projection card shared skeleton ── */
+  .proj-card{margin-top:12px; padding:15px 16px 16px; position:relative; overflow:hidden; cursor:pointer;}
+  .proj-head{display:flex; justify-content:space-between; align-items:flex-start;}
+  .proj-title{font-size:13px; font-weight:700; margin:0 0 2px;}
+  .proj-sub{font-size:10.5px; color:var(--text3);}
+  .proj-chevron{color:var(--text3); font-size:13px; margin-top:2px;}
+  .chart-wrap{margin:12px 0 6px; position:relative;}
+  .axis-labels{display:flex; justify-content:space-between; font-size:9.5px; color:var(--text3); margin-top:2px;}
+  .flag-badge{
+    position:absolute; font-size:8px; font-weight:800; padding:2px 5px; border-radius:5px;
+    color:#fff; white-space:nowrap; transform:translate(-50%,-100%);
+  }
+  .dot-today{filter:drop-shadow(0 0 5px currentColor);}
+
+  /* Direction 1 — Milestone Timeline (violet, gauge) */
+  .d1 .accent{color:var(--violet);}
+  .d1 .proj-card{background:linear-gradient(160deg,#1c1730,#16161c 55%);}
+  .gauge-wrap{display:flex; align-items:center; gap:14px; margin-top:6px;}
+  .gauge{position:relative; width:88px; height:88px; flex-shrink:0;}
+  .gauge svg{transform:rotate(-90deg);}
+  .gauge-label{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;}
+  .gauge-label b{font-size:19px; font-weight:800;}
+  .gauge-label span{font-size:8.5px; color:var(--text3); text-align:center; line-height:1.2; margin-top:1px;}
+  .gauge-stats{flex:1; display:flex; flex-direction:column; gap:7px;}
+  .gs-row{display:flex; justify-content:space-between; font-size:11px;}
+  .gs-row .l{color:var(--text3);}
+  .gs-row .v{font-weight:700;}
+  .cta-chip{
+    margin-top:12px; padding:9px 11px; border-radius:11px; font-size:11px; font-weight:600;
+    background:rgba(139,92,246,.14); color:#c4b5fd; display:flex; align-items:center; gap:7px;
+  }
+
+  /* Direction 2 — Split Growth Path (teal, fuel gauge) */
+  .d2 .accent{color:var(--teal);}
+  .d2 .proj-card{background:linear-gradient(160deg,#132420,#16161c 55%);}
+  .pace-pills{display:flex; gap:6px; margin:10px 0 2px;}
+  .pill{
+    flex:1; text-align:center; padding:6px 4px; border-radius:9px; font-size:10px; font-weight:700;
+    border:1px solid var(--border); color:var(--text3); transition:.15s;
+  }
+  .pill.active{background:rgba(45,212,191,.16); color:var(--teal); border-color:rgba(45,212,191,.35);}
+  .fuel{position:relative; height:14px; border-radius:99px; background:#25252c; margin-top:10px; overflow:visible;}
+  .fuel-fill{position:absolute; inset:0; border-radius:99px; background:linear-gradient(90deg,#0d9488,var(--teal));}
+  .fuel-tick{position:absolute; top:-4px; bottom:-4px; width:2px; background:#fff; opacity:.5;}
+  .fuel-tick::after{content:'target'; position:absolute; top:-14px; right:-2px; font-size:8px; color:var(--text3);}
+  .d2-numbers{display:flex; justify-content:space-between; margin-top:14px;}
+  .d2-num .l{font-size:9.5px; color:var(--text3);}
+  .d2-num .v{font-size:13px; font-weight:700; margin-top:2px;}
+
+  /* Direction 3 — Command Center (blue, dense dashboard) */
+  .d3 .accent{color:var(--blue);}
+  .d3 .proj-card{background:linear-gradient(160deg,#131b30,#16161c 55%);}
+  .spark-row{display:flex; align-items:flex-end; gap:12px; margin-top:8px;}
+  .spark-num{font-size:22px; font-weight:800;}
+  .spark-delta{font-size:10.5px; color:var(--green); font-weight:700; margin-left:4px;}
+  .stat-grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-top:12px;}
+  .sg-tile{background:var(--card2); border-radius:10px; padding:8px 6px; text-align:center;}
+  .sg-tile .l{font-size:8.5px; color:var(--text3);}
+  .sg-tile .v{font-size:11.5px; font-weight:700; margin-top:3px;}
+  .assum-pills{display:flex; gap:6px; margin-top:11px; flex-wrap:wrap;}
+  .assum-pill{
+    font-size:9.5px; font-weight:600; padding:5px 9px; border-radius:99px; background:var(--card2);
+    color:var(--text2); border:1px solid var(--border); display:flex; align-items:center; gap:4px;
+  }
+
+  /* ── Slide-up sheet ── */
+  .sheet-scrim{
+    position:absolute; inset:0; background:rgba(0,0,0,.55); opacity:0; pointer-events:none;
+    transition:opacity .28s ease; z-index:60;
+  }
+  .sheet{
+    position:absolute; left:0; right:0; bottom:0; height:74%; background:#131318;
+    border-radius:22px 22px 0 0; border:1px solid rgba(255,255,255,.08); border-bottom:none;
+    transform:translateY(100%); transition:transform .32s cubic-bezier(.32,.72,0,1); z-index:61;
+    padding:10px 18px 22px; display:flex; flex-direction:column;
+  }
+  .sheet-overlay.open .sheet{transform:translateY(0);}
+  .sheet-overlay.open .sheet-scrim{opacity:1; pointer-events:auto;}
+  .drag-handle{width:36px; height:4px; border-radius:99px; background:#3a3a42; margin:2px auto 14px;}
+  .sheet-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;}
+  .sheet-title{font-size:14px; font-weight:700;}
+  .sheet-close{width:26px; height:26px; border-radius:50%; background:var(--card2); display:flex; align-items:center; justify-content:center; color:var(--text3); font-size:13px;}
+  .sheet-sub{font-size:11px; color:var(--text3); margin-top:2px; margin-bottom:14px;}
+  .field-row{display:flex; gap:8px; margin-top:14px;}
+  .field{flex:1; background:var(--card2); border-radius:12px; padding:10px 12px; border:1px solid var(--border);}
+  .field .l{font-size:9.5px; color:var(--text3); margin-bottom:4px;}
+  .field .v{font-size:14px; font-weight:700;}
+  .stepper{display:flex; align-items:center; gap:10px; margin-top:4px;}
+  .step-btn{width:22px; height:22px; border-radius:6px; background:#26262e; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px;}
+  .info-note{margin-top:14px; font-size:10px; color:var(--text3); display:flex; gap:6px; align-items:flex-start; line-height:1.5;}
+
+  /* ── Static open-sheet showcase column ── */
+  .showcase-tag{background:rgba(139,92,246,.15); color:#c4b5fd;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Home — Net Worth Projection &amp; Retirement Corpus</h1>
+  <p>Three directions · tap the projection card in any frame to open the expense-projection drill-down</p>
+  <div class="legend">
+    <span><b>Base numbers:</b> age 32 → retiring 50 (2044)</span>
+    <span>investable corpus ₹38L today · ₹40k/mo SIP</span>
+  </div>
+</div>
+
+<div class="gallery">
+
+  <!-- ═══════════════ CURRENT (TODAY) ═══════════════ -->
+  <div class="column">
+    <div class="col-head">
+      <span class="col-tag" style="background:rgba(255,255,255,.08); color:var(--text2);">Current · Today</span>
+      <p class="col-title">What ships right now</p>
+      <p class="col-pitch">Net worth + Safe-to-spend split hero, thin proportional asset bar, tap-through breakdown modal. Safe-to-spend duplicates Expenses; the bar doesn't say anything the modal doesn't already say better.</p>
+    </div>
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="card">
+          <div class="hero-split">
+            <div class="hero-half">
+              <div class="section-label">Net worth</div>
+              <div class="hero-num tabular">₹1,49,33,023</div>
+              <div class="hero-sub">View breakdown ›</div>
+            </div>
+            <div class="hero-half">
+              <div class="section-label">Safe to spend</div>
+              <div class="hero-num tabular" style="color:var(--green);">₹62,27,307</div>
+              <div class="hero-sub">28 days till payday</div>
+            </div>
+          </div>
+          <div class="assetbar">
+            <div style="flex:3; background:#22d3ee;"></div>
+            <div style="flex:2; background:#34d399;"></div>
+            <div style="flex:1; background:#8b5cf6;"></div>
+            <div style="flex:2; background:#4b5563;"></div>
+            <div style="flex:2; background:#6366f1;"></div>
+          </div>
+          <div class="assetbar-row">
+            <span>Assets <b style="color:var(--text2);">₹2.0Cr</b></span>
+            <span>Liabilities <b style="color:var(--danger);">−₹48.4L</b></span>
+          </div>
+        </div>
+
+        <div class="stats-row">
+          <div class="card stat-tile"><div class="l">Spent</div><div class="v">₹1,500</div></div>
+          <div class="card stat-tile"><div class="l">Insurance</div><div class="v">₹1.1Cr</div></div>
+          <div class="card stat-tile"><div class="l">Loans</div><div class="v">₹40.0L</div></div>
+        </div>
+
+        <div class="card health-card">
+          <div class="health-top">
+            <div class="ring"><div class="ring-inner">35</div></div>
+            <div>
+              <div style="font-size:12.5px; font-weight:700; color:#f87171;">Critical</div>
+              <div style="font-size:10px; color:var(--text3); margin-top:2px;">A few quick wins would lift your score.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="icon-row">
+          <div class="icon-item"><div class="icon-circ" style="background:rgba(52,211,153,.12); color:var(--green);">✦</div>Your week</div>
+          <div class="icon-item"><div class="icon-circ" style="background:rgba(251,146,60,.12); color:#fb923c;">🔥</div>3-day streak</div>
+          <div class="icon-item"><div class="icon-circ" style="background:rgba(139,92,246,.12); color:var(--violet);">💡</div>Insights</div>
+          <div class="icon-item"><div class="icon-circ" style="background:rgba(96,165,250,.12); color:#60a5fa;">🕐</div>Timeline</div>
+        </div>
+
+        <div class="fade-note">Groups, Accounts strip continue below ↓</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ DIRECTION 1 — MILESTONE TIMELINE ═══════════════ -->
+  <div class="column">
+    <div class="col-head" style="position:relative;">
+      <span class="rec-ribbon">Recommended</span>
+      <span class="col-tag" style="background:rgba(139,92,246,.15); color:#c4b5fd;">A · Milestone Timeline</span>
+      <p class="col-title">Area chart + radial "% funded" gauge</p>
+      <p class="col-pitch">Smooth glowing growth curve to a flagged retirement year; a thin dashed line shows the small remaining gap to target — visible, not alarming. A radial gauge below reframes the shortfall as "81% funded" with an actionable nudge, never a bare red deficit.</p>
+    </div>
+    <div class="phone d1">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="card nw-hero">
+          <div class="section-label">Net worth</div>
+          <div class="hero-num tabular">₹1,49,33,023</div>
+          <div class="nw-chip">View breakdown ›</div>
+        </div>
+
+        <div class="card proj-card" onclick="toggleSheet('sheet-d1')">
+          <div class="proj-head">
+            <div>
+              <div class="proj-title">Retirement corpus</div>
+              <div class="proj-sub">Investable assets · projected to <b class="accent">2044</b> (age 50)</div>
+            </div>
+            <div class="proj-chevron">⌃</div>
+          </div>
+
+          <div class="chart-wrap">
+            <svg viewBox="0 0 284 128" width="100%" height="108">
+              <defs>
+                <linearGradient id="d1fill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#8b5cf6" stop-opacity=".45"/>
+                  <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path d="M14,114 C46,110 78,101 108,88 C138,75 168,58 198,46 C222,44 248,42 268,40 L268,120 L14,120 Z" fill="url(#d1fill)"/>
+              <path d="M14,114 C46,110 78,101 108,88 C138,75 168,58 198,46 C222,44 248,42 268,40" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="268" y1="40" x2="268" y2="18" stroke="#f0b060" stroke-width="1.6" stroke-dasharray="3,3"/>
+              <circle cx="268" cy="18" r="3" fill="#f0b060"/>
+              <circle cx="14" cy="114" r="4" fill="#c4b5fd" class="dot-today" style="color:#c4b5fd;"/>
+              <circle cx="268" cy="40" r="4" fill="#a78bfa"/>
+              <line x1="268" y1="8" x2="268" y2="124" stroke="#8b5cf6" stroke-width="1" stroke-dasharray="2,4" opacity=".35"/>
+            </svg>
+            <div class="flag-badge" style="left:76%; top:2px; background:#f0b060; color:#1a1206;">Target ₹7.3Cr</div>
+          </div>
+          <div class="axis-labels">
+            <span>2026 · today</span>
+            <span>2044 · retirement</span>
+          </div>
+
+          <div class="gauge-wrap">
+            <div class="gauge">
+              <svg viewBox="0 0 88 88" width="88" height="88">
+                <circle cx="44" cy="44" r="38" fill="none" stroke="#25252c" stroke-width="8"/>
+                <circle cx="44" cy="44" r="38" fill="none" stroke="#8b5cf6" stroke-width="8" stroke-linecap="round"
+                  stroke-dasharray="238.8" stroke-dashoffset="45.4"/>
+              </svg>
+              <div class="gauge-label"><b>81%</b><span>funded for<br/>retirement</span></div>
+            </div>
+            <div class="gauge-stats">
+              <div class="gs-row"><span class="l">Needed</span><span class="v tabular">₹7,30,00,000</span></div>
+              <div class="gs-row"><span class="l">Projected</span><span class="v tabular">₹5,95,00,000</span></div>
+              <div class="gs-row"><span class="l">Monthly SIP</span><span class="v tabular">₹40,000</span></div>
+            </div>
+          </div>
+
+          <div class="cta-chip">↗ <span>+₹18,000/mo closes this gap by 2044</span></div>
+        </div>
+
+        <div class="fade-note">Financial health, Groups continue below ↓</div>
+      </div>
+
+      <!-- slide-up sheet -->
+      <div class="sheet-overlay" id="sheet-d1">
+        <div class="sheet-scrim" onclick="toggleSheet('sheet-d1')"></div>
+        <div class="sheet">
+          <div class="drag-handle"></div>
+          <div class="sheet-head">
+            <div class="sheet-title">Expense projection</div>
+            <div class="sheet-close" onclick="toggleSheet('sheet-d1')">✕</div>
+          </div>
+          <div class="sheet-sub">Inflation-adjusted · 6% p.a. assumed</div>
+
+          <svg viewBox="0 0 284 120" width="100%" height="100">
+            <path d="M14,96 C70,93 130,86 180,70 C210,60 236,44 260,26" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="260" y1="26" x2="260" y2="108" stroke="#8b5cf6" stroke-width="1" stroke-dasharray="2,4" opacity=".35"/>
+            <circle cx="14" cy="96" r="4" fill="#c4b5fd"/>
+            <circle cx="260" cy="26" r="4" fill="#a78bfa"/>
+          </svg>
+          <div class="axis-labels" style="margin-top:-4px;">
+            <span>₹85,000/mo · today</span>
+            <span style="color:#c4b5fd; font-weight:700;">₹2,43,000/mo · at 50</span>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <div class="l">Monthly expense today</div>
+              <div class="v tabular">₹85,000</div>
+            </div>
+            <div class="field">
+              <div class="l">Retirement age</div>
+              <div class="stepper"><div class="step-btn">−</div><div class="v">50</div><div class="step-btn">+</div></div>
+            </div>
+          </div>
+
+          <div class="info-note">ⓘ Updates your retirement plan everywhere — this Home card and the FIRE Calculator share the same numbers.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ DIRECTION 2 — SPLIT GROWTH PATH ═══════════════ -->
+  <div class="column">
+    <div class="col-head">
+      <span class="col-tag" style="background:rgba(45,212,191,.15); color:#5eead4;">B · Split Growth Path</span>
+      <p class="col-title">Two paths + fuel-gauge bar</p>
+      <p class="col-pitch">Dashed "current pace" vs. bold "boosted" line, both converging at the retirement flag — makes the fix visible on the graph itself, not just in a caption. Toggle pills switch which path is emphasized.</p>
+    </div>
+    <div class="phone d2">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="card nw-hero">
+          <div class="section-label">Net worth</div>
+          <div class="hero-num tabular">₹1,49,33,023</div>
+          <div class="nw-chip">View breakdown ›</div>
+        </div>
+
+        <div class="card proj-card" onclick="toggleSheet('sheet-d2')">
+          <div class="proj-head">
+            <div>
+              <div class="proj-title">Retirement corpus</div>
+              <div class="proj-sub">Investable assets · retiring <b class="accent">2044</b></div>
+            </div>
+            <div class="proj-chevron">⌃</div>
+          </div>
+
+          <div class="pace-pills">
+            <div class="pill">Current pace</div>
+            <div class="pill active">Boosted +18k/mo</div>
+          </div>
+
+          <div class="chart-wrap" style="margin-top:10px;">
+            <svg viewBox="0 0 284 128" width="100%" height="104">
+              <path d="M14,114 C46,110 78,101 108,88 C138,75 168,58 198,46 C222,44 248,42 268,40" fill="none" stroke="#5eead4" stroke-width="1.8" stroke-dasharray="4,4" opacity=".55"/>
+              <path d="M14,114 C46,109 78,98 108,83 C138,68 168,48 198,34 C222,28 248,22 268,18" fill="none" stroke="#2dd4bf" stroke-width="2.8" stroke-linecap="round"/>
+              <circle cx="14" cy="114" r="4" fill="#5eead4"/>
+              <circle cx="268" cy="18" r="4.5" fill="#2dd4bf" class="dot-today" style="color:#2dd4bf;"/>
+              <line x1="268" y1="8" x2="268" y2="124" stroke="#2dd4bf" stroke-width="1" stroke-dasharray="2,4" opacity=".3"/>
+            </svg>
+            <div class="flag-badge" style="left:94%; top:6px; background:#2dd4bf; color:#04201c;">🏁 FI</div>
+          </div>
+          <div class="axis-labels">
+            <span>2026 · today</span>
+            <span>2044 · age 50</span>
+          </div>
+
+          <div class="fuel">
+            <div class="fuel-fill" style="width:81%;"></div>
+            <div class="fuel-tick" style="left:100%;"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-top:5px;">
+            <span style="font-size:10px; color:var(--text3);">81% funded at current pace</span>
+            <span style="font-size:10px; font-weight:700; color:#2dd4bf;">100% boosted</span>
+          </div>
+
+          <div class="d2-numbers">
+            <div class="d2-num"><div class="l">Needed</div><div class="v tabular">₹7,30,00,000</div></div>
+            <div class="d2-num" style="text-align:right;"><div class="l">Projected (boosted)</div><div class="v tabular" style="color:#2dd4bf;">₹7,30,00,000</div></div>
+          </div>
+        </div>
+
+        <div class="fade-note">Financial health, Groups continue below ↓</div>
+      </div>
+
+      <div class="sheet-overlay" id="sheet-d2">
+        <div class="sheet-scrim" onclick="toggleSheet('sheet-d2')"></div>
+        <div class="sheet">
+          <div class="drag-handle"></div>
+          <div class="sheet-head">
+            <div class="sheet-title">Expense projection</div>
+            <div class="sheet-close" onclick="toggleSheet('sheet-d2')">✕</div>
+          </div>
+          <div class="sheet-sub">Inflation-adjusted · 6% p.a. assumed</div>
+
+          <svg viewBox="0 0 284 120" width="100%" height="100">
+            <path d="M14,96 C70,93 130,86 180,70 C210,60 236,44 260,26" fill="none" stroke="#2dd4bf" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="260" y1="26" x2="260" y2="108" stroke="#2dd4bf" stroke-width="1" stroke-dasharray="2,4" opacity=".35"/>
+            <circle cx="14" cy="96" r="4" fill="#5eead4"/>
+            <circle cx="260" cy="26" r="4" fill="#2dd4bf"/>
+          </svg>
+          <div class="axis-labels" style="margin-top:-4px;">
+            <span>₹85,000/mo · today</span>
+            <span style="color:#5eead4; font-weight:700;">₹2,43,000/mo · at 50</span>
+          </div>
+
+          <div class="field-row">
+            <div class="field"><div class="l">Monthly expense today</div><div class="v tabular">₹85,000</div></div>
+            <div class="field"><div class="l">Retirement age</div>
+              <div class="stepper"><div class="step-btn">−</div><div class="v">50</div><div class="step-btn">+</div></div>
+            </div>
+          </div>
+          <div class="info-note">ⓘ Shared with the FIRE Calculator — one retirement plan across the app.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ DIRECTION 3 — COMMAND CENTER ═══════════════ -->
+  <div class="column">
+    <div class="col-head">
+      <span class="col-tag" style="background:rgba(77,122,255,.15); color:#93a9ff;">C · Command Center</span>
+      <p class="col-title">Dense, INDmoney-style dashboard</p>
+      <p class="col-pitch">Big number + sparkline up top, a 3-up stat grid, and tappable assumption pills (retirement age, return, inflation) inline — most information-dense of the three, closest to what INDmoney itself ships.</p>
+    </div>
+    <div class="phone d3">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="card nw-hero">
+          <div class="section-label">Net worth</div>
+          <div class="hero-num tabular">₹1,49,33,023</div>
+          <div class="nw-chip">View breakdown ›</div>
+        </div>
+
+        <div class="card proj-card" onclick="toggleSheet('sheet-d3')">
+          <div class="proj-head">
+            <div>
+              <div class="proj-title">Retirement corpus</div>
+              <div class="proj-sub">Investable assets · <b class="accent">81% funded</b></div>
+            </div>
+            <div class="proj-chevron">⌃</div>
+          </div>
+
+          <div class="spark-row">
+            <div>
+              <div class="spark-num tabular">₹5,95,00,000</div>
+              <div style="font-size:10px; color:var(--text3); margin-top:1px;">projected by 2044 <span class="spark-delta">↑ on track</span></div>
+            </div>
+          </div>
+          <svg viewBox="0 0 200 48" width="100%" height="40" style="margin-top:6px;">
+            <path d="M4,44 C24,42 40,36 56,30 C74,24 90,16 108,10 C126,5 148,4 168,4 C178,4 188,3 196,2" fill="none" stroke="#93a9ff" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="196" cy="2" r="3" fill="#4d7aff"/>
+          </svg>
+
+          <div class="stat-grid3">
+            <div class="sg-tile"><div class="l">Needed</div><div class="v">₹7.3Cr</div></div>
+            <div class="sg-tile"><div class="l">Projected</div><div class="v">₹5.95Cr</div></div>
+            <div class="sg-tile"><div class="l">Funded</div><div class="v" style="color:#4d7aff;">81%</div></div>
+          </div>
+
+          <div class="assum-pills">
+            <div class="assum-pill">🎂 Retire at 50</div>
+            <div class="assum-pill">📈 12% return</div>
+            <div class="assum-pill">🔥 6% inflation</div>
+            <div class="assum-pill">💧 4% SWR</div>
+          </div>
+        </div>
+
+        <div class="fade-note">Financial health, Groups continue below ↓</div>
+      </div>
+
+      <div class="sheet-overlay" id="sheet-d3">
+        <div class="sheet-scrim" onclick="toggleSheet('sheet-d3')"></div>
+        <div class="sheet">
+          <div class="drag-handle"></div>
+          <div class="sheet-head">
+            <div class="sheet-title">Expense projection</div>
+            <div class="sheet-close" onclick="toggleSheet('sheet-d3')">✕</div>
+          </div>
+          <div class="sheet-sub">Inflation-adjusted · 6% p.a. assumed</div>
+
+          <svg viewBox="0 0 284 120" width="100%" height="100">
+            <path d="M14,96 C70,93 130,86 180,70 C210,60 236,44 260,26" fill="none" stroke="#4d7aff" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="260" y1="26" x2="260" y2="108" stroke="#4d7aff" stroke-width="1" stroke-dasharray="2,4" opacity=".35"/>
+            <circle cx="14" cy="96" r="4" fill="#93a9ff"/>
+            <circle cx="260" cy="26" r="4" fill="#4d7aff"/>
+          </svg>
+          <div class="axis-labels" style="margin-top:-4px;">
+            <span>₹85,000/mo · today</span>
+            <span style="color:#93a9ff; font-weight:700;">₹2,43,000/mo · at 50</span>
+          </div>
+
+          <div class="field-row">
+            <div class="field"><div class="l">Monthly expense today</div><div class="v tabular">₹85,000</div></div>
+            <div class="field"><div class="l">Retirement age</div>
+              <div class="stepper"><div class="step-btn">−</div><div class="v">50</div><div class="step-btn">+</div></div>
+            </div>
+          </div>
+          <div class="info-note">ⓘ Same assumptions everywhere — Home, this sheet, and the FIRE Calculator all read one plan.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ STATIC SHOWCASE: sheet open by default ═══════════════ -->
+  <div class="column">
+    <div class="col-head">
+      <span class="col-tag showcase-tag">Showcase</span>
+      <p class="col-title">Drill-down, shown open</p>
+      <p class="col-pitch">Direction A's sheet pinned open so the tap-through is visible without clicking. Editing either field here re-flows both this graph and the corpus card behind it, since they share one retirement plan.</p>
+    </div>
+    <div class="phone d1">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="card nw-hero" style="opacity:.35;">
+          <div class="section-label">Net worth</div>
+          <div class="hero-num tabular">₹1,49,33,023</div>
+        </div>
+        <div class="card proj-card" style="opacity:.35;">
+          <div class="proj-title">Retirement corpus</div>
+          <div class="proj-sub">81% funded</div>
+        </div>
+      </div>
+      <div class="sheet-overlay open">
+        <div class="sheet-scrim"></div>
+        <div class="sheet">
+          <div class="drag-handle"></div>
+          <div class="sheet-head">
+            <div class="sheet-title">Expense projection</div>
+            <div class="sheet-close">✕</div>
+          </div>
+          <div class="sheet-sub">Inflation-adjusted · 6% p.a. assumed</div>
+
+          <svg viewBox="0 0 284 120" width="100%" height="100">
+            <path d="M14,96 C70,93 130,86 180,70 C210,60 236,44 260,26" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="260" y1="26" x2="260" y2="108" stroke="#8b5cf6" stroke-width="1" stroke-dasharray="2,4" opacity=".35"/>
+            <circle cx="14" cy="96" r="4" fill="#c4b5fd"/>
+            <circle cx="260" cy="26" r="4" fill="#a78bfa"/>
+          </svg>
+          <div class="axis-labels" style="margin-top:-4px;">
+            <span>₹85,000/mo · today</span>
+            <span style="color:#c4b5fd; font-weight:700;">₹2,43,000/mo · at 50</span>
+          </div>
+
+          <div class="field-row">
+            <div class="field"><div class="l">Monthly expense today</div><div class="v tabular">₹85,000</div></div>
+            <div class="field"><div class="l">Retirement age</div>
+              <div class="stepper"><div class="step-btn">−</div><div class="v">50</div><div class="step-btn">+</div></div>
+            </div>
+          </div>
+          <div class="info-note">ⓘ Updates your retirement plan everywhere — this Home card and the FIRE Calculator share the same numbers.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function toggleSheet(id){
+    var el = document.getElementById(id);
+    if (el) el.classList.toggle('open');
+  }
+</script>
+</body>
+</html>

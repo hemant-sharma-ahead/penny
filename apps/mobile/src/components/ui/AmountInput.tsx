@@ -25,6 +25,9 @@ interface AmountInputProps {
   hero?: boolean;
   /** Number hex color in hero mode (e.g. the transaction-type accent). Ignored when `error` is set. */
   accentColor?: string;
+  /** Hero-mode alignment — `'center'` (default, unchanged) or `'right'` (a smaller variant that sits
+   *  beside another control, e.g. `ExpenseForm.tsx`'s combined category+amount row). */
+  heroAlign?: 'center' | 'right';
 }
 
 /**
@@ -46,11 +49,16 @@ export function AmountInput({
   prefix = '₹',
   showWords = true,
   hero = false,
-  accentColor
+  accentColor,
+  heroAlign = 'center'
 }: AmountInputProps) {
   const theme = useThemeColors();
   const [text, setText] = useState(() => groupForDisplay(value));
   const isFocusedRef = useRef(false);
+  // Hero-mode-only sizing state (both `heroAlign` variants) — see the `if (hero)` block below for why.
+  const [heroContainerWidth, setHeroContainerWidth] = useState(0);
+  const [heroPrefixWidth, setHeroPrefixWidth] = useState(0);
+  const [heroMeasuredTextWidth, setHeroMeasuredTextWidth] = useState(0);
 
   // Re-sync when `value` changes from outside (autofill, loading an existing record into an edit
   // form) — matching web's AmountInput.tsx effect. RN has no `document.activeElement`, so a focus ref
@@ -96,10 +104,43 @@ export function AmountInput({
 
   if (hero) {
     const heroColor = error ? theme.danger : (accentColor ?? theme.textPrimary);
+    const isRight = heroAlign === 'right';
+    const fontSize = isRight ? 28 : 42;
+    const prefixFontSize = isRight ? 17 : 26;
+    const lineHeight = Math.ceil(fontSize * 1.2);
+
+    // Unlike `Text`, RN's `TextInput` doesn't intrinsically size its own box to its current value —
+    // left unconstrained it renders at some platform-decided default width regardless of content, so
+    // a short value ("10") shows a visible gap before its aligned digits (box wider than the text)
+    // while a long one ("1,00,00,000") overflows past a box narrower than the text needs. Fixed by
+    // measuring the actual rendered text width (a hidden mirror `Text`, same font, below) and the
+    // space actually available (`onLayout` on the outer row), then sizing the real input to match,
+    // capped so it can never overflow onto a sibling (e.g. the category tile in `ExpenseForm.tsx`'s
+    // combined category+amount row).
+    const rawWidth = heroMeasuredTextWidth > 0 ? heroMeasuredTextWidth + 8 : 40;
+    const cap = heroContainerWidth > 0 ? Math.max(40, heroContainerWidth - heroPrefixWidth - 8) : undefined;
+    const inputWidth = cap !== undefined ? Math.min(rawWidth, cap) : rawWidth;
+
     return (
-      <View className="items-center gap-1">
-        <View className="flex-row items-baseline justify-center gap-1.5">
-          <Text style={{ color: theme.textTertiary, fontSize: 26, fontWeight: '600' }}>{prefix}</Text>
+      <View
+        className={isRight ? 'items-end gap-1' : 'items-center gap-1'}
+        onLayout={(e) => setHeroContainerWidth(e.nativeEvent.layout.width)}
+      >
+        <View className={`flex-row items-baseline gap-1.5 ${isRight ? 'justify-end' : 'justify-center'}`}>
+          <Text
+            style={{ color: theme.textTertiary, fontSize: prefixFontSize, fontWeight: '600' }}
+            onLayout={(e) => setHeroPrefixWidth(e.nativeEvent.layout.width)}
+          >
+            {prefix}
+          </Text>
+          {/* Invisible — measured via onLayout only, never shown. Same font as the real input below,
+           *  so its rendered width is what the real input should be sized to. */}
+          <Text
+            style={{ position: 'absolute', opacity: 0, fontSize, fontWeight: '700', lineHeight }}
+            onLayout={(e) => setHeroMeasuredTextWidth(e.nativeEvent.layout.width)}
+          >
+            {text || placeholder}
+          </Text>
           <RNTextInput
             value={text}
             onChangeText={handleChange}
@@ -113,17 +154,26 @@ export function AmountInput({
             accessibilityLabel="Amount"
             textAlignVertical="center"
             style={{
-              fontSize: 42,
+              fontSize,
+              // Explicit `lineHeight` (was missing) — at this large a fontSize, letting it fall back
+              // to the platform default risked the glyph's own ascent being taller than the line box
+              // and getting clipped at the top, since `includeFontPadding: false` (Android) already
+              // strips the font's own built-in vertical padding.
+              lineHeight,
               fontWeight: '700',
               color: heroColor,
               padding: 0,
-              minWidth: 40,
-              includeFontPadding: false
+              includeFontPadding: false,
+              // Was `isRight ? 'right' : 'left'` — 'left' never matched this mode's actually-centered
+              // intent (the row/outer View both center it); harmless while the box hugged its content
+              // exactly, but worth being correct now that width is explicitly computed.
+              textAlign: isRight ? 'right' : 'center',
+              width: inputWidth
             }}
           />
         </View>
         {error ? (
-          <Text className="text-xs text-center" style={{ color: theme.danger }}>
+          <Text className={isRight ? 'text-xs text-right' : 'text-xs text-center'} style={{ color: theme.danger }}>
             {error}
           </Text>
         ) : (

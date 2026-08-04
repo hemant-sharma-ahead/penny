@@ -6,6 +6,8 @@ import type {
   Account,
   ActivityLog,
   AiCallLog,
+  BankNarrationOverride,
+  BankStatementImportRecord,
   Budget,
   ChipInsight,
   CreditProfile,
@@ -24,9 +26,12 @@ import type {
   LedgerEntry,
   Liability,
   MerchantMemory,
+  NetWorthSnapshot,
+  PaymentMode,
   Person,
   PersonalIou,
   Profile,
+  RetirementPlan,
   Subscription,
   SyncCursor,
   TransactionTemplate
@@ -59,3 +64,12 @@ export const syncCursorRepo = new EncryptedRepository<SyncCursor>(db.sync_cursor
 export const groupsRepo = new EncryptedRepository<Group>(db.groups as never);
 export const groupMembersRepo = new EncryptedRepository<GroupMember>(db.group_members as never);
 export const groupEventsRepo = new EncryptedRepository<GroupEvent>(db.group_events as never);
+export const bankStatementImportsRepo = new EncryptedRepository<BankStatementImportRecord>(
+  db.bank_statement_imports as never
+);
+export const bankNarrationOverridesRepo = new EncryptedRepository<BankNarrationOverride>(
+  db.bank_narration_overrides as never
+);
+export const paymentModesRepo = new EncryptedRepository<PaymentMode>(db.payment_modes as never);
+export const retirementPlanRepo = new EncryptedRepository<RetirementPlan>(db.retirement_plan as never);
+export const netWorthSnapshotsRepo = new EncryptedRepository<NetWorthSnapshot>(db.net_worth_snapshots as never);

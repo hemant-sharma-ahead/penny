@@ -10,6 +10,7 @@ import type {
   Account,
   Expense,
   ExpenseCategory,
+  Goal,
   GroupType,
   Hashtag,
   MerchantMemory,
@@ -18,10 +19,12 @@ import type {
   TransactionType
 } from '@/core/db/types';
 import type { ExpenseSeedIntent } from '@/core/iou/expenseLink';
+import type { ExpenseGoalIntent } from '@/core/goals/goalLink';
+import type { AccountInput } from '~/hooks/useAccountForm';
 import { toMonthYearKey } from '@/lib/formatters';
 import { monthLabel } from '@/lib/date';
 import { TransactionsTab } from './TransactionsTab';
-import { ExpenseForm } from './ExpenseForm';
+import { ExpenseForm } from '~/components/shared/ExpenseForm';
 import { FilterModal } from './FilterModal';
 import { MonthPickerModal } from './MonthPickerModal';
 import { BulkAccountPaymentModal } from './BulkAccountPaymentModal';
@@ -50,6 +53,16 @@ interface TransactionsSliceProps {
   iouPersons: Person[];
   onSeedIou: (expenseId: string, intent: ExpenseSeedIntent | null) => Promise<void>;
   iouLinkByTxn: Map<string, { personName: string }>;
+  goals: Goal[];
+  onSeedGoal: (expenseId: string, intent: ExpenseGoalIntent | null) => Promise<void>;
+  goalLinkByTxn: Map<string, { goalId: string; goalName: string }>;
+  goalLinkedTxnIds: Set<string>;
+  /** For the edit form's "matched from bank statement" audit-trail caption (docs/plans/
+   *  bank-statement-import.md §10a's purpose #1) — which transactions were resolved from a bank
+   *  statement import, and what the original line looked like. */
+  bankImportLinkByTxn: Map<string, { rawNarration: string; date: number }>;
+  /** Adds/edits an account from the expense form's own "+" tile (`AccountChips.tsx`), inline. */
+  saveAccount: (data: AccountInput, editing: Account | null) => Promise<Account>;
   accountBalances: Record<string, number>;
   shareGroups: { id: string; name: string; type: GroupType }[];
   onShareToGroup: (expense: Expense, groupId: string, participants?: string[]) => Promise<void>;
@@ -92,6 +105,12 @@ export function TransactionsSlice({
   iouPersons,
   onSeedIou,
   iouLinkByTxn,
+  goals,
+  onSeedGoal,
+  goalLinkByTxn,
+  goalLinkedTxnIds,
+  bankImportLinkByTxn,
+  saveAccount,
   accountBalances,
   shareGroups,
   onShareToGroup,
@@ -137,7 +156,6 @@ export function TransactionsSlice({
   const [sharingExpense, setSharingExpense] = useState<Expense | null>(null);
   const [prefill, setPrefill] = useState<Partial<Expense> | null>(null);
   const [initialTransactionType, setInitialTransactionType] = useState<TransactionType>('expense');
-  const [showDial, setShowDial] = useState(false);
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [showTxnMonthPicker, setShowTxnMonthPicker] = useState(false);
   const [showInbox, setShowInbox] = useState(false);
@@ -167,7 +185,6 @@ export function TransactionsSlice({
   }, []);
 
   function enterSelect() {
-    setShowDial(false);
     setSelectMode(true);
   }
 
@@ -209,7 +226,6 @@ export function TransactionsSlice({
     setInitialTransactionType(type);
     setEditingExpense(null);
     setPrefill(null);
-    setShowDial(false);
     setShowForm(true);
   }
 
@@ -218,7 +234,6 @@ export function TransactionsSlice({
     setEditingExpense(null);
     setPrefill(p);
     setInitialTransactionType(p.type ?? 'expense');
-    setShowDial(false);
     setShowForm(true);
   }, []);
 
@@ -272,12 +287,6 @@ export function TransactionsSlice({
     parentCategoryFilters.size > 0 ||
     categoryFilters.size > 0 ||
     eventFilters.size > 0;
-
-  const DIAL_OPTIONS: { type: TransactionType; label: string; color: string; icon: string }[] = [
-    { type: 'income', label: 'Income', color: theme.success, icon: 'ti-arrow-up-circle' },
-    { type: 'transfer', label: 'Transfer', color: theme.info, icon: 'ti-arrows-exchange' },
-    { type: 'expense', label: 'Expense', color: theme.danger, icon: 'ti-arrow-down-circle' }
-  ];
 
   return (
     <View className="flex-1">
@@ -486,6 +495,7 @@ export function TransactionsSlice({
         selectMode={selectMode}
         selectedIds={selected}
         onToggleSelect={toggleSelect}
+        goalLinkedTxnIds={goalLinkedTxnIds}
       />
 
       {/* Bulk action bar (select mode) */}
@@ -526,37 +536,17 @@ export function TransactionsSlice({
         </View>
       )}
 
-      {/* Speed dial FAB (hidden in select mode). Positioned `absolute` as a sibling of the list's own
-          ScrollView (not inside it) — the same "Slice owns its scroll + its FAB" placement `IouView`
-          also uses, which reads `useSafeAreaInsets` directly rather than relying on an ancestor
-          Stack.Navigator/page header, since that context is available anywhere under the root
-          SafeAreaProvider. */}
-      {!selectMode && showDial && (
-        <Pressable
-          onPress={() => setShowDial(false)}
-          className="absolute inset-0"
-          accessibilityLabel="Dismiss add menu"
-        />
-      )}
+      {/* FAB (hidden in select mode). Opens the form directly, defaulted to Expense — the intermediate
+          Expense/Income/Transfer speed-dial step was removed (2026-08-01, cut 2 taps to 1) since the
+          form itself already has that exact switcher at the top; switch type there instead if you
+          didn't mean Expense. Positioned `absolute` as a sibling of the list's own ScrollView (not
+          inside it) — the same "Slice owns its scroll + its FAB" placement `IouView` also uses, which
+          reads `useSafeAreaInsets` directly rather than relying on an ancestor Stack.Navigator/page
+          header, since that context is available anywhere under the root SafeAreaProvider. */}
       {!selectMode && (
-        <View className="absolute items-end gap-2" style={{ bottom: insets.bottom + 16, right: 16 }}>
-          {showDial && (
-            <View className="items-end gap-2 mb-1">
-              {DIAL_OPTIONS.map(({ type: t, label, color, icon }) => (
-                <Pressable
-                  key={t}
-                  onPress={() => openAdd(t)}
-                  className="flex-row items-center gap-2 pl-3 pr-4 py-2.5 rounded-full shadow-lg"
-                  style={{ backgroundColor: color }}
-                >
-                  <Icon name={icon} size={16} color="#fff" />
-                  <Text className="text-sm font-semibold text-white">{label}</Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
+        <View className="absolute" style={{ bottom: insets.bottom + 16, right: 16 }}>
           <Pressable
-            onPress={() => setShowDial((d) => !d)}
+            onPress={() => openAdd()}
             className="w-14 h-14 rounded-full shadow-lg items-center justify-center"
             style={{ backgroundColor: theme.primary }}
             accessibilityLabel="Add transaction"
@@ -573,6 +563,7 @@ export function TransactionsSlice({
           pastEvents={pastEvents}
           accounts={accounts}
           categories={categories}
+          goals={goals}
           initial={filterState}
           onApply={applyFilters}
           onClose={() => setShowFilterSheet(false)}
@@ -609,6 +600,11 @@ export function TransactionsSlice({
           iouPersons={iouPersons}
           onSeedIou={onSeedIou}
           linkedIou={editingExpense ? iouLinkByTxn.get(editingExpense.id) : undefined}
+          goals={goals}
+          onSeedGoal={onSeedGoal}
+          linkedGoal={editingExpense ? goalLinkByTxn.get(editingExpense.id) : undefined}
+          linkedBankStatementLine={editingExpense ? bankImportLinkByTxn.get(editingExpense.id) : undefined}
+          saveAccount={saveAccount}
           searchMerchant={searchMerchant}
           onDuplicate={handleDuplicate}
           onSaveTemplate={onSaveTemplate}

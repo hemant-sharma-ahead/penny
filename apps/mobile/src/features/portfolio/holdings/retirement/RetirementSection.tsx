@@ -7,6 +7,7 @@ import { NpsScheduleSheet } from './RetirementSheets';
 import { NpsModal } from './NpsModal';
 import { PpfModal } from './PpfModal';
 import { EpfModal } from './EpfModal';
+import { CalculatorsSection } from '~/features/calculators/CalculatorsSection';
 
 type RetClass = 'nps' | 'ppf' | 'epf';
 
@@ -59,6 +60,10 @@ export function RetirementSection({ holdings, masked, onSave, onRemove }: Retire
         if (ac === 'epf' && hideEpfPrompt) return null;
         return <RetirementUntrackedCard key={ac} type={ac} onTrack={() => setForm({ ac, editing: null })} />;
       })}
+
+      {/* Gratuity/SSY calculators — 2026-08-01 relocation out of Home's generic hub, into the
+          retirement-benefit/govt-scheme context they're actually about. */}
+      <CalculatorsSection ids={['gratuity', 'ssy']} />
 
       {form?.ac === 'nps' && <NpsModal editing={form.editing} onSave={save} onDelete={del} onClose={close} />}
       {form?.ac === 'ppf' && <PpfModal editing={form.editing} onSave={save} onDelete={del} onClose={close} />}

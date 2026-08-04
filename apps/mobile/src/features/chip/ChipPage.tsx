@@ -8,6 +8,7 @@ import { chipInsightsRepo } from '@/core/db/repositories';
 import { DEFAULT_INSIGHTS } from '@/core/ai-safety/mockChip';
 import type { ChipInsight } from '@/core/db/types';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useRegisterHeaderScreen } from '~/navigation/HeaderBackContext';
 
 async function seedInsightsIfEmpty(): Promise<ChipInsight[]> {
   const existing = await chipInsightsRepo.getAll();
@@ -33,6 +34,7 @@ async function seedInsightsIfEmpty(): Promise<ChipInsight[]> {
 export function ChipPage() {
   const modeBg = useModeBackgroundColor();
   const theme = useThemeColors();
+  useRegisterHeaderScreen('Chip');
   const [insights, setInsights] = useState<ChipInsight[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -60,16 +62,6 @@ export function ChipPage() {
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, gap: 16 }}>
-        <View className="flex-row items-center gap-3">
-          <View className="w-8 h-8 rounded-full items-center justify-center" style={{ backgroundColor: theme.primary }}>
-            <Icon name="ti-sparkles" size={16} color="#fff" />
-          </View>
-          <View>
-            <Text className="text-xl font-semibold text-primary">Chip</Text>
-            <Text className="text-xs text-secondary">Your AI money coach</Text>
-          </View>
-        </View>
-
         {loaded && insights.length === 0 && (
           <Card className="items-center">
             <Icon name="ti-sparkles" size={36} color={theme.textTertiary} />

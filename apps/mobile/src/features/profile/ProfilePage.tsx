@@ -14,8 +14,7 @@ import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Button, PageHeader, Banner, LifeRow, OptionalSeg, Modal } from '~/components/ui';
-import { BackButton } from '~/components/shared';
+import { Button, LifeRow, OptionalSeg, Modal } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useTheme } from '~/theme/ThemeProvider';
@@ -34,6 +33,7 @@ import { getBackupTarget } from '@/core/sync/backupPrefs';
 import { useProfile } from '@/hooks/useProfile';
 import { useToast } from '~/context/ToastContext';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 
 /**
  * RN port of apps/web-react/src/features/profile/ProfilePage.tsx. Deviations:
@@ -61,10 +61,10 @@ import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 export function ProfilePage() {
   const modeBg = useModeBackgroundColor();
   const { profile, loading } = useProfile();
+  useDefaultHeaderBack('Profile');
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <PageHeader leading={<BackButton />} title="Edit profile" />
       {loading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="small" color="#00a86b" />
@@ -135,8 +135,6 @@ function ProfileEditor({ profile }: { profile: Profile }) {
   const [riskAppetite, setRiskAppetite] = useState<GoalRisk | undefined>(profile.riskAppetite);
   const [childYear, setChildYear] = useState('');
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [reseeded, setReseeded] = useState(false);
 
   const [claimed, setClaimed] = useState(Boolean(profile.deviceId));
   const [editingHandle, setEditingHandle] = useState(false);
@@ -167,7 +165,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
         mode: 'date',
         maximumDate: new Date(),
         onChange: (event, selected) => {
-          if (event.type === 'set' && selected) edited(setDob)(toDobKey(selected));
+          if (event.type === 'set' && selected) setDob(toDobKey(selected));
         }
       });
     } else {
@@ -176,21 +174,11 @@ function ProfileEditor({ profile }: { profile: Profile }) {
     }
   }
 
-  function edited<T>(setter: (v: T) => void) {
-    return (v: T) => {
-      setSaved(false);
-      setter(v);
-    };
-  }
-
   async function onPickPhoto() {
     setPickingPhoto(true);
     try {
       const url = await pickReceiptPhoto();
-      if (url) {
-        setAvatarDataUrl(url);
-        setSaved(false);
-      }
+      if (url) setAvatarDataUrl(url);
     } finally {
       setPickingPhoto(false);
     }
@@ -217,10 +205,13 @@ function ProfileEditor({ profile }: { profile: Profile }) {
       });
       logActivity({ action: 'UPDATE', entityType: 'profile', entityId: profile.id, summary: 'Updated profile' });
       const didReseed = employmentChanged && employmentType ? await reseedForEmployment(employmentType) : false;
-      setSaved(true);
-      setReseeded(didReseed);
+      showToast({
+        message: didReseed ? 'Profile saved. Sample data refreshed to match your new profile.' : 'Profile saved.',
+        variant: 'success',
+        durationMs: 3000
+      });
     } catch {
-      showToast({ message: "Couldn't save your profile. Please try again." });
+      showToast({ message: "Couldn't save your profile. Please try again.", variant: 'danger' });
     } finally {
       setSaving(false);
     }
@@ -286,7 +277,6 @@ function ProfileEditor({ profile }: { profile: Profile }) {
     const yr = Number(childYear);
     const thisYear = new Date().getFullYear();
     if (yr >= 1950 && yr <= thisYear && !children.includes(yr)) {
-      setSaved(false);
       setChildren([...children, yr].sort((a, b) => a - b));
     }
     setChildYear('');
@@ -303,12 +293,6 @@ function ProfileEditor({ profile }: { profile: Profile }) {
   return (
     <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
       <View className="px-4 py-4">
-        {saved && (
-          <Banner variant="success">
-            Profile saved.{reseeded ? ' Sample data refreshed to match your new profile.' : ''}
-          </Banner>
-        )}
-
         {/* Identity hero */}
         <View className="flex-row items-center gap-4 py-2">
           <Pressable
@@ -380,7 +364,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
               className="text-[15px] text-primary p-0"
               style={{ color: theme.textPrimary }}
               value={fullName}
-              onChangeText={(v) => edited(setFullName)(v)}
+              onChangeText={(v) => setFullName(v)}
               placeholder="Your name"
               placeholderTextColor={theme.textTertiary}
             />
@@ -402,7 +386,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
                 type="date"
                 value={dob}
                 max={toDobKey(new Date())}
-                onChange={(e: { target: { value: string } }) => edited(setDob)(e.target.value)}
+                onChange={(e: { target: { value: string } }) => setDob(e.target.value)}
                 style={{
                   width: '100%',
                   border: 'none',
@@ -451,7 +435,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
               fullWidth
               className="mt-3"
               onPress={() => {
-                edited(setDob)(toDobKey(dobDraft));
+                setDob(toDobKey(dobDraft));
                 setDobPickerOpen(false);
               }}
             >
@@ -544,7 +528,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
                 className="text-[15px] p-0"
                 style={{ color: theme.textPrimary }}
                 value={username}
-                onChangeText={(v) => edited((val: string) => setUsername(val))(v.toLowerCase())}
+                onChangeText={(v) => setUsername(v.toLowerCase())}
                 placeholder="e.g. aarav_s"
                 placeholderTextColor={theme.textTertiary}
               />
@@ -619,10 +603,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
             return (
               <Pressable
                 key={o.value}
-                onPress={() => {
-                  setSaved(false);
-                  setEmploymentType(o.value);
-                }}
+                onPress={() => setEmploymentType(o.value)}
                 accessibilityState={{ selected: on }}
                 className="items-center gap-1.5"
                 style={{ width: 56 }}
@@ -665,10 +646,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
                 { value: 'married', label: 'Married' }
               ]}
               value={maritalStatus}
-              onChange={(v) => {
-                setSaved(false);
-                setMaritalStatus(v as 'single' | 'married' | undefined);
-              }}
+              onChange={(v) => setMaritalStatus(v as 'single' | 'married' | undefined)}
             />
           </LifeRow>
           <LifeRow icon="ti-home" label="Home">
@@ -678,10 +656,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
                 { value: 'rent', label: 'Rent' }
               ]}
               value={homeOwner === undefined ? undefined : homeOwner ? 'own' : 'rent'}
-              onChange={(v) => {
-                setSaved(false);
-                setHomeOwner(v === undefined ? undefined : v === 'own');
-              }}
+              onChange={(v) => setHomeOwner(v === undefined ? undefined : v === 'own')}
             />
           </LifeRow>
           <LifeRow icon="ti-chart-line" label="Risk appetite">
@@ -692,10 +667,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
                 { value: 'aggressive', label: 'High' }
               ]}
               value={riskAppetite}
-              onChange={(v) => {
-                setSaved(false);
-                setRiskAppetite(v as GoalRisk | undefined);
-              }}
+              onChange={(v) => setRiskAppetite(v as GoalRisk | undefined)}
             />
           </LifeRow>
           <LifeRow icon="ti-baby-carriage" label="Children" alignTop>
@@ -708,10 +680,7 @@ function ProfileEditor({ profile }: { profile: Profile }) {
                   <Text className="text-xs font-semibold text-secondary">{yr}</Text>
                   <Pressable
                     accessibilityLabel={`Remove ${yr}`}
-                    onPress={() => {
-                      setSaved(false);
-                      setChildren(children.filter((_, idx) => idx !== i));
-                    }}
+                    onPress={() => setChildren(children.filter((_, idx) => idx !== i))}
                   >
                     <Icon name="ti-x" size={13} color={theme.textTertiary} />
                   </Pressable>
