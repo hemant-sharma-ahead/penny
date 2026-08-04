@@ -185,9 +185,14 @@ Notes / gotchas, if something above doesn't behave as expected:
   separate `gradlew` invocations avoids it.
 - **The debug APK is not self-contained.** This project's debug build type doesn't embed a
   JS bundle (`bundleInDebug` isn't set), so it loads JS from a Metro dev server (`npx expo
-  start`) at runtime instead — installing it alone gets you a red-box connection error. The
-  release APK *is* self-contained (JS bundled, minified, resources shrunk) — that's the one
-  to hand someone for standalone testing.
+  start`) at runtime instead — sideloading it alone, with no Metro running nearby, installs
+  fine but shows a red-box "Could not connect to development server" error on launch. To
+  actually run it on a **real device**, Metro needs to be reachable from that device: either
+  **USB** (`adb reverse tcp:8081 tcp:8081` while it's connected to the machine running `npx
+  expo start`) or **same WiFi** (the in-app dev menu — shake gesture — pointed at that
+  machine's LAN IP:8081). The **release APK** *is* self-contained (JS bundled, minified,
+  resources shrunk) — that's the one to hand someone for standalone testing with no dev
+  server involved at all.
 - **Release signing** falls back to the same auto-generated debug keystore as the debug
   build (`android/app/build.gradle`'s `release` block) — there's no dedicated release
   keystore configured. Fine for internal testing; **not** fine for actual Play Store
