@@ -162,13 +162,17 @@ occurrence individually would make the feature tedious to use.
 - **Pre-filled fields**: date (from the statement line — most statements carry no time
   component, date-only is expected), amount, account (this statement's account), type
   (expense/income/transfer, inferred from the statement's debit/credit or transfer indicator).
-- **Payment mode**: inferred from keywords in the raw narration (UPI, NEFT, IMPS, POS, ATM,
+- **Payment mode**: inferred from keywords in the raw narration (UPI, NEFT, IMPS, RTGS, POS, ATM,
   cheque, etc.) — same keyword-inference technique already used for goal icons
-  (`packages/core/src/core/goals/meta.ts`'s `GOAL_ICON_KEYWORDS` is the precedent to follow). If
-  the inferred payment mode doesn't already exist for the user, create it on submit — but
-  **checked-then-created once per needed mode across the whole import session/batch**, not once
-  per individual transaction (importing 10 NEFT lines must not attempt to create "NEFT" 10
-  times).
+  (`packages/core/src/core/goals/meta.ts`'s `GOAL_ICON_KEYWORDS` is the precedent to follow;
+  `core/bank-import/paymentModeInference.ts` implements it). Payment mode is a real, creatable
+  entity (`PaymentMode` type, `payment_modes` encrypted store, `paymentModesRepo` —
+  `docs/SCHEMA.md`): 5 built-ins (cash/upi/card/net/wallet) are never persisted as rows, everything
+  else (NEFT/IMPS/RTGS/Cheque) is created on demand. If the inferred mode doesn't already exist,
+  create it on submit — but **checked-then-created once per needed mode across the whole import
+  session/batch**, not once per individual transaction (importing 10 NEFT lines must not attempt
+  to create "NEFT" 10 times). Once created it persists like any other payment mode and shows up as
+  a selectable chip in the normal Add Expense form afterward too.
 - **Category + description are left for the user** to fill in (or pre-filled as an editable
   suggestion from merchant memory, §9, when available) — **description field auto-focused**,
   matching the existing regular Add Expense form's own auto-focus convention.
@@ -277,11 +281,173 @@ belongs in this feature.
   `docs/features/` entry (or a section in `accounts.md`/`expenses.md`), `docs/SCHEMA.md` for the
   new store, `docs/ARCHITECTURE.md` for new files/modules, and this plan file's own status line.
 
-## 13. Status: ready for mockups
+## 13. Status: implemented, on branch, not yet committed
 
-Every open question raised during scoping has been resolved (file-format priority, entry point,
+Every open question raised during scoping was resolved (file-format priority, entry point,
 column-mapping presets, matching algorithm and its edge cases, manual-override cascade behavior,
 the four-bucket review structure, bulk merchant-group actions, the reused transaction-entry form
 and its prefills, merchant memory scope, the normalization heuristic and its override screen, the
-persistence model, the commit model, and balance-correction scope). Nothing is pending from the
-discussion phase — next step is mockups.
+persistence model, the commit model, and balance-correction scope).
+
+Mockups done (2026-08-01): `docs/mockups/proposals/bank-statement-import-v1.html` — comprehensive
+first pass across all screens/flows, approved as the starting direction.
+
+**Implementation complete (2026-08-02), on branch `feature/bank-statement-import`, not yet
+committed:**
+
+- **Core module** (`packages/core/src/core/bank-import/`): CSV parser, 7 bank presets + Custom,
+  normalization heuristic + override support, the matching engine (`matchStatementRows` for the
+  one-shot pass, `deriveLoneWolves` exported separately so the UI can recompute lone-wolf status
+  reactively), merchant grouping, merchant-memory lookup, payment-mode inference, balance check.
+  21+ unit tests, full monorepo typecheck/lint clean.
+- **Mobile UI** (`apps/mobile/src/features/bank-import/`): the full step-driven wizard (bank
+  preset → upload → column mapping → 4-bucket review → commit), the possible-match picker, bulk
+  merchant categorization, a new `ExpenseForm` `statementPreset` mode, the normalization-overrides
+  screen, and Accounts-page entry points — built by an agent, then code-reviewed against this doc
+  and fixed for two real bugs found in that review: a missing scroll container in the review screen
+  (a real statement runs 100–300+ lines, mostly in expanded-by-default buckets), and a bumped/
+  orphaned transaction vanishing from the review instead of resurfacing as a lone wolf (violated
+  §6's own "never silently hide something uncertain" principle) — fixed via a reactively-recomputed
+  lone-wolf derivation instead of the matcher's frozen one-shot result. Also fixed: bulk-categorize
+  was applying one shared payment mode across a whole merchant group (§7/§8 only share
+  category/description/tags in bulk; payment mode is inferred per line); §10a's audit-trail purpose
+  (showing "matched from bank statement" on an edited transaction) was initially unwired, now
+  surfaced in `ExpenseForm`'s edit mode.
+- **Payment mode made a real creatable entity** (mid-implementation correction, per explicit user
+  decision): originally assumed non-creatable since nothing creatable existed in the codebase at
+  the time; a new `payment_modes` store + `core/expenses/paymentModes.ts` now makes it one, and
+  `paymentModeInference.ts` infers distinct NEFT/IMPS/RTGS/Cheque candidates (not folded into a
+  generic "Net") — created once per import batch, the first time each is actually needed.
+
+Docs updated alongside: `docs/SCHEMA.md` (3 new stores), `docs/ARCHITECTURE.md`, new
+`docs/features/bank-import.md`, `docs/features/accounts.md`'s entry-point note.
+
+**Follow-up round (2026-08-03), same branch, still uncommitted:**
+
+- Bank/upload/column-mapping steps merged into one `SetupStep.tsx` screen, per explicit user
+  feedback: `PresetStep.tsx`/`UploadStep.tsx`/`MappingStep.tsx` deleted. Bank selection is now a
+  **dropdown** (was a tile grid — the preset list can grow past what a grid comfortably shows), and
+  the resolved column mapping is reviewed **inline** as a small table-style card as soon as a file
+  uploads, with one "Edit mapping" popup (`MappingEditModal.tsx`) editing every field together
+  (user's explicit choice over a per-field pencil icon). `useBankImport.ts`'s step type collapsed
+  from 5 values to `'setup' | 'review' | 'done'`.
+- Payment mode's architecture changed again, per explicit user request to support **editing**
+  existing modes (defaults included) from a new Accounts-page list: the 5 built-ins are no longer a
+  virtual, read-time-only overlay — they're seeded as real `payment_modes` rows once
+  (`~/hooks/usePaymentModes.ts`), with a new `isDefault` flag gating deletability (editable, never
+  deletable — mirrors `ExpenseCategory`). `features/accounts/PaymentModesSection.tsx` is the new
+  manage-everything list (icon tile + pencil badge, edit/add/delete-if-unused); `PaymentModeChips`
+  (inside the Add-transaction form) keeps its own "+" tile for quick inline creation only.
+
+Docs updated again: `docs/SCHEMA.md` (`payment_modes`' `isDefault` field), `docs/ARCHITECTURE.md`,
+`docs/features/bank-import.md`, `docs/features/expenses.md`, `docs/features/accounts.md`.
+
+**Second follow-up round (2026-08-03), same branch, still uncommitted — review-screen UX + bulk-categorize
+parity with the real expense form, per explicit user feedback on a review-screen screenshot:**
+
+- Possible matches now render as the same paired-tile style as Matched (amber/dashed), and the picker
+  modal highlights the matcher's own suggestion(s) with an amber border + "Suggested" badge (stable
+  double-sort: date-order preserved within the suggested/non-suggested split). A distinct "Move to
+  'Not yet logged' for later" action now sits alongside "No match — add as new" (both call the
+  existing `dismissPossibleAsNew`, only the latter also opens the form).
+- The statement-preset `ExpenseForm` no longer renders a separate compact "locked fields" list
+  (`LockRow`, deleted) — it reuses the exact same components as the normal form (`AmountInput`/
+  `DateInput`'s own `disabled` prop, `AccountChips` wrapped in a non-interactive `View`), so it visibly
+  looks like the real expense form, not a lookalike. A real, previously-unnoticed bug was also fixed
+  here: the review screen's summary-strip counts (Matched/Possible/New/Lone) were frozen from the
+  one-shot matcher snapshot and never updated as items moved between buckets during review; now
+  computed live from the staged state.
+- "Not yet logged" groups are now individually collapsible (a merchant can run to 50+ occurrences),
+  and each row shows its narration (not just date), with the amount colored red for spend / green for
+  income instead of a flat neutral color.
+- `BulkCategorizeModal.tsx` (the "Categorize N selected" flow) closed two gaps flagged directly
+  against a screenshot: its category field was a plain `SelectInput` dropdown instead of the app's
+  real `CategoryPickerModal` (now fixed — select-only, cross-feature import same as the already-
+  established `CategoryPickerModal` exception), and it had no Lent/Borrowed support at all despite
+  every occurrence being a real transaction that could need it. Its Tags field now matches
+  `ExpenseForm`'s own (frequent tags/suggestions/inline Set Aside), and a new bulk-shared Lent/Borrowed
+  panel applies one person to every checked occurrence (kind derived from the group's own majority
+  direction). This also surfaced and fixed a genuine, previously-silent gap: bank-import's
+  `commitAndImport()` wrote `Expense.hashtags` directly but never created/updated `Hashtag` rows (no
+  usage count, invisible to Manage Tags/Frequent) for either the bulk or single-row flow — now fixed
+  once, generically, for every staged new transaction.
+- The two informational notes at the bottom of the bulk-categorize modal moved to the top as one
+  `Banner variant="info"` card.
+- **Immediate follow-up feedback** on the above: Tags/Lent-Borrowed should use the same icon-toggle
+  affordance as the real expense form, not an always-visible field / a custom pressable-row toggle.
+  `ExtraCircle` extracted from `ExpenseForm.tsx` to `components/shared/ExtraCircle.tsx` (pure
+  relocation, reused as-is) — both panels now hidden by default, revealed via their own icon, which
+  lights up once open or filled in. Also: Description now defaults to a generalized guess
+  (`prettifyMerchantKey()`, new in `core/bank-import/normalization.ts`) derived from the merchant's own
+  normalized key for a first-time merchant, instead of starting blank.
+
+Docs updated again: `docs/ARCHITECTURE.md`, `docs/features/bank-import.md`.
+
+**Third follow-up round (2026-08-03), same branch, still uncommitted — normalization tuned against
+real sample statements:** the user supplied 7 real-shaped sample CSVs, one per supported bank preset
+(HDFC, ICICI, Kotak, SBI, IndusInd, HSBC, Bank of Baroda), all sharing the same underlying
+transactions reformatted per bank's own column layout. Running every distinct narration through the
+real `normalizeNarration()` (not guessed by hand) found `ACH`/`INW`/`REV` leaking into the merchant
+key as noise (e.g. `ACH CR/DIVIDEND INCOME/TCS LTD` → `ACH DIVIDEND INCOME TCS LTD` instead of
+`DIVIDEND INCOME TCS LTD`) — all three now added to `CONNECTOR_KEYWORDS`, plus `OUT` proactively as
+`INW`'s counterpart. `paymentModeInference.ts` also gained `ACH` as its own creatable rail (previously
+fell through to "Net"). One judgment call was raised explicitly rather than silently changed: whether
+`SENT TO X`/`RECEIVED FROM X` should collapse to one merchant group per person regardless of
+direction — user said no, keep them separate, since the Lent/Borrowed panel depends on that split
+(sent → lent, received → borrowed).
+
+Docs updated again: `docs/ARCHITECTURE.md`.
+
+**Fourth follow-up round (2026-08-03), same branch, still uncommitted — Lent/Borrowed & categories,
+discussed thoroughly before any code, per explicit user request:**
+
+Four decisions came out of a multi-turn discussion (researched via a sub-agent against
+`packages/core`/`apps/mobile` for factual grounding, plus a second sub-agent researching Cashew/
+Splitwise's own loan-repayment UX for external precedent):
+
+1. **Normalization rule visibility**: the "Merchant recognition" screen only ever showed the user's own
+   editable overrides — the fixed heuristic (`CONNECTOR_KEYWORDS`) was invisible. Added a read-only
+   "How automatic recognition works" collapsible card to `BankImportOverridesPage.tsx`, listing the
+   general rule in plain English plus the actual current keyword list (`CONNECTOR_KEYWORDS_LIST`, new
+   export from `core/bank-import/normalization.ts`) — informational only, not editable there (a code
+   change updates it, not a settings screen).
+2. **Settle-up / repayment detection — deliberately NOT built.** Researched Cashew (dedicated Loans
+   section, per-loan child "Collected"/"Paid" transactions, partial repayments) and Splitwise
+   ("Settle all balances") for precedent on linking a repayment back to a specific original loan.
+   Neither has solved the "one transaction represents two different ledger effects" case (e.g. ₹22,000
+   in = ₹2,000 collecting an old debt + ₹20,000 a brand-new loan, a common India pattern per the user)
+   — even Cashew has an open, unimplemented GitHub issue for a related cross-account case. Explicit
+   user decision: **log the transaction as-is** (an income marked Lent/Borrowed via bank-import is
+   always `borrowed`, an expense always `lent`, exactly as today — no auto-detection, no schema
+   change), and let the free-text Description field carry the nuance in the user's own words (e.g.
+   "Amit returned 2000, also borrowed 20000"). No further work planned here.
+3. **Standing invariant, written down explicitly**: **one statement line always produces exactly one
+   app transaction** (`Expense`/`Income` record) — never split, never merged. Verified against the
+   current implementation: Matched/resolved-Possible rows link to an *existing* transaction (no new
+   record created), and every "new" path (bulk-categorize, single-row add-as-new) creates exactly one
+   record per row. The one intentional exception is lone wolves — transactions already in the app with
+   no matching statement line at all — which aren't sourced from the statement being imported, so they
+   don't count against its row total. Any future feature (including a settle-up mechanism, if ever
+   revisited) must preserve this invariant — e.g. a settlement's "ledger-only remainder" must be a
+   `LedgerEntry` with no `linkedTxnId` (already optional in the schema), never a second `Expense`
+   record from the same statement line.
+4. **Categories**: added three new default categories (`packages/core/src/core/db/defaultCategories.ts`,
+   additive-seeded via `useExpenses.ts`'s new v8 seeding effect, `penny_cats_v8` flag) —
+   `cat-food-drinks` ("Food & Drinks", Daily Living, alongside the existing Groceries/Dining & Café —
+   added anyway per explicit user request despite the overlap), `cat-lending` ("Lending", Family &
+   Giving, expense), and `cat-inc-borrowed` ("Borrowed Money", Income). Both IOU categories are **free
+   choice, not auto-locked** to the Lent/Borrowed panel — explicit user reasoning: a shared-bill split
+   with a friend is often deliberately kept under its real category (e.g. Dining) "for remembrance",
+   so forcing a generic category would lose that context. `categoryTaxMap.ts` gained `cat-food-drinks`
+   (`gst-5`, same as its siblings) and `cat-lending` (`exempt`, added to `SPEND_EXCLUDED` too — lending
+   money isn't consumption, no GST applies); income categories were already outside this map entirely
+   (indirect tax only applies to spend), so `cat-inc-borrowed` needed nothing there.
+
+Docs updated again: `docs/ARCHITECTURE.md`, `docs/SCHEMA.md` (categories aren't schema fields, so no
+change there — noted for completeness), `docs/features/expenses.md`.
+
+**Not yet done:** the working tree is uncommitted (per the user's standing workflow preference —
+never auto-commit; ask first). Excel/PDF parsing remain deferred (CSV-only v1, as scoped). The
+statement-preset `ExpenseForm`'s category tile now already reuses the real `CategoryPickerModal` (it
+always did — the user's separate, still-open feedback about "utilize our category picker instead"
+turned out to be about `BulkCategorizeModal`'s field, now fixed above, not this one).

@@ -13,6 +13,7 @@ export const CATEGORY_BAND: Record<string, TaxBandId> = {
   'cat-household': 'gst-18',
   'cat-fuel': 'fuel', // petrol/diesel — excise + VAT (the fuel band)
   'cat-salon': 'gst-18', // salon/grooming services
+  'cat-food-drinks': 'gst-5', // same blended estimate as groceries/dining
   // Home & utilities
   'cat-rent': 'exempt', // residential rent — no GST
   'cat-bills': 'gst-18', // electricity is exempt, but telecom/piped utilities ~18%
@@ -51,6 +52,7 @@ export const CATEGORY_BAND: Record<string, TaxBandId> = {
   'cat-occasions': 'gst-18',
   'cat-religious': 'exempt',
   'cat-charity': 'exempt',
+  'cat-lending': 'exempt', // handing money to someone isn't consumption — no GST applies
   // Sin goods (new categories — Track 7)
   'cat-alcohol': 'alcohol',
   'cat-tobacco': 'tobacco',
@@ -91,7 +93,7 @@ export const INTENT_GROUP_BAND: Record<string, TaxBandId> = {
  * Categories that are saving/investing rather than consumption — excluded from the spend base
  * entirely (they shouldn't count as "spend" or attract an indirect-tax estimate).
  */
-export const SPEND_EXCLUDED = new Set<string>(['cat-sip', 'cat-savings']);
+export const SPEND_EXCLUDED = new Set<string>(['cat-sip', 'cat-savings', 'cat-lending']);
 
 /** Default band when nothing else matches. */
 export const DEFAULT_BAND: TaxBandId = 'gst-18';

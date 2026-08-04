@@ -5,11 +5,13 @@ import {
   holdingsRepo,
   ledgerEntriesRepo,
   liabilitiesRepo,
+  netWorthSnapshotsRepo,
   personsRepo
 } from '@/core/db/repositories';
 import type { Holding, Liability } from '@/core/db/types';
-import { computeBalance } from '@/core/accounts/balanceCalculator';
+import { calcLiquidFunds, computeBalance } from '@/core/accounts/balanceCalculator';
 import { signedAmount } from '@/core/iou/ledger';
+import { calcInvestableCorpus } from '@/core/calculators/retirementProjection';
 import { useTxnRefresh } from '@/hooks/useTxnRefresh';
 import { useAccountsRefresh } from '@/hooks/useDataRefresh';
 import { toMonthYearKey } from '@/lib/formatters';
@@ -42,6 +44,11 @@ export interface HomeSummary {
   creditCardAccounts: CreditCardAccount[];
   /** Net IOU: (owed to you) − (you owe). Positive = a receivable asset; negative = a payable liability. */
   netIou: number;
+  /** Investable corpus — a deliberately smaller, different figure than `netWorth`: mf/stock/fd/nps/ppf/
+   *  epf/gold holdings + liquid funds, excluding vehicle/property/other (that equity can't fund a
+   *  4%-withdrawal retirement). Powers the Home Retirement Corpus card — see
+   *  `core/calculators/retirementProjection.ts`'s `calcInvestableCorpus()`. */
+  investableCorpus: number;
 }
 
 export interface AssetGroup {
@@ -105,8 +112,7 @@ async function loadSummary(): Promise<HomeSummary> {
       ...(acc.hideInSafeMode !== undefined ? { hideInSafeMode: acc.hideInSafeMode } : {})
     }));
 
-  const liquidAccs = accs.filter((a) => a.includeInNetWorth && !a.isArchived);
-  const liquidFunds = liquidAccs.reduce((s, a) => s + computeBalance(a.id, a.openingBalance, expenses), 0);
+  const liquidFunds = calcLiquidFunds(accs, expenses);
 
   const ccAccs = accs.filter((a) => a.type === 'credit_card' && !a.isArchived);
   const creditCardAccounts: CreditCardAccount[] = ccAccs.map((a) => {
@@ -114,23 +120,41 @@ async function loadSummary(): Promise<HomeSummary> {
     return { id: a.id, name: a.name, outstanding: Math.max(0, -bal), color: a.color, icon: a.icon };
   });
   const totalCcOutstanding = creditCardAccounts.reduce((s, c) => s + c.outstanding, 0);
-  const totalAssets = totalPortfolio + Math.max(0, liquidFunds);
+  const totalAssets = totalPortfolio + liquidFunds;
+  const netWorth = totalAssets - totalLiabilitiesAmt - totalCcOutstanding + netIou;
+  const investableCorpus = calcInvestableCorpus(holdings, liquidFunds);
+
+  // Fire-and-forget: capture this month's snapshot the first time Home loads in a new calendar month
+  // (never backfilled synthetically — see NetWorthSnapshot's doc comment). Guarded by a real read, not a
+  // local flag, so it stays correct across app reinstalls/multiple devices restoring the same backup.
+  void captureMonthlySnapshotIfNeeded(investableCorpus, netWorth);
 
   return {
-    netWorth: totalAssets - totalLiabilitiesAmt - totalCcOutstanding + netIou,
+    netWorth,
     monthlyExpenses,
     accountBalances,
     totalPortfolio,
-    liquidFunds: Math.max(0, liquidFunds),
+    liquidFunds,
     holdings,
     liabilities,
     creditCardAccounts,
-    netIou
+    netIou,
+    investableCorpus
   };
 }
 
-/** RN port of apps/web-react/src/features/home/useHome.ts — unchanged logic, no group dependency here
- *  (the web HomePage's activeGroup branch lives outside this hook; this port is personal-only). */
+async function captureMonthlySnapshotIfNeeded(investableCorpus: number, netWorth: number): Promise<void> {
+  const monthKey = toMonthYearKey();
+  const existing = await netWorthSnapshotsRepo.getAll();
+  if (existing.some((s) => s.monthKey === monthKey)) return;
+  const now = Date.now();
+  await netWorthSnapshotsRepo.put({ id: crypto.randomUUID(), monthKey, investableCorpus, netWorth, capturedAt: now });
+}
+
+/** RN port of apps/web-react/src/features/home/useHome.ts (no group dependency here — the web
+ *  HomePage's activeGroup branch lives outside this hook; this port is personal-only). Mobile-only
+ *  addition (`apps/web-react` is frozen): `investableCorpus` + the monthly `NetWorthSnapshot` capture,
+ *  both added for the Retirement Corpus card — see `useRetirementProjection.ts`. */
 export function useHome() {
   const [summary, setSummary] = useState<HomeSummary | null>(null);
 

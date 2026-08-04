@@ -36,3 +36,10 @@ export type { SsyInput, SsyResult, SsyYearRow } from './ssy';
 
 export { calcInflation } from './inflation';
 export type { InflationInput, InflationResult } from './inflation';
+
+export { calcRetirementProjection, calcInvestableCorpus } from './retirementProjection';
+export type {
+  RetirementProjectionInput,
+  RetirementProjectionResult,
+  RetirementYearPoint
+} from './retirementProjection';

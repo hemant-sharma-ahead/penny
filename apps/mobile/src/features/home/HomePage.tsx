@@ -37,7 +37,7 @@ export function HomePage() {
   const modeBg = useModeBackgroundColor();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { activeGroup } = useGroupContext();
-  const { summary, assetGroups, totalAssets, totalLiabilities } = useHome();
+  const { summary, assetGroups, totalAssets } = useHome();
   useRegisterHeaderScreen('HomeMain');
 
   // When a group is the active context, Home becomes that group's dashboard. "Personal ▾"/the group
@@ -58,14 +58,7 @@ export function HomePage() {
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 96 }}>
         <View className="px-4 pt-3 pb-6">
-          {summary && (
-            <GlanceHeader
-              summary={summary}
-              assetGroups={assetGroups}
-              totalAssets={totalAssets}
-              totalLiabilities={totalLiabilities}
-            />
-          )}
+          {summary && <GlanceHeader summary={summary} assetGroups={assetGroups} totalAssets={totalAssets} />}
 
           <MoneyStatsCard />
 

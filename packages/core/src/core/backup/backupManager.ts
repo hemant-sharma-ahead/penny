@@ -50,7 +50,12 @@ const BACKUP_STORES = [
   'sync_cursor',
   'groups',
   'group_members',
-  'group_events'
+  'group_events',
+  'bank_statement_imports',
+  'bank_narration_overrides',
+  'payment_modes',
+  'retirement_plan',
+  'net_worth_snapshots'
 ] as const;
 
 type BackupStore = (typeof BACKUP_STORES)[number];

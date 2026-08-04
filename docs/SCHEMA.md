@@ -4,13 +4,24 @@ All stores use Dexie.js (IndexedDB). All primary keys are UUIDs (not auto-increm
 
 Encrypted stores use `EncryptedRepository<T>`, which wraps Dexie and transparently encrypts fields on write and decrypts on read via the in-memory Master Key. Plain stores are written directly to IndexedDB with no encryption.
 
-**Store counts:** 19 active stores total — 17 encrypted + 2 plain.
+**Store counts:** 35 active stores total — 33 encrypted + 2 plain.
 
 **Schema versions:**
 
-- v1: Initial 19 stores including `accounts`
-- v2: Added index on `accounts.id`
-- v3: Dropped `assets` store (superseded by `holdings` with `assetClass` field)
+- v1: Initial 19 stores (17 encrypted + 2 plain)
+- v2: Added `accounts` (multi-account tracking, M9) — 20 total
+- v3: Dropped `assets` store (superseded by `holdings` with `assetClass` field) — 19 total
+- v4: Added `activity_log` — 20 total
+- v5: Added `merchant_memory` — 21 total
+- v6: Added `transaction_templates` — 22 total
+- v7: Added `persons`, `ledger_entries` — 24 total
+- v8: Added `device_keys`, `group_keys`, `sync_cursor` — 27 total
+- v9: Added `groups`, `group_members`, `group_events` — 30 total
+- v10: Added `bank_statement_imports`, `bank_narration_overrides` (Bank Statement Import) — 32 total
+- v11: Added `payment_modes` (custom/creatable payment modes) — 33 total
+- v12: Added `retirement_plan` (singleton, shared by Home's Retirement Corpus card and the FIRE
+  Calculator) and `net_worth_snapshots` (one row per calendar month, for the Retirement Corpus chart's
+  historical segment) — 35 total
 
 ---
 
@@ -35,7 +46,7 @@ used, each swap driven by a real on-device bug:
    handoff" shape Dexie/IndexedDB already has on web. WAL journal mode is enabled; only one connection is
    opened, per op-sqlite's own guidance (no manual reader/writer pool).
 
-This version also fixes a second inefficiency present in *both* prior RN adapters (not unique to MMKV):
+This version also fixes a second inefficiency present in _both_ prior RN adapters (not unique to MMKV):
 both stored each encrypted row as `JSON.stringify({id, iv, ciphertext})` in a single text column/value — a
 wrapper layer Dexie never needed, since IndexedDB stores that same `{id, iv, ciphertext}` object directly
 via structured clone. The ~27 tables an `EncryptedRepository` always writes in that exact shape now get
@@ -64,19 +75,19 @@ deterministic-Ed25519 vectors run under Web Crypto here, to be reproduced on-dev
 
 Single-record store. The user's identity and app preferences.
 
-| Field              | Type                                                                           | Notes                                                                                                  |
-| ------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| id                 | string (UUID)                                                                  | Primary key                                                                                            |
-| displayName        | string                                                                         | User's full name (also used as the display name)                                                       |
-| currency           | `'INR'`                                                                        | Always INR in Phase 1                                                                                  |
-| locale             | `'en-IN'`                                                                      | Always en-IN in Phase 1                                                                                |
-| onboardingComplete | boolean                                                                        | AuthGuard checks profile existence (field name is `onboardingComplete` in code)                        |
-| dob                | string?                                                                        | ISO date (YYYY-MM-DD) — Track 2. Encrypted; only a 5-year age band ever sent to AI                     |
-| employmentType     | `'salaried' \| 'self_employed' \| 'business_owner' \| 'student' \| 'retired'`? | Track 2; gates EPF visibility, tax deductions, health benchmarks                                       |
-| username           | string?                                                                        | Track 2; 3–20 lowercase alphanumeric/underscore. Local now; server-checked for uniqueness in Phase 1.5 |
-| userId             | string?                                                                        | Track 2; local identity id, "claimed" on the server at Phase 1.5 registration                          |
-| deviceId           | string?                                                                        | Phase 1.5 Track C; random UUID for this device, assigned at account claim. Rides backup/recovery       |
-| plan               | `'free' \| 'pro'`?                                                             | Track 2; entitlement marker. Always effectively pro until pricing ships                                |
+| Field              | Type                                                                           | Notes                                                                                                                                                                                                                                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id                 | string (UUID)                                                                  | Primary key                                                                                                                                                                                                                                                                                               |
+| displayName        | string                                                                         | User's full name (also used as the display name)                                                                                                                                                                                                                                                          |
+| currency           | `'INR'`                                                                        | Always INR in Phase 1                                                                                                                                                                                                                                                                                     |
+| locale             | `'en-IN'`                                                                      | Always en-IN in Phase 1                                                                                                                                                                                                                                                                                   |
+| onboardingComplete | boolean                                                                        | AuthGuard checks profile existence (field name is `onboardingComplete` in code)                                                                                                                                                                                                                           |
+| dob                | string?                                                                        | ISO date (YYYY-MM-DD) — Track 2. Encrypted; only a 5-year age band ever sent to AI                                                                                                                                                                                                                        |
+| employmentType     | `'salaried' \| 'self_employed' \| 'business_owner' \| 'student' \| 'retired'`? | Track 2; gates EPF visibility, tax deductions, health benchmarks                                                                                                                                                                                                                                          |
+| username           | string?                                                                        | Track 2; 3–20 lowercase alphanumeric/underscore. Local now; server-checked for uniqueness in Phase 1.5                                                                                                                                                                                                    |
+| userId             | string?                                                                        | Track 2; local identity id, "claimed" on the server at Phase 1.5 registration                                                                                                                                                                                                                             |
+| deviceId           | string?                                                                        | Phase 1.5 Track C; random UUID for this device, assigned at account claim. Rides backup/recovery                                                                                                                                                                                                          |
+| plan               | `'free' \| 'pro'`?                                                             | Track 2; entitlement marker. Always effectively pro until pricing ships                                                                                                                                                                                                                                   |
 | demoSeeded         | boolean?                                                                       | true only while the vault itself is the throwaway Demo Mode one (never true for a real vault, on either the fresh or exit-demo setup path). Persisted here (in addition to the localStorage `penny_demo_seeded` flag) so it rides the encrypted backup and the "Exit Demo Mode" option survives a restore |
 
 > The on-device identity **keypair** and any `licenseToken` are stored in the encrypted DB alongside the profile (private key never leaves the device). Non-indexed fields → no Dexie migration.
@@ -129,18 +140,18 @@ Every income, expense, and transfer transaction.
 
 Default and user-created categories for classifying expenses.
 
-| Field        | Type                                 | Notes                                                                                                                    |
-| ------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| id           | string (UUID)                        | Primary key                                                                                                              |
-| name         | string                               | e.g. `'Food'`, `'EMI'`, `'Entertainment'`                                                                                |
-| icon         | string                               | Tabler icon class (`ti-*`), chosen via the visual icon picker                                                            |
-| color        | string                               | Hex color for UI chips and charts                                                                                        |
-| intentGroup  | string?                              | Fixed intent-group key (`'daily_living'`, `'health'`, …) used to group **default** categories. See `INTENT_GROUP_META`.  |
-| isDefault    | boolean                              | System-provided defaults (editable, not deletable) vs user-created                                                       |
-| isGroup      | boolean?                             | `true` ⇒ this record is a user-created **parent** (grouping header), not selectable for a transaction                    |
-| parentId     | string?                              | For a custom leaf category, the id of its parent (`isGroup`) category. Takes precedence over `intentGroup` for grouping. |
-| applicableTo | 'expense' \| 'income' \| 'transfer'? | Defaults to `'expense'`                                                                                                  |
-| hideInSafeMode | boolean? | Safe Mode masks this category's amounts (transactions, budgets); explicit `true`/`false` always wins, `undefined` falls back to the intent-group default — see `isHiddenInSafeMode()` in `core/expenses/categoryGroups.ts`. Set from Settings → Safe Mode. |
+| Field          | Type                                 | Notes                                                                                                                                                                                                                                                      |
+| -------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id             | string (UUID)                        | Primary key                                                                                                                                                                                                                                                |
+| name           | string                               | e.g. `'Food'`, `'EMI'`, `'Entertainment'`                                                                                                                                                                                                                  |
+| icon           | string                               | Tabler icon class (`ti-*`), chosen via the visual icon picker                                                                                                                                                                                              |
+| color          | string                               | Hex color for UI chips and charts                                                                                                                                                                                                                          |
+| intentGroup    | string?                              | Fixed intent-group key (`'daily_living'`, `'health'`, …) used to group **default** categories. See `INTENT_GROUP_META`.                                                                                                                                    |
+| isDefault      | boolean                              | System-provided defaults (editable, not deletable) vs user-created                                                                                                                                                                                         |
+| isGroup        | boolean?                             | `true` ⇒ this record is a user-created **parent** (grouping header), not selectable for a transaction                                                                                                                                                      |
+| parentId       | string?                              | For a custom leaf category, the id of its parent (`isGroup`) category. Takes precedence over `intentGroup` for grouping.                                                                                                                                   |
+| applicableTo   | 'expense' \| 'income' \| 'transfer'? | Defaults to `'expense'`                                                                                                                                                                                                                                    |
+| hideInSafeMode | boolean?                             | Safe Mode masks this category's amounts (transactions, budgets); explicit `true`/`false` always wins, `undefined` falls back to the intent-group default — see `isHiddenInSafeMode()` in `core/expenses/categoryGroups.ts`. Set from Settings → Safe Mode. |
 
 > **Grouping (Track 3):** the picker/analytics/filters key off `groupKey(cat) = parentId ?? intentGroup ?? 'other'`; the header label/color comes from the parent record (custom groups) or `INTENT_GROUP_META` (fixed groups). No Dexie store/version change — `isGroup`/`parentId` ride inside the encrypted blob.
 
@@ -173,14 +184,14 @@ Monthly spend limits per category.
 User-defined tags applied to expenses/income. Event/Vacation Mode state (which tags are "active
 events") lives separately in `EventModeContext`/localStorage, not on this record.
 
-| Field          | Type      | Notes                                                                                                                                                          |
-| -------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id             | string (UUID) | Primary key                                                                                                                                              |
-| name           | string    | Without `#`, lowercased — e.g. `'goa-trip'`, `'emi'`, `'momgroceries'`                                                                                        |
-| usageCount     | number    | Incremented on each use; drives the "Frequent" row in the expense form's Tags panel and the sort order in Manage Tags                                        |
-| setAside       | boolean?  | **New (2026-07).** Any transaction carrying this tag is excluded from daily-living analytics (`useExpenseAnalytics`'s `classify()`) regardless of category, reported as its own line. Set once per tag (Manage Tags, or inline when the tag is first created), never per transaction |
-| hideInSafeMode | boolean?  | **New (2026-07).** Independent of `setAside` — Safe Mode masks any transaction carrying this tag when true. Defaults to mirroring `setAside` at creation but is separately editable (Settings → Safe Mode → Tags) |
-| createdAt      | number    | Epoch ms                                                                                                                                                       |
+| Field          | Type          | Notes                                                                                                                                                                                                                                                                                |
+| -------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| id             | string (UUID) | Primary key                                                                                                                                                                                                                                                                          |
+| name           | string        | Without `#`, lowercased — e.g. `'goa-trip'`, `'emi'`, `'momgroceries'`                                                                                                                                                                                                               |
+| usageCount     | number        | Incremented on each use; drives the "Frequent" row in the expense form's Tags panel and the sort order in Manage Tags                                                                                                                                                                |
+| setAside       | boolean?      | **New (2026-07).** Any transaction carrying this tag is excluded from daily-living analytics (`useExpenseAnalytics`'s `classify()`) regardless of category, reported as its own line. Set once per tag (Manage Tags, or inline when the tag is first created), never per transaction |
+| hideInSafeMode | boolean?      | **New (2026-07).** Independent of `setAside` — Safe Mode masks any transaction carrying this tag when true. Defaults to mirroring `setAside` at creation but is separately editable (Settings → Safe Mode → Tags)                                                                    |
+| createdAt      | number        | Epoch ms                                                                                                                                                                                                                                                                             |
 
 ---
 
@@ -188,40 +199,40 @@ events") lives separately in `EventModeContext`/localStorage, not on this record
 
 Financial goals with SIP planning and progress tracking.
 
-| Field          | Type                                    | Notes                                              |
-| -------------- | --------------------------------------- | -------------------------------------------------- |
-| id             | string (UUID)                           | Primary key                                        |
-| name           | string                                  | User-given name e.g. `'House Down Payment'`        |
-| targetAmount   | number                                  | Goal target in ₹                                   |
-| currentAmount  | number                                  | Baseline saved before/outside tracked contributions (2026-08-01) — see `goal_contributions` below; not the full total shown to the user |
-| targetDate     | number?                                 | Epoch ms — deadline                                |
-| sipAmount      | number?                                 | Planned monthly SIP in ₹                           |
-| sipFrequency   | `'monthly' \| 'quarterly' \| 'yearly'`? | SIP cadence                                        |
-| expectedReturn | number?                                 | Annual return assumption (%) for corpus projection |
-| icon           | string?                                 | Tabler icon name                                   |
-| color          | string?                                 | Hex color for UI card                              |
-| countsTowardSafeToSpend | boolean? | 2026-08-02 — undefined/true = this goal's saved amount is excluded from "Safe to spend" (Home/Expenses/Cash Flow); explicit `false` only for a goal the user personally wants to keep reading as spendable |
+| Field                   | Type                                    | Notes                                                                                                                                                                                                      |
+| ----------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id                      | string (UUID)                           | Primary key                                                                                                                                                                                                |
+| name                    | string                                  | User-given name e.g. `'House Down Payment'`                                                                                                                                                                |
+| targetAmount            | number                                  | Goal target in ₹                                                                                                                                                                                           |
+| currentAmount           | number                                  | Baseline saved before/outside tracked contributions (2026-08-01) — see `goal_contributions` below; not the full total shown to the user                                                                    |
+| targetDate              | number?                                 | Epoch ms — deadline                                                                                                                                                                                        |
+| sipAmount               | number?                                 | Planned monthly SIP in ₹                                                                                                                                                                                   |
+| sipFrequency            | `'monthly' \| 'quarterly' \| 'yearly'`? | SIP cadence                                                                                                                                                                                                |
+| expectedReturn          | number?                                 | Annual return assumption (%) for corpus projection                                                                                                                                                         |
+| icon                    | string?                                 | Tabler icon name                                                                                                                                                                                           |
+| color                   | string?                                 | Hex color for UI card                                                                                                                                                                                      |
+| countsTowardSafeToSpend | boolean?                                | 2026-08-02 — undefined/true = this goal's saved amount is excluded from "Safe to spend" (Home/Expenses/Cash Flow); explicit `false` only for a goal the user personally wants to keep reading as spendable |
 
 ---
 
 ### `goal_contributions`
 
-Individual contributions credited toward a goal — as of 2026-08-01, the *only* place a contribution's
+Individual contributions credited toward a goal — as of 2026-08-01, the _only_ place a contribution's
 amount lives; `goals.currentAmount` is a one-time baseline set via `GoalForm`'s "Already saved" field
 and never incremented again. The amount shown/used everywhere is `currentAmount` plus the live sum of
 that goal's `goal_contributions` — computed on read, never denormalized, the same way IOU's net balance
 is never a stored total either (`core/iou/ledger.ts`'s `netBalance`).
 
-| Field       | Type                    | Notes                                                                                                                            |
-| ----------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Field       | Type                    | Notes                                                                                                                              |
+| ----------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | id          | string (UUID)           | Primary key                                                                                                                        |
 | goalId      | string                  | FK → goals                                                                                                                         |
-| amount      | number                  | Contribution amount in ₹                                                                                                          |
-| date        | number                  | Epoch ms                                                                                                                          |
+| amount      | number                  | Contribution amount in ₹                                                                                                           |
+| date        | number                  | Epoch ms                                                                                                                           |
 | notes       | string?                 | e.g. `'Bonus allocation'`, `'Annual SIP'`                                                                                          |
 | origin      | `'manual' \| 'expense'` | `'expense'` = seeded by a linked Expense/Income/Transfer (`ExpenseForm.tsx`'s Goal toggle); `'manual'` = logged from the Goals tab |
-| linkedTxnId | string?                 | FK → expenses, both ways — deleting either cascades to the other. Mirrors `ledger_entries.linkedTxnId` (IOU's equivalent).       |
-| updatedAt   | number                  | Epoch ms                                                                                                                          |
+| linkedTxnId | string?                 | FK → expenses, both ways — deleting either cascades to the other. Mirrors `ledger_entries.linkedTxnId` (IOU's equivalent).         |
+| updatedAt   | number                  | Epoch ms                                                                                                                           |
 
 ---
 
@@ -304,25 +315,25 @@ Audit trail of every AI call. Logged before the call is made.
 
 Single-record store. Holds the cryptographic material for **envelope encryption** (Track 2): a random DMK wrapped independently by the PIN and the passphrase. (Field names below are illustrative; the live code uses base64 strings — see `src/core/db/types/index.ts` `SecurityRecord`.)
 
-| Field                          | Type          | Notes                                                                                                                    |
-| ------------------------------ | ------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| id                             | `'singleton'` | Fixed primary key — always one record                                                                                    |
-| mkSalt                         | string        | Salt retained from the original MK derivation (migration)                                                                |
-| kekSalt                        | string        | Salt for the PIN-derived KEK (PBKDF2, 200K iterations)                                                                   |
-| encryptedMasterKey             | string        | DMK wrapped by the **PIN**-KEK (base64)                                                                                  |
-| encryptedMasterKeyByPassphrase | string?       | **Track 2** — DMK wrapped by the **passphrase**-KEK (base64). Added lazily for migrated vaults; set at init for new ones |
-| passphraseKekSalt              | string?       | **Track 2** — salt for the passphrase-KEK (PBKDF2, 600K iterations)                                                      |
-| recoverySalt                   | string?       | **Track F (F3)** — base64 salt fed into PBKDF2(passphrase) to derive the account's Ed25519 passphrase-recovery keypair. Non-secret. |
-| recoveryPublicJwk              | string?       | **Track F (F3)** — the Ed25519 recovery PUBLIC key (JWK, JSON string). Uploaded at claim as the server-side recovery verifier; re-derived on passphrase change. Non-secret. |
-| passphraseVerifier             | string        | Verifies the passphrase without unwrapping the DMK                                                                       |
-| pinAttempts                    | number        | Failed PIN attempts (shared across unlock / Open-mode / change-PIN); resets on success                                   |
-| lockedUntil                    | number?       | Epoch ms — exponential-backoff lockout expiry after 5 failed attempts                                                    |
-| pinChangedAt                   | number?       | Epoch ms — drives the 21-day rotation reminder AND the once-per-24h change limit                                         |
+| Field                          | Type          | Notes                                                                                                                                                                                    |
+| ------------------------------ | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id                             | `'singleton'` | Fixed primary key — always one record                                                                                                                                                    |
+| mkSalt                         | string        | Salt retained from the original MK derivation (migration)                                                                                                                                |
+| kekSalt                        | string        | Salt for the PIN-derived KEK (PBKDF2, 200K iterations)                                                                                                                                   |
+| encryptedMasterKey             | string        | DMK wrapped by the **PIN**-KEK (base64)                                                                                                                                                  |
+| encryptedMasterKeyByPassphrase | string?       | **Track 2** — DMK wrapped by the **passphrase**-KEK (base64). Added lazily for migrated vaults; set at init for new ones                                                                 |
+| passphraseKekSalt              | string?       | **Track 2** — salt for the passphrase-KEK (PBKDF2, 600K iterations)                                                                                                                      |
+| recoverySalt                   | string?       | **Track F (F3)** — base64 salt fed into PBKDF2(passphrase) to derive the account's Ed25519 passphrase-recovery keypair. Non-secret.                                                      |
+| recoveryPublicJwk              | string?       | **Track F (F3)** — the Ed25519 recovery PUBLIC key (JWK, JSON string). Uploaded at claim as the server-side recovery verifier; re-derived on passphrase change. Non-secret.              |
+| passphraseVerifier             | string        | Verifies the passphrase without unwrapping the DMK                                                                                                                                       |
+| pinAttempts                    | number        | Failed PIN attempts (shared across unlock / Open-mode / change-PIN); resets on success                                                                                                   |
+| lockedUntil                    | number?       | Epoch ms — exponential-backoff lockout expiry after 5 failed attempts                                                                                                                    |
+| pinChangedAt                   | number?       | Epoch ms — drives the 21-day rotation reminder AND the once-per-24h change limit                                                                                                         |
 | passphraseAttempts             | number?       | **Track F** — failed passphrase-verification attempts (Forgot-PIN unlock + PIN reset). Separate from `pinAttempts` so exhausting one factor never locks out the other; resets on success |
-| passphraseLockedUntil          | number?       | **Track F** — epoch ms — exponential-backoff lockout expiry for `passphraseAttempts`                                                                    |
-| passphraseChangedAt            | number?       | **Track F** — epoch ms — once-per-24h throttle for `changePassphrase`; not checked by the emergency `resetPinWithPassphrase` path                        |
-| sessionExpiresAt               | number?       | Epoch ms — session/auto-lock expiry                                                                                      |
-| wipeAfterAttempts              | number?       | **Track 2** — opt-in: erase all data after this many consecutive failed PIN attempts (undefined = off)                   |
+| passphraseLockedUntil          | number?       | **Track F** — epoch ms — exponential-backoff lockout expiry for `passphraseAttempts`                                                                                                     |
+| passphraseChangedAt            | number?       | **Track F** — epoch ms — once-per-24h throttle for `changePassphrase`; not checked by the emergency `resetPinWithPassphrase` path                                                        |
+| sessionExpiresAt               | number?       | Epoch ms — session/auto-lock expiry                                                                                                                                                      |
+| wipeAfterAttempts              | number?       | **Track 2** — opt-in: erase all data after this many consecutive failed PIN attempts (undefined = off)                                                                                   |
 
 Changing the passphrase or PIN re-derives the relevant KEK and re-wraps the **same** DMK — `encryptedMasterKey*` changes, the data does not.
 
@@ -413,15 +424,15 @@ User's credit bureau data. The raw report is encrypted and **never** sent to AI.
 
 Bank accounts, wallets, and cash holdings. Used as source/destination for expense transactions.
 
-| Field          | Type                                                            | Notes                                        |
-| -------------- | --------------------------------------------------------------- | -------------------------------------------- |
-| id             | string (UUID)                                                   | Primary key                                  |
-| name           | string                                                          | e.g. `'HDFC Savings'`, `'Cash Wallet'`       |
-| type           | `'savings' \| 'current' \| 'credit_card' \| 'cash' \| 'wallet'` |                                              |
-| bankName       | string?                                                         | e.g. `'HDFC Bank'`                           |
-| openingBalance | number?                                                         | Balance at time of account creation in Penny |
-| color          | string?                                                         | Hex color for UI                             |
-| icon           | string?                                                         | Tabler icon name                             |
+| Field          | Type                                                            | Notes                                                                                             |
+| -------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| id             | string (UUID)                                                   | Primary key                                                                                       |
+| name           | string                                                          | e.g. `'HDFC Savings'`, `'Cash Wallet'`                                                            |
+| type           | `'savings' \| 'current' \| 'credit_card' \| 'cash' \| 'wallet'` |                                                                                                   |
+| bankName       | string?                                                         | e.g. `'HDFC Bank'`                                                                                |
+| openingBalance | number?                                                         | Balance at time of account creation in Penny                                                      |
+| color          | string?                                                         | Hex color for UI                                                                                  |
+| icon           | string?                                                         | Tabler icon name                                                                                  |
 | hideInSafeMode | boolean?                                                        | Safe Mode masks this account's balance; undefined/false = visible. Set from Settings → Safe Mode. |
 
 ---
@@ -544,19 +555,19 @@ post-unlock via the groups worker (`workers/groups/`). Per-group AES keys live i
 
 A group the user belongs to. `role`/`status` are **this user's own** membership.
 
-| Field             | Type    | Notes                                              |
-| ----------------- | ------- | -------------------------------------------------- |
-| id                | string  | Primary key = server `group_id`                    |
-| type              | string  | `family` \| `trip` \| `roommates` \| `other`       |
-| name              | string  | Decrypted group name (server stores `enc_name`)    |
-| role              | string  | `owner` \| `admin` \| `member` (this user)         |
-| status            | string  | `active` \| `closed`                               |
-| ownerId           | string  | `userId` of the owner                              |
-| keyEpoch          | number  | Current Group-Key rotation epoch                   |
-| historyVisibility | string  | `full` \| `from_join`                              |
-| joinedAt          | number  | Epoch ms                                           |
-| createdAt         | number  | Epoch ms                                           |
-| updatedAt         | number  | Epoch ms                                           |
+| Field             | Type   | Notes                                           |
+| ----------------- | ------ | ----------------------------------------------- |
+| id                | string | Primary key = server `group_id`                 |
+| type              | string | `family` \| `trip` \| `roommates` \| `other`    |
+| name              | string | Decrypted group name (server stores `enc_name`) |
+| role              | string | `owner` \| `admin` \| `member` (this user)      |
+| status            | string | `active` \| `closed`                            |
+| ownerId           | string | `userId` of the owner                           |
+| keyEpoch          | number | Current Group-Key rotation epoch                |
+| historyVisibility | string | `full` \| `from_join`                           |
+| joinedAt          | number | Epoch ms                                        |
+| createdAt         | number | Epoch ms                                        |
+| updatedAt         | number | Epoch ms                                        |
 
 > **`type: 'family'` changes two behaviors (2026-07).** Sharing an expense into a Family-type group
 > defaults the participant picker to just the person sharing it — no split, since Indian family
@@ -567,36 +578,136 @@ A group the user belongs to. `role`/`status` are **this user's own** membership.
 
 ### `group_members`
 
-| Field          | Type    | Notes                                                   |
-| -------------- | ------- | ------------------------------------------------------- |
-| id             | string  | Composite `${groupId}:${userId}`                        |
-| groupId        | string  | FK → `groups.id`                                        |
-| userId         | string  | Member's account `userId`                               |
-| displayName    | string  | Decrypted display name                                  |
-| role           | string  | `owner` \| `admin` \| `member`                          |
-| status         | string  | `active` \| `left` \| `muted` (mute is local-only)      |
-| linkedPersonId | string? | Bridges to a local `Person` (reuses Track 1 IOU)        |
-| joinedAt       | number  | Epoch ms                                                |
-| leftAt         | number? | Epoch ms                                                |
-| createdAt      | number  | Epoch ms                                                |
-| updatedAt      | number  | Epoch ms                                                |
+| Field          | Type    | Notes                                              |
+| -------------- | ------- | -------------------------------------------------- |
+| id             | string  | Composite `${groupId}:${userId}`                   |
+| groupId        | string  | FK → `groups.id`                                   |
+| userId         | string  | Member's account `userId`                          |
+| displayName    | string  | Decrypted display name                             |
+| role           | string  | `owner` \| `admin` \| `member`                     |
+| status         | string  | `active` \| `left` \| `muted` (mute is local-only) |
+| linkedPersonId | string? | Bridges to a local `Person` (reuses Track 1 IOU)   |
+| joinedAt       | number  | Epoch ms                                           |
+| leftAt         | number? | Epoch ms                                           |
+| createdAt      | number  | Epoch ms                                           |
+| updatedAt      | number  | Epoch ms                                           |
 
 ### `group_events`
 
 Append-only shared ledger (local mirror of the server's event rows). Balances fold over these.
 
-| Field     | Type    | Notes                                                                       |
-| --------- | ------- | --------------------------------------------------------------------------- |
-| id        | string  | Primary key = `eventId` (client UUID)                                       |
-| groupId   | string  | FK → `groups.id`                                                            |
-| seq       | number? | Server-assigned total order (undefined until synced)                        |
-| lamport   | number  | Client logical clock (tie-break)                                            |
-| authorId  | string  | `userId` of the author                                                      |
-| keyEpoch  | number  | Group-Key epoch the payload was encrypted under                             |
+| Field     | Type    | Notes                                                                              |
+| --------- | ------- | ---------------------------------------------------------------------------------- |
+| id        | string  | Primary key = `eventId` (client UUID)                                              |
+| groupId   | string  | FK → `groups.id`                                                                   |
+| seq       | number? | Server-assigned total order (undefined until synced)                               |
+| lamport   | number  | Client logical clock (tie-break)                                                   |
+| authorId  | string  | `userId` of the author                                                             |
+| keyEpoch  | number  | Group-Key epoch the payload was encrypted under                                    |
 | type      | string  | `shared_expense`/`expense_edit`/`expense_delete`/`settlement`/`member_*`/`group_*` |
-| payload   | unknown | Type-specific (e.g. payer/participants/split); decrypted from the epoch key |
-| createdAt | number  | Epoch ms                                                                    |
-| updatedAt | number  | Epoch ms                                                                    |
+| payload   | unknown | Type-specific (e.g. payer/participants/split); decrypted from the epoch key        |
+| createdAt | number  | Epoch ms                                                                           |
+| updatedAt | number  | Epoch ms                                                                           |
+
+---
+
+## Bank Statement Import
+
+A deliberately separate parser/matching module (`core/bank-import/`) from the multi-app CSV
+importer (`core/import/`) — see [`docs/plans/bank-statement-import.md`](plans/bank-statement-import.md)
+for the full feature spec. Both stores added in Dexie v10; id-only index.
+
+### `bank_statement_imports`
+
+One resolved bank-statement line (matched to an existing transaction, or newly recorded), written
+only at the feature's final commit step. Serves three purposes so a second table isn't needed:
+audit trail (a linked transaction can show what statement line it matched), the merchant-memory
+backing store (queried globally by `normalizedKey`, joined against `linkedTxnId`'s transaction for
+a category/description suggestion), and dedup against a re-uploaded overlapping-range statement.
+
+| Field         | Type                                  | Notes                                                         |
+| ------------- | ------------------------------------- | ------------------------------------------------------------- |
+| id            | string (UUID)                         | Primary key                                                   |
+| batchId       | string                                | Groups every row committed from one import session            |
+| accountId     | string                                | FK → `accounts` (the statement's account)                     |
+| rawNarration  | string                                | The statement line's raw description, verbatim                |
+| normalizedKey | string                                | See `core/bank-import/normalization.ts`; manual overrides win |
+| date          | number                                | Epoch ms — statement line's date (usually date-only, no time) |
+| amount        | number                                |                                                               |
+| type          | `'expense' \| 'income' \| 'transfer'` |                                                               |
+| linkedTxnId   | string                                | FK → `expenses` — the existing or newly-created transaction   |
+| createdAt     | number                                | Epoch ms                                                      |
+
+### `bank_narration_overrides`
+
+Manual overrides for the normalization heuristic — always take priority over its automatic
+keyword-stripping guess. Global across all accounts; managed from the Accounts page's
+normalization-override screen.
+
+| Field         | Type          | Notes                                                           |
+| ------------- | ------------- | --------------------------------------------------------------- |
+| id            | string (UUID) | Primary key                                                     |
+| keyword       | string        | As typed by the user; matched case-insensitively as a substring |
+| normalizedKey | string        | Uppercased, trimmed — what matching lines should normalize to   |
+| createdAt     | number        | Epoch ms                                                        |
+| updatedAt     | number        | Epoch ms                                                        |
+
+### `payment_modes`
+
+Every payment mode — the 5 built-ins (cash/upi/card/net/wallet) AND custom ones — as real rows.
+Seeded once from `core/expenses/paymentModes.ts`'s `DEFAULT_PAYMENT_MODES` (`~/hooks/usePaymentModes.ts`,
+mirroring how `ALL_DEFAULT_CATEGORIES` is seeded for `expense_categories`) — real rows from the
+start, not a read-time-only merge, is what lets a default's icon/colour/label actually be edited in
+place, the same way a default `ExpenseCategory` can be (2026-08-03). `isDefault` gates deletability
+the same way `ExpenseCategory.isDefault` does: editable, never deletable; a custom mode is both, but
+only while unused (`Expense.paymentMode` usage count === 0). `id` is a stable, deterministic slug
+(not a random UUID) so existence can be checked with a plain id lookup — this is what lets Bank
+Statement Import create a rail-specific mode (NEFT/IMPS/RTGS/Cheque) exactly once, the first time
+it's needed, rather than once per transaction. Managed from the Accounts page's "Payment modes"
+section (`features/accounts/PaymentModesSection.tsx`).
+
+| Field     | Type    | Notes                                     |
+| --------- | ------- | ----------------------------------------- |
+| id        | string  | Stable slug, e.g. `neft`, `cheque`        |
+| label     | string  | Display label, e.g. "NEFT"                |
+| icon      | string  | Tabler icon class                         |
+| color     | string  | Hex accent color                          |
+| isDefault | boolean | true for the 5 built-ins; never deletable |
+| createdAt | number  | Epoch ms                                  |
+| updatedAt | number  | Epoch ms                                  |
+
+### `retirement_plan`
+
+Single-record store (same singleton pattern as `profile` — no fixed id assumed, `useRetirementPlan()`
+lazily creates it with defaults the first time it's read; there's no onboarding step that seeds it).
+Shared by Home's Retirement Corpus card and the FIRE Calculator — editing either place updates both.
+
+| Field                  | Type    | Notes                                                                      |
+| ---------------------- | ------- | -------------------------------------------------------------------------- |
+| id                     | string  | Primary key                                                                |
+| retirementAge          | number  | Default 60                                                                 |
+| expectedReturnPct      | number  | Default 12                                                                 |
+| inflationPct           | number  | Default 6                                                                  |
+| swrPct                 | number  | Safe withdrawal rate, default 4                                            |
+| monthlyInvestment      | number  | Default 0                                                                  |
+| monthlyExpenseOverride | number? | undefined = derive live from trailing actual spend; set once user edits it |
+| createdAt              | number  | Epoch ms                                                                   |
+| updatedAt              | number  | Epoch ms                                                                   |
+
+### `net_worth_snapshots`
+
+One row per calendar month, captured at most once per month (first app-open in a new month — see
+`useHome.ts`). Builds up a real historical line for the Retirement Corpus chart over time; never
+backfilled synthetically (holdings have no historical price series, only cash/bank balances are
+exactly reconstructable for a past date).
+
+| Field            | Type   | Notes                                                                     |
+| ---------------- | ------ | ------------------------------------------------------------------------- |
+| id               | string | Primary key                                                               |
+| monthKey         | string | `'YYYY-MM'`                                                               |
+| investableCorpus | number | See `core/calculators/retirementProjection.ts`'s `calcInvestableCorpus()` |
+| netWorth         | number | Same figure `useHome.ts` returns as `HomeSummary.netWorth`                |
+| capturedAt       | number | Epoch ms                                                                  |
 
 ---
 

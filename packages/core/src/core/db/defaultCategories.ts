@@ -101,6 +101,16 @@ export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
     applicableTo: 'expense',
     createdAt: 0
   },
+  {
+    id: 'cat-food-drinks',
+    name: 'Food & Drinks',
+    icon: 'ti-cup',
+    color: '#d97706',
+    isDefault: true,
+    intentGroup: 'daily_living',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
   // ── Home & Utilities ─────────────────────────────────────────────────────────
   {
     id: 'cat-rent',
@@ -560,6 +570,16 @@ export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
     applicableTo: 'expense',
     createdAt: 0
   },
+  {
+    id: 'cat-lending',
+    name: 'Lending',
+    icon: 'ti-cash-move',
+    color: '#db2777',
+    isDefault: true,
+    intentGroup: 'family_giving',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
   // ── Legal ────────────────────────────────────────────────────────────────────
   {
     id: 'cat-legal-advocate',
@@ -780,6 +800,16 @@ export const DEFAULT_INCOME_CATEGORIES: ExpenseCategory[] = [
     name: 'Gift Received',
     icon: 'ti-gift',
     color: '#ec4899',
+    isDefault: true,
+    intentGroup: 'income',
+    applicableTo: 'income',
+    createdAt: 0
+  },
+  {
+    id: 'cat-inc-borrowed',
+    name: 'Borrowed Money',
+    icon: 'ti-cash-move-back',
+    color: '#a855f7',
     isDefault: true,
     intentGroup: 'income',
     applicableTo: 'income',

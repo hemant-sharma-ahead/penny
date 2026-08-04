@@ -18,6 +18,8 @@ import { SubscriptionsPage } from '../features/subscriptions/SubscriptionsPage';
 import { FeedbackPage } from '../features/feedback/FeedbackPage';
 import { CashFlowPage } from '../features/cashflow/CashFlowPage';
 import { TaxAwarenessPage } from '../features/tax/TaxAwarenessPage';
+import { BankImportPage } from '../features/bank-import/BankImportPage';
+import { BankImportOverridesPage } from '../features/bank-import/BankImportOverridesPage';
 
 /**
  * The Home tab's own navigation stack — Track: chrome-persistence fix. Previously all of these
@@ -59,6 +61,12 @@ export type HomeStackParamList = {
   Feedback: undefined;
   CashFlow: undefined;
   Tax: undefined;
+  /** Bank statement import (docs/plans/bank-statement-import.md) — scoped to one account, entered from
+   *  that account's own row on the Accounts page (`AccountList.tsx`'s Import action). */
+  BankImport: { accountId: string };
+  /** Global normalization-override management screen (§9a) — reachable from the Accounts page header,
+   *  not scoped to any one account (merchant memory spans every account). */
+  BankImportOverrides: undefined;
 };
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
@@ -92,6 +100,8 @@ export function HomeStack() {
       <Stack.Screen name="Feedback" component={FeedbackPage} />
       <Stack.Screen name="CashFlow" component={CashFlowPage} />
       <Stack.Screen name="Tax" component={TaxAwarenessPage} />
+      <Stack.Screen name="BankImport" component={BankImportPage} />
+      <Stack.Screen name="BankImportOverrides" component={BankImportOverridesPage} />
     </Stack.Navigator>
   );
 }

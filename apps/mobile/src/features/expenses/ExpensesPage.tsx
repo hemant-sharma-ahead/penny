@@ -71,6 +71,7 @@ export function ExpensesPage() {
     seedGoalFromExpense,
     goalLinkByTxn,
     goalLinkedTxnIds,
+    bankImportLinkByTxn,
     txnIdsByGoal,
     saveAccount,
     accountBalances,
@@ -196,6 +197,7 @@ export function ExpensesPage() {
               onSeedGoal={seedGoalFromExpense}
               goalLinkByTxn={goalLinkByTxn}
               goalLinkedTxnIds={goalLinkedTxnIds}
+              bankImportLinkByTxn={bankImportLinkByTxn}
               saveAccount={saveAccount}
               accountBalances={accountBalances}
               shareGroups={shareGroups}

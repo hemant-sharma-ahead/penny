@@ -748,3 +748,109 @@ export interface GroupEvent {
   createdAt: number;
   updatedAt: number;
 }
+
+// ─── Bank Statement Import ──────────────────────────────────────────────────
+// A deliberately separate parser/matching module (core/bank-import/) — NOT sharing code with the
+// multi-app CSV importer (core/import/), per an explicit decision to keep bank-statement parsing
+// independent so each can evolve without risking regressions in the other. See
+// docs/plans/bank-statement-import.md for the full requirements this schema implements.
+
+/** One resolved bank-statement line (matched to an existing transaction, or newly recorded). One
+ *  table serves three purposes (docs/plans/bank-statement-import.md §10a), not two: (1) audit
+ *  trail — a recorded Expense's linking record can show "matched from bank statement: `<rawNarration>`,
+ *  `<date>`"; (2) merchant-memory backing store (§9b) — queried globally by `normalizedKey`, joined
+ *  against `linkedTxnId`'s Expense for a category/description suggestion, no second table; (3)
+ *  dedup — a re-uploaded, overlapping-range statement can recognize lines already resolved. Only
+ *  written at final commit (§10b) — a discarded/abandoned review leaves no trace here. */
+export interface BankStatementImportRecord {
+  id: string;
+  batchId: string; // groups every row committed from one import session
+  accountId: string;
+  rawNarration: string;
+  normalizedKey: string; // see core/bank-import/normalization.ts
+  date: number; // epoch ms — statement line's date (most statements carry no time-of-day)
+  amount: number;
+  type: TransactionType;
+  /** The Expense/transfer this line resolved to — either an existing one it matched, or one newly
+   *  created during this import. */
+  linkedTxnId: string;
+  createdAt: number;
+}
+
+/** A manual override for the normalization heuristic (core/bank-import/normalization.ts) — always
+ *  wins over its automatic keyword-stripping guess. Keyed on a stable keyword/substring the user
+ *  types directly (not a full raw line — reference numbers change every transaction). Global
+ *  across all accounts; managed from the Accounts page's normalization-override screen (in scope
+ *  from v1, docs/plans/bank-statement-import.md §9a). */
+export interface BankNarrationOverride {
+  id: string;
+  keyword: string; // as typed by the user; matched case-insensitively as a substring
+  normalizedKey: string; // uppercased, trimmed
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
+ * A creatable payment mode (`Expense.paymentMode` string values are drawn from this set). The 5
+ * built-in ones (cash/upi/card/net/wallet, `core/expenses/paymentModes.ts`'s
+ * `DEFAULT_PAYMENT_MODES`) are seeded as real rows once (`~/hooks/usePaymentModes.ts`, mirroring
+ * how `ALL_DEFAULT_CATEGORIES` is seeded) — real rows from the start, not a read-time-only merge,
+ * is what lets a default's icon/colour/label actually be edited, same as a default
+ * `ExpenseCategory`. `isDefault` gates deletability the same way `ExpenseCategory.isDefault` does
+ * (editable, never deletable) — everything else is a full custom mode. `id` is a stable,
+ * deterministic slug (e.g. `'neft'`, `'cheque'`) rather than a random UUID, so "does this mode
+ * already exist" is a plain id lookup — this is what lets Bank Statement Import
+ * (docs/plans/bank-statement-import.md §8) create a rail-specific mode (NEFT/IMPS/RTGS/Cheque)
+ * exactly once, the first time it's needed, rather than per transaction. */
+export interface PaymentMode {
+  id: string;
+  label: string;
+  icon: string;
+  color: string;
+  isDefault: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ─── Retirement Corpus (Home hero + FIRE Calculator) ────────────────────────
+// One shared plan powers both Home's "Retirement Corpus" card and the FIRE Calculator — editing
+// either place updates both. See core/calculators/retirementProjection.ts for the projection math and
+// docs/features/home.md for the feature writeup.
+
+/**
+ * The user's single, shared retirement plan (a singleton — same `items[0] ?? null` pattern as
+ * {@link Profile}, see `useRetirementPlan()`). Unlike Profile, there's no onboarding step that seeds
+ * this row, so `useRetirementPlan()` lazily creates it with sensible defaults the first time it's read.
+ */
+export interface RetirementPlan {
+  id: string;
+  retirementAge: number;
+  expectedReturnPct: number;
+  inflationPct: number;
+  swrPct: number;
+  monthlyInvestment: number;
+  /** undefined = derive live from trailing actual spend (see useHomeStats's `livingThisMonth`); an
+   *  explicit number once the user edits it in the Retirement drill-down or FIRE Calculator — same
+   *  "user's own input always wins over the derived default" override pattern FireCalculator already
+   *  used for age. */
+  monthlyExpenseOverride?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
+ * One monthly point-in-time snapshot of net worth composition, captured at most once per calendar
+ * month (first app-open in a new month — see `useHome.ts`). Builds up a real historical line for the
+ * Home Retirement Corpus chart over time; Penny is local-only with no linked-account history, but
+ * cash/bank/wallet balances are exactly reconstructable for any past date via `computeBalance()` —
+ * holdings are not (no historical price series stored), so this is captured going forward only, never
+ * backfilled synthetically.
+ */
+export interface NetWorthSnapshot {
+  id: string;
+  /** 'YYYY-MM', one row per calendar month. */
+  monthKey: string;
+  investableCorpus: number;
+  netWorth: number;
+  capturedAt: number;
+}

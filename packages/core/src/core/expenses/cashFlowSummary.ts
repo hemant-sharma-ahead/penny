@@ -6,8 +6,9 @@ import type { Account, Expense } from '@/core/db/types';
 import { computeBalance, delta } from '@/core/accounts/balanceCalculator';
 
 /** Fixed description `useAccounts.ts`'s `reconcileAccount()` posts — the one reliable way to tell an
- *  organic transaction apart from a reconciliation adjustment. */
-const RECONCILIATION_DESCRIPTION = 'Balance reconciliation';
+ *  organic transaction apart from a reconciliation adjustment. Exported for `core/bank-import`'s
+ *  matcher, which must exclude these synthetic entries from matching/lone-wolf candidacy the same way. */
+export const RECONCILIATION_DESCRIPTION = 'Balance reconciliation';
 
 export interface CashFlowSummary {
   /** Balance at the start of the month (before any of that month's transactions). */

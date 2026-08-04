@@ -11,6 +11,7 @@ import type {
   GroupType,
   Hashtag,
   MerchantMemory,
+  PaymentMode,
   Person,
   TransactionType
 } from '@/core/db/types';
@@ -20,7 +21,7 @@ import type { ActiveEvent } from '~/context/EventModeContext';
 import { accountsRepo, groupMembersRepo, profileRepo } from '@/core/db/repositories';
 import { getRiskColor } from '@/core/goals/meta';
 import { epochToDateInput, formatCurrency } from '@/lib/formatters';
-import { epochToTimeInput, combineDateTime } from '@/lib/date';
+import { epochToTimeInput, combineDateTime, formatDate } from '@/lib/date';
 import { projectedBalance } from '@/core/accounts/balanceCalculator';
 import {
   Modal,
@@ -41,6 +42,7 @@ import { ItemHistory } from '~/features/activity/components/ItemHistory';
 import { CategoryPickerModal } from '~/features/expenses/categories/CategoryPickerModal';
 import type { CategoryManager } from '~/features/expenses/categories/types';
 import { AccountFormModal } from './AccountFormModal';
+import { ExtraCircle } from './ExtraCircle';
 import { useAccountForm, type AccountInput } from '~/hooks/useAccountForm';
 import { AccountChips } from './AccountChips';
 import { PaymentModeChips } from './PaymentModeChips';
@@ -76,6 +78,11 @@ interface Props {
   onSeedGoal?: (expenseId: string, intent: ExpenseGoalIntent | null) => Promise<void>;
   /** When editing: the existing expense-seeded goal link for this transaction. */
   linkedGoal?: { goalId: string; goalName: string } | null | undefined;
+  /** When editing: this transaction was resolved from a bank-statement import — shows a small audit-
+   *  trail caption ("Matched from bank statement: `<raw narration>`, `<date>`"), mirroring the
+   *  `goalPreset` caption below (docs/plans/bank-statement-import.md §10a's purpose #1). Read-only —
+   *  purely informational, nothing here is editable or re-triggers the import flow. */
+  linkedBankStatementLine?: { rawNarration: string; date: number } | undefined;
   /** Adds/edits an account from this form's own "+" tile (`AccountChips.tsx`) without leaving it. */
   saveAccount: (data: AccountInput, editing: Account | null) => Promise<Account>;
   searchMerchant: (type: TransactionType, query: string) => MerchantMemory[];
@@ -101,7 +108,46 @@ interface Props {
    *  reconciling the linked `GoalContribution` since that's a different relationship than the Goal-tile
    *  picker's own `onSeedGoal` (which this prop deliberately doesn't touch). */
   goalPreset?: { goalId: string; goalName: string };
+  /** Opens this form scoped to one bank-statement line (`features/bank-import/`'s review flow,
+   *  docs/plans/bank-statement-import.md §8): locks Amount, Date, Account (+ To-account for a
+   *  transfer), and Type — reusing the exact same visual components as the normal form (hero amount,
+   *  DateInput, AccountChips), just non-interactive (`disabled`/`pointerEvents:'none'`), rather than a
+   *  separate compact "locked fields" list — the form should look like the real Add-transaction popup,
+   *  not a different screen (2026-08-03 redesign, per explicit user feedback). Type itself is conveyed
+   *  via the header ("Add Expense"/"Add Income"/"Add Transfer") instead of its own locked row. Time has
+   *  no equivalent in a statement line at all, so it's hidden rather than shown-and-disabled. Payment
+   *  mode is shown via the normal, still-editable `PaymentModeChips`, just pre-selected and captioned
+   *  "guessed from statement". Only Category and Description are genuinely open, with Description
+   *  pre-filled from merchant memory when available and always auto-focused (same convention as every
+   *  other new-entry mode). `handleSave()` reads the locked fields directly off this object rather than
+   *  off local state, so there's no path for the saved Expense to disagree with what was shown as
+   *  locked. New-entry only (never combined with `editing`) — the caller (`useBankImport.ts`) always
+   *  renders this on a fresh instance. */
+  statementPreset?: StatementPresetInput;
   onClose: () => void;
+}
+
+/** See `statementPreset` prop doc comment above. */
+export interface StatementPresetInput {
+  amount: number;
+  date: number; // epoch ms
+  accountId: string;
+  type: TransactionType;
+  /** Only meaningful when `type === 'transfer'` — the statement line's other side. */
+  toAccountId?: string;
+  /** From `inferPaymentMode()`'s `.id` — still user-editable via the normal `PaymentModeChips`, just
+   *  pre-filled. */
+  paymentMode: string;
+  /** The full candidate (`{id,label,icon,color}`) `paymentMode` came from, when it might not exist as
+   *  a real `PaymentMode` row yet (some inferred rails — NEFT/IMPS/RTGS/Cheque — aren't among the 5
+   *  built-ins and are only actually created once per import batch, at commit — see
+   *  `useBankImport.ts`'s `commitAndImport`). Threaded through to `PaymentModeChips` as its
+   *  `pendingCandidate` prop so the chip still shows the real label/icon/color pre-commit instead of
+   *  rendering with nothing selected. Omit when `paymentMode` is already one of the 5 built-ins or
+   *  already a real row — `PaymentModeChips` merges it in only if not already present. */
+  paymentModeCandidate?: Pick<PaymentMode, 'id' | 'label' | 'icon' | 'color'>;
+  descriptionSuggestion?: string;
+  categorySuggestion?: string;
 }
 
 const TYPE_META: Record<TransactionType, { label: string; color: string; icon: string }> = {
@@ -115,42 +161,6 @@ function parseTags(raw: string): string[] {
     .split(/[\s,]+/)
     .map((t) => t.replace(/^#/, '').trim().toLowerCase())
     .filter(Boolean);
-}
-
-// A circular icon button with a caption below — the secondary-action style (Tags / Receipt / Lent / Repeat).
-function ExtraCircle({
-  icon,
-  label,
-  active,
-  accent,
-  onPress
-}: {
-  icon: string;
-  label: string;
-  active: boolean;
-  accent: string;
-  onPress: () => void;
-}) {
-  const theme = useThemeColors();
-  return (
-    <Pressable onPress={onPress} className="items-center gap-1.5" style={{ width: 64 }}>
-      <View
-        className="w-11 h-11 rounded-full items-center justify-center border"
-        style={{
-          borderColor: active ? accent : theme.border,
-          backgroundColor: active ? tint(accent, 12) : theme.surfaceSecondary
-        }}
-      >
-        <Icon name={icon} size={18} color={active ? accent : theme.textTertiary} />
-      </View>
-      <Text
-        className="text-[10px] font-medium leading-none"
-        style={{ color: active ? theme.textPrimary : theme.textTertiary }}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
 }
 
 // ── Main form ──────────────────────────────────────────────────────────────────
@@ -173,19 +183,21 @@ export function ExpenseForm({
   goals,
   onSeedGoal,
   linkedGoal,
+  linkedBankStatementLine,
   saveAccount,
   searchMerchant,
   onDuplicate,
   onSaveTemplate,
   categoryManager,
   goalPreset,
+  statementPreset,
   onClose
 }: Props) {
   const theme = useThemeColors();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   // Editing seeds from the record; a new entry may seed from a duplicate/template prefill.
   const seed = editing ?? prefill ?? null;
-  const [type, setType] = useState<TransactionType>(seed?.type ?? initialType ?? 'expense');
+  const [type, setType] = useState<TransactionType>(seed?.type ?? statementPreset?.type ?? initialType ?? 'expense');
   // A goal contribution defaults to Savings (or the transfer bank category once a destination account
   // is picked) — never left blank the way a normal transaction's category is, since there's always one
   // obviously-correct answer here and the picker itself is locked/non-interactive (see below).
@@ -207,17 +219,29 @@ export function ExpenseForm({
       setAccountFormSaving(false);
     }
   }, accounts);
-  const [accountId, setAccountId] = useState(seed?.accountId ?? '');
-  const [toAccountId, setToAccountId] = useState(seed?.toAccountId ?? '');
-  const [amount, setAmount] = useState(seed?.amount != null ? String(seed.amount) : '');
-  const [date, setDate] = useState(() => (editing ? epochToDateInput(editing.date) : epochToDateInput(Date.now())));
+  const [accountId, setAccountId] = useState(seed?.accountId ?? statementPreset?.accountId ?? '');
+  const [toAccountId, setToAccountId] = useState(seed?.toAccountId ?? statementPreset?.toAccountId ?? '');
+  const [amount, setAmount] = useState(
+    seed?.amount != null ? String(seed.amount) : statementPreset ? String(statementPreset.amount) : ''
+  );
+  const [date, setDate] = useState(() =>
+    editing
+      ? epochToDateInput(editing.date)
+      : statementPreset
+        ? epochToDateInput(statementPreset.date)
+        : epochToDateInput(Date.now())
+  );
   const [time, setTime] = useState(() => epochToTimeInput(editing ? editing.date : Date.now()));
   const [categoryId, setCategoryId] = useState(
-    seed?.categoryId ?? (goalPreset ? goalDefaultCategoryId(seed?.type ?? initialType ?? 'expense') : '')
+    seed?.categoryId ??
+      (goalPreset
+        ? goalDefaultCategoryId(seed?.type ?? initialType ?? 'expense')
+        : (statementPreset?.categorySuggestion ?? ''))
   );
-  const [paymentMode, setPaymentMode] = useState(seed?.paymentMode ?? '');
+  const [paymentMode, setPaymentMode] = useState(seed?.paymentMode ?? statementPreset?.paymentMode ?? '');
   const [description, setDescription] = useState(
-    seed?.description ?? (goalPreset ? `Contribution: ${goalPreset.goalName}` : '')
+    seed?.description ??
+      (goalPreset ? `Contribution: ${goalPreset.goalName}` : (statementPreset?.descriptionSuggestion ?? ''))
   );
   const [tagInput, setTagInput] = useState(() => {
     if (seed?.hashtags && seed.hashtags.length > 0) return seed.hashtags.join(' ') + (editing ? '' : ' ');
@@ -474,7 +498,7 @@ export function ExpenseForm({
   }
 
   function handleSave() {
-    const amt = parseFloat(amount);
+    const amt = statementPreset ? statementPreset.amount : parseFloat(amount);
     const nextErrors = {
       amount: isNaN(amt) || amt <= 0,
       desc: !description.trim(),
@@ -511,26 +535,34 @@ export function ExpenseForm({
     setErrors({});
     setSaving(true);
     const now = Date.now();
+    // In statementPreset mode, Amount/Date/Account/Type are locked/read-only in the UI (no rendered
+    // control ever mutates their state away from the preset) — reading them directly off the preset
+    // here as well, rather than trusting local state to have stayed in sync, guarantees the saved
+    // Expense can never disagree with what the user was actually shown as locked.
+    const resolvedDate = statementPreset ? statementPreset.date : combineDateTime(date, time);
+    const resolvedAccountId = statementPreset ? statementPreset.accountId : accountId;
+    const resolvedToAccountId = statementPreset ? statementPreset.toAccountId : toAccountId;
+    const resolvedType = statementPreset ? statementPreset.type : type;
     const base: Expense = {
       id: editing?.id ?? crypto.randomUUID(),
       amount: amt,
-      categoryId: type === 'transfer' ? 'cat-tr-bank' : categoryId,
+      categoryId: resolvedType === 'transfer' ? 'cat-tr-bank' : categoryId,
       description: description.trim(),
-      date: combineDateTime(date, time),
-      hashtags: type === 'transfer' ? [] : parseTags(tagInput),
+      date: resolvedDate,
+      hashtags: resolvedType === 'transfer' ? [] : parseTags(tagInput),
       isRecurring,
       ...(isRecurring && { recurringIntervalDays: parseInt(intervalDays, 10) || 30 }),
       ...(paymentMode && { paymentMode }),
-      type,
-      ...(accountId && { accountId }),
-      ...(type === 'transfer' && toAccountId ? { toAccountId } : {}),
+      type: resolvedType,
+      ...(resolvedAccountId && { accountId: resolvedAccountId }),
+      ...(resolvedType === 'transfer' && resolvedToAccountId ? { toAccountId: resolvedToAccountId } : {}),
       ...(receipt && { receiptDataUrl: receipt }),
       ...(showShareSection && shareEnabled && shareGroupId
         ? { shareWith: [shareGroupId] }
         : editing?.shareWith
           ? { shareWith: editing.shareWith }
           : {}),
-      source: editing?.source ?? 'manual',
+      source: editing?.source ?? (statementPreset ? 'bank_sync' : 'manual'),
       createdAt: editing?.createdAt ?? now,
       updatedAt: now
     };
@@ -654,6 +686,8 @@ export function ExpenseForm({
         <View className="flex-row items-center gap-2">
           {editing ? (
             <Text className="text-base font-semibold text-primary flex-1">{titleText}</Text>
+          ) : statementPreset ? (
+            <Text className="text-base font-semibold text-primary flex-1">Add {typeMeta.label}</Text>
           ) : (
             <View className="flex-1">
               <SegmentedControl
@@ -692,13 +726,28 @@ export function ExpenseForm({
           </View>
         )}
 
+        {/* Audit trail (docs/plans/bank-statement-import.md §10a's purpose #1) — read-only, editing
+            only (a brand-new entry has no import link yet). */}
+        {editing && linkedBankStatementLine && (
+          <View className="flex-row items-center gap-1.5 -mt-1.5">
+            <Icon name="ti-building-bank" size={13} color={theme.textTertiary} />
+            <Text className="text-xs text-tertiary flex-1" numberOfLines={1}>
+              Matched from bank statement: &ldquo;{linkedBankStatementLine.rawNarration}&rdquo;,{' '}
+              {formatDate(linkedBankStatementLine.date)}
+            </Text>
+          </View>
+        )}
+
         {/* Category + Amount, combined — the amount hero moved beside the category picker instead of
             sitting centered above it with empty space either side (found via on-device review: shifting
             amount right frees up real estate on the left worth using, not leaving blank). Transfer has
             no category, so it keeps the original centered hero on its own. In `goalPreset` mode the tile
             is locked (no picker) — there's always one obviously-correct default (Savings/Transfer-bank),
             so a full category-management picker isn't "necessary" here the way it is for a normal
-            transaction. */}
+            transaction. `statementPreset` locks the amount (via `AmountInput`'s own `disabled`, keeping
+            the exact same hero look, just non-editable) but leaves category fully interactive — this
+            reuses the real form's own layout instead of a separate compact "locked fields" list, per
+            explicit user feedback that the statement-preset form "should look like the expense popup". */}
         {type !== 'transfer' ? (
           <View className="flex-row items-center gap-2.5 mb-1">
             <Pressable
@@ -742,6 +791,7 @@ export function ExpenseForm({
                   if (errors.amount) setErrors((e) => ({ ...e, amount: false }));
                 }}
                 error={errors.amount ? 'Enter an amount' : undefined}
+                disabled={!!statementPreset}
               />
             </View>
           </View>
@@ -755,6 +805,7 @@ export function ExpenseForm({
               if (errors.amount) setErrors((e) => ({ ...e, amount: false }));
             }}
             error={errors.amount ? 'Enter an amount' : undefined}
+            disabled={!!statementPreset}
           />
         )}
 
@@ -807,63 +858,84 @@ export function ExpenseForm({
         </View>
 
         {/* Date + Time — equal-width fields; defaults to right now, but time is user-editable (an entry
-            logged later than it happened, or backdated, should reflect when it actually occurred). */}
+            logged later than it happened, or backdated, should reflect when it actually occurred).
+            `statementPreset` locks Date (via `DateInput`'s own `disabled`, same box, non-interactive) —
+            Time isn't part of a statement line at all, so it's hidden rather than shown-and-disabled. */}
         <View className="flex-row items-center gap-2.5">
           <View style={{ flex: 1 }}>
-            <DateInput value={date} onChange={setDate} />
+            <DateInput value={date} onChange={setDate} disabled={!!statementPreset} />
           </View>
-          <View style={{ flex: 1 }}>
-            <TimeInput value={time} onChange={setTime} />
-          </View>
+          {!statementPreset && (
+            <View style={{ flex: 1 }}>
+              <TimeInput value={time} onChange={setTime} />
+            </View>
+          )}
         </View>
 
-        {/* Account */}
-        {type === 'transfer' ? (
-          accounts.length === 0 ? (
-            <Button variant="ghost" size="sm" icon="ti-plus" onPress={accountForm.openAdd}>
-              Add accounts to track where money moves
-            </Button>
+        {/* Account — `statementPreset` locks it to the statement's own account (same `AccountChips` row,
+            just non-interactive: the whole point is the user sees the real, familiar chip row with the
+            right one already selected, not a separate compact "locked field" list). */}
+        <View pointerEvents={statementPreset ? 'none' : 'auto'} style={statementPreset ? { opacity: 0.6 } : undefined}>
+          {type === 'transfer' ? (
+            accounts.length === 0 ? (
+              <Button variant="ghost" size="sm" icon="ti-plus" onPress={accountForm.openAdd}>
+                Add accounts to track where money moves
+              </Button>
+            ) : (
+              <View className="gap-3">
+                <View>
+                  <Text className="text-xs font-medium text-secondary mb-1">From account</Text>
+                  <AccountChips
+                    accounts={accounts}
+                    value={accountId}
+                    onChange={setAccountId}
+                    disabledId={toAccountId}
+                    onAddAccount={accountForm.openAdd}
+                  />
+                </View>
+                <View>
+                  <Text className="text-xs font-medium text-secondary mb-1">To account</Text>
+                  <AccountChips
+                    accounts={accounts}
+                    value={toAccountId}
+                    onChange={setToAccountId}
+                    disabledId={accountId}
+                    onAddAccount={accountForm.openAdd}
+                  />
+                </View>
+              </View>
+            )
           ) : (
-            <View className="gap-3">
-              <View>
-                <Text className="text-xs font-medium text-secondary mb-1">From account</Text>
-                <AccountChips
-                  accounts={accounts}
-                  value={accountId}
-                  onChange={setAccountId}
-                  disabledId={toAccountId}
-                  onAddAccount={accountForm.openAdd}
-                />
-              </View>
-              <View>
-                <Text className="text-xs font-medium text-secondary mb-1">To account</Text>
-                <AccountChips
-                  accounts={accounts}
-                  value={toAccountId}
-                  onChange={setToAccountId}
-                  disabledId={accountId}
-                  onAddAccount={accountForm.openAdd}
-                />
-              </View>
+            <View>
+              <Text className="text-xs font-medium text-secondary mb-1">Account</Text>
+              <AccountChips
+                accounts={accounts}
+                value={accountId}
+                onChange={handleAccountSelect}
+                onAddAccount={accountForm.openAdd}
+              />
             </View>
-          )
-        ) : (
-          <View>
-            <Text className="text-xs font-medium text-secondary mb-1">Account</Text>
-            <AccountChips
-              accounts={accounts}
-              value={accountId}
-              onChange={handleAccountSelect}
-              onAddAccount={accountForm.openAdd}
-            />
-          </View>
-        )}
+          )}
+        </View>
 
         {/* Paid via */}
         {type !== 'transfer' && (
           <View>
-            <Text className="text-xs font-medium text-secondary mb-1">Paid via</Text>
-            <PaymentModeChips value={paymentMode} onChange={setPaymentMode} selectedAccount={selectedAccount} />
+            <Text className="text-xs font-medium text-secondary mb-1">
+              Paid via
+              {statementPreset && (
+                <Text className="text-xs font-medium" style={{ color: theme.primary }}>
+                  {' '}
+                  · guessed from statement
+                </Text>
+              )}
+            </Text>
+            <PaymentModeChips
+              value={paymentMode}
+              onChange={setPaymentMode}
+              selectedAccount={selectedAccount}
+              pendingCandidate={statementPreset?.paymentModeCandidate}
+            />
           </View>
         )}
 
@@ -1311,10 +1383,13 @@ export function ExpenseForm({
       </Modal>
 
       {/* Category picker — nested modal, above the form (RN Modals stack in mount order). Never opens in
-          `goalPreset` mode (the tile is locked, `showCategoryPicker` can't become true), but the
-          `categoryManager` truthy check keeps that guarantee visible to the type checker too, now that
-          the prop is optional. */}
-      {showCategoryPicker && type !== 'transfer' && categoryManager && (
+          `goalPreset` mode (the tile is locked, `showCategoryPicker` can't become true). `categoryManager`
+          is optional — `CategoryPickerModal` itself already supports an undefined `manager` as a
+          select-only picker (its own "Omit for a select-only picker" doc comment), which is exactly what
+          `statementPreset` mode uses: category management (create/edit/move) isn't needed there, only
+          plain selection, so callers like `features/bank-import/` aren't forced to build a full
+          `CategoryManager` just to let the tile open. */}
+      {showCategoryPicker && type !== 'transfer' && (
         <CategoryPickerModal
           type={type}
           categories={categories}

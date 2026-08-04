@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { expensesRepo, expenseCategoriesRepo, insurancePoliciesRepo, liabilitiesRepo } from '@/core/db/repositories';
-import { groupKey } from '@/core/expenses/categoryGroups';
-import { isRoutineGroup } from '@/core/db/defaultCategories';
-import { toMonthYearKey } from '@/lib/formatters';
+import { calcMonthlyLivingSpend } from '@/core/expenses/monthlySpend';
 import { useTxnRefresh } from '@/hooks/useTxnRefresh';
 
 /** At-a-glance money facts for the Home stat card. */
@@ -28,18 +26,7 @@ export function useHomeStats(): HomeMoneyStats | null {
       liabilitiesRepo.getAll()
     ])
       .then(([expenses, cats, policies, liabilities]) => {
-        const catById = new Map(cats.map((c) => [c.id, c]));
-        const month = toMonthYearKey();
-        let spent = 0;
-        let living = 0;
-        for (const e of expenses) {
-          if (e.type && e.type !== 'expense') continue;
-          if (toMonthYearKey(new Date(e.date)) !== month) continue;
-          spent += e.amount;
-          const cat = catById.get(e.categoryId);
-          // Unknown category defaults to routine (matches isRoutineGroup's fallback).
-          if (cat ? isRoutineGroup(groupKey(cat)) : true) living += e.amount;
-        }
+        const { spent, living } = calcMonthlyLivingSpend(expenses, cats);
         setStats({
           spentThisMonth: spent,
           livingThisMonth: living,

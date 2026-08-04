@@ -13,18 +13,18 @@ every calculator to the screen it's actually about — see "Mobile — 2026-08-0
 
 ## Calculators (10)
 
-| #   | Calculator              | id              | What it does                                                                      | Logic source        |
-| --- | ------------------------ | --------------- | ------------------------------------------------------------------------------------ | -------------------- |
-| 1   | FIRE                    | `fire`          | Corpus to retire early + years/age to financial independence (inflation-adjusted) | `fire.ts`            |
-| 2   | Old vs New Tax Regime   | `tax-regime`    | Compares income tax under both regimes (slabs, deductions, 87A, cess)             | `taxRegime.ts`       |
-| 3   | HRA Exemption           | `hra`           | Section 10(13A) exemption — least of the three statutory amounts                  | `hra.ts`             |
-| 4   | SIP & SWP Planner       | `sip-swp`       | Step-up SIP accumulation → SWP drawdown; corpus survival + year-by-year schedule  | `sipSwp.ts`          |
-| 5   | FD / RD Maturity        | `fd-rd`         | Fixed & recurring deposit maturity + interest, all compounding frequencies        | `fdRd.ts`            |
-| 6   | Lumpsum & CAGR          | `lumpsum`       | Future value of a one-time investment, or annualised return (CAGR) from start/end | `lumpsum.ts`         |
-| 7   | Capital Gains Tax       | `capital-gains` | LTCG / STCG on equity, debt, gold, property — post-Budget-2024 rules + 4% cess    | `capitalGains.ts`    |
-| 8   | Gratuity                | `gratuity`      | Payment of Gratuity Act: 15/26 formula, ₹20L cap, 5-year eligibility flag         | `gratuity.ts`        |
-| 9   | Sukanya Samriddhi       | `ssy`           | Girl-child scheme: 21-year maturity, deposits stop after year 15, passbook        | `ssy.ts`             |
-| 10  | Inflation / Future Cost | `inflation`     | Future cost of today's money + purchasing-power erosion                           | `inflation.ts`       |
+| #   | Calculator              | id              | What it does                                                                      | Logic source      |
+| --- | ----------------------- | --------------- | --------------------------------------------------------------------------------- | ----------------- |
+| 1   | FIRE                    | `fire`          | Corpus to retire early + years/age to financial independence (inflation-adjusted) | `fire.ts`         |
+| 2   | Old vs New Tax Regime   | `tax-regime`    | Compares income tax under both regimes (slabs, deductions, 87A, cess)             | `taxRegime.ts`    |
+| 3   | HRA Exemption           | `hra`           | Section 10(13A) exemption — least of the three statutory amounts                  | `hra.ts`          |
+| 4   | SIP & SWP Planner       | `sip-swp`       | Step-up SIP accumulation → SWP drawdown; corpus survival + year-by-year schedule  | `sipSwp.ts`       |
+| 5   | FD / RD Maturity        | `fd-rd`         | Fixed & recurring deposit maturity + interest, all compounding frequencies        | `fdRd.ts`         |
+| 6   | Lumpsum & CAGR          | `lumpsum`       | Future value of a one-time investment, or annualised return (CAGR) from start/end | `lumpsum.ts`      |
+| 7   | Capital Gains Tax       | `capital-gains` | LTCG / STCG on equity, debt, gold, property — post-Budget-2024 rules + 4% cess    | `capitalGains.ts` |
+| 8   | Gratuity                | `gratuity`      | Payment of Gratuity Act: 15/26 formula, ₹20L cap, 5-year eligibility flag         | `gratuity.ts`     |
+| 9   | Sukanya Samriddhi       | `ssy`           | Girl-child scheme: 21-year maturity, deposits stop after year 15, passbook        | `ssy.ts`          |
+| 10  | Inflation / Future Cost | `inflation`     | Future cost of today's money + purchasing-power erosion                           | `inflation.ts`    |
 
 **Deliberately not built:** PPF Maturity and NPS Corpus calculators — NPS/PPF/EPF are
 already tracked live in the Portfolio module, so standalone calculators would be redundant.
@@ -69,14 +69,14 @@ from the real data it's about, and the Modules grid itself had shrunk to just 3 
 (Portfolio/Goals tab visibility + Calc), two of which weren't even about calculators. Removed
 entirely and replaced with contextual entry points:
 
-| Calculator | Mobile home | How it's reached |
-|---|---|---|
-| Tax Regime, HRA | Tax Awareness (`CalculatorsPillar.tsx`) | Already embedded there before this pass — unchanged; the standalone hub copy was the only thing removed |
-| Capital Gains | Tax Awareness (`CapitalGainsTab.tsx`) only | Computed from real transactions, not the generic scratch calculator — that generic version (`CapitalGainsCalculator.tsx`) had no other host and was deleted on mobile |
-| FD / RD Maturity | Portfolio → Fixed Income tab | `CalculatorsSection` entry row → `Modal` |
-| Gratuity, SSY | Portfolio → Retirement tab | `CalculatorsSection` entry row → `Modal` |
-| FIRE, SIP & SWP Planner, Lumpsum & CAGR | Goals (tab strip) | Rendered inline as a Goals tab, same as the pre-existing Goal SIP tab |
-| Inflation | Goals — inline helper on `GoalForm`'s target-amount/date fields | Not a screen at all anymore; `calcInflation()` called directly |
+| Calculator                              | Mobile home                                                     | How it's reached                                                                                                                                                      |
+| --------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tax Regime, HRA                         | Tax Awareness (`CalculatorsPillar.tsx`)                         | Already embedded there before this pass — unchanged; the standalone hub copy was the only thing removed                                                               |
+| Capital Gains                           | Tax Awareness (`CapitalGainsTab.tsx`) only                      | Computed from real transactions, not the generic scratch calculator — that generic version (`CapitalGainsCalculator.tsx`) had no other host and was deleted on mobile |
+| FD / RD Maturity                        | Portfolio → Fixed Income tab                                    | `CalculatorsSection` entry row → `Modal`                                                                                                                              |
+| Gratuity, SSY                           | Portfolio → Retirement tab                                      | `CalculatorsSection` entry row → `Modal`                                                                                                                              |
+| FIRE, SIP & SWP Planner, Lumpsum & CAGR | Goals (tab strip)                                               | Rendered inline as a Goals tab, same as the pre-existing Goal SIP tab                                                                                                 |
+| Inflation                               | Goals — inline helper on `GoalForm`'s target-amount/date fields | Not a screen at all anymore; `calcInflation()` called directly                                                                                                        |
 
 New shared piece: `features/calculators/CalculatorsSection.tsx` — an icon+title+subtitle entry
 row that opens a calculator's existing, unchanged form inside the shared centred `Modal`
@@ -96,12 +96,38 @@ RN-specific note carried over from the original port: Tax's Optimize "what-if" d
 sliders needed `@react-native-community/slider` (no RN range-input equivalent existed
 elsewhere in the app) — see `docs/plans/mobile-migration.md`'s playbook.
 
+## Mobile — FIRE Calculator shares one Retirement Plan with Home (2026-08-03)
+
+`FireCalculator.tsx` used to be fully stateless (every input reset blank on open, only age was
+pre-filled live from `profile.dob`). It now reads and writes the same singleton `RetirementPlan`
+Home's Retirement Corpus card uses (`~/hooks/useRetirementPlan.ts`) — editing monthly investment,
+expected return, inflation, SWR, or the new **Retirement age** field here updates Home's card too, and
+vice versa; each field auto-saves on change (no Save button), same convention as the rest of the app's
+simple settings screens. "Current corpus" and "Monthly expenses" still prefill from a live derived
+default — investable corpus (`~/hooks/useInvestableCorpus.ts`) and trailing actual spend
+(`~/hooks/useTrailingLivingSpend.ts`), respectively — with the user's own edit always winning, same
+override pattern age already used. Both of those hooks live in `apps/mobile/src/hooks/` rather than
+`features/home/`, specifically so this feature module and `features/home` can compute the exact same
+figures without a disallowed cross-feature import — see `docs/ARCHITECTURE.md`'s hook inventory.
+
+The existing "years to FI at current pace" result (`calcFire()`) is unchanged and still shown. A second,
+complementary result now sits alongside it: "funded by your planned retirement age" — a _fixed_-year
+projection via the new `core/calculators/retirementProjection.ts`'s `calcRetirementProjection()` (the
+same function Home's card uses), showing % funded, corpus needed/projected, and the extra monthly SIP
+that would close any gap. Neither result replaces the other — they're different, valid lenses on the
+same inputs.
+
 ## Files
 
 - `packages/core/src/core/calculators/` — pure logic: `fire.ts`, `taxRegime.ts`, `hra.ts`,
   `sipSwp.ts`, `fdRd.ts`, `lumpsum.ts`, `capitalGains.ts`, `gratuity.ts`, `ssy.ts`,
-  `inflation.ts`, `index.ts` (barrel) — shared by both platforms, unchanged by the mobile
-  relocation
+  `inflation.ts`, `retirementProjection.ts` (`calcRetirementProjection()` — fixed-target-year
+  sibling to `calcFire()`, plus `calcInvestableCorpus()`; shared by Home's Retirement Corpus
+  card and this file's new fixed-year result), `index.ts` (barrel) — shared by both platforms,
+  unchanged by the mobile relocation except the new file
+- `apps/mobile/src/hooks/useInvestableCorpus.ts` / `useTrailingLivingSpend.ts` — mobile-only,
+  let `FireCalculator.tsx` read the same live investable-corpus/trailing-spend figures Home
+  uses without a cross-feature import (see `docs/ARCHITECTURE.md`'s hook inventory)
 - `apps/web-react/src/features/calculators/` (frozen) — `CalculatorsPage.tsx`,
   `calculatorRegistry.ts` (still has all 10 + search), `CalcUI.tsx`, one component per
   calculator

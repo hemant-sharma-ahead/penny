@@ -4,14 +4,17 @@
 
 The app's main dashboard — the first thing you see after unlocking Penny, and the screen users
 visit multiple times a day. It's a **minimal, glance-first** layout that leads with **your own money**
-(net worth + safe-to-spend, spending/insurance/loans facts, financial health), then Instagram-style
-**stories**, your household **groups**, accounts, and — only near the bottom — market context and quick
-links to every module.
+(net worth fused with a live Retirement Corpus projection, spending/insurance/loans facts, financial
+health), then Instagram-style **stories**, your household **groups**, accounts, and — only near the
+bottom — market context and quick links to every module.
 
 ## Layout (top → bottom)
 
 1. **Greeting** — a time-of-day greeting with your first name.
-2. **Glance header** (`GlanceHeader`) — a two-stat card: **Net worth** (tap → full breakdown sheet) and **Safe to spend** (tap → Cash Flow), with a slim asset-allocation bar and assets/liabilities totals beneath.
+2. **Glance header** (`GlanceHeader`) — one fused, borderless hero unit (2026-08-03 redesign, replacing
+   the old Net worth/Safe-to-spend two-column card + asset bar): **Net worth**'s label/number/"View
+   breakdown" sit directly over a full-bleed **Retirement Corpus** chart + "% funded" gauge. See
+   "Retirement Corpus" below for the full breakdown.
 3. **Money stats** (`MoneyStatsCard`) — a single card split into columns: **Spent** this month (with a "Living …" subtext), **Insurance** cover, and **Loans** outstanding, plus a **Tax** story line. Each taps through to its module.
 4. **Financial health** (`FinancialHealthCard`) — a folded health score with quick wins.
 5. **Stories** — Instagram-style rings (gradient = unseen, muted = seen) surfacing what used to be buried in other tabs, because Home is where users actually go daily. See "Stories" below.
@@ -24,6 +27,56 @@ links to every module.
    as of 2026-08-01, Calculators itself relocated out into Portfolio/Goals/Tax Awareness (see
    [`docs/features/calculators.md`](calculators.md)), so `ToolsGrid.tsx` was deleted on mobile and this
    whole layout row doesn't exist there anymore.
+
+## Retirement Corpus (2026-08-03)
+
+Fused into the same borderless hero unit as Net worth — see `docs/mockups/proposals/home-networth-projection-v4.html`
+for the approved design and `docs/DESIGN_GUIDELINES.md`'s "fused borderless hero with full-bleed chart"
+pattern entry.
+
+- **The chart plots investable corpus, not net worth.** A deliberately smaller, different figure:
+  mf/stock/fd/nps/ppf/epf/gold holdings + liquid funds, **excluding** vehicle/property/other — that
+  equity can't fund a 4%-withdrawal retirement lifestyle the way a liquid/market-linked holding can
+  (`core/calculators/retirementProjection.ts`'s `calcInvestableCorpus()`). Small muted value tags on the
+  curve's start/end points ("Corpus ₹38L · today" / "₹5.95Cr proj.") disambiguate it from the net-worth
+  number sitting visually on the same unit, since fusing the two into one card makes them easy to
+  conflate.
+- **Projected forward from today's live investable corpus** to a fixed retirement year
+  (`calcRetirementProjection()` — annual compounding, contribution added at year-end), showing a
+  dashed target marker + flag pill at the retirement year, a "% funded" gauge, and Needed/Projected/
+  Monthly SIP stat rows. A CTA chip suggests the extra monthly SIP that closes any gap by that year.
+- **A real historical segment builds up over time.** `useHome.ts` captures a `NetWorthSnapshot`
+  (investable corpus + net worth) once per calendar month, first app-open in a new month. The chart's
+  historical segment only renders once **≥2** real snapshots exist — before that, it's projection-only
+  forward from today, never a fabricated past (holdings have no stored historical price series, unlike
+  cash/bank balances which are exactly reconstructable for any past date).
+- **One shared plan, edited from two places.** Only `RetirementFundedSummary`'s "Tap for expense
+  projection" row (below the chart, not the chart itself) opens `RetirementDrilldownModal` — a
+  **centered** modal (never a bottom sheet), leading with a single `Banner variant="info"` combining the
+  inflation-assumption note and the shared-plan note, then the expense-projection curve, then a paired
+  "Monthly expense today" / "Retirement age" row (same box height/style for both). Both write to the same
+  singleton `RetirementPlan` the FIRE Calculator (Goals tab) reads and writes — editing either place
+  updates both immediately. "Monthly expense today" defaults to trailing actual living spend
+  (`useHomeStats`'s `livingThisMonth`) until the user overrides it, same "own edit always wins" pattern
+  the FIRE Calculator already used for age. **Monthly SIP is deliberately not editable from this modal** —
+  it doesn't drive the expense projection at all, so it stays a FIRE-Calculator-only field on the same
+  shared plan; it defaults to `0` (untouched) until set there.
+- **Net worth's own tap target is a nested `Pressable`** over the chart's naturally-empty top-left
+  corner — RN's touch-responder system gives the innermost `Pressable` the touch, so tapping the net
+  worth text opens its own (unchanged) breakdown modal instead of also triggering the drill-down.
+- **The chart itself scrubs instead of opening anything.** Dragging across `RetirementCorpusChart`
+  shows a live dashed vertical line + a value/year bubble at the nearest plotted point, released on touch
+  end — plain RN responder handlers (`onResponderMove`/`onResponderRelease`), no gesture-handler
+  dependency needed for a single-axis nearest-point pick. This is deliberately a different gesture from
+  the drill-down tap, so dragging to inspect the curve and tapping to open the expense breakdown never
+  compete for the same touch.
+- **No full-bleed chart, matching the rest of Home.** The chart keeps the same left/right margin every
+  other Home card has — dropped the original full-bleed (`-mx-4`) treatment after seeing it in situ read
+  as inconsistent with the stat-tile row/Financial Health card beneath it.
+
+Safe-to-spend and the colored asset-proportion bar / assets-liabilities summary line were **removed
+from Home entirely** in the same pass — Safe-to-spend already lives on the Cash Flow screen, and the bar
+didn't say anything the net-worth breakdown modal below doesn't already say better.
 
 ## Group context
 
@@ -47,7 +100,11 @@ Seen state is tracked per-story by a `freshnessKey` in `localStorage` (`penny_st
 
 ## User-facing capabilities
 
-- See **net worth** and **safe-to-spend** at a glance; tap net worth for the full asset/liability breakdown — including **net IOU**: net lent shows as an **"Owed to You"** asset, net borrowed as an **"Owed to others"** liability. Both rows tap through to the Expenses screen's **IOU tab** (`navigate(PATHS.app.expenses, { state: { tab: 'iou' } })`) — there is no standalone IOU route.
+- See **net worth** fused with a live **Retirement Corpus** projection at a glance (see above); tap the
+  net worth text for the full asset/liability breakdown — including **net IOU**: net lent shows as an
+  **"Owed to You"** asset, net borrowed as an **"Owed to others"** liability. Both rows tap through to
+  the Expenses screen's **IOU tab** (`navigate(PATHS.app.expenses, { state: { tab: 'iou' } })`) — there
+  is no standalone IOU route. Tap anywhere else on the hero for the expense-projection drill-down.
 - See the **money-stats card** (Spent this month · Insurance cover · Loans outstanding, plus a Tax line) and a **financial-health** score, each tapping through to its module.
 - See your **household groups** and switch into a **group context** — when a group is active, Home shows that group's dashboard instead of your personal view.
 - Glance at, and tap into, daily **stories** (see above) without leaving Home.
@@ -62,15 +119,27 @@ Net worth is calculated live each time the Home screen loads: it sums all holdin
 
 `useHome` also subscribes to `penny:txn-changed` (`hooks/useTxnRefresh`) so balances/net worth reload live when the IOU screen records or removes a linked transaction, rather than only on navigation.
 
+`useHome.ts` additionally computes `investableCorpus` (`core/calculators/retirementProjection.ts`'s
+`calcInvestableCorpus()`, fed by `core/accounts/balanceCalculator.ts`'s `calcLiquidFunds()`) and, on each
+load, fire-and-forgets a check for whether this calendar month already has a `NetWorthSnapshot` row —
+writing one (never more than once per month, never backfilled) if not.
+`features/home/useRetirementProjection.ts` combines that live figure with the shared `RetirementPlan`
+(`useRetirementPlan()`), profile-derived current age, trailing actual spend (`useHomeStats`), and past
+snapshots into the `RetirementProjectionResult` + chart points `GlanceHeader` renders.
+
 Market data is fetched from external price feeds via `marketDataClient.ts` and cached for 15 minutes in the `price_cache` Dexie store to avoid excessive network calls. The market strip reads from this cache first and refreshes in the background when the cache is stale.
 
-Privacy mode (Safe / Privacy / Open) is read via `usePrivacy().shouldMask(sensitive)` — the single source of truth for amount masking app-wide (see `docs/ARCHITECTURE.md` → Context providers). Open never masks; Privacy always masks. Safe masks only what's flagged sensitive: net worth and the "Safe to spend" figure are aggregates and stay visible in Safe (hidden only in Privacy), while each account's balance in the Accounts strip respects that account's own `hideInSafeMode` flag (Settings → Safe Mode → Accounts).
+Privacy mode (Safe / Privacy / Open) is read via `usePrivacy().shouldMask(sensitive)` — the single source of truth for amount masking app-wide (see `docs/ARCHITECTURE.md` → Context providers). Open never masks; Privacy always masks. Safe masks only what's flagged sensitive: net worth and every Retirement Corpus figure are aggregates and stay visible in Safe (hidden only in Privacy — percent-funded stays visible even in Privacy, same as a score), while each account's balance in the Accounts strip respects that account's own `hideInSafeMode` flag (Settings → Safe Mode → Accounts).
 
 Key files:
 
 - `src/features/home/HomePage.tsx` — thin composition, in order: greeting + GlanceHeader + MoneyStatsCard + FinancialHealthCard + StoriesRow + HomeGroupsCard + AccountsStrip + MarketTicker + ToolsGrid. When a group is the active context (`useGroupContext`) it renders `GroupDashboard` instead.
-- `src/features/home/useHome.ts` — loads the net-worth snapshot (incl. active-person-only net IOU) + derives asset groups/totals
-- `src/features/home/GlanceHeader.tsx` — the two-stat header (net worth + safe-to-spend), slim asset bar, and the net-worth breakdown sheet; IOU rows navigate to the Expenses IOU tab
+- `src/features/home/useHome.ts` — loads the net-worth summary (incl. active-person-only net IOU) + derives asset groups/totals; also computes `investableCorpus` and captures the monthly `NetWorthSnapshot`
+- `src/features/home/useRetirementProjection.ts` — assembles the shared `RetirementPlan`, live investable corpus, past snapshots, current age, and trailing spend into the projection + chart points
+- `src/features/home/GlanceHeader.tsx` — the fused Net worth + Retirement Corpus hero, and the (unchanged) net-worth breakdown modal; IOU rows navigate to the Expenses IOU tab
+- `src/features/home/RetirementCorpusChart.tsx` — full-bleed `react-native-svg` area/line chart (real computed trajectory, not a decorative shape) + dashed target marker/flag pill/value tags/corner glow
+- `src/features/home/RetirementFundedSummary.tsx` — the "% funded" radial gauge + stat rows + CTA chip + tap hint, below (not overlapping) the chart
+- `src/features/home/RetirementDrilldownModal.tsx` — centered modal (never a bottom sheet) for editing the shared plan's monthly-expense/retirement-age inputs
 - `src/features/home/MoneyStatsCard.tsx` — spent / insurance / loans columns + Tax line (`useHomeStats`)
 - `src/features/health/FinancialHealthCard.tsx` — folded financial-health score + quick wins
 - `src/features/groups/HomeGroupsCard.tsx` — household groups card; `GroupDashboard.tsx` — the group-context Home; `context/GroupContext.tsx` (`useGroupContext`) — active-group state
@@ -93,14 +162,15 @@ StoriesRow + HomeGroupsCard + AccountsStrip, full stop.
 
 ## Current limitations
 
-- No historical net worth graph — you can see today's number but not how it has changed over time
+- The Retirement Corpus chart's historical segment only appears once ≥2 monthly snapshots exist — a
+  fresh install shows a projection-only forward curve for its first two calendar months, by design
+  (never a fabricated past)
 - "Today's changes" (portfolio gain/loss for the day) is not yet surfaced on Home
 - Market ticker customisation is limited to a preset list; you cannot add arbitrary symbols
 - Module summary stats are static counts; they do not surface urgency signals (e.g. a goal falling behind)
 
 ## Planned improvements
 
-- Phase 2: Net worth trend graph — a month-by-month sparkline showing how your net worth has grown
 - Phase 2: "Today's changes" panel showing your portfolio's daily gain or loss in rupees and percentage
 
 ## Ideas welcome

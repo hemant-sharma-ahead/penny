@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   accountsRepo,
+  bankStatementImportsRepo,
   budgetsRepo,
   expenseCategoriesRepo,
   expensesRepo,
@@ -107,6 +108,11 @@ export function useExpenses() {
   const { items: goals, reload: reloadGoals } = useRepository<Goal>(goalsRepo);
   const { items: goalContributions, reload: reloadGoalContributions } =
     useRepository<GoalContribution>(goalContributionsRepo);
+  // Read-only — just enough for the edit form's "matched from bank statement" audit-trail caption
+  // (docs/plans/bank-statement-import.md §10a's purpose #1). Bank Statement Import itself owns writing
+  // to this store (`features/bank-import/useBankImport.ts`'s `commitAndImport`); this is a separate,
+  // independently-mounted read of the same repo, same pattern as `ledgerEntries`/`goalContributions`.
+  const { items: bankStatementImportRecords } = useRepository(bankStatementImportsRepo);
 
   // The IOU/Goals screens write expenses/ledger entries/contributions through separate repo instances;
   // reload on their signal.
@@ -203,6 +209,23 @@ export function useExpenses() {
       const missing = ALL_DEFAULT_CATEGORIES.filter((c) => !existingIds.has(c.id));
       await Promise.all(missing.map((c) => expenseCategoriesRepo.put({ ...c, createdAt: Date.now() })));
       await setItem('penny_cats_v7', '1');
+      if (missing.length > 0) reloadCategories();
+    })().catch(() => {});
+  }, [categoriesLoading, categories, reloadCategories]);
+
+  // Additive default-category seeding (v8): inserts Food & Drinks (Daily Living), Lending (Family &
+  // Giving), and Borrowed Money (Income) — added 2026-08-03 for the bank-import Lent/Borrowed flow.
+  // Same non-clobbering, once-per-version pattern as v3/v6/v7.
+  const catSeedV8Ref = useRef(false);
+  useEffect(() => {
+    if (categoriesLoading || catSeedV8Ref.current) return;
+    catSeedV8Ref.current = true;
+    (async () => {
+      if (await getItem('penny_cats_v8')) return;
+      const existingIds = new Set(categories.map((c) => c.id));
+      const missing = ALL_DEFAULT_CATEGORIES.filter((c) => !existingIds.has(c.id));
+      await Promise.all(missing.map((c) => expenseCategoriesRepo.put({ ...c, createdAt: Date.now() })));
+      await setItem('penny_cats_v8', '1');
       if (missing.length > 0) reloadCategories();
     })().catch(() => {});
   }, [categoriesLoading, categories, reloadCategories]);
@@ -667,6 +690,19 @@ export function useExpenses() {
     if (toPut.length > 0 || toDelete.length > 0) notifyTxnChanged();
   }, []);
 
+  // For the edit form: which transactions were resolved from a bank-statement import, and what the
+  // original statement line looked like (docs/plans/bank-statement-import.md §10a's audit-trail
+  // purpose — "matched from bank statement: `<raw narration>`, `<date>`"). A transaction can only ever
+  // be linked from one batch's one row, so first-write-wins is fine (no ordering/latest concern like
+  // IOU/goal links, which can be edited/replaced over a transaction's lifetime).
+  const bankImportLinkByTxn = useMemo(() => {
+    const map = new Map<string, { rawNarration: string; date: number }>();
+    for (const r of bankStatementImportRecords) {
+      if (!map.has(r.linkedTxnId)) map.set(r.linkedTxnId, { rawNarration: r.rawNarration, date: r.date });
+    }
+    return map;
+  }, [bankStatementImportRecords]);
+
   // For the edit form: which transactions have an expense-seeded goal contribution, and toward which goal.
   const goalLinkByTxn = useMemo(() => {
     const nameById = new Map(goals.map((g) => [g.id, g.name]));
@@ -783,6 +819,7 @@ export function useExpenses() {
     seedGoalFromExpense,
     goalLinkByTxn,
     goalLinkedTxnIds,
+    bankImportLinkByTxn,
     txnIdsByGoal,
     accountBalances,
     patchExpenses,

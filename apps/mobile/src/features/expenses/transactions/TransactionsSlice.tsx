@@ -57,6 +57,10 @@ interface TransactionsSliceProps {
   onSeedGoal: (expenseId: string, intent: ExpenseGoalIntent | null) => Promise<void>;
   goalLinkByTxn: Map<string, { goalId: string; goalName: string }>;
   goalLinkedTxnIds: Set<string>;
+  /** For the edit form's "matched from bank statement" audit-trail caption (docs/plans/
+   *  bank-statement-import.md §10a's purpose #1) — which transactions were resolved from a bank
+   *  statement import, and what the original line looked like. */
+  bankImportLinkByTxn: Map<string, { rawNarration: string; date: number }>;
   /** Adds/edits an account from the expense form's own "+" tile (`AccountChips.tsx`), inline. */
   saveAccount: (data: AccountInput, editing: Account | null) => Promise<Account>;
   accountBalances: Record<string, number>;
@@ -105,6 +109,7 @@ export function TransactionsSlice({
   onSeedGoal,
   goalLinkByTxn,
   goalLinkedTxnIds,
+  bankImportLinkByTxn,
   saveAccount,
   accountBalances,
   shareGroups,
@@ -598,6 +603,7 @@ export function TransactionsSlice({
           goals={goals}
           onSeedGoal={onSeedGoal}
           linkedGoal={editingExpense ? goalLinkByTxn.get(editingExpense.id) : undefined}
+          linkedBankStatementLine={editingExpense ? bankImportLinkByTxn.get(editingExpense.id) : undefined}
           saveAccount={saveAccount}
           searchMerchant={searchMerchant}
           onDuplicate={handleDuplicate}
