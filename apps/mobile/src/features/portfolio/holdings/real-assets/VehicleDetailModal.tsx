@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { Modal, Button, Card, IconBadge } from '~/components/ui';
+import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { Holding } from '@/core/db/types';
+import { fetchChallans } from '@/core/vehicle/rcClient';
+import { applyVehicleFields, rcDetailsFromMeta } from '@/core/portfolio/vehicleMeta';
 import { realAssetIsStale } from './realAssetHelpers';
 import { VehicleValidityBadge } from './VehicleValidityBadge';
 import { UpdateValueSheet } from './UpdateValueSheet';
@@ -70,6 +73,40 @@ export function VehicleDetailModal({
   }
 
   const pendingChallans = meta.vehicleChallanPending ?? 0;
+  const hasRc = !!meta.vehicleRcFetchedAt;
+  const hasChallanData = !!meta.vehicleChallanFetchedAt;
+  const challanFailed = !!meta.vehicleChallanFetchFailed;
+  const [challanRetrying, setChallanRetrying] = useState(false);
+
+  // Retries *only* the challan half (not the full RC+challan lookup) — reuses applyVehicleFields with
+  // rcDetailsFromMeta() to reconstruct the existing RC snapshot so none of that data is disturbed,
+  // same "mirror image" contract vehicleMeta.ts documents between these two functions.
+  async function retryChallan() {
+    if (!meta.vehicleRegNumber || challanRetrying) return;
+    setChallanRetrying(true);
+    const updated: Holding = { ...holding };
+    try {
+      const challans = await fetchChallans(meta.vehicleRegNumber);
+      applyVehicleFields(updated, {
+        rcSnapshot: rcDetailsFromMeta(meta),
+        challanSnapshot: challans,
+        vehicleRegInput: meta.vehicleRegNumber,
+        existingMeta: meta
+      });
+      await onSave(updated);
+    } catch {
+      applyVehicleFields(updated, {
+        rcSnapshot: rcDetailsFromMeta(meta),
+        challanSnapshot: null,
+        challanFetchFailed: true,
+        vehicleRegInput: meta.vehicleRegNumber,
+        existingMeta: meta
+      });
+      await onSave(updated).catch(() => {});
+    } finally {
+      setChallanRetrying(false);
+    }
+  }
 
   // RN port note: web hand-rolls its own `fixed inset-0` centered overlay here instead of using the
   // shared Modal component. Rebuilt on top of the real `~/components/ui` Modal (same centered-card
@@ -252,12 +289,14 @@ export function VehicleDetailModal({
           </View>
         )}
 
-        {/* Challans — individual records */}
-        {meta.vehicleChallanFetchedAt && (
+        {/* Challans — only shown once RC identity exists; a pending (reg-number-only) placeholder has
+            nothing to report here at all, not even "unavailable" (see the pending-placeholder note
+            in VehicleCard.tsx). */}
+        {hasRc && (
           <View>
             <View className="flex-row items-center justify-between mb-1.5">
               <Text className="text-[10px] font-semibold text-tertiary uppercase tracking-wide">Traffic challans</Text>
-              {pendingChallans > 0 && (
+              {hasChallanData && pendingChallans > 0 && (
                 <Text
                   className="text-[9px] font-bold px-2 py-0.5 rounded-full"
                   style={{ backgroundColor: tint(theme.danger, 8), color: theme.danger }}
@@ -266,113 +305,150 @@ export function VehicleDetailModal({
                 </Text>
               )}
             </View>
-            {(meta.vehicleChallanRecords ?? []).length > 0 ? (
-              <View className="flex-col gap-2">
-                {(meta.vehicleChallanRecords ?? []).map((c, i) => {
-                  const isPending = c.paymentStatus === 'UNPAID';
-                  const isPaid = c.paymentStatus === 'PAID';
-                  const isDisposed = c.paymentStatus === 'DISPOSED';
-                  const statusColor = isPending
-                    ? theme.danger
-                    : isPaid
-                      ? theme.success
-                      : isDisposed
-                        ? '#6366f1'
-                        : theme.textTertiary;
-                  const fmtDate = c.date
-                    ? (() => {
-                        const d = new Date(c.date);
-                        return isNaN(d.getTime())
-                          ? c.date
-                          : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-                      })()
-                    : null;
-                  const rtoLabel = [c.rto, c.state].filter(Boolean).join(' · ') || '—';
-                  return (
-                    <Card key={i} padding="xs" radius="md" className="flex-col gap-2">
-                      {/* Top row: challan no + amount */}
-                      <View className="flex-row items-start justify-between gap-2">
-                        <View className="flex-1">
-                          <Text className="text-xs font-semibold text-primary">
-                            {c.challanNo || `Challan ${i + 1}`}
-                          </Text>
-                          {fmtDate && <Text className="text-[10px] text-tertiary">{fmtDate}</Text>}
-                        </View>
-                        <Text
-                          className="text-sm font-bold tabular-nums shrink-0"
-                          style={{ color: isPending ? theme.danger : theme.textPrimary }}
-                        >
-                          {masked ? '••••' : `₹${c.amount.toLocaleString('en-IN')}`}
-                        </Text>
-                      </View>
-                      {/* Detail rows — always shown, — when absent */}
-                      <View className="flex-col gap-1.5">
-                        <View>
-                          <Text className="text-[9px] text-tertiary">Offense</Text>
-                          <Text className="text-[10px] text-primary leading-snug">{c.offenceDetails || '—'}</Text>
-                        </View>
-                        <View>
-                          <Text className="text-[9px] text-tertiary">Place</Text>
-                          <Text className="text-[10px] text-primary">{c.challanPlace || '—'}</Text>
-                        </View>
-                        <View className="flex-row flex-wrap gap-x-3">
-                          <View className="flex-1 min-w-[45%]">
-                            <Text className="text-[9px] text-tertiary">Court</Text>
-                            <Text className="text-[10px] text-primary">{c.courtName || '—'}</Text>
-                          </View>
-                          <View className="flex-1 min-w-[45%]">
-                            <Text className="text-[9px] text-tertiary">RTO</Text>
-                            <Text className="text-[10px] text-primary">{rtoLabel}</Text>
-                          </View>
-                        </View>
-                      </View>
-                      {/* Status row — payment status + challan status + type all in one line */}
-                      <View className="flex-row items-center gap-1.5 pt-1 border-t border-theme flex-wrap">
-                        <Text
-                          className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                          style={{ backgroundColor: tint(statusColor, 8), color: statusColor }}
-                        >
-                          {c.paymentStatus || 'UNKNOWN'}
-                        </Text>
-                        {c.challanStatus && (
-                          <Text
-                            className="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
-                            style={{ backgroundColor: theme.surfaceSecondary, color: theme.textTertiary }}
-                          >
-                            {c.challanStatus}
-                          </Text>
-                        )}
-                        {c.challanType && (
-                          <Text
-                            className="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
-                            style={{ backgroundColor: theme.surfaceSecondary, color: theme.textTertiary }}
-                          >
-                            {c.challanType}
-                          </Text>
-                        )}
-                      </View>
-                    </Card>
-                  );
-                })}
+
+            {!hasChallanData ? (
+              <View className="bg-surface border border-theme rounded-xl px-3 py-3 flex-row items-center gap-2">
+                <Icon name="ti-alert-triangle" size={13} color={theme.warning} />
+                <Text className="text-[11px] flex-1" style={{ color: theme.textSecondary }}>
+                  Challan status unavailable
+                </Text>
+                <Pressable
+                  onPress={retryChallan}
+                  disabled={challanRetrying}
+                  className="px-2.5 py-1.5 rounded-lg"
+                  style={{ backgroundColor: tint(theme.info, 10), opacity: challanRetrying ? 0.5 : 1 }}
+                >
+                  <Text className="text-[11px] font-semibold" style={{ color: theme.info }}>
+                    {challanRetrying ? 'Retrying…' : 'Retry'}
+                  </Text>
+                </Pressable>
               </View>
             ) : (
-              <View className="bg-surface border border-theme rounded-xl px-3">
-                <VehicleDetailRow mode={mode} label="Total" value={meta.vehicleChallanTotal ?? 0} />
-                <VehicleDetailRow mode={mode} label="Pending" value={meta.vehicleChallanPending ?? 0} />
-                {pendingChallans > 0 && (
-                  <VehicleDetailRow
-                    mode={mode}
-                    label="Pending amount"
-                    value={
-                      !masked && meta.vehicleChallanPendingAmount
-                        ? `₹${meta.vehicleChallanPendingAmount.toLocaleString('en-IN')}`
-                        : '••••'
-                    }
-                  />
+              <>
+                {challanFailed && (
+                  <View
+                    className="flex-row items-center gap-2 mb-2 px-2.5 py-1.5 rounded-lg"
+                    style={{ backgroundColor: tint(theme.warning, 8) }}
+                  >
+                    <Text className="text-[10px] flex-1" style={{ color: theme.warning }}>
+                      Last refresh failed — showing data from {dateStr(meta.vehicleChallanFetchedAt)}
+                    </Text>
+                    <Pressable onPress={retryChallan} disabled={challanRetrying}>
+                      <Text className="text-[10px] font-bold" style={{ color: theme.warning }}>
+                        {challanRetrying ? '…' : 'Retry'}
+                      </Text>
+                    </Pressable>
+                  </View>
                 )}
-                <VehicleDetailRow mode={mode} label="Paid" value={meta.vehicleChallanPaid ?? 0} />
-                <VehicleDetailRow mode={mode} label="Disposed" value={meta.vehicleChallanDisposed ?? 0} />
-              </View>
+                {(meta.vehicleChallanRecords ?? []).length > 0 ? (
+                  <View className="flex-col gap-2">
+                    {(meta.vehicleChallanRecords ?? []).map((c, i) => {
+                      const isPending = c.paymentStatus === 'UNPAID';
+                      const isPaid = c.paymentStatus === 'PAID';
+                      const isDisposed = c.paymentStatus === 'DISPOSED';
+                      const statusColor = isPending
+                        ? theme.danger
+                        : isPaid
+                          ? theme.success
+                          : isDisposed
+                            ? '#6366f1'
+                            : theme.textTertiary;
+                      const fmtDate = c.date
+                        ? (() => {
+                            const d = new Date(c.date);
+                            return isNaN(d.getTime())
+                              ? c.date
+                              : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+                          })()
+                        : null;
+                      const rtoLabel = [c.rto, c.state].filter(Boolean).join(' · ') || '—';
+                      return (
+                        <Card key={i} padding="xs" radius="md" className="flex-col gap-2">
+                          {/* Top row: challan no + amount */}
+                          <View className="flex-row items-start justify-between gap-2">
+                            <View className="flex-1">
+                              <Text className="text-xs font-semibold text-primary">
+                                {c.challanNo || `Challan ${i + 1}`}
+                              </Text>
+                              {fmtDate && <Text className="text-[10px] text-tertiary">{fmtDate}</Text>}
+                            </View>
+                            <Text
+                              className="text-sm font-bold tabular-nums shrink-0"
+                              style={{ color: isPending ? theme.danger : theme.textPrimary }}
+                            >
+                              {masked ? '••••' : `₹${c.amount.toLocaleString('en-IN')}`}
+                            </Text>
+                          </View>
+                          {/* Detail rows — always shown, — when absent */}
+                          <View className="flex-col gap-1.5">
+                            <View>
+                              <Text className="text-[9px] text-tertiary">Offense</Text>
+                              <Text className="text-[10px] text-primary leading-snug">{c.offenceDetails || '—'}</Text>
+                            </View>
+                            <View>
+                              <Text className="text-[9px] text-tertiary">Place</Text>
+                              <Text className="text-[10px] text-primary">{c.challanPlace || '—'}</Text>
+                            </View>
+                            <View className="flex-row flex-wrap gap-x-3">
+                              <View className="flex-1 min-w-[45%]">
+                                <Text className="text-[9px] text-tertiary">Court</Text>
+                                <Text className="text-[10px] text-primary">{c.courtName || '—'}</Text>
+                              </View>
+                              <View className="flex-1 min-w-[45%]">
+                                <Text className="text-[9px] text-tertiary">RTO</Text>
+                                <Text className="text-[10px] text-primary">{rtoLabel}</Text>
+                              </View>
+                            </View>
+                          </View>
+                          {/* Status row — payment status + challan status + type all in one line */}
+                          <View className="flex-row items-center gap-1.5 pt-1 border-t border-theme flex-wrap">
+                            <Text
+                              className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                              style={{ backgroundColor: tint(statusColor, 8), color: statusColor }}
+                            >
+                              {c.paymentStatus || 'UNKNOWN'}
+                            </Text>
+                            {c.challanStatus && (
+                              <Text
+                                className="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
+                                style={{ backgroundColor: theme.surfaceSecondary, color: theme.textTertiary }}
+                              >
+                                {c.challanStatus}
+                              </Text>
+                            )}
+                            {c.challanType && (
+                              <Text
+                                className="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
+                                style={{ backgroundColor: theme.surfaceSecondary, color: theme.textTertiary }}
+                              >
+                                {c.challanType}
+                              </Text>
+                            )}
+                          </View>
+                        </Card>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <View className="bg-surface border border-theme rounded-xl px-3">
+                    <VehicleDetailRow mode={mode} label="Total" value={meta.vehicleChallanTotal ?? 0} />
+                    <VehicleDetailRow mode={mode} label="Pending" value={meta.vehicleChallanPending ?? 0} />
+                    {pendingChallans > 0 && (
+                      <VehicleDetailRow
+                        mode={mode}
+                        label="Pending amount"
+                        value={
+                          !masked && meta.vehicleChallanPendingAmount
+                            ? `₹${meta.vehicleChallanPendingAmount.toLocaleString('en-IN')}`
+                            : '••••'
+                        }
+                      />
+                    )}
+                    <VehicleDetailRow mode={mode} label="Paid" value={meta.vehicleChallanPaid ?? 0} />
+                    <VehicleDetailRow mode={mode} label="Disposed" value={meta.vehicleChallanDisposed ?? 0} />
+                  </View>
+                )}
+              </>
             )}
           </View>
         )}

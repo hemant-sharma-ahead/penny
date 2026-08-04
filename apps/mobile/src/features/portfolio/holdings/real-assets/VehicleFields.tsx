@@ -15,6 +15,10 @@ interface VehicleFieldsProps {
   vehicleNotice: string;
   vehicleRcSnapshot: RcDetails | null;
   setVehicleRcSnapshot: (v: RcDetails | null) => void;
+  /** True when this session's fetch got RC data but the challan half specifically failed — shown as
+   *  its own note inside the RC preview card, never blocking anything (see VehicleModal's `canSave`,
+   *  which only requires RC). */
+  vehicleChallanError: boolean;
   lookup: () => void;
 }
 
@@ -29,6 +33,7 @@ export function VehicleFields({
   vehicleNotice,
   vehicleRcSnapshot,
   setVehicleRcSnapshot,
+  vehicleChallanError,
   lookup
 }: VehicleFieldsProps) {
   const theme = useThemeColors();
@@ -123,6 +128,14 @@ export function VehicleFields({
             {vehicleRcSnapshot.puccUpto && <ValidityBadge label="PUC" upto={vehicleRcSnapshot.puccUpto} />}
             {vehicleRcSnapshot.rcValidUpto && <ValidityBadge label="RC" upto={vehicleRcSnapshot.rcValidUpto} />}
           </View>
+          {vehicleChallanError && (
+            <View className="flex-row items-center gap-1 pt-1 border-t border-theme">
+              <Icon name="ti-alert-triangle" size={11} color={theme.warning} />
+              <Text className="text-[10px]" style={{ color: theme.warning }}>
+                Could not fetch challan status — vehicle details above are still fine to save.
+              </Text>
+            </View>
+          )}
         </View>
       )}
     </View>

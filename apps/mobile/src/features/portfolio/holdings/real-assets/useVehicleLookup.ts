@@ -22,6 +22,14 @@ export function useVehicleLookup(editing: Holding | null, autofill: VehicleAutof
   const [vehicleFetchError, setVehicleFetchError] = useState('');
   // A non-error notice — e.g. the proxy queued the lookup for tomorrow morning.
   const [vehicleNotice, setVehicleNotice] = useState('');
+  // True for the rest of this session once a lookup gets queued — lets the Add Holding gate allow
+  // saving a reg-number-only placeholder (see VehicleModal's canSave) even though RC never arrived.
+  const [vehicleQueued, setVehicleQueued] = useState(false);
+  // True when the last successful lookup's *challan* half specifically failed (RC still succeeded —
+  // see fetchVehicleData's `challans: null` contract). Session-only; VehicleModal threads this into
+  // applyVehicleFields as `challanFetchFailed` so it's only persisted when a challan fetch was
+  // actually attempted, never confused with "challan untouched this session".
+  const [vehicleChallanError, setVehicleChallanError] = useState(false);
   const [vehicleChallanSnapshot, setVehicleChallanSnapshot] = useState<ChallanSummary | null>(null);
   const [vehicleRcSnapshot, setVehicleRcSnapshot] = useState<RcDetails | null>(() =>
     rcDetailsFromMeta(editing?.assetMeta)
@@ -31,10 +39,13 @@ export function useVehicleLookup(editing: Holding | null, autofill: VehicleAutof
     setVehicleFetching(true);
     setVehicleFetchError('');
     setVehicleNotice('');
+    setVehicleChallanError(false);
+    setVehicleQueued(false);
     try {
       const { rc, challans } = await fetchVehicleData(vehicleRegInput.trim());
       setVehicleRcSnapshot(rc);
       setVehicleChallanSnapshot(challans);
+      setVehicleChallanError(challans === null);
       setVehicleRegInput(rc.regNumber);
       const autoName = [rc.make, rc.model, rc.year ? String(rc.year) : ''].filter(Boolean).join(' ');
       if (autoName) autofill.setName(autoName);
@@ -51,8 +62,12 @@ export function useVehicleLookup(editing: Holding | null, autofill: VehicleAutof
         }
       }
     } catch (e) {
-      if (e instanceof VehicleQueuedError) setVehicleNotice(e.message);
-      else setVehicleFetchError(e instanceof Error ? e.message : 'Could not fetch vehicle details');
+      if (e instanceof VehicleQueuedError) {
+        setVehicleNotice(e.message);
+        setVehicleQueued(true);
+      } else {
+        setVehicleFetchError(e instanceof Error ? e.message : 'Could not fetch vehicle details');
+      }
     } finally {
       setVehicleFetching(false);
     }
@@ -65,9 +80,11 @@ export function useVehicleLookup(editing: Holding | null, autofill: VehicleAutof
     vehicleFetchError,
     setVehicleFetchError,
     vehicleNotice,
+    vehicleQueued,
     vehicleRcSnapshot,
     setVehicleRcSnapshot,
     vehicleChallanSnapshot,
+    vehicleChallanError,
     lookup
   };
 }

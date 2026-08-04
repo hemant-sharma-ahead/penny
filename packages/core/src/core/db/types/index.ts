@@ -166,6 +166,12 @@ export interface AssetMeta {
   vehicleChallanDisposed?: number;
   vehicleChallanPendingAmount?: number;
   vehicleChallanFetchedAt?: number;
+  /** True when the most recent challan fetch attempt failed. Independent of `vehicleChallanFetchedAt`
+   *  — a prior successful fetch's data is left in place when a later refresh fails, so this can be
+   *  true alongside real (now possibly stale) challan fields; VehicleDetailModal shows both together
+   *  ("showing data from <date>, last refresh failed") rather than hiding the old data. Cleared
+   *  (`false`) the next time a challan fetch succeeds. */
+  vehicleChallanFetchFailed?: boolean;
   vehicleChallanRecords?: Array<{
     challanNo: string;
     date: string;
@@ -191,6 +197,7 @@ export interface AssetMeta {
   propertyType?: 'flat' | 'house' | 'plot' | 'commercial';
   propertyAreaSqft?: number;
   propertyCity?: string;
+  propertyPurchaseDate?: number; // epoch ms — mandatory at add time (PropertyModal), existing records may predate this
   // Mutual Fund (M11 step 68)
   mfFundHouse?: string;
   mfSchemeCategory?: string;

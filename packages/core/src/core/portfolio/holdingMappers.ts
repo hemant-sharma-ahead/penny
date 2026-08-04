@@ -184,6 +184,12 @@ export interface PropertyFieldsInput {
   propertyType: PropertyType;
   propertyAreaSqft: string;
   propertyCity: string;
+  /** `YYYY-MM-DD`, matching `DateInput`'s value contract. Enforced as mandatory by
+   *  `apps/mobile`'s `PropertyModal.handleSave` (a form-policy decision, not a data-model one) —
+   *  left optional in this shared type since `apps/web-react` (frozen) has its own call site that
+   *  doesn't pass it, and a pre-existing record saved before this field existed must still round-trip
+   *  without one. */
+  propertyPurchaseDate?: string;
   existingMeta?: AssetMeta;
 }
 
@@ -195,6 +201,7 @@ export function applyPropertyFields(holding: Holding, input: PropertyFieldsInput
   const sqft = parseFloat(input.propertyAreaSqft);
   if (!isNaN(sqft) && sqft > 0) meta.propertyAreaSqft = sqft;
   if (input.propertyCity.trim()) meta.propertyCity = input.propertyCity.trim();
+  if (input.propertyPurchaseDate) meta.propertyPurchaseDate = new Date(input.propertyPurchaseDate).getTime();
   holding.assetMeta = meta;
   return holding;
 }

@@ -48,6 +48,11 @@ export function rcDetailsFromMeta(meta: AssetMeta | undefined): RcDetails | null
 export interface VehicleFieldsInput {
   rcSnapshot: RcDetails | null;
   challanSnapshot: ChallanSummary | null;
+  /** True when a challan fetch was attempted this session and failed (RC may still have succeeded —
+   *  these are independent). Distinct from `challanSnapshot` being null with this left `false`/
+   *  undefined, which means challan was never touched this session at all — existing persisted
+   *  challan state (if any), including any prior failure flag, is then left exactly as it was. */
+  challanFetchFailed?: boolean;
   vehicleRegInput: string;
   existingMeta?: AssetMeta;
 }
@@ -101,7 +106,10 @@ export function applyVehicleFields(holding: Holding, input: VehicleFieldsInput):
     meta.vehicleChallanDisposed = ch.disposed;
     meta.vehicleChallanPendingAmount = ch.pendingAmount;
     meta.vehicleChallanFetchedAt = ch.fetchedAt;
+    meta.vehicleChallanFetchFailed = false;
     if (ch.records.length > 0) meta.vehicleChallanRecords = ch.records;
+  } else if (input.challanFetchFailed) {
+    meta.vehicleChallanFetchFailed = true;
   }
   holding.assetMeta = meta;
   return holding;
