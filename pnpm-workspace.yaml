@@ -3,6 +3,12 @@
 packages:
   - 'packages/*'
   - 'apps/*'
+# Required so apps/mobile's Android release build can resolve certain babel plugins
+# (react-native-worklets/plugin, @babel/plugin-transform-react-jsx) from a special internal
+# context Metro's Hermes-bytecode sourcemap composition step uses — see CONTRIBUTING.md's
+# "Building a standalone Android APK" section for the full explanation. pnpm 11+ reads
+# workspace-level settings like this from here, not from .npmrc.
+shamefullyHoist: true
 allowBuilds:
   ttf2woff2: true
 minimumReleaseAgeExclude:

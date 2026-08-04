@@ -143,6 +143,68 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 Other run modes: `pnpm ios` / `pnpm android` (from `apps/mobile`, auto-builds a dev client
 if one doesn't exist) / `pnpm web` (via `react-native-web`, no native modules involved).
 
+## Building a standalone Android APK (`apps/mobile`)
+
+`npx expo run:android` (above) builds and installs onto an emulator/device in one step, but
+doesn't leave you a standalone `.apk` file. To produce one, run these in order:
+
+```bash
+# 1. From the repo root — installs deps with the pnpm hoisting this build needs (see note below)
+pnpm install
+
+# 2. Regenerate the native android/ project from app.json + assets (skip if android/ already exists)
+cd apps/mobile
+npx expo prebuild --platform android
+
+# 3. Build the debug variant
+cd android
+./gradlew assembleDebug
+
+# 4. Build the release variant — as its OWN separate command, not combined with step 3 (see note below)
+./gradlew assembleRelease
+```
+
+Each command produces **four `.apk` files, one per CPU architecture**, not one combined
+file:
+
+| Variant | Output location |
+| --- | --- |
+| Debug | `android/app/build/outputs/apk/debug/app-<abi>-debug.apk` |
+| Release | `android/app/build/outputs/apk/release/app-<abi>-release.apk` |
+
+`<abi>` is one of `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`. **`arm64-v8a` is the one to
+install on a real device** — virtually every Android phone from the last several years uses
+it. `armeabi-v7a` is for older 32-bit devices; `x86`/`x86_64` are only for Intel-based
+emulators (an Apple Silicon Mac's emulator is `arm64-v8a` too).
+
+Notes / gotchas, if something above doesn't behave as expected:
+
+- **Don't combine steps 3 and 4 into one `./gradlew assembleDebug assembleRelease` call** —
+  that spawns two concurrent Metro bundler subprocesses that race each other and can fail
+  with an obscure `Cannot read properties of undefined (reading 'transformFile')` error. Two
+  separate `gradlew` invocations avoids it.
+- **The debug APK is not self-contained.** This project's debug build type doesn't embed a
+  JS bundle (`bundleInDebug` isn't set), so it loads JS from a Metro dev server (`npx expo
+  start`) at runtime instead — installing it alone gets you a red-box connection error. The
+  release APK *is* self-contained (JS bundled, minified, resources shrunk) — that's the one
+  to hand someone for standalone testing.
+- **Release signing** falls back to the same auto-generated debug keystore as the debug
+  build (`android/app/build.gradle`'s `release` block) — there's no dedicated release
+  keystore configured. Fine for internal testing; **not** fine for actual Play Store
+  distribution, which needs a real release keystore set up separately first.
+- **Step 1 (`pnpm install`) is load-bearing, not just habit.** This repo's
+  `pnpm-workspace.yaml` sets `shamefullyHoist: true` — without it, `assembleRelease`'s
+  JS-bundling step fails to resolve certain babel plugins
+  (`react-native-worklets/plugin`, `@babel/plugin-transform-react-jsx`) that Metro's
+  Hermes-bytecode sourcemap composition step re-resolves from a different internal context
+  than the rest of the toolchain uses — under pnpm's default strict, symlinked
+  `node_modules` layout, those plugins aren't reachable from that context even though they
+  resolve fine everywhere else. If this ever regresses, the symptom is `assembleRelease`
+  failing with a `MODULE_NOT_FOUND` buried under `TypeError: Cannot read properties of
+  undefined (reading 'transformFile')` — the fix is confirming `shamefullyHoist: true` is
+  still in `pnpm-workspace.yaml` and re-running `pnpm install`. `assembleDebug` is unaffected
+  (it never bundles JS in this project).
+
 ## Running `apps/web-react` wrapped in Capacitor (Android emulator, side-by-side comparison)
 
 A second way to see the web app on Android — useful for direct perf/behavior comparisons
