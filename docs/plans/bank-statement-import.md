@@ -446,8 +446,20 @@ Splitwise's own loan-repayment UX for external precedent):
 Docs updated again: `docs/ARCHITECTURE.md`, `docs/SCHEMA.md` (categories aren't schema fields, so no
 change there — noted for completeness), `docs/features/expenses.md`.
 
-**Not yet done:** the working tree is uncommitted (per the user's standing workflow preference —
-never auto-commit; ask first). Excel/PDF parsing remain deferred (CSV-only v1, as scoped). The
-statement-preset `ExpenseForm`'s category tile now already reuses the real `CategoryPickerModal` (it
-always did — the user's separate, still-open feedback about "utilize our category picker instead"
-turned out to be about `BulkCategorizeModal`'s field, now fixed above, not this one).
+**Committed 2026-08-04** (`2fed167`, bundled with the Accounts mini-cards redesign and Home
+Retirement Corpus in one commit per explicit user instruction) — re-verified against the actual
+code before committing, not just this log's own claims: core module + all 5 test files present,
+all 13 mobile UI files present, Accounts-page per-row "Import" action (bank/credit_card accounts
+only) and the global "Merchant recognition" entry point both wired in `AccountsPage.tsx`, the
+statement-preset `ExpenseForm` mode present, and §11's balance-check nudge genuinely wired
+end-to-end (`useBankImport.ts` calls `checkBalanceAgainstStatement`, `DoneStep.tsx` renders the
+"Reconcile now ›" call-to-action) rather than only computed and never surfaced.
+
+**Everything in scope (§2) is implemented.** What remains is exactly what was scoped out
+explicitly, not a gap: Excel/PDF parsing (CSV-only v1, §2), in-same-file duplicate/glitch
+detection (§2), resuming an in-progress review after leaving (§10b, deliberate — re-upload and
+redo), and a dedicated balance-correction mechanism (§11 — Reconcile is the intended fallback,
+by design). The statement-preset `ExpenseForm`'s category tile already reuses the real
+`CategoryPickerModal` (it always did — the user's separate, now-resolved feedback about "utilize
+our category picker instead" turned out to be about `BulkCategorizeModal`'s field, fixed in the
+second follow-up round above, not this one).
