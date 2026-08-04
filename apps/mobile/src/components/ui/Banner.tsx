@@ -3,8 +3,9 @@ import { View, Pressable, Text } from 'react-native';
 import { Icon } from '~/components/Icon';
 import { tint, ink } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { BANNER_DEFAULT_ICON, type BannerVariant } from './Banner.constants';
 
-type BannerVariant = 'info' | 'warning' | 'danger' | 'success';
+export type { BannerVariant };
 
 interface BannerProps {
   variant: BannerVariant;
@@ -24,13 +25,6 @@ interface BannerProps {
   onDismiss?: () => void;
 }
 
-const DEFAULT_ICON: Record<BannerVariant, string> = {
-  info: 'ti-info-circle',
-  warning: 'ti-alert-triangle',
-  danger: 'ti-alert-triangle',
-  success: 'ti-circle-check'
-};
-
 /**
  * Inline callout/alert — subtle tinted background, status-colored icon, and a readable
  * (theme-aware) message. RN equivalent of the web Banner (same variants/icons).
@@ -38,7 +32,7 @@ const DEFAULT_ICON: Record<BannerVariant, string> = {
 export function Banner({ variant, icon, title, children, className = '', onDismiss }: BannerProps) {
   const theme = useThemeColors();
   const color = theme[variant];
-  const iconName = icon === undefined ? DEFAULT_ICON[variant] : icon;
+  const iconName = icon === undefined ? BANNER_DEFAULT_ICON[variant] : icon;
   const textColor = ink(color, theme.textPrimary);
 
   return (

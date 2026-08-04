@@ -8,6 +8,7 @@ import { changePin, isWeakPin, resetPinWithPassphrase } from '@/core/crypto/secu
 import { notifyAuthShouldRecheck } from '~/navigation/authRecheckBus';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useRegisterHeaderScreen } from '~/navigation/HeaderBackContext';
+import { useToast } from '~/context/ToastContext';
 
 type ChangePinRouteParams = { forcedPinReset?: boolean } | undefined;
 
@@ -37,6 +38,7 @@ const isSixDigits = (v: string) => /^\d{6}$/.test(v);
  */
 export function ChangePinPage() {
   const modeBg = useModeBackgroundColor();
+  const { showToast } = useToast();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const route = useRoute<RouteProp<Record<string, ChangePinRouteParams>, string>>();
   // Reached via SessionGate's "Forgot PIN?" recovery — only possible once PIN attempts were exhausted,
@@ -58,7 +60,6 @@ export function ChangePinPage() {
   const [confirm, setConfirm] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [done, setDone] = useState(false);
 
   const onlyDigits = (v: string) => v.replace(/\D/g, '');
   const mismatch = confirm.length === 6 && next !== confirm;
@@ -70,8 +71,8 @@ export function ChangePinPage() {
       ? 'Choose a less predictable PIN'
       : undefined;
   const canSubmit = viaPassphrase
-    ? passphrase.length > 0 && isSixDigits(next) && next === confirm && !weakNew && !saving && !done
-    : isSixDigits(current) && isSixDigits(next) && next === confirm && !sameAsCurrent && !weakNew && !saving && !done;
+    ? passphrase.length > 0 && isSixDigits(next) && next === confirm && !weakNew && !saving
+    : isSixDigits(current) && isSixDigits(next) && next === confirm && !sameAsCurrent && !weakNew && !saving;
 
   async function handleSubmitViaPassphrase() {
     let result;
@@ -84,8 +85,12 @@ export function ChangePinPage() {
     }
     switch (result.status) {
       case 'ok':
-        setDone(true);
-        setTimeout(() => navigation.navigate('MainTabs'), 1200);
+        showToast({
+          message: 'PIN changed. Use your new PIN next time you unlock.',
+          variant: 'success',
+          durationMs: 3000
+        });
+        navigation.navigate('MainTabs');
         return;
       case 'wrong_passphrase': {
         const n = result.attemptsRemaining ?? 0;
@@ -121,8 +126,12 @@ export function ChangePinPage() {
     }
     switch (result.status) {
       case 'ok':
-        setDone(true);
-        setTimeout(() => navigation.navigate('MainTabs'), 1200);
+        showToast({
+          message: 'PIN changed. Use your new PIN next time you unlock.',
+          variant: 'success',
+          durationMs: 3000
+        });
+        navigation.navigate('MainTabs');
         return;
       case 'wrong_pin': {
         const n = result.attemptsRemaining ?? 0;
@@ -174,84 +183,80 @@ export function ChangePinPage() {
             </Text>
           )}
 
-          {done ? (
-            <Banner variant="success">PIN changed. Use your new PIN next time you unlock.</Banner>
-          ) : (
-            <>
-              {viaPassphrase ? (
-                <TextInput
-                  label="Current passphrase"
-                  secureTextEntry
-                  value={passphrase}
-                  onChange={setPassphrase}
-                  placeholder="Enter your passphrase"
-                />
-              ) : (
-                <TextInput
-                  label="Current PIN"
-                  secureTextEntry
-                  keyboardType="numeric"
-                  maxLength={6}
-                  inputClassName="text-center tracking-widest text-lg"
-                  value={current}
-                  onChange={(v) => setCurrent(onlyDigits(v))}
-                  placeholder="Enter current 6-digit PIN"
-                />
-              )}
-
-              {!forced && (
-                <Pressable
-                  onPress={() => {
-                    setViaPassphrase((v) => !v);
-                    setCurrent('');
-                    setPassphrase('');
-                    setError('');
-                  }}
-                  className="self-start -mt-2"
-                >
-                  <Text className="text-secondary text-xs font-medium underline">
-                    {viaPassphrase ? 'Use current PIN instead' : 'Forgot your PIN? Use your passphrase instead'}
-                  </Text>
-                </Pressable>
-              )}
-
+          <>
+            {viaPassphrase ? (
               <TextInput
-                label="New PIN"
+                label="Current passphrase"
+                secureTextEntry
+                value={passphrase}
+                onChange={setPassphrase}
+                placeholder="Enter your passphrase"
+              />
+            ) : (
+              <TextInput
+                label="Current PIN"
                 secureTextEntry
                 keyboardType="numeric"
                 maxLength={6}
                 inputClassName="text-center tracking-widest text-lg"
-                value={next}
-                onChange={(v) => setNext(onlyDigits(v))}
-                placeholder="Choose a new 6-digit PIN"
-                error={newPinError}
+                value={current}
+                onChange={(v) => setCurrent(onlyDigits(v))}
+                placeholder="Enter current 6-digit PIN"
               />
-              <TextInput
-                label="Confirm PIN"
-                secureTextEntry
-                keyboardType="numeric"
-                maxLength={6}
-                inputClassName="text-center tracking-widest text-lg"
-                value={confirm}
-                onChange={(v) => setConfirm(onlyDigits(v))}
-                placeholder="Re-enter your new PIN"
-                error={mismatch ? "PINs don't match" : undefined}
-              />
+            )}
 
-              {error ? <Text className="text-danger text-sm text-center">{error}</Text> : null}
-
-              <Button
-                variant="primary"
-                size="lg"
-                fullWidth
-                disabled={!canSubmit}
-                loading={saving}
-                onPress={() => void handleSubmit()}
+            {!forced && (
+              <Pressable
+                onPress={() => {
+                  setViaPassphrase((v) => !v);
+                  setCurrent('');
+                  setPassphrase('');
+                  setError('');
+                }}
+                className="self-start -mt-2"
               >
-                {saving ? 'Updating…' : 'Change PIN'}
-              </Button>
-            </>
-          )}
+                <Text className="text-secondary text-xs font-medium underline">
+                  {viaPassphrase ? 'Use current PIN instead' : 'Forgot your PIN? Use your passphrase instead'}
+                </Text>
+              </Pressable>
+            )}
+
+            <TextInput
+              label="New PIN"
+              secureTextEntry
+              keyboardType="numeric"
+              maxLength={6}
+              inputClassName="text-center tracking-widest text-lg"
+              value={next}
+              onChange={(v) => setNext(onlyDigits(v))}
+              placeholder="Choose a new 6-digit PIN"
+              error={newPinError}
+            />
+            <TextInput
+              label="Confirm PIN"
+              secureTextEntry
+              keyboardType="numeric"
+              maxLength={6}
+              inputClassName="text-center tracking-widest text-lg"
+              value={confirm}
+              onChange={(v) => setConfirm(onlyDigits(v))}
+              placeholder="Re-enter your new PIN"
+              error={mismatch ? "PINs don't match" : undefined}
+            />
+
+            {error ? <Text className="text-danger text-sm text-center">{error}</Text> : null}
+
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              disabled={!canSubmit}
+              loading={saving}
+              onPress={() => void handleSubmit()}
+            >
+              {saving ? 'Updating…' : 'Change PIN'}
+            </Button>
+          </>
         </View>
       </ScrollView>
     </SafeAreaView>
