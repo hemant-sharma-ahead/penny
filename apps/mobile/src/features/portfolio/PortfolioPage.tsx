@@ -156,8 +156,11 @@ export function PortfolioPage() {
         {/* Whole-portfolio total — always shown regardless of active tab/sub-tab (including IPO/News,
             which used to hide it), since it's the grand total across every asset class, not scoped to
             whatever's currently on screen. Collapsed by default to just Current Value + Return %; tap
-            the row to expand to the full Total Invested/Current Value/Return/Return % breakdown. */}
-        {holdings.length > 0 && (
+            the row to expand to the full Total Invested/Current Value/Return/Return % breakdown.
+            Gated on the *totals* actually being non-zero, not just `holdings.length` — a holding can
+            exist with nothing invested/valued yet (e.g. a pending-placeholder vehicle awaiting RC
+            lookup), which still passes a length check but has nothing meaningful to summarize. */}
+        {holdings.length > 0 && (totalInvested > 0 || totalCurrent > 0) && (
           <Pressable
             onPress={() => setSummaryExpanded((v) => !v)}
             accessibilityLabel={summaryExpanded ? 'Collapse portfolio summary' : 'Expand portfolio summary'}
@@ -347,10 +350,10 @@ export function PortfolioPage() {
           }
         >
           <View className="px-4 pt-3">
-            {activeMainTab === 'equity' && equitySubTab === 'stocks' && (
+            {activeMainTab === 'equity' && equitySubTab === 'stocks' && stocksHoldings.length > 0 && (
               <EquitySummaryCard invested={stocksTotals.invested} current={stocksTotals.current} masked={masked} />
             )}
-            {activeMainTab === 'equity' && equitySubTab === 'mf' && (
+            {activeMainTab === 'equity' && equitySubTab === 'mf' && mfHoldings.length > 0 && (
               <EquitySummaryCard invested={mfTotals.invested} current={mfTotals.current} masked={masked} />
             )}
           </View>

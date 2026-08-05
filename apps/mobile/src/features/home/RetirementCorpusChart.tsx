@@ -3,6 +3,7 @@ import { View, Text, type GestureResponderEvent } from 'react-native';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop, Line } from 'react-native-svg';
 import { formatCompact } from '@/lib/formatters';
+import { useTheme } from '~/theme/ThemeProvider';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { CorpusChartPoint } from './useRetirementProjection';
 
@@ -16,6 +17,19 @@ const VIOLET = '#8b5cf6';
 const VIOLET_LIGHT = '#a78bfa';
 const VIOLET_LIGHTEST = '#c4b5fd';
 const AMBER = '#f0b060';
+// `VIOLET_LIGHTEST` is a pale lavender chosen for the dark-theme screen background this hero was
+// designed against — on light theme's white background it's ~1.9:1 contrast, unreadable (found
+// 2026-08-04). Same violet identity, dark enough to read on white for the two labels that are real text
+// (not a decorative line/fill) rendered with no card background underneath them.
+//
+// Both "today" and "projected" labels stay in the same violet family as their own chart dots (today's
+// dot is `VIOLET_LIGHTEST`, projected's is `VIOLET_LIGHT`) — the "today" label used to fall back to
+// `theme.textTertiary` (a plain gray, unrelated to its own dot's color), which read as a mismatched,
+// duller label next to "projected"'s violet in light theme especially (found 2026-08-05). "Today" gets
+// the lighter of the two shades, "projected" the bolder one — distinguishable from each other, both
+// clearly violet.
+const VIOLET_TODAY_TEXT_LIGHT = '#7c3aed';
+const VIOLET_PROJECTED_TEXT_LIGHT = '#6d28d9';
 
 const CHART_H = 250;
 const TOP_PAD = 42; // headroom for the dashed target marker + flag pill
@@ -41,6 +55,9 @@ interface Props {
  */
 export function RetirementCorpusChart({ points, retirementYear, open }: Props) {
   const theme = useThemeColors();
+  const { activePalette } = useTheme();
+  const todayTextColor = activePalette === 'light' ? VIOLET_TODAY_TEXT_LIGHT : VIOLET_LIGHTEST;
+  const projectedTextColor = activePalette === 'light' ? VIOLET_PROJECTED_TEXT_LIGHT : VIOLET_LIGHT;
   const [width, setWidth] = useState(0);
   const [scrubIdx, setScrubIdx] = useState<number | null>(null);
 
@@ -122,6 +139,11 @@ export function RetirementCorpusChart({ points, retirementYear, open }: Props) {
           backgroundColor: VIOLET
         }}
       />
+      {/* This corner blob is a barely-perceptible depth vignette against dark theme's own dark
+          background, but on light theme's white background a black blob at the same opacity reads as
+          a visible dark smudge — sitting directly under the "Corpus ... today" label (bottom-left,
+          below) and muddying its already-muted `textTertiary` gray on top of it (found 2026-08-05, the
+          real reason that label stayed unreadable in light theme even after its own color was fixed). */}
       <View
         pointerEvents="none"
         style={{
@@ -131,7 +153,7 @@ export function RetirementCorpusChart({ points, retirementYear, open }: Props) {
           width: 130,
           height: 130,
           borderRadius: 65,
-          opacity: 0.25,
+          opacity: activePalette === 'light' ? 0.04 : 0.25,
           backgroundColor: '#000'
         }}
       />
@@ -249,7 +271,7 @@ export function RetirementCorpusChart({ points, retirementYear, open }: Props) {
           (BOTTOM_PAD), not near the today-point's actual height — placed at the curve's own height it
           was landing almost exactly where the today dot/line are, so the curve hid it. */}
       <View className="absolute left-2" style={{ bottom: 4 }}>
-        <Text className="text-[9px] font-semibold" style={{ color: theme.textTertiary }}>
+        <Text className="text-[9px] font-semibold" style={{ color: todayTextColor }}>
           {open ? `Corpus ${formatCompact(todayValue)} · today` : 'Corpus •••• · today'}
         </Text>
       </View>
@@ -265,7 +287,7 @@ export function RetirementCorpusChart({ points, retirementYear, open }: Props) {
             : { top: CHART_H - 80, right: 8 }
         }
       >
-        <Text className="text-[9px] font-bold" style={{ color: VIOLET_LIGHTEST }}>
+        <Text className="text-[9px] font-bold" style={{ color: projectedTextColor }}>
           {open ? `${formatCompact(projectedValue)} proj.` : '•••• proj.'}
         </Text>
       </View>

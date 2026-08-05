@@ -76,6 +76,31 @@ The `profile` store holds: `displayName` (= full name), `currency`, `locale`, `o
 
 **Exiting Demo Mode has two identical entry points, not two different actions.** `profile.demoSeeded` only ever means "the vault itself is the throwaway demo one" (the real-setup sequence always writes `demoSeeded: false`, on both the fresh and exit-demo branches) — so anywhere that flag is checked, the button must hand off to the real-setup sequence, never just wipe-and-reload. Settings' danger-zone **"Exit Demo Mode"** row (same `profile.demoSeeded` guard, formerly "Clear sample data") and `DemoModeBanner`'s button both call `wipeDemoData()` directly and navigate to `/onboarding/let-us-know-you` with `{ state: { fromDemoMode: true } }` — there is no other way to leave Demo Mode. (The previous `clearDemoData()` — wipe + `window.location.reload()` — was removed: under the old, pre-Demo-Mode design every user's vault was real from the first screen, so reloading into an empty-but-still-yours app was correct; under this design that would silently strand the user on the known demo PIN/passphrase with no real profile, since reloading never asks for real credentials.)
 
+**Mobile — 2026-08-05, "Start Fresh" could surface old demo data.** `SetupCredentialsScreen.tsx`'s
+non-demo branch only called `initialize()` — which writes a new `db.security` row and nothing else, no
+other table — before proceeding. If the device already had data sitting in Dexie (an abandoned Demo
+Mode session that was never exited through the proper `wipeDemoData()` path, e.g. the app was killed or
+reinstalled mid-exploration rather than tapping "Exit Demo Mode"), "Start Fresh" didn't clear it, so a
+genuinely new account could still show old (demo) transactions on Expenses. Fixed by calling
+`wipeAllData()` (`db.tables.map(t => t.clear())` — the same comprehensive wipe `AccountRecoveryScreen`'s
+Reclaim tab already uses defensively on a failed attempt) before `initialize()` in the fresh-setup
+branch, so "Start Fresh" is unconditionally fresh regardless of the device's prior state. The
+Exit-Demo-Mode branch (`exitDemoMode()`) is intentionally untouched — that path re-keys the existing
+demo vault on purpose, not a wipe-and-restart.
+
+**Mobile — 2026-08-05, `DemoModeBanner` repositioned + Settings' exit button relocated.** The banner
+used to render as a sibling *above* `MainTabs.tsx`'s safe-area-padded header block, with no top-inset
+handling of its own — fine on the emulator, but on a real device (notch/status-bar icons) it produced a
+visible dead gap: the banner sat flush under the notch, then the header row below added its *own*,
+separate `insets.top` padding on top of that. Fixed by moving `DemoModeBanner` inside the same
+padded block, directly below the header row (avatar/group-switcher/eye/bell untouched), so the inset is
+only ever counted once — and by trimming it to a single-line strip ("Demo Mode" + "Exit", no subtitle)
+since it now shares vertical space with a row that's already accounted for the notch. It's hidden while
+the Settings screen is focused. Settings' own "Exit Demo Mode" row moved from the bottom (styled as a
+Danger-zone/destructive action) to directly below the Profile hero, recolored to the same violet as the
+banner — it isn't destructive, it's "leave demo mode." See
+docs/mockups/proposals/demo-mode-banner-v1.html for the approved before/after.
+
 **Downstream effects of date of birth (wired in Track 2):**
 
 - FIRE calculator pre-fills your current age from DOB (still editable)

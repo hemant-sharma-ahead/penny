@@ -195,6 +195,41 @@ punctuation/casing), so the comparison missed the match and kept suggesting an e
 goal. Fixed with a punctuation-insensitive `normalizeGoalName()` (strips everything but letters/digits
 before comparing) — handles this case and the general class of casing/spacing/hyphenation mismatches.
 
+**Mobile — 2026-08-05, suggested/quick-win goals not appearing:** `createGoalFromTemplate()`
+(`core/advisor/guidance.ts`) is called directly by two places outside `useGoals.ts` entirely —
+`SuggestedGoals.tsx`'s "Add" and `FinancialHealthCard.tsx`'s "Set as goal" quick-win — neither of which
+shared a repo instance with the Goals screen's own `useLoggedRepository(goalsRepo, ...)`. The goal was
+genuinely written and logged to the activity feed (the toast and Timeline were both telling the truth),
+but the Goals screen's own `goals` list never reloaded to show it, since MainTabs keeps every tab root
+mounted (so navigating to Goals afterward didn't force a remount either). Fixed with a new
+`notifyGoalsChanged()`/`useGoalsRefresh()` pair (`hooks/useDataRefresh.ts`/`.native.ts`, same in-memory
+listener-set pattern as `notifyAccountsChanged`/`notifyTagsChanged`) — `useGoals.ts` subscribes
+(`useGoalsRefresh(reloadGoals)`), and both call sites notify right after their `createGoalFromTemplate()`
+await resolves.
+
+**Mobile — 2026-08-05, Retirement corpus suggestion computed from real data, not a flat constant:**
+`lifeStageGoalTemplates()`'s suggested "Retirement corpus" target used to be a hardcoded `₹2Cr` constant
+regardless of the user's actual circumstances — someone whose real number (via the same math the Home
+Retirement Corpus chart already uses) comes to ₹28Cr was getting a suggestion off by more than an order
+of magnitude, undermining the app's own purpose of making the user financially *aware*. `lifeStageGoals.ts`
+now takes an optional `RetirementSuggestion` (`{ targetAmount, yearsToRetirement }`) computed by the
+caller via `calcRetirementProjection()` — the exact same function and stored `RetirementPlan` singleton
+Home's chart reads — instead of owning a fallback constant itself. `SuggestedGoals.tsx` gathers the same
+raw inputs (holdings/accounts/expenses/categories/profile DOB/the retirement plan) independently, since
+a feature module can't cross-import `features/home`'s own hook; the computation is a `useMemo` that
+recomputes live on every render while the goal is still just a suggestion (so it always reflects the
+latest data), but is not recomputed again once the goal is actually added — from that point its
+`targetAmount` is a normal editable field like any other goal.
+- **No expense data yet → no Retirement corpus suggestion at all**, rather than falling back to a
+  guessed number — a confidently wrong number is exactly the problem this replaces. (Education corpus,
+  Home down-payment, and Marriage fund keep their existing flat India-benchmark constants — there's no
+  equivalent real user data those could be computed from instead, e.g. no tracked home price or wedding
+  budget, so they stay explicit starting points rather than trading one guess for a different one.)
+- `guidanceForComponent()`'s own "Set as goal" quick-win for Emergency Fund (`core/advisor/guidance.ts`)
+  was already correctly data-driven (`months × real avgMonthlyExpenses`, real `liquidAssets`, and
+  already skips itself as an `'add-data'` action when there's no expense data) — audited as part of this
+  work, no change needed there.
+
 ## Current limitations
 
 - **`apps/web-react` (frozen):** contributions must still be logged manually — no way to link an expense

@@ -207,7 +207,7 @@ export function IpoTab({ onRefreshStateChange }: IpoTabProps) {
        */}
       <FlatList
         className="flex-1"
-        contentContainerStyle={{ paddingTop: 12, paddingBottom: 96 }}
+        contentContainerStyle={{ paddingBottom: 96 }}
         data={loadingContent ? [] : ipoFilteredList}
         keyExtractor={(ipo: IpoItem) => String(ipo.id)}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}

@@ -221,7 +221,6 @@ function MainTabsContent() {
 
   return (
     <View style={{ flex: 1 }}>
-      {!pinResetForced && <DemoModeBanner />}
       {/*
        * Persistent header — was `MainNavigator`'s `MainTabs` `Stack.Screen` options; moved here so it
        * survives navigation into HomeStack/ExpensesStack the same way the tab bar below does. The
@@ -236,6 +235,15 @@ function MainTabsContent() {
        * title everywhere else (see `HeaderCenter`) — this is also now the *only* title any screen
        * renders; every pushed screen's own former title+back row (via `PageHeader`'s `title`/`leading`,
        * or a hand-rolled equivalent) was removed in favor of this one row.
+       *
+       * `DemoModeBanner` lives *inside* this block, directly below the header row, rather than as a
+       * sibling above it — found 2026-08-05: as a sibling it had no `insets.top` of its own, so on a
+       * real device (unlike the emulator) it sat right under the notch/status icons while the header
+       * row below it added a second, independent `insets.top` gap — banner, dead space, header. Sharing
+       * this block's single `paddingTop: insets.top` fixes that without touching the header row itself
+       * (avatar/group-switcher/eye/bell all stay exactly where they are). See
+       * docs/mockups/proposals/demo-mode-banner-v1.html for the before/after. Hidden on Settings, which
+       * has its own relocated Exit Demo Mode entry instead.
        */}
       <View style={{ paddingTop: insets.top, backgroundColor: modeColors.bg }}>
         {/*
@@ -265,6 +273,7 @@ function MainTabsContent() {
             <HeaderRight />
           </View>
         </View>
+        {!pinResetForced && activeRouteName !== 'Settings' && <DemoModeBanner />}
       </View>
       <Tab.Navigator
         screenOptions={({ route }) => ({

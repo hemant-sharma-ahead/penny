@@ -3,6 +3,7 @@ import type {
   Account,
   ActivityLog,
   AiCallLog,
+  BankCashWithdrawalCode,
   BankNarrationOverride,
   BankStatementImportRecord,
   Budget,
@@ -73,6 +74,7 @@ export class PennyDatabase extends Dexie {
   group_events!: EntityTable<GroupEvent, 'id'>;
   bank_statement_imports!: EntityTable<BankStatementImportRecord, 'id'>;
   bank_narration_overrides!: EntityTable<BankNarrationOverride, 'id'>;
+  bank_cash_withdrawal_codes!: EntityTable<BankCashWithdrawalCode, 'id'>;
   payment_modes!: EntityTable<PaymentMode, 'id'>;
   retirement_plan!: EntityTable<RetirementPlan, 'id'>;
   net_worth_snapshots!: EntityTable<NetWorthSnapshot, 'id'>;
@@ -154,6 +156,10 @@ export class PennyDatabase extends Dexie {
     // `net_worth_snapshots` captures one row per calendar month so a real historical line can build up
     // over time. Both encrypted; id-only index. No .upgrade() (encrypted; runs pre-unlock).
     this.version(12).stores({ retirement_plan: 'id', net_worth_snapshots: 'id' });
+
+    // v13 — cash-withdrawal narration codes (ATW, NWD, SELF, ...) for auto-classifying a bank
+    // statement line as a Transfer instead of a plain expense (2026-08-05). Encrypted; id-only index.
+    this.version(13).stores({ bank_cash_withdrawal_codes: 'id' });
   }
 }
 

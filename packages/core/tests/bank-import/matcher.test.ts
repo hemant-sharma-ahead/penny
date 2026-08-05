@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { matchStatementRows, deriveLoneWolves } from '@/core/bank-import/matcher';
+import { matchStatementRows, deriveLoneWolves, suggestPossibleTransfer } from '@/core/bank-import/matcher';
 import type { ParsedStatementRow } from '@/core/bank-import/types';
-import type { Expense } from '@/core/db/types';
+import type { Account, Expense } from '@/core/db/types';
 
 const ACCOUNT = 'acc-1';
 const OTHER_ACCOUNT = 'acc-2';
@@ -153,6 +153,135 @@ describe('matchStatementRows', () => {
     );
     expect(result.matched).toHaveLength(1);
     expect(result.matched[0]?.expense.id).toBe('t1');
+  });
+});
+
+function account(overrides: Partial<Account> = {}): Account {
+  return {
+    id: 'acc-2',
+    name: 'HDFC Savings',
+    type: 'bank',
+    openingBalance: 0,
+    color: '#000',
+    icon: 'ti-building-bank',
+    includeInNetWorth: true,
+    isArchived: false,
+    createdAt: 0,
+    updatedAt: 0,
+    ...overrides
+  };
+}
+
+describe('suggestPossibleTransfer', () => {
+  // 2026-08-05, per explicit user discussion — a much softer signal than `matchStatementRows` itself:
+  // an already-recorded plain expense/income on a DIFFERENT account, opposite direction, matching or
+  // close amount, within the same ±3-day window. Never auto-applied — always surfaced as a dismissible
+  // suggestion, since amount/date coincidence alone can't distinguish "the other leg of my own
+  // transfer" from "a coincidentally-similar payment to someone else" (see the function's doc comment).
+
+  it('suggests the sole matching candidate for a debit row (looks for an income on another account)', () => {
+    const accounts = [account({ id: 'acc-2', name: 'HDFC Savings' })];
+    const counterpart = expense({ id: 'e2', type: 'income', accountId: 'acc-2', amount: 5000, date: BASE });
+    const result = suggestPossibleTransfer(
+      row({ direction: 'debit', amount: 5000 }),
+      ACCOUNT,
+      [counterpart],
+      accounts,
+      RECONCILIATION_DESCRIPTION
+    );
+    expect(result?.account.id).toBe('acc-2');
+    expect(result?.expense.id).toBe('e2');
+  });
+
+  it('suggests the sole matching candidate for a credit row (looks for an expense on another account)', () => {
+    const accounts = [account({ id: 'acc-2', name: 'ICICI Bank' })];
+    const counterpart = expense({ id: 'e2', type: 'expense', accountId: 'acc-2', amount: 5000, date: BASE });
+    const result = suggestPossibleTransfer(
+      row({ direction: 'credit', amount: 5000 }),
+      ACCOUNT,
+      [counterpart],
+      accounts,
+      RECONCILIATION_DESCRIPTION
+    );
+    expect(result?.account.id).toBe('acc-2');
+  });
+
+  it('returns null when two or more candidates tie — never guesses which one', () => {
+    const accounts = [account({ id: 'acc-2' }), account({ id: 'acc-3', name: 'SBI' })];
+    const e1 = expense({ id: 'e2', type: 'income', accountId: 'acc-2', amount: 5000, date: BASE });
+    const e2 = expense({ id: 'e3', type: 'income', accountId: 'acc-3', amount: 5000, date: BASE });
+    const result = suggestPossibleTransfer(
+      row({ direction: 'debit', amount: 5000 }),
+      ACCOUNT,
+      [e1, e2],
+      accounts,
+      RECONCILIATION_DESCRIPTION
+    );
+    expect(result).toBeNull();
+  });
+
+  it('returns null when no candidate matches', () => {
+    const result = suggestPossibleTransfer(
+      row({ direction: 'debit', amount: 5000 }),
+      ACCOUNT,
+      [],
+      [],
+      RECONCILIATION_DESCRIPTION
+    );
+    expect(result).toBeNull();
+  });
+
+  it("excludes a candidate on the SAME account — that is the normal matcher's own job, not this heuristic", () => {
+    const accounts = [account({ id: ACCOUNT })];
+    const sameAccountExpense = expense({ id: 'e2', type: 'income', accountId: ACCOUNT, amount: 5000, date: BASE });
+    const result = suggestPossibleTransfer(
+      row({ direction: 'debit', amount: 5000 }),
+      ACCOUNT,
+      [sameAccountExpense],
+      accounts,
+      RECONCILIATION_DESCRIPTION
+    );
+    expect(result).toBeNull();
+  });
+
+  it("excludes an already-recorded transfer — that is matchStatementRows's own confident-match job", () => {
+    const accounts = [account({ id: 'acc-2' })];
+    const transfer = expense({
+      id: 't1',
+      type: 'transfer',
+      accountId: 'acc-3',
+      toAccountId: 'acc-2',
+      amount: 5000,
+      date: BASE
+    });
+    const result = suggestPossibleTransfer(
+      row({ direction: 'debit', amount: 5000 }),
+      ACCOUNT,
+      [transfer],
+      accounts,
+      RECONCILIATION_DESCRIPTION
+    );
+    expect(result).toBeNull();
+  });
+
+  it('excludes a reconciliation-adjustment entry', () => {
+    const accounts = [account({ id: 'acc-2' })];
+    const reconcileTxn = expense({
+      id: 'r1',
+      type: 'income',
+      accountId: 'acc-2',
+      amount: 5000,
+      date: BASE,
+      description: RECONCILIATION_DESCRIPTION
+    });
+    const result = suggestPossibleTransfer(
+      row({ direction: 'debit', amount: 5000 }),
+      ACCOUNT,
+      [reconcileTxn],
+      accounts,
+      RECONCILIATION_DESCRIPTION
+    );
+    expect(result).toBeNull();
   });
 });
 

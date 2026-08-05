@@ -28,6 +28,62 @@ bottom — market context and quick links to every module.
    [`docs/features/calculators.md`](calculators.md)), so `ToolsGrid.tsx` was deleted on mobile and this
    whole layout row doesn't exist there anymore.
 
+## Empty states (no data yet)
+
+`docs/mockups/proposals/home-empty-states-v2.html` (2026-08-05). Before this, several Home widgets
+rendered as soon as their async load finished — not when the user actually had any data — producing
+misleading or outright false results for a brand-new install:
+
+- **Glance header** (`GlanceHeader`) — gated on the actual *values* (`totalAssets === 0 &&
+  summary.netWorth === 0`), not `accountBalances.length` — an account with a genuinely zero balance
+  (freshly added, not yet reconciled) still counts as a row in that array, which let the real ₹0 hero
+  through even with nothing meaningful to show (found 2026-08-05, a day after the row-count version
+  shipped). Checking both values together (rather than `netWorth` alone) still shows the real hero for a
+  liabilities-only user (a loan, no assets) — `totalAssets === 0` there but `netWorth` is a real,
+  meaningful negative number. When genuinely empty, renders nothing at all (not its own prompt card) —
+  `MoneyStatsCard`'s "Track your expenses" empty state (below) already offers the same "+ Add account"
+  action, so a second near-identical card here was pure duplication (found 2026-08-05, a day after
+  shipping it as its own prompt).
+- **Retirement Corpus "on track" chip** (`RetirementFundedSummary`) — `corpusNeeded` (and therefore
+  `monthlyGapToClose`) mathematically degenerates to 0 with no expense data entered, which used to read
+  as "On track — fully funded" (`gap > 0` was false, not because the plan was genuinely funded). Now
+  gated on `projection.corpusNeeded > 0`; shows "Add your monthly expenses to calculate your retirement
+  target" instead when there's no real target yet.
+- **Money stats** (`MoneyStatsCard`) — Spent, Insurance, and Loans are each independently either a real
+  stat column (grouped into one row-card alongside whichever other columns also have data) or their own
+  `HomeEmptyPromptCard` ("Track your expenses" — two actions, `+ Add account` straight to `Accounts` and
+  `Go to Expenses` for bank-statement import or bringing expenses in from another app; "Track Insurance";
+  "Track Loans") — never gated on each other. An earlier version gated all three together (`spentThisMonth
+  === 0 && insuranceCover === 0 && loansOutstanding === 0`), which hid the Insurance/Loans prompts again
+  the instant *any* figure went non-zero — e.g. a user who'd started tracking expenses but hadn't added
+  insurance yet went back to seeing a silent `'—'` for Insurance, defeating the point (found 2026-08-05).
+  This is also the only fix for Insurance/Loans/Accounts having no navigation entry point anywhere else
+  in the app (confirmed via a full nav-tree search) — a silent `'—'` gave a fresh user no reason to ever
+  tap into them. Tax story is gated on `stats.spentThisMonth > 0` too — with no real expense activity
+  yet there's no real tax story to tell, so it stays hidden until "Spent" itself has something real to
+  show, the same signal deciding whether "Spent" is a real column vs. its own prompt.
+- **Financial health** (`FinancialHealthCard`) — with nothing entered, every scoring component earns 0,
+  which the grade formula mapped straight to `grade: 'F'`, `gradeLabel: 'Critical'`, a red ring — a false
+  alarming verdict, not an actual assessment. Checked against the raw derived inputs directly
+  (`hs.derived`'s `avgMonthlyExpenses`/`liquidAssets`/`monthlyEmiObligations`/`totalActiveGoals`/
+  `assetClassCount`/`hasLifeInsurance`/`hasHealthInsurance`, plus `hs.incomeNeeded`), not each
+  component's own `status` — `insuranceComponent` (`core/health/scorer.ts`) hardcodes `hasData: true`
+  unconditionally (having *no* insurance is real, meaningful information there, unlike the other
+  components), so it can never report the scorer's own `'no_data'` status; an
+  `every(c => c.status === 'no_data')` check across all 6 components silently never became true, quietly
+  defeating the empty-state gate entirely (found 2026-08-05, a day after shipping the `'no_data'`-based
+  version). `score.total === 0` isn't a safe substitute either — several components can legitimately
+  earn exactly 0 from real, entered data (a real savings rate of -5%, real goals with none on track,
+  real holdings in only one asset class), which would misclassify a genuinely very poor but real
+  financial picture as "no data yet." When genuinely empty, shows a neutral "0–100" ring and copy
+  explaining what the score actually measures before asking for engagement — and the outer "Financial
+  health" heading + "See all" link are hidden too (the empty-state card already has its own title, and
+  there's nothing to "see all" of yet); both come back once real data exists.
+
+Shared empty-state visual: `HomeEmptyPromptCard` (`apps/mobile/src/features/home/HomeEmptyPromptCard.tsx`)
+— an icon tile, a title stating plainly what's missing, a one-line explanation, and one or two concrete
+next-step buttons. Reused by `GlanceHeader` and `MoneyStatsCard` rather than duplicated per-widget.
+
 ## Retirement Corpus (2026-08-03)
 
 Fused into the same borderless hero unit as Net worth — see `docs/mockups/proposals/home-networth-projection-v4.html`
@@ -40,7 +96,19 @@ pattern entry.
   (`core/calculators/retirementProjection.ts`'s `calcInvestableCorpus()`). Small muted value tags on the
   curve's start/end points ("Corpus ₹38L · today" / "₹5.95Cr proj.") disambiguate it from the net-worth
   number sitting visually on the same unit, since fusing the two into one card makes them easy to
-  conflate.
+  conflate. Both tags stay in the same violet family as their own chart dot (today's dot/tag use the
+  lighter shade, projected's the bolder one) and are theme-aware — light theme gets darker violet
+  variants of both, dark theme keeps the original pale lavenders. The "today" tag used to fall back to a
+  plain gray (`theme.textTertiary`, unrelated to its own violet dot) and separately sat over a hardcoded
+  black corner-glow blob meant for dark theme's own dark background — both found and fixed 2026-08-05,
+  the second one being the real reason it still looked dull/unreadable in light theme even after its own
+  text color was first fixed.
+- **The whole fused hero shares one violet accent, not two different grays.** "Net worth"/"View
+  breakdown" (`GlanceHeader.tsx`) and the "Needed"/"Projected"/"Monthly SIP" labels (`RetirementFundedSummary.tsx`'s
+  `StatTile`) used to render in plain `theme.textTertiary`, inconsistent with the chart's own
+  "today"/"projected" tags right above them — fixed 2026-08-05 to use the same theme-aware violet pair
+  (light theme: `#6d28d9`; dark theme: `#a78bfa`), so the entire unit reads as one coherent accented
+  group instead of a violet chart sitting over unrelated gray text.
 - **Projected forward from today's live investable corpus** to a fixed retirement year
   (`calcRetirementProjection()` — annual compounding, contribution added at year-end), showing a
   dashed target marker + flag pill at the retirement year, a "% funded" gauge, and Needed/Projected/

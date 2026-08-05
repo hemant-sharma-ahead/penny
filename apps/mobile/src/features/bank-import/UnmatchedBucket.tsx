@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Pressable, Text } from 'react-native';
-import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import { formatCurrency, formatDate } from '@/lib/formatters';
 import { suggestForMerchant } from '@/core/bank-import/merchantMemory';
 import { Icon } from '~/components/Icon';
 import { Button } from '~/components/ui';
@@ -128,7 +128,7 @@ export function UnmatchedBucket({ bi, masked }: UnmatchedBucketProps) {
                               {row.rawNarration}
                             </Text>
                             <Text className="text-[10px] text-tertiary" numberOfLines={1}>
-                              {formatDateShort(row.date)}
+                              {formatDate(row.date)}
                               {!isChecked && <Text style={{ color: theme.warning }}> · unchecked</Text>}
                             </Text>
                           </View>
@@ -171,6 +171,10 @@ export function UnmatchedBucket({ bi, masked }: UnmatchedBucketProps) {
               hashtags={bi.hashtags}
               iouPersons={bi.iouPersons}
               suggestion={suggestion}
+              suggestCashTransferForRow={bi.suggestCashTransferFor}
+              suggestPossibleTransferForRow={bi.suggestPossibleTransferFor}
+              accounts={bi.accounts.filter((a) => a.id !== bi.account?.id)}
+              cashAccounts={bi.cashAccounts}
               onApply={(fields) => {
                 bi.resolveMerchantGroup(checkedRows, fields);
                 setCategorizing(null);

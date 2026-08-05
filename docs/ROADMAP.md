@@ -828,7 +828,19 @@ Most of Groups & Household OS is built (see Part 2 above). Still to do within Ph
 
 - **CAS PDF import** — Parse CDSL/CAMS consolidated account statement. Auto-import all MF and stock holdings.
 - **EPFO passbook PDF import** — Parse employment history + transactions from EPFO passbook PDF.
-- **Bank statement import** — Parse PDF bank statements (Indian banks vary — challenge: no standard format).
+- **Bank statement PDF import** — CSV and Excel (.xlsx/.xls) are both shipped (Bank Statement Import
+  feature, `docs/features/bank-import.md`); PDF is the one remaining format, deferred 2026-08-05.
+  Text-layer extraction only, no OCR/scanned-PDF (consistent with Penny's zero-server privacy model).
+  Real open risk flagged before deferring: `pdfjs-dist` (the only mature text-extraction library) is
+  known to be finicky under Metro/RN (worker scripts, DOMMatrix/canvas assumptions), and a PDF's text
+  layer has no real "columns" the way a CSV/Excel grid does — row/column reconstruction from
+  positioned text runs is a genuinely harder problem than the two formats already shipped. Recommended
+  approach: a small feasibility spike (confirm the library actually bundles + extracts text on-device)
+  before designing the row-reconstruction logic, not a design-first approach.
+- **Transaction type editable everywhere** — let an already-saved expense/income be converted to a
+  transfer (and vice versa) via the normal edit flow, not just during bank-import review (where this
+  already works, 2026-08-05 — `ExpenseForm`'s statementPreset mode). Deferred 2026-08-05 pending a
+  separate scoping discussion (app-wide edit-form behavior, not specific to bank import).
 - **SMS transaction parsing** — Auto-detect expenses from bank SMS alerts. Privacy concern: requires READ_SMS permission.
 - **"Import with Chip" conversational review** — Instead of (or as a toggle alongside) the tile-based review screen, let Chip ask about only the genuinely ambiguous items (an unresolved category, a suspected transfer pair) via quick-reply chips + free text, silently auto-applying high-confidence matches, with a "Show full review" escape hatch back to the tile view at any point. Explored as a concept sketch in `docs/mockups/proposals/import-wizard-redesign-v3.html`'s "out of the box" section. Open question flagged there: risk of hiding decisions from the user by auto-applying matches — needs a confidence-threshold and an always-visible audit trail (e.g. "12 rows auto-matched, tap to review") before this could ship, not just a chat UI.
 

@@ -355,6 +355,23 @@ export function SettingsPage() {
             </View>
           </Pressable>
 
+          {/* Exit Demo Mode — right below the profile, not styled as a destructive/danger action (it
+           *  isn't one — it's "leave demo mode", not "delete your data"). Same violet as the global
+           *  DemoModeBanner strip (MainTabs.tsx), which this screen intentionally doesn't show its own
+           *  copy of — see docs/mockups/proposals/demo-mode-banner-v1.html. */}
+          {(profile?.demoSeeded || isDemoSeeded()) && (
+            <Pressable onPress={() => setConfirmExit(true)} disabled={exiting} className="mb-3">
+              <LinearGradient
+                colors={['#7c3aed', '#9333ea']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{ borderRadius: 12, paddingVertical: 12, alignItems: 'center', opacity: exiting ? 0.4 : 1 }}
+              >
+                <Text className="text-sm font-bold text-white">Exit Demo Mode</Text>
+              </LinearGradient>
+            </Pressable>
+          )}
+
           {/* Status strip — display-only, deliberately not pressable (see StatusPill's doc comment) */}
           <View className="flex-row gap-2 mb-1">
             <StatusPill
@@ -554,18 +571,6 @@ export function SettingsPage() {
               }
             />
           </Card>
-          {(profile?.demoSeeded || isDemoSeeded()) && (
-            <Pressable
-              onPress={() => setConfirmExit(true)}
-              disabled={exiting}
-              className="mt-3 py-3 rounded-xl border items-center"
-              style={{ borderColor: theme.danger, opacity: exiting ? 0.4 : 1 }}
-            >
-              <Text className="text-sm font-bold" style={{ color: theme.danger }}>
-                Exit Demo Mode
-              </Text>
-            </Pressable>
-          )}
         </View>
       </ScrollView>
 

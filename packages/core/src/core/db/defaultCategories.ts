@@ -816,6 +816,16 @@ export const DEFAULT_INCOME_CATEGORIES: ExpenseCategory[] = [
     createdAt: 0
   },
   {
+    id: 'cat-inc-cash',
+    name: 'Cash Income',
+    icon: 'ti-cash',
+    color: '#84cc16',
+    isDefault: true,
+    intentGroup: 'income',
+    applicableTo: 'income',
+    createdAt: 0
+  },
+  {
     id: 'cat-inc-other',
     name: 'Other Income',
     icon: 'ti-dots',

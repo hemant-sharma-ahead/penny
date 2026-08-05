@@ -15,9 +15,12 @@ interface EmptyStateProps {
   title: string;
   description?: string;
   action?: EmptyStateAction;
+  /** A second, lower-emphasis text-only action below the primary button — e.g. an alternate path to
+   *  the same goal (`AccountList.tsx`'s "or import a bank statement" next to "Add first account"). */
+  secondaryAction?: EmptyStateAction;
 }
 
-export function EmptyState({ icon, title, description, action }: EmptyStateProps) {
+export function EmptyState({ icon, title, description, action, secondaryAction }: EmptyStateProps) {
   const theme = useThemeColors();
   return (
     <View className="items-center justify-center gap-3 py-10 px-6">
@@ -39,6 +42,14 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
         >
           {action.icon && <Icon name={action.icon} size={15} color="#fff" />}
           <Text className="text-sm font-semibold text-white">{action.label}</Text>
+        </Pressable>
+      )}
+      {secondaryAction && (
+        <Pressable onPress={secondaryAction.onPress} className="flex-row items-center gap-1.5 px-2 py-1">
+          {secondaryAction.icon && <Icon name={secondaryAction.icon} size={13} color={theme.primary} />}
+          <Text className="text-xs font-semibold" style={{ color: theme.primary }}>
+            {secondaryAction.label}
+          </Text>
         </Pressable>
       )}
     </View>

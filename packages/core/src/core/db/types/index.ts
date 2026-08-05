@@ -797,6 +797,29 @@ export interface BankNarrationOverride {
   updatedAt: number;
 }
 
+/** A narration code/keyword (ATW, NWD, SELF, ...) that identifies a bank statement line as a cash
+ *  withdrawal — matched case-insensitively as a whole-word token against the raw narration during
+ *  review, so it can be auto-classified as a Transfer to the user's cash account instead of a plain
+ *  expense (docs/plans/bank-statement-import.md's transfer-marking work, 2026-08-05). `bankId` is a
+ *  loose string rather than importing `BankPresetId` (matching this file's existing convention of not
+ *  depending on `core/bank-import/`'s types) — expected to be a real `BankPresetId` value, or the
+ *  literal `'any'` for a bank-agnostic code that applies regardless of which preset is active (NFS,
+ *  the National Financial Switch interbank ATM network marker, and SELF, the RBI-mandated self-
+ *  withdrawal narration convention, are both real across virtually every Indian bank — see
+ *  `BANK_CASH_WITHDRAWAL_CODE_SEEDS` in `packages/core/src/core/bank-import/cashWithdrawalCodes.ts`
+ *  for the researched defaults and their confidence notes). Seeded once (`isDefault: true`), fully
+ *  user-editable/extensible from Settings — codes vary by bank and this is deliberately not
+ *  presented as exhaustive or fully verified. */
+export interface BankCashWithdrawalCode {
+  id: string;
+  bankId: string;
+  code: string;
+  label: string;
+  isDefault: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
 /**
  * A creatable payment mode (`Expense.paymentMode` string values are drawn from this set). The 5
  * built-in ones (cash/upi/card/net/wallet, `core/expenses/paymentModes.ts`'s

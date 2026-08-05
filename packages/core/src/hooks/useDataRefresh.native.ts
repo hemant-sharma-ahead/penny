@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 const categoriesListeners = new Set<() => void>();
 const accountsListeners = new Set<() => void>();
 const tagsListeners = new Set<() => void>();
+const goalsListeners = new Set<() => void>();
 
 export function notifyCategoriesChanged(): void {
   for (const listener of categoriesListeners) listener();
@@ -22,6 +23,10 @@ export function notifyAccountsChanged(): void {
 
 export function notifyTagsChanged(): void {
   for (const listener of tagsListeners) listener();
+}
+
+export function notifyGoalsChanged(): void {
+  for (const listener of goalsListeners) listener();
 }
 
 /** Pass a STABLE callback (useCallback). */
@@ -50,6 +55,16 @@ export function useTagsRefresh(reload: () => void): void {
     tagsListeners.add(reload);
     return () => {
       tagsListeners.delete(reload);
+    };
+  }, [reload]);
+}
+
+/** Pass a STABLE callback (useCallback). */
+export function useGoalsRefresh(reload: () => void): void {
+  useEffect(() => {
+    goalsListeners.add(reload);
+    return () => {
+      goalsListeners.delete(reload);
     };
   }, [reload]);
 }

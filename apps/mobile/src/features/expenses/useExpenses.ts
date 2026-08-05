@@ -230,6 +230,22 @@ export function useExpenses() {
     })().catch(() => {});
   }, [categoriesLoading, categories, reloadCategories]);
 
+  // Additive default-category seeding (v9): inserts Cash Income (Income) — added 2026-08-05. Same
+  // non-clobbering, once-per-version pattern as v3/v6/v7/v8.
+  const catSeedV9Ref = useRef(false);
+  useEffect(() => {
+    if (categoriesLoading || catSeedV9Ref.current) return;
+    catSeedV9Ref.current = true;
+    (async () => {
+      if (await getItem('penny_cats_v9')) return;
+      const existingIds = new Set(categories.map((c) => c.id));
+      const missing = ALL_DEFAULT_CATEGORIES.filter((c) => !existingIds.has(c.id));
+      await Promise.all(missing.map((c) => expenseCategoriesRepo.put({ ...c, createdAt: Date.now() })));
+      await setItem('penny_cats_v9', '1');
+      if (missing.length > 0) reloadCategories();
+    })().catch(() => {});
+  }, [categoriesLoading, categories, reloadCategories]);
+
   // One-time cleanup: databases seeded before the demo seed reused the real defaults carry duplicate
   // `demo-cat-*` categories. Remap their references to the canonical default and delete them, so the
   // picker stops showing each staple twice. Runs once, only when a legacy demo category is present.
@@ -379,10 +395,11 @@ export function useExpenses() {
       await Promise.all(expenseIds.map((id) => expensesRepo.delete(id)));
       for (const le of linkedEntries) await ledgerEntriesRepo.delete(le.id);
       reloadExpenses();
-      if (linkedEntries.length > 0) {
-        reloadLedger();
-        notifyTxnChanged();
-      }
+      if (linkedEntries.length > 0) reloadLedger();
+      // Unconditional — any transaction delete can change account balances/net worth, not just
+      // IOU-linked ones (found 2026-08-04: Home's net-worth figure went stale after deleting ordinary,
+      // non-IOU-linked transactions, since this used to only fire inside the linked-entries branch).
+      notifyTxnChanged();
       const first = removed[0];
       if (!first) return;
       const label = `${removed.length} transaction${removed.length === 1 ? '' : 's'}`;
@@ -403,10 +420,8 @@ export function useExpenses() {
         onAction: async () => {
           await restoreActivity(logId);
           reloadExpenses();
-          if (linkedEntries.length > 0) {
-            reloadLedger();
-            notifyTxnChanged();
-          }
+          if (linkedEntries.length > 0) reloadLedger();
+          notifyTxnChanged();
         }
       });
     },
@@ -421,10 +436,10 @@ export function useExpenses() {
       // Cascade-delete any IOU ledger entries linked to this transaction.
       const linkedEntries = (await ledgerEntriesRepo.getAll()).filter((le) => le.linkedTxnId === id);
       for (const le of linkedEntries) await ledgerEntriesRepo.delete(le.id);
-      if (linkedEntries.length > 0) {
-        reloadLedger();
-        notifyTxnChanged();
-      }
+      if (linkedEntries.length > 0) reloadLedger();
+      // Unconditional — see removeExpenses' own note above; this used to only fire for IOU-linked
+      // deletes, leaving Home's net-worth figure stale after an ordinary transaction delete.
+      notifyTxnChanged();
       if (!exp) return;
       const logId = logActivity({
         action: 'DELETE',
@@ -442,10 +457,8 @@ export function useExpenses() {
         onAction: async () => {
           await restoreActivity(logId);
           reloadExpenses();
-          if (linkedEntries.length > 0) {
-            reloadLedger();
-            notifyTxnChanged();
-          }
+          if (linkedEntries.length > 0) reloadLedger();
+          notifyTxnChanged();
         }
       });
     },

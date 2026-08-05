@@ -4,7 +4,7 @@ All stores use Dexie.js (IndexedDB). All primary keys are UUIDs (not auto-increm
 
 Encrypted stores use `EncryptedRepository<T>`, which wraps Dexie and transparently encrypts fields on write and decrypts on read via the in-memory Master Key. Plain stores are written directly to IndexedDB with no encryption.
 
-**Store counts:** 35 active stores total — 33 encrypted + 2 plain.
+**Store counts:** 36 active stores total — 34 encrypted + 2 plain.
 
 **Schema versions:**
 
@@ -22,6 +22,8 @@ Encrypted stores use `EncryptedRepository<T>`, which wraps Dexie and transparent
 - v12: Added `retirement_plan` (singleton, shared by Home's Retirement Corpus card and the FIRE
   Calculator) and `net_worth_snapshots` (one row per calendar month, for the Retirement Corpus chart's
   historical segment) — 35 total
+- v13: Added `bank_cash_withdrawal_codes` (narration codes like ATW/NWD/SELF that auto-classify a
+  bank statement line as a cash-withdrawal transfer) — 36 total
 
 ---
 
@@ -651,6 +653,28 @@ normalization-override screen.
 | normalizedKey | string        | Uppercased, trimmed — what matching lines should normalize to   |
 | createdAt     | number        | Epoch ms                                                        |
 | updatedAt     | number        | Epoch ms                                                        |
+
+### `bank_cash_withdrawal_codes`
+
+Narration codes/keywords (ATW, NWD, SELF, ...) that identify a bank statement line as a cash
+withdrawal, so it can be auto-classified as a Transfer to the user's cash account instead of a plain
+expense (2026-08-05). Seeded once from `core/bank-import/cashWithdrawalCodes.ts`'s
+`BANK_CASH_WITHDRAWAL_CODE_SEEDS` (`~/hooks/useBankCashWithdrawalCodes.ts`, mirroring
+`usePaymentModes.ts`'s exact seeding pattern) — a researched starting point, not a guarantee (see
+that file's doc comment for per-entry confidence notes), so every row including the defaults is
+user-editable/deletable. `id` is a stable, deterministic slug for the seeded defaults (e.g.
+`cwc-hdfc-atw`), a random UUID for user-added ones. Global across all accounts; managed from the
+Accounts page's cash-withdrawal-codes screen (`features/bank-import/BankCashWithdrawalCodesPage.tsx`).
+
+| Field     | Type          | Notes                                                                  |
+| --------- | ------------- | ----------------------------------------------------------------------- |
+| id        | string        | Stable slug for defaults, UUID for custom entries                     |
+| bankId    | string        | A `BankPresetId` value, or the literal `'any'` for a bank-agnostic code |
+| code      | string        | As typed; matched case-insensitively, whole-word, against the narration |
+| label     | string        | Short human description of what the code means                       |
+| isDefault | boolean       | Seeded vs user-added — informational only, doesn't block deletion     |
+| createdAt | number        | Epoch ms                                                               |
+| updatedAt | number        | Epoch ms                                                               |
 
 ### `payment_modes`
 

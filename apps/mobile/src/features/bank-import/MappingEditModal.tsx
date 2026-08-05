@@ -1,5 +1,6 @@
-import { View } from 'react-native';
-import { Button, Modal, SectionLabel, SegmentedControl, SelectInput } from '~/components/ui';
+import { View, Text } from 'react-native';
+import { Button, Modal, SectionLabel, SegmentedControl, SelectInput, TextInput } from '~/components/ui';
+import { useThemeColors } from '~/theme/useThemeColors';
 import type { UseBankImportReturn } from './useBankImport';
 
 interface MappingEditModalProps {
@@ -29,6 +30,7 @@ const DELIMITER_OPTIONS = [
  * there's nothing further to persist.
  */
 export function MappingEditModal({ bi, onClose }: MappingEditModalProps) {
+  const theme = useThemeColors();
   const options = headerOptions(bi.headers);
 
   return (
@@ -42,7 +44,9 @@ export function MappingEditModal({ bi, onClose }: MappingEditModalProps) {
         </Button>
       }
     >
-      {bi.isCustomPreset && (
+      {/* No delimiter concept for an Excel file — it's already parsed into real cells, not raw text
+          that needs splitting (2026-08-05, issue #4). */}
+      {bi.isCustomPreset && !bi.isXlsxSource && (
         <View className="gap-2">
           <SectionLabel>Delimiter</SectionLabel>
           <SegmentedControl options={DELIMITER_OPTIONS} value={bi.delimiter} onChange={bi.setDelimiter} />
@@ -57,6 +61,29 @@ export function MappingEditModal({ bi, onClose }: MappingEditModalProps) {
           onChange={(v) => bi.setMappingField('date', v)}
           options={options}
         />
+        {/* Date format (2026-08-05, reworked same day from a 2-option day-first/month-first toggle
+            after direct user feedback — real statements vary far more than that, e.g. `DD-MM-YY` or a
+            no-separator `DDMMMYYYY`). A free-text token field, not a fixed set of choices — pre-filled
+            with the smart-detected/preset value; confident whenever a known bank preset is active or
+            the file's own date values contain unambiguous evidence for exactly one candidate shape,
+            otherwise flagged so the user actually looks at it instead of trusting a silent guess. */}
+        <View className="gap-1.5">
+          <TextInput
+            label="Date format"
+            value={bi.dateFormat}
+            onChange={bi.setDateFormat}
+            placeholder="e.g. DD/MM/YYYY"
+          />
+          <Text className="text-[11px] text-tertiary">
+            Use DD, MM, YYYY, YY, or MMM (a 3-letter month name) — e.g. DD/MM/YYYY, DD-MM-YY, DD MMM YYYY, or a
+            no-separator DDMMMYYYY for a date like "22Feb2026".
+          </Text>
+          <Text className="text-[11px]" style={{ color: bi.dateFormatConfident ? theme.textTertiary : theme.warning }}>
+            {bi.dateFormatConfident
+              ? 'Detected from the file — change it if this looks wrong.'
+              : "Couldn't tell for sure from this file — please confirm the date format."}
+          </Text>
+        </View>
         <SelectInput
           label="Narration"
           required

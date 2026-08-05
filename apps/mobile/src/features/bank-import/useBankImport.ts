@@ -23,14 +23,29 @@ import {
   getBankPreset,
   resolveMappingAgainstHeaders
 } from '@/core/bank-import/presets';
-import { tokenizeCsv, extractHeaderRow, parseStatementRows } from '@/core/bank-import/csvParser';
+import {
+  tokenizeCsv,
+  extractHeaderRow,
+  parseStatementRows,
+  detectDateFormat,
+  DEFAULT_DATE_FORMAT
+} from '@/core/bank-import/csvParser';
+import { parseXlsxToGrid, XlsxParseError } from '@/core/bank-import/xlsxParser';
 import type { BankPresetId, ColumnMapping, ParsedStatementRow, StatementParseResult } from '@/core/bank-import/types';
 import { normalizeNarration } from '@/core/bank-import/normalization';
-import { matchStatementRows, deriveLoneWolves, type MatchResult } from '@/core/bank-import/matcher';
+import {
+  matchStatementRows,
+  deriveLoneWolves,
+  suggestPossibleTransfer,
+  type MatchResult,
+  type PossibleTransferSuggestion
+} from '@/core/bank-import/matcher';
 import { groupUnmatchedByMerchant } from '@/core/bank-import/grouping';
 import { checkBalanceAgainstStatement } from '@/core/bank-import/balanceCheck';
 import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
+import { suggestCashTransfer, type CashTransferSuggestion } from '@/core/bank-import/cashWithdrawalCodes';
 import { usePaymentModes } from '~/hooks/usePaymentModes';
+import { useBankCashWithdrawalCodes } from '~/hooks/useBankCashWithdrawalCodes';
 import type { BankImportStep, MatchedItem, PossibleItem, StagedNewTxn } from './types';
 
 /** Pure helper (no hook state) — the parsed row with the latest date that actually carried a
@@ -71,9 +86,13 @@ export function useBankImport(accountId: string) {
   const { items: overrides } = useRepository(bankNarrationOverridesRepo);
   const { modes: allPaymentModes } = usePaymentModes();
   const { items: iouPersons } = useRepository(personsRepo);
+  // Seeded here (not just in the settings screen) so the researched defaults exist the first time
+  // *any* import happens, even if the user never visits Settings → Cash-withdrawal codes first.
+  const { codes: cashWithdrawalCodes } = useBankCashWithdrawalCodes();
 
   const account = useMemo(() => accounts.find((a) => a.id === accountId), [accounts, accountId]);
   const expensesById = useMemo(() => new Map(allExpenses.map((e) => [e.id, e])), [allExpenses]);
+  const cashAccounts = useMemo(() => accounts.filter((a) => a.type === 'cash'), [accounts]);
 
   // ── Step 'bank' ───────────────────────────────────────────────────────────────────────────────
   const [presetId, setPresetId] = useState<BankPresetId | null>(null);
@@ -82,37 +101,98 @@ export function useBankImport(accountId: string) {
     return presetId === CUSTOM_PRESET_ID ? EMPTY_CUSTOM_MAPPING : (getBankPreset(presetId) ?? EMPTY_CUSTOM_MAPPING);
   }, [presetId]);
 
-  // Bank, upload, and column-mapping review all live on the single 'setup' screen (merged
-  // 2026-08-03, per explicit user feedback — no step change on selecting a preset).
-  const selectPreset = useCallback((id: BankPresetId) => {
-    setPresetId(id);
-  }, []);
+  /** Auto cash-withdrawal detection (2026-08-05) — narration codes like ATW/NWD/SELF suggest a
+   *  statement row is actually a transfer to the user's cash account, not a plain expense. Bank
+   *  context comes from `presetId` (falls back to `'any'` before a bank is even chosen, so only the
+   *  bank-agnostic codes apply yet). Both review buckets (`PossibleBucket`/`UnmatchedBucket`) call
+   *  this instead of duplicating the lookup. */
+  const suggestCashTransferFor = useCallback(
+    (rawNarration: string): CashTransferSuggestion | null =>
+      suggestCashTransfer(rawNarration, presetId ?? 'any', cashWithdrawalCodes, cashAccounts),
+    [presetId, cashWithdrawalCodes, cashAccounts]
+  );
+
+  /** Cross-account "possible internal transfer" suggestion (2026-08-05) — a softer, amount/date-only
+   *  signal than `suggestCashTransferFor` above (no narration code involved): flags a statement row
+   *  that might be the other leg of a transfer already recorded, unlinked, on a different account. See
+   *  `suggestPossibleTransfer`'s own doc comment for why this only ever returns a single confident
+   *  candidate or nothing — never a guess among ties. */
+  const suggestPossibleTransferFor = useCallback(
+    (row: ParsedStatementRow): PossibleTransferSuggestion | null =>
+      suggestPossibleTransfer(row, accountId, allExpenses, accounts, RECONCILIATION_DESCRIPTION),
+    [accountId, allExpenses, accounts]
+  );
 
   // ── Step 'upload' ─────────────────────────────────────────────────────────────────────────────
   const [fileName, setFileName] = useState('');
   const [rawText, setRawText] = useState('');
   const [delimiter, setDelimiter] = useState(',');
   const [parseError, setParseError] = useState('');
+  // Excel support (2026-08-05, issue #4) — `null` while the current file is CSV (or nothing's been
+  // uploaded yet), an already-parsed grid once an .xlsx file has been read. `tokenizedRows` below
+  // picks whichever source actually produced the current file, so every downstream consumer
+  // (`headers`, `mappingPreview`, `confirmMapping`, `detectedDateFormat`) stays format-agnostic — an
+  // Excel file behaves exactly like a CSV from that point on. There is no delimiter concept for a
+  // workbook already parsed into cells (`isXlsxSource` lets `MappingEditModal` hide that picker).
+  const [xlsxRows, setXlsxRows] = useState<string[][] | null>(null);
+  const isXlsxSource = xlsxRows !== null;
 
   // Draft column mapping — every field a plain string, '' meaning "not mapped yet" (unlike core's
   // `ColumnMapping`, whose `date`/`narration` are required non-empty strings — this looser shape is
   // what the still-being-edited confirmation screen needs before a final mapping is confirmed).
   const [mapping, setMapping] = useState({ date: '', narration: '', debit: '', credit: '', balance: '' });
 
-  const tokenizedRows = useMemo(() => (rawText ? tokenizeCsv(rawText, delimiter) : []), [rawText, delimiter]);
+  // Date format (2026-08-05, reworked same day from a narrower day-first/month-first toggle after
+  // direct user feedback — see `csvParser.ts`'s `parseStatementDate` doc comment) — `null` means
+  // "follow the smart-detected/preset value," set once the user explicitly edits the format field in
+  // `MappingEditModal`. Reset on a new preset/file so a manual override from a previous unrelated
+  // upload never silently carries over.
+  const [dateFormatOverride, setDateFormatOverride] = useState<string | null>(null);
+
+  // Bank, upload, and column-mapping review all live on the single 'setup' screen (merged
+  // 2026-08-03, per explicit user feedback — no step change on selecting a preset). Declared after
+  // `dateFormatOverride`'s own `useState` (not up near `presetId`/`preset` above) — it closes over
+  // `setDateFormatOverride`, which didn't exist yet at that point in the file.
+  const selectPreset = useCallback((id: BankPresetId) => {
+    setPresetId(id);
+    setDateFormatOverride(null);
+  }, []);
+
+  const tokenizedRows = useMemo(
+    () => xlsxRows ?? (rawText ? tokenizeCsv(rawText, delimiter) : []),
+    [xlsxRows, rawText, delimiter]
+  );
   const headers = useMemo(() => extractHeaderRow(tokenizedRows), [tokenizedRows]);
 
-  const importFromText = useCallback(
-    (text: string, name: string) => {
+  /** Confident whenever a known bank preset is active (every one declares its own `dateFormat`) —
+   *  otherwise guessed from the actual chosen date column's real values via `detectDateFormat()`,
+   *  which is only confident if the file itself contains unambiguous evidence for exactly one
+   *  candidate shape. */
+  const detectedDateFormat = useMemo((): { format: string; confident: boolean } => {
+    if (preset && presetId !== CUSTOM_PRESET_ID) return { format: preset.dateFormat, confident: true };
+    if (!mapping.date) return { format: DEFAULT_DATE_FORMAT, confident: false };
+    const dateColIdx = headers.indexOf(mapping.date);
+    if (dateColIdx < 0) return { format: DEFAULT_DATE_FORMAT, confident: false };
+    const rawDates = tokenizedRows.slice(1).map((r) => r[dateColIdx]);
+    return detectDateFormat(rawDates);
+  }, [preset, presetId, mapping.date, headers, tokenizedRows]);
+
+  const dateFormat = dateFormatOverride ?? detectedDateFormat.format;
+  const dateFormatConfident = dateFormatOverride !== null || detectedDateFormat.confident;
+  const setDateFormat = useCallback((format: string) => setDateFormatOverride(format), []);
+
+  /** Shared by both file formats once a tokenized `string[][]` grid exists (from `tokenizeCsv()` or
+   *  `parseXlsxToGrid()`) — resolves the header row against the active preset's own column names, or
+   *  leaves every field unmapped for Custom. Stays on 'setup' — the mapping review renders inline on
+   *  the same screen once headers exist. */
+  const applyTokenizedRows = useCallback(
+    (tokenized: string[][], name: string, emptyMessage: string) => {
       setParseError('');
       setFileName(name);
-      setRawText(text);
-      const delim = preset?.delimiter ?? ',';
-      setDelimiter(delim);
-      const tokenized = tokenizeCsv(text, delim);
+      setDateFormatOverride(null);
       const hdrs = extractHeaderRow(tokenized);
       if (hdrs.length === 0) {
-        setParseError('Could not read this file. Make sure it is a valid CSV with a header row.');
+        setParseError(emptyMessage);
         return;
       }
       if (preset && presetId !== CUSTOM_PRESET_ID) {
@@ -129,9 +209,42 @@ export function useBankImport(accountId: string) {
         // starts unmapped and the user maps all of them by hand.
         setMapping({ date: '', narration: '', debit: '', credit: '', balance: '' });
       }
-      // Stays on 'setup' — the mapping review now renders inline on the same screen once headers exist.
     },
     [preset, presetId]
+  );
+
+  const importFromText = useCallback(
+    (text: string, name: string) => {
+      setXlsxRows(null);
+      setRawText(text);
+      const delim = preset?.delimiter ?? ',';
+      setDelimiter(delim);
+      const tokenized = tokenizeCsv(text, delim);
+      applyTokenizedRows(tokenized, name, 'Could not read this file. Make sure it is a valid CSV with a header row.');
+    },
+    [preset, applyTokenizedRows]
+  );
+
+  /** Excel support (2026-08-05, issue #4) — `bytes` are the raw file contents (never a path/base64
+   *  string, keeping this hook's own I/O-free shape); parsing itself is `parseXlsxToGrid()`'s job
+   *  (`core/bank-import/xlsxParser.ts`). A parse failure (corrupted/unrecognized file) surfaces the
+   *  same `parseError` banner the CSV path uses, rather than a separate error UI. */
+  const importFromXlsx = useCallback(
+    (bytes: Uint8Array, name: string) => {
+      setRawText('');
+      let tokenized: string[][];
+      try {
+        tokenized = parseXlsxToGrid(bytes);
+      } catch (err) {
+        setFileName(name);
+        setXlsxRows([]);
+        setParseError(err instanceof XlsxParseError ? err.message : 'Could not read this Excel file.');
+        return;
+      }
+      setXlsxRows(tokenized);
+      applyTokenizedRows(tokenized, name, 'Could not read this Excel file. Make sure it has a header row.');
+    },
+    [applyTokenizedRows]
   );
 
   // ── Step 'mapping' ────────────────────────────────────────────────────────────────────────────
@@ -150,10 +263,11 @@ export function useBankImport(accountId: string) {
       narration: mapping.narration,
       ...(mapping.debit && { debit: mapping.debit }),
       ...(mapping.credit && { credit: mapping.credit }),
-      ...(mapping.balance && { balance: mapping.balance })
+      ...(mapping.balance && { balance: mapping.balance }),
+      dateFormat
     };
     return parseStatementRows(tokenizedRows, headers, cm);
-  }, [mappingReady, mapping, tokenizedRows, headers]);
+  }, [mappingReady, mapping, tokenizedRows, headers, dateFormat]);
 
   const [confirmedMapping, setConfirmedMapping] = useState<ColumnMapping | null>(null);
   const [parseResult, setParseResult] = useState<StatementParseResult | null>(null);
@@ -173,7 +287,8 @@ export function useBankImport(accountId: string) {
       narration: mapping.narration,
       ...(mapping.debit && { debit: mapping.debit }),
       ...(mapping.credit && { credit: mapping.credit }),
-      ...(mapping.balance && { balance: mapping.balance })
+      ...(mapping.balance && { balance: mapping.balance }),
+      dateFormat
     };
     setConfirmedMapping(cm);
     const result = parseStatementRows(tokenizedRows, headers, cm);
@@ -186,7 +301,7 @@ export function useBankImport(accountId: string) {
     setStagedNewTxns([]);
     setLoneWolfDeletions(new Set());
     setStep('review');
-  }, [mappingReady, mapping, tokenizedRows, headers, accountId, allExpenses]);
+  }, [mappingReady, mapping, tokenizedRows, headers, accountId, allExpenses, dateFormat]);
 
   const merchantGroups = useMemo(() => groupUnmatchedByMerchant(unmatchedRows, overrides), [unmatchedRows, overrides]);
 
@@ -289,35 +404,79 @@ export function useBankImport(accountId: string) {
         newTagSetAside?: Record<string, boolean>;
         /** Bulk-shared "Lent to" / "Borrowed from" name from the IOU panel, if filled in. */
         iouPersonName?: string;
+        /** Set instead of description/categoryId/tags/iouPersonName when `BulkCategorizeModal`'s
+         *  "Mark as transfer" toggle is on (2026-08-05, generalized from the original cash-only
+         *  version) — every row in the group becomes a Transfer with this account rather than a
+         *  categorized expense/income. The picked account can be any of the user's own accounts now,
+         *  not just a cash one. */
+        asTransferToAccountId?: string;
       }
     ) => {
       const now = Date.now();
       const iouPersonName = fields.iouPersonName?.trim();
-      const newTxns: StagedNewTxn[] = rows.map((row) => ({
-        statementRow: row,
-        expense: {
-          id: crypto.randomUUID(),
-          amount: row.amount,
-          categoryId: fields.categoryId,
-          description: fields.description,
-          date: row.date,
-          hashtags: fields.tags,
-          isRecurring: false,
-          paymentMode: inferPaymentMode(row.rawNarration).id,
-          type: row.direction === 'debit' ? 'expense' : 'income',
-          accountId,
-          source: 'bank_sync',
-          createdAt: now,
-          updatedAt: now
-        },
-        ...(fields.newTagSetAside ? { newTagSetAside: fields.newTagSetAside } : {}),
-        ...(iouPersonName ? { iouPersonName } : {})
-      }));
+      // Computed once per group (same target account for every row) rather than per row — description
+      // reflects the destination account, not each row's own narration, same as the single-row
+      // statementPreset transfer flow keeps its own description field open/editable.
+      const transferAccount = fields.asTransferToAccountId
+        ? accounts.find((a) => a.id === fields.asTransferToAccountId)
+        : undefined;
+      const transferDescription = transferAccount
+        ? transferAccount.type === 'cash'
+          ? 'Cash withdrawal'
+          : `Transfer · ${transferAccount.name}`
+        : 'Transfer';
+      const newTxns: StagedNewTxn[] = rows.map((row) =>
+        fields.asTransferToAccountId
+          ? {
+              statementRow: row,
+              expense: {
+                id: crypto.randomUUID(),
+                amount: row.amount,
+                categoryId: 'cat-tr-bank',
+                description: transferDescription,
+                date: row.date,
+                hashtags: [],
+                isRecurring: false,
+                paymentMode: inferPaymentMode(row.rawNarration).id,
+                type: 'transfer',
+                // Direction swap, mirroring `ExpenseForm`'s own credit-row fix (2026-08-05): a debit row
+                // means money left this account (source), a credit row means it arrived here
+                // (destination) — `asTransferToAccountId` is always "the other account" regardless of
+                // direction, so which schema field it fills in depends on the row's own direction.
+                ...(row.direction === 'debit'
+                  ? { accountId, toAccountId: fields.asTransferToAccountId }
+                  : { accountId: fields.asTransferToAccountId, toAccountId: accountId }),
+                source: 'bank_sync',
+                createdAt: now,
+                updatedAt: now
+              }
+            }
+          : {
+              statementRow: row,
+              expense: {
+                id: crypto.randomUUID(),
+                amount: row.amount,
+                categoryId: fields.categoryId,
+                description: fields.description,
+                date: row.date,
+                hashtags: fields.tags,
+                isRecurring: false,
+                paymentMode: inferPaymentMode(row.rawNarration).id,
+                type: row.direction === 'debit' ? 'expense' : 'income',
+                accountId,
+                source: 'bank_sync',
+                createdAt: now,
+                updatedAt: now
+              },
+              ...(fields.newTagSetAside ? { newTagSetAside: fields.newTagSetAside } : {}),
+              ...(iouPersonName ? { iouPersonName } : {})
+            }
+      );
       setStagedNewTxns((prev) => [...prev, ...newTxns]);
       const resolvedIndices = new Set(rows.map((r) => r.rowIndex));
       setUnmatchedRows((prev) => prev.filter((r) => !resolvedIndices.has(r.rowIndex)));
     },
-    [accountId]
+    [accountId, accounts]
   );
 
   /** Stages a fully-formed `Expense` built by the real `ExpenseForm` (statementPreset mode) — used by
@@ -560,6 +719,9 @@ export function useBankImport(accountId: string) {
     setStep,
     account,
     accounts,
+    cashAccounts,
+    suggestCashTransferFor,
+    suggestPossibleTransferFor,
     categories,
     hashtags,
     allPaymentModes,
@@ -577,6 +739,8 @@ export function useBankImport(accountId: string) {
     fileName,
     parseError,
     importFromText,
+    importFromXlsx,
+    isXlsxSource,
 
     // mapping
     mapping,
@@ -588,6 +752,9 @@ export function useBankImport(accountId: string) {
     setDelimiter,
     isCustomPreset: presetId === CUSTOM_PRESET_ID,
     confirmMapping,
+    dateFormat,
+    dateFormatConfident,
+    setDateFormat,
 
     // review
     parseResult,

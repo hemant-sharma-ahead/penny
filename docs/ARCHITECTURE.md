@@ -852,6 +852,18 @@ initially vanished from the review entirely instead of resurfacing as a lone wol
 extracting `matcher.ts`'s lone-wolf filter into an exported `deriveLoneWolves()` the hook now calls
 reactively off live staged state, not the one-shot pass's frozen result.
 
+**Bank Statement Import, 2026-08-05 additions:** `core/bank-import/matcher.ts` gained
+`suggestPossibleTransfer()` — a softer, amount/date-only cross-account heuristic (never touches
+narration) for flagging a statement row that might be the unlinked other leg of a transfer already
+recorded on a different account; only ever a dismissible suggestion, never an auto-classification
+(see the function's own doc comment for why). `core/bank-import/xlsxParser.ts` is a new file — Excel
+(.xlsx/.xls) import support, built on the `xlsx`/SheetJS library (already a `packages/core`
+dependency, previously unused), converting a workbook's first sheet into the same `string[][]` grid
+shape `csvParser.ts`'s `tokenizeCsv()` produces so the entire downstream review pipeline stays
+format-agnostic. Full detail on both, plus the same-day `ExpenseForm` credit-row transfer-direction
+fix and `BulkCategorizeModal`'s cash-only→any-account generalization, in
+[`docs/features/bank-import.md`](features/bank-import.md).
+
 **Payment mode made a real creatable entity (2026-08-02):** previously `Expense.paymentMode` drew
 from a hardcoded 5-value list (`components/shared/paymentModes.ts`) with no way to add to it. Bank
 Statement Import needed this — bank narrations carry rail keywords (NEFT/IMPS/RTGS/Cheque) that

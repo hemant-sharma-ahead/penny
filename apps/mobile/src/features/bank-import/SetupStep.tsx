@@ -5,7 +5,7 @@ import { File } from 'expo-file-system';
 import { Button, Card, SectionLabel, SelectInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
-import { formatDateShort } from '@/lib/date';
+import { formatDate } from '@/lib/date';
 import { CUSTOM_PRESET_ID } from '@/core/bank-import/presets';
 import type { BankPresetId } from '@/core/bank-import/types';
 import type { UseBankImportReturn } from './useBankImport';
@@ -42,13 +42,37 @@ export function SetupStep({ bi }: SetupStepProps) {
     ? 'your custom format'
     : (bi.banks.find((b) => b.id === bi.presetId)?.label ?? 'your bank');
 
+  /** Excel support (2026-08-05, issue #4) — extension-based, not mimeType-based: some Android
+   *  content-provider URIs report a generic `application/octet-stream` regardless of real file type,
+   *  while the picked file's own name is always reliable. Anything not recognized as Excel falls back
+   *  to the original CSV/plain-text path unchanged. */
+  function isExcelFile(name: string): boolean {
+    return /\.xlsx?$/i.test(name);
+  }
+
   async function pickFile() {
     const result = await DocumentPicker.getDocumentAsync({
-      type: Platform.OS === 'web' ? '*/*' : ['text/csv', '*/*'],
+      type:
+        Platform.OS === 'web'
+          ? '*/*'
+          : [
+              'text/csv',
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              'application/vnd.ms-excel',
+              '*/*'
+            ],
       copyToCacheDirectory: true
     });
     if (result.canceled || !result.assets?.[0]) return;
     const asset = result.assets[0];
+    if (isExcelFile(asset.name)) {
+      const bytes =
+        Platform.OS === 'web' && asset.file
+          ? new Uint8Array(await asset.file.arrayBuffer())
+          : await new File(asset.uri).bytes();
+      bi.importFromXlsx(bytes, asset.name);
+      return;
+    }
     const text = Platform.OS === 'web' && asset.file ? await asset.file.text() : await new File(asset.uri).text();
     bi.importFromText(text, asset.name);
   }
@@ -73,14 +97,16 @@ export function SetupStep({ bi }: SetupStepProps) {
         <View className="gap-2">
           <SectionLabel className="mb-0">Statement file</SectionLabel>
           <Text className="text-xs text-tertiary -mt-1">
-            Upload a CSV statement export from {bankLabel}. Delimiter and every column stay editable below.
+            Upload a CSV or Excel statement export from {bankLabel}. Delimiter and every column stay editable below.
           </Text>
           <Pressable
             onPress={() => void pickFile()}
             className="bg-surface rounded-xl p-8 items-center gap-3 border-2 border-dashed border-theme"
           >
             <Icon name="ti-file-upload" size={30} color={theme.textTertiary} />
-            <Text className="text-sm text-secondary text-center">{bi.fileName || 'Tap to choose a CSV file'}</Text>
+            <Text className="text-sm text-secondary text-center">
+              {bi.fileName || 'Tap to choose a CSV or Excel file'}
+            </Text>
           </Pressable>
           {bi.parseError ? (
             <Text className="text-xs" style={{ color: theme.danger }}>
@@ -111,7 +137,11 @@ export function SetupStep({ bi }: SetupStepProps) {
                 key={key}
                 className={`flex-row items-center justify-between py-2 ${i > 0 ? 'border-t border-theme' : ''}`}
               >
-                <Text className="text-xs text-secondary">{label}</Text>
+                <Text className="text-xs text-secondary">
+                  {/* Shows the actually-in-effect date format right on the summary row (2026-08-05) —
+                      previously only visible after tapping into "Edit mapping". */}
+                  {key === 'date' ? `${label} (${bi.dateFormat})` : label}
+                </Text>
                 <Text className="text-xs font-medium text-primary">{bi.mapping[key] || '— Not mapped —'}</Text>
               </View>
             ))}
@@ -119,7 +149,7 @@ export function SetupStep({ bi }: SetupStepProps) {
           {bi.mappingPreview && (
             <Text className="text-xs text-tertiary">
               {bi.mappingPreview.rows.length} row{bi.mappingPreview.rows.length === 1 ? '' : 's'} detected
-              {minDate !== null && maxDate !== null ? ` · ${formatDateShort(minDate)}–${formatDateShort(maxDate)}` : ''}
+              {minDate !== null && maxDate !== null ? ` · ${formatDate(minDate)}–${formatDate(maxDate)}` : ''}
               {bi.mappingPreview.rejected.length > 0
                 ? ` · ${bi.mappingPreview.rejected.length} row${bi.mappingPreview.rejected.length === 1 ? '' : 's'} couldn't be read`
                 : ''}

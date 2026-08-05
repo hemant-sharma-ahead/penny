@@ -49,6 +49,15 @@ describe('normalizeNarration', () => {
     expect(normalizeNarration('UPI/610322/SENT TO AMIT SHARMA')).toBe('SENT AMIT SHARMA');
     expect(normalizeNarration('UPI/601504/RECEIVED FROM AMIT SHARMA')).toBe('RECEIVED AMIT SHARMA');
   });
+
+  // Added 2026-08-05, same user-sourced universal-codes research as cashWithdrawalCodes.ts's table.
+  it('drops the 2026-08-05 batch of connector keywords (INFT/TPT/ONL/ECOM/EMI/RET/CHG/TAX/AMB/AQB/VPS/IPS)', () => {
+    expect(normalizeNarration('INFT-SELF TRANSFER-998877')).toBe('SELF TRANSFER');
+    expect(normalizeNarration('EMI-HDFC HOME LOAN-334455')).toBe('HDFC HOME LOAN');
+    expect(normalizeNarration('ECOM ONL-AMAZON PAY-112233')).toBe('AMAZON PAY');
+    expect(normalizeNarration('CHQ RET-INSUFFICIENT FUNDS-556677')).toBe('INSUFFICIENT FUNDS');
+    expect(normalizeNarration('AMB CHG-NON MAINTENANCE FEE')).toBe('NON MAINTENANCE FEE');
+  });
 });
 
 describe('prettifyMerchantKey', () => {

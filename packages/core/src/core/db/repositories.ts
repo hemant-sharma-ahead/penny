@@ -6,6 +6,7 @@ import type {
   Account,
   ActivityLog,
   AiCallLog,
+  BankCashWithdrawalCode,
   BankNarrationOverride,
   BankStatementImportRecord,
   Budget,
@@ -69,6 +70,9 @@ export const bankStatementImportsRepo = new EncryptedRepository<BankStatementImp
 );
 export const bankNarrationOverridesRepo = new EncryptedRepository<BankNarrationOverride>(
   db.bank_narration_overrides as never
+);
+export const bankCashWithdrawalCodesRepo = new EncryptedRepository<BankCashWithdrawalCode>(
+  db.bank_cash_withdrawal_codes as never
 );
 export const paymentModesRepo = new EncryptedRepository<PaymentMode>(db.payment_modes as never);
 export const retirementPlanRepo = new EncryptedRepository<RetirementPlan>(db.retirement_plan as never);

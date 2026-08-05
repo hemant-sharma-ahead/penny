@@ -3,6 +3,7 @@ import { View, Pressable, TextInput as RNTextInput, Text } from 'react-native';
 import { Modal, Button, DateInput, FormField } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { useToast } from '~/context/ToastContext';
 import type { Expense, ExpenseCategory } from '@/core/db/types';
 import { exportExpensesAsCsv, downloadProtectedZip } from '@/core/export/exportCsv';
 import { tint } from '~/lib/color';
@@ -22,6 +23,7 @@ const RANGES = [
 
 export function ExpenseExportModal({ expenses, expenseCategories, onClose }: ExpenseExportModalProps) {
   const theme = useThemeColors();
+  const { showToast } = useToast();
   const [exportRange, setExportRange] = useState<'this_month' | 'last_3' | 'all_time' | 'custom'>('this_month');
   const [exportFrom, setExportFrom] = useState('');
   const [exportTo, setExportTo] = useState('');
@@ -55,6 +57,13 @@ export function ExpenseExportModal({ expenses, expenseCategories, onClose }: Exp
       await downloadProtectedZip(csv, `penny-expenses-${label}.zip`, exportPassword);
       setExportPassword('');
       onClose();
+    } catch (err) {
+      // Was a bare `try {} finally {}` before (2026-08-05) — any error here propagated as an
+      // unhandled promise rejection with no detail (just RN's generic `promiseRejectionTrackingOptions`
+      // message), impossible to diagnose. Same surfacing convention as `PlannerResults.tsx`'s
+      // `downloadXlsx` catch — the real message is shown in the toast instead of silently swallowed.
+      const detail = err instanceof Error ? err.message : String(err);
+      showToast({ message: `Couldn't export: ${detail}` });
     } finally {
       setExporting(false);
     }

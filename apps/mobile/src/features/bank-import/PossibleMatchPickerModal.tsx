@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { View, Pressable, ScrollView, Text } from 'react-native';
 import type { Account, Expense } from '@/core/db/types';
 import type { ParsedStatementRow } from '@/core/bank-import/types';
-import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import { formatCurrency, formatDate } from '@/lib/formatters';
 import { DAY_MS, monthBounds, toMonthYearKey } from '@/lib/date';
 import { Modal, SearchInput, Button, Card } from '~/components/ui';
 import { Icon } from '~/components/Icon';
@@ -80,7 +80,7 @@ export function PossibleMatchPickerModal({
             {statementLine.rawNarration}
           </Text>
           <Text className="text-xs text-tertiary mt-0.5">
-            {formatDateShort(statementLine.date)} · {statementLine.direction === 'debit' ? '−' : '+'}
+            {formatDate(statementLine.date)} · {statementLine.direction === 'debit' ? '−' : '+'}
             {formatCurrency(statementLine.amount)}
           </Text>
         </Card>
@@ -155,7 +155,7 @@ export function PossibleMatchPickerModal({
                       )}
                     </View>
                     <Text className="text-xs text-tertiary" numberOfLines={1}>
-                      {formatDateShort(e.date)}
+                      {formatDate(e.date)}
                       {acc?.name ? ` · ${acc.name}` : ''}
                     </Text>
                   </View>

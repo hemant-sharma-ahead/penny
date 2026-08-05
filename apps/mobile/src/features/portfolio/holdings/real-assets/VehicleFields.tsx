@@ -51,7 +51,11 @@ export function VehicleFields({
                 setVehicleFetchError('');
                 if (vehicleRcSnapshot) setVehicleRcSnapshot(null);
               }}
-              inputClassName="font-mono uppercase"
+              // Do NOT also add a CSS `uppercase` class here — stacking a native textTransform on top
+              // of this already-uppercased controlled value desyncs the native text buffer from the JS
+              // value, which is what caused backspace to re-insert the whole string instead of deleting
+              // a character (found 2026-08-04).
+              inputClassName="font-mono"
             />
           </View>
           <Pressable

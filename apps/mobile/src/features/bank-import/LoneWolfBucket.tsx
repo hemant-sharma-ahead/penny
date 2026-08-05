@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Pressable, Text } from 'react-native';
 import type { Expense } from '@/core/db/types';
-import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import { formatCurrency, formatDate } from '@/lib/formatters';
 import { Icon } from '~/components/Icon';
 import { Button, ConfirmDialog } from '~/components/ui';
 import { ExpenseForm } from '~/components/shared';
@@ -65,7 +65,7 @@ export function LoneWolfBucket({ bi, masked }: LoneWolfBucketProps) {
                       &ldquo;{expense.description}&rdquo; — {masked ? '••••' : formatCurrency(expense.amount)}
                     </Text>
                     <Text className="text-[11px] mt-0.5" style={{ color: theme.warning }}>
-                      Logged {formatDateShort(expense.date)} ·{' '}
+                      Logged {formatDate(expense.date)} ·{' '}
                       {pendingDelete
                         ? 'marked for deletion — reverts if you leave without importing'
                         : nearEdge

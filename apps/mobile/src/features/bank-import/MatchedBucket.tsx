@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Pressable, Text } from 'react-native';
 import type { Account, Expense } from '@/core/db/types';
-import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import { formatCurrency, formatDate } from '@/lib/formatters';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { UseBankImportReturn } from './useBankImport';
@@ -60,8 +60,7 @@ export function MatchedBucket({ bi, accountMap, candidatePool, masked }: Matched
                   </Text>
                   <Text className="text-xs text-secondary mt-0.5">
                     {pair.statementRow.direction === 'debit' ? '−' : '+'}
-                    {masked ? '••••' : formatCurrency(pair.statementRow.amount)} ·{' '}
-                    {formatDateShort(pair.statementRow.date)}
+                    {masked ? '••••' : formatCurrency(pair.statementRow.amount)} · {formatDate(pair.statementRow.date)}
                   </Text>
                 </View>
                 <View className="flex-1 p-2.5 border-l border-dashed border-theme">
@@ -71,7 +70,7 @@ export function MatchedBucket({ bi, accountMap, candidatePool, masked }: Matched
                     {acc ? ` · ${acc.name}` : ''}
                   </Text>
                   <Text className="text-xs text-secondary mt-0.5">
-                    {masked ? '••••' : formatCurrency(pair.expense.amount)} · {formatDateShort(pair.expense.date)}
+                    {masked ? '••••' : formatCurrency(pair.expense.amount)} · {formatDate(pair.expense.date)}
                   </Text>
                 </View>
               </Pressable>

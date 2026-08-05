@@ -20,6 +20,7 @@ import { CashFlowPage } from '../features/cashflow/CashFlowPage';
 import { TaxAwarenessPage } from '../features/tax/TaxAwarenessPage';
 import { BankImportPage } from '../features/bank-import/BankImportPage';
 import { BankImportOverridesPage } from '../features/bank-import/BankImportOverridesPage';
+import { BankCashWithdrawalCodesPage } from '../features/bank-import/BankCashWithdrawalCodesPage';
 
 /**
  * The Home tab's own navigation stack — Track: chrome-persistence fix. Previously all of these
@@ -67,6 +68,9 @@ export type HomeStackParamList = {
   /** Global normalization-override management screen (§9a) — reachable from the Accounts page header,
    *  not scoped to any one account (merchant memory spans every account). */
   BankImportOverrides: undefined;
+  /** Global cash-withdrawal narration-code management screen (2026-08-05 transfer-marking work) —
+   *  same "not scoped to any one account" reasoning as BankImportOverrides. */
+  BankCashWithdrawalCodes: undefined;
 };
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
@@ -102,6 +106,7 @@ export function HomeStack() {
       <Stack.Screen name="Tax" component={TaxAwarenessPage} />
       <Stack.Screen name="BankImport" component={BankImportPage} />
       <Stack.Screen name="BankImportOverrides" component={BankImportOverridesPage} />
+      <Stack.Screen name="BankCashWithdrawalCodes" component={BankCashWithdrawalCodesPage} />
     </Stack.Navigator>
   );
 }

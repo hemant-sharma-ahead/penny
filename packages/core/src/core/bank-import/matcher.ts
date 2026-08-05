@@ -1,4 +1,4 @@
-import type { Expense } from '@/core/db/types';
+import type { Account, Expense } from '@/core/db/types';
 import { DAY_MS, toDateKey } from '@/lib/date';
 import type { ParsedStatementRow } from './types';
 
@@ -196,4 +196,62 @@ export function matchStatementRows(
   const loneWolves = deriveLoneWolves(pool, referenced, statementRows);
 
   return { matched, possible, unmatched, loneWolves };
+}
+
+export interface PossibleTransferSuggestion {
+  /** The other account this row might be the counterpart leg of a transfer with — never the account
+   *  currently being imported. */
+  account: Account;
+  /** The already-recorded plain expense/income on that other account this row's amount/date coincides
+   *  with — shown to the user as the "why" (never auto-applied silently). */
+  expense: Expense;
+}
+
+/**
+ * A much softer, amount/date-only heuristic than `matchStatementRows` itself — for a statement row
+ * that has NO existing candidate at all (no recorded transfer already links it, no plain expense on
+ * this same account), checks whether some OTHER account has an already-recorded plain expense/income
+ * (never a transfer or an IOU-linked entry — see below) with the opposite money direction, a matching
+ * or close amount, within the same ±3-day window `matchStatementRows` uses. A hit suggests "this might
+ * be the other side of a transfer you haven't linked yet."
+ *
+ * Deliberately narrow, per 2026-08-05 discussion:
+ * - Only ever returns a suggestion when exactly one candidate qualifies — a tie is left unresolved
+ *   (never guesses which of several equally-plausible candidates is the right one, same principle
+ *   `matchStatementRows` itself follows for its own "possible" bucket).
+ * - Never touches the candidate's own account/type — accepting this suggestion only marks *this* row
+ *   as a transfer; the other leg stays whatever it already was. Retroactively converting an existing
+ *   transaction's own type is the separate, explicitly-deferred "editable everywhere" feature — this
+ *   function doesn't (and structurally can't, since it takes read-only `Expense[]`) reach into that.
+ * - Cannot be confused with a Lent/Borrowed (IOU) entry: an IOU-linked transaction is still a plain
+ *   `type: 'expense'` or `'income'` (never `'transfer'`), so it looks identical to a genuine one-off
+ *   payment at this function's level — this is a real, inherent ambiguity (a payment to a friend can
+ *   coincidentally match a payment to your own other account by amount/date), which is exactly why
+ *   this only ever surfaces as a dismissible suggestion, never an auto-classification. The user's own
+ *   judgment (do I recognize this as my own transfer, or was it actually to a person?) is the real
+ *   disambiguator — no field in the data model distinguishes the two cases up front.
+ */
+export function suggestPossibleTransfer(
+  row: ParsedStatementRow,
+  currentAccountId: string,
+  allExpenses: Expense[],
+  accounts: Account[],
+  reconciliationDescription: string
+): PossibleTransferSuggestion | null {
+  const wantType: 'income' | 'expense' = row.direction === 'debit' ? 'income' : 'expense';
+  const candidates = allExpenses.filter(
+    (e) =>
+      e.description !== reconciliationDescription &&
+      (e.type ?? 'expense') === wantType &&
+      !!e.accountId &&
+      e.accountId !== currentAccountId &&
+      Math.abs(e.date - row.date) <= CANDIDATE_WINDOW_MS &&
+      (isExactAmount(e.amount, row.amount) || isCloseAmount(e.amount, row.amount))
+  );
+  if (candidates.length !== 1) return null;
+  const [only] = candidates;
+  if (!only?.accountId) return null;
+  const account = accounts.find((a) => a.id === only.accountId);
+  if (!account) return null;
+  return { account, expense: only };
 }

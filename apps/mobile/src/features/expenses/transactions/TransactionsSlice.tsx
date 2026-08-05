@@ -498,10 +498,14 @@ export function TransactionsSlice({
         goalLinkedTxnIds={goalLinkedTxnIds}
       />
 
-      {/* Bulk action bar (select mode) */}
+      {/* Bulk action bar (select mode). Each Pressable is a plain `flex: 1` third — the previous
+          `flexBasis: '33%'` didn't account for the row's own `gap`/`px` overhead, so the 3 items'
+          combined width exceeded the container and `flex-wrap` pushed the third icon onto its own row
+          (found 2026-08-05). `flex: 1` always sums to exactly the available width, so wrap never
+          triggers regardless of gap/padding. */}
       {selectMode && selected.size > 0 && (
         <View
-          className="absolute left-0 right-0 flex-row flex-wrap gap-1 px-2 py-2 border-t border-theme bg-surface"
+          className="absolute left-0 right-0 flex-row gap-1 px-2 py-2 border-t border-theme bg-surface"
           style={{ bottom: insets.bottom }}
         >
           <Pressable
@@ -510,7 +514,7 @@ export function TransactionsSlice({
               setShowBulkCategory(true);
             }}
             className="items-center gap-1 py-2 rounded-xl"
-            style={{ flexBasis: '33%', flexGrow: 1 }}
+            style={{ flex: 1 }}
           >
             <Icon name="ti-tag" size={19} color={theme.textSecondary} />
             <Text className="text-[10px] font-medium text-secondary">Category</Text>
@@ -518,7 +522,7 @@ export function TransactionsSlice({
           <Pressable
             onPress={() => setShowAcctPay(true)}
             className="items-center gap-1 py-2 rounded-xl"
-            style={{ flexBasis: '33%', flexGrow: 1 }}
+            style={{ flex: 1 }}
           >
             <Icon name="ti-wallet" size={19} color={theme.textSecondary} />
             <Text className="text-[10px] font-medium text-secondary">Account/Pay</Text>
@@ -526,7 +530,7 @@ export function TransactionsSlice({
           <Pressable
             onPress={() => setConfirmBulkDelete(true)}
             className="items-center gap-1 py-2 rounded-xl"
-            style={{ flexBasis: '33%', flexGrow: 1 }}
+            style={{ flex: 1 }}
           >
             <Icon name="ti-trash" size={19} color={theme.danger} />
             <Text className="text-[10px] font-medium" style={{ color: theme.danger }}>

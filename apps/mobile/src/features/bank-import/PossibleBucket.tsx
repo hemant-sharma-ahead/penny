@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Pressable, Text } from 'react-native';
 import type { Account, Expense } from '@/core/db/types';
 import type { ParsedStatementRow } from '@/core/bank-import/types';
-import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import { formatCurrency, formatDate } from '@/lib/formatters';
 import { normalizeNarration } from '@/core/bank-import/normalization';
 import { suggestForMerchant } from '@/core/bank-import/merchantMemory';
 import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
@@ -10,6 +10,7 @@ import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';
 import { ExpenseForm } from '~/components/shared';
+import { Button, Modal, SelectInput } from '~/components/ui';
 import type { UseBankImportReturn } from './useBankImport';
 import { PossibleMatchPickerModal } from './PossibleMatchPickerModal';
 
@@ -31,6 +32,12 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
   const [expanded, setExpanded] = useState(false);
   const [choosing, setChoosing] = useState<number | null>(null);
   const [addingNew, setAddingNew] = useState<ParsedStatementRow | null>(null);
+  // Auto cash-withdrawal detection (2026-08-05) — when the narration matches but more than one cash
+  // account exists, ask which one *before* opening ExpenseForm (a small dedicated cash-accounts-only
+  // picker, not the form's own general any-account To-account picker), per explicit user feedback.
+  const [pendingCashChoice, setPendingCashChoice] = useState<ParsedStatementRow | null>(null);
+  const [chosenCashAccountId, setChosenCashAccountId] = useState('');
+  const [resolvedToAccountId, setResolvedToAccountId] = useState('');
   const choosingItem = choosing !== null ? bi.possibleItems.find((p) => p.statementRow.rowIndex === choosing) : null;
 
   if (bi.possibleItems.length === 0) return null;
@@ -67,8 +74,7 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
                   </Text>
                   <Text className="text-xs text-secondary mt-0.5">
                     {item.statementRow.direction === 'debit' ? '−' : '+'}
-                    {masked ? '••••' : formatCurrency(item.statementRow.amount)} ·{' '}
-                    {formatDateShort(item.statementRow.date)}
+                    {masked ? '••••' : formatCurrency(item.statementRow.amount)} · {formatDate(item.statementRow.date)}
                   </Text>
                 </View>
                 <View
@@ -84,7 +90,7 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
                         {only.description}
                       </Text>
                       <Text className="text-xs text-secondary mt-0.5">
-                        {masked ? '••••' : formatCurrency(only.amount)} · {formatDateShort(only.date)}
+                        {masked ? '••••' : formatCurrency(only.amount)} · {formatDate(only.date)}
                       </Text>
                     </>
                   ) : (
@@ -111,7 +117,14 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
           onAddAsNew={() => {
             bi.dismissPossibleAsNew(choosingItem.statementRow);
             setChoosing(null);
-            setAddingNew(choosingItem.statementRow);
+            const row = choosingItem.statementRow;
+            const suggestion = bi.suggestCashTransferFor(row.rawNarration);
+            if (suggestion && !suggestion.toAccountId && bi.cashAccounts.length > 1) {
+              setChosenCashAccountId('');
+              setPendingCashChoice(row);
+            } else {
+              setAddingNew(row);
+            }
           }}
           onMoveToUnmatched={() => {
             bi.dismissPossibleAsNew(choosingItem.statementRow);
@@ -119,6 +132,38 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
           }}
           onClose={() => setChoosing(null)}
         />
+      )}
+
+      {pendingCashChoice && (
+        <Modal
+          onClose={() => setPendingCashChoice(null)}
+          title="Which cash account?"
+          footer={
+            <Button
+              variant="primary"
+              fullWidth
+              disabled={!chosenCashAccountId}
+              onPress={() => {
+                setResolvedToAccountId(chosenCashAccountId);
+                setAddingNew(pendingCashChoice);
+                setPendingCashChoice(null);
+              }}
+            >
+              Continue
+            </Button>
+          }
+        >
+          <Text className="text-xs text-secondary mb-3">
+            This looks like a cash withdrawal — which of your cash accounts did it go into? You can still change this in
+            the next step.
+          </Text>
+          <SelectInput
+            label="Cash account"
+            value={chosenCashAccountId}
+            onChange={setChosenCashAccountId}
+            options={bi.cashAccounts.map((a) => ({ value: a.id, label: a.name }))}
+          />
+        </Modal>
       )}
 
       {addingNew &&
@@ -133,6 +178,19 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
           // invisible to it until `commitAndImport()` creates it.
           const inferredMode = inferPaymentMode(addingNew.rawNarration);
           const resolvedPaymentMode = suggestion?.paymentMode ?? inferredMode.id;
+          // Auto cash-withdrawal detection (2026-08-05) — `resolvedToAccountId` (set via the
+          // `pendingCashChoice` picker above) wins when present; otherwise falls back to the
+          // suggestion's own resolved account (the confident, exactly-one-cash-account case never
+          // needed the picker at all). Falls back further (2026-08-05) to the softer cross-account
+          // amount/date suggestion only when no cash-code match fired — narration-code detection is
+          // the more confident signal of the two, so it always wins when both happen to apply.
+          const cashSuggestion = bi.suggestCashTransferFor(addingNew.rawNarration);
+          const crossAccountSuggestion = cashSuggestion ? null : bi.suggestPossibleTransferFor(addingNew);
+          const toAccountId = resolvedToAccountId || cashSuggestion?.toAccountId || crossAccountSuggestion?.account.id;
+          const suggestedType = cashSuggestion?.suggestedType ?? (crossAccountSuggestion ? 'transfer' : undefined);
+          const suggestionNote = crossAccountSuggestion
+            ? `Might be the other side of a transfer with ${crossAccountSuggestion.account.name} — recorded there as "${crossAccountSuggestion.expense.description}".`
+            : undefined;
           return (
             <ExpenseForm
               categories={bi.categories}
@@ -146,6 +204,9 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
                 date: addingNew.date,
                 accountId: bi.account?.id ?? '',
                 type: addingNew.direction === 'debit' ? 'expense' : 'income',
+                ...(suggestedType && { suggestedType }),
+                ...(toAccountId && { toAccountId }),
+                ...(suggestionNote && { suggestionNote }),
                 paymentMode: resolvedPaymentMode,
                 ...(resolvedPaymentMode === inferredMode.id && { paymentModeCandidate: inferredMode }),
                 ...(suggestion?.description && { descriptionSuggestion: suggestion.description }),
@@ -154,9 +215,13 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
               onSave={async (expense, newTagSetAside) => {
                 bi.stageNewTxnFromForm(expense, addingNew, newTagSetAside);
                 setAddingNew(null);
+                setResolvedToAccountId('');
               }}
               onDelete={async () => {}}
-              onClose={() => setAddingNew(null)}
+              onClose={() => {
+                setAddingNew(null);
+                setResolvedToAccountId('');
+              }}
             />
           );
         })()}

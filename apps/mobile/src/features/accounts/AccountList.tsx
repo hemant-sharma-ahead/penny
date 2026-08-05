@@ -40,6 +40,9 @@ interface AccountListProps {
    *  account — a bank issues one statement per account — so this row-level action is its only entry
    *  point, gated to bank/card accounts (a cash wallet has no statement). */
   onImport: (acc: Account) => void;
+  /** Zero-account empty state's secondary action — Bank Import used to be unreachable with no accounts
+   *  at all (found 2026-08-05). Creates a bank account and hands off straight into its import setup. */
+  onImportOnboarding: () => void;
   deleteAccount: (id: string) => Promise<unknown>;
   reconcileAccount: (account: Account, actual: number) => Promise<void> | void;
 }
@@ -57,6 +60,7 @@ export function AccountList({
   onAdd,
   onEdit,
   onImport,
+  onImportOnboarding,
   deleteAccount,
   reconcileAccount
 }: AccountListProps) {
@@ -88,6 +92,11 @@ export function AccountList({
             title="No accounts yet"
             description="Add a cash wallet or bank account to start tracking balances."
             action={{ label: 'Add first account', onPress: onAdd, icon: 'ti-plus' }}
+            secondaryAction={{
+              label: 'or import a bank statement',
+              onPress: onImportOnboarding,
+              icon: 'ti-file-import'
+            }}
           />
         </Card>
       ) : (

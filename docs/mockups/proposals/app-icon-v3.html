@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Penny — App Icon Directions v3 (leafy, real-coin, boundless)</title>
+<style>
+  :root {
+    --green: #00a86b;
+    --green-dark: #067a4f;
+    --green-deep: #045538;
+    --cream: #fff8ec;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 32px 100px;
+    background: #12151a;
+    color: #eef1f4;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lead { color: #9aa3ad; font-size: 14px; max-width: 780px; line-height: 1.6; margin-bottom: 36px; }
+  .lead b { color: #eef1f4; }
+  section { margin-bottom: 56px; }
+  .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #6f7a86; margin-bottom: 14px; font-weight: 600; }
+  .row { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+  .card {
+    background: #1b1f26;
+    border: 1px solid #2a2f38;
+    border-radius: 16px;
+    padding: 20px;
+    width: 280px;
+  }
+  .card.pick { border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+  .card h3 { font-size: 14px; margin: 12px 0 4px; color: #eef1f4; }
+  .card p { font-size: 12px; color: #9aa3ad; line-height: 1.5; margin: 0 0 12px; }
+  .badge {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+    color: var(--green); background: rgba(0,168,107,0.15); border: 1px solid rgba(0,168,107,0.4);
+    border-radius: 999px; padding: 3px 9px; margin-bottom: 8px; text-transform: uppercase;
+  }
+  .icon-tray { display: flex; align-items: center; gap: 18px; justify-content: center; padding: 16px 0; }
+  .tile-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .tile-label { font-size: 9px; color: #6f7a86; }
+  .squircle {
+    border-radius: 22.5%;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .home-strip {
+    display: flex; gap: 10px; padding: 14px; border-radius: 14px; margin-top: 6px;
+  }
+  .home-strip.light { background: linear-gradient(180deg,#dfe7ee,#c9d4de); }
+  .home-strip.dark { background: linear-gradient(180deg,#20242c,#14171c); }
+  .home-strip .squircle { width: 40px; height: 40px; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+
+<h1>Penny — App Icon Directions v3</h1>
+<div class="lead">
+  Staying with the leaf/organic-growth identity — that part isn't the problem, so it stays. Two things
+  change this round: <b>the coin should look like an actual coin</b> (dimensional, embossed, a real
+  metal object — reeded edge, curved-metal shading, a specular highlight — not a flat green circle with
+  a cream sticker on it), and the center glyph moves past the static leaf into something that feels
+  alive and inventive rather than a fixed emblem. No cards, currency glyphs, or piggy banks here — all
+  five stay rooted in growth/nature imagery, told in ways nobody else in fintech is using.
+</div>
+
+<!-- A -->
+<section>
+  <div class="section-title">Direction A — True Coin <span style="color:#6f7a86; font-weight: 400; text-transform: none; letter-spacing: 0;">(same leaf, now an actual coin)</span></div>
+  <div class="row">
+    <div class="card">
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gA96" cx="35%" cy="28%" r="80%">
+                <stop offset="0%" stop-color="#1fd190"/>
+                <stop offset="55%" stop-color="var(--green-dark)"/>
+                <stop offset="100%" stop-color="var(--green-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gA96)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(4,20,14,0.35)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.55)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <ellipse cx="256" cy="374" rx="86" ry="12" fill="#000" opacity="0.14"/>
+            <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+            <path d="M256 366V166" stroke="var(--green-deep)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M256 320 C220 300 196 270 210 236" stroke="var(--green-deep)" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M256 270 C292 250 316 220 302 186" stroke="var(--green-deep)" stroke-width="10" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gA48" cx="35%" cy="28%" r="80%">
+                <stop offset="0%" stop-color="#1fd190"/>
+                <stop offset="55%" stop-color="var(--green-dark)"/>
+                <stop offset="100%" stop-color="var(--green-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gA48)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(4,20,14,0.35)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.55)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <ellipse cx="256" cy="374" rx="86" ry="12" fill="#000" opacity="0.14"/>
+            <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+            <path d="M256 366V166" stroke="var(--green-deep)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M256 320 C220 300 196 270 210 236" stroke="var(--green-deep)" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M256 270 C292 250 316 220 302 186" stroke="var(--green-deep)" stroke-width="10" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gA24" cx="35%" cy="28%" r="80%">
+                <stop offset="0%" stop-color="#1fd190"/>
+                <stop offset="55%" stop-color="var(--green-dark)"/>
+                <stop offset="100%" stop-color="var(--green-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gA24)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(4,20,14,0.35)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.55)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <ellipse cx="256" cy="374" rx="86" ry="12" fill="#000" opacity="0.14"/>
+            <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+            <path d="M256 366V166" stroke="var(--green-deep)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M256 320 C220 300 196 270 210 236" stroke="var(--green-deep)" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M256 270 C292 250 316 220 302 186" stroke="var(--green-deep)" stroke-width="10" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>The exact leaf you already have, unchanged — but the coin body now has real dimension: a
+      radial gradient curving from a lit highlight (top-left) to a deep shadow edge, a dashed reeded
+      rim (a coin's milled edge), a bevel ring, a specular arc, and a soft drop-shadow under the
+      medallion so it looks embossed/stamped rather than pasted flat. The safest, most surgical fix —
+      keeps everything proven, just makes the coin actually look struck from metal.</p>
+    </div>
+  </div>
+</section>
+
+<!-- B -->
+<section>
+  <div class="section-title">Direction B — Growth Rings</div>
+  <div class="row">
+    <div class="card">
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gB96" cx="35%" cy="28%" r="80%">
+                <stop offset="0%" stop-color="#1fd190"/>
+                <stop offset="55%" stop-color="var(--green-dark)"/>
+                <stop offset="100%" stop-color="var(--green-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gB96)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(4,20,14,0.35)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.55)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <circle cx="256" cy="256" r="170" fill="var(--cream)"/>
+            <circle cx="256" cy="256" r="136" fill="none" stroke="var(--green-dark)" stroke-width="10" opacity="0.5"/>
+            <circle cx="256" cy="256" r="98" fill="none" stroke="var(--green-dark)" stroke-width="10" opacity="0.38"/>
+            <circle cx="256" cy="256" r="60" fill="none" stroke="var(--green-dark)" stroke-width="10" opacity="0.26"/>
+            <path d="M256 256V148" stroke="var(--green-deep)" stroke-width="16" stroke-linecap="round"/>
+            <path d="M256 192 C230 180 214 156 222 128" stroke="var(--green-deep)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <path d="M256 222 C282 210 300 184 292 154" stroke="var(--green-deep)" stroke-width="12" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gB48" cx="35%" cy="28%" r="80%">
+                <stop offset="0%" stop-color="#1fd190"/>
+                <stop offset="55%" stop-color="var(--green-dark)"/>
+                <stop offset="100%" stop-color="var(--green-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gB48)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(4,20,14,0.35)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.55)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <circle cx="256" cy="256" r="170" fill="var(--cream)"/>
+            <circle cx="256" cy="256" r="136" fill="none" stroke="var(--green-dark)" stroke-width="10" opacity="0.5"/>
+            <circle cx="256" cy="256" r="98" fill="none" stroke="var(--green-dark)" stroke-width="10" opacity="0.38"/>
+            <circle cx="256" cy="256" r="60" fill="none" stroke="var(--green-dark)" stroke-width="10" opacity="0.26"/>
+            <path d="M256 256V148" stroke="var(--green-deep)" stroke-width="16" stroke-linecap="round"/>
+            <path d="M256 192 C230 180 214 156 222 128" stroke="var(--green-deep)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <path d="M256 222 C282 210 300 184 292 154" stroke="var(--green-deep)" stroke-width="12" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gB24" cx="35%" cy="28%" r="80%">
+                <stop offset="0%" stop-color="#1fd190"/>
+                <stop offset="55%" stop-color="var(--green-dark)"/>
+                <stop offset="100%" stop-color="var(--green-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gB24)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(4,20,14,0.35)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.55)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <circle cx="256" cy="256" r="170" fill="var(--cream)"/>
+            <circle cx="256" cy="256" r="136" fill="none" stroke="var(--green-dark)" stroke-width="10" opacity="0.5"/>
+            <circle cx="256" cy="256" r="98" fill="none" stroke="var(--green-dark)" stroke-width="10" opacity="0.38"/>
+            <circle cx="256" cy="256" r="60" fill="none" stroke="var(--green-dark)" stroke-width="10" opacity="0.26"/>
+            <path d="M256 256V148" stroke="var(--green-deep)" stroke-width="16" stroke-linecap="round"/>
+            <path d="M256 192 C230 180 214 156 222 128" stroke="var(--green-deep)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <path d="M256 222 C282 210 300 184 292 154" stroke="var(--green-deep)" stroke-width="12" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>The coin's face is engraved with concentric tree-growth rings — years of compounding, made
+      literally visible, like a cross-section of a trunk — with a fresh sprout breaking through the
+      rings at the top. It's a coin that reads as both "money" (a struck medallion) and "time turned
+      into growth" at once — nobody else in fintech uses tree-ring imagery. Tradeoff: the individual
+      rings blur into soft banding at 24px (the sprout still reads, the ring count doesn't).</p>
+    </div>
+  </div>
+</section>
+
+<!-- C -->
+<section>
+  <div class="section-title">Direction C — Seed Break <span style="color:#6f7a86; font-weight: 400; text-transform: none; letter-spacing: 0;">(germination, in progress)</span></div>
+  <div class="row">
+    <div class="card pick">
+      <div class="badge">Most alive / narrative</div>
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gC96" cx="35%" cy="28%" r="80%">
+                <stop offset="0%" stop-color="#1fd190"/>
+                <stop offset="55%" stop-color="var(--green-dark)"/>
+                <stop offset="100%" stop-color="var(--green-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gC96)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(4,20,14,0.35)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.55)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <path d="M256 110C196 130 156 190 156 250C156 310 196 360 246 376L246 130C250 122 253 115 256 110Z" fill="var(--cream)"/>
+            <path d="M256 110C316 130 356 190 356 250C356 310 316 360 266 376L266 130C262 122 259 115 256 110Z" fill="var(--cream)"/>
+            <path d="M256 250V130" stroke="var(--green-deep)" stroke-width="16" stroke-linecap="round"/>
+            <path d="M256 210 C230 196 214 170 224 140" stroke="var(--green-deep)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <path d="M256 180 C282 166 300 138 288 106" stroke="var(--green-deep)" stroke-width="12" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gC48" cx="35%" cy="28%" r="80%">
+                <stop offset="0%" stop-color="#1fd190"/>
+                <stop offset="55%" stop-color="var(--green-dark)"/>
+                <stop offset="100%" stop-color="var(--green-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gC48)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(4,20,14,0.35)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.55)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <path d="M256 110C196 130 156 190 156 250C156 310 196 360 246 376L246 130C250 122 253 115 256 110Z" fill="var(--cream)"/>
+            <path d="M256 110C316 130 356 190 356 250C356 310 316 360 266 376L266 130C262 122 259 115 256 110Z" fill="var(--cream)"/>
+            <path d="M256 250V130" stroke="var(--green-deep)" stroke-width="16" stroke-linecap="round"/>
+            <path d="M256 210 C230 196 214 170 224 140" stroke="var(--green-deep)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <path d="M256 180 C282 166 300 138 288 106" stroke="var(--green-deep)" stroke-width="12" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gC24" cx="35%" cy="28%" r="80%">
+                <stop offset="0%" stop-color="#1fd190"/>
+                <stop offset="55%" stop-color="var(--green-dark)"/>
+                <stop offset="100%" stop-color="var(--green-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gC24)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(4,20,14,0.35)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.55)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <path d="M256 110C196 130 156 190 156 250C156 310 196 360 246 376L246 130C250 122 253 115 256 110Z" fill="var(--cream)"/>
+            <path d="M256 110C316 130 356 190 356 250C356 310 316 360 266 376L266 130C262 122 259 115 256 110Z" fill="var(--cream)"/>
+            <path d="M256 250V130" stroke="var(--green-deep)" stroke-width="16" stroke-linecap="round"/>
+            <path d="M256 210 C230 196 214 170 224 140" stroke="var(--green-deep)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <path d="M256 180 C282 166 300 138 288 106" stroke="var(--green-deep)" stroke-width="12" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>Instead of a static leaf, the coin's face is a seed pod cracked open down the middle, with a
+      sprout actively pushing up through the gap. It's the same organic language, but caught mid-action
+      — money in the act of becoming growth, not a finished emblem. That's the "alive" quality: it looks
+      like something is happening, which is exactly the kind of icon a user pauses on and wants to
+      open. Reads as a distinctive split-leaf silhouette even at 24px where the sprout thins out.</p>
+    </div>
+  </div>
+</section>
+
+<!-- D -->
+<section>
+  <div class="section-title">Direction D — Pulse Leaf <span style="color:#6f7a86; font-weight: 400; text-transform: none; letter-spacing: 0;">(ties to Financial Health)</span></div>
+  <div class="row">
+    <div class="card">
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gD96" cx="35%" cy="28%" r="80%">
+                <stop offset="0%" stop-color="#1fd190"/>
+                <stop offset="55%" stop-color="var(--green-dark)"/>
+                <stop offset="100%" stop-color="var(--green-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gD96)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(4,20,14,0.35)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.55)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <ellipse cx="256" cy="374" rx="86" ry="12" fill="#000" opacity="0.14"/>
+            <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+            <path d="M256 366 L256 318 L234 318 L248 342 L256 300 L266 206 L278 342 L290 318 L256 318 L256 166" stroke="var(--green-deep)" stroke-width="13" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M256 320 C220 300 196 270 210 236" stroke="var(--green-deep)" stroke-width="9" fill="none" stroke-linecap="round"/>
+            <path d="M256 270 C292 250 316 220 302 186" stroke="var(--green-deep)" stroke-width="9" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gD48" cx="35%" cy="28%" r="80%">
+                <stop offset="0%" stop-color="#1fd190"/>
+                <stop offset="55%" stop-color="var(--green-dark)"/>
+                <stop offset="100%" stop-color="var(--green-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gD48)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(4,20,14,0.35)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.55)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <ellipse cx="256" cy="374" rx="86" ry="12" fill="#000" opacity="0.14"/>
+            <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+            <path d="M256 366 L256 318 L234 318 L248 342 L256 300 L266 206 L278 342 L290 318 L256 318 L256 166" stroke="var(--green-deep)" stroke-width="13" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M256 320 C220 300 196 270 210 236" stroke="var(--green-deep)" stroke-width="9" fill="none" stroke-linecap="round"/>
+            <path d="M256 270 C292 250 316 220 302 186" stroke="var(--green-deep)" stroke-width="9" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gD24" cx="35%" cy="28%" r="80%">
+                <stop offset="0%" stop-color="#1fd190"/>
+                <stop offset="55%" stop-color="var(--green-dark)"/>
+                <stop offset="100%" stop-color="var(--green-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gD24)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(4,20,14,0.35)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.55)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <ellipse cx="256" cy="374" rx="86" ry="12" fill="#000" opacity="0.14"/>
+            <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+            <path d="M256 366 L256 318 L234 318 L248 342 L256 300 L266 206 L278 342 L290 318 L256 318 L256 166" stroke="var(--green-deep)" stroke-width="13" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M256 320 C220 300 196 270 210 236" stroke="var(--green-deep)" stroke-width="9" fill="none" stroke-linecap="round"/>
+            <path d="M256 270 C292 250 316 220 302 186" stroke="var(--green-deep)" stroke-width="9" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>Same leaf silhouette, but its central vein is a heartbeat/pulse trace instead of a smooth
+      line — literally "alive," and it's not just decoration: it's a direct visual nod to the app's own
+      Financial Health score. Minimal deviation from what's proven to scale, with one detail that
+      rewards a closer look. Tradeoff: the zigzag reads clearly at 96px+ (app store, splash) but softens
+      toward a slightly thicker center line at 24px — the leaf silhouette still carries it there.</p>
+    </div>
+  </div>
+</section>
+
+<!-- E -->
+<section>
+  <div class="section-title">Direction E — Unfurling Fern Frond <span style="color:#6f7a86; font-weight: 400; text-transform: none; letter-spacing: 0;">(boundless pick)</span></div>
+  <div class="row">
+    <div class="card pick">
+      <div class="badge">Most unique</div>
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gE96" cx="35%" cy="28%" r="80%">
+                <stop offset="0%" stop-color="#1fd190"/>
+                <stop offset="55%" stop-color="var(--green-dark)"/>
+                <stop offset="100%" stop-color="var(--green-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gE96)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(4,20,14,0.35)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.55)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <circle cx="272" cy="356" r="15" fill="var(--cream)" opacity="0.85"/>
+            <circle cx="212" cy="330" r="13" fill="var(--cream)" opacity="0.85"/>
+            <path d="M266 392 C266 330 300 300 300 250 C300 200 260 170 216 180 C172 190 150 230 164 268 C176 300 210 312 232 296" stroke="var(--cream)" stroke-width="26" fill="none" stroke-linecap="round"/>
+            <circle cx="232" cy="296" r="11" fill="var(--cream)"/>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gE48" cx="35%" cy="28%" r="80%">
+                <stop offset="0%" stop-color="#1fd190"/>
+                <stop offset="55%" stop-color="var(--green-dark)"/>
+                <stop offset="100%" stop-color="var(--green-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gE48)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(4,20,14,0.35)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.55)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <circle cx="272" cy="356" r="15" fill="var(--cream)" opacity="0.85"/>
+            <circle cx="212" cy="330" r="13" fill="var(--cream)" opacity="0.85"/>
+            <path d="M266 392 C266 330 300 300 300 250 C300 200 260 170 216 180 C172 190 150 230 164 268 C176 300 210 312 232 296" stroke="var(--cream)" stroke-width="26" fill="none" stroke-linecap="round"/>
+            <circle cx="232" cy="296" r="11" fill="var(--cream)"/>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gE24" cx="35%" cy="28%" r="80%">
+                <stop offset="0%" stop-color="#1fd190"/>
+                <stop offset="55%" stop-color="var(--green-dark)"/>
+                <stop offset="100%" stop-color="var(--green-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gE24)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(4,20,14,0.35)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.55)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <circle cx="272" cy="356" r="15" fill="var(--cream)" opacity="0.85"/>
+            <circle cx="212" cy="330" r="13" fill="var(--cream)" opacity="0.85"/>
+            <path d="M266 392 C266 330 300 300 300 250 C300 200 260 170 216 180 C172 190 150 230 164 268 C176 300 210 312 232 296" stroke="var(--cream)" stroke-width="26" fill="none" stroke-linecap="round"/>
+            <circle cx="232" cy="296" r="11" fill="var(--cream)"/>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>A fiddlehead fern — a young frond still curled tight, caught in the exact moment before it
+      unfurls. No other fintech app uses this: it's a single bold, confident spiral stroke (with two
+      small bud nubs low on the stem) instead of a static symbol, and it carries real meaning once you
+      know it — potential energy, not-yet-realized growth, coiled and about to open, which is a much
+      more inspiring story for a wealth app than "here's a leaf." One continuous thick gesture with a
+      rounded cap holds up beautifully all the way down to 24px — nothing here to lose at small size.
+      This first pass is a good-enough hand-drawn curl; the exact spiral math is worth a tuning pass
+      once you've picked it.</p>
+    </div>
+  </div>
+</section>
+
+<div class="lead" style="margin-top: -20px;">
+  <b>Recommendation: Direction E (Unfurling Fern Frond).</b> It's the one that actually answers
+  "boundless, modern, alive, unique, appeals to the user to know more" — a coiled frond mid-unfurl is a
+  genuinely new visual metaphor for growth that nobody else owns, it's a single bold gesture that
+  scales perfectly, and "potential energy about to release" is a stronger emotional hook for a wealth
+  app than a finished leaf. If you'd rather change as little as possible while still fixing the "look
+  like a real coin" note, <b>Direction A</b> is the safe, minimal move — same leaf, dimensional coin.
+  <b>Direction C</b> (seed break) is the middle ground: still very novel and "alive," slightly more
+  literal/narrative than the frond.
+</div>
+
+</body>
+</html>

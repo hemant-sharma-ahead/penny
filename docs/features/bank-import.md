@@ -16,6 +16,12 @@ match.
 
 - Per-account entry point: a new "Import" action on each bank/credit-card account row on the
   Accounts page (not shown for cash/wallet accounts, which have no bank statement).
+- **Zero-account entry point (2026-08-05).** Import was previously unreachable with no accounts at
+  all — the only entry point was a per-row action, and the empty Accounts screen had nothing to
+  iterate. The empty state now has a secondary "or import a bank statement" action (below the
+  primary "Add first account") that creates a new `bank`-type account (no type-picker step) and
+  hands off straight into that account's import setup screen — `useAccountForm`'s new
+  `openAddWithType(type, onCreated)`.
 - One merged setup screen (`SetupStep.tsx`, 2026-08-03 — was 3 separate steps): pick a bank from a
   dropdown (HDFC, ICICI, Kotak, SBI, IndusInd, HSBC, Bank of Baroda, or Custom — a dropdown rather
   than a tile grid since the preset list can grow), upload a CSV, then review the resolved column
@@ -43,7 +49,93 @@ match.
   overrides — e.g. teach Penny that a cryptic statement line always means a specific merchant. A
   read-only "How automatic recognition works" card explains the fixed underlying heuristic (and lists
   its current keyword list) alongside the editable overrides — added 2026-08-03 so the algorithm isn't
-  a total black box next to your own overrides.
+  a total black box next to your own overrides. `CONNECTOR_KEYWORDS` (`core/bank-import/
+  normalization.ts`) grew a second batch on 2026-08-05 — INFT, TPT, ONL, ECOM, EMI, RET, CHG, TAX,
+  AMB, AQB, VPS, IPS — from the same user-sourced research pass as the cash-withdrawal code table
+  below; `SI` and the bare `I`/`W` fragments from "I/W CLG" were deliberately left out as too short/
+  generic (real risk of stripping an actual merchant's initials instead of noise).
+- A second global screen, "Cash-withdrawal codes" (2026-08-05, `BankCashWithdrawalCodesPage.tsx`,
+  also from the Accounts page header) — narration codes like ATW/NWD/SELF that identify a statement
+  line as a cash withdrawal, grouped by bank plus a bank-agnostic "Any bank" group (NFS, SELF, ...).
+  Seeded with researched defaults for the 7 supported banks (`core/bank-import/cashWithdrawalCodes.ts`
+  documents per-entry confidence — banks don't publish a single canonical code list, so this is a
+  well-researched starting point, not a guarantee), but every row including the defaults is fully
+  editable/deletable, since a wrong or missing code should be just as fixable as a custom one. Both
+  this screen and Merchant recognition add their entry via a FAB + popup (2026-08-05, matching the
+  Expenses tab's own add-transaction FAB), not an inline form pinned to the bottom of the list — per
+  direct user feedback that the inline form broke consistency with the rest of the app.
+- **Marking a statement row as a transfer (2026-08-05).** `ExpenseForm`'s statementPreset mode used
+  to lock Type entirely (shown as static "Add Expense"/"Add Income" text) — now it's a real 2-option
+  toggle: the file's own direction (`'expense'`/`'income'`, never changeable to the other, since
+  that's a statement fact) versus `'transfer'`. Picking Transfer reveals a "To account" picker (the
+  same `AccountChips` component the normal Transfer flow uses, showing every account) — only the
+  statement's own side stays locked; a transfer's other side is exactly the judgment call this exists
+  to let the user make. This manual override always exists regardless of any auto-detection below —
+  by explicit design: a UPI transfer to the user's own account at a bank they haven't imported a
+  statement from yet has no narration code and no existing record to cross-reference against, so
+  *only* the user knows it's really a transfer.
+- **Direction-swap fix (2026-08-05).** The locked statement account always renders in the first chip
+  row, but which schema field it actually fills — `accountId` (source) vs `toAccountId`
+  (destination) — depends on the row's own direction: a debit's locked account is the source (as
+  originally built, matching cash-withdrawal's debit-only shape); a **credit** row means money arrived
+  *into* the locked account, so it's the destination, and the chip row is relabeled "To account" with
+  the roles swapped when the `Expense` is built. Found while adding the cross-account suggestion below,
+  the first feature to actually exercise a credit-direction transfer — without the fix, marking an
+  incoming statement line as a transfer recorded the money movement backwards.
+- **Auto cash-withdrawal detection (2026-08-05).** Both flows above call
+  `suggestCashTransferFor()`/`suggestCashTransferForRow()` against each row's raw narration, using the
+  active bank's own codes plus the bank-agnostic ones from the Cash-withdrawal codes screen. A
+  confident match (exactly one `'cash'`-type account exists) pre-selects Transfer with that account
+  already filled in; an ambiguous match (2+ cash accounts) still pre-selects Transfer but prompts with
+  a cash-accounts-only picker first (`PossibleBucket`'s `pendingCashChoice` step) rather than silently
+  guessing which one. Zero cash accounts falls back to the general To-account picker with nothing
+  pre-filled.
+- **Cross-account "possible internal transfer" suggestion (2026-08-05).** A second, much softer
+  signal, `suggestPossibleTransfer()` (`core/bank-import/matcher.ts`) — for a row with no cash-code
+  match, checks whether some *other* account has an already-recorded plain expense/income (never a
+  transfer or an IOU-linked entry) with the opposite direction, a matching or close amount, within the
+  same ±3-day window `matchStatementRows` itself uses. A hit surfaces "Might be the other side of a
+  transfer with `<Account>` — recorded there as `<description>`" next to the type toggle (single-row
+  flow) — always a dismissible suggestion, never auto-applied, and only ever returned when exactly one
+  candidate qualifies (a tie surfaces nothing, same principle as the main matcher's own "possible"
+  bucket). Accepting it only converts *this* row to a transfer — it cannot retroactively fix the other
+  leg's own type, since that's the separate, still-deferred "editable everywhere" feature. Also
+  structurally can't be confused with a Lent/Borrowed entry: IOU money movements are recorded as plain
+  `type: 'expense'`/`'income'` (never `'transfer'`, and `toAccountId` only ever exists on a transfer),
+  so a coincidental amount/date match against a real IOU entry is a genuine, inherent ambiguity this
+  function can't resolve on its own — exactly why it's a suggestion the user confirms, not an
+  auto-classification.
+- **"Mark as transfer" generalized in bulk (2026-08-05).** `BulkCategorizeModal`'s toggle — previously
+  "Mark as cash withdrawal," gated behind a cash-code match and limited to cash accounts — is now
+  always visible regardless of detection, labeled "Mark as transfer," and its account picker offers
+  every account (not just cash ones). Auto-detection (cash-code first, falling back to the
+  cross-account suggestion above) only decides whether it starts pre-checked and pre-filled, when
+  every checked row's own suggestion points at the same account; the manual override is never gated
+  behind it. `resolveMerchantGroup`'s transfer branch got the same direction-swap fix as the
+  single-row flow (debit → this account is source, credit → destination), and its description is now
+  contextual ("Cash withdrawal" for a cash destination, otherwise "Transfer · `<Account name>`")
+  instead of a hardcoded "Cash withdrawal" regardless of target.
+- **Cash-withdrawal code data, second pass (2026-08-05, same day).** The initial 7-code, one-per-bank
+  seed list was replaced with a much fuller table the user sourced directly (own-ATM / other-bank-ATM
+  / branch-withdrawal codes across all 7 supported banks), consolidated in
+  `core/bank-import/cashWithdrawalCodes.ts` so a code shared by several banks under the same name
+  (ATW, NWD, NFS, EAW, ATM, WDL, ...) lives once in the bank-agnostic group instead of being repeated
+  per bank; genuinely bank-unique names (Kotak's ATL, ICICI's MAT/VAT, SBI's ATS, BOB's NFS_WDL/CASH
+  DEBIT, HSBC's CWDL/BRANCH CASH) stay per-bank. Two real bugs found and fixed in the same pass:
+  1. **Separator tolerance.** A multi-word code like "ATM WDL" only ever matched that literal
+     space-separated string — a real statement's "ATM/WDL" (slash) or "ATMWDL" (no separator at all)
+     silently failed to match. The matcher now builds each code's regex with a flexible
+     `[\s/.-]*` gap between words, so any separator (or none) matches.
+  2. **Digit-adjacent boundary.** The original word-boundary check (`[^A-Z0-9]` on both sides) treated
+     a directly-adjacent digit as "not a real word boundary," which broke the extremely common
+     real-world shape of a reference number butted straight up against the code with zero separator
+     (`ATMWDL123456`). The boundary now only blocks on an *adjacent letter* (so `SELF` still can't
+     match inside `SELFRIDGES`) — a digit on either side is always an acceptable boundary.
+  3. **Exclusion list.** A bare `'ATM'` code (SBI/ICICI/BOB/HSBC's own-bank withdrawal term per the
+     table) is real but broad — `isCashWithdrawalNarration` now checks the narration against a small
+     exclusion list (REV, POS, AQB, AMB) *before* checking withdrawal codes at all, so an ATM
+     transaction reversal ("ATM REV" — a failed withdrawal credited back, not a real one) or a
+     balance-maintenance fee narration mentioning ATM never gets misclassified as a transfer.
 - Nothing is written until one final "Import" tap — leaving the review screen before that discards
   everything staged; there is no resume/draft (an explicit, deliberate trade-off, matching the
   existing multi-app CSV importer's own lack of one).
@@ -105,9 +197,42 @@ by design, so a bug in one can't regress the other.
   (NEFT/IMPS/RTGS/Cheque) exactly once per import batch, the first time it's actually needed — never
   once per transaction.
 
+**Date-format handling (2026-08-05).** `parseStatementDate` now compiles an explicit token format
+string (`DD`, `MM`, `YYYY`, `YY`, `MMM`, with any other character taken as a literal separator — or
+none at all, for a concatenated form like `DDMMMYYYY`) into a regex, rather than a handful of
+hardcoded shapes. Every `BankPreset.dateFormat` (already written in this exact token grammar, e.g.
+`'DD/MM/YY'`, `'DD MMM YYYY'`) is now the actual parsing directive, not just a display label — the
+separate `dateOrder: NumericDateOrder` field this session briefly added (a narrower day-first/
+month-first toggle covering only one numeric shape) was removed the same day after direct user
+feedback: real statements vary far more than that, and a fixed 2-option choice was "totally wrong"
+for e.g. a `DD-MM-YY` or no-separator `DDMMMYYYY` export. For the Custom preset, `detectDateFormat()`
+tries a prioritized list of common real-world shapes against the chosen date column's actual values
+and keeps whichever ones every sample fits — confident only when exactly one candidate fully
+explains the file. The mapping popup shows the result in a free-text field (not a fixed set of
+choices) right next to the Date field, pre-filled and editable, with a low-confidence flag instead of
+silently trusting a guess — and the same format now also shows inline on the collapsed mapping
+summary card ("Date (DD/MM/YYYY)"), not just inside the edit popup. Day/month are still range-checked
+regardless of format, so a mismatched format rejects the row instead of producing a wrong date.
+
+- **Excel (.xlsx/.xls) import (2026-08-05, issue #4, first half).** `core/bank-import/xlsxParser.ts`'s
+  `parseXlsxToGrid()` (built on the `xlsx`/SheetJS library, already a `packages/core` dependency but
+  previously unused) reads a workbook's first sheet into the exact same `string[][]` grid
+  `tokenizeCsv()` produces for a CSV — every downstream piece (column mapping, date-format detection,
+  the whole review pipeline) is already format-agnostic once it has that grid, so an Excel upload
+  needs zero special-casing past `useBankImport.ts`'s new `importFromXlsx()`. `SetupStep.tsx`'s file
+  picker now accepts both CSV and Excel mimetypes, routing by the file's own extension (not mimeType —
+  some Android content-provider URIs report a generic type regardless of the real file). Cells are
+  read with `raw: false` so a date/number cell comes through formatted as display text, same as a CSV
+  export already is — a genuine Excel date cell becomes a real date string, not a raw serial number.
+  No delimiter concept applies to an already-parsed workbook (`MappingEditModal`'s delimiter picker
+  hides itself via the new `isXlsxSource`). Verified the `xlsx` package bundles cleanly under Metro (a
+  real risk for a large, previously RN-untested library) via a full `expo export --platform android` —
+  succeeded, 8520 modules, no resolution errors.
+
 ## Limitations
 
-- CSV only for v1 — Excel and PDF are deferred, no parsing mechanics designed yet.
+- PDF import is deferred (issue #4, second half) — text-layer extraction only, no OCR/scanned-PDF
+  support, consistent with Penny's zero-server privacy model. Not yet designed.
 - Detecting duplicate/glitched lines *within the same uploaded file* is out of scope.
 - No dedicated balance-correction mechanism — getting transactions right via matching keeps the
   (always-derived, never-stored) balance right as a side effect; the existing Reconcile feature is

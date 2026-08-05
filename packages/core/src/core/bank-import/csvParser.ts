@@ -89,36 +89,123 @@ const MONTH_NAMES: Record<string, number> = {
   dec: 11
 };
 
-/** Tolerant date parser for common Indian bank statement formats: `DD/MM/YYYY`, `DD-MM-YYYY`,
- *  `DD MMM YYYY`, 2-digit years, and ISO `YYYY-MM-DD`. Returns epoch ms at local midnight, or null
- *  if unparseable — an unparseable date rejects the row rather than guessing. */
-export function parseStatementDate(raw: string | undefined): number | null {
+/** Recognized date-format tokens, longest-first so `YYYY` is tried before `YY` and `MMM` before a
+ *  (nonexistent) single-`M`, avoiding a token accidentally matching a prefix of a longer one. */
+const FORMAT_TOKENS = ['YYYY', 'MMM', 'YY', 'MM', 'DD'] as const;
+type FormatToken = (typeof FORMAT_TOKENS)[number];
+
+export const DEFAULT_DATE_FORMAT = 'DD/MM/YYYY';
+
+interface CompiledDateFormat {
+  regex: RegExp;
+  tokens: FormatToken[];
+}
+
+const compiledFormatCache = new Map<string, CompiledDateFormat>();
+
+/** Compiles a token format string (`DD`, `MM`, `YYYY`, `YY`, `MMM`) into a regex + the token order
+ *  its capture groups correspond to. Any character that isn't the start of a recognized token is
+ *  taken as a literal separator (escaped into the regex as-is) — this is what lets the same engine
+ *  handle `DD/MM/YYYY`, `DD-MM-YY`, `DD MMM YYYY`, and a fully concatenated `DDMMMYYYY` (no separator
+ *  at all) without any special-casing between them. Cached since the same format string gets
+ *  compiled once per column-mapping change but parsed against every row in the file. */
+function compileDateFormat(format: string): CompiledDateFormat {
+  const cached = compiledFormatCache.get(format);
+  if (cached) return cached;
+  let pattern = '';
+  const tokens: FormatToken[] = [];
+  let i = 0;
+  while (i < format.length) {
+    const rest = format.slice(i).toUpperCase();
+    const token = FORMAT_TOKENS.find((t) => rest.startsWith(t));
+    if (token) {
+      tokens.push(token);
+      pattern +=
+        token === 'YYYY' ? '(\\d{4})' : token === 'YY' ? '(\\d{2})' : token === 'MMM' ? '([A-Za-z]{3,})' : '(\\d{1,2})';
+      i += token.length;
+    } else {
+      pattern += (format[i] ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      i++;
+    }
+  }
+  const compiled: CompiledDateFormat = { regex: new RegExp(`^${pattern}$`, 'i'), tokens };
+  compiledFormatCache.set(format, compiled);
+  return compiled;
+}
+
+/** Parses a raw statement date string against an explicit token format string (see `ColumnMapping`'s
+ *  `dateFormat` doc comment for the token grammar). Rejects — returns `null` — rather than guessing
+ *  whenever the string doesn't match the format's shape at all, or the extracted day/month is out of
+ *  range; a mismatched format should surface as a rejected row (`RejectedStatementRow`), never a
+ *  silently wrong date.
+ *
+ *  Replaces this session's first attempt at fixing date-format ambiguity, a narrower
+ *  `NumericDateOrder` (`'day-first' | 'month-first'`) that only covered one numeric shape
+ *  (`DD/MM/YYYY` vs `MM/DD/YYYY`) — real statements vary far more than that (e.g. `DD-MM-YY`, or a
+ *  no-separator `DDMMMYYYY` for a date like "22Feb2026"), which direct user feedback caught
+ *  2026-08-05 before this ever shipped past the mapping popup. */
+export function parseStatementDate(raw: string | undefined, format: string = DEFAULT_DATE_FORMAT): number | null {
   if (!raw) return null;
   const s = raw.trim();
   if (!s) return null;
 
-  let m = /^(\d{1,2})[\s-]([A-Za-z]{3,})[\s-](\d{2,4})$/.exec(s);
-  if (m) {
-    const day = Number(m[1] ?? '');
-    const mon = MONTH_NAMES[(m[2] ?? '').slice(0, 3).toLowerCase()];
-    let year = Number(m[3] ?? '');
-    if (year < 100) year += 2000;
-    if (mon !== undefined) return new Date(year, mon, day).getTime();
-  }
+  const { regex, tokens } = compileDateFormat(format);
+  const m = regex.exec(s);
+  if (!m) return null;
 
-  m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/.exec(s);
-  if (m) {
-    const day = Number(m[1] ?? '');
-    const month = Number(m[2] ?? '') - 1;
-    let year = Number(m[3] ?? '');
-    if (year < 100) year += 2000;
-    return new Date(year, month, day).getTime();
-  }
+  let day: number | null = null;
+  let month: number | null = null;
+  let year: number | null = null;
+  tokens.forEach((token, idx) => {
+    const value = m[idx + 1] ?? '';
+    if (token === 'DD') day = Number(value);
+    else if (token === 'MM') month = Number(value) - 1;
+    else if (token === 'YYYY') year = Number(value);
+    else if (token === 'YY') year = Number(value) + 2000;
+    else if (token === 'MMM') month = MONTH_NAMES[value.slice(0, 3).toLowerCase()] ?? null;
+  });
+  if (day === null || month === null || year === null) return null;
+  if (month < 0 || month > 11 || day < 1 || day > 31) return null;
+  return new Date(year, month, day).getTime();
+}
 
-  m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s);
-  if (m) return new Date(Number(m[1] ?? ''), Number(m[2] ?? '') - 1, Number(m[3] ?? '')).getTime();
+/** Common real-world statement date-format shapes, most-specific/least-ambiguous first — tried in
+ *  order against a date column's own real values when there's no bank preset to declare one (the
+ *  Custom preset). Ordering breaks ties deliberately: day-before-month variants are listed before
+ *  their month-first counterparts, so an ambiguous file (every value fits both) defaults to
+ *  India-first convention rather than an arbitrary pick. */
+const CANDIDATE_DATE_FORMATS = [
+  'YYYY-MM-DD',
+  'YYYY/MM/DD',
+  'DD MMM YYYY',
+  'DD-MMM-YYYY',
+  'DDMMMYYYY',
+  'DD-MMM-YY',
+  'DD/MM/YYYY',
+  'DD-MM-YYYY',
+  'DD.MM.YYYY',
+  'DD/MM/YY',
+  'DD-MM-YY',
+  'MM/DD/YYYY',
+  'MM-DD-YYYY',
+  'MM/DD/YY'
+];
 
-  return null;
+/** Guesses the date format from a set of real raw date-column values — tries each candidate shape in
+ *  `CANDIDATE_DATE_FORMATS` and keeps whichever ones every non-blank sample actually parses under
+ *  (matching the shape *and* producing an in-range day/month). `confident: true` only when exactly
+ *  one candidate fully explains every sample; if several fit equally (e.g. every day ≤ 12, so both
+ *  `DD/MM/YYYY` and `MM/DD/YYYY` "work") or none do, `confident: false` tells the mapping popup to
+ *  prompt rather than silently assume — it still returns its single best guess (the earliest-listed
+ *  fit, or the plain default if nothing fits at all) either way, so the field always starts
+ *  pre-filled with something reasonable rather than blank. */
+export function detectDateFormat(rawDates: (string | undefined)[]): { format: string; confident: boolean } {
+  const samples = rawDates.map((d) => d?.trim()).filter((d): d is string => !!d);
+  if (samples.length === 0) return { format: DEFAULT_DATE_FORMAT, confident: false };
+
+  const fits = CANDIDATE_DATE_FORMATS.filter((format) => samples.every((s) => parseStatementDate(s, format) !== null));
+  if (fits.length === 0) return { format: DEFAULT_DATE_FORMAT, confident: false };
+  return { format: fits[0] ?? DEFAULT_DATE_FORMAT, confident: fits.length === 1 };
 }
 
 /**
@@ -144,7 +231,7 @@ export function parseStatementRows(rows: string[][], headers: string[], mapping:
     if (!cells) continue;
     const rawLine = cells.join(',');
 
-    const date = dateIdx >= 0 ? parseStatementDate(cells[dateIdx]) : null;
+    const date = dateIdx >= 0 ? parseStatementDate(cells[dateIdx], mapping.dateFormat) : null;
     if (date === null) {
       rejected.push({ rowIndex, rawLine, reason: 'Unparseable or missing date' });
       continue;
