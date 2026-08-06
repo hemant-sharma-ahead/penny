@@ -5,13 +5,18 @@ import type { ParsedStatementRow } from './types';
 /** ±3 days, per docs/plans/bank-statement-import.md §5. */
 const CANDIDATE_WINDOW_MS = 3 * DAY_MS;
 
-/** How close a non-exact amount can be to still surface as a "possible match" rather than being
- *  treated as unrelated — a placeholder tolerance (₹10 or 2%, whichever is larger) pending real
- *  statement samples to tune against; never used for an auto/confident match regardless of value. */
+/** How close a non-exact amount can be for `suggestPossibleTransfer`'s much softer "might be an
+ *  unrecorded transfer leg" heuristic — NOT used by `matchStatementRows`' own "possible match"
+ *  bucket any more (removed 2026-08-06, per explicit user decision: a "possible match" against an
+ *  existing expense must have the EXACT statement amount — only the ±3-day date window is a
+ *  tolerance here. The prior amount tolerance, even after being tightened once already that same day,
+ *  was still surfacing genuinely distinct transactions as "possible matches" purely because they fell
+ *  within a percentage band of an unrelated recorded expense's amount). Kept here only for
+ *  `suggestPossibleTransfer`'s own, separately-scoped, dismissible-suggestion-only heuristic. */
 function isCloseAmount(a: number, b: number): boolean {
   const diff = Math.abs(a - b);
   if (diff < 0.01) return false; // exact — handled separately, not "close"
-  const tolerance = Math.max(10, b * 0.02);
+  const tolerance = Math.max(2, b * 0.005);
   return diff <= tolerance;
 }
 
@@ -183,13 +188,10 @@ export function matchStatementRows(
       continue;
     }
 
-    const close = available.filter((e) => isCloseAmount(e.amount, row.amount));
-    if (close.length > 0) {
-      possible.push({ statementRow: row, candidates: close });
-      for (const e of close) referenced.add(e.id);
-      continue;
-    }
-
+    // No exact-amount candidate within the date window — per 2026-08-06 decision, a "possible match"
+    // requires the exact statement amount (only the date window is a tolerance); a merely close amount
+    // is no longer enough to surface an unrelated recorded expense as a candidate. The user can still
+    // manually search/reassign any existing expense from the "no match" bucket's own picker.
     unmatched.push(row);
   }
 

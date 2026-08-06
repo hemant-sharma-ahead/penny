@@ -61,6 +61,10 @@ interface TransactionsSliceProps {
    *  bank-statement-import.md §10a's purpose #1) — which transactions were resolved from a bank
    *  statement import, and what the original line looked like. */
   bankImportLinkByTxn: Map<string, { rawNarration: string; date: number }>;
+  /** Every transaction whose recorded payment mode disagrees with its original bank-statement
+   *  narration (2026-08-06, `useExpenses.ts`'s `paymentModeMismatchTxnIds`) — drives both the row
+   *  warning icon (`TransactionsTab`) and the "Payment mode mismatch" filter toggle. */
+  paymentModeMismatchTxnIds: Set<string>;
   /** Adds/edits an account from the expense form's own "+" tile (`AccountChips.tsx`), inline. */
   saveAccount: (data: AccountInput, editing: Account | null) => Promise<Account>;
   accountBalances: Record<string, number>;
@@ -110,6 +114,7 @@ export function TransactionsSlice({
   goalLinkByTxn,
   goalLinkedTxnIds,
   bankImportLinkByTxn,
+  paymentModeMismatchTxnIds,
   saveAccount,
   accountBalances,
   shareGroups,
@@ -144,6 +149,8 @@ export function TransactionsSlice({
     setEventFilters,
     monthFilter,
     setMonthFilter,
+    paymentModeMismatchOnly,
+    setPaymentModeMismatchOnly,
     activeFilterCount,
     grouped,
     filterState,
@@ -286,7 +293,8 @@ export function TransactionsSlice({
     accountFilters.size > 0 ||
     parentCategoryFilters.size > 0 ||
     categoryFilters.size > 0 ||
-    eventFilters.size > 0;
+    eventFilters.size > 0 ||
+    paymentModeMismatchOnly;
 
   return (
     <View className="flex-1">
@@ -419,6 +427,13 @@ export function TransactionsSlice({
                   const color = evList.length === 1 ? (evList[0]?.color ?? theme.primary) : theme.primary;
                   return <DismissibleChip label={label} color={color} onDismiss={() => setEventFilters(new Set())} />;
                 })()}
+              {paymentModeMismatchOnly && (
+                <DismissibleChip
+                  label="Payment mismatch"
+                  color={theme.warning}
+                  onDismiss={() => setPaymentModeMismatchOnly(false)}
+                />
+              )}
               <Pressable
                 onPress={clearChipFilters}
                 className="shrink-0 flex-row items-center gap-1 px-3 py-1.5 rounded-full"
@@ -496,6 +511,7 @@ export function TransactionsSlice({
         selectedIds={selected}
         onToggleSelect={toggleSelect}
         goalLinkedTxnIds={goalLinkedTxnIds}
+        paymentModeMismatchTxnIds={paymentModeMismatchTxnIds}
       />
 
       {/* Bulk action bar (select mode). Each Pressable is a plain `flex: 1` third — the previous
@@ -568,6 +584,7 @@ export function TransactionsSlice({
           accounts={accounts}
           categories={categories}
           goals={goals}
+          hasPaymentModeMismatches={paymentModeMismatchTxnIds.size > 0}
           initial={filterState}
           onApply={applyFilters}
           onClose={() => setShowFilterSheet(false)}

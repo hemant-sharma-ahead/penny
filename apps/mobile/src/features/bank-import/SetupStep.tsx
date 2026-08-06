@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
-import { Button, Card, SectionLabel, SelectInput } from '~/components/ui';
+import { Banner, Button, Card, SectionLabel, SelectInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { formatDate } from '@/lib/date';
@@ -146,16 +146,45 @@ export function SetupStep({ bi }: SetupStepProps) {
               </View>
             ))}
           </Card>
-          {bi.mappingPreview && (
-            <Text className="text-xs text-tertiary">
-              {bi.mappingPreview.rows.length} row{bi.mappingPreview.rows.length === 1 ? '' : 's'} detected
-              {minDate !== null && maxDate !== null ? ` · ${formatDate(minDate)}–${formatDate(maxDate)}` : ''}
-              {bi.mappingPreview.rejected.length > 0
-                ? ` · ${bi.mappingPreview.rejected.length} row${bi.mappingPreview.rejected.length === 1 ? '' : 's'} couldn't be read`
-                : ''}
-            </Text>
-          )}
-          <Button variant="primary" fullWidth disabled={!bi.mappingReady} onPress={bi.confirmMapping}>
+          {/* Was a single `text-xs text-tertiary` caption (2026-08-05 feedback: "too subtle to see",
+              and a 0-row outcome looked visually identical to a healthy one — same tiny grey line,
+              just different numbers, with no explanation of why). Now a real `Banner`: `info` when
+              anything parsed (row count + date range as the bold headline, any rejected-row count as
+              a plain detail line), `warning` when nothing did — surfacing the *first* row's actual
+              rejection reason from `parseStatementRows` (`RejectedStatementRow.reason` — already
+              computed, just never shown beyond an aggregate count before) and pointing at the date
+              format specifically, since an unparseable-date mismatch is the overwhelmingly likely
+              cause. */}
+          {bi.mappingPreview &&
+            (bi.mappingPreview.rows.length > 0 ? (
+              <Banner
+                variant="info"
+                icon="ti-table"
+                title={`${bi.mappingPreview.rows.length} row${bi.mappingPreview.rows.length === 1 ? '' : 's'} detected${
+                  minDate !== null && maxDate !== null ? ` · ${formatDate(minDate)}–${formatDate(maxDate)}` : ''
+                }`}
+              >
+                {bi.mappingPreview.rejected.length > 0
+                  ? `${bi.mappingPreview.rejected.length} row${bi.mappingPreview.rejected.length === 1 ? '' : 's'} couldn't be read — first reason: ${bi.mappingPreview.rejected[0]?.reason}.`
+                  : 'Every row in the file parsed cleanly.'}
+              </Banner>
+            ) : (
+              <Banner variant="warning" icon="ti-alert-triangle" title="No rows could be read from this file">
+                {bi.mappingPreview.rejected[0]?.reason
+                  ? `Most likely cause: ${bi.mappingPreview.rejected[0].reason.toLowerCase()}. Check the date format above (${bi.dateFormat}) against how dates actually look in your file.`
+                  : `Double-check the column mapping above, especially the date format (${bi.dateFormat}) — it should match how dates actually look in your file.`}
+              </Banner>
+            ))}
+          {/* Was gated on `mappingReady` alone (every field mapped) — that says nothing about whether
+              the mapping actually *works*, so a wrong date format could map every field "correctly"
+              and still produce zero usable rows, yet still let the user proceed into an empty review
+              screen. Also requires at least one row having actually parsed. */}
+          <Button
+            variant="primary"
+            fullWidth
+            disabled={!bi.mappingReady || bi.mappingPreview?.rows.length === 0}
+            onPress={bi.confirmMapping}
+          >
             Continue to review
           </Button>
         </View>

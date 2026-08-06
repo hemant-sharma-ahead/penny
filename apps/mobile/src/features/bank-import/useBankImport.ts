@@ -13,7 +13,7 @@ import {
   ledgerEntriesRepo
 } from '@/core/db/repositories';
 import { useRepository } from '@/hooks/useRepository';
-import { logActivity } from '@/core/db/activityLog';
+import { logActivityAwaited } from '@/core/db/activityLog';
 import { notifyTxnChanged } from '@/hooks/useTxnRefresh';
 import { RECONCILIATION_DESCRIPTION } from '@/core/expenses/cashFlowSummary';
 import {
@@ -93,6 +93,14 @@ export function useBankImport(accountId: string) {
   const account = useMemo(() => accounts.find((a) => a.id === accountId), [accounts, accountId]);
   const expensesById = useMemo(() => new Map(allExpenses.map((e) => [e.id, e])), [allExpenses]);
   const cashAccounts = useMemo(() => accounts.filter((a) => a.type === 'cash'), [accounts]);
+  // Feeds `CategoryPickerModal`'s "Frequent" quick-pick row (its own `txnCountByCategory` prop,
+  // independent of `manager` — bulk-categorize never passes a full `CategoryManager`) — same shape
+  // `useExpenses.ts`'s `categoryManager.txnCountByCategory` builds for the normal Expenses flow.
+  const txnCountByCategory = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of allExpenses) counts.set(e.categoryId, (counts.get(e.categoryId) ?? 0) + 1);
+    return counts;
+  }, [allExpenses]);
 
   // ── Step 'bank' ───────────────────────────────────────────────────────────────────────────────
   const [presetId, setPresetId] = useState<BankPresetId | null>(null);
@@ -678,7 +686,11 @@ export function useBankImport(accountId: string) {
     }
 
     if (createdExpenseIds.length > 0 || linkedCount > 0) {
-      logActivity({
+      // Awaited (not the usual fire-and-forget logActivity()) — matches importWriter.ts's
+      // writeImportBatch(): the Timeline screen's durable "Undo" action (added 2026-08-06) can be
+      // tapped well after this resolves (a reload of the screen, or a tap shortly after import), and
+      // needs the activity-log entry to definitely already exist rather than racing a background write.
+      await logActivityAwaited({
         action: 'IMPORT',
         entityType: 'expense',
         entityId: 'bank-import',
@@ -722,6 +734,7 @@ export function useBankImport(accountId: string) {
     cashAccounts,
     suggestCashTransferFor,
     suggestPossibleTransferFor,
+    txnCountByCategory,
     categories,
     hashtags,
     allPaymentModes,

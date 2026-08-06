@@ -194,6 +194,7 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
           return (
             <ExpenseForm
               categories={bi.categories}
+              txnCountByCategory={bi.txnCountByCategory}
               hashtags={bi.hashtags}
               editing={null}
               activeEvents={[]}

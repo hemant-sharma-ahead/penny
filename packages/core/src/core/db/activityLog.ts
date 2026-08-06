@@ -19,6 +19,7 @@ export interface LogActivityInput {
   diff?: string;
   entityCount?: number;
   restorePointId?: string;
+  relatedLogId?: string;
 }
 
 // ─── Change signal ──────────────────────────────────────────────────────────
@@ -109,7 +110,12 @@ export async function restoreActivity(logId: string): Promise<boolean> {
   return true;
 }
 
-/** Restore every not-yet-restored deletion at/after a checkpoint timestamp. Returns records restored. */
+/** Restore every not-yet-restored deletion at/after a checkpoint timestamp. Returns records restored.
+ *  Deliberately excludes `UNDO_IMPORT` — reversing one needs the extra relatedLogId flip-back
+ *  `core/import/importWriter.ts`'s `restoreUndoneImport()` does (so the original IMPORT entry's own
+ *  Undo button correctly reappears), which this generic sweep can't do without importing that module
+ *  (this file has no dependency on `core/import/`, and shouldn't gain one just for this). A user with an
+ *  UNDO_IMPORT entry since their checkpoint can still restore it individually from Recently Deleted. */
 export async function restoreDeletionsSince(timestampInclusive: number): Promise<number> {
   const all = await activityLogRepo.getAll();
   const targets = all.filter(

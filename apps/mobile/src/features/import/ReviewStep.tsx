@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { View, Pressable, ScrollView, Text } from 'react-native';
 import { Button, ProgressBar } from '~/components/ui';
 import { Icon } from '~/components/Icon';
+import { tint } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { Account, AccountType, ExpenseCategory } from '@/core/db/types';
 import type { ParsedRow, RejectedRow } from '@/core/import/importParsers';
 import type { ColumnMapping } from '@/core/import/importMatcher';
 import type { CategoryResolution, CategoryAction } from '@/core/import/importCategoryResolution';
 import type { AccountResolution, AccountAction } from '@/core/import/importAccountResolution';
+import type { RowOverride } from '@/core/import/importPipeline';
 import type { RowTriage, DisplayTransferPair } from './useImport';
 import { AccountsSection } from './review/AccountsSection';
 import { PreviewSection } from './review/PreviewSection';
@@ -19,6 +21,9 @@ interface ReviewStepProps {
   rejectedRows: RejectedRow[];
   carryForwardExcludedRows: ParsedRow[];
   mapping: ColumnMapping | null;
+  /** Original CSV header row — threaded down to `UnparsedRows` so a rejected row's editor can show the
+   *  full original row (all columns, not just date/amount/description) alongside its column labels. */
+  header: string[];
   categoryResolutions: CategoryResolution[];
   accountResolutions: AccountResolution[];
   noAccountColumn: boolean;
@@ -28,6 +33,14 @@ interface ReviewStepProps {
   setSingleAccountCreate: (v: { name: string; type: AccountType } | null) => void;
   categories: ExpenseCategory[];
   accounts: Account[];
+  /** Per-category existing-transaction counts, threaded down to `CategoryTile` → `CategoryPickerModal`'s
+   *  "Frequent" quick-pick row — see `useImport.ts`'s doc comment. */
+  txnCountByCategory: Map<string, number>;
+  /** Set once `useImport`'s reference-data load (categories/accounts) has exhausted its retries — shows
+   *  a small inline "Couldn't load categories" affordance instead of leaving the Categories section
+   *  silently empty for the rest of the session. */
+  categoriesLoadError: boolean;
+  onRetryLoadCategories: () => void;
   rowTriage: RowTriage[];
   totalRowsRead: number;
   actualTransactionCount: number;
@@ -40,9 +53,13 @@ interface ReviewStepProps {
   categoriesDecidedCount: number;
   touchedCategorySources: Set<string>;
   categoryTags: Map<string, string>;
+  /** Per-row overrides (2026-08-06) — see `RowOverride`'s doc comment. */
+  rowOverrides: Map<number, RowOverride>;
   importing: boolean;
   onUpdateCategory: (sourceName: string, suggestion: CategoryAction) => void;
   onUpdateCategoryTag: (sourceName: string, tag: string) => void;
+  onMoveRowsToCategory: (rowIndices: number[], categoryId: string, categoryName: string) => void;
+  onTagRows: (rowIndices: number[], tag: string) => void;
   onUpdateAccount: (sourceName: string, suggestion: AccountAction) => void;
   onFixRejected: (rowIndex: number, fields: { date: string; amount: string; description: string }) => boolean;
   onImport: () => void;
@@ -60,6 +77,7 @@ export function ReviewStep({
   rejectedRows,
   carryForwardExcludedRows,
   mapping,
+  header,
   categoryResolutions,
   accountResolutions,
   noAccountColumn,
@@ -69,6 +87,9 @@ export function ReviewStep({
   setSingleAccountCreate,
   categories,
   accounts,
+  txnCountByCategory,
+  categoriesLoadError,
+  onRetryLoadCategories,
   rowTriage,
   totalRowsRead,
   actualTransactionCount,
@@ -81,9 +102,12 @@ export function ReviewStep({
   categoriesDecidedCount,
   touchedCategorySources,
   categoryTags,
+  rowOverrides,
   importing,
   onUpdateCategory,
   onUpdateCategoryTag,
+  onMoveRowsToCategory,
+  onTagRows,
   onUpdateAccount,
   onFixRejected,
   onImport
@@ -212,6 +236,7 @@ export function ReviewStep({
               <PreviewSection
                 rejectedRows={rejectedRows}
                 mapping={mapping}
+                header={header}
                 onFixRejected={onFixRejected}
                 carryForwardExcludedRows={carryForwardExcludedRows}
                 transferPairs={transferPairs}
@@ -221,13 +246,30 @@ export function ReviewStep({
                 parsedRows={parsedRows}
                 rowTriage={rowTriage}
                 categories={categories}
+                txnCountByCategory={txnCountByCategory}
                 categoryTags={categoryTags}
+                rowOverrides={rowOverrides}
                 onUpdateCategory={onUpdateCategory}
                 onUpdateCategoryTag={onUpdateCategoryTag}
+                onMoveRowsToCategory={onMoveRowsToCategory}
+                onTagRows={onTagRows}
               />
             </View>
           )}
         </View>
+
+        {categoriesLoadError && (
+          <Pressable
+            onPress={onRetryLoadCategories}
+            className="flex-row items-center justify-center gap-1.5 py-1.5 rounded-lg"
+            style={{ backgroundColor: tint(theme.warning, 15) }}
+          >
+            <Icon name="ti-alert-triangle" size={13} color={theme.warning} />
+            <Text className="text-[11.5px] font-semibold" style={{ color: theme.warning }}>
+              Couldn&apos;t load categories — tap to retry
+            </Text>
+          </Pressable>
+        )}
 
         {!accountsResolved && (
           <Text className="text-center text-[10.5px] text-tertiary" style={{ marginTop: -8 }}>

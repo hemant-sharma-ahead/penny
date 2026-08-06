@@ -59,12 +59,37 @@ describe('matchStatementRows', () => {
     expect(result.unmatched).toHaveLength(1);
   });
 
-  it('never auto-matches a close-but-not-exact amount — surfaces as possible instead', () => {
+  it('never surfaces a close-but-not-exact amount as a "possible match" — goes to unmatched instead (2026-08-06: amount tolerance removed entirely from possible-match identification, date tolerance unchanged)', () => {
+    // 452 vs 450 used to fall inside the old ±0.5%/₹2 tolerance band and surface as "possible" — an
+    // exact statement amount is now required for any candidate at all.
+    const e = expense({ amount: 452 });
+    const result = matchStatementRows([row({ amount: 450 })], ACCOUNT, [e], RECONCILIATION_DESCRIPTION);
+    expect(result.matched).toHaveLength(0);
+    expect(result.possible).toHaveLength(0);
+    expect(result.unmatched).toHaveLength(1);
+  });
+
+  it('does not surface any non-exact amount as a "possible match", however close', () => {
     const e = expense({ amount: 460 });
     const result = matchStatementRows([row({ amount: 450 })], ACCOUNT, [e], RECONCILIATION_DESCRIPTION);
     expect(result.matched).toHaveLength(0);
-    expect(result.possible).toHaveLength(1);
-    expect(result.possible[0]?.candidates.map((c) => c.id)).toEqual(['e1']);
+    expect(result.possible).toHaveLength(0);
+    expect(result.unmatched).toHaveLength(1);
+  });
+
+  it('regression: no statement row is offered as a "possible match" for an anchor expense unless its amount is exactly equal (real user-reported bug — amount tolerance removed entirely 2026-08-06)', () => {
+    // The anchor recorded expense: "P Zomato" at ₹2,392. None of these real reported statement amounts
+    // are exactly ₹2,392 (even 2393, off by just ₹1, no longer counts) — every one of them must be
+    // unmatched, none possible.
+    const anchor = expense({ id: 'zomato', amount: 2392, description: 'P Zomato' });
+    const distinctRows = [2416, 2393, 2367, 1417, 1857, 1514, 1162, 2118].map((amount, i) =>
+      row({ amount, rowIndex: i + 1 })
+    );
+    const result = matchStatementRows(distinctRows, ACCOUNT, [anchor], RECONCILIATION_DESCRIPTION);
+    expect(result.possible).toHaveLength(0);
+    expect(result.unmatched.map((r) => r.amount).sort((a, b) => a - b)).toEqual(
+      [2416, 2393, 2367, 1417, 1857, 1514, 1162, 2118].sort((a, b) => a - b)
+    );
   });
 
   it('surfaces every tied candidate as possible when same-day/same-amount ties cannot be broken', () => {

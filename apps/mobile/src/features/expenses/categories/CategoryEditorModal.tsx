@@ -5,6 +5,7 @@ import type { ExpenseCategory } from '@/core/db/types';
 import { CAT_COLORS } from '@/core/expenses/categoryIcons';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { IconGridPicker } from '~/components/shared/IconGridPicker';
+import { CategoryPickerModal } from './CategoryPickerModal';
 
 export interface GroupOption {
   value: string;
@@ -46,6 +47,7 @@ export function CategoryEditorModal({
   const [color, setColor] = useState(editing?.color ?? CAT_COLORS[2] ?? '#22c55e');
   const [group, setGroup] = useState(editing?.parentId ?? editing?.intentGroup ?? defaultGroup);
   const [moveTarget, setMoveTarget] = useState('');
+  const [showMovePicker, setShowMovePicker] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<null | 'delete' | 'move'>(null);
 
@@ -164,12 +166,9 @@ export function CategoryEditorModal({
             </Text>
             <View className="flex-row gap-2 items-end">
               <View className="flex-1">
-                <SelectInput
-                  value={moveTarget}
-                  onChange={setMoveTarget}
-                  placeholder="Move to…"
-                  options={targets.map((c) => ({ value: c.id, label: c.name }))}
-                />
+                <Button variant="secondary" fullWidth onPress={() => setShowMovePicker(true)}>
+                  {targets.find((c) => c.id === moveTarget)?.name ?? 'Move to…'}
+                </Button>
               </View>
               <Button variant="secondary" size="md" disabled={!moveTarget} onPress={() => setConfirm('move')}>
                 Move
@@ -184,6 +183,25 @@ export function CategoryEditorModal({
           </Button>
         )}
       </Modal>
+
+      {/* Move-destination picker — the same grouped/sorted tile-grid UI as the main category picker,
+          not a plain dropdown, with the category being emptied out (`editing`) shown but disabled
+          since you can't move its own transactions into itself. `targets` already excludes it, but
+          that filtering is preserved here as a disabled tile rather than an absent one, matching
+          `CategoryPickerModal`'s own bulk-move sub-picker. */}
+      {showMovePicker && editing && (
+        <CategoryPickerModal
+          type={type}
+          categories={moveTargets}
+          selectedId={moveTarget}
+          disabledCategoryIds={new Set([editing.id])}
+          onSelect={(id) => {
+            setMoveTarget(id);
+            setShowMovePicker(false);
+          }}
+          onClose={() => setShowMovePicker(false)}
+        />
+      )}
 
       <ConfirmDialog
         isOpen={confirm === 'move'}

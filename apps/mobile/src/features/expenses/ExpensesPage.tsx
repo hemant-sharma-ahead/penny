@@ -72,6 +72,7 @@ export function ExpensesPage() {
     goalLinkByTxn,
     goalLinkedTxnIds,
     bankImportLinkByTxn,
+    paymentModeMismatchTxnIds,
     txnIdsByGoal,
     saveAccount,
     accountBalances,
@@ -95,7 +96,7 @@ export function ExpensesPage() {
     setActiveTab(tab);
     setVisitedTabs((prev) => (prev.has(tab) ? prev : new Set(prev).add(tab)));
   }
-  const txnFilters = useTransactionFilters(expenses, categoryMap, txnIdsByGoal);
+  const txnFilters = useTransactionFilters(expenses, categoryMap, txnIdsByGoal, paymentModeMismatchTxnIds);
 
   // "Share with a group" from the entry form (Track E) — only for a claimed (username) account.
   const { groups, claimed } = useGroupContext();
@@ -198,6 +199,7 @@ export function ExpensesPage() {
               goalLinkByTxn={goalLinkByTxn}
               goalLinkedTxnIds={goalLinkedTxnIds}
               bankImportLinkByTxn={bankImportLinkByTxn}
+              paymentModeMismatchTxnIds={paymentModeMismatchTxnIds}
               saveAccount={saveAccount}
               accountBalances={accountBalances}
               shareGroups={shareGroups}

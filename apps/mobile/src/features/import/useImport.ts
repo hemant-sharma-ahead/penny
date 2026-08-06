@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { expenseCategoriesRepo, expensesRepo, accountsRepo } from '@/core/db/repositories';
 import type { ExpenseCategory, Account, AccountType } from '@/core/db/types';
 import {
@@ -17,7 +17,8 @@ import {
   buildResolvedPreviewRows,
   toConfirmedCategoryMap,
   applyConfirmedTransferPairs,
-  type ResolvedPreviewRow
+  type ResolvedPreviewRow,
+  type RowOverride
 } from '@/core/import/importPipeline';
 import {
   resolveCategories,
@@ -82,6 +83,12 @@ export function useImport() {
    *  toConfirmedCategoryMap/buildResolvedPreviewRows). Independent of which category kind the source
    *  resolves to. */
   const [categoryTags, setCategoryTags] = useState<Map<string, string>>(new Map());
+  /** Per-row overrides (2026-08-06), keyed by index into `parsedRows` — lets the user bulk-select an
+   *  arbitrary SUBSET of one CategoryTile's rows (never spanning multiple source categories — see
+   *  `RowOverride`'s doc comment for why the resolution model can't support that) and move just that
+   *  subset to a different existing category, and/or tag just that subset, without disturbing the rest
+   *  of the group or its own group-level resolution. */
+  const [rowOverrides, setRowOverrides] = useState<Map<number, RowOverride>>(new Map());
 
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ succeededCount: number; failed: FailedImportRow[] }>({
@@ -94,16 +101,65 @@ export function useImport() {
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [existingKeys, setExistingKeys] = useState<Set<string>>(new Set());
+  /** Per-category existing-transaction counts, fed straight into `CategoryPickerModal`'s own
+   *  `txnCountByCategory` prop (via ReviewStep → PreviewSection → CategoryTile) for its "Frequent"
+   *  quick-pick row — same shape/purpose as `useBankImport.ts`'s identically-named memo for the other
+   *  import flow, just derived here from the one-shot `expensesRepo.getAll()` fetch below instead of a
+   *  live `useRepository` subscription. */
+  const [txnCountByCategory, setTxnCountByCategory] = useState<Map<string, number>>(new Map());
+  /** Set only once every retry attempt below has been exhausted — lets the review screen show a small
+   *  "Couldn't load categories — tap to retry" affordance instead of silently leaving `categories`/
+   *  `accounts` empty for the rest of the session (see `loadReferenceData`'s doc comment). */
+  const [categoriesLoadError, setCategoriesLoadError] = useState(false);
 
-  useEffect(() => {
-    Promise.all([expenseCategoriesRepo.getAll(), expensesRepo.getAll(), accountsRepo.getAll()])
-      .then(([cats, exps, accts]) => {
+  /** Fetches categories/expenses/accounts, retrying on failure before giving up. This is a one-shot
+   *  load (mirroring the original effect), but `expenseCategoriesRepo.getAll()` decrypts via
+   *  `keystore.getMasterKey()`, which throws synchronously if the encryption session isn't unlocked yet
+   *  — a real, transient race (e.g. a privacy/PIN re-lock timer firing right as the user navigates into
+   *  Import). The original effect had no retry and a silently-swallowed `catch`, so hitting that race
+   *  once left `categories`/`accounts` permanently empty for the whole Import session (found
+   *  2026-08-06). Retries 3 times with backoff before surfacing `categoriesLoadError` so the UI can
+   *  offer a manual retry too. */
+  const loadReferenceData = useCallback(async () => {
+    const retryDelaysMs = [300, 800, 1500];
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const [cats, exps, accts] = await Promise.all([
+          expenseCategoriesRepo.getAll(),
+          expensesRepo.getAll(),
+          accountsRepo.getAll()
+        ]);
         setCategories(cats);
         setAccounts(accts);
         setExistingKeys(new Set(exps.map((e) => dedupKey(e.date, e.amount, e.description))));
-      })
-      .catch(() => {});
+        const counts = new Map<string, number>();
+        for (const e of exps) counts.set(e.categoryId, (counts.get(e.categoryId) ?? 0) + 1);
+        setTxnCountByCategory(counts);
+        setCategoriesLoadError(false);
+        return;
+      } catch {
+        if (attempt >= retryDelaysMs.length) {
+          setCategoriesLoadError(true);
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, retryDelaysMs[attempt]));
+      }
+    }
   }, []);
+
+  // State is only set inside the timeout (never directly in the effect body) to satisfy
+  // react-hooks/set-state-in-effect — same `setTimeout(..., 0)`-wrap convention used by
+  // ChooseHandleScreen.tsx/LetUsKnowYouScreen.tsx/useLivePrice.ts elsewhere in apps/mobile.
+  useEffect(() => {
+    let cancelled = false;
+    const t = setTimeout(() => {
+      if (!cancelled) void loadReferenceData();
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [loadReferenceData]);
 
   /** Step 1 → 2/3: reads the file's header. Known formats parse immediately and go straight to
    *  Review; Custom shows the Map-columns step first with a pre-filled (never blank) guess. */
@@ -185,6 +241,38 @@ export function useImport() {
     });
   }
 
+  /** Moves exactly the given `parsedRows` indices to a different EXISTING category — a bulk-select
+   *  action scoped to one CategoryTile's own rows (never spanning multiple source categories; see
+   *  `RowOverride`'s doc comment). Merges into any existing per-row tag override rather than clobbering
+   *  it, so moving a subset that was already individually tagged keeps that tag. */
+  function moveRowsToCategory(rowIndices: number[], categoryId: string, categoryName: string) {
+    setRowOverrides((prev) => {
+      const next = new Map(prev);
+      for (const i of rowIndices) next.set(i, { ...next.get(i), categoryId, categoryName });
+      return next;
+    });
+  }
+
+  /** Tags exactly the given `parsedRows` indices — independent of any category-move override on the
+   *  same rows. Clearing the tag (empty string) drops just the `tag` field of each row's override,
+   *  removing the override entirely once it has neither a tag nor a category-move left. */
+  function tagRows(rowIndices: number[], tag: string) {
+    setRowOverrides((prev) => {
+      const next = new Map(prev);
+      for (const i of rowIndices) {
+        const existing = next.get(i);
+        if (tag) {
+          next.set(i, { ...existing, tag });
+        } else if (existing?.categoryId) {
+          next.set(i, { categoryId: existing.categoryId, categoryName: existing.categoryName });
+        } else {
+          next.delete(i);
+        }
+      }
+      return next;
+    });
+  }
+
   /** Fixes one previously-unparseable row inline and moves it into the ready-to-import set — the live
    *  preview recomputes automatically since it's derived from `parsedRows`. */
   function fixRejectedRow(rowIndex: number, fields: { date: string; amount: string; description: string }) {
@@ -232,21 +320,31 @@ export function useImport() {
       if (singleAccountCreate?.name.trim()) return 'preview-acc:__single__';
       return '';
     };
-    return buildResolvedPreviewRows(parsedRows, previewCategoryMap, resolveAccountId, existingKeys);
-  }, [parsedRows, previewCategoryMap, accountResolutions, singleAccountId, singleAccountCreate, existingKeys]);
+    return buildResolvedPreviewRows(parsedRows, previewCategoryMap, resolveAccountId, existingKeys, rowOverrides);
+  }, [
+    parsedRows,
+    previewCategoryMap,
+    accountResolutions,
+    singleAccountId,
+    singleAccountCreate,
+    existingKeys,
+    rowOverrides
+  ]);
 
   /** Per-row triage aligned index-for-index with `parsedRows`/`preview` (buildResolvedPreviewRows never
    *  reorders or drops rows). A row is 'attention' only when its category is still an unreviewed
-   *  'create' guess — an 'existing'/'transfer' match or a touched/explicit resolution counts as ready. */
+   *  'create' guess — an 'existing'/'transfer' match, a touched/explicit resolution, or a row-level
+   *  override (moving it to an existing category is itself an explicit decision) all count as ready. */
   const rowTriage: RowTriage[] = useMemo(() => {
     return preview.map((row, i) => {
       if (row.duplicate) return 'duplicate';
+      if (rowOverrides.has(i)) return 'ready';
       const catKey = parsedRows[i]?.categoryName.trim() || 'Other';
       const res = categoryResolutions.find((r) => r.sourceName === catKey);
       const undecided = res?.suggestion.kind === 'create' && !touchedCategorySources.has(catKey);
       return undecided ? 'attention' : 'ready';
     });
-  }, [preview, parsedRows, categoryResolutions, touchedCategorySources]);
+  }, [preview, parsedRows, categoryResolutions, touchedCategorySources, rowOverrides]);
 
   /** Indices (into `parsedRows`/`preview`, which stay index-aligned — see buildResolvedPreviewRows'
    *  doc comment) of MoneyView-style carry-forward markers ("Cash Forward" et al) that are redundant
@@ -418,7 +516,7 @@ export function useImport() {
       return resolvedSingleAccountId ?? '';
     };
 
-    const finalRows = buildResolvedPreviewRows(parsedRows, categoryMap, resolveAccountId, existingKeys);
+    const finalRows = buildResolvedPreviewRows(parsedRows, categoryMap, resolveAccountId, existingKeys, rowOverrides);
     // Redundant carry-forward rows must never be written — tracked here by object reference (not
     // index) since applyConfirmedTransferPairs below reorders the array.
     const carryForwardExcludedRowRefs = new Set(finalRows.filter((_, i) => carryForwardExcludedIndices.has(i)));
@@ -468,6 +566,9 @@ export function useImport() {
     setSingleAccountCreate,
     categories,
     accounts,
+    txnCountByCategory,
+    categoriesLoadError,
+    retryLoadReferenceData: loadReferenceData,
     preview,
     rowTriage,
     readyRows,
@@ -485,6 +586,7 @@ export function useImport() {
     categoriesDecidedCount,
     touchedCategorySources,
     categoryTags,
+    rowOverrides,
     importing,
     importResult,
     activityLogId,
@@ -494,6 +596,8 @@ export function useImport() {
     updateCategoryResolution,
     updateAccountResolution,
     setCategoryTag,
+    moveRowsToCategory,
+    tagRows,
     fixRejectedRow,
     commitAndImport,
     retryFailed,

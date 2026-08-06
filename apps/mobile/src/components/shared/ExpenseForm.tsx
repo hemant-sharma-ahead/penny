@@ -19,6 +19,7 @@ import type { ExpenseSeedIntent } from '@/core/iou/expenseLink';
 import type { ExpenseGoalIntent } from '@/core/goals/goalLink';
 import type { ActiveEvent } from '~/context/EventModeContext';
 import { accountsRepo, groupMembersRepo, profileRepo } from '@/core/db/repositories';
+import { IOU_MANDATORY_CATEGORY_IDS } from '@/core/db/defaultCategories';
 import { getRiskColor } from '@/core/goals/meta';
 import { epochToDateInput, formatCurrency } from '@/lib/formatters';
 import { epochToTimeInput, combineDateTime, formatDate } from '@/lib/date';
@@ -47,6 +48,8 @@ import { useAccountForm, type AccountInput } from '~/hooks/useAccountForm';
 import { AccountChips } from './AccountChips';
 import { PaymentModeChips } from './PaymentModeChips';
 import { couplePaymentToAccount } from './paymentModes';
+import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
+import { usePaymentModes } from '~/hooks/usePaymentModes';
 import { tint } from '~/lib/color';
 
 interface Props {
@@ -99,6 +102,12 @@ interface Props {
   /** Omitted when `goalPreset` is set — the category tile is locked/non-interactive there, so the
    *  category-management picker never opens and never needs it. */
   categoryManager?: CategoryManager;
+  /** Feeds `CategoryPickerModal`'s "Frequent" quick-pick row when `categoryManager` is omitted (e.g.
+   *  bank-import's statement-preset flow, which deliberately never builds a full manager) — without
+   *  this, "Frequent" silently read off an always-empty count map and never rendered there (found
+   *  2026-08-05; see `CategoryPickerModal.tsx`'s own `txnCountByCategory` prop doc). Ignored when
+   *  `categoryManager` is provided — that already carries its own counts. */
+  txnCountByCategory?: Map<string, number>;
   /** Opens this form scoped to one fixed goal (Goals screen's "Add contribution"/edit-linked-txn flow):
    *  hides the Goal/Lent-Borrowed sections entirely (goal is already fixed, not a separate choice this
    *  form makes), shows a small "Contributing to {name}" caption instead, restricts the type switch to
@@ -224,6 +233,7 @@ export function ExpenseForm({
   onDuplicate,
   onSaveTemplate,
   categoryManager,
+  txnCountByCategory,
   goalPreset,
   statementPreset,
   onClose
@@ -277,6 +287,19 @@ export function ExpenseForm({
         : (statementPreset?.categorySuggestion ?? ''))
   );
   const [paymentMode, setPaymentMode] = useState(seed?.paymentMode ?? statementPreset?.paymentMode ?? '');
+  // Payment-mode mismatch note (2026-08-06) — re-derived live off the CURRENT `paymentMode` state (not
+  // a frozen snapshot from import time), so picking a different chip in "Paid via" below makes the
+  // warning disappear immediately, no separate "mark as fixed" step needed.
+  const { modes: allPaymentModesForLabels } = usePaymentModes();
+  const paymentModeLabelById = useMemo(
+    () => new Map(allPaymentModesForLabels.map((m) => [m.id, m.label])),
+    [allPaymentModesForLabels]
+  );
+  const impliedPaymentMode = useMemo(
+    () => (linkedBankStatementLine ? inferPaymentMode(linkedBankStatementLine.rawNarration) : null),
+    [linkedBankStatementLine]
+  );
+  const paymentModeMismatch = !!impliedPaymentMode && !!paymentMode && paymentMode !== impliedPaymentMode.id;
   const [description, setDescription] = useState(
     seed?.description ??
       (goalPreset ? `Contribution: ${goalPreset.goalName}` : (statementPreset?.descriptionSuggestion ?? ''))
@@ -327,6 +350,14 @@ export function ExpenseForm({
   const [showIouPanel, setShowIouPanel] = useState(!!linkedIou);
   const [iouPerson, setIouPerson] = useState(linkedIou?.personName ?? '');
   const iouKind: 'lent' | 'borrowed' = type === 'income' ? 'borrowed' : 'lent';
+  // Lending / Borrowed Money / Collected Money / Return Borrowed (2026-08-06, explicit user decision) —
+  // picking one of these categories makes the person mandatory, not just a manual toggle someone might
+  // never open before an otherwise-silent validation failure on Save. `iouPanelOpen` (used for
+  // rendering + the toggle's disabled state) is `showIouPanel` OR'd with this; the underlying manual
+  // toggle state itself is untouched, so switching away from a mandatory category reverts to whatever
+  // it was before, same as any other optional panel.
+  const iouMandatory = IOU_MANDATORY_CATEGORY_IDS.has(categoryId);
+  const iouPanelOpen = showIouPanel || iouMandatory;
   // See `StatementPresetInput`'s doc comment ("Direction swap for a credit row marked Transfer") —
   // true only when a credit statement row (money arriving into the locked account) has been switched
   // to Transfer, in which case the locked account plays the *destination* role, not the source.
@@ -552,7 +583,7 @@ export function ExpenseForm({
       cat: type !== 'transfer' && !categoryId,
       // Each of these is required only while its own toggle is on — off entirely, they're skipped.
       tags: type !== 'transfer' && showTags && activeTags.length === 0,
-      iouPerson: showIouSection && showIouPanel && !iouPerson.trim(),
+      iouPerson: showIouSection && iouPanelOpen && !iouPerson.trim(),
       goal: showGoalSection && showGoalPanel && !selectedGoalId,
       shareGroup: showShareSection && shareEnabled && !shareGroupId,
       repeatInterval: isRecurring && !intervalDays.trim()
@@ -804,14 +835,24 @@ export function ExpenseForm({
         )}
 
         {/* Audit trail (docs/plans/bank-statement-import.md §10a's purpose #1) — read-only, editing
-            only (a brand-new entry has no import link yet). */}
+            only (a brand-new entry has no import link yet). Was a cropped single-line icon+text row
+            (found via user report 2026-08-06: long narrations got cut off, and it didn't follow the
+            app's info/warning/success Banner convention at all) — now a proper `Banner`, full text
+            wrapping, no truncation. The payment-mode mismatch note directly below it (also 2026-08-06)
+            re-derives every render off the live `paymentMode` state, so fixing it via "Paid via" below
+            removes this warning immediately — no separate dismiss/acknowledge action needed. */}
         {editing && linkedBankStatementLine && (
-          <View className="flex-row items-center gap-1.5 -mt-1.5">
-            <Icon name="ti-building-bank" size={13} color={theme.textTertiary} />
-            <Text className="text-xs text-tertiary flex-1" numberOfLines={1}>
+          <View className="gap-2">
+            <Banner variant="info" icon="ti-building-bank">
               Matched from bank statement: &ldquo;{linkedBankStatementLine.rawNarration}&rdquo;,{' '}
               {formatDate(linkedBankStatementLine.date)}
-            </Text>
+            </Banner>
+            {paymentModeMismatch && impliedPaymentMode && (
+              <Banner variant="warning">
+                Statement suggests {impliedPaymentMode.label} · recorded as{' '}
+                {paymentModeLabelById.get(paymentMode) ?? paymentMode}. Update &ldquo;Paid via&rdquo; below to fix.
+              </Banner>
+            )}
           </View>
         )}
 
@@ -1063,7 +1104,8 @@ export function ExpenseForm({
             <ExtraCircle
               icon="ti-users"
               label={iouKind === 'lent' ? 'Lent' : 'Borrowed'}
-              active={showIouPanel || iouPerson.trim().length > 0}
+              active={iouPanelOpen || iouPerson.trim().length > 0}
+              disabled={iouMandatory}
               accent={accent}
               onPress={() => setShowIouPanel((v) => !v)}
             />
@@ -1287,8 +1329,10 @@ export function ExpenseForm({
           </View>
         )}
 
-        {/* Lent / Borrowed panel */}
-        {showIouSection && showIouPanel && (
+        {/* Lent / Borrowed panel — auto-opens (and can't be collapsed, see the `ExtraCircle` above)
+            whenever `iouMandatory`, since Lending/Borrowed Money/Collected Money/Return Borrowed exist
+            specifically to record a money movement with a person (2026-08-06). */}
+        {showIouSection && iouPanelOpen && (
           <View
             ref={iouPanelRef}
             className="rounded-xl border p-3 gap-2"
@@ -1304,7 +1348,13 @@ export function ExpenseForm({
                 if (errors.iouPerson) setErrors((e) => ({ ...e, iouPerson: false }));
               }}
               placeholder="Person's name"
-              error={errors.iouPerson ? 'Enter who this is with — you turned this on' : undefined}
+              error={
+                errors.iouPerson
+                  ? iouMandatory
+                    ? 'Enter who this is with — required for this category'
+                    : 'Enter who this is with — you turned this on'
+                  : undefined
+              }
             />
             {!errors.iouPerson && (
               <Text className="text-xs text-tertiary">
@@ -1486,6 +1536,7 @@ export function ExpenseForm({
           categories={categories}
           selectedId={categoryId}
           manager={categoryManager}
+          txnCountByCategory={txnCountByCategory}
           activeVacationEvent={
             activeVacationEvent ? { id: activeVacationEvent.id, name: activeVacationEvent.name } : undefined
           }

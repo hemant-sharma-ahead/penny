@@ -12,11 +12,16 @@ import type { FilterState } from './FilterModal';
  *
  * @param txnIdsByGoal `goalId -> linked transaction ids` (`useExpenses.ts`'s own derivation from every
  *   `GoalContribution`, any origin) — powers "Filter by goal", same shape as `eventFilters`' matching.
+ * @param mismatchedTxnIds `useExpenses.ts`'s `paymentModeMismatchTxnIds` (2026-08-06) — every
+ *   transaction whose recorded payment mode disagrees with its original bank-statement narration.
+ *   Powers "Payment mode mismatch" — a single boolean toggle, not a multi-select set like the other
+ *   filters, since there's only one thing to filter by (mismatched vs. not).
  */
 export function useTransactionFilters(
   expenses: Expense[],
   categoryMap: Map<string, ExpenseCategory>,
-  txnIdsByGoal: Map<string, Set<string>>
+  txnIdsByGoal: Map<string, Set<string>>,
+  mismatchedTxnIds: Set<string>
 ) {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | TransactionType>('all');
@@ -26,6 +31,7 @@ export function useTransactionFilters(
   const [eventFilters, setEventFilters] = useState<Set<string>>(new Set());
   const [goalFilters, setGoalFilters] = useState<Set<string>>(new Set());
   const [monthFilter, setMonthFilter] = useState<string | null>(null);
+  const [paymentModeMismatchOnly, setPaymentModeMismatchOnly] = useState(false);
 
   const activeFilterCount =
     (monthFilter ? 1 : 0) +
@@ -33,7 +39,8 @@ export function useTransactionFilters(
     (accountFilters.size > 0 ? 1 : 0) +
     (parentCategoryFilters.size > 0 || categoryFilters.size > 0 ? 1 : 0) +
     (eventFilters.size > 0 ? 1 : 0) +
-    (goalFilters.size > 0 ? 1 : 0);
+    (goalFilters.size > 0 ? 1 : 0) +
+    (paymentModeMismatchOnly ? 1 : 0);
 
   const filteredExpenses = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -58,6 +65,7 @@ export function useTransactionFilters(
         if (!matchesAnyGoal) return false;
       }
       if (monthFilter && toMonthYearKey(new Date(e.date)) !== monthFilter) return false;
+      if (paymentModeMismatchOnly && !mismatchedTxnIds.has(e.id)) return false;
       if (q) {
         const cat = categoryMap.get(e.categoryId);
         const matchDesc = e.description.toLowerCase().includes(q);
@@ -77,6 +85,8 @@ export function useTransactionFilters(
     goalFilters,
     txnIdsByGoal,
     monthFilter,
+    paymentModeMismatchOnly,
+    mismatchedTxnIds,
     search,
     categoryMap
   ]);
@@ -95,7 +105,8 @@ export function useTransactionFilters(
     parentCategoryFilters,
     categoryFilters,
     eventFilters,
-    goalFilters
+    goalFilters,
+    paymentModeMismatchOnly
   };
 
   function applyFilters(filters: FilterState) {
@@ -106,6 +117,7 @@ export function useTransactionFilters(
     setCategoryFilters(filters.categoryFilters);
     setEventFilters(filters.eventFilters);
     setGoalFilters(filters.goalFilters);
+    setPaymentModeMismatchOnly(filters.paymentModeMismatchOnly);
   }
 
   function clearChipFilters() {
@@ -115,6 +127,7 @@ export function useTransactionFilters(
     setCategoryFilters(new Set());
     setEventFilters(new Set());
     setGoalFilters(new Set());
+    setPaymentModeMismatchOnly(false);
   }
 
   return {
@@ -132,6 +145,8 @@ export function useTransactionFilters(
     setEventFilters,
     monthFilter,
     setMonthFilter,
+    paymentModeMismatchOnly,
+    setPaymentModeMismatchOnly,
     activeFilterCount,
     filteredExpenses,
     filteredTotal,

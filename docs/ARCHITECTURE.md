@@ -985,12 +985,32 @@ modal should reuse real app UI, not a plain dropdown):**
    - Three new default categories, additive-seeded via `useExpenses.ts`'s new v8 seeding effect
      (`penny_cats_v8`): `cat-food-drinks` ("Food & Drinks", Daily Living — added despite overlapping
      Groceries/Dining & Café, per explicit user request), `cat-lending` ("Lending", Family & Giving,
-     expense), `cat-inc-borrowed` ("Borrowed Money", Income). Both IOU categories are **free choice,
-     not auto-locked** to the Lent/Borrowed panel (unlike `goalPreset`'s auto-locked category) —
-     deliberate, since a shared-bill split is often kept under its real category (e.g. Dining) "for
-     remembrance" rather than a generic bucket. `categoryTaxMap.ts` gained `cat-food-drinks` (`gst-5`)
-     and `cat-lending` (`exempt`, also added to `SPEND_EXCLUDED` — lending isn't consumption); income
-     categories were already outside this map (indirect tax only applies to spend).
+     expense), `cat-inc-borrowed` ("Borrowed Money", Income). ~~Both IOU categories are free choice,
+     not auto-locked to the Lent/Borrowed panel~~ — **superseded 2026-08-06, see below**: picking either
+     now auto-opens and locks the panel, person mandatory. `categoryTaxMap.ts` gained `cat-food-drinks`
+     (`gst-5`) and `cat-lending` (`exempt`, also added to `SPEND_EXCLUDED` — lending isn't consumption);
+     income categories were already outside this map (indirect tax only applies to spend).
+   - **Two more IOU categories + a reversed decision (2026-08-06), additive-seeded via `useExpenses.ts`'s
+     new v10 seeding effect (`penny_cats_v10`):** `cat-collected-money` ("Collected Money", Income — the
+     reverse of Lending: someone paying back what you lent them) and `cat-return-borrowed` ("Return
+     Borrowed", Family & Giving, expense — the reverse of Borrowed Money: you paying back what you
+     borrowed). Explicit user decision this time reverses v8's "free choice, not auto-locked" call
+     above for **all four** Lending/Borrowed-Money/Collected-Money/Return-Borrowed categories: picking
+     any of them in `ExpenseForm.tsx` (including bank-import's single-row flow) or bank-import's
+     `BulkCategorizeModal` now auto-opens *and locks open* the Lent/Borrowed panel (`IOU_MANDATORY_CATEGORY_IDS`
+     in `core/db/defaultCategories.ts`; `ExtraCircle` gained a `disabled` prop for the lock), and
+     Save/Apply is blocked until a person is entered. Also: settling an IOU (`IouView.tsx`'s "Settle"
+     button) now defaults its linked transaction to `cat-collected-money`/`cat-return-borrowed` instead
+     of the generic Other/Other Income fallback (`reconcileLinkedTxn`'s new `defaultCategoryId` override
+     on `LinkedTxnIntent`, passed only by the settle call site — the original manual lent/borrowed
+     entry's own linked transaction is unchanged, still generic Other/Other Income). **Real mistake
+     found the same day:** the first version shipped with invented icon names
+     (`ti-wallet-plus`/`ti-wallet-minus`) that don't exist in the actual bundled Tabler set — corrected
+     to `ti-receipt-refund`/`ti-cash-minus`, both verified directly against `tablerIconIndex.json`. A
+     device that had already run the v10 seed against the wrong values before the fix landed wouldn't
+     pick up the correction on its own (the `penny_cats_v10` flag blocks re-seeding, and seeding only
+     ever inserts *missing* rows, never patches existing ones) — a separate, unconditional one-time
+     effect directly patches these two ids' `icon` field if it doesn't match the corrected value.
 
 **Retirement Corpus — Home hero redesign (2026-08-03, `apps/mobile` only, `apps/web-react` untouched/frozen):**
 replaced Home's Net worth/Safe-to-spend two-column hero (plus the colored asset-proportion bar and the

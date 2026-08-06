@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Pressable, ScrollView, Text } from 'react-native';
-import { Banner, Button, ConfirmDialog, Modal, SelectInput } from '~/components/ui';
+import { Banner, Button, ConfirmDialog, Modal } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { tint, selectionRingStyle } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -25,9 +25,21 @@ interface Props {
   /** Category CRUD. Omit for a select-only picker (e.g. the group shared-expense composer) — the
    *  "Manage" affordance is then hidden. */
   manager?: CategoryManager;
+  /** Frequency counts for the "Frequent" quick-pick row, independent of `manager` — a select-only
+   *  caller (no CRUD, e.g. bank-import's `BulkCategorizeModal`) still wants "Frequent" sorting without
+   *  taking on full category management. Falls back to `manager?.txnCountByCategory` when omitted, so
+   *  a manager-bearing caller (the normal Expenses flow) doesn't need to pass this separately. Found
+   *  2026-08-05: `BulkCategorizeModal` omitting `manager` entirely (by design, since it never needs
+   *  create/edit/delete) meant "Frequent" silently read off the always-empty `NOOP_MANAGER` map and
+   *  never rendered — a select-only caller has no way to opt into just the counts without this. */
+  txnCountByCategory?: Map<string, number>;
   /** Active Vacation (immersive event) mode, if any — leads with Travel picks instead of Frequent,
    *  with a note on why, but never hides other groups. Soft default, not a hard restriction. */
   activeVacationEvent?: { id: string; name: string } | undefined;
+  /** Category ids to render visually disabled (dimmed, non-pressable) without hiding them entirely —
+   *  e.g. a "move transactions to a different category" destination picker disabling the very
+   *  category(ies) being emptied out, since you can't move a category's transactions into itself. */
+  disabledCategoryIds?: Set<string>;
 }
 
 /** Horizontally-scrollable quick-pick row shared by "Frequent" and "Travel picks". */
@@ -77,6 +89,102 @@ function QuickPickRow({
   );
 }
 
+/**
+ * Grouped, sorted tile grid shared by the main select/manage view and the in-modal "move
+ * transactions" destination sub-picker — extracted so both render identical group headers/tiles
+ * instead of one being a plain `SelectInput` dropdown. `isDisabled`/`isSelected` are predicates
+ * rather than raw values so the same component serves both a single-select context (main view) and
+ * a "highlight one destination, dim the sources" context (bulk move) without extra props for each.
+ */
+function CategoryTileGrid({
+  groups,
+  isSelected,
+  isDisabled,
+  showManageOverlay,
+  multiSelect,
+  onTileTap,
+  onEditParent
+}: {
+  groups: RenderedGroup[];
+  isSelected: (id: string) => boolean;
+  isDisabled?: (id: string) => boolean;
+  /** Manage-mode's per-tile pencil/checkbox overlay + editable group header — off for the bulk-move
+   *  destination sub-picker, which is always a plain single pick regardless of the parent's mode. */
+  showManageOverlay: boolean;
+  multiSelect: boolean;
+  onTileTap: (cat: ExpenseCategory) => void;
+  onEditParent?: (parent: ExpenseCategory) => void;
+}) {
+  const theme = useThemeColors();
+  return (
+    <>
+      {groups.map(({ key, label, color, parent, cats }) => (
+        <View key={key}>
+          <View className="flex-row items-center gap-1.5 mb-2">
+            <View className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+            <Text className="text-[10px] font-semibold uppercase tracking-wide" style={{ color }}>
+              {label}
+            </Text>
+            {showManageOverlay && !multiSelect && parent && onEditParent && (
+              <Pressable
+                onPress={() => onEditParent(parent)}
+                className="ml-0.5"
+                accessibilityLabel={`Edit group ${label}`}
+              >
+                <Icon name="ti-pencil" size={12} color={theme.textTertiary} />
+              </Pressable>
+            )}
+          </View>
+          <View className="flex-row flex-wrap gap-x-1 gap-y-2.5">
+            {cats.map((cat) => {
+              const isSel = isSelected(cat.id);
+              const disabled = isDisabled?.(cat.id) ?? false;
+              return (
+                <Pressable
+                  key={cat.id}
+                  disabled={disabled}
+                  onPress={() => onTileTap(cat)}
+                  className="items-center gap-1 w-[15%]"
+                  style={{ opacity: disabled ? 0.35 : 1 }}
+                >
+                  <View style={selectionRingStyle(isSel, theme.surface, cat.color)}>
+                    <View
+                      className="relative w-9 h-9 rounded-[10px] items-center justify-center"
+                      style={{ backgroundColor: cat.color }}
+                    >
+                      <Icon name={cat.icon} size={14} color="#fff" />
+                      {showManageOverlay && multiSelect && (
+                        <View className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-surface items-center justify-center">
+                          <Icon
+                            name={isSel ? 'ti-circle-check-filled' : 'ti-circle'}
+                            size={9}
+                            color={isSel ? cat.color : theme.textTertiary}
+                          />
+                        </View>
+                      )}
+                      {showManageOverlay && !multiSelect && (
+                        <View className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-surface items-center justify-center">
+                          <Icon name="ti-pencil" size={8} color={theme.textTertiary} />
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                  <Text
+                    className="text-[7px] font-medium text-center leading-tight text-secondary w-full"
+                    numberOfLines={2}
+                  >
+                    {cat.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ))}
+    </>
+  );
+}
+
 /** Select-only fallback so the picker can be reused without threading the full manager. */
 const NOOP_MANAGER: CategoryManager = {
   parentCategoryMap: new Map(),
@@ -106,13 +214,14 @@ export function CategoryPickerModal({
   onSelect,
   onClose,
   manager,
-  activeVacationEvent
+  txnCountByCategory: txnCountByCategoryProp,
+  activeVacationEvent,
+  disabledCategoryIds
 }: Props) {
-  const theme = useThemeColors();
   const canManage = !!manager;
   const {
     parentCategoryMap,
-    txnCountByCategory,
+    txnCountByCategory: managerTxnCountByCategory,
     saveCategory: onSaveCategory,
     moveTransactions: onMoveTransactions,
     deleteCategory: onDeleteCategory,
@@ -120,6 +229,9 @@ export function CategoryPickerModal({
     deleteParent: onDeleteParent,
     createParentWithChildren: onCreateParentWithChildren
   } = manager ?? NOOP_MANAGER;
+  // The explicit prop wins when given (a select-only caller opting into "Frequent" without full
+  // manage-CRUD) — otherwise falls back to whatever the manager itself carries.
+  const txnCountByCategory = txnCountByCategoryProp ?? managerTxnCountByCategory;
   const [mode, setMode] = useState<'select' | 'manage'>('select');
   const [multiSelect, setMultiSelect] = useState(false);
 
@@ -180,21 +292,34 @@ export function CategoryPickerModal({
       if (arr) arr.push(cat);
       else byKey.set(key, [cat]);
     }
-    const ordered: RenderedGroup[] = [];
-    // Fixed intent groups, in their declared order
+    const byName = (a: ExpenseCategory, b: ExpenseCategory) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    const unordered: RenderedGroup[] = [];
+    // Fixed intent groups
     for (const [key, meta] of Object.entries(INTENT_GROUP_META)) {
       const isIncome = key === 'income';
       if (type === 'income' ? !isIncome : isIncome || key === 'transfers') continue;
       const cats = byKey.get(key);
-      if (cats?.length) ordered.push({ key, label: meta.label, color: meta.color, cats });
+      if (cats?.length) unordered.push({ key, label: meta.label, color: meta.color, cats: [...cats].sort(byName) });
     }
     // User-created parent groups
     for (const parent of parentCategoryMap.values()) {
       if (!applies(parent)) continue;
       const cats = byKey.get(parent.id);
-      if (cats?.length) ordered.push({ key: parent.id, label: parent.name, color: parent.color, parent, cats });
+      if (cats?.length) {
+        unordered.push({
+          key: parent.id,
+          label: parent.name,
+          color: parent.color,
+          parent,
+          cats: [...cats].sort(byName)
+        });
+      }
     }
-    return ordered;
+    // Both fixed intent groups and user-created parent groups sort together, alphabetically by label —
+    // no group (including "Other") is pinned; there's no functional reason for one to sit apart from
+    // the rest, just declaration-order history.
+    return unordered.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
   }, [applicableCategories, parentCategoryMap, type, applies]);
 
   const groupOptions = useMemo<GroupOption[]>(() => {
@@ -216,7 +341,6 @@ export function CategoryPickerModal({
   );
   const canBulkDelete =
     selectedCats.length > 0 && selectedCats.every((c) => !c.isDefault && (txnCountByCategory.get(c.id) ?? 0) === 0);
-  const bulkMoveTargets = applicableCategories.filter((c) => !selected.has(c.id));
 
   function toggleSelected(id: string) {
     setSelected((prev) => {
@@ -374,62 +498,15 @@ export function CategoryPickerModal({
           )
         )}
 
-        {groups.map(({ key, label, color, parent, cats }) => (
-          <View key={key}>
-            <View className="flex-row items-center gap-1.5 mb-2">
-              <View className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-              <Text className="text-[10px] font-semibold uppercase tracking-wide" style={{ color }}>
-                {label}
-              </Text>
-              {mode === 'manage' && !multiSelect && parent && (
-                <Pressable
-                  onPress={() => setEditor({ kind: 'parent', editing: parent })}
-                  className="ml-0.5"
-                  accessibilityLabel={`Edit group ${label}`}
-                >
-                  <Icon name="ti-pencil" size={12} color={theme.textTertiary} />
-                </Pressable>
-              )}
-            </View>
-            <View className="flex-row flex-wrap gap-x-1 gap-y-2.5">
-              {cats.map((cat) => {
-                const isSel = mode === 'select' ? selectedId === cat.id : selected.has(cat.id);
-                return (
-                  <Pressable key={cat.id} onPress={() => handleTileClick(cat)} className="items-center gap-1 w-[15%]">
-                    <View style={selectionRingStyle(isSel, theme.surface, cat.color)}>
-                      <View
-                        className="relative w-9 h-9 rounded-[10px] items-center justify-center"
-                        style={{ backgroundColor: cat.color }}
-                      >
-                        <Icon name={cat.icon} size={14} color="#fff" />
-                        {mode === 'manage' && multiSelect && (
-                          <View className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-surface items-center justify-center">
-                            <Icon
-                              name={isSel ? 'ti-circle-check-filled' : 'ti-circle'}
-                              size={9}
-                              color={isSel ? cat.color : theme.textTertiary}
-                            />
-                          </View>
-                        )}
-                        {mode === 'manage' && !multiSelect && (
-                          <View className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-surface items-center justify-center">
-                            <Icon name="ti-pencil" size={8} color={theme.textTertiary} />
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                    <Text
-                      className="text-[7px] font-medium text-center leading-tight text-secondary w-full"
-                      numberOfLines={2}
-                    >
-                      {cat.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        ))}
+        <CategoryTileGrid
+          groups={groups}
+          isSelected={(id) => (mode === 'select' ? selectedId === id : selected.has(id))}
+          isDisabled={(id) => disabledCategoryIds?.has(id) ?? false}
+          showManageOverlay={mode === 'manage'}
+          multiSelect={multiSelect}
+          onTileTap={handleTileClick}
+          onEditParent={(parent) => setEditor({ kind: 'parent', editing: parent })}
+        />
       </Modal>
 
       {editor?.kind === 'category' && (
@@ -463,9 +540,12 @@ export function CategoryPickerModal({
           );
         })()}
 
-      {/* Bulk move target picker */}
+      {/* Bulk move target picker — the same grouped/sorted tile grid as the main picker, not a plain
+          dropdown, with the categories being emptied out (`selected`) shown but disabled since you
+          can't move their own transactions into themselves. */}
       {showBulkMove && (
         <Modal
+          scrollable
           size="sm"
           onClose={() => setShowBulkMove(false)}
           title="Move transactions"
@@ -487,11 +567,13 @@ export function CategoryPickerModal({
           <Text className="text-sm text-secondary">
             Move all transactions from {selected.size} categor{selected.size === 1 ? 'y' : 'ies'} to:
           </Text>
-          <SelectInput
-            value={bulkMoveTarget}
-            onChange={setBulkMoveTarget}
-            placeholder="Choose category…"
-            options={bulkMoveTargets.map((c) => ({ value: c.id, label: c.name }))}
+          <CategoryTileGrid
+            groups={groups}
+            isSelected={(id) => bulkMoveTarget === id}
+            isDisabled={(id) => selected.has(id)}
+            showManageOverlay={false}
+            multiSelect={false}
+            onTileTap={(cat) => setBulkMoveTarget(cat.id)}
           />
         </Modal>
       )}

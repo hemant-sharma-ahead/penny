@@ -32,6 +32,11 @@ interface TransactionsTabProps {
   /** Transactions that back a goal contribution — shown with a small target icon next to the title,
    *  same treatment as the receipt/shared-expense icons already here. */
   goalLinkedTxnIds?: Set<string>;
+  /** Transactions whose recorded payment mode disagrees with their original bank-statement narration
+   *  (2026-08-06, `useExpenses.ts`'s `paymentModeMismatchTxnIds`) — same small-icon-next-to-title
+   *  treatment as the other three above; tapping the row opens the edit form, where the same mismatch
+   *  is explained (and fixable) via a `Banner`. */
+  paymentModeMismatchTxnIds?: Set<string>;
 }
 
 interface Row {
@@ -59,6 +64,7 @@ interface RowProps {
   onToggleSelect?: (id: string) => void;
   isLastRowOverall: boolean;
   isGoalLinked: boolean;
+  isPaymentModeMismatch: boolean;
   dateLabel?: string;
 }
 
@@ -90,6 +96,7 @@ const TransactionRow = memo(function TransactionRow({
   onToggleSelect,
   isLastRowOverall,
   isGoalLinked,
+  isPaymentModeMismatch,
   dateLabel
 }: RowProps) {
   const theme = useThemeColors();
@@ -105,6 +112,11 @@ const TransactionRow = memo(function TransactionRow({
   const amountColor = txnType === 'income' ? theme.success : txnType === 'expense' ? theme.danger : theme.info;
   const prefix = txnType === 'income' ? '+' : txnType === 'transfer' ? '' : '-';
   const acc = txn.accountId ? accountMap.get(txn.accountId) : undefined;
+  // Transfers only: destination account, already on the same record (`Expense.toAccountId`) — no
+  // paired-transaction lookup needed. Shown as "From → To" in place of the from-account-only line below,
+  // so a transfer row is self-explanatory without opening it (found via user report: previously only the
+  // from account was visible, so confirming a transfer's destination meant opening every row).
+  const toAcc = txnType === 'transfer' && txn.toAccountId ? accountMap.get(txn.toAccountId) : undefined;
   const catLabel =
     txnType === 'transfer' ? 'Transfer' : (cat?.name ?? (txnType === 'income' ? 'Income' : 'Uncategorized'));
   const subtitle = catLabel;
@@ -135,6 +147,11 @@ const TransactionRow = memo(function TransactionRow({
               <Icon name="ti-target" size={12} color={theme.success} />
             </View>
           )}
+          {isPaymentModeMismatch && (
+            <View className="ml-1">
+              <Icon name="ti-alert-triangle" size={12} color={theme.warning} />
+            </View>
+          )}
         </View>
         <View className="flex-row items-center mt-0.5">
           <Text className="text-[11.5px] text-tertiary" numberOfLines={1}>
@@ -151,10 +168,16 @@ const TransactionRow = memo(function TransactionRow({
         <Text className="text-sm font-bold" style={{ color: masked ? theme.textPrimary : amountColor }}>
           {masked ? '••••' : `${prefix}${formatCurrency(txn.amount)}`}
         </Text>
-        {acc?.name && (
+        {toAcc?.name ? (
           <Text className="text-[10px] text-tertiary mt-0.5" numberOfLines={1}>
-            {acc.name}
+            {acc?.name ?? '—'} → {toAcc.name}
           </Text>
+        ) : (
+          acc?.name && (
+            <Text className="text-[10px] text-tertiary mt-0.5" numberOfLines={1}>
+              {acc.name}
+            </Text>
+          )
         )}
       </View>
     </>
@@ -278,7 +301,8 @@ export function TransactionsTab({
   selectMode = false,
   selectedIds,
   onToggleSelect,
-  goalLinkedTxnIds
+  goalLinkedTxnIds,
+  paymentModeMismatchTxnIds
 }: TransactionsTabProps) {
   const theme = useThemeColors();
 
@@ -321,6 +345,7 @@ export function TransactionsTab({
         onToggleSelect={onToggleSelect}
         isLastRowOverall={item.isLastRowOverall}
         isGoalLinked={goalLinkedTxnIds?.has(item.txn.id) ?? false}
+        isPaymentModeMismatch={paymentModeMismatchTxnIds?.has(item.txn.id) ?? false}
         dateLabel={item.dateLabel}
       />
     ),
@@ -336,7 +361,8 @@ export function TransactionsTab({
       selectMode,
       selectedIds,
       onToggleSelect,
-      goalLinkedTxnIds
+      goalLinkedTxnIds,
+      paymentModeMismatchTxnIds
     ]
   );
 

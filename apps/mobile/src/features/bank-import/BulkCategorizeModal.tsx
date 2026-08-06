@@ -6,6 +6,7 @@ import type { MerchantSuggestion } from '@/core/bank-import/merchantMemory';
 import type { CashTransferSuggestion } from '@/core/bank-import/cashWithdrawalCodes';
 import type { PossibleTransferSuggestion } from '@/core/bank-import/matcher';
 import { prettifyMerchantKey } from '@/core/bank-import/normalization';
+import { IOU_MANDATORY_CATEGORY_IDS } from '@/core/db/defaultCategories';
 import { Modal, Button, Banner, SelectInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { tint } from '~/lib/color';
@@ -20,6 +21,10 @@ interface BulkCategorizeModalProps {
   checkedRows: ParsedStatementRow[];
   totalInGroup: number;
   categories: ExpenseCategory[];
+  /** Feeds `CategoryPickerModal`'s "Frequent" quick-pick row — this modal never passes a full
+   *  `CategoryManager` (no create/edit/delete here), so without this the row silently never rendered
+   *  (found 2026-08-05; see `CategoryPickerModal.tsx`'s own `txnCountByCategory` prop doc). */
+  txnCountByCategory: Map<string, number>;
   hashtags: Hashtag[];
   /** For the Lent/Borrowed panel's autocomplete. Omit (or pass empty) to hide suggestions — the
    *  free-text field itself still works either way, same as `ExpenseForm`'s own IOU panel. */
@@ -79,6 +84,7 @@ export function BulkCategorizeModal({
   checkedRows,
   totalInGroup,
   categories,
+  txnCountByCategory,
   hashtags,
   iouPersons = [],
   suggestion,
@@ -128,6 +134,13 @@ export function BulkCategorizeModal({
   const [showIouPanel, setShowIouPanel] = useState(false);
   const [iouPersonName, setIouPersonName] = useState('');
 
+  // Lending / Borrowed Money / Collected Money / Return Borrowed (2026-08-06, same rule as
+  // `ExpenseForm.tsx`) — makes the person mandatory and auto-opens (and locks open) the Lent/Borrowed
+  // panel rather than leaving it as a manual toggle someone might never open before an otherwise-silent
+  // Apply-button failure.
+  const iouMandatory = IOU_MANDATORY_CATEGORY_IDS.has(categoryId);
+  const iouPanelOpen = showIouPanel || iouMandatory;
+
   const selectedCat = categories.find((c) => c.id === categoryId);
   // A merchant group's rows are overwhelmingly one direction in practice (the same merchant doesn't
   // usually pay you one month and charge you the next) — pick whichever the majority of the checked
@@ -141,7 +154,10 @@ export function BulkCategorizeModal({
   const accent = pickerType === 'income' ? theme.success : theme.danger;
   const canApply = markAsTransfer
     ? checkedRows.length > 0 && transferAccountId.length > 0
-    : description.trim().length > 0 && categoryId.length > 0 && checkedRows.length > 0;
+    : description.trim().length > 0 &&
+      categoryId.length > 0 &&
+      checkedRows.length > 0 &&
+      (!iouMandatory || iouPersonName.trim().length > 0);
 
   const activeTags = parseTags(tagInput);
   const tagParts = tagInput.split(/[\s,]+/);
@@ -344,7 +360,8 @@ export function BulkCategorizeModal({
               <ExtraCircle
                 icon="ti-users"
                 label={iouKind === 'lent' ? 'Lent' : 'Borrowed'}
-                active={showIouPanel || iouPersonName.trim().length > 0}
+                active={iouPanelOpen || iouPersonName.trim().length > 0}
+                disabled={iouMandatory}
                 accent={accent}
                 onPress={() => setShowIouPanel((v) => !v)}
               />
@@ -425,11 +442,15 @@ export function BulkCategorizeModal({
 
             {/* Lent / Borrowed panel — bulk-shared across every checked occurrence: one person, applied to
             each transaction's own amount/date at commit time. Visibility now toggled by the
-            `ExtraCircle` icon above, same as `ExpenseForm`'s own IOU panel. */}
-            {showIouPanel && (
+            `ExtraCircle` icon above, same as `ExpenseForm`'s own IOU panel; auto-opens and locks open
+            when `iouMandatory` (2026-08-06), same rule as `ExpenseForm.tsx`. */}
+            {iouPanelOpen && (
               <View
                 className="rounded-xl border p-3 gap-2"
-                style={{ borderColor: theme.border, backgroundColor: theme.surfaceTertiary }}
+                style={{
+                  borderColor: touched && iouMandatory && !iouPersonName.trim() ? theme.danger : theme.border,
+                  backgroundColor: theme.surfaceTertiary
+                }}
               >
                 <RNTextInput
                   value={iouPersonName}
@@ -437,13 +458,21 @@ export function BulkCategorizeModal({
                   placeholder="Person's name"
                   placeholderTextColor={theme.textTertiary}
                   className="bg-surface-2 text-primary border w-full rounded-xl px-3 py-2.5 text-sm"
-                  style={{ borderColor: theme.border }}
+                  style={{
+                    borderColor: touched && iouMandatory && !iouPersonName.trim() ? theme.danger : theme.border
+                  }}
                 />
-                <Text className="text-xs text-tertiary">
-                  {iouKind === 'lent'
-                    ? `Adds a they-owe-you entry to this person's ledger for each of the ${checkedRows.length} checked transactions.`
-                    : `Adds a you-owe-them entry to this person's ledger for each of the ${checkedRows.length} checked transactions.`}
-                </Text>
+                {touched && iouMandatory && !iouPersonName.trim() ? (
+                  <Text className="text-xs" style={{ color: theme.danger }}>
+                    Enter who this is with — required for this category
+                  </Text>
+                ) : (
+                  <Text className="text-xs text-tertiary">
+                    {iouKind === 'lent'
+                      ? `Adds a they-owe-you entry to this person's ledger for each of the ${checkedRows.length} checked transactions.`
+                      : `Adds a you-owe-them entry to this person's ledger for each of the ${checkedRows.length} checked transactions.`}
+                  </Text>
+                )}
                 {iouMatches.length > 0 && (
                   <View className="flex-row flex-wrap gap-1">
                     {iouMatches.map((p) => (
@@ -467,6 +496,7 @@ export function BulkCategorizeModal({
         <CategoryPickerModal
           type={pickerType}
           categories={categories}
+          txnCountByCategory={txnCountByCategory}
           selectedId={categoryId}
           onSelect={(id) => {
             setCategoryId(id);

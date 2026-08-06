@@ -119,6 +119,7 @@ export function LoneWolfBucket({ bi, masked }: LoneWolfBucketProps) {
       {editing && (
         <ExpenseForm
           categories={bi.categories}
+          txnCountByCategory={bi.txnCountByCategory}
           hashtags={bi.hashtags}
           editing={editing}
           activeEvents={[]}

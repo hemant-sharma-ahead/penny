@@ -49,6 +49,7 @@ import {
 import { computeDueRecurring, buildOccurrence, type DueRecurring } from '@/core/expenses/recurringDue';
 import { normalizeHashtag } from '~/context/EventModeContext';
 import { logActivity, restoreActivity, summarizeDiff } from '@/core/db/activityLog';
+import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
 import { useToast } from '~/context/ToastContext';
 import { getItem, setItem, getJSON, setJSON, removeItem } from '~/lib/storage';
 
@@ -243,6 +244,47 @@ export function useExpenses() {
       await Promise.all(missing.map((c) => expenseCategoriesRepo.put({ ...c, createdAt: Date.now() })));
       await setItem('penny_cats_v9', '1');
       if (missing.length > 0) reloadCategories();
+    })().catch(() => {});
+  }, [categoriesLoading, categories, reloadCategories]);
+
+  // Additive default-category seeding (v10): inserts Collected Money (Income) and Return Borrowed
+  // (Family & Giving) — added 2026-08-06 for the IOU settle-flow default categories and the new
+  // mandatory-person rule (`IOU_MANDATORY_CATEGORY_IDS`). Same non-clobbering, once-per-version
+  // pattern as v3/v6/v7/v8/v9 — adding the entries to `ALL_DEFAULT_CATEGORIES` alone does nothing for
+  // an already-seeded database; only a new versioned effect like this one actually inserts them.
+  const catSeedV10Ref = useRef(false);
+  useEffect(() => {
+    if (categoriesLoading || catSeedV10Ref.current) return;
+    catSeedV10Ref.current = true;
+    (async () => {
+      if (await getItem('penny_cats_v10')) return;
+      const existingIds = new Set(categories.map((c) => c.id));
+      const missing = ALL_DEFAULT_CATEGORIES.filter((c) => !existingIds.has(c.id));
+      await Promise.all(missing.map((c) => expenseCategoriesRepo.put({ ...c, createdAt: Date.now() })));
+      await setItem('penny_cats_v10', '1');
+      if (missing.length > 0) reloadCategories();
+    })().catch(() => {});
+  }, [categoriesLoading, categories, reloadCategories]);
+
+  // One-time icon fix for v10's two categories (2026-08-06): the very first version of this seeding
+  // effect shipped with invented, non-existent icon names (`ti-wallet-plus`/`ti-wallet-minus` — not in
+  // the actual bundled Tabler set), and a Fast-Refresh-connected device could easily have already run
+  // the v10 seed above with those wrong values before the fix landed, permanently setting the
+  // `penny_cats_v10` flag against broken data. Unconditional (not flag-gated on v10 itself, which
+  // would never re-run) — directly patches these two ids' `icon` field to the corrected value if it
+  // doesn't already match, a no-op for anyone who only ever saw the fixed version.
+  const catIconFixRef = useRef(false);
+  useEffect(() => {
+    if (categoriesLoading || catIconFixRef.current) return;
+    catIconFixRef.current = true;
+    (async () => {
+      const correctIcons: Record<string, string> = {
+        'cat-collected-money': 'ti-receipt-refund',
+        'cat-return-borrowed': 'ti-cash-minus'
+      };
+      const toFix = categories.filter((c) => correctIcons[c.id] && c.icon !== correctIcons[c.id]);
+      await Promise.all(toFix.map((c) => expenseCategoriesRepo.put({ ...c, icon: correctIcons[c.id] as string })));
+      if (toFix.length > 0) reloadCategories();
     })().catch(() => {});
   }, [categoriesLoading, categories, reloadCategories]);
 
@@ -716,6 +758,26 @@ export function useExpenses() {
     return map;
   }, [bankStatementImportRecords]);
 
+  /** Every transaction whose recorded `paymentMode` disagrees with what its ORIGINAL bank-statement
+   *  narration implies (2026-08-06 — same `inferPaymentMode()` used at import time and in
+   *  `ExpenseForm`'s own live mismatch note, just re-run here against `bankImportLinkByTxn`'s permanent
+   *  audit trail instead of transient import-review state). Purely derived — no schema change, nothing
+   *  persisted (same "derived, not stored" principle account balances already follow) — so it's
+   *  automatically self-healing the moment the user fixes the payment mode via the edit form, and
+   *  automatically covers every past import, not just the one currently being reviewed. Powers both the
+   *  Transactions list's per-row warning icon and the "Payment mode mismatch" filter (`TransactionsTab`/
+   *  `useTransactionFilters`/`FilterModal`). */
+  const paymentModeMismatchTxnIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const e of expenses) {
+      if (!e.paymentMode) continue;
+      const link = bankImportLinkByTxn.get(e.id);
+      if (!link) continue;
+      if (inferPaymentMode(link.rawNarration).id !== e.paymentMode) ids.add(e.id);
+    }
+    return ids;
+  }, [expenses, bankImportLinkByTxn]);
+
   // For the edit form: which transactions have an expense-seeded goal contribution, and toward which goal.
   const goalLinkByTxn = useMemo(() => {
     const nameById = new Map(goals.map((g) => [g.id, g.name]));
@@ -833,6 +895,7 @@ export function useExpenses() {
     goalLinkByTxn,
     goalLinkedTxnIds,
     bankImportLinkByTxn,
+    paymentModeMismatchTxnIds,
     txnIdsByGoal,
     accountBalances,
     patchExpenses,

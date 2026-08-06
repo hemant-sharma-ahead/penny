@@ -30,9 +30,11 @@ match.
 - A four-bucket review screen:
   1. **Matched** (confident, exact-amount) — collapsed by default, shown as a paired tile
      (statement line + recorded line); any pairing can be manually reassigned by tapping it.
-  2. **Possible matches** (close-but-not-exact amount, or an ambiguous tie) — shown as the same
-     paired-tile style as Matched (amber/dashed instead of green/confident), with the closest guess
-     (or a "N possible" count when tied) on the right half. A picker modal (±3 days by default,
+  2. **Possible matches** (exact amount, but an ambiguous tie between two or more same-day candidates,
+     or a same-window candidate with no clear description-similarity winner — never a close-but-not-
+     exact amount; see 2026-08-06 note below) — shown as the same paired-tile style as Matched (amber/
+     dashed instead of green/confident), with the top-ranked candidate (or a "N possible" count when
+     tied) on the right half. A picker modal (±3 days by default,
      widen range / whole month / search) resolves each one, highlighting the matcher's own
      suggestion(s) with an amber border and a "Suggested" badge; besides picking a match, it also
      offers "No match — add as new" (opens the statementPreset `ExpenseForm`) and a separate "Move to
@@ -151,10 +153,12 @@ by design, so a bug in one can't regress the other.
 - **Core logic** (`packages/core/src/core/bank-import/`): CSV tokenizer/parser tolerant of common
   Indian bank date formats (`csvParser.ts`), the 7 bank presets + Custom (`presets.ts`), a
   keyword-stripping merchant-normalization heuristic with a user-overridable escape hatch
-  (`normalization.ts`), a one-shot ±3-day matching engine with strict 1:1 pairing and a
-  description-similarity tie-break (`matcher.ts` — `matchStatementRows` for the initial pass,
-  `deriveLoneWolves` exported separately so the UI can recompute lone-wolf status reactively as the
-  user reassigns matches during review), merchant-group grouping (`grouping.ts`), a merchant-memory
+  (`normalization.ts`), a one-shot ±3-day matching engine with strict 1:1 pairing, a
+  description-similarity tie-break for exact-amount candidates, and a closeness-score ranking +
+  singleton-claim rule for close-but-not-exact "possible match" candidates (`matcher.ts` —
+  `matchStatementRows` for the initial pass, `deriveLoneWolves` exported separately so the UI can
+  recompute lone-wolf status reactively as the user reassigns matches during review; see the
+  2026-08-06 tolerance/ranking fix below), merchant-group grouping (`grouping.ts`), a merchant-memory
   lookup derived from prior imports (`merchantMemory.ts`), a payment-mode keyword inferrer
   (`paymentModeInference.ts`), and the balance-mismatch check (`balanceCheck.ts`).
 - **Mobile UI** (`apps/mobile/src/features/bank-import/`): a single `useBankImport.ts` hook owns
@@ -182,6 +186,15 @@ by design, so a bug in one can't regress the other.
   single-row — now happens once, in `commitAndImport()`, resolved against a fresh repo read so the
   same brand-new tag or person across many rows in one batch is created exactly once, not once per
   row (mirrors the existing per-batch payment-mode resolve-once pattern below).
+- **Undo (2026-08-06).** `commitAndImport()` logs the batch to the activity log via
+  `logActivityAwaited` (switched from the fire-and-forget `logActivity` specifically so the entry is
+  guaranteed to exist immediately after commit, matching `core/import/importWriter.ts`'s own
+  `writeImportBatch()` pattern) — this closes a real gap: unlike the generic CSV importer (which has
+  always had a real `undoImportBatch()`-backed Undo), Bank Statement Import previously had **no undo
+  capability at all**. It's now undoable the same way, from **Settings → Timeline**'s plain Timeline
+  tab (not just immediately after import) — every not-yet-undone `IMPORT` entry shows an inline Undo
+  action, gated behind a confirmation dialog naming the transaction count. See
+  [`docs/features/timeline.md`](timeline.md).
 - **Persistence**: one new encrypted store, `bank_statement_imports` (`BankStatementImportRecord`
   — raw narration, normalized key, linked transaction id, batch id), serves three purposes: an
   audit trail (an imported transaction's edit form shows "Matched from bank statement: ..."), the
@@ -214,6 +227,27 @@ silently trusting a guess — and the same format now also shows inline on the c
 summary card ("Date (DD/MM/YYYY)"), not just inside the edit popup. Day/month are still range-checked
 regardless of format, so a mismatched format rejects the row instead of producing a wrong date.
 
+**Mapping-preview prominence + diagnosability (2026-08-06).** The row-count/date-range readout under
+the mapping summary card was a single `text-xs text-tertiary` caption — barely visible, and a 0-row
+outcome (e.g. a wrong date format silently rejecting every row) looked visually identical to a healthy
+one, just with different numbers, with no explanation of *why*. Now a real `Banner`: `info` (row count +
+date range as the bold headline) when anything parsed, `warning` when nothing did — surfacing the
+*first* row's actual rejection reason from `parseStatementRows`'s `RejectedStatementRow.reason` (already
+computed by the parser, just never shown beyond an aggregate count before) and pointing at the current
+date format specifically, since a mismatch is the overwhelmingly likely cause. "Continue to review" is
+now also disabled when the mapping produces zero usable rows (previously gated only on every field being
+*mapped*, not on the mapping actually producing anything).
+
+**"Frequent" categories missing from the category picker (2026-08-06).** `CategoryPickerModal`'s
+"Frequent" quick-pick row reads usage counts off `manager.txnCountByCategory` — but every bank-import
+call site (`BulkCategorizeModal`, and `ExpenseForm` as used from `PossibleBucket`/`LoneWolfBucket`)
+deliberately omits the full `CategoryManager` (no category create/edit/delete needed there), so it
+silently fell back to an always-empty count map and "Frequent" never rendered in any bank-import
+context. Fixed by adding a standalone `txnCountByCategory` prop to both `CategoryPickerModal` and
+`ExpenseForm` — independent of `manager`, so a select-only caller can opt into frequency sorting without
+taking on full category management. `useBankImport.ts` computes a real count map from `allExpenses` once
+(`bi.txnCountByCategory`) and threads it through all three bank-import call sites.
+
 - **Excel (.xlsx/.xls) import (2026-08-05, issue #4, first half).** `core/bank-import/xlsxParser.ts`'s
   `parseXlsxToGrid()` (built on the `xlsx`/SheetJS library, already a `packages/core` dependency but
   previously unused) reads a workbook's first sheet into the exact same `string[][]` grid
@@ -228,6 +262,64 @@ regardless of format, so a mismatched format rejects the row instead of producin
   hides itself via the new `isXlsxSource`). Verified the `xlsx` package bundles cleanly under Metro (a
   real risk for a large, previously RN-untested library) via a full `expo export --platform android` —
   succeeded, 8520 modules, no resolution errors.
+
+**"Possible match" amount tolerance tightened + ranking/exclusivity fix (2026-08-06).** Real
+user-reported bug: statement rows spanning ₹1,162–₹2,418 were all offered as "possible matches" for
+the same recorded expense at ₹2,392 — the old tolerance (₹10 or 2%, whichever was larger) was wide
+enough to cover differences of ₹24–48, which are clearly distinct transactions, not the same one with
+a minor rounding/rate difference. `isCloseAmount()` (`matcher.ts`) is now tuned to ₹2 or 0.5%,
+whichever is larger — still catches genuine minor differences (currency-conversion rounding, a
+recorded estimate vs. the actual settled amount) without letting distinct transactions through. The
+`close` bucket in `matchStatementRows`'s main loop also had no scoring at all (unlike the `exact`
+bucket's description-similarity tie-break): candidates are now sorted by a combined closeness score
+(amount-diff ratio + a heavily down-weighted date-diff-in-days term, so date only tie-breaks between
+otherwise-similar amounts) via a new `closenessScore()` helper, so the array position genuinely
+reflects closeness rather than pool order. When a row has exactly one close candidate (an unambiguous
+"closest guess," not one of several tied options), that candidate is now claimed the same way an
+exact match is — preventing it from being silently offered as a second row's own "closest guess"
+without the user ever seeing that it's actually ambiguous across two rows. Tied (2+) close candidates
+deliberately stay unclaimed, since that ambiguity is already surfaced to the user as a "N possible"
+choice — the rare case where one recorded expense could legitimately answer either of two statement
+rows is still resolvable manually via the picker.
+
+**Amount tolerance removed entirely from "possible match" identification (2026-08-06, follow-up to
+the tightening above).** Per explicit user decision: even the tightened ≤0.5%/₹2 tolerance above was
+still the wrong shape of fix — a "possible match" should never be based on a merely close amount, only
+an exact one (the ±3-day date window stays a tolerance; amount does not). `matchStatementRows`' `close`
+bucket (and its `closenessScore()` helper) were removed outright — a statement row with no
+exact-amount candidate in its date window now goes straight to `unmatched`, full stop. `isCloseAmount()`
+still exists but is now used only by the separate, much softer `suggestPossibleTransfer()` heuristic
+(unrecorded-transfer-leg suggestions, a distinct dismissible-suggestion feature — not touched by this
+change; flag if that one should also lose its tolerance). "Possible matches" now only ever arise from
+an exact-amount candidate that's ambiguous (a same-day tie, or no clear description-similarity winner)
+— see the bucket description above.
+
+**Payment-mode mismatch flag (2026-08-06).** The Matched bucket (`MatchedBucket.tsx`) now compares
+each confirmed pair's statement-row-implied payment mode (via the existing `inferPaymentMode()`,
+previously only used for newly-created transactions) against the already-recorded expense's own
+`paymentMode`. When they differ, a small inline `theme.warning`-colored note appears under the
+"Recorded" side of that pair's tile (e.g. "Statement suggests UPI · recorded as Cash"), matching the
+warning-tone inline-note convention already used elsewhere in this feature (`LoneWolfBucket.tsx`).
+This is purely informational — nothing is auto-corrected, commit is never blocked, and the database
+write is unchanged; the user decides manually whether the recorded mode needs fixing. Skipped
+entirely for an older expense with no recorded payment mode at all (nothing to compare against).
+
+**Reassign picker now highlights the current match; correction + persistent surfacing added
+(2026-08-06).** Three follow-ups from user feedback on the above:
+1. `PossibleMatchPickerModal.tsx` (opened via "Disagree with a match? Tap any pair to re-choose" in
+   `MatchedBucket.tsx`) previously opened with nothing highlighted, even though it's replacing an
+   already-linked expense — a new `currentlyMatchedId` prop (distinct from `suggestedIds`, bucket 2's
+   own "closest guess" highlight) now floats the currently-matched expense to the top with a "Currently
+   matched" badge, mirroring "Suggested"'s treatment.
+2. **How to actually correct a flagged mismatch**: rather than adding a new fix action to this review
+   screen (which is about *matching*, not editing), the fix lives where editing already happens —
+   `ExpenseForm`'s pre-existing "Matched from bank statement" audit-trail note (see
+   `docs/features/expenses.md`'s Import section) now shows the same mismatch comparison directly above
+   the "Paid via" payment-mode picker, re-derived live off the form's current `paymentMode` state — so
+   picking a different chip makes the warning disappear immediately, no separate "mark as fixed" step.
+3. **Persistent surfacing past the one-time review**: this is no longer scoped to the import review
+   screen or the edit form alone — see `docs/features/expenses.md`'s Transactions-list section for the
+   permanent, derived (never persisted) surfacing added to the main Transactions tab and its filter.
 
 ## Limitations
 

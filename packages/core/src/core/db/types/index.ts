@@ -481,6 +481,7 @@ export type ActivityAction =
   | 'BULK_MOVE'
   | 'BULK_UPDATE'
   | 'IMPORT'
+  | 'UNDO_IMPORT' // reverses an IMPORT entry (packages/core/src/core/import/importWriter.ts's undoImportBatch, 2026-08-06) — its own dated, restorable Timeline entry, not a silent mutation of the original
   | 'RESTORE'
   | 'CHECKPOINT';
 
@@ -500,6 +501,13 @@ export interface ActivityLog {
   entityCount?: number; // number of records affected (bulk actions)
   restorePointId?: string; // groups entries under a named checkpoint (restore points / rewind)
   restored?: boolean; // true once a deleted entry has been restored (hides it from Recently Deleted)
+  // Links this entry back to the ORIGINAL entry it reverses/is a reversal of (2026-08-06, undoImportBatch
+  // v2) — e.g. an 'UNDO_IMPORT' entry's relatedLogId points at the 'IMPORT' entry it reversed, and vice
+  // versa once that IMPORT entry's own `restored` flag is flipped back to false by a later re-restore of
+  // the UNDO_IMPORT entry. Lets the Timeline render "Undid import: removed 800 transactions" as its own
+  // real, dated entry — reusing restoreActivity()'s existing snapshot/restore machinery — instead of
+  // silently mutating the original IMPORT entry in place with no visible trace of when Undo happened.
+  relatedLogId?: string;
 }
 
 // Envelope encryption (Track 2): a random Data Master Key (DMK) encrypts all data

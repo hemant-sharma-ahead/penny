@@ -8,6 +8,7 @@ import type { ParsedRow, RejectedRow } from '@/core/import/importParsers';
 import type { ColumnMapping } from '@/core/import/importMatcher';
 import type { CategoryResolution, CategoryAction } from '@/core/import/importCategoryResolution';
 import { allIntentGroups } from '@/core/import/importCategoryResolution';
+import type { RowOverride } from '@/core/import/importPipeline';
 import type { DisplayTransferPair, RowTriage } from '../useImport';
 import { CategoryTile } from './CategoryTile';
 import { TransferPairCard } from './TransferPairCard';
@@ -17,6 +18,8 @@ import { CarryForwardExcluded } from './CarryForwardExcluded';
 interface PreviewSectionProps {
   rejectedRows: RejectedRow[];
   mapping: ColumnMapping | null;
+  /** Original CSV header row — see `UnparsedRows`' doc comment for why this is threaded through. */
+  header: string[];
   onFixRejected: (rowIndex: number, fields: { date: string; amount: string; description: string }) => boolean;
   /** Redundant MoneyView-style carry-forward markers (every occurrence but the earliest per account) —
    *  never written, but shown distinctly so they're never silently dropped. See CarryForwardExcluded. */
@@ -28,11 +31,20 @@ interface PreviewSectionProps {
   parsedRows: ParsedRow[];
   rowTriage: RowTriage[];
   categories: ExpenseCategory[];
+  /** Per-category existing-transaction counts — passed straight through to `CategoryTile` →
+   *  `CategoryPickerModal`'s "Frequent" quick-pick row. See `useImport.ts`'s doc comment. */
+  txnCountByCategory: Map<string, number>;
   /** Per-source-category custom tag, keyed by source name (see CategoryTile's "Tag all transactions"
    *  field) — orthogonal to which category kind the source resolves to. */
   categoryTags: Map<string, string>;
+  /** Per-row overrides (2026-08-06) — see `RowOverride`'s doc comment. Read here only to compute each
+   *  tile's own override-affected count for its status tint; the actual per-row bulk-select UI/state
+   *  lives inside `CategoryTile` itself. */
+  rowOverrides: Map<number, RowOverride>;
   onUpdateCategory: (sourceName: string, suggestion: CategoryAction) => void;
   onUpdateCategoryTag: (sourceName: string, tag: string) => void;
+  onMoveRowsToCategory: (rowIndices: number[], categoryId: string, categoryName: string) => void;
+  onTagRows: (rowIndices: number[], tag: string) => void;
 }
 
 /** RN port of apps/web-react/src/features/import/review/PreviewSection.tsx. Section 2 of the review
@@ -42,6 +54,7 @@ interface PreviewSectionProps {
 export function PreviewSection({
   rejectedRows,
   mapping,
+  header,
   onFixRejected,
   carryForwardExcludedRows,
   transferPairs,
@@ -51,22 +64,32 @@ export function PreviewSection({
   parsedRows,
   rowTriage,
   categories,
+  txnCountByCategory,
   categoryTags,
+  rowOverrides,
   onUpdateCategory,
-  onUpdateCategoryTag
+  onUpdateCategoryTag,
+  onMoveRowsToCategory,
+  onTagRows
 }: PreviewSectionProps) {
   const theme = useThemeColors();
   const [transfersExpanded, setTransfersExpanded] = useState(false);
   const groupOptions = useMemo(() => allIntentGroups().map((g) => ({ value: g.key, label: g.label })), []);
 
+  /** Grouped by source category name, same as before — but each entry now also carries its ORIGINAL
+   *  index into `parsedRows` (2026-08-06), not just the row itself. `rowsByCategory`/`statusByCategory`
+   *  are recomputed fresh from `parsedRows` on every render (never a stable keyed structure — see
+   *  `useImport.ts`'s doc comments on why `parsedRows` is append-only, so plain array index stays a
+   *  valid identity for a whole review session), so the index has to be captured here, at the one place
+   *  that still has it, for `CategoryTile`'s bulk-select UI to reference later. */
   const rowsByCategory = useMemo(() => {
-    const map = new Map<string, ParsedRow[]>();
-    for (const row of parsedRows) {
+    const map = new Map<string, { row: ParsedRow; index: number }[]>();
+    parsedRows.forEach((row, index) => {
       const key = row.categoryName.trim() || 'Other';
       const list = map.get(key) ?? [];
-      list.push(row);
+      list.push({ row, index });
       map.set(key, list);
-    }
+    });
     return map;
   }, [parsedRows]);
 
@@ -95,7 +118,7 @@ export function PreviewSection({
   return (
     <View className="gap-3">
       {/* (a) structurally unparsed rows */}
-      <UnparsedRows rejectedRows={rejectedRows} mapping={mapping} onFixRejected={onFixRejected} />
+      <UnparsedRows rejectedRows={rejectedRows} mapping={mapping} header={header} onFixRejected={onFixRejected} />
 
       {/* (a2) redundant carry-forward markers — excluded, never silently dropped */}
       <CarryForwardExcluded rows={carryForwardExcludedRows} />
@@ -156,10 +179,14 @@ export function PreviewSection({
               status={!decided ? 'attention' : allDuplicate ? 'duplicate' : 'ready'}
               rows={rowsByCategory.get(r.sourceName) ?? []}
               categories={categories}
+              txnCountByCategory={txnCountByCategory}
               groupOptions={groupOptions}
               tag={categoryTags.get(r.sourceName) ?? ''}
+              rowOverrides={rowOverrides}
               onTagChange={(tag) => onUpdateCategoryTag(r.sourceName, tag)}
               onUpdate={(suggestion) => onUpdateCategory(r.sourceName, suggestion)}
+              onMoveRowsToCategory={onMoveRowsToCategory}
+              onTagRows={onTagRows}
             />
           );
         })}

@@ -86,6 +86,12 @@ export interface LinkedTxnIntent {
   /** true ⇒ money came in (income); false ⇒ money went out (expense). */
   moneyIn: boolean;
   description: string;
+  /** Overrides the fallback default category for a brand-new linked transaction (an edit still keeps
+   *  whatever category the user already set, same as the plain fallback). Used by the settle flow
+   *  (2026-08-06) to land on "Collected Money"/"Return Borrowed" instead of the generic Other/Other
+   *  Income a settlement would otherwise get — omit to keep that generic fallback (e.g. the original
+   *  lent/borrowed entry's own linked transaction, unrelated to settling). */
+  defaultCategoryId?: string;
 }
 
 export interface LinkedTxnReconcile {
@@ -114,7 +120,7 @@ export function reconcileLinkedTxn(
     return existing ? { deleteId: existing.id } : {};
   }
   const type = intent.moneyIn ? 'income' : 'expense';
-  const defaultCategory = intent.moneyIn ? 'cat-inc-other' : 'cat-other';
+  const defaultCategory = intent.defaultCategoryId ?? (intent.moneyIn ? 'cat-inc-other' : 'cat-other');
   const txn: Expense = {
     id: existing?.id ?? crypto.randomUUID(),
     amount: intent.amount,

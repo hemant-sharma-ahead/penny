@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
 import { View, Pressable, ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, PageHeader, TabStrip, ListContainer, EmptyState, SearchInput } from '~/components/ui';
+import { Button, PageHeader, TabStrip, ListContainer, EmptyState, SearchInput, ConfirmDialog } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { useToast } from '~/context/ToastContext';
 import { logActivity, restoreDeletionsSince } from '@/core/db/activityLog';
-import type { ActivityAction } from '@/core/db/types';
+import { notifyTxnChanged } from '@/hooks/useTxnRefresh';
+import type { ActivityAction, ActivityLog } from '@/core/db/types';
 import { useActivityLog, groupByDay } from './useActivityLog';
 import { ActivityRow } from './components/ActivityRow';
 import { PrivacyReceipt } from './components/PrivacyReceipt';
@@ -22,7 +23,7 @@ const ACTION_FILTERS: { value: ActionFilter; label: string; actions: ActivityAct
   { value: 'all', label: 'All', actions: [] },
   { value: 'added', label: 'Added', actions: ['CREATE', 'IMPORT'] },
   { value: 'edited', label: 'Edited', actions: ['UPDATE', 'BULK_UPDATE'] },
-  { value: 'deleted', label: 'Deleted', actions: ['DELETE', 'BULK_DELETE'] },
+  { value: 'deleted', label: 'Deleted', actions: ['DELETE', 'BULK_DELETE', 'UNDO_IMPORT'] },
   { value: 'moved', label: 'Moved', actions: ['BULK_MOVE', 'MERGE'] }
 ];
 
@@ -38,10 +39,12 @@ export function TimelinePage() {
   // Activity log mixes entries from every module without a live category/account reference to
   // resolve — treated as an aggregate/audit view: visible in Safe, hidden only in Privacy.
   const masked = shouldMask(false);
-  const { entries, grouped, recentlyDeleted, loading, reload, restore } = useActivityLog();
+  const { entries, grouped, recentlyDeleted, loading, reload, restore, undo } = useActivityLog();
   const { showToast } = useToast();
   const [tab, setTab] = useState<TimelineTab>('story');
   const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [undoingId, setUndoingId] = useState<string | null>(null);
+  const [undoTarget, setUndoTarget] = useState<ActivityLog | null>(null);
   const [query, setQuery] = useState('');
   const [actionFilter, setActionFilter] = useState<ActionFilter>('all');
   useDefaultHeaderBack('Timeline');
@@ -60,12 +63,38 @@ export function TimelinePage() {
     return groupByDay(matched);
   }, [filtering, grouped, entries, query, actionFilter]);
 
-  async function handleRestore(id: string) {
+  async function handleRestore(id: string, entry?: ActivityLog) {
     setRestoringId(id);
     try {
-      await restore(id);
+      await restore(id, entry);
+      notifyTxnChanged();
     } finally {
       setRestoringId(null);
+    }
+  }
+
+  /** Opens the confirmation dialog for undoing a whole import batch — the durable Timeline fallback for
+   *  the immediate post-import Undo button, reachable well after the fact (see this file's doc comment
+   *  and useActivityLog.ts's undo()), so it's gated behind a confirm step unlike DoneStep.tsx's
+   *  immediate one. */
+  function requestUndo(entry: ActivityLog) {
+    setUndoTarget(entry);
+  }
+
+  async function handleConfirmUndo() {
+    const entry = undoTarget;
+    if (!entry) return;
+    setUndoingId(entry.id);
+    try {
+      const count = await undo(entry.id);
+      notifyTxnChanged();
+      showToast({
+        message: count > 0 ? `Removed ${count} transaction${count === 1 ? '' : 's'}` : 'Nothing to undo',
+        variant: count > 0 ? 'success' : 'info'
+      });
+    } finally {
+      setUndoingId(null);
+      setUndoTarget(null);
     }
   }
 
@@ -184,7 +213,13 @@ export function TimelinePage() {
                             <View className="flex-1 border-t border-dashed border-theme" />
                           </View>
                         ) : (
-                          <ActivityRow key={e.id} entry={e} masked={masked} />
+                          <ActivityRow
+                            key={e.id}
+                            entry={e}
+                            masked={masked}
+                            onUndo={() => requestUndo(e)}
+                            undoing={undoingId === e.id}
+                          />
                         )
                       )}
                     </ListContainer>
@@ -208,7 +243,7 @@ export function TimelinePage() {
                   key={e.id}
                   entry={e}
                   masked={masked}
-                  onRestore={(id) => void handleRestore(id)}
+                  onRestore={(id) => void handleRestore(id, e)}
                   restoring={restoringId === e.id}
                 />
               ))}
@@ -216,6 +251,17 @@ export function TimelinePage() {
           </View>
         )}
       </ScrollView>
+
+      <ConfirmDialog
+        isOpen={!!undoTarget}
+        onClose={() => setUndoTarget(null)}
+        onConfirm={() => void handleConfirmUndo()}
+        title="Undo this import?"
+        message={`This will delete ${undoTarget?.entityCount ?? 0} transaction${undoTarget?.entityCount === 1 ? '' : 's'} that were added by this import.`}
+        confirmLabel="Undo import"
+        confirmVariant="danger"
+        loading={!!undoingId}
+      />
     </SafeAreaView>
   );
 }

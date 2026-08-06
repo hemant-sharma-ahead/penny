@@ -30,6 +30,14 @@ export function ImportPage() {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const imp = useImport();
   const [retrying, setRetrying] = useState(false);
+  // Destructured out so `stepBack` below can depend on the stable setter directly (from `useState`)
+  // instead of the whole `imp` object — `useImport()` returns a fresh object literal every render, so
+  // depending on `imp` itself defeated memoization entirely: `stepBack` was a new function every
+  // render, which kept re-firing `useRegisterHeaderScreen`'s internal `useFocusEffect` (its own
+  // `backHandler` dependency never stabilized either), calling `setScreen` every render and looping
+  // forever — the "Maximum update depth exceeded" crash, reproducible on any CSV import regardless of
+  // file size (found 2026-08-06). Same fix as `BankImportPage.tsx`'s identical bug.
+  const { setStep } = imp;
 
   const backTarget: Record<typeof imp.step, typeof imp.step | null> = {
     upload: null,
@@ -39,8 +47,8 @@ export function ImportPage() {
   };
   const target = backTarget[imp.step];
   const stepBack = useCallback(() => {
-    if (target) imp.setStep(target);
-  }, [target, imp]);
+    if (target) setStep(target);
+  }, [target, setStep]);
   const goBack = useCallback(() => navigation.goBack(), [navigation]);
   useRegisterHeaderScreen('Import', target ? stepBack : goBack);
 
@@ -54,6 +62,7 @@ export function ImportPage() {
           rejectedRows={imp.rejectedRows}
           carryForwardExcludedRows={imp.carryForwardExcludedRows}
           mapping={imp.mapping}
+          header={imp.header}
           categoryResolutions={imp.categoryResolutions}
           accountResolutions={imp.accountResolutions}
           noAccountColumn={imp.noAccountColumn}
@@ -63,6 +72,9 @@ export function ImportPage() {
           setSingleAccountCreate={imp.setSingleAccountCreate}
           categories={imp.categories}
           accounts={imp.accounts}
+          txnCountByCategory={imp.txnCountByCategory}
+          categoriesLoadError={imp.categoriesLoadError}
+          onRetryLoadCategories={imp.retryLoadReferenceData}
           rowTriage={imp.rowTriage}
           totalRowsRead={imp.totalRowsRead}
           actualTransactionCount={imp.actualTransactionCount}
@@ -75,9 +87,12 @@ export function ImportPage() {
           categoriesDecidedCount={imp.categoriesDecidedCount}
           touchedCategorySources={imp.touchedCategorySources}
           categoryTags={imp.categoryTags}
+          rowOverrides={imp.rowOverrides}
           importing={imp.importing}
           onUpdateCategory={imp.updateCategoryResolution}
           onUpdateCategoryTag={imp.setCategoryTag}
+          onMoveRowsToCategory={imp.moveRowsToCategory}
+          onTagRows={imp.tagRows}
           onUpdateAccount={imp.updateAccountResolution}
           onFixRejected={imp.fixRejectedRow}
           onImport={() => void imp.commitAndImport()}
@@ -115,7 +130,7 @@ export function ImportPage() {
                   void imp.retryFailed().finally(() => setRetrying(false));
                 }}
                 onUndo={imp.undoImport}
-                onDone={() => navigation.navigate('Expenses')}
+                onDone={() => navigation.goBack()}
               />
             )}
           </View>

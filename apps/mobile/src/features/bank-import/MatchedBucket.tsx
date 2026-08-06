@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Pressable, Text } from 'react-native';
 import type { Account, Expense } from '@/core/db/types';
 import { formatCurrency, formatDate } from '@/lib/formatters';
+import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { UseBankImportReturn } from './useBankImport';
@@ -24,6 +25,10 @@ export function MatchedBucket({ bi, accountMap, candidatePool, masked }: Matched
   const [reassigning, setReassigning] = useState<number | null>(null);
   const reassigningPair =
     reassigning !== null ? bi.matchedPairs.find((p) => p.statementRow.rowIndex === reassigning) : null;
+  const paymentModeLabels = useMemo(
+    () => new Map(bi.allPaymentModes.map((m) => [m.id, m.label])),
+    [bi.allPaymentModes]
+  );
 
   if (bi.matchedPairs.length === 0) return null;
 
@@ -47,6 +52,17 @@ export function MatchedBucket({ bi, accountMap, candidatePool, masked }: Matched
               routinely needs to page past this cap. */}
           {bi.matchedPairs.slice(0, 150).map((pair) => {
             const acc = pair.expense.accountId ? accountMap.get(pair.expense.accountId) : undefined;
+            // Payment-mode mismatch flag (2026-08-06) — informational only, never auto-corrected and
+            // never blocks anything: `inferPaymentMode` reads the statement row's own narration
+            // keyword (UPI/NEFT/POS/ATM/...), compared against whatever payment mode is already
+            // recorded on the matched expense. Only shown when the expense actually has a recorded
+            // mode to compare against (an older expense predating payment modes has none, so there's
+            // nothing to flag). The user decides manually whether to fix it — this never writes
+            // anything back to the expense.
+            const recordedModeId = pair.expense.paymentMode;
+            const impliedMode = inferPaymentMode(pair.statementRow.rawNarration);
+            const modeMismatch = !!recordedModeId && recordedModeId !== impliedMode.id;
+            const recordedModeLabel = recordedModeId ? (paymentModeLabels.get(recordedModeId) ?? recordedModeId) : '';
             return (
               <Pressable
                 key={pair.statementRow.rowIndex}
@@ -72,6 +88,11 @@ export function MatchedBucket({ bi, accountMap, candidatePool, masked }: Matched
                   <Text className="text-xs text-secondary mt-0.5">
                     {masked ? '••••' : formatCurrency(pair.expense.amount)} · {formatDate(pair.expense.date)}
                   </Text>
+                  {modeMismatch && (
+                    <Text className="text-[10px] mt-0.5" style={{ color: theme.warning }}>
+                      Statement suggests {impliedMode.label} · recorded as {recordedModeLabel}
+                    </Text>
+                  )}
                 </View>
               </Pressable>
             );
@@ -91,6 +112,7 @@ export function MatchedBucket({ bi, accountMap, candidatePool, masked }: Matched
         <PossibleMatchPickerModal
           statementLine={reassigningPair.statementRow}
           candidatePool={candidatePool}
+          currentlyMatchedId={reassigningPair.expense.id}
           accountMap={accountMap}
           masked={masked}
           onPick={(expense) => {

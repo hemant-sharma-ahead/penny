@@ -19,6 +19,7 @@ export function getActionMeta(theme: ThemeTokens): Record<ActivityAction, { icon
     BULK_UPDATE: { icon: 'ti-edit', color: theme.info },
     MERGE: { icon: 'ti-arrows-join', color: theme.info },
     IMPORT: { icon: 'ti-file-import', color: theme.info },
+    UNDO_IMPORT: { icon: 'ti-arrow-back-up', color: theme.danger },
     RESTORE: { icon: 'ti-arrow-back-up', color: theme.success },
     CHECKPOINT: { icon: 'ti-flag', color: theme.neutral }
   };

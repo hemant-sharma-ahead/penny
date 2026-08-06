@@ -12,6 +12,23 @@ export interface IntentGroupMeta {
   routine?: boolean;
 }
 
+/**
+ * Categories whose entire point is a money movement with a specific person — picking one of these
+ * makes the Lent/Borrowed person selection mandatory, not just an optional toggle (2026-08-06, explicit
+ * user decision). `ExpenseForm.tsx` and bank-import's `BulkCategorizeModal.tsx` both auto-open (and
+ * lock open) the Lent/Borrowed panel whenever the selected category is one of these four, instead of
+ * leaving it as a manual toggle the user might never open before an otherwise-silent validation
+ * failure. `cat-lending`/`cat-return-borrowed` are the expense pair (money going out — a fresh loan you
+ * give, or paying back a loan you took); `cat-inc-borrowed`/`cat-collected-money` are the income pair
+ * (money coming in — a fresh loan you take, or someone paying back a loan you gave).
+ */
+export const IOU_MANDATORY_CATEGORY_IDS = new Set<string>([
+  'cat-lending',
+  'cat-return-borrowed',
+  'cat-inc-borrowed',
+  'cat-collected-money'
+]);
+
 export const INTENT_GROUP_META: Record<string, IntentGroupMeta> = {
   daily_living: { label: 'Daily Living', color: '#ef4444' },
   home_utilities: { label: 'Home & Utilities', color: '#3b82f6' },
@@ -580,6 +597,19 @@ export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
     applicableTo: 'expense',
     createdAt: 0
   },
+  {
+    // Reverse flow of an existing "Borrowed Money" entry (2026-08-06) — you pay back what you
+    // borrowed. Person selection under Lent/Borrowed is mandatory for this category — see
+    // `IOU_MANDATORY_CATEGORY_IDS` below.
+    id: 'cat-return-borrowed',
+    name: 'Return Borrowed',
+    icon: 'ti-cash-minus',
+    color: '#9333ea',
+    isDefault: true,
+    intentGroup: 'family_giving',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
   // ── Legal ────────────────────────────────────────────────────────────────────
   {
     id: 'cat-legal-advocate',
@@ -810,6 +840,19 @@ export const DEFAULT_INCOME_CATEGORIES: ExpenseCategory[] = [
     name: 'Borrowed Money',
     icon: 'ti-cash-move-back',
     color: '#a855f7',
+    isDefault: true,
+    intentGroup: 'income',
+    applicableTo: 'income',
+    createdAt: 0
+  },
+  {
+    // Reverse flow of an existing "Lending" entry (2026-08-06) — someone pays back what you lent
+    // them. Person selection under Lent/Borrowed is mandatory for this category — see
+    // `IOU_MANDATORY_CATEGORY_IDS` below.
+    id: 'cat-collected-money',
+    name: 'Collected Money',
+    icon: 'ti-receipt-refund',
+    color: '#ec4899',
     isDefault: true,
     intentGroup: 'income',
     applicableTo: 'income',

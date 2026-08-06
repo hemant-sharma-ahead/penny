@@ -168,6 +168,7 @@ export function UnmatchedBucket({ bi, masked }: UnmatchedBucketProps) {
               checkedRows={checkedRows}
               totalInGroup={group.rows.length}
               categories={bi.categories}
+              txnCountByCategory={bi.txnCountByCategory}
               hashtags={bi.hashtags}
               iouPersons={bi.iouPersons}
               suggestion={suggestion}
