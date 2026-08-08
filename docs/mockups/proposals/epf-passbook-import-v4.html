@@ -1,0 +1,1215 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — EPF passbook PDF import: UI proposal (v4 — interest rate/calc + export & re-import)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --page:#e4eeff; --surface:#ffffff; --surface2:#eff6ff; --surface3:#e4eeff;
+        --text:#0f172a; --text2:#475569; --text3:#94a3b8;
+        --border:#c7d8f0; --borderStrong:#a5bfdf;
+        --primary:#00a86b; --info:#3b82f6; --danger:#ef4444; --warning:#f59e0b; --success:#10b981; --epf:#64748b;
+        --primary-tint:rgba(0,168,107,.12); --info-tint:rgba(59,130,246,.12); --warning-tint:rgba(245,158,11,.14);
+        --success-tint:rgba(16,185,129,.12); --epf-tint:rgba(100,116,139,.12); --danger-tint:rgba(239,68,68,.12);
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#f3f6fc; color:#0f172a; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:32px 16px 6px; font-size:22px; color:#0f172a; }
+      h1 small { display:block; font-size:12.5px; font-weight:500; color:#64748b; margin-top:6px; }
+      .sub { text-align:center; margin:0 16px 20px; color:#475569; font-size:13.5px; max-width:860px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .sectiontitle { text-align:center; font-size:16px; font-weight:800; color:#0f172a; margin:52px 0 4px; }
+      .sectiontitle .num { display:inline-flex; width:22px; height:22px; border-radius:7px; background:var(--epf); color:#fff; font-size:12px; align-items:center; justify-content:center; margin-right:8px; vertical-align:middle; }
+      .sectionsub { text-align:center; color:#475569; font-size:12.5px; max-width:800px; margin:0 auto 22px; line-height:1.65; }
+      .sectionsub code { background:#e2e8f0; padding:1px 6px; border-radius:5px; font-size:11.5px; }
+
+      /* horizontal, non-wrapping scroll strip — preferred layout per user request */
+      .hgallery { display:flex; flex-wrap:nowrap; gap:22px; overflow-x:auto; padding:8px 24px 22px; scroll-snap-type:x proximity; }
+      .hgallery::-webkit-scrollbar { height:8px; }
+      .hgallery::-webkit-scrollbar-thumb { background:#c7d8f0; border-radius:8px; }
+      .frame-wrap { width:280px; flex-shrink:0; scroll-snap-align:start; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#0f172a; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#e2e8f0; color:#475569; white-space:nowrap; }
+      .vtitle .tag.cur { background:#fde8cc; color:#b1650a; }
+      .vtitle .tag.rec { background:#d3f3e3; color:#067a4c; }
+      .vsub { font-size:11px; color:#64748b; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:280px; background:var(--page); border-radius:30px; border:8px solid #0f172a; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 14px 30px rgba(15,23,42,.18); }
+      .statusbar { height:16px; background:var(--page); flex-shrink:0; }
+      .header { height:38px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; background:#fff; border-bottom:1px solid var(--border); }
+      .htitle { flex:1; text-align:center; font-size:12.5px; font-weight:700; color:var(--text); }
+      .back, .hicon { width:24px; height:24px; border-radius:8px; display:grid; place-items:center; color:var(--text2); font-size:15px; }
+
+      .scr { flex:1; padding:12px; overflow-y:auto; }
+
+      /* dimmed backdrop + centered modal, per DESIGN_GUIDELINES §2 */
+      .dim { position:absolute; inset:0; background:rgba(15,23,42,.4); display:flex; align-items:center; justify-content:center; padding:12px 8px; }
+      .modal-card { width:100%; max-height:100%; background:#fff; border-radius:16px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 10px 30px rgba(15,23,42,.25); }
+      .modal-head { display:flex; align-items:center; justify-content:space-between; padding:13px 15px 8px; }
+      .modal-head .t { font-size:13.5px; font-weight:700; color:#0f172a; }
+      .modal-head .x { color:#94a3b8; font-size:15px; }
+      .modal-body { padding:0 15px 14px; overflow-y:auto; }
+      .modal-foot { padding:11px 15px 14px; border-top:1px solid var(--border); }
+
+      /* Penny card (matches Card.tsx: white surface, rounded-2xl, border) */
+      .card { background:#fff; border:1px solid var(--border); border-radius:16px; padding:13px 14px; }
+      .card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+      .icon-badge { width:32px; height:32px; border-radius:10px; background:var(--epf-tint); display:grid; place-items:center; flex-shrink:0; }
+      .icon-badge i { color:var(--epf); font-size:16px; }
+      .titleblock { display:flex; gap:8px; align-items:center; }
+      .h-name { font-size:13.5px; font-weight:700; color:#0f172a; }
+      .h-sub { font-size:10.5px; color:#94a3b8; margin-top:1px; }
+      .h-value { font-size:15px; font-weight:800; color:#0f172a; text-align:right; }
+      .h-value-sub { font-size:9.5px; color:#94a3b8; text-align:right; margin-top:1px; }
+      .meta-line { font-size:11px; color:#475569; margin:8px 2px 8px; }
+      .divider { border-top:1px solid var(--border); margin:8px 0; }
+
+      .row-label { font-size:9.5px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.04em; }
+      .pill { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; padding:3px 8px; border-radius:999px; white-space:nowrap; }
+      .pill-green { background:var(--primary-tint); color:var(--primary); }
+      .pill-slate { background:var(--epf-tint); color:var(--epf); }
+      .pill-outline-blue { background:#fff; border:1px solid var(--info); color:var(--info); }
+      .badge-current { background:var(--success-tint); color:var(--success); font-size:9px; font-weight:700; padding:2px 6px; border-radius:5px; }
+      .hikebadge { background:#dbeafe; color:#2563a3; font-size:8.5px; font-weight:700; padding:1px 5px; border-radius:5px; }
+
+      .emp-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:12px; background:var(--surface2); border:1px solid var(--border); margin-top:6px; }
+      .emp-row .name { font-size:11.5px; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+      .emp-row .dates { font-size:9.5px; color:#94a3b8; margin-top:2px; }
+
+      .stat-strip { display:flex; gap:7px; margin:9px 0; }
+      .stat-box { flex:1; border-radius:10px; padding:8px 4px; text-align:center; background:var(--surface2); }
+      .stat-box .n { font-size:13px; font-weight:800; line-height:1.1; color:#0f172a; }
+      .stat-box .n.green { color:var(--success); }
+      .stat-box .l { font-size:7.5px; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:.02em; margin-top:3px; }
+
+      .contrib-box { border-radius:12px; padding:10px 11px; background:var(--surface2); margin:9px 0; }
+      .contrib-box .lbl { font-size:9.5px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.04em; margin-bottom:5px; }
+      .dr { display:flex; align-items:center; justify-content:space-between; padding:3px 0; font-size:11px; color:#334155; }
+      .dr .v { font-weight:700; color:#0f172a; }
+      .dr .v.muted { color:#94a3b8; font-weight:600; }
+      .dr.total { border-top:1px solid var(--border); margin-top:4px; padding-top:6px; font-weight:700; }
+      .contrib-box .caption { font-size:9.5px; color:#94a3b8; margin-top:5px; line-height:1.4; }
+
+      .retire-lbl { display:flex; align-items:center; justify-content:space-between; margin:9px 0 3px; }
+      .retire-num { font-size:14px; font-weight:800; color:var(--info); }
+      .progressbar { height:5px; border-radius:99px; background:#dbeafe; margin-top:5px; overflow:hidden; }
+      .progressbar .fill { height:100%; background:var(--info); border-radius:99px; }
+
+      .footer-row { display:flex; align-items:center; justify-content:space-between; padding-top:7px; margin-top:5px; border-top:1px solid var(--border); }
+      .see-all { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--epf); }
+      .see-all .n { font-weight:500; color:#94a3b8; font-size:9.5px; }
+
+      .banner { border-radius:12px; padding:9px 10px; display:flex; gap:7px; margin:8px 0; border:1px solid rgba(245,158,11,.35); background:var(--warning-tint); }
+      .banner i { font-size:14px; color:var(--warning); flex-shrink:0; margin-top:1px; }
+      .banner .b1 { font-size:10.5px; color:#7a4a06; line-height:1.45; }
+      .banner .b1 b { color:#0f172a; }
+
+      .info-card { border-radius:12px; padding:9px 10px; border:1px solid var(--border); background:var(--surface2); display:flex; gap:8px; margin:9px 0; }
+      .info-card i.lead { font-size:15px; color:var(--epf); flex-shrink:0; margin-top:1px; }
+      .info-card .body-text { font-size:10.5px; color:#475569; line-height:1.5; }
+      .info-card .body-text b { color:#0f172a; }
+
+      .type-pills { display:flex; flex-wrap:wrap; gap:5px; margin:8px 0; }
+      .type-pills .tp { font-size:10px; font-weight:600; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:#fff; color:#475569; }
+      .type-pills .tp.on { background:var(--epf); border-color:var(--epf); color:#fff; }
+
+      .field { margin:9px 0; }
+      .field .lbl { font-size:10px; color:#475569; font-weight:600; margin-bottom:4px; }
+      .field .lbl .hint { color:#94a3b8; font-weight:500; }
+      .field .inp { border:1px solid var(--border); border-radius:9px; padding:9px 10px; font-size:12px; color:#0f172a; background:var(--surface2); display:flex; align-items:center; justify-content:space-between; }
+      .field .inp.focus { border-color:var(--info); box-shadow:0 0 0 2px rgba(59,130,246,.15); }
+      .field .inp.ph { color:#94a3b8; }
+      .field .inp.filled { border-color:rgba(100,116,139,.5); background:var(--epf-tint); font-weight:700; }
+      .field .words { font-size:9px; color:#5b8def; margin-top:3px; font-style:italic; }
+      .field .caption { font-size:9.5px; color:#94a3b8; margin-top:4px; }
+      .field .caption.hi { color:var(--epf); font-weight:600; }
+      .field .two { display:flex; gap:8px; }
+      .field .two > div { flex:1; }
+
+      .btn { border:none; border-radius:10px; font-weight:700; font-size:12px; padding:10px 14px; text-align:center; }
+      .btn-primary { background:var(--primary); color:#fff; }
+      .btn-primary.disabled { background:#bfe3d3; color:#fff; }
+      .btn-info { background:var(--info); color:#fff; }
+      .btn-slate { background:var(--epf); color:#fff; }
+      .btn-slate.disabled { background:#cbd5e1; color:#fff; }
+      .btn-secondary { background:#fff; border:1px solid var(--border); color:#334155; }
+      .btn-danger { background:var(--danger); color:#fff; }
+      .btn-full { width:100%; }
+      .btn-row { display:flex; gap:8px; }
+      .btn-row > .btn { flex:1; }
+      .btn-sm { padding:5px 10px; font-size:10px; border-radius:999px; display:inline-flex; align-items:center; gap:4px; }
+
+      .seg { display:flex; gap:3px; background:var(--surface2); padding:3px; border-radius:10px; margin:9px 0; }
+      .seg .so { flex:1; text-align:center; font-size:10px; font-weight:700; color:#64748b; padding:6px 4px; border-radius:8px; }
+      .seg .so.on { background:var(--epf); color:#fff; }
+
+      .fy-band { padding:6px 8px; border-radius:8px; background:var(--surface2); display:flex; align-items:center; justify-content:space-between; margin:9px 0 2px; }
+      .fy-band .l { font-size:10.5px; font-weight:700; color:#0f172a; }
+      .fy-band .r { font-size:9px; color:#94a3b8; }
+      .txrow { display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px dashed var(--border); }
+      .txicn { width:24px; height:24px; border-radius:999px; background:var(--epf-tint); display:grid; place-items:center; flex-shrink:0; }
+      .txicn i { color:var(--epf); font-size:10.5px; }
+      .txmid { flex:1; min-width:0; }
+      .txmid .t1 { font-size:11px; font-weight:700; color:#0f172a; }
+      .txmid .t2 { font-size:9px; color:#94a3b8; margin-top:1px; }
+      .txright { text-align:right; }
+      .txright .a { font-size:10.5px; font-weight:700; color:#0f172a; }
+      .txright .b { font-size:8.5px; color:#94a3b8; margin-top:1px; }
+
+      .stpill { font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:2px 6px; border-radius:999px; flex-shrink:0; }
+      .stpill.new { background:var(--info-tint); color:var(--info); }
+      .stpill.match { background:var(--success-tint); color:var(--success); }
+      .stpill.conflict { background:var(--warning-tint); color:#b1650a; }
+
+      .accordion { border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:8px; background:#fff; }
+      .acc-head { display:flex; align-items:center; gap:8px; padding:9px 10px; background:var(--surface2); }
+      .acc-head .dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+      .acc-head .t { flex:1; font-size:11px; font-weight:700; color:#0f172a; }
+      .acc-head .c { font-size:9px; color:#94a3b8; }
+      .acc-body { padding:2px 10px 8px; }
+
+      .conflict-card { border:1.5px solid rgba(245,158,11,.45); border-radius:13px; padding:10px; background:var(--warning-tint); margin-bottom:9px; }
+      .conflict-card .ch { display:flex; align-items:center; gap:6px; margin-bottom:7px; }
+      .conflict-card .ch .t { font-size:11px; font-weight:800; color:#b1650a; flex:1; }
+      .conflict-card .ch .month { font-size:9.5px; color:#475569; }
+      .cf-compare { display:flex; gap:6px; }
+      .cf-opt { flex:1; border-radius:10px; padding:7px; border:1.5px solid var(--border); background:#fff; }
+      .cf-opt.selected { border-color:var(--warning); background:#fff7e8; }
+      .cf-opt .k { font-size:8px; font-weight:700; text-transform:uppercase; color:#94a3b8; letter-spacing:.03em; }
+      .cf-opt.selected .k { color:#b1650a; }
+      .cf-opt .v { font-size:12px; font-weight:800; color:#0f172a; margin-top:2px; }
+      .cf-opt .r { display:flex; align-items:center; gap:4px; margin-top:4px; font-size:8.5px; font-weight:700; color:#94a3b8; }
+      .cf-opt.selected .r { color:#b1650a; }
+      .radio { width:11px; height:11px; border-radius:50%; border:1.5px solid #94a3b8; flex-shrink:0; }
+      .radio.on { border-color:var(--warning); background:var(--warning); }
+      .check { width:14px; height:14px; border-radius:5px; border:1.5px solid #94a3b8; flex-shrink:0; display:grid; place-items:center; }
+      .check.on { border-color:var(--info); background:var(--info); color:#fff; font-size:9px; }
+      .quiet-line { display:flex; align-items:center; gap:6px; padding:8px 4px; }
+      .quiet-line i { color:var(--success); font-size:13px; }
+      .quiet-line .t { font-size:10.5px; color:#475569; flex:1; }
+      .quiet-line .link { font-size:9.5px; font-weight:700; color:var(--epf); }
+      .more-link { text-align:center; font-size:10px; color:var(--epf); font-weight:700; padding:6px 0 2px; }
+
+      .legend { max-width:980px; margin:16px auto 20px; background:#fff; border:1px solid var(--border); border-radius:16px; padding:20px 24px; color:#334155; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:0 0 8px; color:#0f172a; }
+      .legend b { color:#0f172a; }
+      .recommend { max-width:980px; margin:0 auto 30px; background:#eafaf1; border:1px solid #b7e9cf; border-radius:16px; padding:18px 22px; color:#0d4a30; font-size:13.5px; line-height:1.7; }
+      .recommend b { color:#067a4c; }
+      .recommend h2 { font-size:14px; margin:0 0 8px; color:#067a4c; }
+      .tradeoffs { max-width:980px; margin:0 auto 24px; display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+      .tradeoffs .tcard { background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px 16px; }
+      .tradeoffs .tcard h3 { font-size:12.5px; margin:0 0 6px; color:#0f172a; }
+      .tradeoffs .tcard p { font-size:11.5px; color:#475569; line-height:1.55; margin:0 0 6px; }
+      .tradeoffs .tcard .good { color:#067a4c; font-weight:700; }
+      .tradeoffs .tcard .bad { color:#b1650a; font-weight:700; }
+      @media (max-width:960px) { .tradeoffs { grid-template-columns:1fr; } }
+
+      footer.notes { max-width:980px; margin:40px auto 70px; background:#fff; border:1px solid var(--border); border-radius:16px; padding:20px 24px; color:#475569; font-size:12.5px; line-height:1.7; }
+      footer.notes h2 { font-size:14px; color:#0f172a; margin:0 0 8px; }
+      footer.notes code { background:#e2e8f0; padding:1px 6px; border-radius:5px; font-size:11px; color:#0f172a; }
+    </style>
+  </head>
+  <body>
+    <h1>EPF passbook PDF import — UI proposal (v2)
+      <small>docs/plans/epf-passbook-import.md · rebuilt in Penny's real light theme (packages/core/src/theme/tokens.ts),
+      grounded in the actual current screens the user captured, not an invented theme</small>
+    </h1>
+    <p class="sub">
+      <b>v1 correction</b>: the first pass rendered a dark theme that doesn't match the real app (light theme, screenshots
+      confirmed) and only showed the transaction-add sheet in isolation, missing the full EPF card (Employment section,
+      salary hikes, previous-employer entry, Edit EPF) that "Import PDF" actually needs to interact with. Section 0 below
+      reproduces every real screen first; sections 1–4 were corrected against it and are <b>approved as of this pass</b>
+      (§1's Direction A, §2's Direction C, §3, §4 all confirmed). <b>v3 adds §5</b>: importing multiple passbook PDFs in
+      one go, since a real user has one file per employer per FY (doc §2) and reviewing them one at a time would be
+      tedious enough to discourage using the feature at all.
+    </p>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle"><span class="num">0</span>The real current app — reference (all 11 screens)</div>
+    <div class="sectionsub">Reproduced from the actual running app (light theme) and the source in
+      <code>RetirementCard.tsx</code> / <code>RetirementSheets.tsx</code> / <code>EpfModal.tsx</code> / <code>EpfFields.tsx</code> —
+      scroll horizontally →</div>
+    <div class="hgallery">
+
+      <!-- 0.1 Untracked CTA -->
+      <div class="frame-wrap">
+        <div class="vtitle">0.1 — Untracked CTA <span class="tag cur">today</span></div>
+        <div class="vsub">Retirement tab, before the user taps to start tracking EPF at all.</div>
+        <div class="phone" style="height:260px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-building-factory"></i></div><div class="h-name">EPF</div></div>
+                <span class="pill pill-green"><i class="ti ti-plus" style="font-size:10px"></i>Track EPF</span>
+              </div>
+              <div class="meta-line">Employee Provident Fund — 8.25% p.a., employee + employer contribution, tax-free</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 0.2 Full tracked card -->
+      <div class="frame-wrap">
+        <div class="vtitle">0.2 — Tracked EPF card (full) <span class="tag cur">today</span></div>
+        <div class="vsub">The main card once a user is tracking EPF — this is where an import action has to fit alongside 3 existing entry points (Employment "+Add", "+Hike", transactions "+Add").</div>
+        <div class="phone" style="height:640px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-building-factory"></i></div><div><div class="h-name">EPF</div><div class="h-sub">EPF</div></div></div>
+                <div><div class="h-value">₹1,74,149</div><div class="h-value-sub">corpus</div></div>
+              </div>
+              <div class="meta-line">8.25% p.a. · UAN ••••9123 · COGNIZANT</div>
+              <div class="divider"></div>
+              <div class="row-label" style="display:flex;justify-content:space-between;align-items:center">EMPLOYMENT <span class="pill pill-green"><i class="ti ti-plus" style="font-size:9px"></i>Add</span></div>
+              <div class="emp-row">
+                <div><div class="name">COGNIZANT <span class="badge-current">Current</span></div><div class="dates">Nov 2014 – present · 141 months</div></div>
+                <span class="pill pill-outline-blue btn-sm"><i class="ti ti-plus" style="font-size:9px"></i>Hike</span>
+              </div>
+              <div class="stat-strip">
+                <div class="stat-box"><div class="n">₹1,33,364</div><div class="l">Employee total</div></div>
+                <div class="stat-box"><div class="n">₹40,785</div><div class="l">Employer total</div></div>
+                <div class="stat-box"><div class="n green">₹0</div><div class="l">Interest earned</div></div>
+              </div>
+              <div class="contrib-box">
+                <div class="lbl">Monthly contribution</div>
+                <div class="dr"><span>Employee (12%)</span><span class="v">₹945</span></div>
+                <div class="dr"><span>Employer → EPF (3.67%)</span><span class="v">₹289</span></div>
+                <div class="dr"><span>Employer → EPS pension (8.33%)</span><span class="v muted">₹656</span></div>
+                <div class="dr total"><span>Total to EPF/mo</span><span class="v">₹1,234</span></div>
+                <div class="caption">EPS goes to pension fund — not withdrawable, paid on retirement</div>
+              </div>
+              <div class="retire-lbl"><span class="row-label">Retirement at 58</span><span style="font-size:9.5px;color:#94a3b8">22 yrs away</span></div>
+              <div class="retire-num">₹19,78,793</div>
+              <div class="progressbar"><div class="fill" style="width:26%"></div></div>
+              <div class="footer-row">
+                <div class="see-all"><i class="ti ti-list" style="font-size:13px"></i>See all transactions <span class="n">(141 months)</span></div>
+                <span class="pill pill-slate"><i class="ti ti-plus" style="font-size:9px"></i>Add</span>
+              </div>
+              <div class="footer-row" style="border-top:none;padding-top:5px">
+                <span style="font-size:9px;color:#94a3b8">Updated today</span>
+                <span style="font-size:9px;color:#94a3b8">Tap to edit</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 0.3 Add Salary Hike -->
+      <div class="frame-wrap">
+        <div class="vtitle">0.3 — Add Salary Hike <span class="tag cur">today</span></div>
+        <div class="vsub">Opened via the "+ Hike" button on an employer row.</div>
+        <div class="phone" style="height:380px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card">
+              <div class="modal-head"><span class="t">Add Salary Hike</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div style="font-size:10px;color:#94a3b8;margin:-2px 0 6px;text-transform:uppercase;letter-spacing:.03em">COGNIZANT</div>
+                <div class="field"><div class="lbl">Effective from (YYYY-MM)</div><div class="inp focus ph">e.g. 2026-04</div></div>
+                <div class="field"><div class="lbl">New basic + DA salary (₹/mo)</div><div class="inp ph">₹ Current: ₹7,875</div></div>
+              </div>
+              <div class="modal-foot btn-row">
+                <div class="btn btn-secondary">Cancel</div>
+                <div class="btn btn-primary disabled">Save Hike</div>
+              </div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- 0.4 Add txn — Contribution -->
+      <div class="frame-wrap">
+        <div class="vtitle">0.4 — Add transaction: Contribution <span class="tag cur">today</span></div>
+        <div class="vsub">Default type when opening "Add" from the card footer or the Transactions list.</div>
+        <div class="phone" style="height:560px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card">
+              <div class="modal-head"><span class="t">Add EPF transaction</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div class="type-pills"><span class="tp on">Contribution</span><span class="tp">Interest</span><span class="tp">Transfer in</span><span class="tp">Withdrawal</span><span class="tp">Advance</span></div>
+                <div class="field"><div class="lbl">Wages month (YYYY-MM)</div><div class="inp">2026-07</div></div>
+                <div class="field"><div class="lbl">Date of credit</div><div class="inp">07/08/2026 <i class="ti ti-calendar" style="color:#94a3b8"></i></div></div>
+                <div class="field two">
+                  <div><div class="lbl">Employee share</div><div class="inp">₹945</div><div class="words">Nine Hundred Forty Five</div></div>
+                  <div><div class="lbl">Employer to EPF</div><div class="inp">₹289</div><div class="words">Two Hundred Eighty Nine</div></div>
+                </div>
+                <div class="field"><div class="lbl">EPS pension (₹) (optional — info only)</div><div class="inp">₹656</div><div class="words">Six Hundred Fifty Six</div></div>
+                <div class="field"><div class="lbl">Note (optional)</div><div class="inp ph">e.g. Transfer from previous employer</div></div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-slate btn-full">Add transaction</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- 0.5 Add txn — Interest -->
+      <div class="frame-wrap">
+        <div class="vtitle">0.5 — Add transaction: Interest <span class="tag cur">today</span></div>
+        <div class="vsub">Bare Amount field — no calculation help. This is where "calculate it for me" (§4) attaches.</div>
+        <div class="phone" style="height:420px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card">
+              <div class="modal-head"><span class="t">Add EPF transaction</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div class="type-pills"><span class="tp">Contribution</span><span class="tp on">Interest</span><span class="tp">Transfer in</span><span class="tp">Withdrawal</span><span class="tp">Advance</span></div>
+                <div class="field"><div class="lbl">Date of credit</div><div class="inp">07/08/2026 <i class="ti ti-calendar" style="color:#94a3b8"></i></div></div>
+                <div class="field"><div class="lbl">Amount</div><div class="inp ph">₹ 0</div></div>
+                <div class="field"><div class="lbl">Note (optional)</div><div class="inp ph">e.g. Transfer from previous employer</div></div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-slate disabled btn-full">Add transaction</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- 0.6 Add txn — Transfer in -->
+      <div class="frame-wrap">
+        <div class="vtitle">0.6 — Add transaction: Transfer in <span class="tag cur">today</span></div>
+        <div class="vsub">Same bare shape as Withdrawal/Advance.</div>
+        <div class="phone" style="height:420px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card">
+              <div class="modal-head"><span class="t">Add EPF transaction</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div class="type-pills"><span class="tp">Contribution</span><span class="tp">Interest</span><span class="tp on">Transfer in</span><span class="tp">Withdrawal</span><span class="tp">Advance</span></div>
+                <div class="field"><div class="lbl">Date of credit</div><div class="inp">07/08/2026 <i class="ti ti-calendar" style="color:#94a3b8"></i></div></div>
+                <div class="field"><div class="lbl">Amount</div><div class="inp ph">₹ 0</div></div>
+                <div class="field"><div class="lbl">Note (optional)</div><div class="inp ph">e.g. Transfer from previous employer</div></div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-slate disabled btn-full">Add transaction</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- 0.7 Add txn — Withdrawal -->
+      <div class="frame-wrap">
+        <div class="vtitle">0.7 — Add transaction: Withdrawal <span class="tag cur">today</span></div>
+        <div class="vsub">&nbsp;</div>
+        <div class="phone" style="height:420px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card">
+              <div class="modal-head"><span class="t">Add EPF transaction</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div class="type-pills"><span class="tp">Contribution</span><span class="tp">Interest</span><span class="tp">Transfer in</span><span class="tp on">Withdrawal</span><span class="tp">Advance</span></div>
+                <div class="field"><div class="lbl">Date of credit</div><div class="inp">07/08/2026 <i class="ti ti-calendar" style="color:#94a3b8"></i></div></div>
+                <div class="field"><div class="lbl">Amount</div><div class="inp ph">₹ 0</div></div>
+                <div class="field"><div class="lbl">Note (optional)</div><div class="inp ph">e.g. Transfer from previous employer</div></div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-slate disabled btn-full">Add transaction</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- 0.8 Add txn — Advance -->
+      <div class="frame-wrap">
+        <div class="vtitle">0.8 — Add transaction: Advance <span class="tag cur">today</span></div>
+        <div class="vsub">&nbsp;</div>
+        <div class="phone" style="height:420px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card">
+              <div class="modal-head"><span class="t">Add EPF transaction</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div class="type-pills"><span class="tp">Contribution</span><span class="tp">Interest</span><span class="tp">Transfer in</span><span class="tp">Withdrawal</span><span class="tp on">Advance</span></div>
+                <div class="field"><div class="lbl">Date of credit</div><div class="inp">07/08/2026 <i class="ti ti-calendar" style="color:#94a3b8"></i></div></div>
+                <div class="field"><div class="lbl">Amount</div><div class="inp ph">₹ 0</div></div>
+                <div class="field"><div class="lbl">Note (optional)</div><div class="inp ph">e.g. Transfer from previous employer</div></div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-slate disabled btn-full">Add transaction</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- 0.9 Add previous employer -->
+      <div class="frame-wrap">
+        <div class="vtitle">0.9 — Add previous employer <span class="tag cur">today</span></div>
+        <div class="vsub">Opened via Employment's "+ Add". This is exactly the record shape a PDF import would also need to create.</div>
+        <div class="phone" style="height:560px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card">
+              <div class="modal-head"><span class="t">Add previous employer</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div class="field"><div class="lbl">Company name</div><div class="inp focus ph">e.g. Wipro, Infosys</div></div>
+                <div class="field"><div class="lbl">Basic + DA salary (₹/mo)</div><div class="inp ph">e.g. 35000</div></div>
+                <div class="field two">
+                  <div><div class="lbl">From (YYYY-MM)</div><div class="inp ph">e.g. 2018-06</div></div>
+                  <div><div class="lbl">To (YYYY-MM)</div><div class="inp ph">e.g. 2022-05</div></div>
+                </div>
+                <div class="field"><div class="lbl">Employee contribution %</div><div class="inp">12</div><div class="caption">Default 12%. Can be higher if you opted for VPF.</div></div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-slate disabled btn-full">Add employer</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- 0.10 Edit EPF -->
+      <div class="frame-wrap">
+        <div class="vtitle">0.10 — Edit EPF <span class="tag cur">today</span></div>
+        <div class="vsub">Opened via "Tap to edit" in the card footer. Owns the account-level fields (UAN, birth year, notes) — distinct from Employment/transaction sheets.</div>
+        <div class="phone" style="height:640px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card">
+              <div class="modal-head"><span class="t">Edit EPF</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div class="field"><div class="lbl">Name</div><div class="inp focus">EPF</div></div>
+                <div class="field two">
+                  <div><div class="lbl">UAN <span class="hint">optional</span></div><div class="inp">123123123123</div></div>
+                  <div><div class="lbl">Birth year <span class="hint">optional</span></div><div class="inp">1990</div></div>
+                </div>
+                <div class="field"><div class="lbl">Current employer</div><div class="inp">COGNIZANT</div></div>
+                <div class="field two">
+                  <div><div class="lbl">Basic + DA (₹/mo)</div><div class="inp">₹7,875</div><div class="words">Seven Thousand Eight Hundred Seventy Five</div></div>
+                  <div><div class="lbl">Joining date</div><div class="inp">04/11/2014 <i class="ti ti-calendar" style="color:#94a3b8;font-size:11px"></i></div></div>
+                </div>
+                <div class="caption" style="margin:-4px 0 4px">Add previous employers and transaction history from the EPF card after saving.</div>
+                <div class="field"><div class="lbl">Notes</div><div class="inp ph">e.g. held in Zerodha, SBI Kolar branch</div><div class="caption">optional</div></div>
+              </div>
+              <div class="modal-foot btn-row">
+                <div class="btn btn-danger">Delete</div>
+                <div class="btn btn-primary">Update</div>
+              </div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- 0.11 EPF Transactions list -->
+      <div class="frame-wrap">
+        <div class="vtitle">0.11 — EPF Transactions list <span class="tag cur">today</span></div>
+        <div class="vsub">Opened via "See all transactions." This is where v1 mistakenly put the only import entry point.</div>
+        <div class="phone" style="height:640px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card">
+              <div class="modal-head"><span class="t">EPF Transactions</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-size:10px;color:#94a3b8">141 months · 1 employers</span>
+                  <span class="pill pill-green"><i class="ti ti-plus" style="font-size:9px"></i>Add</span>
+                </div>
+                <div class="seg"><div class="so on">All</div><div class="so">Interest</div><div class="so">Transfers</div></div>
+                <div class="fy-band"><span class="l">FY 2026-27</span><span class="r">5 months · ₹5,214</span></div>
+                <div class="txrow"><div class="txicn"><i class="ti ti-building-factory-2"></i></div><div class="txmid"><div class="t1">2026-08</div><div class="t2">COGNIZANT</div></div><div class="txright"><div class="a">₹278</div><div class="b">₹213 + ₹65</div></div></div>
+                <div class="txrow"><div class="txicn"><i class="ti ti-building-factory-2"></i></div><div class="txmid"><div class="t1">2026-07</div><div class="t2">COGNIZANT</div></div><div class="txright"><div class="a">₹1,234</div><div class="b">₹945 + ₹289</div></div></div>
+                <div class="fy-band"><span class="l">FY 2025-26</span><span class="r">12 months · ₹14,808</span></div>
+                <div class="txrow"><div class="txicn"><i class="ti ti-building-factory-2"></i></div><div class="txmid"><div class="t1">2026-03</div><div class="t2">COGNIZANT</div></div><div class="txright"><div class="a">₹1,234</div><div class="b">₹945 + ₹289</div></div></div>
+                <div class="more-link">+ 139 more months below</div>
+              </div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle"><span class="num">1</span>Entry point — corrected placement</div>
+    <div class="sectionsub">
+      v1's mistake: putting "Import PDF" only inside the Transactions list (0.11) implicitly assumed the employer
+      already exists in Penny. But one PDF = one employer + one FY (doc §2) — a first-ever import needs to be able
+      to <b>create</b> a new employer record (screen 0.9's shape), not just add transactions to one that's already
+      there. That needs a card-level action, not a transactions-sheet-level one. Two real placements, not variants
+      of the same idea:
+    </div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">today</span></div>
+        <div class="vsub">Three separate manual entry points already exist: Employment "+Add" (new employer), "+Hike" (raise), transaction "+Add" (×2 locations). No import anywhere.</div>
+        <div class="phone" style="height:300px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-building-factory"></i></div><div><div class="h-name">EPF</div><div class="h-sub">EPF</div></div></div>
+                <div><div class="h-value">₹1,74,149</div><div class="h-value-sub">corpus</div></div>
+              </div>
+              <div class="meta-line">8.25% p.a. · UAN ••••9123 · COGNIZANT</div>
+              <div class="divider"></div>
+              <div class="row-label" style="display:flex;justify-content:space-between;align-items:center">EMPLOYMENT <span class="pill pill-green"><i class="ti ti-plus" style="font-size:9px"></i>Add</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">A — Card-level action <span class="tag rec">recommended</span></div>
+        <div class="vsub">New quiet slate row under the "UAN · Company" meta line, above Employment — reads as "for this whole EPF account," which is what an import actually is (may touch employer records AND transactions). One tap → file picker → parser decides create-employer vs. add-to-existing by matching <code>memberId</code>.</div>
+        <div class="phone" style="height:330px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-building-factory"></i></div><div><div class="h-name">EPF</div><div class="h-sub">EPF</div></div></div>
+                <div><div class="h-value">₹1,74,149</div><div class="h-value-sub">corpus</div></div>
+              </div>
+              <div class="meta-line">8.25% p.a. · UAN ••••9123 · COGNIZANT</div>
+              <div style="margin:2px 0 6px"><span class="pill pill-slate"><i class="ti ti-file-upload" style="font-size:9px"></i>Import passbook PDF</span></div>
+              <div class="divider"></div>
+              <div class="row-label" style="display:flex;justify-content:space-between;align-items:center">EMPLOYMENT <span class="pill pill-green"><i class="ti ti-plus" style="font-size:9px"></i>Add</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">B — Employment-row action <span class="tag">alternative</span></div>
+        <div class="vsub">Second pill next to Employment's own "+Add", since a first-time import's most visible effect is a new employer row. Weaker for the "add a missing FY to an existing employer" case — sits far from the transactions it actually affects.</div>
+        <div class="phone" style="height:300px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-building-factory"></i></div><div><div class="h-name">EPF</div><div class="h-sub">EPF</div></div></div>
+                <div><div class="h-value">₹1,74,149</div><div class="h-value-sub">corpus</div></div>
+              </div>
+              <div class="meta-line">8.25% p.a. · UAN ••••9123 · COGNIZANT</div>
+              <div class="divider"></div>
+              <div class="row-label" style="display:flex;justify-content:space-between;align-items:center">EMPLOYMENT <span class="btn-row" style="display:inline-flex;gap:5px"><span class="pill pill-slate"><i class="ti ti-file-upload" style="font-size:9px"></i>Import</span><span class="pill pill-green"><i class="ti ti-plus" style="font-size:9px"></i>Add</span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Also: untracked CTA <span class="tag rec">first-time path</span></div>
+        <div class="vsub">A user who's never tracked EPF at all shouldn't have to hand-type UAN/company/basic salary first. Offer import as an alternative starting point right on the CTA card.</div>
+        <div class="phone" style="height:260px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-building-factory"></i></div><div class="h-name">EPF</div></div>
+                <span class="pill pill-green"><i class="ti ti-plus" style="font-size:10px"></i>Track EPF</span>
+              </div>
+              <div class="meta-line">Employee Provident Fund — 8.25% p.a., employee + employer contribution, tax-free</div>
+              <div style="text-align:right;margin-top:2px"><span style="font-size:10px;font-weight:700;color:var(--epf)">or import passbook PDF →</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <h2>Recommendation: A + the untracked-CTA addition</h2>
+      <p>Go with <b>A — a card-level "Import passbook PDF" action</b>, placed once, above Employment, that owns the
+      whole "parse → figure out which employer → create or extend it → reconcile its transactions" flow — this
+      matches what a PDF actually contains (doc §4: one employer's header block + a full FY of transactions), so it
+      shouldn't be scoped to only one of the card's three existing sub-flows. B was considered and rejected: it reads
+      naturally for a first-time import (new employer appears in Employment) but has no good story for the equally
+      common case of importing a missing FY for an employer already tracked — that action has nothing to do with
+      Employment at all. Also add the untracked-CTA shortcut so a brand-new EPF holding can be created directly from
+      a first PDF instead of manual entry — the "Track EPF" flow (0.1) currently forces typing UAN/company/basic
+      salary by hand even though a passbook already has all of it.</p>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle"><span class="num">2</span>Reconciliation review screen — the new surface</div>
+    <div class="sectionsub">Doesn't exist today — nothing to show as "current." Shown here for a single parsed PDF
+      (COGNIZANT, FY 2026-27, 12 wage months + 1 interest row = 13 rows): 9 new, 3 already matching (within ₹1), 1
+      real conflict (Jul 2026 employee contribution: passbook says ₹960, Penny has ₹945 logged — a mid-year hike
+      Penny's estimate hadn't caught up to yet). Rendered as the shared centered <code>Modal</code>, same as every
+      other sheet on this screen. Three structurally distinct directions — not placement variants of one idea.</div>
+
+    <div class="hgallery">
+      <!-- DIRECTION A -->
+      <div class="frame-wrap">
+        <div class="vtitle">A — Bucket sections <span class="tag">bank-import lineage</span></div>
+        <div class="vsub">Three independently-collapsible sections in a fixed New → Matched → Conflicts order — the
+          exact accordion taxonomy bank-import's Matched/Possible/Unmatched buckets already use.</div>
+        <div class="phone" style="height:620px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="back"><i class="ti ti-chevron-left"></i></div><div class="htitle">Review import</div><div style="width:24px"></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card" style="height:100%">
+              <div class="modal-head"><span class="t">Review import</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div style="font-size:9.5px;color:#94a3b8;margin:-2px 0 8px">COGNIZANT · FY 2026-27</div>
+                <div class="stat-strip">
+                  <div class="stat-box"><div class="n" style="color:var(--info)">9</div><div class="l">New</div></div>
+                  <div class="stat-box"><div class="n green">3</div><div class="l">Matched</div></div>
+                  <div class="stat-box"><div class="n" style="color:#b1650a">1</div><div class="l">Conflict</div></div>
+                </div>
+                <div class="accordion"><div class="acc-head"><div class="dot" style="background:var(--info)"></div><div class="t">New</div><div class="c">9 · tap to review</div></div></div>
+                <div class="accordion"><div class="acc-head"><div class="dot" style="background:var(--success)"></div><div class="t">Matched</div><div class="c">3 · tap to review</div></div></div>
+                <div class="accordion">
+                  <div class="acc-head"><div class="dot" style="background:var(--warning)"></div><div class="t">Conflicts</div><div class="c">1 · tap to review</div></div>
+                  <div class="acc-body">
+                    <div class="conflict-card" style="margin-top:8px">
+                      <div class="ch"><span class="t">Conflict</span><span class="month">Jul 2026 · Employee contribution</span></div>
+                      <div class="cf-compare">
+                        <div class="cf-opt selected"><div class="k">Imported</div><div class="v">₹960</div><div class="r"><div class="radio on"></div>Use this</div></div>
+                        <div class="cf-opt"><div class="k">Existing</div><div class="v">₹945</div><div class="r"><div class="radio"></div>Keep this</div></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-primary btn-full">Import 13 transactions</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- DIRECTION B -->
+      <div class="frame-wrap">
+        <div class="vtitle">B — FY-native single list <span class="tag">continuity with this screen</span></div>
+        <div class="vsub">One continuous list ordered chronologically — the exact row shape/ordering already on
+          screen 0.11 (FY-grouped months). Each row carries a status pill; the conflict expands in place.</div>
+        <div class="phone" style="height:620px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="back"><i class="ti ti-chevron-left"></i></div><div class="htitle">Review import</div><div style="width:24px"></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card" style="height:100%">
+              <div class="modal-head"><span class="t">Review import</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div style="font-size:9.5px;color:#94a3b8;margin:-2px 0 8px">COGNIZANT · FY 2026-27</div>
+                <div class="stat-strip">
+                  <div class="stat-box"><div class="n" style="color:var(--info)">9</div><div class="l">New</div></div>
+                  <div class="stat-box"><div class="n green">3</div><div class="l">Matched</div></div>
+                  <div class="stat-box"><div class="n" style="color:#b1650a">1</div><div class="l">Conflict</div></div>
+                </div>
+                <div class="txrow"><span class="stpill match">Matches</span><div class="txmid" style="margin-left:8px"><div class="t1">Apr 2026</div></div><div class="txright"><div class="a">₹1,234</div></div></div>
+                <div class="txrow"><span class="stpill match">Matches</span><div class="txmid" style="margin-left:8px"><div class="t1">May 2026</div></div><div class="txright"><div class="a">₹1,234</div></div></div>
+                <div class="txrow"><span class="stpill match">Matches</span><div class="txmid" style="margin-left:8px"><div class="t1">Jun 2026</div></div><div class="txright"><div class="a">₹1,234</div></div></div>
+                <div class="conflict-card">
+                  <div class="ch"><span class="stpill conflict">Conflict</span><span class="month" style="margin-left:6px">Jul 2026 · Employee contribution</span></div>
+                  <div class="cf-compare">
+                    <div class="cf-opt selected"><div class="k">Imported</div><div class="v">₹960</div><div class="r"><div class="radio on"></div>Use this</div></div>
+                    <div class="cf-opt"><div class="k">Existing</div><div class="v">₹945</div><div class="r"><div class="radio"></div>Keep this</div></div>
+                  </div>
+                </div>
+                <div class="txrow"><span class="stpill new">New</span><div class="txmid" style="margin-left:8px"><div class="t1">Aug 2026</div></div><div class="txright"><div class="a">₹1,249</div></div></div>
+                <div class="more-link">+ 7 more new rows below</div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-primary btn-full">Import 13 transactions</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- DIRECTION C -->
+      <div class="frame-wrap">
+        <div class="vtitle">C — Conflict-first triage <span class="tag rec">recommended</span></div>
+        <div class="vsub">Reorders by what needs a human. The one real decision is pinned open at the top; new rows
+          are a pre-checked light checklist; matches collapse into one quiet line — exactly doc §6.5's own ask.</div>
+        <div class="phone" style="height:620px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="back"><i class="ti ti-chevron-left"></i></div><div class="htitle">Review import</div><div style="width:24px"></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card" style="height:100%">
+              <div class="modal-head"><span class="t">Review import</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div style="font-size:9.5px;color:#94a3b8;margin:-2px 0 8px">COGNIZANT · FY 2026-27</div>
+                <div class="stat-strip">
+                  <div class="stat-box"><div class="n" style="color:var(--info)">9</div><div class="l">New</div></div>
+                  <div class="stat-box"><div class="n green">3</div><div class="l">Matched</div></div>
+                  <div class="stat-box"><div class="n" style="color:#b1650a">1</div><div class="l">Conflict</div></div>
+                </div>
+                <div style="font-size:9.5px;font-weight:800;color:#b1650a;text-transform:uppercase;letter-spacing:.04em;margin:2px 2px 6px">Needs your decision</div>
+                <div class="conflict-card">
+                  <div class="ch"><i class="ti ti-alert-triangle" style="color:var(--warning);font-size:13px"></i><span class="t">Jul 2026 · Employee contribution</span></div>
+                  <div class="cf-compare">
+                    <div class="cf-opt selected"><div class="k">Imported (passbook)</div><div class="v">₹960</div><div class="r"><div class="radio on"></div>Use this — default</div></div>
+                    <div class="cf-opt"><div class="k">Existing (Penny)</div><div class="v">₹945</div><div class="r"><div class="radio"></div>Keep this instead</div></div>
+                  </div>
+                </div>
+                <div style="font-size:9.5px;font-weight:800;color:var(--info);text-transform:uppercase;letter-spacing:.04em;margin:12px 2px 6px">New — will be added</div>
+                <div class="txrow"><div class="check on"><i class="ti ti-check"></i></div><div class="txmid" style="margin-left:8px"><div class="t1">Aug 2026 · Contribution</div></div><div class="txright"><div class="a">₹1,249</div></div></div>
+                <div class="txrow"><div class="check on"><i class="ti ti-check"></i></div><div class="txmid" style="margin-left:8px"><div class="t1">Sep 2026 · Contribution</div></div><div class="txright"><div class="a">₹1,249</div></div></div>
+                <div class="more-link">+ 7 more new rows (all pre-checked)</div>
+                <div class="quiet-line" style="margin-top:5px;border-top:1px solid var(--border);padding-top:10px">
+                  <i class="ti ti-circle-check"></i><span class="t">3 already matched — nothing to review</span><span class="link">View</span>
+                </div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-primary btn-full">Import 13 transactions</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tradeoffs">
+      <div class="tcard">
+        <h3>A — Bucket sections</h3>
+        <p><span class="good">+</span> Familiar — reuses bank-import's own accordion taxonomy exactly.</p>
+        <p><span class="bad">−</span> The one real conflict gets exactly as much default visibility as "9 things needing no
+          decision at all" — risks it going unseen, the specific failure doc §6.5 calls out.</p>
+      </div>
+      <div class="tcard">
+        <h3>B — FY-native list</h3>
+        <p><span class="good">+</span> Continuous with screen 0.11's own month rows — no new mental model.</p>
+        <p><span class="bad">−</span> The conflict sits chronologically sandwiched mid-list — easy to scroll past.</p>
+      </div>
+      <div class="tcard">
+        <h3>C — Conflict-first triage</h3>
+        <p><span class="good">+</span> Structure = priority: act → skim → ignore. Implements §6.5 almost verbatim.</p>
+        <p><span class="bad">−</span> Trades chronological order for priority order — low cost on a one-time review screen.</p>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <h2>Recommendation: Direction C (unchanged from v1)</h2>
+      <p>Still <b>C — conflict-first triage</b>: the plan doc explicitly wants the conflict case to be "the clearest,
+      most carefully designed state" and matches to collapse into a quiet aggregate — C is the only direction that
+      satisfies both structurally. New rows keep bank-import's pre-checked/individually-toggleable pattern so a user
+      can drop one row without aborting the whole batch.</p>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle"><span class="num">3</span>FY-end interest nudge — on the real card</div>
+    <div class="sectionsub">Reuses the exact PPF "deposit before April 5" <code>&lt;Banner variant="warning"&gt;</code>
+      verbatim, per doc §6.3 — same component/variant, new copy only. Placed right after the stat strip (where
+      "Interest earned" already lives), before the Monthly contribution box.</div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">today</span></div>
+        <div class="vsub">Stat strip → straight into Monthly contribution. No signal that FY2024-25/25-26 interest was never logged.</div>
+        <div class="phone" style="height:400px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-building-factory"></i></div><div><div class="h-name">EPF</div><div class="h-sub">EPF</div></div></div>
+                <div><div class="h-value">₹1,74,149</div><div class="h-value-sub">corpus</div></div>
+              </div>
+              <div class="meta-line">8.25% p.a. · UAN ••••9123 · COGNIZANT</div>
+              <div class="stat-strip">
+                <div class="stat-box"><div class="n">₹1,33,364</div><div class="l">Employee total</div></div>
+                <div class="stat-box"><div class="n">₹40,785</div><div class="l">Employer total</div></div>
+                <div class="stat-box"><div class="n green">₹0</div><div class="l">Interest earned</div></div>
+              </div>
+              <div class="contrib-box">
+                <div class="lbl">Monthly contribution</div>
+                <div class="dr"><span>Employee (12%)</span><span class="v">₹945</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Proposed <span class="tag rec">nudge banner(s)</span></div>
+        <div class="vsub">One banner per past FY with a gap — never just the latest, per the doc's explicit rule. Shown here: two gaps, matching the real card's "₹0 interest earned" number.</div>
+        <div class="phone" style="height:480px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-building-factory"></i></div><div><div class="h-name">EPF</div><div class="h-sub">EPF</div></div></div>
+                <div><div class="h-value">₹1,74,149</div><div class="h-value-sub">corpus</div></div>
+              </div>
+              <div class="meta-line">8.25% p.a. · UAN ••••9123 · COGNIZANT</div>
+              <div class="stat-strip">
+                <div class="stat-box"><div class="n">₹1,33,364</div><div class="l">Employee total</div></div>
+                <div class="stat-box"><div class="n">₹40,785</div><div class="l">Employer total</div></div>
+                <div class="stat-box"><div class="n green">₹0</div><div class="l">Interest earned</div></div>
+              </div>
+              <div class="banner"><i class="ti ti-calendar-event"></i><div class="b1"><b>FY 2024-25</b> interest not recorded yet — add it via + Add above, or import your passbook PDF.</div></div>
+              <div class="banner"><i class="ti ti-calendar-event"></i><div class="b1"><b>FY 2025-26</b> interest not recorded yet — add it via + Add above, or import your passbook PDF.</div></div>
+              <div class="contrib-box">
+                <div class="lbl">Monthly contribution</div>
+                <div class="dr"><span>Employee (12%)</span><span class="v">₹945</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle"><span class="num">4</span>"Want me to calculate it for you?" — on the real Interest form</div>
+    <div class="sectionsub">Doc §6.3, user's own wording, used verbatim as the button label. Appears only when
+      "Interest" is the selected type pill (screen 0.5 above). Three states: before, after (pre-filled, still
+      editable, never auto-saved), and "rate not yet available."</div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">today</span> = screen 0.5</div>
+        <div class="vsub">Bare Amount field, zero help. Reproduced from the real screenshot exactly.</div>
+        <div class="phone" style="height:420px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card">
+              <div class="modal-head"><span class="t">Add EPF transaction</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div class="type-pills"><span class="tp">Contribution</span><span class="tp on">Interest</span><span class="tp">Transfer in</span><span class="tp">Withdrawal</span><span class="tp">Advance</span></div>
+                <div class="field"><div class="lbl">Date of credit</div><div class="inp">07/08/2026 <i class="ti ti-calendar" style="color:#94a3b8"></i></div></div>
+                <div class="field"><div class="lbl">Amount</div><div class="inp ph">₹ 0</div></div>
+                <div class="field"><div class="lbl">Note (optional)</div><div class="inp ph">e.g. Transfer from previous employer</div></div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-slate disabled btn-full">Add transaction</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Proposed — before <span class="tag rec">info card + button</span></div>
+        <div class="vsub">Slate-accent info card, consistent with this module's own EPF accent.</div>
+        <div class="phone" style="height:460px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card">
+              <div class="modal-head"><span class="t">Add EPF transaction</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div class="type-pills"><span class="tp">Contribution</span><span class="tp on">Interest</span><span class="tp">Transfer in</span><span class="tp">Withdrawal</span></div>
+                <div class="field"><div class="lbl">Date of credit</div><div class="inp">07/08/2026 <i class="ti ti-calendar" style="color:#94a3b8"></i></div></div>
+                <div class="info-card">
+                  <i class="ti ti-calculator lead"></i>
+                  <div class="body-text">Correctly computing EPF interest needs the year's declared rate and a month-by-month accrual — most people never log it accurately by hand.
+                    <div class="btn btn-slate" style="margin-top:7px;display:inline-block">Want me to calculate it for you?</div>
+                  </div>
+                </div>
+                <div class="field"><div class="lbl">Amount</div><div class="inp ph">₹ 0</div></div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-slate disabled btn-full">Add transaction</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Proposed — after <span class="tag rec">pre-filled, editable</span></div>
+        <div class="vsub">Amount fills in but stays a normal editable input — user still reviews and taps Save.</div>
+        <div class="phone" style="height:460px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card">
+              <div class="modal-head"><span class="t">Add EPF transaction</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div class="type-pills"><span class="tp">Contribution</span><span class="tp on">Interest</span><span class="tp">Transfer in</span><span class="tp">Withdrawal</span></div>
+                <div class="field"><div class="lbl">Date of credit</div><div class="inp">07/08/2026 <i class="ti ti-calendar" style="color:#94a3b8"></i></div></div>
+                <div class="info-card">
+                  <i class="ti ti-circle-check lead" style="color:var(--success)"></i>
+                  <div class="body-text">Calculated using FY 2025-26's 8.25% rate and your logged contributions.
+                    <span style="color:var(--epf);font-weight:700"> Recalculate</span>
+                  </div>
+                </div>
+                <div class="field">
+                  <div class="lbl">Amount</div>
+                  <div class="inp filled">₹11,376</div>
+                  <div class="caption hi">Pre-filled — review before saving, edit if needed</div>
+                </div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-primary btn-full">Add transaction</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Proposed — rate unavailable <span class="tag rec">explicit, never guessed</span></div>
+        <div class="vsub">Per §6.3/§7.3: never silently reuse a prior-year rate — say so plainly.</div>
+        <div class="phone" style="height:460px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card">
+              <div class="modal-head"><span class="t">Add EPF transaction</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div class="type-pills"><span class="tp">Contribution</span><span class="tp on">Interest</span><span class="tp">Transfer in</span><span class="tp">Withdrawal</span></div>
+                <div class="field"><div class="lbl">Date of credit</div><div class="inp">31/03/2027 <i class="ti ti-calendar" style="color:#94a3b8"></i></div></div>
+                <div class="info-card">
+                  <i class="ti ti-info-circle lead"></i>
+                  <div class="body-text">Rate for <b>FY 2027-28</b> hasn't been declared by EPFO yet — we'll never guess. Check back once it's ratified, or enter the amount manually if you already know it.</div>
+                </div>
+                <div class="field"><div class="lbl">Amount</div><div class="inp ph">₹ 0</div></div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-slate disabled btn-full">Add transaction</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle"><span class="num">5</span>Importing multiple statements at once</div>
+    <div class="sectionsub">New in v3, answering your question directly: <b>yes</b> — the file picker should allow
+      multi-select (<code>expo-document-picker</code> supports <code>multiple: true</code> natively, no extra work).
+      Recommended flow: pick files → a batch summary screen (each file's detected employer/FY/row-count/status, so a
+      bad file doesn't block the good ones) → review each file one at a time using §2's already-approved Direction C
+      unchanged, with a "File X of N" progress indicator → one combined done screen at the end.</div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">5.1 — Batch summary <span class="tag rec">after picking N files</span></div>
+        <div class="vsub">Shown before any reconciliation runs. Flags a duplicate (same employer+FY picked twice) and
+          an unreadable file (doc §8's own "screenshot-as-PDF, no text layer" case) — both excluded from "Continue" by
+          default, not silently retried or silently dropped.</div>
+        <div class="phone" style="height:560px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="back"><i class="ti ti-chevron-left"></i></div><div class="htitle">Import passbooks</div><div style="width:24px"></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card" style="height:100%">
+              <div class="modal-head"><span class="t">Import passbooks</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div style="font-size:10.5px;color:#475569;margin:-2px 0 10px">5 files selected</div>
+
+                <div class="emp-row" style="margin-top:0"><div><div class="name">COGNIZANT_2025.pdf</div><div class="dates">FY 2025-26 · 12 rows</div></div><span class="stpill new" style="background:var(--success-tint);color:var(--success)">Ready</span></div>
+                <div class="emp-row"><div><div class="name">COGNIZANT_2024.pdf</div><div class="dates">FY 2024-25 · 12 rows</div></div><span class="stpill new" style="background:var(--success-tint);color:var(--success)">Ready</span></div>
+                <div class="emp-row"><div><div class="name">WIPRO_2019.pdf</div><div class="dates">FY 2019-20 · 11 rows</div></div><span class="stpill new" style="background:var(--success-tint);color:var(--success)">Ready</span></div>
+                <div class="emp-row" style="border-color:rgba(245,158,11,.5);background:var(--warning-tint)">
+                  <div><div class="name">COGNIZANT_2025 (1).pdf</div><div class="dates" style="color:#b1650a">Same as COGNIZANT_2025.pdf — duplicate</div></div>
+                  <span class="stpill conflict">Skip</span>
+                </div>
+                <div class="emp-row" style="border-color:rgba(239,68,68,.4);background:var(--danger-tint)">
+                  <div><div class="name">scan_page1.pdf</div><div class="dates" style="color:#b91c1c">No readable text found — not a valid passbook export</div></div>
+                  <span class="stpill" style="background:var(--danger-tint);color:var(--danger)">Skip</span>
+                </div>
+
+                <div style="font-size:10px;color:#94a3b8;margin-top:10px">3 of 5 ready · 2 will be skipped</div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-primary btn-full">Review 3 statements</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">5.2 — Sequential review <span class="tag rec">reuses §2 Direction C</span></div>
+        <div class="vsub">Same screen as §2, unchanged — just a "File X of N" line added under the title, and the
+          footer button reflects it's not the last file yet.</div>
+        <div class="phone" style="height:620px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="back"><i class="ti ti-chevron-left"></i></div><div class="htitle">Review import</div><div style="width:24px"></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card" style="height:100%">
+              <div class="modal-head"><span class="t">Review import</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:-2px 0 8px">
+                  <span style="font-size:9.5px;color:#94a3b8">COGNIZANT · FY 2024-25</span>
+                  <span style="font-size:9px;font-weight:700;color:var(--epf);background:var(--epf-tint);padding:2px 7px;border-radius:999px">File 2 of 3</span>
+                </div>
+                <div class="stat-strip">
+                  <div class="stat-box"><div class="n" style="color:var(--info)">11</div><div class="l">New</div></div>
+                  <div class="stat-box"><div class="n green">1</div><div class="l">Matched</div></div>
+                  <div class="stat-box"><div class="n">0</div><div class="l">Conflict</div></div>
+                </div>
+                <div class="quiet-line" style="padding-top:2px">
+                  <i class="ti ti-circle-check"></i><span class="t">No conflicts in this file — straight to review</span>
+                </div>
+                <div style="font-size:9.5px;font-weight:800;color:var(--info);text-transform:uppercase;letter-spacing:.04em;margin:10px 2px 6px">New — will be added</div>
+                <div class="txrow"><div class="check on"><i class="ti ti-check"></i></div><div class="txmid" style="margin-left:8px"><div class="t1">Apr 2024 · Contribution</div></div><div class="txright"><div class="a">₹1,234</div></div></div>
+                <div class="txrow"><div class="check on"><i class="ti ti-check"></i></div><div class="txmid" style="margin-left:8px"><div class="t1">May 2024 · Contribution</div></div><div class="txright"><div class="a">₹1,234</div></div></div>
+                <div class="more-link">+ 9 more new rows (all pre-checked, tap any row for the employee/employer/EPS breakdown)</div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-primary btn-full">Import &amp; continue to File 3 of 3</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">5.3 — Batch done <span class="tag rec">after the last file</span></div>
+        <div class="vsub">One combined summary across all files in the batch, not three separate toasts.</div>
+        <div class="phone" style="height:380px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card">
+              <div class="modal-head"><span class="t">Import complete</span><span class="x">✕</span></div>
+              <div class="modal-body" style="text-align:center;padding-top:6px">
+                <i class="ti ti-circle-check" style="font-size:36px;color:var(--success)"></i>
+                <div style="font-size:13px;font-weight:800;color:#0f172a;margin-top:8px">3 statements imported</div>
+                <div style="font-size:11px;color:#475569;margin-top:4px">35 new · 3 matched · 1 conflict resolved</div>
+                <div style="font-size:10px;color:#b1650a;margin-top:6px">2 files skipped — 1 duplicate, 1 unreadable</div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-primary btn-full">Done</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <h2>Consistency note — tappable rows preserved</h2>
+      <p>Confirmed in <code>RetirementSheets.tsx</code> (screen 0.11's month rows, <code>selectedMonth</code> state):
+      tapping a transaction row opens a breakdown popup (employee / employer-EPF / EPS split, plus pro-rata days if
+      applicable). Nothing in this proposal removes that — it stays exactly as-is on the real Transactions list. It's
+      also extended forward into the new review screens (§2 Direction C, §5.2 above): a "New" row awaiting import can
+      be tapped the same way to see its employee/employer/EPS split before confirming, not just after import.</p>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle"><span class="num">6</span>Interest transactions — show the rate + calculation</div>
+    <div class="sectionsub">Your ask: since the rate can differ by FY, show which rate applied — and if possible, the
+      calculation itself. <b>No schema change needed</b>: the rate is already derivable on demand from the FY via
+      <code>lookupRateForMonth()</code>, and the month-by-month trace is already computed internally by
+      <code>calculateEpfInterestForYear()</code> — it just isn't returned today. Extending it to optionally return
+      that trace, and making interest rows tappable the same way contribution rows already are, gets this without
+      storing anything new. Works identically whether the entry was typed manually, calculated via §4's assistant, or
+      came from an import — the rate/trace is always recomputed fresh from the FY + logged contributions, never
+      stored stale.</div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">today</span></div>
+        <div class="vsub">Interest rows render in the transactions list but aren't tappable at all — no rate shown, no way to see how it was derived.</div>
+        <div class="phone" style="height:260px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="back"><i class="ti ti-chevron-left"></i></div><div class="htitle">EPF Transactions</div><div style="width:24px"></div></div>
+          <div class="scr">
+            <div class="txrow" style="border-bottom:1px dashed var(--border)">
+              <div class="txicn" style="background:var(--success-tint)"><i class="ti ti-percentage" style="color:var(--success)"></i></div>
+              <div class="txmid"><div class="t1" style="color:var(--success)">Interest credit</div><div class="t2">31 Mar 2025</div></div>
+              <div class="txright"><div class="a" style="color:var(--success)">₹11,376</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Proposed — row <span class="tag rec">rate shown, tappable</span></div>
+        <div class="vsub">Small rate tag added; chevron signals it's now tappable, consistent with contribution rows.</div>
+        <div class="phone" style="height:260px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="back"><i class="ti ti-chevron-left"></i></div><div class="htitle">EPF Transactions</div><div style="width:24px"></div></div>
+          <div class="scr">
+            <div class="txrow" style="border-bottom:1px dashed var(--border)">
+              <div class="txicn" style="background:var(--success-tint)"><i class="ti ti-percentage" style="color:var(--success)"></i></div>
+              <div class="txmid"><div class="t1" style="color:var(--success)">Interest credit <span class="stpill" style="background:var(--success-tint);color:var(--success);margin-left:3px">8.25% p.a.</span></div><div class="t2">31 Mar 2025 · FY 2024-25</div></div>
+              <div class="txright" style="display:flex;align-items:center;gap:4px"><div class="a" style="color:var(--success)">₹11,376</div><i class="ti ti-chevron-right" style="color:#94a3b8;font-size:11px"></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Proposed — breakdown popup <span class="tag rec">new</span></div>
+        <div class="vsub">Tapping opens this — same popup pattern as the existing contribution breakdown (screen 0's nested Modal). Shows Penny's own recomputation transparently, without asserting it must match the recorded figure.</div>
+        <div class="phone" style="height:480px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="back"><i class="ti ti-chevron-left"></i></div><div class="htitle">EPF Transactions</div><div style="width:24px"></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card">
+              <div class="modal-head"><span class="t">Interest — FY 2024-25</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div class="info-card" style="align-items:center">
+                  <i class="ti ti-percentage lead" style="color:var(--success)"></i>
+                  <div class="body-text">Rate used: <b>8.25% p.a.</b> — EPFO's declared rate for FY 2024-25.</div>
+                </div>
+                <div class="row-label" style="margin:8px 2px 4px">Month-by-month (employee share)</div>
+                <div class="dr"><span>Apr 2024 · opening ₹1,08,000</span><span class="v">₹743</span></div>
+                <div class="dr"><span>May 2024 · opening ₹1,09,234</span><span class="v">₹751</span></div>
+                <div class="dr"><span>Jun 2024 · opening ₹1,10,479</span><span class="v">₹759</span></div>
+                <div class="more-link">+ 9 more months</div>
+                <div class="dr total"><span>Total employee interest</span><span class="v">₹9,102</span></div>
+                <div class="dr"><span style="color:#94a3b8">+ employer-EPF interest</span><span class="v muted">₹2,274</span></div>
+                <div class="banner" style="margin-top:8px">
+                  <i class="ti ti-info-circle"></i>
+                  <div class="b1">Recorded amount is <b>₹11,376</b> — matches Penny's recalculation exactly.</div>
+                </div>
+              </div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle"><span class="num">7</span>Export statement — combined Excel, re-importable</div>
+    <div class="sectionsub">One workbook across every employer/year in Penny, not EPFO's one-employer-one-FY limit.
+      Sits next to the import action from §1 Direction A — and that <b>same</b> import action re-reads this exact
+      file back in (detected automatically), so there's no second entry point to build or explain.</div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Card action <span class="tag rec">next to Import</span></div>
+        <div class="vsub">Same quiet slate row from §1 Direction A, now with both actions. "Import" accepts a PDF passbook or a previously-exported Penny .xlsx — same file picker, format auto-detected from content.</div>
+        <div class="phone" style="height:330px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-building-factory"></i></div><div><div class="h-name">EPF</div><div class="h-sub">EPF</div></div></div>
+                <div><div class="h-value">₹1,74,149</div><div class="h-value-sub">corpus</div></div>
+              </div>
+              <div class="meta-line">8.25% p.a. · UAN ••••9123 · COGNIZANT</div>
+              <div style="margin:2px 0 6px;display:flex;gap:6px">
+                <span class="pill pill-slate"><i class="ti ti-file-upload" style="font-size:9px"></i>Import</span>
+                <span class="pill pill-slate"><i class="ti ti-file-download" style="font-size:9px"></i>Export</span>
+              </div>
+              <div class="divider"></div>
+              <div class="row-label" style="display:flex;justify-content:space-between;align-items:center">EMPLOYMENT <span class="pill pill-green"><i class="ti ti-plus" style="font-size:9px"></i>Add</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Workbook contents <span class="tag">design note, not a screen</span></div>
+        <div class="vsub">What "Export" produces — a real spreadsheet, described here rather than pixel-mocked.</div>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;font-size:11px;color:#334155;line-height:1.7">
+          <b>Penny_EPF_Statement.xlsx</b>
+          <ol style="padding-left:18px;margin:8px 0 0">
+            <li><b>Summary</b> — corpus, per-employer totals, retirement projection, generated-on date</li>
+            <li><b>Employers</b> — one row per employer: name, dates, basic salary, UAN/member ID if known</li>
+            <li><b>Transactions</b> — every contribution/interest/transfer/withdrawal, all employers combined, with a rate-used column on interest rows</li>
+            <li><b>Interest History</b> — one row per FY: rate applied, employee/employer interest credited</li>
+            <li><b>Salary Hikes</b> — one row per hike event per employer</li>
+          </ol>
+          <div style="margin-top:8px;color:#64748b">Re-import reads sheets 2–5 back into the same reconciliation engine
+          §2 already uses — no new matching logic, just a new reader parallel to <code>epfPassbookParser.ts</code>.</div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="notes">
+      <h2>Cross-platform note</h2>
+      <p>EPF passbook import is a brand-new capability with no prior implementation on either platform, and
+      <code>apps/web-react</code>'s equivalent files are currently at parity with mobile's (same entry points, same
+      PPF banner pattern, same modal structure). Per this repo's default rule a new capability would normally be
+      mirrored — but <code>apps/web-react</code> is frozen as of 2026-07-31, so this proposal is scoped to
+      <code>apps/mobile</code> only unless told otherwise.</p>
+      <h2 style="margin-top:14px">What changed from v1 → v2 → v3</h2>
+      <p><b>v2:</b> (1) Rebuilt entirely in the real light theme (<code>packages/core/src/theme/tokens.ts</code>'s
+      <code>light</code> palette + <code>privacyModeColors.ts</code>'s <code>#e4eeff</code> page background) instead
+      of an invented dark theme. (2) Added §0 — all 11 real current screens, reproduced from the app itself.
+      (3) Corrected §1's entry point: the real card has three existing manual entry points (Employment add, salary
+      hike, transaction add) plus a separate Edit-EPF modal and an untracked-CTA state — v1 only ever looked at the
+      transactions-list sheet in isolation and missed that an import can create a new employer, not just add
+      transactions. (4) Layout is now a horizontally-scrolling strip per section instead of wrapping, per request.
+      <b>v3:</b> (5) Added §5 — multi-file batch import (batch summary → sequential per-file review reusing §2's
+      Direction C unchanged → one combined done screen), resolving the "multiple statements at once" question.
+      (6) Explicitly confirmed the existing tappable-row breakdown behavior is preserved and extended into the new
+      review screens. <b>v4:</b> (7) Added §6 — interest transactions now show the FY's declared rate and are
+      tappable for a month-by-month calculation breakdown, computed on demand (no new schema field — see §6's note).
+      (8) Added §7 — an "Export statement" action producing one combined Excel workbook across all employers/years,
+      and confirmed the same "Import" action re-reads that exact file back in (auto-detected, same reconciliation
+      screen, no second entry point).</p>
+      <h2 style="margin-top:14px">Open items carried from the plan doc (§9), still unresolved</h2>
+      <p>Exact copy for the
+      rate-unavailable state · whether <code>balanceCheckpoints</code> should power its own "your computed balance
+      doesn't match EPFO's" warning banner · establishment/member-ID edit affordance post-import.</p>
+    </footer>
+  </body>
+</html>

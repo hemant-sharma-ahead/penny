@@ -50,7 +50,7 @@ ever needed.
 ## Pre-Phase 1.5 tracks
 
 | Track    | Feature                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Status                       |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
 | Track 5  | Documentation overhaul — CLAUDE.md, docs/, skills files                                                                                                                                                                                                                                                                                                                                                                                                       | ✅ Complete                  |
 | Track 1A | Logic extraction — pure calculations out of component files into src/core/                                                                                                                                                                                                                                                                                                                                                                                    | ✅ Complete                  |
 | Track 1B | Feature hooks — extract all state + data fetching into useXxx.ts per feature                                                                                                                                                                                                                                                                                                                                                                                  | ✅ Complete                  |
@@ -124,13 +124,13 @@ blob, no PII); recovery/multi-device via username lookup + passphrase + QR devic
 Cloudflare Workers + D1 + R2 + KV backend (API Proxy ships first); **settle-up records a
 ledger entry only — Penny never touches the money flow** (no stored VPA/QR).
 
-| Track   | Feature                                                                                                                                                                                                     | Backend? | Status                                        |
-| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------------------------------------------- |
-| Track 1 | IOU pairwise-ledger redesign — Person entity, per-person running balance, partial settlement, expense-seeding, settle→income linkage, both-way edit re-sync, combined undo, multi-year demo seed            | No       | ✅ Complete (2026-06-27) — see notes below    |
-| Track A | API Proxy worker — passthrough + tiered cache for Yahoo/MFAPI/NPS/IPO, market Cron-snapshot, permanent D1 cache + morning queue for vahandetails, CORS, N→1                                                 | Yes      | ✅ Complete (deployed 2026-07-01) — see notes |
-| Track B | Client crypto additions — ECDSA/ECDH P-256 identity keypairs (lazy at claim), `device_keys`/`group_keys`/`sync_cursor` stores (Dexie v8), non-destructive `mergeBundle()` restore                           | No       | ✅ Complete (2026-07-01) — see notes below    |
-| Track C | Auth/Identity worker + claim flow — `workers/auth/` (D1 users/devices), signed challenge/response auth, client `signedFetch`/`claim`, `sync` entitlement (dark). Model B: no personal blob/R2 on server     | Yes      | ✅ Complete (2026-07-01) — see notes below    |
-| Track D | Automatic backup + multi-device sync — `core/sync/` provider abstraction (Drive live, iCloud dormant, OPFS daily floor), `backupEngine` + `mergeBundle`, destination chooser UI (Model B, user's own cloud) | Yes      | ✅ Complete (2026-07-01) — see notes below    |
+| Track   | Feature                                                                                                                                                                                                     | Backend? | Status                                                                |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------- |
+| Track 1 | IOU pairwise-ledger redesign — Person entity, per-person running balance, partial settlement, expense-seeding, settle→income linkage, both-way edit re-sync, combined undo, multi-year demo seed            | No       | ✅ Complete (2026-06-27) — see notes below                            |
+| Track A | API Proxy worker — passthrough + tiered cache for Yahoo/MFAPI/NPS/IPO, market Cron-snapshot, permanent D1 cache + morning queue for vahandetails, CORS, N→1                                                 | Yes      | ✅ Complete (deployed 2026-07-01) — see notes                         |
+| Track B | Client crypto additions — ECDSA/ECDH P-256 identity keypairs (lazy at claim), `device_keys`/`group_keys`/`sync_cursor` stores (Dexie v8), non-destructive `mergeBundle()` restore                           | No       | ✅ Complete (2026-07-01) — see notes below                            |
+| Track C | Auth/Identity worker + claim flow — `workers/auth/` (D1 users/devices), signed challenge/response auth, client `signedFetch`/`claim`, `sync` entitlement (dark). Model B: no personal blob/R2 on server     | Yes      | ✅ Complete (2026-07-01) — see notes below                            |
+| Track D | Automatic backup + multi-device sync — `core/sync/` provider abstraction (Drive live, iCloud dormant, OPFS daily floor), `backupEngine` + `mergeBundle`, destination chooser UI (Model B, user's own cloud) | Yes      | ✅ Complete (2026-07-01) — see notes below                            |
 | Track E | Groups worker + N-party split engine + group UX — invites/key-grants/events, context switcher, leave + key rotation                                                                                         | Yes      | 🚧 E1–E4 ✅, E5 core ✅, deployed; verify + E5 tail + Stage F pending |
 
 **Track A — API Proxy Worker (2026-06-27):** first backend track; the deploy template for B–E.
@@ -299,7 +299,7 @@ into the Tax Footprint bands (`categoryTaxMap.ts`: advocate/court/govt fees exem
 Introduced a **daily-routine vs set-aside** split: `INTENT_GROUP_META` gains a `routine` flag +
 `isRoutineGroup()`; the Analytics donut + "Daily-routine spending" list now show only routine groups, while
 **Travel, Family & Giving, Legal, Financial, Other, and money lent (IOU-linked, any category)** are
-summarised in a separate **"Set aside"** card (lending under a synthetic *Lending & IOU* bucket). Recap /
+summarised in a separate **"Set aside"** card (lending under a synthetic _Lending & IOU_ bucket). Recap /
 anomalies / velocity / prev-month all run on the routine basis; event-tagged vacation spend stays excluded
 as before. Family support stays a plain category (`cat-family-support`) — **no IOU-model change** (user's
 call). `useExpenses` exposes `iouLinkedTxnIds`; threaded through `ExpensesPage → AnalyticsSlice →
@@ -369,7 +369,7 @@ records the real personal txn on cash-out/settle; Home Groups card `HomeGroupsCa
 **Phantom-claim bug fixed (Track F/F1):** `seedGroupFixtures` had stamped a fake `deviceId`/`username` so
 `claimed` read true without a server registration or device keys — Create/Join surfaced but every signed
 call failed. Fix: the demo no longer fakes a claim (so `deviceId` is set only by a real `claimAccount()`),
-and `HomeGroupsCard` surfaces groups for *viewing* when unclaimed with New/Join → "Claim to create". Groups
+and `HomeGroupsCard` surfaces groups for _viewing_ when unclaimed with New/Join → "Claim to create". Groups
 are feature-complete + deployed; end-to-end live verification still pending.
 
 **Track F — Multi-Device, Sync & Recovery (2026-07-04/05):** the recovery model, built on the realization
@@ -391,8 +391,8 @@ Three recovery surfaces, one shared key-grant mechanism:
   `POST /recover/finish`; client `src/core/identity/recovery.ts` (deterministic keypair from
   `PBKDF2(passphrase, salt)`) + `reclaimAccount()`; verifier derived at `initialize()`/`changePassphrase`
   and uploaded at claim. Server stores only a public key (DB-leak/replay safe). **Auth worker needs
-  redeploy + migration `0003` before live verification.** Key principle captured: SRP is *authentication*,
-  not *decryption* — it recovers identity + group membership, never encryption keys (those need a backup or
+  redeploy + migration `0003` before live verification.** Key principle captured: SRP is _authentication_,
+  not _decryption_ — it recovers identity + group membership, never encryption keys (those need a backup or
   a co-member re-grant).
 - **F4 device pairing / QR = next** (discuss before building; server `/device` + ECDH grants exist).
   **Deferred:** group recovery after reclaim (list-my-groups + re-grant), groups-side account-delete cleanup.
@@ -434,14 +434,14 @@ decisions made for each phase, so they don't need to be re-derived in future ses
 
 ## Phase boundaries
 
-| Phase            | Scope                                                                                                                                     | Status                                                                                                                                           |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Phase 1 (M0–M15) | Full financial life tracking, zero paid APIs, zero backend, local-first encrypted                                                         | ✅ Complete                                                                                                                                      |
-| Pre-Phase 1.5    | Documentation overhaul, component extraction, onboarding v2, category overhaul, activity log, expense power features, tax-in-context      | ✅ Complete                                                                                                                                      |
-| Phase 1.5        | Groups & Household OS — shared expenses, family vaults, joint goals, household net worth ([plan](plans/phase-1.5-groups-household-os.md)) | 🚧 In progress (Tracks 1 ✅, A ✅, B ✅, C ✅, D ✅, E ✅ deployed; **Track F** 🚧 F1–F3 ✅, F4 next). Remaining: Track E live verification + F4 + Stage F |
-| Mobile migration (React Native/Expo) | Port `apps/web-react` to `apps/mobile`, folded in from the original "Phase 2 mobile apps" sketch since it's now active, not future | 🚧 In progress — see [`docs/plans/mobile-migration.md`](plans/mobile-migration.md) + [`docs/MOBILE_PARITY.md`](MOBILE_PARITY.md) |
-| Phase 2          | Chip real AI, AI auto-categorisation, export PDF/HTML, cloud sync, desktop layout                                            | ⏳ Future                                                                                                                                        |
-| Phase 3          | Regional languages, crypto/Web3, international equities, advanced AI advisor                                                              | ⏳ Future                                                                                                                                        |
+| Phase                                | Scope                                                                                                                                     | Status                                                                                                                                                     |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Phase 1 (M0–M15)                     | Full financial life tracking, zero paid APIs, zero backend, local-first encrypted                                                         | ✅ Complete                                                                                                                                                |
+| Pre-Phase 1.5                        | Documentation overhaul, component extraction, onboarding v2, category overhaul, activity log, expense power features, tax-in-context      | ✅ Complete                                                                                                                                                |
+| Phase 1.5                            | Groups & Household OS — shared expenses, family vaults, joint goals, household net worth ([plan](plans/phase-1.5-groups-household-os.md)) | 🚧 In progress (Tracks 1 ✅, A ✅, B ✅, C ✅, D ✅, E ✅ deployed; **Track F** 🚧 F1–F3 ✅, F4 next). Remaining: Track E live verification + F4 + Stage F |
+| Mobile migration (React Native/Expo) | Port `apps/web-react` to `apps/mobile`, folded in from the original "Phase 2 mobile apps" sketch since it's now active, not future        | 🚧 In progress — see [`docs/plans/mobile-migration.md`](plans/mobile-migration.md) + [`docs/MOBILE_PARITY.md`](MOBILE_PARITY.md)                           |
+| Phase 2                              | Chip real AI, AI auto-categorisation, export PDF/HTML, cloud sync, desktop layout                                                         | ⏳ Future                                                                                                                                                  |
+| Phase 3                              | Regional languages, crypto/Web3, international equities, advanced AI advisor                                                              | ⏳ Future                                                                                                                                                  |
 
 ## Pre-Phase 1.5 — Track 2: Identity, Account & Security
 
@@ -469,7 +469,7 @@ Track 2 expanded from "collect DOB/employment/username" into a Phase-1 **Identit
 **Why envelope, side by side:**
 
 |                                         | Passphrase-derived MK (rejected) | Envelope / random DMK (chosen)                                                                                                                |
-| --------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| --------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | Change passphrase                       | Re-encrypt **every** record      | **Re-wrap** the key — data untouched                                                                                                          |
 | Speed / risk                            | Slow; corruption if interrupted  | Instant; atomic                                                                                                                               |
 | Add biometric later                     | Awkward                          | Just another wrapping slot                                                                                                                    |
@@ -495,7 +495,7 @@ Net: envelope wins on every axis that matters for a local-first app; the one thi
 ### Pulled into Phase 1 (from later phases)
 
 | Feature                        | Was         | Now         | Notes                                                                                                                                                                                 |
-| ------------------------------- | ----------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ------------------------------ | ----------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Change Passphrase / Change PIN | "planned"   | **Phase 1** | Trivial under envelope (re-wrap). Settings buttons already exist as no-ops.                                                                                                           |
 | Cloud backup                   | Phase 1.5/2 | **Phase 1** | Extends the existing `.penny` backup; web = user's own Google Drive (OAuth), we store nothing; iCloud waits for native. Routed through the entitlement gate so it can be gated later. |
 | Re-auth to enter Open mode     | —           | **Phase 1** | PIN required to reveal real amounts.                                                                                                                                                  |
@@ -527,7 +527,7 @@ Enables multiple users to share financial data across households, families, and 
 ### Group types
 
 | Group type        | Description                  | Features                                                                                     |
-| ------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------ |
+| ----------------- | ---------------------------- | -------------------------------------------------------------------------------------------- |
 | **Couple/Spouse** | Two-person household         | Shared expenses, joint goals, joint budgets, optional net worth visibility, merged dashboard |
 | **Family**        | Multi-generational household | Shared expenses, joint goals, joint budgets, optional net worth visibility, merged dashboard |
 | **Flatmates**     | Shared accommodation         | Shared expenses + splitting only                                                             |
@@ -587,13 +587,13 @@ When a group is created with a named person that already exists in personal IOUs
 Each worker also has its own README under `workers/<name>/README.md` with local-dev/deploy
 specifics — this table is the architectural summary, not the operational how-to.
 
-| Worker                | Ships in             | Purpose                                                                                                                                                                                                                                                                                                                                                              |
-| ---------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **API Proxy**         | Phase 1.5 Track A ✅ | Passthrough + tiered cache for Yahoo / MFAPI / NPS / IPO, market Cron-snapshot, permanent D1 cache & morning queue for vahandetails — fixes CORS, collapses N→1 (`workers/api-proxy/`). **Deployed 2026-07-01** → `penny-api-proxy.hesh.workers.dev`. See also [`docs/EXTERNAL_APIS.md`](EXTERNAL_APIS.md) for the registry of what it proxies.                                                                                                                 |
-| **Auth/Identity** ✅  | Phase 1.5 Track C + F | **Built (`workers/auth/`)** — keypair challenge/response signed-request auth, username availability + registration, `users`+`devices` public-key storage; client `signedFetch` + `claim`. **Track F adds passphrase recovery:** a per-account Ed25519 recovery verifier (public key + salt, migration `0003`) + `POST /recover/start`/`/recover/finish` for username+passphrase reclaim. **Personal backup/recovery is the user's own Drive/iCloud (Model B) — no personal blob on our server** (**no phone, no OTP**). Auth worker needs redeploy + migration `0003` for the recovery endpoints |
-| **Groups** 🚧 deployed | Phase 1.5 Track E    | Group creation, member management, encrypted shared event ledger, key exchange + rotation. **E1–E5 ✅ + E5 tail ✅, workers deployed** — ciphertext-only relay (event bodies inline in D1, no R2), signed + membership/role-checked routes, per-epoch Group Key with ECDH-wrapped grants, split engine + sync engine + full group UX (switcher/dashboard/composer/settle/members), cash guard, share-with-group, vacation→group link, share-later, demo fixtures. `sync` env-gated; Groups need a claimed username. Pending: **end-to-end live verification** + Stage F                            |
-| **Multi-device & recovery** 🚧 | Phase 1.5 Track F | Recovery model on top of C/D/E ([plan](plans/phase-1.5-track-F-multi-device-recovery.md)). **F1 ✅** phantom-claim fix; **F2 ✅** recovery hardening + restore-on-reinstall + account-start flow (Screen A cards → Screen B tabs → handle-recovery; mandatory username + claim at onboarding); **F3 ✅** passphrase reclaim (Ed25519). Three recovery surfaces: restore-on-reinstall, username+passphrase reclaim, **device pairing/QR (F4, next)**. Deferred: group-recovery-after-reclaim, groups-side account-delete cleanup |
-| **AI Categorisation** | Phase 2              | Anthropic API proxy, PII stripping, transaction → category suggestion                                                                                                                                                                                                                                                                                                |
+| Worker                         | Ships in              | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **API Proxy**                  | Phase 1.5 Track A ✅  | Passthrough + tiered cache for Yahoo / MFAPI / NPS / IPO, market Cron-snapshot, permanent D1 cache & morning queue for vahandetails — fixes CORS, collapses N→1 (`workers/api-proxy/`). **Deployed 2026-07-01** → `penny-api-proxy.hesh.workers.dev`. See also [`docs/EXTERNAL_APIS.md`](EXTERNAL_APIS.md) for the registry of what it proxies.                                                                                                                                                                                                                                                  |
+| **Auth/Identity** ✅           | Phase 1.5 Track C + F | **Built (`workers/auth/`)** — keypair challenge/response signed-request auth, username availability + registration, `users`+`devices` public-key storage; client `signedFetch` + `claim`. **Track F adds passphrase recovery:** a per-account Ed25519 recovery verifier (public key + salt, migration `0003`) + `POST /recover/start`/`/recover/finish` for username+passphrase reclaim. **Personal backup/recovery is the user's own Drive/iCloud (Model B) — no personal blob on our server** (**no phone, no OTP**). Auth worker needs redeploy + migration `0003` for the recovery endpoints |
+| **Groups** 🚧 deployed         | Phase 1.5 Track E     | Group creation, member management, encrypted shared event ledger, key exchange + rotation. **E1–E5 ✅ + E5 tail ✅, workers deployed** — ciphertext-only relay (event bodies inline in D1, no R2), signed + membership/role-checked routes, per-epoch Group Key with ECDH-wrapped grants, split engine + sync engine + full group UX (switcher/dashboard/composer/settle/members), cash guard, share-with-group, vacation→group link, share-later, demo fixtures. `sync` env-gated; Groups need a claimed username. Pending: **end-to-end live verification** + Stage F                          |
+| **Multi-device & recovery** 🚧 | Phase 1.5 Track F     | Recovery model on top of C/D/E ([plan](plans/phase-1.5-track-F-multi-device-recovery.md)). **F1 ✅** phantom-claim fix; **F2 ✅** recovery hardening + restore-on-reinstall + account-start flow (Screen A cards → Screen B tabs → handle-recovery; mandatory username + claim at onboarding); **F3 ✅** passphrase reclaim (Ed25519). Three recovery surfaces: restore-on-reinstall, username+passphrase reclaim, **device pairing/QR (F4, next)**. Deferred: group-recovery-after-reclaim, groups-side account-delete cleanup                                                                  |
+| **AI Categorisation**          | Phase 2               | Anthropic API proxy, PII stripping, transaction → category suggestion                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ### D1 database schema (server-side — no financial data ever, no PII)
 
@@ -617,7 +617,7 @@ vahan_budget   -- day PK (IST), used
 ### KV cache keys
 
 | Key pattern              | TTL      | Purpose                                  |
-| -------------------------- | -------- | ------------------------------------------- |
+| ------------------------ | -------- | ---------------------------------------- |
 | `proxy:yf:{path}{query}` | 15 min   | Yahoo market/stock passthrough (Track A) |
 | `proxy:mfapi:{path}`     | 24h / 1h | MFAPI NAV (24h) / search (1h)            |
 | `proxy:nps:{path}`       | 1wk / 1h | NPS scheme list (1wk) / NAV (1h)         |
@@ -752,7 +752,16 @@ Full plan (locked decisions, tracks, tech-stack rationale, migration playbook):
 ### Other Phase 2 items
 
 - CAS PDF import (casparser SDK) — MF + stocks from CDSL/CAMS statements
-- EPFO passbook PDF import (PDF.js)
+- ~~EPFO passbook PDF import (PDF.js)~~ — **shipped, `apps/mobile` only, 2026-08-08**, see
+  `docs/plans/epf-passbook-import.md`: core logic (parser using `unpdf`, an interest calculator with
+  a display-ready month-by-month trace, a Cloudflare-hosted rate table, exact-key reconciliation, and
+  a combined multi-employer Excel export/re-import pair) is built and tested in `packages/core`, and
+  the full UI (`apps/mobile/src/features/portfolio/holdings/retirement/`: import/export entry point,
+  multi-file batch summary + sequential conflict-first reconciliation review, FY-end interest nudge
+  banners, "calculate it for me," tappable interest rows with rate + recalculation breakdown) is
+  wired up and live on the EPF card. `apps/web-react` is frozen, so this has no web equivalent — a
+  deliberate, permanent divergence, not a pending parity gap. PDF export (presentation-only, not
+  re-importable) remains phase 2, not yet scoped.
 - Export: wealth snapshot PDF + tax summary PDF
 - Desktop layout (≥768px breakpoint, sidebar nav)
 - Push notifications (EMI reminders, insurance renewals, goal milestones)
@@ -770,7 +779,7 @@ Full plan (locked decisions, tracks, tech-stack rationale, migration playbook):
 ## Deferred from Phase 1 (awaiting Phase 2+)
 
 | Feature                            | Originally planned    | Moving to                                                                                           |
-| ------------------------------------ | ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| ---------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------- |
 | CAS PDF import                     | M11 step 70           | Phase 2                                                                                             |
 | Watchlist                          | M11 step 71           | Phase 2                                                                                             |
 | Export PDF/HTML                    | M8 step 47 (CSV done) | Phase 2                                                                                             |
@@ -786,7 +795,7 @@ Full plan (locked decisions, tracks, tech-stack rationale, migration playbook):
 ## Open decisions
 
 | #   | Decision                                                             | Status                                                              |
-| --- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| --- | -------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | D1  | PBKDF2 iteration counts (600K/200K)                                  | Benchmark on mid-range Android before Phase 2                       |
 | D2  | App pricing model (freemium vs subscription vs one-time)             | Decide before Phase 2 launch                                        |
 | D3  | Shared Anthropic API key strategy (rate limiting approach)           | Decide with pricing model                                           |
@@ -810,7 +819,7 @@ Most of Groups & Household OS is built (see Part 2 above). Still to do within Ph
 - **Device pairing / QR (Track F4)** — link a second device / "Penny on laptop"; reuses the ECDH grant machinery. To be designed before building.
 - **Group recovery after reclaim** — list-my-groups sync + co-member key re-grant so a reclaimed account can decrypt group history without a backup (deferred Track F follow-up).
 - **Stage F closeout** — combined household net-worth view + the remaining Phase-1.5 polish drawn up after Track E/F land.
-- **Server-side E2EE data blob** (optional, Phase 2-ish) — store the passphrase-wrapped DMK + encrypted data so username+passphrase can restore *everything* without the user's own cloud (reverses own-Drive Model B + reopens storage cost — a deliberate, costed decision).
+- **Server-side E2EE data blob** (optional, Phase 2-ish) — store the passphrase-wrapped DMK + encrypted data so username+passphrase can restore _everything_ without the user's own cloud (reverses own-Drive Model B + reopens storage cost — a deliberate, costed decision).
 
 ## Phase 2 ideas (AI + Cloud)
 
@@ -827,16 +836,29 @@ Most of Groups & Household OS is built (see Part 2 above). Still to do within Ph
 ### Import improvements
 
 - **CAS PDF import** — Parse CDSL/CAMS consolidated account statement. Auto-import all MF and stock holdings.
-- **EPFO passbook PDF import** — Parse employment history + transactions from EPFO passbook PDF.
+- ~~**EPFO passbook PDF import** — Parse employment history + transactions from EPFO passbook PDF.~~
+  **Shipped, `apps/mobile` only, 2026-08-08** — see `docs/plans/epf-passbook-import.md` and the
+  "Other Phase 2 items" entry above. Explicitly chosen over INDmoney-style UAN+password auto-sync
+  after that approach was researched and rejected (server-side credential custody, EPFO-advisory
+  violation, account-lockout risk, no live Account-Aggregator path for EPF). Grew to include a
+  combined multi-employer Excel export + re-import (Penny's own format, not EPFO's) once the
+  passbook-import core logic was done — see the design doc's §11, both shipped.
 - **Bank statement PDF import** — CSV and Excel (.xlsx/.xls) are both shipped (Bank Statement Import
   feature, `docs/features/bank-import.md`); PDF is the one remaining format, deferred 2026-08-05.
   Text-layer extraction only, no OCR/scanned-PDF (consistent with Penny's zero-server privacy model).
-  Real open risk flagged before deferring: `pdfjs-dist` (the only mature text-extraction library) is
-  known to be finicky under Metro/RN (worker scripts, DOMMatrix/canvas assumptions), and a PDF's text
-  layer has no real "columns" the way a CSV/Excel grid does — row/column reconstruction from
-  positioned text runs is a genuinely harder problem than the two formats already shipped. Recommended
-  approach: a small feasibility spike (confirm the library actually bundles + extracts text on-device)
-  before designing the row-reconstruction logic, not a design-first approach.
+  **Update 2026-08-07 — the flagged library risk is now resolved, via the EPF passbook import
+  feature's own feasibility spike** (`docs/plans/epf-passbook-import.md` §8): `pdfjs-dist` raw was
+  confirmed too heavy/fragile under Metro (the same many-submodule-dynamic-import failure class that
+  once broke `@zip.js/zip.js`), but **`unpdf`** (zero runtime deps, a single bundled serverless
+  PDF.js build, no DOM/Canvas needed for text extraction) was verified end-to-end — bundles cleanly
+  under a real `expo run:android` build and successfully extracts text from a real PDF on-device.
+  This is the library to reuse here, not a fresh spike. The remaining open problem is unchanged and
+  still real: a PDF's text layer has no actual "columns" the way a CSV/Excel grid does — row/column
+  reconstruction from positioned text runs is a genuinely harder problem than the two formats
+  already shipped, and EPF passbook import's own parser (regex-based, tailored to that one specific
+  document's layout) isn't directly reusable for arbitrary bank statement PDFs, which vary
+  per-bank. Treat this as "the extraction library is solved, the per-bank row-reconstruction design
+  is not."
 - **Transaction type editable everywhere** — let an already-saved expense/income be converted to a
   transfer (and vice versa) via the normal edit flow, not just during bank-import review (where this
   already works, 2026-08-05 — `ExpenseForm`'s statementPreset mode). Deferred 2026-08-05 pending a

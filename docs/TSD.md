@@ -344,9 +344,15 @@ assetClass: 'nps'
 
 // EPF
 assetClass: 'epf'
-  epfEmployers?: EpfEmployer[]
-  epfTransactions?: EpfTransaction[]
+  epfEmployers?: EpfEmployer[]   // 2026-08-07: gained establishmentId/memberId/balanceCheckpoints;
+                                  // 2026-08: gained currentEmploymentConfirmed (only set once the
+                                  // user explicitly confirms "still employed" post-import) and
+                                  // confirmedFys (FYs with a real import, even a contribution-free
+                                  // one — see docs/plans/epf-passbook-import.md §10.6/§10.7)
+  epfTransactions?: EpfTransaction[]  // 2026-08-07: gained epfWages/epsWages/sourceParticulars/sourceRef
   epfHikeGroups?: EpfHikeGroup[]
+  // See docs/features/portfolio/retirement.md and docs/plans/epf-passbook-import.md for the full
+  // field list and the passbook-PDF-import feature these fields support.
 
 // PPF
 assetClass: 'ppf'
