@@ -17,6 +17,19 @@ Penny is local-first and encrypted-at-rest. The architecture has three layers:
 
 3. **CI gate** — `tests/pii-gate/piiGate.test.ts` automatically blocks any deployment where raw PII would reach the AI. This test must never be skipped.
 
+4. **Pre-commit repo gate** — `scripts/check-pii.mjs`, wired into `.husky/pre-commit`, blocks
+   any `git commit` that stages a risky binary document (PDF/XLSX/XLS/CSV/DOC/DOCX/DB/SQLITE —
+   unless it's an explicitly synthetic test fixture) or that adds a line matching a
+   distinctive PII pattern (PAN, IFSC, Aadhaar, labelled UAN/Member ID, or a non-placeholder
+   email domain). This is a **different layer** from #3 above: #3 guards data flowing to the
+   AI at runtime; this guards real personal data (developer test files, sample data, research
+   artifacts) from ever entering git history in the first place. Added 2026-08-07 after a real
+   near-miss: a shared EPFO passbook PDF had its on-screen image redacted but its underlying
+   PDF text layer still carried a real UAN/member ID/name — a box drawn over text doesn't
+   delete the text object beneath it. Run `npm run check:pii:full` any time to audit the whole
+   tracked repo, not just a staged diff. False positives get a trailing `pii-ignore` comment on
+   that line, never a blanket bypass.
+
 ---
 
 ## Envelope encryption model (Track 2)

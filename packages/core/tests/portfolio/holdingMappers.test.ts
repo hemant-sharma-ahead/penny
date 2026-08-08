@@ -362,7 +362,7 @@ describe('applyEpfFields', () => {
     const current = h.assetMeta?.epfEmployers?.find((e) => !e.toDate);
     expect(current?.id).toBe('cur'); // reused, not duplicated
     expect(current?.basicSalary).toBe(60000); // updated
-    expect(h.assetMeta?.uan).toBe('123456789012');
+    expect(h.assetMeta?.uan).toBe('123456789012'); // pii-ignore: fabricated test data
   });
 
   it('computes corpus from transaction history', () => {
