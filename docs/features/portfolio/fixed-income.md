@@ -18,6 +18,10 @@ Penny tracks Fixed Deposits (FD) and Recurring Deposits (RD) with auto-calculate
 **FD calculation:**
 
 - Formula: `A = P × (1 + r/n)^(n×t)` where P = principal, r = annual rate, n = compounding periods per year, t = years elapsed.
+- `t` is `(exact calendar days between start and maturity) / 365` — a flat 365-day year (banking
+  convention), not an average Julian/Gregorian year (365.25). Using 365.25 would under-count the
+  exponent for any tenure spanning a leap day, producing a maturity amount that doesn't match real
+  bank FD payouts (`packages/core/src/core/fd/fdCalculations.ts`'s exported `MS_PER_YEAR`).
 - Compounding frequency options: monthly, quarterly, half-yearly, yearly, at-maturity.
 - `currentValue` is recalculated live on every read — it is not stored in the database. This ensures the value is always up-to-date without needing scheduled jobs.
 

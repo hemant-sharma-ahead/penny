@@ -35,7 +35,13 @@ function freqPerYear(freq: CompoundingFreq): number {
   }
 }
 
-const MS_PER_YEAR = 365.25 * 24 * 3600 * 1000;
+// Banking convention: a "year" for interest-rate purposes is a flat 365 days, not the
+// average Julian/Gregorian year (365.25). Using 365.25 here under-counts the compounding
+// exponent for any exact date-span tenure — the error grows with how many leap days the
+// tenure spans — and produces a maturity amount that doesn't match real bank FD calculators.
+// Exported so `calculators/fdRd.ts` (tenure-in-years, no real dates) stays on the exact same
+// constant rather than risking a second, drifting copy.
+export const MS_PER_YEAR = 365 * 24 * 3600 * 1000;
 const MS_PER_MONTH = 30.4375 * 24 * 3600 * 1000;
 
 export function calcFdMaturity(
