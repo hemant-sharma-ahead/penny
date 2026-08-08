@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — PPF statement import: UI proposal (v1)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --page:#e4eeff; --surface:#ffffff; --surface2:#eff6ff; --surface3:#e4eeff;
+        --text:#0f172a; --text2:#475569; --text3:#94a3b8;
+        --border:#c7d8f0; --borderStrong:#a5bfdf;
+        --primary:#00a86b; --info:#3b82f6; --danger:#ef4444; --warning:#f59e0b; --success:#10b981; --ppf:#8b5cf6;
+        --primary-tint:rgba(0,168,107,.12); --info-tint:rgba(59,130,246,.12); --warning-tint:rgba(245,158,11,.14);
+        --success-tint:rgba(16,185,129,.12); --ppf-tint:rgba(139,92,246,.12); --danger-tint:rgba(239,68,68,.12);
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#f3f6fc; color:#0f172a; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:32px 16px 6px; font-size:22px; color:#0f172a; }
+      h1 small { display:block; font-size:12.5px; font-weight:500; color:#64748b; margin-top:6px; }
+      .sub { text-align:center; margin:0 16px 20px; color:#475569; font-size:13.5px; max-width:860px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .sectiontitle { text-align:center; font-size:16px; font-weight:800; color:#0f172a; margin:52px 0 4px; }
+      .sectiontitle .num { display:inline-flex; width:22px; height:22px; border-radius:7px; background:var(--ppf); color:#fff; font-size:12px; align-items:center; justify-content:center; margin-right:8px; vertical-align:middle; }
+      .sectionsub { text-align:center; color:#475569; font-size:12.5px; max-width:800px; margin:0 auto 22px; line-height:1.65; }
+      .sectionsub code { background:#e2e8f0; padding:1px 6px; border-radius:5px; font-size:11.5px; }
+
+      .hgallery { display:flex; flex-wrap:nowrap; gap:22px; overflow-x:auto; padding:8px 24px 22px; scroll-snap-type:x proximity; }
+      .hgallery::-webkit-scrollbar { height:8px; }
+      .hgallery::-webkit-scrollbar-thumb { background:#c7d8f0; border-radius:8px; }
+      .frame-wrap { width:280px; flex-shrink:0; scroll-snap-align:start; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#0f172a; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#e2e8f0; color:#475569; white-space:nowrap; }
+      .vtitle .tag.cur { background:#fde8cc; color:#b1650a; }
+      .vtitle .tag.rec { background:#ede4fd; color:#6d28d9; }
+      .vsub { font-size:11px; color:#64748b; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:280px; background:var(--page); border-radius:30px; border:8px solid #0f172a; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 14px 30px rgba(15,23,42,.18); }
+      .statusbar { height:16px; background:var(--page); flex-shrink:0; }
+      .header { height:38px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; background:#fff; border-bottom:1px solid var(--border); }
+      .htitle { flex:1; text-align:center; font-size:12.5px; font-weight:700; color:var(--text); }
+      .back, .hicon { width:24px; height:24px; border-radius:8px; display:grid; place-items:center; color:var(--text2); font-size:15px; }
+
+      .scr { flex:1; padding:12px; overflow-y:auto; }
+
+      .dim { position:absolute; inset:0; background:rgba(15,23,42,.4); display:flex; align-items:center; justify-content:center; padding:12px 8px; }
+      .modal-card { width:100%; max-height:100%; background:#fff; border-radius:16px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 10px 30px rgba(15,23,42,.25); }
+      .modal-head { display:flex; align-items:center; justify-content:space-between; padding:13px 15px 8px; }
+      .modal-head .t { font-size:13.5px; font-weight:700; color:#0f172a; }
+      .modal-head .x { color:#94a3b8; font-size:15px; }
+      .modal-body { padding:0 15px 14px; overflow-y:auto; }
+      .modal-foot { padding:11px 15px 14px; border-top:1px solid var(--border); }
+
+      .card { background:#fff; border:1px solid var(--border); border-radius:16px; padding:13px 14px; }
+      .card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+      .icon-badge { width:32px; height:32px; border-radius:10px; background:var(--ppf-tint); display:grid; place-items:center; flex-shrink:0; }
+      .icon-badge i { color:var(--ppf); font-size:16px; }
+      .titleblock { display:flex; gap:8px; align-items:center; }
+      .h-name { font-size:13.5px; font-weight:700; color:#0f172a; }
+      .h-sub { font-size:10.5px; color:#94a3b8; margin-top:1px; }
+      .h-value { font-size:15px; font-weight:800; color:#0f172a; text-align:right; }
+      .h-value-sub { font-size:9.5px; color:#94a3b8; text-align:right; margin-top:1px; }
+      .meta-line { font-size:11px; color:#475569; margin:8px 2px 8px; }
+      .divider { border-top:1px solid var(--border); margin:8px 0; }
+
+      .row-label { font-size:9.5px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.04em; }
+      .pill { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; padding:3px 8px; border-radius:999px; white-space:nowrap; }
+      .pill-green { background:var(--primary-tint); color:var(--primary); }
+      .pill-purple { background:var(--ppf-tint); color:var(--ppf); }
+      .pill-warn { background:var(--warning-tint); color:#b1650a; }
+
+      .stat-strip { display:flex; gap:7px; margin:9px 0; }
+      .stat-box { flex:1; border-radius:10px; padding:8px 4px; text-align:center; background:var(--surface2); }
+      .stat-box .n { font-size:13px; font-weight:800; line-height:1.1; color:#0f172a; }
+      .stat-box .n.green { color:var(--success); }
+      .stat-box .n.purple { color:var(--ppf); }
+      .stat-box .n.warn { color:#b1650a; }
+      .stat-box .l { font-size:7.5px; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:.02em; margin-top:3px; }
+
+      .progressbar { height:5px; border-radius:99px; background:#ede4fd; margin-top:5px; overflow:hidden; }
+      .progressbar .fill { height:100%; background:var(--ppf); border-radius:99px; }
+
+      .banner { border-radius:12px; padding:9px 10px; display:flex; gap:7px; margin:8px 0; border:1px solid rgba(245,158,11,.35); background:var(--warning-tint); }
+      .banner i { font-size:14px; color:var(--warning); flex-shrink:0; margin-top:1px; }
+      .banner .b1 { font-size:10.5px; color:#7a4a06; line-height:1.45; }
+      .banner .b1 b { color:#0f172a; }
+
+      .info-card { border-radius:12px; padding:9px 10px; border:1px solid var(--border); background:var(--surface2); display:flex; gap:8px; margin:9px 0; }
+      .info-card i.lead { font-size:15px; color:var(--ppf); flex-shrink:0; margin-top:1px; }
+      .info-card .body-text { font-size:10.5px; color:#475569; line-height:1.5; }
+      .info-card .body-text b { color:#0f172a; }
+
+      .field { margin:9px 0; }
+      .field .lbl { font-size:10px; color:#475569; font-weight:600; margin-bottom:4px; }
+      .field .lbl .hint { color:#94a3b8; font-weight:500; }
+      .field .inp { border:1px solid var(--border); border-radius:9px; padding:9px 10px; font-size:12px; color:#0f172a; background:var(--surface2); display:flex; align-items:center; justify-content:space-between; }
+      .field .inp.focus { border-color:var(--ppf); box-shadow:0 0 0 2px rgba(139,92,246,.15); }
+      .field .inp.ph { color:#94a3b8; }
+      .field .inp.filled { border-color:rgba(139,92,246,.4); background:var(--ppf-tint); font-weight:700; }
+      .field .caption { font-size:9.5px; color:#94a3b8; margin-top:4px; }
+      .field .caption.hi { color:var(--ppf); font-weight:600; }
+      .field .two { display:flex; gap:8px; }
+      .field .two > div { flex:1; }
+
+      .btn { border:none; border-radius:10px; font-weight:700; font-size:12px; padding:10px 14px; text-align:center; }
+      .btn-primary { background:var(--primary); color:#fff; }
+      .btn-purple { background:var(--ppf); color:#fff; }
+      .btn-purple.disabled { background:#d8c9fb; color:#fff; }
+      .btn-secondary { background:#fff; border:1px solid var(--border); color:#334155; }
+      .btn-full { width:100%; }
+      .btn-row { display:flex; gap:8px; }
+      .btn-row > .btn { flex:1; }
+      .btn-sm { padding:5px 10px; font-size:10px; border-radius:999px; display:inline-flex; align-items:center; gap:4px; }
+
+      .txrow { display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px dashed var(--border); }
+      .txmid { flex:1; min-width:0; }
+      .txmid .t1 { font-size:11px; font-weight:700; color:#0f172a; }
+      .txmid .t2 { font-size:9px; color:#94a3b8; margin-top:1px; }
+      .txright { text-align:right; }
+      .txright .a { font-size:10.5px; font-weight:700; color:#0f172a; }
+
+      .stpill { font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:2px 6px; border-radius:999px; flex-shrink:0; }
+      .stpill.new { background:var(--info-tint); color:var(--info); }
+      .stpill.match { background:var(--success-tint); color:var(--success); }
+      .stpill.conflict { background:var(--warning-tint); color:#b1650a; }
+
+      .conflict-card { border:1.5px solid rgba(245,158,11,.45); border-radius:13px; padding:10px; background:var(--warning-tint); margin-bottom:9px; }
+      .conflict-card .ch { display:flex; align-items:center; gap:6px; margin-bottom:7px; }
+      .conflict-card .ch .t { font-size:11px; font-weight:800; color:#b1650a; flex:1; }
+      .conflict-card .ch .date { font-size:9.5px; color:#475569; }
+      .cf-compare { display:flex; gap:6px; }
+      .cf-opt { flex:1; border-radius:10px; padding:7px; border:1.5px solid var(--border); background:#fff; }
+      .cf-opt.selected { border-color:var(--warning); background:#fff7e8; }
+      .cf-opt .k { font-size:8px; font-weight:700; text-transform:uppercase; color:#94a3b8; letter-spacing:.03em; }
+      .cf-opt.selected .k { color:#b1650a; }
+      .cf-opt .v { font-size:12px; font-weight:800; color:#0f172a; margin-top:2px; }
+      .cf-opt .r { display:flex; align-items:center; gap:4px; margin-top:4px; font-size:8.5px; font-weight:700; color:#94a3b8; }
+      .cf-opt.selected .r { color:#b1650a; }
+      .radio { width:11px; height:11px; border-radius:50%; border:1.5px solid #94a3b8; flex-shrink:0; }
+      .radio.on { border-color:var(--warning); background:var(--warning); }
+      .check { width:14px; height:14px; border-radius:5px; border:1.5px solid #94a3b8; flex-shrink:0; display:grid; place-items:center; }
+      .check.on { border-color:var(--info); background:var(--info); color:#fff; font-size:9px; }
+      .quiet-line { display:flex; align-items:center; gap:6px; padding:8px 4px; }
+      .quiet-line i { color:var(--success); font-size:13px; }
+      .quiet-line .t { font-size:10.5px; color:#475569; flex:1; }
+      .more-link { text-align:center; font-size:10px; color:var(--ppf); font-weight:700; padding:6px 0 2px; }
+
+      .calc-card { border-radius:12px; padding:9px 10px; border:1px solid rgba(139,92,246,.35); background:var(--ppf-tint); margin:8px 0; }
+      .calc-card .ch { display:flex; align-items:center; gap:6px; margin-bottom:7px; }
+      .calc-card .ch i { color:var(--ppf); font-size:13px; }
+      .calc-card .ch .t { font-size:10.5px; font-weight:800; color:#5b21b6; flex:1; }
+      .calc-card .ch .ok { font-size:8.5px; font-weight:700; color:var(--success); background:var(--success-tint); padding:2px 6px; border-radius:999px; }
+      .calc-card .ch .off { font-size:8.5px; font-weight:700; color:#b1650a; background:var(--warning-tint); padding:2px 6px; border-radius:999px; }
+      .calc-compare { display:flex; gap:6px; }
+      .calc-opt { flex:1; border-radius:10px; padding:7px; background:#fff; border:1px solid rgba(139,92,246,.25); }
+      .calc-opt .k { font-size:8px; font-weight:700; text-transform:uppercase; color:#94a3b8; letter-spacing:.03em; }
+      .calc-opt .v { font-size:12px; font-weight:800; color:#0f172a; margin-top:2px; }
+      .calc-card .note { font-size:9px; color:#6d28d9; margin-top:6px; line-height:1.45; }
+
+      .legend { max-width:980px; margin:16px auto 20px; background:#fff; border:1px solid var(--border); border-radius:16px; padding:20px 24px; color:#334155; font-size:13.5px; line-height:1.75; }
+      .legend h2 { font-size:15px; margin:0 0 8px; color:#0f172a; }
+      .legend b { color:#0f172a; }
+      .recommend { max-width:980px; margin:0 auto 30px; background:#f3edfe; border:1px solid #d8c9fb; border-radius:16px; padding:18px 22px; color:#4c1d95; font-size:13.5px; line-height:1.7; }
+      .recommend b { color:#6d28d9; }
+      .recommend h2 { font-size:14px; margin:0 0 8px; color:#6d28d9; }
+
+      footer.notes { max-width:980px; margin:40px auto 70px; background:#fff; border:1px solid var(--border); border-radius:16px; padding:20px 24px; color:#475569; font-size:12.5px; line-height:1.7; }
+      footer.notes h2 { font-size:14px; color:#0f172a; margin:0 0 8px; }
+      footer.notes code { background:#e2e8f0; padding:1px 6px; border-radius:5px; font-size:11px; color:#0f172a; }
+    </style>
+  </head>
+  <body>
+    <h1>PPF statement import — UI proposal (v1)
+      <small>docs/features/portfolio/retirement.md · grounded in the real current PPF card (RetirementCard.tsx),
+      PpfModal.tsx/PpfFields.tsx, and EPF's already-approved reconciliation review pattern (epf-passbook-import-v4.html)</small>
+    </h1>
+    <p class="sub">
+      Same feature as bank Statement Import (CSV/Excel upload → bulk-populate), scoped to PPF: launched from the PPF
+      card, committed as real <code>PpfTransaction</code> rows (deposit/interest/withdrawal), not generic bank
+      transactions. Reconciliation follows EPF's exact-key model (new/matches/conflict), not bank-import's fuzzy
+      4-bucket matcher — a PPF statement is low-volume and structured, the same reasoning that made EPF diverge from
+      bank-import. New this round: since a bank PPF statement always includes the annual interest row, the review
+      screen shows a fresh recalculation next to it (using the new PPF rate table) so a wrong/estimated recorded
+      figure is caught at import time, the same sanity-check EPF's import already does.
+    </p>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle"><span class="num">0</span>The real current PPF card — reference</div>
+    <div class="sectionsub">Reproduced from <code>RetirementCard.tsx</code>'s PPF branch and <code>PpfModal.tsx</code>/<code>PpfFields.tsx</code> — scroll horizontally →</div>
+    <div class="hgallery">
+
+      <div class="frame-wrap">
+        <div class="vtitle">0.1 — Untracked CTA <span class="tag cur">today</span></div>
+        <div class="vsub">Retirement tab, before the user taps to start tracking PPF at all.</div>
+        <div class="phone" style="height:250px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-safe"></i></div><div class="h-name">PPF</div></div>
+                <span class="pill pill-purple"><i class="ti ti-plus" style="font-size:10px"></i>Track PPF</span>
+              </div>
+              <div class="meta-line">Public Provident Fund — 7.1% guaranteed, 15-yr lock-in, fully tax-free</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">0.2 — Tracked PPF card (full) <span class="tag cur">today</span></div>
+        <div class="vsub">Header value is <code>holding.investedAmount</code> — a manually-maintained number, NOT summed from <code>ppfTransactions[]</code>. Only one entry point today: the "+ Add" pill (manual, one at a time).</div>
+        <div class="phone" style="height:560px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-safe"></i></div><div><div class="h-name">PPF</div><div class="h-sub">PPF</div></div></div>
+                <div class="h-value">₹1,60,650</div>
+              </div>
+              <div class="meta-line">7.1% p.a. · SBI · Opened Apr 2023 · Matures Apr 2038</div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="font-size:10px;color:#94a3b8">14 yrs to maturity</span><span style="font-size:12px;font-weight:700;color:var(--ppf)">Proj. ₹42,18,900</span></div>
+              <div class="progressbar"><div class="fill" style="width:7%"></div></div>
+              <div style="margin-top:8px"><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="font-size:10px;color:#94a3b8">This FY</span><span style="font-size:10px;color:#475569">₹0 / ₹1.5L</span></div><div class="progressbar" style="background:#fde8cc"><div class="fill" style="width:0%;background:var(--warning)"></div></div></div>
+              <div class="banner"><i class="ti ti-calendar-event"></i><div class="b1">Deposit before April 5 to earn interest for the full year</div></div>
+              <div class="divider"></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span class="row-label">TRANSACTIONS</span><span class="pill pill-purple btn-sm"><i class="ti ti-plus" style="font-size:9px"></i>Add</span></div>
+              <div class="txrow"><span style="font-size:9px;color:#94a3b8;width:34px">31 Mar</span><span style="font-size:9px;color:var(--success)">Interest</span><span style="flex:1;text-align:right;font-size:10px;font-weight:600">₹10,650</span></div>
+              <div class="txrow"><span style="font-size:9px;color:#94a3b8;width:34px">1 Apr</span><span style="font-size:9px;color:var(--ppf)">Deposit</span><span style="flex:1;text-align:right;font-size:10px;font-weight:600">₹1,50,000</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">0.3 — Track PPF (add holding) <span class="tag cur">today</span></div>
+        <div class="vsub">The only fields Penny ever asks for at the account level — none of which a bank statement export contains. This exact field set is what §3's missing-details gate reuses.</div>
+        <div class="phone" style="height:480px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card">
+              <div class="modal-head"><span class="t">Track PPF</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div class="field"><div class="lbl">Name</div><div class="inp focus">PPF</div></div>
+                <div class="field"><div class="lbl">Account opening date</div><div class="inp ph">e.g. 04/2023</div></div>
+                <div class="field two">
+                  <div><div class="lbl">Annual contribution</div><div class="inp ph">e.g. 150000</div></div>
+                  <div><div class="lbl">Bank / Institution <span class="hint">optional</span></div><div class="inp ph">e.g. SBI</div></div>
+                </div>
+                <div class="caption" style="margin:-4px 0 4px">Transactions are added from the PPF card after saving.</div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-purple btn-full">Add holding</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle"><span class="num">1</span>Entry point</div>
+    <div class="sectionsub">Same two placements EPF's already-shipped pattern uses — reused directly, not reinvented.</div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Card-level action <span class="tag rec">recommended</span></div>
+        <div class="vsub">New ghost "Import" pill next to the existing manual "+ Add" pill, above Transactions — owns the whole "parse → reconcile → commit" flow for the whole account, same reasoning as EPF's card-level action (an import may create the holding AND add transactions, not just one or the other).</div>
+        <div class="phone" style="height:300px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-safe"></i></div><div><div class="h-name">PPF</div><div class="h-sub">PPF</div></div></div>
+                <div class="h-value">₹1,60,650</div>
+              </div>
+              <div class="meta-line">7.1% p.a. · SBI · Opened Apr 2023</div>
+              <div class="divider"></div>
+              <div style="display:flex;justify-content:space-between;align-items:center"><span class="row-label">TRANSACTIONS</span><span class="btn-row" style="display:inline-flex;gap:5px"><span class="pill pill-purple btn-sm"><i class="ti ti-file-upload" style="font-size:9px"></i>Import</span><span class="pill pill-purple btn-sm"><i class="ti ti-plus" style="font-size:9px"></i>Add</span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Untracked CTA shortcut <span class="tag rec">first-time path</span></div>
+        <div class="vsub">A user who's never tracked PPF at all shouldn't have to hand-type opening date/bank first — offer import as an alternative starting point, same as EPF's "or import passbook PDF" shortcut. A brand-new holding is created straight from the statement (see §3 for how the missing account-level details get collected).</div>
+        <div class="phone" style="height:260px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-safe"></i></div><div class="h-name">PPF</div></div>
+                <span class="pill pill-purple"><i class="ti ti-plus" style="font-size:10px"></i>Track PPF</span>
+              </div>
+              <div class="meta-line">Public Provident Fund — 7.1% guaranteed, 15-yr lock-in, fully tax-free</div>
+              <div style="text-align:right;margin-top:2px"><span style="font-size:10px;font-weight:700;color:var(--ppf)">or import statement →</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle"><span class="num">2</span>Review screen — conflict-first triage</div>
+    <div class="sectionsub">Directly reuses EPF's already-approved Direction C layout (epf-passbook-import-v4.html §2) —
+      the one real decision pinned open at the top, new rows as a pre-checked light checklist, matches collapsed into
+      one quiet line. Simpler than EPF's version: no multi-file/summary queue (one statement = one continuous ledger,
+      not multiple employer/FY groups), no employee/employer/EPS breakdown (PPF is one flat amount). <b>New:</b> the
+      interest row — every real bank PPF statement includes exactly one per FY — gets its own calculation card
+      showing Penny's fresh recalculation from the rate table next to the imported figure.</div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Review import <span class="tag rec">recommended</span></div>
+        <div class="vsub">SBI statement, Apr 2023–Mar 2024: 2 new deposits, 1 matched deposit, 1 conflict (a manually-logged deposit that's off by ₹5,000), 1 interest row whose recalculation agrees.</div>
+        <div class="phone" style="height:640px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="back"><i class="ti ti-chevron-left"></i></div><div class="htitle">Review import</div><div style="width:24px"></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card" style="height:100%">
+              <div class="modal-head"><span class="t">Review import</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div style="font-size:9.5px;color:#94a3b8;margin:-2px 0 8px">PPF · SBI statement · FY 2023-24</div>
+                <div class="stat-strip">
+                  <div class="stat-box"><div class="n" style="color:var(--info)">2</div><div class="l">New</div></div>
+                  <div class="stat-box"><div class="n green">1</div><div class="l">Matched</div></div>
+                  <div class="stat-box"><div class="n warn">1</div><div class="l">Conflict</div></div>
+                </div>
+
+                <div class="conflict-card">
+                  <div class="ch"><span class="t">Conflict</span><span class="date">10 Aug 2023 · Deposit</span></div>
+                  <div class="cf-compare">
+                    <div class="cf-opt selected"><div class="k">Imported</div><div class="v">₹25,000</div><div class="r"><div class="radio on"></div>Use this</div></div>
+                    <div class="cf-opt"><div class="k">Existing</div><div class="v">₹20,000</div><div class="r"><div class="radio"></div>Keep this</div></div>
+                  </div>
+                </div>
+
+                <div class="calc-card">
+                  <div class="ch"><i class="ti ti-calculator"></i><span class="t">Interest Credited · 31 Mar 2024</span><span class="ok">Matches</span></div>
+                  <div class="calc-compare">
+                    <div class="calc-opt"><div class="k">Imported</div><div class="v">₹10,650</div></div>
+                    <div class="calc-opt"><div class="k">Calculated</div><div class="v">₹10,650</div></div>
+                  </div>
+                  <div class="note">Based on the deposits/withdrawals in this statement and what Penny already has on record for this year.</div>
+                </div>
+
+                <div class="quiet-line"><i class="ti ti-circle-check"></i><div class="t">1 more row already matches your records</div></div>
+
+                <div class="row-label" style="margin:8px 0 4px">NEW · WILL BE ADDED</div>
+                <div class="txrow"><div class="check on"><i class="ti ti-check"></i></div><div class="txmid" style="margin-left:8px"><div class="t1">1 Apr 2023</div><div class="t2">Deposit</div></div><div class="txright"><div class="a">₹1,50,000</div></div></div>
+                <div class="txrow"><div class="check on"><i class="ti ti-check"></i></div><div class="txmid" style="margin-left:8px"><div class="t1">3 Jan 2024</div><div class="t2">Deposit</div></div><div class="txright"><div class="a">₹25,000</div></div></div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-purple btn-full">Import 5 transactions</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Calculation card — mismatch case <span class="tag">detail</span></div>
+        <div class="vsub">When the imported interest disagrees with Penny's recalculation (beyond a ₹1 rounding tolerance) — surfaced, not silently trusted, but never auto-corrected: the statement's own figure is what EPFO/the bank actually credited, so it stays selected as the default even when it disagrees with Penny's math.</div>
+        <div class="phone" style="height:340px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="back"><i class="ti ti-chevron-left"></i></div><div class="htitle">Review import</div><div style="width:24px"></div></div>
+          <div class="scr" style="padding-top:20px">
+            <div class="calc-card">
+              <div class="ch"><i class="ti ti-calculator"></i><span class="t">Interest Credited · 31 Mar 2024</span><span class="off">Differs</span></div>
+              <div class="calc-compare">
+                <div class="calc-opt"><div class="k">Imported</div><div class="v">₹8,200</div></div>
+                <div class="calc-opt"><div class="k">Calculated</div><div class="v">₹10,650</div></div>
+              </div>
+              <div class="note">Your statement's figure is kept — it's what was actually credited. The difference may mean a deposit/withdrawal from an earlier year wasn't imported, or landed after the 5th of a month (which pushes it to next month's interest).</div>
+            </div>
+            <div class="calc-card" style="border-color:rgba(148,163,184,.4);background:var(--surface2)">
+              <div class="ch"><i class="ti ti-info-circle" style="color:#94a3b8"></i><span class="t" style="color:#475569">Interest Credited · 31 Mar 2021</span><span style="font-size:8.5px;font-weight:700;color:#94a3b8;background:#e2e8f0;padding:2px 6px;border-radius:999px">Not verified</span></div>
+              <div class="note" style="color:#64748b">Penny's earliest record for this account starts after this financial year began, so the calculation below isn't based on your full history — shown for reference only, not compared.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <h2>Recommendation</h2>
+      <p>Reuse EPF's approved review layout as-is (it's already validated, and PPF's data is a strict subset — flatter,
+      lower-volume). The one genuinely new element is the <b>calculation card</b> for interest rows: always shown when
+      a rate table is available, three states — <b>Matches</b> (quiet, reassuring), <b>Differs</b> (flagged, but the
+      statement's own figure stays the kept default — never auto-corrected, since it's what was actually credited),
+      and <b>Not verified</b> (when Penny's own record doesn't go back far enough to trust the recalculation — shown
+      for transparency, explicitly excluded from the match/differ judgment rather than silently treated as a match or
+      conflict it isn't).</p>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle"><span class="num">3</span>Missing-details gate</div>
+    <div class="sectionsub">A bank statement never contains opening date/bank/name — the fields §0.3's "Track PPF" form
+      collects. Rather than a separate modal push (which would feel like a detour), this renders as one more step
+      inline in the same flow, directly after Import is tapped, reusing the same field components.</div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Inline step, before commit <span class="tag rec">recommended</span></div>
+        <div class="vsub">Shown once, right after reconciliation, before "Import N transactions" finalizes — for either a brand-new PPF holding created by the import, or an existing one missing a field it was allowed to skip (bank is optional today). Opening date is pre-filled from the earliest imported row as a starting SUGGESTION, not silently assumed — the real account may predate the statement.</div>
+        <div class="phone" style="height:460px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="back"><i class="ti ti-chevron-left"></i></div><div class="htitle">Review import</div><div style="width:24px"></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card">
+              <div class="modal-head"><span class="t">A few more details</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div class="info-card"><i class="ti ti-info-circle lead"></i><div class="body-text">Your statement doesn't include these — Penny needs them to track maturity and yearly limits.</div></div>
+                <div class="field"><div class="lbl">Name</div><div class="inp focus">PPF</div></div>
+                <div class="field"><div class="lbl">Account opening date</div><div class="inp filled">01/04/2023</div><div class="caption hi">Suggested from your earliest imported transaction — confirm or change it</div></div>
+                <div class="field"><div class="lbl">Bank / Institution <span class="hint">optional</span></div><div class="inp ph">e.g. SBI</div></div>
+              </div>
+              <div class="modal-foot"><div class="btn btn-purple btn-full">Continue → Import 5 transactions</div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="notes">
+      <h2>Implementation notes (not visual — for the build step)</h2>
+      <p>
+        <b>Core logic</b> (all built already, this round's mockup is UI-only): <code>ppfStatementParser.ts</code>
+        (reuses bank-import's grid/date primitives directly, adds <code>classifyPpfRow</code>), <code>ppfReconciliation.ts</code>
+        (exact-key new/matches/conflict, wires in <code>calculatedInterest</code> per interest row), <code>ppfInterestCalculator.ts</code>
+        (the real 5th-of-month accrual rule — different from EPF's own accrual timing, do not copy EPF's rule here).
+      </p>
+      <p>
+        <b>Still open for the build step</b>: whether the "Track PPF" holding-creation path (untracked CTA → import)
+        needs its own lightweight file-picker entry before the missing-details step, mirroring
+        <code>RetirementUntrackedCard</code>'s existing <code>epfImportFiles</code> state pattern — should be a direct
+        copy of that existing code path, not a new design.
+      </p>
+    </footer>
+  </body>
+</html>

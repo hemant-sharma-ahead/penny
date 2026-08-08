@@ -62,6 +62,13 @@ export interface PpfTransaction {
   date: number; // epoch ms
   amount: number;
   note?: string;
+  /** The statement row's own narration, when this transaction came from an import — kept separate
+   *  from user-authored `note` so an import can never silently overwrite something the user typed.
+   *  Same rationale as `EpfTransaction.sourceParticulars`. */
+  sourceParticulars?: string;
+  /** Import-batch identifier, when this transaction came from an import — provenance/traceability,
+   *  same pattern as `EpfTransaction.sourceRef`. Absent for manually-entered transactions. */
+  sourceRef?: string;
 }
 
 // ─── EPF employment + transaction ledger ─────────────────────────────────────
@@ -71,6 +78,18 @@ export interface EpfSalaryHike {
   basicSalary: number; // new basic + DA
 }
 
+/** A snapshot of EPFO's own stated balance as of a specific date — distinct from the transaction
+ *  ledger below. Sourced from a passbook PDF's `OB Int. Updated upto`/`Closing Balance as on` rows
+ *  (2026-08-07, EPF passbook import — see docs/plans/epf-passbook-import.md §5). Never derived —
+ *  Penny's own computed running total (sum of transactions) is checked AGAINST this, not replaced
+ *  by it, so a mismatch is visible rather than silently reconciled away. */
+export interface EpfBalanceCheckpoint {
+  asOfDate: number; // epoch ms
+  employeeBalance: number;
+  employerBalance: number;
+  pensionBalance: number;
+}
+
 export interface EpfEmployer {
   id: string;
   companyName: string;
@@ -78,7 +97,29 @@ export interface EpfEmployer {
   employeeContribPct: number; // default 12; higher for VPF
   fromDate: number; // epoch ms — start of employment
   toDate?: number; // undefined = current employer
+  /** Set `true` only once the user has explicitly confirmed "yes, still employed here" in response
+   *  to the post-import prompt (docs/plans/epf-passbook-import.md §10.1) — importing a historical
+   *  (non-latest) passbook FY is NOT itself evidence the employment is still ongoing, so a
+   *  newly-created-or-extended-by-import employer with no `toDate` must ask rather than assume.
+   *  Never set for an employer added via manual entry (that flow already asks "current employer?"
+   *  implicitly by leaving `toDate` blank) — only relevant to disambiguate the import path. */
+  currentEmploymentConfirmed?: boolean;
+  /** "YYYY" financial-year start years for which a real passbook (or Excel export) has been
+   *  imported for this employer — even one with ZERO contribution rows (found via real-device
+   *  testing: a year with no contributions, e.g. after leaving mid-way through a prior year, is
+   *  still real, authoritative EPFO data, not a gap to fill with a guess). `epfComputeAllMonths`
+   *  treats any month within a confirmed FY that has no matching real transaction as a CONFIRMED
+   *  zero, not the usual formula-based estimate. */
+  confirmedFys?: number[];
   hikeTimeline?: EpfSalaryHike[]; // sorted ascending by fromDate
+  // EPF passbook import (2026-08-07) — see docs/plans/epf-passbook-import.md §5. Never inferred —
+  // populated only from a real parsed passbook's own header block.
+  establishmentId?: string; // e.g. "TSTEST0000000001" — from the passbook's "Establishment ID/Name"
+  /** e.g. "TSTEST00000000019999999" — from the passbook's "Member ID/Name". THE real matching key
+   *  for "which employer does this PDF belong to" during import — company name alone is
+   *  unreliable (e.g. rejoining the same employer later would otherwise be ambiguous). */
+  memberId?: string;
+  balanceCheckpoints?: EpfBalanceCheckpoint[];
 }
 
 export type EpfTransactionType = 'contribution' | 'interest' | 'transfer_in' | 'withdrawal' | 'advance';
@@ -87,12 +128,33 @@ export interface EpfTransaction {
   id: string;
   type: EpfTransactionType;
   wagesMonth?: string; // "YYYY-MM" — salary month contributions relate to
+  /** Which `EpfEmployer.id` this contribution belongs to — set at import time (the parser/import
+   *  flow always knows exactly which employer's passbook a row came from). Exists specifically to
+   *  handle a mid-month employer switch: two DIFFERENT employers can each have a real, legitimate
+   *  contribution for the SAME `wagesMonth` (pro-rata, split across the switch), which a
+   *  wagesMonth-only reconciliation key would otherwise see as one entry conflicting with the
+   *  other. Optional — a manually-typed contribution (no employer picker exists for that flow
+   *  today) or a transaction written before this field existed has no `employerId`; date-range
+   *  containment against `EpfEmployer.fromDate`/`toDate` is the fallback attribution for those,
+   *  same as before this field existed. */
+  employerId?: string;
   date: number; // epoch ms — date credited to EPF account
   employeeAmount?: number; // employee share (contribution type)
   employerAmount?: number; // employer share to EPF 3.67% (contribution type)
   pensionAmount?: number; // EPS 8.33% — informational only
   amount?: number; // interest / transfer_in / withdrawal / advance
   note?: string;
+  // EPF passbook import (2026-08-07) — see docs/plans/epf-passbook-import.md §5.
+  epfWages?: number; // the wage baseline this contribution's EPF share was calculated on
+  epsWages?: number; // the wage baseline this contribution's EPS share was calculated on
+  /** The passbook's own row label (e.g. "Cont. for Due-Month 122014", "TRANSFER IN - ...") — kept
+   *  SEPARATE from `note` (user-authored free text) so imported provenance and manual annotation
+   *  never collide or get silently overwritten by each other. */
+  sourceParticulars?: string;
+  /** Import-batch identifier — mirrors bank-import/CSV-import's own traceability pattern. Lets a
+   *  row be identified as "came from a PDF import" at a glance, and backs the reconciliation
+   *  matcher's dedup logic (see epfReconciliation.ts). */
+  sourceRef?: string;
 }
 
 // ─── Asset metadata ───────────────────────────────────────────────────────────

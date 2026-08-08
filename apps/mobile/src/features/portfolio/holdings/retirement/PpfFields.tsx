@@ -1,13 +1,20 @@
 import { View, Text } from 'react-native';
 import { TextInput, AmountInput, DateInput } from '~/components/ui';
+import { ppfMaturityMs } from '@/core/portfolio/ppfCalculations';
 
-// Computes the PPF maturity label (15-year lock-in) from the account opening date.
+const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
+
+// Computes the PPF maturity label (15-year lock-in) from the account opening date — via the shared,
+// FY-end-based `ppfMaturityMs()` (2026-08-08 fix), not a locally re-derived "opening date + 15
+// calendar years" shortcut. That shortcut used to live here directly and was WRONG (the real rule
+// counts 15 years from the end of the FY of opening, not the raw opening date) — kept as one shared
+// calculation now so this preview label can never drift from what the PPF card itself shows.
 function ppfMaturityLabel(openingDateStr: string): { text: string } | null {
   if (!openingDateStr) return null;
   const openMs = new Date(openingDateStr).getTime();
-  const maturityMs = openMs + 15 * 365.25 * 24 * 60 * 60 * 1000;
+  const maturityMs = ppfMaturityMs(openMs);
   const maturityDate = new Date(maturityMs);
-  const yearsLeft = Math.max(0, Math.round((maturityMs - Date.now()) / (365.25 * 24 * 60 * 60 * 1000)));
+  const yearsLeft = Math.max(0, Math.round((maturityMs - Date.now()) / YEAR_MS));
   const suffix = yearsLeft > 0 ? ` · ${yearsLeft} yr${yearsLeft !== 1 ? 's' : ''} remaining` : ' · Matured';
   return { text: `Matures ${maturityDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}${suffix}` };
 }

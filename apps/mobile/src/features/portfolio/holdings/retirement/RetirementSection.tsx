@@ -58,7 +58,14 @@ export function RetirementSection({ holdings, masked, onSave, onRemove }: Retire
         }
         // No holding yet — suppress the EPF prompt for employment types that don't have EPF.
         if (ac === 'epf' && hideEpfPrompt) return null;
-        return <RetirementUntrackedCard key={ac} type={ac} onTrack={() => setForm({ ac, editing: null })} />;
+        return (
+          <RetirementUntrackedCard
+            key={ac}
+            type={ac}
+            onTrack={() => setForm({ ac, editing: null })}
+            {...((ac === 'epf' || ac === 'ppf') && { onSave })}
+          />
+        );
       })}
 
       {/* Gratuity/SSY calculators — 2026-08-01 relocation out of Home's generic hub, into the

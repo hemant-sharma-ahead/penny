@@ -28,6 +28,18 @@ export const VEHICLE_PROXY: string | null = PROXY ? `${PROXY}/vehicle` : null;
  *  backend is configured (client falls back to per-ticker fetches). */
 export const MARKET_SNAPSHOT: string | null = PROXY ? `${PROXY}/market` : null;
 
+/** EPF interest rate table (2026-08-07, EPF passbook import — see
+ *  docs/plans/epf-passbook-import.md §7) — one small, mostly-static JSON route on the same worker,
+ *  not a dedicated worker (rates change at most once a year). Null when no backend is configured;
+ *  the app then falls back to its own baked-in rate table (`epfInterestRates.ts`'s
+ *  `EPF_RATE_PERIODS_FALLBACK`) and never blocks on network. */
+export const EPF_RATES_BASE: string | null = PROXY ? `${PROXY}/epf-rates` : null;
+
+/** PPF interest rate table (2026-08-08) — same shape/rationale as `EPF_RATES_BASE` above. Null when
+ *  no backend is configured; the app then falls back to its own baked-in rate table
+ *  (`ppfInterestRates.ts`'s `PPF_RATE_TABLE_FALLBACK`) and never blocks on network. */
+export const PPF_RATES_BASE: string | null = PROXY ? `${PROXY}/ppf-rates` : null;
+
 /** News RSS proxy (`${PROXY}/rss/<feedId>`), or null when no backend is configured — the client then
  *  falls back to the public AllOrigins proxy (see newsClient.constants.ts). Added after AllOrigins
  *  started 408-timing-out on the RBI/SEBI feeds specifically (2026-07-27); routing through our own

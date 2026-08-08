@@ -236,7 +236,9 @@ export function useBankImport(accountId: string) {
   /** Excel support (2026-08-05, issue #4) — `bytes` are the raw file contents (never a path/base64
    *  string, keeping this hook's own I/O-free shape); parsing itself is `parseXlsxToGrid()`'s job
    *  (`core/bank-import/xlsxParser.ts`). A parse failure (corrupted/unrecognized file) surfaces the
-   *  same `parseError` banner the CSV path uses, rather than a separate error UI. */
+   *  same `parseError` banner the CSV path uses, rather than a separate error UI — including a
+   *  password-protected file, which now throws a specifically-worded `XlsxPasswordRequiredError`
+   *  (2026-08-08) surfaced through this same banner rather than a generic message. */
   const importFromXlsx = useCallback(
     (bytes: Uint8Array, name: string) => {
       setRawText('');

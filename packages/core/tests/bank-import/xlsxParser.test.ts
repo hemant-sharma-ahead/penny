@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { utils, write } from 'xlsx';
-import { parseXlsxToGrid, XlsxParseError } from '@/core/bank-import/xlsxParser';
+import { parseXlsxToGrid, XlsxParseError, XlsxPasswordRequiredError } from '@/core/bank-import/xlsxParser';
 
 function buildWorkbookBytes(rows: (string | number)[][]): Uint8Array {
   const sheet = utils.aoa_to_sheet(rows);
@@ -47,11 +47,35 @@ describe('parseXlsxToGrid', () => {
     expect(grid[1]?.[3]).toBe('');
   });
 
-  it('throws XlsxParseError for a corrupted/truncated workbook', () => {
+  it('throws XlsxParseError for a corrupted/truncated workbook, with the real underlying reason included', () => {
     // A genuine ZIP signature ("PK") followed by garbage — SheetJS is otherwise very lenient about
     // unrecognized bytes (it falls back to treating them as plain text/CSV content rather than
     // erroring), so this is the realistic shape of a file that actually fails to parse.
     const corrupted = new Uint8Array(Buffer.concat([Buffer.from('PK'), Buffer.alloc(100, 0)]));
     expect(() => parseXlsxToGrid(corrupted)).toThrow(XlsxParseError);
+    // Never a bare generic message — always includes SheetJS's own reason, so a real failure is
+    // actually diagnosable from the error text alone instead of every failure looking identical.
+    try {
+      parseXlsxToGrid(corrupted);
+      expect.unreachable();
+    } catch (err) {
+      expect(err).toBeInstanceOf(XlsxParseError);
+      expect((err as Error).message).not.toBe('Could not read this file as an Excel workbook.');
+      expect((err as Error).message.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('throws a distinct XlsxParseError for a 0-byte read (a common upstream file-read failure)', () => {
+    expect(() => parseXlsxToGrid(new Uint8Array(0))).toThrow(XlsxParseError);
+    expect(() => parseXlsxToGrid(new Uint8Array(0))).toThrow(/empty/i);
+  });
+
+  it('XlsxPasswordRequiredError is a distinguishable subclass of XlsxParseError', () => {
+    // Real password-protected-file detection is exercised manually/in the real app (no decryption
+    // library is a dependency here to fabricate one — see this file's own module doc comment for why
+    // decryption itself was declined as a feature); this just locks the type contract callers rely on
+    // to show a specific "password-protected" message instead of a generic parse-failure one.
+    const err = new XlsxPasswordRequiredError('This file is password-protected.');
+    expect(err).toBeInstanceOf(XlsxParseError);
   });
 });

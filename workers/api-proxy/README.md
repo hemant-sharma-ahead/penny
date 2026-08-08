@@ -17,16 +17,17 @@ This is also the **deploy template** for the later backend workers (Tracks B–E
 
 ## What it does
 
-| Route | Forwards to | Cache |
-|---|---|---|
-| `GET /health` | — | — |
-| `GET /market` | Cron-refreshed snapshot of the whole ticker strip (one JSON) | KV + edge cache (refreshed every 15 min by Cron) |
-| `GET /yf/*` | `query1.finance.yahoo.com/*` (Yahoo) | KV 15 min |
-| `GET /mfapi/*` | `api.mfapi.in/*` | KV: NAV 24 h · search 1 h |
-| `GET /nps/*` | `npsnav.in/api/*` | KV: schemes 1 wk · NAV 1 h |
-| `GET /ig/*` | `webnodejs.investorgain.com/*` (IPO/GMP) | KV ~15 min |
-| `GET /rss/:feedId` | One of 4 fixed news RSS feeds (`et-markets`, `mint`, `rbi`, `sebi`) — see `src/news.ts` | KV 45 min |
-| `GET /vehicle/:regno[?refresh=1]` | vahandetails (RC + challans) | **D1 permanent** + queue |
+| Route                             | Forwards to                                                                                                                         | Cache                                                           |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `GET /health`                     | —                                                                                                                                   | —                                                               |
+| `GET /market`                     | Cron-refreshed snapshot of the whole ticker strip (one JSON)                                                                        | KV + edge cache (refreshed every 15 min by Cron)                |
+| `GET /yf/*`                       | `query1.finance.yahoo.com/*` (Yahoo)                                                                                                | KV 15 min                                                       |
+| `GET /mfapi/*`                    | `api.mfapi.in/*`                                                                                                                    | KV: NAV 24 h · search 1 h                                       |
+| `GET /nps/*`                      | `npsnav.in/api/*`                                                                                                                   | KV: schemes 1 wk · NAV 1 h                                      |
+| `GET /ig/*`                       | `webnodejs.investorgain.com/*` (IPO/GMP)                                                                                            | KV ~15 min                                                      |
+| `GET /rss/:feedId`                | One of 4 fixed news RSS feeds (`et-markets`, `mint`, `rbi`, `sebi`) — see `src/news.ts`                                             | KV 45 min                                                       |
+| `GET /vehicle/:regno[?refresh=1]` | vahandetails (RC + challans)                                                                                                        | **D1 permanent** + queue                                        |
+| `GET /epf-rates`                  | Static, in-source EPF interest rate table (`src/epfRates.ts`) — no upstream call at all; redeploy this worker to publish a new rate | None needed — the response body itself changes only on redeploy |
 
 Vehicle returns `{ status: 'ok', data }`, or `{ status: 'queued', message, etaMorningIST }` when the
 daily budget/window can't serve it — the reg is queued (deduped) and a morning **Cron** fetches it;
@@ -134,7 +135,7 @@ inside **06:00–12:00 IST**.
   vehicle, or a different user looking it up, costs **zero** upstream calls.
 - **Miss, in-window, budget left** → fetched now, cached, served.
 - **Miss, out-of-window or budget exhausted, or upstream failed** → the reg is **queued (deduped)**
-  and the user gets a friendly *"we'll have it by tomorrow morning"* response.
+  and the user gets a friendly _"we'll have it by tomorrow morning"_ response.
 - A **Cron** (06:00 / 08:30 / 11:30 IST) drains the queue within budget. The **first success serves
   every** user who asked for that reg. After ~5 failed mornings a reg is dropped from the queue.
 
