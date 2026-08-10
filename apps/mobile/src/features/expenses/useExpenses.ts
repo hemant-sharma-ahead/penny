@@ -632,6 +632,14 @@ export function useExpenses() {
     async (expense: Expense, newTagSetAside?: Record<string, boolean>) => {
       const existing = expenses.find((e) => e.id === expense.id);
       await saveExpense(expense);
+      // Found + fixed 2026-08-10, on-device testing: this is the canonical single-expense add/edit
+      // path (every `ExpenseForm` save goes through here) but never broadcast `notifyTxnChanged()` —
+      // every OTHER mutation in this file does (bulk ops, IOU-linked writes). A separately-mounted
+      // `useRepository(expensesRepo)` consumer (e.g. `FullLedgerPage.tsx`/`CheckpointTimelinePage.tsx`
+      // staying mounted in the background) never learned a plain manual entry/edit just happened, and
+      // kept showing stale data — a back-dated transaction recorded elsewhere never appeared in an
+      // already-open Full Ledger until that screen happened to remount.
+      notifyTxnChanged();
       for (const tag of expense.hashtags) {
         const existingTag = hashtags.find((h) => h.name === tag);
         if (existingTag) {

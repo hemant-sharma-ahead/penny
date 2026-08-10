@@ -1,7 +1,34 @@
 # Bank Reconciliation Ledger — plan
 
-Status as of 2026-08-10: **design phase, discussed and decided in full, no mockup or
-code yet.** This is the "interactive bank-vs-recorded reconciliation console" idea
+Status as of 2026-08-10: **Phase 1 (read-only) built and iterated once on real on-device
+feedback** — `core/bank-import/ledger.ts` (`buildLedgerRows`), `FullLedgerPage.tsx`,
+wired into `CheckpointTimelinePage.tsx`'s all-clear state via "View full ledger ›".
+Verified: tsc/eslint/prettier clean, 11 new unit tests (889/889 core suite passing).
+
+**Two fixes from the first round of on-device testing:**
+1. A back-dated transaction recorded from another screen never appeared in an
+   already-open Full Ledger. Root cause: `useRepository` only fetches once on mount, and
+   `expensesRepo`'s canonical single-expense save path (`useExpenses.ts`'s
+   `saveExpenseWithHashtags`) wasn't broadcasting the existing `notifyTxnChanged` signal
+   every OTHER mutation in that file already does — a plain missing call, not a new
+   mechanism needed. Fixed at the source (added the missing call) plus subscribed both
+   `FullLedgerPage.tsx` and `CheckpointTimelinePage.tsx` (identical latent gap) via the
+   existing `useTxnRefresh`. (Caught mid-fix: almost built a brand-new, duplicate
+   `notifyExpensesChanged`/`useExpensesRefresh` pair before finding `useTxnRefresh`
+   already existed for exactly this — reverted that before it shipped.)
+2. The discrete ‹/› window-swap felt disjointed on-device — paging replaced the entire
+   visible set rather than extending it. Redesigned as a continuously-growing list: a
+   "Load earlier transactions" action (matching the mockup's own original button, which
+   the first implementation had incorrectly dropped in favor of the ‹/› pair) extends
+   `loadedStart` further back, appending ABOVE the current rows since the ledger is in
+   ascending statement order (oldest first) — placed above the table, not below, so new
+   content appears where reading order actually expects it. No forward paging exists
+   anymore; `windowEnd` stays fixed at "now" as of when the screen opened.
+
+**Not yet manually verified on-device past this round.** Phase 2 (relink/unmatch/resolve
+actions) not started — this plan's own "Phasing" section below is the source of truth for
+what's built vs. deferred; don't assume anything past Phase 1 exists without checking the
+code. This was the "interactive bank-vs-recorded reconciliation console" idea
 originally sketched and deliberately parked in `docs/mockups/proposals/bank-balance-sync-v3.html`
 (§"A bigger, separate idea") — picked back up now that the checkpoint/anchor system
 (`docs/plans/bank-balance-sync.md`) and its reconciliation table are shipped, verified,
@@ -169,13 +196,18 @@ on-device use after Phase 1/2 shows it's actually needed.
 
 ## What needs a mockup (per the mockup-first rule)
 
-Before any `apps/mobile` code:
-1. The ledger row itself — Statement/Expense side-by-side, the three blank-side variants
+Before any `apps/mobile` code — **items 1–3 done**, approved 2026-08-10
+(`docs/mockups/proposals/bank-reconciliation-ledger-v1.html`), implemented as `FullLedgerPage.tsx`:
+1. ~~The ledger row itself — Statement/Expense side-by-side, the three blank-side variants
    (matched / statement-only-unresolved / expense-only-anomaly / expense-only-not-yet-
-   covered), live diff, transfer-leg labeling.
-2. The windowing/paging UI (how a user moves between date windows).
-3. The dismiss action's UI.
-4. (Phase 2, later mockup) the relink/unmatch/resolve action affordances.
+   covered), live diff, transfer-leg labeling.~~ Built without the live-diff column (Phase 1's
+   `LedgerRow.diff` is always `undefined` — see `ledger.ts`'s own doc comment on why; the meta
+   column shows Penny's own running balance instead).
+2. ~~The windowing/paging UI (how a user moves between date windows).~~ 60-day windows, ‹/›
+   paging, pinned to "now" as of when the screen opened (not paged into the future).
+3. ~~The dismiss action's UI.~~ Inline "Dismiss, not mine" text action on a skipped-unresolved
+   row's expense side.
+4. (Phase 2, later mockup) the relink/unmatch/resolve action affordances — not started.
 
 Grounded in the real current `CheckpointTimelinePage.tsx` (Opening Balance card, color
 legend, Date/Txn/Balance/Diff header) — the new view should feel like a deeper zoom of

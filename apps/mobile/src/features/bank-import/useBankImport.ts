@@ -1050,7 +1050,8 @@ export function useBankImport(accountId: string) {
     // only checkpoint attachment itself (`statementBalance`) stays gated to `bank`, above. Skipped rows
     // are whatever's still sitting in `possibleItems`/`unmatchedRows` at commit time — every row the
     // file actually contained that never became a confirmed match or a staged new transaction (§11a: a
-    // durable, visible record of what was skipped, not silence).
+    // durable, visible record of what was skipped, not silence; `direction` added 2026-08-10 so the
+    // Full Ledger view can render a correctly-signed amount for a still-unresolved row).
     const totalRows = parseResult?.rows.length ?? 0;
     const skippedCount = countSkippedRows(totalRows, matchedPairs.length, stagedNewTxns.length);
     if (account && parseResult && totalRows > 0) {
@@ -1058,7 +1059,8 @@ export function useBankImport(accountId: string) {
       const skippedRows = [...possibleItems.map((p) => p.statementRow), ...unmatchedRows].map((r) => ({
         rawNarration: r.rawNarration,
         date: r.date,
-        amount: r.amount
+        amount: r.amount,
+        direction: r.direction
       }));
       const batchSummary: ImportBatchSummary = {
         batchId,

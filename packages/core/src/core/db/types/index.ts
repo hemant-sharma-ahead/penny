@@ -408,6 +408,14 @@ export interface Account {
    *  never surfaced again (this array is never proactively pruned for that case — a stale, no-longer-
    *  matching fingerprint sitting here forever is harmless, never re-matched by construction). */
   dismissedVerificationFindings?: { fingerprint: string; dismissedAt: number }[];
+  /** Full Ledger's "not mine, stop flagging this" action (`docs/plans/bank-reconciliation-ledger.md`
+   *  Phase 1) for a still-unresolved skipped statement row. Keyed the same way
+   *  `dismissedVerificationFindings` is — a stable fingerprint of the row's own identifying facts
+   *  (`batchId` + normalized narration + date + amount), never a blanket per-account silence. A
+   *  fingerprint that later stops matching anything (e.g. the row gets resolved by a later import
+   *  after all) is simply never looked up again — harmless, never proactively pruned, same convention
+   *  as `dismissedVerificationFindings`. */
+  dismissedSkippedRows?: { fingerprint: string; dismissedAt: number }[];
 }
 
 /**
@@ -442,8 +450,16 @@ export interface ImportBatchSummary {
    *  silence). */
   skippedCount: number;
   /** One entry per skipped row — just enough to identify it in the Import History batch-detail
-   *  drill-in. A read-only historical record, never re-parsed/re-actionable. */
-  skippedRows: { rawNarration: string; date: number; amount: number }[];
+   *  drill-in. Was purely "a read-only historical record, never re-parsed/re-actionable" (§11a) —
+   *  reversed 2026-08-10 (`docs/plans/bank-reconciliation-ledger.md`): the Full Ledger view treats a
+   *  still-unresolved entry here as live, checking at render time whether a LATER import already
+   *  caught it (via `normalizeNarration` + date/amount, never a stored link) before showing it as
+   *  unresolved. `direction` is optional only because historical batches committed before this field
+   *  existed lack it — the ledger falls back to an unsigned, neutral rendering for those rather than
+   *  guessing a sign. Deliberately `'debit' | 'credit'` inline rather than importing
+   *  `bank-import/types.ts`'s `StatementLineDirection` — this file is a dependency-free leaf every
+   *  other core module imports FROM, never the reverse. */
+  skippedRows: { rawNarration: string; date: number; amount: number; direction?: 'debit' | 'credit' }[];
 }
 
 export interface Budget {

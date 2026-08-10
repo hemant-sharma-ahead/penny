@@ -510,6 +510,34 @@ import fixes the gap. The "View full reconciliation table" escape hatch (`Accoun
 `CheckOpeningBalancePage.tsx`) now also gates on `'anchor-disagreement'`, not just
 `'checkpoint-mismatch'`.
 
+**Full Ledger (Phase 1, read-only, built 2026-08-10 — `docs/plans/bank-reconciliation-ledger.md`).**
+A second, deeper zoom level on top of `CheckpointTimelinePage.tsx`'s sparse checkpoint-only table —
+that page gains a "View full ledger ›" action (shown only in its all-clear, fully-verified state) into
+a new `FullLedgerPage.tsx`: a dense, row-by-row Statement ⟷ Expense reconciliation for a bounded,
+recent-first date window (60 days by default, paged via ‹/› arrows, capped from paging into the
+future). Core: `core/bank-import/ledger.ts`'s `buildLedgerRows()`. One row per transaction the
+statement OR the app's own records contain, classified into four kinds:
+- `'matched'` — a statement line and its linked `Expense`, side by side.
+- `'skipped-unresolved'` — a statement line still sitting in an old batch's `ImportBatchSummary.
+  skippedRows` snapshot with no linking `Expense` yet. **Reverses that field's original "read-only,
+  never re-parsed/re-actionable" design** (§11a) — checked live at render time (via
+  `normalizeNarration()`, never a stored link) against every import record the account has, so a later
+  corrective re-import that actually resolved the row makes it disappear from here on its own, without
+  ever touching the original batch's own historical snapshot. Shows "Skipped during import. Reimport
+  the statement to resolve this." plus a "Dismiss, not mine" action
+  (`Account.dismissedSkippedRows`, same fingerprint-scoped convention as
+  `dismissedVerificationFindings`) — Phase 1 is read-only, so reimporting or dismissing are the only
+  two ways to make a row stop showing.
+- `'anomaly'` — a recorded `Expense` with no statement link, dated inside a period the account's own
+  `coveredStatementRanges` claims is fully covered (reuses `findStandingCoverageGaps()`'s own
+  coverage-union logic directly). A genuine "the bank has no record of this" flag.
+- `'not-covered'` — a recorded `Expense` with no statement link, dated OUTSIDE any imported statement's
+  range. Not an anomaly — rendered as "Statement not imported for this period," softer/muted.
+
+No drag-to-reorder (same-date ties fall back to a stable tiebreaker); no relink/unmatch/resolve actions
+yet (Phase 2, not yet built); the two-errors-cancel-out blind spot (§10c) is explicitly unaffected by
+any of this — nothing here closes it, by design.
+
 **Intra-day sequencing (Stage 5), inter-account-transfer refinements (Stage 6), and the
 cash-withdrawal retroactive-transfer prompt (Stage 7, the final stage) are also built** — see plan §7
 for the full per-stage write-up of each. Stage 7 specifically: a statement row carrying a

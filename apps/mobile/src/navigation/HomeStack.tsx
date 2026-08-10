@@ -24,6 +24,7 @@ import { BankCashWithdrawalCodesPage } from '../features/bank-import/BankCashWit
 import { BankImportHistoryPage } from '../features/bank-import/BankImportHistoryPage';
 import { CheckpointTimelinePage } from '../features/accounts/CheckpointTimelinePage';
 import { CheckOpeningBalancePage } from '../features/accounts/CheckOpeningBalancePage';
+import { FullLedgerPage } from '../features/accounts/FullLedgerPage';
 
 /**
  * The Home tab's own navigation stack — Track: chrome-persistence fix. Previously all of these
@@ -91,6 +92,11 @@ export type HomeStackParamList = {
    *  ("one status slot, two possible causes", §7 Stage 3's own note; `Account.anchorReference`, renamed
    *  from `anchorDisagreement` 2026-08-09). */
   CheckOpeningBalance: { accountId: string };
+  /** The dense, row-by-row Statement ⟷ Expense reconciliation for a chosen date window
+   *  (`docs/plans/bank-reconciliation-ledger.md`, Phase 1) — a second, deeper zoom level on top of
+   *  `CheckpointTimeline`'s sparse checkpoint-only table, reached from that page's "View full ledger
+   *  ›" action. */
+  FullLedger: { accountId: string };
 };
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
@@ -130,6 +136,7 @@ export function HomeStack() {
       <Stack.Screen name="BankImportHistory" component={BankImportHistoryPage} />
       <Stack.Screen name="CheckpointTimeline" component={CheckpointTimelinePage} />
       <Stack.Screen name="CheckOpeningBalance" component={CheckOpeningBalancePage} />
+      <Stack.Screen name="FullLedger" component={FullLedgerPage} />
     </Stack.Navigator>
   );
 }

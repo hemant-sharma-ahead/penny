@@ -11,6 +11,7 @@ import { computeAccountVerificationStatus } from '@/core/bank-import/accountVeri
 import { mergeCoveredRanges, detectCoverageGap } from '@/core/bank-import/coverage';
 import { useRepository } from '@/hooks/useRepository';
 import { useAccountsRefresh } from '@/hooks/useDataRefresh';
+import { useTxnRefresh } from '@/hooks/useTxnRefresh';
 import { formatCurrency } from '@/lib/formatters';
 import { formatDate, formatDateShort } from '@/lib/date';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
@@ -51,13 +52,17 @@ export function CheckpointTimelinePage() {
   useDefaultHeaderBack('CheckpointTimeline');
 
   const { items: accounts, reload: reloadAccounts } = useRepository(accountsRepo);
-  const { items: allExpenses } = useRepository(expensesRepo);
+  const { items: allExpenses, reload: reloadExpenses } = useRepository(expensesRepo);
   const { items: allImportRecords } = useRepository(bankStatementImportsRepo);
   // The anchor-boundary divider's own Update/Keep actions write straight to `accountsRepo` (via
   // `useOpeningBalanceResolution`) without navigating away — this page needs to actually see that write
   // to re-render the resolved state, unlike `CheckOpeningBalancePage.tsx`'s equivalent actions, which
   // always `navigation.goBack()` immediately after and so never needed this subscription.
   useAccountsRefresh(reloadAccounts);
+  // Found + fixed 2026-08-10 (`FullLedgerPage.tsx`'s identical fix) — this page can stay mounted in
+  // the background while a transaction gets recorded elsewhere; without this, its own checkpoint walk
+  // kept running against a stale `allExpenses` snapshot from whenever it first mounted.
+  useTxnRefresh(reloadExpenses);
   const account = accounts.find((a) => a.id === accountId) ?? null;
 
   // Description + this row's own signed amount (found via on-device feedback 2026-08-09: the table only
@@ -258,9 +263,9 @@ export function CheckpointTimelinePage() {
         </View>
       </ScrollView>
 
-      {(diagnostics.mismatch || anchorFinding) && (
-        <View className="flex-row gap-2 px-4 py-3 border-t border-theme" style={{ backgroundColor: theme.surface }}>
-          {signature === 'flat-from-start' || (!diagnostics.mismatch && anchorFinding) ? (
+      <View className="flex-row gap-2 px-4 py-3 border-t border-theme" style={{ backgroundColor: theme.surface }}>
+        {diagnostics.mismatch || anchorFinding ? (
+          signature === 'flat-from-start' || (!diagnostics.mismatch && anchorFinding) ? (
             <Button
               variant="secondary"
               icon="ti-anchor"
@@ -273,9 +278,20 @@ export function CheckpointTimelinePage() {
             <Button variant="ghost" fullWidth onPress={() => navigation.goBack()}>
               I've reviewed this, dismiss
             </Button>
-          )}
-        </View>
-      )}
+          )
+        ) : (
+          // `docs/plans/bank-reconciliation-ledger.md` — a deeper zoom into every transaction, not
+          // just checkpoints, always reachable even when everything above already agrees.
+          <Button
+            variant="ghost"
+            icon="ti-list-search"
+            fullWidth
+            onPress={() => navigation.navigate('FullLedger', { accountId: account.id })}
+          >
+            View full ledger ›
+          </Button>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
