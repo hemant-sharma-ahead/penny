@@ -139,34 +139,31 @@ export function resolveAmount(cols: string[], mapping: ColumnMapping): AmountRes
 
 export type DateHint = 'DMY' | 'MDY' | 'auto';
 
-/** Parses a date string that may be DD/MM/YYYY, MM/DD/YYYY, or any format `new Date()` understands
- *  (ISO-ish "YYYY-MM-DD HH:mm:ss", "YYYY/Mon/DD HH:mm:ss", etc. — both real-world sample exports used
- *  in this rewrite parse fine via the native constructor). `hint` disambiguates a bare numeric
- *  DD/MM vs MM/DD date; `'auto'` tries the native parser first and falls back to DMY (India-first
- *  product default) only for a bare numeric date the native parser couldn't handle. */
+/** Parses a date string that may be a bare numeric DD/MM/YYYY or MM/DD/YYYY date, or any other format
+ *  `new Date()` understands (ISO-ish "YYYY-MM-DD HH:mm:ss", "YYYY/Mon/DD HH:mm:ss", etc. — both
+ *  real-world sample exports used in this rewrite parse fine via the native constructor). `hint`
+ *  disambiguates a bare numeric DD/MM vs MM/DD date; `'auto'` means DMY (India-first product default)
+ *  — it must NOT be handed to the native `Date` constructor: a bare "NN/NN/YYYY" string is exactly the
+ *  shape every engine's lenient (non-ISO) string parser guesses at using its own convention (US
+ *  MM/DD/YYYY), which "succeeds" (no `NaN`) for any day ≤ 12 by silently swapping day/month, and for a
+ *  day > 12 overflows the month argument into a wildly wrong future date instead of failing — found +
+ *  fixed 2026-08-09 via real on-device Cashew/MoneyView imports producing transactions dated up to two
+ *  years off from their actual statement date. Native parsing is only safe (and only used) for a string
+ *  that ISN'T this bare numeric shape, where there's no day/month ambiguity to guess at. */
 export function parseFlexibleDate(str: string, hint: DateHint = 'auto'): number | null {
   const s = str.trim();
   if (!s) return null;
   const numeric = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(s);
 
-  if (hint !== 'auto' && numeric) {
+  if (numeric) {
     const a = Number(numeric[1]);
     const b = Number(numeric[2]);
     const y = Number(numeric[3]);
-    const [d, mo] = hint === 'DMY' ? [a, b] : [b, a];
+    const [d, mo] = hint === 'MDY' ? [b, a] : [a, b];
     const t = new Date(y, mo - 1, d).getTime();
     return isNaN(t) ? null : t;
   }
 
   const native = new Date(s).getTime();
-  if (!isNaN(native)) return native;
-
-  if (numeric) {
-    const a = Number(numeric[1]);
-    const b = Number(numeric[2]);
-    const y = Number(numeric[3]);
-    const t = new Date(y, a - 1, b).getTime(); // last resort: assume DMY
-    return isNaN(t) ? null : t;
-  }
-  return null;
+  return isNaN(native) ? null : native;
 }

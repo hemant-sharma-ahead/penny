@@ -22,6 +22,7 @@ import {
 } from '@/core/import/importPipeline';
 import {
   resolveCategories,
+  isCategoryResolutionDecided,
   type CategoryResolution,
   type CategoryAction
 } from '@/core/import/importCategoryResolution';
@@ -30,6 +31,7 @@ import { findDuplicateAccountName } from '@/core/accounts/accountValidation';
 import { detectTransferPairs, type TransferPair } from '@/core/import/importTransferPairing';
 import { identifyRedundantCarryForwardRows } from '@/core/import/importCarryForward';
 import { writeImportBatch, undoImportBatch, type FailedImportRow } from '@/core/import/importWriter';
+import { notifyTxnChanged } from '@/hooks/useTxnRefresh';
 
 /** A transfer pair as shown on the review screen — every DETECTED pair is shown (never silently
  *  hidden), with `alreadyImported` set when either leg is a duplicate/skipped so the UI can mark it
@@ -341,7 +343,7 @@ export function useImport() {
       if (rowOverrides.has(i)) return 'ready';
       const catKey = parsedRows[i]?.categoryName.trim() || 'Other';
       const res = categoryResolutions.find((r) => r.sourceName === catKey);
-      const undecided = res?.suggestion.kind === 'create' && !touchedCategorySources.has(catKey);
+      const undecided = !!res && !isCategoryResolutionDecided(res, touchedCategorySources);
       return undecided ? 'attention' : 'ready';
     });
   }, [preview, parsedRows, categoryResolutions, touchedCategorySources, rowOverrides]);
@@ -417,15 +419,22 @@ export function useImport() {
     return ids.size;
   }, [accountResolutions]);
 
-  /** "N of M decided" — an 'existing'/'transfer' resolution is a confident match from the start; a
-   *  fresh 'create' guess (an unrecognised source name) only counts once the user has acted on its
-   *  tile (even if they leave it as 'create'), matching the review screen's "Choose…" dashed styling
-   *  for anything still an unreviewed guess. */
+  /** "N of M decided" — see `isCategoryResolutionDecided`'s doc comment for exactly what counts:
+   *  'existing'/'skip' from the start, 'create' once its tile has been touched, 'transfer' once a
+   *  destination account has been picked. */
   const categoriesDecidedCount = useMemo(
-    () =>
-      categoryResolutions.filter((r) => r.suggestion.kind !== 'create' || touchedCategorySources.has(r.sourceName))
-        .length,
+    () => categoryResolutions.filter((r) => isCategoryResolutionDecided(r, touchedCategorySources)).length,
     [categoryResolutions, touchedCategorySources]
+  );
+
+  /** Import must stay blocked while any source category resolved as a transfer still has no destination
+   *  account picked (2026-08-09 fix) — unlike an unreviewed 'create' guess (which can safely import
+   *  using its current suggested name and be renamed later), an incomplete transfer would silently write
+   *  with no `toAccountId`, debiting the source account with the money never landing anywhere. See
+   *  `CategoryAction`'s 'transfer' variant doc comment. */
+  const transfersResolved = useMemo(
+    () => categoryResolutions.every((r) => r.suggestion.kind !== 'transfer' || !!r.suggestion.toAccountId),
+    [categoryResolutions]
   );
 
   /** Creates any brand-new categories/accounts the user confirmed (explicit, one-time, never silent —
@@ -528,6 +537,11 @@ export function useImport() {
     setActivityLogId(result.activityLogId);
     setImporting(false);
     setStep('done');
+    // Broadcast the same way `useBankImport.ts`'s own commit does — without this, the Transactions
+    // tab's own separately-mounted `useExpenses()` instance never reloads, so "Go to Expenses" lands on
+    // a stale list until some unrelated action happens to trigger a reload (found + fixed 2026-08-09,
+    // real on-device repro: newly-imported rows invisible after tapping "Go to Expenses").
+    if (result.succeededCount > 0) notifyTxnChanged();
   }
 
   /** Retries just the rows that failed to write last time. */
@@ -540,12 +554,14 @@ export function useImport() {
       failed: result.failed
     }));
     setImporting(false);
+    if (result.succeededCount > 0) notifyTxnChanged();
   }
 
   async function undoImport() {
     if (!activityLogId) return;
-    await undoImportBatch(activityLogId);
+    const deletedCount = await undoImportBatch(activityLogId);
     setUndone(true);
+    if (deletedCount > 0) notifyTxnChanged();
   }
 
   return {
@@ -584,6 +600,7 @@ export function useImport() {
     accountsResolved,
     confirmedAccountCount,
     categoriesDecidedCount,
+    transfersResolved,
     touchedCategorySources,
     categoryTags,
     rowOverrides,

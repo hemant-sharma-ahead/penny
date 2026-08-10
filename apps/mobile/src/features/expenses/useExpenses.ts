@@ -266,6 +266,24 @@ export function useExpenses() {
     })().catch(() => {});
   }, [categoriesLoading, categories, reloadCategories]);
 
+  // Additive default-category seeding (v11): inserts Charges & Fees (Financial) — added 2026-08-09 for
+  // the bank-import balance-sync work (real statements routinely surface small bank-initiated debits —
+  // SMS alert charges, AMC/annual fees, NEFT/IMPS charges — that don't fit any existing Financial
+  // category). Same non-clobbering, once-per-version pattern as v3/v6/v7/v8/v9/v10.
+  const catSeedV11Ref = useRef(false);
+  useEffect(() => {
+    if (categoriesLoading || catSeedV11Ref.current) return;
+    catSeedV11Ref.current = true;
+    (async () => {
+      if (await getItem('penny_cats_v11')) return;
+      const existingIds = new Set(categories.map((c) => c.id));
+      const missing = ALL_DEFAULT_CATEGORIES.filter((c) => !existingIds.has(c.id));
+      await Promise.all(missing.map((c) => expenseCategoriesRepo.put({ ...c, createdAt: Date.now() })));
+      await setItem('penny_cats_v11', '1');
+      if (missing.length > 0) reloadCategories();
+    })().catch(() => {});
+  }, [categoriesLoading, categories, reloadCategories]);
+
   // One-time icon fix for v10's two categories (2026-08-06): the very first version of this seeding
   // effect shipped with invented, non-existent icon names (`ti-wallet-plus`/`ti-wallet-minus` — not in
   // the actual bundled Tabler set), and a Fast-Refresh-connected device could easily have already run
@@ -746,14 +764,21 @@ export function useExpenses() {
   }, []);
 
   // For the edit form: which transactions were resolved from a bank-statement import, and what the
-  // original statement line looked like (docs/plans/bank-statement-import.md §10a's audit-trail
-  // purpose — "matched from bank statement: `<raw narration>`, `<date>`"). A transaction can only ever
-  // be linked from one batch's one row, so first-write-wins is fine (no ordering/latest concern like
-  // IOU/goal links, which can be edited/replaced over a transaction's lifetime).
+  // original statement line(s) looked like (docs/plans/bank-statement-import.md §10a's audit-trail
+  // purpose — "matched from bank statement: `<raw narration>`, `<date>`"). Was "a transaction can only
+  // ever be linked from one batch's one row, so first-write-wins is fine" until 2026-08-09 — that
+  // stopped being true the moment `linkAsCrossAccountTransfer` started absorbing an existing expense as
+  // the other leg of a cross-account transfer: the SAME shared `Expense` then legitimately carries TWO
+  // `BankStatementImportRecord`s, one from each side's own import (found via on-device testing 2026-08-09
+  // — first-write-wins was silently showing only the source account's own narration, never the
+  // destination's, even though both statement lines are genuinely resolved). Now collects every record
+  // per transaction, not just the first.
   const bankImportLinkByTxn = useMemo(() => {
-    const map = new Map<string, { rawNarration: string; date: number }>();
+    const map = new Map<string, { rawNarration: string; date: number }[]>();
     for (const r of bankStatementImportRecords) {
-      if (!map.has(r.linkedTxnId)) map.set(r.linkedTxnId, { rawNarration: r.rawNarration, date: r.date });
+      const existing = map.get(r.linkedTxnId);
+      if (existing) existing.push({ rawNarration: r.rawNarration, date: r.date });
+      else map.set(r.linkedTxnId, [{ rawNarration: r.rawNarration, date: r.date }]);
     }
     return map;
   }, [bankStatementImportRecords]);
@@ -771,7 +796,9 @@ export function useExpenses() {
     const ids = new Set<string>();
     for (const e of expenses) {
       if (!e.paymentMode) continue;
-      const link = bankImportLinkByTxn.get(e.id);
+      // First entry only — this account's own leg (see `ExpenseForm.tsx`'s identical convention for a
+      // cross-account transfer's two linked lines; a plain expense/income only ever has one anyway).
+      const link = bankImportLinkByTxn.get(e.id)?.[0];
       if (!link) continue;
       if (inferPaymentMode(link.rawNarration).id !== e.paymentMode) ids.add(e.id);
     }

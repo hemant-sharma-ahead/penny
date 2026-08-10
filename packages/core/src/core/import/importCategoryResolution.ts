@@ -91,7 +91,17 @@ export function allIntentGroups(): { key: string; label: string }[] {
 
 export type CategoryAction =
   | { kind: 'existing'; categoryId: string; categoryName: string }
-  | { kind: 'transfer'; categoryId: string; categoryName: string }
+  /** `toAccountId` is the destination account this transfer credits — required (may start `''` until
+   *  the user picks one; see `isCategoryResolutionDecided` below), same "required but starts blank"
+   *  convention as `AccountAction`'s 'existing'/'create' variants. Found missing entirely on-device
+   *  2026-08-09: marking a source category as a transfer only ever asked for a transfer CATEGORY
+   *  (bucket label like "Other Transfer"/"Credit Card Payment" from `DEFAULT_TRANSFER_CATEGORIES`), never
+   *  a destination account — `buildResolvedPreviewRows`/`writeImportBatch` then wrote an unpaired
+   *  `type: 'transfer'` row with no `toAccountId` unless `detectTransferPairs` happened to auto-pair it
+   *  with a reciprocal row for a DIFFERENT account already present in the same file. `balanceCalculator
+   *  .ts`'s `delta()` only credits `toAccountId === accountId`, so an unset `toAccountId` silently debited
+   *  the source account with the money never landing anywhere. */
+  | { kind: 'transfer'; categoryId: string; categoryName: string; toAccountId: string }
   | { kind: 'create'; suggestedName: string; suggestedIntentGroup: string }
   | { kind: 'skip' };
 
@@ -110,7 +120,10 @@ function suggestForName(name: string, categories: ExpenseCategory[]): CategoryAc
     return {
       kind: 'transfer',
       categoryId: fallback?.id ?? 'cat-tr-other',
-      categoryName: fallback?.name ?? 'Other Transfer'
+      categoryName: fallback?.name ?? 'Other Transfer',
+      // No confident guess exists for WHICH account this transfers to — always starts blank and must be
+      // explicitly picked by the user (see isCategoryResolutionDecided below), never silently defaulted.
+      toAccountId: ''
     };
   }
   const lower = name.toLowerCase().trim();
@@ -135,6 +148,19 @@ export function resolveCategories(rows: ParsedRow[], categories: ExpenseCategory
   return Array.from(counts.entries())
     .map(([sourceName, count]) => ({ sourceName, count, suggestion: suggestForName(sourceName, categories) }))
     .sort((a, b) => b.count - a.count);
+}
+
+/** True once a resolution needs no further user action before it can be safely imported — 'existing'/
+ *  'skip' are confident from the start; 'create' only becomes decided once the user has explicitly
+ *  reviewed its tile (even if they leave it as 'create' — see the "N of M decided" convention this
+ *  mirrors); 'transfer' additionally needs a destination account picked (2026-08-09 fix, see
+ *  `CategoryAction`'s doc comment) before it's importable. Shared by every "N of M decided"/sort-order/
+ *  row-triage computation across the review screen so they can never drift out of sync with each other. */
+export function isCategoryResolutionDecided(resolution: CategoryResolution, touchedSources: Set<string>): boolean {
+  const { suggestion, sourceName } = resolution;
+  if (suggestion.kind === 'create') return touchedSources.has(sourceName);
+  if (suggestion.kind === 'transfer') return !!suggestion.toAccountId;
+  return true;
 }
 
 export type TransferCategoryOption = { id: string; name: string };

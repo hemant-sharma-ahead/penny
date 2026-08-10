@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { matchStatementRows, deriveLoneWolves, suggestPossibleTransfer } from '@/core/bank-import/matcher';
+import {
+  matchStatementRows,
+  deriveLoneWolves,
+  suggestPossibleTransfer,
+  suggestAmbiguousTransferCandidates,
+  convertCandidateToTransfer
+} from '@/core/bank-import/matcher';
+import { normalizeNarration } from '@/core/bank-import/normalization';
 import type { ParsedStatementRow } from '@/core/bank-import/types';
-import type { Account, Expense } from '@/core/db/types';
+import type { Account, BankStatementImportRecord, Expense } from '@/core/db/types';
 
 const ACCOUNT = 'acc-1';
 const OTHER_ACCOUNT = 'acc-2';
@@ -138,7 +145,7 @@ describe('matchStatementRows', () => {
     expect(result.loneWolves[0]?.expense.id).toBe('e1');
   });
 
-  it('softly flags a lone wolf near the statement date-range edge', () => {
+  it('softly flags a lone wolf near the statement date-range edge, provisional by default (no other import history yet)', () => {
     const statementRows = [
       row({ date: BASE, amount: 111 }),
       row({ date: BASE + 10 * DAY_MS, amount: 222, rowIndex: 2 })
@@ -147,6 +154,22 @@ describe('matchStatementRows', () => {
     const result = matchStatementRows(statementRows, ACCOUNT, [nearEdgeTxn], RECONCILIATION_DESCRIPTION);
     expect(result.loneWolves).toHaveLength(1);
     expect(result.loneWolves[0]?.nearEdge).toBe(true);
+    expect(result.loneWolves[0]?.status).toBe('provisional');
+  });
+
+  it('§12 case b: a provisional lone wolf resolves silently once the adjacent statement explains it — no longer a lone wolf at all', () => {
+    // March's own statement (1–31 Mar) doesn't explain a Penny row dated 31-Mar (real value date was
+    // 1-Apr) — that's the "provisional" case covered above. April's own import, once it arrives, finds
+    // this exact transaction via its ordinary ±3-day fuzzy match against its own 1-Apr row — resolved
+    // silently, never surfacing as a lone wolf in April's review at all.
+    const mar31 = new Date(2026, 2, 31).getTime();
+    const apr1 = new Date(2026, 3, 1).getTime();
+    const misdatedTxn = expense({ date: mar31, amount: 1200 });
+    const aprilStatementRows = [row({ date: apr1, amount: 1200, rowIndex: 1 })];
+    const result = matchStatementRows(aprilStatementRows, ACCOUNT, [misdatedTxn], RECONCILIATION_DESCRIPTION);
+    expect(result.matched).toHaveLength(1);
+    expect(result.matched[0]?.expense.id).toBe('e1');
+    expect(result.loneWolves).toHaveLength(0);
   });
 
   it('matches a debit statement line against an existing transfer-out leg', () => {
@@ -178,6 +201,98 @@ describe('matchStatementRows', () => {
     );
     expect(result.matched).toHaveLength(1);
     expect(result.matched[0]?.expense.id).toBe('t1');
+  });
+});
+
+function provenanceRecord(overrides: Partial<BankStatementImportRecord> = {}): BankStatementImportRecord {
+  return {
+    id: 'rec-1',
+    batchId: 'batch-1',
+    accountId: ACCOUNT,
+    rawNarration: 'UPI-SWIGGY-123',
+    normalizedKey: normalizeNarration('UPI-SWIGGY-123'),
+    date: BASE,
+    amount: 450,
+    type: 'expense',
+    linkedTxnId: 'e1',
+    createdAt: 0,
+    ...overrides
+  };
+}
+
+describe('matchStatementRows — two-tier matching (docs/plans/bank-balance-sync.md §17)', () => {
+  it("regression: a checkpointed transaction from one import must never be offered as a match candidate for an unrelated later import's coincidentally-same-amount row (the exact 31-Mar ₹240 vs 2-Apr ₹240 scenario)", () => {
+    const mar31 = new Date(2026, 2, 31).getTime();
+    const apr2 = new Date(2026, 3, 2).getTime();
+    // Already checkpointed by an earlier (March) import — statementBalance set.
+    const checkpointed = expense({
+      id: 'mar-240',
+      date: mar31,
+      amount: 240,
+      description: 'Some March expense',
+      statementBalance: 50_240
+    });
+    // April's own, completely unrelated ₹240 row — within the ±3-day window of 31-Mar, exact amount.
+    const aprilRow = row({ date: apr2, amount: 240, rowIndex: 1, rawNarration: 'UPI-UNRELATED-APR' });
+
+    const result = matchStatementRows(
+      [aprilRow],
+      ACCOUNT,
+      [checkpointed],
+      RECONCILIATION_DESCRIPTION
+      // no importRecords — this April row has no provenance from any prior import
+    );
+
+    // Must NOT silently absorb into the already-checkpointed 31-Mar expense.
+    expect(result.matched).toHaveLength(0);
+    expect(result.possible).toHaveLength(0);
+    // Falls through to "new" instead — April's real transaction gets added properly.
+    expect(result.unmatched).toHaveLength(1);
+    expect(result.unmatched[0]?.date).toBe(apr2);
+  });
+
+  it('a non-checkpointed transaction within the window is still a normal match candidate (control case)', () => {
+    const mar31 = new Date(2026, 2, 31).getTime();
+    const apr2 = new Date(2026, 3, 2).getTime();
+    const notCheckpointed = expense({ id: 'mar-240', date: mar31, amount: 240 });
+    const aprilRow = row({ date: apr2, amount: 240, rowIndex: 1 });
+
+    const result = matchStatementRows([aprilRow], ACCOUNT, [notCheckpointed], RECONCILIATION_DESCRIPTION);
+    expect(result.matched).toHaveLength(1);
+    expect(result.matched[0]?.expense.id).toBe('mar-240');
+  });
+
+  it('re-import idempotency: importing the identical row twice matches via Tier 1 provenance even though the linked expense is already checkpointed (§15) — would otherwise be excluded by Tier 2', () => {
+    const alreadyLinked = expense({ id: 'e1', date: BASE, amount: 450, statementBalance: 130_000 });
+    const record = provenanceRecord({ linkedTxnId: 'e1' });
+    const sameRowAgain = row(); // identical date/amount/narration to `record`
+
+    const result = matchStatementRows(
+      [sameRowAgain],
+      ACCOUNT,
+      [alreadyLinked],
+      RECONCILIATION_DESCRIPTION,
+      [record],
+      []
+    );
+
+    expect(result.matched).toHaveLength(1);
+    expect(result.matched[0]?.expense.id).toBe('e1');
+    // Zero new/possible/unmatched — a clean no-op re-import.
+    expect(result.possible).toHaveLength(0);
+    expect(result.unmatched).toHaveLength(0);
+  });
+
+  it('Tier 1 provenance lookup requires an exact date+amount+normalized-narration match — a merely similar row still falls through to Tier 2', () => {
+    const alreadyLinked = expense({ id: 'e1', date: BASE, amount: 450, statementBalance: 130_000 });
+    // Provenance recorded for a DIFFERENT amount — should not spuriously match this new row via Tier 1.
+    const record = provenanceRecord({ amount: 999 });
+    const newRow = row({ amount: 450 });
+
+    const result = matchStatementRows([newRow], ACCOUNT, [alreadyLinked], RECONCILIATION_DESCRIPTION, [record], []);
+    // Falls to Tier 2, which excludes the checkpointed expense — so no match, no possible, unmatched.
+    expect(result.matched).toHaveLength(0);
+    expect(result.unmatched).toHaveLength(1);
   });
 });
 
@@ -308,6 +423,300 @@ describe('suggestPossibleTransfer', () => {
     );
     expect(result).toBeNull();
   });
+
+  // docs/plans/bank-balance-sync.md §13, simulation §13 — the worked HDFC→ICICI example: HDFC is
+  // imported first with no candidate to link against (ICICI's own statement isn't in Penny yet), so
+  // its NEFT-out row becomes a plain new expense. ICICI is imported later; its NEFT-in row should
+  // surface `suggestPossibleTransfer` pointing back at that same HDFC expense.
+  describe('the HDFC→ICICI two-import scenario (docs/plans/bank-balance-sync-simulation.html §13)', () => {
+    it('HDFC imported first: the NEFT-out row has no candidate yet and becomes a plain new expense', () => {
+      const hdfcAccountId = 'hdfc-checking';
+      const neftOutRow = row({
+        rawNarration: 'NEFT TO ICICI XXXX1234',
+        date: BASE,
+        amount: 20_000,
+        direction: 'debit'
+      });
+      // Nothing recorded anywhere yet (ICICI's statement isn't in Penny) — no candidate at all.
+      const result = matchStatementRows([neftOutRow], hdfcAccountId, [], RECONCILIATION_DESCRIPTION);
+      expect(result.matched).toHaveLength(0);
+      expect(result.possible).toHaveLength(0);
+      expect(result.unmatched).toHaveLength(1);
+
+      // Also confirms no possible-transfer signal at this point either — there's nothing on any other
+      // account yet for it to point at.
+      const transferSuggestion = suggestPossibleTransfer(
+        neftOutRow,
+        hdfcAccountId,
+        [],
+        [account({ id: hdfcAccountId })],
+        RECONCILIATION_DESCRIPTION
+      );
+      expect(transferSuggestion).toBeNull();
+    });
+
+    it('ICICI imported later: the NEFT-in row surfaces the HDFC expense as a transfer candidate', () => {
+      const hdfcAccountId = 'hdfc-checking';
+      const iciciAccountId = 'icici-savings';
+      // The plain expense HDFC's own import created (per the previous test).
+      const hdfcExpense = expense({
+        id: 'hdfc-neft-out',
+        description: 'NEFT TO ICICI XXXX1234',
+        type: 'expense',
+        accountId: hdfcAccountId,
+        amount: 20_000,
+        date: BASE
+      });
+      const neftInRow = row({
+        rawNarration: 'NEFT FROM HDFC XXXX5678',
+        date: BASE,
+        amount: 20_000,
+        direction: 'credit'
+      });
+
+      // `matchStatementRows` itself has no candidate for this row (nothing on ICICI's own account
+      // matches) — it correctly falls to "unmatched," exactly as the simulation table shows.
+      const matchResult = matchStatementRows([neftInRow], iciciAccountId, [hdfcExpense], RECONCILIATION_DESCRIPTION);
+      expect(matchResult.matched).toHaveLength(0);
+      expect(matchResult.unmatched).toHaveLength(1);
+
+      // `suggestPossibleTransfer` is the mechanism that actually surfaces the HDFC row as a candidate.
+      const accounts = [
+        account({ id: hdfcAccountId, name: 'HDFC Checking' }),
+        account({ id: iciciAccountId, name: 'ICICI Savings' })
+      ];
+      const transferSuggestion = suggestPossibleTransfer(
+        neftInRow,
+        iciciAccountId,
+        [hdfcExpense],
+        accounts,
+        RECONCILIATION_DESCRIPTION
+      );
+      expect(transferSuggestion?.account.id).toBe(hdfcAccountId);
+      expect(transferSuggestion?.expense.id).toBe('hdfc-neft-out');
+    });
+
+    it('the realistic wrinkle: a same-side NEFT fee never gets swept into the transfer suggestion or confuses the match', () => {
+      const hdfcAccountId = 'hdfc-checking';
+      const iciciAccountId = 'icici-savings';
+      const hdfcTransferLeg = expense({
+        id: 'hdfc-neft-out',
+        description: 'NEFT TO ICICI XXXX1234',
+        type: 'expense',
+        accountId: hdfcAccountId,
+        amount: 20_000,
+        date: BASE
+      });
+      // A genuinely one-sided ₹5 NEFT processing fee, recorded the same day on the same (HDFC) side —
+      // per the simulation's own §13 wrinkle, this should stay a plain, unlinked expense; it must never
+      // get pulled into the transfer suggestion in place of (or alongside) the real ₹20,000 leg.
+      const hdfcFeeLeg = expense({
+        id: 'hdfc-neft-fee',
+        description: 'NEFT PROCESSING FEE',
+        type: 'expense',
+        accountId: hdfcAccountId,
+        amount: 5,
+        date: BASE
+      });
+      const neftInRow = row({
+        rawNarration: 'NEFT FROM HDFC XXXX5678',
+        date: BASE,
+        amount: 20_000,
+        direction: 'credit'
+      });
+      const accounts = [
+        account({ id: hdfcAccountId, name: 'HDFC Checking' }),
+        account({ id: iciciAccountId, name: 'ICICI Savings' })
+      ];
+
+      const transferSuggestion = suggestPossibleTransfer(
+        neftInRow,
+        iciciAccountId,
+        [hdfcTransferLeg, hdfcFeeLeg],
+        accounts,
+        RECONCILIATION_DESCRIPTION
+      );
+      // Still exactly one confident candidate — the ₹5 fee's amount is nowhere near the ₹20,000 window
+      // (`isCloseAmount`'s tolerance is at most a few rupees / 0.5%), so it's never even a candidate.
+      expect(transferSuggestion?.expense.id).toBe('hdfc-neft-out');
+
+      const ambiguous = suggestAmbiguousTransferCandidates(
+        neftInRow,
+        iciciAccountId,
+        [hdfcTransferLeg, hdfcFeeLeg],
+        accounts,
+        RECONCILIATION_DESCRIPTION
+      );
+      expect(ambiguous).toBeNull();
+    });
+  });
+});
+
+describe('suggestAmbiguousTransferCandidates', () => {
+  // docs/plans/bank-balance-sync.md §13's "genuine ambiguity" case — two same-bank accounts (or an
+  // unrelated coincidental same-day/same-amount transaction) mean more than one candidate is equally
+  // plausible. Per the plan, this must surface as a choice, never auto-link — `suggestPossibleTransfer`
+  // itself already refuses (returns null); this sibling returns the full tied set instead.
+
+  it('returns both candidates when two same-bank accounts have coincidental same-day/same-amount activity', () => {
+    const accounts = [
+      account({ id: 'icici-savings', name: 'ICICI Savings' }),
+      account({ id: 'icici-salary', name: 'ICICI Salary' })
+    ];
+    const genuineTransferLeg = expense({
+      id: 'e2',
+      description: 'NEFT FROM HDFC XXXX5678',
+      type: 'income',
+      accountId: 'icici-savings',
+      amount: 20_000,
+      date: BASE
+    });
+    const coincidentalPayment = expense({
+      id: 'e3',
+      description: 'IMPS FROM RAJESH K.',
+      type: 'income',
+      accountId: 'icici-salary',
+      amount: 20_000,
+      date: BASE
+    });
+    const result = suggestAmbiguousTransferCandidates(
+      row({ direction: 'debit', amount: 20_000 }),
+      ACCOUNT,
+      [genuineTransferLeg, coincidentalPayment],
+      accounts,
+      RECONCILIATION_DESCRIPTION
+    );
+    expect(result).toHaveLength(2);
+    expect(result?.map((c) => c.expense.id).sort()).toEqual(['e2', 'e3']);
+  });
+
+  it('returns null (not ambiguous) when exactly one candidate qualifies — the common, single-suggestion case', () => {
+    const accounts = [account({ id: 'acc-2', name: 'HDFC Savings' })];
+    const counterpart = expense({ id: 'e2', type: 'income', accountId: 'acc-2', amount: 5000, date: BASE });
+    const result = suggestAmbiguousTransferCandidates(
+      row({ direction: 'debit', amount: 5000 }),
+      ACCOUNT,
+      [counterpart],
+      accounts,
+      RECONCILIATION_DESCRIPTION
+    );
+    expect(result).toBeNull();
+  });
+
+  it('returns null when no candidate matches at all', () => {
+    const result = suggestAmbiguousTransferCandidates(
+      row({ direction: 'debit', amount: 5000 }),
+      ACCOUNT,
+      [],
+      [],
+      RECONCILIATION_DESCRIPTION
+    );
+    expect(result).toBeNull();
+  });
+});
+
+describe('convertCandidateToTransfer (found + fixed 2026-08-09 — absorb-in-place cross-account transfer conversion)', () => {
+  // The exact repro: HDFC imported first records a plain ₹20,000 `expense` (NEFT out) with no
+  // candidate to link against. ICICI imported later finds that HDFC expense as a transfer candidate via
+  // `suggestPossibleTransfer`. Accepting it must ABSORB the existing HDFC expense (converting it in
+  // place) rather than leaving it duplicated alongside a brand-new record.
+  const hdfcAccountId = 'hdfc-checking';
+  const iciciAccountId = 'icici-savings';
+
+  it('SOURCE branch — candidate.type === "expense": only type/toAccountId change, accountId (the source) is untouched', () => {
+    const candidate = expense({
+      id: 'hdfc-neft-out',
+      description: 'NEFT TO ICICI XXXX1234',
+      type: 'expense',
+      accountId: hdfcAccountId,
+      amount: 20_000,
+      date: BASE,
+      categoryId: 'cat-misc',
+      hashtags: ['#tag'],
+      createdAt: 111,
+      updatedAt: 111
+    });
+    const converted = convertCandidateToTransfer(candidate, iciciAccountId, 999);
+    expect(converted).toEqual({
+      ...candidate,
+      type: 'transfer',
+      toAccountId: iciciAccountId,
+      updatedAt: 999
+    });
+    // accountId (the source leg) must stay exactly what it was — never reassigned in this branch.
+    expect(converted.accountId).toBe(hdfcAccountId);
+    // Nothing else touched.
+    expect(converted.amount).toBe(candidate.amount);
+    expect(converted.date).toBe(candidate.date);
+    expect(converted.description).toBe(candidate.description);
+    expect(converted.categoryId).toBe(candidate.categoryId);
+    expect(converted.hashtags).toBe(candidate.hashtags);
+    expect(converted.createdAt).toBe(candidate.createdAt);
+  });
+
+  it('SOURCE branch — an unset `type` (legacy convention: omitted = expense) is treated identically to an explicit "expense"', () => {
+    const candidate = expense({ id: 'legacy-1', accountId: hdfcAccountId, amount: 20_000, date: BASE });
+    delete (candidate as { type?: string }).type;
+    const converted = convertCandidateToTransfer(candidate, iciciAccountId, 999);
+    expect(converted.type).toBe('transfer');
+    expect(converted.accountId).toBe(hdfcAccountId);
+    expect(converted.toAccountId).toBe(iciciAccountId);
+  });
+
+  it('DESTINATION branch — candidate.type === "income": accountId is REASSIGNED to currentAccountId, toAccountId becomes the candidate\'s own original accountId', () => {
+    const candidate = expense({
+      id: 'icici-neft-in',
+      description: 'NEFT FROM HDFC XXXX5678',
+      type: 'income',
+      accountId: iciciAccountId,
+      amount: 20_000,
+      date: BASE,
+      categoryId: 'cat-misc',
+      hashtags: ['#tag'],
+      createdAt: 111,
+      updatedAt: 111
+    });
+    // currentAccountId here is HDFC — the debit row currently being imported.
+    const converted = convertCandidateToTransfer(candidate, hdfcAccountId, 999);
+    expect(converted).toEqual({
+      ...candidate,
+      type: 'transfer',
+      accountId: hdfcAccountId,
+      toAccountId: iciciAccountId,
+      updatedAt: 999
+    });
+    // Nothing else touched.
+    expect(converted.amount).toBe(candidate.amount);
+    expect(converted.date).toBe(candidate.date);
+    expect(converted.description).toBe(candidate.description);
+    expect(converted.categoryId).toBe(candidate.categoryId);
+    expect(converted.hashtags).toBe(candidate.hashtags);
+    expect(converted.createdAt).toBe(candidate.createdAt);
+  });
+
+  it('preserves an existing statementBalance untouched in both branches (commit-time diagnostics implications are a separate, documented concern)', () => {
+    const sourceCandidate = expense({
+      id: 'hdfc-neft-out',
+      type: 'expense',
+      accountId: hdfcAccountId,
+      amount: 20_000,
+      date: BASE,
+      statementBalance: 45_000
+    });
+    const convertedSource = convertCandidateToTransfer(sourceCandidate, iciciAccountId, 999);
+    expect(convertedSource.statementBalance).toBe(45_000);
+
+    const destinationCandidate = expense({
+      id: 'icici-neft-in',
+      type: 'income',
+      accountId: iciciAccountId,
+      amount: 20_000,
+      date: BASE,
+      statementBalance: 90_000
+    });
+    const convertedDestination = convertCandidateToTransfer(destinationCandidate, hdfcAccountId, 999);
+    expect(convertedDestination.statementBalance).toBe(90_000);
+  });
 });
 
 describe('deriveLoneWolves', () => {
@@ -380,5 +789,51 @@ describe('deriveLoneWolves', () => {
     const statementRows = [row({ date: BASE })];
     const result = deriveLoneWolves([outOfRange], new Set(), statementRows);
     expect(result).toHaveLength(0);
+  });
+
+  describe('deferred lone-wolf escalation (docs/plans/bank-balance-sync.md §12)', () => {
+    const mar1 = new Date(2026, 2, 1).getTime();
+    const mar31 = new Date(2026, 2, 31).getTime();
+    const mar14 = new Date(2026, 2, 14).getTime();
+    const marchStatementRows = [row({ date: mar1 }), row({ date: mar31, rowIndex: 2 })];
+
+    it('§12 case a: a near-boundary lone wolf is provisional when no other import has had a chance yet', () => {
+      const e = expense({ id: 'e1', date: mar31, amount: 1200 });
+      const result = deriveLoneWolves([e], new Set(), marchStatementRows);
+      expect(result).toHaveLength(1);
+      expect(result[0]?.nearEdge).toBe(true);
+      expect(result[0]?.status).toBe('provisional');
+    });
+
+    it("§12 control case: a lone wolf well within the statement's own range escalates immediately, not deferred", () => {
+      const e = expense({ id: 'e1', date: mar14, amount: 800 });
+      const result = deriveLoneWolves([e], new Set(), marchStatementRows);
+      expect(result).toHaveLength(1);
+      expect(result[0]?.nearEdge).toBe(false);
+      expect(result[0]?.status).toBe('escalated');
+    });
+
+    it('escalates a near-boundary lone wolf once an adjacent, already-completed import has also failed to explain it', () => {
+      const e = expense({ id: 'e1', date: mar31, amount: 1200 });
+      // April's own import already happened and covers 1–30 Apr — its ±3-day grace window (29 Mar–3
+      // May) reaches back over this transaction's date, and it's STILL unreferenced (still a lone
+      // wolf) — a second period has now had its chance and failed, so this escalates.
+      const apr1 = new Date(2026, 3, 1).getTime();
+      const apr30 = new Date(2026, 3, 30).getTime();
+      const result = deriveLoneWolves([e], new Set(), marchStatementRows, [{ start: apr1, end: apr30 }]);
+      expect(result).toHaveLength(1);
+      expect(result[0]?.status).toBe('escalated');
+    });
+
+    it('stays provisional when another completed import exists but its window does not reach this date', () => {
+      const e = expense({ id: 'e1', date: mar31, amount: 1200 });
+      // An unrelated, far-away prior import (e.g. January) shouldn't count as "an adjacent period had
+      // its chance" — only one whose own coverage+grace window actually reaches this date should.
+      const jan1 = new Date(2026, 0, 1).getTime();
+      const jan31 = new Date(2026, 0, 31).getTime();
+      const result = deriveLoneWolves([e], new Set(), marchStatementRows, [{ start: jan1, end: jan31 }]);
+      expect(result).toHaveLength(1);
+      expect(result[0]?.status).toBe('provisional');
+    });
   });
 });

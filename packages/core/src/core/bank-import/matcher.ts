@@ -1,5 +1,6 @@
-import type { Account, Expense } from '@/core/db/types';
+import type { Account, BankNarrationOverride, BankStatementImportRecord, Expense } from '@/core/db/types';
 import { DAY_MS, toDateKey } from '@/lib/date';
+import { normalizeNarration } from './normalization';
 import type { ParsedStatementRow } from './types';
 
 /** ±3 days, per docs/plans/bank-statement-import.md §5. */
@@ -20,7 +21,9 @@ function isCloseAmount(a: number, b: number): boolean {
   return diff <= tolerance;
 }
 
-function isExactAmount(a: number, b: number): boolean {
+/** Exported (docs/plans/bank-balance-sync.md §5/§8) — `core/bank-import/checkpoint.ts`'s commit-time
+ *  date/amount-correction logic reuses this exact tolerance rather than redefining its own. */
+export function isExactAmount(a: number, b: number): boolean {
   return Math.abs(a - b) < 0.01;
 }
 
@@ -77,9 +80,17 @@ export interface PossibleMatch {
 export interface LoneWolf {
   expense: Expense;
   /** Within a few days of the statement's own start/end boundary — may genuinely belong to an
-   *  adjacent statement (settlement lag) rather than being truly missing/erroneous. Flagged softly,
-   *  never as a confident duplicate. */
+   *  adjacent statement (settlement lag) rather than being truly missing/erroneous. */
   nearEdge: boolean;
+  /**
+   * Deferred lone-wolf escalation (docs/plans/bank-balance-sync.md §12) — `'escalated'` means this is
+   * a real, actionable flag right now; `'provisional'` means it's near this statement's own boundary
+   * and no *other* already-completed import's own coverage (extended by the same ±3-day grace window)
+   * has yet had a chance to explain it, so it's held back as a soft, non-urgent status instead of an
+   * immediate flag. A lone wolf that isn't `nearEdge` at all is always `'escalated'` immediately — the
+   * boundary-ambiguity reasoning only applies right at a statement's own edge.
+   */
+  status: 'provisional' | 'escalated';
 }
 
 export interface MatchResult {
@@ -87,6 +98,33 @@ export interface MatchResult {
   possible: PossibleMatch[];
   unmatched: ParsedStatementRow[];
   loneWolves: LoneWolf[];
+}
+
+/**
+ * Two-tier matching, Tier 1 (docs/plans/bank-balance-sync.md §5/§17) — "has this exact statement row
+ * already been processed by a previous import?" Normalizes the incoming row's date+amount+narration
+ * and checks the account's own import-history records for an identical one already recorded. A hit
+ * means this exact line (or an exact reissue of it) was already committed — this is what makes
+ * re-importing the same file a clean no-op (plan §15) even though the linked expense may by now
+ * already carry a checkpoint (`statementBalance`) that would otherwise make it ineligible for Tier 2
+ * (see `matchStatementRows` below — Tier 1 always runs first, and bypasses Tier 2's exclusion
+ * entirely on a hit). A linear scan over `importRecords` — no index needed at the scale one account's
+ * import history actually reaches; revisit only if that stops being true.
+ */
+function findProvenanceMatch(
+  row: ParsedStatementRow,
+  accountId: string,
+  importRecords: BankStatementImportRecord[],
+  narrationOverrides: BankNarrationOverride[]
+): BankStatementImportRecord | undefined {
+  const normalizedKey = normalizeNarration(row.rawNarration, narrationOverrides);
+  return importRecords.find(
+    (r) =>
+      r.accountId === accountId &&
+      r.date === row.date &&
+      isExactAmount(r.amount, row.amount) &&
+      r.normalizedKey === normalizedKey
+  );
 }
 
 /**
@@ -109,17 +147,33 @@ export interface MatchResult {
 export function deriveLoneWolves(
   pool: Expense[],
   referencedIds: ReadonlySet<string>,
-  statementRows: ParsedStatementRow[]
+  statementRows: ParsedStatementRow[],
+  /** Every OTHER already-completed import batch's own covered range for this account (docs/plans/
+   *  bank-balance-sync.md §11b/§12) — i.e. `Account.coveredStatementRanges`, which by construction
+   *  never yet includes the current, still-uncommitted import. Defaults to `[]` (deferred escalation
+   *  then degrades to "every near-edge lone wolf stays provisional," which is still correct — there's
+   *  simply no other completed import on record yet to have already failed to explain it). */
+  otherCoveredRanges: { start: number; end: number }[] = []
 ): LoneWolf[] {
   if (statementRows.length === 0) return [];
   const statementStart = Math.min(...statementRows.map((r) => r.date));
   const statementEnd = Math.max(...statementRows.map((r) => r.date));
   return pool
     .filter((e) => !referencedIds.has(e.id) && e.date >= statementStart && e.date <= statementEnd)
-    .map((e) => ({
-      expense: e,
-      nearEdge: e.date - statementStart <= CANDIDATE_WINDOW_MS || statementEnd - e.date <= CANDIDATE_WINDOW_MS
-    }));
+    .map((e) => {
+      const nearEdge = e.date - statementStart <= CANDIDATE_WINDOW_MS || statementEnd - e.date <= CANDIDATE_WINDOW_MS;
+      // Not near either boundary — this isn't a boundary-ambiguity case at all, so escalate immediately
+      // regardless of any other import's history (§12's control case: "14-Mar, well within March's own
+      // range, not boundary-adjacent" → escalated now, not deferred).
+      const anAdjacentImportAlreadyFailedToExplainIt =
+        nearEdge &&
+        otherCoveredRanges.some(
+          (r) => e.date >= r.start - CANDIDATE_WINDOW_MS && e.date <= r.end + CANDIDATE_WINDOW_MS
+        );
+      const status: LoneWolf['status'] =
+        nearEdge && !anAdjacentImportAlreadyFailedToExplainIt ? 'provisional' : 'escalated';
+      return { expense: e, nearEdge, status };
+    });
 }
 
 /**
@@ -127,16 +181,37 @@ export function deriveLoneWolves(
  * §5) — a pure function; manual overrides/reassignment of any pairing (including confident
  * "Matched" ones) are applied afterward by the UI layer's own staged-review state, not here.
  *
+ * Two-tier matching (docs/plans/bank-balance-sync.md §5/§17), per row: Tier 1 is
+ * `findProvenanceMatch()` above — an exact hit is treated as matched immediately, without running any
+ * fuzzy logic, and regardless of whether the linked expense already carries a checkpoint. Tier 2 is
+ * the original fuzzy date-window/amount/narration matching below, with one added filter: any expense
+ * that already has a checkpoint (`statementBalance != null`) — necessarily from a *different* import,
+ * since an identical row from the *same* already-checkpointed import would have hit Tier 1 — is
+ * removed from the candidate pool entirely, for both the confident-auto-match and "possible match"
+ * paths. This is what stops an unrelated, later statement's own coincidentally-same-amount row from
+ * being silently absorbed into "confirming" a link to an already-reconciled transaction.
+ *
  * @param allExpenses every recorded transaction (any account) — filtered internally to this
  *   account's own expense/income legs plus any transfer touching it either way.
  * @param reconciliationDescription `RECONCILIATION_DESCRIPTION` from `core/expenses/cashFlowSummary.ts`
  *   — synthetic reconcile-adjustment entries are excluded from matching/lone-wolf candidacy entirely.
+ * @param importRecords this account's own prior `BankStatementImportRecord`s, for Tier 1's exact
+ *   provenance lookup. Defaults to `[]` (Tier 1 is then simply a no-op) so every existing caller/test
+ *   that doesn't yet pass this keeps working unchanged.
+ * @param narrationOverrides fed straight through to Tier 1's own `normalizeNarration()` call — same
+ *   overrides list the rest of this module already threads through elsewhere. Defaults to `[]`.
+ * @param otherCoveredRanges this account's own other already-completed import batches' covered ranges
+ *   (docs/plans/bank-balance-sync.md §12, plan §7 Stage 2) — fed straight through to
+ *   `deriveLoneWolves()`'s own deferred-escalation logic. Defaults to `[]`.
  */
 export function matchStatementRows(
   statementRows: ParsedStatementRow[],
   accountId: string,
   allExpenses: Expense[],
-  reconciliationDescription: string
+  reconciliationDescription: string,
+  importRecords: BankStatementImportRecord[] = [],
+  narrationOverrides: BankNarrationOverride[] = [],
+  otherCoveredRanges: { start: number; end: number }[] = []
 ): MatchResult {
   if (statementRows.length === 0) {
     return { matched: [], possible: [], unmatched: [], loneWolves: [] };
@@ -145,6 +220,7 @@ export function matchStatementRows(
   const pool = allExpenses.filter(
     (e) => e.description !== reconciliationDescription && (e.accountId === accountId || e.toAccountId === accountId)
   );
+  const expensesById = new Map(allExpenses.map((e) => [e.id, e]));
 
   const claimed = new Set<string>();
   const referenced = new Set<string>();
@@ -153,9 +229,25 @@ export function matchStatementRows(
   const unmatched: ParsedStatementRow[] = [];
 
   for (const row of statementRows) {
+    // Tier 1 — exact provenance lookup. A hit is an already-processed row; matched immediately, no
+    // fuzzy logic, and not subject to Tier 2's checkpoint exclusion below.
+    const provenance = findProvenanceMatch(row, accountId, importRecords, narrationOverrides);
+    const provenanceExpense = provenance ? expensesById.get(provenance.linkedTxnId) : undefined;
+    if (provenanceExpense && !claimed.has(provenanceExpense.id)) {
+      matched.push({ statementRow: row, expense: provenanceExpense });
+      claimed.add(provenanceExpense.id);
+      referenced.add(provenanceExpense.id);
+      continue;
+    }
+
+    // Tier 2 — fuzzy matching, excluding any expense already checkpointed by a different import
+    // (docs/plans/bank-balance-sync.md §17): `e.statementBalance == null` guards the candidate pool.
     const available = pool.filter(
       (e) =>
-        !claimed.has(e.id) && matchesDirection(e, row, accountId) && Math.abs(e.date - row.date) <= CANDIDATE_WINDOW_MS
+        !claimed.has(e.id) &&
+        e.statementBalance == null &&
+        matchesDirection(e, row, accountId) &&
+        Math.abs(e.date - row.date) <= CANDIDATE_WINDOW_MS
     );
 
     const exact = available.filter((e) => isExactAmount(e.amount, row.amount));
@@ -195,7 +287,7 @@ export function matchStatementRows(
     unmatched.push(row);
   }
 
-  const loneWolves = deriveLoneWolves(pool, referenced, statementRows);
+  const loneWolves = deriveLoneWolves(pool, referenced, statementRows, otherCoveredRanges);
 
   return { matched, possible, unmatched, loneWolves };
 }
@@ -210,6 +302,42 @@ export interface PossibleTransferSuggestion {
 }
 
 /**
+ * Shared candidate-gathering logic for `suggestPossibleTransfer`/`suggestAmbiguousTransferCandidates`
+ * below — a much softer, amount/date-only heuristic than `matchStatementRows` itself: for a statement
+ * row, checks whether some OTHER account has an already-recorded plain expense/income (never a
+ * transfer or an IOU-linked entry — see the doc comments below) with the opposite money direction, a
+ * matching or close amount, within the same ±3-day window `matchStatementRows` uses. Returns every
+ * qualifying candidate, in no particular order — callers decide what "0 / 1 / many" means for their
+ * own purpose (a confident single suggestion vs. a genuinely ambiguous choice).
+ */
+function findTransferCandidates(
+  row: ParsedStatementRow,
+  currentAccountId: string,
+  allExpenses: Expense[],
+  accounts: Account[],
+  reconciliationDescription: string
+): PossibleTransferSuggestion[] {
+  const wantType: 'income' | 'expense' = row.direction === 'debit' ? 'income' : 'expense';
+  const candidates = allExpenses.filter(
+    (e) =>
+      e.description !== reconciliationDescription &&
+      (e.type ?? 'expense') === wantType &&
+      !!e.accountId &&
+      e.accountId !== currentAccountId &&
+      Math.abs(e.date - row.date) <= CANDIDATE_WINDOW_MS &&
+      (isExactAmount(e.amount, row.amount) || isCloseAmount(e.amount, row.amount))
+  );
+  const out: PossibleTransferSuggestion[] = [];
+  for (const e of candidates) {
+    if (!e.accountId) continue;
+    const account = accounts.find((a) => a.id === e.accountId);
+    if (!account) continue;
+    out.push({ account, expense: e });
+  }
+  return out;
+}
+
+/**
  * A much softer, amount/date-only heuristic than `matchStatementRows` itself — for a statement row
  * that has NO existing candidate at all (no recorded transfer already links it, no plain expense on
  * this same account), checks whether some OTHER account has an already-recorded plain expense/income
@@ -220,7 +348,10 @@ export interface PossibleTransferSuggestion {
  * Deliberately narrow, per 2026-08-05 discussion:
  * - Only ever returns a suggestion when exactly one candidate qualifies — a tie is left unresolved
  *   (never guesses which of several equally-plausible candidates is the right one, same principle
- *   `matchStatementRows` itself follows for its own "possible" bucket).
+ *   `matchStatementRows` itself follows for its own "possible" bucket). See
+ *   `suggestAmbiguousTransferCandidates` below (docs/plans/bank-balance-sync.md §13's "genuine
+ *   ambiguity" case) for the sibling function a caller can use to surface that tie as a choice instead
+ *   of silently dropping it.
  * - Never touches the candidate's own account/type — accepting this suggestion only marks *this* row
  *   as a transfer; the other leg stays whatever it already was. Retroactively converting an existing
  *   transaction's own type is the separate, explicitly-deferred "editable everywhere" feature — this
@@ -240,20 +371,72 @@ export function suggestPossibleTransfer(
   accounts: Account[],
   reconciliationDescription: string
 ): PossibleTransferSuggestion | null {
-  const wantType: 'income' | 'expense' = row.direction === 'debit' ? 'income' : 'expense';
-  const candidates = allExpenses.filter(
-    (e) =>
-      e.description !== reconciliationDescription &&
-      (e.type ?? 'expense') === wantType &&
-      !!e.accountId &&
-      e.accountId !== currentAccountId &&
-      Math.abs(e.date - row.date) <= CANDIDATE_WINDOW_MS &&
-      (isExactAmount(e.amount, row.amount) || isCloseAmount(e.amount, row.amount))
-  );
+  const candidates = findTransferCandidates(row, currentAccountId, allExpenses, accounts, reconciliationDescription);
   if (candidates.length !== 1) return null;
   const [only] = candidates;
-  if (!only?.accountId) return null;
-  const account = accounts.find((a) => a.id === only.accountId);
-  if (!account) return null;
-  return { account, expense: only };
+  return only ?? null;
+}
+
+/**
+ * Sibling to `suggestPossibleTransfer` above (docs/plans/bank-balance-sync.md §13, §7 Stage 6) —
+ * exists purely to distinguish "no suggestion" from "a genuine ambiguity the user must resolve."
+ * `suggestPossibleTransfer` already refuses to guess among 2+ equally-plausible candidates (returning
+ * `null`, same as the 0-candidate case) — this function returns that full tied set instead, so a
+ * caller can surface it as an explicit choice (mockup `bank-balance-sync-v2.html` §7's "Which
+ * transaction is this transfer?" picker, including its "Neither — keep both separate" outcome) rather
+ * than silently dropping it. Returns `null` for 0 or exactly 1 candidate — those aren't ambiguous, and
+ * are already `suggestPossibleTransfer`'s own job.
+ */
+export function suggestAmbiguousTransferCandidates(
+  row: ParsedStatementRow,
+  currentAccountId: string,
+  allExpenses: Expense[],
+  accounts: Account[],
+  reconciliationDescription: string
+): PossibleTransferSuggestion[] | null {
+  const candidates = findTransferCandidates(row, currentAccountId, allExpenses, accounts, reconciliationDescription);
+  return candidates.length > 1 ? candidates : null;
+}
+
+/**
+ * Converts an EXISTING candidate expense (found by `suggestPossibleTransfer`/
+ * `suggestAmbiguousTransferCandidates`) into a proper cross-account transfer, absorbing it rather than
+ * leaving it duplicated alongside a brand-new record (found + fixed 2026-08-09 — a real on-device bug:
+ * two separate records both debiting the source account for the same real-world transfer, corrupting
+ * that account's own already-verified checkpoint history). Mirrors `cashWithdrawalCodes.ts`'s
+ * `applyCashTransferConversion()` in spirit, but must handle BOTH directions, since which side of the
+ * candidate is "source" vs "destination" depends on its own recorded type:
+ *
+ * - `candidate.type === 'expense'` (or unset, which defaults to `'expense'` per this codebase's own
+ *   convention — see `Expense.type`'s own doc comment) — money already left `candidate.accountId`;
+ *   that's the transfer's SOURCE. `currentAccountId` (the account whose statement is being imported
+ *   right now, receiving a credit row) is the DESTINATION. Same shape as `applyCashTransferConversion`:
+ *   only `type`/`toAccountId` change, `accountId` is untouched.
+ * - `candidate.type === 'income'` — money already arrived at `candidate.accountId`; that's the
+ *   transfer's DESTINATION. `currentAccountId` (importing a debit row) is the SOURCE. `accountId` must
+ *   be REASSIGNED to `currentAccountId`, and `toAccountId` set to the candidate's OWN original
+ *   `accountId` — a genuinely different transformation, not just adding a field.
+ *
+ * Nothing else about the expense (amount, date, description, category, hashtags, `statementBalance` if
+ * it already carries one from ITS OWN prior import) is touched — this must stay a pure type/account-field
+ * conversion, exactly like `applyCashTransferConversion`.
+ */
+export function convertCandidateToTransfer(candidate: Expense, currentAccountId: string, now: number): Expense {
+  const type = candidate.type ?? 'expense';
+  if (type === 'expense') {
+    return { ...candidate, type: 'transfer', toAccountId: currentAccountId, updatedAt: now };
+  }
+  // Destination branch — `candidate.accountId` is optional at the type level, but every real caller
+  // (`suggestPossibleTransfer`/`suggestAmbiguousTransferCandidates`, via `findTransferCandidates`'s own
+  // `!!e.accountId` filter) only ever produces a candidate with it set. Conditional spread (not a bare
+  // property) per this package's `exactOptionalPropertyTypes` convention (see `checkpointDiagnostics.ts`'s
+  // own doc comment) — omits `toAccountId` entirely rather than explicitly setting it to `undefined` in
+  // the unreachable case a caller ever passes one without an `accountId`.
+  return {
+    ...candidate,
+    type: 'transfer',
+    accountId: currentAccountId,
+    ...(candidate.accountId !== undefined && { toAccountId: candidate.accountId }),
+    updatedAt: now
+  };
 }

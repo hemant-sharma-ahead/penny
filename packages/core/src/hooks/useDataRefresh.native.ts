@@ -12,6 +12,7 @@ const categoriesListeners = new Set<() => void>();
 const accountsListeners = new Set<() => void>();
 const tagsListeners = new Set<() => void>();
 const goalsListeners = new Set<() => void>();
+const bankImportsListeners = new Set<() => void>();
 
 export function notifyCategoriesChanged(): void {
   for (const listener of categoriesListeners) listener();
@@ -27,6 +28,12 @@ export function notifyTagsChanged(): void {
 
 export function notifyGoalsChanged(): void {
   for (const listener of goalsListeners) listener();
+}
+
+/** Same pattern, for `bankStatementImportsRepo` writes — see `useDataRefresh.ts`'s identical export for
+ *  the full rationale (found via on-device testing 2026-08-09). */
+export function notifyBankImportsChanged(): void {
+  for (const listener of bankImportsListeners) listener();
 }
 
 /** Pass a STABLE callback (useCallback). */
@@ -65,6 +72,16 @@ export function useGoalsRefresh(reload: () => void): void {
     goalsListeners.add(reload);
     return () => {
       goalsListeners.delete(reload);
+    };
+  }, [reload]);
+}
+
+/** Pass a STABLE callback (useCallback). */
+export function useBankImportsRefresh(reload: () => void): void {
+  useEffect(() => {
+    bankImportsListeners.add(reload);
+    return () => {
+      bankImportsListeners.delete(reload);
     };
   }, [reload]);
 }

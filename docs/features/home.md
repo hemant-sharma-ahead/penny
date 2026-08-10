@@ -20,6 +20,15 @@ bottom — market context and quick links to every module.
 5. **Stories** — Instagram-style rings (gradient = unseen, muted = seen) surfacing what used to be buried in other tabs, because Home is where users actually go daily. See "Stories" below.
 6. **Groups** (`HomeGroupsCard`) — your household/shared-expense groups; tapping through enters a group context (see "Group context" below).
 7. **Accounts** (`AccountsStrip`) — horizontal strip of accounts + live balances (credit cards show usage).
+   A bank account with an active checkpoint-mismatch/anchor-disagreement/standing-gap finding gets a small
+   red warning-triangle indicator on its tile (2026-08-10) — the same "Unverified" signal the Accounts
+   screen shows, icon-only here for space. A matching icon appears next to the "Accounts" header label
+   whenever ANY account needs attention, regardless of scroll position, since the strip itself scrolls
+   horizontally and a flagged tile can otherwise sit off-screen. Computed via the pure
+   `computeAccountVerificationStatus()` (`packages/core/src/core/bank-import/accountVerification.ts`),
+   deliberately not by mounting `useAccountVerification()` a second time — that hook also owns a
+   self-correcting write to `Account.openingBalance`, which must stay singular (owned by the Accounts
+   screen alone), not run concurrently from two mounted screens.
 8. **Market ticker** — a slim, scrollable tape sitting **near the bottom** (markets sit below your own money, not above it). Tap the ⋯ to choose which tickers appear.
 9. **Tools** (`ToolsGrid`) — shortcut tiles to Insurance, Loans, Health, Tax, Cash Flow. **`apps/web-react`
    (frozen) only** — on `apps/mobile`, this section had already shrunk to a single "Calculators" tile

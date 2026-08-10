@@ -57,7 +57,7 @@ export function BankImportPage() {
       {bi.step === 'review' ? (
         <ReviewStep bi={bi} shouldMask={shouldMask} onImport={() => bi.setStep('done')} />
       ) : bi.step === 'done' ? (
-        <DoneStep bi={bi} onDone={() => navigation.goBack()} onReconcile={() => navigation.navigate('Accounts')} />
+        <DoneStep bi={bi} onDone={() => navigation.goBack()} />
       ) : (
         <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
           <View className="flex-1 px-4 py-4">

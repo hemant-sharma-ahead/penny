@@ -1,13 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, Pressable, Text } from 'react-native';
 import { SectionLabel } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
-import type { ExpenseCategory } from '@/core/db/types';
+import type { Account, ExpenseCategory } from '@/core/db/types';
 import type { ParsedRow, RejectedRow } from '@/core/import/importParsers';
 import type { ColumnMapping } from '@/core/import/importMatcher';
 import type { CategoryResolution, CategoryAction } from '@/core/import/importCategoryResolution';
-import { allIntentGroups } from '@/core/import/importCategoryResolution';
+import { allIntentGroups, isCategoryResolutionDecided } from '@/core/import/importCategoryResolution';
 import type { RowOverride } from '@/core/import/importPipeline';
 import type { DisplayTransferPair, RowTriage } from '../useImport';
 import { CategoryTile } from './CategoryTile';
@@ -31,6 +31,15 @@ interface PreviewSectionProps {
   parsedRows: ParsedRow[];
   rowTriage: RowTriage[];
   categories: ExpenseCategory[];
+  /** The user's real accounts — threaded through to `CategoryTile`'s "Transfer to account" picker
+   *  (2026-08-09 fix). See `ReviewStep.tsx`'s doc comment on `excludeAccountId` for why the current
+   *  import's own target account is filtered out by the caller before it reaches here. */
+  accounts: Account[];
+  /** The account this import is writing into, if there's a single unambiguous one (a whole-file
+   *  `noAccountColumn` import) — excluded from every tile's "Transfer to account" options so a
+   *  transfer can never be picked to credit the very account it's also debiting from. `undefined` for a
+   *  per-row multi-account CSV, where no single account applies to every tile — see `ReviewStep.tsx`. */
+  excludeAccountId: string | undefined;
   /** Per-category existing-transaction counts — passed straight through to `CategoryTile` →
    *  `CategoryPickerModal`'s "Frequent" quick-pick row. See `useImport.ts`'s doc comment. */
   txnCountByCategory: Map<string, number>;
@@ -64,6 +73,8 @@ export function PreviewSection({
   parsedRows,
   rowTriage,
   categories,
+  accounts,
+  excludeAccountId,
   txnCountByCategory,
   categoryTags,
   rowOverrides,
@@ -76,44 +87,89 @@ export function PreviewSection({
   const [transfersExpanded, setTransfersExpanded] = useState(false);
   const groupOptions = useMemo(() => allIntentGroups().map((g) => ({ value: g.key, label: g.label })), []);
 
-  /** Grouped by source category name, same as before — but each entry now also carries its ORIGINAL
-   *  index into `parsedRows` (2026-08-06), not just the row itself. `rowsByCategory`/`statusByCategory`
-   *  are recomputed fresh from `parsedRows` on every render (never a stable keyed structure — see
+  /** Any source category name already resolved ('existing') to a given real `categoryId` — the first
+   *  one found, if more than one source name happens to map to the same category (an accepted,
+   *  pre-existing ambiguity; there's no more-correct tile to prefer among ties). Used below to actually
+   *  regroup a row-level override (`CategoryTile`'s "Move N selected to…") into wherever that target
+   *  category is already shown, instead of leaving it on its original tile. */
+  const tileForExistingCategoryId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of categoryResolutions) {
+      if (r.suggestion.kind === 'existing' && !map.has(r.suggestion.categoryId)) {
+        map.set(r.suggestion.categoryId, r.sourceName);
+      }
+    }
+    return map;
+  }, [categoryResolutions]);
+
+  /** A row with an active override (moved to a different EXISTING category) resolves to whichever
+   *  source-category tile is already mapped to that same target category, falling back to its own
+   *  source name when no such tile exists yet (a new "moved-to" tile is a real UI element of its own —
+   *  out of scope for a pure regrouping fix without its own design pass, see
+   *  docs/DESIGN_GUIDELINES.md). Shared by `rowsByCategory`/`statusByCategory` below so a tile's visible
+   *  rows and its background-tint stats always agree on where each row actually lives. */
+  const effectiveTileKey = useCallback(
+    (row: ParsedRow, index: number): string => {
+      const sourceKey = row.categoryName.trim() || 'Other';
+      const override = rowOverrides.get(index);
+      const overriddenTile = override?.categoryId ? tileForExistingCategoryId.get(override.categoryId) : undefined;
+      return overriddenTile && overriddenTile !== sourceKey ? overriddenTile : sourceKey;
+    },
+    [rowOverrides, tileForExistingCategoryId]
+  );
+
+  /** Grouped by EFFECTIVE category tile (see `effectiveTileKey` above, 2026-08-09 fix — previously
+   *  grouped by the row's own untouched source `categoryName` regardless of any row-level override,
+   *  so a reassigned row stayed stuck on its original tile with only a cosmetic "moved to X" annotation
+   *  underneath it, never actually regrouped). Each entry also carries its ORIGINAL index into
+   *  `parsedRows` (2026-08-06), not just the row itself. `rowsByCategory`/`statusByCategory` are
+   *  recomputed fresh from `parsedRows` on every render (never a stable keyed structure — see
    *  `useImport.ts`'s doc comments on why `parsedRows` is append-only, so plain array index stays a
    *  valid identity for a whole review session), so the index has to be captured here, at the one place
    *  that still has it, for `CategoryTile`'s bulk-select UI to reference later. */
   const rowsByCategory = useMemo(() => {
     const map = new Map<string, { row: ParsedRow; index: number }[]>();
     parsedRows.forEach((row, index) => {
-      const key = row.categoryName.trim() || 'Other';
+      const key = effectiveTileKey(row, index);
       const list = map.get(key) ?? [];
       list.push({ row, index });
       map.set(key, list);
     });
     return map;
-  }, [parsedRows]);
+  }, [parsedRows, effectiveTileKey]);
 
-  /** Ready/attention/duplicate counts per source category, from the same per-row `rowTriage` the
-   *  Accounts section already uses — drives each tile's background tint. */
+  /** Ready/attention/duplicate counts per EFFECTIVE category tile (same regrouping as `rowsByCategory`
+   *  above), from the same per-row `rowTriage` the Accounts section already uses — drives each tile's
+   *  background tint. */
   const statusByCategory = useMemo(() => {
     const map = new Map<string, { ready: number; attention: number; duplicate: number }>();
     parsedRows.forEach((row, i) => {
-      const key = row.categoryName.trim() || 'Other';
+      const key = effectiveTileKey(row, i);
       const bucket = map.get(key) ?? { ready: 0, attention: 0, duplicate: 0 };
       bucket[rowTriage[i] ?? 'ready']++;
       map.set(key, bucket);
     });
     return map;
-  }, [parsedRows, rowTriage]);
+  }, [parsedRows, rowTriage, effectiveTileKey]);
 
   /** Undecided tiles (still showing "Choose…") sort first, so what needs attention is immediately
    *  visible instead of buried below already-resolved tiles — original file order preserved within
    *  each group. */
   const orderedCategoryResolutions = useMemo(() => {
-    const isDecided = (r: CategoryResolution) =>
-      r.suggestion.kind !== 'create' || touchedCategorySources.has(r.sourceName);
-    return [...categoryResolutions].sort((a, b) => Number(isDecided(a)) - Number(isDecided(b)));
+    return [...categoryResolutions].sort(
+      (a, b) =>
+        Number(isCategoryResolutionDecided(a, touchedCategorySources)) -
+        Number(isCategoryResolutionDecided(b, touchedCategorySources))
+    );
   }, [categoryResolutions, touchedCategorySources]);
+
+  /** Real accounts eligible as a transfer destination for a given tile — excludes `excludeAccountId`
+   *  (this import's own single target account, when there is one) so a transfer can never be pointed
+   *  back at the very account it's also debiting from. See this component's own prop doc comments. */
+  const transferAccountOptions = useMemo(
+    () => accounts.filter((a) => a.id !== excludeAccountId),
+    [accounts, excludeAccountId]
+  );
 
   return (
     <View className="gap-3">
@@ -168,7 +224,7 @@ export function PreviewSection({
           </View>
         </View>
         {orderedCategoryResolutions.map((r) => {
-          const decided = r.suggestion.kind !== 'create' || touchedCategorySources.has(r.sourceName);
+          const decided = isCategoryResolutionDecided(r, touchedCategorySources);
           const stats = statusByCategory.get(r.sourceName);
           const allDuplicate = !!stats && stats.ready === 0 && stats.attention === 0 && stats.duplicate > 0;
           return (
@@ -179,6 +235,7 @@ export function PreviewSection({
               status={!decided ? 'attention' : allDuplicate ? 'duplicate' : 'ready'}
               rows={rowsByCategory.get(r.sourceName) ?? []}
               categories={categories}
+              transferAccountOptions={transferAccountOptions}
               txnCountByCategory={txnCountByCategory}
               groupOptions={groupOptions}
               tag={categoryTags.get(r.sourceName) ?? ''}

@@ -327,6 +327,23 @@ export interface Expense {
   /** Groups this transaction is shared into (Phase 1.5 Track E). Each id also has a mirrored group
    *  `shared_expense` event; this keeps the personal↔group link so shares can be shown/undone. */
   shareWith?: string[];
+  /** GROUND TRUTH ONLY (docs/plans/bank-balance-sync.md §4/§7) — the bank statement's own stated
+   *  running balance immediately after this transaction, copied verbatim from a statement row with a
+   *  mapped balance column. Set once, at bank-statement-import commit time, never recomputed, never
+   *  guessed. Present only on transactions that came from, or were matched against, a bank-statement
+   *  import that had a balance column mapped — scoped to `Account.type === 'bank'` only (credit cards
+   *  are explicitly out of scope, inverted sign convention, see plan §3/§16). Absent on every
+   *  manually-entered / Cashew/MoneyView-imported / no-balance-column-statement transaction. THE
+   *  marker of "checkpointed" — gates two-tier matching's Tier 2 candidate-pool exclusion
+   *  (`core/bank-import/matcher.ts`, plan §5/§17): a checkpointed transaction is never offered as a
+   *  fuzzy-match candidate for a different import's row. */
+  statementBalance?: number;
+  /** Intra-day order (1st, 2nd, 3rd… among that day's statement rows) — plan §4/§9 (Stage 5, not yet
+   *  built as of this field's addition). Set ONLY when every one of this account's transactions on
+   *  this calendar day is explained by one statement's own rows (enables true intra-day checkpoints
+   *  instead of end-of-day-only). Absent otherwise — never guessed. Field added ahead of its own
+   *  logic per plan §7's Stage 0 grouping; no reader exists yet. */
+  reconciledSeq?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -348,6 +365,85 @@ export interface Account {
   updatedAt: number;
   /** Safe Mode masks this account's balance; undefined/false = visible. */
   hideInSafeMode?: boolean;
+  /** The date `openingBalance` is "as of" (docs/plans/bank-balance-sync.md §4/§10a/§14) — epoch ms.
+   *  Absent = legacy/implicit "before every transaction that exists" (today's behavior, preserved
+   *  unchanged for every existing account). Set explicitly once a bank-statement import establishes
+   *  or moves the anchor (first-ever import, or a later-discovered earlier statement — plan §7
+   *  Stage 3, not yet built as of this field's addition). */
+  openingBalanceAsOfDate?: number;
+  /** One entry per completed statement-import batch for this account (docs/plans/bank-balance-sync.md
+   *  §4/§11a/§11b, plan §7 Stage 2 — built 2026-08-08). Applies to any statement-importable account
+   *  (`bank` AND `credit_card`) — this is batch-level history, not the checkpoint/balance-sync
+   *  guarantee itself, which stays bank-only (see `ImportBatchSummary`'s own doc comment). Powers
+   *  gap-detection between imports, deferred lone-wolf escalation, the re-import convenience check, and
+   *  the Import History screen. Never removed once added (append-only history). */
+  coveredStatementRanges?: ImportBatchSummary[];
+  /** Immutable historical reference for a still-possibly-disagreeing anchor shift (Stage 3, redesigned
+   *  2026-08-09 to fix the "frozen forever" bug, then again same day to fix a SECOND bug — see
+   *  openingBalanceAnchor.ts's `recomputeAnchorAgreement` doc comment for both). Three facts worth
+   *  permanently remembering: what the OLD anchor was, what the backfill's OWN un-back-derived claim was
+   *  (`newOpeningBalance` — this account's own `openingBalance` field is NOT this value once "Keep"/
+   *  "Review" is chosen; see `backDerivedOpeningBalance`'s doc comment), and when this was first detected
+   *  (for a stable fingerprint). The actual comparison (`impliedOldBalance`/`diff`/`agrees`) is NEVER
+   *  stored — always recomputed live from current transactions, so a later corrective import/edit/delete
+   *  that actually fixes the ledger makes the finding disappear on its own, instead of a stale, frozen
+   *  number surviving the fix. */
+  anchorReference?: {
+    oldOpeningBalance: number;
+    oldAnchorDate: number;
+    newOpeningBalance: number;
+    detectedAt: number;
+  };
+  /** Balance-verification findings (docs/plans/bank-balance-sync.md §9 Q1's resolved decision, §7
+   *  Stage 4) the user explicitly acknowledged via the persistent "unverified account" badge's "I've
+   *  reviewed this, dismiss" action (`core/bank-import/accountVerification.ts`'s unification of the
+   *  checkpoint-diff mismatch, the standing-gap sweep, and an anchor disagreement into ONE indicator).
+   *  Scoped to the SPECIFIC finding via a stable fingerprint of its own identifying facts (which
+   *  checkpoint pair / which standing-gap expense set / which anchor-disagreement event) — never a
+   *  blanket per-account silence, so a NEW, different finding of any of the three kinds still surfaces
+   *  even if an earlier, unrelated one was dismissed (its fingerprint won't match any entry here).
+   *  Never cleared automatically — a "Re-open" action (`bank-balance-sync-v2.html` Frame 2f) removes a
+   *  specific entry; the underlying condition resolving on its own (e.g. the missing transaction gets
+   *  added later) also makes an entry's fingerprint stop recomputing at all, at which point it's simply
+   *  never surfaced again (this array is never proactively pruned for that case — a stale, no-longer-
+   *  matching fingerprint sitting here forever is harmless, never re-matched by construction). */
+  dismissedVerificationFindings?: { fingerprint: string; dismissedAt: number }[];
+}
+
+/**
+ * One completed statement-import batch's own record, attached to `Account.coveredStatementRanges`
+ * (docs/plans/bank-balance-sync.md §4/§7 Stage 2). Deliberately one consolidated record rather than a
+ * second parallel store — `start`/`end` power gap-detection and deferred lone-wolf escalation,
+ * `matchedCount`/`addedCount`/`skippedCount`/`skippedRows` power the commit confirmation and the Import
+ * History screen's list + batch-detail drill-in. Built for every statement import (`bank` and
+ * `credit_card` accounts alike) — only the checkpoint mechanism itself (`Expense.statementBalance`) is
+ * gated to `bank` accounts.
+ */
+export interface ImportBatchSummary {
+  /** Shared with the same-batch `BankStatementImportRecord`s written for its matched/new rows. */
+  batchId: string;
+  /** The statement file's own actual min transaction date — never assumed from a filename or the
+   *  user's stated intent. */
+  start: number;
+  /** The statement file's own actual max transaction date. */
+  end: number;
+  /** When this batch was committed (epoch ms) — distinct from `start`/`end`, which are the statement's
+   *  own dates, not the import event's own timing. */
+  importedAt: number;
+  /** The uploaded file's own name, shown in Import History. */
+  fileName: string;
+  /** Statement rows the matcher confirmed against an existing transaction — an automatic confident
+   *  match, or a user-resolved "possible match". */
+  matchedCount: number;
+  /** Statement rows that became a brand-new transaction. */
+  addedCount: number;
+  /** Statement rows seen in the file but left unresolved at commit time — an unconfirmed "possible
+   *  match", or an unmatched row never added (§11a: a durable, visible record of what was skipped, not
+   *  silence). */
+  skippedCount: number;
+  /** One entry per skipped row — just enough to identify it in the Import History batch-detail
+   *  drill-in. A read-only historical record, never re-parsed/re-actionable. */
+  skippedRows: { rawNarration: string; date: number; amount: number }[];
 }
 
 export interface Budget {

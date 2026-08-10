@@ -21,6 +21,9 @@ import { TaxAwarenessPage } from '../features/tax/TaxAwarenessPage';
 import { BankImportPage } from '../features/bank-import/BankImportPage';
 import { BankImportOverridesPage } from '../features/bank-import/BankImportOverridesPage';
 import { BankCashWithdrawalCodesPage } from '../features/bank-import/BankCashWithdrawalCodesPage';
+import { BankImportHistoryPage } from '../features/bank-import/BankImportHistoryPage';
+import { CheckpointTimelinePage } from '../features/accounts/CheckpointTimelinePage';
+import { CheckOpeningBalancePage } from '../features/accounts/CheckOpeningBalancePage';
 
 /**
  * The Home tab's own navigation stack — Track: chrome-persistence fix. Previously all of these
@@ -71,6 +74,23 @@ export type HomeStackParamList = {
   /** Global cash-withdrawal narration-code management screen (2026-08-05 transfer-marking work) —
    *  same "not scoped to any one account" reasoning as BankImportOverrides. */
   BankCashWithdrawalCodes: undefined;
+  /** Import History (docs/plans/bank-balance-sync.md §5/§11a, plan §7 Stage 2) — reachable from the
+   *  Accounts page header like the two screens above, but the underlying data
+   *  (`Account.coveredStatementRanges`) is inherently per-account, so `accountId` is optional: absent
+   *  from the header-icon entry point (the page shows its own account picker first), present for any
+   *  future direct per-account entry point. */
+  BankImportHistory: { accountId?: string } | undefined;
+  /** The checkpoint-diff escape hatch (docs/plans/bank-balance-sync.md §7 Stage 4, mockup `bank-
+   *  balance-sync-v2.html` Frame 4) — the full ledger-style timeline, reached from the account detail's
+   *  transaction-list drill-in ("View full reconciliation table ›"). Handles both diagnostic
+   *  signatures itself (branches its own rendering), so one route serves both of the mockup's Frame 4
+   *  variants. */
+  CheckpointTimeline: { accountId: string };
+  /** The "check your opening balance" destination (mockup Frame 2b's second frame) — reached for a
+   *  `'flat-from-start'` checkpoint mismatch OR a live-recomputed anchor-disagreement finding alike
+   *  ("one status slot, two possible causes", §7 Stage 3's own note; `Account.anchorReference`, renamed
+   *  from `anchorDisagreement` 2026-08-09). */
+  CheckOpeningBalance: { accountId: string };
 };
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
@@ -107,6 +127,9 @@ export function HomeStack() {
       <Stack.Screen name="BankImport" component={BankImportPage} />
       <Stack.Screen name="BankImportOverrides" component={BankImportOverridesPage} />
       <Stack.Screen name="BankCashWithdrawalCodes" component={BankCashWithdrawalCodesPage} />
+      <Stack.Screen name="BankImportHistory" component={BankImportHistoryPage} />
+      <Stack.Screen name="CheckpointTimeline" component={CheckpointTimelinePage} />
+      <Stack.Screen name="CheckOpeningBalance" component={CheckOpeningBalancePage} />
     </Stack.Navigator>
   );
 }

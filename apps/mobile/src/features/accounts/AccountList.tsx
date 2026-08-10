@@ -5,10 +5,13 @@ import type { Account, Expense, ExpenseCategory, Hashtag } from '@/core/db/types
 import { formatCurrency } from '@/lib/formatters';
 import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { getAccountMeta } from '@/core/accounts/meta';
+import { CHECKPOINT_ELIGIBLE } from '@/core/bank-import/accountVerification';
 import { Card, Button, ConfirmDialog, EmptyState, IconBadge } from '~/components/ui';
-import { EntityTransactionsModal } from '~/components/shared';
+import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { ReconcileModal } from './ReconcileModal';
+import { AccountDetailModal } from './AccountDetailModal';
+import { useAccountVerification } from './useAccountVerification';
 import { accountCardPalette, tint } from '~/lib/color';
 
 // Translucent-white overlay treatment for chips/dividers drawn on top of a per-account gradient card
@@ -24,7 +27,13 @@ const ON_GRADIENT = {
   caption: 'rgba(255,255,255,0.6)',
   chipBg: 'rgba(255,255,255,0.14)',
   negativeBalance: '#ffd7d7',
-  deleteIcon: '#ffb3b3'
+  deleteIcon: '#ffb3b3',
+  // The persistent "Unverified" pill (docs/plans/bank-balance-sync.md §7 Stage 4, mockup
+  // `bank-balance-sync-v2.html` Frame 1) — same fixed-on-gradient treatment as the rest of this
+  // constant, not `theme.danger`/`tint()` (this sits on a per-account colored gradient, not the app's
+  // light/dark surface).
+  unverifiedBg: 'rgba(239,68,68,0.22)',
+  unverifiedText: '#ffb3b3'
 } as const;
 
 interface AccountListProps {
@@ -70,6 +79,12 @@ export function AccountList({
   const [reconciling, setReconciling] = useState<{ account: Account; balance: number } | null>(null);
   const [viewingAccount, setViewingAccount] = useState<Account | null>(null);
   const accountMap = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
+  const {
+    statuses: verificationStatuses,
+    loading: verificationLoading,
+    dismissFinding,
+    reopenFinding
+  } = useAccountVerification(accounts, txns);
 
   return (
     <View className="px-4 py-4 gap-3">
@@ -107,6 +122,11 @@ export function AccountList({
             const isNeg = balance < 0;
             const masked = shouldMask(acc.hideInSafeMode);
             const palette = accountCardPalette(acc.id, RECONCILABLE.has(acc.type));
+            // The persistent "unverified" badge (docs/plans/bank-balance-sync.md §7 Stage 4) — binary at
+            // list level by design (verified/never-imported/dismissed all look identical here; the
+            // account detail view is where that ambiguity resolves into 6 distinct states).
+            const needsAttention =
+              CHECKPOINT_ELIGIBLE.has(acc.type) && (verificationStatuses.get(acc.id)?.needsAttention ?? false);
             return (
               <Pressable
                 key={acc.id}
@@ -199,17 +219,34 @@ export function AccountList({
                     }}
                   />
 
-                  {/* Top row — icon tile (left) + account-type pill (right) */}
+                  {/* Top row — icon tile (left) + account-type pill (right), OR the "Unverified" badge
+                      in its place (docs/plans/bank-balance-sync.md §7 Stage 4, mockup Frame 1) — the
+                      badge only ever means "needs a look", never shown alongside the type pill. */}
                   <View className="flex-row items-center justify-between mb-2.5">
                     <IconBadge icon={acc.icon} color="#fff" bg={ON_GRADIENT.iconTileBg} size="sm" />
-                    <View className="px-2 py-1 rounded-full" style={{ backgroundColor: ON_GRADIENT.pillBg }}>
-                      <Text
-                        className="text-[9px] font-bold uppercase tracking-wide"
-                        style={{ color: ON_GRADIENT.pillText }}
+                    {needsAttention ? (
+                      <View
+                        className="flex-row items-center gap-1 px-2 py-1 rounded-full"
+                        style={{ backgroundColor: ON_GRADIENT.unverifiedBg }}
                       >
-                        {meta.label}
-                      </Text>
-                    </View>
+                        <Icon name="ti-alert-triangle" size={9} color={ON_GRADIENT.unverifiedText} />
+                        <Text
+                          className="text-[9px] font-bold uppercase tracking-wide"
+                          style={{ color: ON_GRADIENT.unverifiedText }}
+                        >
+                          Unverified
+                        </Text>
+                      </View>
+                    ) : (
+                      <View className="px-2 py-1 rounded-full" style={{ backgroundColor: ON_GRADIENT.pillBg }}>
+                        <Text
+                          className="text-[9px] font-bold uppercase tracking-wide"
+                          style={{ color: ON_GRADIENT.pillText }}
+                        >
+                          {meta.label}
+                        </Text>
+                      </View>
+                    )}
                   </View>
 
                   {/* Middle row — account name (left) + balance & net-worth caption (right-aligned) */}
@@ -305,20 +342,18 @@ export function AccountList({
       )}
 
       {viewingAccount && (
-        <EntityTransactionsModal
+        <AccountDetailModal
           key={viewingAccount.id}
-          title={viewingAccount.name}
-          statLabel="Current balance"
-          statValue={
-            shouldMask(viewingAccount.hideInSafeMode)
-              ? '••••'
-              : formatCurrency(computeBalance(viewingAccount.id, viewingAccount.openingBalance, txns))
-          }
-          expenses={txns.filter((t) => t.accountId === viewingAccount.id || t.toAccountId === viewingAccount.id)}
+          account={viewingAccount}
+          txns={txns}
           categoryMap={categoryMap}
           accountMap={accountMap}
           hashtags={hashtags}
           shouldMask={shouldMask}
+          verification={verificationStatuses.get(viewingAccount.id)}
+          verificationLoading={verificationLoading}
+          onDismiss={(fingerprint) => void dismissFinding(viewingAccount.id, fingerprint)}
+          onReopen={(fingerprint) => void reopenFinding(viewingAccount.id, fingerprint)}
           onClose={() => setViewingAccount(null)}
         />
       )}

@@ -332,6 +332,20 @@ export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
     applicableTo: 'expense',
     createdAt: 0
   },
+  {
+    // Added 2026-08-09 for the bank-import balance-sync work — real statements routinely surface
+    // small bank-initiated debits (SMS alert charges, AMC/annual card fees, NEFT/IMPS charges) that
+    // don't belong under any existing Financial category; these were falling into the generic
+    // "Other" bucket instead.
+    id: 'cat-bank-charges',
+    name: 'Charges & Fees',
+    icon: 'ti-receipt-tax',
+    color: '#f59e0b',
+    isDefault: true,
+    intentGroup: 'financial',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
   // ── Lifestyle ────────────────────────────────────────────────────────────────
   {
     id: 'cat-shopping',

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { Account, Expense, Person, TransactionType } from '@/core/db/types';
+import type { Account, Expense, ImportBatchSummary, Person, TransactionType } from '@/core/db/types';
 import type { AccountInput } from '~/hooks/useAccountForm';
 import {
   accountsRepo,
@@ -15,6 +15,7 @@ import {
 import { useRepository } from '@/hooks/useRepository';
 import { logActivityAwaited } from '@/core/db/activityLog';
 import { notifyTxnChanged } from '@/hooks/useTxnRefresh';
+import { notifyBankImportsChanged } from '@/hooks/useDataRefresh';
 import { RECONCILIATION_DESCRIPTION } from '@/core/expenses/cashFlowSummary';
 import {
   BANK_PRESETS,
@@ -37,28 +38,40 @@ import {
   matchStatementRows,
   deriveLoneWolves,
   suggestPossibleTransfer,
+  suggestAmbiguousTransferCandidates,
+  convertCandidateToTransfer,
   type MatchResult,
   type PossibleTransferSuggestion
 } from '@/core/bank-import/matcher';
 import { groupUnmatchedByMerchant } from '@/core/bank-import/grouping';
-import { checkBalanceAgainstStatement } from '@/core/bank-import/balanceCheck';
+import { attachCheckpoint, reconcileMatchedExpense } from '@/core/bank-import/checkpoint';
+import {
+  computeDaySequence,
+  countOtherUnexplainedByDay,
+  groupResolutionsByDay,
+  type DayResolution
+} from '@/core/bank-import/reconciledSeq';
+import { countSkippedRows, detectCoverageGap } from '@/core/bank-import/coverage';
+import {
+  backDerivedOpeningBalance,
+  computeAnchorShiftCheck,
+  currentAnchorDate,
+  deriveOpeningBalanceSuggestion,
+  isAnchorShiftImport,
+  isFirstEverImport,
+  rowsAsCandidateTxns,
+  type AnchorShiftCheck
+} from '@/core/bank-import/openingBalanceAnchor';
 import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
-import { suggestCashTransfer, type CashTransferSuggestion } from '@/core/bank-import/cashWithdrawalCodes';
+import {
+  applyCashTransferConversion,
+  suggestCashTransfer,
+  suggestRetroactiveCashTransfer,
+  type CashTransferSuggestion
+} from '@/core/bank-import/cashWithdrawalCodes';
 import { usePaymentModes } from '~/hooks/usePaymentModes';
 import { useBankCashWithdrawalCodes } from '~/hooks/useBankCashWithdrawalCodes';
-import type { BankImportStep, MatchedItem, PossibleItem, StagedNewTxn } from './types';
-
-/** Pure helper (no hook state) — the parsed row with the latest date that actually carried a
- *  Balance-column value, i.e. the statement's own reported closing balance. Module-level rather than
- *  defined inside the hook so it has a stable identity and never needs to appear in a dependency
- *  array. */
-function findClosingBalance(rows: ParsedStatementRow[]): number | undefined {
-  let best: ParsedStatementRow | undefined;
-  for (const r of rows) {
-    if (r.balance !== undefined && (!best || r.date >= best.date)) best = r;
-  }
-  return best?.balance;
-}
+import type { BankImportStep, MatchedItem, PendingOpeningBalanceUpdate, PossibleItem, StagedNewTxn } from './types';
 
 /**
  * Bank Statement Import (docs/plans/bank-statement-import.md) — a single hook owning the whole
@@ -120,6 +133,27 @@ export function useBankImport(accountId: string) {
     [presetId, cashWithdrawalCodes, cashAccounts]
   );
 
+  /** Retroactive sibling to `suggestCashTransferFor` above (docs/plans/bank-balance-sync.md §3
+   *  decision #2, §17 Finding 1, §7 Stage 7) — for a Bucket 1 (Matched) pair whose statement row
+   *  carries a cash-withdrawal code but resolved against an already-existing plain expense, rather
+   *  than a brand-new row. `MatchedBucket.tsx` is the only caller. Returns `null` (no chip shown) when
+   *  there's no cash account to convert into at all — a bare "convert to transfer" affordance with
+   *  nowhere to point `toAccountId` at isn't actionable from this lightweight inline chip (unlike the
+   *  full `ExpenseForm` new-row flow, which can fall through to its own general account picker). */
+  const suggestRetroactiveCashTransferFor = useCallback(
+    (pair: MatchedItem): CashTransferSuggestion | null => {
+      if (cashAccounts.length === 0) return null;
+      return suggestRetroactiveCashTransfer(
+        pair.expense,
+        pair.statementRow.rawNarration,
+        presetId ?? 'any',
+        cashWithdrawalCodes,
+        cashAccounts
+      );
+    },
+    [presetId, cashWithdrawalCodes, cashAccounts]
+  );
+
   /** Cross-account "possible internal transfer" suggestion (2026-08-05) — a softer, amount/date-only
    *  signal than `suggestCashTransferFor` above (no narration code involved): flags a statement row
    *  that might be the other leg of a transfer already recorded, unlinked, on a different account. See
@@ -128,6 +162,18 @@ export function useBankImport(accountId: string) {
   const suggestPossibleTransferFor = useCallback(
     (row: ParsedStatementRow): PossibleTransferSuggestion | null =>
       suggestPossibleTransfer(row, accountId, allExpenses, accounts, RECONCILIATION_DESCRIPTION),
+    [accountId, allExpenses, accounts]
+  );
+
+  /** Sibling to `suggestPossibleTransferFor` above (docs/plans/bank-balance-sync.md §13, §7 Stage 6) —
+   *  returns the full tied candidate set when the cross-account heuristic finds a genuine ambiguity
+   *  (2+ equally-plausible candidates), so the UI can surface an explicit choice instead of silently
+   *  dropping it (which is what `suggestPossibleTransferFor` alone does today — it returns `null` for
+   *  both "no candidate" and "too many candidates to guess among"). `null` here means "not ambiguous"
+   *  (0 or 1 candidate) — never means "surface nothing to the user." */
+  const suggestAmbiguousTransferCandidatesFor = useCallback(
+    (row: ParsedStatementRow): PossibleTransferSuggestion[] | null =>
+      suggestAmbiguousTransferCandidates(row, accountId, allExpenses, accounts, RECONCILIATION_DESCRIPTION),
     [accountId, allExpenses, accounts]
   );
 
@@ -156,6 +202,21 @@ export function useBankImport(accountId: string) {
   // `MappingEditModal`. Reset on a new preset/file so a manual override from a previous unrelated
   // upload never silently carries over.
   const [dateFormatOverride, setDateFormatOverride] = useState<string | null>(null);
+
+  // Opening-balance / anchor-shift flow (docs/plans/bank-balance-sync.md §3 decision #10/§10a/§14, §7
+  // Stage 3) — `openingBalanceOverrideText` is the user's own typed value, only ever needed when no
+  // suggestion could be derived from the statement's own first row (no mapped Balance column, or that
+  // row had no value under it); `''` means "nothing typed, fall back to the derived suggestion if any"
+  // (mirrors `dateFormatOverride`'s own null-means-"use the detected value" convention just above).
+  // Reset on a new upload, same reasoning. `pendingOpeningBalanceUpdate` stages whichever
+  // `Account.openingBalance`/`openingBalanceAsOfDate`/`anchorReference` write the user's choice on
+  // this screen implies — nothing is written to the real vault until `commitAndImport()` (§10b's commit
+  // model, unchanged by this addition), so this is staged state exactly like `matchedPairs`/
+  // `stagedNewTxns` already are.
+  const [openingBalanceOverrideText, setOpeningBalanceOverrideText] = useState('');
+  const [pendingOpeningBalanceUpdate, setPendingOpeningBalanceUpdate] = useState<PendingOpeningBalanceUpdate | null>(
+    null
+  );
 
   // Bank, upload, and column-mapping review all live on the single 'setup' screen (merged
   // 2026-08-03, per explicit user feedback — no step change on selecting a preset). Declared after
@@ -198,6 +259,11 @@ export function useBankImport(accountId: string) {
       setParseError('');
       setFileName(name);
       setDateFormatOverride(null);
+      // Opening-balance / anchor-shift flow (docs/plans/bank-balance-sync.md §7 Stage 3) — a manual
+      // override typed against a previous file must never silently carry over to a new upload, same
+      // reasoning as `dateFormatOverride`'s own reset just above.
+      setOpeningBalanceOverrideText('');
+      setPendingOpeningBalanceUpdate(null);
       const hdrs = extractHeaderRow(tokenized);
       if (hdrs.length === 0) {
         setParseError(emptyMessage);
@@ -303,7 +369,20 @@ export function useBankImport(accountId: string) {
     setConfirmedMapping(cm);
     const result = parseStatementRows(tokenizedRows, headers, cm);
     setParseResult(result);
-    const mr = matchStatementRows(result.rows, accountId, allExpenses, RECONCILIATION_DESCRIPTION);
+    // Two-tier matching (docs/plans/bank-balance-sync.md §5/§17) — `importRecords`/`overrides` feed
+    // Tier 1's exact-provenance lookup; Tier 2's checkpoint exclusion reads `Expense.statementBalance`
+    // directly off `allExpenses`, no extra argument needed for that half. `account?.coveredStatementRanges`
+    // (Stage 2, §12) feeds deferred lone-wolf escalation — every OTHER already-completed import batch
+    // for this account, which by construction never yet includes the one being parsed right now.
+    const mr = matchStatementRows(
+      result.rows,
+      accountId,
+      allExpenses,
+      RECONCILIATION_DESCRIPTION,
+      importRecords,
+      overrides,
+      account?.coveredStatementRanges ?? []
+    );
     setMatchResult(mr);
     setMatchedPairs(mr.matched.map((p) => ({ statementRow: p.statementRow, expense: p.expense })));
     setPossibleItems(mr.possible.map((p) => ({ statementRow: p.statementRow, candidates: p.candidates })));
@@ -311,7 +390,171 @@ export function useBankImport(accountId: string) {
     setStagedNewTxns([]);
     setLoneWolfDeletions(new Set());
     setStep('review');
-  }, [mappingReady, mapping, tokenizedRows, headers, accountId, allExpenses, dateFormat]);
+  }, [
+    mappingReady,
+    mapping,
+    tokenizedRows,
+    headers,
+    accountId,
+    allExpenses,
+    dateFormat,
+    importRecords,
+    overrides,
+    account
+  ]);
+
+  /** Gap-detection warning (docs/plans/bank-balance-sync.md §5/§11b, plan §7 Stage 2) — compares this
+   *  not-yet-confirmed mapping's own live preview date range against the account's existing covered
+   *  ranges. Lives on `mappingPreview` (not `parseResult`) so it's visible on `SetupStep` itself, before
+   *  the user even taps "Continue to review" — advisory only, never blocks. */
+  const coverageGap = useMemo(() => {
+    if (!mappingPreview || mappingPreview.rows.length === 0) return null;
+    const dates = mappingPreview.rows.map((r) => r.date);
+    const range = { start: Math.min(...dates), end: Math.max(...dates) };
+    return detectCoverageGap(range, account?.coveredStatementRanges ?? []);
+  }, [mappingPreview, account]);
+
+  // ── Opening-balance confirm / anchor-shift (docs/plans/bank-balance-sync.md §3 decision #10/§10a/
+  // §14, §7 Stage 3) ────────────────────────────────────────────────────────────────────────────────
+  // Scoped to `bank` accounts only (§3 decision 1/§16 Finding 2 — same gate Stage 1's checkpoint
+  // attachment already uses), and only once this file's own live preview has at least one row —
+  // mirrors `coverageGap`'s own "visible on SetupStep before 'Continue to review'" timing.
+  const openingBalanceTrigger = useMemo((): 'first-import' | 'anchor-shift' | null => {
+    if (!account || account.type !== 'bank' || !mappingPreview || mappingPreview.rows.length === 0) return null;
+    if (isFirstEverImport(account.coveredStatementRanges)) return 'first-import';
+    const newRangeStart = Math.min(...mappingPreview.rows.map((r) => r.date));
+    return isAnchorShiftImport(newRangeStart, account) ? 'anchor-shift' : null;
+  }, [account, mappingPreview]);
+
+  /** A suggestion to prefill the confirm prompt, derived from this file's own chronologically-first
+   *  row — `undefined` when no Balance column was mapped (or that row had no value under it), the
+   *  mockup's "nothing parseable" manual-entry state. Never auto-applied — see
+   *  `openingBalanceAnchor.ts`'s own doc comment. */
+  const openingBalanceSuggestion = useMemo(() => {
+    if (!openingBalanceTrigger || !mappingPreview) return undefined;
+    return deriveOpeningBalanceSuggestion(mappingPreview.rows);
+  }, [openingBalanceTrigger, mappingPreview]);
+
+  const overrideNum = openingBalanceOverrideText.trim() === '' ? null : Number(openingBalanceOverrideText);
+  /** The value that will actually be used if the user proceeds — the typed override if there is a
+   *  valid one, otherwise the derived suggestion, otherwise nothing yet (gates "Continue to review"
+   *  for the first-import manual-entry state, and gates whether an anchor-shift check can run at all). */
+  const effectiveOpeningBalance =
+    overrideNum !== null && !Number.isNaN(overrideNum)
+      ? overrideNum
+      : (openingBalanceSuggestion?.suggestedOpeningBalance ?? null);
+  const effectiveAsOfDate =
+    openingBalanceSuggestion?.asOfDate ??
+    (mappingPreview && mappingPreview.rows.length > 0 ? Math.min(...mappingPreview.rows.map((r) => r.date)) : null);
+
+  /** §14a/§14b's disagreement check — only computable once `effectiveOpeningBalance` exists (a
+   *  suggestion, or a manually-typed value when the earlier statement had no Balance column at all).
+   *  `null` while that's still missing, which is exactly when the UI should show a bare manual-entry
+   *  field with no outcome below it yet — a case the v2 mockup's §6 frames don't depict (both of its
+   *  worked examples assume a derivable suggestion) but a straightforward, documented extension of the
+   *  same pattern. */
+  const anchorShiftCheck = useMemo((): AnchorShiftCheck | null => {
+    if (openingBalanceTrigger !== 'anchor-shift' || !account || !mappingPreview) return null;
+    if (effectiveOpeningBalance === null || effectiveAsOfDate === null) return null;
+    const oldAnchorDate = currentAnchorDate(account);
+    if (oldAnchorDate === undefined) return null; // unreachable given the trigger's own gating, kept total
+    // Window is [newAnchorDate, oldAnchorDate) — new-anchor-date inclusive, old-anchor-date exclusive,
+    // see `openingBalanceAnchor.ts`'s own doc comment for why. Combines whatever Penny already had
+    // recorded for the account in that window with THIS file's own not-yet-staged rows (the newly
+    // backfilled statement's real contribution) — see `computeAnchorShiftCheck`'s doc comment for the
+    // documented Stage 3 simplification this implies (no de-dup against a future match, left for Stage
+    // 4's full engine).
+    const existingInWindow = allExpenses.filter(
+      (e) =>
+        (e.accountId === accountId || e.toAccountId === accountId) &&
+        e.date >= effectiveAsOfDate &&
+        e.date < oldAnchorDate
+    );
+    const rowsInWindow = mappingPreview.rows.filter((r) => r.date >= effectiveAsOfDate && r.date < oldAnchorDate);
+    return computeAnchorShiftCheck(
+      accountId,
+      effectiveOpeningBalance,
+      effectiveAsOfDate,
+      account.openingBalance,
+      oldAnchorDate,
+      [...existingInWindow, ...rowsAsCandidateTxns(rowsInWindow, accountId)]
+    );
+  }, [
+    openingBalanceTrigger,
+    account,
+    mappingPreview,
+    effectiveOpeningBalance,
+    effectiveAsOfDate,
+    allExpenses,
+    accountId
+  ]);
+
+  /** First-ever-import confirm, or an §14a clean anchor-shift's own single "Continue to review" —
+   *  stages the anchor move and proceeds into the normal mapping-confirm flow. */
+  const confirmOpeningBalanceAndProceed = useCallback(() => {
+    if (effectiveOpeningBalance === null || effectiveAsOfDate === null) return;
+    setPendingOpeningBalanceUpdate({
+      openingBalance: effectiveOpeningBalance,
+      openingBalanceAsOfDate: effectiveAsOfDate
+    });
+    confirmMapping();
+  }, [effectiveOpeningBalance, effectiveAsOfDate, confirmMapping]);
+
+  /** §14b's "Accept — shift everything by ₹X" choice — trusts the newly-backfilled statement over the
+   *  original, never-independently-verified anchor guess. Deliberately does NOT call `confirmMapping()`
+   *  itself (unlike the other two §14b choices below) — the mockup shows this specific choice landing
+   *  on its own confirmation frame ("Opening balance updated to ₹52,000 ... Continue to review") before
+   *  actually proceeding, so the UI calls `confirmMapping()` separately once that frame's own button is
+   *  tapped, using `pendingOpeningBalanceUpdate` (returned below) to know whether to render it. */
+  const acceptAnchorShift = useCallback(() => {
+    if (!anchorShiftCheck) return;
+    setPendingOpeningBalanceUpdate({
+      openingBalance: anchorShiftCheck.newOpeningBalance,
+      openingBalanceAsOfDate: anchorShiftCheck.newAnchorDate
+    });
+  }, [anchorShiftCheck]);
+
+  /** §14b's "Keep the original ₹X, flag for later" choice — the anchor DATE still always moves to the
+   *  new, earlier date (found + fixed 2026-08-09: leaving it pinned at the OLD date here, while
+   *  committing transactions dated before it, silently let `computeBalance()` double-count the entire
+   *  backfilled period on top of the kept opening balance) — only the anchor VALUE stays with what the
+   *  OLD, still-trusted anchor implies, via `backDerivedOpeningBalance()` (pure algebra on
+   *  `anchorShiftCheck`, reproducing the OLD anchor's own value exactly when projected forward). Never
+   *  auto-resolved; persists the disagreement as `Account.anchorReference` — an immutable historical
+   *  fact only, re-compared against LIVE data every time verification status is computed
+   *  (`accountVerification.ts`'s `recomputeAnchorAgreement`), not a frozen snapshot — so a later
+   *  corrective import that actually fixes the ledger makes the finding disappear on its own. */
+  const flagAnchorDisagreement = useCallback(() => {
+    if (!anchorShiftCheck) return;
+    setPendingOpeningBalanceUpdate({
+      openingBalance: backDerivedOpeningBalance(anchorShiftCheck),
+      openingBalanceAsOfDate: anchorShiftCheck.newAnchorDate,
+      reference: {
+        oldOpeningBalance: anchorShiftCheck.oldOpeningBalance,
+        oldAnchorDate: anchorShiftCheck.oldAnchorDate,
+        // The backfill's own un-back-derived claim — frozen here specifically because `openingBalance`
+        // above is deliberately back-derived to reproduce `oldOpeningBalance`, not to preserve this value
+        // (found + fixed 2026-08-09, second pass, on-device: without this, the live disagreement check
+        // had nothing independent left to compare against and always trivially agreed — see
+        // `recomputeAnchorAgreement`'s own doc comment).
+        newOpeningBalance: anchorShiftCheck.newOpeningBalance,
+        detectedAt: Date.now()
+      }
+    });
+    confirmMapping();
+  }, [anchorShiftCheck, confirmMapping]);
+
+  /** §14b's "Review the new import's rows first" choice — makes no ACTIVE trust decision (doesn't say
+   *  "I believe the backfill" or "I believe the old anchor"), just proceeds into the normal review
+   *  screen so the user can inspect the actual matched/new/excluded rows first (§10c's own reasoning: a
+   *  real backfill defect is only visible there, never from balance arithmetic alone). Still must move
+   *  the anchor DATE correctly (same double-count bug as `flagAnchorDisagreement` above) even with no
+   *  active decision made — behaviorally identical to it otherwise: a conservative default that keeps
+   *  the OLD anchor's own value (via `backDerivedOpeningBalance()`) and flags the disagreement for
+   *  later, since there's nothing else to trust yet either. */
+  const deferAnchorDecision = useCallback(() => {
+    flagAnchorDisagreement();
+  }, [flagAnchorDisagreement]);
 
   const merchantGroups = useMemo(() => groupUnmatchedByMerchant(unmatchedRows, overrides), [unmatchedRows, overrides]);
 
@@ -342,8 +585,8 @@ export function useBankImport(accountId: string) {
     const referenced = new Set<string>();
     for (const p of matchedPairs) referenced.add(p.expense.id);
     for (const item of possibleItems) for (const c of item.candidates) referenced.add(c.id);
-    return deriveLoneWolves(accountPool, referenced, parseResult.rows);
-  }, [parseResult, matchedPairs, possibleItems, accountPool]);
+    return deriveLoneWolves(accountPool, referenced, parseResult.rows, account?.coveredStatementRanges ?? []);
+  }, [parseResult, matchedPairs, possibleItems, accountPool, account]);
 
   /** Removes `expenseId`'s current claim, wherever it is (§5's "trust the user" cascade) — the
    *  bumped statement line reverts to unresolved (folded back into "Not yet logged", which is the
@@ -377,6 +620,26 @@ export function useBankImport(accountId: string) {
     [unclaimExpenseEverywhere]
   );
 
+  /** Bucket 1 (Matched) retroactive cash-transfer conversion (§17 Finding 1, §7 Stage 7) — accepting
+   *  `suggestRetroactiveCashTransferFor`'s chip on a matched pair. Mutates the staged pair's own
+   *  `expense` in place (same staging model every other bucket mutator here already follows — nothing
+   *  is written to the real vault until `commitAndImport()`, which already calls
+   *  `reconcileMatchedExpense()` on every `matchedPairs` entry and preserves whatever `type`/
+   *  `toAccountId` it finds there). Mirrors `applyCashTransferConversion`'s own doc comment: only
+   *  `type`/`toAccountId` change, nothing else about the expense is touched. `alreadyConverted: true`
+   *  (found + fixed 2026-08-09 — see `MatchedItem`'s own doc comment) forces `commitAndImport()` to
+   *  actually persist this conversion even when date/amount/checkpoint are otherwise unchanged, which
+   *  `reconcileMatchedExpense()` alone can't detect. */
+  const convertMatchedPairToTransfer = useCallback((statementRow: ParsedStatementRow, toAccountId: string) => {
+    setMatchedPairs((prev) =>
+      prev.map((p) =>
+        p.statementRow.rowIndex === statementRow.rowIndex
+          ? { ...p, expense: applyCashTransferConversion(p.expense, toAccountId, Date.now()), alreadyConverted: true }
+          : p
+      )
+    );
+  }, []);
+
   /** Bucket 2 (Possible matches) — user picks a candidate (or a completely different transaction via
    *  search); resolves into a confirmed Matched pair. */
   const resolvePossibleMatch = useCallback(
@@ -394,6 +657,30 @@ export function useBankImport(accountId: string) {
     setPossibleItems((prev) => prev.filter((p) => p.statementRow.rowIndex !== statementRow.rowIndex));
     setUnmatchedRows((prev) => [...prev, statementRow]);
   }, []);
+
+  /** Absorbs an already-recorded cross-account expense as the OTHER leg of this statement row, instead
+   *  of creating a duplicate (found + fixed 2026-08-09 — see `convertCandidateToTransfer`'s own doc
+   *  comment: two separate records both debiting the source account for the same real-world transfer,
+   *  corrupting that account's own already-verified checkpoint history). `candidate` is the already-
+   *  recorded expense found by `suggestPossibleTransferFor`/`suggestAmbiguousTransferCandidatesFor` (an
+   *  unlinked plain expense/income on a DIFFERENT account) — converted in place and staged as a normal
+   *  matched pair, same staging model as every other bucket mutator here: nothing written until
+   *  `commitAndImport()`. Removes the row from both `unmatchedRows` and `possibleItems` defensively —
+   *  in practice it's only ever in one of the two by the time this is called, mirroring
+   *  `resolvePossibleMatch`/`dismissPossibleAsNew`'s own filter predicates. */
+  const linkAsCrossAccountTransfer = useCallback(
+    (statementRow: ParsedStatementRow, candidate: Expense) => {
+      const converted = convertCandidateToTransfer(candidate, accountId, Date.now());
+      // `alreadyConverted: true` (found + fixed 2026-08-09 — see `MatchedItem`'s own doc comment): without
+      // it, this conversion silently never reaches the database at all whenever the candidate's own
+      // date/amount already agree with the statement row (the common case — that's exactly why it matched
+      // in the first place), since `reconcileMatchedExpense()` has no way to see the type/account change.
+      setMatchedPairs((prev) => [...prev, { statementRow, expense: converted, alreadyConverted: true }]);
+      setUnmatchedRows((prev) => prev.filter((r) => r.rowIndex !== statementRow.rowIndex));
+      setPossibleItems((prev) => prev.filter((p) => p.statementRow.rowIndex !== statementRow.rowIndex));
+    },
+    [accountId]
+  );
 
   /** Bucket 3 (Not yet logged) bulk-categorize — one shared category/description/tags applied to
    *  every checked occurrence in a merchant group; each keeps its own date/amount AND its own
@@ -539,10 +826,17 @@ export function useBankImport(accountId: string) {
   const [commitResult, setCommitResult] = useState<{
     newCount: number;
     linkedCount: number;
+    /** Confirmed matches against an existing transaction (auto or user-resolved) — distinct from
+     *  `linkedCount`, which also counts every brand-new row's own provenance record. */
+    matchedCount: number;
     deletedCount: number;
     failedCount: number;
+    /** §11a — rows the file contained that never became a confirmed match or a staged new
+     *  transaction. */
+    skippedCount: number;
+    /** Total rows the file actually contained, for the "N found, M handled, K skipped" line. */
+    totalRows: number;
   } | null>(null);
-  const [balanceNudge, setBalanceNudge] = useState<{ computed: number; statementClosing: number } | null>(null);
 
   /** The single final write (§10b) — everything staged during review, all at once. Each row is its
    *  own try/catch (mirroring `core/import/importWriter.ts`'s `writeImportBatch`) so one bad row can't
@@ -645,17 +939,79 @@ export function useBankImport(accountId: string) {
       return person;
     }
 
+    // Checkpoint attachment (docs/plans/bank-balance-sync.md §5/§7) — scoped to `bank`-type accounts
+    // only (plan §3/§16, Finding 2: credit cards are explicitly out of scope for the whole checkpoint
+    // mechanism, an explicit gate here rather than something assumed to fall out naturally). Date/
+    // amount correction on a matched pair (§8) is NOT gated by account type — it's a general
+    // match-quality fix, independent of the balance-sync guarantee itself.
+    const attachesCheckpoints = !!confirmedMapping?.balance && account?.type === 'bank';
+
+    // Intra-day sequencing (docs/plans/bank-balance-sync.md §3 decision #6, §7 Stage 5, §9) —
+    // piggybacks on this same checkpoint-attaching commit pass, same account-type/balance-column gate
+    // as `attachesCheckpoints` above (a `reconciledSeq` with no checkpoint to order is pointless).
+    // Computed once, per calendar day this import's own rows touch, BEFORE either write loop runs
+    // below, since both loops need to know the resulting `expenseId -> reconciledSeq` for their own
+    // rows. Also doubles as the "re-check forward" hook (§9's own wording): a day left unsequenced by
+    // an earlier import gets re-derived here too, the moment THIS import's own rows also touch it and
+    // happen to complete it — no separate mechanism needed, since this always re-derives from scratch
+    // rather than trusting any previously-stored value.
+    const reconciledSeqByExpenseId = new Map<string, number>();
+    if (attachesCheckpoints) {
+      const resolvedThisImport: DayResolution[] = [
+        ...matchedPairs.map((pair) => ({ statementRow: pair.statementRow, expenseId: pair.expense.id })),
+        ...stagedNewTxns.map((staged) => ({ statementRow: staged.statementRow, expenseId: staged.expense.id }))
+      ];
+      const resolvedIds = new Set(resolvedThisImport.map((r) => r.expenseId));
+      const otherUnexplainedByDay = countOtherUnexplainedByDay(accountId, allExpenses, resolvedIds, loneWolfDeletions);
+      for (const [dayKey, entries] of groupResolutionsByDay(resolvedThisImport)) {
+        const { fullyExplained, sequenceByExpenseId } = computeDaySequence(
+          entries,
+          otherUnexplainedByDay.get(dayKey) ?? 0
+        );
+        if (fullyExplained) {
+          for (const [id, seq] of sequenceByExpenseId) reconciledSeqByExpenseId.set(id, seq);
+        }
+      }
+    }
+
     // Every possible-match item the user resolved is already a `MatchedItem` by this point
     // (`resolvePossibleMatch` moves it there directly, see `readyCount`'s comment above) — so this one
     // loop covers both the matcher's own confident auto-pairs AND every user-resolved possible match.
     for (const pair of matchedPairs) {
+      const reconciled = reconcileMatchedExpense(pair.expense, pair.statementRow, attachesCheckpoints, now, accountId);
+      const seq = reconciledSeqByExpenseId.get(pair.expense.id);
+      // `reconcileMatchedExpense` only ever compares `pair.expense` against the STATEMENT ROW's own
+      // date/amount/balance — it has no way to see a type/account-field conversion already baked into
+      // `pair.expense` in memory (`convertMatchedPairToTransfer`/`linkAsCrossAccountTransfer`), since
+      // those never touch date/amount/checkpoint. Without `pair.alreadyConverted` forcing a write here,
+      // that conversion would silently never reach the database whenever date/amount/checkpoint happen to
+      // already agree — the common case, since a matched pair's date/amount already agreed by definition
+      // (found + fixed 2026-08-09, see `MatchedItem`'s own doc comment).
+      const converted = pair.alreadyConverted ? { ...pair.expense, updatedAt: now } : undefined;
+      const base = reconciled ?? converted;
+      // A freshly (re-)derived `reconciledSeq` still needs writing even when nothing else about the
+      // matched pair changed, so this can't just piggyback on `base`'s own truthiness.
+      const toWrite: Expense | undefined =
+        seq !== undefined && (base ?? pair.expense).reconciledSeq !== seq
+          ? { ...(base ?? pair.expense), reconciledSeq: seq, updatedAt: now }
+          : base;
+      if (toWrite) {
+        try {
+          await expensesRepo.put(toWrite);
+        } catch {
+          failedCount++;
+        }
+      }
       await linkRecord(pair.statementRow, pair.expense.id, pair.expense.type ?? 'expense');
     }
     for (const staged of stagedNewTxns) {
       try {
-        await expensesRepo.put(staged.expense);
-        createdExpenseIds.push(staged.expense.id);
-        await linkRecord(staged.statementRow, staged.expense.id, staged.expense.type ?? 'expense');
+        let expenseToSave = attachCheckpoint(staged.expense, staged.statementRow, attachesCheckpoints, accountId);
+        const seq = reconciledSeqByExpenseId.get(staged.expense.id);
+        if (seq !== undefined) expenseToSave = { ...expenseToSave, reconciledSeq: seq };
+        await expensesRepo.put(expenseToSave);
+        createdExpenseIds.push(expenseToSave.id);
+        await linkRecord(staged.statementRow, expenseToSave.id, expenseToSave.type ?? 'expense');
         for (const tag of staged.expense.hashtags ?? []) {
           await ensureHashtag(tag, staged.newTagSetAside?.[tag] ?? false);
         }
@@ -687,6 +1043,65 @@ export function useBankImport(accountId: string) {
       }
     }
 
+    // Covered-range tracking (docs/plans/bank-balance-sync.md §5/§11a/§11b, plan §7 Stage 2) — one
+    // `ImportBatchSummary` per completed batch, appended to `Account.coveredStatementRanges`. Built for
+    // every statement-importable account type (bank AND credit_card — the mockup's own "batch-level
+    // facts, not checkpoint facts" distinction, docs/mockups/proposals/bank-balance-sync-v2.html §1);
+    // only checkpoint attachment itself (`statementBalance`) stays gated to `bank`, above. Skipped rows
+    // are whatever's still sitting in `possibleItems`/`unmatchedRows` at commit time — every row the
+    // file actually contained that never became a confirmed match or a staged new transaction (§11a: a
+    // durable, visible record of what was skipped, not silence).
+    const totalRows = parseResult?.rows.length ?? 0;
+    const skippedCount = countSkippedRows(totalRows, matchedPairs.length, stagedNewTxns.length);
+    if (account && parseResult && totalRows > 0) {
+      const dates = parseResult.rows.map((r) => r.date);
+      const skippedRows = [...possibleItems.map((p) => p.statementRow), ...unmatchedRows].map((r) => ({
+        rawNarration: r.rawNarration,
+        date: r.date,
+        amount: r.amount
+      }));
+      const batchSummary: ImportBatchSummary = {
+        batchId,
+        start: Math.min(...dates),
+        end: Math.max(...dates),
+        importedAt: now,
+        fileName,
+        matchedCount: matchedPairs.length,
+        addedCount: stagedNewTxns.length,
+        skippedCount,
+        skippedRows
+      };
+      // Opening-balance confirm / anchor-shift write (docs/plans/bank-balance-sync.md §3 decision
+      // #10/§10a/§14, §7 Stage 3, redesigned 2026-08-09) — staged by
+      // `confirmOpeningBalanceAndProceed`/`acceptAnchorShift`/`flagAnchorDisagreement`/
+      // `deferAnchorDecision` on the Setup screen, applied here alongside the batch's own
+      // `coveredStatementRanges` write, same "nothing written until commit" invariant as everything else
+      // in this function. There is no more `'move'`/`'pin'` distinction (see `PendingOpeningBalanceUpdate`'s
+      // own doc comment, `./types.ts`) — every branch always writes both fields; `reference` is only
+      // present for the two §14b choices that leave a disagreement worth remembering. Explicitly clears
+      // any STALE prior `anchorReference` when this fresh decision carries none (an "Accept"/first-import
+      // confirm made after an earlier flagged disagreement must not leave that old flag behind silently).
+      const openingBalanceFields: Partial<Account> = pendingOpeningBalanceUpdate
+        ? {
+            openingBalance: pendingOpeningBalanceUpdate.openingBalance,
+            openingBalanceAsOfDate: pendingOpeningBalanceUpdate.openingBalanceAsOfDate,
+            ...(pendingOpeningBalanceUpdate.reference
+              ? { anchorReference: pendingOpeningBalanceUpdate.reference }
+              : { anchorReference: undefined })
+          }
+        : {};
+      try {
+        await accountsRepo.put({
+          ...account,
+          coveredStatementRanges: [...(account.coveredStatementRanges ?? []), batchSummary],
+          ...openingBalanceFields,
+          updatedAt: now
+        });
+      } catch {
+        failedCount++;
+      }
+    }
+
     if (createdExpenseIds.length > 0 || linkedCount > 0) {
       // Awaited (not the usual fire-and-forget logActivity()) — matches importWriter.ts's
       // writeImportBatch(): the Timeline screen's durable "Undo" action (added 2026-08-06) can be
@@ -703,30 +1118,43 @@ export function useBankImport(accountId: string) {
       notifyTxnChanged();
     }
 
-    // Post-import balance-mismatch nudge (§11) — only if the mapped statement had its own Balance
-    // column, purely a confidence check, never auto-corrects anything.
-    let nudge: { computed: number; statementClosing: number } | null = null;
-    if (account && confirmedMapping?.balance && parseResult) {
-      const closing = findClosingBalance(parseResult.rows);
-      if (closing !== undefined) {
-        const freshExpenses = await expensesRepo.getAll();
-        const forAccount = freshExpenses.filter((e) => e.accountId === accountId || e.toAccountId === accountId);
-        const check = checkBalanceAgainstStatement(account, forAccount, closing);
-        if (!check.matches) nudge = { computed: check.computed, statementClosing: check.statementClosing };
-      }
-    }
+    // `bankStatementImportsRepo` was just written to above (`linkRecord`, once per matched/staged row)
+    // — every OTHER already-mounted `useRepository(bankStatementImportsRepo)` consumer (chiefly
+    // `useAccountVerification.ts`, which underlies the persistent "unverified account" badge on the
+    // Accounts screen this import's own Accounts-stack ancestor never unmounts) needs telling, the same
+    // way `notifyTxnChanged()`/`notifyAccountsChanged()` already do for their own repos. Missing this
+    // was a real bug found via on-device testing 2026-08-09: the badge's standing-gap sweep ran against
+    // a stale, pre-commit (often empty) `importRecords` array, so every transaction this exact import
+    // had just linked looked unlinked to it and got flagged as a 100%-of-batch "standing gap".
+    if (linkedCount > 0) notifyBankImportsChanged();
 
     setCommitResult({
       newCount: createdExpenseIds.length,
       linkedCount,
+      matchedCount: matchedPairs.length,
       deletedCount: loneWolfDeletions.size,
-      failedCount
+      failedCount,
+      skippedCount,
+      totalRows
     });
-    setBalanceNudge(nudge);
     setCommitted(true);
     setCommitting(false);
     setStep('done');
-  }, [accountId, overrides, stagedNewTxns, matchedPairs, loneWolfDeletions, account, confirmedMapping, parseResult]);
+  }, [
+    accountId,
+    overrides,
+    stagedNewTxns,
+    matchedPairs,
+    loneWolfDeletions,
+    account,
+    confirmedMapping,
+    parseResult,
+    possibleItems,
+    unmatchedRows,
+    fileName,
+    pendingOpeningBalanceUpdate,
+    allExpenses
+  ]);
 
   return {
     step,
@@ -735,7 +1163,9 @@ export function useBankImport(accountId: string) {
     accounts,
     cashAccounts,
     suggestCashTransferFor,
+    suggestRetroactiveCashTransferFor,
     suggestPossibleTransferFor,
+    suggestAmbiguousTransferCandidatesFor,
     txnCountByCategory,
     categories,
     hashtags,
@@ -770,6 +1200,21 @@ export function useBankImport(accountId: string) {
     dateFormat,
     dateFormatConfident,
     setDateFormat,
+    coverageGap,
+
+    // opening-balance confirm / anchor-shift (plan §7 Stage 3)
+    openingBalanceTrigger,
+    openingBalanceSuggestion,
+    openingBalanceOverrideText,
+    setOpeningBalanceOverrideText,
+    effectiveOpeningBalance,
+    effectiveAsOfDate,
+    anchorShiftCheck,
+    pendingOpeningBalanceUpdate,
+    confirmOpeningBalanceAndProceed,
+    acceptAnchorShift,
+    flagAnchorDisagreement,
+    deferAnchorDecision,
 
     // review
     parseResult,
@@ -783,8 +1228,10 @@ export function useBankImport(accountId: string) {
     loneWolfDeletions,
     readyCount,
     reassignMatchedPair,
+    convertMatchedPairToTransfer,
     resolvePossibleMatch,
     dismissPossibleAsNew,
+    linkAsCrossAccountTransfer,
     resolveMerchantGroup,
     stageNewTxnFromForm,
     markLoneWolfForDeletion,
@@ -796,7 +1243,6 @@ export function useBankImport(accountId: string) {
     committing,
     committed,
     commitResult,
-    balanceNudge,
     commitAndImport
   };
 }

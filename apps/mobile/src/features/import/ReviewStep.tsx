@@ -50,6 +50,11 @@ interface ReviewStepProps {
   transferPairs: DisplayTransferPair[];
   accountsResolved: boolean;
   confirmedAccountCount: number;
+  /** True once every source category resolved as a transfer has a destination account picked
+   *  (2026-08-09 fix) — gates the Import button the same way `accountsResolved` does, since an
+   *  incomplete transfer would otherwise silently write with no `toAccountId`. See `useImport.ts`'s
+   *  doc comment. */
+  transfersResolved: boolean;
   categoriesDecidedCount: number;
   touchedCategorySources: Set<string>;
   categoryTags: Map<string, string>;
@@ -99,6 +104,7 @@ export function ReviewStep({
   transferPairs,
   accountsResolved,
   confirmedAccountCount,
+  transfersResolved,
   categoriesDecidedCount,
   touchedCategorySources,
   categoryTags,
@@ -125,6 +131,12 @@ export function ReviewStep({
   }
 
   const sourceAccountCount = accountResolutions.length;
+  /** The account this import is targeting, for `CategoryTile`'s "Transfer to account" picker to exclude
+   *  (2026-08-09 fix) — only meaningful for a whole-file `noAccountColumn` import, which always debits
+   *  exactly one account; a per-row multi-account CSV has no single universal target to exclude here
+   *  (a given tile's own rows could legitimately span several source accounts), so nothing is filtered
+   *  in that case — see `PreviewSection.tsx`'s doc comment. */
+  const excludeAccountId = noAccountColumn ? (singleAccountId ?? undefined) : undefined;
   const progressPct =
     (accountsResolved ? 50 : 0) +
     (categoryResolutions.length === 0 ? 0 : (categoriesDecidedCount / categoryResolutions.length) * 50);
@@ -246,6 +258,8 @@ export function ReviewStep({
                 parsedRows={parsedRows}
                 rowTriage={rowTriage}
                 categories={categories}
+                accounts={accounts}
+                excludeAccountId={excludeAccountId}
                 txnCountByCategory={txnCountByCategory}
                 categoryTags={categoryTags}
                 rowOverrides={rowOverrides}
@@ -276,20 +290,27 @@ export function ReviewStep({
             Resolve the account above, or tap Preview to see rows first
           </Text>
         )}
+        {accountsResolved && !transfersResolved && (
+          <Text className="text-center text-[10.5px] text-tertiary" style={{ marginTop: -8 }}>
+            Pick a destination account for every category marked as a transfer
+          </Text>
+        )}
 
         <View className="flex-row gap-3">
           <Button
             variant="primary"
             className="flex-1"
             loading={importing}
-            disabled={!accountsResolved || importing || readyCount === 0}
+            disabled={!accountsResolved || !transfersResolved || importing || readyCount === 0}
             onPress={onImport}
           >
             {!accountsResolved
               ? 'Resolve accounts to continue'
-              : importing
-                ? 'Importing…'
-                : `Import ${actualTransactionCount} transaction${actualTransactionCount !== 1 ? 's' : ''}`}
+              : !transfersResolved
+                ? 'Pick every transfer destination to continue'
+                : importing
+                  ? 'Importing…'
+                  : `Import ${actualTransactionCount} transaction${actualTransactionCount !== 1 ? 's' : ''}`}
           </Button>
         </View>
       </ScrollView>

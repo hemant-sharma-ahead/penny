@@ -1,13 +1,35 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, Pressable, Text } from 'react-native';
-import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
+import { FlashList, type FlashListRef, type ListRenderItemInfo } from '@shopify/flash-list';
 import { formatCurrency } from '@/lib/formatters';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { Icon } from '~/components/Icon';
 import type { Account, Expense, ExpenseCategory, Hashtag } from '@/core/db/types';
 import { isHiddenInSafeMode, isTagHiddenInSafeMode } from '@/core/expenses/categoryGroups';
+import { Badge } from '~/components/ui/Badge';
 import { SwipeableRow, type SwipeAction } from './SwipeableRow';
 import { tint } from '~/lib/color';
+
+/** Stage 4's drill-in mark for one row (docs/plans/bank-balance-sync.md §7 Stage 4, mockup
+ *  `bank-balance-sync-v2.html` Frame 3) — `'agree'` = the last-agreeing checkpoint, `'flag'` = the
+ *  first-disagreeing checkpoint, `'still'` = a later checkpoint still unexplained by the same gap,
+ *  `'gap'` = a standing-coverage-gap finding's own flagged transaction (`coverage.ts`'s
+ *  `findStandingCoverageGaps`, surfaced via `accountVerification.ts`) — conceptually distinct from
+ *  `'flag'`/`'still'`, which are checkpoint-mismatch-only terms ("first/still disagreeing checkpoint");
+ *  a standing gap has no "first disagreeing" concept, every flagged transaction is an equal member of
+ *  the same finding (bug found via on-device testing 2026-08-09, every flagged row wrongly said "First
+ *  disagreeing"). */
+export type CheckpointRowMark = 'agree' | 'flag' | 'still' | 'gap';
+
+export interface CheckpointHighlight {
+  marks: Map<string, CheckpointRowMark>;
+  /** Renders a small "₹N gap" divider immediately above this transaction's row. */
+  dividerBeforeId?: string;
+  dividerLabel?: string;
+  /** Auto-scrolls to this transaction once, on mount — the "scrolled to the flagged window" arrival
+   *  state (Frame 3's own "arrival state" tag). */
+  scrollToId?: string;
+}
 
 interface TransactionsTabProps {
   /** True only during the initial decrypt-on-load (see `useExpenses.ts`) — distinguishes "still loading"
@@ -37,6 +59,8 @@ interface TransactionsTabProps {
    *  treatment as the other three above; tapping the row opens the edit form, where the same mismatch
    *  is explained (and fixable) via a `Banner`. */
   paymentModeMismatchTxnIds?: Set<string>;
+  /** Stage 4's checkpoint-diff drill-in — see {@link CheckpointHighlight}. Omitted everywhere else. */
+  checkpointHighlight?: CheckpointHighlight;
 }
 
 interface Row {
@@ -47,6 +71,8 @@ interface Row {
    *  rail above this row, instead of a separate full-width header row (2026-08-02: keeps the "date shown
    *  once per day" grouping while costing one small text line instead of a whole extra row's height). */
   dateLabel?: string;
+  checkpointMark?: CheckpointRowMark;
+  checkpointDividerLabel?: string;
 }
 
 interface RowProps {
@@ -61,6 +87,8 @@ interface RowProps {
   onShare?: ((expense: Expense) => void) | undefined;
   selectMode: boolean;
   isSelected: boolean;
+  checkpointMark?: CheckpointRowMark;
+  checkpointDividerLabel?: string;
   onToggleSelect?: (id: string) => void;
   isLastRowOverall: boolean;
   isGoalLinked: boolean;
@@ -97,7 +125,9 @@ const TransactionRow = memo(function TransactionRow({
   isLastRowOverall,
   isGoalLinked,
   isPaymentModeMismatch,
-  dateLabel
+  dateLabel,
+  checkpointMark,
+  checkpointDividerLabel
 }: RowProps) {
   const theme = useThemeColors();
   const txnType = txn.type ?? 'expense';
@@ -163,6 +193,29 @@ const TransactionRow = memo(function TransactionRow({
             </Text>
           ))}
         </View>
+        {/* Stage 4 checkpoint-diff drill-in (docs/plans/bank-balance-sync.md §7 Stage 4, mockup
+            `bank-balance-sync-v2.html` Frame 3) — the exact last-agreeing/first-disagreeing pair the
+            diagnostic engine flagged, plus any later still-unexplained checkpoint on the same account. */}
+        {checkpointMark && (
+          <View className="mt-1">
+            <Badge
+              label={
+                checkpointMark === 'agree'
+                  ? 'Last agreeing'
+                  : checkpointMark === 'flag'
+                    ? 'First disagreeing'
+                    : checkpointMark === 'gap'
+                      ? 'No matching statement line'
+                      : 'Still unexplained'
+              }
+              icon={checkpointMark === 'agree' ? 'ti-check' : 'ti-alert-triangle'}
+              color={checkpointMark === 'agree' ? theme.success : theme.danger}
+              variant={checkpointMark === 'flag' || checkpointMark === 'gap' ? 'solid' : 'subtle'}
+              size="sm"
+              rounded="md"
+            />
+          </View>
+        )}
       </View>
       <View className="items-end ml-2 shrink-0">
         <Text className="text-sm font-bold" style={{ color: masked ? theme.textPrimary : amountColor }}>
@@ -218,8 +271,28 @@ const TransactionRow = memo(function TransactionRow({
     ...(onDelete ? [{ icon: 'ti-trash', label: 'Delete', color: theme.danger, onPress: () => onDelete(txn.id) }] : [])
   ];
 
+  // Stage 4's search-window divider (mockup Frame 3's dashed "₹120 gap" separator) — a small full-width
+  // callout inserted immediately above the first-disagreeing row, regardless of `dateLabel`/day grouping.
+  const dividerRow = checkpointDividerLabel && (
+    <View className="flex-row items-center gap-2 px-4 py-1.5">
+      <View className="flex-1 h-px" style={{ backgroundColor: tint(theme.danger, 40) }} />
+      <Text className="text-[9px] font-extrabold uppercase tracking-wide" style={{ color: theme.danger }}>
+        {checkpointDividerLabel}
+      </Text>
+      <View className="flex-1 h-px" style={{ backgroundColor: tint(theme.danger, 40) }} />
+    </View>
+  );
+
+  const checkpointRowTint =
+    checkpointMark === 'flag' || checkpointMark === 'gap'
+      ? tint(theme.danger, 9)
+      : checkpointMark === 'still'
+        ? tint(theme.danger, 4)
+        : undefined;
+
   const rowInner = (
     <View>
+      {dividerRow}
       {/* Date label — set only on the first transaction of a new day. Sits in normal flow, right on
           the rail's own horizontal position, above the row it belongs to (never a negative-offset
           overlay, which a virtualized list would risk clipping against the previous cell's bounds). */}
@@ -230,7 +303,13 @@ const TransactionRow = memo(function TransactionRow({
       )}
       <View
         className="relative w-full flex-row items-center gap-3 pl-12 pr-4 py-3"
-        style={isShared ? { backgroundColor: tint(theme.primary, 6) } : undefined}
+        style={
+          checkpointRowTint
+            ? { backgroundColor: checkpointRowTint }
+            : isShared
+              ? { backgroundColor: tint(theme.primary, 6) }
+              : undefined
+        }
       >
         {/* Rail + icon, truly centered on the row regardless of its actual rendered height (which now
             varies — the account line under the amount makes some rows taller than others). A flex
@@ -302,9 +381,11 @@ export function TransactionsTab({
   selectedIds,
   onToggleSelect,
   goalLinkedTxnIds,
-  paymentModeMismatchTxnIds
+  paymentModeMismatchTxnIds,
+  checkpointHighlight
 }: TransactionsTabProps) {
   const theme = useThemeColors();
+  const listRef = useRef<FlashListRef<Row> | null>(null);
 
   // Skeleton rows instead of silently reusing the empty state — while `expensesRepo.getAll()` is still
   // decrypting, `grouped` is indistinguishable from "genuinely no transactions" (both are `[]`), so
@@ -320,11 +401,33 @@ export function TransactionsTab({
     grouped.forEach((g, gi) => {
       g.items.forEach((txn, ti) => {
         const isLastRowOverall = gi === grouped.length - 1 && ti === g.items.length - 1;
-        out.push({ key: txn.id, txn, isLastRowOverall, ...(ti === 0 ? { dateLabel: g.label } : {}) });
+        out.push({
+          key: txn.id,
+          txn,
+          isLastRowOverall,
+          ...(ti === 0 ? { dateLabel: g.label } : {}),
+          ...(checkpointHighlight?.marks.has(txn.id) ? { checkpointMark: checkpointHighlight.marks.get(txn.id) } : {}),
+          ...(checkpointHighlight?.dividerBeforeId === txn.id
+            ? { checkpointDividerLabel: checkpointHighlight.dividerLabel }
+            : {})
+        });
       });
     });
     return out;
-  }, [grouped]);
+  }, [grouped, checkpointHighlight]);
+
+  // Stage 4's "arrival state" (mockup Frame 3) — scroll to the flagged window once, on mount/whenever
+  // the target changes (e.g. a different account's modal reopens re-using the same mounted list).
+  useEffect(() => {
+    if (!checkpointHighlight?.scrollToId) return;
+    const target = rows.find((r) => r.key === checkpointHighlight.scrollToId);
+    if (!target) return;
+    listRef.current?.scrollToItem({ item: target, animated: false, viewPosition: 0.15 });
+    // Deliberately omits `rows` from the deps below — only re-run when the target id itself changes,
+    // not on every `rows` identity change (the list re-renders far more often than the highlight target
+    // does, and re-scrolling on every render would fight the user's own scrolling).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkpointHighlight?.scrollToId]);
 
   const keyExtractor = useCallback((row: Row) => row.key, []);
 
@@ -347,6 +450,8 @@ export function TransactionsTab({
         isGoalLinked={goalLinkedTxnIds?.has(item.txn.id) ?? false}
         isPaymentModeMismatch={paymentModeMismatchTxnIds?.has(item.txn.id) ?? false}
         dateLabel={item.dateLabel}
+        checkpointMark={item.checkpointMark}
+        checkpointDividerLabel={item.checkpointDividerLabel}
       />
     ),
     [
@@ -393,6 +498,7 @@ export function TransactionsTab({
 
   return (
     <FlashList
+      ref={listRef}
       style={{ flex: 1, backgroundColor: theme.surfaceTertiary }}
       // The list's own background uses the same fixed `theme.surfaceTertiary` the row cards use (see
       // `SwipeableRow.tsx`'s `bg-surface-3`) — not the privacy-mode-tinted `modeBg` this used to be.

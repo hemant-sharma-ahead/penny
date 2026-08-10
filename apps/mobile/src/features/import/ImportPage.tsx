@@ -84,6 +84,7 @@ export function ImportPage() {
           transferPairs={imp.transferPairs}
           accountsResolved={imp.accountsResolved}
           confirmedAccountCount={imp.confirmedAccountCount}
+          transfersResolved={imp.transfersResolved}
           categoriesDecidedCount={imp.categoriesDecidedCount}
           touchedCategorySources={imp.touchedCategorySources}
           categoryTags={imp.categoryTags}

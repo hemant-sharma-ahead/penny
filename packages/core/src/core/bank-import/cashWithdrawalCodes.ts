@@ -1,3 +1,4 @@
+import type { Expense } from '@/core/db/types';
 import type { BankPresetId } from './types';
 
 export interface CashWithdrawalCodeSeed {
@@ -144,4 +145,39 @@ export function suggestCashTransfer(
     suggestedType: 'transfer',
     ...(cashAccounts.length === 1 && cashAccounts[0] ? { toAccountId: cashAccounts[0].id } : {})
   };
+}
+
+/**
+ * Retroactive sibling to `suggestCashTransfer` above (docs/plans/bank-balance-sync.md §3 decision #2,
+ * §17 Finding 1, §7 Stage 7) — for a statement row that *matched an already-existing plain `Expense`*
+ * rather than building a brand-new one. The narration-matching logic is identical (delegates straight
+ * to `suggestCashTransfer`, no separate detection rule); the only addition is the one guard that's
+ * meaningless for a brand-new row but essential here: never re-suggest a conversion for an expense
+ * that's already a `'transfer'` (nothing to retroactively fix — this is the exact "matched row that
+ * already resolved to an existing type: 'transfer' expense" regression case). Returns `null` either
+ * way there's nothing to suggest — same "no guess, just evidence" contract as `suggestCashTransfer`.
+ */
+export function suggestRetroactiveCashTransfer(
+  matchedExpense: Pick<Expense, 'type'>,
+  rawNarration: string,
+  bankId: BankPresetId | 'any',
+  codes: { bankId: string; code: string }[],
+  cashAccounts: { id: string }[]
+): CashTransferSuggestion | null {
+  if (matchedExpense.type === 'transfer') return null;
+  return suggestCashTransfer(rawNarration, bankId, codes, cashAccounts);
+}
+
+/**
+ * Applies an accepted cash-transfer suggestion to an already-existing `Expense` (the retroactive path,
+ * §17 Finding 1) — mirrors exactly what accepting the identical suggestion already does for a
+ * brand-new row (`suggestedType`/`toAccountId` pre-filled straight into the new transaction at
+ * creation time, see `PossibleBucket.tsx`/`UnmatchedBucket.tsx`'s `addingNew`/transfer-branch
+ * handling): the expense's own `type` becomes `'transfer'` and `toAccountId` becomes the chosen cash
+ * account. Deliberately touches nothing else (`description`/`categoryId`/etc. stay exactly as the user
+ * already recorded them) — unlike a brand-new row, this expense already has real, user-entered content
+ * worth preserving; only the mis-typed direction is being corrected.
+ */
+export function applyCashTransferConversion(expense: Expense, toAccountId: string, now: number): Expense {
+  return { ...expense, type: 'transfer', toAccountId, updatedAt: now };
 }

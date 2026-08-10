@@ -7,6 +7,7 @@ const CATEGORIES_CHANGED_EVENT = 'penny:categories-changed';
 const ACCOUNTS_CHANGED_EVENT = 'penny:accounts-changed';
 const TAGS_CHANGED_EVENT = 'penny:tags-changed';
 const GOALS_CHANGED_EVENT = 'penny:goals-changed';
+const BANK_IMPORTS_CHANGED_EVENT = 'penny:bank-imports-changed';
 
 export function notifyCategoriesChanged(): void {
   window.dispatchEvent(new Event(CATEGORIES_CHANGED_EVENT));
@@ -25,6 +26,15 @@ export function notifyTagsChanged(): void {
  *  (`SuggestedGoals.tsx`, `FinancialHealthCard.tsx`'s "Set as goal" action). */
 export function notifyGoalsChanged(): void {
   window.dispatchEvent(new Event(GOALS_CHANGED_EVENT));
+}
+
+/** Same pattern, for `bankStatementImportsRepo` writes (`useBankImport.ts`'s `commitAndImport`) — needed
+ *  by `useAccountVerification.ts`'s own separately-mounted `useRepository(bankStatementImportsRepo)`,
+ *  which otherwise never learns a commit just wrote new provenance records and keeps sweeping against a
+ *  stale (often empty) snapshot. Found via on-device testing 2026-08-09: every transaction an import had
+ *  just linked looked unlinked to the standing-gap sweep and got flagged as a false-positive "gap". */
+export function notifyBankImportsChanged(): void {
+  window.dispatchEvent(new Event(BANK_IMPORTS_CHANGED_EVENT));
 }
 
 /** Pass a STABLE callback (useCallback). */
@@ -56,5 +66,13 @@ export function useGoalsRefresh(reload: () => void): void {
   useEffect(() => {
     window.addEventListener(GOALS_CHANGED_EVENT, reload);
     return () => window.removeEventListener(GOALS_CHANGED_EVENT, reload);
+  }, [reload]);
+}
+
+/** Pass a STABLE callback (useCallback). */
+export function useBankImportsRefresh(reload: () => void): void {
+  useEffect(() => {
+    window.addEventListener(BANK_IMPORTS_CHANGED_EVENT, reload);
+    return () => window.removeEventListener(BANK_IMPORTS_CHANGED_EVENT, reload);
   }, [reload]);
 }

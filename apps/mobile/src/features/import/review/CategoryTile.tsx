@@ -5,7 +5,7 @@ import { Icon } from '~/components/Icon';
 import { tint } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { formatCurrency } from '@/lib/formatters';
-import type { ExpenseCategory } from '@/core/db/types';
+import type { Account, ExpenseCategory } from '@/core/db/types';
 import type { ParsedRow } from '@/core/import/importParsers';
 import type { RowOverride } from '@/core/import/importPipeline';
 import {
@@ -51,6 +51,10 @@ interface CategoryTileProps {
    *  `PreviewSection.tsx`'s doc comment on `rowsByCategory`. */
   rows: { row: ParsedRow; index: number }[];
   categories: ExpenseCategory[];
+  /** Real accounts eligible as this tile's transfer destination (2026-08-09 fix) — already excludes
+   *  this import's own target account; see `PreviewSection.tsx`'s doc comment. Only read when
+   *  `resolution.suggestion.kind === 'transfer'`. */
+  transferAccountOptions: Account[];
   /** Per-category existing-transaction counts, forwarded to `CategoryPickerModal`'s own
    *  `txnCountByCategory` prop for its "Frequent" quick-pick row. See `useImport.ts`'s doc comment. */
   txnCountByCategory: Map<string, number>;
@@ -91,6 +95,7 @@ export function CategoryTile({
   status,
   rows,
   categories,
+  transferAccountOptions,
   txnCountByCategory,
   groupOptions,
   tag,
@@ -168,10 +173,16 @@ export function CategoryTile({
       setShowCategoryPicker(true);
     } else if (kind === 'transfer') {
       const first = transferOptions[0];
+      // Preserve an already-picked destination account if the user is re-selecting 'transfer' after
+      // having briefly switched away from it (e.g. tried 'skip' then changed their mind); otherwise
+      // there's no confident guess for WHICH account, so it starts blank and the tile shows "Choose…"
+      // until one is explicitly picked (see `isCategoryResolutionDecided`).
+      const existingToAccountId = suggestion.kind === 'transfer' ? suggestion.toAccountId : '';
       onUpdate({
         kind: 'transfer',
         categoryId: first?.value ?? 'cat-tr-other',
-        categoryName: first?.label ?? 'Other Transfer'
+        categoryName: first?.label ?? 'Other Transfer',
+        toAccountId: existingToAccountId
       });
     } else if (kind === 'create') {
       // Preserve the current suggested group if we're already in 'create' state (the user may have
@@ -184,11 +195,16 @@ export function CategoryTile({
     }
   }
 
+  const transferToAccountName =
+    suggestion.kind === 'transfer'
+      ? (transferAccountOptions.find((a) => a.id === suggestion.toAccountId)?.name ?? '')
+      : '';
+
   const targetLabel: ReactNode =
     suggestion.kind === 'existing' ? (
       suggestion.categoryName
     ) : suggestion.kind === 'transfer' ? (
-      <Text style={{ color: theme.info }}>Transfer</Text>
+      <Text style={{ color: theme.info }}>Transfer{transferToAccountName ? ` → ${transferToAccountName}` : ''}</Text>
     ) : suggestion.kind === 'create' ? (
       <>
         {suggestion.suggestedName}{' '}
@@ -300,16 +316,53 @@ export function CategoryTile({
          *  (BorderLabelField) instead of a separate label row. Deliberately kept as normal fields, not
          *  pills — that treatment is reserved for the kind dropdown + tag box above. */}
         {suggestion.kind === 'transfer' && (
-          <BorderLabelField label="Transfer category">
-            <SelectInput
-              value={suggestion.categoryId}
-              onChange={(v) => {
-                const c = transferOptions.find((x) => x.value === v);
-                onUpdate({ kind: 'transfer', categoryId: v, categoryName: c?.label ?? v });
-              }}
-              options={transferOptions}
-            />
-          </BorderLabelField>
+          <View className="gap-1.5">
+            <View className="flex-row gap-2">
+              <View className="flex-1">
+                <BorderLabelField label="Transfer category">
+                  <SelectInput
+                    value={suggestion.categoryId}
+                    onChange={(v) => {
+                      const c = transferOptions.find((x) => x.value === v);
+                      onUpdate({
+                        kind: 'transfer',
+                        categoryId: v,
+                        categoryName: c?.label ?? v,
+                        toAccountId: suggestion.toAccountId
+                      });
+                    }}
+                    options={transferOptions}
+                  />
+                </BorderLabelField>
+              </View>
+              <View className="flex-1">
+                {/* Destination account this transfer credits (2026-08-09 fix) — see `CategoryAction`'s
+                 *  'transfer' variant doc comment for the real on-device bug this closes: this field
+                 *  used to not exist at all, so every "Mark as Transfer" row wrote with no `toAccountId`
+                 *  unless it happened to be auto-paired with a reciprocal row elsewhere in the same file. */}
+                <BorderLabelField label="Transfer to account">
+                  <SelectInput
+                    value={suggestion.toAccountId}
+                    onChange={(v) =>
+                      onUpdate({
+                        kind: 'transfer',
+                        categoryId: suggestion.categoryId,
+                        categoryName: suggestion.categoryName,
+                        toAccountId: v
+                      })
+                    }
+                    options={transferAccountOptions.map((a) => ({ value: a.id, label: a.name }))}
+                    placeholder="Choose…"
+                  />
+                </BorderLabelField>
+              </View>
+            </View>
+            {transferAccountOptions.length === 0 && (
+              <Text className="text-[10px] text-tertiary">
+                No other accounts yet — add one from Accounts, then come back to pick a destination.
+              </Text>
+            )}
+          </View>
         )}
         {suggestion.kind === 'create' && (
           <View className="flex-row gap-2">

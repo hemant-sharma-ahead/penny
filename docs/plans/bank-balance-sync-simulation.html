@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bank Balance Sync — Simulation (Cashew → MoneyView → Bank Statement)</title>
+<style>
+  :root {
+    --ink: #1a1d23; --sub: #5b6270; --line: #e3e6ea; --bg: #fafbfc;
+    --good: #0f8a3f; --good-bg: #e9f9ee;
+    --bad: #b3261e; --bad-bg: #fdecea;
+    --warn: #9a6700; --warn-bg: #fff6e0;
+    --accent: #2454ff; --accent-bg: #eef2ff;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); margin: 0; padding: 40px 24px 120px; line-height: 1.5; }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 26px; margin-bottom: 4px; }
+  .subtitle { color: var(--sub); font-size: 14px; margin-bottom: 36px; }
+  h2 { font-size: 19px; margin-top: 56px; margin-bottom: 8px; border-bottom: 2px solid var(--line); padding-bottom: 8px; }
+  h3 { font-size: 15px; margin-top: 28px; margin-bottom: 8px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.04em; }
+  p.lead { color: var(--sub); font-size: 14px; max-width: 760px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 20px; background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line); }
+  th { background: #f2f4f7; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--sub); }
+  tr:last-child td { border-bottom: none; }
+  td.amt, th.amt { text-align: right; font-variant-numeric: tabular-nums; }
+  .credit { color: var(--good); }
+  .debit { color: var(--bad); }
+  .missing-row { background: repeating-linear-gradient(45deg, #fdecea, #fdecea 6px, #fff 6px, #fff 12px); color: #9a3f3a; }
+  .missing-row td { font-style: italic; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 20px; letter-spacing: 0.02em; }
+  .tag.matched { background: var(--good-bg); color: var(--good); }
+  .tag.new { background: var(--accent-bg); color: var(--accent); }
+  .tag.warn { background: var(--warn-bg); color: var(--warn); }
+  .tag.bad { background: var(--bad-bg); color: var(--bad); }
+  .callout { border-radius: 10px; padding: 16px 18px; margin: 16px 0 28px; border: 1px solid; font-size: 14px; }
+  .callout.good { background: var(--good-bg); border-color: #b7e4c7; }
+  .callout.bad { background: var(--bad-bg); border-color: #f3c2bd; }
+  .callout.warn { background: var(--warn-bg); border-color: #f0dca0; }
+  .callout.info { background: var(--accent-bg); border-color: #c7d2fe; }
+  .callout strong.title { display: block; font-size: 13px; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 6px; }
+  .callout.good strong.title { color: var(--good); }
+  .callout.bad strong.title { color: var(--bad); }
+  .callout.warn strong.title { color: var(--warn); }
+  .callout.info strong.title { color: var(--accent); }
+  .balance-strip { display: flex; gap: 14px; margin: 16px 0 28px; flex-wrap: wrap; }
+  .balance-card { flex: 1; min-width: 200px; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .balance-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--sub); margin-bottom: 6px; }
+  .balance-card .value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .balance-card.diff-zero .value { color: var(--good); }
+  .balance-card.diff-nonzero .value { color: var(--bad); }
+  .source-pill { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+  .pill-cashew { background: #fdf0e6; color: #b8560a; }
+  .pill-moneyview { background: #eaf1fd; color: #1b5fd6; }
+  .pill-bank { background: #eefaf0; color: #17803d; }
+  code { background: #eef0f3; padding: 1px 6px; border-radius: 4px; font-size: 12.5px; }
+  .toc { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px; font-size: 13.5px; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc li { margin-bottom: 4px; }
+  .finding-num { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 12px; font-weight: 700; margin-right: 8px; }
+  table.ckpt td.diff-zero { color: var(--good); font-weight: 600; }
+  table.ckpt td.diff-nonzero { color: var(--bad); font-weight: 700; }
+  table.ckpt tr.flag-row td { border-left: 4px solid var(--bad); background: var(--bad-bg); }
+  table.ckpt tr.phantom td { background: repeating-linear-gradient(45deg, #f4f1fb, #f4f1fb 6px, #fff 6px, #fff 12px); font-style: italic; color: #6a5aa8; }
+  table.ckpt tr.new-row td { background: var(--accent-bg); }
+  .no-ckpt { color: #b6bac2; }
+  .scenario-label { display: inline-block; background: var(--ink); color: #fff; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 6px; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Bank Balance Sync — Walked-Through Simulation</h1>
+  <p class="subtitle">One HDFC savings account, two calendar months, three data sources, low transaction count, deliberate gaps. Not a UI mockup — a shared scratchpad for the balance-sync discussion.</p>
+
+  <div class="toc">
+    <strong>Contents</strong>
+    <ol>
+      <li><a href="#truth">The ground truth — real bank statement</a></li>
+      <li><a href="#before">What's in Penny before the bank statement is ever imported (Cashew + MoneyView)</a></li>
+      <li><a href="#import">Importing the real bank statement — row by row</a></li>
+      <li><a href="#after">Penny's balance after import — the happy path closes exactly</a></li>
+      <li><a href="#findings">Three failure modes hiding in this same data</a></li>
+      <li><a href="#questions">What this settles vs. what it still leaves open</a></li>
+      <li><a href="#checkpoints">Per-transaction closing balance — the sharper version of this idea, visualized</a></li>
+      <li><a href="#datefix">Does matching correct the transaction's date today? (it doesn't — proposed fix)</a></li>
+      <li><a href="#ordering">Preserving the statement's own order within a day</a></li>
+      <li><a href="#retro">Retrospective imports — backfilling history, and a real limitation</a></li>
+      <li><a href="#partial">Partial imports — two different meanings, two different fixes</a></li>
+      <li><a href="#lonewolf">"Extra" transactions the statement doesn't explain — don't cry wolf too early</a></li>
+      <li><a href="#transfers">Multiple accounts &amp; inter-account transfers, visualized</a></li>
+      <li><a href="#anchor">The opening-balance anchor can move backward — and can reveal it was wrong all along</a></li>
+      <li><a href="#reimport">Re-importing the same statement twice</a></li>
+      <li><a href="#others">Other scenarios considered</a></li>
+      <li><a href="#closed">Checkpointed transactions must stop being match candidates — a real bug this prevents</a></li>
+    </ol>
+  </div>
+
+  <h2 id="truth">1. The ground truth — real HDFC statement, 1 Apr – 31 May</h2>
+  <p class="lead">Opening balance on 1-Apr: <strong>₹50,000</strong> (assume this was already correct in Penny's <code>Account.openingBalance</code> for now — Section 5c breaks that assumption on purpose). This is the actual bank ledger — every row here really happened.</p>
+  <table>
+    <thead><tr><th>Date</th><th>Narration (real bank wording)</th><th class="amt">Amount</th><th class="amt">Running balance</th></tr></thead>
+    <tbody>
+      <tr><td>02-Apr</td><td>NEFT SALARY XYZ CORP</td><td class="amt credit">+80,000</td><td class="amt">130,000</td></tr>
+      <tr><td>05-Apr</td><td>ATW HDFC ATM MG ROAD</td><td class="amt debit">−5,000</td><td class="amt">125,000</td></tr>
+      <tr><td>10-Apr</td><td>POS SWIGGY BANGALORE</td><td class="amt debit">−850</td><td class="amt">124,150</td></tr>
+      <tr><td>15-Apr</td><td>UPI/RENT/LANDLORD</td><td class="amt debit">−15,000</td><td class="amt">109,150</td></tr>
+      <tr><td>20-Apr</td><td>SMS CHARGES</td><td class="amt debit">−150</td><td class="amt">109,000</td></tr>
+      <tr><td>25-Apr</td><td>UPI/BIGBASKET</td><td class="amt debit">−2,200</td><td class="amt">106,800</td></tr>
+      <tr><td>30-Apr</td><td>INT.PD</td><td class="amt credit">+120</td><td class="amt">106,920</td></tr>
+      <tr><td>03-May</td><td>NEFT SALARY XYZ CORP</td><td class="amt credit">+80,000</td><td class="amt">186,920</td></tr>
+      <tr><td>08-May</td><td>ATW HDFC ATM MG ROAD</td><td class="amt debit">−3,000</td><td class="amt">183,920</td></tr>
+      <tr><td>12-May</td><td>BBPS ELECTRICITY</td><td class="amt debit">−1,800</td><td class="amt">182,120</td></tr>
+      <tr><td>18-May</td><td>UPI/BIGBASKET</td><td class="amt debit">−2,500</td><td class="amt">179,620</td></tr>
+      <tr><td>22-May</td><td>REFUND AMAZON</td><td class="amt credit">+300</td><td class="amt">179,920</td></tr>
+      <tr><td>28-May</td><td>AMC CHARGES</td><td class="amt debit">−590</td><td class="amt">179,330</td></tr>
+    </tbody>
+  </table>
+  <div class="callout info">
+    <strong class="title">Note</strong>
+    4 of these 13 rows are the kind of thing nobody manually logs and no SMS gets sent for: <code>SMS CHARGES</code> (−150), <code>INT.PD</code> (+120), <code>REFUND AMAZON</code> (+300), <code>AMC CHARGES</code> (−590). Planted deliberately — these are exactly what's missing from both Cashew and MoneyView below.
+  </div>
+
+  <h2 id="before">2. What's already in Penny — Cashew (April) then MoneyView (May)</h2>
+  <p class="lead">Realistic switch-over: user tracked April by hand in Cashew, then moved to MoneyView (SMS auto-capture) for May. Both miss the same 4 "silent" rows above, for different reasons — Cashew because the user forgot, MoneyView because the bank never sent an SMS for them.</p>
+
+  <h3>2a. Cashew import — April (manual entry, no balance column at all)</h3>
+  <table>
+    <thead><tr><th>Date</th><th>Cashew's own wording</th><th class="amt">Amount</th><th>Recorded as</th></tr></thead>
+    <tbody>
+      <tr><td>02-Apr</td><td>Salary</td><td class="amt credit">+80,000</td><td>Income</td></tr>
+      <tr><td>05-Apr</td><td>Cash withdrawal</td><td class="amt debit">−5,000</td><td><span class="tag warn">Expense (category "Cash") — NOT a Transfer</span></td></tr>
+      <tr><td>10-Apr</td><td>Swiggy dinner</td><td class="amt debit">−850</td><td>Expense</td></tr>
+      <tr><td>15-Apr</td><td>Rent</td><td class="amt debit">−15,000</td><td>Expense</td></tr>
+      <tr><td>25-Apr</td><td>Groceries</td><td class="amt debit">−2,200</td><td>Expense</td></tr>
+      <tr class="missing-row"><td colspan="4">— SMS charges (−150) and month-end interest (+120) never entered —</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2b. MoneyView import — May (SMS auto-capture, has its own "balance" column)</h3>
+  <table>
+    <thead><tr><th>Date</th><th>MoneyView's own wording</th><th class="amt">Amount</th><th class="amt">MoneyView's self-reported balance</th></tr></thead>
+    <tbody>
+      <tr><td>03-May</td><td>IMPS/NEFT CR-XYZCORP-SALARY</td><td class="amt credit">+80,000</td><td class="amt">186,950</td></tr>
+      <tr><td>08-May</td><td>Cash Withdrawal - ATM</td><td class="amt debit">−3,000</td><td class="amt">183,950</td></tr>
+      <tr><td>12-May</td><td>BBPS Bill Payment - Electricity</td><td class="amt debit">−1,800</td><td class="amt">182,150</td></tr>
+      <tr><td>18-May</td><td>UPI-BIGBASKET-Groceries</td><td class="amt debit">−2,500</td><td class="amt">179,750</td></tr>
+      <tr class="missing-row"><td colspan="4">— cashback refund (+300) and AMC charges (−590) never captured (no SMS sent) —</td></tr>
+    </tbody>
+  </table>
+  <div class="callout bad">
+    <strong class="title">This is the unreliable-balance-column problem, concretely</strong>
+    Walk MoneyView's own numbers forward from its own April starting point (₹106,950, see below) using <em>only its own listed transactions</em>: 106,950 + 80,000 − 3,000 − 1,800 − 2,500 = <strong>179,650</strong>. But MoneyView's own UI reports <strong>179,750</strong> — a ₹100 disagreement with its own transaction list. That's the "not reliable" part: it isn't just stale relative to the real bank, its self-reported balance doesn't even reconcile against the rows it shows you. There's no way to trust a number like that even as a rough checkpoint.
+  </div>
+
+  <h3>2c. Penny's combined state right now (before any bank statement import)</h3>
+  <div class="balance-strip">
+    <div class="balance-card">
+      <div class="label">End of April (Cashew only)</div>
+      <div class="value">₹1,06,950</div>
+    </div>
+    <div class="balance-card">
+      <div class="label">End of May (+ MoneyView)</div>
+      <div class="value">₹1,79,650</div>
+    </div>
+    <div class="balance-card diff-nonzero">
+      <div class="label">Real bank balance, end of May</div>
+      <div class="value">₹1,79,330</div>
+    </div>
+  </div>
+  <p class="lead">Penny is currently <strong>₹320 too high</strong> — and has no way to know that, or why, without the real statement. (₹320 = the missing −150 and +120 in April netting to +30 too high, plus the missing +300 and −590 in May netting to +290 too high.)</p>
+
+  <h2 id="import">3. Importing the real bank statement, on top of that existing state</h2>
+  <p class="lead">Now the user imports the actual HDFC statement (Section 1) for the same 1-Apr–31-May range. <code>matcher.ts</code> runs date(±3d)+amount+narration-similarity against what's already recorded in this account. Row by row:</p>
+  <table>
+    <thead><tr><th>Real bank row</th><th class="amt">Amount</th><th>Matcher outcome</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>02-Apr NEFT SALARY XYZ CORP</td><td class="amt credit">+80,000</td><td><span class="tag matched">Matched</span></td><td>vs Cashew "Salary" — same date+amount, single candidate, wording irrelevant.</td></tr>
+      <tr><td>05-Apr ATW HDFC ATM</td><td class="amt debit">−5,000</td><td><span class="tag matched">Matched</span></td><td>vs Cashew "Cash withdrawal" — <strong>see Finding 1</strong> below.</td></tr>
+      <tr><td>10-Apr POS SWIGGY</td><td class="amt debit">−850</td><td><span class="tag matched">Matched</span></td><td>vs Cashew "Swiggy dinner".</td></tr>
+      <tr><td>15-Apr UPI/RENT</td><td class="amt debit">−15,000</td><td><span class="tag matched">Matched</span></td><td>vs Cashew "Rent".</td></tr>
+      <tr><td>20-Apr SMS CHARGES</td><td class="amt debit">−150</td><td><span class="tag new">New</span></td><td>No candidate existed at all — correctly recovered.</td></tr>
+      <tr><td>25-Apr UPI/BIGBASKET</td><td class="amt debit">−2,200</td><td><span class="tag matched">Matched</span></td><td>vs Cashew "Groceries".</td></tr>
+      <tr><td>30-Apr INT.PD</td><td class="amt credit">+120</td><td><span class="tag new">New</span></td><td>No candidate existed — correctly recovered.</td></tr>
+      <tr><td>03-May NEFT SALARY</td><td class="amt credit">+80,000</td><td><span class="tag matched">Matched</span></td><td>vs MoneyView's salary row.</td></tr>
+      <tr><td>08-May ATW HDFC ATM</td><td class="amt debit">−3,000</td><td><span class="tag matched">Matched</span></td><td>vs MoneyView "Cash Withdrawal - ATM" — <strong>Finding 1 again</strong>.</td></tr>
+      <tr><td>12-May BBPS ELECTRICITY</td><td class="amt debit">−1,800</td><td><span class="tag matched">Matched</span></td><td>vs MoneyView electricity row.</td></tr>
+      <tr><td>18-May UPI/BIGBASKET</td><td class="amt debit">−2,500</td><td><span class="tag matched">Matched</span></td><td>vs MoneyView groceries row.</td></tr>
+      <tr><td>22-May REFUND AMAZON</td><td class="amt credit">+300</td><td><span class="tag new">New</span></td><td>No candidate existed — correctly recovered.</td></tr>
+      <tr><td>28-May AMC CHARGES</td><td class="amt debit">−590</td><td><span class="tag new">New</span></td><td>No candidate existed — correctly recovered.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="after">4. Penny's balance after committing this import</h2>
+  <p class="lead">9 rows matched existing entries (no change to balance — they were already counted), 4 rows were genuinely new and get added: −150, +120, +300, −590 = net <strong>−320</strong>.</p>
+  <div class="balance-strip">
+    <div class="balance-card">
+      <div class="label">Penny before this import</div>
+      <div class="value">₹1,79,650</div>
+    </div>
+    <div class="balance-card">
+      <div class="label">4 new rows committed</div>
+      <div class="value">−₹320</div>
+    </div>
+    <div class="balance-card diff-zero">
+      <div class="label">Penny after import = Real bank balance</div>
+      <div class="value">₹1,79,330 ✓</div>
+    </div>
+  </div>
+  <div class="callout good">
+    <strong class="title">The happy path works, exactly as you'd hope</strong>
+    In this data, importing the real statement on top of imperfect Cashew/MoneyView history recovers exact parity with zero manual fixing — the matcher correctly avoided double-counting anything already recorded, and correctly recovered every genuinely-missing row. This is the case for the "guarantee" — <em>when</em> matching behaves this cleanly.
+  </div>
+
+  <h2 id="findings">5. Three things hiding in this same data worth deciding on</h2>
+
+  <div class="callout warn">
+    <strong class="title"><span class="finding-num">1</span>Cash withdrawals that were already manually logged never become Transfers</strong>
+    Both ATM withdrawals (5-Apr −5,000, 8-May −3,000) matched an <em>already-existing plain Expense</em> (Cashew's "Cash withdrawal", MoneyView's "Cash Withdrawal - ATM") — not a fresh unmatched row. The cash-withdrawal-code detector (<code>cashWithdrawalCodes.ts</code>) only offers to classify a row as a Transfer when it's building a <em>new</em> transaction from an unmatched statement row; it never looks at a row that turned out to already match something. So these ₹8,000 total stay permanently mis-typed as plain bank expenses, and the linked cash account is under-credited by ₹8,000 forever — even though the bank account's own balance is fine. This only shows up because we're now specifically checking cross-account correctness, not just the bank account in isolation.
+  </div>
+
+  <div class="callout bad">
+    <strong class="title"><span class="finding-num">2</span>A near-miss silently creates a duplicate instead of a "new" row</strong>
+    Suppose the user had actually logged the SMS charge in Cashew — but 6 days late, dated 26-Apr instead of the real 20-Apr value date (very plausible: people notice a small debit days after it posts). The matcher's date window is ±3 days, so this row would <em>not</em> find that existing entry, get treated as <span class="tag new">New</span> on import, and get committed — leaving <strong>two</strong> ₹150 debits in Penny for one real transaction. The end-of-period balance check would then show a ₹150 mismatch, but nothing points you at <em>which</em> row is the duplicate — you'd have to eyeball the ledger. The same failure mode applies to amount near-misses (user typed 150 as a round guess; real fee was 149.50 exactly) — exact-amount matching also fails there.
+  </div>
+
+  <div class="callout bad">
+    <strong class="title"><span class="finding-num">3</span>A wrong opening balance is invisible in a single end-of-period check</strong>
+    Now imagine everything above happened exactly as the happy path (Section 4) — final Penny balance lands on ₹1,79,330, matching the real closing balance perfectly — <em>except</em> the account's <code>openingBalance</code> was actually set to ₹49,000 on day one (a typo from months ago, unrelated to any of this) instead of the true ₹50,000. Every single transaction still matched correctly, nothing is duplicated — but Penny's true derived balance is ₹1,78,330, a flat ₹1,000 under the real ₹1,79,330. One end-of-period check just says "mismatch, ₹1,000" — indistinguishable from "you're missing a ₹1,000 transaction somewhere." Only a per-checkpoint history (was April's own closing balance already off by exactly ₹1,000, and March's, and every month before that too?) would point at the opening balance specifically rather than a missing transaction.
+  </div>
+
+  <h2 id="questions">6. What this settles, and what's still open</h2>
+  <p class="lead">Settled by the simulation: the core mechanism (derive-then-diff against the statement's own closing balance) genuinely works for the common case — this isn't a broken idea, the happy path is real. The three findings above aren't "the design is wrong," they're the specific edge cases the design needs to name and handle on purpose:</p>
+  <ul>
+    <li><strong>Finding 1</strong> needs a decision: should a bank-statement row that matches an <em>existing plain expense</em> but itself qualifies as a cash-withdrawal code still prompt "this looks like a transfer — convert it?" — a retroactive reclassification path that doesn't exist today.</li>
+    <li><strong>Finding 2</strong> needs a decision: is a ₹1-tolerance, single end-of-period balance check enough of a safety net, or do we want the review screen to actively flag "this account still doesn't reconcile, here's the ₹150 gap" and require it to be resolved (find the duplicate, or accept a real unexplained variance) before the import can be marked "verified"?</li>
+    <li><strong>Finding 3</strong> is the strongest argument for the "verified-through checkpoint per account" idea from before — a single post-import diff can't tell a missing transaction apart from a wrong opening balance; a running history of checkpoints can, because a wrong opening balance shows up as the exact same offset at every single checkpoint forever, while a missing transaction shows up once and then resolves.</li>
+  </ul>
+
+  <h2 id="checkpoints">7. Per-transaction closing balance — visualized</h2>
+  <p class="lead">The idea: don't store a <em>computed</em> balance per transaction (that's always derivable, so storing it would just go stale). Store the <strong>bank's own stated balance</strong> — but only on a transaction that genuinely came from, or was matched against, a real statement row with a balance column. A manually-entered Cashew row has none. The moment a bank-statement import matches that row, it gets enriched with the real number straight off the bank's own ledger. Call it a <em>checkpoint</em>: ground truth, immutable, never guessed, present only where we actually have it.</p>
+  <p class="lead">Then at every checkpoint — not just once at the end of an import — compare it against Penny's own running derived balance at that same point. The table below is that comparison, walked chronologically, for three versions of the same ledger.</p>
+
+  <h3>7a. Happy path — every checkpoint agrees</h3>
+  <span class="scenario-label">Scenario: exactly Section 4's outcome, nothing wrong</span>
+  <table class="ckpt">
+    <thead><tr><th>Date</th><th>Transaction</th><th class="amt">Amount</th><th class="amt">Penny's running balance</th><th class="amt">Bank's stated checkpoint</th><th class="amt">Diff</th></tr></thead>
+    <tbody>
+      <tr><td>02-Apr</td><td>Salary <span class="tag matched">matched</span></td><td class="amt credit">+80,000</td><td class="amt">130,000</td><td class="amt">130,000</td><td class="amt diff-zero">0</td></tr>
+      <tr><td>05-Apr</td><td>ATM withdrawal <span class="tag matched">matched</span> <span class="tag warn">🔁 flagged: convert to transfer?</span></td><td class="amt debit">−5,000</td><td class="amt">125,000</td><td class="amt">125,000</td><td class="amt diff-zero">0</td></tr>
+      <tr><td>10-Apr</td><td>Swiggy <span class="tag matched">matched</span></td><td class="amt debit">−850</td><td class="amt">124,150</td><td class="amt">124,150</td><td class="amt diff-zero">0</td></tr>
+      <tr><td>15-Apr</td><td>Rent <span class="tag matched">matched</span></td><td class="amt debit">−15,000</td><td class="amt">109,150</td><td class="amt">109,150</td><td class="amt diff-zero">0</td></tr>
+      <tr class="new-row"><td>20-Apr</td><td>SMS charges <span class="tag new">new</span></td><td class="amt debit">−150</td><td class="amt">109,000</td><td class="amt">109,000</td><td class="amt diff-zero">0</td></tr>
+      <tr><td>25-Apr</td><td>Groceries <span class="tag matched">matched</span></td><td class="amt debit">−2,200</td><td class="amt">106,800</td><td class="amt">106,800</td><td class="amt diff-zero">0</td></tr>
+      <tr class="new-row"><td>30-Apr</td><td>Interest <span class="tag new">new</span></td><td class="amt credit">+120</td><td class="amt">106,920</td><td class="amt">106,920</td><td class="amt diff-zero">0</td></tr>
+      <tr><td>03-May</td><td>Salary <span class="tag matched">matched</span></td><td class="amt credit">+80,000</td><td class="amt">186,920</td><td class="amt">186,920</td><td class="amt diff-zero">0</td></tr>
+      <tr><td>08-May</td><td>ATM withdrawal <span class="tag matched">matched</span> <span class="tag warn">🔁 flagged: convert to transfer?</span></td><td class="amt debit">−3,000</td><td class="amt">183,920</td><td class="amt">183,920</td><td class="amt diff-zero">0</td></tr>
+      <tr><td>12-May</td><td>Electricity <span class="tag matched">matched</span></td><td class="amt debit">−1,800</td><td class="amt">182,120</td><td class="amt">182,120</td><td class="amt diff-zero">0</td></tr>
+      <tr><td>18-May</td><td>Groceries <span class="tag matched">matched</span></td><td class="amt debit">−2,500</td><td class="amt">179,620</td><td class="amt">179,620</td><td class="amt diff-zero">0</td></tr>
+      <tr class="new-row"><td>22-May</td><td>Refund <span class="tag new">new</span></td><td class="amt credit">+300</td><td class="amt">179,920</td><td class="amt">179,920</td><td class="amt diff-zero">0</td></tr>
+      <tr class="new-row"><td>28-May</td><td>AMC charges <span class="tag new">new</span></td><td class="amt debit">−590</td><td class="amt">179,330</td><td class="amt">179,330</td><td class="amt diff-zero">0</td></tr>
+    </tbody>
+  </table>
+  <div class="callout good">Every checkpoint agrees, all the way through — this is what "fully reconciled" looks like at the transaction level, not just at the end of the batch. Note the two ATM rows are now flagged for the transfer prompt from Finding 1, right on the row itself.</div>
+
+  <h3>7b. A missing transaction — the "interest credit" from Finding 3's category never got recorded</h3>
+  <span class="scenario-label">Scenario: user dismissed the 30-Apr interest row during review by mistake — it was never added</span>
+  <table class="ckpt">
+    <thead><tr><th>Date</th><th>Transaction</th><th class="amt">Amount</th><th class="amt">Penny's running balance</th><th class="amt">Bank's stated checkpoint</th><th class="amt">Diff</th></tr></thead>
+    <tbody>
+      <tr><td>15-Apr</td><td>Rent <span class="tag matched">matched</span></td><td class="amt debit">−15,000</td><td class="amt">109,150</td><td class="amt">109,150</td><td class="amt diff-zero">0</td></tr>
+      <tr><td>20-Apr</td><td>SMS charges <span class="tag new">new</span></td><td class="amt debit">−150</td><td class="amt">109,000</td><td class="amt">109,000</td><td class="amt diff-zero">0</td></tr>
+      <tr><td>25-Apr</td><td>Groceries <span class="tag matched">matched</span></td><td class="amt debit">−2,200</td><td class="amt">106,800</td><td class="amt">106,800</td><td class="amt diff-zero">0 ← last agreeing checkpoint</td></tr>
+      <tr class="phantom"><td>30-Apr</td><td>Interest — never entered in Penny at all</td><td class="amt credit">+120</td><td class="no-ckpt">—</td><td class="amt">106,920</td><td class="no-ckpt">no Penny row to compare</td></tr>
+      <tr class="flag-row"><td>03-May</td><td>Salary <span class="tag matched">matched</span></td><td class="amt credit">+80,000</td><td class="amt">186,800</td><td class="amt">186,920</td><td class="amt diff-nonzero">+120 ← first disagreeing checkpoint</td></tr>
+      <tr class="flag-row"><td>08-May</td><td>ATM withdrawal <span class="tag matched">matched</span></td><td class="amt debit">−3,000</td><td class="amt">183,800</td><td class="amt">183,920</td><td class="amt diff-nonzero">+120</td></tr>
+      <tr class="flag-row"><td>12-May</td><td>Electricity <span class="tag matched">matched</span></td><td class="amt debit">−1,800</td><td class="amt">182,000</td><td class="amt">182,120</td><td class="amt diff-nonzero">+120</td></tr>
+      <tr class="flag-row"><td>18-May</td><td>Groceries <span class="tag matched">matched</span></td><td class="amt debit">−2,500</td><td class="amt">179,500</td><td class="amt">179,620</td><td class="amt diff-nonzero">+120</td></tr>
+      <tr class="flag-row"><td>22-May</td><td>Refund <span class="tag new">new</span></td><td class="amt credit">+300</td><td class="amt">179,800</td><td class="amt">179,920</td><td class="amt diff-nonzero">+120</td></tr>
+      <tr class="flag-row"><td>28-May</td><td>AMC charges <span class="tag new">new</span></td><td class="amt debit">−590</td><td class="amt">179,210</td><td class="amt">179,330</td><td class="amt diff-nonzero">+120</td></tr>
+    </tbody>
+  </table>
+  <div class="callout warn">
+    <strong class="title">Signature: a step that appears once, then holds steady</strong>
+    Diff is 0 right up through 25-Apr, then jumps to a constant +120 starting at 3-May and never changes again. That's exactly what you asked for — Penny doesn't need to know <em>what</em> is missing, but it can say with certainty: "the gap is worth ₹120, and it happened strictly between the 25-Apr Groceries row and the 3-May Salary row." That's a two-transaction-wide search window instead of a whole statement to eyeball.
+  </div>
+
+  <h3>7c. A duplicate transaction — Finding 2's near-miss actually happened</h3>
+  <span class="scenario-label">Scenario: Cashew independently logged the same SMS charge again, 6 days late (outside the ±3-day match window) — same defect as Finding 2, now visualized</span>
+  <table class="ckpt">
+    <thead><tr><th>Date</th><th>Transaction</th><th class="amt">Amount</th><th class="amt">Penny's running balance</th><th class="amt">Bank's stated checkpoint</th><th class="amt">Diff</th></tr></thead>
+    <tbody>
+      <tr><td>20-Apr</td><td>SMS charges <span class="tag new">new</span></td><td class="amt debit">−150</td><td class="amt">109,000</td><td class="amt">109,000</td><td class="amt diff-zero">0 ← last agreeing checkpoint</td></tr>
+      <tr><td>25-Apr</td><td>Groceries <span class="tag matched">matched</span></td><td class="amt debit">−2,200</td><td class="amt">106,800</td><td class="amt">106,800</td><td class="amt diff-zero">0</td></tr>
+      <tr class="phantom"><td>26-Apr</td><td>"Bank Charges" — Cashew's own late duplicate entry, no statement row to attach to</td><td class="amt debit">−150</td><td class="amt">106,650</td><td class="no-ckpt">—</td><td class="no-ckpt">not statement-verified</td></tr>
+      <tr class="flag-row"><td>30-Apr</td><td>Interest <span class="tag new">new</span></td><td class="amt credit">+120</td><td class="amt">106,770</td><td class="amt">106,920</td><td class="amt diff-nonzero">+150 ← first disagreeing checkpoint</td></tr>
+      <tr class="flag-row"><td>03-May</td><td>Salary <span class="tag matched">matched</span></td><td class="amt credit">+80,000</td><td class="amt">186,770</td><td class="amt">186,920</td><td class="amt diff-nonzero">+150</td></tr>
+      <tr class="flag-row"><td>…</td><td colspan="5">(every checkpoint for the rest of the ledger holds steady at +150)</td></tr>
+    </tbody>
+  </table>
+  <div class="callout bad">
+    <strong class="title">Same signature shape as 7b, opposite root cause</strong>
+    A one-time step-change that then holds constant means "a missing or duplicate transaction, strictly between these two checkpoints" — Penny can't yet tell you which of the two (missing credit vs. duplicate debit) without you looking, but it can always narrow it to that exact window. This is the concrete answer to Finding 2's "border or sign" ask: flag the <em>last agreeing</em> row and the <em>first disagreeing</em> row (not the whole month) — that pair of rows is the search window.
+  </div>
+
+  <h3>7d. Wrong opening balance — Finding 3, now provable instead of just suspected</h3>
+  <span class="scenario-label">Scenario: happy-path ledger (7a), but <code>Account.openingBalance</code> was set to ₹49,000 instead of the true ₹50,000, months ago</span>
+  <table class="ckpt">
+    <thead><tr><th>Date</th><th>Transaction</th><th class="amt">Penny's running balance</th><th class="amt">Bank's stated checkpoint</th><th class="amt">Diff</th></tr></thead>
+    <tbody>
+      <tr class="flag-row"><td>02-Apr</td><td>Salary <span class="tag matched">matched</span></td><td class="amt">129,000</td><td class="amt">130,000</td><td class="amt diff-nonzero">+1,000 ← <em>first</em> checkpoint, already off</td></tr>
+      <tr class="flag-row"><td>05-Apr</td><td>ATM withdrawal <span class="tag matched">matched</span></td><td class="amt">124,000</td><td class="amt">125,000</td><td class="amt diff-nonzero">+1,000</td></tr>
+      <tr class="flag-row"><td>…</td><td colspan="4">(every single checkpoint in both April and May, no exceptions)</td></tr>
+      <tr class="flag-row"><td>28-May</td><td>AMC charges <span class="tag new">new</span></td><td class="amt">178,330</td><td class="amt">179,330</td><td class="amt diff-nonzero">+1,000</td></tr>
+    </tbody>
+  </table>
+  <div class="callout info">
+    <strong class="title">Signature: flat from the very first checkpoint, never a step</strong>
+    This is the tell. 7b and 7c both start at <strong>0</strong> and step away partway through. This one is never 0, not even at the very first transaction. That single distinction — "was there ever an agreeing checkpoint at all?" — is exactly what separates "go find the missing/duplicate transaction between two dates" from "go check the account's opening balance," and a per-transaction checkpoint history is the only way to tell them apart. A single end-of-period check (today's mechanism) genuinely cannot distinguish 7d from a ₹1,000 gap hiding somewhere in the middle.
+    <br><br><strong>One honest caveat, worked out fully in Section 14:</strong> this diagnostic only works if "the very first checkpoint" is itself independently verified (i.e. statement-backed), not just wherever Penny's tracking happened to start. A flat offset present from day one is equally consistent with "opening balance was wrong" <em>or</em> "opening balance was actually fine, we just never had anything earlier to check it against." Only backfilling to an even earlier, independently verifiable statement can actually settle which.
+  </div>
+
+  <h3>7e. One caveat worth flagging</h3>
+  <div class="callout warn">
+    <strong class="title">Same-day, multiple transactions</strong>
+    A statement's balance column is only meaningful in the bank's own row order. If two transactions land on the same calendar day, the checkpoint comparison is only reliable <em>after the last one for that day</em> — checking mid-day would require Penny to also preserve the bank's exact intra-day ordering, which it doesn't do today (transactions aren't otherwise sequenced within a day anywhere in the app). Practically: treat every same-day cluster as one combined checkpoint at day's end, not as N separate checkpoints. Doesn't break the idea, just means the "search window" in 7b/7c is expressed as "between end-of-day X and end-of-day Y," not down to the individual transaction, when multiple same-day rows are involved.
+  </div>
+
+  <h2 id="datefix">8. Does matching correct the transaction's date today? — checked the code: no.</h2>
+  <p class="lead">Confirmed directly in <code>apps/mobile/src/features/bank-import/useBankImport.ts</code>: when a statement row matches an existing transaction, the commit step only writes a provenance record —</p>
+  <table>
+    <thead><tr><th>What happens today for a matched pair</th></tr></thead>
+    <tbody>
+      <tr><td><code>await bankStatementImportsRepo.put({ ..., date: row.date, amount: row.amount, linkedTxnId: pair.expense.id })</code> — a separate provenance record, keyed by the <em>statement's</em> date/amount</td></tr>
+      <tr><td>The actual <code>Expense</code> record itself is <strong>never</strong> re-written. <code>expensesRepo.put()</code> is only ever called for brand-new transactions, never for matched ones.</td></tr>
+    </tbody>
+  </table>
+  <div class="callout bad">
+    <strong class="title">So a Cashew entry logged 2 days late stays 2 days late, forever</strong>
+    Today this is harmless — matching only needs "close enough" (±3 days), so a wrong-but-close date doesn't stop the match. But it breaks the moment you want day-bucketed checkpoints: a transaction that really happened 20-Apr but sits in Penny dated 22-Apr would get filed under the wrong day's checkpoint, producing a false one-day "gap" that isn't a real gap at all — just a stale date nobody ever corrected.
+  </div>
+  <div class="callout good">
+    <strong class="title">Proposed fix</strong>
+    On commit, whenever a matched pair's dates differ (confident matches: <code>matcher.ts</code>'s auto-pairs; user-resolved: the "possible" bucket), also update the <code>Expense</code>'s own <code>date</code> to the statement row's date — the bank's date is the real one; Cashew/MoneyView's was always an approximation. Same logic extends to <strong>amount</strong>: confident auto-matches already require an exact amount, but a user-resolved "possible" match can have a small amount difference (that's part of why it needed a human to confirm it's the same transaction) — once confirmed, correct the stored amount to the statement's exact figure too, for the same reason. Neither needs a confirmation dialog — the user already confirmed "yes, this is the same transaction" by resolving the match; correcting it to the verified-accurate value is just finishing that action, not a new decision.
+  </div>
+
+  <h2 id="ordering">9. Preserving the statement's own order within a day</h2>
+  <p class="lead">Once dates are corrected (Section 8), same-day transactions can go one step further than the end-of-day fallback in 7e. A bank always prints same-day rows in true chronological order. Proposal: a new field, something like <code>Expense.reconciledSeq</code>, set only on statement-linked transactions — its position (1st, 2nd, 3rd…) among that day's rows in the statement. Rule for when it's trustworthy:</p>
+  <div class="callout info">
+    <strong class="title">Only when the day is "fully explained" by this statement</strong>
+    If every one of Penny's transactions on a given day is either newly created from this statement or matched to one of its rows, <code>reconciledSeq</code> gives a real, checkpoint-verifiable intra-day order. If even one transaction that day has no statement counterpart (a genuinely separate manual entry, or an unresolved duplicate), its true position relative to the others is unknown — that day quietly falls back to end-of-day-only (Section 7e), rather than guessing.
+  </div>
+
+  <h3>Worked example — why intra-day order isn't just cosmetic</h3>
+  <span class="scenario-label">Illustrative example — small self-contained numbers, not the running 2-month ledger above</span>
+  <p class="lead">Balance carried into 8-May: ₹4,200. Two real transactions that day: a 09:14 ATM withdrawal (−₹3,000) and an 18:40 UPI refund credit (+₹2,000). Both orderings land on the exact same end-of-day balance — but tell very different stories about what actually happened during the day:</p>
+  <table class="ckpt">
+    <thead><tr><th></th><th>Step 1</th><th>Step 2</th><th class="amt">Lowest point that day</th><th class="amt">End of day</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Real order</strong> (from the statement)</td><td>09:14 ATM −3,000 → ₹1,200</td><td>18:40 Refund +2,000 → ₹3,200</td><td class="amt diff-nonzero">₹1,200</td><td class="amt">₹3,200</td></tr>
+      <tr><td><strong>Unordered / guessed</strong> (no <code>reconciledSeq</code>)</td><td>Refund +2,000 → ₹6,200</td><td>ATM −3,000 → ₹3,200</td><td class="amt diff-zero">₹3,200 (never dips)</td><td class="amt">₹3,200</td></tr>
+    </tbody>
+  </table>
+  <div class="callout warn">
+    <strong class="title">The end-of-day check alone would call both of these identical</strong>
+    Same closing balance, so a per-day checkpoint sees no problem either way — and for pure sync-verification purposes, there genuinely isn't one. But the real account actually dipped to ₹1,200 that day — worth knowing for anything built on top of this later (a minimum-balance-fee warning, a "lowest balance this month" stat, average-balance calculations for interest) especially given Indian savings accounts' minimum-balance rules. Getting the order right costs nothing extra once dates are already being corrected (Section 8) — it's the same statement data, just also keeping the row order it already comes in.
+  </div>
+
+  <h2 id="retro">10. Retrospective imports — filling in history, and a real limitation</h2>
+  <p class="lead">You're right that this needs first-class support — most new users will want to backfill months or years of history, not just start tracking from today. A few distinct situations:</p>
+
+  <h3>10a. The very first statement ever imported for an account</h3>
+  <div class="callout good">
+    This is exactly the moment to capture the true opening balance — per your earlier answer, by asking the user to confirm it (parsed from the statement's own header when we can find one, otherwise typed in), rather than guessing. Nothing unusual here; it's just the earliest point the "verified-through" idea has anything to anchor to.
+  </div>
+
+  <h3>10b. Backfilling a gap between two periods that are already checkpointed</h3>
+  <span class="scenario-label">Example: April+May are already fully reconciled (Section 4); March was never imported at all, still pure-Cashew, unverified</span>
+  <p class="lead">The user later finds and imports March's real statement. It recovers 2 forgotten transactions, and March's own final checkpoint (31-Mar) now lands exactly on the already-established 1-Apr opening figure (₹50,000).</p>
+  <div class="callout good">
+    <strong class="title">The clean case — nothing downstream needs to change</strong>
+    Because checkpoints are anchored to actual calendar dates, not import order, closing the March gap doesn't require touching April or May at all — they were already correct, and stay correct. This is the payoff of Finding 3's "verified-through" design being per-date rather than a single "latest import" watermark: gaps can be filled in any order, forwards or backwards, without disturbing what's already settled.
+  </div>
+  <div class="callout warn">
+    <strong class="title">But it does need a rule: re-check forward, every time</strong>
+    That April/May stayed unaffected here is a fact about <em>this</em> data, not a guarantee in general — inserting or correcting anything earlier in an account's history changes Penny's running balance for every date after it (opening balance and running totals are shared across the whole account). The safe rule: any retrospective import should trigger recomputation of checkpoint diffs for every later date too, not just its own range — cheap to do, and the only way to reliably catch the rarer case where a backfill actually does disturb something downstream (Section 10c is exactly that rarer case).
+  </div>
+
+  <h3>10c. The blind spot: two errors that cancel out are invisible to any balance check</h3>
+  <span class="scenario-label">Same March backfill, different starting condition</span>
+  <p class="lead">Suppose March's Cashew data was missing <em>two</em> things: a ₹300 refund (credit) it never logged, and a ₹300 fee (debit) it also never logged. Net effect on the month: exactly ₹0. March's end-of-month balance already matched perfectly — <em>before</em> anyone ever checked it against a real statement, purely by coincidence.</p>
+  <div class="callout bad">
+    <strong class="title">No checkpoint, at any granularity, would ever have caught this</strong>
+    End-of-period, end-of-day, even a perfect per-transaction sequence — all of them are arithmetic checks, and the arithmetic was always fine. The only thing that can catch a "missing credit + missing debit that happen to cancel" is the review screen's row-by-row identity matching during the actual import (does a corresponding <em>row</em> exist for each statement line, not does the <em>total</em> match) — which is exactly why the review screen's matched/possible/unmatched buckets need to stay the primary defense, with balance checkpoints as a second, complementary layer — not a replacement for looking at the rows themselves. Worth being explicit about this limit rather than implying checkpoints alone are a complete guarantee.
+  </div>
+
+  <h3>10d. A statement even earlier than the one that set the opening balance</h3>
+  <div class="callout info">
+    This turns out to be common enough to design for properly, not just flag — see Section 14, which works it through in full with real numbers, including a genuinely important twist.
+  </div>
+
+  <h2 id="partial">11. Partial imports — two different things, both need handling</h2>
+  <p class="lead">"Partial import" can mean two different things, and they need two different fixes.</p>
+
+  <h3>11a. The user deliberately excludes some rows during review</h3>
+  <p class="lead">The review screen lets you leave some unmatched rows out of the "add as new" bulk action — reasonable (maybe it's a duplicate, maybe it's not actually yours). But today nothing records that this happened. Three weeks later, nobody — not the user, not Penny — can tell "this row was never in any statement" apart from "this row was seen and deliberately skipped."</p>
+  <div class="callout warn">
+    <strong class="title">Proposed fix</strong>
+    Every import batch should keep a durable record of what it actually decided for <em>every</em> row it saw, not just the ones that got committed: matched (N), added new (N), <strong>excluded — user chose not to add (N)</strong>. Surface that count on the commit confirmation ("13 rows found, 11 added, 2 skipped") and keep it visible later in the batch's own history entry, so a skipped row is a visible, intentional decision — not indistinguishable from a gap nobody ever looked at.
+  </div>
+
+  <h3>11b. The statement file itself only covers part of a period</h3>
+  <p class="lead">A user downloads "March statement," but the bank's export tool only gave them 1–15 March (a partial download, a paginated export, a re-issued statement that only covers from account reactivation). Every row in the file gets imported cleanly — the import itself isn't wrong — but the user, and Penny, might both believe "March is done" when only half of it is.</p>
+  <div class="callout bad">
+    <strong class="title">Proposed fix: track covered date ranges, not just import events</strong>
+    Per account, keep a list of <code>{ start, end }</code> ranges — one per completed import batch, taken from the actual min/max date found in that file, never assumed from a filename or the user's stated intent. Before finalizing any import, check it against the account's existing ranges:
+  </div>
+  <table>
+    <thead><tr><th>Situation</th><th>What Penny should say</th></tr></thead>
+    <tbody>
+      <tr><td>New range picks up exactly where the last one ended</td><td>Nothing — this is the expected case, import proceeds silently.</td></tr>
+      <tr><td>New range leaves a gap (e.g. last import ended 15-Mar, this one starts 1-Apr)</td><td><span class="tag warn">⚠ "There's a gap between 16-Mar and 31-Mar this account has no statement for — was that period genuinely empty, or is there a statement you haven't found yet?"</span></td></tr>
+      <tr><td>New range overlaps an existing one</td><td>Not an error by itself (see Section 15) — just proceed; matching will mostly land on "already matched."</td></tr>
+    </tbody>
+  </table>
+  <p class="lead">This one data structure — a simple list of covered date ranges per account — is also exactly what's needed for the "verified-through" idea from Finding 3, for detecting the March/April continuity question from the very first discussion, and for Section 14's backfill-anchor logic below. Worth building once, used in all three places.</p>
+
+  <h2 id="lonewolf">12. "Extra" transactions the statement doesn't explain — don't cry wolf too early</h2>
+  <p class="lead">Your scenario: a transaction sits in Penny with a slightly wrong date — say entered as 31-Mar when the real bank value date was actually 1-Apr, a very common near-month-boundary slip. When March's real statement gets imported, nothing in it matches this row (rightly — the real transaction didn't happen in March). Today's matcher would call this a "lone wolf": a Penny transaction this statement doesn't explain.</p>
+  <div class="callout bad">
+    <strong class="title">Flagging it immediately would be wrong here</strong>
+    This transaction is about to be explained perfectly by April's statement — it's dated 1-Apr for real, within the existing ±3-day match window of the Penny row dated 31-Mar. Flagging it as "suspicious" during March's import would just be noise the user has to dismiss, for a non-problem that resolves itself one import later.
+  </div>
+  <div class="callout good">
+    <strong class="title">Proposed fix: defer, using the same date-range data from Section 11b</strong>
+    Only escalate a lone wolf to "needs review" once an import whose own covered date range unambiguously <em>should</em> have explained it — including the ±3-day grace window — has come and gone without matching it. A lone wolf dated within 3 days of the current statement's start/end boundary gets a soft "provisional — pending the adjacent period" status instead of an immediate red flag; the very next adjacent import either resolves it silently (the common case, your scenario) or, if it still doesn't match, <em>that's</em> when it becomes a real, escalated flag — because now two statements in a row have had the chance to explain it and neither did.
+  </div>
+  <table>
+    <thead><tr><th>Penny transaction</th><th>March import result</th><th>April import result</th><th>Final status</th></tr></thead>
+    <tbody>
+      <tr><td>31-Mar, ₹1,200, no match in March's file</td><td><span class="tag warn">Provisional — near period boundary</span></td><td>Matched to April's real 1-Apr row</td><td><span class="tag matched">Resolved, no user action needed</span></td></tr>
+      <tr><td>14-Mar, ₹800, no match in March's file</td><td><span class="tag bad">Escalated — well within March's own range, not boundary-adjacent</span></td><td>—</td><td><span class="tag bad">Needs review now, not deferred</span></td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="transfers">13. Multiple accounts &amp; inter-account transfers</h2>
+  <span class="scenario-label">New illustrative example — HDFC (checking) and ICICI (savings), same user</span>
+  <p class="lead">User moves ₹20,000 from HDFC to ICICI by NEFT on 10-Jun. Both banks record their own side of the same real event.</p>
+  <table>
+    <thead><tr><th>Import order</th><th>What the statement shows</th><th>Matcher outcome</th><th>What gets recorded</th></tr></thead>
+    <tbody>
+      <tr><td>1. HDFC imported first</td><td>10-Jun, "NEFT TO ICICI XXXX1234", −20,000</td><td><span class="tag new">New</span> — ICICI's statement isn't in Penny yet, nothing to link to</td><td>Plain HDFC expense, −20,000 (correctly reduces HDFC's balance)</td></tr>
+      <tr><td>2. ICICI imported later</td><td>10-Jun, "NEFT FROM HDFC XXXX5678", +20,000</td><td><span class="tag warn">Possible transfer</span> — opposite direction, same amount, same date, on a different account: matches the HDFC row from step 1</td><td>User confirms → both sides link as one <code>type: 'transfer'</code> record instead of two independent ones</td></tr>
+    </tbody>
+  </table>
+  <div class="callout info">
+    <strong class="title">Important nuance: this matters for reporting accuracy, not for the balance-sync guarantee itself</strong>
+    Even if the user never confirms the link and both sides stay as independent plain expense/income entries, <strong>each account's own balance still reconciles perfectly against its own bank statement</strong> — HDFC really did lose ₹20,000, ICICI really did gain it, and each account's own checkpoint math doesn't care whether the two rows are linked. What linking actually fixes is double-counting in <em>whole-portfolio</em> reporting: an unlinked pair shows up as +20,000 "income" and −20,000 "expense" in cash-flow analytics for a transfer that was never real income or spending. Worth being precise about this distinction so the design doesn't overclaim that unlinked transfers threaten the core guarantee — they don't; they threaten a different (also real) thing.
+  </div>
+  <div class="callout warn">
+    <strong class="title">A genuine ambiguity: two same-bank accounts, coincidental same-day/same-amount activity</strong>
+    If a user holds two accounts at the same bank (or the transfer amount happens to coincide with an unrelated transaction elsewhere), the "possible transfer" suggestion could have more than one equally-plausible candidate — e.g. ICICI also independently received an unrelated ₹20,000 from someone else that same day. This needs to surface as a choice ("this might be linked to one of these 2 transactions — which one, or neither?"), never an auto-link, exactly the same caution the existing <code>suggestPossibleTransfer</code> doc comment already takes ("dismissible-suggestion-only," never automatic).
+  </div>
+  <p class="lead">One realistic wrinkle that <em>doesn't</em> break anything: banks often bill a transfer as two separate lines on the sending side — the ₹20,000 transfer itself, plus a small NEFT processing fee (say ₹5) as its own line. The ₹20,000 legs match and link as a transfer; the ₹5 fee is genuinely one-sided (correctly recorded as a plain HDFC expense) — that's not an app quirk, that's just how the bank itself bills it.</p>
+
+  <h2 id="anchor">14. The opening-balance anchor can move backward</h2>
+  <span class="scenario-label">New illustrative example, building on your 2018-vs-2020 scenario</span>
+  <p class="lead">Today, <code>Account.openingBalance</code> has no explicit "as of" date — it's implicitly "before every transaction that exists," which only stays true as long as nobody ever adds a transaction earlier than whatever date the user had in mind when they set it. Backfilling breaks that assumption on purpose. Proposal: give it an explicit paired date, <code>openingBalanceAsOfDate</code>, and let backfilling to an earlier statement move both.</p>
+
+  <h3>14a. The clean case</h3>
+  <table>
+    <thead><tr><th></th><th>Before backfill</th><th>After importing real 2022–2023 statements</th></tr></thead>
+    <tbody>
+      <tr><td>Opening balance</td><td>₹50,000</td><td>₹20,000</td></tr>
+      <tr><td>As of</td><td>1-Jan-2024 (implicit — just "the beginning")</td><td>1-Jan-2022 (explicit, statement-backed)</td></tr>
+      <tr><td>2022–2023 transactions</td><td>none recorded</td><td>imported for real, net effect +30,000</td></tr>
+      <tr><td>Balance the two ways agree on, 1-Jan-2024</td><td>₹50,000 (asserted, never verified)</td><td>₹20,000 + ₹30,000 = ₹50,000 ✓ (now actually derived, and it happens to match)</td></tr>
+    </tbody>
+  </table>
+  <div class="callout good">2024 and 2025's already-established checkpoints don't need to move at all — the new, earlier anchor plus the newly-imported 2022–2023 transactions land exactly back on the same 1-Jan-2024 figure everything downstream was already built on.</div>
+
+  <h3>14b. The uncomfortable case — the backfill disagrees with the existing anchor</h3>
+  <p class="lead">Same backfill, except the real 2022–2023 statements imply 1-Jan-2024 should have been <strong>₹52,000</strong>, not the ₹50,000 the account was originally set up with (which, remember, was never itself checked against a statement — just typed in from memory/passbook at setup time).</p>
+  <div class="callout bad">
+    <strong class="title">This is the direct answer to the caveat added to Section 7d</strong>
+    2024 and 2025's checkpoints looked perfectly clean the entire time (flat, agreeing, no drift) — because there was nothing earlier to compare against, "day one" of tracking <em>was</em> the untested assumption. Only backfilling to an independently-verifiable earlier point exposes that the original ₹50,000 may have been wrong by ₹2,000 all along, silently carried through every checkpoint since. Once found, this needs the same recompute-forward rule as Section 10b (re-check every later checkpoint), except here the answer is "yes, they all need to shift by ₹2,000" rather than "no change needed" — the two 2024–2025 example scenarios in this doc are genuinely indistinguishable from Penny's point of view until an earlier anchor is available to settle it. Resolution still needs a human: is the ₹2,000 a real backfill defect (missing/duplicate row in the new 2022-23 import — check the review screen per Section 10c), or was the original setup guess simply off? Penny can narrow it, not decide it.
+  </div>
+
+  <h2 id="reimport">15. Re-importing the same statement twice</h2>
+  <p class="lead">Worth checking directly rather than assuming: <code>useBankImport.ts</code> already tracks which existing expense each match "claims" (<code>referenced.add(pair.expense.id)</code>) so the same existing transaction can never be claimed by two different statement rows in one import. Re-uploading April's file a second time weeks later should, by that same mechanism, land every row as "matched" against its own already-linked counterpart from the first import — zero new rows, a safe no-op, even when a day has two genuinely identical ₹500 UPI payments (each still claims exactly one of the two existing candidates).</p>
+  <div class="callout info">
+    <strong class="title">Already safe by design — one convenience worth adding anyway</strong>
+    Correctness doesn't need a fix here. But a user backfilling years of statements is quite likely to accidentally re-upload a file — a quick pre-check against the covered-date-ranges list from Section 11b ("this file's range overlaps an import from 3 weeks ago — expect mostly matches") would save them a full trip through the review screen for something that's going to resolve to "0 new" anyway.
+  </div>
+
+  <h2 id="others">16. Other scenarios considered, briefly</h2>
+  <ul>
+    <li><strong>Reversed/failed transactions</strong> (a debit reversed by the bank a few days later) — no special handling needed. Both legs are genuine, independent statement rows; the checkpoint model already treats them correctly as two ordinary transactions.</li>
+    <li><strong>The same bank changing its export format over time</strong> (different columns/headers year to year) — a parsing-robustness problem, not a balance-sync one; already partly addressed by the header-row detection work done for PPF/Excel imports elsewhere in the app.</li>
+    <li><strong>Credit cards, if this is ever extended there</strong> — flagged only as a footnote since you've scoped this to bank accounts: a card's balance moves in the opposite direction (spending increases what's owed) — any shared sign convention built for savings/current accounts would need explicit inversion, not an assumption it "just works" the same way.</li>
+  </ul>
+
+  <h2 id="closed">17. Checkpointed transactions must stop being match candidates</h2>
+  <p class="lead">Your example, worked through exactly: 31-Mar has a ₹240 expense, matched and checkpointed during March's import. April's real statement independently has its <em>own</em>, completely unrelated ₹240 transaction on 2-Apr. 2-Apr is within the ±3-day window of 31-Mar, and the amount is identical — today's matcher has no way to know the 31-Mar row is already "spoken for" by a different, earlier statement, so it's a live candidate.</p>
+
+  <table>
+    <thead><tr><th></th><th>Without this fix</th><th>With this fix</th></tr></thead>
+    <tbody>
+      <tr><td><strong>April import sees the 2-Apr ₹240 row</strong></td><td>Finds the 31-Mar ₹240 expense within the date/amount window → surfaces as a match (or auto-links if it's a confident single-candidate match)</td><td>31-Mar's ₹240 is excluded from the candidate pool — it already has a checkpoint from March's import</td></tr>
+      <tr><td><strong>Result</strong></td><td>User confirms what looks like an ordinary match. April's real, distinct 2-Apr transaction is <strong>never added</strong> — silently absorbed into "confirming" a link to an already-accounted-for row.</td><td>No eligible candidate found → correctly falls to <span class="tag new">New</span> → April's real transaction gets added properly.</td></tr>
+      <tr><td><strong>How it eventually surfaces, if uncaught</strong></td><td>The review screen looks completely clean at import time — nothing shows as unmatched. The ₹240 gap only appears later, as a step-change in a downstream checkpoint (Section 7b/7c's signature) — recoverable, but only after the fact, and only if someone goes looking.</td><td>Never happens — prevented at the exact moment of import, not discovered downstream.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout good">
+    <strong class="title">Proposed mechanism — two-tier matching per row</strong>
+    <strong>Tier 1, exact provenance lookup:</strong> normalize the incoming row's date+amount+narration and check the account's own import-history table for an identical row already recorded. A hit means this exact statement (or an exact reissue of it) was already processed — treat as matched, no fuzzy logic needed. This is also what correctly makes Section 15's "same file re-imported twice" case work.<br><br>
+    <strong>Tier 2, fuzzy matching — but only against transactions that don't already have a checkpoint:</strong> everything else runs through the existing date-window/amount/narration matcher as today, with one added filter on the candidate pool: any expense that already carries a checkpoint from a <em>previous</em> import is removed from consideration entirely, in both the confident-auto-match path and the "possible match" human-review path. Only genuinely still-open transactions (raw manual/Cashew/MoneyView entries never yet verified against any statement) remain eligible.
+  </div>
+  <div class="callout warn">
+    <strong class="title">One accepted limitation, in the same spirit as Sections 10c/10d</strong>
+    If a bank ever reissues a corrected version of an <em>already-checkpointed</em> statement (say, fixing a value-date typo from 31-Mar to 30-Mar for that same ₹240 line), Tier 1 won't recognize it as the same row (the date changed) and Tier 2 won't consider the old checkpointed entry either (it's excluded) — the corrected row would come in as a second, duplicate "new" entry rather than correcting the original. Genuinely rare (banks reissuing statements over a data-entry correction), and not something to solve automatically — flagging it as a known gap that would need an explicit "re-verify this already-checkpointed period" action rather than happening silently through ordinary import.
+  </div>
+
+</div>
+</body>
+</html>

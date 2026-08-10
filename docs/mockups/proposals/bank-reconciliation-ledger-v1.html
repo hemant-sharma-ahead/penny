@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Bank Reconciliation Ledger — v1 (Phase 1, read-only)</title>
+<style>
+  :root {
+    --primary: #00a86b;
+    --success: #10b981;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --info: #3b82f6;
+    --bg: #0b0f14;
+    --surface: #161b22;
+    --surface2: #1c2128;
+    --border: #2d333b;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --text3: #6e7681;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: #05070a;
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    margin: 0;
+    padding: 40px 24px;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .intro { color: var(--text2); font-size: 13px; max-width: 720px; line-height: 1.6; margin-bottom: 32px; }
+  .gallery { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+  .frame-label { font-size: 12px; font-weight: 700; color: var(--text2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .frame-label.proposed { color: var(--primary); }
+  .phone {
+    width: 375px;
+    background: var(--bg);
+    border-radius: 28px;
+    border: 8px solid #000;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+  .screen { min-height: 720px; display: flex; flex-direction: column; }
+  .topbar {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar .title { font-size: 14px; font-weight: 700; }
+  .topbar .sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .body { padding: 14px 14px 10px; flex: 1; overflow-y: auto; }
+  .note { font-size: 10.5px; color: var(--text2); line-height: 1.5; margin-bottom: 12px; }
+  .card { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+  .card-head {
+    background: var(--surface2);
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .card-head .lbl { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); }
+  .card-head .asof { font-size: 8px; color: var(--text3); margin-top: 2px; }
+  .card-head .amt { font-size: 11px; font-weight: 800; }
+  .legend {
+    display: flex; gap: 12px; align-items: center;
+    padding: 6px 12px; border-top: 1px solid var(--border); background: var(--surface);
+  }
+  .legend .item { display: flex; align-items: center; gap: 4px; font-size: 8.5px; color: var(--text2); }
+  .dot { width: 6px; height: 6px; border-radius: 3px; }
+  .col-head {
+    display: flex; padding: 8px 12px; border-top: 1px solid var(--border); background: var(--surface2);
+    font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text3);
+  }
+  .row {
+    display: flex; align-items: center; padding: 8px 12px; border-top: 1px solid var(--border); background: var(--surface);
+  }
+  .row.flagged { background: rgba(239,68,68,0.07); }
+  .row.notcovered { background: rgba(110,118,129,0.06); }
+  .c-date { flex: 1; font-size: 10px; color: var(--text2); }
+  .c-txn { flex: 1.6; }
+  .c-txn .desc { font-size: 10px; font-weight: 600; }
+  .c-txn .sub { font-size: 8.5px; margin-top: 1px; }
+  .c-bal { flex: 1; text-align: right; }
+  .c-bal .top { font-size: 10px; font-weight: 700; color: var(--text); }
+  .c-bal .bottom { font-size: 9px; font-weight: 600; color: var(--primary); }
+  .c-diff { flex: 1; text-align: right; font-size: 10px; font-weight: 700; }
+  .banner {
+    border-radius: 10px; padding: 10px 12px; font-size: 10.5px; line-height: 1.5; margin-top: 4px;
+    display: flex; gap: 8px;
+  }
+  .banner.success { background: rgba(16,185,129,0.1); color: var(--success); }
+  .banner.info { background: rgba(59,130,246,0.1); color: var(--info); }
+  .btn {
+    border-radius: 999px; padding: 10px; text-align: center; font-size: 12px; font-weight: 700; margin-top: 4px;
+  }
+  .btn.primary { background: var(--primary); color: #fff; }
+  .btn.ghost { background: transparent; color: var(--info); border: 1px solid var(--border); }
+  .footer-bar { padding: 10px 14px; border-top: 1px solid var(--border); }
+
+  /* ---- Ledger-specific (proposed) ---- */
+  .window-picker {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px; background: var(--surface2);
+  }
+  .window-picker .rng { font-size: 11px; font-weight: 700; }
+  .window-picker .arrow { font-size: 13px; color: var(--text2); padding: 2px 6px; }
+  .ledger-row {
+    display: flex; border-top: 1px solid var(--border); background: var(--surface); font-size: 10px;
+  }
+  .ledger-row .side { flex: 1; padding: 8px 8px; min-width: 0; }
+  .ledger-row .side.stmt { border-right: 1px solid var(--border); }
+  .ledger-row .meta { flex-basis: 74px; flex-grow: 0; flex-shrink: 0; padding: 8px 6px; text-align: right; }
+  .ledger-row .date { font-size: 8.5px; color: var(--text3); margin-bottom: 2px; }
+  .ledger-row .narration { font-weight: 600; font-size: 10px; }
+  .ledger-row .amount { font-size: 9px; margin-top: 1px; }
+  .ledger-row .placeholder { color: var(--text3); font-size: 9.5px; font-style: italic; line-height: 1.4; }
+  .ledger-row .placeholder.warn { color: var(--warning); }
+  .ledger-row .placeholder.danger-ph { color: var(--danger); }
+  .ledger-row.anomaly .side.exp { background: rgba(239,68,68,0.06); }
+  .ledger-row.notcov .side.exp { background: rgba(110,118,129,0.05); }
+  .ledger-row.skipped .side.stmt { background: rgba(245,158,11,0.06); }
+  .tag {
+    display: inline-block; font-size: 7.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em;
+    padding: 1px 5px; border-radius: 4px; margin-top: 3px;
+  }
+  .tag.transfer { background: rgba(59,130,246,0.15); color: var(--info); }
+  .tag.corrected { background: rgba(0,168,107,0.15); color: var(--primary); }
+  .dismiss-x {
+    font-size: 9px; color: var(--text3); text-decoration: underline; margin-top: 4px; display: inline-block;
+  }
+  .diff-val { font-size: 9px; font-weight: 700; }
+  .section-caption { font-size: 9px; color: var(--text3); text-align: center; padding: 5px 0; background: var(--surface2); border-top: 1px solid var(--border); }
+  .callout {
+    border: 1px dashed var(--border); border-radius: 10px; padding: 10px; font-size: 10px; color: var(--text2); line-height: 1.6; margin-top: 12px;
+  }
+  .callout b { color: var(--text); }
+</style>
+</head>
+<body>
+
+<h1>Bank Reconciliation Ledger — Phase 1 (read-only)</h1>
+<p class="intro">
+  Left frame is today's real <code>CheckpointTimelinePage</code>, unchanged, with one new addition at the
+  bottom — <b>"View full ledger ›"</b>. Right frame is the new dense, row-by-row Statement ⟷ Expense view it
+  opens into, scoped to the current window. This is the read-only Phase 1 slice from
+  <code>docs/plans/bank-reconciliation-ledger.md</code> — no relink/resolve actions yet, those are Phase 2.
+</p>
+
+<div class="gallery">
+
+  <!-- ============ FRAME 1: CURRENT (today, + new entry point) ============ -->
+  <div>
+    <div class="frame-label">Current — today's Reconciliation table</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="topbar">
+          <div class="title">Reconciliation</div>
+          <div class="sub">HDFC Savings</div>
+        </div>
+        <div class="body">
+          <div class="note">Comparing Penny's running balance against your bank's own stated balance after each checkpointed transaction.</div>
+
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <div class="lbl">Opening balance</div>
+                <div class="asof">as of 5 Jan 2026</div>
+              </div>
+              <div class="amt">₹20,000</div>
+            </div>
+            <div class="legend">
+              <div class="item"><span class="dot" style="background:var(--text)"></span>Statement</div>
+              <div class="item"><span class="dot" style="background:var(--primary)"></span>Penny</div>
+            </div>
+            <div class="col-head">
+              <div style="flex:1">Date</div>
+              <div style="flex:1.6">Txn</div>
+              <div style="flex:1;text-align:right">Balance</div>
+              <div style="flex:1;text-align:right">Diff</div>
+            </div>
+
+            <div class="row">
+              <div class="c-date">5 Jan</div>
+              <div class="c-txn"><div class="desc">Salary — Acme Corp</div><div class="sub" style="color:var(--success)">+₹35,000</div></div>
+              <div class="c-bal"><div class="top">₹55,000</div><div class="bottom">₹55,000</div></div>
+              <div class="c-diff" style="color:var(--success)">₹0</div>
+            </div>
+            <div class="row">
+              <div class="c-date">20 Mar</div>
+              <div class="c-txn"><div class="desc">Zomato</div><div class="sub" style="color:var(--danger)">−₹640</div></div>
+              <div class="c-bal"><div class="top">₹41,200</div><div class="bottom">₹41,200</div></div>
+              <div class="c-diff" style="color:var(--success)">₹0</div>
+            </div>
+            <div class="row">
+              <div class="c-date">28 May</div>
+              <div class="c-txn"><div class="desc">Rent — Landlord</div><div class="sub" style="color:var(--danger)">−₹18,000</div></div>
+              <div class="c-bal"><div class="top">₹23,200</div><div class="bottom">₹23,200</div></div>
+              <div class="c-diff" style="color:var(--success)">₹0</div>
+            </div>
+          </div>
+
+          <div class="banner success">✓ Every checkpoint agrees — this account is fully reconciled.</div>
+
+          <div class="callout">
+            <b>New in this proposal:</b> a lightweight link here into the full ledger — doesn't change anything
+            above, just a deeper zoom for whenever you actually want to audit row-by-row instead of just
+            checking the balance diff.
+          </div>
+        </div>
+        <div class="footer-bar">
+          <div class="btn ghost">🔍 View full ledger ›</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ FRAME 2: PROPOSED FULL LEDGER ============ -->
+  <div>
+    <div class="frame-label proposed">Proposed — Full Ledger (Phase 1, read-only)</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="topbar">
+          <div class="title">Full ledger</div>
+          <div class="sub">HDFC Savings · every transaction, statement order</div>
+        </div>
+        <div class="body">
+          <div class="window-picker">
+            <span class="arrow">‹</span>
+            <span class="rng">2 Apr – 28 May 2026</span>
+            <span class="arrow">›</span>
+          </div>
+
+          <div class="legend" style="border:1px solid var(--border);border-radius:10px 10px 0 0;">
+            <div class="item"><span class="dot" style="background:var(--text)"></span>Statement</div>
+            <div class="item"><span class="dot" style="background:var(--primary)"></span>Penny</div>
+          </div>
+          <div style="border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;overflow:hidden;margin-bottom:14px;">
+
+            <!-- Matched, clean -->
+            <div class="ledger-row">
+              <div class="side stmt">
+                <div class="date">2 Apr</div>
+                <div class="narration">SALARY-ACME-APR</div>
+                <div class="amount" style="color:var(--success)">+₹35,000</div>
+              </div>
+              <div class="side exp">
+                <div class="date">2 Apr</div>
+                <div class="narration">Salary — Acme Corp</div>
+                <div class="amount" style="color:var(--success)">+₹35,000</div>
+              </div>
+              <div class="meta">
+                <div class="date">Bal</div>
+                <div style="font-size:9px;font-weight:700">₹57,000</div>
+                <div class="diff-val" style="color:var(--success)">₹0</div>
+              </div>
+            </div>
+
+            <!-- Matched, date corrected -->
+            <div class="ledger-row">
+              <div class="side stmt">
+                <div class="date">9 Apr</div>
+                <div class="narration">SWIGGY BLR</div>
+                <div class="amount" style="color:var(--danger)">−₹460</div>
+              </div>
+              <div class="side exp">
+                <div class="date">9 Apr</div>
+                <div class="narration">Swiggy <span class="tag corrected">date corrected</span></div>
+                <div class="amount" style="color:var(--danger)">−₹460</div>
+              </div>
+              <div class="meta">
+                <div class="date">Bal</div>
+                <div style="font-size:9px;font-weight:700">₹56,540</div>
+                <div class="diff-val" style="color:var(--success)">₹0</div>
+              </div>
+            </div>
+
+            <!-- Transfer leg -->
+            <div class="ledger-row">
+              <div class="side stmt">
+                <div class="date">10 Apr</div>
+                <div class="narration">ATM WDL MG ROAD</div>
+                <div class="amount" style="color:var(--danger)">−₹5,000</div>
+              </div>
+              <div class="side exp">
+                <div class="date">10 Apr</div>
+                <div class="narration">→ Transfer to Cash <span class="tag transfer">transfer</span></div>
+                <div class="amount" style="color:var(--danger)">−₹5,000</div>
+              </div>
+              <div class="meta">
+                <div class="date">Bal</div>
+                <div style="font-size:9px;font-weight:700">₹51,540</div>
+                <div class="diff-val" style="color:var(--success)">₹0</div>
+              </div>
+            </div>
+
+            <!-- Skipped, still unresolved -->
+            <div class="ledger-row skipped">
+              <div class="side stmt">
+                <div class="date">14 Apr</div>
+                <div class="narration">NEFT-XXCREDIT-UNKNOWN</div>
+                <div class="amount" style="color:var(--success)">+₹2,000</div>
+              </div>
+              <div class="side exp">
+                <div class="placeholder warn">Skipped during import.<br/>Reimport the statement to resolve this.</div>
+                <span class="dismiss-x">Dismiss, not mine</span>
+              </div>
+              <div class="meta">
+                <div class="date">Bal</div>
+                <div style="font-size:9px;font-weight:700;color:var(--text3)">—</div>
+              </div>
+            </div>
+
+            <!-- Expense-only, genuine anomaly -->
+            <div class="ledger-row anomaly">
+              <div class="side stmt">
+                <div class="placeholder danger-ph">Not found in statement</div>
+              </div>
+              <div class="side exp">
+                <div class="date">18 Apr</div>
+                <div class="narration">Cash — groceries</div>
+                <div class="amount" style="color:var(--danger)">−₹1,200</div>
+              </div>
+              <div class="meta">
+                <div class="date">Bal</div>
+                <div style="font-size:9px;font-weight:700;color:var(--text3)">—</div>
+              </div>
+            </div>
+
+            <!-- Expense-only, statement not imported yet for this period -->
+            <div class="ledger-row notcov">
+              <div class="side stmt">
+                <div class="placeholder">Statement not imported<br/>for this period</div>
+              </div>
+              <div class="side exp">
+                <div class="date">26 May</div>
+                <div class="narration">Movie tickets</div>
+                <div class="amount" style="color:var(--danger)">−₹800</div>
+              </div>
+              <div class="meta">
+                <div class="date">Bal</div>
+                <div style="font-size:9px;font-weight:700;color:var(--text3)">—</div>
+              </div>
+            </div>
+
+            <!-- Matched, closing -->
+            <div class="ledger-row">
+              <div class="side stmt">
+                <div class="date">28 May</div>
+                <div class="narration">RENT-LANDLORD-MAY</div>
+                <div class="amount" style="color:var(--danger)">−₹18,000</div>
+              </div>
+              <div class="side exp">
+                <div class="date">28 May</div>
+                <div class="narration">Rent — Landlord</div>
+                <div class="amount" style="color:var(--danger)">−₹18,000</div>
+              </div>
+              <div class="meta">
+                <div class="date">Bal</div>
+                <div style="font-size:9px;font-weight:700">₹23,200</div>
+                <div class="diff-val" style="color:var(--success)">₹0</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="banner info">ℹ 1 row still skipped in this window, 1 genuine anomaly (not in statement), 1 row outside any imported statement's coverage — none of these affect your verified checkpoints above.</div>
+          <div class="btn ghost" style="margin-top:10px;">Load earlier transactions</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="callout" style="max-width:900px;margin-top:32px;">
+  <b>Reading the four blank-side variants above</b> (top to bottom in the right frame): a normal matched pair;
+  a matched pair where the date was auto-corrected to the statement's own date; a transfer leg (cash
+  withdrawal), labeled so it never reads as an anomaly; a statement row still skipped from import, with a
+  dismiss action; a recorded expense with no statement counterpart inside a period the account claims is
+  covered (genuine anomaly, red); a recorded expense outside any imported statement's date range at all
+  (not an anomaly, muted gray, "statement not imported yet"). Diff is only shown where a live statement
+  balance exists for that row — most rows won't have one unless the statement's balance column had no gaps.
+</div>
+
+</body>
+</html>

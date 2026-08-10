@@ -59,8 +59,10 @@ interface TransactionsSliceProps {
   goalLinkedTxnIds: Set<string>;
   /** For the edit form's "matched from bank statement" audit-trail caption (docs/plans/
    *  bank-statement-import.md §10a's purpose #1) — which transactions were resolved from a bank
-   *  statement import, and what the original line looked like. */
-  bankImportLinkByTxn: Map<string, { rawNarration: string; date: number }>;
+   *  statement import, and what the original line(s) looked like. An array per transaction since
+   *  2026-08-09 — a cross-account transfer absorbed via `linkAsCrossAccountTransfer` carries one linked
+   *  line per side. */
+  bankImportLinkByTxn: Map<string, { rawNarration: string; date: number }[]>;
   /** Every transaction whose recorded payment mode disagrees with its original bank-statement
    *  narration (2026-08-06, `useExpenses.ts`'s `paymentModeMismatchTxnIds`) — drives both the row
    *  warning icon (`TransactionsTab`) and the "Payment mode mismatch" filter toggle. */
@@ -624,7 +626,7 @@ export function TransactionsSlice({
           goals={goals}
           onSeedGoal={onSeedGoal}
           linkedGoal={editingExpense ? goalLinkByTxn.get(editingExpense.id) : undefined}
-          linkedBankStatementLine={editingExpense ? bankImportLinkByTxn.get(editingExpense.id) : undefined}
+          linkedBankStatementLines={editingExpense ? bankImportLinkByTxn.get(editingExpense.id) : undefined}
           saveAccount={saveAccount}
           searchMerchant={searchMerchant}
           onDuplicate={handleDuplicate}

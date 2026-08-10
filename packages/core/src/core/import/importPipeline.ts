@@ -93,7 +93,18 @@ export interface ResolvedPreviewRow {
 
 export type ConfirmedCategoryMap = Map<
   string,
-  { categoryId: string; categoryName: string; skip?: boolean; type?: 'transfer'; tag?: string }
+  {
+    categoryId: string;
+    categoryName: string;
+    skip?: boolean;
+    type?: 'transfer';
+    /** Destination account for a `type: 'transfer'` entry (2026-08-09) — see `CategoryAction`'s
+     *  'transfer' variant doc comment. Absent/empty means the user hasn't picked one yet; a row built
+     *  from such an entry writes with no `toAccountId` unless `applyConfirmedTransferPairs` below fills
+     *  it in from an auto-detected same-file reciprocal row instead. */
+    toAccountId?: string;
+    tag?: string;
+  }
 >;
 
 /** A per-row correction layered ON TOP of (never replacing) the source-category-name-level resolution
@@ -146,6 +157,7 @@ export function toConfirmedCategoryMap(
         categoryId: r.suggestion.categoryId,
         categoryName: r.suggestion.categoryName,
         type: 'transfer',
+        ...(r.suggestion.toAccountId && { toAccountId: r.suggestion.toAccountId }),
         ...(tag && { tag })
       });
     } else if (r.suggestion.kind === 'create') {
@@ -196,6 +208,15 @@ export function buildResolvedPreviewRows(
       // An override always means "move to this existing category" — never 'transfer' — so it also
       // overrides the group's own `type: 'transfer'` back to the row's natural expense/income type.
       type: override?.categoryId ? row.type : (resolved?.type ?? row.type),
+      // The category-level "transfer" resolution's own chosen destination account (2026-08-09 fix) —
+      // dropped along with `type` when a row-level override reverts this row to a normal category, and
+      // may still be overwritten below by `applyConfirmedTransferPairs` if this row also happens to be
+      // part of an auto-detected same-file reciprocal pair (that source is more precise: a real paired
+      // row's own accountId, not just the category-wide destination the user picked once for every row
+      // under this source category).
+      ...(!override?.categoryId && resolved?.type === 'transfer' && resolved.toAccountId
+        ? { toAccountId: resolved.toAccountId }
+        : {}),
       ...(row.paymentMode && { paymentMode: row.paymentMode }),
       hashtags,
       ...(row.notes && { notes: row.notes }),

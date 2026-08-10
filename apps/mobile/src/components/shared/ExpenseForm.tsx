@@ -84,8 +84,11 @@ interface Props {
   /** When editing: this transaction was resolved from a bank-statement import — shows a small audit-
    *  trail caption ("Matched from bank statement: `<raw narration>`, `<date>`"), mirroring the
    *  `goalPreset` caption below (docs/plans/bank-statement-import.md §10a's purpose #1). Read-only —
-   *  purely informational, nothing here is editable or re-triggers the import flow. */
-  linkedBankStatementLine?: { rawNarration: string; date: number } | undefined;
+   *  purely informational, nothing here is editable or re-triggers the import flow. An ARRAY (not a
+   *  single line) since 2026-08-09 — a cross-account transfer absorbed via `linkAsCrossAccountTransfer`
+   *  legitimately carries one linked statement line per side, not just one; a plain expense/income still
+   *  only ever has exactly one entry here, same as before. */
+  linkedBankStatementLines?: { rawNarration: string; date: number }[] | undefined;
   /** Adds/edits an account from this form's own "+" tile (`AccountChips.tsx`) without leaving it. */
   saveAccount: (data: AccountInput, editing: Account | null) => Promise<Account>;
   searchMerchant: (type: TransactionType, query: string) => MerchantMemory[];
@@ -227,7 +230,7 @@ export function ExpenseForm({
   goals,
   onSeedGoal,
   linkedGoal,
-  linkedBankStatementLine,
+  linkedBankStatementLines,
   saveAccount,
   searchMerchant,
   onDuplicate,
@@ -295,9 +298,14 @@ export function ExpenseForm({
     () => new Map(allPaymentModesForLabels.map((m) => [m.id, m.label])),
     [allPaymentModesForLabels]
   );
+  // Payment-mode inference stays scoped to THIS account's own leg — for a cross-account transfer with
+  // two linked lines, that's always the first one (the source side, whose narration is what
+  // `paymentMode`/`inferPaymentMode` actually describes here; the destination side's own narration
+  // belongs to the OTHER bank's own transaction, shown for audit-trail purposes only, see the caption
+  // below).
   const impliedPaymentMode = useMemo(
-    () => (linkedBankStatementLine ? inferPaymentMode(linkedBankStatementLine.rawNarration) : null),
-    [linkedBankStatementLine]
+    () => (linkedBankStatementLines?.[0] ? inferPaymentMode(linkedBankStatementLines[0].rawNarration) : null),
+    [linkedBankStatementLines]
   );
   const paymentModeMismatch = !!impliedPaymentMode && !!paymentMode && paymentMode !== impliedPaymentMode.id;
   const [description, setDescription] = useState(
@@ -841,11 +849,27 @@ export function ExpenseForm({
             wrapping, no truncation. The payment-mode mismatch note directly below it (also 2026-08-06)
             re-derives every render off the live `paymentMode` state, so fixing it via "Paid via" below
             removes this warning immediately — no separate dismiss/acknowledge action needed. */}
-        {editing && linkedBankStatementLine && (
+        {editing && linkedBankStatementLines && linkedBankStatementLines.length > 0 && (
           <View className="gap-2">
             <Banner variant="info" icon="ti-building-bank">
-              Matched from bank statement: &ldquo;{linkedBankStatementLine.rawNarration}&rdquo;,{' '}
-              {formatDate(linkedBankStatementLine.date)}
+              {linkedBankStatementLines.length === 1 ? (
+                <>
+                  Matched from bank statement: &ldquo;{linkedBankStatementLines[0]?.rawNarration}&rdquo;,{' '}
+                  {formatDate(linkedBankStatementLines[0]?.date ?? 0)}
+                </>
+              ) : (
+                // A cross-account transfer absorbed via `linkAsCrossAccountTransfer` (found + fixed
+                // 2026-08-09) — carries one linked statement line per side, not just one; showing only
+                // the first was the exact on-device bug report ("only showed the statement for HDFC").
+                <>
+                  Matched from both sides of this transfer:
+                  {linkedBankStatementLines.map((line, i) => (
+                    <Text key={i}>
+                      {'\n'}&ldquo;{line.rawNarration}&rdquo;, {formatDate(line.date)}
+                    </Text>
+                  ))}
+                </>
+              )}
             </Banner>
             {paymentModeMismatch && impliedPaymentMode && (
               <Banner variant="warning">

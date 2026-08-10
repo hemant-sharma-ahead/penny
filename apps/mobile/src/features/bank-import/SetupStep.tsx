@@ -5,11 +5,12 @@ import { File } from 'expo-file-system';
 import { Banner, Button, Card, SectionLabel, SelectInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
-import { formatDate } from '@/lib/date';
+import { formatDate, formatDateShort } from '@/lib/date';
 import { CUSTOM_PRESET_ID } from '@/core/bank-import/presets';
 import type { BankPresetId } from '@/core/bank-import/types';
 import type { UseBankImportReturn } from './useBankImport';
 import { MappingEditModal } from './MappingEditModal';
+import { OpeningBalancePrompt } from './OpeningBalancePrompt';
 
 interface SetupStepProps {
   bi: UseBankImportReturn;
@@ -175,18 +176,35 @@ export function SetupStep({ bi }: SetupStepProps) {
                   : `Double-check the column mapping above, especially the date format (${bi.dateFormat}) — it should match how dates actually look in your file.`}
               </Banner>
             ))}
-          {/* Was gated on `mappingReady` alone (every field mapped) — that says nothing about whether
-              the mapping actually *works*, so a wrong date format could map every field "correctly"
-              and still produce zero usable rows, yet still let the user proceed into an empty review
-              screen. Also requires at least one row having actually parsed. */}
-          <Button
-            variant="primary"
-            fullWidth
-            disabled={!bi.mappingReady || bi.mappingPreview?.rows.length === 0}
-            onPress={bi.confirmMapping}
-          >
-            Continue to review
-          </Button>
+          {/* Gap-detection warning (docs/plans/bank-balance-sync.md §5/§11b) — compares this file's own
+              date range against the account's prior covered ranges. Advisory only: "Continue to review"
+              below proceeds regardless — a genuinely statement-free period (a dormant account) is a
+              real possibility, not something to block on. */}
+          {bi.coverageGap && (
+            <Banner variant="warning" icon="ti-calendar-exclamation" title="Possible gap in your statement history">
+              {`There's a gap between ${formatDateShort(bi.coverageGap.gapStart)} and ${formatDateShort(bi.coverageGap.gapEnd)} this account has no statement for — was that period genuinely empty, or is there a statement you haven't found yet?`}
+            </Banner>
+          )}
+          {/* Opening-balance confirm (§10a) / anchor-shift (§14a/§14b) — docs/plans/
+              bank-balance-sync.md §7 Stage 3. Replaces the plain "Continue to review" button below
+              entirely (never both at once) — every branch inside owns its own button that both stages
+              the account write and proceeds, per docs/mockups/proposals/bank-balance-sync-v2.html §5/§6. */}
+          {bi.openingBalanceTrigger ? (
+            <OpeningBalancePrompt bi={bi} />
+          ) : (
+            // Was gated on `mappingReady` alone (every field mapped) — that says nothing about whether
+            // the mapping actually *works*, so a wrong date format could map every field "correctly"
+            // and still produce zero usable rows, yet still let the user proceed into an empty review
+            // screen. Also requires at least one row having actually parsed.
+            <Button
+              variant="primary"
+              fullWidth
+              disabled={!bi.mappingReady || bi.mappingPreview?.rows.length === 0}
+              onPress={bi.confirmMapping}
+            >
+              Continue to review
+            </Button>
+          )}
         </View>
       )}
 

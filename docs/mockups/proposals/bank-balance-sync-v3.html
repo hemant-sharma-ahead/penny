@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Anchor-Disagreement Detail — Closing the Visibility Gap</title>
+<style>
+  :root {
+    --bg: #0b0f1a; --surface: #141a29; --surface2: #1b2333; --border: #2a3448;
+    --ink: #e8ecf5; --sub: #8b95ab; --muted: #5a6478;
+    --danger: #ff6b6b; --danger-bg: #2a1418; --danger-border: #4a2228;
+    --accent: #4d8bff; --good: #34d399;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #eef1f6; color: var(--ink); margin: 0; padding: 40px 24px 120px; line-height: 1.5; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  h1 { font-size: 24px; margin-bottom: 4px; color: #14181f; }
+  .subtitle { color: #5b6270; font-size: 14px; margin-bottom: 32px; max-width: 760px; }
+  h2 { font-size: 17px; margin-top: 44px; margin-bottom: 6px; color: #14181f; }
+  p.lead { color: #5b6270; font-size: 13.5px; max-width: 720px; margin-bottom: 16px; }
+  .row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 8px; }
+  .phone { width: 320px; background: var(--bg); border-radius: 28px; padding: 14px; box-shadow: 0 12px 30px rgba(0,0,0,0.25); flex: 0 0 auto; }
+  .card { background: var(--surface); border-radius: 16px; padding: 14px; }
+  .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #8b95ab; text-align: center; margin-bottom: 8px; font-weight: 700; }
+  .stat-row { display: flex; justify-content: space-between; align-items: center; background: var(--surface2); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+  .stat-row .k { font-size: 12.5px; color: var(--sub); }
+  .stat-row .v { font-size: 17px; font-weight: 700; }
+  .banner { border: 1px solid var(--danger-border); background: var(--danger-bg); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+  .banner .title { color: var(--danger); font-size: 12px; font-weight: 700; display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }
+  .banner .body { font-size: 11px; color: #d7b3b3; line-height: 1.5; }
+  .btn { display: block; width: 100%; text-align: center; padding: 11px; border-radius: 12px; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+  .btn-primary { background: var(--good); color: #06281c; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--ink); }
+  .btn-link { background: transparent; color: var(--accent); text-align: left; font-weight: 700; font-size: 12px; padding: 8px 2px; }
+  .txn-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 4px; border-bottom: 1px solid var(--border); }
+  .txn-row:last-child { border-bottom: none; }
+  .txn-left { display: flex; flex-direction: column; }
+  .txn-name { font-size: 12.5px; font-weight: 600; }
+  .txn-date { font-size: 10.5px; color: var(--muted); }
+  .txn-amt { font-size: 13px; font-weight: 700; }
+  .amt-debit { color: var(--danger); } .amt-credit { color: var(--good); }
+  .day-header { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 8px 0 2px 4px; }
+  .callout { border-radius: 10px; padding: 14px 18px; margin: 14px 0 24px; border: 1px solid; font-size: 13.5px; background: #fff; max-width: 760px; }
+  .callout.good { border-color: #b7e4c7; background: #e9f9ee; }
+  .callout.info { border-color: #c7d2fe; background: #eef2ff; }
+  .callout strong.title { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 6px; }
+  .callout.good strong.title { color: #0f8a3f; } .callout.info strong.title { color: #2454ff; }
+  .option-tag { display: inline-block; background: #14181f; color: #fff; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 6px; margin-bottom: 10px; }
+  .expand-chip { display: flex; align-items: center; justify-content: space-between; background: var(--surface2); border-radius: 10px; padding: 9px 12px; font-size: 12px; color: var(--sub); margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Closing the anchor-disagreement visibility gap</h1>
+  <p class="subtitle">Real screens as they exist today (left, for grounding) plus two ways to add transaction-level detail — you asked to see this concretely rather than reason about it in the abstract. Both reuse the exact ±3-day window `computeAnchorShiftCheck()` already computes (`txnsBetweenAnchors`) — no new data, just a new way to show it.</p>
+
+  <h2>Today (as built — for comparison)</h2>
+  <p class="lead">The "Check Opening Balance" screen currently shows only the two headline numbers and the gap — no way to see what's actually in the backfilled period.</p>
+  <div class="row">
+    <div class="phone"><div class="card">
+      <div class="label">Check Opening Balance — today</div>
+      <div class="stat-row"><span class="k">Currently set</span><span class="v">₹50,000</span></div>
+      <div class="stat-row" style="background:#132a1f"><span class="k" style="color:#8fd9b8">Implied by checkpoints</span><span class="v" style="color:var(--good)">₹52,000</span></div>
+      <p style="font-size:11px;color:var(--sub);line-height:1.5;margin:10px 0">This only rules out a missing transaction if this date was itself independently verified — if it was a typed-in guess, importing an even earlier statement is the only way to fully confirm it.</p>
+      <div class="btn btn-primary">Update to ₹52,000</div>
+      <div class="btn btn-ghost">Import an earlier statement to confirm</div>
+      <div class="btn btn-ghost" style="border:none;font-weight:600;color:var(--sub)">Keep ₹50,000, dismiss</div>
+    </div></div>
+  </div>
+
+  <h2>Option A — a plain transaction list, same drill-in pattern the checkpoint-mismatch case already uses</h2>
+  <span class="option-tag">Option A</span>
+  <p class="lead">Add one link, "View the 7 backfilled transactions ›", opening the exact same transaction-list component (<code>EntityTransactionsModal</code>) already used for the checkpoint-mismatch drill-in — just without any highlighted "first disagreeing" row, since there's no per-row diff here, only a whole-window comparison. Lets you eyeball the actual rows for anything that looks off (a duplicate, a wrong amount) — exactly the self-diagnosis capability you were asking wasn't there.</p>
+  <div class="row">
+    <div class="phone"><div class="card">
+      <div class="label">Check Opening Balance</div>
+      <div class="stat-row"><span class="k">Currently set</span><span class="v">₹50,000</span></div>
+      <div class="stat-row" style="background:#132a1f"><span class="k" style="color:#8fd9b8">Implied by checkpoints</span><span class="v" style="color:var(--good)">₹52,000</span></div>
+      <div class="btn-link">↳ View the 7 backfilled transactions ›</div>
+      <p style="font-size:11px;color:var(--sub);line-height:1.5;margin:6px 0 10px">This only rules out a missing transaction if this date was itself independently verified — if it was a typed-in guess, importing an even earlier statement is the only way to fully confirm it.</p>
+      <div class="btn btn-primary">Update to ₹52,000</div>
+      <div class="btn btn-ghost">Import an earlier statement to confirm</div>
+      <div class="btn btn-ghost" style="border:none;font-weight:600;color:var(--sub)">Keep ₹50,000, dismiss</div>
+    </div></div>
+    <div class="phone"><div class="card">
+      <div class="label">↳ the 7 backfilled transactions</div>
+      <div class="day-header">20 Mar 2026</div>
+      <div class="txn-row"><div class="txn-left"><div class="txn-name">Misc Adjustment</div><div class="txn-date">HDFC Savings</div></div><div class="txn-amt amt-debit">−₹30,000</div></div>
+      <div class="day-header">15 Mar 2026</div>
+      <div class="txn-row"><div class="txn-left"><div class="txn-name">Rent</div><div class="txn-date">HDFC Savings</div></div><div class="txn-amt amt-debit">−₹15,000</div></div>
+      <div class="day-header">5 Mar 2026</div>
+      <div class="txn-row"><div class="txn-left"><div class="txn-name">Salary</div><div class="txn-date">HDFC Savings</div></div><div class="txn-amt amt-credit">+₹35,000</div></div>
+      <div class="day-header">15 Feb 2026</div>
+      <div class="txn-row"><div class="txn-left"><div class="txn-name">Rent</div><div class="txn-date">HDFC Savings</div></div><div class="txn-amt amt-debit">−₹15,000</div></div>
+      <div class="day-header">5 Feb 2026</div>
+      <div class="txn-row"><div class="txn-left"><div class="txn-name">Salary</div><div class="txn-date">HDFC Savings</div></div><div class="txn-amt amt-credit">+₹35,000</div></div>
+      <div class="day-header">15 Jan 2026</div>
+      <div class="txn-row"><div class="txn-left"><div class="txn-name">Rent</div><div class="txn-date">HDFC Savings</div></div><div class="txn-amt amt-debit">−₹15,000</div></div>
+      <div class="day-header">5 Jan 2026</div>
+      <div class="txn-row"><div class="txn-left"><div class="txn-name">Salary</div><div class="txn-date">HDFC Savings</div></div><div class="txn-amt amt-credit">+₹37,000</div></div>
+    </div></div>
+  </div>
+
+  <h2>Option B — an arithmetic breakdown first, list on demand</h2>
+  <span class="option-tag">Option B</span>
+  <p class="lead">Instead of (or in addition to) a raw list, show the actual math that produces the ₹2,000 gap as its own mini-breakdown — old anchor + net backfilled activity = implied anchor — with the transaction list one tap further in, for anyone who wants to go that deep. More self-explanatory at a glance; slightly more building (a new summary component, not just reusing the existing list).</p>
+  <div class="row">
+    <div class="phone"><div class="card">
+      <div class="label">Check Opening Balance</div>
+      <div class="stat-row"><span class="k">Old anchor (2 Apr 2026)</span><span class="v">₹50,000</span></div>
+      <div style="text-align:center;color:var(--muted);font-size:11px;margin:2px 0">+</div>
+      <div class="expand-chip"><span>Net activity, 5 Jan – 20 Mar (7 txns)</span><span style="color:var(--good);font-weight:700">+₹32,000 ›</span></div>
+      <div style="text-align:center;color:var(--muted);font-size:11px;margin:2px 0">=</div>
+      <div class="stat-row" style="background:#132a1f"><span class="k" style="color:#8fd9b8">Implied anchor</span><span class="v" style="color:var(--good)">₹52,000</span></div>
+      <p style="font-size:11px;color:var(--danger);line-height:1.5;margin:10px 0;font-weight:600">₹2,000 higher than your currently-set ₹50,000</p>
+      <div class="btn btn-primary">Update to ₹52,000</div>
+      <div class="btn btn-ghost">Import an earlier statement to confirm</div>
+      <div class="btn btn-ghost" style="border:none;font-weight:600;color:var(--sub)">Keep ₹50,000, dismiss</div>
+    </div></div>
+  </div>
+
+  <div class="callout bad" style="border-color:#f3c2bd;background:#fdecea">
+    <strong class="title" style="color:#b3261e">Retracted — A and B don't actually solve this</strong>
+    Correct pushback: at real-world scale (dozens/hundreds of transactions), A is just a wall of rows with no way to see whether they explain the gap, and B still leaves the user to trust a single rolled-up number without seeing how it was reached. Neither gives real insight, only a smaller version of the same "trust me" problem.
+  </div>
+
+  <h2>Option C, corrected — literally the SAME existing screen, unchanged, just fed different numbers</h2>
+  <span class="option-tag" style="background:#0f8a3f">Option C — recommended</span>
+  <p class="lead"><strong>No new visual design at all</strong> — this is the exact real screen from your own screenshot (same DATE/TXN/PENNY/DIFF columns, same layout, same colors), reused completely as-is. The only thing that changes is which anchor value gets fed into it: instead of the kept ₹50,000 wrongly applied back to January (the bug), it uses the backfill statement's own implied ₹20,000. One small addition on top: a single caption line, because this view's own "Penny" numbers will legitimately differ from the account's real balance shown elsewhere (which correctly keeps using the kept ₹50,000 anchor) — without that one line, the two different numbers floating around could themselves be confusing.</p>
+  <div class="row">
+    <div style="width:380px;background:#e3e6f5;border-radius:20px;padding:14px;flex:0 0 auto">
+      <div style="background:#fff;border-radius:14px;padding:14px 12px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <div style="font-size:10.5px;color:#6b7280;background:#f3f4fb;border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.5">
+          ℹ️ Shown using the new statement's own ₹20,000 opening balance (1 Jan 2026), for comparison only — this is not your account's official balance.
+        </div>
+        <div style="display:flex;font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:#9ca3af;font-weight:700;padding:0 4px 8px">
+          <div style="flex:1.3">Date</div><div style="flex:1.6">Txn</div><div style="flex:1.3;text-align:right">Penny</div><div style="flex:1.3;text-align:right">Diff</div>
+        </div>
+        <!-- Rows below match the real screenshot's row style exactly — only the Penny/Diff numbers differ, using the ₹20,000 anchor -->
+        <div style="display:flex;align-items:center;padding:8px 4px;font-size:12px"><div style="flex:1.3;color:#374151">5 Jan</div><div style="flex:1.6;font-weight:700;color:#111827">Salary</div><div style="flex:1.3;text-align:right;color:#111827">₹57,000</div><div style="flex:1.3;text-align:right;font-weight:700;color:#0f8a3f">₹0</div></div>
+        <div style="display:flex;align-items:center;padding:8px 4px;font-size:12px;background:#fafbfc"><div style="flex:1.3;color:#374151">15 Jan</div><div style="flex:1.6;font-weight:700;color:#111827">Rent</div><div style="flex:1.3;text-align:right;color:#111827">₹42,000</div><div style="flex:1.3;text-align:right;font-weight:700;color:#0f8a3f">₹0</div></div>
+        <div style="display:flex;align-items:center;padding:8px 4px;font-size:12px"><div style="flex:1.3;color:#374151">5 Feb</div><div style="flex:1.6;font-weight:700;color:#111827">Salary</div><div style="flex:1.3;text-align:right;color:#111827">₹77,000</div><div style="flex:1.3;text-align:right;font-weight:700;color:#0f8a3f">₹0</div></div>
+        <div style="display:flex;align-items:center;padding:8px 4px;font-size:12px;background:#fafbfc"><div style="flex:1.3;color:#374151">15 Feb</div><div style="flex:1.6;font-weight:700;color:#111827">Rent</div><div style="flex:1.3;text-align:right;color:#111827">₹62,000</div><div style="flex:1.3;text-align:right;font-weight:700;color:#0f8a3f">₹0</div></div>
+        <div style="display:flex;align-items:center;padding:8px 4px;font-size:12px"><div style="flex:1.3;color:#374151">5 Mar</div><div style="flex:1.6;font-weight:700;color:#111827">Salary</div><div style="flex:1.3;text-align:right;color:#111827">₹97,000</div><div style="flex:1.3;text-align:right;font-weight:700;color:#0f8a3f">₹0</div></div>
+        <div style="display:flex;align-items:center;padding:8px 4px;font-size:12px;background:#fafbfc"><div style="flex:1.3;color:#374151">15 Mar</div><div style="flex:1.6;font-weight:700;color:#111827">Rent</div><div style="flex:1.3;text-align:right;color:#111827">₹82,000</div><div style="flex:1.3;text-align:right;font-weight:700;color:#0f8a3f">₹0</div></div>
+        <div style="display:flex;align-items:center;padding:8px 4px;font-size:12px"><div style="flex:1.3;color:#374151">20 Mar</div><div style="flex:1.6;font-weight:700;color:#111827">Misc Adjustment</div><div style="flex:1.3;text-align:right;color:#111827">₹52,000</div><div style="flex:1.3;text-align:right;font-weight:700;color:#0f8a3f">₹0</div></div>
+        <div style="display:flex;align-items:center;padding:8px 4px;font-size:12px;background:#fdecea;border-left:3px solid #b3261e;margin:2px -4px;padding-left:9px"><div style="flex:1.3;color:#374151">2 Apr</div><div style="flex:1.6;font-weight:700;color:#111827">Salary</div><div style="flex:1.3;text-align:right;color:#111827">₹1,32,000</div><div style="flex:1.3;text-align:right;font-weight:700;color:#b3261e">−₹2,000</div></div>
+        <div style="display:flex;align-items:center;padding:8px 4px;font-size:12px;background:#fafbfc"><div style="flex:1.3;color:#374151">5 Apr</div><div style="flex:1.6;font-weight:700;color:#111827">Cash withdrawal</div><div style="flex:1.3;text-align:right;color:#111827">₹1,27,000</div><div style="flex:1.3;text-align:right;font-weight:700;color:#b3261e">−₹2,000</div></div>
+        <div style="display:flex;align-items:center;padding:8px 4px;font-size:12px"><div style="flex:1.3;color:#374151">10 Apr</div><div style="flex:1.6;font-weight:700;color:#111827">Swiggy dinner</div><div style="flex:1.3;text-align:right;color:#111827">₹1,26,150</div><div style="flex:1.3;text-align:right;font-weight:700;color:#b3261e">−₹2,000</div></div>
+        <div style="text-align:center;color:#9ca3af;font-size:10.5px;padding:8px 0 2px">⋯ every remaining row holds at −₹2,000, all the way to 28 May ⋯</div>
+      </div>
+    </div>
+  </div>
+  <p class="lead" style="margin-top:14px">Notice the seam isn't styled specially (no extra badge, no color-coded "here it is" callout) — it doesn't need to be. The moment the Diff column stops reading "₹0" is, by itself, exactly the answer to "where does the gap start." That's the same thing that already makes the real checkpoint-mismatch table work today — this is that identical mechanism, just reached from a different starting anchor.</p>
+  <div class="callout info">
+    <strong class="title">One extra thing this gives you for free</strong>
+    If the gap DIDN'T hold constant after 2-Apr — if it jumped again somewhere later — that would mean there's a SECOND, independent issue beyond the anchor disagreement, using the exact same <code>diffStaysConstant</code> check already built for the flat-from-start signature. So this table isn't just showing the one known gap — it's also a real check that nothing else is hiding behind it.
+  </div>
+
+  <div class="callout info">
+    <strong class="title">Superseded below — kept only for the side-by-side comparison you asked for</strong>
+    Option C forces ONE anchor across the whole ledger — which means April's own already-verified data gets dragged into showing a fake, constant disagreement it never actually had. Your idea (next section) is more honest: it keeps both periods showing their own true status, and isolates the dispute to exactly one place.
+  </div>
+
+  <h2 id="optiond">Your idea — two self-consistent halves, one explicit boundary marker</h2>
+  <span class="option-tag" style="background:#0f8a3f">Recommended — supersedes Option C</span>
+  <p class="lead">January–March gets checked against its OWN implied anchor (₹20,000) — confirming the backfill data is internally clean, on its own terms. April onward keeps using the EXACT already-correct, already-fixed computation from Stage 3/4 (the kept ₹50,000 anchor, pre-anchor transactions excluded) — completely unchanged from what's already verified. Between the two: one explicit divider row, stating the actual disagreement, with the two decision buttons living right there at the point of the dispute — not scattered in a banner elsewhere. Styled loosely after the missing-transaction table from the original simulation (visible earlier in this conversation) — adapted, not copied, since a boundary dispute isn't the same shape as a missing row.</p>
+  <div class="row">
+    <div style="width:420px;background:#fff;border-radius:14px;padding:0;box-shadow:0 2px 10px rgba(0,0,0,0.08);overflow:hidden">
+      <div style="display:flex;background:#f2f4f7;font-size:9.5px;text-transform:uppercase;letter-spacing:0.03em;color:#6b7280;font-weight:700;padding:8px 12px">
+        <div style="flex:1.1">Date</div><div style="flex:1.5">Txn</div><div style="flex:1.2;text-align:right">Penny</div><div style="flex:1.2;text-align:right">Statement</div><div style="flex:0.8;text-align:right">Diff</div>
+      </div>
+      <div style="padding:2px 0">
+        <div style="font-size:9px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.04em;padding:6px 12px 2px">January – March (this backfill's own statement)</div>
+        <div style="display:flex;align-items:center;padding:6px 12px;font-size:11.5px"><div style="flex:1.1;color:#374151">5 Jan</div><div style="flex:1.5;font-weight:600;color:#111827">Salary</div><div style="flex:1.2;text-align:right">₹57,000</div><div style="flex:1.2;text-align:right">₹57,000</div><div style="flex:0.8;text-align:right;color:#0f8a3f;font-weight:700">0</div></div>
+        <div style="display:flex;align-items:center;padding:6px 12px;font-size:11.5px;background:#fafbfc"><div style="flex:1.1;color:#374151">15 Jan</div><div style="flex:1.5;font-weight:600;color:#111827">Rent</div><div style="flex:1.2;text-align:right">₹42,000</div><div style="flex:1.2;text-align:right">₹42,000</div><div style="flex:0.8;text-align:right;color:#0f8a3f;font-weight:700">0</div></div>
+        <div style="display:flex;align-items:center;padding:6px 12px;font-size:11.5px"><div style="flex:1.1;color:#374151">5 Feb</div><div style="flex:1.5;font-weight:600;color:#111827">Salary</div><div style="flex:1.2;text-align:right">₹77,000</div><div style="flex:1.2;text-align:right">₹77,000</div><div style="flex:0.8;text-align:right;color:#0f8a3f;font-weight:700">0</div></div>
+        <div style="display:flex;align-items:center;padding:6px 12px;font-size:11.5px;background:#fafbfc"><div style="flex:1.1;color:#374151">15 Feb</div><div style="flex:1.5;font-weight:600;color:#111827">Rent</div><div style="flex:1.2;text-align:right">₹62,000</div><div style="flex:1.2;text-align:right">₹62,000</div><div style="flex:0.8;text-align:right;color:#0f8a3f;font-weight:700">0</div></div>
+        <div style="display:flex;align-items:center;padding:6px 12px;font-size:11.5px"><div style="flex:1.1;color:#374151">5 Mar</div><div style="flex:1.5;font-weight:600;color:#111827">Salary</div><div style="flex:1.2;text-align:right">₹97,000</div><div style="flex:1.2;text-align:right">₹97,000</div><div style="flex:0.8;text-align:right;color:#0f8a3f;font-weight:700">0</div></div>
+        <div style="display:flex;align-items:center;padding:6px 12px;font-size:11.5px;background:#fafbfc"><div style="flex:1.1;color:#374151">15 Mar</div><div style="flex:1.5;font-weight:600;color:#111827">Rent</div><div style="flex:1.2;text-align:right">₹82,000</div><div style="flex:1.2;text-align:right">₹82,000</div><div style="flex:0.8;text-align:right;color:#0f8a3f;font-weight:700">0</div></div>
+        <div style="display:flex;align-items:center;padding:6px 12px;font-size:11.5px"><div style="flex:1.1;color:#374151">20 Mar</div><div style="flex:1.5;font-weight:600;color:#111827">Misc Adjustment</div><div style="flex:1.2;text-align:right">₹52,000</div><div style="flex:1.2;text-align:right">₹52,000</div><div style="flex:0.8;text-align:right;color:#0f8a3f;font-weight:700">0</div></div>
+      </div>
+      <div style="background:repeating-linear-gradient(45deg,#fdecea,#fdecea 6px,#fff5f4 6px,#fff5f4 12px);border-top:2px solid #b3261e;border-bottom:2px solid #b3261e;padding:12px">
+        <div style="font-size:11px;font-weight:700;color:#b3261e;margin-bottom:6px">⚠ ANCHOR BOUNDARY — 2 Apr 2026</div>
+        <div style="font-size:11px;color:#7a3a36;line-height:1.6;margin-bottom:10px">This backfill's own math says your balance here should have been <strong>₹52,000</strong>. Your account keeps <strong>₹50,000</strong> as of this date — a <strong>₹2,000</strong> gap, right at the join between the two statements.</div>
+        <div style="background:#fff;border:1px solid #ecd4d2;border-radius:8px;padding:8px 10px;margin-bottom:10px">
+          <div style="font-size:9.5px;font-weight:700;color:#7a3a36;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:5px">Penny can't tell which of these is true — worth checking your real statement for</div>
+          <div style="font-size:10.5px;color:#4b5563;line-height:1.55">
+            <div style="margin-bottom:3px"><strong>① A missed transaction, 21 Mar – 1 Apr</strong> — 12 days neither statement covers. An unrecorded ₹2,000 expense there would fully explain it.</div>
+            <div style="margin-bottom:3px"><strong>② An error in the Jan–Mar statement itself</strong> — often its very first row (as in this example — worth a re-check against the original PDF/passbook).</div>
+            <div><strong>③ Less likely: the original ₹50,000 opening figure was mis-entered</strong> — or a ₹2,000 income was never recorded anywhere from 2 Apr onward.</div>
+          </div>
+          <div style="font-size:9.5px;color:#9ca3af;margin-top:6px;font-style:italic">① only applies when the two statements don't actually touch — if your next statement starts the day after this one ends, skip straight to ② / ③.</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1;background:#0f8a3f;color:#fff;text-align:center;padding:8px;border-radius:8px;font-size:11px;font-weight:700">Update to ₹52,000</div>
+          <div style="flex:1;background:#fff;border:1px solid #d1a3a0;color:#7a3a36;text-align:center;padding:8px;border-radius:8px;font-size:11px;font-weight:700">Keep ₹50,000 ✓ (already flagged)</div>
+        </div>
+      </div>
+      <div style="padding:2px 0 6px">
+        <div style="font-size:9px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.04em;padding:6px 12px 2px">April onward (already verified — unchanged from today)</div>
+        <div style="display:flex;align-items:center;padding:6px 12px;font-size:11.5px"><div style="flex:1.1;color:#374151">2 Apr</div><div style="flex:1.5;font-weight:600;color:#111827">Salary</div><div style="flex:1.2;text-align:right">₹1,30,000</div><div style="flex:1.2;text-align:right">₹1,30,000</div><div style="flex:0.8;text-align:right;color:#0f8a3f;font-weight:700">0</div></div>
+        <div style="display:flex;align-items:center;padding:6px 12px;font-size:11.5px;background:#fafbfc"><div style="flex:1.1;color:#374151">5 Apr</div><div style="flex:1.5;font-weight:600;color:#111827">Cash withdrawal</div><div style="flex:1.2;text-align:right">₹1,25,000</div><div style="flex:1.2;text-align:right">₹1,25,000</div><div style="flex:0.8;text-align:right;color:#0f8a3f;font-weight:700">0</div></div>
+        <div style="text-align:center;color:#9ca3af;font-size:10px;padding:6px 0 2px">⋯ every remaining row agrees, exactly as already verified in Step 3 ⋯</div>
+      </div>
+    </div>
+  </div>
+  <p class="lead" style="margin-top:14px">The two half-tables need no new core computation — the April-onward half is literally today's already-fixed <code>computeCheckpointDiagnostics()</code> call, untouched. The January–March half is the same function called a second time, scoped to just those rows, with the backfill's own implied opening balance. The <strong>checklist inside the divider is new</strong>, but deliberately not a diagnosis — the three causes are mathematically indistinguishable from Penny's data alone (all three produce this exact same single ₹2,000 gap), so the copy is a "go check this" guide, not a claim. Whether ① is even listed depends on a real, checkable fact: does a genuine uncovered gap exist between the two statements' own date ranges (<code>detectCoverageGap</code> already computes this) — if the statements are back-to-back with no gap, ① is impossible by construction and shouldn't be shown at all.</p>
+
+  <div class="callout bad">
+    <strong class="title">A second, more serious bug this exposed — on-device repro, 2026-08-09</strong>
+    Tested end to end: chose "Keep ₹50,000, flag" → later re-imported the corrected Jan–Mar statement (real ₹35,000 salary instead of the erroneous ₹37,000) → the review screen correctly matched 6 of 7 rows and flagged the stale ₹37,000 entry for deletion → deleted it, recorded the correct ₹35,000 in its place. At this point the ledger is genuinely fixed — a fresh check would show ₹0 diff at the boundary. But the account still shows "Re-open ›", and reopening it still shows the exact same stale ₹52,000/₹2,000 numbers from <em>before</em> the correction.
+    <br /><br />
+    Root cause, confirmed in <code>accountVerification.ts:146</code>: unlike checkpoint-mismatch (line 131, <code>computeCheckpointDiagnostics()</code> — walks the CURRENT transactions fresh, every single call), <code>anchorDisagreement</code> is a raw pass-through of whatever got written to <code>Account.anchorDisagreement</code> once, at the original import's commit time. Nothing anywhere re-derives or invalidates it afterward — not a later corrective import, not an edit, not a deletion. It behaves like a permanent verdict when the design intends it to behave like a live check.
+    <br /><br />
+    <strong>Recommended direction</strong> (bigger than originally scoped, but the right fix): stop persisting the computed half of this finding at all. Keep only the historical fact worth remembering permanently — the OLD anchor's own independently-established value/date (₹50,000 @ 2 Apr) — and re-run the actual comparison against current transactions live, every time verification status is computed, exactly like checkpoint-mismatch already does. Once live, a corrective import (like the one just tested) would make the finding disappear on its own the moment the ledger actually reconciles — no manual "Update"/"Keep" dance needed unless a real disagreement still exists. This also folds in cleanly with the separate write-path bug from before (the anchor never moving back to the true earliest transaction date) — both are really the same underlying issue: something about this feature was designed to compute once and freeze, in a codebase where every sibling mechanism (checkpoints, coverage gaps) recomputes fresh from source data every time.
+  </div>
+
+  <h2 id="console">A bigger, separate idea — an interactive bank-vs-recorded reconciliation console</h2>
+  <p class="lead">Your other thought — showing bank vs. recorded side by side across the WHOLE transaction list, with checkpoints visible at the transaction/day/month level, drag-to-reorder for same-day sequencing, and inline fix actions, possibly reshaping the Transactions tab itself. Rough sketch, not a real mockup — this is a fundamentally bigger initiative than anything else on this page:</p>
+  <div class="row">
+    <div style="width:520px;background:#fff;border-radius:14px;padding:14px;box-shadow:0 2px 10px rgba(0,0,0,0.08);opacity:0.85">
+      <div style="font-size:10px;color:#9ca3af;text-align:center;margin-bottom:8px;font-style:italic">Illustrative only — not a finished design</div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1;background:#f8f9fb;border-radius:8px;padding:8px">
+          <div style="font-size:9px;color:#9ca3af;text-transform:uppercase;margin-bottom:6px">Bank statement</div>
+          <div style="font-size:11px;padding:5px 0;border-bottom:1px dashed #e3e6ea">5 Jan · Salary · +₹37,000</div>
+          <div style="font-size:11px;padding:5px 0;border-bottom:1px dashed #e3e6ea">15 Jan · Rent · −₹15,000</div>
+        </div>
+        <div style="width:22px;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:14px">⇄</div>
+        <div style="flex:1;background:#f8f9fb;border-radius:8px;padding:8px">
+          <div style="font-size:9px;color:#9ca3af;text-transform:uppercase;margin-bottom:6px">Recorded in Penny <span style="cursor:grab">⠿</span></div>
+          <div style="font-size:11px;padding:5px 0;border-bottom:1px dashed #e3e6ea">5 Jan · Salary · +₹37,000 ✓</div>
+          <div style="font-size:11px;padding:5px 0;border-bottom:1px dashed #e3e6ea">15 Jan · Rent · −₹15,000 ✓</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="callout bad" style="border-color:#f3c2bd;background:#fdecea">
+    <strong class="title" style="color:#b3261e">My honest take on scope</strong>
+    This is a genuinely interesting direction — but it's really "redesign the reconciliation/review experience as a persistent, ongoing tool," not "fix how one anchor-disagreement finding shows its detail." It'd touch the Transactions tab, the matching engine's UI surface, and introduce real new interaction patterns (drag-to-reorder, inline per-row fixes) that need their own research and design pass — not something to fold into the current fix. I'd park this as its own future initiative and go with the section above (your two-halves idea) to unblock what's actually in front of us right now.
+  </div>
+  <div class="callout info">
+    <strong class="title">Resolved differently — 2026-08-10</strong>
+    The original question was whether the account-list badge should stop being binary. It turned out the more urgent gap was that the badge only existed on the Accounts screen at all — Home's own account strip showed nothing, even though Home is what gets opened every day. Fixed: Home now shows the same binary indicator (icon-only, tile-sized) plus a header-level echo so a flagged account scrolled out of the horizontal strip is still visible. Stayed strictly binary on both surfaces — whether the Accounts screen's own badge should eventually show more per-finding detail remains open, but that's now a separate, lower-urgency question than "does this show up anywhere the user actually looks."
+  </div>
+
+</div>
+</body>
+</html>

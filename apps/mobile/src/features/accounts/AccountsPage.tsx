@@ -57,6 +57,13 @@ export function AccountsPage() {
               onPress={() => navigation.navigate('BankCashWithdrawalCodes')}
             />
             <Button
+              variant="ghost"
+              icon="ti-history"
+              accessibilityLabel="Import history"
+              className="w-8 h-8 rounded-lg"
+              onPress={() => navigation.navigate('BankImportHistory', {})}
+            />
+            <Button
               variant="primary"
               icon="ti-plus"
               accessibilityLabel="Add account"

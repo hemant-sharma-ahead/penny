@@ -105,21 +105,33 @@ export function MoneyStatsCard() {
           ]}
         />
       )}
-      {stats.insuranceCover === 0 && (
-        <HomeEmptyPromptCard
-          icon="ti-shield"
-          title="Track Insurance"
-          subtitle="Add a policy to see your total life & health cover at a glance."
-          actions={[{ label: '+ Add policy', onPress: () => navigation.navigate('Insurance'), variant: 'secondary' }]}
-        />
-      )}
-      {stats.loansOutstanding === 0 && (
-        <HomeEmptyPromptCard
-          icon="ti-building-bank"
-          title="Track Loans"
-          subtitle="Add a loan to track EMIs and payoff progress over time."
-          actions={[{ label: '+ Add loan', onPress: () => navigation.navigate('Loans'), variant: 'secondary' }]}
-        />
+      {/* Insurance/Loans share one row, half-width each (2026-08-10, on-device feedback: two full-width
+       *  prompts stacked wasted the common "nothing set up yet" case's vertical space). `flex-1` on each
+       *  card means the layout degrades correctly when only one is empty too — it just fills the row
+       *  alone, no separate single-card branch needed. */}
+      {(stats.insuranceCover === 0 || stats.loansOutstanding === 0) && (
+        <View className="flex-row gap-3 mb-4">
+          {stats.insuranceCover === 0 && (
+            <HomeEmptyPromptCard
+              compact
+              icon="ti-shield"
+              title="Track Insurance"
+              subtitle="Add a policy to see your total life & health cover at a glance."
+              actions={[
+                { label: '+ Add policy', onPress: () => navigation.navigate('Insurance'), variant: 'secondary' }
+              ]}
+            />
+          )}
+          {stats.loansOutstanding === 0 && (
+            <HomeEmptyPromptCard
+              compact
+              icon="ti-building-bank"
+              title="Track Loans"
+              subtitle="Add a loan to track EMIs and payoff progress over time."
+              actions={[{ label: '+ Add loan', onPress: () => navigation.navigate('Loans'), variant: 'secondary' }]}
+            />
+          )}
+        </View>
       )}
 
       {/* Tax — a line into the Tax Awareness screen (Tax has no Home tile of its own). Gated on real
