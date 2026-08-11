@@ -8,7 +8,7 @@ import { usePortfolioHoldings, HOLDINGS_SUBTABS, effectiveValue } from './usePor
 import type { HoldingsSubTab } from './usePortfolioHoldings';
 import type { Holding } from '@/core/db/types';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
-import { PageHeader, Button } from '~/components/ui';
+import { PageHeader, Button, TabStrip } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { AssetTaxNote } from '~/components/shared';
 import type { AssetTaxTopic } from '@/core/tax/assetTaxInfo';
@@ -42,7 +42,7 @@ const OTHER_MAIN_TABS = HOLDINGS_SUBTABS.filter(
 
 const EQUITY_SUBTABS: { key: EquitySubTab; label: string; icon: string }[] = [
   { key: 'stocks', label: 'Stocks', icon: 'ti-trending-up' },
-  { key: 'mf', label: 'MF', icon: 'ti-chart-donut' },
+  { key: 'mf', label: 'Mutual Funds', icon: 'ti-chart-donut' },
   { key: 'ipo', label: 'IPO', icon: 'ti-ticket' },
   { key: 'news', label: 'News', icon: 'ti-news' }
 ];
@@ -238,77 +238,47 @@ export function PortfolioPage() {
         <MarketTicker />
       </View>
 
-      {/* Main asset-class tabs. `flexGrow: 0` is load-bearing, not decorative — an unconstrained
-          horizontal ScrollView as a flex child in this column layout stretches to fill all remaining
-          vertical space instead of hugging its own content, pushing the sub-tab row/content below it
-          down and leaving a large blank gap (the exact bug `TabStrip.tsx`'s `scrollable` mode had,
-          found via the 2026-07-26 Expenses parity sweep — this hand-rolled tab row didn't inherit that
-          fix since Portfolio has always built its own instead of using the shared `TabStrip`). */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0 }}
-        className="border-b border-theme mt-1"
-      >
-        <View className="flex-row px-4">
-          <Pressable
-            onPress={() => setActiveMainTab('equity')}
-            className="py-2.5 mr-5 border-b-2"
-            style={{ borderColor: activeMainTab === 'equity' ? theme.primary : 'transparent' }}
-          >
-            <Text
-              className="text-sm font-medium"
-              style={{ color: activeMainTab === 'equity' ? theme.primary : theme.textSecondary }}
-            >
-              Equity
-            </Text>
-          </Pressable>
-          {OTHER_MAIN_TABS.map((tab) => {
-            const active = activeMainTab === tab.key;
-            return (
-              <Pressable
-                key={tab.key}
-                onPress={() => setActiveMainTab(tab.key)}
-                className="py-2.5 mr-5 border-b-2"
-                style={{ borderColor: active ? theme.primary : 'transparent' }}
-              >
-                <Text className="text-sm font-medium" style={{ color: active ? theme.primary : theme.textSecondary }}>
-                  {tab.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </ScrollView>
+      {/* Main asset-class tabs — migrated 2026-08-11 to the shared `TabStrip` (was hand-rolled since
+          Portfolio predates it; the duplication was already flagged as the reason the full-width
+          border-gap bug had to be fixed here separately from `TabStrip.tsx`'s own fix). Gets the
+          redesigned active-tab style + auto-center-scroll + edge fade for free, and removes the
+          duplicate maintenance burden entirely — no icons passed, matching this row's existing
+          text-only look (unlike Equity's own sub-tabs below, which do show icons). */}
+      <View className="mt-1">
+        <TabStrip
+          scrollable
+          options={[
+            { value: 'equity', label: 'Equity' },
+            ...OTHER_MAIN_TABS.map((tab) => ({ value: tab.key, label: tab.label }))
+          ]}
+          value={activeMainTab}
+          onChange={setActiveMainTab}
+        />
+      </View>
 
       {/* Equity's own sub-tabs — Stocks/MF/IPO/News, only shown when Equity is the active main tab.
-          The small refresh icon at the end is mockup option B, kept alongside pull-to-refresh (option
-          A, on whichever scroll container is showing below) rather than picking one — your call. */}
+          Migrated 2026-08-11 to the shared `TabStrip` (was hand-rolled — icons + a trailing refresh
+          button `TabStrip` has no slot for; found via on-device feedback that auto-center-scroll
+          needed to apply "everywhere," not just where a row happens to overflow today). The refresh
+          button lives OUTSIDE `TabStrip`, as a flex sibling, so it never scrolls with the tabs — the
+          small refresh icon at the end is mockup option B, kept alongside pull-to-refresh (option A,
+          on whichever scroll container is showing below) rather than picking one — your call. */}
       {activeMainTab === 'equity' && (
-        <View className="flex-row items-center px-4 gap-5 pt-2 pb-2 border-b border-theme">
-          {EQUITY_SUBTABS.map((tab) => {
-            const active = equitySubTab === tab.key;
-            const color = active ? theme.primary : theme.textTertiary;
-            return (
-              <Pressable
-                key={tab.key}
-                onPress={() => setEquitySubTab(tab.key)}
-                className="flex-row items-center gap-1 pb-1.5 border-b-2"
-                style={{ borderColor: active ? theme.primary : 'transparent' }}
-              >
-                <Icon name={tab.icon} size={13} color={color} />
-                <Text className="text-xs font-medium" style={{ color }}>
-                  {tab.label}
-                </Text>
-              </Pressable>
-            );
-          })}
+        <View className="flex-row items-center">
+          <View className="flex-1">
+            <TabStrip
+              scrollable
+              options={EQUITY_SUBTABS.map((tab) => ({ value: tab.key, label: tab.label, icon: tab.icon }))}
+              value={equitySubTab}
+              onChange={setEquitySubTab}
+            />
+          </View>
           {equityRefresh && (
             <Pressable
               onPress={equityRefresh.refresh}
               disabled={equityRefresh.refreshing}
               accessibilityLabel={equityRefresh.label}
-              className="ml-auto w-7 h-7 rounded-lg items-center justify-center bg-surface-2 border border-theme"
+              className="mr-4 ml-2 w-7 h-7 rounded-lg items-center justify-center bg-surface-2 border border-theme"
               style={{ opacity: equityRefresh.refreshing ? 0.5 : 1 }}
             >
               <Icon name="ti-refresh" size={14} color={theme.textSecondary} spin={equityRefresh.refreshing} />

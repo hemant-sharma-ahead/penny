@@ -137,7 +137,7 @@ export function MarketTicker() {
           accessibilityLabel="Manage market tickers"
           className="w-7 h-7 items-center justify-center rounded-lg"
         >
-          <Icon name="ti-dots" size={16} color={theme.textTertiary} />
+          <Icon name="ti-dots-vertical" size={16} color={theme.textTertiary} />
         </Pressable>
       </View>
 

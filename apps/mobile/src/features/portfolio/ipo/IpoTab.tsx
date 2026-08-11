@@ -60,7 +60,10 @@ interface IpoTabProps {
 
 export function IpoTab({ onRefreshStateChange }: IpoTabProps) {
   const theme = useThemeColors();
-  const [ipoSubTab, setIpoSubTab] = useState<IpoStatus>('upcoming');
+  // Default to 'open' (2026-08-11) — the most actionable state; matches IPO_SUBTAB_ORDER's own
+  // reordering (open first). The two are independent constants, not derived from one another — see
+  // `ipoHelpers.ts`'s own doc comment on IPO_SUBTAB_ORDER's ordering rationale.
+  const [ipoSubTab, setIpoSubTab] = useState<IpoStatus>('open');
   const [ipoShowMainboardOnly, setIpoShowMainboardOnly] = useState(false);
   const [ipoListedFy, setIpoListedFy] = useState<string>(currentFyLabel());
   const [ipoListedSearch, setIpoListedSearch] = useState('');

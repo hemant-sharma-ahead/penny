@@ -1,7 +1,10 @@
 import type { IpoStatus } from '@/core/ipo/ipoTypes';
 import { DAY_MS } from '@/lib/date';
 
-export const IPO_SUBTAB_ORDER: IpoStatus[] = ['upcoming', 'open', 'closed', 'listed'];
+// Reordered 2026-08-11 (on-device feedback) — Open first (the most actionable/time-sensitive state,
+// and the default tab below), then Closed/Listed (recent, still relevant), Upcoming last (furthest
+// out, least immediately actionable).
+export const IPO_SUBTAB_ORDER: IpoStatus[] = ['open', 'closed', 'listed', 'upcoming'];
 
 export const IPO_SUBTAB_META: Record<IpoStatus, { label: string; icon: string; emptyMessage: string }> = {
   upcoming: { label: 'Upcoming', icon: 'ti-calendar-event', emptyMessage: 'No upcoming IPOs right now.' },

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>TabStrip redesign — active state + overflow indication</title>
+<style>
+  :root {
+    --primary: #00a86b; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #3b82f6;
+    --bg: #0b0f14; --surface: #161b22; --surface2: #1c2128; --border: #2d333b;
+    --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+  }
+  * { box-sizing: border-box; }
+  body { background: #05070a; color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 40px 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 40px 0 6px; color: var(--text); }
+  .intro, .subintro { color: var(--text2); font-size: 13px; max-width: 800px; line-height: 1.6; margin-bottom: 10px; }
+  .gallery { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; margin-top: 16px; }
+  .frame-label { font-size: 11.5px; font-weight: 700; color: var(--text2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .frame-label.rec { color: var(--primary); }
+  .phone { width: 340px; background: var(--bg); border-radius: 22px; border: 7px solid #000; overflow: hidden; box-shadow: 0 16px 44px rgba(0,0,0,0.55); }
+  .screen-fill { padding: 30px 14px; text-align: center; color: var(--text3); font-size: 10.5px; }
+
+  /* Base tab row structures */
+  .tabrow { display: flex; border-bottom: 1px solid var(--border); position: relative; overflow: hidden; }
+  .tab { padding: 10px 14px; font-size: 12.5px; color: var(--text3); white-space: nowrap; position: relative; display: flex; align-items: center; gap: 5px; }
+  .tab.active { color: var(--text); }
+
+  /* A: underline only (current) */
+  .tab.style-current.active { color: var(--primary); border-bottom: 2px solid var(--primary); margin-bottom: -1px; }
+  .tab.style-current { border-bottom: 2px solid transparent; margin-bottom: -1px; }
+
+  /* B: bold + thicker colored underline */
+  .tab.style-bold.active { color: var(--primary); font-weight: 800; border-bottom: 3px solid var(--primary); margin-bottom: -1px; }
+  .tab.style-bold { border-bottom: 3px solid transparent; margin-bottom: -1px; font-weight: 500; }
+
+  /* C: filled pill chip */
+  .tab.style-pill { border-radius: 999px; margin: 6px 4px; padding: 7px 14px; }
+  .tab.style-pill.active { background: var(--primary); color: #fff; font-weight: 700; }
+  .tab.style-pill:not(.active) { background: var(--surface2); }
+
+  /* D: tinted background + underline */
+  .tab.style-tint { border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab.style-tint.active { color: var(--primary); font-weight: 700; border-bottom: 2px solid var(--primary); background: rgba(0,168,107,0.10); border-radius: 8px 8px 0 0; }
+
+  .edge-fade-l, .edge-fade-r { position: absolute; top: 0; bottom: 0; width: 28px; pointer-events: none; }
+  .edge-fade-l { left: 0; background: linear-gradient(to right, var(--bg), transparent); }
+  .edge-fade-r { right: 0; background: linear-gradient(to left, var(--bg), transparent); }
+
+  .chevron { position: absolute; top: 0; bottom: 0; right: 4px; display: flex; align-items: center; font-size: 13px; color: var(--text3); background: linear-gradient(to left, var(--bg) 40%, transparent); padding-left: 16px; }
+
+  .callout { border: 1px dashed var(--border); border-radius: 10px; padding: 12px 14px; font-size: 11.5px; color: var(--text2); line-height: 1.65; margin-top: 16px; max-width: 820px; }
+  .callout b { color: var(--text); }
+  .step-row { display: flex; gap: 16px; align-items: flex-start; margin-top: 10px; }
+  .step { text-align: center; }
+  .step .cap { font-size: 9.5px; color: var(--text3); margin-top: 6px; max-width: 160px; }
+</style>
+</head>
+<body>
+
+<h1>TabStrip redesign — bolder active state + scroll-overflow indication</h1>
+<p class="intro">
+  Two separate decisions below: (1) how the ACTIVE tab reads visually — currently just a color change
+  + thin underline, which you flagged as too subtle; (2) how a user discovers there are MORE tabs
+  off-screen on a narrow/scrollable strip, plus your own auto-center-on-select idea. Both apply to the
+  same shared <code>TabStrip.tsx</code> (Expenses, Goals, Timeline) — Portfolio's hand-rolled tabs would
+  adopt whichever direction you pick too, for consistency.
+</p>
+
+<h2>Part 1 — Active tab visual weight</h2>
+<p class="subintro">All four rendered with Expenses' real 4 tabs. "Transactions" is active in each.</p>
+<div class="gallery">
+
+  <div>
+    <div class="frame-label">Current — color + thin underline only</div>
+    <div class="phone">
+      <div class="tabrow">
+        <div class="tab style-current active">Transactions</div>
+        <div class="tab style-current">Analytics</div>
+        <div class="tab style-current">Subscriptions</div>
+        <div class="tab style-current">IOU</div>
+      </div>
+      <div class="screen-fill">— content —</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="frame-label rec">Option B — bold text + thicker underline</div>
+    <div class="phone">
+      <div class="tabrow">
+        <div class="tab style-bold active">Transactions</div>
+        <div class="tab style-bold">Analytics</div>
+        <div class="tab style-bold">Subscriptions</div>
+        <div class="tab style-bold">IOU</div>
+      </div>
+      <div class="screen-fill">— content —</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="frame-label">Option C — filled pill (segmented control)</div>
+    <div class="phone">
+      <div class="tabrow" style="border-bottom:none;">
+        <div class="tab style-pill active">Transactions</div>
+        <div class="tab style-pill">Analytics</div>
+        <div class="tab style-pill">Subscriptions</div>
+        <div class="tab style-pill">IOU</div>
+      </div>
+      <div class="screen-fill">— content —</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="frame-label">Option D — tinted backdrop + underline</div>
+    <div class="phone">
+      <div class="tabrow">
+        <div class="tab style-tint active">Transactions</div>
+        <div class="tab style-tint">Analytics</div>
+        <div class="tab style-tint">Subscriptions</div>
+        <div class="tab style-tint">IOU</div>
+      </div>
+      <div class="screen-fill">— content —</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="callout">
+  <b>My recommendation: Option B.</b> Option C (filled pill) is a genuinely different component
+  language — a segmented control, not a tab strip — and would read as a mode-switcher rather than
+  in-page navigation; bigger visual change than "make the active state less subtle" calls for. Option D
+  is close to B but the tinted-background-with-square-corners looks slightly unfinished against this
+  app's already-rounded visual language elsewhere. Option B keeps the exact same tab-strip idiom users
+  already know, just gives the active one real visual weight (bold text, a genuinely thicker underline)
+  instead of a color shift that's easy to miss at a glance — the actual complaint.
+</div>
+
+<h2>Part 2 — Scroll-overflow indication (Goals' 5 tabs, narrower screen)</h2>
+<p class="subintro">
+  All three below use Option B's active style from Part 1. Scenario: "SIP &amp; SWP" is selected — a
+  middle tab, with "Lumpsum &amp; CAGR" still off-screen to the right.
+</p>
+<div class="gallery">
+
+  <div>
+    <div class="frame-label">Current — no signal there's more</div>
+    <div class="phone">
+      <div class="tabrow">
+        <div class="tab style-bold" style="opacity:0.4">Goals</div>
+        <div class="tab style-bold" style="opacity:0.4">Goal SIP</div>
+        <div class="tab style-bold" style="opacity:0.4">FIRE</div>
+        <div class="tab style-bold active">SIP &amp; SWP</div>
+      </div>
+      <div class="screen-fill">— content —<br/><span style="color:var(--danger)">✕ "Lumpsum & CAGR" is off-screen, nothing hints at it</span></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="frame-label rec">Recommended — auto-center + edge fade</div>
+    <div class="phone">
+      <div class="tabrow">
+        <div class="edge-fade-l"></div>
+        <div class="tab style-bold" style="opacity:0.5">Goal SIP</div>
+        <div class="tab style-bold" style="opacity:0.5">FIRE</div>
+        <div class="tab style-bold active">SIP &amp; SWP</div>
+        <div class="tab style-bold" style="opacity:0.7">Lumpsum &amp; C…</div>
+        <div class="edge-fade-r"></div>
+      </div>
+      <div class="screen-fill">— content —<br/>Selecting "SIP & SWP" scrolled it toward center — "Lumpsum & CAGR" now visibly peeks in on the right, fading at the edge.</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="frame-label">Alternative — edge fade only, no auto-scroll</div>
+    <div class="phone">
+      <div class="tabrow">
+        <div class="tab style-bold" style="opacity:0.4">Goal SIP</div>
+        <div class="tab style-bold" style="opacity:0.4">FIRE</div>
+        <div class="tab style-bold active">SIP &amp; SWP</div>
+        <div class="edge-fade-r"></div>
+        <div class="chevron">›</div>
+      </div>
+      <div class="screen-fill">— content —<br/>Selection never moves the scroll position on its own — just a fade + chevron hint that more exists to the right.</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="step-row">
+  <div class="step">
+    <div class="phone" style="width:120px;">
+      <div class="tabrow" style="justify-content:flex-start;">
+        <div class="tab style-bold active" style="font-size:10.5px;padding:8px 10px;">Goals</div>
+        <div class="tab style-bold" style="font-size:10.5px;padding:8px 10px;opacity:0.5;">Goal SIP</div>
+        <div class="tab style-bold" style="font-size:10.5px;padding:8px 10px;opacity:0.5;">FIRE</div>
+        <div class="edge-fade-r"></div>
+      </div>
+    </div>
+    <div class="cap">1. Tap the FIRST tab — already at the left edge, nothing to center, stays put.</div>
+  </div>
+  <div class="step">
+    <div class="phone" style="width:120px;">
+      <div class="tabrow">
+        <div class="edge-fade-l"></div>
+        <div class="tab style-bold" style="font-size:10.5px;padding:8px 10px;opacity:0.5;">Goal SIP</div>
+        <div class="tab style-bold active" style="font-size:10.5px;padding:8px 10px;">FIRE</div>
+        <div class="tab style-bold" style="font-size:10.5px;padding:8px 10px;opacity:0.5;">SIP &amp; SWP</div>
+        <div class="edge-fade-r"></div>
+      </div>
+    </div>
+    <div class="cap">2. Tap a MIDDLE tab — scrolls to bring it toward center, revealing a sliver on both sides.</div>
+  </div>
+  <div class="step">
+    <div class="phone" style="width:120px;">
+      <div class="tabrow" style="justify-content:flex-end;">
+        <div class="edge-fade-l"></div>
+        <div class="tab style-bold" style="font-size:10.5px;padding:8px 10px;opacity:0.5;">FIRE</div>
+        <div class="tab style-bold active" style="font-size:10.5px;padding:8px 10px;">Lumpsum &amp; C…</div>
+      </div>
+    </div>
+    <div class="cap">3. Tap the LAST tab — already at the right edge, nothing further to center toward, stays put.</div>
+  </div>
+</div>
+
+<div class="callout">
+  <b>My recommendation: the auto-center + edge-fade combination (Part 2, middle option) — your own
+  idea, plus one small addition.</b> Auto-centering alone (your original proposal) is the right core
+  mechanic — the motion itself teaches the user there's more, and edge tabs naturally stay anchored
+  since there's nowhere further to center toward (see the 3-step strip above). The edge fade is a small
+  free addition on top: even BEFORE any tap, a first glance at the strip shows a soft fade at the
+  right edge, hinting "there's more" without needing to touch anything first. The alternative
+  (fade-only, no auto-scroll) is simpler to build but weaker — it never actively surfaces a tab you
+  haven't scrolled to yet, which is the actual complaint (you can miss "Lumpsum & CAGR" exists at all
+  if you never scroll).
+  <br/><br/>
+  <b>One open question for you:</b> should auto-centering happen only on a deliberate TAP (selecting a
+  new tab), or also once on initial mount if the default-selected tab isn't the first one (e.g. Full
+  Ledger's own screens, or anywhere a tab strip could load with a non-first tab pre-selected)? I'd lean
+  toward tap-only for v1 — simpler, and every current `TabStrip` consumer defaults to its first tab
+  anyway — but flagging it as a real edge case worth deciding explicitly.
+</div>
+
+</body>
+</html>
