@@ -510,33 +510,51 @@ import fixes the gap. The "View full reconciliation table" escape hatch (`Accoun
 `CheckOpeningBalancePage.tsx`) now also gates on `'anchor-disagreement'`, not just
 `'checkpoint-mismatch'`.
 
-**Full Ledger (Phase 1, read-only, built 2026-08-10 — `docs/plans/bank-reconciliation-ledger.md`).**
+**Full Ledger (built 2026-08-10 — `docs/plans/bank-reconciliation-ledger.md`).**
 A second, deeper zoom level on top of `CheckpointTimelinePage.tsx`'s sparse checkpoint-only table —
 that page gains a "View full ledger ›" action (shown only in its all-clear, fully-verified state) into
 a new `FullLedgerPage.tsx`: a dense, row-by-row Statement ⟷ Expense reconciliation for a bounded,
-recent-first date window (60 days by default, paged via ‹/› arrows, capped from paging into the
+continuously-growing date window (60-day chunks, "Load earlier transactions" extends the same list
+rather than swapping windows, pinned to "now" as of when the screen opened — never pages into the
 future). Core: `core/bank-import/ledger.ts`'s `buildLedgerRows()`. One row per transaction the
 statement OR the app's own records contain, classified into four kinds:
-- `'matched'` — a statement line and its linked `Expense`, side by side.
+- `'matched'` — a statement line and its linked `Expense`, side by side. Tap to open "Fix this match":
+  **relink** ("This isn't the right match" — reuses `PossibleMatchPickerModal` to pick a different
+  existing expense, correcting it to the statement via `reconcileMatchedExpense`) or **unmatch**
+  (pulls the pair apart; the `Expense` stays exactly as recorded, and the statement line's own facts
+  are appended back to its original batch's `skippedRows` — nothing is ever deleted, the row just
+  reappears as an ordinary unresolved one). Core: `core/bank-import/ledgerActions.ts`'s
+  `relinkLedgerRow`/`unmatchLedgerRow`.
 - `'skipped-unresolved'` — a statement line still sitting in an old batch's `ImportBatchSummary.
   skippedRows` snapshot with no linking `Expense` yet. **Reverses that field's original "read-only,
   never re-parsed/re-actionable" design** (§11a) — checked live at render time (via
   `normalizeNarration()`, never a stored link) against every import record the account has, so a later
   corrective re-import that actually resolved the row makes it disappear from here on its own, without
-  ever touching the original batch's own historical snapshot. Shows "Skipped during import. Reimport
-  the statement to resolve this." plus a "Dismiss, not mine" action
-  (`Account.dismissedSkippedRows`, same fingerprint-scoped convention as
-  `dismissedVerificationFindings`) — Phase 1 is read-only, so reimporting or dismissing are the only
-  two ways to make a row stop showing.
+  ever touching the original batch's own historical snapshot. Tap to open "Resolve this statement
+  line": **pick the matching transaction** (an already-recorded expense that was just never linked —
+  `resolveSkippedRowToExisting`, reuses the row's own original `batchId` for the new
+  `BankStatementImportRecord` rather than inventing a synthetic marker), **add as a new transaction**
+  (opens `ExpenseForm` with a `statementPreset`, same path bucket 3's live "add as new" uses — known,
+  accepted gap: doesn't route through `useExpenses.ts`'s `saveExpenseWithHashtags`, a
+  `features/expenses/`-scoped hook off-limits to `features/accounts/`, so it skips hashtag/merchant-
+  memory learning; it does still call `logActivity()` directly), or **dismiss** ("not mine, stop
+  flagging this" — `Account.dismissedSkippedRows`, same fingerprint-scoped convention as
+  `dismissedVerificationFindings`).
 - `'anomaly'` — a recorded `Expense` with no statement link, dated inside a period the account's own
   `coveredStatementRanges` claims is fully covered (reuses `findStandingCoverageGaps()`'s own
-  coverage-union logic directly). A genuine "the bank has no record of this" flag.
+  coverage-union logic directly). A genuine "the bank has no record of this" flag. No action of its
+  own — resolving its real statement-side counterpart (a `'skipped-unresolved'` row elsewhere in the
+  window) via "Pick the matching transaction" and choosing this expense links them and the row
+  disappears on its own.
 - `'not-covered'` — a recorded `Expense` with no statement link, dated OUTSIDE any imported statement's
-  range. Not an anomaly — rendered as "Statement not imported for this period," softer/muted.
+  range. Not an anomaly — rendered as "Statement not imported for this period," softer/muted. Same
+  no-action-of-its-own reasoning as `'anomaly'`.
 
-No drag-to-reorder (same-date ties fall back to a stable tiebreaker); no relink/unmatch/resolve actions
-yet (Phase 2, not yet built); the two-errors-cancel-out blind spot (§10c) is explicitly unaffected by
-any of this — nothing here closes it, by design.
+All action menus are a centered `Modal` (`docs/DESIGN_GUIDELINES.md`'s non-negotiable "centered
+modals, never bottom sheets" rule) — the phase-2 mockup's own bottom-sheet chrome was corrected during
+implementation, only its options/content carried over. No drag-to-reorder (same-date ties fall back to
+a stable tiebreaker); the two-errors-cancel-out blind spot (§10c) is explicitly unaffected by any of
+this — nothing here closes it, by design.
 
 **Intra-day sequencing (Stage 5), inter-account-transfer refinements (Stage 6), and the
 cash-withdrawal retroactive-transfer prompt (Stage 7, the final stage) are also built** — see plan §7

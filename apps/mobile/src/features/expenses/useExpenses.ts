@@ -32,8 +32,10 @@ import {
   useCategoriesRefresh,
   useTagsRefresh,
   useAccountsRefresh,
+  useBankImportsRefresh,
   notifyAccountsChanged
 } from '@/hooks/useDataRefresh';
+import { CHECKPOINT_ELIGIBLE, computeAccountVerificationStatus } from '@/core/bank-import/accountVerification';
 import type { AccountInput } from '~/hooks/useAccountForm';
 import { ALL_DEFAULT_CATEGORIES, CATEGORY_MIGRATION_MAP } from '@/core/db/defaultCategories';
 import { dedupeDemoCategories, reconcileDefaultCategories, repairCategoryIcons } from '@/core/db/dedupeDemoCategories';
@@ -110,10 +112,15 @@ export function useExpenses() {
   const { items: goalContributions, reload: reloadGoalContributions } =
     useRepository<GoalContribution>(goalContributionsRepo);
   // Read-only — just enough for the edit form's "matched from bank statement" audit-trail caption
-  // (docs/plans/bank-statement-import.md §10a's purpose #1). Bank Statement Import itself owns writing
-  // to this store (`features/bank-import/useBankImport.ts`'s `commitAndImport`); this is a separate,
+  // (docs/plans/bank-statement-import.md §10a's purpose #1), and (2026-08-11) the account
+  // verification banner below. Bank Statement Import itself owns writing to this store
+  // (`features/bank-import/useBankImport.ts`'s `commitAndImport`); this is a separate,
   // independently-mounted read of the same repo, same pattern as `ledgerEntries`/`goalContributions`.
-  const { items: bankStatementImportRecords } = useRepository(bankStatementImportsRepo);
+  // `useBankImportsRefresh` added 2026-08-11 (found via `useHome.ts`'s own identical fix 2026-08-10) —
+  // without it, a commit while Expenses sits mounted underneath the import flow would leave the
+  // verification banner reading a stale, empty snapshot of import records.
+  const { items: bankStatementImportRecords, reload: reloadImportRecords } = useRepository(bankStatementImportsRepo);
+  useBankImportsRefresh(reloadImportRecords);
 
   // The IOU/Goals screens write expenses/ledger entries/contributions through separate repo instances;
   // reload on their signal.
@@ -853,6 +860,31 @@ export function useExpenses() {
     return map;
   }, [accounts, expenses]);
 
+  // Full-width "N accounts need attention" banner (2026-08-11, `docs/mockups/proposals/
+  // expenses-account-verification-badge-v2.html`) — Expenses is where users spend the most day-to-day
+  // time, so an unverified account needed a surface here too, not just Home/Accounts. Pure read,
+  // deliberately not `useAccountVerification()` — same "the write side effect must stay singular,
+  // owned by the Accounts screen alone" reasoning `useHome.ts`'s own identical computation documents.
+  const accountsNeedingAttention = useMemo(
+    () =>
+      accounts.filter(
+        (a) =>
+          !a.isArchived &&
+          CHECKPOINT_ELIGIBLE.has(a.type) &&
+          computeAccountVerificationStatus({
+            accountId: a.id,
+            openingBalance: a.openingBalance,
+            openingBalanceAsOfDate: a.openingBalanceAsOfDate,
+            accountTxns: expenses.filter((e) => e.accountId === a.id || e.toAccountId === a.id),
+            importRecords: bankStatementImportRecords.filter((r) => r.accountId === a.id),
+            coveredRanges: a.coveredStatementRanges ?? [],
+            anchorReference: a.anchorReference,
+            dismissed: a.dismissedVerificationFindings ?? []
+          }).needsAttention
+      ),
+    [accounts, expenses, bankStatementImportRecords]
+  );
+
   // ── Recurring auto-post inbox ───────────────────────────────────────────────
   // Recurring series are forecast-only; surface the ones whose next occurrence is
   // due so the user can confirm and log the real transaction.
@@ -933,6 +965,7 @@ export function useExpenses() {
     paymentModeMismatchTxnIds,
     txnIdsByGoal,
     accountBalances,
+    accountsNeedingAttention,
     patchExpenses,
     removeExpenses,
     saveCategory,

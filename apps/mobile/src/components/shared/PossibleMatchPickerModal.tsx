@@ -40,9 +40,14 @@ interface PossibleMatchPickerModalProps {
 
 /**
  * Adapted from `features/goals/LinkTransactionModal.tsx` (not imported — a new, independent
- * component, per the architecture rule against feature-to-feature imports). Used both for bucket 2
- * ("Possible matches") and bucket 1's manual override ("Disagree with a match? Tap any pair to
- * re-choose") — docs/plans/bank-statement-import.md §5/§6.
+ * component, per the architecture rule against feature-to-feature imports). Used for
+ * `features/bank-import/`'s bucket 2 ("Possible matches") and bucket 1's manual override ("Disagree
+ * with a match? Tap any pair to re-choose") — docs/plans/bank-statement-import.md §5/§6.
+ *
+ * **Moved here from `features/bank-import/` 2026-08-10** (`docs/plans/bank-reconciliation-ledger.md`
+ * Phase 2) — `features/accounts/FullLedgerPage.tsx` needed the exact same "choose the match" picker
+ * for its own relink/resolve actions, and a feature module may not import from another feature module.
+ * Same reasoning `ExpenseForm` already lives here for.
  */
 export function PossibleMatchPickerModal({
   statementLine,

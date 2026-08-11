@@ -51,6 +51,20 @@ The expense tracking module — the heart of Penny's day-to-day usage. You log e
   NativeWind/interop setup, so the same three-equal-`flex: 1`-column technique used there is reused here.
   The vacation pill simply doesn't render on a day with no active event — no placeholder gap, no layout
   shift.
+- **`apps/mobile`, 2026-08-11:** `ExpensesHeader.tsx` gained a full-width, tappable **account
+  verification banner** below the header row (`docs/mockups/proposals/expenses-account-verification-
+  badge-v2.html`) — Expenses is where users spend the most day-to-day time, so an unverified bank
+  account (checkpoint mismatch, anchor disagreement, or standing gap — the same
+  `computeAccountVerificationStatus()` signal Home/Accounts already surface) needed a visible presence
+  here too, not just those two screens. Renders nothing at all when every account is verified (or not
+  `CHECKPOINT_ELIGIBLE`) — pixel-identical to before this existed. Names the specific account directly
+  when exactly one needs attention; stays generic ("N accounts need attention") for 2+, since the
+  Accounts screen it links to (`navigate('Home', { screen: 'Accounts' })`, the same cross-tab pattern
+  the header's own Safe-to-spend pill already uses for CashFlow) shows which ones. `useExpenses.ts`
+  also gained a `useBankImportsRefresh` subscription it was missing (found alongside this — the same
+  staleness class of bug `useHome.ts` hit and fixed 2026-08-10: a commit while Expenses sits mounted
+  underneath the import flow would otherwise leave this banner reading a stale, empty snapshot of
+  import records).
 - The **Tags panel** shows a horizontally-scrollable **Frequent** row (your top-8 tags by usage) and any active-event tags immediately when opened — no typing required — plus a **Manage tags** link straight to the full list. Typing a genuinely new tag surfaces an inline, editable **Set aside** toggle; picking an existing tag instead shows its current Set Aside status read-only (changing an already-established tag's classification only happens in Manage Tags, since it retroactively affects every past transaction carrying it).
 - Transactions render as a **day-grouped timeline** — a continuous left rail, newest first; same-day items order by the **time they were entered** (`Expense.date` now carries the time-of-day). **`apps/mobile`, 2026-08-02:** the account name moved from the subtitle line (which crammed category, account, and tags onto one row) to a small second line under the amount, right-aligned — the subtitle is now just category + tags.
 - **`apps/mobile`, 2026-08-02:** the rail's plain colour dot is now the transaction's own category/type

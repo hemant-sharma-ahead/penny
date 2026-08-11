@@ -49,7 +49,14 @@ export function Modal({
         <View className="flex-1 items-center justify-center px-4" style={{ paddingTop: 56, paddingBottom: 72 }}>
           <View
             className={`w-full ${size === 'sm' ? 'max-w-sm' : 'max-w-[430px]'} bg-surface rounded-2xl border border-theme`}
-            style={{ maxHeight: '100%', boxShadow: '0px 0px 20px rgba(0, 0, 0, 0.2)' }}
+            // `overflow: 'hidden'` (found + fixed 2026-08-11, on-device testing) — RN doesn't clip a
+            // rounded `View`'s children to its own bounds by default the way web's `border-radius`
+            // does; a non-`scrollable` caller whose content (title + stat row + banner + a
+            // fixed-height inner list) exceeds `maxHeight` was visibly spilling past the card's
+            // rounded corners onto the dark backdrop instead of being contained. Safe for every
+            // existing caller — nothing in this app intentionally relies on a modal's own content
+            // escaping its card bounds.
+            style={{ maxHeight: '100%', overflow: 'hidden', boxShadow: '0px 0px 20px rgba(0, 0, 0, 0.2)' }}
           >
             {title !== undefined && (
               <View className="flex-row items-center justify-between px-5 pt-5">

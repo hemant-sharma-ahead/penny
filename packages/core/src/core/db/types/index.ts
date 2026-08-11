@@ -458,8 +458,25 @@ export interface ImportBatchSummary {
    *  existed lack it — the ledger falls back to an unsigned, neutral rendering for those rather than
    *  guessing a sign. Deliberately `'debit' | 'credit'` inline rather than importing
    *  `bank-import/types.ts`'s `StatementLineDirection` — this file is a dependency-free leaf every
-   *  other core module imports FROM, never the reverse. */
-  skippedRows: { rawNarration: string; date: number; amount: number; direction?: 'debit' | 'credit' }[];
+   *  other core module imports FROM, never the reverse.
+   *
+   *  `rowIndex` (added 2026-08-11) — the ORIGINAL statement file's own 1-based line number
+   *  (`ParsedStatementRow.rowIndex`, previously only used for the rejected-rows report, now persisted
+   *  end-to-end). Two genuinely separate real transactions can legitimately share identical
+   *  narration/date/amount (e.g. two same-day, same-merchant purchases) — `rowIndex` is what tells
+   *  them apart, since it's tied to a specific physical file line rather than a value that can
+   *  collide. Only ever compared against `BankStatementImportRecord.sourceRowIndex` WITHIN THE SAME
+   *  `batchId` (a different import's own row numbering starts over from 1 and has no relationship to
+   *  this one) — cross-batch resolution stays value-based, same as before. Optional because entries
+   *  committed before this field existed lack it; those fall back to the old value-based matching,
+   *  same ambiguity as always (a documented, accepted limitation for legacy data only). */
+  skippedRows: {
+    rawNarration: string;
+    date: number;
+    amount: number;
+    direction?: 'debit' | 'credit';
+    rowIndex?: number;
+  }[];
 }
 
 export interface Budget {
@@ -964,6 +981,14 @@ export interface BankStatementImportRecord {
    *  created during this import. */
   linkedTxnId: string;
   createdAt: number;
+  /** The ORIGINAL statement file's own 1-based line number this record resolved (added 2026-08-11) —
+   *  see `ImportBatchSummary.skippedRows`' own doc comment on `rowIndex` for the full rationale (two
+   *  genuinely separate transactions can share identical narration/date/amount; this is what tells
+   *  them apart). Set at commit time from `ParsedStatementRow.rowIndex` for every record — both a
+   *  live-matched/newly-added row AND a later "resolve"/"relink" (Full Ledger Phase 2) action, which
+   *  carries the original skipped entry's own `rowIndex` forward onto the new record it creates.
+   *  Optional because records written before this field existed lack it. */
+  sourceRowIndex?: number;
 }
 
 /** A manual override for the normalization heuristic (core/bank-import/normalization.ts) — always

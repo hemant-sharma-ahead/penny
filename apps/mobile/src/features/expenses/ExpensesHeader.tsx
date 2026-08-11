@@ -6,7 +6,7 @@ import { Modal, Button, PageHeader } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { useEventMode } from '~/context/EventModeContext';
-import type { Expense, ExpenseCategory } from '@/core/db/types';
+import type { Account, Expense, ExpenseCategory } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
 import { useForecast } from '~/hooks/useForecast';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -23,6 +23,11 @@ interface ExpensesHeaderProps {
   expenseCategories: ExpenseCategory[];
   linkedCountByEventHashtag: Map<string, number>;
   saveExpense: (e: Expense) => Promise<void>;
+  /** Powers the account-verification banner below the header row (2026-08-11,
+   *  `docs/mockups/proposals/expenses-account-verification-badge-v2.html`) — empty when every account
+   *  is either verified or not `CHECKPOINT_ELIGIBLE`, in which case the banner renders nothing at all
+   *  (pixel-identical to before this feature existed). */
+  accountsNeedingAttention: Account[];
 }
 
 /**
@@ -36,7 +41,8 @@ export function ExpensesHeader({
   expenses,
   expenseCategories,
   linkedCountByEventHashtag,
-  saveExpense
+  saveExpense,
+  accountsNeedingAttention
 }: ExpensesHeaderProps) {
   const theme = useThemeColors();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
@@ -129,6 +135,30 @@ export function ExpensesHeader({
             )}
           </View>
         </View>
+
+        {accountsNeedingAttention.length > 0 && (
+          <Pressable
+            onPress={() => navigation.navigate('Home', { screen: 'Accounts' })}
+            className="flex-row items-center gap-2.5 rounded-xl border px-3 py-2.5 mt-2.5"
+            style={{ backgroundColor: tint(theme.danger, 13), borderColor: tint(theme.danger, 35) }}
+            accessibilityLabel="Account verification issue, tap to review"
+          >
+            <Icon name="ti-alert-triangle" size={16} color={theme.danger} />
+            <View className="flex-1">
+              <Text className="text-xs font-bold" style={{ color: theme.danger }}>
+                {accountsNeedingAttention.length === 1
+                  ? '1 account needs attention'
+                  : `${accountsNeedingAttention.length} accounts need attention`}
+              </Text>
+              <Text className="text-[10.5px] text-secondary mt-0.5">
+                {accountsNeedingAttention.length === 1
+                  ? `${accountsNeedingAttention[0]?.name} · balance may not match your bank`
+                  : 'Tap to review in Accounts'}
+              </Text>
+            </View>
+            <Icon name="ti-chevron-right" size={14} color={theme.danger} />
+          </Pressable>
+        )}
       </PageHeader>
 
       {showExportSheet && (

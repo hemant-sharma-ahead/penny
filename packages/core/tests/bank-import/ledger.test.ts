@@ -257,6 +257,84 @@ describe('buildLedgerRows — skipped rows', () => {
 
     expect(rows[0]?.statement?.amount).toBe(300);
   });
+
+  it('collapses duplicate LEGACY skippedRows entries (no rowIndex) into a single row', () => {
+    // Reproduces the on-device bug: a repeated match/unmatch cycle before `unmatchLedgerRow`'s own
+    // rowIndex-based idempotency fix appended the same logical line 3 times into one batch's
+    // `skippedRows`, none of them carrying a `rowIndex` (this scenario predates that field existing).
+    // Rendering never trusts the array is already de-duplicated — `skippedRows` is an append-only
+    // historical record, not something any fix goes back and prunes — but for entries with NO
+    // `rowIndex` to prove otherwise, collapsing identical-looking ones is the safer assumption.
+    const duplicated = batch({
+      skippedRows: [
+        { rawNarration: 'UPI/BIGBASKET', date: d(2026, 5, 18), amount: 2_500, direction: 'debit' },
+        { rawNarration: 'UPI/BIGBASKET', date: d(2026, 5, 18), amount: 2_500, direction: 'debit' },
+        { rawNarration: 'UPI/BIGBASKET', date: d(2026, 5, 18), amount: 2_500, direction: 'debit' }
+      ]
+    });
+    const rows = buildLedgerRows({
+      accountId: ACCOUNT,
+      openingBalance: OPENING,
+      accountTxns: [],
+      importRecords: [],
+      batches: [duplicated],
+      dismissedFingerprints: new Set(),
+      windowStart: WINDOW_START,
+      windowEnd: WINDOW_END
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.kind).toBe('skipped-unresolved');
+  });
+
+  it('never collapses rowIndex-tracked entries — two genuinely separate identical-looking rows both render', () => {
+    // The exact case the legacy collapse above must NOT apply to: two real, distinct transactions
+    // (different rowIndex) that happen to share identical narration/date/amount — both must show up,
+    // never merged into one.
+    const distinctRows = batch({
+      skippedRows: [
+        { rawNarration: 'UPI/BIGBASKET', date: d(2026, 5, 18), amount: 2_500, direction: 'debit', rowIndex: 7 },
+        { rawNarration: 'UPI/BIGBASKET', date: d(2026, 5, 18), amount: 2_500, direction: 'debit', rowIndex: 8 }
+      ]
+    });
+    const rows = buildLedgerRows({
+      accountId: ACCOUNT,
+      openingBalance: OPENING,
+      accountTxns: [],
+      importRecords: [],
+      batches: [distinctRows],
+      dismissedFingerprints: new Set(),
+      windowStart: WINDOW_START,
+      windowEnd: WINDOW_END
+    });
+
+    expect(rows).toHaveLength(2);
+  });
+
+  it('resolving one rowIndex-tracked entry never resolves a different one that merely looks identical', () => {
+    const distinctRows = batch({
+      skippedRows: [
+        { rawNarration: 'UPI/BIGBASKET', date: d(2026, 5, 18), amount: 2_500, direction: 'debit', rowIndex: 7 },
+        { rawNarration: 'UPI/BIGBASKET', date: d(2026, 5, 18), amount: 2_500, direction: 'debit', rowIndex: 8 }
+      ]
+    });
+    // Row 7 got resolved (a real import record in the SAME batch, pointing at row 7 specifically) —
+    // row 8 must still show as unresolved, even though it looks identical.
+    const resolvingRecord = record({ id: 'r-row7', linkedTxnId: 'e-row7', sourceRowIndex: 7 });
+    const rows = buildLedgerRows({
+      accountId: ACCOUNT,
+      openingBalance: OPENING,
+      accountTxns: [],
+      importRecords: [resolvingRecord],
+      batches: [distinctRows],
+      dismissedFingerprints: new Set(),
+      windowStart: WINDOW_START,
+      windowEnd: WINDOW_END
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.kind).toBe('skipped-unresolved');
+  });
 });
 
 describe('buildLedgerRows — windowing', () => {

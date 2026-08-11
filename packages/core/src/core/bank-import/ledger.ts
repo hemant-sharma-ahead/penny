@@ -51,37 +51,79 @@ export interface LedgerRow {
   /** Present only for `'skipped-unresolved'` rows — the stable fingerprint the "not mine, stop
    *  flagging this" dismiss action writes to `Account.dismissedSkippedRows`. */
   dismissKey?: string;
+  /** Present only for `'skipped-unresolved'` rows (Phase 2, `docs/plans/bank-reconciliation-ledger.md`)
+   *  — the ORIGINAL batch this row came from, so a "resolve" action's new `BankStatementImportRecord`
+   *  can reuse it (`buildResolvedImportRecord`) rather than inventing a synthetic marker. A `'matched'`
+   *  row needs no equivalent field — its own `expense.expenseId` is enough for a caller to look up its
+   *  linking `BankStatementImportRecord` directly. */
+  batchId?: string;
+  /** Present only for `'skipped-unresolved'` rows with a `rowIndex`-tracked source entry (added
+   *  2026-08-11) — the original statement file's own 1-based line number, carried forward so a
+   *  "resolve"/"relink" action's new `BankStatementImportRecord` can set `sourceRowIndex`, keeping two
+   *  genuinely separate but identical-looking transactions distinguishable end-to-end. Absent for
+   *  legacy entries that predate this field. */
+  rowIndex?: number;
 }
 
 /**
  * A skipped-row snapshot's own stable identity, used both to check `Account.dismissedSkippedRows`
- * and to detect whether a later import already resolved it (see {@link buildLedgerRows}). Built from
- * facts that never change once a batch commits (`batchId`, the row's own date/amount, its normalized
- * narration) — never the raw narration verbatim, so two statements' own minor punctuation/whitespace
- * differences for what's really the same merchant don't produce two different fingerprints.
+ * and to detect whether a later import already resolved it (see {@link buildLedgerRows}). When
+ * `rowIndex` is known, it alone identifies the entry — precise, and immune to two genuinely separate
+ * transactions colliding on identical narration/date/amount. Falls back to the original
+ * value-based formula (`batchId` + date + amount + normalized narration — never the raw narration
+ * verbatim, so minor punctuation/whitespace differences for the same merchant don't produce different
+ * fingerprints) only for legacy entries that predate `rowIndex` tracking.
  */
-function skippedRowFingerprint(batchId: string, date: number, amount: number, normalizedKey: string): string {
-  return `${batchId}|${toDateKey(date)}|${amount}|${normalizedKey}`;
+function skippedRowFingerprint(
+  batchId: string,
+  date: number,
+  amount: number,
+  normalizedKey: string,
+  rowIndex?: number
+): string {
+  return rowIndex !== undefined
+    ? `${batchId}|row:${rowIndex}`
+    : `${batchId}|${toDateKey(date)}|${amount}|${normalizedKey}`;
+}
+
+function valueMatches(
+  record: BankStatementImportRecord,
+  entry: { rawNarration: string; date: number; amount: number }
+): boolean {
+  const key = normalizeNarration(entry.rawNarration);
+  return (
+    record.normalizedKey === key &&
+    toDateKey(record.date) === toDateKey(entry.date) &&
+    Math.abs(record.amount - entry.amount) <= 1
+  );
 }
 
 /**
- * Checks whether a skipped-row snapshot has since been resolved by ANY of the account's import
- * records (not just the batch it was originally skipped from) — a corrective re-import commonly
- * covers an overlapping range and can pick up a row a previous import left unresolved.
- * `normalizeNarration()` is applied live here, never persisted on the snapshot itself, so this needs
- * no schema backfill and stays correct even against import records written before this check
- * existed. Day-granularity date match (statements never carry time-of-day) + ±₹1 tolerance on amount,
- * matching this whole feature's existing tolerance convention.
+ * Checks whether a skipped-row snapshot has since been resolved. Two distinct mechanisms, per
+ * `docs/plans/bank-reconciliation-ledger.md`'s 2026-08-11 entry:
+ *
+ * - **Same batch, `rowIndex` known on both sides** — precise, exact-row match only. Two entries in the
+ *   SAME batch that share identical narration/date/amount but different `rowIndex` must never
+ *   value-match each other here — that's exactly the bug this guards against (resolving row 7 must
+ *   never also mark rows 8/9 "resolved" just because they look the same).
+ * - **Different batch, OR `rowIndex` missing on either side (legacy)** — value-based, as originally
+ *   designed: a corrective re-import commonly covers an overlapping range and can pick up a row a
+ *   previous import left unresolved, and a different import's own row numbering starts over from 1
+ *   with no relationship to this one, so there's nothing precise to compare there anyway.
  */
 function isSkippedRowResolved(
-  entry: { rawNarration: string; date: number; amount: number },
+  entry: { rawNarration: string; date: number; amount: number; rowIndex?: number },
+  batchId: string,
   importRecords: BankStatementImportRecord[]
 ): boolean {
-  const key = normalizeNarration(entry.rawNarration);
-  return importRecords.some(
-    (r) =>
-      r.normalizedKey === key && toDateKey(r.date) === toDateKey(entry.date) && Math.abs(r.amount - entry.amount) <= 1
-  );
+  for (const record of importRecords) {
+    if (record.batchId === batchId && entry.rowIndex !== undefined && record.sourceRowIndex !== undefined) {
+      if (record.sourceRowIndex === entry.rowIndex) return true;
+      continue; // same batch, both sides tracked precisely, but a different row — never fall through
+    }
+    if (valueMatches(record, entry)) return true;
+  }
+  return false;
 }
 
 interface BuildLedgerRowsParams {
@@ -183,21 +225,39 @@ export function buildLedgerRows(params: BuildLedgerRowsParams): LedgerRow[] {
   }
 
   // Skipped rows never contributed to `runningBalance` above (no `Expense` exists for them) — swept
-  // in separately, checked live against every import record for "already resolved by a later
-  // import" and against `dismissedFingerprints` for "acknowledged, stop flagging."
+  // in separately, checked live against every import record for "already resolved" and against
+  // `dismissedFingerprints` for "acknowledged, stop flagging."
+  //
+  // `rowIndex`-tracked entries (2026-08-11) are never deduped against each other here — each is
+  // already guaranteed to represent a genuinely distinct statement line (`isSkippedRowResolved`'s own
+  // same-batch `rowIndex` check above never lets two different rows collide), so two entries that
+  // happen to look identical (same narration/date/amount, different `rowIndex`) both correctly render
+  // as separate rows, exactly as they should. The `seenLegacyFingerprints` safety net below applies
+  // ONLY to entries that predate `rowIndex` tracking — a batch's own `skippedRows` could, before
+  // `unmatchLedgerRow`'s own idempotency fix, contain more than one entry for what was really the same
+  // statement line (a repeated match/unmatch cycle); those legacy entries have no `rowIndex` to prove
+  // otherwise, so collapsing them to one row is the safer assumption for data that can no longer be
+  // disambiguated. Never applied to a `rowIndex`-tracked entry.
+  const seenLegacyFingerprints = new Set<string>();
   for (const batch of batches) {
     for (const entry of batch.skippedRows) {
       if (entry.date < windowStart || entry.date > windowEnd) continue;
-      if (isSkippedRowResolved(entry, importRecords)) continue;
+      if (isSkippedRowResolved(entry, batch.batchId, importRecords)) continue;
       const normalizedKey = normalizeNarration(entry.rawNarration);
-      const fingerprint = skippedRowFingerprint(batch.batchId, entry.date, entry.amount, normalizedKey);
+      const fingerprint = skippedRowFingerprint(batch.batchId, entry.date, entry.amount, normalizedKey, entry.rowIndex);
       if (dismissedFingerprints.has(fingerprint)) continue;
+      if (entry.rowIndex === undefined) {
+        if (seenLegacyFingerprints.has(fingerprint)) continue;
+        seenLegacyFingerprints.add(fingerprint);
+      }
       const signedAmount = entry.direction === 'debit' ? -entry.amount : entry.amount;
       rows.push({
         kind: 'skipped-unresolved',
         date: entry.date,
         statement: { rawNarration: entry.rawNarration, amount: signedAmount },
-        dismissKey: fingerprint
+        dismissKey: fingerprint,
+        batchId: batch.batchId,
+        ...(entry.rowIndex !== undefined ? { rowIndex: entry.rowIndex } : {})
       });
     }
   }
@@ -215,6 +275,12 @@ export function buildLedgerRows(params: BuildLedgerRowsParams): LedgerRow[] {
  * `Account.dismissedSkippedRows` — exported so the mobile layer never has to reconstruct
  * {@link skippedRowFingerprint}'s exact formula itself.
  */
-export function buildSkippedRowFingerprint(batchId: string, rawNarration: string, date: number, amount: number) {
-  return skippedRowFingerprint(batchId, date, amount, normalizeNarration(rawNarration));
+export function buildSkippedRowFingerprint(
+  batchId: string,
+  rawNarration: string,
+  date: number,
+  amount: number,
+  rowIndex?: number
+) {
+  return skippedRowFingerprint(batchId, date, amount, normalizeNarration(rawNarration), rowIndex);
 }

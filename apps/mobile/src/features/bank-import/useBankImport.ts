@@ -861,7 +861,11 @@ export function useBankImport(accountId: string) {
           amount: row.amount,
           type,
           linkedTxnId,
-          createdAt: now
+          createdAt: now,
+          // 2026-08-11 — the file's own 1-based line number, carried forward so Full Ledger Phase 2's
+          // relink/unmatch/resolve actions can tell apart two genuinely separate transactions that
+          // happen to share identical narration/date/amount (see the type's own doc comment).
+          sourceRowIndex: row.rowIndex
         });
         linkedCount++;
       } catch {
@@ -1060,7 +1064,11 @@ export function useBankImport(accountId: string) {
         rawNarration: r.rawNarration,
         date: r.date,
         amount: r.amount,
-        direction: r.direction
+        direction: r.direction,
+        // 2026-08-11 — see `ImportBatchSummary.skippedRows`' own doc comment on `rowIndex`: tells
+        // apart two genuinely separate skipped rows that happen to share identical
+        // narration/date/amount, rather than relying on those values alone.
+        rowIndex: r.rowIndex
       }));
       const batchSummary: ImportBatchSummary = {
         batchId,

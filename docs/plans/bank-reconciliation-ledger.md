@@ -25,9 +25,64 @@ Verified: tsc/eslint/prettier clean, 11 new unit tests (889/889 core suite passi
    content appears where reading order actually expects it. No forward paging exists
    anymore; `windowEnd` stays fixed at "now" as of when the screen opened.
 
-**Not yet manually verified on-device past this round.** Phase 2 (relink/unmatch/resolve
-actions) not started — this plan's own "Phasing" section below is the source of truth for
-what's built vs. deferred; don't assume anything past Phase 1 exists without checking the
+**Phase 2 (relink/unmatch/resolve, built 2026-08-10) — not yet manually verified on-device.**
+`core/bank-import/ledgerActions.ts` (`unmatchLedgerRow`, `relinkLedgerRow`,
+`resolveSkippedRowToExisting`, `buildResolvedImportRecord`) + `FullLedgerPage.tsx` gained a
+tap-to-open action menu on `'matched'`/`'skipped-unresolved'` rows. Mockup:
+`docs/mockups/proposals/bank-reconciliation-ledger-phase2-v1.html` — approved, except its
+own bottom-sheet chrome was corrected to a centered `Modal` during implementation
+(`docs/DESIGN_GUIDELINES.md`'s non-negotiable "centered modals, never bottom sheets" rule;
+only the mockup's options/content carried over, not its visual shell). Both open design
+questions from the Phasing section below resolved during implementation, not left open:
+- **Unmatch never loses data** — converts the matched row back into an ordinary
+  `skippedRows` entry on its ORIGINAL batch (direction derived from the linked expense's
+  own sign via `delta()`, not guessed from the record's `type`) rather than deleting the
+  statement's own facts. The row reappears with the same resolve action available on it.
+- **A resolved skipped row reuses its own original `batchId`** for the new
+  `BankStatementImportRecord` it creates — no synthetic "manual resolution" marker or new
+  `origin` field needed, resolving the plan's own open question more simply than
+  anticipated.
+- **`PossibleMatchPickerModal.tsx` moved** from `features/bank-import/` to
+  `apps/mobile/src/components/shared/` — Phase 2's relink/resolve actions needed the exact
+  same picker, and a feature module may not import from another feature module. See
+  `docs/ARCHITECTURE.md`'s dated entry for the full rationale.
+- **`'anomaly'`/`'not-covered'` rows never needed their own fix action** — resolving a
+  `'skipped-unresolved'` row via "Pick the matching transaction" and choosing the
+  anomaly's own expense links them correctly and the anomaly row disappears on its own.
+- **Known, accepted simplification**: "Add as a new transaction" doesn't route through
+  `useExpenses.ts`'s `saveExpenseWithHashtags` (off-limits — a `features/expenses/`-scoped
+  hook), so it skips hashtag usage-count tracking and merchant-memory learning. It DOES
+  call `logActivity()` directly (all four Phase 2 mutations do), so the activity feed
+  stays complete regardless.
+
+**Duplicate-skipped-row bug + real fix (2026-08-11, first round of on-device testing on
+Phase 2).** Repeatedly matching then unmatching the SAME statement line appended a fresh
+`skippedRows` entry every time — 1, then 2, then 3 identical "skipped" rows in the ledger
+for what was really one line (all disappearing together the next time any one of them got
+matched, since resolution matched by value, not by which array entry). First attempt
+(dedup by value — narration + date + amount) was itself wrong: two GENUINELY SEPARATE
+transactions can legitimately share identical narration/date/amount (e.g. two same-day,
+same-merchant purchases), and that fix would have silently hidden the second one. **Real
+fix, per the user's own proposed design**: persist the statement file's own 1-based line
+number end-to-end. `ParsedStatementRow.rowIndex` already existed (previously only used for
+the rejected-rows report) — now also written to `BankStatementImportRecord.sourceRowIndex`
+(every record, both live-matched-at-commit and later resolved/relinked) and
+`ImportBatchSummary.skippedRows[].rowIndex`. Two matching mechanisms now coexist,
+deliberately:
+- **Same batch, `rowIndex` known on both sides** — precise, exact-row match only. Two
+  same-batch entries that look identical but have different `rowIndex` never value-match
+  each other, in either direction (`isSkippedRowResolved`'s resolution check, or
+  `unmatchLedgerRow`'s idempotency check).
+- **Different batch, or `rowIndex` missing on either side (legacy)** — value-based, exactly
+  as originally designed; a different import's own row numbering starts over from 1 with no
+  relationship to another batch's, so there's nothing precise to compare there regardless.
+- The render-time dedup safety net (`seenLegacyFingerprints`) now applies ONLY to entries
+  with no `rowIndex` at all — anything `rowIndex`-tracked is trusted individually and never
+  deduped against a sibling, since two such entries are already guaranteed to be genuinely
+  distinct by construction.
+
+Phase 2 is what's built now — this plan's own "Phasing" section below is the source of
+truth for what's built vs. deferred; don't assume anything past Phase 2 exists without checking the
 code. This was the "interactive bank-vs-recorded reconciliation console" idea
 originally sketched and deliberately parked in `docs/mockups/proposals/bank-balance-sync-v3.html`
 (§"A bigger, separate idea") — picked back up now that the checkpoint/anchor system
@@ -167,16 +222,15 @@ directly from the ledger. Two things make this safe rather than a rewrite:
   stacking a brand-new mutation path on top of an unverified new view in one go, given
   how many subtle bugs this exact machinery has already produced this session.
 
-**Phase 2 — actionable resolution.**
-- Relink/unmatch for a wrong match (a matched row on either the Timeline table or the
-  ledger) — reusing `PossibleMatchPickerModal`, `reconcileMatchedExpense`,
-  `attachCheckpoint`, per the design already discussed for the Timeline drill-down.
+**Phase 2 — actionable resolution. Built 2026-08-10, not yet manually verified on-device.**
+- Relink/unmatch for a wrong match — built on the Full Ledger only (not
+  `CheckpointTimelinePage`'s own sparse table, which stays action-light), reusing
+  `PossibleMatchPickerModal`, `reconcileMatchedExpense`, per the design already discussed
+  for the Timeline drill-down.
 - Actionable resolution for a still-skipped row — pick a match or add-as-new, per the
-  reuse plan above.
-- **Open question**: what does a ledger-resolved `BankStatementImportRecord` use for its
-  `batchId`? It didn't come from a live import session. Needs a decision (a synthetic
-  "manual-resolution" marker, or a small `origin` field) before Phase 2 implementation —
-  not blocking Phase 1.
+  reuse plan above. Both built.
+- The `batchId` open question resolved simply: reuse the row's own ORIGINAL `batchId`,
+  no synthetic marker or new field needed (see the status line at the top of this doc).
 
 **Phase 3 — not committed.** Drag-to-reorder for same-day sequencing, only if real
 on-device use after Phase 1/2 shows it's actually needed.
@@ -196,18 +250,25 @@ on-device use after Phase 1/2 shows it's actually needed.
 
 ## What needs a mockup (per the mockup-first rule)
 
-Before any `apps/mobile` code — **items 1–3 done**, approved 2026-08-10
-(`docs/mockups/proposals/bank-reconciliation-ledger-v1.html`), implemented as `FullLedgerPage.tsx`:
+Before any `apps/mobile` code — **all four items done**:
 1. ~~The ledger row itself — Statement/Expense side-by-side, the three blank-side variants
    (matched / statement-only-unresolved / expense-only-anomaly / expense-only-not-yet-
-   covered), live diff, transfer-leg labeling.~~ Built without the live-diff column (Phase 1's
-   `LedgerRow.diff` is always `undefined` — see `ledger.ts`'s own doc comment on why; the meta
-   column shows Penny's own running balance instead).
-2. ~~The windowing/paging UI (how a user moves between date windows).~~ 60-day windows, ‹/›
-   paging, pinned to "now" as of when the screen opened (not paged into the future).
-3. ~~The dismiss action's UI.~~ Inline "Dismiss, not mine" text action on a skipped-unresolved
-   row's expense side.
-4. (Phase 2, later mockup) the relink/unmatch/resolve action affordances — not started.
+   covered), live diff, transfer-leg labeling.~~ Approved 2026-08-10
+   (`docs/mockups/proposals/bank-reconciliation-ledger-v1.html`). Built without the
+   live-diff column (Phase 1's `LedgerRow.diff` is always `undefined` — see `ledger.ts`'s
+   own doc comment on why; the meta column shows Penny's own running balance instead).
+2. ~~The windowing/paging UI.~~ Shipped as a discrete ‹/› pair first, then redesigned
+   on-device feedback into a continuously-growing "Load earlier transactions" list (see
+   this doc's own status-line fixes list) — 60-day chunks, pinned to "now" as of when the
+   screen opened, no forward paging.
+3. ~~The dismiss action's UI.~~ Originally a standalone inline "Dismiss, not mine" text
+   action; folded into Phase 2's unified row-tap action menu as one of three options once
+   that existed, rather than leaving two separate ways to act on the same row.
+4. ~~The relink/unmatch/resolve action affordances.~~ Approved 2026-08-10
+   (`docs/mockups/proposals/bank-reconciliation-ledger-phase2-v1.html`), with one
+   correction during implementation — the mockup's bottom-sheet chrome was replaced with a
+   centered `Modal` (`docs/DESIGN_GUIDELINES.md`'s non-negotiable rule), only its
+   options/content carried over.
 
 Grounded in the real current `CheckpointTimelinePage.tsx` (Opening Balance card, color
 legend, Date/Txn/Balance/Diff header) — the new view should feel like a deeper zoom of

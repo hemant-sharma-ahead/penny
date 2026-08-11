@@ -136,8 +136,25 @@ export function AccountDetailModal({
       </View>
     ) : undefined;
 
+  // Found + fixed 2026-08-11, on-device testing: a `'standing-gap'` drill-in (an unlinked expense
+  // inside a covered period) had NO footer action at all — dead end, no way forward once you'd seen
+  // the highlighted row. `CheckpointTimeline`'s own reconciliation table wouldn't even help here (it
+  // only shows checkpoint-carrying rows, never an anomaly like this one) — `FullLedger` is the actual
+  // fix path, since resolving the anomaly's real statement-side counterpart there is what makes this
+  // finding disappear.
   const footer =
-    drillIn && (drillIn.kind === 'checkpoint-mismatch' || drillIn.kind === 'anchor-disagreement') ? (
+    drillIn?.kind === 'standing-gap' ? (
+      <Button
+        variant="ghost"
+        fullWidth
+        onPress={() => {
+          onClose();
+          navigation.navigate('FullLedger', { accountId: account.id });
+        }}
+      >
+        View full ledger
+      </Button>
+    ) : drillIn && (drillIn.kind === 'checkpoint-mismatch' || drillIn.kind === 'anchor-disagreement') ? (
       <Button
         variant="ghost"
         fullWidth

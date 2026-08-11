@@ -1056,6 +1056,31 @@ state), `CheckpointTimelinePage.tsx` and `CheckOpeningBalancePage.tsx` (two new 
 change, for every other existing caller of either component. Full behavior/limitations writeup in
 [`docs/features/bank-import.md`](features/bank-import.md)'s "Balance sync" section.
 
+**Full Ledger (2026-08-10, `docs/plans/bank-reconciliation-ledger.md`) — a deeper zoom on the same
+reconciliation feature family, not a new one.** `CheckpointTimelinePage.tsx` gained a "View full ledger
+›" action (shown only in its all-clear state) into a new `apps/mobile/src/features/accounts/
+FullLedgerPage.tsx` (registered in `HomeStack.tsx`): a dense, row-by-row Statement ⟷ Expense
+reconciliation for a bounded, continuously-growing date window. Core: `core/bank-import/ledger.ts`
+(`buildLedgerRows` — classifies every row as matched/skipped-unresolved/anomaly/not-covered, reusing
+`findStandingCoverageGaps()` and `normalizeNarration()` rather than new logic) and `core/bank-import/
+ledgerActions.ts` (Phase 2: pure relink/unmatch/resolve-to-existing functions, reusing
+`reconcileMatchedExpense()` verbatim). **Required a real architecture fix**: Phase 2's relink/resolve
+actions needed the exact same "choose the match" picker `features/bank-import/`'s own bucket 1/2
+already use — `PossibleMatchPickerModal.tsx` moved from `features/bank-import/` to
+`apps/mobile/src/components/shared/` (added to that folder's barrel) so both feature modules could use
+it without a feature-to-feature import, the same reasoning `ExpenseForm.tsx`'s own earlier relocation
+documents above. `FullLedgerPage.tsx`'s new "Add as a new transaction" action (for a skipped row)
+renders `ExpenseForm` directly with its own locally-sourced `categories`/`hashtags`/`saveAccount` —
+mirrors the account-creation snippet `useBankImport.ts`'s `saveAccountForForm` already uses, plus a
+`notifyAccountsChanged()` broadcast that one doesn't need (bank-import's own bucket screens read
+`bi.accounts` directly, not `useRepository`). All four Phase 2 mutations (relink/unmatch/resolve/add-
+new) call `logActivity()` directly (a core function, not `useExpenses.ts`'s own logging) so they still
+show up in the activity feed. Known, accepted simplification: none of the four route through
+`useExpenses.ts`'s `saveExpenseWithHashtags` (a `features/expenses/`-scoped hook, off-limits to
+`features/accounts/`), so they don't update hashtag usage counts or merchant-memory suggestions the way
+adding/editing an expense from the Expenses tab does — the expense itself, its activity/balance
+visibility, and its statement link are all still fully correct.
+
 **Payment mode made a real creatable entity (2026-08-02):** previously `Expense.paymentMode` drew
 from a hardcoded 5-value list (`components/shared/paymentModes.ts`) with no way to add to it. Bank
 Statement Import needed this — bank narrations carry rail keywords (NEFT/IMPS/RTGS/Cheque) that

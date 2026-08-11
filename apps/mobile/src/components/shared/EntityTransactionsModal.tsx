@@ -89,8 +89,12 @@ export function EntityTransactionsModal({
       {banner}
       {/* `TransactionsTab` mounts its own `FlashList` (needs `flex: 1` inside a definite-height parent to
           size itself) — `Modal`'s own card sizes to content by default, so this gives it one explicitly
-          rather than collapsing to zero height. */}
-      <View style={{ height: screenHeight * 0.55 }}>
+          rather than collapsing to zero height. Reserves less when a `banner` is present (found + fixed
+          2026-08-11, on-device testing) — a fixed 55% of the FULL screen height, plus the title/stat
+          row, plus a tall multi-line verification banner (headline + detail + two buttons), could
+          together exceed the modal card's own available height with no banner-aware headroom, spilling
+          the transaction list past the card's rounded corners onto the backdrop instead of scrolling. */}
+      <View style={{ height: screenHeight * (banner ? 0.4 : 0.55) }}>
         <TransactionsTab
           loading={false}
           grouped={grouped}

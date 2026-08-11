@@ -76,6 +76,7 @@ export function ExpensesPage() {
     txnIdsByGoal,
     saveAccount,
     accountBalances,
+    accountsNeedingAttention,
     patchExpenses,
     removeExpenses,
     saveCategory,
@@ -143,6 +144,7 @@ export function ExpensesPage() {
         expenseCategories={expenseCategories}
         linkedCountByEventHashtag={linkedCountByEventHashtag}
         saveExpense={saveExpense}
+        accountsNeedingAttention={accountsNeedingAttention}
       />
 
       <TabStrip

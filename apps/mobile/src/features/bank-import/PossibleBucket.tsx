@@ -10,10 +10,9 @@ import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';
-import { ExpenseForm } from '~/components/shared';
+import { ExpenseForm, PossibleMatchPickerModal } from '~/components/shared';
 import { Button, Modal, SelectInput } from '~/components/ui';
 import type { UseBankImportReturn } from './useBankImport';
-import { PossibleMatchPickerModal } from './PossibleMatchPickerModal';
 import { AmbiguousTransferPickerModal } from './AmbiguousTransferPickerModal';
 
 interface PossibleBucketProps {

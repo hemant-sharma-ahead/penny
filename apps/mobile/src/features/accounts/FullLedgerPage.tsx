@@ -2,18 +2,36 @@ import { useCallback, useMemo, useState } from 'react';
 import { View, ScrollView, Text, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, type RouteProp } from '@react-navigation/native';
-import type { Account } from '@/core/db/types';
-import { accountsRepo, bankStatementImportsRepo, expensesRepo } from '@/core/db/repositories';
+import type { Account, Expense } from '@/core/db/types';
+import {
+  accountsRepo,
+  bankStatementImportsRepo,
+  expenseCategoriesRepo,
+  expensesRepo,
+  hashtagsRepo
+} from '@/core/db/repositories';
 import { buildLedgerRows, type LedgerRow } from '@/core/bank-import/ledger';
-import { notifyAccountsChanged, useAccountsRefresh } from '@/hooks/useDataRefresh';
-import { useTxnRefresh } from '@/hooks/useTxnRefresh';
+import {
+  buildResolvedImportRecord,
+  relinkLedgerRow,
+  resolveSkippedRowToExisting,
+  unmatchLedgerRow
+} from '@/core/bank-import/ledgerActions';
+import { normalizeNarration } from '@/core/bank-import/normalization';
+import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
+import { RECONCILIATION_DESCRIPTION } from '@/core/expenses/cashFlowSummary';
+import { logActivity } from '@/core/db/activityLog';
+import { notifyAccountsChanged, notifyBankImportsChanged, useAccountsRefresh } from '@/hooks/useDataRefresh';
+import { notifyTxnChanged, useTxnRefresh } from '@/hooks/useTxnRefresh';
 import { useRepository } from '@/hooks/useRepository';
+import type { AccountInput } from '~/hooks/useAccountForm';
 import { formatCurrency } from '@/lib/formatters';
 import { formatDate, formatDateShort } from '@/lib/date';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 import { useThemeColors } from '~/theme/useThemeColors';
-import { Banner, Card, EmptyState } from '~/components/ui';
+import { Banner, Card, ConfirmDialog, EmptyState, Modal } from '~/components/ui';
+import { ExpenseForm, PossibleMatchPickerModal, type StatementPresetInput } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { tint } from '~/lib/color';
 import type { HomeStackParamList } from '~/navigation/HomeStack';
@@ -22,11 +40,19 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const WINDOW_DAYS = 60;
 
 /**
- * Full Ledger (`docs/plans/bank-reconciliation-ledger.md`, Phase 1 — read-only) — a dense,
- * row-by-row Statement ⟷ Expense reconciliation for a chosen date window, reached from
- * `CheckpointTimelinePage`'s "View full ledger ›". A deeper zoom on the SAME feature family, not a
- * competing screen — that page's own sparse checkpoint table, the anchor-boundary divider, and the
- * account badge are all untouched by this one.
+ * Full Ledger (`docs/plans/bank-reconciliation-ledger.md`) — a dense, row-by-row Statement ⟷ Expense
+ * reconciliation for a chosen date window, reached from `CheckpointTimelinePage`'s "View full ledger
+ * ›". A deeper zoom on the SAME feature family, not a competing screen — that page's own sparse
+ * checkpoint table, the anchor-boundary divider, and the account badge are all untouched by this one.
+ *
+ * **Phase 2 (relink/unmatch/resolve, built 2026-08-10)** on top of Phase 1's read-only view: a tap on
+ * a `'matched'` or `'skipped-unresolved'` row opens a centered action menu (`RowActionModal` — a
+ * centered `Modal`, per `docs/DESIGN_GUIDELINES.md`'s non-negotiable "centered modals, never bottom
+ * sheets" rule; the phase-2 mockup's own bottom-sheet chrome was wrong on this point and isn't
+ * reproduced here, only its options/content). `'anomaly'`/`'not-covered'` rows get no action of their
+ * own — an anomaly's real fix is always initiated from ITS statement-side counterpart (a
+ * `'skipped-unresolved'` row elsewhere in the window); picking the anomaly's own expense via "Pick the
+ * matching transaction" links them and the anomaly row disappears on its own.
  */
 export function FullLedgerPage() {
   const modeBg = useModeBackgroundColor();
@@ -37,7 +63,9 @@ export function FullLedgerPage() {
 
   const { items: accounts, reload: reloadAccounts } = useRepository(accountsRepo);
   const { items: allExpenses, reload: reloadExpenses } = useRepository(expensesRepo);
-  const { items: allImportRecords } = useRepository(bankStatementImportsRepo);
+  const { items: allImportRecords, reload: reloadImportRecords } = useRepository(bankStatementImportsRepo);
+  const { items: categories } = useRepository(expenseCategoriesRepo);
+  const { items: hashtags } = useRepository(hashtagsRepo);
   useAccountsRefresh(reloadAccounts);
   // Found + fixed 2026-08-10, on-device testing: a transaction recorded from another screen while
   // this one stayed mounted in the background never showed up here — `useRepository` only fetches
@@ -81,6 +109,23 @@ export function FullLedgerPage() {
     });
   }, [account, allExpenses, allImportRecords, loadedStart, windowEnd]);
 
+  // Every account expense not already linked to a statement line — the pool a relink/resolve picker
+  // draws from. Deliberately excludes the CURRENTLY-linked expense too (for a relink) rather than
+  // preserving it with a `currentlyMatchedId` highlight the way bucket 1's live reassign does —
+  // re-picking the exact same expense here would be a no-op the user can already get by just
+  // cancelling out of the flow, so the extra highlighting isn't worth the complexity in this,
+  // after-the-fact context.
+  const candidatePool = useMemo(() => {
+    if (!account) return [];
+    const linkedIds = new Set(allImportRecords.filter((r) => r.accountId === account.id).map((r) => r.linkedTxnId));
+    return allExpenses.filter(
+      (e) =>
+        (e.accountId === account.id || e.toAccountId === account.id) &&
+        e.description !== RECONCILIATION_DESCRIPTION &&
+        !linkedIds.has(e.id)
+    );
+  }, [account, allExpenses, allImportRecords]);
+
   const dismissRow = useCallback(
     async (row: LedgerRow) => {
       if (!account || !row.dismissKey) return;
@@ -97,6 +142,180 @@ export function FullLedgerPage() {
     },
     [account]
   );
+
+  // ── Phase 2: relink / unmatch / resolve ────────────────────────────────────────────────────────
+  const [actionRow, setActionRow] = useState<LedgerRow | null>(null);
+  const [unmatchRow, setUnmatchRow] = useState<LedgerRow | null>(null);
+  const [pickerRow, setPickerRow] = useState<{ row: LedgerRow; mode: 'relink' | 'resolve' } | null>(null);
+  const [addNewRow, setAddNewRow] = useState<LedgerRow | null>(null);
+
+  const handleUnmatchConfirm = useCallback(async () => {
+    if (!account || !unmatchRow?.expense) return;
+    const expense = allExpenses.find((e) => e.id === unmatchRow.expense?.expenseId);
+    const record = allImportRecords.find(
+      (r) => r.accountId === account.id && r.linkedTxnId === unmatchRow.expense?.expenseId
+    );
+    const batch = account.coveredStatementRanges?.find((b) => b.batchId === record?.batchId);
+    if (!expense || !record || !batch) {
+      setUnmatchRow(null);
+      return;
+    }
+    const now = Date.now();
+    const { updatedExpense, updatedBatch } = unmatchLedgerRow(account.id, expense, record, batch, now);
+    await expensesRepo.put(updatedExpense);
+    await bankStatementImportsRepo.delete(record.id);
+    await accountsRepo.put({
+      ...account,
+      coveredStatementRanges: (account.coveredStatementRanges ?? []).map((b) =>
+        b.batchId === batch.batchId ? updatedBatch : b
+      ),
+      updatedAt: now
+    });
+    logActivity({
+      action: 'UPDATE',
+      entityType: 'expense',
+      entityId: updatedExpense.id,
+      summary: `Unmatched "${record.rawNarration}" from ${updatedExpense.description}`
+    });
+    setUnmatchRow(null);
+    await Promise.all([reloadExpenses(), reloadImportRecords(), reloadAccounts()]);
+    notifyTxnChanged();
+    notifyBankImportsChanged();
+    notifyAccountsChanged();
+  }, [account, unmatchRow, allExpenses, allImportRecords, reloadExpenses, reloadImportRecords, reloadAccounts]);
+
+  const handlePick = useCallback(
+    async (newExpense: Expense) => {
+      if (!account || !pickerRow) return;
+      const { row, mode } = pickerRow;
+      const now = Date.now();
+
+      if (mode === 'relink') {
+        const oldExpense = allExpenses.find((e) => e.id === row.expense?.expenseId);
+        const record = allImportRecords.find(
+          (r) => r.accountId === account.id && r.linkedTxnId === row.expense?.expenseId
+        );
+        if (!oldExpense || !record) {
+          setPickerRow(null);
+          return;
+        }
+        const { updatedOldExpense, updatedNewExpense } = relinkLedgerRow(
+          account.id,
+          oldExpense,
+          newExpense,
+          record,
+          now
+        );
+        await expensesRepo.put(updatedOldExpense);
+        await expensesRepo.put(updatedNewExpense);
+        await bankStatementImportsRepo.put({ ...record, linkedTxnId: newExpense.id });
+        logActivity({
+          action: 'UPDATE',
+          entityType: 'expense',
+          entityId: updatedNewExpense.id,
+          summary: `Relinked "${record.rawNarration}" to ${updatedNewExpense.description}`
+        });
+      } else {
+        if (!row.statement || !row.batchId) {
+          setPickerRow(null);
+          return;
+        }
+        const rawNarration = row.statement.rawNarration;
+        const amount = Math.abs(row.statement.amount);
+        const direction: 'debit' | 'credit' = row.statement.amount >= 0 ? 'credit' : 'debit';
+        const updatedExpense = resolveSkippedRowToExisting(
+          account.id,
+          { rawNarration, date: row.date, amount, direction },
+          newExpense,
+          now
+        );
+        await expensesRepo.put(updatedExpense);
+        const newRecord = buildResolvedImportRecord({
+          id: crypto.randomUUID(),
+          batchId: row.batchId,
+          accountId: account.id,
+          rawNarration,
+          date: row.date,
+          amount,
+          type: updatedExpense.type ?? 'expense',
+          linkedTxnId: newExpense.id,
+          normalizedKey: normalizeNarration(rawNarration),
+          now,
+          ...(row.rowIndex !== undefined ? { sourceRowIndex: row.rowIndex } : {})
+        });
+        await bankStatementImportsRepo.put(newRecord);
+        logActivity({
+          action: 'UPDATE',
+          entityType: 'expense',
+          entityId: updatedExpense.id,
+          summary: `Resolved "${rawNarration}" to ${updatedExpense.description}`
+        });
+      }
+
+      setPickerRow(null);
+      await Promise.all([reloadExpenses(), reloadImportRecords()]);
+      notifyTxnChanged();
+      notifyBankImportsChanged();
+    },
+    [account, pickerRow, allExpenses, allImportRecords, reloadExpenses, reloadImportRecords]
+  );
+
+  const addNewPreset: StatementPresetInput | undefined = useMemo(() => {
+    if (!account || !addNewRow?.statement) return undefined;
+    return {
+      amount: Math.abs(addNewRow.statement.amount),
+      date: addNewRow.date,
+      accountId: account.id,
+      type: addNewRow.statement.amount >= 0 ? 'income' : 'expense',
+      paymentMode: inferPaymentMode(addNewRow.statement.rawNarration).id
+    };
+  }, [account, addNewRow]);
+
+  const handleAddNewSave = useCallback(
+    async (expense: Expense) => {
+      if (!account || !addNewRow?.statement || !addNewRow.batchId) return;
+      const now = Date.now();
+      await expensesRepo.put(expense);
+      const newRecord = buildResolvedImportRecord({
+        id: crypto.randomUUID(),
+        batchId: addNewRow.batchId,
+        accountId: account.id,
+        rawNarration: addNewRow.statement.rawNarration,
+        date: addNewRow.date,
+        amount: Math.abs(addNewRow.statement.amount),
+        type: expense.type ?? 'expense',
+        linkedTxnId: expense.id,
+        normalizedKey: normalizeNarration(addNewRow.statement.rawNarration),
+        now,
+        ...(addNewRow.rowIndex !== undefined ? { sourceRowIndex: addNewRow.rowIndex } : {})
+      });
+      await bankStatementImportsRepo.put(newRecord);
+      logActivity({
+        action: 'CREATE',
+        entityType: 'expense',
+        entityId: expense.id,
+        summary: `Added: ${expense.description}`
+      });
+      setAddNewRow(null);
+      await Promise.all([reloadExpenses(), reloadImportRecords()]);
+      notifyTxnChanged();
+      notifyBankImportsChanged();
+    },
+    [account, addNewRow, reloadExpenses, reloadImportRecords]
+  );
+
+  // `AccountChips`' own "+" tile inside `ExpenseForm` — mirrors `useBankImport.ts`'s
+  // `saveAccountForForm` exactly, plus the `notifyAccountsChanged()` broadcast that one doesn't need
+  // (bank-import's own bucket screens read `bi.accounts` directly, not `useRepository`).
+  const saveAccountForForm = useCallback(async (data: AccountInput, editing: Account | null): Promise<Account> => {
+    const now = Date.now();
+    const record: Account = editing
+      ? { ...editing, ...data, updatedAt: now }
+      : { id: crypto.randomUUID(), ...data, isArchived: false, createdAt: now, updatedAt: now };
+    await accountsRepo.put(record);
+    notifyAccountsChanged();
+    return record;
+  }, []);
 
   if (!account) {
     return (
@@ -176,7 +395,9 @@ export function FullLedgerPage() {
                     accountName={
                       row.expense?.otherAccountId ? accountMap.get(row.expense.otherAccountId)?.name : undefined
                     }
-                    onDismiss={() => dismissRow(row)}
+                    onPress={
+                      row.kind === 'matched' || row.kind === 'skipped-unresolved' ? () => setActionRow(row) : undefined
+                    }
                   />
                 ))}
               </View>
@@ -199,18 +420,221 @@ export function FullLedgerPage() {
           )}
         </View>
       </ScrollView>
+
+      {actionRow && actionRow.kind === 'matched' && (
+        <RowActionModal
+          title="Fix this match"
+          subtitle={`${formatDate(actionRow.date)} · this statement line is currently linked to an expense.`}
+          context={[
+            {
+              label: 'Statement',
+              value: `${actionRow.statement?.rawNarration ?? ''} · ${formatCurrency(actionRow.statement?.amount ?? 0)}`
+            },
+            {
+              label: 'Currently linked to',
+              value: `${actionRow.expense?.description ?? ''} · ${formatCurrency(actionRow.expense?.amount ?? 0)}`
+            }
+          ]}
+          options={[
+            {
+              icon: 'ti-arrows-exchange',
+              iconColor: theme.info,
+              iconBg: tint(theme.info, 15),
+              label: "This isn't the right match",
+              description: 'Choose the correct transaction instead',
+              onPress: () => {
+                setPickerRow({ row: actionRow, mode: 'relink' });
+                setActionRow(null);
+              }
+            },
+            {
+              icon: 'ti-x',
+              iconColor: theme.danger,
+              iconBg: tint(theme.danger, 12),
+              label: 'Unmatch',
+              description: 'Nothing recorded corresponds to this statement line',
+              onPress: () => {
+                setUnmatchRow(actionRow);
+                setActionRow(null);
+              }
+            }
+          ]}
+          onClose={() => setActionRow(null)}
+        />
+      )}
+
+      {actionRow && actionRow.kind === 'skipped-unresolved' && (
+        <RowActionModal
+          title="Resolve this statement line"
+          subtitle={`${formatDate(actionRow.date)} · never became a recorded transaction.`}
+          context={[
+            {
+              label: 'Statement',
+              value: `${actionRow.statement?.rawNarration ?? ''} · ${formatCurrency(actionRow.statement?.amount ?? 0)}`
+            }
+          ]}
+          options={[
+            {
+              icon: 'ti-search',
+              iconColor: theme.info,
+              iconBg: tint(theme.info, 15),
+              label: 'Pick the matching transaction',
+              description: "Already recorded, just wasn't linked",
+              onPress: () => {
+                setPickerRow({ row: actionRow, mode: 'resolve' });
+                setActionRow(null);
+              }
+            },
+            {
+              icon: 'ti-plus',
+              iconColor: theme.primary,
+              iconBg: tint(theme.primary, 12),
+              label: 'Add as a new transaction',
+              description: 'Never recorded — log it now',
+              onPress: () => {
+                setAddNewRow(actionRow);
+                setActionRow(null);
+              }
+            },
+            {
+              icon: 'ti-minus',
+              iconColor: theme.textTertiary,
+              iconBg: tint(theme.textTertiary, 12),
+              label: 'Not mine, dismiss',
+              description: 'Stop flagging this line',
+              onPress: () => {
+                void dismissRow(actionRow);
+                setActionRow(null);
+              }
+            }
+          ]}
+          onClose={() => setActionRow(null)}
+        />
+      )}
+
+      <ConfirmDialog
+        isOpen={unmatchRow !== null}
+        onClose={() => setUnmatchRow(null)}
+        onConfirm={handleUnmatchConfirm}
+        title="Unmatch this line?"
+        message={
+          unmatchRow
+            ? `"${unmatchRow.expense?.description ?? ''}" stays exactly as recorded — it just won't be linked to this statement line anymore. "${unmatchRow.statement?.rawNarration ?? ''}" goes back to showing as unresolved in the ledger, same as any other skipped row, until you relink or resolve it.`
+            : ''
+        }
+        confirmLabel="Unmatch"
+        confirmVariant="danger"
+      />
+
+      {pickerRow && (
+        <PossibleMatchPickerModal
+          statementLine={{
+            rawNarration: pickerRow.row.statement?.rawNarration ?? '',
+            date: pickerRow.row.date,
+            amount: Math.abs(pickerRow.row.statement?.amount ?? 0),
+            direction: (pickerRow.row.statement?.amount ?? 0) >= 0 ? 'credit' : 'debit',
+            rowIndex: 0
+          }}
+          candidatePool={candidatePool}
+          accountMap={accountMap}
+          masked={false}
+          onPick={handlePick}
+          onClose={() => setPickerRow(null)}
+        />
+      )}
+
+      {addNewRow && (
+        <ExpenseForm
+          categories={categories}
+          hashtags={hashtags}
+          editing={null}
+          activeEvents={[]}
+          statementPreset={addNewPreset}
+          saveAccount={saveAccountForForm}
+          searchMerchant={() => []}
+          onSave={handleAddNewSave}
+          onDelete={async () => {}}
+          onClose={() => setAddNewRow(null)}
+        />
+      )}
     </SafeAreaView>
+  );
+}
+
+/**
+ * A generic option-menu, built from `Modal` + a plain list of bordered rows — reused for both the
+ * matched-row "Fix this match" and skipped-row "Resolve this statement line" menus. Centered, per
+ * `docs/DESIGN_GUIDELINES.md`'s non-negotiable "centered modals, never bottom sheets" rule — the
+ * phase-2 mockup's own bottom-sheet chrome doesn't carry over, only its options/content do.
+ */
+function RowActionModal({
+  title,
+  subtitle,
+  context,
+  options,
+  onClose
+}: {
+  title: string;
+  subtitle: string;
+  context: { label: string; value: string }[];
+  options: {
+    icon: string;
+    iconColor: string;
+    iconBg: string;
+    label: string;
+    description: string;
+    onPress: () => void;
+  }[];
+  onClose: () => void;
+}) {
+  return (
+    <Modal onClose={onClose} title={title}>
+      <View className="gap-3">
+        <Text className="text-xs text-tertiary -mt-2">{subtitle}</Text>
+        <Card padding="sm" radius="md">
+          {context.map((c) => (
+            <View key={c.label} className="flex-row items-center justify-between py-0.5">
+              <Text className="text-[10px] uppercase tracking-wide text-tertiary">{c.label}</Text>
+              <Text className="text-xs font-semibold text-primary" numberOfLines={1}>
+                {c.value}
+              </Text>
+            </View>
+          ))}
+        </Card>
+        <View className="gap-2">
+          {options.map((opt) => (
+            <Pressable
+              key={opt.label}
+              onPress={opt.onPress}
+              className="flex-row items-center gap-3 rounded-xl border border-theme p-3"
+            >
+              <View className="w-9 h-9 rounded-lg items-center justify-center" style={{ backgroundColor: opt.iconBg }}>
+                <Icon name={opt.icon} size={16} color={opt.iconColor} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-sm font-bold text-primary">{opt.label}</Text>
+                <Text className="text-[11px] text-tertiary mt-0.5">{opt.description}</Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+    </Modal>
   );
 }
 
 function LedgerRowView({
   row,
   accountName,
-  onDismiss
+  onPress
 }: {
   row: LedgerRow;
   accountName: string | undefined;
-  onDismiss: () => void;
+  /** Present only for `'matched'`/`'skipped-unresolved'` rows — Phase 2's action menu (which includes
+   *  "Not mine, dismiss" as one of its options — a skipped row has no separate standalone dismiss
+   *  action anymore, now that everything funnels through one tap target). `'anomaly'`/`'not-covered'`
+   *  rows have no action of their own (see this file's own top doc comment). */
+  onPress: (() => void) | undefined;
 }) {
   const theme = useThemeColors();
   const tintBg =
@@ -222,8 +646,14 @@ function LedgerRowView({
           ? tint(theme.warning, 6)
           : undefined;
 
+  const Container = onPress ? Pressable : View;
+
   return (
-    <View className="flex-row border-t border-theme" style={{ backgroundColor: theme.surface }}>
+    <Container
+      className="flex-row border-t border-theme"
+      style={{ backgroundColor: theme.surface }}
+      {...(onPress ? { onPress } : {})}
+    >
       <View className="flex-1 px-2 py-2 border-r border-theme min-w-0">
         {row.statement ? (
           <>
@@ -266,16 +696,9 @@ function LedgerRowView({
             </Text>
           </>
         ) : (
-          <>
-            <Text className="text-[9.5px] italic" style={{ color: theme.warning }}>
-              Skipped during import. Reimport the statement to resolve this.
-            </Text>
-            <Pressable onPress={onDismiss} hitSlop={6}>
-              <Text className="text-[9px] underline mt-1" style={{ color: theme.textTertiary }}>
-                Dismiss, not mine
-              </Text>
-            </Pressable>
-          </>
+          <Text className="text-[9.5px] italic" style={{ color: theme.warning }}>
+            Skipped during import. Tap to resolve.
+          </Text>
         )}
       </View>
       <View className="items-end justify-center px-2" style={{ minWidth: 64 }}>
@@ -285,6 +708,6 @@ function LedgerRowView({
           <Text className="text-[9px] text-tertiary">—</Text>
         )}
       </View>
-    </View>
+    </Container>
   );
 }

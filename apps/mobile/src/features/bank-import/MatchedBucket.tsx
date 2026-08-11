@@ -9,7 +9,7 @@ import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';
 import { Button, Modal, SelectInput } from '~/components/ui';
 import type { UseBankImportReturn } from './useBankImport';
-import { PossibleMatchPickerModal } from './PossibleMatchPickerModal';
+import { PossibleMatchPickerModal } from '~/components/shared';
 
 interface MatchedBucketProps {
   bi: UseBankImportReturn;
