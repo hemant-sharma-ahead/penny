@@ -9,6 +9,7 @@ import {
   calculateEpfInterestForYear,
   type EpfInterestCalculationResult
 } from '@/core/portfolio/epfInterestCalculator';
+import { epfResolveTxnEmployer } from '@/core/portfolio/epfCalculations';
 import type { EpfRateTable } from '@/core/portfolio/epfInterestRates';
 
 /** Which financial year (start year) a given epoch-ms date falls inside. */
@@ -33,28 +34,37 @@ export function fyLabel(fyStartYear: number): string {
  * they were themselves imported with a real employee/employer split (see `EpfImportFlow.ts`'s commit
  * logic) — this mirrors the exact convention `epfReconciliation.ts`'s own `existingAmounts()` already
  * uses, for consistency between "does this look like a conflict" and "what's the running balance".
+ *
+ * 2026-08-xx fix — scoped to ONE employer via `epfResolveTxnEmployer`, not the whole holding. Before
+ * this fix, an interest calculation's OPENING balance for the FY was silently summed across every
+ * employer's transactions ever logged, not just the target employer's own — the same cross-employer
+ * contamination class as `buildEpfInterestInput`'s own fix (packages/core), just for the seed value
+ * instead of the in-year deposits.
  */
 export function sumEpfBalanceBeforeFy(
+  employer: EpfEmployer,
+  employers: EpfEmployer[],
   transactions: EpfTransaction[],
   fyStartYear: number
 ): { employee: number; employer: number } {
   const fyStartMs = new Date(fyStartYear, 3, 1).getTime();
   let employee = 0;
-  let employer = 0;
+  let employer0 = 0;
   for (const t of transactions) {
     if (t.date >= fyStartMs) continue;
+    if (epfResolveTxnEmployer(t, employers)?.id !== employer.id) continue;
     if (t.type === 'contribution') {
       employee += t.employeeAmount ?? 0;
-      employer += t.employerAmount ?? 0;
+      employer0 += t.employerAmount ?? 0;
     } else if (t.type === 'transfer_in' || t.type === 'interest') {
       employee += t.employeeAmount ?? t.amount ?? 0;
-      employer += t.employerAmount ?? 0;
+      employer0 += t.employerAmount ?? 0;
     } else if (t.type === 'withdrawal' || t.type === 'advance') {
       employee -= t.employeeAmount ?? t.amount ?? 0;
-      employer -= t.employerAmount ?? 0;
+      employer0 -= t.employerAmount ?? 0;
     }
   }
-  return { employee: Math.max(0, employee), employer: Math.max(0, employer) };
+  return { employee: Math.max(0, employee), employer: Math.max(0, employer0) };
 }
 
 /** Best-effort "which employer was active for this FY" — only feeds `buildEpfInterestInput`'s own
@@ -82,19 +92,19 @@ export function computeEpfInterestOnDemand(
   fyStartYear: number
 ): EpfInterestCalculationResult {
   const employer = pickEmployerForFy(employers, fyStartYear);
-  const prior = sumEpfBalanceBeforeFy(transactions, fyStartYear);
   if (!employer) {
     return calculateEpfInterestForYear(
       {
         fyStartYear,
         monthlyContributions: [],
-        openingEmployeeBalance: prior.employee,
-        openingEmployerBalance: prior.employer
+        openingEmployeeBalance: 0,
+        openingEmployerBalance: 0
       },
       rateTable
     );
   }
-  const input = buildEpfInterestInput(employer, transactions, fyStartYear, {
+  const prior = sumEpfBalanceBeforeFy(employer, employers, transactions, fyStartYear);
+  const input = buildEpfInterestInput(employer, employers, transactions, fyStartYear, {
     employee: prior.employee,
     employer: prior.employer
   });

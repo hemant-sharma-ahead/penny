@@ -169,6 +169,49 @@ describe('reconcileEpfBalanceEvent', () => {
     expect(result?.type).toBe('transfer_in');
   });
 
+  // Real reported bug (2026-08-xx): a withdrawal's employer-side amount was silently dropped at
+  // write time (`buildImportedTxn`'s old else-branch), and reconciliation compared everything as an
+  // employee-only figure regardless — so re-importing the SAME statement could never even detect
+  // that its own previously-recorded employer amount was wrong (missing entirely). Both fixed
+  // together: `existingAmounts()` now prefers a real split when the existing record already has one.
+  it('compares BOTH employee and employer amounts once an existing record has a real split', () => {
+    const existing: EpfTransaction = {
+      id: 'w1',
+      type: 'withdrawal',
+      date: new Date(2019, 10, 20).getTime(),
+      employeeAmount: 35000,
+      employerAmount: 13921,
+      amount: 48921
+    };
+    // Same total (48,921) but the underlying split disagrees — must be a genuine conflict, not
+    // silently "matches" just because an employee-only comparison would have agreed on its own.
+    const result = reconcileEpfBalanceEvent(
+      'withdrawal',
+      2019,
+      { employeeAmount: 35000, employerAmount: 20000, pensionAmount: 0 },
+      [existing]
+    );
+    expect(result?.kind).toBe('conflict');
+  });
+
+  it('still matches when both employee and employer amounts genuinely agree with an already-split record', () => {
+    const existing: EpfTransaction = {
+      id: 'w1',
+      type: 'withdrawal',
+      date: new Date(2019, 10, 20).getTime(),
+      employeeAmount: 35000,
+      employerAmount: 13921,
+      amount: 48921
+    };
+    const result = reconcileEpfBalanceEvent(
+      'withdrawal',
+      2019,
+      { employeeAmount: 35000, employerAmount: 13921, pensionAmount: 0 },
+      [existing]
+    );
+    expect(result?.kind).toBe('matches');
+  });
+
   it('falls back to the FY-end date/"Int. Updated" label when eventDate/label are omitted (unchanged default)', () => {
     const result = reconcileEpfBalanceEvent(
       'interest',

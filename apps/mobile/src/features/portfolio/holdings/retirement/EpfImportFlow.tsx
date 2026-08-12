@@ -16,10 +16,14 @@ import {
   unitTitle,
   describeFile,
   itemKey,
+  describeNewEmployerSetup,
+  applyConfirmedJoinDate,
+  applyConfirmedSwitch,
   type EpfImportFile,
   type EpfUnitSelection
 } from './epfImportLogic';
 import { EpfImportReviewSheet } from './EpfImportReviewSheet';
+import { EpfNewEmployerSetupSheet } from './EpfNewEmployerSetupSheet';
 
 interface EpfImportFlowProps {
   /** `null` when there's no EPF holding yet — the untracked "Track EPF" CTA's "or import passbook PDF"
@@ -55,11 +59,39 @@ export function EpfImportFlow({ holding, files, onSave, onClose }: EpfImportFlow
   const [batchId] = useState(() => crypto.randomUUID());
   const [totals, setTotals] = useState({ newCount: 0, matchedCount: 0, conflictCount: 0 });
 
+  // "New employer detected" setup (docs/plans/epf-passbook-import.md's 2026-08-11 follow-up round) —
+  // keyed by the unit's own `.key` so a unit whose setup was just answered doesn't ask again once
+  // `workingHolding` updates and the review screen for the SAME unit renders. The confirmed join date
+  // can't be applied until AFTER `commitUnit` actually creates the employer (it doesn't exist in
+  // `workingHolding` yet at setup time), so it's stashed here and applied in `handleUnitConfirm`
+  // right after `commitUnit` returns. A confirmed switch's old-employer bound IS applied immediately
+  // (that employer already exists) — see the `onConfirm` handler below.
+  const [answeredSetupKeys, setAnsweredSetupKeys] = useState<Set<string>>(new Set());
+  const [pendingJoinDates, setPendingJoinDates] = useState<Map<string, number>>(new Map());
+
   const currentUnit = allUnits[unitIndex];
   const currentItems = useMemo(
     () => (currentUnit ? reconcileUnit(currentUnit, workingHolding) : []),
     [currentUnit, workingHolding]
   );
+  const pendingSetup = useMemo(
+    () =>
+      currentUnit?.kind === 'employer' && !answeredSetupKeys.has(currentUnit.key)
+        ? describeNewEmployerSetup(currentUnit, workingHolding)
+        : null,
+    [currentUnit, workingHolding, answeredSetupKeys]
+  );
+
+  function handleSetupConfirm(result: { joinDateMs: number; oldEmployerLastDayMs?: number }) {
+    if (!currentUnit) return;
+    setAnsweredSetupKeys((prev) => new Set(prev).add(currentUnit.key));
+    setPendingJoinDates((prev) => new Map(prev).set(currentUnit.key, result.joinDateMs));
+    if (pendingSetup?.priorEmployer && result.oldEmployerLastDayMs !== undefined) {
+      const oldEmployerId = pendingSetup.priorEmployer.id;
+      const lastDayMs = result.oldEmployerLastDayMs;
+      setWorkingHolding((h) => applyConfirmedSwitch(h, oldEmployerId, lastDayMs));
+    }
+  }
 
   function handleUnitConfirm(selection: EpfUnitSelection) {
     if (!currentUnit) return;
@@ -70,7 +102,11 @@ export function EpfImportFlow({ holding, files, onSave, onClose }: EpfImportFlow
       conflictCount: prev.conflictCount + currentItems.filter((i) => i.kind === 'conflict').length
     }));
 
-    const updated = commitUnit(workingHolding, currentUnit, currentItems, selection, batchId);
+    let updated = commitUnit(workingHolding, currentUnit, currentItems, selection, batchId);
+    if (currentUnit.kind === 'employer') {
+      const joinDateMs = pendingJoinDates.get(currentUnit.key);
+      if (joinDateMs !== undefined) updated = applyConfirmedJoinDate(updated, currentUnit, joinDateMs);
+    }
     setWorkingHolding(updated);
 
     if (unitIndex + 1 < allUnits.length) {
@@ -160,9 +196,33 @@ export function EpfImportFlow({ holding, files, onSave, onClose }: EpfImportFlow
         </Modal>
       );
     }
+    if (pendingSetup) {
+      // `key` forces a fresh mount per unit — without it, React reuses the SAME component instance
+      // across units (same JSX position), so its internal `useState` lazy initializers (which only
+      // ever run once) would keep showing the FIRST unit's dates for every later "new employer
+      // detected" unit in the same multi-file batch. Real bug class, same fix as the review sheet
+      // below.
+      return (
+        <EpfNewEmployerSetupSheet
+          key={currentUnit.key}
+          setup={pendingSetup}
+          onConfirm={handleSetupConfirm}
+          onClose={onClose}
+        />
+      );
+    }
     const isLast = unitIndex === allUnits.length - 1;
     return (
       <EpfImportReviewSheet
+        // `key` forces a fresh mount per unit — without it, React reuses the SAME component instance
+        // as `unitIndex` advances (same JSX position each render), so its internal `uncheckedKeys`/
+        // `conflictChoices` state PERSISTED across units. Harmless for contribution items (keyed by
+        // their own distinct wagesMonth), but `itemKey()` returns just the bare type string
+        // ("interest"/"transfer_in"/...) for non-wagesMonth items — a real reported bug: a conflict
+        // choice made for FY1's "interest" item was silently still in effect when FY2's own
+        // "interest" item rendered in the reused instance, and could leave it unchecked/wrongly
+        // resolved without the user ever touching FY2's own screen.
+        key={currentUnit.key}
         title={unitTitle(currentUnit)}
         fileChip={allUnits.length > 1 ? `File ${unitIndex + 1} of ${allUnits.length}` : undefined}
         items={currentItems}

@@ -11,11 +11,12 @@ import {
   DetailRow,
   AmountInput,
   Banner,
-  ProgressBar
+  ProgressBar,
+  StatBox
 } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
-import { tint } from '~/lib/color';
+import { tint, ink } from '~/lib/color';
 import { epochToDateInput } from '@/lib/formatters';
 import { LIFECYCLE_FUNDS } from '@/core/nps';
 import type { NpsLifecycleFund } from '@/core/nps';
@@ -26,8 +27,20 @@ import {
   EPS_PCT,
   epfCurrentEmployer,
   epfLatestSalary,
-  epfComputeAllMonths
+  epfComputeAllMonths,
+  epfMonthLabel,
+  epfMonthKeyOf,
+  epfDaysInMonth,
+  epfGetSalaryForMonth,
+  epfCheckWageDiscrepancy,
+  epfLastRealEvidenceMs,
+  estimateProRataEdgeDate,
+  checkProRataConsistency,
+  type EpfProRataConsistency,
+  estimateGrossAndCtc,
+  EPF_DEFAULT_BASIC_TO_GROSS_PCT
 } from '@/core/portfolio/epfCalculations';
+import { resolveAnyTxnOwner, epfHasPendingTransfer } from './epfEmployerScoping';
 import type { EpfMonthEntry } from '@/core/portfolio/epfCalculations';
 import { getEpfRateTable, type EpfRateTable } from '@/core/portfolio/epfInterestRates';
 import { getInterestRateForFy, type EpfInterestMonthTrace } from '@/core/portfolio/epfInterestCalculator';
@@ -36,6 +49,7 @@ import {
   findAllReviewFlags,
   checkWageDiscrepancy,
   checkInterestMismatch,
+  checkJoiningDateContradiction,
   type EpfInterestMismatchFlag,
   type EpfWageDiscrepancyFlag
 } from './epfReviewFlags';
@@ -623,6 +637,139 @@ export function PpfAllTransactionsSheet({
   );
 }
 
+/** Whether an `EpfMonthEntry` is its own employer's joining or leaving month — powers both the
+ *  neutral row badge and which months `EpfMonthEdgeConfirm` (below) applies to. */
+function isEmployerEdgeMonth(entry: EpfMonthEntry, employers: EpfEmployer[]): boolean {
+  const emp = employers.find((e) => e.id === entry.employerId);
+  if (!emp) return false;
+  return entry.month === epfMonthKeyOf(emp.fromDate) || (!!emp.toDate && entry.month === epfMonthKeyOf(emp.toDate));
+}
+
+// ─── EpfMonthEdgeConfirm ──────────────────────────────────────────────────────
+
+/** The joining/leaving-month confirm flow (2026-08-xx, real-usage follow-up) — reuses the exact
+ *  "date field + pro-rata consistency note" pattern already established by
+ *  `EpfNewEmployerSetupSheet.tsx`'s import-time step, just triggered from an EXISTING row instead of
+ *  at import time. Real bug this fixes: an employer's joining/leaving month always looks "lower than
+ *  a full month would predict" (that's what pro-rata means) — before this existed, that showed as a
+ *  permanent, unresolvable wage-discrepancy warning (`checkWageDiscrepancy` now explicitly skips
+ *  these two months — see its own doc comment). This lets the user either explicitly confirm the
+ *  date already on file, or correct it, with the SAME live consistency check either way, and turns
+ *  the row from "how do I get rid of this warning" into "yes, that's right" or "let me fix the date." */
+// Exported (unlike this file's other private helpers) — `RetirementCard.tsx` also reuses this same
+// form for its own "Are you still working at X?" → "No" flow (docs/plans/epf-passbook-import.md's
+// 2026-08-xx follow-up round), wrapped in its own `Modal` there instead of nested inside
+// `EpfAllTransactionsSheet`'s `selectedMonth` popup.
+export function EpfMonthEdgeConfirm({
+  holding,
+  employer,
+  month,
+  edge,
+  onSave,
+  onDone
+}: {
+  holding: Holding;
+  employer: EpfEmployer;
+  month: EpfMonthEntry;
+  edge: 'start' | 'end';
+  onSave: (updated: Holding) => Promise<void>;
+  onDone: () => void;
+}) {
+  const theme = useThemeColors();
+  const daysInMonth = epfDaysInMonth(month.month);
+  const predictedFullAmount = epfGetSalaryForMonth(employer, month.month) * (employer.employeeContribPct / 100);
+  // The existing confirmed edge date, ONLY if it actually falls within this same month — e.g. a
+  // still-open employer's `toDate` is unset entirely (the "likely departure, never confirmed" case —
+  // see `selectedMonthEdge`'s own doc comment), so there's nothing real to prefill with yet. In that
+  // case, suggest a day via the same pro-rata inversion `EpfNewEmployerSetupSheet.tsx`'s import-time
+  // step already uses, rather than defaulting to the 1st (which would misleadingly look "confirmed").
+  const existingEdgeMs = edge === 'start' ? employer.fromDate : employer.toDate;
+  const [dateKey, setDateKey] = useState(() => {
+    if (existingEdgeMs !== undefined && epfMonthKeyOf(existingEdgeMs) === month.month) {
+      return epochToDateInput(existingEdgeMs);
+    }
+    const suggestedDay =
+      predictedFullAmount > 0
+        ? estimateProRataEdgeDate(daysInMonth, month.empAmount, predictedFullAmount, edge)
+        : edge === 'start'
+          ? 1
+          : daysInMonth;
+    return `${month.month}-${String(suggestedDay).padStart(2, '0')}`;
+  });
+  const [saving, setSaving] = useState(false);
+
+  const chosenDay = Number(dateKey.slice(8, 10)) || 1;
+  const check: EpfProRataConsistency | null =
+    predictedFullAmount > 0
+      ? checkProRataConsistency(chosenDay, daysInMonth, month.empAmount, predictedFullAmount, edge)
+      : null;
+
+  async function handleConfirm() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const dateMs = new Date(`${dateKey}T00:00:00`).getTime();
+      const updatedEmp: EpfEmployer =
+        edge === 'start'
+          ? { ...employer, fromDate: dateMs, joiningDateConfirmed: true }
+          : { ...employer, toDate: dateMs, currentEmploymentConfirmed: false };
+      const updated: Holding = {
+        ...holding,
+        assetMeta: {
+          ...holding.assetMeta,
+          epfEmployers: (holding.assetMeta?.epfEmployers ?? []).map((e) => (e.id === employer.id ? updatedEmp : e))
+        },
+        updatedAt: Date.now()
+      };
+      await onSave(updated);
+      onDone();
+    } catch {
+      // Leave the popup open, still showing this month, so the user can retry.
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <View className="gap-2">
+      <DateInput
+        label={
+          edge === 'start' ? `Joining date at ${employer.companyName}` : `Last working day at ${employer.companyName}`
+        }
+        value={dateKey}
+        onChange={setDateKey}
+      />
+      {check && (
+        <View
+          className="flex-row gap-1.5 rounded-lg px-2.5 py-2"
+          style={{
+            backgroundColor: tint(check.consistent ? theme.success : theme.warning, check.consistent ? 10 : 12)
+          }}
+        >
+          <Icon
+            name={check.consistent ? 'ti-circle-check' : 'ti-alert-triangle'}
+            size={13}
+            color={check.consistent ? theme.success : theme.warning}
+          />
+          <Text
+            className="text-[10px] flex-1 leading-relaxed"
+            style={{ color: ink(check.consistent ? theme.success : theme.warning, theme.textPrimary) }}
+          >
+            {check.consistent
+              ? `This implies ~${check.impliedWorkedDays} of ${check.totalDays} days worked — consistent with the recorded ₹${check.actualAmount.toLocaleString('en-IN')}.`
+              : `A full month would predict ₹${check.impliedAmount.toLocaleString('en-IN')} — the recorded amount is ₹${check.actualAmount.toLocaleString('en-IN')}. Double-check this date if you're not sure.`}
+          </Text>
+        </View>
+      )}
+      <Button variant="primary" size="sm" loading={saving} disabled={saving} onPress={handleConfirm}>
+        {edge === 'start'
+          ? `Confirm — joined ${employer.companyName} on this date`
+          : `Confirm — left ${employer.companyName} on this date`}
+      </Button>
+    </View>
+  );
+}
+
 // ─── EpfAllTransactionsSheet ─────────────────────────────────────────────────
 
 /**
@@ -636,7 +783,8 @@ export function EpfAllTransactionsSheet({
   holding,
   onAddTransaction,
   onSave,
-  onClose
+  onClose,
+  employerFilter
 }: {
   holding: Holding;
   onAddTransaction: () => void;
@@ -645,6 +793,12 @@ export function EpfAllTransactionsSheet({
    *  same as every other sheet in this file. */
   onSave: (updated: Holding) => Promise<void>;
   onClose: () => void;
+  /** Scopes this sheet to ONE employer's own transactions — the per-employer ledger model
+   *  (docs/plans/epf-passbook-import.md's 2026-08-11 follow-up round), mirroring how EPFO's own
+   *  portal and INDmoney organize this data ("select Member ID → view that passbook"). `undefined`
+   *  keeps today's all-employers behavior — used only as the fallback for a holding with 0-1
+   *  employers (`RetirementCard.tsx` skips the employer picker entirely in that case). */
+  employerFilter?: EpfEmployer;
 }) {
   const theme = useThemeColors();
   const { shouldMask } = usePrivacy();
@@ -653,8 +807,16 @@ export function EpfAllTransactionsSheet({
   const [filter, setFilter] = useState<'all' | 'interest' | 'transfer'>('all');
   const [selectedMonth, setSelectedMonth] = useState<EpfMonthEntry | null>(null);
   const [selectedInterestTxn, setSelectedInterestTxn] = useState<EpfTransaction | null>(null);
+  // transfer_in/withdrawal/advance breakdown popup (2026-08-xx) — simpler than the interest popup
+  // (no rate/month-by-month trace, just the employee/employer split), see `EPF_TX_LABELS` for the
+  // shared per-type label/color already used for the row itself.
+  const [selectedOtherTxn, setSelectedOtherTxn] = useState<EpfTransaction | null>(null);
   const [correctingInterest, setCorrectingInterest] = useState(false);
+  const [keepingRecorded, setKeepingRecorded] = useState(false);
   const [addingHike, setAddingHike] = useState(false);
+  const [grossCtcInfoOpen, setGrossCtcInfoOpen] = useState(false);
+  const [ratioDraft, setRatioDraft] = useState('');
+  const [savingRatio, setSavingRatio] = useState(false);
   // Fetched once — used to show each interest row's applicable rate (doc §10.5). Never required for the
   // rest of the sheet to work; a null table just means no rate tag is shown yet.
   const [rateTable, setRateTable] = useState<EpfRateTable | null>(null);
@@ -664,15 +826,87 @@ export function EpfAllTransactionsSheet({
       .catch(() => {});
   }, []);
 
+  // Memoized, not a plain `?? []` fallback — that would produce a NEW array identity every render,
+  // which several `useMemo`s below depend on directly (found via `react-hooks/exhaustive-deps`).
+  const allEmployers = useMemo(() => holding.assetMeta?.epfEmployers ?? [], [holding.assetMeta?.epfEmployers]);
+  const allTransactions = useMemo(() => holding.assetMeta?.epfTransactions ?? [], [holding.assetMeta?.epfTransactions]);
+
+  // Always computed against the FULL employer list first — resolving a legacy (no `employerId`)
+  // transaction's owner needs the WHOLE picture to correctly detect ambiguity (see
+  // `epfEmployerForWagesMonth`'s own "never guess on overlap" rule); narrowing the employers array
+  // down to just `employerFilter` BEFORE resolving could wrongly make an actually-ambiguous month
+  // look unambiguous. Filtered down to just this employer's own entries for display afterward.
+  const allMonthsFull = useMemo(
+    () => epfComputeAllMonths(allEmployers, allTransactions),
+    [allEmployers, allTransactions]
+  );
   const allMonths = useMemo(
-    () => epfComputeAllMonths(holding.assetMeta?.epfEmployers ?? [], holding.assetMeta?.epfTransactions ?? []),
-    [holding.assetMeta?.epfEmployers, holding.assetMeta?.epfTransactions]
+    () => (employerFilter ? allMonthsFull.filter((m) => m.employerId === employerFilter.id) : allMonthsFull),
+    [allMonthsFull, employerFilter]
   );
 
-  const nonContribTxns = useMemo(
-    () => (holding.assetMeta?.epfTransactions ?? []).filter((tx) => tx.type !== 'contribution'),
-    [holding.assetMeta?.epfTransactions]
+  const nonContribTxns = useMemo(() => {
+    const nonContrib = allTransactions.filter((tx) => tx.type !== 'contribution');
+    if (!employerFilter) return nonContrib;
+    return nonContrib.filter((tx) => resolveAnyTxnOwner(tx, allEmployers)?.id === employerFilter.id);
+  }, [allTransactions, allEmployers, employerFilter]);
+
+  const scopedTxnCount = useMemo(
+    () =>
+      employerFilter
+        ? allTransactions.filter((t) => resolveAnyTxnOwner(t, allEmployers)?.id === employerFilter.id).length
+        : null,
+    [allTransactions, allEmployers, employerFilter]
   );
+
+  // Estimated Gross/CTC (Fix 4) — only meaningful for a specific employer, never the all-employers
+  // view. Uses `employerFilter`'s OWN latest salary, never `epfBuildCardData`'s current-employer-only
+  // figures, since the employer being viewed here might be a past, closed one.
+  const grossCtc = useMemo(() => {
+    if (!employerFilter) return null;
+    const basic = epfLatestSalary(employerFilter);
+    const monthlyEmployee = Math.round(basic * (employerFilter.employeeContribPct / 100));
+    const monthlyEmployerEpf = Math.round(basic * EPF_EMPLOYER_EPF_PCT);
+    const monthlyEps = Math.round(basic * EPS_PCT);
+    return estimateGrossAndCtc(basic, monthlyEmployee, monthlyEmployerEpf, monthlyEps, employerFilter.basicToGrossPct);
+  }, [employerFilter]);
+
+  // A LATER import revealed a real contribution predating an already explicitly-confirmed joining
+  // date — `extendEmployerCoverage` (`epfImportLogic.ts`) deliberately never silently overrides a
+  // confirmed date, so this surfaces the disagreement here instead of hiding it.
+  const joiningContradiction = useMemo(
+    () => (employerFilter ? checkJoiningDateContradiction(employerFilter, allEmployers, allTransactions) : null),
+    [employerFilter, allEmployers, allTransactions]
+  );
+
+  // "Pending transfer" (2026-08-xx) — see `epfHasPendingTransfer`'s own doc comment for the heuristic
+  // and its limits. Tentative wording only; never asserted as a fact Penny can't actually confirm.
+  const pendingTransfer = useMemo(
+    () => (employerFilter ? epfHasPendingTransfer(employerFilter, allEmployers, allTransactions) : false),
+    [employerFilter, allEmployers, allTransactions]
+  );
+
+  async function handleSaveRatio() {
+    if (!employerFilter || savingRatio) return;
+    const pct = Number(ratioDraft);
+    if (!Number.isFinite(pct) || pct <= 0 || pct > 100) return;
+    setSavingRatio(true);
+    try {
+      const updated: Holding = {
+        ...holding,
+        assetMeta: {
+          ...holding.assetMeta,
+          epfEmployers: allEmployers.map((e) => (e.id === employerFilter.id ? { ...e, basicToGrossPct: pct } : e))
+        },
+        updatedAt: Date.now()
+      };
+      await onSave(updated);
+    } catch {
+      // Leave the popup open so the user can retry.
+    } finally {
+      setSavingRatio(false);
+    }
+  }
 
   type FYGroup = {
     label: string;
@@ -777,6 +1011,36 @@ export function EpfAllTransactionsSheet({
     }
   }
 
+  /** "Keep recorded" (2026-08-xx) — the other side of the mismatch banner's choice: the user has
+   *  looked at both figures and trusts the RECORDED one (the real passbook's own value), not Penny's
+   *  recalculation. Never changes the transaction's amounts — only marks the mismatch acknowledged,
+   *  which is what stops it counting toward "N need review" (`findAllReviewFlags`). The raw
+   *  disagreement is still shown next time this popup opens (never hidden), just no longer flagged
+   *  as something to act on. */
+  async function handleKeepRecorded() {
+    if (!selectedInterestTxn || keepingRecorded) return;
+    setKeepingRecorded(true);
+    try {
+      const updatedTxn: EpfTransaction = { ...selectedInterestTxn, interestMismatchAcknowledged: true };
+      const updated: Holding = {
+        ...holding,
+        assetMeta: {
+          ...holding.assetMeta,
+          epfTransactions: (holding.assetMeta?.epfTransactions ?? []).map((t) =>
+            t.id === selectedInterestTxn.id ? updatedTxn : t
+          )
+        },
+        updatedAt: Date.now()
+      };
+      await onSave(updated);
+      setSelectedInterestTxn(null);
+    } catch {
+      // Leave the popup open, still showing the mismatch, so the user can retry.
+    } finally {
+      setKeepingRecorded(false);
+    }
+  }
+
   // "Needs review" flags (Task 2) — the exact same function powers the row badges below AND
   // `RetirementCard`'s own card-level count, so the two can never disagree with each other.
   const reviewFlags = useMemo(
@@ -791,10 +1055,16 @@ export function EpfAllTransactionsSheet({
       ),
     [reviewFlags]
   );
+  // Keyed by `${employerId}|${wagesMonth}`, not the bare month string — a genuine mid-month switch
+  // means two employers can share the same wagesMonth, and only ONE of them might actually have a
+  // real discrepancy; a bare-month Set would show the warning badge on BOTH employers' rows for that
+  // shared month, even the one that's actually fine.
   const wageDiscrepancyMonths = useMemo(
     () =>
       new Set(
-        reviewFlags.filter((f): f is EpfWageDiscrepancyFlag => f.kind === 'wageDiscrepancy').map((f) => f.wagesMonth)
+        reviewFlags
+          .filter((f): f is EpfWageDiscrepancyFlag => f.kind === 'wageDiscrepancy')
+          .map((f) => `${f.employer.id}|${f.wagesMonth}`)
       ),
     [reviewFlags]
   );
@@ -803,20 +1073,62 @@ export function EpfAllTransactionsSheet({
   // employer's CURRENT salary model — powers the wage-discrepancy note/action in the contribution
   // breakdown popup below (Task 2b). `null` for an estimated (non-real) month, which by construction
   // can never disagree with the very model that generated it.
+  //
+  // 2026-08-xx fix — also matched by employer ownership (`resolveAnyTxnOwner`), not `wagesMonth`
+  // alone. A genuine mid-month switch means TWO employers can share the same `wagesMonth`, each with
+  // their OWN real transaction — a plain `.find()` by month could silently show the WRONG employer's
+  // transaction (whichever happened to come first in the array) when the tapped `entry` belongs to
+  // the other one.
   const selectedMonthRealTxn = useMemo(
     () =>
       selectedMonth
-        ? ((holding.assetMeta?.epfTransactions ?? []).find(
-            (t) => t.type === 'contribution' && t.wagesMonth === selectedMonth.month
+        ? (allTransactions.find(
+            (t) =>
+              t.type === 'contribution' &&
+              t.wagesMonth === selectedMonth.month &&
+              resolveAnyTxnOwner(t, allEmployers)?.id === selectedMonth.employerId
           ) ?? null)
         : null,
-    [selectedMonth, holding.assetMeta?.epfTransactions]
+    [selectedMonth, allTransactions, allEmployers]
   );
   const selectedMonthWageFlag = useMemo(
-    () =>
-      selectedMonthRealTxn ? checkWageDiscrepancy(selectedMonthRealTxn, holding.assetMeta?.epfEmployers ?? []) : null,
-    [selectedMonthRealTxn, holding.assetMeta?.epfEmployers]
+    () => (selectedMonthRealTxn ? checkWageDiscrepancy(selectedMonthRealTxn, allEmployers) : null),
+    [selectedMonthRealTxn, allEmployers]
   );
+
+  // Whether the tapped month IS the employer's own joining or leaving month — these get a dedicated
+  // confirm-date flow (`EpfMonthEdgeConfirm` below) instead of the generic wage-discrepancy banner
+  // (which `checkWageDiscrepancy` now deliberately skips for exactly these months — see that
+  // function's own 2026-08-xx doc comment). Real bug this fixes: before this existed, the joining/
+  // leaving month showed a permanent "lower than predicted" warning with no way to ever resolve it.
+  const selectedMonthEmployer = useMemo(
+    () => (selectedMonth ? (allEmployers.find((e) => e.id === selectedMonth.employerId) ?? null) : null),
+    [selectedMonth, allEmployers]
+  );
+  // 2026-08-xx fix — also recognizes a LIKELY, not-yet-confirmed departure month for a still-open
+  // (`!toDate`) employer: this is the LAST real evidence we have for them, and the amount looks
+  // pro-rata-low against the salary model (the same signal the generic wage-discrepancy check already
+  // uses). Real bug this fixes: before this existed, a still-open employer's actual final month fell
+  // through to the generic wage-discrepancy banner with no way to ever resolve it (screenshot report:
+  // "the banner detects the user might have left... and still does not ask the LWD"), because the
+  // ORIGINAL edge check only recognized an ALREADY-set `toDate` — which is never true for an employer
+  // whose leaving date was never asked in the first place.
+  const selectedMonthEdge = useMemo((): 'start' | 'end' | null => {
+    if (!selectedMonth || !selectedMonthEmployer) return null;
+    if (selectedMonth.month === epfMonthKeyOf(selectedMonthEmployer.fromDate)) return 'start';
+    if (selectedMonthEmployer.toDate) {
+      return selectedMonth.month === epfMonthKeyOf(selectedMonthEmployer.toDate) ? 'end' : null;
+    }
+    if (!selectedMonthRealTxn) return null;
+    const lastEvidenceMs = epfLastRealEvidenceMs(selectedMonthEmployer, allEmployers, allTransactions);
+    if (lastEvidenceMs === null || epfMonthKeyOf(lastEvidenceMs) !== selectedMonth.month) return null;
+    const discrepancy = epfCheckWageDiscrepancy(
+      selectedMonthEmployer,
+      selectedMonth.month,
+      selectedMonthRealTxn.employeeAmount ?? 0
+    );
+    return discrepancy?.direction === 'lower' ? 'end' : null;
+  }, [selectedMonth, selectedMonthEmployer, selectedMonthRealTxn, allEmployers, allTransactions]);
 
   /** "Possible unrecorded salary hike" action (Task 2b, higher-than-predicted case only) — appends a
    *  new `EpfSalaryHike` back-calculated from the real employee amount, sorted into the employer's
@@ -854,10 +1166,12 @@ export function EpfAllTransactionsSheet({
 
   return (
     <>
-      <Modal onClose={onClose} title="EPF Transactions" scrollable>
+      <Modal onClose={onClose} title={employerFilter ? employerFilter.companyName : 'EPF Transactions'} scrollable>
         <View className="-mt-2 flex-row items-center justify-between">
           <Text className="text-[10px] text-tertiary">
-            {allMonths.length} months · {holding.assetMeta?.epfEmployers?.length ?? 0} employers
+            {employerFilter
+              ? `${epfMonthLabel(employerFilter.fromDate)} – ${employerFilter.toDate ? epfMonthLabel(employerFilter.toDate) : 'present'} · ${scopedTxnCount} transaction${scopedTxnCount === 1 ? '' : 's'}`
+              : `${allMonths.length} months · ${allEmployers.length} employer${allEmployers.length === 1 ? '' : 's'}`}
           </Text>
           {/* Matches web's custom slate pill (not the shared Button's generic secondary variant) — the
            *  consistent EPF-actions accent used throughout this file. */}
@@ -872,6 +1186,46 @@ export function EpfAllTransactionsSheet({
             Add
           </Button>
         </View>
+
+        {/* Estimated CTC / Gross Salary / Net Monthly (Fix 4) — only for a specific employer's own
+            scoped ledger, never the all-employers view. CTC and Gross are shown ANNUAL (the
+            conventional way India quotes both — "12 LPA," never a monthly figure) while Net Monthly
+            stays monthly, matching how take-home pay is actually talked about. Always labelled "Est."
+            and tappable through to the formula popup — never presented as more precise than it
+            actually is (docs/plans/epf-passbook-import.md's 2026-08-11 follow-up round). */}
+        {employerFilter && grossCtc && (
+          <Pressable
+            onPress={() => {
+              setRatioDraft(String(grossCtc.basicToGrossPct));
+              setGrossCtcInfoOpen(true);
+            }}
+            className="flex-row gap-2"
+          >
+            <View className="flex-1">
+              <StatBox size="sm" label="Est. CTC" value={`₹${grossCtc.annualCtc.toLocaleString('en-IN')}`} />
+            </View>
+            <View className="flex-1">
+              <StatBox size="sm" label="Est. Gross" value={`₹${grossCtc.annualGross.toLocaleString('en-IN')}`} />
+            </View>
+            <View className="flex-1">
+              <StatBox size="sm" label="Net Monthly" value={`₹${grossCtc.netMonthly.toLocaleString('en-IN')}`} />
+            </View>
+          </Pressable>
+        )}
+
+        {pendingTransfer && employerFilter && (
+          <Banner variant="info" icon="ti-transfer">
+            Your PF balance from {employerFilter.companyName} may not have been transferred to your next employer yet —
+            Penny hasn't seen a transfer-in credit for it.
+          </Banner>
+        )}
+
+        {joiningContradiction && (
+          <Banner variant="warning" icon="ti-alert-triangle">
+            A contribution from {joiningContradiction.earlierWagesMonth} predates the confirmed joining date at{' '}
+            {employerFilter?.companyName} — double-check the joining date above.
+          </Banner>
+        )}
 
         <SegmentedControl
           options={[
@@ -902,8 +1256,10 @@ export function EpfAllTransactionsSheet({
             {[...group.otherTxns]
               .sort((a, b) => b.date - a.date)
               .map((tx) => {
-                // Interest rows are tappable for a rate + month-by-month breakdown (doc §10.5) — every
-                // other non-contribution type stays display-only, unchanged from before.
+                // Interest rows open the richer rate + month-by-month breakdown (doc §10.5).
+                // transfer_in/withdrawal/advance rows now open the simpler employee/employer split
+                // breakdown below (2026-08-xx fix — these were previously NOT tappable at all, a real
+                // reported gap: "withdrawal entry does not open the details like other transactions").
                 const isInterest = tx.type === 'interest';
                 const txFy = dateToFyStartYear(tx.date);
                 const ratePct = isInterest && rateTable ? getInterestRateForFy(rateTable, txFy) : null;
@@ -911,7 +1267,7 @@ export function EpfAllTransactionsSheet({
                 return (
                   <Pressable
                     key={tx.id}
-                    onPress={isInterest ? () => setSelectedInterestTxn(tx) : undefined}
+                    onPress={isInterest ? () => setSelectedInterestTxn(tx) : () => setSelectedOtherTxn(tx)}
                     className="py-2.5 flex-row items-center gap-3 border-b border-theme"
                   >
                     <View
@@ -963,7 +1319,7 @@ export function EpfAllTransactionsSheet({
                       <Text className="text-xs font-bold tabular-nums" style={{ color: EPF_TX_COLORS[tx.type] }}>
                         {!masked ? `₹${displayAmount.toLocaleString('en-IN')}` : '••••'}
                       </Text>
-                      {isInterest && <Icon name="ti-chevron-right" size={12} color={theme.textTertiary} />}
+                      <Icon name="ti-chevron-right" size={12} color={theme.textTertiary} />
                     </View>
                   </Pressable>
                 );
@@ -972,7 +1328,7 @@ export function EpfAllTransactionsSheet({
             {filter === 'all' &&
               group.months.map((entry) => (
                 <Pressable
-                  key={entry.month}
+                  key={`${entry.employerId}-${entry.month}`}
                   onPress={() => setSelectedMonth(entry)}
                   className="py-2 flex-row items-center gap-3 border-b border-theme"
                 >
@@ -987,8 +1343,14 @@ export function EpfAllTransactionsSheet({
                       <Text className="text-xs font-medium text-primary">{entry.month}</Text>
                       {/* "Needs review" badge (Task 2b) — a real month whose recorded amount
                           disagrees with the employer's current salary model. */}
-                      {wageDiscrepancyMonths.has(entry.month) && (
+                      {wageDiscrepancyMonths.has(`${entry.employerId}|${entry.month}`) && (
                         <Icon name="ti-alert-triangle" size={11} color={theme.warning} />
+                      )}
+                      {/* Neutral (not warning-colored) indicator for the employer's own joining/
+                          leaving month — pro-rata is expected there; tap through to confirm/edit the
+                          exact date via `EpfMonthEdgeConfirm`, not a generic discrepancy. */}
+                      {isEmployerEdgeMonth(entry, allEmployers) && (
+                        <Icon name="ti-info-circle" size={11} color={theme.info} />
                       )}
                     </View>
                     <Text className="text-[10px] text-tertiary">{entry.companyName}</Text>
@@ -1088,6 +1450,19 @@ export function EpfAllTransactionsSheet({
               )}
             </>
           )}
+
+          {/* Joining/leaving-month confirm (2026-08-xx) — mutually exclusive with the generic
+              wage-discrepancy banner above (`checkWageDiscrepancy` skips these exact months). */}
+          {selectedMonthEdge && selectedMonthEmployer && (
+            <EpfMonthEdgeConfirm
+              holding={holding}
+              employer={selectedMonthEmployer}
+              month={selectedMonth}
+              edge={selectedMonthEdge}
+              onSave={onSave}
+              onDone={() => setSelectedMonth(null)}
+            />
+          )}
         </Modal>
       )}
 
@@ -1154,37 +1529,179 @@ export function EpfAllTransactionsSheet({
                 if (!check) return null;
                 const { recorded, recomputed: recomputedTotal, mismatched } = check;
                 const agrees = !mismatched;
+                // "Keep recorded" (2026-08-xx) — the recorded figure is the real passbook's own
+                // value; a disagreement doesn't automatically mean Penny's math is right. Once
+                // acknowledged, the mismatch is still shown here (never hidden), it just stops
+                // counting toward "N need review" — see `EpfTransaction.interestMismatchAcknowledged`.
+                const acknowledged = !!selectedInterestTxn.interestMismatchAcknowledged;
                 return (
                   <>
                     <Banner
-                      variant={agrees ? 'info' : 'warning'}
-                      icon={agrees ? 'ti-info-circle' : 'ti-alert-triangle'}
+                      variant={agrees || acknowledged ? 'info' : 'warning'}
+                      icon={agrees || acknowledged ? 'ti-info-circle' : 'ti-alert-triangle'}
                     >
                       {masked
                         ? 'Recorded and recalculated amounts hidden while masked.'
                         : agrees
                           ? `Recorded amount is ₹${recorded.toLocaleString('en-IN')} — matches Penny's recalculation exactly.`
-                          : `Recorded amount is ₹${recorded.toLocaleString('en-IN')}; Penny's fresh recalculation gives ₹${recomputedTotal.toLocaleString('en-IN')}. Contributions may have been edited since this was recorded.`}
+                          : acknowledged
+                            ? `Recorded amount is ₹${recorded.toLocaleString('en-IN')} — kept as recorded. Penny's own recalculation gives ₹${recomputedTotal.toLocaleString('en-IN')}, but you've confirmed the recorded figure is correct.`
+                            : `Recorded amount is ₹${recorded.toLocaleString('en-IN')}; Penny's fresh recalculation gives ₹${recomputedTotal.toLocaleString('en-IN')}. Contributions may have been edited since this was recorded.`}
                     </Banner>
-                    {/* Actionable correction alongside the informational banner above (kept — still
-                        correct and useful) — only shown when there's actually a mismatch to fix and
-                        the real numbers aren't hidden by masking. */}
+                    {/* Two ways to resolve a genuine disagreement — accept Penny's recalculation, or
+                        confirm the recorded (passbook) figure is the one to trust. Only shown while
+                        there's actually something to resolve and the real numbers aren't masked. */}
                     {!agrees && !masked && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        loading={correctingInterest}
-                        disabled={correctingInterest}
-                        onPress={handleCorrectInterest}
-                      >
-                        {correctingInterest ? 'Updating…' : `Update to ₹${recomputedTotal.toLocaleString('en-IN')}`}
-                      </Button>
+                      <View className="flex-row gap-2">
+                        {!acknowledged && (
+                          <View className="flex-1">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              fullWidth
+                              loading={keepingRecorded}
+                              disabled={keepingRecorded || correctingInterest}
+                              onPress={handleKeepRecorded}
+                            >
+                              Keep recorded
+                            </Button>
+                          </View>
+                        )}
+                        <View className="flex-1">
+                          <Button
+                            variant={acknowledged ? 'secondary' : 'primary'}
+                            size="sm"
+                            fullWidth
+                            loading={correctingInterest}
+                            disabled={correctingInterest || keepingRecorded}
+                            onPress={handleCorrectInterest}
+                          >
+                            {correctingInterest ? 'Updating…' : `Update to ₹${recomputedTotal.toLocaleString('en-IN')}`}
+                          </Button>
+                        </View>
+                      </View>
                     )}
                   </>
                 );
               })()}
             </>
           )}
+        </Modal>
+      )}
+
+      {/* transfer_in/withdrawal/advance breakdown popup (2026-08-xx) — mirrors the contribution
+          breakdown's DetailRow list style, just without a rate/trace (there isn't one for these
+          types). Real reported gap: these rows previously weren't tappable at all. */}
+      {selectedOtherTxn &&
+        (() => {
+          // A legacy entry (imported before the 2026-08-xx employee/employer-split fix, or a
+          // manually-typed one — see docs/plans/epf-passbook-import.md §10.12) has no real split at
+          // all: its whole amount was historically stored as employee-side only. Falls back the same
+          // way `existingAmounts()`/`recordedInterestTotal()` already do, so this popup's own total
+          // always agrees with what the row itself displays.
+          const isLegacy = selectedOtherTxn.employeeAmount == null && selectedOtherTxn.employerAmount == null;
+          const employeeShare = selectedOtherTxn.employeeAmount ?? selectedOtherTxn.amount ?? 0;
+          const employerShare = selectedOtherTxn.employerAmount ?? 0;
+          return (
+            <Modal onClose={() => setSelectedOtherTxn(null)} title={EPF_TX_LABELS[selectedOtherTxn.type]} size="sm">
+              <View className="-mt-2">
+                <Text className="text-[10px] text-tertiary">
+                  {new Date(selectedOtherTxn.date).toLocaleDateString('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                  })}
+                  {selectedOtherTxn.sourceParticulars && ` · ${selectedOtherTxn.sourceParticulars}`}
+                </Text>
+              </View>
+              <DetailRow
+                label="Employee share"
+                value={!masked ? `₹${employeeShare.toLocaleString('en-IN')}` : '••••'}
+                size="md"
+              />
+              <DetailRow
+                label={<Text style={{ color: theme.textTertiary }}>Employer share</Text>}
+                value={
+                  <Text style={{ color: theme.textTertiary }}>
+                    {!masked ? `₹${employerShare.toLocaleString('en-IN')}` : '••••'}
+                  </Text>
+                }
+                size="md"
+              />
+              <DetailRow
+                label={<Text className="font-semibold">Total</Text>}
+                value={!masked ? `₹${(employeeShare + employerShare).toLocaleString('en-IN')}` : '••••'}
+                size="md"
+                className="border-t border-theme pt-1.5 mt-0.5"
+              />
+              {isLegacy && (
+                <Text className="text-[10px] text-tertiary pt-0.5">
+                  This entry predates the employee/employer split — the employer share may be understated. Re-import the
+                  source statement to pick up the real split.
+                </Text>
+              )}
+            </Modal>
+          );
+        })()}
+
+      {/* Estimated Gross/CTC formula popup (Fix 4) — always shows the exact calculation and lets the
+          user override the Basic-to-Gross ratio if they know their real one; never asserts either
+          figure as fact. */}
+      {grossCtcInfoOpen && employerFilter && grossCtc && (
+        <Modal onClose={() => setGrossCtcInfoOpen(false)} title="Estimated CTC" size="sm">
+          <View className="-mt-2 flex-row gap-2 rounded-xl border p-3" style={{ borderColor: theme.border }}>
+            <Icon name="ti-info-circle" size={15} color={theme.textTertiary} />
+            <Text className="text-[11px] text-secondary flex-1 leading-relaxed">
+              Penny doesn't know your real Gross/CTC split — this is an estimate using a common ~
+              {EPF_DEFAULT_BASIC_TO_GROSS_PCT}% Basic-to-Gross ratio. Edit it below if you know your real one.
+            </Text>
+          </View>
+          <TextInput
+            label="Basic is what % of Gross?"
+            hint={`default ${EPF_DEFAULT_BASIC_TO_GROSS_PCT}%`}
+            keyboardType="numeric"
+            value={ratioDraft}
+            onChange={setRatioDraft}
+          />
+          <View className="border-t border-theme" />
+          <DetailRow
+            label="Gross (monthly)"
+            value={`₹${grossCtc.basicSalary.toLocaleString('en-IN')} ÷ ${grossCtc.basicToGrossPct}% = ₹${grossCtc.estimatedGross.toLocaleString('en-IN')}`}
+            size="sm"
+          />
+          <DetailRow
+            label="CTC (monthly)"
+            value={`Gross + EPF (₹${grossCtc.monthlyEmployerEpf.toLocaleString('en-IN')}) + EPS (₹${grossCtc.monthlyEps.toLocaleString('en-IN')}) + Gratuity (₹${grossCtc.monthlyGratuityAccrual.toLocaleString('en-IN')}) = ₹${grossCtc.estimatedCtc.toLocaleString('en-IN')}`}
+            size="sm"
+          />
+          <DetailRow
+            label={<Text className="font-semibold">Est. CTC (annual)</Text>}
+            value={`₹${grossCtc.estimatedCtc.toLocaleString('en-IN')} × 12 = ₹${grossCtc.annualCtc.toLocaleString('en-IN')}`}
+            size="sm"
+          />
+          <DetailRow
+            label={<Text className="font-semibold">Est. Gross (annual)</Text>}
+            value={`₹${grossCtc.estimatedGross.toLocaleString('en-IN')} × 12 = ₹${grossCtc.annualGross.toLocaleString('en-IN')}`}
+            size="sm"
+          />
+          <DetailRow
+            label={<Text className="font-semibold">Net Monthly</Text>}
+            value={`Gross − Employee EPF (₹${grossCtc.monthlyEmployeeContribution.toLocaleString('en-IN')}) = ₹${grossCtc.netMonthly.toLocaleString('en-IN')}`}
+            size="sm"
+          />
+          <Text className="text-[9.5px] text-tertiary leading-relaxed">
+            Net Monthly doesn't subtract income tax — Penny has no payroll tax engine, so this is before-tax take-home,
+            not your real bank credit.
+          </Text>
+          <Button
+            variant="primary"
+            fullWidth
+            loading={savingRatio}
+            disabled={savingRatio || Number(ratioDraft) === grossCtc.basicToGrossPct}
+            onPress={handleSaveRatio}
+          >
+            Save ratio
+          </Button>
         </Modal>
       )}
     </>

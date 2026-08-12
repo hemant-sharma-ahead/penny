@@ -57,12 +57,19 @@ function existingAmounts(t: EpfTransaction): EpfAmounts {
       pensionAmount: t.pensionAmount ?? 0
     };
   }
-  // interest/transfer_in/withdrawal/advance are single-amount transactions today (see
-  // EpfTransaction's `amount` field) — modelled here as an employee-side amount for comparison
-  // purposes, since that's the only balance stream a manually-logged interest entry has ever
-  // actually captured (see docs/plans/epf-passbook-import.md §6: interest is entirely manual today,
-  // and the existing "Add transaction" sheet only ever asks for one combined amount for these
-  // types, never a separate employee/employer split the way a contribution does).
+  // interest/transfer_in/withdrawal/advance: prefer the real employee/employer split when the
+  // transaction actually has one — every import-created transaction of these types has carried a
+  // real split since 2026-08-11 (`epfImportLogic.ts`'s `buildImportedTxn`), and withdrawal/advance
+  // specifically only started reliably carrying `employerAmount` as of the mid-year-withdrawal fix
+  // (2026-08-xx) — before that, its employer-side amount was silently dropped at write time, which
+  // is exactly why this comparison needs to check for a real split rather than assuming there never
+  // is one. Falls back to a plain employee-side `amount` ONLY for a genuinely legacy transaction with
+  // no split at all — the one shape a manually-typed "Add transaction" entry of these types has ever
+  // produced (see docs/plans/epf-passbook-import.md §6). Mirrors `recordedInterestTotal()`'s own
+  // identical fallback convention in `epfInterestOnDemand.ts`, for consistency.
+  if (t.employeeAmount != null || t.employerAmount != null) {
+    return { employeeAmount: t.employeeAmount ?? 0, employerAmount: t.employerAmount ?? 0, pensionAmount: 0 };
+  }
   return { employeeAmount: t.amount ?? 0, employerAmount: 0, pensionAmount: 0 };
 }
 

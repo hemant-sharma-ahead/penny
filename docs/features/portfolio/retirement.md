@@ -211,6 +211,133 @@ Manual entry is NOT replaced — this is purely additive, feeding the exact same
   popup; lower-than-predicted is explanation-only (no edit-transaction-amount UI exists yet — see
   `docs/plans/epf-passbook-import.md` §9). Both flag types show a small amber `ti-alert-triangle`
   badge in `EpfAllTransactionsSheet` and a summed "N need review" pill on `RetirementCard`.
+- **Employer-switch correctness fixes + per-employer ledger (2026-08-11, real-device testing,
+  `apps/mobile` only):** two more employer-switch bugs found on top of the §10.8 reconciliation fix
+  (`docs/plans/epf-passbook-import.md` §10.9). `epfComputeAllMonths()` had its own separate
+  wagesMonth-only matching bug distinct from the reconciliation one already fixed — corrected via a
+  new `epfResolveTxnEmployer()` that scopes real-transaction matching to the same employer being
+  simulated for that month, not just the same wage month. Separately, an unconfirmed "current"
+  employer kept projecting estimated months all the way to today regardless of whether the "Are you
+  still working at X?" prompt above was ever answered — fixed by capping the projection at the
+  employer's own last real evidence date (`epfLastRealEvidenceMs`). The design gap feeding both: a
+  brand-new employer's join date was being silently inferred from a contribution's deposit date
+  rather than asked for. Import now always confirms a new employer's real joining date via a new
+  `EpfNewEmployerSetupSheet` (wired into `EpfImportFlow.tsx`) — and additionally asks for the old
+  employer's last working day when a genuine mid-month switch is detected — with pro-rata-aware date
+  suggestions (`estimateProRataEdgeDate`/`checkProRataConsistency`) when a partial first/last month
+  exists. The new `joiningDateConfirmed` flag (see `docs/SCHEMA.md`) now guards against a later
+  import silently moving an already-confirmed join date backward; a disagreement instead surfaces as
+  a new non-blocking `joiningDateContradiction` review flag.
+
+  Separately, EPF transactions moved from one centralized cross-employer list to a **per-employer
+  ledger**, mirroring EPFO's own portal / INDmoney's "select Member ID → view that passbook" model:
+  `EpfAllTransactionsSheet` gained an optional `employerFilter` prop (scoping both computed months
+  and non-contribution transactions to one employer via new `epfEmployerScoping.ts` resolvers),
+  tapping an employer row on the card now opens that employer's own ledger directly, and "See all
+  transactions" routes through a new `EpfEmployerPickerSheet.tsx` picker whenever 2+ employers exist
+  (skipped entirely for the common single-employer case). A scoped per-employer view also shows new
+  "Estimated Gross Salary / CTC" stat tiles (`estimateGrossAndCtc()`, using an editable per-employer
+  Basic-to-Gross ratio and the statutory gratuity formula), always presented as an explicit estimate
+  with a formula popup, never asserted as fact. Mockup:
+  `docs/mockups/proposals/epf-employer-switch-v1.html`. **Implemented but not yet manually verified
+  on-device.**
+- **Second on-device round (2026-08-11, `docs/plans/epf-passbook-import.md` §10.10) — 8 more real
+  bugs found testing the round above, plus a Gross/CTC display change.** Interest/transfer/
+  withdrawal reconciliation was still unscoped by employer (only contributions had been scoped in
+  §10.9) — a same-FY employer switch means both employers can legitimately earn interest in the
+  same year, so importing the second employer's interest was silently overwriting the first's;
+  fixed by widening `epfResolveTxnEmployer()` to resolve any transaction type (not just
+  contributions, via a new `epfEmployerForDate()`) and scoping the reconciliation calls to it.
+  Missing `key` props on the import flow's review sheets meant React was reusing the same component
+  instance across import units, causing stale dates and a possible cross-FY conflict-choice bleed.
+  `checkJoiningDateContradiction` compared dates at raw-millisecond granularity instead of
+  month granularity, producing a false-positive contradiction on every employer's OWN joining
+  month — the likely dominant cause of a reported "20 need review but nothing looks wrong"
+  mismatch; fixed via a new `epfMonthKeyOf()` helper. The wage-discrepancy flag now skips an
+  employer's own joining/leaving month entirely (a pro-rata partial month there is expected, not a
+  real discrepancy), replaced by a new confirm UI, `EpfMonthEdgeConfirm` (a local component inside
+  `RetirementSheets.tsx`), that lets the user confirm the exact join/leave date from the
+  transaction row itself, reusing the same pro-rata-consistency pattern the import-time setup sheet
+  already established. A few smaller latent bugs (wrong-employer transaction lookup and duplicate
+  React keys on a shared switch month, a badge-Set keyed without the employer) were fixed alongside
+  it. A new heuristic "pending transfer" banner (`epfHasPendingTransfer()`) flags a closed employer
+  whose balance doesn't yet show a `transfer_in` on its successor. Separately, an explicit
+  follow-up ask changed the Gross/CTC display: `estimateGrossAndCtc()` gained a
+  `monthlyEmployeeContribution` parameter and now also returns `netMonthly` (Gross minus the
+  employee's own EPF deduction, not income tax — no payroll tax engine exists), `annualGross`, and
+  `annualCtc`; the scoped ledger now shows three tiles — **Est. CTC (annual)**, **Est. Gross
+  (annual)**, **Net Monthly** — CTC/Gross quoted annually (the conventional Indian "LPA" framing),
+  Net Monthly staying monthly. Two items from the original bug report ("hikes not shown for other
+  companies," part of "transfers not shown") are believed to be downstream of the reconciliation-
+  scoping/key-collision bugs above rather than separate issues, but this has **not been
+  independently re-verified** — flagged as "should re-check," not "confirmed fixed." No Dexie
+  schema changes this round. **Implemented but not yet manually verified on-device.**
+- **Third on-device round (2026-08-12, `docs/plans/epf-passbook-import.md` §10.11) — EPF corpus
+  never counted in net worth, plus more employer-switch bugs.** The most significant find: an EPF
+  holding's `currentValue` was never actually persisted anywhere — every net-worth aggregator in the
+  app (Home's summary, the retirement-projection calculator, Portfolio's own holdings total) reads
+  the generic `holding.currentValue ?? holding.investedAmount`, but EPF (unlike PPF/NPS, which save
+  a manually-typed corpus straight onto `investedAmount`) only ever computed its corpus on demand for
+  the card's own display, so this fell back to `0` and silently vanished from both the net-worth
+  total and the breakdown view (excluded outright by its `> 0` filter, not shown as ₹0). Fixed by a
+  new `saveHolding()` wrapper in `RetirementSection.tsx` that stamps the freshly computed EPF corpus
+  onto `currentValue` before every save; an existing EPF holding self-corrects the next time any save
+  happens on it (no separate migration needed). Also fixed: the interest CALCULATION engine
+  (`buildEpfInterestInput()`/`sumEpfBalanceBeforeFy()`, distinct from §10.10's reconciliation fix)
+  was still summing a same-FY switch's real deposits/opening balance across BOTH employers instead
+  of scoping to one, inflating the recalculated interest shown for the FY an employer actually left
+  in; "Are you still working at X?" → "No" now opens the same `EpfMonthEdgeConfirm` form (exported
+  from `RetirementSheets.tsx`) to ask for the real last working day instead of silently guessing 31
+  March; and the row-level wage-discrepancy warning on a still-open employer's true final month now
+  routes into that same confirm flow instead of a dead-end banner (closing the last gap in §10.10's
+  edge-detection logic). A reported concern about two "TRANSFER IN" passbook particulars variants was
+  investigated and found to already classify correctly — no fix needed, regression tests added. **No
+  Dexie schema changes.** **Implemented but not yet manually verified on-device.** Separately, a
+  "hike journey" mockup (`docs/mockups/proposals/epf-hike-journey-v1.html`) proposing Gross/Net/CTC
+  at each salary point (not just Basic) was approved and **implemented**: the per-employer hike
+  list's expandable rows initially showed, per point (including a synthetic "Joined" point derived
+  from the employer's own start date/Basic), a small card with a growth-% pill vs. the previous
+  point plus that point's own Gross/mo, CTC/yr, and Net/mo — not just Basic — via a new
+  `buildEpfHikeJourney()`/`EpfHikeJourneyPoint` pair in `epfCalculations.ts`. Unit-tested; **not
+  yet manually verified on-device.** (This card layout was redesigned into a table in the fifth
+  round below — see that bullet for the current display.)
+- **Fourth on-device round (2026-08-12, `docs/plans/epf-passbook-import.md` §10.12) — mid-year
+  withdrawal never subtracted from interest, employer-side withdrawal amount silently dropped.**
+  Found via a direct real-passbook comparison (FY2019-20's recorded ₹2,350 employee/₹719 employer
+  interest didn't match Penny's own recalculation), three compounding bugs found in sequence: (1)
+  the interest engine had no concept of a mid-year withdrawal at all — `calculateEpfInterestForYear`
+  now accepts an optional `monthlyWithdrawals` and nets deposits/withdrawals per stream before
+  simulating, applying a withdrawal at month-end (same timing symmetry as a deposit) and clamping
+  the balance at zero; (2) fixing #1 alone still didn't match — `epfImportLogic.ts`'s
+  withdrawal/advance storage branch was silently dropping the employer-side amount entirely (storing
+  only the employee amount), unlike the already-correct interest/transfer_in branch; now stores the
+  real employee/employer split, though **only for a future import** — an already-imported withdrawal
+  needs the same statement re-imported to pick up the fix; (3) `existingAmounts()`
+  (`epfReconciliation.ts`) was still comparing every non-contribution transaction as employee-only,
+  which meant a re-import to pick up fix #2 would have silently agreed with the old wrong value
+  instead of surfacing a conflict — fixed to prefer the real split when set. Unit-tested; **the
+  corrected numbers have not yet been re-verified on-device against the real passbook.**
+- **Fifth on-device round (2026-08-12, `docs/plans/epf-passbook-import.md` §10.13) — non-interest
+  rows not tappable, no "keep recorded" option on an interest mismatch, hike journey redesigned
+  card→table.** Two more real reported gaps plus one direct display revision. `transfer_in`/
+  `withdrawal`/`advance` rows in `EpfAllTransactionsSheet`'s non-contribution list had no `onPress`
+  at all (only `interest` rows did) — now every non-contribution row is tappable, opening a new,
+  simpler breakdown popup (date, `sourceParticulars`, Employee/Employer/Total, same `DetailRow`
+  style as the contribution popup), with a graceful fallback for a legacy/manually-typed transaction
+  with no real employee/employer split. The interest breakdown popup's mismatch banner previously
+  offered only "Update to ₹X"; a new field, `EpfTransaction.interestMismatchAcknowledged?: boolean`,
+  is set when the user picks a new "Keep recorded" option instead — `checkInterestMismatch` still
+  always reports the raw disagreement, but `findAllReviewFlags` now skips the `interestMismatch` flag
+  once acknowledged, so it stops counting toward "N need review" and the row badge (same dismissal
+  pattern as `Account.dismissedVerificationFindings`). Finally, per further on-device feedback on the
+  hike-journey display shipped in the Third/Fourth rounds above, the per-employer hike list's card
+  layout (Basic + a Gross/mo·CTC/yr·Net/mo card per point) was redesigned into a single table — a
+  header row (Month | Est CTC | Est Gross | Net Monthly) followed by one row per salary point, with
+  CTC and Gross now both shown ANNUAL to match the ledger header's own convention (Gross had
+  inconsistently been monthly in the card layout). Same `buildEpfHikeJourney()` function, unchanged;
+  only the `RetirementCard.tsx` rendering changed. No mockup round — treated as a direct revision of
+  an already-built feature per the user's own precise, unambiguous spec. **Implemented but not yet
+  manually verified on-device.**
 
 **PPF — statement import (2026-08-08, `apps/mobile` only, per
 `docs/mockups/proposals/ppf-statement-import-v1.html`).** A bank/post-office PPF statement (CSV or
@@ -359,7 +486,7 @@ a mockup — see below).** Additive on top of the card redesign above; nothing t
 
 **Key file:** `src/features/portfolio/PortfolioPage.tsx` — Retirement sub-tab rendering for all three account types.
 
-**Mobile (`apps/mobile`):** ported in Track 4 (Portfolio module) — `apps/mobile/src/features/portfolio/holdings/retirement/` mirrors the web files above; this is the single biggest sub-scope in the entire Portfolio port (~1,760 web lines in `RetirementCard.tsx`/`RetirementSheets.tsx` alone — bigger than the whole Loans module). `STATUS.x` colors appear at the highest concentration in the module here (10 sites in `RetirementCard.tsx` alone) → `useThemeColors()`. Three hand-rolled `fixed inset-0` modal overlays found and rebuilt on the real ported `Modal` component: `NpsLifecycleDetail`, a contribution-breakdown popup inside `RetirementSheets` (never converted to `Modal` even on web, despite that file already using `Modal` elsewhere), and a third one found during the port, `EpfAllTransactionsSheet`. `core/nps/npsClient.ts`'s scheme-list cache used synchronous `localStorage` (incompatible with RN) — fixed via `npsClient.native.ts`, which keeps the existing in-memory `schemesMemCache` but drops the persistent cross-session layer (re-fetches once per cold app start instead of once per week), per the same decision applied to IPO's cache. **EPF passbook PDF import + Excel export (2026-08-08)** is a mobile-only capability with no web-react equivalent (see the EPF section above) — new files `EpfImportFlow.tsx`, `EpfImportReviewSheet.tsx`, `epfImportLogic.ts`, `epfInterestOnDemand.ts`, `epfTxLabels.ts`, `epfReviewFlags.ts` in this same directory. **PPF statement import (2026-08-08)** is likewise mobile-only (see the PPF section above) — new files `PpfImportFlow.tsx`, `PpfImportReviewSheet.tsx`, `ppfImportLogic.ts`. **PPF card redesign (2026-08-08)** is likewise mobile-only (see the PPF section above) — new `PpfAllTransactionsSheet` in `RetirementSheets.tsx` and new file `ppfTxLabels.ts` in this same directory.
+**Mobile (`apps/mobile`):** ported in Track 4 (Portfolio module) — `apps/mobile/src/features/portfolio/holdings/retirement/` mirrors the web files above; this is the single biggest sub-scope in the entire Portfolio port (~1,760 web lines in `RetirementCard.tsx`/`RetirementSheets.tsx` alone — bigger than the whole Loans module). `STATUS.x` colors appear at the highest concentration in the module here (10 sites in `RetirementCard.tsx` alone) → `useThemeColors()`. Three hand-rolled `fixed inset-0` modal overlays found and rebuilt on the real ported `Modal` component: `NpsLifecycleDetail`, a contribution-breakdown popup inside `RetirementSheets` (never converted to `Modal` even on web, despite that file already using `Modal` elsewhere), and a third one found during the port, `EpfAllTransactionsSheet`. `core/nps/npsClient.ts`'s scheme-list cache used synchronous `localStorage` (incompatible with RN) — fixed via `npsClient.native.ts`, which keeps the existing in-memory `schemesMemCache` but drops the persistent cross-session layer (re-fetches once per cold app start instead of once per week), per the same decision applied to IPO's cache. **EPF passbook PDF import + Excel export (2026-08-08)** is a mobile-only capability with no web-react equivalent (see the EPF section above) — new files `EpfImportFlow.tsx`, `EpfImportReviewSheet.tsx`, `epfImportLogic.ts`, `epfInterestOnDemand.ts`, `epfTxLabels.ts`, `epfReviewFlags.ts` in this same directory. **PPF statement import (2026-08-08)** is likewise mobile-only (see the PPF section above) — new files `PpfImportFlow.tsx`, `PpfImportReviewSheet.tsx`, `ppfImportLogic.ts`. **PPF card redesign (2026-08-08)** is likewise mobile-only (see the PPF section above) — new `PpfAllTransactionsSheet` in `RetirementSheets.tsx` and new file `ppfTxLabels.ts` in this same directory. **EPF employer-switch fixes + per-employer ledger (2026-08-11)** is likewise mobile-only (see the EPF section above) — new files `EpfNewEmployerSetupSheet.tsx`, `EpfEmployerPickerSheet.tsx`, `epfEmployerScoping.ts` in this same directory.
 
 ## Current limitations
 

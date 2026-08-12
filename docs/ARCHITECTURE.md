@@ -1724,6 +1724,8 @@ src/features/portfolio/
                             PpfAllTransactionsSheet), RetirementSheets, Nps/Ppf/Epf modals + fields,
                             NpsLifecycleDetail, EPF import/export (epfImportLogic, EpfImportFlow,
                             EpfImportReviewSheet, epfInterestOnDemand, epfReviewFlags, epfTxLabels),
+                            EPF employer-switch fixes + per-employer ledger
+                            (EpfNewEmployerSetupSheet, EpfEmployerPickerSheet, epfEmployerScoping),
                             PPF statement import (ppfImportLogic, PpfImportFlow,
                             PpfImportReviewSheet, ppfInterestOnDemand, ppfReviewFlags, ppfTxLabels)
     equity/               ← EquitySection (stocks+MF grouping/lots), Stock/Mf modals + fields,

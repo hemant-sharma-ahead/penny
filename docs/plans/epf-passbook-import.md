@@ -1,13 +1,19 @@
 # EPF Passbook Import + Interest Calculator — Consolidated Requirements
 
-Status (2026-08-08): **Shipped, `apps/mobile` only.** Core logic (parser, interest calculator, rate
-table, reconciliation, Excel export/import) is built and tested in `packages/core`; the full UI
-(§10/§11) is implemented in `apps/mobile/src/features/portfolio/holdings/retirement/` —
-`EpfImportFlow.tsx`, `EpfImportReviewSheet.tsx`, `epfImportLogic.ts`, `epfInterestOnDemand.ts`,
-`epfTxLabels.ts`, plus the entry-point/nudge/assistant wiring in `RetirementCard.tsx`/
-`RetirementSheets.tsx`. `apps/web-react` is frozen, so this has no web equivalent — a deliberate,
-permanent divergence (see this doc's own mockup footer note), not a pending parity gap. Remaining
-open items: PDF export (phase 2, deferred — see §9/§11) and the still-unresolved questions in §9.
+Status (2026-08-11): **Shipped, `apps/mobile` only** (2026-08-08 base import feature). Core logic
+(parser, interest calculator, rate table, reconciliation, Excel export/import) is built and tested
+in `packages/core`; the full UI (§10/§11) is implemented in
+`apps/mobile/src/features/portfolio/holdings/retirement/` — `EpfImportFlow.tsx`,
+`EpfImportReviewSheet.tsx`, `epfImportLogic.ts`, `epfInterestOnDemand.ts`, `epfTxLabels.ts`, plus
+the entry-point/nudge/assistant wiring in `RetirementCard.tsx`/`RetirementSheets.tsx`.
+`apps/web-react` is frozen, so this has no web equivalent — a deliberate, permanent divergence (see
+this doc's own mockup footer note), not a pending parity gap. **A further employer-switch-
+correctness + per-employer-ledger round shipped 2026-08-11 (§10.9)**, immediately followed by **a
+second same-day round of 8 more real bugs found testing §10.9 itself, plus a Gross/CTC display
+change (§10.10)** — both implemented, with new `packages/core` unit tests for §10.9's pure
+functions, but **not yet manually verified on a real device by the user**; treat as
+implemented-but-unverified until confirmed. Remaining open items: PDF export (phase 2, deferred —
+see §9/§11) and the still-unresolved questions in §9.
 This document is self-contained — written so a fresh session with no other context can pick it up
 and know what was built, where, and how.
 
@@ -669,6 +675,487 @@ The wage-discrepancy flag's "lower than predicted" explanation (§10.6) now also
 partial/switch month alongside the existing "hike since recorded" explanation, since a pro-rata
 reduced contribution in a switch month will always look "lower than a full month's salary would
 predict" — that's expected, not a data error, and the copy should say so.
+
+### 10.9 Employer-switch real bugs (2026-08-11): transaction bleed, runaway "current" projection, no join-date confirmation + per-employer ledger
+
+Found via real-device testing in immediate follow-up to §10.8's ship. Two more genuine correctness
+bugs in the same "mid-month employer switch" problem class, plus a design gap that was feeding
+both, plus a UI/UX change that's the natural companion once employer-scoping is taken seriously
+end to end. All `packages/core/src/core/portfolio/epfCalculations.ts` unless noted; UI lives in
+`apps/mobile/src/features/portfolio/holdings/retirement/`.
+
+- **Real-transaction bleed across a switch month, in a second consumer of the ledger (root cause
+  1).** §10.8 fixed `reconcileEpfContributionRows`' wagesMonth-only matching, but
+  `epfComputeAllMonths()` — the function that drives the card's stats and the transactions list —
+  had its own, independent copy of the exact same mistake: its month-by-month "did a real
+  transaction land in this wage month" lookup also matched by `wagesMonth` alone, so a genuine
+  switch month (Company A's and Company B's own real August-2017 rows) could still bleed into each
+  other's displayed month entry even after §10.8's reconciliation-time fix, since reconciliation and
+  display are two separate code paths over the same data. Fixed with a new `epfResolveTxnEmployer()`,
+  which `epfComputeAllMonths` now uses to scope real-transaction matching to the SAME employer being
+  simulated for that month — reusing, not re-deriving, the `employerId`-first / date-range-fallback
+  resolution §10.8 already established. **Order-independent**: whichever employer's unit gets
+  imported first or last, each employer's own per-employer month loop only ever pulls in its own
+  transactions, never the other's.
+- **Runaway "current" projection independent of whether the nudge is ever answered (root cause
+  2).** §10.6's "Are you still working at X?" prompt only fixes the runaway-estimate symptom once
+  the user actually taps Yes/No on it — the entire window between "an import creates a new, still-
+  unconfirmed current employer" and "the user notices and answers the card prompt" still saw
+  `epfComputeAllMonths` fabricate estimated months all the way to today, unconditionally. Fixed by
+  capping an unconfirmed "current" employer's projection at `epfLastRealEvidenceMs` — its OWN last
+  real evidence timestamp — rather than the present moment, regardless of
+  `currentEmploymentConfirmed`. This makes the fix effective the instant the import happens, not
+  contingent on the reactive nudge ever being seen or answered.
+- **No confirmation of a new employer's real join date at import time (root cause 3 — the design gap
+  underlying both bugs above).** `createEmployerFromUnit` was inferring a brand-new employer's
+  `fromDate` from the wage-month range of whatever contributions happened to land in the imported
+  unit — silent inference, the exact pattern this doc's §5 already rejected for every other field
+  ("do not infer or assume any field Penny doesn't currently capture — add the field and capture the
+  real value"). Fixed with a new import-time step — `describeNewEmployerSetup`/
+  `applyConfirmedJoinDate`/`applyConfirmedSwitch` (`epfImportLogic.ts`), surfaced via a new
+  `EpfNewEmployerSetupSheet.tsx` wired into `EpfImportFlow.tsx` — that ALWAYS asks the user to
+  confirm a new employer's real joining date before the record is created (never silently inferred
+  from a contribution's deposit date), and additionally asks for the OLD employer's last working day
+  whenever the new unit looks like a genuine mid-month switch (an existing "current" employer's own
+  start date precedes the new unit's earliest wage month). Both suggested dates are pro-rata-aware —
+  `estimateProRataEdgeDate()`/`checkProRataConsistency()` — when a partial first/last month's
+  contribution amount implies a specific mid-month join/leave date, with a live consistency note
+  shown either way (whether or not a partial month exists), so the user always sees why a date is
+  being suggested rather than just a blank field. This closes the loophole feeding both bugs above
+  at the source: an employer's `fromDate`/`toDate` window is now something the user confirmed at
+  import time, not something Penny guessed from contribution timing.
+- **`extendEmployerCoverage` could silently override an already-confirmed join date.** A later
+  import revealing an even-earlier real contribution for an already-`joiningDateConfirmed: true`
+  employer used to move `fromDate` backward automatically — silently overwriting a fact the user had
+  explicitly confirmed, with nothing surfaced to say it changed. Now guarded: an already-confirmed
+  employer's `fromDate` is never moved automatically; instead a new non-blocking review flag,
+  `joiningDateContradiction` (`epfReviewFlags.ts`'s `checkJoiningDateContradiction`, wired into
+  `findAllReviewFlags` alongside §10.6's two existing checks so it can never disagree with the
+  row/card badge counts), surfaces the disagreement for the user to resolve explicitly instead of
+  Penny picking a side for them.
+
+**New data model fields** (all additive, no schema version bump — see `docs/SCHEMA.md`):
+`EpfEmployer.joiningDateConfirmed?: boolean` (true once the user has confirmed a real join date
+through the new setup sheet — distinct from §10.6's `currentEmploymentConfirmed`, which is about
+still being employed now, not about when employment started), `EpfEmployer.basicToGrossPct?:
+number` (feeds the Gross/CTC estimate below), `EpfMonthEntry.employerId: string` (which employer a
+computed month entry belongs to, needed by the per-employer ledger below), and
+`EpfTransaction.employerId` is now stamped on EVERY import-created transaction type — interest/
+transfer_in/withdrawal/advance too, not just `contribution` (`buildImportedTxn` in
+`epfImportLogic.ts`) — closing a gap where a non-contribution row from a switch-month import still
+had no way to disambiguate which employer it belonged to.
+
+**Per-employer ledger (2026-08-11) — the actual UI/UX change.** EPF transactions move from one
+centralized cross-employer list to a per-employer view, mirroring EPFO's own portal and
+INDmoney's "select Member ID → view that passbook" model — the natural companion to the
+correctness fixes above, since the user dealing with an employer switch is exactly the user who
+most needs to see one employer's ledger in isolation, not blended with another's.
+`EpfAllTransactionsSheet` (`RetirementSheets.tsx`) gained an optional `employerFilter?: EpfEmployer`
+prop, filtering both `epfComputeAllMonths` entries and non-contribution transactions to just that
+employer via two new shared resolvers in a new file, `epfEmployerScoping.ts` (`employerForDate`,
+`resolveAnyTxnOwner`) — `undefined` keeps the old all-employers view, which remains the direct path
+for the common 0–1-employer holding (no picker step inserted where there's nothing to pick
+between). Tapping an employer row on the EPF card (`RetirementCard.tsx`) now opens that employer's
+own scoped ledger directly (new chevron affordance); "See all transactions" instead routes through
+a new `EpfEmployerPickerSheet.tsx`, but only when 2+ employers exist.
+
+New "Estimated Gross Salary / CTC" stat tiles appear only in a scoped (per-employer) ledger view —
+`estimateGrossAndCtc()` (`epfCalculations.ts`), using an editable-per-employer Basic-to-Gross ratio
+(`EpfEmployer.basicToGrossPct`, default `EPF_DEFAULT_BASIC_TO_GROSS_PCT = 50`) and the statutory
+gratuity formula (Basic × 15/26 per year of service). Always shown as an explicit estimate with a
+formula popup, never asserted as fact — the same "computed on behalf of the user, always
+reviewable, never authoritative" convention this doc has used throughout (§6.3, §10.5).
+
+Mockup: `docs/mockups/proposals/epf-employer-switch-v1.html` (approved).
+
+**Status note: implemented, not yet manually verified.** The `packages/core` pure-function
+additions (`epfResolveTxnEmployer`, `epfLastRealEvidenceMs`, `epfDaysInMonth`,
+`estimateProRataEdgeDate`, `checkProRataConsistency`, `estimateGrossAndCtc`) have new unit tests
+appended to `packages/core/tests/portfolio/epfCalculations.test.ts`. The `apps/mobile`-only logic
+(`epfImportLogic.ts`'s new setup-step functions, `epfEmployerScoping.ts`, all new sheets) has none —
+`apps/mobile` has no test runner configured anywhere in this repo (no jest/vitest config, no `test`
+script), so this is consistent with every other function in `epfImportLogic.ts` today, not a new
+gap introduced by this round. This whole round has not yet been exercised on a real device by the
+user — implementation is done but unverified.
+
+### 10.10 Second on-device round (2026-08-11): 8 more real bugs found testing §10.9 itself
+
+Found via real-device testing performed directly against §10.9's own ship — a direct continuation
+of the same "employer switch" problem class, not a new feature area. All `packages/core/src/core/
+portfolio/epfCalculations.ts` unless noted; UI lives in `apps/mobile/src/features/portfolio/
+holdings/retirement/`.
+
+- **Interest silently overridden across a same-FY employer switch.** `reconcileEpfBalanceEvent`
+  matches interest/`transfer_in`/withdrawal rows by `(type, financial year)` only, with no employer
+  scoping at all — but a same-FY switch means BOTH employers can legitimately earn interest (or
+  have a transfer) in the same FY, since the old employer's balance keeps earning interest until
+  it's actually transferred out. Before this fix, importing Company B's FY interest saw Company A's
+  already-logged FY interest as the "existing" value and silently overwrote it. Fixed in
+  `epfImportLogic.ts`'s `reconcileUnit`: a new `employerScopedNonContribTxns` (mirroring the
+  contribution-only `employerScopedTxns` §10.8 already had) is computed via the widened
+  `epfResolveTxnEmployer` below and threaded into both the interest and transfer_in/withdrawal
+  `reconcileEpfBalanceEvent` calls instead of the unscoped `existingTxns`.
+- **`epfResolveTxnEmployer` widened to resolve ANY transaction type, not just contributions.** A
+  new exported `epfEmployerForDate(employers, dateMs)` — raw-date containment, parallel to the
+  existing wagesMonth-based `epfEmployerForWagesMonth` — lets `epfResolveTxnEmployer` fall back to
+  date-based resolution for interest/transfer/withdrawal rows (it still prefers a stamped
+  `employerId` first, then `epfEmployerForWagesMonth` for a contribution). This is what makes the
+  bug above fixable, and separately fixed transfers/interest resolving incorrectly (or not at all)
+  for legacy/no-`employerId` rows in the per-employer scoped ledger. `apps/mobile`'s own
+  `epfEmployerScoping.ts` (`resolveAnyTxnOwner`/`employerForDate`) was simplified to just delegate
+  to this now-widened core function, removing a duplicated mobile-side copy.
+- **Missing `key` prop on the import-flow's review sheets caused stale/cross-contaminated state.**
+  Neither `EpfImportReviewSheet` nor `EpfNewEmployerSetupSheet` had a `key` in `EpfImportFlow.tsx`,
+  so React reused the same component instance across different import units rendered at the same
+  JSX position. Harmless for contribution items (keyed by their own distinct `wagesMonth`), but
+  `itemKey()` returns just the bare type string (`"interest"`/`"transfer_in"`) for non-wagesMonth
+  items — so a conflict choice made for one FY's "interest" item could silently carry over when the
+  next FY's own "interest" item rendered in the reused instance. It also meant
+  `EpfNewEmployerSetupSheet`'s `useState` lazy initializers (which only run once per instance) could
+  show a stale first-unit's dates for a later "new employer detected" unit in the same batch. Fixed
+  with `key={currentUnit.key}` on both.
+- **`checkJoiningDateContradiction` compared dates at the wrong granularity, producing a false
+  positive on every employer's own joining month.** It compared a wage month's own 1st-of-month raw
+  epoch ms directly against `employer.fromDate` (a specific day, since a pro-rata joining date is
+  rarely the 1st) — so e.g. joining 15 May 2025 (`fromDate` mid-May) meant the joining month's own
+  contribution (`wagesMonth: "2025-05"`) compared 1 May against 15 May and lost, even though it's
+  the same month. This was almost certainly the dominant contributor to a reported "See all
+  transactions shows 20 need review but nothing looks wrong" mismatch, since this flag only ever
+  renders as a banner in that specific employer's own scoped ledger, not a row badge — it was
+  quietly inflating the review count with false contradictions nobody could see. Fixed with a new
+  exported `epfMonthKeyOf(ms)` ("YYYY-MM" from an epoch ms) — the comparison is now done at month
+  granularity, not raw ms.
+- **`checkWageDiscrepancy` now skips an employer's own joining/leaving month entirely**
+  (`apps/mobile`'s `epfReviewFlags.ts`) — a pro-rata partial month is *expected* there by
+  construction (always "lower than a full month would predict"), so it was never a genuine
+  discrepancy. Before this fix the joining/leaving month showed a permanent, never-resolvable
+  "lower than predicted" warning with no way to actually confirm anything — this was the reported
+  bug ("the starting month... shows the warning without a way to confirm Yes I joined... and same
+  for the last month"), and is the reason the new confirm UI below needed to exist.
+- **New join/leave-month confirm UI**, `EpfMonthEdgeConfirm` — a new local, non-exported component
+  inside `RetirementSheets.tsx` (not a new file), reused by `EpfAllTransactionsSheet`'s existing
+  `selectedMonth` popup. Reuses the same "date field + live pro-rata consistency note" pattern
+  `EpfNewEmployerSetupSheet.tsx` already established for the import-time step (§10.9), just
+  triggered from an existing transaction row instead of at import time. Shows a date picker
+  (prefilled with the employer's current `fromDate`/`toDate`), a live `checkProRataConsistency`
+  note, and a "Confirm — joined/left on this date" button that writes `fromDate` +
+  `joiningDateConfirmed: true` (start edge) or `toDate` + `currentEmploymentConfirmed: false` (end
+  edge) back onto the employer. The row itself now shows a neutral `ti-info-circle` badge for the
+  joining/leaving month instead of the old warning triangle, via a new `isEmployerEdgeMonth` helper.
+- **Three smaller latent bugs found while building the confirm UI above:** (a) the popup's
+  `selectedMonthRealTxn` lookup only matched by `wagesMonth`, not employer — for a genuine
+  mid-month switch where two employers share the same `wagesMonth`, it could silently show the
+  wrong employer's transaction; now also matched against `resolveAnyTxnOwner(...)?.id ===
+  selectedMonth.employerId`. (b) the month-row list's React `key={entry.month}` collided for a
+  shared switch month across two employers — a real duplicate-key bug — changed to
+  `key={`${entry.employerId}-${entry.month}`}`. (c) `wageDiscrepancyMonths` (the row-badge `Set`)
+  was keyed by bare `wagesMonth` string, so a discrepancy on ONE employer's shared-month row could
+  wrongly badge the OTHER employer's same-month row too — now keyed by `${employerId}|
+  ${wagesMonth}`.
+- **New "pending transfer" banner.** `epfHasPendingTransfer(employer, employers, transactions)`
+  (new, `apps/mobile`'s `epfEmployerScoping.ts`) is a heuristic check for a closed employer whose
+  immediate successor (by `fromDate`) has no `transfer_in` transaction attributed to it yet — shown
+  as an info banner in that employer's scoped ledger ("Your PF balance from X may not have been
+  transferred to your next employer yet"). Explicitly documented in code as a heuristic, not a
+  certainty — it can't distinguish "genuinely pending" from "transferred via a route Penny never
+  saw" (e.g. claimed directly through the EPFO portal).
+
+**Also this round — Estimated Gross/CTC display change (explicit follow-up ask, not a bug fix).**
+`estimateGrossAndCtc`'s signature gained a new 2nd parameter, `monthlyEmployeeContribution` (now
+`basicSalary, monthlyEmployeeContribution, monthlyEmployerEpf, monthlyEps, basicToGrossPct?`).
+`EpfGrossCtcEstimate` gained `monthlyEmployeeContribution`, `netMonthly` (Gross minus the
+employee's own EPF deduction, clamped to ≥0 — deliberately NOT also subtracting income tax, since
+there's no payroll tax engine), and `annualGross`/`annualCtc` (× 12). The scoped ledger header in
+`RetirementSheets.tsx` now shows three stat tiles in this order: **Est. CTC (annual)**, **Est.
+Gross (annual)**, **Net Monthly** — CTC and Gross are quoted annually (the conventional way India
+quotes both, e.g. "12 LPA"), Net Monthly stays monthly. The formula popup was extended to show both
+the monthly breakdown and the annualized CTC/Gross/Net Monthly rows, each with its own formula.
+
+**Framing note on two items from the original report.** "Hikes not presented for other companies"
+and part of "transfers not shown" were diagnosed as likely downstream consequences of the
+reconciliation-scoping, key-collision, and wrong-transaction-match bugs above, rather than separate
+root causes — this is a reasonable diagnosis given the mechanism, but it has **not been
+independently re-verified** now that the underlying scoping bugs are fixed, and should be treated
+as "should re-check" rather than "confirmed fixed."
+
+**No Dexie schema changes this round** — all eight bug fixes and the Gross/CTC display change are
+logic/UI only, no new persisted fields.
+
+**Status note: implemented, not yet manually verified.** Same caveat as §10.9 — this round has not
+yet been exercised on a real device by the user; treat as implemented-but-unverified until
+confirmed.
+
+### 10.11 Third on-device round (2026-08-12): net-worth invisibility, interest cross-contamination, LWD-ask flow, edge-detection gap
+
+Found via real-device testing performed directly against §10.10's own ship — same continuation of
+the employer-switch problem class, plus one long-standing bug (item 1) that this round's testing
+happened to surface for the first time. All `packages/core/src/core/portfolio/` (and
+`packages/core/src/core/calculators/`, `packages/core/src/core/portfolio/usePortfolioHoldings.ts`)
+unless noted; UI lives in `apps/mobile/src/features/portfolio/holdings/retirement/`.
+
+- **EPF corpus was never flowing into net worth or its breakdown.** Every net-worth aggregator in
+  the app — `apps/mobile/src/features/home/useHome.ts`'s `loadSummary()`,
+  `packages/core/src/core/calculators/retirementProjection.ts`'s `calcInvestableCorpus()`,
+  `usePortfolioHoldings.ts`'s `effectiveValue()` — reads `holding.currentValue ?? holding
+  .investedAmount`, a deliberately asset-class-agnostic convention used everywhere. PPF/NPS work
+  correctly because their own modals collect a manually-typed "Current corpus/balance" figure that
+  gets saved straight onto `investedAmount` (`PpfModal.tsx`, `NpsModal.tsx`). EPF has no such field
+  — by its own code comment, "Corpus is derived from transaction history... no manual amount is
+  taken" — so its real value only ever existed as `epfBuildCardData(holding.assetMeta).corpus`,
+  computed on demand purely for the card's own display, and was never persisted onto the `Holding`
+  record at all. `currentValue ?? investedAmount` therefore silently evaluated to `0` for every EPF
+  holding — dropped from the net-worth total AND invisible in the breakdown view (its `> 0` filter
+  excluded it entirely; it wasn't shown as ₹0, it simply never appeared). Fixed at a single choke
+  point rather than teaching every aggregator to special-case EPF: a new `saveHolding()` wrapper in
+  `RetirementSection.tsx` (used everywhere `RetirementCard`/`RetirementUntrackedCard`/`EpfModal`
+  call their `onSave` prop) stamps `currentValue: epfBuildCardData(h.assetMeta ?? {}).corpus` onto
+  an `epf` holding before delegating to the real save — the same "write the derived value back on
+  save" pattern `usePortfolioHoldings.ts`'s own `refreshPrices()` already uses for a live-priced
+  MF/stock holding's `currentValue`. An existing EPF holding created before this fix self-corrects
+  the next time ANY save happens on it (a transaction edit, employer confirm, import, etc.) — there
+  is no separate one-time backfill/migration step.
+- **Interest cross-contamination across a same-FY employer switch — a separate bug from §10.10's
+  item 1.** §10.10 fixed `reconcileEpfBalanceEvent`'s import-time RECONCILIATION scoping. This round
+  found the CALCULATION engine itself was also unscoped: `buildEpfInterestInput()`
+  (`epfInterestCalculator.ts`) collected `realDeposits` by filtering the whole holding's
+  transactions by `type === 'contribution' && wagesMonth` and matching financial year, with no
+  employer check at all — so computing Company A's FY interest breakdown silently picked up Company
+  B's real deposits too whenever they fell in the same financial year (keyed by deposit month).
+  Visibly, the interest breakdown popup's month-by-month "opening balance" kept growing every month
+  all the way to FY-end even though Company A's own real contributions had actually stopped months
+  earlier at their leaving date — producing a real recorded-vs-recalculated mismatch where Penny's
+  recalculation came out too high. The recorded figure (straight from the real passbook) was correct
+  the whole time; Penny's own math was wrong, not the source data. Fixed by adding a required
+  `employers: EpfEmployer[]` parameter to `buildEpfInterestInput()` and scoping `realDeposits` via
+  the (already-widened, per §10.10) `epfResolveTxnEmployer`. The same class of bug was also fixed in
+  `sumEpfBalanceBeforeFy()` (`apps/mobile`'s `epfInterestOnDemand.ts`) — the FY's opening-balance
+  seed was likewise being summed across every employer's transactions ever logged, not just the
+  target employer's own; it now takes `employer`/`employers` params and scopes the same way.
+  `computeEpfInterestOnDemand()` was updated to pass the full employer list through to both.
+- **"Are you still working at X?" → "No" never asked for the real last working day.** Before this
+  fix, tapping "No" silently set `toDate` to a guessed date (the last-evidence financial year's own
+  31 March) with no way to correct it. `RetirementCard.tsx` now opens a modal asking for the real
+  last working day instead, reusing §10.10's exact same row-level edge-confirm form component,
+  `EpfMonthEdgeConfirm` — now exported from `RetirementSheets.tsx` instead of being a private local
+  component — prefilled via the same pro-rata-inversion suggestion, with the same live consistency
+  check.
+- **The row-level wage-discrepancy warning for a still-open (unconfirmed) employer's actual final
+  month never offered a path to resolve it — a real, previously-unhandled gap in §10.10's own
+  edge-detection logic.** §10.10's `selectedMonthEdge` only recognized an edge month when
+  `employer.toDate` was ALREADY set matching that month — but for an employer never confirmed as
+  having left at all (`toDate` still unset), there was no `toDate` to compare against, so their
+  actual last real contribution month fell through to the generic wage-discrepancy banner with no
+  resolution path, exactly the reported bug ("the banner detects the user might have left the
+  company and still does not ask the LWD"). Fixed by widening `selectedMonthEdge`'s detection
+  (`RetirementSheets.tsx`): for a still-open employer, if the tapped month is BOTH (a) the last real
+  evidence available (`epfLastRealEvidenceMs`) and (b) pro-rata-low vs. the salary model
+  (`epfCheckWageDiscrepancy`'s own 'lower' signal — the same signal the generic banner already used),
+  it's now treated as a likely (unconfirmed) departure month and routed to the same
+  `EpfMonthEdgeConfirm` flow as an already-known edge. `EpfMonthEdgeConfirm`'s own date-suggestion
+  logic was also generalized: when there's no existing same-month confirmed edge date to prefill
+  from, it now suggests a day via the same pro-rata inversion `EpfNewEmployerSetupSheet.tsx`'s
+  import-time step already uses, instead of defaulting to a bare "1st of the month."
+
+  Once a leaving date IS confirmed through this flow, the previously-reported "post that month,
+  contributions still show ₹0 for every subsequent month" complaint resolves automatically as a side
+  effect — no separate fix was needed for that part, since `epfComputeAllMonths`'s existing
+  per-employer iteration already stops exactly at `employer.toDate` once it's actually set (true
+  since §10.9); the underlying issue was purely that `toDate` was never getting set in the first
+  place for this specific unconfirmed-departure scenario.
+- **User-reported concern about "TRANSFER IN - INTEREST AMOUNT ONLY (Old Member Id-:...)" and
+  "TRANSFER IN - SAME OFFICE (Old Member Id-:...)" passbook particulars variants — investigated,
+  found to already work correctly, not a bug.** Traced `classifyRow()`'s existing regex
+  (`epfPassbookParser.ts`, `/transfer.{0,3}in/i`) against both exact real-world strings and confirmed
+  both already classify correctly as `transfer_in`. No code change was needed. Added explicit
+  regression test coverage for these two exact variants
+  (`packages/core/tests/portfolio/epfPassbookParser.test.ts`) to lock this in against future
+  regression, since it was raised as a live concern.
+
+**Also this round — "hike journey" mockup, approved and now implemented.** User asked to
+visualize the "hike journey" per employer — CTC/Gross/Net-monthly at each salary point, not just
+Basic (today's hike list only shows date + Basic per raise). Mockup built and approved:
+`docs/mockups/proposals/epf-hike-journey-v1.html` — turning each entry in the existing expandable
+per-employer hike list into a small card showing Basic (as today) plus the same Gross/
+Net-monthly/CTC breakdown already shown at the ledger header (§10.10), a growth-% pill vs. the
+previous point, and a synthetic "Joined" starting point using the employer's own
+`fromDate`/`basicSalary` (not currently a real `EpfSalaryHike` entry). Now built to match the
+mockup closely:
+
+- A new pure function `buildEpfHikeJourney(employer: EpfEmployer): EpfHikeJourneyPoint[]`
+  (`packages/core/src/core/portfolio/epfCalculations.ts`) synthesizes the "Joined" starting point
+  from the employer's own `fromDate`/`basicSalary`, merges in every real `hikeTimeline` entry
+  (sorted ascending internally regardless of input order), and returns the combined list
+  newest-first, each point carrying a `growthPct` (`null` for the joining point) computed against
+  the point immediately before it chronologically. New exported type
+  `EpfHikeJourneyPoint { date, basicSalary, isJoined, growthPct }`.
+- `RetirementCard.tsx`'s existing expandable per-employer hike list (previously a flat "date →
+  Basic salary" row) now renders each point from `buildEpfHikeJourney()` as a small card: a top
+  row with the date (or "Joined · <date>" for the first point) plus a growth-% pill (hidden while
+  privacy-masked) on the left and Basic salary on the right, then — below a dashed divider —
+  three columns for Gross/mo, CTC/yr, and Net/mo, computed per-point via the existing
+  `estimateGrossAndCtc()` (using that point's own `basicSalary`, not just the employer's latest)
+  and displayed with `formatCompact()`, the same compact ₹-lakh/crore formatting already used
+  elsewhere in the app. Respects the existing privacy-mask convention (`••••` when masked).
+- Unit tests added (`packages/core/tests/portfolio/epfCalculations.test.ts`,
+  `describe('buildEpfHikeJourney', ...)`) covering the no-hikes case (just the joining point),
+  newest-first ordering with correct growth-% math, and that an out-of-order `hikeTimeline` input
+  is still sorted correctly before computing growth.
+
+**No Dexie schema changes this round** — all five bug fixes are logic/UI only (item 1's
+`currentValue` stamp uses a pre-existing generic `Holding` field, not a new one), and
+`EpfHikeJourneyPoint` is a derived/computed shape, not a persisted one.
+
+**Status note: implemented, not yet manually verified.** Same caveat as §10.9/§10.10 — `tsc`
+(both `packages/core` and `apps/mobile`), `eslint`, `prettier`, and the full `packages/core`
+vitest suite (941 tests, 3 new from the hike-journey addition) all pass, and the PII gate is
+clean, but this round — including the hike-journey feature — has not yet been exercised
+end-to-end on a real device by the user; treat as implemented-but-unverified until confirmed.
+
+### 10.12 Fourth on-device round (2026-08-12): mid-year withdrawal invisible to interest calc, employer-side withdrawal amount silently dropped, reconciliation blind to the fix
+
+Found via a direct real-passbook comparison, not a generic on-device click-through like §10.9-
+§10.11: user checked FY2019-20's Penny-recalculated interest against the actual passbook figures
+(₹2,350 employee / ₹719 employer recorded) and the two disagreed. Three compounding bugs, found in
+sequence as each was investigated — fixing #1 alone wasn't enough, because #1 immediately exposed
+#2, which in turn needed #3 before a re-import could actually pick it up. `packages/core/src/core/
+portfolio/epfInterestCalculator.ts` and `epfReconciliation.ts`; UI-layer storage bug in
+`apps/mobile/src/features/portfolio/holdings/retirement/epfImportLogic.ts`.
+
+- **Bug 1 — the interest engine had no concept of a mid-year withdrawal at all.**
+  `calculateEpfInterestForYear`/`buildEpfInterestInput` only ever knew about DEPOSITS
+  (`monthlyContributions`); a real withdrawal transaction during the FY was completely invisible to
+  the simulation, so the balance kept compounding every remaining month as if the withdrawal never
+  happened. Fixed: `EpfInterestCalculationInput` gained an optional `monthlyWithdrawals?: { month:
+  string; employeeAmount: number; employerAmount: number }[]`. `calculateEpfInterestForYear` now
+  merges deposits and withdrawals into one NET monthly flow per stream (employee/employer) before
+  simulating, applying a withdrawal at the exact same point in the month-by-month loop (month-END,
+  after that month's own interest is already computed) that a deposit is applied — so a mid-month
+  withdrawal still earns THAT month's own interest on the pre-withdrawal balance, and only the
+  FOLLOWING month's opening balance reflects the reduction, mirroring the existing "a deposit
+  doesn't count until the month after" accrual-timing rule from §6.1, just for the withdrawal side.
+  `simulateOneStream`'s balance update is also now clamped at `Math.max(0, ...)` so a withdrawal
+  larger than the tracked balance can't produce a negative-balance/negative-interest state in a
+  later month. `buildEpfInterestInput` now collects real `withdrawal`/`advance` transactions during
+  the requested FY (scoped to the correct employer via the existing `epfResolveTxnEmployer`) into
+  `monthlyWithdrawals` — a withdrawal predating the FY doesn't need to be listed here, since it's
+  already reflected in the FY's own opening balance via the existing `sumEpfBalanceBeforeFy`.
+- **Bug 2 — found only after fixing bug 1 still didn't match: the real root cause. A genuine
+  data-loss bug in transaction storage, not the interest engine at all.**
+  `buildImportedTxn`/`mergeImportedIntoExisting` (`epfImportLogic.ts`) had a dedicated branch for
+  `withdrawal`/`advance` transactions that discarded the passbook's real EMPLOYER-side withdrawal
+  amount entirely — it stored only `amount = imported.employeeAmount`, never setting
+  `employeeAmount`/`employerAmount` on the stored transaction at all. This is exactly why the
+  on-device symptom matched: "withdrawal only shows Employee and not employer, while both were
+  transferred as per passbook." The sibling `interest`/`transfer_in` branch had always correctly
+  preserved both sides — withdrawal/advance were simply never brought in line with that
+  already-correct pattern. Fixed by merging withdrawal/advance into that same branch: they now
+  store the real `employeeAmount`/`employerAmount` split (already parsed correctly from the
+  passbook's own columns — only the storage step was dropping it) plus `amount` as their sum,
+  identical treatment to interest/transfer_in. **This fix only applies to a FUTURE import** — it
+  does not retroactively repair a withdrawal transaction already sitting in a holding from a prior
+  import (no migration/backfill step exists); the same statement/PDF needs to be re-imported to
+  pick up the corrected split, which is what bug 3 below actually makes possible.
+- **Bug 3 — reconciliation was blind to bug 2's fix, so a re-import would have silently done
+  nothing.** `existingAmounts()` (`epfReconciliation.ts`), used by the import reconciliation's
+  `amountsAgree` conflict-detection, compared every non-contribution transaction (interest/
+  transfer_in/withdrawal/advance) as if it only ever had a single employee-side amount — even once
+  bug 2's fix made a real employee/employer split available. Re-importing a statement to pick up
+  the corrected employer amount would therefore have silently agreed with the old, wrong value
+  instead of flagging a conflict. Fixed: `existingAmounts()` now prefers the transaction's real
+  `employeeAmount`/`employerAmount` fields when either is actually set (true for every
+  import-created transaction of these types going forward, and for any already-fixed one), falling
+  back to the old employee-only-from-`amount` behavior only for a genuinely legacy, manually-typed
+  entry that never had a split at all — mirroring `recordedInterestTotal()`'s own identical
+  fallback convention in `epfInterestOnDemand.ts`. This is what makes bug 2's fix actually reach
+  already-imported data: re-importing the same statement now correctly surfaces the corrected
+  employer amount as a resolvable conflict (imported pre-selected as the default, per this
+  feature's existing conflict-resolution convention) instead of a silent no-op.
+
+**Net effect for the reported case:** the timing fix (bug 1) alone wasn't sufficient because the
+withdrawal transaction's employer-side amount was itself zero/missing due to bug 2 — the interest
+simulation had nothing real to subtract from the employer balance stream even once it started
+listening for withdrawals at all. All three fixes are needed together to reach the passbook's
+₹2,350 (employee) / ₹719 (employer) split. **The user has not yet confirmed the corrected numbers
+match** — this needs on-device re-verification: re-import the FY2019-20 statement, then check the
+interest breakdown popup again.
+
+**Tests added:** `packages/core/tests/portfolio/epfInterestCalculator.test.ts` — a new `describe
+('mid-year withdrawal', ...)` block (balance reduction takes effect the month after the withdrawal,
+not during it; only the specified stream(s) get reduced; clamps at zero rather than going
+negative) plus two tests on `buildEpfInterestInput` (collects a real withdrawal into
+`monthlyWithdrawals`, scoped to the correct employer; excludes a withdrawal outside the requested
+FY). `packages/core/tests/portfolio/epfReconciliation.test.ts` — two new tests on
+`existingAmounts()`'s fixed behavior via `reconcileEpfBalanceEvent` (a real split that disagrees is
+now correctly flagged as `conflict`, not silently "matches"; a real split that agrees is still
+correctly `matches`).
+
+**No Dexie schema changes this round** — `monthlyWithdrawals` is a field on the derived/computed
+`EpfInterestCalculationInput` calculation-input shape, not a persisted one.
+
+**Status note: implemented, not yet manually verified.** Same caveat as §10.9-§10.11 — `tsc`,
+`eslint`, `prettier`, and the full `packages/core` vitest suite (948 tests, 7 new from this round)
+all pass, and the PII gate is clean, but the corrected numbers have not yet been re-verified
+on-device against the real passbook; treat as implemented-but-unverified until confirmed.
+
+### 10.13 Fifth on-device round (2026-08-12): non-interest rows not tappable, no "keep recorded" option on an interest mismatch, hike journey redesigned card→table
+
+Found via direct on-device feedback on §10.9-§10.12's own ship — two real reported gaps plus one
+direct revision of the hike-journey display shipped in §10.11/§10.12. All `apps/mobile/src/
+features/portfolio/holdings/retirement/` unless noted.
+
+- **`transfer_in`/`withdrawal`/`advance` rows were not tappable — a real reported gap ("withdrawal
+  entry does not open the details like other transactions").** In `EpfAllTransactionsSheet`'s
+  non-contribution list, only `interest` rows had an `onPress` (opening the richer rate/
+  month-by-month breakdown popup) or a chevron at all; transfer_in/withdrawal/advance rows were
+  dead taps. Fixed: every non-contribution row is now tappable. A new, simpler popup
+  (`RetirementSheets.tsx`) shows date + `sourceParticulars` (if present), Employee share, Employer
+  share, and Total, using the same `DetailRow` list style as the existing contribution breakdown
+  popup. Handles a legacy transaction gracefully (one imported before §10.12's employee/employer-
+  split fix, or a manually-typed entry with no split at all): falls back to showing the whole amount
+  as the employee share — matching `existingAmounts()`'s own established fallback convention
+  (§10.12) — with an inline note that the employer share may be understated and re-importing the
+  source statement would pick up the real split.
+- **No way to tell Penny the recorded (passbook) interest figure is the one to trust — a real
+  reported gap ("only Update button comes. No option to keep the recorded").** Previously the
+  interest breakdown popup's mismatch banner offered only "Update to ₹X" (overwrite with Penny's
+  recalculation). New field `EpfTransaction.interestMismatchAcknowledged?: boolean`
+  (`packages/core/src/core/db/types/index.ts`), set when the user explicitly picks "Keep recorded."
+  `checkInterestMismatch` itself is UNCHANGED — it still always reports the raw disagreement
+  (`recorded`/`recomputed`/`mismatched`), never hiding the truth even once acknowledged (the popup
+  still shows both figures on next open). What changed: `findAllReviewFlags` (`epfReviewFlags.ts`)
+  now skips creating the `interestMismatch` flag when `t.interestMismatchAcknowledged` is true —
+  this is what actually stops it counting toward the card-level "N need review" total and the row's
+  warning badge, following this app's existing "computed on demand, dismissal tracked separately"
+  pattern (same shape as `Account.dismissedVerificationFindings` elsewhere in the app). In the
+  popup: a genuine (unacknowledged) mismatch now shows BOTH "Keep recorded" (secondary button,
+  writes `interestMismatchAcknowledged: true`, changes nothing else) and "Update to ₹Y" (existing,
+  overwrites the transaction's amounts with Penny's recalculation) side by side. Once acknowledged,
+  the banner switches to an info tone confirming the recorded figure is correct, and only
+  "Update to ₹Y" remains — still available in case the user changes their mind later (e.g.
+  contributions get edited afterward and the recalculation changes).
+- **Hike-journey display redesigned from cards to a single table — a direct revision of the
+  §10.11/§10.12 card layout, per further on-device feedback.** The card layout (Basic + a 3-cell
+  Gross/mo·CTC/yr·Net/mo breakdown per hike) was hard to scan, and Gross was being shown monthly
+  inconsistently with the ledger header's own annual convention for CTC/Gross (§10.10). Same
+  underlying `buildEpfHikeJourney()` pure function (`packages/core`, unchanged) — only
+  `RetirementCard.tsx`'s rendering changed: one table instead of stacked cards, a header row (Month |
+  Est CTC | Est Gross | Net Monthly, in that order) followed by one row per salary point — the date
+  (with "Joined" or a growth-% pill underneath, muted), then Est CTC and Est Gross both shown ANNUAL
+  (`gc.annualCtc`/`gc.annualGross`, matching the ledger header's own convention), then Net Monthly.
+  No new mockup round for this — treated as a direct revision of an already-built feature based on
+  the user's own precise, unambiguous spec (exact column order and units), the same way earlier
+  direct corrections in this feature (e.g. the ledger header's own CTC/Gross/Net-monthly ordering,
+  §10.10) were applied without a new mockup cycle.
+
+**New data model field** (additive, no schema version bump — see `docs/SCHEMA.md`):
+`EpfTransaction.interestMismatchAcknowledged?: boolean` — a passthrough dismissal flag with no new
+calculation logic, so it has no dedicated new test.
+
+**Status note: implemented, not yet manually verified.** Same caveat as §10.9-§10.12 — `tsc`
+(both `packages/core` and `apps/mobile`), `eslint`, `prettier`, and the full `packages/core` vitest
+suite (948 tests, unchanged count — none of this round's changes were in `packages/core` except the
+new passthrough field above) all pass, and the PII gate is clean, but none of this round has been
+manually verified on-device by the user yet; treat as implemented-but-unverified until confirmed.
 
 ## 11. Full EPF statement export + re-import (Excel phase 1; PDF phase 2, deferred)
 

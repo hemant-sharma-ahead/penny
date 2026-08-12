@@ -4,7 +4,7 @@
 // credited figure against a recomputation, as a sanity check). One implementation, two callers —
 // not two separate calculators.
 import type { EpfEmployer, EpfTransaction } from '@/core/db/types';
-import { epfComputeAllMonths } from './epfCalculations';
+import { epfComputeAllMonths, epfResolveTxnEmployer } from './epfCalculations';
 import { lookupRateForMonth, type EpfRateTable } from './epfInterestRates';
 
 /** The accrual rule, explicit and user-verified against a real passbook (see the design doc's §6.1
@@ -42,6 +42,16 @@ export interface EpfInterestCalculationInput {
    *  opening balance) — see `buildEpfInterestInput` for how this is normally assembled from either
    *  real logged transactions or the existing auto-estimate. */
   monthlyContributions: { month: string; employeeAmount: number; employerAmount: number }[];
+  /** Real withdrawals (full settlement or partial "advance") DURING this FY — see `buildEpfInterestInput`.
+   *  Applied the same way a deposit is: added/subtracted to the balance at month-END, after that
+   *  month's own interest is computed — the withdrawal-side mirror of this file's existing "a deposit
+   *  doesn't count until the month after" rule. A withdrawal taken mid-month still earns THAT month's
+   *  own interest on the pre-withdrawal (opening) balance; only the FOLLOWING month's opening balance
+   *  reflects the reduction. Real bug this fixes (2026-08-xx): before this field existed, a mid-year
+   *  withdrawal was invisible to the interest simulation entirely — the balance kept growing every
+   *  month for the rest of the FY as if the withdrawal never happened, producing a recalculated
+   *  interest figure that disagreed with the real passbook's own (correct) recorded amount. */
+  monthlyWithdrawals?: { month: string; employeeAmount: number; employerAmount: number }[];
   /** The balance immediately before this FY started (i.e. the prior FY's closing balance) — 0 for
    *  a brand-new EPF account with no prior history. */
   openingEmployeeBalance: number;
@@ -95,11 +105,18 @@ function fyMonths(fyStartYear: number): string[] {
 
 /** Runs the §6.1 accrual simulation for one balance stream (employee OR employer-EPF — call this
  *  twice, independently, per `EpfInterestCalculationInput`'s doc comment). Returns the interest
- *  accrued and the closing balance, or `null` interest if any month's rate wasn't confirmed. */
+ *  accrued and the closing balance, or `null` interest if any month's rate wasn't confirmed.
+ *  `flowByMonth` is a NET figure — positive for a deposit, negative for a withdrawal (see
+ *  `calculateEpfInterestForYear`, which merges both into one map before calling this) — so a
+ *  withdrawal reduces the balance the exact same way, and at the exact same point in the loop
+ *  (month-end, after that month's own interest is already computed), that a deposit adds to it.
+ *  Clamped at 0 — EPFO's real balance never goes negative, and a full/near-full withdrawal's own
+ *  rounding shouldn't be able to manufacture a nonsensical negative-balance "interest" figure in a
+ *  later month. */
 function simulateOneStream(
   months: string[],
   openingBalance: number,
-  depositsByMonth: Map<string, number>,
+  flowByMonth: Map<string, number>,
   rateTable: EpfRateTable
 ): { interest: number | null; closingBalance: number; trace: EpfInterestMonthTrace[] } {
   let balance = openingBalance;
@@ -117,7 +134,7 @@ function simulateOneStream(
       interest += monthInterest;
     }
     trace.push({ month, openingBalance: monthOpeningBalance, ratePct, interest: monthInterest });
-    balance += depositsByMonth.get(month) ?? 0;
+    balance = Math.max(0, balance + (flowByMonth.get(month) ?? 0));
   }
 
   return {
@@ -136,11 +153,15 @@ export function calculateEpfInterestForYear(
 ): EpfInterestCalculationResult {
   const months = fyMonths(input.fyStartYear);
 
-  const empDeposits = new Map(input.monthlyContributions.map((c) => [c.month, c.employeeAmount]));
-  const erDeposits = new Map(input.monthlyContributions.map((c) => [c.month, c.employerAmount]));
+  const empFlow = new Map(input.monthlyContributions.map((c) => [c.month, c.employeeAmount]));
+  const erFlow = new Map(input.monthlyContributions.map((c) => [c.month, c.employerAmount]));
+  for (const w of input.monthlyWithdrawals ?? []) {
+    empFlow.set(w.month, (empFlow.get(w.month) ?? 0) - w.employeeAmount);
+    erFlow.set(w.month, (erFlow.get(w.month) ?? 0) - w.employerAmount);
+  }
 
-  const emp = simulateOneStream(months, input.openingEmployeeBalance, empDeposits, rateTable);
-  const er = simulateOneStream(months, input.openingEmployerBalance, erDeposits, rateTable);
+  const emp = simulateOneStream(months, input.openingEmployeeBalance, empFlow, rateTable);
+  const er = simulateOneStream(months, input.openingEmployerBalance, erFlow, rateTable);
 
   const rateFullyConfirmed = emp.interest !== null && er.interest !== null;
 
@@ -211,15 +232,44 @@ function depositMonthFyStartYear(depositMonth: string): number {
  *
  *  `priorClosingBalance` should come from the previous FY's own calculation result (or an
  *  `EpfBalanceCheckpoint`, if one exists from an import) — 0 for a brand-new account with no prior
- *  year. */
+ *  year.
+ *
+ *  2026-08-xx fix — `realDeposits` is now scoped to THIS employer via `epfResolveTxnEmployer`, using
+ *  the full `employers` list. Real reported bug, found via on-device testing: a same-FY employer
+ *  switch means BOTH employers can have real contribution transactions in the same financial year
+ *  (deposit-month FY, not wage-month FY) — before this fix, `realDeposits` filtered the WHOLE
+ *  holding's transactions by type+FY only, with no employer check at all, so calculating Company A's
+ *  interest for the FY it switched in silently picked up Company B's real deposits too (visibly:
+ *  Company A's "opening balance" kept growing every month in the interest breakdown popup, well past
+ *  the month Company A's own contributions actually stopped, inflating the recomputed interest and
+ *  making it disagree with the passbook's own real recorded figure). The `employers` param is
+ *  REQUIRED (not optional) specifically so a caller can't accidentally skip this scoping — every real
+ *  call site already has the full employer list in scope regardless (`computeEpfInterestOnDemand`
+ *  already resolved `employer` from it via `pickEmployerForFy`).
+ *
+ *  2026-08-xx fix — also collects real `withdrawal`/`advance` transactions DURING this FY, scoped the
+ *  same way, into `monthlyWithdrawals`. A withdrawal's own date is used directly (no "deposit month"
+ *  offset — that concept is specific to a contribution's employer-deposits-it-later timing, a
+ *  withdrawal takes effect on its own real date). A withdrawal that predates this FY is already
+ *  correctly reflected in `priorClosingBalance` (via `sumEpfBalanceBeforeFy`, apps/mobile) — only
+ *  same-FY withdrawals need to be simulated here. Real bug this fixes: a mid-year withdrawal (e.g. a
+ *  full/partial settlement) was previously invisible to the interest simulation entirely — the
+ *  balance kept growing every remaining month of the FY as if the withdrawal never happened, so
+ *  Penny's recalculated interest disagreed with the real, correct passbook figure. Uses the same
+ *  `employeeAmount ?? amount` / `employerAmount ?? 0` read convention `sumEpfBalanceBeforeFy` already
+ *  uses for a withdrawal transaction, for consistency. */
 export function buildEpfInterestInput(
   employer: EpfEmployer,
+  employers: EpfEmployer[],
   transactions: EpfTransaction[],
   fyStartYear: number,
   priorClosingBalance: { employee: number; employer: number }
 ): EpfInterestCalculationInput {
+  const employerScoped = (t: EpfTransaction) => epfResolveTxnEmployer(t, employers)?.id === employer.id;
+
   const realDeposits = transactions
     .filter((t): t is EpfTransaction & { wagesMonth: string } => t.type === 'contribution' && !!t.wagesMonth)
+    .filter(employerScoped)
     .map((t) => {
       const d = new Date(t.date);
       const depositMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -234,9 +284,20 @@ export function buildEpfInterestInput(
           .map((m) => ({ month: nextMonth(m.month), employeeAmount: m.empAmount, employerAmount: m.eplrEpfAmount }))
           .filter((c) => depositMonthFyStartYear(c.month) === fyStartYear);
 
+  const monthlyWithdrawals = transactions
+    .filter((t) => t.type === 'withdrawal' || t.type === 'advance')
+    .filter(employerScoped)
+    .map((t) => {
+      const d = new Date(t.date);
+      const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      return { month, employeeAmount: t.employeeAmount ?? t.amount ?? 0, employerAmount: t.employerAmount ?? 0 };
+    })
+    .filter((w) => depositMonthFyStartYear(w.month) === fyStartYear);
+
   return {
     fyStartYear,
     monthlyContributions,
+    monthlyWithdrawals,
     openingEmployeeBalance: priorClosingBalance.employee,
     openingEmployerBalance: priorClosingBalance.employer
   };

@@ -120,6 +120,22 @@ export interface EpfEmployer {
    *  unreliable (e.g. rejoining the same employer later would otherwise be ambiguous). */
   memberId?: string;
   balanceCheckpoints?: EpfBalanceCheckpoint[];
+  /** Set `true` only once the user has explicitly confirmed this employer's real joining date via
+   *  the "New employer detected" import-time setup step (2026-08-11 follow-up round — see
+   *  docs/plans/epf-passbook-import.md §10.9). Mirrors `currentEmploymentConfirmed`'s own
+   *  convention: distinguishes a `fromDate` the user actually confirmed from one only ever
+   *  auto-derived (originally from a contribution's deposit date, later from the earliest wage
+   *  month — always just a prefill until confirmed). Once `true`, a LATER import that would push
+   *  `fromDate` even earlier no longer silently moves it — see `epfReviewFlags.ts`'s
+   *  `joiningDateContradiction` flag. Never set for a manually-added employer (no import ever
+   *  happens for it, so there's nothing to confirm against). */
+  joiningDateConfirmed?: boolean;
+  /** Editable override for the "Estimated Gross Salary / CTC" stat (2026-08-11 follow-up round) —
+   *  what percentage of Gross this employer's `basicSalary` represents. Defaults to 50 when unset,
+   *  matching the common ~40-50% Indian payroll convention (and the Nov-2025 labour-code floor of
+   *  50%) — always shown as a labelled estimate with its formula visible, never asserted as fact,
+   *  since Penny has no way to know the real Gross/CTC split from EPF data alone. */
+  basicToGrossPct?: number;
 }
 
 export type EpfTransactionType = 'contribution' | 'interest' | 'transfer_in' | 'withdrawal' | 'advance';
@@ -128,15 +144,19 @@ export interface EpfTransaction {
   id: string;
   type: EpfTransactionType;
   wagesMonth?: string; // "YYYY-MM" — salary month contributions relate to
-  /** Which `EpfEmployer.id` this contribution belongs to — set at import time (the parser/import
+  /** Which `EpfEmployer.id` this transaction belongs to — set at import time (the parser/import
    *  flow always knows exactly which employer's passbook a row came from). Exists specifically to
    *  handle a mid-month employer switch: two DIFFERENT employers can each have a real, legitimate
    *  contribution for the SAME `wagesMonth` (pro-rata, split across the switch), which a
    *  wagesMonth-only reconciliation key would otherwise see as one entry conflicting with the
-   *  other. Optional — a manually-typed contribution (no employer picker exists for that flow
+   *  other. Optional — a manually-typed transaction (no employer picker exists for that flow
    *  today) or a transaction written before this field existed has no `employerId`; date-range
    *  containment against `EpfEmployer.fromDate`/`toDate` is the fallback attribution for those,
-   *  same as before this field existed. */
+   *  same as before this field existed.
+   *
+   *  2026-08-11: stamped on EVERY import-created transaction type now (interest/transfer_in/
+   *  withdrawal/advance too, not just `contribution`) — needed so a per-employer ledger view can
+   *  scope ALL of an employer's transactions, not just its contributions. */
   employerId?: string;
   date: number; // epoch ms — date credited to EPF account
   employeeAmount?: number; // employee share (contribution type)
@@ -155,6 +175,14 @@ export interface EpfTransaction {
    *  row be identified as "came from a PDF import" at a glance, and backs the reconciliation
    *  matcher's dedup logic (see epfReconciliation.ts). */
   sourceRef?: string;
+  /** Set `true` only when the user explicitly chose "Keep recorded" in the interest breakdown
+   *  popup's mismatch banner (2026-08-xx) — an interest transaction whose recorded amount disagrees
+   *  with Penny's fresh recalculation, where the user has confirmed the RECORDED figure (the real
+   *  passbook's own value) is the one to trust, not Penny's math. `checkInterestMismatch` itself
+   *  still reports the raw disagreement (never hides it), but `findAllReviewFlags` stops counting it
+   *  as a "needs review" flag once acknowledged — same "computed on demand, dismissal tracked
+   *  separately" pattern already used elsewhere in this app (e.g. `Account.dismissedVerificationFindings`). */
+  interestMismatchAcknowledged?: boolean;
 }
 
 // ─── Asset metadata ───────────────────────────────────────────────────────────

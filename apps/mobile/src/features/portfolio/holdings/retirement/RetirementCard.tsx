@@ -1,20 +1,27 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Pressable, ActivityIndicator, Text, Platform } from 'react-native';
-import { Card, IconBadge, DetailRow, ProgressBar, Badge, StatBox, Button } from '~/components/ui';
+import { Card, IconBadge, DetailRow, ProgressBar, Badge, StatBox, Button, Modal } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useToast } from '~/context/ToastContext';
 import { tint, ink } from '~/lib/color';
-import { formatCurrency } from '@/lib/formatters';
+import { formatCurrency, formatCompact } from '@/lib/formatters';
 import { DAY_MS } from '@/lib/date';
 import { LIFECYCLE_FUNDS, getAllocationAtAge, findNpsSchemeCode, fetchNpsNav, getPfmLabel } from '@/core/nps';
 import type { NpsLifecycleFund, NpsNavDetail, NpsPfmKey, NpsSchemeType } from '@/core/nps';
 import { ppfBuildCardData, ppfWithdrawalEligibility } from '@/core/portfolio/ppfCalculations';
 import {
   EPF_RETIREMENT_AGE,
+  EPF_EMPLOYER_EPF_PCT,
+  EPS_PCT,
   epfMonthsBetween,
   epfMonthLabel,
-  epfBuildCardData
+  epfMonthKeyOf,
+  epfBuildCardData,
+  epfComputeAllMonths,
+  epfLastRealEvidenceMs,
+  estimateGrossAndCtc,
+  buildEpfHikeJourney
 } from '@/core/portfolio/epfCalculations';
 import { getEpfRateTable, type EpfRateTable } from '@/core/portfolio/epfInterestRates';
 import { getPpfRateTable, type PpfRateTable } from '@/core/portfolio/ppfInterestRates';
@@ -29,12 +36,14 @@ import {
   EpfTransactionSheet,
   EpfEmployerSheet,
   EpfAllTransactionsSheet,
-  EpfSalaryHikeSheet
+  EpfSalaryHikeSheet,
+  EpfMonthEdgeConfirm
 } from './RetirementSheets';
 import { findMissingInterestFys, findEmployersNeedingEmploymentConfirmation, fyLabel } from './epfInterestOnDemand';
 import { findAllReviewFlags } from './epfReviewFlags';
 import { pickAndParseEpfFiles, type EpfImportFile } from './epfImportLogic';
 import { EpfImportFlow } from './EpfImportFlow';
+import { EpfEmployerPickerSheet } from './EpfEmployerPickerSheet';
 import { PpfImportFlow } from './PpfImportFlow';
 import { findMissingPpfInterestFys } from './ppfInterestOnDemand';
 import { findAllPpfReviewFlags } from './ppfReviewFlags';
@@ -152,6 +161,12 @@ export function RetirementCard({
   const [showEpfTxSheet, setShowEpfTxSheet] = useState(false);
   const [showEpfEmpSheet, setShowEpfEmpSheet] = useState(false);
   const [showEpfAllTxSheet, setShowEpfAllTxSheet] = useState(false);
+  // Per-employer ledger (2026-08-11 follow-up round) — `null` means the all-employers view (today's
+  // behavior, still the fallback for a 0-1 employer holding). Tapping an employer row directly sets
+  // this straight away; "See all transactions" goes through `showEpfEmployerPicker` first whenever
+  // there's genuine ambiguity (2+ employers) — mirrors EPFO's own "select Member ID" model.
+  const [epfLedgerEmployer, setEpfLedgerEmployer] = useState<EpfEmployer | null>(null);
+  const [showEpfEmployerPicker, setShowEpfEmployerPicker] = useState(false);
   const [epfHikeEmpId, setEpfHikeEmpId] = useState<string | null>(null);
   // Which employers currently have their hike-history list expanded inline (Set, not a single id —
   // a long career can have multiple employers each with their own hikes, so more than one open at
@@ -164,6 +179,9 @@ export function RetirementCard({
   const [epfImportFiles, setEpfImportFiles] = useState<EpfImportFile[] | null>(null);
   const [epfExporting, setEpfExporting] = useState(false);
   const [confirmingEmpId, setConfirmingEmpId] = useState<string | null>(null);
+  // "Are you still working at X?" → "No" (2026-08-xx fix) — opens the LWD-confirm modal below instead
+  // of silently guessing a leaving date.
+  const [confirmingLwdEmpId, setConfirmingLwdEmpId] = useState<string | null>(null);
   // Fetched once — used only for the "N need review" card-level count (doc §10.6/Task 2). A null
   // table just means the count can't be computed yet (never shown as 0, see the JSX below).
   const [epfRateTable, setEpfRateTable] = useState<EpfRateTable | null>(null);
@@ -208,6 +226,25 @@ export function RetirementCard({
     if (files) setEpfImportFiles(files);
   }
 
+  /** Tapping an employer row directly opens ITS OWN scoped ledger, no picker needed. */
+  function handleOpenEmployerLedger(emp: EpfEmployer) {
+    setEpfLedgerEmployer(emp);
+    setShowEpfAllTxSheet(true);
+  }
+
+  /** "See all transactions" — skips the picker entirely for the common 0-1 employer case (today's
+   *  unscoped view, unchanged); only genuinely ambiguous (2+ employers) cases go through
+   *  `EpfEmployerPickerSheet` first. */
+  function handleSeeAllEpfTransactions() {
+    const employers = meta.epfEmployers ?? [];
+    if (employers.length >= 2) {
+      setShowEpfEmployerPicker(true);
+      return;
+    }
+    setEpfLedgerEmployer(employers[0] ?? null);
+    setShowEpfAllTxSheet(true);
+  }
+
   function toggleHikeHistory(empId: string) {
     setExpandedHikeEmpIds((prev) => {
       const next = new Set(prev);
@@ -220,22 +257,25 @@ export function RetirementCard({
     });
   }
 
-  /** "Are you still working at X?" card prompt (doc §10.1/Task 1) — Yes confirms the current
-   *  employment is real (sets `currentEmploymentConfirmed`, leaving `toDate` unset); No bounds
-   *  `toDate` to the end of the last FY we actually have evidence for. Wrapped in `useCallback`
-   *  (unlike this card's other inline handlers) — a plain nested function here trips the React
-   *  Compiler's purity check on `Date.now()` as a false positive once an id derived from the
-   *  `.map()` below flows into it; wrapping it removes the ambiguity. */
+  /** "Are you still working at X?" card prompt (doc §10.1/Task 1), "Yes" branch — confirms the
+   *  current employment is real (sets `currentEmploymentConfirmed`, leaving `toDate` unset). Wrapped
+   *  in `useCallback` (unlike this card's other inline handlers) — a plain nested function here trips
+   *  the React Compiler's purity check on `Date.now()` as a false positive once an id derived from
+   *  the `.map()` below flows into it; wrapping it removes the ambiguity.
+   *
+   *  2026-08-xx fix — "No" no longer silently bounds `toDate` to a guessed FY-end date here. It now
+   *  opens `confirmingLwdEmpId`'s modal instead (below), which reuses `EpfMonthEdgeConfirm` to ask for
+   *  the REAL last working day with a live pro-rata consistency check — real reported gap: "when 'Are
+   *  you still working' is answered with No, the LWD should also be asked," not silently assumed to
+   *  be the FY's own March 31st. */
   const handleEmploymentConfirm = useCallback(
-    async (empId: string, stillWorking: boolean, lastEvidenceFy: number) => {
+    async (empId: string) => {
       if (confirmingEmpId) return;
       const emp = (meta.epfEmployers ?? []).find((e) => e.id === empId);
       if (!emp) return;
       setConfirmingEmpId(empId);
       try {
-        const updatedEmp: EpfEmployer = stillWorking
-          ? { ...emp, currentEmploymentConfirmed: true }
-          : { ...emp, toDate: new Date(lastEvidenceFy + 1, 2, 31).getTime() };
+        const updatedEmp: EpfEmployer = { ...emp, currentEmploymentConfirmed: true };
         const updated: Holding = {
           ...holding,
           assetMeta: {
@@ -759,7 +799,11 @@ export function RetirementCard({
                       return (
                         <View key={emp.id} className="rounded-xl bg-surface-2 border border-theme overflow-hidden">
                           <View className="flex-row items-center justify-between gap-2 px-3 py-2">
-                            <View className="flex-1">
+                            {/* Tapping the row opens THIS employer's own scoped ledger directly (2026-08-11
+                                follow-up round) — mirrors EPFO's own "select Member ID → view that
+                                passbook" model. The nested "Hike" and hike-toggle Pressables below still
+                                capture their own taps first via RN's normal responder chain. */}
+                            <Pressable className="flex-1" onPress={() => handleOpenEmployerLedger(emp)}>
                               <View className="flex-row items-center flex-wrap gap-1.5">
                                 <Text className="text-xs font-medium text-primary" numberOfLines={1}>
                                   {emp.companyName}
@@ -787,7 +831,7 @@ export function RetirementCard({
                                 {' · '}
                                 {epfMonthsBetween(emp.fromDate, emp.toDate ?? nowMs())} months
                               </Text>
-                            </View>
+                            </Pressable>
                             <Pressable
                               onPress={() => setEpfHikeEmpId(emp.id)}
                               className="flex-row items-center gap-0.5 px-1.5 py-1 rounded-lg border"
@@ -798,19 +842,69 @@ export function RetirementCard({
                                 Hike
                               </Text>
                             </Pressable>
+                            <Icon name="ti-chevron-right" size={13} color={theme.textTertiary} />
                           </View>
+                          {/* Hike journey (2026-08-xx, revised to a single table per direct
+                              feedback on the first card-based layout) — Month Year / Est CTC / Est
+                              Gross / Net Monthly, in that column order, for every salary point (the
+                              joining basic, plus every real hike). CTC and Gross are shown ANNUAL —
+                              the conventional way both are quoted in India ("12 LPA") — matching the
+                              same convention already used at the ledger header's own stat tiles;
+                              Net Monthly stays monthly. */}
                           {hikesExpanded && hikeCount > 0 && (
-                            <View className="gap-1 px-3 pb-2 pt-0.5 border-t border-theme">
-                              {[...hikes]
-                                .sort((a, b) => b.fromDate - a.fromDate)
-                                .map((hike, idx) => (
-                                  <View key={`${emp.id}-hike-${idx}`} className="flex-row items-center justify-between">
-                                    <Text className="text-[10px] text-tertiary">{epfMonthLabel(hike.fromDate)}</Text>
-                                    <Text className="text-[10px] font-medium text-secondary tabular-nums">
-                                      {!masked ? `₹${hike.basicSalary.toLocaleString('en-IN')}` : '••••'}
+                            <View className="px-3 pb-2 pt-1 border-t border-theme">
+                              <View className="flex-row items-center pb-1 border-b border-theme">
+                                <Text className="flex-[1.3] text-[8px] font-bold text-tertiary uppercase">Month</Text>
+                                <Text className="flex-1 text-[8px] font-bold text-tertiary uppercase text-right">
+                                  Est CTC
+                                </Text>
+                                <Text className="flex-1 text-[8px] font-bold text-tertiary uppercase text-right">
+                                  Est Gross
+                                </Text>
+                                <Text className="flex-1 text-[8px] font-bold text-tertiary uppercase text-right">
+                                  Net Monthly
+                                </Text>
+                              </View>
+                              {buildEpfHikeJourney(emp).map((point, idx) => {
+                                const monthlyEmployee = Math.round(point.basicSalary * (emp.employeeContribPct / 100));
+                                const monthlyEmployerEpf = Math.round(point.basicSalary * EPF_EMPLOYER_EPF_PCT);
+                                const monthlyEps = Math.round(point.basicSalary * EPS_PCT);
+                                const gc = estimateGrossAndCtc(
+                                  point.basicSalary,
+                                  monthlyEmployee,
+                                  monthlyEmployerEpf,
+                                  monthlyEps,
+                                  emp.basicToGrossPct
+                                );
+                                return (
+                                  <View
+                                    key={`${emp.id}-journey-${idx}`}
+                                    className="flex-row items-center py-1.5 border-b border-dashed border-theme"
+                                  >
+                                    <View className="flex-[1.3]">
+                                      <Text className="text-[10px] font-semibold text-primary">
+                                        {epfMonthLabel(point.date)}
+                                      </Text>
+                                      <Text className="text-[8px] text-tertiary">
+                                        {point.isJoined
+                                          ? 'Joined'
+                                          : point.growthPct !== null && !masked
+                                            ? `+${point.growthPct.toFixed(1)}%`
+                                            : undefined}
+                                      </Text>
+                                    </View>
+                                    <Text className="flex-1 text-[10px] font-bold text-primary text-right tabular-nums">
+                                      {!masked ? formatCompact(gc.annualCtc) : '••••'}
+                                    </Text>
+                                    <Text className="flex-1 text-[10px] font-bold text-primary text-right tabular-nums">
+                                      {!masked ? formatCompact(gc.annualGross) : '••••'}
+                                    </Text>
+                                    <Text className="flex-1 text-[10px] font-bold text-primary text-right tabular-nums">
+                                      {!masked ? formatCompact(gc.netMonthly) : '••••'}
                                     </Text>
                                   </View>
-                                ))}
+                                );
+                              })}
                             </View>
                           )}
                         </View>
@@ -826,7 +920,7 @@ export function RetirementCard({
                 ongoing employment). Deliberately distinct icon/tone from the FY-end interest nudge
                 below so the two are never confused, though both share the warning tint. Not
                 `<Banner>` — needs two inline `Pressable` actions, same reason as the FY-end nudge. */}
-            {epfEmployersNeedingConfirmation.map(({ employer, lastEvidenceFy }) => (
+            {epfEmployersNeedingConfirmation.map(({ employer }) => (
               <View
                 key={employer.id}
                 className="rounded-xl border p-3 gap-2"
@@ -848,7 +942,7 @@ export function RetirementCard({
                       size="sm"
                       fullWidth
                       disabled={confirmingEmpId === employer.id}
-                      onPress={() => handleEmploymentConfirm(employer.id, false, lastEvidenceFy)}
+                      onPress={() => setConfirmingLwdEmpId(employer.id)}
                     >
                       No
                     </Button>
@@ -861,7 +955,7 @@ export function RetirementCard({
                       color={theme.warning}
                       loading={confirmingEmpId === employer.id}
                       disabled={confirmingEmpId === employer.id}
-                      onPress={() => handleEmploymentConfirm(employer.id, true, lastEvidenceFy)}
+                      onPress={() => handleEmploymentConfirm(employer.id)}
                     >
                       Yes
                     </Button>
@@ -1020,7 +1114,7 @@ export function RetirementCard({
                 `findAllReviewFlags`, the exact same function powering each row's own badge in
                 `EpfAllTransactionsSheet`) opens straight into that same sheet. */}
             <View className="flex-row items-center justify-between pt-0.5">
-              <Pressable onPress={() => setShowEpfAllTxSheet(true)} className="flex-row items-center gap-1.5">
+              <Pressable onPress={handleSeeAllEpfTransactions} className="flex-row items-center gap-1.5">
                 <Icon name="ti-list" size={14} color="#64748b" />
                 <Text className="text-xs font-semibold" style={{ color: '#64748b' }}>
                   See all transactions
@@ -1286,18 +1380,67 @@ export function RetirementCard({
         />
       )}
 
-      {/* EPF all transactions sheet */}
+      {/* EPF all transactions sheet — scoped to `epfLedgerEmployer` when set (2026-08-11 follow-up
+          round's per-employer ledger); `undefined` keeps the all-employers view. */}
       {showEpfAllTxSheet && (
         <EpfAllTransactionsSheet
           holding={holding}
+          employerFilter={epfLedgerEmployer ?? undefined}
           onAddTransaction={() => {
             setShowEpfAllTxSheet(false);
             setShowEpfTxSheet(true);
           }}
           onSave={onSave}
-          onClose={() => setShowEpfAllTxSheet(false)}
+          onClose={() => {
+            setShowEpfAllTxSheet(false);
+            setEpfLedgerEmployer(null);
+          }}
         />
       )}
+
+      {/* "Choose employer" picker — only reachable via "See all transactions" with 2+ employers. */}
+      {showEpfEmployerPicker && (
+        <EpfEmployerPickerSheet
+          employers={meta.epfEmployers ?? []}
+          transactions={meta.epfTransactions ?? []}
+          onSelect={(emp) => {
+            setShowEpfEmployerPicker(false);
+            handleOpenEmployerLedger(emp);
+          }}
+          onClose={() => setShowEpfEmployerPicker(false)}
+        />
+      )}
+
+      {/* "Are you still working at X?" → "No" (2026-08-xx fix) — asks for the REAL last working day
+          instead of silently guessing the FY's own March 31st, reusing the exact same
+          date-field + pro-rata-consistency form the row-level edge confirm already uses. */}
+      {confirmingLwdEmpId &&
+        (() => {
+          const emp = (meta.epfEmployers ?? []).find((e) => e.id === confirmingLwdEmpId);
+          if (!emp) return null;
+          const transactions = meta.epfTransactions ?? [];
+          const lastEvidenceMs = epfLastRealEvidenceMs(emp, meta.epfEmployers ?? [], transactions);
+          const monthEntry = lastEvidenceMs
+            ? (epfComputeAllMonths([emp], transactions).find((m) => m.month === epfMonthKeyOf(lastEvidenceMs)) ?? null)
+            : null;
+          // No real evidence at all to anchor a pro-rata check against (shouldn't happen — this
+          // prompt only ever fires for an employer with SOME real contribution evidence, per
+          // `findEmployersNeedingEmploymentConfirmation`'s own gate) — fail safe rather than render a
+          // broken form.
+          if (!monthEntry) return null;
+          return (
+            <Modal onClose={() => setConfirmingLwdEmpId(null)} title="Last working day" size="sm">
+              <EpfMonthEdgeConfirm
+                holding={holding}
+                employer={emp}
+                month={monthEntry}
+                edge="end"
+                onSave={onSave}
+                onDone={() => setConfirmingLwdEmpId(null)}
+              />
+            </Modal>
+          );
+        })()}
 
       {/* EPF passbook/Excel import flow — batch summary → sequential review → done (doc §10.4). */}
       {epfImportFiles && (

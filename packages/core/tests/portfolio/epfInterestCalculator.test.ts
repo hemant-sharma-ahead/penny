@@ -135,6 +135,69 @@ describe('calculateEpfInterestForYear', () => {
     expect(result.employerInterest).toBe(0);
   });
 
+  // Real reported bug (2026-08-xx): "the recorded interest for FY19-20 is correct... Withdrawal
+  // happened on 20 Nov 2019 so interest should not be calculated post that date [on the withdrawn
+  // amount]." Before this fix, a mid-year withdrawal was invisible to the simulation entirely.
+  describe('mid-year withdrawal', () => {
+    const flatRate12: EpfRateTable = {
+      confirmedThrough: '2025-03',
+      periods: [{ effectiveFrom: '2024-04', ratePct: 12 }]
+    };
+
+    it('reduces the balance starting the month AFTER the withdrawal, not the withdrawal month itself', () => {
+      const result = calculateEpfInterestForYear(
+        {
+          fyStartYear: 2024,
+          monthlyContributions: [],
+          monthlyWithdrawals: [{ month: '2024-11', employeeAmount: 40000, employerAmount: 0 }],
+          openingEmployeeBalance: 100000,
+          openingEmployerBalance: 0
+        },
+        flatRate12
+      );
+      // Apr-Nov (8 months, INCLUDING November itself) at 1%/mo on the pre-withdrawal ₹100,000 = ₹8,000;
+      // Dec-Mar (4 months) at 1%/mo on the post-withdrawal ₹60,000 = ₹2,400. Total ₹10,400.
+      expect(result.employeeInterest).toBe(10400);
+      const novEntry = result.employeeTrace.find((m) => m.month === '2024-11');
+      const decEntry = result.employeeTrace.find((m) => m.month === '2024-12');
+      expect(novEntry?.openingBalance).toBe(100000); // still the full balance for November's OWN interest
+      expect(decEntry?.openingBalance).toBe(60000); // reduced from December onward
+    });
+
+    it('only reduces the stream(s) the withdrawal actually specifies (employee vs employer)', () => {
+      const result = calculateEpfInterestForYear(
+        {
+          fyStartYear: 2024,
+          monthlyContributions: [],
+          monthlyWithdrawals: [{ month: '2024-06', employeeAmount: 5000, employerAmount: 2000 }],
+          openingEmployeeBalance: 20000,
+          openingEmployerBalance: 10000
+        },
+        flatRate12
+      );
+      const empJul = result.employeeTrace.find((m) => m.month === '2024-07');
+      const erJul = result.employerTrace.find((m) => m.month === '2024-07');
+      expect(empJul?.openingBalance).toBe(15000);
+      expect(erJul?.openingBalance).toBe(8000);
+    });
+
+    it('clamps at zero rather than going negative for a withdrawal larger than the balance', () => {
+      const result = calculateEpfInterestForYear(
+        {
+          fyStartYear: 2024,
+          monthlyContributions: [],
+          monthlyWithdrawals: [{ month: '2024-05', employeeAmount: 999999, employerAmount: 0 }],
+          openingEmployeeBalance: 1000,
+          openingEmployerBalance: 0
+        },
+        flatRate12
+      );
+      const junEntry = result.employeeTrace.find((m) => m.month === '2024-06');
+      expect(junEntry?.openingBalance).toBe(0);
+      expect(result.employeeTrace.every((m) => m.interest >= 0)).toBe(true);
+    });
+  });
+
   it('exposes a month-by-month trace whose interest sums to the rounded total (§10.5)', () => {
     const rateTable: EpfRateTable = {
       confirmedThrough: '2015-03',
@@ -213,7 +276,7 @@ describe('buildEpfInterestInput', () => {
       employeeAmount: 6000,
       employerAmount: 1835
     };
-    const input = buildEpfInterestInput(employer(), [tx], 2024, { employee: 0, employer: 0 });
+    const input = buildEpfInterestInput(employer(), [employer()], [tx], 2024, { employee: 0, employer: 0 });
     // Since the real deposit date is April 2024, this contribution belongs to FY2024-25's
     // simulation (fyStartYear 2024), at deposit month "2024-04" — NOT filtered out by wage month's
     // own FY (which would have been FY2023-24, the wrong year) — this is the bug this test guards.
@@ -235,13 +298,13 @@ describe('buildEpfInterestInput', () => {
     // (the per-FY fallback granularity is deliberate — `buildEpfInterestInput` always computes one
     // specific year at a time, so a user with real data starting only in a recent year should still
     // get a reasonable estimate for an earlier year they never logged, not an empty result).
-    const wrongYearInput = buildEpfInterestInput(employer(), [tx], 2023, { employee: 0, employer: 0 });
+    const wrongYearInput = buildEpfInterestInput(employer(), [employer()], [tx], 2023, { employee: 0, employer: 0 });
     expect(wrongYearInput.monthlyContributions.some((c) => c.employeeAmount === 9999)).toBe(false);
     expect(wrongYearInput.monthlyContributions.length).toBeGreaterThan(0); // estimate fallback kicked in
   });
 
   it('falls back to the auto-estimate (wage-month-plus-one as the deposit month) when no real transactions exist', () => {
-    const input = buildEpfInterestInput(employer(), [], 2024, { employee: 0, employer: 0 });
+    const input = buildEpfInterestInput(employer(), [employer()], [], 2024, { employee: 0, employer: 0 });
     expect(input.monthlyContributions.length).toBeGreaterThan(0);
     // Every entry's month must be a valid "YYYY-MM" whose deposit-FY is 2024 (Apr 2024 - Mar 2025).
     for (const c of input.monthlyContributions) {
@@ -252,8 +315,85 @@ describe('buildEpfInterestInput', () => {
   });
 
   it('passes through the prior closing balance as this FY’s opening balance unchanged', () => {
-    const input = buildEpfInterestInput(employer(), [], 2024, { employee: 12345, employer: 6789 });
+    const input = buildEpfInterestInput(employer(), [employer()], [], 2024, { employee: 12345, employer: 6789 });
     expect(input.openingEmployeeBalance).toBe(12345);
     expect(input.openingEmployerBalance).toBe(6789);
+  });
+
+  // The real reported bug (2026-08-xx follow-up round): a same-FY employer switch means BOTH
+  // employers can have real contribution transactions in the same financial year (by deposit month)
+  // — before this fix, `realDeposits` had no employer scoping at all, so calculating Company A's
+  // interest picked up Company B's real deposits too, inflating A's recomputed interest well past
+  // what its own passbook actually shows.
+  it("never includes a DIFFERENT employer's real deposits, even in the same FY", () => {
+    const companyA = employer({
+      id: 'a',
+      fromDate: new Date(2017, 3, 1).getTime(),
+      toDate: new Date(2017, 7, 28).getTime()
+    });
+    const companyB = employer({ id: 'b', fromDate: new Date(2017, 7, 29).getTime() });
+    const aTxn: EpfTransaction = {
+      id: 'a1',
+      type: 'contribution',
+      employerId: 'a',
+      wagesMonth: '2017-07',
+      date: new Date(2017, 7, 15).getTime(), // deposits Aug 2017 => FY2017-18
+      employeeAmount: 1278,
+      employerAmount: 391
+    };
+    const bTxn: EpfTransaction = {
+      id: 'b1',
+      type: 'contribution',
+      employerId: 'b',
+      wagesMonth: '2017-09',
+      date: new Date(2017, 9, 15).getTime(), // deposits Oct 2017 => same FY2017-18
+      employeeAmount: 6000,
+      employerAmount: 1835
+    };
+    const input = buildEpfInterestInput(companyA, [companyA, companyB], [aTxn, bTxn], 2017, {
+      employee: 0,
+      employer: 0
+    });
+    expect(input.monthlyContributions.some((c) => c.employeeAmount === 6000)).toBe(false);
+    expect(input.monthlyContributions).toEqual([{ month: '2017-08', employeeAmount: 1278, employerAmount: 391 }]);
+  });
+
+  // Real reported bug (2026-08-xx): a mid-year withdrawal was invisible to the interest calculation
+  // entirely — `buildEpfInterestInput` never collected `withdrawal`/`advance` transactions at all.
+  it('collects a real withdrawal DURING the FY into monthlyWithdrawals, scoped to this employer', () => {
+    const emp = employer({ id: 'a', fromDate: new Date(2016, 3, 1).getTime() });
+    const other = employer({ id: 'b', fromDate: new Date(2020, 3, 1).getTime() });
+    const withdrawalTxn: EpfTransaction = {
+      id: 'w1',
+      type: 'withdrawal',
+      employerId: 'a',
+      date: new Date(2019, 10, 20).getTime(), // 20 Nov 2019 => FY2019-20
+      amount: 48921
+    };
+    const otherEmployerWithdrawal: EpfTransaction = {
+      id: 'w2',
+      type: 'withdrawal',
+      employerId: 'b',
+      date: new Date(2019, 10, 25).getTime(),
+      amount: 99999
+    };
+    const input = buildEpfInterestInput(emp, [emp, other], [withdrawalTxn, otherEmployerWithdrawal], 2019, {
+      employee: 0,
+      employer: 0
+    });
+    expect(input.monthlyWithdrawals).toEqual([{ month: '2019-11', employeeAmount: 48921, employerAmount: 0 }]);
+  });
+
+  it('excludes a withdrawal outside the requested FY', () => {
+    const emp = employer({ id: 'a', fromDate: new Date(2016, 3, 1).getTime() });
+    const withdrawalTxn: EpfTransaction = {
+      id: 'w1',
+      type: 'withdrawal',
+      employerId: 'a',
+      date: new Date(2018, 10, 20).getTime(), // FY2018-19, not FY2019-20
+      amount: 48921
+    };
+    const input = buildEpfInterestInput(emp, [emp], [withdrawalTxn], 2019, { employee: 0, employer: 0 });
+    expect(input.monthlyWithdrawals).toEqual([]);
   });
 });

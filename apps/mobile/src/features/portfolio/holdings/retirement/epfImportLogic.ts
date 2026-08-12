@@ -16,7 +16,13 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import type { Holding, EpfEmployer, EpfTransaction, EpfTransactionType } from '@/core/db/types';
 import { buildBaseHolding } from '@/core/portfolio/holdingMappers';
-import { epfEmployerForWagesMonth } from '@/core/portfolio/epfCalculations';
+import {
+  epfEmployerForWagesMonth,
+  epfResolveTxnEmployer,
+  epfDaysInMonth,
+  epfGetSalaryForMonth,
+  estimateProRataEdgeDate
+} from '@/core/portfolio/epfCalculations';
 import {
   parseEpfPassbookPdf,
   EpfPassbookParseError,
@@ -215,9 +221,17 @@ function findEmployerIndex(employers: EpfEmployer[], memberId: string | undefine
 }
 
 function createEmployerFromUnit(unit: EpfImportEmployerUnit, employers: EpfEmployer[]): EpfEmployer {
-  const rowDates = unit.rows.map((r) => r.date);
+  // Default `fromDate` — always just an internal fallback, since `describeNewEmployerSetup` (below)
+  // makes the caller ask the user to confirm the real joining date via `applyConfirmedJoinDate`
+  // right after this employer is created. Kept as a strictly-better guess regardless (defence in
+  // depth, matching this feature's other belt-and-braces fixes): the EARLIEST WAGE MONTH's 1st, not
+  // the earliest transaction's own `date` (a contribution's `date` is its DEPOSIT date — EPFO
+  // deposits ~15th of the month AFTER the wage month — so using it here was silently off by about a
+  // month even before considering pro-rata).
+  const contributionRows = unit.rows.filter((r) => (r.rowType ?? 'contribution') === 'contribution');
   const fyStartMs = new Date(unit.fyStartYear, 3, 1).getTime();
-  const fromDate = rowDates.length > 0 ? Math.min(...rowDates) : fyStartMs;
+  const earliestWagesMonth = contributionRows.map((r) => r.wagesMonth).sort()[0];
+  const fromDate = earliestWagesMonth ? new Date(`${earliestWagesMonth}-01T00:00:00`).getTime() : fyStartMs;
   const basicSalary = unit.rows.reduce((max, r) => Math.max(max, r.epfWages), 0);
 
   const currentEmp = employers.find((e) => !e.toDate);
@@ -237,6 +251,173 @@ function createEmployerFromUnit(unit: EpfImportEmployerUnit, employers: EpfEmplo
     ...(toDate !== undefined && { toDate }),
     ...(unit.establishmentId && { establishmentId: unit.establishmentId }),
     ...(unit.memberId && { memberId: unit.memberId })
+  };
+}
+
+// ─── New-employer setup — always confirm the real joining date, and any switch (2026-08-11) ──
+
+export interface EpfProRataInput {
+  daysInMonth: number;
+  actualAmount: number;
+  fullAmount: number;
+}
+
+export interface EpfNewEmployerSetup {
+  companyName: string;
+  fyStartYear: number;
+  /** "YYYY-MM" — the earliest real wage month found for the new employer; combine with
+   *  `suggestedJoinDay` to build the actual epoch-ms date once the user confirms/edits it. */
+  suggestedJoinMonth: string;
+  suggestedJoinDay: number;
+  /** Absent for a contribution-free first unit (nothing to invert pro-rata against). */
+  joinProRata?: EpfProRataInput;
+  /** Set only when an existing "current" (open-ended) employer's `fromDate` precedes this unit's
+   *  own dates — the genuine switch-ambiguity case (root cause: `createEmployerFromUnit` only ever
+   *  auto-bound the reverse ordering). `undefined` means this is either the very first employer ever
+   *  tracked, or an unambiguous EARLIER job (already safely auto-bound, no confirmation needed). */
+  priorEmployer?: {
+    id: string;
+    companyName: string;
+    suggestedLastWorkingMonth: string;
+    suggestedLastWorkingDay: number;
+    leavingProRata?: EpfProRataInput;
+  };
+}
+
+/** Detects whether committing `unit` is about to create a BRAND NEW employer — and if so, what to
+ *  ask the user before doing it (docs/plans/epf-passbook-import.md's 2026-08-11 follow-up round:
+ *  "always confirm a new employer's real joining date," never silently infer one from a deposit
+ *  date). Returns `null` when the unit extends an EXISTING employer (matched via
+ *  `findEmployerIndex`) — nothing new to ask; `extendEmployerCoverage` handles that path, with its
+ *  own re-confirm trigger for a joining-date contradiction (see that function's doc comment).
+ *
+ *  Order-independence: this is evaluated fresh against whatever `holding` already contains at the
+ *  moment THIS unit is about to commit — regardless of which employer/FY/file was imported first,
+ *  in this session or any earlier one. The only two orderings that ever create ambiguity requiring a
+ *  user answer are covered by `priorEmployer`; every other ordering (see the design doc's own
+ *  worked-through list) either needs no new employer at all, or is already unambiguous and handled
+ *  by `createEmployerFromUnit`'s existing "earlier job" auto-bind. */
+export function describeNewEmployerSetup(unit: EpfImportEmployerUnit, holding: Holding): EpfNewEmployerSetup | null {
+  const employers = holding.assetMeta?.epfEmployers ?? [];
+  if (findEmployerIndex(employers, unit.memberId, unit.companyName) >= 0) return null;
+
+  const contributionRows = unit.rows.filter((r) => (r.rowType ?? 'contribution') === 'contribution');
+  if (contributionRows.length === 0) {
+    // A contribution-free first unit (rare — e.g. only an interest/transfer row for a brand-new
+    // employer) has nothing to invert pro-rata against; suggest the FY's own start as a plain
+    // default rather than fabricating a pro-rata guess from nothing.
+    return {
+      companyName: unit.companyName,
+      fyStartYear: unit.fyStartYear,
+      suggestedJoinMonth: `${unit.fyStartYear}-04`,
+      suggestedJoinDay: 1
+    };
+  }
+
+  const sortedRows = [...contributionRows].sort((a, b) => a.wagesMonth.localeCompare(b.wagesMonth));
+  const firstRow = sortedRows[0];
+  if (!firstRow) return null; // unreachable — guarded by the length check above, keeps TS happy
+
+  const fullAmount = Math.max(...contributionRows.map((r) => r.employeeAmount));
+  const daysInMonth = epfDaysInMonth(firstRow.wagesMonth);
+  const suggestedJoinDay = estimateProRataEdgeDate(daysInMonth, firstRow.employeeAmount, fullAmount, 'start');
+
+  const setup: EpfNewEmployerSetup = {
+    companyName: unit.companyName,
+    fyStartYear: unit.fyStartYear,
+    suggestedJoinMonth: firstRow.wagesMonth,
+    suggestedJoinDay,
+    joinProRata: { daysInMonth, actualAmount: firstRow.employeeAmount, fullAmount }
+  };
+
+  const newUnitStartMs = new Date(`${firstRow.wagesMonth}-01T00:00:00`).getTime();
+  const currentEmp = employers.find((e) => !e.toDate);
+  // No existing "current" employer, or it's unambiguously an EARLIER job (already safely auto-bound
+  // by `createEmployerFromUnit` using ITS OWN confirmed/real fromDate — see that function) — no
+  // switch to confirm.
+  if (!currentEmp || currentEmp.fromDate > newUnitStartMs) return setup;
+
+  // Genuine switch — invert pro-rata against the OLD employer's OWN established full-month rate
+  // (real basicSalary/contribution history already exists for it, unlike the brand-new employer
+  // above, which has none yet).
+  const oldEmployerTxns = (holding.assetMeta?.epfTransactions ?? [])
+    .filter((t) => t.type === 'contribution' && !!t.wagesMonth)
+    .filter((t) => epfResolveTxnEmployer(t, employers)?.id === currentEmp.id);
+  const lastTxn = [...oldEmployerTxns].sort((a, b) => (b.wagesMonth ?? '').localeCompare(a.wagesMonth ?? ''))[0];
+
+  if (!lastTxn?.wagesMonth) {
+    // No real contribution evidence at all for the old employer (unlikely — it's "current" precisely
+    // because SOME import created it — but stay defensive) — suggest the day before the new
+    // employer's own suggested join day as a plain fallback, no pro-rata to invert.
+    const fallbackDaysInMonth = epfDaysInMonth(firstRow.wagesMonth);
+    setup.priorEmployer = {
+      id: currentEmp.id,
+      companyName: currentEmp.companyName,
+      suggestedLastWorkingMonth: firstRow.wagesMonth,
+      // "Day before the new join day," unless that join day is itself the 1st (nothing to subtract
+      // from within the same month) — falls back to that month's own last day instead.
+      suggestedLastWorkingDay: suggestedJoinDay > 1 ? suggestedJoinDay - 1 : fallbackDaysInMonth
+    };
+    return setup;
+  }
+
+  const oldDaysInMonth = epfDaysInMonth(lastTxn.wagesMonth);
+  const oldFullAmount = epfGetSalaryForMonth(currentEmp, lastTxn.wagesMonth) * (currentEmp.employeeContribPct / 100);
+  const suggestedLastWorkingDay = estimateProRataEdgeDate(
+    oldDaysInMonth,
+    lastTxn.employeeAmount ?? 0,
+    oldFullAmount,
+    'end'
+  );
+  setup.priorEmployer = {
+    id: currentEmp.id,
+    companyName: currentEmp.companyName,
+    suggestedLastWorkingMonth: lastTxn.wagesMonth,
+    suggestedLastWorkingDay,
+    leavingProRata: {
+      daysInMonth: oldDaysInMonth,
+      actualAmount: lastTxn.employeeAmount ?? 0,
+      fullAmount: oldFullAmount
+    }
+  };
+  return setup;
+}
+
+/** Patches the just-created new employer's `fromDate` to the user-confirmed real joining date and
+ *  marks `joiningDateConfirmed: true` — called right after `commitUnit` creates it (rather than
+ *  threading a confirmed date INTO `createEmployerFromUnit` itself), so `commitUnit`'s own
+ *  create-vs-extend branching stays unchanged. Re-locates the employer via the same
+ *  `findEmployerIndex` match `commitUnit` itself just used — a no-op (returns `holding` unchanged)
+ *  if it can't be found, which shouldn't happen in the real flow but keeps this safely pure either
+ *  way. */
+export function applyConfirmedJoinDate(holding: Holding, unit: EpfImportEmployerUnit, joinDateMs: number): Holding {
+  const employers = holding.assetMeta?.epfEmployers ?? [];
+  const idx = findEmployerIndex(employers, unit.memberId, unit.companyName);
+  if (idx < 0) return holding;
+  const nextEmployers = [...employers];
+  const target = nextEmployers[idx];
+  if (!target) return holding;
+  nextEmployers[idx] = { ...target, fromDate: joinDateMs, joiningDateConfirmed: true };
+  return {
+    ...holding,
+    assetMeta: { ...holding.assetMeta, epfEmployers: nextEmployers },
+    updatedAt: Date.now()
+  };
+}
+
+/** Bounds the OLD employer's `toDate` to the user-confirmed last working day, applied BEFORE
+ *  `commitUnit` runs for the unit that triggered the switch — so the new employer's own creation
+ *  (`createEmployerFromUnit`) never has to special-case "is this a confirmed switch," it just sees a
+ *  holding where the old employer is already correctly bounded. */
+export function applyConfirmedSwitch(holding: Holding, oldEmployerId: string, lastWorkingDayMs: number): Holding {
+  const employers = holding.assetMeta?.epfEmployers ?? [];
+  const nextEmployers = employers.map((e) =>
+    e.id === oldEmployerId ? { ...e, toDate: lastWorkingDayMs, currentEmploymentConfirmed: false } : e
+  );
+  return {
+    ...holding,
+    assetMeta: { ...holding.assetMeta, epfEmployers: nextEmployers },
+    updatedAt: Date.now()
   };
 }
 
@@ -273,7 +454,15 @@ function backfillEmployerIds(emp: EpfEmployer, unit: EpfImportEmployerUnit): Epf
  *  `fromDate` extends backward the same way (by real row date, not FY start) if an even-older unit
  *  is imported later — symmetric fix, same root cause. Every imported unit's FY is unconditionally
  *  added to `confirmedFys` regardless of whether it moves `fromDate`/`toDate` at all — a
- *  contribution-free confirmed year is real, authoritative EPFO data, not a gap. */
+ *  contribution-free confirmed year is real, authoritative EPFO data, not a gap.
+ *
+ *  2026-08-11 addition — `fromDate` is only extended backward SILENTLY while `joiningDateConfirmed`
+ *  isn't set yet (i.e. nothing has explicitly confirmed it — same as before this fix existed). Once
+ *  a user HAS explicitly confirmed a real joining date (`applyConfirmedJoinDate`), a later import
+ *  revealing an even-earlier real contribution never silently overrides it — the real transaction
+ *  still exists in `epfTransactions[]` either way (never dropped), but `fromDate` stays put and
+ *  `epfReviewFlags.ts`'s `checkJoiningDateContradiction` surfaces the disagreement instead, so the
+ *  user can look at it and decide, rather than either side silently winning. */
 function extendEmployerCoverage(emp: EpfEmployer, unit: EpfImportEmployerUnit): EpfEmployer {
   let result = emp;
 
@@ -286,7 +475,7 @@ function extendEmployerCoverage(emp: EpfEmployer, unit: EpfImportEmployerUnit): 
   const earliestRowDate = rowDates.length > 0 ? Math.min(...rowDates) : null;
   const latestRowDate = rowDates.length > 0 ? Math.max(...rowDates) : null;
 
-  if (earliestRowDate !== null && earliestRowDate < result.fromDate) {
+  if (earliestRowDate !== null && earliestRowDate < result.fromDate && !result.joiningDateConfirmed) {
     result = { ...result, fromDate: earliestRowDate };
   }
 
@@ -329,29 +518,33 @@ function buildImportedTxn(
     sourceRef: batchId
   };
   if (item.wagesMonth) base.wagesMonth = item.wagesMonth;
+  // Stamped on every import-created type now (2026-08-11) — not contribution-only. Originally only
+  // contributions were scoped (the one type that could conflict across a mid-month switch), but a
+  // per-employer ledger view needs EVERY transaction type attributed to its real employer, not just
+  // contributions — `reconcileUnit` already knows exactly which employer's unit produced this row.
+  if (employerId) base.employerId = employerId;
   if (item.type === 'contribution') {
-    // Stamped on contributions only — the one type this schema actually attributes to a specific
-    // employer (see `EpfTransaction.employerId`'s own doc comment: it exists specifically to
-    // disambiguate a mid-month employer switch, where two employers legitimately share a
-    // wagesMonth). interest/transfer_in/withdrawal/advance stay unscoped, matching this schema's
-    // existing design (see `epfReconciliation.ts`'s own doc comments on those types).
-    if (employerId) base.employerId = employerId;
     base.employeeAmount = item.imported.employeeAmount;
     base.employerAmount = item.imported.employerAmount;
     base.pensionAmount = item.imported.pensionAmount;
     if (row?.epfWages) base.epfWages = row.epfWages;
     if (row?.epsWages) base.epsWages = row.epsWages;
-  } else if (item.type === 'interest' || item.type === 'transfer_in') {
-    // A passbook-imported transfer-in carries a real employee/employer split (same table columns a
-    // contribution row uses), same as an imported interest credit — worth keeping rather than
-    // collapsing into the single-`amount` shape a manually-typed entry of either type has always
-    // used (see `epfReconciliation.ts`'s own `existingAmounts()` for that legacy convention, still
-    // used for manual entries and for withdrawal/advance below).
+  } else {
+    // A passbook-imported interest/transfer-in/withdrawal/advance row carries a real employee/
+    // employer split (same table columns a contribution row uses) — worth keeping rather than
+    // collapsing into the single-`amount` shape a MANUALLY-typed entry of these types has always used
+    // (see `epfReconciliation.ts`'s own `existingAmounts()` for that legacy, manual-entry-only
+    // convention, unaffected by this).
+    //
+    // 2026-08-xx fix — withdrawal/advance used to fall into their own branch that discarded
+    // `imported.employerAmount` entirely, storing only the employee-side portion as `amount`. Real
+    // bug this fixes: the interest calculator's mid-year-withdrawal fix (`buildEpfInterestInput`)
+    // reads a withdrawal's `employerAmount` to reduce the EMPLOYER interest stream — with it silently
+    // dropped, the employer-side balance never actually shrank after a withdrawal, so employer
+    // interest for that FY stayed wrong even after the withdrawal-timing fix landed.
     base.employeeAmount = item.imported.employeeAmount;
     base.employerAmount = item.imported.employerAmount;
     base.amount = item.imported.employeeAmount + item.imported.employerAmount;
-  } else {
-    base.amount = item.imported.employeeAmount;
   }
   return base;
 }
@@ -364,21 +557,22 @@ function mergeImportedIntoExisting(
   employerId: string | undefined
 ): EpfTransaction {
   const updated: EpfTransaction = { ...existing, sourceRef: batchId, sourceParticulars: item.sourceParticulars };
+  // Backfill employerId onto a legacy match/conflict that predates this field (any type now, not
+  // just contribution — see `buildImportedTxn`'s own 2026-08-11 doc comment) — same idea as
+  // `backfillEmployerIds` for the employer record itself, never overwrites an already-set value.
+  if (!updated.employerId && employerId) updated.employerId = employerId;
   if (item.type === 'contribution') {
-    // Backfill employerId onto a legacy match/conflict that predates this field — same idea as
-    // `backfillEmployerIds` for the employer record itself, never overwrites an already-set value.
-    if (!updated.employerId && employerId) updated.employerId = employerId;
     updated.employeeAmount = item.imported.employeeAmount;
     updated.employerAmount = item.imported.employerAmount;
     updated.pensionAmount = item.imported.pensionAmount;
     if (row?.epfWages) updated.epfWages = row.epfWages;
     if (row?.epsWages) updated.epsWages = row.epsWages;
-  } else if (item.type === 'interest' || item.type === 'transfer_in') {
+  } else {
+    // Same 2026-08-xx fix as `buildImportedTxn` above — withdrawal/advance now preserve the real
+    // employer-side amount too, not just employee.
     updated.employeeAmount = item.imported.employeeAmount;
     updated.employerAmount = item.imported.employerAmount;
     updated.amount = item.imported.employeeAmount + item.imported.employerAmount;
-  } else {
-    updated.amount = item.imported.employeeAmount;
   }
   return updated;
 }
@@ -407,7 +601,18 @@ function mergeImportedIntoExisting(
  *  `epfEmployerForWagesMonth` as a fallback for legacy pre-`employerId` data — which itself refuses
  *  to guess when more than one employer's range covers the month) before reconciling contribution
  *  rows. A brand-new employer (not yet in `employers[]`) has no existing transactions that could
- *  belong to it, so it always gets an empty scope — everything is correctly `'new'`. */
+ *  belong to it, so it always gets an empty scope — everything is correctly `'new'`.
+ *
+ *  2026-08-xx fix — the SAME employer-scoping now also applies to interest/transfer_in/withdrawal,
+ *  which were still matched holding-wide (`(type, FY)` only, see `reconcileEpfBalanceEvent`'s own
+ *  key). A genuine same-FY switch means BOTH employers can legitimately earn/receive interest (or a
+ *  transfer) in the same financial year — Company A's balance keeps earning interest in FY2 even
+ *  after leaving, right up until it's actually transferred out, while Company B independently earns
+ *  its own interest on its own balance the same FY. Before this fix, importing Company B's FY2
+ *  interest saw Company A's already-logged FY2 interest as the "existing" value for that FY and
+ *  silently overwrote it (or forced an unnecessary conflict) — real reported bug, found via on-device
+ *  testing. `epfResolveTxnEmployer` (packages/core) now resolves ANY transaction type, not just
+ *  contributions, so this reuses the exact same resolution as `epfComputeAllMonths` itself. */
 export function reconcileUnit(unit: EpfImportUnit, holding: Holding): EpfReconciliationItem[] {
   const existingTxns = holding.assetMeta?.epfTransactions ?? [];
   if (unit.kind === 'balanceEvent') {
@@ -426,6 +631,13 @@ export function reconcileUnit(unit: EpfImportUnit, holding: Holding): EpfReconci
           : epfEmployerForWagesMonth(employers, t.wagesMonth);
         return owner?.id === unitEmployer.id;
       })
+    : [];
+  // Same idea, for interest/transfer_in/withdrawal/advance — `epfResolveTxnEmployer` now resolves
+  // ANY type (not contribution-only), so this is the identical scoping pattern, just widened.
+  const employerScopedNonContribTxns = unitEmployer
+    ? existingTxns.filter(
+        (t) => t.type !== 'contribution' && epfResolveTxnEmployer(t, employers)?.id === unitEmployer.id
+      )
     : [];
 
   const contributionRows = unit.rows.filter((r) => (r.rowType ?? 'contribution') === 'contribution');
@@ -463,7 +675,7 @@ export function reconcileUnit(unit: EpfImportUnit, holding: Holding): EpfReconci
         employerAmount: group.employerAmount,
         pensionAmount: group.pensionAmount
       },
-      existingTxns,
+      employerScopedNonContribTxns,
       group.date,
       group.particulars.join('; ')
     );
@@ -471,7 +683,7 @@ export function reconcileUnit(unit: EpfImportUnit, holding: Holding): EpfReconci
   }
 
   const interestItem = unit.creditedInterest
-    ? reconcileEpfBalanceEvent('interest', unit.fyStartYear, unit.creditedInterest, existingTxns)
+    ? reconcileEpfBalanceEvent('interest', unit.fyStartYear, unit.creditedInterest, employerScopedNonContribTxns)
     : null;
 
   return [...contribItems, ...nonContribItems, ...(interestItem ? [interestItem] : [])];

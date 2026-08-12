@@ -109,6 +109,16 @@ describe('classifyRow', () => {
     expect(classifyRow('CR', 'Transfer-In from previous account')).toBe('transfer_in');
   });
 
+  // Real-world passbook variants reported directly (2026-08-xx) — a transfer isn't always a plain
+  // "TRANSFER IN - Old Member Id ..."; EPFO's own passbook text also uses these forms for a
+  // follow-up interest-only settlement, or an internal same-establishment transfer.
+  it('classifies real-world "TRANSFER IN" variants (interest-only settlement, same-office transfer)', () => {
+    const interestOnlyTransfer = 'TRANSFER IN - INTEREST AMOUNT ONLY (Old Member Id-:TSTEST00000000019999999)'; // pii-ignore: synthetic
+    const sameOfficeTransfer = 'TRANSFER IN - SAME OFFICE (Old Member Id-:TSTEST00000000019999999)'; // pii-ignore: synthetic
+    expect(classifyRow('CR', interestOnlyTransfer)).toBe('transfer_in');
+    expect(classifyRow('CR', sameOfficeTransfer)).toBe('transfer_in');
+  });
+
   it('classifies a settlement/withdrawal/"TRANSFER OUT" row as withdrawal', () => {
     expect(classifyRow('DR', 'TRANSFER OUT - New Member Id XYZ0987654321')).toBe('withdrawal'); // pii-ignore: fabricated
     expect(classifyRow('DR', 'Final Settlement')).toBe('withdrawal');
