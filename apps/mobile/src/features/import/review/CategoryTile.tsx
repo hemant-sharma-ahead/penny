@@ -5,8 +5,9 @@ import { Icon } from '~/components/Icon';
 import { tint } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { formatCurrency } from '@/lib/formatters';
-import type { ExpenseCategory } from '@/core/db/types';
+import type { Account, ExpenseCategory } from '@/core/db/types';
 import type { ParsedRow } from '@/core/import/importParsers';
+import type { RowOverride } from '@/core/import/importPipeline';
 import {
   isLikelyTransfer,
   intentGroupLabel,
@@ -45,14 +46,35 @@ interface CategoryTileProps {
   /** Drives the tile's background tint so status is scannable at a glance, matching the
    *  ready/attention/duplicate vocabulary used everywhere else on this screen. */
   status: 'ready' | 'attention' | 'duplicate';
-  rows: ParsedRow[];
+  /** Each row paired with its ORIGINAL index into `parsedRows` (2026-08-06) — needed so bulk-select
+   *  below can reference `onMoveRowsToCategory`/`onTagRows` by a stable identity. See
+   *  `PreviewSection.tsx`'s doc comment on `rowsByCategory`. */
+  rows: { row: ParsedRow; index: number }[];
   categories: ExpenseCategory[];
+  /** Real accounts eligible as this tile's transfer destination (2026-08-09 fix) — already excludes
+   *  this import's own target account; see `PreviewSection.tsx`'s doc comment. Only read when
+   *  `resolution.suggestion.kind === 'transfer'`. */
+  transferAccountOptions: Account[];
+  /** Per-category existing-transaction counts, forwarded to `CategoryPickerModal`'s own
+   *  `txnCountByCategory` prop for its "Frequent" quick-pick row. See `useImport.ts`'s doc comment. */
+  txnCountByCategory: Map<string, number>;
   groupOptions: { value: string; label: string }[];
   /** The custom tag (if any) the user has set for every transaction under this source category —
    *  independent of which category it resolves to (existing/create/transfer/skip). */
   tag: string;
+  /** Per-row overrides (2026-08-06), keyed by index into `parsedRows` — see `RowOverride`'s doc
+   *  comment. Read here to show each overridden row's actual target category/tag distinctly from the
+   *  rest of the tile's own group-level resolution. */
+  rowOverrides: Map<number, RowOverride>;
   onTagChange: (tag: string) => void;
   onUpdate: (suggestion: CategoryAction) => void;
+  /** Bulk-select action (2026-08-06) — moves exactly the given (this tile's own) row indices to a
+   *  different EXISTING category, without touching the rest of the tile's rows or its own group-level
+   *  resolution. See `useImport.ts`'s `moveRowsToCategory`. */
+  onMoveRowsToCategory: (rowIndices: number[], categoryId: string, categoryName: string) => void;
+  /** Bulk-select action (2026-08-06) — tags exactly the given row indices. See `useImport.ts`'s
+   *  `tagRows`. */
+  onTagRows: (rowIndices: number[], tag: string) => void;
 }
 
 const KIND_LABELS: Record<CategoryAction['kind'], string> = {
@@ -73,14 +95,31 @@ export function CategoryTile({
   status,
   rows,
   categories,
+  transferAccountOptions,
+  txnCountByCategory,
   groupOptions,
   tag,
+  rowOverrides,
   onTagChange,
-  onUpdate
+  onUpdate,
+  onMoveRowsToCategory,
+  onTagRows
 }: CategoryTileProps) {
   const theme = useThemeColors();
   const [expanded, setExpanded] = useState(false);
+  // Row list defaults to the first 8 (unchanged) — but bulk-select needs to reach every row, not just
+  // the ones currently rendered, so "+ N more" becomes a real "show all" toggle (2026-08-06) once
+  // there's more than 8. A plain `.map()`, same as before this change — this screen has no virtualized
+  // list anywhere, and a single source category rarely runs past the low hundreds even in a large file.
+  const [showAllRows, setShowAllRows] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  // Bulk-select (2026-08-06) — which of THIS tile's rows (by their original parsedRows index) are
+  // currently checked. Starts empty (nothing pre-selected — unlike bank-import's "everything checked by
+  // default", there's no equivalent "categorize the rest" fallback need here since the tile's own
+  // group-level resolution already covers every row by default). Local to this tile; not persisted
+  // anywhere, so it resets if the tile unmounts (e.g. collapsing/reopening Preview).
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [showBulkMovePicker, setShowBulkMovePicker] = useState(false);
   const { suggestion, sourceName, count } = resolution;
   const transferOptions = transferCategoryOptions().map((c) => ({ value: c.id, label: c.name }));
   const suggestedTransfer = suggestion.kind !== 'transfer' && isLikelyTransfer(sourceName);
@@ -88,7 +127,41 @@ export function CategoryTile({
    *  income) — pick whichever the majority of this category's rows actually are, so "Map Existing"
    *  opens the picker filtered to the right applicableTo (income vs expense) categories. */
   const pickerType: 'expense' | 'income' =
-    rows.filter((r) => r.type === 'income').length > rows.length / 2 ? 'income' : 'expense';
+    rows.filter((r) => r.row.type === 'income').length > rows.length / 2 ? 'income' : 'expense';
+
+  // A strict subset selected (not none, not all) is what actually enables bulk actions — selecting
+  // literally everything is equivalent to (and simpler to leave as) the tile's own group-level
+  // resolution, and selecting nothing means there's nothing to act on.
+  const selectedCount = selected.size;
+  const hasPartialSelection = selectedCount > 0 && selectedCount < rows.length;
+  const allSelected = rows.length > 0 && selectedCount === rows.length;
+
+  function toggleRow(index: number) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelected((prev) => (prev.size === rows.length ? new Set() : new Set(rows.map((r) => r.index))));
+  }
+
+  // The tag field switches meaning based on selection (2026-08-06, per explicit user request): with a
+  // strict subset selected, it reads/writes ONLY those rows' individual tag overrides instead of the
+  // whole tile's group-level tag — so tagging a subset never touches the rest of the group's tag.
+  // With 0 or all selected, it's the plain group-level field, unchanged from before. If the selected
+  // rows don't all already share the exact same tag override (e.g. two were tagged separately in an
+  // earlier selection), show blank rather than an arbitrary one of them — typing then applies that same
+  // new tag to the whole current selection uniformly.
+  const selectedTags = new Set([...selected].map((i) => rowOverrides.get(i)?.tag ?? ''));
+  const bulkTagValue = hasPartialSelection ? (selectedTags.size === 1 ? ([...selectedTags][0] ?? '') : '') : tag;
+  function handleTagChange(value: string) {
+    if (hasPartialSelection) onTagRows([...selected], value);
+    else onTagChange(value);
+  }
 
   const kindOptions = (['existing', 'create', 'skip', 'transfer'] as const).map((kind) => ({
     value: kind,
@@ -100,10 +173,16 @@ export function CategoryTile({
       setShowCategoryPicker(true);
     } else if (kind === 'transfer') {
       const first = transferOptions[0];
+      // Preserve an already-picked destination account if the user is re-selecting 'transfer' after
+      // having briefly switched away from it (e.g. tried 'skip' then changed their mind); otherwise
+      // there's no confident guess for WHICH account, so it starts blank and the tile shows "Choose…"
+      // until one is explicitly picked (see `isCategoryResolutionDecided`).
+      const existingToAccountId = suggestion.kind === 'transfer' ? suggestion.toAccountId : '';
       onUpdate({
         kind: 'transfer',
         categoryId: first?.value ?? 'cat-tr-other',
-        categoryName: first?.label ?? 'Other Transfer'
+        categoryName: first?.label ?? 'Other Transfer',
+        toAccountId: existingToAccountId
       });
     } else if (kind === 'create') {
       // Preserve the current suggested group if we're already in 'create' state (the user may have
@@ -116,11 +195,16 @@ export function CategoryTile({
     }
   }
 
+  const transferToAccountName =
+    suggestion.kind === 'transfer'
+      ? (transferAccountOptions.find((a) => a.id === suggestion.toAccountId)?.name ?? '')
+      : '';
+
   const targetLabel: ReactNode =
     suggestion.kind === 'existing' ? (
       suggestion.categoryName
     ) : suggestion.kind === 'transfer' ? (
-      <Text style={{ color: theme.info }}>Transfer</Text>
+      <Text style={{ color: theme.info }}>Transfer{transferToAccountName ? ` → ${transferToAccountName}` : ''}</Text>
     ) : suggestion.kind === 'create' ? (
       <>
         {suggestion.suggestedName}{' '}
@@ -189,7 +273,10 @@ export function CategoryTile({
           </View>
         )}
 
-        {/* Row 2 — kind dropdown + tag box, pill-styled (same behavior, chip-like look) */}
+        {/* Row 2 — kind dropdown + tag box, pill-styled (same behavior, chip-like look). The tag box
+         *  reads/writes only the selected subset's own tag override once a strict subset is checked
+         *  below (2026-08-06) — its placeholder says so, so it's never ambiguous which transactions a
+         *  typed tag will actually land on. */}
         <View className="flex-row gap-2">
           <View className="flex-1">
             <SelectInput
@@ -201,28 +288,81 @@ export function CategoryTile({
           </View>
           <View className="flex-1">
             <TextInput
-              placeholder="Tag all transactions"
-              value={tag}
-              onChange={onTagChange}
+              placeholder={hasPartialSelection ? `Tag ${selectedCount} selected` : 'Tag all transactions'}
+              value={bulkTagValue}
+              onChange={handleTagChange}
               inputClassName="!rounded-full !py-1.5 !text-xs text-center"
             />
           </View>
         </View>
 
+        {/* Row 2b — bulk-move action, only once a strict subset of this tile's own rows is checked
+         *  below (2026-08-06). Moves just the selection to a different EXISTING category, leaving the
+         *  rest of this source category's rows on the tile's own group-level resolution untouched. */}
+        {hasPartialSelection && (
+          <Pressable
+            onPress={() => setShowBulkMovePicker(true)}
+            className="flex-row items-center justify-center gap-1.5 rounded-full py-1.5"
+            style={{ backgroundColor: tint(theme.primary, 12) }}
+          >
+            <Icon name="ti-arrow-right" size={13} color={theme.primary} />
+            <Text className="text-xs font-semibold" style={{ color: theme.primary }}>
+              Move {selectedCount} selected to…
+            </Text>
+          </Pressable>
+        )}
+
         {/* Row 3 — conditional on the selected kind. Labels sit notched into the field's top border
          *  (BorderLabelField) instead of a separate label row. Deliberately kept as normal fields, not
          *  pills — that treatment is reserved for the kind dropdown + tag box above. */}
         {suggestion.kind === 'transfer' && (
-          <BorderLabelField label="Transfer category">
-            <SelectInput
-              value={suggestion.categoryId}
-              onChange={(v) => {
-                const c = transferOptions.find((x) => x.value === v);
-                onUpdate({ kind: 'transfer', categoryId: v, categoryName: c?.label ?? v });
-              }}
-              options={transferOptions}
-            />
-          </BorderLabelField>
+          <View className="gap-1.5">
+            <View className="flex-row gap-2">
+              <View className="flex-1">
+                <BorderLabelField label="Transfer category">
+                  <SelectInput
+                    value={suggestion.categoryId}
+                    onChange={(v) => {
+                      const c = transferOptions.find((x) => x.value === v);
+                      onUpdate({
+                        kind: 'transfer',
+                        categoryId: v,
+                        categoryName: c?.label ?? v,
+                        toAccountId: suggestion.toAccountId
+                      });
+                    }}
+                    options={transferOptions}
+                  />
+                </BorderLabelField>
+              </View>
+              <View className="flex-1">
+                {/* Destination account this transfer credits (2026-08-09 fix) — see `CategoryAction`'s
+                 *  'transfer' variant doc comment for the real on-device bug this closes: this field
+                 *  used to not exist at all, so every "Mark as Transfer" row wrote with no `toAccountId`
+                 *  unless it happened to be auto-paired with a reciprocal row elsewhere in the same file. */}
+                <BorderLabelField label="Transfer to account">
+                  <SelectInput
+                    value={suggestion.toAccountId}
+                    onChange={(v) =>
+                      onUpdate({
+                        kind: 'transfer',
+                        categoryId: suggestion.categoryId,
+                        categoryName: suggestion.categoryName,
+                        toAccountId: v
+                      })
+                    }
+                    options={transferAccountOptions.map((a) => ({ value: a.id, label: a.name }))}
+                    placeholder="Choose…"
+                  />
+                </BorderLabelField>
+              </View>
+            </View>
+            {transferAccountOptions.length === 0 && (
+              <Text className="text-[10px] text-tertiary">
+                No other accounts yet — add one from Accounts, then come back to pick a destination.
+              </Text>
+            )}
+          </View>
         )}
         {suggestion.kind === 'create' && (
           <View className="flex-row gap-2">
@@ -255,34 +395,74 @@ export function CategoryTile({
         )}
       </View>
 
-      {/* Body — transactions only */}
+      {/* Body — transactions, each with a bulk-select checkbox (2026-08-06). Select-all here means
+       *  "select every row shown right now" — with more than 8 rows and "show all" not yet tapped, that
+       *  intentionally selects just the visible 8 rather than silently reaching into hidden ones. */}
       {expanded && (
         <View className="border-t border-theme px-3 py-2.5">
-          {rows.slice(0, 8).map((row, i) => (
-            <View
-              key={i}
-              className={`flex-row items-center justify-between gap-2 py-1.5 ${i > 0 ? 'border-t border-theme' : ''}`}
-            >
-              <View className="flex-1 min-w-0">
-                <Text className="text-[11px] font-medium text-primary" numberOfLines={1}>
-                  {row.description}
-                </Text>
-                <Text className="text-[9.5px] text-tertiary">
-                  {fmtShortDate(row.date)}
-                  {row.account ? ` · ${row.account}` : ''}
-                </Text>
-              </View>
-              <Text
-                className="text-[11px] font-semibold flex-shrink-0"
-                style={{ color: row.type === 'income' ? theme.success : theme.textPrimary }}
+          {rows.length > 1 && (
+            <Pressable onPress={toggleSelectAll} className="flex-row items-center gap-2 pb-1.5">
+              <View
+                className="w-4 h-4 rounded items-center justify-center border shrink-0"
+                style={{
+                  borderColor: allSelected ? theme.primary : theme.border,
+                  backgroundColor: allSelected ? theme.primary : 'transparent'
+                }}
               >
-                {row.type === 'income' ? '+' : ''}
-                {formatCurrency(row.amount)}
+                {allSelected && <Icon name="ti-check" size={10} color="#fff" />}
+              </View>
+              <Text className="text-[10.5px] font-semibold text-secondary">
+                {selectedCount > 0 ? `${selectedCount} selected` : 'Select all'}
               </Text>
-            </View>
-          ))}
+            </Pressable>
+          )}
+          {(showAllRows ? rows : rows.slice(0, 8)).map(({ row, index }, i) => {
+            const override = rowOverrides.get(index);
+            const isSelected = selected.has(index);
+            return (
+              <Pressable
+                key={index}
+                onPress={() => toggleRow(index)}
+                className={`flex-row items-center gap-2 py-1.5 ${i > 0 ? 'border-t border-theme' : ''}`}
+              >
+                <View
+                  className="w-4 h-4 rounded items-center justify-center border shrink-0"
+                  style={{
+                    borderColor: isSelected ? theme.primary : theme.border,
+                    backgroundColor: isSelected ? theme.primary : 'transparent'
+                  }}
+                >
+                  {isSelected && <Icon name="ti-check" size={10} color="#fff" />}
+                </View>
+                <View className="flex-1 min-w-0">
+                  <Text className="text-[11px] font-medium text-primary" numberOfLines={1}>
+                    {row.description}
+                  </Text>
+                  <Text className="text-[9.5px] text-tertiary" numberOfLines={1}>
+                    {fmtShortDate(row.date)}
+                    {row.account ? ` · ${row.account}` : ''}
+                    {override?.categoryName && (
+                      <Text style={{ color: theme.primary }}> · moved to {override.categoryName}</Text>
+                    )}
+                    {override?.tag && <Text style={{ color: theme.info }}> · #{override.tag}</Text>}
+                  </Text>
+                </View>
+                <Text
+                  className="text-[11px] font-semibold flex-shrink-0"
+                  style={{ color: row.type === 'income' ? theme.success : theme.textPrimary }}
+                >
+                  {row.type === 'income' ? '+' : ''}
+                  {formatCurrency(row.amount)}
+                </Text>
+              </Pressable>
+            );
+          })}
           {rows.length > 8 && (
-            <Text className="text-center text-[9.5px] text-tertiary pt-1.5">+ {rows.length - 8} more</Text>
+            <Pressable onPress={() => setShowAllRows((v) => !v)}>
+              <Text className="text-center text-[9.5px] font-semibold pt-1.5" style={{ color: theme.primary }}>
+                {showAllRows ? 'Show fewer' : `+ ${rows.length - 8} more`}
+              </Text>
+            </Pressable>
           )}
         </View>
       )}
@@ -291,6 +471,7 @@ export function CategoryTile({
         <CategoryPickerModal
           type={pickerType}
           categories={categories}
+          txnCountByCategory={txnCountByCategory}
           selectedId={suggestion.kind === 'existing' ? suggestion.categoryId : ''}
           onSelect={(id) => {
             const c = categories.find((x) => x.id === id);
@@ -298,6 +479,27 @@ export function CategoryTile({
             setShowCategoryPicker(false);
           }}
           onClose={() => setShowCategoryPicker(false)}
+        />
+      )}
+
+      {/* Bulk-move picker (2026-08-06) — moves exactly the checked subset to a different EXISTING
+       *  category, then clears the selection (the moved rows now show "moved to X" on their own row
+       *  instead of staying visibly checked with nothing left to do). Only ever "existing" — a row-level
+       *  override deliberately can't create a new category/mark as transfer/skip; those stay exclusively
+       *  group-level decisions (see RowOverride's doc comment). */}
+      {showBulkMovePicker && (
+        <CategoryPickerModal
+          type={pickerType}
+          categories={categories}
+          txnCountByCategory={txnCountByCategory}
+          selectedId=""
+          onSelect={(id) => {
+            const c = categories.find((x) => x.id === id);
+            onMoveRowsToCategory([...selected], id, c?.name ?? id);
+            setShowBulkMovePicker(false);
+            setSelected(new Set());
+          }}
+          onClose={() => setShowBulkMovePicker(false)}
         />
       )}
     </View>

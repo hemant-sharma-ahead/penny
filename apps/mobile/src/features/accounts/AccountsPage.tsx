@@ -27,6 +27,16 @@ export function AccountsPage() {
     navigation.navigate('BankImport', { accountId: acc.id });
   }
 
+  // Zero-account empty state's "or import a bank statement" — creates the account as `'bank'` (no
+  // type-picker step) and, once saved, hands off straight into Bank Import's setup screen for it,
+  // instead of leaving the user back on an empty Accounts list to find the row-level import action
+  // themselves (which doesn't exist yet, since there's no row).
+  function handleImportOnboarding() {
+    form.openAddWithType('bank', (acc) => {
+      navigation.navigate('BankImport', { accountId: acc.id });
+    });
+  }
+
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <PageHeader
@@ -38,6 +48,20 @@ export function AccountsPage() {
               accessibilityLabel="Merchant recognition settings"
               className="w-8 h-8 rounded-lg"
               onPress={() => navigation.navigate('BankImportOverrides')}
+            />
+            <Button
+              variant="ghost"
+              icon="ti-cash"
+              accessibilityLabel="Cash-withdrawal code settings"
+              className="w-8 h-8 rounded-lg"
+              onPress={() => navigation.navigate('BankCashWithdrawalCodes')}
+            />
+            <Button
+              variant="ghost"
+              icon="ti-history"
+              accessibilityLabel="Import history"
+              className="w-8 h-8 rounded-lg"
+              onPress={() => navigation.navigate('BankImportHistory', {})}
             />
             <Button
               variant="primary"
@@ -61,6 +85,7 @@ export function AccountsPage() {
           onAdd={form.openAdd}
           onEdit={form.openEdit}
           onImport={handleImport}
+          onImportOnboarding={handleImportOnboarding}
           deleteAccount={deleteAccount}
           reconcileAccount={reconcileAccount}
         />

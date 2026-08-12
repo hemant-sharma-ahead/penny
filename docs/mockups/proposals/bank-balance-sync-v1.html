@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Bank Balance Sync, mockup gallery v1</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --blue:#3b82f6; --danger:#ef4444; --amber:#f59e0b; --violet:#8b5cf6;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 20px; color:#9aa5b1; font-size:14px; max-width:920px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .thoughts { max-width:860px; margin:0 auto 30px; background:#101720; border:1px solid var(--border); border-radius:14px; padding:16px 22px; font-size:13px; line-height:1.8; color:#c3cad2; }
+      .thoughts b { color:#fff; }
+      .thoughts ul { margin:8px 0 0; padding-left:18px; }
+      .thoughts li { margin-bottom:4px; }
+
+      .flowbar { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; padding:0 20px 10px; position:sticky; top:0; background:#05070a; z-index:5; padding-top:10px; }
+      .flowbar a { font-size:10.5px; font-weight:700; color:#9aa5b1; background:#141a22; border:1px solid var(--border); border-radius:999px; padding:5px 11px; text-decoration:none; }
+      .flowbar a:hover { color:#fff; border-color:#3a4451; }
+
+      .sectiontitle { text-align:center; font-size:15px; font-weight:800; color:#fff; margin:50px 0 4px; scroll-margin-top:60px; }
+      .stepnum { display:inline-flex; width:20px; height:20px; border-radius:10px; background:var(--primary); color:#04150d; font-size:11px; font-weight:800; align-items:center; justify-content:center; margin-right:6px; }
+      .stepnum.alt { background:var(--blue); }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:820px; margin:0 auto 18px; line-height:1.65; }
+      .recopill { display:inline-block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; background:#123524; color:#7ee6b8; border:1px solid #1d4d34; border-radius:999px; padding:3px 10px; margin-bottom:8px; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 24px; justify-content:center; align-items:flex-start; padding:16px 20px 10px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.cur { background:#3a2412; color:#f0b060; }
+      .vtitle .tag.rec { background:#123524; color:#7ee6b8; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:16px; background:var(--bg); flex-shrink:0; }
+      .header { height:42px; display:flex; align-items:center; justify-content:space-between; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .header .t { font-size:13px; font-weight:700; color:#fff; }
+      .header .t .s { display:block; font-size:9.5px; font-weight:600; color:var(--text3); margin-top:1px; }
+      .content { padding:10px 12px; overflow-y:auto; }
+      .content.tall { height:560px; }
+      .content.med { height:460px; }
+      .content.short { height:300px; }
+
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:11px 12px; }
+      .row { display:flex; align-items:center; }
+      .between { justify-content:space-between; }
+      .lbl { font-size:9.5px; color:var(--text3); text-transform:uppercase; letter-spacing:.04em; }
+      .btn { display:flex; align-items:center; justify-content:center; gap:6px; border-radius:11px; padding:10px 0; font-size:12px; font-weight:700; }
+      .btn.pri { background:var(--primary); color:#04150d; }
+      .btn.sec { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+      .btn.ghost { background:transparent; color:var(--text2); }
+      .chip { display:inline-flex; align-items:center; gap:4px; background:var(--surface2); border:1px solid var(--border); border-radius:999px; padding:4px 9px; font-size:10.5px; font-weight:700; color:var(--text2); }
+      .chip.on { background:#123524; border-color:#1d4d34; color:#7ee6b8; }
+
+      /* ===== shared: transaction rows ===== */
+      .txrow { display:flex; align-items:center; gap:9px; padding:9px 4px; border-bottom:1px solid var(--border); position:relative; }
+      .txrow .ticn { width:30px; height:30px; border-radius:9px; background:var(--surface2); display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:13px; flex-shrink:0; }
+      .txrow .tmid { flex:1; min-width:0; }
+      .txrow .tmid .t1 { font-size:11.5px; font-weight:700; color:var(--text); }
+      .txrow .tmid .t2 { font-size:9.5px; color:var(--text3); margin-top:1px; }
+      .txrow .tamt { font-size:11.5px; font-weight:700; text-align:right; }
+      .txrow .tamt.cr { color:#7ee6b8; }
+      .txrow .tamt.db { color:var(--text); }
+      .datehead { font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--text3); padding:10px 4px 4px; }
+
+      /* ===== checkpoint marker styles (Direction A) ===== */
+      .txrow.ckpt-agree { }
+      .txrow.ckpt-agree .ckdot { position:absolute; left:-2px; top:50%; transform:translateY(-50%); width:5px; height:22px; border-radius:3px; background:var(--primary); }
+      .txrow.ckpt-flag { background:rgba(239,68,68,.07); margin:0 -8px; padding-left:12px; padding-right:8px; border-radius:8px; border-bottom-color:transparent; }
+      .txrow.ckpt-flag .ckdot { position:absolute; left:-2px; top:50%; transform:translateY(-50%); width:5px; height:22px; border-radius:3px; background:var(--danger); }
+      .ckpt-inline-badge { display:inline-flex; align-items:center; gap:3px; font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:1.5px 6px; border-radius:999px; margin-top:2px; }
+      .ckpt-inline-badge.good { background:#123524; color:#7ee6b8; }
+      .ckpt-inline-badge.bad { background:#3a1412; color:#ff9b8f; }
+      .ckpt-divider { display:flex; align-items:center; gap:8px; padding:6px 2px; margin:2px 0; }
+      .ckpt-divider .line { flex:1; height:1px; background:repeating-linear-gradient(90deg, var(--danger), var(--danger) 4px, transparent 4px, transparent 8px); }
+      .ckpt-divider .lbl2 { font-size:9px; font-weight:800; color:var(--danger); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap; }
+
+      /* ===== persistent unverified banner/badge ===== */
+      .unverified-banner { display:flex; gap:8px; background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3); border-radius:12px; padding:10px 11px; }
+      .unverified-banner i.lead { color:var(--danger); font-size:14px; margin-top:1px; }
+      .unverified-banner .txt { font-size:10.5px; color:#f4b8b0; line-height:1.5; flex:1; }
+      .unverified-banner .txt b { color:#fff; }
+      .unverified-banner .dismiss { color:var(--text3); font-size:12px; margin-top:1px; }
+      .unverified-pill { display:inline-flex; align-items:center; gap:4px; font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:2px 7px; border-radius:999px; background:rgba(239,68,68,.16); color:#ff9b8f; }
+
+      /* ===== checkpoint timeline table (Direction B/C drill-in) ===== */
+      .ckpt-table { border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+      .ckpt-thead { display:grid; grid-template-columns:44px 1fr 52px 52px; gap:4px; padding:6px 8px; background:var(--surface2); font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:var(--text3); }
+      .ckpt-trow { display:grid; grid-template-columns:44px 1fr 52px 52px; gap:4px; padding:7px 8px; align-items:center; border-top:1px solid var(--border); font-size:10px; }
+      .ckpt-trow.agree { color:var(--text2); }
+      .ckpt-trow.agree .diff { color:#7ee6b8; font-weight:700; }
+      .ckpt-trow.flagged { background:rgba(239,68,68,.09); }
+      .ckpt-trow.flagged .diff { color:var(--danger); font-weight:800; }
+      .ckpt-trow .desc { font-weight:700; color:var(--text); }
+      .ckpt-trow .amt { text-align:right; font-variant-numeric:tabular-nums; }
+      .ckpt-trow .diff { text-align:right; font-variant-numeric:tabular-nums; }
+      .ckpt-ellipsis { text-align:center; padding:5px; color:var(--text3); font-size:9.5px; border-top:1px solid var(--border); background:var(--surface); }
+
+      /* ===== nudge (current/legacy) ===== */
+      .nudge { display:flex; gap:8px; background:#3a2412; border:1px solid #5c3a17; border-radius:12px; padding:10px 11px; }
+      .nudge i { color:var(--amber); font-size:14px; margin-top:1px; }
+      .nudge .txt { font-size:10.5px; color:#f0d0a0; line-height:1.5; }
+
+      /* ===== account list mini-card (grounded in AccountList.tsx gradient cards) ===== */
+      .acctcard { border-radius:16px; padding:12px; position:relative; overflow:hidden; margin-bottom:10px; }
+      .acctcard.bank { background:linear-gradient(135deg,#1b2c4d,#0d1626); }
+      .acctcard .toprow { display:flex; align-items:center; justify-content:between; justify-content:space-between; margin-bottom:9px; }
+      .acctcard .icontile { width:28px; height:28px; border-radius:9px; background:rgba(255,255,255,.16); display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; }
+      .acctcard .typepill { padding:3px 8px; border-radius:999px; background:rgba(255,255,255,.12); font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:rgba(255,255,255,.65); }
+      .acctcard .namerow { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+      .acctcard .name { color:#fff; font-weight:700; font-size:13px; }
+      .acctcard .bal { color:#fff; font-weight:800; font-size:13.5px; text-align:right; }
+      .acctcard .netcap { color:rgba(255,255,255,.6); font-size:9px; text-align:right; margin-top:2px; }
+      .acctcard .divider { height:1px; background:rgba(255,255,255,.14); margin:9px 0; }
+      .acctcard .statuswarn { display:flex; align-items:center; gap:6px; background:rgba(239,68,68,.22); border:1px solid rgba(239,68,68,.4); border-radius:9px; padding:6px 8px; margin-bottom:8px; }
+      .acctcard .statuswarn i { color:#ffb3b3; font-size:12px; }
+      .acctcard .statuswarn span { color:#ffd7d7; font-size:9.5px; font-weight:600; line-height:1.4; }
+      .acctcard .acts { display:flex; gap:6px; }
+      .acctcard .acts .ib { width:26px; height:26px; border-radius:8px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; color:#fff; font-size:12px; }
+
+      /* ===== opening balance / anchor forms ===== */
+      .fieldlabel { font-size:10px; font-weight:700; color:var(--text2); margin-bottom:4px; margin-top:10px; }
+      .fieldbox { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:9px 10px; font-size:11px; color:var(--text); }
+      .fieldbox.focused { border-color:var(--primary); }
+      .fieldbox.ph { color:var(--text3); }
+      .anchorstrip { display:flex; gap:8px; }
+      .anchorstrip .s { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:11px; padding:9px; }
+      .anchorstrip .s .l { font-size:8.5px; color:var(--text3); text-transform:uppercase; margin-bottom:3px; }
+      .anchorstrip .s .v { font-size:12.5px; font-weight:800; color:var(--text); }
+      .anchorstrip .s.new { border-color:#1d4d34; background:#0f1f16; }
+      .anchorstrip .s.new .v { color:#7ee6b8; }
+      .anchorstrip .arrow { display:flex; align-items:center; color:var(--text3); font-size:14px; }
+
+      /* ===== transfer candidate choice ===== */
+      .candcard { display:flex; align-items:center; gap:8px; padding:9px; border:1.5px solid var(--border); border-radius:12px; margin-bottom:7px; }
+      .candcard.sel { border-color:var(--primary); background:rgba(0,168,107,.08); }
+      .candcard .cicn { width:30px; height:30px; border-radius:9px; background:var(--surface2); display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:13px; }
+      .candcard .cmid { flex:1; }
+      .candcard .cmid .t1 { font-size:11px; font-weight:700; color:var(--text); }
+      .candcard .cmid .t2 { font-size:9.5px; color:var(--text3); margin-top:1px; }
+      .candcard .radio { width:16px; height:16px; border-radius:50%; border:1.5px solid var(--border); flex-shrink:0; }
+      .candcard.sel .radio { border-color:var(--primary); background:radial-gradient(circle, var(--primary) 0 40%, transparent 42%); }
+
+      /* ===== modal (centred, per no-bottom-sheet rule) ===== */
+      .modalback { position:absolute; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:16px; }
+      .modalcard { width:100%; max-width:260px; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:14px; max-height:80%; overflow-y:auto; }
+      .modalcard .mtitle { font-size:12.5px; font-weight:800; color:#fff; margin-bottom:8px; }
+
+      /* ===== import history list ===== */
+      .histrow { display:flex; align-items:center; gap:9px; padding:10px 4px; border-bottom:1px solid var(--border); }
+      .histrow .hicn { width:30px; height:30px; border-radius:9px; background:var(--surface2); display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:13px; }
+      .histrow .hmid { flex:1; min-width:0; }
+      .histrow .hmid .t1 { font-size:11px; font-weight:700; color:var(--text); }
+      .histrow .hmid .t2 { font-size:9.5px; color:var(--text3); margin-top:1px; }
+      .histrow .hright { text-align:right; }
+      .histrow .hright .n { font-size:10.5px; font-weight:700; color:var(--text); }
+      .histrow .hright .n2 { font-size:9px; color:var(--text3); }
+
+      .compare2 { display:flex; gap:10px; }
+      .compare2 .half { flex:1; }
+      .compare2 .half .htag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; margin-bottom:5px; }
+      .compare2 .half.flat .htag { color:var(--amber); }
+      .compare2 .half.step .htag { color:var(--danger); }
+    </style>
+  </head>
+  <body>
+    <h1>Bank Balance Sync — Mockup Gallery v1</h1>
+    <p class="sub">
+      Grounded in <code>docs/plans/bank-balance-sync.md</code> §6 and the worked numbers in
+      <code>bank-balance-sync-simulation.html</code>. Every example below uses the same HDFC savings
+      ledger from that simulation (opening ₹50,000 on 1-Apr) — no invented numbers. This is mockup-only;
+      nothing here has been built.
+    </p>
+
+    <div class="thoughts">
+      <b>Scope note on "3 distinct directions":</b> the plan asks for 2–3 genuinely different directions
+      for "the new surfaces," not a full 3× repeat of all 7. The real design tension is concentrated in
+      <b>surfaces 1+2</b> — the checkpoint-diff marker and the persistent account-level "unverified"
+      state — because that's where subtlety-vs-clarity tradeoffs actually diverge. Sections A/B/C below
+      present three structurally different answers to <i>those two</i>. Surfaces 3–7 (gap banner, skipped
+      count, opening-balance/anchor prompts, ambiguous transfer) are each shown once, because the design
+      space there is narrower — they mostly reuse existing <code>Banner</code>/<code>Modal</code>/inline-form
+      patterns already established in <code>bank-statement-import-v1.html</code> and
+      <code>SetupStep.tsx</code>, so alternate "directions" would mostly be placement variants, which the
+      project's own convention says to avoid manufacturing for their own sake. Flagged explicitly in case
+      you want alternates there too.
+      <ul>
+        <li><b>Numbers used throughout:</b> §7b/7c's "missing 30-Apr interest" scenario (last agreeing =
+          25-Apr Groceries ₹106,800, first disagreeing = 3-May Salary, gap +₹120) is the centerpiece
+          example for surfaces 1/2/7-copy. §7d's wrong-opening-balance scenario (flat +₹1,000 from day
+          one) is the "flat" counter-example for the diagnostic-copy surface. §11b's gap wording, §11a's
+          skipped-count wording, §10a/§14/§14b's anchor numbers, and §13's HDFC↔ICICI ambiguous-transfer
+          example are used verbatim where the plan already gives exact copy.</li>
+        <li><b>One live bug this proposal fixes as a side effect:</b> today's <code>DoneStep.tsx</code>
+          "Reconcile now ›" nudge navigates to the Accounts list and stops there —
+          <code>ReconcileModal</code> only opens for <code>cash</code>/<code>wallet</code> accounts
+          (<code>RECONCILABLE</code> in <code>AccountList.tsx</code>), never for the
+          <code>bank</code> accounts this nudge actually fires for. It's a dead-end today. The new
+          persistent "unverified" surface (§2 below) replaces this nudge entirely and actually goes
+          somewhere on tap.</li>
+        <li><b>Scope check worth a decision:</b> <code>AccountList.tsx</code>'s
+          <code>STATEMENT_IMPORTABLE</code> set includes <code>credit_card</code> alongside
+          <code>bank</code> — but the plan (§3 decision 1, §8) explicitly scopes checkpoints to bank
+          accounts only, credit cards deferred. None of the surfaces below should appear on a
+          credit-card account until that's separately designed; worth confirming that's the intended
+          v1 boundary before implementation.</li>
+      </ul>
+    </div>
+
+    <div class="flowbar">
+      <a href="#s0">0. Current (today)</a>
+      <a href="#sA">A. Inline Markers</a>
+      <a href="#sB">B. Reconciliation Card</a>
+      <a href="#sC">C. Hybrid ★ recommended</a>
+      <a href="#s4">4. Account badge</a>
+      <a href="#s5">5. Diagnostic copy</a>
+      <a href="#s6">6. Gap banner</a>
+      <a href="#s7">7. Skipped-row count</a>
+      <a href="#s8">8. Opening balance</a>
+      <a href="#s9">9. Anchor shift</a>
+      <a href="#s10">10. Ambiguous transfer</a>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle" id="s0"><span class="stepnum">0</span>Current (today) — the reference point</div>
+    <div class="sectionsub">
+      <code>DoneStep.tsx</code>'s existing one-shot balance nudge, exactly as it renders today (same CSS
+      classes as the original <code>bank-statement-import-v1.html</code> mockup's <code>#s10</code>). Shown
+      here with §7b's real numbers substituted in: after committing an import that's silently missing the
+      30-Apr interest credit, the statement's real closing balance (₹1,79,330) disagrees with Penny's
+      computed balance (₹1,79,210) by ₹120.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Post-import nudge<span class="tag cur">today, unchanged</span></div>
+        <div class="vsub">One-shot, ±₹1 tolerance, advisory only. "Reconcile now" is a dead end for a bank account (see callout above) — and this disappears the moment you leave the screen. No persistent record anywhere.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Import complete</span></div>
+          <div class="content">
+            <div class="card" style="align-items:center; text-align:center; gap:6px; padding:20px 10px; margin-bottom:10px;">
+              <i class="ti ti-circle-check" style="color:var(--primary); font-size:28px;"></i>
+              <div style="font-size:12.5px; font-weight:700; color:#fff; margin-top:4px;">Import complete</div>
+              <div style="font-size:10px; color:var(--text3);">4 new transactions added · 9 linked to your statement</div>
+            </div>
+            <div class="nudge">
+              <i class="ti ti-alert-triangle"></i>
+              <div class="txt">Statement shows a closing balance of <b style="color:#fff;">₹1,79,330</b>, but Penny computes <b style="color:#fff;">₹1,79,210</b> — ₹120 gap. <span style="color:#7ee6b8; font-weight:700;">Reconcile now ›</span></div>
+            </div>
+            <div class="btn pri" style="margin-top:12px;">Done</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle" id="sA"><span class="stepnum alt">A</span>Direction A — Inline Ledger Markers</div>
+    <div class="sectionsub">
+      Lightest touch: no new card, no new screen. The checkpoint diff is shown <i>only</i> as small
+      markers directly on the real transaction rows (in the account's existing "View transactions"
+      list), plus a one-line pill on the account row itself. Nothing new to build beyond the rows
+      themselves.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Transaction list, markers inline<span class="tag">core idea</span></div>
+        <div class="vsub">A green left-edge tick marks the last-agreeing checkpoint (25-Apr Groceries); a red left-edge bar + dashed divider marks the first-disagreeing one (3-May Salary). Everything after stays flagged until the gap is explained.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">HDFC Savings<span class="s">All transactions</span></span><span style="width:16px;"></span></div>
+          <div class="content med">
+            <div class="datehead">April 2026</div>
+            <div class="txrow ckpt-agree">
+              <div class="ckdot"></div>
+              <div class="ticn"><i class="ti ti-shopping-cart"></i></div>
+              <div class="tmid"><div class="t1">Groceries</div><div class="t2">25 Apr<span class="ckpt-inline-badge good">✓ checkpoint</span></div></div>
+              <div class="tamt db">−₹2,200</div>
+            </div>
+            <div class="ckpt-divider"><div class="line"></div><span class="lbl2">₹120 gap starts here</span><div class="line"></div></div>
+            <div class="datehead">May 2026</div>
+            <div class="txrow ckpt-flag">
+              <div class="ckdot"></div>
+              <div class="ticn"><i class="ti ti-cash"></i></div>
+              <div class="tmid"><div class="t1">Salary</div><div class="t2">3 May<span class="ckpt-inline-badge bad">⚠ off by ₹120</span></div></div>
+              <div class="tamt cr">+₹80,000</div>
+            </div>
+            <div class="txrow ckpt-flag">
+              <div class="ckicn"></div>
+              <div class="ticn"><i class="ti ti-bolt"></i></div>
+              <div class="tmid"><div class="t1">Electricity</div><div class="t2">12 May<span class="ckpt-inline-badge bad">⚠ off by ₹120</span></div></div>
+              <div class="tamt db">−₹1,800</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Account row pill<span class="tag">list item</span></div>
+        <div class="vsub">Persistent state lives only as a tiny top-right status pill on the existing gradient mini-card — everything else on the card is unchanged from today.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Accounts</span></div>
+          <div class="content short">
+            <div class="acctcard bank">
+              <div class="toprow">
+                <div class="icontile"><i class="ti ti-building-bank"></i></div>
+                <span class="unverified-pill"><i class="ti ti-alert-triangle" style="font-size:8px;"></i>Unverified</span>
+              </div>
+              <div class="namerow">
+                <div class="name">HDFC Savings</div>
+                <div><div class="bal">₹1,79,210</div><div class="netcap">Included in net worth</div></div>
+              </div>
+              <div class="divider"></div>
+              <div class="acts">
+                <div class="ib"><i class="ti ti-upload"></i></div>
+                <div class="ib"><i class="ti ti-pencil"></i></div>
+                <div class="ib" style="margin-left:auto;"><i class="ti ti-trash"></i></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="thoughts" style="max-width:820px;">
+      <b>Tradeoff:</b> cheapest to build, zero new screens — but risks being <i>too</i> quiet. The plan's
+      own §9 note ("a badge that looks naggy in practice could change this") cuts both ways — a badge
+      this subtle could also be <i>invisible</i> in practice, especially since the transaction list isn't
+      opened often once an account is set up. A user could carry a real, precisely-located discrepancy for
+      months without ever scrolling to the flagged rows. Doesn't fully deliver on "make it easy to
+      <i>find</i> and correct things," even though the marker itself is precise once you're looking at it.
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle" id="sB"><span class="stepnum alt">B</span>Direction B — Dedicated Reconciliation Card + Full Checkpoint Timeline</div>
+    <div class="sectionsub">
+      Opposite end: a new, explicit "Reconciliation" screen per account (reachable from a dedicated card
+      above the transaction list) that renders the checkpoint history as a real table — literally the
+      same shape as the simulation doc's own §7 tables, styled for mobile. Most explanatory, most
+      literal translation of the plan's own diagnostic value — also the most new surface area.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Account detail — Reconciliation card<span class="tag">new card</span></div>
+        <div class="vsub">Sits above the transaction list in the account's detail view — its own distinct card, not a marker on existing rows.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">HDFC Savings</span><span style="width:16px;"></span></div>
+          <div class="content med">
+            <div class="card" style="margin-bottom:10px;">
+              <div class="row between"><span class="lbl">Current balance</span><span style="font-size:15px; font-weight:800; color:#fff;">₹1,79,210</span></div>
+            </div>
+            <div class="card" style="border-color:rgba(239,68,68,.35); margin-bottom:12px;">
+              <div class="row between" style="margin-bottom:6px;">
+                <div class="row" style="gap:6px;"><i class="ti ti-scale" style="color:var(--danger); font-size:15px;"></i><span style="font-size:11.5px; font-weight:800; color:#fff;">Reconciliation</span></div>
+                <span class="unverified-pill">Unverified</span>
+              </div>
+              <div style="font-size:10.5px; color:var(--text2); line-height:1.5; margin-bottom:8px;">Balance mismatch between <b style="color:#fff;">25 Apr</b> and <b style="color:#fff;">3 May</b>, <b style="color:#fff;">₹120</b>.</div>
+              <div class="btn sec" style="margin-bottom:6px;"><i class="ti ti-search" style="font-size:12px;"></i>Investigate ›</div>
+              <div class="btn ghost" style="font-size:10.5px;">I've reviewed this, dismiss</div>
+            </div>
+            <div class="datehead" style="padding-top:0;">Transactions</div>
+            <div class="txrow"><div class="ticn"><i class="ti ti-bolt"></i></div><div class="tmid"><div class="t1">Electricity</div><div class="t2">12 May</div></div><div class="tamt db">−₹1,800</div></div>
+            <div class="txrow"><div class="ticn"><i class="ti ti-cash"></i></div><div class="tmid"><div class="t1">Salary</div><div class="t2">3 May</div></div><div class="tamt cr">+₹80,000</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Full checkpoint timeline<span class="tag">drill-in screen</span></div>
+        <div class="vsub">Tapping "Investigate ›" opens a dedicated, literal ledger table — mirrors the simulation doc's own §7b table almost exactly.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Reconciliation<span class="s">HDFC Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content med">
+            <div style="font-size:10px; color:var(--text2); line-height:1.5; margin-bottom:8px;">Comparing Penny's running balance against your bank's own stated balance after each checkpointed transaction.</div>
+            <div class="ckpt-table">
+              <div class="ckpt-thead"><span>Date</span><span>Txn</span><span style="text-align:right;">Penny</span><span style="text-align:right;">Diff</span></div>
+              <div class="ckpt-trow agree"><span>15 Apr</span><span class="desc">Rent</span><span class="amt">1,09,150</span><span class="diff">0</span></div>
+              <div class="ckpt-trow agree"><span>20 Apr</span><span class="desc">SMS charges</span><span class="amt">1,09,000</span><span class="diff">0</span></div>
+              <div class="ckpt-trow agree"><span>25 Apr</span><span class="desc">Groceries</span><span class="amt">1,06,800</span><span class="diff">0</span></div>
+              <div class="ckpt-ellipsis">— last agreeing checkpoint —</div>
+              <div class="ckpt-trow flagged"><span>3 May</span><span class="desc">Salary</span><span class="amt">1,86,800</span><span class="diff">+120</span></div>
+              <div class="ckpt-trow flagged"><span>8 May</span><span class="desc">ATM w/draw</span><span class="amt">1,83,800</span><span class="diff">+120</span></div>
+              <div class="ckpt-trow flagged"><span>12 May</span><span class="desc">Electricity</span><span class="amt">1,82,000</span><span class="diff">+120</span></div>
+              <div class="ckpt-ellipsis">first disagreeing — steady at +120 ever since</div>
+            </div>
+            <div class="card" style="margin-top:10px; border-color:rgba(245,158,11,.35);">
+              <div style="font-size:10px; color:#f0d0a0; line-height:1.5;"><i class="ti ti-bulb" style="color:var(--amber);"></i>&nbsp;A missing or duplicate transaction between <b>25 Apr</b> and <b>3 May</b> — most likely a ₹120 debit or credit that never got recorded (see §5 diagnostic copy). Not an opening-balance issue, since earlier checkpoints agree.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="thoughts" style="max-width:820px;">
+      <b>Tradeoff:</b> the most faithful rendering of the plan's own "precision" payoff — a user can see
+      literally the exact table the simulation doc shows, no interpretation needed. But it's a new card
+      +&nbsp;a new full screen + new navigation entry per account, more surface area to build and
+      maintain, and risks feeling like a mini spreadsheet bolted onto a consumer finance app — tension
+      with "uncluttered first."
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle" id="sC"><span class="stepnum">C</span>Direction C — Hybrid: Compact Status + Drill Into the Real List <span style="color:#7ee6b8;">★ recommended</span></div>
+    <div class="sectionsub">
+      A short diagnostic snapshot (just the two rows that matter — last agreeing / first disagreeing —
+      not the whole ledger) surfaces from the same persistent badge as Direction A, but tapping
+      "Investigate" opens the account's <i>existing</i> transaction list (no new screen) scrolled to and
+      highlighting exactly those two rows with Direction A's inline markers. Best of both: a real,
+      unmissable entry point (unlike A), reusing infrastructure instead of a whole new screen (unlike B).
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Account detail — compact snapshot<span class="tag rec">recommended</span></div>
+        <div class="vsub">Two rows, not a table. Reuses the account modal's existing stat-row slot (<code>EntityTransactionsModal</code>'s <code>statLabel</code>/<code>statValue</code>) plus one new banner beneath it.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-x" style="color:#8b949e;"></i><span class="t">HDFC Savings</span><span style="width:16px;"></span></div>
+          <div class="content med">
+            <div class="row between" style="background:var(--surface2); border-radius:12px; padding:10px 14px; margin-bottom:10px;">
+              <span style="font-size:11px; color:var(--text2);">Current balance</span>
+              <span style="font-size:14px; font-weight:800; color:#fff;">₹1,79,210</span>
+            </div>
+            <div class="unverified-banner" style="margin-bottom:10px;">
+              <i class="ti ti-alert-triangle lead"></i>
+              <div class="txt">Balance mismatch between <b>25 Apr</b> and <b>3 May</b>, <b>₹120</b> — tap to investigate.<br/><span style="color:#9aa5b1;">Signature: steps in partway, then holds steady → look for one missing/duplicate transaction in that window, not a wrong opening balance.</span></div>
+            </div>
+            <div class="row" style="gap:8px; margin-bottom:12px;">
+              <div class="btn sec" style="flex:1; font-size:10.5px;"><i class="ti ti-search" style="font-size:12px;"></i>Investigate ›</div>
+              <div class="btn ghost" style="flex:1; font-size:10.5px; color:var(--text3);">Dismiss</div>
+            </div>
+            <div class="datehead" style="padding-top:0;">April 2026</div>
+            <div class="txrow"><div class="ticn"><i class="ti ti-shopping-cart"></i></div><div class="tmid"><div class="t1">Groceries</div><div class="t2">25 Apr</div></div><div class="tamt db">−₹2,200</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Same list, after tapping "Investigate"<span class="tag rec">drill-in, no new screen</span></div>
+        <div class="vsub">Auto-scrolled/highlighted to the exact pair — Direction A's markers, now purposeful because you arrived here <i>because</i> of them, not by chance scrolling.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-x" style="color:#8b949e;"></i><span class="t">HDFC Savings</span><span style="width:16px;"></span></div>
+          <div class="content med">
+            <div class="card" style="border-color:rgba(239,68,68,.3); margin-bottom:8px;">
+              <div style="font-size:10px; color:#f4b8b0;"><i class="ti ti-arrow-down" style="color:var(--danger);"></i>&nbsp;Scrolled to the flagged window below</div>
+            </div>
+            <div class="datehead">April 2026</div>
+            <div class="txrow ckpt-agree">
+              <div class="ckdot"></div>
+              <div class="ticn"><i class="ti ti-shopping-cart"></i></div>
+              <div class="tmid"><div class="t1">Groceries</div><div class="t2">25 Apr<span class="ckpt-inline-badge good">✓ last agreeing</span></div></div>
+              <div class="tamt db">−₹2,200</div>
+            </div>
+            <div class="ckpt-divider"><div class="line"></div><span class="lbl2">₹120 gap</span><div class="line"></div></div>
+            <div class="datehead">May 2026</div>
+            <div class="txrow ckpt-flag">
+              <div class="ckdot"></div>
+              <div class="ticn"><i class="ti ti-cash"></i></div>
+              <div class="tmid"><div class="t1">Salary</div><div class="t2">3 May<span class="ckpt-inline-badge bad">⚠ first disagreeing</span></div></div>
+              <div class="tamt cr">+₹80,000</div>
+            </div>
+            <div class="btn ghost" style="margin-top:8px; font-size:10px; color:var(--text3);">View full reconciliation table ›</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="thoughts" style="max-width:820px;">
+      <b>Why this is the recommendation:</b>
+      <ul>
+        <li>It's genuinely unmissable — the snapshot sits right where the user already looks (the account
+          modal they open to check a balance), not buried behind an extra tap into a new screen.</li>
+        <li>It reuses real infrastructure (<code>EntityTransactionsModal</code> + <code>TransactionsTab</code>,
+          already virtualized, already the account's canonical transaction view) instead of standing up a
+          parallel ledger-table screen — smaller surface area to build, test, and keep in sync later, and
+          matches "reuse patterns the user already knows" (§1 of the guidelines).</li>
+        <li>The "View full reconciliation table ›" link at the bottom is a deliberate escape hatch to
+          Direction B's table for the minority of users who do want the literal ledger view (e.g. after
+          multiple mismatches stack up) — so B's idea isn't lost, just demoted to progressive disclosure.</li>
+        <li>Honest tradeoff: this is more work than A (needs the modal extended with the banner + scroll-to
+          behavior) but meaningfully less than B (no new screen, no new nav route, no full checkpoint-table
+          renderer needed for v1 — can be added later behind that same link if it turns out to be wanted).</li>
+      </ul>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle" id="s4"><span class="stepnum">4</span>Account-level persistent badge — list + detail, side by side</div>
+    <div class="sectionsub">Direction C's badge, shown in both places §9 requires: the Accounts list item and the account detail. Both read the same underlying state — no separate copy to keep in sync.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Accounts list<span class="tag rec">list item</span></div>
+        <div class="vsub">Same gradient mini-card as today, one new pill top-right. A healthy account (Cash Wallet, not eligible for checkpoints) shows nothing extra.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Accounts</span><i class="ti ti-plus" style="color:#8b949e;"></i></div>
+          <div class="content short">
+            <div class="acctcard bank">
+              <div class="toprow">
+                <div class="icontile"><i class="ti ti-building-bank"></i></div>
+                <span class="unverified-pill"><i class="ti ti-alert-triangle" style="font-size:8px;"></i>Unverified</span>
+              </div>
+              <div class="namerow"><div class="name">HDFC Savings</div><div><div class="bal">₹1,79,210</div><div class="netcap">Included in net worth</div></div></div>
+              <div class="divider"></div>
+              <div class="acts"><div class="ib"><i class="ti ti-upload"></i></div><div class="ib"><i class="ti ti-pencil"></i></div><div class="ib" style="margin-left:auto;"><i class="ti ti-trash"></i></div></div>
+            </div>
+            <div class="acctcard" style="background:linear-gradient(135deg,#164a34,#0a2117);">
+              <div class="toprow"><div class="icontile"><i class="ti ti-wallet"></i></div><span class="typepill">Cash</span></div>
+              <div class="namerow"><div class="name">Cash Wallet</div><div><div class="bal">₹8,400</div><div class="netcap">Included in net worth</div></div></div>
+              <div class="divider"></div>
+              <div class="acts"><div class="ib"><i class="ti ti-scale"></i></div><div class="ib"><i class="ti ti-pencil"></i></div><div class="ib" style="margin-left:auto;"><i class="ti ti-trash"></i></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Account detail<span class="tag rec">as shown in §C</span></div>
+        <div class="vsub">Full localized text appears once you're actually looking at this account — the list pill is a pointer, the detail view is where the specifics live.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-x" style="color:#8b949e;"></i><span class="t">HDFC Savings</span><span style="width:16px;"></span></div>
+          <div class="content short">
+            <div class="row between" style="background:var(--surface2); border-radius:12px; padding:10px 14px; margin-bottom:10px;">
+              <span style="font-size:11px; color:var(--text2);">Current balance</span>
+              <span style="font-size:14px; font-weight:800; color:#fff;">₹1,79,210</span>
+            </div>
+            <div class="unverified-banner">
+              <i class="ti ti-alert-triangle lead"></i>
+              <div class="txt">Balance mismatch between <b>25 Apr</b> and <b>3 May</b>, <b>₹120</b> — tap to investigate.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="thoughts" style="max-width:820px;">
+      Per §9's resolved decision: this <b>never blocks</b> viewing the balance, adding a transaction, or
+      anything else about the account — it's informational, always dismissible ("I've reviewed this,
+      dismiss" in §C's snapshot), and re-appears only if a <i>new</i> mismatch is found later (e.g. the
+      next import). A dismissed mismatch should be remembered per checkpoint-pair, not globally — dismissing
+      today's ₹120 gap shouldn't silently swallow an unrelated future gap.
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle" id="s5"><span class="stepnum">5</span>Diagnostic copy — the two failure signatures, side by side</div>
+    <div class="sectionsub">The exact distinction from §7b/7c vs §7d, written as plain language that can drop into any of the surfaces above wherever a mismatch is shown.</div>
+    <div class="gallery">
+      <div class="frame-wrap" style="width:600px;">
+        <div class="vtitle">Signature comparison<span class="tag">copy reference</span></div>
+        <div class="vsub">Both use the same two real scenarios from the simulation — a missing 30-Apr interest credit (steps in) vs. a ₹49,000-instead-of-₹50,000 opening balance (flat from day one).</div>
+        <div class="card" style="width:600px;">
+          <div class="compare2">
+            <div class="half step">
+              <div class="htag">Steps in partway through</div>
+              <div style="background:var(--surface2); border-radius:10px; padding:10px; font-size:10.5px; color:var(--text); line-height:1.6;">
+                Every checkpoint agrees <b>until 25-Apr</b>, then jumps to a steady <b>+₹120</b> from 3-May
+                onward and never changes again.<br/><br/>
+                <span style="color:var(--danger); font-weight:700;">What it means:</span> a single missing
+                or duplicate transaction, strictly between those two dates — not your opening balance.
+                <span style="color:var(--text3);">(§7b/7c)</span>
+              </div>
+            </div>
+            <div class="half flat">
+              <div class="htag">Flat from day one</div>
+              <div style="background:var(--surface2); border-radius:10px; padding:10px; font-size:10.5px; color:var(--text); line-height:1.6;">
+                Every checkpoint is off by the <b>same +₹1,000</b>, all the way back to the <i>very
+                first</i> checkpoint — never zero, not even at the start.<br/><br/>
+                <span style="color:var(--amber); font-weight:700;">What it means:</span> check this
+                account's opening balance — it may have been entered wrong when the account was set up.
+                <span style="color:var(--text3);">(§7d)</span>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:9.5px; color:var(--text3); margin-top:10px; line-height:1.5;">
+            <i class="ti ti-info-circle"></i>&nbsp;Caveat surfaced inline whenever the "flat" copy shows: "This
+            only rules out a missing transaction if your opening balance was itself verified against an
+            earlier statement — if it was a typed-in guess, importing an even earlier statement is the only
+            way to confirm it." (§7d's caveat, §14b made concrete.)
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle" id="s6"><span class="stepnum">6</span>Gap-warning banner at import time</div>
+    <div class="sectionsub">§11b, exact wording. Shown on <code>SetupStep.tsx</code>, right below the existing mapping-preview <code>Banner</code> (same slot, same component) — after column mapping succeeds but before "Continue to review."</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Setup step — gap detected<span class="tag">new banner</span></div>
+        <div class="vsub">Last import for this account covered through 15-Mar; this file starts 1-Apr. Never blocks — a genuinely statement-free period (dormant account) is possible.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Import statement<span class="s">HDFC Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content">
+            <div class="card" style="margin-bottom:8px;">
+              <div class="row between"><span style="font-size:10.5px; color:var(--text2);">312 rows detected · 1–30 Apr 2026</span></div>
+            </div>
+            <div class="nudge" style="background:rgba(245,158,11,.12); border-color:rgba(245,158,11,.35); margin-bottom:10px;">
+              <i class="ti ti-calendar-exclamation" style="color:var(--amber);"></i>
+              <div class="txt" style="color:#f0d0a0;">There's a gap between <b style="color:#fff;">16-Mar</b> and <b style="color:#fff;">31-Mar</b> this account has no statement for — was that period genuinely empty, or is there a statement you haven't found yet?</div>
+            </div>
+            <div class="btn pri">Continue to review</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle" id="s7"><span class="stepnum">7</span>Skipped-row count — commit confirmation + batch history</div>
+    <div class="sectionsub">§11a, exact wording ("13 rows found, 11 added, 2 skipped"). Extends <code>DoneStep.tsx</code>'s existing pre-commit summary card — plus a new lightweight "Import history" screen, since no such screen exists yet (flagged below as new IA, not grounded in a real current screen).</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Commit confirmation<span class="tag">extends DoneStep</span></div>
+        <div class="vsub">One new row added to the existing tally card — "Excluded" sits alongside New/Confirmed/Lone-wolf, not a separate card.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Import statement<span class="s">HDFC Savings</span></span></div>
+          <div class="content">
+            <div class="card" style="margin-bottom:10px;">
+              <div class="row between" style="margin-bottom:6px;"><span style="font-size:11px; color:var(--text2);">New transactions</span><span style="font-size:12px; font-weight:700;">4</span></div>
+              <div class="row between" style="margin-bottom:6px;"><span style="font-size:11px; color:var(--text2);">Confirmed matches</span><span style="font-size:12px; font-weight:700;">9</span></div>
+              <div class="row between" style="margin-bottom:6px;"><span style="font-size:11px; color:var(--text2);">Excluded — you chose not to add</span><span style="font-size:12px; font-weight:700; color:var(--amber);">2</span></div>
+              <div class="row between"><span style="font-size:11px; color:var(--text2);">Lone-wolf actions</span><span style="font-size:12px; font-weight:700;">0</span></div>
+            </div>
+            <div style="font-size:9.5px; color:var(--text3); margin-bottom:10px;">15 rows found in this file · 13 handled, 2 skipped intentionally.</div>
+            <div class="btn pri">Import 13 transactions</div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Import history<span class="tag">new screen — flagged</span></div>
+        <div class="vsub">Reachable the same way as "Merchant recognition" / "Cash-withdrawal codes" today — a new icon action in Accounts' header, per account or global. Not grounded in an existing screen since none exists yet.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Import history<span class="s">HDFC Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content med">
+            <div class="histrow">
+              <div class="hicn"><i class="ti ti-file-check"></i></div>
+              <div class="hmid"><div class="t1">statement_may.csv</div><div class="t2">1–31 May 2026 · imported 6 Aug</div></div>
+              <div class="hright"><div class="n">9 added</div><div class="n2">0 skipped</div></div>
+            </div>
+            <div class="histrow">
+              <div class="hicn"><i class="ti ti-file-check"></i></div>
+              <div class="hmid"><div class="t1">statement_apr.csv</div><div class="t2">1–30 Apr 2026 · imported 6 Aug</div></div>
+              <div class="hright"><div class="n">4 added</div><div class="n2" style="color:var(--amber);">2 skipped</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle" id="s8"><span class="stepnum">8</span>Opening-balance confirm — first-ever import</div>
+    <div class="sectionsub">§10a: always ask, never silently assume — even when a header value is parseable. Inline within <code>SetupStep.tsx</code>'s flow (mirrors the "PpfFields-style inline gate" reference the plan calls out), not a separate modal.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">First-ever import for this account<span class="tag">inline confirm</span></div>
+        <div class="vsub">A parsed suggestion prefills the field but is never auto-accepted — the user must confirm or correct it before "Continue to review" is enabled.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Import statement<span class="s">HDFC Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content">
+            <div class="card" style="border-color:rgba(59,130,246,.35); margin-bottom:10px;">
+              <div class="row" style="gap:6px; margin-bottom:6px;"><i class="ti ti-anchor" style="color:var(--blue); font-size:14px;"></i><span style="font-size:11.5px; font-weight:800; color:#fff;">Confirm opening balance</span></div>
+              <div style="font-size:10px; color:var(--text2); line-height:1.5; margin-bottom:8px;">First statement ever imported for this account. What was the real balance immediately before this statement's first row (1 Apr 2026)?</div>
+              <div class="fieldlabel" style="margin-top:0;">Opening balance, as of 1 Apr 2026</div>
+              <div class="fieldbox focused">₹50,000 <span style="color:var(--text3); font-size:9px;">— parsed from statement header</span></div>
+            </div>
+            <div class="btn pri">Continue to review</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle" id="s9"><span class="stepnum">9</span>Anchor-shift flow — backfilling an earlier statement</div>
+    <div class="sectionsub">§14a (clean case) and §14b (the anchor disagrees with what's already there) — never auto-resolved, always surfaced as a decision.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Clean backfill<span class="tag">§14a</span></div>
+        <div class="vsub">Backfilling 2022–23 statements moves the anchor back to 1-Jan-2022 — and the numbers agree, so nothing downstream needs to change.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Import statement<span class="s">HDFC Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content">
+            <div class="card" style="border-color:rgba(59,130,246,.35);">
+              <div class="row" style="gap:6px; margin-bottom:8px;"><i class="ti ti-anchor" style="color:var(--blue); font-size:14px;"></i><span style="font-size:11.5px; font-weight:800; color:#fff;">Opening-balance anchor moves earlier</span></div>
+              <div class="anchorstrip" style="margin-bottom:8px;">
+                <div class="s"><div class="l">Was</div><div class="v">₹50,000<br/><span style="font-size:9px; color:var(--text3); font-weight:400;">as of 1 Jan 2024</span></div></div>
+                <div class="arrow"><i class="ti ti-arrow-right"></i></div>
+                <div class="s new"><div class="l">Now</div><div class="v">₹20,000<br/><span style="font-size:9px; color:var(--text3); font-weight:400;">as of 1 Jan 2022</span></div></div>
+              </div>
+              <div style="font-size:10px; color:#7ee6b8; line-height:1.5;"><i class="ti ti-circle-check"></i>&nbsp;2022–23 activity (net +₹30,000) lands exactly back on your existing 1-Jan-2024 figure — nothing after that date needs to change.</div>
+            </div>
+            <div class="btn pri" style="margin-top:10px;">Continue to review</div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Disagreeing backfill<span class="tag">§14b — needs a human</span></div>
+        <div class="vsub">Same backfill, except the new anchor implies 1-Jan-2024 should have been ₹52,000, not ₹50,000. Never auto-resolved — surfaced as an explicit choice.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Import statement<span class="s">HDFC Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content">
+            <div class="card" style="border-color:rgba(239,68,68,.4);">
+              <div class="row" style="gap:6px; margin-bottom:8px;"><i class="ti ti-alert-triangle" style="color:var(--danger); font-size:14px;"></i><span style="font-size:11.5px; font-weight:800; color:#fff;">This backfill disagrees with your existing anchor</span></div>
+              <div style="font-size:10px; color:var(--text2); line-height:1.6; margin-bottom:9px;">
+                Your account's 1-Jan-2024 opening balance is <b style="color:#fff;">₹50,000</b>. But these
+                2022–23 statements imply it should have been <b style="color:#fff;">₹52,000</b> — a
+                <b style="color:var(--danger);"> ₹2,000</b> disagreement. This could mean a real defect in
+                this backfill (check the review screen for a missing/duplicate row), or the original 2024
+                setup figure was simply a wrong guess.
+              </div>
+              <div class="btn sec" style="margin-bottom:6px; font-size:10.5px;">Review the new import's rows first</div>
+              <div class="btn sec" style="margin-bottom:6px; font-size:10.5px;">Accept — shift everything by ₹2,000</div>
+              <div class="btn ghost" style="font-size:10.5px; color:var(--text3);">Keep the original ₹50,000, flag for later</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle" id="s10"><span class="stepnum">10</span>Ambiguous multi-candidate transfer choice</div>
+    <div class="sectionsub">§13's HDFC→ICICI example, complicated by a coincidental second ₹20,000 same-day credit on ICICI. Never auto-links — always a choice, centred modal (no bottom sheet), same pattern as <code>PossibleMatchPickerModal.tsx</code>.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Possible-transfer, 2 candidates<span class="tag">centred modal</span></div>
+        <div class="vsub">ICICI's statement has two equally-plausible ₹20,000 credits on 10-Jun — one really is the HDFC transfer, the other is unrelated. Neither gets auto-linked.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">HDFC Savings</span></div>
+          <div class="content" style="position:relative; height:400px;">
+            <div class="modalback">
+              <div class="modalcard">
+                <div class="mtitle">Which transaction is this transfer?</div>
+                <div class="card" style="margin-bottom:10px; padding:9px;">
+                  <div class="lbl">HDFC statement line</div>
+                  <div style="font-size:11px; font-weight:700; color:#fff; margin-top:2px;">NEFT TO ICICI XXXX1234</div>
+                  <div style="font-size:10px; color:var(--text2); margin-top:1px;">10 Jun · −₹20,000</div>
+                </div>
+                <div class="candcard sel">
+                  <div class="cicn"><i class="ti ti-arrows-left-right"></i></div>
+                  <div class="cmid"><div class="t1">NEFT FROM HDFC XXXX5678</div><div class="t2">10 Jun · +₹20,000 · ICICI Savings</div></div>
+                  <div class="radio"></div>
+                </div>
+                <div class="candcard">
+                  <div class="cicn"><i class="ti ti-help-circle"></i></div>
+                  <div class="cmid"><div class="t1">IMPS FROM RAJESH K.</div><div class="t2">10 Jun · +₹20,000 · ICICI Savings</div></div>
+                  <div class="radio"></div>
+                </div>
+                <div class="btn pri" style="margin-bottom:6px;">Link selected as transfer</div>
+                <div class="btn sec" style="font-size:10.5px;">Neither — keep both separate</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </body>
+</html>

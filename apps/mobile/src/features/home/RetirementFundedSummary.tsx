@@ -2,10 +2,15 @@ import { View, Text, Pressable } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { formatCurrency, formatCompact } from '@/lib/formatters';
 import { Icon } from '~/components/Icon';
+import { useTheme } from '~/theme/ThemeProvider';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { RetirementProjectionResult } from '@/core/calculators/retirementProjection';
 
 const VIOLET_LIGHT = '#a78bfa';
+// `VIOLET_LIGHT` reads fine against the "on track" chip's dark-theme composite but is ~2:1 contrast on
+// its light-theme one (a 14%-opacity violet tint over white) — barely readable (found 2026-08-04, same
+// class of bug as `RetirementCorpusChart.tsx`'s "proj." label).
+const VIOLET_LIGHT_ON_LIGHT_THEME = '#6d28d9';
 const GAUGE_SIZE = 78;
 const RADIUS = 33;
 const STROKE = 7;
@@ -19,6 +24,10 @@ interface StatTileProps {
 
 function StatTile({ label, value, open }: StatTileProps) {
   const theme = useThemeColors();
+  const { activePalette } = useTheme();
+  // Labels match the chart's/gauge's own violet (2026-08-05) — "Needed"/"Projected"/"Monthly SIP" used
+  // to be plain `textTertiary` gray, inconsistent with "today"/"projected" on the chart just above.
+  const violet = activePalette === 'light' ? VIOLET_LIGHT_ON_LIGHT_THEME : VIOLET_LIGHT;
   return (
     // Beside the gauge (not below it, and the gauge itself doesn't move/resize) — 3 stacked-not-paired
     // mini tiles sharing this narrow leftover width. `formatCompact` ("₹18.2Cr" vs `formatCurrency`'s
@@ -28,7 +37,7 @@ function StatTile({ label, value, open }: StatTileProps) {
     <View className="flex-1 items-start gap-1">
       <Text
         className="text-[10.5px] font-medium"
-        style={{ color: theme.textTertiary }}
+        style={{ color: violet }}
         numberOfLines={1}
         adjustsFontSizeToFit
         minimumFontScale={0.85}
@@ -71,9 +80,16 @@ export function RetirementFundedSummary({
   onOpenDrilldown
 }: Props) {
   const theme = useThemeColors();
+  const { activePalette } = useTheme();
+  const violetOnChip = activePalette === 'light' ? VIOLET_LIGHT_ON_LIGHT_THEME : VIOLET_LIGHT;
   const clamped = Math.min(100, Math.max(0, projection.percentFunded));
   const filled = (CIRCUMFERENCE * clamped) / 100;
   const gap = Math.round(projection.monthlyGapToClose);
+  // `corpusNeeded` (and therefore `monthlyGapToClose`) degenerates to 0 with no expense data entered
+  // yet — not because the plan is genuinely funded, just because there's no real target to measure
+  // against. `gap > 0` alone can't tell those apart, so this was claiming "On track — fully funded"
+  // for a brand-new user with nothing entered (found 2026-08-05).
+  const hasTarget = projection.corpusNeeded > 0;
 
   return (
     <View className="pt-2">
@@ -123,11 +139,17 @@ export function RetirementFundedSummary({
         className="mt-3.5 px-3 py-2.5 rounded-xl flex-row items-center gap-1.5"
         style={{ backgroundColor: 'rgba(139,92,246,0.14)' }}
       >
-        <Icon name={gap > 0 ? 'ti-trending-up' : 'ti-check'} size={13} color={VIOLET_LIGHT} />
-        <Text className="text-[11px] font-semibold flex-1" style={{ color: VIOLET_LIGHT }} numberOfLines={2}>
-          {gap > 0
-            ? `${open ? `+${formatCurrency(gap)}` : '+••••'}/mo closes this gap by ${retirementYear}`
-            : `On track — fully funded by ${retirementYear}`}
+        <Icon
+          name={!hasTarget ? 'ti-info-circle' : gap > 0 ? 'ti-trending-up' : 'ti-check'}
+          size={13}
+          color={violetOnChip}
+        />
+        <Text className="text-[11px] font-semibold flex-1" style={{ color: violetOnChip }} numberOfLines={2}>
+          {!hasTarget
+            ? 'Add your monthly expenses to calculate your retirement target'
+            : gap > 0
+              ? `${open ? `+${formatCurrency(gap)}` : '+••••'}/mo closes this gap by ${retirementYear}`
+              : `On track — fully funded by ${retirementYear}`}
         </Text>
       </View>
 

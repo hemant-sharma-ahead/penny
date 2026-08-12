@@ -29,7 +29,8 @@ export function narrateDay(entries: ActivityLog[], nowMs: number = Date.now()): 
   for (const e of todays) {
     if (e.action === 'CREATE') created += 1;
     else if (e.action === 'UPDATE') updated += 1;
-    else if (e.action === 'DELETE' || e.action === 'BULK_DELETE') deleted += e.entityCount ?? 1;
+    else if (e.action === 'DELETE' || e.action === 'BULK_DELETE' || e.action === 'UNDO_IMPORT')
+      deleted += e.entityCount ?? 1;
     else if (e.action === 'BULK_MOVE') moved += e.entityCount ?? 1;
     else if (e.action === 'IMPORT') imported += e.entityCount ?? 1;
     else if (e.action === 'BULK_UPDATE') updated += e.entityCount ?? 1;
@@ -67,7 +68,8 @@ export function weeklyStats(entries: ActivityLog[], nowMs: number = Date.now()):
     const wd = new Date(e.timestamp).getDay();
     byWeekday.set(wd, (byWeekday.get(wd) ?? 0) + 1);
     if (e.action === 'CREATE' || e.action === 'IMPORT') added += e.entityCount ?? 1;
-    if (e.action === 'DELETE' || e.action === 'BULK_DELETE') removed += e.entityCount ?? 1;
+    if (e.action === 'DELETE' || e.action === 'BULK_DELETE' || e.action === 'UNDO_IMPORT')
+      removed += e.entityCount ?? 1;
   }
   const busiest = [...byWeekday.entries()].sort((a, b) => b[1] - a[1])[0];
   return {

@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Penny — App Icon Directions v2 (money-identifiable)</title>
+<style>
+  :root {
+    --green: #00a86b;
+    --green-dark: #067a4f;
+    --green-deep: #045538;
+    --cream: #fff8ec;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 32px 100px;
+    background: #12151a;
+    color: #eef1f4;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lead { color: #9aa3ad; font-size: 14px; max-width: 780px; line-height: 1.6; margin-bottom: 36px; }
+  .lead b { color: #eef1f4; }
+  section { margin-bottom: 56px; }
+  .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #6f7a86; margin-bottom: 14px; font-weight: 600; }
+  .row { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+  .card {
+    background: #1b1f26;
+    border: 1px solid #2a2f38;
+    border-radius: 16px;
+    padding: 20px;
+    width: 270px;
+  }
+  .card.pick { border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+  .card h3 { font-size: 14px; margin: 12px 0 4px; color: #eef1f4; }
+  .card p { font-size: 12px; color: #9aa3ad; line-height: 1.5; margin: 0 0 12px; }
+  .badge {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+    color: var(--green); background: rgba(0,168,107,0.15); border: 1px solid rgba(0,168,107,0.4);
+    border-radius: 999px; padding: 3px 9px; margin-bottom: 8px; text-transform: uppercase;
+  }
+  .badge.warn {
+    color: #f59e0b; background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.4);
+  }
+  .icon-tray { display: flex; align-items: center; gap: 18px; justify-content: center; padding: 16px 0; }
+  .tile-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .tile-label { font-size: 9px; color: #6f7a86; }
+  .squircle {
+    border-radius: 22.5%;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .home-strip {
+    display: flex; gap: 10px; padding: 14px; border-radius: 14px; margin-top: 6px;
+  }
+  .home-strip.light { background: linear-gradient(180deg,#dfe7ee,#c9d4de); }
+  .home-strip.dark { background: linear-gradient(180deg,#20242c,#14171c); }
+  .home-strip .squircle { width: 40px; height: 40px; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+
+<h1>Penny — App Icon Directions v2</h1>
+<div class="lead">
+  Follow-up to <code>app-icon-v1.html</code> (Direction F, the leaf-medallion coin stack, shipped
+  2026-08-04 as the real <code>assets/icon.png</code>). Fresh feedback: it doesn't read as
+  <b>money</b> at a glance — the cream teardrop shape reads as a leaf/plant mark before it reads as a
+  coin, so the whole icon lands closer to an eco/wellness app than a finance app. The coin-disc
+  <i>frame</i> (two-tone green rim, deeper offset coin behind for a "stack" feel) was working fine —
+  it's specifically the <b>center glyph</b> that needs to change. All directions below keep that same
+  coin-badge frame and brand palette, but swap the leaf for something that reads as currency with zero
+  interpretation required — most of these lean on the ₹ symbol itself, since it's the one mark that
+  can't be mistaken for anything else and directly signals "India-first money app."
+</div>
+
+<!-- CURRENT -->
+<section>
+  <div class="section-title">Current (shipped 2026-08-04 — the problem)</div>
+  <div class="row">
+    <div class="card">
+      <span class="badge warn">Doesn't read as money</span>
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="288" cy="288" r="200" fill="var(--green-deep)" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
+            <circle cx="256" cy="256" r="200" fill="var(--green-dark)" stroke="rgba(255,255,255,0.55)" stroke-width="8"/>
+            <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+            <path d="M256 366V166" stroke="var(--green-dark)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M256 320 C220 300 196 270 210 236" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M256 270 C292 250 316 220 302 186" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="288" cy="288" r="200" fill="var(--green-deep)" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
+            <circle cx="256" cy="256" r="200" fill="var(--green-dark)" stroke="rgba(255,255,255,0.55)" stroke-width="8"/>
+            <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+            <path d="M256 366V166" stroke="var(--green-dark)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M256 320 C220 300 196 270 210 236" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M256 270 C292 250 316 220 302 186" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="288" cy="288" r="200" fill="var(--green-deep)" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
+            <circle cx="256" cy="256" r="200" fill="var(--green-dark)" stroke="rgba(255,255,255,0.55)" stroke-width="8"/>
+            <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+            <path d="M256 366V166" stroke="var(--green-dark)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M256 320 C220 300 196 270 210 236" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M256 270 C292 250 316 220 302 186" stroke="var(--green-dark)" stroke-width="10" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>Solid shapes hold up at every size (that part worked), but the glyph itself is a leaf — anyone
+      seeing this cold reads "plants/eco/wellness," not "money." The coin frame around it isn't enough
+      to override that reading.</p>
+    </div>
+  </div>
+</section>
+
+<!-- A -->
+<section>
+  <div class="section-title">Direction A — Bold ₹ Coin <span style="color:#6f7a86; font-weight: 400; text-transform: none; letter-spacing: 0;">(recommended)</span></div>
+  <div class="row">
+    <div class="card pick">
+      <div class="badge">Top pick</div>
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="288" cy="288" r="200" fill="var(--green-deep)" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
+            <circle cx="256" cy="256" r="200" fill="var(--green-dark)" stroke="rgba(255,255,255,0.55)" stroke-width="8"/>
+            <circle cx="256" cy="256" r="172" fill="var(--cream)"/>
+            <path d="M186 158H332" stroke="var(--green-deep)" stroke-width="34" stroke-linecap="round"/>
+            <path d="M186 158C186 158 262 158 270 202C278 246 186 246 186 246" stroke="var(--green-deep)" stroke-width="34" fill="none" stroke-linecap="round"/>
+            <path d="M186 246H326" stroke="var(--green-deep)" stroke-width="34" stroke-linecap="round"/>
+            <path d="M210 246L330 366" stroke="var(--green-deep)" stroke-width="34" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="288" cy="288" r="200" fill="var(--green-deep)" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
+            <circle cx="256" cy="256" r="200" fill="var(--green-dark)" stroke="rgba(255,255,255,0.55)" stroke-width="8"/>
+            <circle cx="256" cy="256" r="172" fill="var(--cream)"/>
+            <path d="M186 158H332" stroke="var(--green-deep)" stroke-width="34" stroke-linecap="round"/>
+            <path d="M186 158C186 158 262 158 270 202C278 246 186 246 186 246" stroke="var(--green-deep)" stroke-width="34" fill="none" stroke-linecap="round"/>
+            <path d="M186 246H326" stroke="var(--green-deep)" stroke-width="34" stroke-linecap="round"/>
+            <path d="M210 246L330 366" stroke="var(--green-deep)" stroke-width="34" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="288" cy="288" r="200" fill="var(--green-deep)" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
+            <circle cx="256" cy="256" r="200" fill="var(--green-dark)" stroke="rgba(255,255,255,0.55)" stroke-width="8"/>
+            <circle cx="256" cy="256" r="172" fill="var(--cream)"/>
+            <path d="M186 158H332" stroke="var(--green-deep)" stroke-width="34" stroke-linecap="round"/>
+            <path d="M186 158C186 158 262 158 270 202C278 246 186 246 186 246" stroke="var(--green-deep)" stroke-width="34" fill="none" stroke-linecap="round"/>
+            <path d="M186 246H326" stroke="var(--green-deep)" stroke-width="34" stroke-linecap="round"/>
+            <path d="M210 246L330 366" stroke="var(--green-deep)" stroke-width="34" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>Same coin-stack frame as the shipped icon (kept — it was never the problem), but the cream
+      medallion face is now a plain coin disc carrying a bold, thick ₹ glyph instead of a leaf. Reads as
+      "money" instantly, no cultural translation needed, and directly reinforces the India-first
+      positioning. Bold uniform stroke width survives 24px cleanly — same reason the current icon's
+      solid shapes already hold up at small sizes.</p>
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-bottom:10px;">On a home screen</div>
+      <div class="home-strip light">
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512">
+          <rect width="512" height="512" fill="var(--green)"/>
+          <circle cx="288" cy="288" r="200" fill="var(--green-deep)"/>
+          <circle cx="256" cy="256" r="200" fill="var(--green-dark)"/>
+          <circle cx="256" cy="256" r="172" fill="var(--cream)"/>
+          <path d="M186 158H332" stroke="var(--green-deep)" stroke-width="34" stroke-linecap="round"/>
+          <path d="M186 158C186 158 262 158 270 202C278 246 186 246 186 246" stroke="var(--green-deep)" stroke-width="34" fill="none" stroke-linecap="round"/>
+          <path d="M186 246H326" stroke="var(--green-deep)" stroke-width="34" stroke-linecap="round"/>
+          <path d="M210 246L330 366" stroke="var(--green-deep)" stroke-width="34" stroke-linecap="round"/>
+        </svg>
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#3b82f6"/></svg>
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#111827"/></svg>
+      </div>
+      <div class="home-strip dark">
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512">
+          <rect width="512" height="512" fill="var(--green)"/>
+          <circle cx="288" cy="288" r="200" fill="var(--green-deep)"/>
+          <circle cx="256" cy="256" r="200" fill="var(--green-dark)"/>
+          <circle cx="256" cy="256" r="172" fill="var(--cream)"/>
+          <path d="M186 158H332" stroke="var(--green-deep)" stroke-width="34" stroke-linecap="round"/>
+          <path d="M186 158C186 158 262 158 270 202C278 246 186 246 186 246" stroke="var(--green-deep)" stroke-width="34" fill="none" stroke-linecap="round"/>
+          <path d="M186 246H326" stroke="var(--green-deep)" stroke-width="34" stroke-linecap="round"/>
+          <path d="M210 246L330 366" stroke="var(--green-deep)" stroke-width="34" stroke-linecap="round"/>
+        </svg>
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#3b82f6"/></svg>
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#111827"/></svg>
+      </div>
+      <p style="margin-top:12px;">Unmistakably a currency mark next to neighbouring app icons, both wallpapers.</p>
+    </div>
+  </div>
+</section>
+
+<!-- B -->
+<section>
+  <div class="section-title">Direction B — Stacked Coins, ₹ on top</div>
+  <div class="row">
+    <div class="card">
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <rect width="512" height="512" fill="var(--green)"/>
+            <ellipse cx="256" cy="352" rx="132" ry="40" fill="var(--green-deep)"/>
+            <rect x="124" y="322" width="264" height="30" fill="var(--green-deep)"/>
+            <ellipse cx="256" cy="322" rx="132" ry="40" fill="var(--cream)" opacity="0.55"/>
+            <ellipse cx="256" cy="300" rx="132" ry="40" fill="var(--green-dark)"/>
+            <rect x="124" y="270" width="264" height="30" fill="var(--green-dark)"/>
+            <ellipse cx="256" cy="270" rx="132" ry="40" fill="var(--cream)" opacity="0.75"/>
+            <ellipse cx="256" cy="248" rx="132" ry="40" fill="var(--cream)"/>
+            <text x="256" y="266" font-family="Georgia, serif" font-size="88" font-weight="700" fill="var(--green-deep)" text-anchor="middle">₹</text>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <rect width="512" height="512" fill="var(--green)"/>
+            <ellipse cx="256" cy="352" rx="132" ry="40" fill="var(--green-deep)"/>
+            <rect x="124" y="322" width="264" height="30" fill="var(--green-deep)"/>
+            <ellipse cx="256" cy="322" rx="132" ry="40" fill="var(--cream)" opacity="0.55"/>
+            <ellipse cx="256" cy="300" rx="132" ry="40" fill="var(--green-dark)"/>
+            <rect x="124" y="270" width="264" height="30" fill="var(--green-dark)"/>
+            <ellipse cx="256" cy="270" rx="132" ry="40" fill="var(--cream)" opacity="0.75"/>
+            <ellipse cx="256" cy="248" rx="132" ry="40" fill="var(--cream)"/>
+            <text x="256" y="266" font-family="Georgia, serif" font-size="88" font-weight="700" fill="var(--green-deep)" text-anchor="middle">₹</text>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <rect width="512" height="512" fill="var(--green)"/>
+            <ellipse cx="256" cy="352" rx="132" ry="40" fill="var(--green-deep)"/>
+            <rect x="124" y="322" width="264" height="30" fill="var(--green-deep)"/>
+            <ellipse cx="256" cy="322" rx="132" ry="40" fill="var(--cream)" opacity="0.55"/>
+            <ellipse cx="256" cy="300" rx="132" ry="40" fill="var(--green-dark)"/>
+            <rect x="124" y="270" width="264" height="30" fill="var(--green-dark)"/>
+            <ellipse cx="256" cy="270" rx="132" ry="40" fill="var(--cream)" opacity="0.75"/>
+            <ellipse cx="256" cy="248" rx="132" ry="40" fill="var(--cream)"/>
+            <text x="256" y="266" font-family="Georgia, serif" font-size="88" font-weight="700" fill="var(--green-deep)" text-anchor="middle">₹</text>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>The literal "wealth stack" idea from v1's Direction D, but fixed: solid edge-on coin bricks
+      (not thin ellipse outlines) plus a bold ₹ stamped on the top coin's face, so it doesn't rely on
+      the stack silhouette alone to read as money. Most "premium fintech" feeling of the four, but the
+      most geometry to keep proportional across densities/adaptive-icon crops — worth a real device
+      check before committing.</p>
+    </div>
+  </div>
+</section>
+
+<!-- C -->
+<section>
+  <div class="section-title">Direction C — Wallet</div>
+  <div class="row">
+    <div class="card">
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="288" cy="288" r="200" fill="var(--green-deep)" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
+            <circle cx="256" cy="256" r="200" fill="var(--green-dark)" stroke="rgba(255,255,255,0.55)" stroke-width="8"/>
+            <rect x="126" y="176" width="260" height="190" rx="28" fill="var(--cream)"/>
+            <path d="M126 220 L386 220 L386 176 A28 28 0 0 0 358 176 L154 176 A28 28 0 0 0 126 220Z" fill="var(--green-deep)" opacity="0.28"/>
+            <rect x="256" y="248" width="130" height="70" rx="16" fill="var(--green-deep)"/>
+            <circle cx="336" cy="283" r="16" fill="var(--cream)"/>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="288" cy="288" r="200" fill="var(--green-deep)" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
+            <circle cx="256" cy="256" r="200" fill="var(--green-dark)" stroke="rgba(255,255,255,0.55)" stroke-width="8"/>
+            <rect x="126" y="176" width="260" height="190" rx="28" fill="var(--cream)"/>
+            <path d="M126 220 L386 220 L386 176 A28 28 0 0 0 358 176 L154 176 A28 28 0 0 0 126 220Z" fill="var(--green-deep)" opacity="0.28"/>
+            <rect x="256" y="248" width="130" height="70" rx="16" fill="var(--green-deep)"/>
+            <circle cx="336" cy="283" r="16" fill="var(--cream)"/>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="288" cy="288" r="200" fill="var(--green-deep)" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
+            <circle cx="256" cy="256" r="200" fill="var(--green-dark)" stroke="rgba(255,255,255,0.55)" stroke-width="8"/>
+            <rect x="126" y="176" width="260" height="190" rx="28" fill="var(--cream)"/>
+            <path d="M126 220 L386 220 L386 176 A28 28 0 0 0 358 176 L154 176 A28 28 0 0 0 126 220Z" fill="var(--green-deep)" opacity="0.28"/>
+            <rect x="256" y="248" width="130" height="70" rx="16" fill="var(--green-deep)"/>
+            <circle cx="336" cy="283" r="16" fill="var(--cream)"/>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>Bi-fold wallet with a coin-snap detail on the flap. Universally recognized "money/finance app"
+      shorthand (this is the same visual language Paytm/PhonePe-style apps use), but it's a more generic
+      "any wallet app" signal rather than something distinctly Penny's own — and the snap coin is the
+      first detail to disappear at 24px.</p>
+    </div>
+  </div>
+</section>
+
+<!-- D -->
+<section>
+  <div class="section-title">Direction D — Piggy Bank</div>
+  <div class="row">
+    <div class="card">
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="288" cy="288" r="200" fill="var(--green-deep)" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
+            <circle cx="256" cy="256" r="200" fill="var(--green-dark)" stroke="rgba(255,255,255,0.55)" stroke-width="8"/>
+            <ellipse cx="256" cy="278" rx="118" ry="86" fill="var(--cream)"/>
+            <path d="M150 250 L114 224 L146 214Z" fill="var(--cream)"/>
+            <rect x="222" y="192" width="70" height="20" rx="10" fill="var(--green-deep)"/>
+            <circle cx="330" cy="270" r="12" fill="var(--green-deep)"/>
+            <path d="M180 356 L172 392 L204 392 L206 362Z" fill="var(--cream)"/>
+            <path d="M320 356 L316 392 L348 392 L338 360Z" fill="var(--cream)"/>
+            <path d="M368 258 C388 250 396 268 380 282 C368 292 358 282 362 268Z" fill="var(--cream)"/>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="288" cy="288" r="200" fill="var(--green-deep)" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
+            <circle cx="256" cy="256" r="200" fill="var(--green-dark)" stroke="rgba(255,255,255,0.55)" stroke-width="8"/>
+            <ellipse cx="256" cy="278" rx="118" ry="86" fill="var(--cream)"/>
+            <path d="M150 250 L114 224 L146 214Z" fill="var(--cream)"/>
+            <rect x="222" y="192" width="70" height="20" rx="10" fill="var(--green-deep)"/>
+            <circle cx="330" cy="270" r="12" fill="var(--green-deep)"/>
+            <path d="M180 356 L172 392 L204 392 L206 362Z" fill="var(--cream)"/>
+            <path d="M320 356 L316 392 L348 392 L338 360Z" fill="var(--cream)"/>
+            <path d="M368 258 C388 250 396 268 380 282 C368 292 358 282 362 268Z" fill="var(--cream)"/>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <rect width="512" height="512" fill="var(--green)"/>
+            <circle cx="288" cy="288" r="200" fill="var(--green-deep)" stroke="rgba(255,255,255,0.35)" stroke-width="6"/>
+            <circle cx="256" cy="256" r="200" fill="var(--green-dark)" stroke="rgba(255,255,255,0.55)" stroke-width="8"/>
+            <ellipse cx="256" cy="278" rx="118" ry="86" fill="var(--cream)"/>
+            <path d="M150 250 L114 224 L146 214Z" fill="var(--cream)"/>
+            <rect x="222" y="192" width="70" height="20" rx="10" fill="var(--green-deep)"/>
+            <circle cx="330" cy="270" r="12" fill="var(--green-deep)"/>
+            <path d="M180 356 L172 392 L204 392 L206 362Z" fill="var(--cream)"/>
+            <path d="M320 356 L316 392 L348 392 L338 360Z" fill="var(--cream)"/>
+            <path d="M368 258 C388 250 396 268 380 282 C368 292 358 282 362 268Z" fill="var(--cream)"/>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>Solid piggy-bank silhouette with a coin slot. Reads as "savings," friendly/approachable tone
+      (fits Chip's personality), but at 24px the legs/ears/tail/snout compress into a single blob and
+      the coin-slot detail (the one piece that says "money" rather than just "pig") is the first thing
+      to vanish — of the four, this one degrades worst at launcher scale.</p>
+    </div>
+  </div>
+</section>
+
+<div class="lead" style="margin-top: -20px;">
+  <b>Recommendation: Direction A (Bold ₹ Coin).</b> It's the smallest change from what's already
+  shipped — same coin-stack frame, same palette, same "solid shapes over line art" lesson already
+  learned from v1 — it just swaps the one glyph that was misreading. It's also the only direction
+  that reads as money at 24px with zero ambiguity, no small details to lose. B (stacked coins + ₹) is
+  the strongest runner-up if you want the "stack" idea more visually prominent, at the cost of more
+  geometry to keep clean across icon densities.
+</div>
+
+</body>
+</html>

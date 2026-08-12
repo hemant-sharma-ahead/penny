@@ -37,7 +37,23 @@ const CONNECTOR_KEYWORDS = new Set([
   'MANDATE',
   'INW',
   'OUT',
-  'REV'
+  'REV',
+  // Added 2026-08-05, from the same user-sourced universal-codes research as
+  // `cashWithdrawalCodes.ts`'s per-bank cash-withdrawal table. `SI`, bare `I`/`W` (from "I/W CLG"),
+  // and `INT` were deliberately left out — too short/generic (1-3 letters), real risk of stripping an
+  // actual merchant's initials/name instead of noise.
+  'INFT',
+  'TPT',
+  'ONL',
+  'ECOM',
+  'EMI',
+  'RET',
+  'CHG',
+  'TAX',
+  'AMB',
+  'AQB',
+  'VPS',
+  'IPS'
 ]);
 
 /** Read-only, alphabetically-sorted view of the same keywords — for display on the "Merchant

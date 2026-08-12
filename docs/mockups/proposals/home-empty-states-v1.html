@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Penny — Home Empty States v1</title>
+<style>
+  :root {
+    --primary: #00a86b;
+    --surface: #ffffff;
+    --surface2: #f8fafc;
+    --text1: #0f172a;
+    --text2: #475569;
+    --text3: #94a3b8;
+    --border: #c7d8f0;
+    --danger: #ef4444;
+    --success: #10b981;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 32px 100px;
+    background: #12151a;
+    color: #eef1f4;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lead { color: #9aa3ad; font-size: 14px; max-width: 780px; line-height: 1.6; margin-bottom: 36px; }
+  .lead b { color: #eef1f4; }
+  section { margin-bottom: 56px; }
+  .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #6f7a86; margin-bottom: 14px; font-weight: 600; }
+  .row { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+  .frame {
+    width: 340px;
+    background: #f1f5f9;
+    border-radius: 28px;
+    padding: 14px 14px 24px;
+    border: 1px solid #2a2f38;
+  }
+  .frame-label { font-size: 11px; color: #6f7a86; margin-bottom: 8px; text-align: center; }
+  .screen { background: #f8fafc; border-radius: 18px; padding: 14px; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .badge {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+    color: var(--primary); background: rgba(0,168,107,0.15); border: 1px solid rgba(0,168,107,0.4);
+    border-radius: 999px; padding: 3px 9px; margin-bottom: 8px; text-transform: uppercase;
+  }
+  .badge.problem {
+    color: var(--danger); background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.4);
+  }
+  .card-note { font-size: 12px; color: #9aa3ad; line-height: 1.5; max-width: 340px; }
+  /* Financial health ring */
+  .ring-wrap { display: flex; align-items: center; gap: 14px; }
+  .ring { width: 68px; height: 68px; border-radius: 999px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; position: relative; }
+  .ring svg { position: absolute; }
+  .ring-inner { width: 52px; height: 52px; border-radius: 999px; background: var(--surface); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; color: var(--text1); }
+  .grade-label { font-size: 14px; font-weight: 700; }
+  .grade-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  /* Net worth hero */
+  .hero-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); }
+  .hero-value { font-size: 25px; font-weight: 800; color: var(--text1); margin-top: 2px; }
+  .chart-blank { height: 180px; border-radius: 12px; margin-top: 8px; display: flex; align-items: center; justify-content: center; }
+  /* Money stats card */
+  .stats-row { display: flex; }
+  .stat-col { flex: 1; padding: 12px; }
+  .stat-col + .stat-col { border-left: 1px solid var(--border); }
+  .stat-label { font-size: 10px; font-weight: 600; color: var(--text2); display: flex; align-items: center; gap: 5px; }
+  .stat-value { font-size: 15px; font-weight: 800; color: var(--text1); margin-top: 4px; }
+  .stat-sub { font-size: 9px; color: var(--text3); margin-top: 2px; }
+  /* Empty prompt styling */
+  .prompt-icon {
+    width: 44px; height: 44px; border-radius: 12px; background: rgba(0,168,107,0.1);
+    display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 10px;
+  }
+  .prompt-title { font-size: 14px; font-weight: 700; color: var(--text1); }
+  .prompt-sub { font-size: 12px; color: var(--text2); margin-top: 3px; line-height: 1.4; }
+  .prompt-cta {
+    margin-top: 10px; align-self: flex-start; background: var(--primary); color: white;
+    font-size: 12px; font-weight: 700; padding: 8px 14px; border-radius: 999px; display: inline-block;
+  }
+</style>
+</head>
+<body>
+
+<h1>Home — Empty States v1</h1>
+<div class="lead">
+  A brand-new user (zero accounts, zero transactions, zero goals) currently sees three things on Home
+  that actively misrepresent "nothing entered yet" as either alarming or broken: a <b>red "Critical" F
+  grade</b> on Financial Health, a <b>₹0 net-worth hero</b> over a blank chart area, and (less severely)
+  a Spend/Insurance/Loans card full of dashes. The "Current" frame below is an accurate rendering of
+  what actually renders today, grounded in the real code and the real score formula — not a guess.
+</div>
+
+<!-- CURRENT -->
+<section>
+  <div class="section-title">Current (today) — fresh user, zero data</div>
+  <div class="row">
+    <div class="frame">
+      <div class="frame-label">HomePage.tsx — as shipped</div>
+      <div class="screen">
+        <!-- Net worth hero -->
+        <div class="card" style="border:none; padding: 4px 4px 16px;">
+          <div class="hero-label">Net worth</div>
+          <div class="hero-value">₹0</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px;">View breakdown ›</div>
+          <div class="chart-blank"></div>
+        </div>
+        <!-- Money stats -->
+        <div class="card" style="padding:0;">
+          <div class="stats-row">
+            <div class="stat-col">
+              <div class="stat-label">🧾 Spent</div>
+              <div class="stat-value">₹0</div>
+              <div class="stat-sub">Living ₹0</div>
+            </div>
+            <div class="stat-col">
+              <div class="stat-label">🛡️ Insurance</div>
+              <div class="stat-value">—</div>
+              <div class="stat-sub">cover</div>
+            </div>
+            <div class="stat-col">
+              <div class="stat-label">🏦 Loans</div>
+              <div class="stat-value">—</div>
+              <div class="stat-sub">outstanding</div>
+            </div>
+          </div>
+        </div>
+        <!-- Financial health -->
+        <div style="font-size:13px;font-weight:600;color:var(--text1);margin-bottom:8px;">Financial health</div>
+        <div class="card">
+          <div class="ring-wrap">
+            <div class="ring">
+              <svg width="68" height="68" viewBox="0 0 68 68">
+                <circle cx="34" cy="34" r="26" fill="none" stroke="#c7d8f0" stroke-width="8" />
+              </svg>
+              <div class="ring-inner">0</div>
+            </div>
+            <div>
+              <div class="grade-label" style="color:var(--danger);">Critical</div>
+              <div class="grade-sub">A few quick wins would lift your score toward excellent.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-note" style="align-self:center;">
+      <p><b style="color:#eef1f4;">Why this is wrong, precisely:</b> <code>computeHealthScore()</code>
+      sums each pillar's <code>earned</code> points — with no income, no goals, no insurance, no debt
+      data, every pillar earns 0, so <code>total = 0</code>, which the grade formula maps straight to
+      <code>grade: 'F'</code>, <code>gradeLabel: 'Critical'</code>, <code>color: '#ef4444'</code>. A user
+      who hasn't opened the app for five minutes yet sees a red "Critical" verdict on their finances.</p>
+    </div>
+  </div>
+</section>
+
+<!-- PROPOSED -->
+<section>
+  <div class="section-title">Proposed — same layout position, honest empty state</div>
+  <div class="row">
+    <div class="frame">
+      <div class="frame-label">Proposed empty states</div>
+      <div class="screen">
+        <!-- Net worth hero: proposed -->
+        <div class="badge">Proposed</div>
+        <div class="card" style="display:flex; flex-direction:column; align-items:flex-start;">
+          <div class="prompt-icon">💰</div>
+          <div class="prompt-title">Add an account to see your net worth</div>
+          <div class="prompt-sub">Once you add a bank account, cash, or an investment, we'll total it up here and track it over time.</div>
+          <div class="prompt-cta">+ Add account</div>
+        </div>
+
+        <!-- Money stats: recommend UNCHANGED -->
+        <div class="badge">Unchanged</div>
+        <div class="card" style="padding:0; opacity: 0.9;">
+          <div class="stats-row">
+            <div class="stat-col">
+              <div class="stat-label">🧾 Spent</div>
+              <div class="stat-value">₹0</div>
+              <div class="stat-sub">Living ₹0</div>
+            </div>
+            <div class="stat-col">
+              <div class="stat-label">🛡️ Insurance</div>
+              <div class="stat-value">—</div>
+              <div class="stat-sub">cover</div>
+            </div>
+            <div class="stat-col">
+              <div class="stat-label">🏦 Loans</div>
+              <div class="stat-value">—</div>
+              <div class="stat-sub">outstanding</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Financial health: proposed -->
+        <div class="badge">Proposed</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text1);margin-bottom:8px;">Financial health</div>
+        <div class="card" style="display:flex; flex-direction:column; align-items:flex-start;">
+          <div class="prompt-icon">✨</div>
+          <div class="prompt-title">Your score shows up once there's something to score</div>
+          <div class="prompt-sub">Add an income, a goal, or a policy and we'll start scoring your financial health across 6 areas.</div>
+          <div class="prompt-cta">Get started</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-note" style="align-self:flex-start; max-width: 420px;">
+      <p><b style="color:#eef1f4;">Net-worth hero:</b> replaces the ₹0 headline + blank 180px chart
+      spacer with a single tappable prompt card, same position, same "+ Add account" destination
+      (<code>Accounts</code>) the real hero already routes to via <code>goToAsset('liquid')</code>. No
+      new screen needed — just an early-return branch in <code>GlanceHeader</code> when
+      <code>summary.accountBalances.length === 0 &amp;&amp; totalAssets === 0</code>.</p>
+      <p><b style="color:#eef1f4;">Financial health:</b> replaces the graded ring entirely (no ring, no
+      grade, no red) with a neutral "not yet scored" prompt, shown when every component's status is
+      <code>'no_data'</code> (already a real per-component status the scorer computes — this just also
+      gates the card-level grade/ring on it, rather than only using it for the gray ring-segment
+      color). Tapping opens the same <code>HealthDetailModal</code> Get-Started flow already
+      wired to "add-data" actions.</p>
+      <p><b style="color:#eef1f4;">Money stats card — recommend leaving unchanged.</b> Its <code>'—'</code>
+      /₹0 placeholders are already honest (not fabricated), and it's the one Home widget covering
+      three otherwise-unreachable screens (Insurance, Loans) at once — worth keeping visible even
+      empty, rather than risking it disappearing along with its only route to those screens.</p>
+    </div>
+  </div>
+</section>
+
+<div class="lead" style="margin-top: -20px;">
+  <b>Recommendation:</b> ship both proposed changes (net-worth hero + Financial Health empty state).
+  Both keep the exact same screen position and the exact same navigation destination the real card
+  already has today — this is a state-branch inside the existing components, not a new screen or a new
+  nav path, so Insurance/Loans/Accounts stay reachable exactly as they are now.
+</div>
+
+</body>
+</html>

@@ -4,6 +4,7 @@ import type {
   Account,
   ActivityLog,
   AiCallLog,
+  BankCashWithdrawalCode,
   BankNarrationOverride,
   BankStatementImportRecord,
   Budget,
@@ -113,6 +114,7 @@ const ENCRYPTED_TABLES = [
   'group_events',
   'bank_statement_imports',
   'bank_narration_overrides',
+  'bank_cash_withdrawal_codes',
   'payment_modes',
   'retirement_plan',
   'net_worth_snapshots'
@@ -292,6 +294,9 @@ const tableStores = {
   bank_narration_overrides: makeEncryptedRowStore(
     'bank_narration_overrides'
   ) as unknown as RowStore<BankNarrationOverride>,
+  bank_cash_withdrawal_codes: makeEncryptedRowStore(
+    'bank_cash_withdrawal_codes'
+  ) as unknown as RowStore<BankCashWithdrawalCode>,
   payment_modes: makeEncryptedRowStore('payment_modes') as unknown as RowStore<PaymentMode>,
   retirement_plan: makeEncryptedRowStore('retirement_plan') as unknown as RowStore<RetirementPlan>,
   net_worth_snapshots: makeEncryptedRowStore('net_worth_snapshots') as unknown as RowStore<NetWorthSnapshot>

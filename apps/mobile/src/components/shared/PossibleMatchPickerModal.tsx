@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { View, Pressable, ScrollView, Text } from 'react-native';
 import type { Account, Expense } from '@/core/db/types';
 import type { ParsedStatementRow } from '@/core/bank-import/types';
-import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import { formatCurrency, formatDate } from '@/lib/formatters';
 import { DAY_MS, monthBounds, toMonthYearKey } from '@/lib/date';
 import { Modal, SearchInput, Button, Card } from '~/components/ui';
 import { Icon } from '~/components/Icon';
@@ -20,6 +20,12 @@ interface PossibleMatchPickerModalProps {
   /** The one-shot matcher's own closest guess(es) for this line (bucket 2 only) — highlighted in the
    *  list below with a "Suggested" badge instead of presenting every candidate neutrally. */
   suggestedIds?: Set<string>;
+  /** The expense this line is ALREADY linked to (bucket 1's reassign-override only) — highlighted with
+   *  a "Currently matched" badge instead of `suggestedIds`' "Suggested" one, so re-choosing from
+   *  bucket 1 doesn't leave the user unable to tell which candidate they're actually replacing (found
+   *  via user report 2026-08-06: the picker opened with nothing highlighted at all). Mutually exclusive
+   *  with `suggestedIds` in practice — bucket 1 never passes `suggestedIds`, bucket 2 never passes this. */
+  currentlyMatchedId?: string;
   accountMap: Map<string, Account>;
   masked: boolean;
   onPick: (expense: Expense) => void;
@@ -34,14 +40,20 @@ interface PossibleMatchPickerModalProps {
 
 /**
  * Adapted from `features/goals/LinkTransactionModal.tsx` (not imported — a new, independent
- * component, per the architecture rule against feature-to-feature imports). Used both for bucket 2
- * ("Possible matches") and bucket 1's manual override ("Disagree with a match? Tap any pair to
- * re-choose") — docs/plans/bank-statement-import.md §5/§6.
+ * component, per the architecture rule against feature-to-feature imports). Used for
+ * `features/bank-import/`'s bucket 2 ("Possible matches") and bucket 1's manual override ("Disagree
+ * with a match? Tap any pair to re-choose") — docs/plans/bank-statement-import.md §5/§6.
+ *
+ * **Moved here from `features/bank-import/` 2026-08-10** (`docs/plans/bank-reconciliation-ledger.md`
+ * Phase 2) — `features/accounts/FullLedgerPage.tsx` needed the exact same "choose the match" picker
+ * for its own relink/resolve actions, and a feature module may not import from another feature module.
+ * Same reasoning `ExpenseForm` already lives here for.
  */
 export function PossibleMatchPickerModal({
   statementLine,
   candidatePool,
   suggestedIds,
+  currentlyMatchedId,
   accountMap,
   masked,
   onPick,
@@ -62,14 +74,15 @@ export function PossibleMatchPickerModal({
     });
     const q = query.trim().toLowerCase();
     const filtered = q ? inRange.filter((e) => e.description.toLowerCase().includes(q)) : inRange;
-    // The matcher's own suggested candidate(s) float to the top, ahead of the usual date sort — the
-    // whole point of highlighting a suggestion is that it's the first thing seen, not buried in a
-    // date-ordered list.
+    // The matcher's own suggested candidate(s) — or, when reassigning an already-"Matched" pair, the
+    // currently-linked expense — float to the top, ahead of the usual date sort, so the first thing
+    // seen is either the suggestion or (for a reassign) exactly what's being replaced.
+    const isHighlighted = (id: string) => (suggestedIds?.has(id) ?? false) || id === currentlyMatchedId;
     return filtered
       .sort((a, b) => b.date - a.date)
-      .sort((a, b) => Number(suggestedIds?.has(b.id) ?? false) - Number(suggestedIds?.has(a.id) ?? false))
+      .sort((a, b) => Number(isHighlighted(b.id)) - Number(isHighlighted(a.id)))
       .slice(0, 50);
-  }, [candidatePool, range, statementLine.date, query, suggestedIds]);
+  }, [candidatePool, range, statementLine.date, query, suggestedIds, currentlyMatchedId]);
 
   return (
     <Modal onClose={onClose} title="Choose the match" scrollable>
@@ -80,7 +93,7 @@ export function PossibleMatchPickerModal({
             {statementLine.rawNarration}
           </Text>
           <Text className="text-xs text-tertiary mt-0.5">
-            {formatDateShort(statementLine.date)} · {statementLine.direction === 'debit' ? '−' : '+'}
+            {formatDate(statementLine.date)} · {statementLine.direction === 'debit' ? '−' : '+'}
             {formatCurrency(statementLine.amount)}
           </Text>
         </Card>
@@ -127,14 +140,16 @@ export function PossibleMatchPickerModal({
               const amountColor =
                 e.type === 'income' ? theme.success : e.type === 'expense' ? theme.danger : theme.info;
               const suggested = suggestedIds?.has(e.id) ?? false;
+              const isCurrent = e.id === currentlyMatchedId;
+              const highlighted = suggested || isCurrent;
               return (
                 <Pressable
                   key={e.id}
                   onPress={() => onPick(e)}
-                  className={`flex-row items-center gap-3 rounded-xl px-3 py-2.5 border-2 ${suggested ? '' : 'bg-surface-2'}`}
+                  className={`flex-row items-center gap-3 rounded-xl px-3 py-2.5 border-2 ${highlighted ? '' : 'bg-surface-2'}`}
                   style={{
-                    backgroundColor: suggested ? tint(theme.warning, 10) : undefined,
-                    borderColor: suggested ? theme.warning : 'transparent'
+                    backgroundColor: highlighted ? tint(theme.warning, 10) : undefined,
+                    borderColor: highlighted ? theme.warning : 'transparent'
                   }}
                 >
                   <View
@@ -148,14 +163,19 @@ export function PossibleMatchPickerModal({
                       <Text className="text-sm font-medium text-primary" numberOfLines={1}>
                         {e.description}
                       </Text>
-                      {suggested && (
+                      {isCurrent && (
+                        <View className="rounded-full px-1.5 py-0.5" style={{ backgroundColor: theme.warning }}>
+                          <Text className="text-[9px] font-bold uppercase text-white">Currently matched</Text>
+                        </View>
+                      )}
+                      {!isCurrent && suggested && (
                         <View className="rounded-full px-1.5 py-0.5" style={{ backgroundColor: theme.warning }}>
                           <Text className="text-[9px] font-bold uppercase text-white">Suggested</Text>
                         </View>
                       )}
                     </View>
                     <Text className="text-xs text-tertiary" numberOfLines={1}>
-                      {formatDateShort(e.date)}
+                      {formatDate(e.date)}
                       {acc?.name ? ` · ${acc.name}` : ''}
                     </Text>
                   </View>

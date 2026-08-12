@@ -11,6 +11,8 @@ import { decideVahan, istParts, inWorkingWindow, canSpend, normalizeReg, nextWin
 import { fetchVahan } from './vahanFetch';
 import { buildMarketSnapshot, getMarketSnapshot } from './market';
 import { fetchNewsFeed, isKnownFeed } from './news';
+import { EPF_RATE_TABLE } from './epfRates';
+import { PPF_RATE_TABLE } from './ppfRates';
 import {
   getVehicle,
   putVehicle,
@@ -41,6 +43,13 @@ export default {
 
     // Market snapshot — global, edge-cached; short-circuits before rate-limit (it's public + cacheable).
     if (url.pathname === '/market') return handleMarket(req, env, ctx);
+
+    // EPF interest rate table — static, in-source data (changes at most once a year); no rate-limit
+    // needed (tiny, cheap, never calls an upstream at all).
+    if (url.pathname === '/epf-rates') return json(EPF_RATE_TABLE);
+
+    // PPF interest rate table — same shape/rationale as /epf-rates above.
+    if (url.pathname === '/ppf-rates') return json(PPF_RATE_TABLE);
 
     const ip = req.headers.get('cf-connecting-ip') ?? 'anon';
     if (await isRateLimited(env.CACHE, ip)) return json({ error: 'rate_limited' }, 429);

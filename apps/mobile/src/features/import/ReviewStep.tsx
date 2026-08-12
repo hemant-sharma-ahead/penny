@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { View, Pressable, ScrollView, Text } from 'react-native';
 import { Button, ProgressBar } from '~/components/ui';
 import { Icon } from '~/components/Icon';
+import { tint } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { Account, AccountType, ExpenseCategory } from '@/core/db/types';
 import type { ParsedRow, RejectedRow } from '@/core/import/importParsers';
 import type { ColumnMapping } from '@/core/import/importMatcher';
 import type { CategoryResolution, CategoryAction } from '@/core/import/importCategoryResolution';
 import type { AccountResolution, AccountAction } from '@/core/import/importAccountResolution';
+import type { RowOverride } from '@/core/import/importPipeline';
 import type { RowTriage, DisplayTransferPair } from './useImport';
 import { AccountsSection } from './review/AccountsSection';
 import { PreviewSection } from './review/PreviewSection';
@@ -19,6 +21,9 @@ interface ReviewStepProps {
   rejectedRows: RejectedRow[];
   carryForwardExcludedRows: ParsedRow[];
   mapping: ColumnMapping | null;
+  /** Original CSV header row — threaded down to `UnparsedRows` so a rejected row's editor can show the
+   *  full original row (all columns, not just date/amount/description) alongside its column labels. */
+  header: string[];
   categoryResolutions: CategoryResolution[];
   accountResolutions: AccountResolution[];
   noAccountColumn: boolean;
@@ -28,6 +33,14 @@ interface ReviewStepProps {
   setSingleAccountCreate: (v: { name: string; type: AccountType } | null) => void;
   categories: ExpenseCategory[];
   accounts: Account[];
+  /** Per-category existing-transaction counts, threaded down to `CategoryTile` → `CategoryPickerModal`'s
+   *  "Frequent" quick-pick row — see `useImport.ts`'s doc comment. */
+  txnCountByCategory: Map<string, number>;
+  /** Set once `useImport`'s reference-data load (categories/accounts) has exhausted its retries — shows
+   *  a small inline "Couldn't load categories" affordance instead of leaving the Categories section
+   *  silently empty for the rest of the session. */
+  categoriesLoadError: boolean;
+  onRetryLoadCategories: () => void;
   rowTriage: RowTriage[];
   totalRowsRead: number;
   actualTransactionCount: number;
@@ -37,12 +50,21 @@ interface ReviewStepProps {
   transferPairs: DisplayTransferPair[];
   accountsResolved: boolean;
   confirmedAccountCount: number;
+  /** True once every source category resolved as a transfer has a destination account picked
+   *  (2026-08-09 fix) — gates the Import button the same way `accountsResolved` does, since an
+   *  incomplete transfer would otherwise silently write with no `toAccountId`. See `useImport.ts`'s
+   *  doc comment. */
+  transfersResolved: boolean;
   categoriesDecidedCount: number;
   touchedCategorySources: Set<string>;
   categoryTags: Map<string, string>;
+  /** Per-row overrides (2026-08-06) — see `RowOverride`'s doc comment. */
+  rowOverrides: Map<number, RowOverride>;
   importing: boolean;
   onUpdateCategory: (sourceName: string, suggestion: CategoryAction) => void;
   onUpdateCategoryTag: (sourceName: string, tag: string) => void;
+  onMoveRowsToCategory: (rowIndices: number[], categoryId: string, categoryName: string) => void;
+  onTagRows: (rowIndices: number[], tag: string) => void;
   onUpdateAccount: (sourceName: string, suggestion: AccountAction) => void;
   onFixRejected: (rowIndex: number, fields: { date: string; amount: string; description: string }) => boolean;
   onImport: () => void;
@@ -60,6 +82,7 @@ export function ReviewStep({
   rejectedRows,
   carryForwardExcludedRows,
   mapping,
+  header,
   categoryResolutions,
   accountResolutions,
   noAccountColumn,
@@ -69,6 +92,9 @@ export function ReviewStep({
   setSingleAccountCreate,
   categories,
   accounts,
+  txnCountByCategory,
+  categoriesLoadError,
+  onRetryLoadCategories,
   rowTriage,
   totalRowsRead,
   actualTransactionCount,
@@ -78,12 +104,16 @@ export function ReviewStep({
   transferPairs,
   accountsResolved,
   confirmedAccountCount,
+  transfersResolved,
   categoriesDecidedCount,
   touchedCategorySources,
   categoryTags,
+  rowOverrides,
   importing,
   onUpdateCategory,
   onUpdateCategoryTag,
+  onMoveRowsToCategory,
+  onTagRows,
   onUpdateAccount,
   onFixRejected,
   onImport
@@ -101,6 +131,12 @@ export function ReviewStep({
   }
 
   const sourceAccountCount = accountResolutions.length;
+  /** The account this import is targeting, for `CategoryTile`'s "Transfer to account" picker to exclude
+   *  (2026-08-09 fix) — only meaningful for a whole-file `noAccountColumn` import, which always debits
+   *  exactly one account; a per-row multi-account CSV has no single universal target to exclude here
+   *  (a given tile's own rows could legitimately span several source accounts), so nothing is filtered
+   *  in that case — see `PreviewSection.tsx`'s doc comment. */
+  const excludeAccountId = noAccountColumn ? (singleAccountId ?? undefined) : undefined;
   const progressPct =
     (accountsResolved ? 50 : 0) +
     (categoryResolutions.length === 0 ? 0 : (categoriesDecidedCount / categoryResolutions.length) * 50);
@@ -212,6 +248,7 @@ export function ReviewStep({
               <PreviewSection
                 rejectedRows={rejectedRows}
                 mapping={mapping}
+                header={header}
                 onFixRejected={onFixRejected}
                 carryForwardExcludedRows={carryForwardExcludedRows}
                 transferPairs={transferPairs}
@@ -221,17 +258,41 @@ export function ReviewStep({
                 parsedRows={parsedRows}
                 rowTriage={rowTriage}
                 categories={categories}
+                accounts={accounts}
+                excludeAccountId={excludeAccountId}
+                txnCountByCategory={txnCountByCategory}
                 categoryTags={categoryTags}
+                rowOverrides={rowOverrides}
                 onUpdateCategory={onUpdateCategory}
                 onUpdateCategoryTag={onUpdateCategoryTag}
+                onMoveRowsToCategory={onMoveRowsToCategory}
+                onTagRows={onTagRows}
               />
             </View>
           )}
         </View>
 
+        {categoriesLoadError && (
+          <Pressable
+            onPress={onRetryLoadCategories}
+            className="flex-row items-center justify-center gap-1.5 py-1.5 rounded-lg"
+            style={{ backgroundColor: tint(theme.warning, 15) }}
+          >
+            <Icon name="ti-alert-triangle" size={13} color={theme.warning} />
+            <Text className="text-[11.5px] font-semibold" style={{ color: theme.warning }}>
+              Couldn&apos;t load categories — tap to retry
+            </Text>
+          </Pressable>
+        )}
+
         {!accountsResolved && (
           <Text className="text-center text-[10.5px] text-tertiary" style={{ marginTop: -8 }}>
             Resolve the account above, or tap Preview to see rows first
+          </Text>
+        )}
+        {accountsResolved && !transfersResolved && (
+          <Text className="text-center text-[10.5px] text-tertiary" style={{ marginTop: -8 }}>
+            Pick a destination account for every category marked as a transfer
           </Text>
         )}
 
@@ -240,14 +301,16 @@ export function ReviewStep({
             variant="primary"
             className="flex-1"
             loading={importing}
-            disabled={!accountsResolved || importing || readyCount === 0}
+            disabled={!accountsResolved || !transfersResolved || importing || readyCount === 0}
             onPress={onImport}
           >
             {!accountsResolved
               ? 'Resolve accounts to continue'
-              : importing
-                ? 'Importing…'
-                : `Import ${actualTransactionCount} transaction${actualTransactionCount !== 1 ? 's' : ''}`}
+              : !transfersResolved
+                ? 'Pick every transfer destination to continue'
+                : importing
+                  ? 'Importing…'
+                  : `Import ${actualTransactionCount} transaction${actualTransactionCount !== 1 ? 's' : ''}`}
           </Button>
         </View>
       </ScrollView>

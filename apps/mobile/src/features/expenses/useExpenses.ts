@@ -32,8 +32,10 @@ import {
   useCategoriesRefresh,
   useTagsRefresh,
   useAccountsRefresh,
+  useBankImportsRefresh,
   notifyAccountsChanged
 } from '@/hooks/useDataRefresh';
+import { CHECKPOINT_ELIGIBLE, computeAccountVerificationStatus } from '@/core/bank-import/accountVerification';
 import type { AccountInput } from '~/hooks/useAccountForm';
 import { ALL_DEFAULT_CATEGORIES, CATEGORY_MIGRATION_MAP } from '@/core/db/defaultCategories';
 import { dedupeDemoCategories, reconcileDefaultCategories, repairCategoryIcons } from '@/core/db/dedupeDemoCategories';
@@ -49,6 +51,7 @@ import {
 import { computeDueRecurring, buildOccurrence, type DueRecurring } from '@/core/expenses/recurringDue';
 import { normalizeHashtag } from '~/context/EventModeContext';
 import { logActivity, restoreActivity, summarizeDiff } from '@/core/db/activityLog';
+import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
 import { useToast } from '~/context/ToastContext';
 import { getItem, setItem, getJSON, setJSON, removeItem } from '~/lib/storage';
 
@@ -109,10 +112,15 @@ export function useExpenses() {
   const { items: goalContributions, reload: reloadGoalContributions } =
     useRepository<GoalContribution>(goalContributionsRepo);
   // Read-only — just enough for the edit form's "matched from bank statement" audit-trail caption
-  // (docs/plans/bank-statement-import.md §10a's purpose #1). Bank Statement Import itself owns writing
-  // to this store (`features/bank-import/useBankImport.ts`'s `commitAndImport`); this is a separate,
+  // (docs/plans/bank-statement-import.md §10a's purpose #1), and (2026-08-11) the account
+  // verification banner below. Bank Statement Import itself owns writing to this store
+  // (`features/bank-import/useBankImport.ts`'s `commitAndImport`); this is a separate,
   // independently-mounted read of the same repo, same pattern as `ledgerEntries`/`goalContributions`.
-  const { items: bankStatementImportRecords } = useRepository(bankStatementImportsRepo);
+  // `useBankImportsRefresh` added 2026-08-11 (found via `useHome.ts`'s own identical fix 2026-08-10) —
+  // without it, a commit while Expenses sits mounted underneath the import flow would leave the
+  // verification banner reading a stale, empty snapshot of import records.
+  const { items: bankStatementImportRecords, reload: reloadImportRecords } = useRepository(bankStatementImportsRepo);
+  useBankImportsRefresh(reloadImportRecords);
 
   // The IOU/Goals screens write expenses/ledger entries/contributions through separate repo instances;
   // reload on their signal.
@@ -227,6 +235,81 @@ export function useExpenses() {
       await Promise.all(missing.map((c) => expenseCategoriesRepo.put({ ...c, createdAt: Date.now() })));
       await setItem('penny_cats_v8', '1');
       if (missing.length > 0) reloadCategories();
+    })().catch(() => {});
+  }, [categoriesLoading, categories, reloadCategories]);
+
+  // Additive default-category seeding (v9): inserts Cash Income (Income) — added 2026-08-05. Same
+  // non-clobbering, once-per-version pattern as v3/v6/v7/v8.
+  const catSeedV9Ref = useRef(false);
+  useEffect(() => {
+    if (categoriesLoading || catSeedV9Ref.current) return;
+    catSeedV9Ref.current = true;
+    (async () => {
+      if (await getItem('penny_cats_v9')) return;
+      const existingIds = new Set(categories.map((c) => c.id));
+      const missing = ALL_DEFAULT_CATEGORIES.filter((c) => !existingIds.has(c.id));
+      await Promise.all(missing.map((c) => expenseCategoriesRepo.put({ ...c, createdAt: Date.now() })));
+      await setItem('penny_cats_v9', '1');
+      if (missing.length > 0) reloadCategories();
+    })().catch(() => {});
+  }, [categoriesLoading, categories, reloadCategories]);
+
+  // Additive default-category seeding (v10): inserts Collected Money (Income) and Return Borrowed
+  // (Family & Giving) — added 2026-08-06 for the IOU settle-flow default categories and the new
+  // mandatory-person rule (`IOU_MANDATORY_CATEGORY_IDS`). Same non-clobbering, once-per-version
+  // pattern as v3/v6/v7/v8/v9 — adding the entries to `ALL_DEFAULT_CATEGORIES` alone does nothing for
+  // an already-seeded database; only a new versioned effect like this one actually inserts them.
+  const catSeedV10Ref = useRef(false);
+  useEffect(() => {
+    if (categoriesLoading || catSeedV10Ref.current) return;
+    catSeedV10Ref.current = true;
+    (async () => {
+      if (await getItem('penny_cats_v10')) return;
+      const existingIds = new Set(categories.map((c) => c.id));
+      const missing = ALL_DEFAULT_CATEGORIES.filter((c) => !existingIds.has(c.id));
+      await Promise.all(missing.map((c) => expenseCategoriesRepo.put({ ...c, createdAt: Date.now() })));
+      await setItem('penny_cats_v10', '1');
+      if (missing.length > 0) reloadCategories();
+    })().catch(() => {});
+  }, [categoriesLoading, categories, reloadCategories]);
+
+  // Additive default-category seeding (v11): inserts Charges & Fees (Financial) — added 2026-08-09 for
+  // the bank-import balance-sync work (real statements routinely surface small bank-initiated debits —
+  // SMS alert charges, AMC/annual fees, NEFT/IMPS charges — that don't fit any existing Financial
+  // category). Same non-clobbering, once-per-version pattern as v3/v6/v7/v8/v9/v10.
+  const catSeedV11Ref = useRef(false);
+  useEffect(() => {
+    if (categoriesLoading || catSeedV11Ref.current) return;
+    catSeedV11Ref.current = true;
+    (async () => {
+      if (await getItem('penny_cats_v11')) return;
+      const existingIds = new Set(categories.map((c) => c.id));
+      const missing = ALL_DEFAULT_CATEGORIES.filter((c) => !existingIds.has(c.id));
+      await Promise.all(missing.map((c) => expenseCategoriesRepo.put({ ...c, createdAt: Date.now() })));
+      await setItem('penny_cats_v11', '1');
+      if (missing.length > 0) reloadCategories();
+    })().catch(() => {});
+  }, [categoriesLoading, categories, reloadCategories]);
+
+  // One-time icon fix for v10's two categories (2026-08-06): the very first version of this seeding
+  // effect shipped with invented, non-existent icon names (`ti-wallet-plus`/`ti-wallet-minus` — not in
+  // the actual bundled Tabler set), and a Fast-Refresh-connected device could easily have already run
+  // the v10 seed above with those wrong values before the fix landed, permanently setting the
+  // `penny_cats_v10` flag against broken data. Unconditional (not flag-gated on v10 itself, which
+  // would never re-run) — directly patches these two ids' `icon` field to the corrected value if it
+  // doesn't already match, a no-op for anyone who only ever saw the fixed version.
+  const catIconFixRef = useRef(false);
+  useEffect(() => {
+    if (categoriesLoading || catIconFixRef.current) return;
+    catIconFixRef.current = true;
+    (async () => {
+      const correctIcons: Record<string, string> = {
+        'cat-collected-money': 'ti-receipt-refund',
+        'cat-return-borrowed': 'ti-cash-minus'
+      };
+      const toFix = categories.filter((c) => correctIcons[c.id] && c.icon !== correctIcons[c.id]);
+      await Promise.all(toFix.map((c) => expenseCategoriesRepo.put({ ...c, icon: correctIcons[c.id] as string })));
+      if (toFix.length > 0) reloadCategories();
     })().catch(() => {});
   }, [categoriesLoading, categories, reloadCategories]);
 
@@ -379,10 +462,11 @@ export function useExpenses() {
       await Promise.all(expenseIds.map((id) => expensesRepo.delete(id)));
       for (const le of linkedEntries) await ledgerEntriesRepo.delete(le.id);
       reloadExpenses();
-      if (linkedEntries.length > 0) {
-        reloadLedger();
-        notifyTxnChanged();
-      }
+      if (linkedEntries.length > 0) reloadLedger();
+      // Unconditional — any transaction delete can change account balances/net worth, not just
+      // IOU-linked ones (found 2026-08-04: Home's net-worth figure went stale after deleting ordinary,
+      // non-IOU-linked transactions, since this used to only fire inside the linked-entries branch).
+      notifyTxnChanged();
       const first = removed[0];
       if (!first) return;
       const label = `${removed.length} transaction${removed.length === 1 ? '' : 's'}`;
@@ -403,10 +487,8 @@ export function useExpenses() {
         onAction: async () => {
           await restoreActivity(logId);
           reloadExpenses();
-          if (linkedEntries.length > 0) {
-            reloadLedger();
-            notifyTxnChanged();
-          }
+          if (linkedEntries.length > 0) reloadLedger();
+          notifyTxnChanged();
         }
       });
     },
@@ -421,10 +503,10 @@ export function useExpenses() {
       // Cascade-delete any IOU ledger entries linked to this transaction.
       const linkedEntries = (await ledgerEntriesRepo.getAll()).filter((le) => le.linkedTxnId === id);
       for (const le of linkedEntries) await ledgerEntriesRepo.delete(le.id);
-      if (linkedEntries.length > 0) {
-        reloadLedger();
-        notifyTxnChanged();
-      }
+      if (linkedEntries.length > 0) reloadLedger();
+      // Unconditional — see removeExpenses' own note above; this used to only fire for IOU-linked
+      // deletes, leaving Home's net-worth figure stale after an ordinary transaction delete.
+      notifyTxnChanged();
       if (!exp) return;
       const logId = logActivity({
         action: 'DELETE',
@@ -442,10 +524,8 @@ export function useExpenses() {
         onAction: async () => {
           await restoreActivity(logId);
           reloadExpenses();
-          if (linkedEntries.length > 0) {
-            reloadLedger();
-            notifyTxnChanged();
-          }
+          if (linkedEntries.length > 0) reloadLedger();
+          notifyTxnChanged();
         }
       });
     },
@@ -559,6 +639,14 @@ export function useExpenses() {
     async (expense: Expense, newTagSetAside?: Record<string, boolean>) => {
       const existing = expenses.find((e) => e.id === expense.id);
       await saveExpense(expense);
+      // Found + fixed 2026-08-10, on-device testing: this is the canonical single-expense add/edit
+      // path (every `ExpenseForm` save goes through here) but never broadcast `notifyTxnChanged()` —
+      // every OTHER mutation in this file does (bulk ops, IOU-linked writes). A separately-mounted
+      // `useRepository(expensesRepo)` consumer (e.g. `FullLedgerPage.tsx`/`CheckpointTimelinePage.tsx`
+      // staying mounted in the background) never learned a plain manual entry/edit just happened, and
+      // kept showing stale data — a back-dated transaction recorded elsewhere never appeared in an
+      // already-open Full Ledger until that screen happened to remount.
+      notifyTxnChanged();
       for (const tag of expense.hashtags) {
         const existingTag = hashtags.find((h) => h.name === tag);
         if (existingTag) {
@@ -691,17 +779,46 @@ export function useExpenses() {
   }, []);
 
   // For the edit form: which transactions were resolved from a bank-statement import, and what the
-  // original statement line looked like (docs/plans/bank-statement-import.md §10a's audit-trail
-  // purpose — "matched from bank statement: `<raw narration>`, `<date>`"). A transaction can only ever
-  // be linked from one batch's one row, so first-write-wins is fine (no ordering/latest concern like
-  // IOU/goal links, which can be edited/replaced over a transaction's lifetime).
+  // original statement line(s) looked like (docs/plans/bank-statement-import.md §10a's audit-trail
+  // purpose — "matched from bank statement: `<raw narration>`, `<date>`"). Was "a transaction can only
+  // ever be linked from one batch's one row, so first-write-wins is fine" until 2026-08-09 — that
+  // stopped being true the moment `linkAsCrossAccountTransfer` started absorbing an existing expense as
+  // the other leg of a cross-account transfer: the SAME shared `Expense` then legitimately carries TWO
+  // `BankStatementImportRecord`s, one from each side's own import (found via on-device testing 2026-08-09
+  // — first-write-wins was silently showing only the source account's own narration, never the
+  // destination's, even though both statement lines are genuinely resolved). Now collects every record
+  // per transaction, not just the first.
   const bankImportLinkByTxn = useMemo(() => {
-    const map = new Map<string, { rawNarration: string; date: number }>();
+    const map = new Map<string, { rawNarration: string; date: number }[]>();
     for (const r of bankStatementImportRecords) {
-      if (!map.has(r.linkedTxnId)) map.set(r.linkedTxnId, { rawNarration: r.rawNarration, date: r.date });
+      const existing = map.get(r.linkedTxnId);
+      if (existing) existing.push({ rawNarration: r.rawNarration, date: r.date });
+      else map.set(r.linkedTxnId, [{ rawNarration: r.rawNarration, date: r.date }]);
     }
     return map;
   }, [bankStatementImportRecords]);
+
+  /** Every transaction whose recorded `paymentMode` disagrees with what its ORIGINAL bank-statement
+   *  narration implies (2026-08-06 — same `inferPaymentMode()` used at import time and in
+   *  `ExpenseForm`'s own live mismatch note, just re-run here against `bankImportLinkByTxn`'s permanent
+   *  audit trail instead of transient import-review state). Purely derived — no schema change, nothing
+   *  persisted (same "derived, not stored" principle account balances already follow) — so it's
+   *  automatically self-healing the moment the user fixes the payment mode via the edit form, and
+   *  automatically covers every past import, not just the one currently being reviewed. Powers both the
+   *  Transactions list's per-row warning icon and the "Payment mode mismatch" filter (`TransactionsTab`/
+   *  `useTransactionFilters`/`FilterModal`). */
+  const paymentModeMismatchTxnIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const e of expenses) {
+      if (!e.paymentMode) continue;
+      // First entry only — this account's own leg (see `ExpenseForm.tsx`'s identical convention for a
+      // cross-account transfer's two linked lines; a plain expense/income only ever has one anyway).
+      const link = bankImportLinkByTxn.get(e.id)?.[0];
+      if (!link) continue;
+      if (inferPaymentMode(link.rawNarration).id !== e.paymentMode) ids.add(e.id);
+    }
+    return ids;
+  }, [expenses, bankImportLinkByTxn]);
 
   // For the edit form: which transactions have an expense-seeded goal contribution, and toward which goal.
   const goalLinkByTxn = useMemo(() => {
@@ -742,6 +859,31 @@ export function useExpenses() {
     for (const a of accounts) map[a.id] = computeBalance(a.id, a.openingBalance, expenses);
     return map;
   }, [accounts, expenses]);
+
+  // Full-width "N accounts need attention" banner (2026-08-11, `docs/mockups/proposals/
+  // expenses-account-verification-badge-v2.html`) — Expenses is where users spend the most day-to-day
+  // time, so an unverified account needed a surface here too, not just Home/Accounts. Pure read,
+  // deliberately not `useAccountVerification()` — same "the write side effect must stay singular,
+  // owned by the Accounts screen alone" reasoning `useHome.ts`'s own identical computation documents.
+  const accountsNeedingAttention = useMemo(
+    () =>
+      accounts.filter(
+        (a) =>
+          !a.isArchived &&
+          CHECKPOINT_ELIGIBLE.has(a.type) &&
+          computeAccountVerificationStatus({
+            accountId: a.id,
+            openingBalance: a.openingBalance,
+            openingBalanceAsOfDate: a.openingBalanceAsOfDate,
+            accountTxns: expenses.filter((e) => e.accountId === a.id || e.toAccountId === a.id),
+            importRecords: bankStatementImportRecords.filter((r) => r.accountId === a.id),
+            coveredRanges: a.coveredStatementRanges ?? [],
+            anchorReference: a.anchorReference,
+            dismissed: a.dismissedVerificationFindings ?? []
+          }).needsAttention
+      ),
+    [accounts, expenses, bankStatementImportRecords]
+  );
 
   // ── Recurring auto-post inbox ───────────────────────────────────────────────
   // Recurring series are forecast-only; surface the ones whose next occurrence is
@@ -820,8 +962,10 @@ export function useExpenses() {
     goalLinkByTxn,
     goalLinkedTxnIds,
     bankImportLinkByTxn,
+    paymentModeMismatchTxnIds,
     txnIdsByGoal,
     accountBalances,
+    accountsNeedingAttention,
     patchExpenses,
     removeExpenses,
     saveCategory,

@@ -13,7 +13,7 @@ import { effectiveSaved as coreEffectiveSaved } from '@/core/goals/progress';
 import { useLoggedRepository } from '~/hooks/useLoggedRepository';
 import { useRepository } from '@/hooks/useRepository';
 import { useTxnRefresh, notifyTxnChanged } from '@/hooks/useTxnRefresh';
-import { useAccountsRefresh, useTagsRefresh, notifyAccountsChanged } from '@/hooks/useDataRefresh';
+import { useAccountsRefresh, useTagsRefresh, useGoalsRefresh, notifyAccountsChanged } from '@/hooks/useDataRefresh';
 import type { AccountInput } from '~/hooks/useAccountForm';
 import { logActivity } from '@/core/db/activityLog';
 
@@ -73,6 +73,13 @@ export function useGoals() {
   // `useExpenses.ts` closed for itself on 2026-08-01.
   useAccountsRefresh(reloadAccounts);
   useTagsRefresh(reloadHashtags);
+  // A goal can also be created from outside this hook entirely — `SuggestedGoals.tsx`'s "Add" and
+  // `FinancialHealthCard.tsx`'s "Set as goal" quick-win both call `createGoalFromTemplate()` directly
+  // (packages/core, no repo instance shared with this hook). Without this, the new goal was genuinely
+  // written and logged to the activity feed, but this screen's own `goals` list never reloaded to show
+  // it — the toast said "Added", the Timeline agreed, and the Goals screen just silently didn't (found
+  // 2026-08-05).
+  useGoalsRefresh(reloadGoals);
 
   // Add/edit an account from this screen's own "Add contribution" flow (`ExpenseForm`'s inline "+" tile)
   // without leaving it. Mirrors `useExpenses.ts`'s own independent `saveAccount` (same shape, same repo)

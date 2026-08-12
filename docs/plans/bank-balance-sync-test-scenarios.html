@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bank Balance Sync — On-Device Test Scenarios &amp; Expected Outcomes</title>
+<style>
+  :root {
+    --ink: #1a1d23; --sub: #5b6270; --line: #e3e6ea; --bg: #fafbfc;
+    --good: #0f8a3f; --good-bg: #e9f9ee;
+    --bad: #b3261e; --bad-bg: #fdecea;
+    --warn: #9a6700; --warn-bg: #fff6e0;
+    --accent: #2454ff; --accent-bg: #eef2ff;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); margin: 0; padding: 40px 24px 120px; line-height: 1.55; }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 26px; margin-bottom: 4px; }
+  .subtitle { color: var(--sub); font-size: 14px; margin-bottom: 32px; }
+  h2 { font-size: 19px; margin-top: 52px; margin-bottom: 8px; border-bottom: 2px solid var(--line); padding-bottom: 8px; }
+  h3 { font-size: 15px; margin-top: 26px; margin-bottom: 8px; }
+  p.lead { color: var(--sub); font-size: 14px; max-width: 780px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 20px; background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line); }
+  th { background: #f2f4f7; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--sub); }
+  tr:last-child td { border-bottom: none; }
+  td.amt, th.amt { text-align: right; font-variant-numeric: tabular-nums; }
+  .credit { color: var(--good); } .debit { color: var(--bad); }
+  code { background: #eef0f3; padding: 1px 6px; border-radius: 4px; font-size: 12.5px; }
+  .callout { border-radius: 10px; padding: 14px 18px; margin: 14px 0 24px; border: 1px solid; font-size: 14px; }
+  .callout.good { background: var(--good-bg); border-color: #b7e4c7; }
+  .callout.bad { background: var(--bad-bg); border-color: #f3c2bd; }
+  .callout.warn { background: var(--warn-bg); border-color: #f0dca0; }
+  .callout.info { background: var(--accent-bg); border-color: #c7d2fe; }
+  .callout strong.title { display: block; font-size: 13px; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 6px; }
+  .callout.good strong.title { color: var(--good); } .callout.bad strong.title { color: var(--bad); }
+  .callout.warn strong.title { color: var(--warn); } .callout.info strong.title { color: var(--accent); }
+  .step { display: flex; gap: 14px; align-items: flex-start; margin: 18px 0; }
+  .step-num { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; background: var(--ink); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+  .step-body { flex: 1; }
+  .file-chip { display: inline-block; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; font-family: monospace; font-size: 12px; margin: 2px 4px 2px 0; }
+  .toc { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px; font-size: 13.5px; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Bank Balance Sync — On-Device Test Scenarios</h1>
+  <p class="subtitle">Six synthetic CSV fixtures + a recommended import order that together exercise every stage of <a href="bank-balance-sync.md">the plan</a>. Import them in the order below and compare what actually happens against what's written here — any deviation is either a real bug or something worth discussing.</p>
+
+  <div class="toc">
+    <strong>Fixture files</strong> (all under <code>packages/core/tests/fixtures/</code>, safe to reference — synthetic, PII-gate-clean):
+    <ul>
+      <li><span class="file-chip">cashew-april-synthetic.csv</span> — manual Cashew export, April</li>
+      <li><span class="file-chip">moneyview-may-synthetic.csv</span> — SMS-parsed MoneyView export, May (with its own unreliable balance column)</li>
+      <li><span class="file-chip">hdfc-statement-apr-may-synthetic.csv</span> — the real HDFC statement, April–May</li>
+      <li><span class="file-chip">hdfc-statement-jan-mar-synthetic.csv</span> — an earlier HDFC statement, for the retrospective-backfill test</li>
+      <li><span class="file-chip">hdfc-statement-jun-synthetic.csv</span> — HDFC, June (a transfer out to ICICI)</li>
+      <li><span class="file-chip">icici-statement-jun-synthetic.csv</span> — ICICI's first-ever import, June (the same transfer, in)</li>
+    </ul>
+    <strong>Contents</strong>
+    <ol>
+      <li><a href="#step1">Step 1 — Import Cashew (April)</a></li>
+      <li><a href="#step2">Step 2 — Import MoneyView (May)</a></li>
+      <li><a href="#step3">Step 3 — Import the real HDFC statement (April–May)</a></li>
+      <li><a href="#step4">Step 4 — Backfill: import the earlier HDFC statement (January–March)</a></li>
+      <li><a href="#step4b">Step 4b — Optional: force the §14b disagreement variant</a></li>
+      <li><a href="#step5">Step 5 — The transfer: HDFC's June statement</a></li>
+      <li><a href="#step6">Step 6 — ICICI's first-ever import, closing the transfer loop</a></li>
+      <li><a href="#step7">Step 7 — Specifically verify the transfer-checkpoint fix</a></li>
+    </ol>
+  </div>
+
+  <h2 id="step1">Step 1 — Import Cashew (April)</h2>
+  <p class="lead">Create/select an HDFC Savings account (type <code>bank</code>) if you haven't already, with no opening balance set yet. Import <span class="file-chip">cashew-april-synthetic.csv</span> — map <code>Date</code>/<code>Title</code>/<code>Amount</code> (a single signed-amount column; positive = income, negative = expense).</p>
+  <div class="callout info">
+    <strong class="title">Expected</strong>
+    5 rows, all new (nothing to match against yet). No balance column was mapped (Cashew has none) — so <strong>no checkpoint gets attached to any of these rows</strong>, no opening-balance prompt should appear (bank-statement-import specific, and this file has no balance column to suggest one from anyway), and no gap-detection banner (first import for this account). The 5-Apr "Cash withdrawal" row stays a plain expense for now — deliberately, so Step 3 can demonstrate the retroactive cash-transfer prompt.
+  </div>
+
+  <h2 id="step2">Step 2 — Import MoneyView (May)</h2>
+  <p class="lead">Import <span class="file-chip">moneyview-may-synthetic.csv</span> into the same account. This fixture was rebuilt 2026-08-09 to match a real MoneyView export a user shared (structure only — no real values reused) — it's far richer than a typical bank statement: <code>Date, Type, SubType, Txn Type, Payment Type, Merchant/Receiver/Sender, Category, Bank Name, Account Id, Account Type, Credit, Debit, Balance, Outstanding, Available Limit, Notes</code>. Map <code>Date</code>/<code>Merchant/Receiver/Sender</code>/<code>Debit</code>/<code>Credit</code>. Note the date format is <code>YYYY/Mon/DD HH:MM:SS</code> (e.g. <code>2026/May/03 16:42:48</code>) — a real, different-from-DD/MM/YYYY format worth confirming the date-format auto-detector actually handles correctly, given the exact class of bug (locale-guessing on an ambiguous numeric date) that was just found and fixed elsewhere in the CSV-expense-import flow.</p>
+  <div class="callout bad">
+    <strong class="title">Do not map the Balance column here — and here's the real reason why (corrected 2026-08-09)</strong>
+    The original version of this fixture invented a "MoneyView's balance disagrees with its own arithmetic" scenario — the real file shows something simpler and just as disqualifying: for ordinary UPI/bank rows, <strong>the Balance column is just <code>0</code>, essentially unpopulated</strong>. MoneyView only fills in a real running balance for certain linked sub-accounts (a debit card, in the real sample), not for regular transactions. So the practical lesson is even more basic than "it's wrong" — for most rows, there's usually nothing meaningful there to accidentally map in the first place. Confirm the app doesn't do anything strange if you map a Balance column that's entirely `0`/blank across every row (it should behave the same as if no balance column were mapped at all — no checkpoints, since there's no real value to attach).
+  </div>
+  <div class="callout info">
+    <strong class="title">Expected (Balance column left unmapped, as it should be)</strong>
+    4 rows, all new. No checkpoints attached (no balance column mapped). The 8-May "Cash Withdrawal" row also stays a plain expense for now, same reasoning as Step 1.
+  </div>
+  <div class="callout warn">
+    <strong class="title">A bigger structural finding, not something this fixture tests directly</strong>
+    The real MoneyView file this was rebuilt from interleaves THREE different sub-accounts in one export — a bank account, a linked debit card, and a "cash" pseudo-account — distinguished only by its own <code>Account Id</code>/<code>Bank Name</code>/<code>Account Type</code> columns. Neither this app's bank-statement importer nor its CSV-expense importer currently has any notion of "one file, multiple destination accounts" — both assume one file maps to one Penny account. Worth deciding whether that's in scope for either importer, separately from this testing pass.
+  </div>
+
+  <h2 id="step3">Step 3 — Import the real HDFC statement (April–May)</h2>
+  <p class="lead">Import <span class="file-chip">hdfc-statement-apr-may-synthetic.csv</span> — map <code>Date</code>/<code>Narration</code>/<code>Debit</code>/<code>Credit</code>/<code>Balance</code>. This is the account's <strong>first-ever real bank-statement import</strong>.</p>
+  <div class="callout warn">
+    <strong class="title">Expected — opening balance prompt (Stage 3)</strong>
+    Since this is the first bank-statement import, you should be asked to confirm the account's opening balance. The first row's own balance (₹1,30,000) minus its own credit (₹80,000) implies an opening balance of <strong>₹50,000</strong> — this should appear as a suggested prefill, not an auto-applied value. Confirm it.
+  </div>
+  <table>
+    <thead><tr><th>Real row</th><th class="amt">Amount</th><th>Expected outcome</th></tr></thead>
+    <tbody>
+      <tr><td>02-Apr Salary</td><td class="amt credit">+80,000</td><td>Matched → Cashew's "Salary"</td></tr>
+      <tr><td>05-Apr ATM withdrawal</td><td class="amt debit">−5,000</td><td>Matched → Cashew's "Cash withdrawal" — <strong>should also surface the retroactive "looks like a transfer to your cash account?" prompt (Stage 7)</strong>. Accept it if you have a cash account, or dismiss ("Not now") to leave it as a plain expense and check the prompt doesn't nag again mid-review.</td></tr>
+      <tr><td>10-Apr Swiggy</td><td class="amt debit">−850</td><td>Matched → Cashew's "Swiggy dinner"</td></tr>
+      <tr><td>15-Apr Rent</td><td class="amt debit">−15,000</td><td>Matched → Cashew's "Rent"</td></tr>
+      <tr><td>20-Apr SMS charges</td><td class="amt debit">−150</td><td><strong>New</strong> — recovered, nobody logged this manually</td></tr>
+      <tr><td>25-Apr Groceries</td><td class="amt debit">−2,200</td><td>Matched → Cashew's "Groceries"</td></tr>
+      <tr><td>30-Apr Interest</td><td class="amt credit">+120</td><td><strong>New</strong> — recovered</td></tr>
+      <tr><td>03-May Salary</td><td class="amt credit">+80,000</td><td>Matched → MoneyView's salary row</td></tr>
+      <tr><td>08-May ATM withdrawal</td><td class="amt debit">−3,000</td><td>Matched → MoneyView's "Cash Withdrawal - ATM" — <strong>same retroactive transfer prompt as the 5-Apr row above</strong></td></tr>
+      <tr><td>12-May Electricity</td><td class="amt debit">−1,800</td><td>Matched → MoneyView's electricity row</td></tr>
+      <tr><td>18-May Groceries</td><td class="amt debit">−2,500</td><td>Matched → MoneyView's groceries row</td></tr>
+      <tr><td>22-May Refund</td><td class="amt credit">+300</td><td><strong>New</strong> — recovered</td></tr>
+      <tr><td>28-May AMC charges</td><td class="amt debit">−590</td><td><strong>New</strong> — recovered</td></tr>
+    </tbody>
+  </table>
+  <div class="callout good">
+    <strong class="title">Expected — after commit</strong>
+    4 new rows, 9 matched, 0 skipped. Every matched AND new row from this file gets a checkpoint (<code>statementBalance</code>) attached, since this file's mapping includes a balance column and the account is a <code>bank</code> account. Open the account's own verification badge/detail (Stage 4) — it should show <strong>verified</strong>, no mismatch. This is the exact §7a happy path from the main simulation doc, reproduced for real on-device.
+  </div>
+
+  <h2 id="step4">Step 4 — Backfill: import the earlier HDFC statement (January–March)</h2>
+  <p class="lead">Import <span class="file-chip">hdfc-statement-jan-mar-synthetic.csv</span> into the SAME HDFC account — a statement covering a period entirely BEFORE your current opening-balance anchor (1-Apr-2026).</p>
+  <div class="callout warn">
+    <strong class="title">Expected — anchor-shift prompt (Stage 3, §14a clean case)</strong>
+    Because this file's own date range starts earlier than the account's current anchor, you should get the anchor-shift flow instead of the ordinary review screen. This file's own implied opening balance (1-Jan-2026) is ₹20,000, and its own transactions net to exactly +₹30,000 by 20-Mar — landing exactly on the ₹50,000 anchor you already confirmed in Step 3. This should surface as the <strong>clean, agreeing</strong> case: no disagreement to resolve, just confirm the new, earlier anchor (₹20,000 as of 1-Jan-2026).
+  </div>
+  <div class="callout good">
+    <strong class="title">Expected — after commit</strong>
+    7 new rows (nothing existed for this period before). Everything from Step 3 stays untouched and still verified — a clean backfill shouldn't disturb anything downstream, per the plan's own §10b "clean case" reasoning.
+  </div>
+
+  <h2 id="step4b">Step 4b — Optional: force the §14b disagreement variant</h2>
+  <p class="lead">To see the DISAGREEING anchor-shift case instead: before importing, open <span class="file-chip">hdfc-statement-jan-mar-synthetic.csv</span> and change the first row's <code>Credit</code> from <code>35000</code> to <code>37000</code> (and its own <code>Balance</code> from <code>55000</code> to <code>57000</code>) — a ₹2,000 difference that now carries through every later row's balance in that file (add 2,000 to each of the remaining 6 balances too, or just re-derive them). Re-import.</p>
+  <div class="callout bad">
+    <strong class="title">Expected</strong>
+    The new anchor now implies ₹52,000 at 1-Apr-2026, disagreeing with the already-confirmed ₹50,000 by exactly ₹2,000 — you should see the three-choice disagreement screen (§14b), never an automatic resolution. This is the exact worked number from the main simulation doc's §14b, reproduced on-device.
+  </div>
+
+  <h2 id="step5">Step 5 — The transfer: HDFC's June statement</h2>
+  <p class="lead">Import <span class="file-chip">hdfc-statement-jun-synthetic.csv</span> into the HDFC account.</p>
+  <div class="callout info">
+    <strong class="title">Expected</strong>
+    2 new rows: the ₹20,000 NEFT-out (no candidate exists yet — ICICI hasn't been imported — so it lands as a plain new expense) and a ₹5 NEFT fee (also new, genuinely one-sided, should never get confused with the transfer itself). Account stays verified. New running balance ₹1,59,325.
+  </div>
+
+  <h2 id="step6">Step 6 — ICICI's first-ever import, closing the transfer loop</h2>
+  <p class="lead">Create a new ICICI account (type <code>bank</code>), no opening balance set. Import <span class="file-chip">icici-statement-jun-synthetic.csv</span> — note its headers are deliberately worded differently (<code>Txn Date</code>/<code>Withdrawal</code>/<code>Deposit</code>/<code>Closing Balance</code>) to confirm column-mapping doesn't depend on any specific bank's exact wording.</p>
+  <div class="callout warn">
+    <strong class="title">Expected — first-import opening-balance prompt</strong>
+    Same as Step 3: this is ICICI's first-ever bank-statement import. Suggested opening balance = ₹30,000 − ₹20,000 = <strong>₹10,000</strong>, as of 1-Jun-2026. Confirm it.
+  </div>
+  <div class="callout warn">
+    <strong class="title">Expected — the transfer suggestion (Stage 6)</strong>
+    This row (₹20,000 credit, 10-Jun) should surface a "possible transfer" suggestion pointing at the HDFC expense from Step 5 (opposite direction, same date, same amount, different account). Accept it — both sides should now link as one <code>type: 'transfer'</code> record.
+  </div>
+  <div class="callout good">
+    <strong class="title">Expected — after commit</strong>
+    ICICI account: verified, balance ₹30,000. HDFC account: still verified, balance unchanged at ₹1,59,325 (the ₹20,000 NEFT-out row, now converted to a transfer, still correctly debits HDFC — nothing about accepting the transfer suggestion should change HDFC's own total).
+  </div>
+
+  <h2 id="step7">Step 7 — Specifically verify the transfer-checkpoint fix</h2>
+  <p class="lead">This step exists purely to exercise the cross-contamination bug found and fixed after Stage 7 (see <a href="bank-balance-sync.md">the plan</a>'s post-implementation fix entry) — a transfer whose both sides get independently bank-statement-imported used to risk one side's checkpoint silently overwriting the other's.</p>
+  <div class="callout bad">
+    <strong class="title">What to check</strong>
+    Open HDFC's own checkpoint timeline (Stage 4's escape hatch) and confirm the 10-Jun transfer row's checkpoint still reads <strong>₹1,59,330</strong> (HDFC's own balance right after that transaction) — NOT ₹30,000 (ICICI's own balance), which is what the bug would have silently overwritten it with once ICICI's own import in Step 6 matched this same shared record. If HDFC's checkpoint shows anything other than ₹1,59,330 here, the fix has a gap — this is exactly the scenario it was written to prevent.
+  </div>
+
+</div>
+</body>
+</html>

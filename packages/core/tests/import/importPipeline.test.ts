@@ -7,7 +7,8 @@ import {
   toConfirmedCategoryMap,
   applyConfirmedTransferPairs,
   type ConfirmedCategoryMap,
-  type ResolvedPreviewRow
+  type ResolvedPreviewRow,
+  type RowOverride
 } from '@/core/import/importPipeline';
 import type { CategoryResolution } from '@/core/import/importCategoryResolution';
 import type { TransferPair } from '@/core/import/importTransferPairing';
@@ -120,6 +121,66 @@ describe('buildResolvedPreviewRows', () => {
     const preview = buildResolvedPreviewRows([row({ hashtags: ['goa-trip'] })], taggedMap, resolveAccountId, new Set());
     expect(preview[0]?.hashtags).toEqual(['goa-trip']);
   });
+
+  // rowOverrides (2026-08-06) — bulk-select port from Bank Statement Import, per explicit user
+  // decision. A row-level override sits ON TOP of the group-level resolution above; these tests confirm
+  // it wins when present, and that siblings sharing the same sourceName are untouched.
+  describe('rowOverrides', () => {
+    it("a row-level override's category wins over the group-level resolution, for that row only", () => {
+      const rows = [row(), row({ description: 'Tea' })];
+      const overrides = new Map<number, RowOverride>([[1, { categoryId: 'cat-other', categoryName: 'Other' }]]);
+      const preview = buildResolvedPreviewRows(rows, categoryMap, resolveAccountId, new Set(), overrides);
+      // Row 0 (not overridden) still gets the group's own "Dining" resolution.
+      expect(preview[0]).toMatchObject({ categoryId: 'cat-food', categoryName: 'Dining & Café' });
+      // Row 1 (overridden) gets the override's category instead, despite sharing the same sourceName.
+      expect(preview[1]).toMatchObject({ categoryId: 'cat-other', categoryName: 'Other' });
+    });
+
+    it("an override's tag applies only to that row, independent of the group's own tag", () => {
+      const taggedMap: ConfirmedCategoryMap = new Map([
+        ['Dining', { categoryId: 'cat-food', categoryName: 'Dining & Café', tag: 'group-tag' }]
+      ]);
+      const rows = [row(), row({ description: 'Tea' })];
+      const overrides = new Map<number, RowOverride>([[1, { tag: 'row-tag' }]]);
+      const preview = buildResolvedPreviewRows(rows, taggedMap, resolveAccountId, new Set(), overrides);
+      expect(preview[0]?.hashtags).toEqual(['group-tag']);
+      // The row-level tag REPLACES the group's tag for this row, it doesn't add both.
+      expect(preview[1]?.hashtags).toEqual(['row-tag']);
+      // And the row-level override's own category is untouched (tag-only override) — still whatever
+      // the group resolved to.
+      expect(preview[1]).toMatchObject({ categoryId: 'cat-food', categoryName: 'Dining & Café' });
+    });
+
+    it('a category-move override un-skips a row even if its group resolution was "skip"', () => {
+      const skipMap: ConfirmedCategoryMap = new Map([
+        ['Dining', { categoryId: '', categoryName: 'Dining', skip: true }]
+      ]);
+      const overrides = new Map<number, RowOverride>([[0, { categoryId: 'cat-food', categoryName: 'Dining & Café' }]]);
+      const preview = buildResolvedPreviewRows([row()], skipMap, resolveAccountId, new Set(), overrides);
+      expect(preview[0]?.skipped).toBe(false);
+      expect(preview[0]).toMatchObject({ categoryId: 'cat-food', categoryName: 'Dining & Café' });
+    });
+
+    it("a category-move override reverts a row's type back from 'transfer' to its own natural type", () => {
+      const transferMap: ConfirmedCategoryMap = new Map([
+        ['Balance Correction', { categoryId: 'cat-tr-other', categoryName: 'Other Transfer', type: 'transfer' }]
+      ]);
+      const overrides = new Map<number, RowOverride>([[0, { categoryId: 'cat-food', categoryName: 'Dining & Café' }]]);
+      const preview = buildResolvedPreviewRows(
+        [row({ categoryName: 'Balance Correction', type: 'income' })],
+        transferMap,
+        resolveAccountId,
+        new Set(),
+        overrides
+      );
+      expect(preview[0]?.type).toBe('income');
+    });
+
+    it('is a no-op when omitted entirely — existing callers with no 5th argument behave exactly as before', () => {
+      const preview = buildResolvedPreviewRows([row()], categoryMap, resolveAccountId, new Set());
+      expect(preview[0]).toMatchObject({ categoryId: 'cat-food', categoryName: 'Dining & Café' });
+    });
+  });
 });
 
 describe('applyConfirmedTransferPairs', () => {
@@ -213,7 +274,11 @@ describe('toConfirmedCategoryMap', () => {
 
   it('omits tag entirely when no tag was set for that source name', () => {
     const resolutions: CategoryResolution[] = [
-      { sourceName: 'Groceries', count: 1, suggestion: { kind: 'existing', categoryId: 'cat-food', categoryName: 'Food' } }
+      {
+        sourceName: 'Groceries',
+        count: 1,
+        suggestion: { kind: 'existing', categoryId: 'cat-food', categoryName: 'Food' }
+      }
     ];
     const map = toConfirmedCategoryMap(resolutions, new Map(), new Map());
     expect(map.get('Groceries')).not.toHaveProperty('tag');

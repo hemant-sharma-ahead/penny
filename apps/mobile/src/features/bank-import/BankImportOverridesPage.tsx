@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { View, Pressable, ScrollView, Text } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bankNarrationOverridesRepo } from '@/core/db/repositories';
 import { CONNECTOR_KEYWORDS_LIST } from '@/core/bank-import/normalization';
 import { useRepository } from '@/hooks/useRepository';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
-import { Button, Card, ConfirmDialog, EmptyState, ListContainer, SectionLabel, TextInput } from '~/components/ui';
+import { Button, Card, ConfirmDialog, EmptyState, ListContainer, Modal, TextInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 
@@ -18,13 +18,19 @@ import { useThemeColors } from '~/theme/useThemeColors';
  * the user types directly rather than a full raw line (reference numbers change every transaction).
  * The mockup's illustrative "auto" rows were flavor only, with no real backing data — this is just the
  * real custom-override CRUD list + add form.
+ *
+ * "Add override" is a FAB + popup (2026-08-05, matching the Expenses tab's own add-transaction FAB
+ * and `BankCashWithdrawalCodesPage`'s equivalent), not an inline form pinned to the bottom of the
+ * list — consistency with the rest of the app's add-a-thing pattern, per direct user feedback.
  */
 export function BankImportOverridesPage() {
   const modeBg = useModeBackgroundColor();
   const theme = useThemeColors();
+  const insets = useSafeAreaInsets();
   useDefaultHeaderBack('BankImportOverrides');
   const { items: overrides, save, remove } = useRepository(bankNarrationOverridesRepo);
 
+  const [showAdd, setShowAdd] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [normalizesTo, setNormalizesTo] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -44,6 +50,7 @@ export function BankImportOverridesPage() {
     });
     setKeyword('');
     setNormalizesTo('');
+    setShowAdd(false);
   }
 
   return (
@@ -87,7 +94,7 @@ export function BankImportOverridesPage() {
               <EmptyState
                 icon="ti-adjustments-horizontal"
                 title="No overrides yet"
-                description="Add one below whenever the automatic merchant-recognition guess gets something wrong."
+                description="Add one whenever the automatic merchant-recognition guess gets something wrong."
               />
             </Card>
           ) : (
@@ -112,9 +119,32 @@ export function BankImportOverridesPage() {
               ))}
             </ListContainer>
           )}
+        </View>
+      </ScrollView>
 
-          <View className="gap-2">
-            <SectionLabel>Add override</SectionLabel>
+      {/* FAB — same placement/style as the Expenses tab's add-transaction FAB. */}
+      <View className="absolute" style={{ bottom: insets.bottom + 16, right: 16 }}>
+        <Pressable
+          onPress={() => setShowAdd(true)}
+          className="w-14 h-14 rounded-full shadow-lg items-center justify-center"
+          style={{ backgroundColor: theme.primary }}
+          accessibilityLabel="Add override"
+        >
+          <Icon name="ti-plus" size={24} color="#fff" />
+        </Pressable>
+      </View>
+
+      {showAdd && (
+        <Modal
+          onClose={() => setShowAdd(false)}
+          title="Add override"
+          footer={
+            <Button variant="primary" fullWidth disabled={!canAdd} onPress={() => void handleAdd()}>
+              Add override
+            </Button>
+          }
+        >
+          <View className="gap-3">
             <TextInput
               label="Keyword in statement"
               value={keyword}
@@ -127,12 +157,9 @@ export function BankImportOverridesPage() {
               onChange={setNormalizesTo}
               placeholder="e.g. Local Chai Shop"
             />
-            <Button variant="primary" icon="ti-plus" disabled={!canAdd} onPress={() => void handleAdd()}>
-              Add override
-            </Button>
           </View>
-        </View>
-      </ScrollView>
+        </Modal>
+      )}
 
       <ConfirmDialog
         isOpen={!!deletingId}

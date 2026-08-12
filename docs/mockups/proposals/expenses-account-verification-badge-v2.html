@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Expenses — account verification banner (v2)</title>
+<style>
+  :root {
+    --primary: #00a86b; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #3b82f6;
+    --bg: #0b0f14; --surface: #161b22; --surface2: #1c2128; --border: #2d333b;
+    --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+  }
+  * { box-sizing: border-box; }
+  body { background: #05070a; color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 40px 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .intro { color: var(--text2); font-size: 13px; max-width: 760px; line-height: 1.6; margin-bottom: 28px; }
+  .gallery { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+  .frame-label { font-size: 12px; font-weight: 700; color: var(--text2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .frame-label.proposed { color: var(--primary); }
+  .phone { width: 375px; background: var(--bg); border-radius: 28px; border: 8px solid #000; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+  .header { padding: 14px 16px 0; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+  .row { display: flex; align-items: flex-start; justify-content: space-between; }
+  .col { flex: 1; }
+  .col.right { align-items: flex-end; display: flex; flex-direction: column; gap: 6px; }
+  .count { font-size: 10px; font-weight: 600; color: var(--text3); }
+  .total { font-size: 16px; font-weight: 800; margin-top: 2px; }
+  .icons { display: flex; gap: 4px; align-items: center; }
+  .icon-btn { width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--text2); }
+  .pill { display: flex; align-items: center; gap: 5px; border-radius: 999px; background: var(--surface2); border: 1px solid var(--border); padding: 5px 10px; font-size: 10.5px; color: var(--text2); }
+  .pill .amt { color: var(--text); }
+  .banner {
+    margin: 10px 16px 0; display: flex; align-items: center; gap: 10px;
+    background: rgba(239,68,68,0.13); border: 1px solid rgba(239,68,68,0.35);
+    border-radius: 12px; padding: 11px 12px;
+  }
+  .banner .ic { font-size: 16px; color: var(--danger); }
+  .banner .txt { flex: 1; font-size: 12px; font-weight: 600; color: var(--danger); line-height: 1.4; }
+  .banner .txt .sub { display: block; font-size: 10.5px; font-weight: 400; color: var(--text2); margin-top: 1px; }
+  .banner .chev { font-size: 14px; color: var(--danger); }
+  .tabstrip { display: flex; gap: 18px; padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .tabstrip .t { color: var(--text3); padding-bottom: 6px; }
+  .tabstrip .t.active { color: var(--text); font-weight: 700; border-bottom: 2px solid var(--primary); }
+  .body-fill { padding: 40px 16px; text-align: center; color: var(--text3); font-size: 11px; }
+  .callout { border: 1px dashed var(--border); border-radius: 10px; padding: 12px 14px; font-size: 11px; color: var(--text2); line-height: 1.65; margin-top: 28px; max-width: 900px; }
+  .callout b { color: var(--text); }
+</style>
+</head>
+<body>
+
+<h1>Expenses — account verification banner (v2, per your "too subtle" feedback)</h1>
+<p class="intro">
+  A full-width, unmissable banner — same visual language as the app's other alert banners
+  (<code>Banner variant="danger"</code>), but tappable end-to-end (wrapped in a <code>Pressable</code>,
+  same pattern <code>AccountVerificationBanner.tsx</code>'s own collapsed mismatch banner already uses)
+  — the whole strip navigates to Accounts, not just a small icon somewhere. Sits right below the header,
+  above the tab strip, so it's visible no matter which Expenses tab (Transactions/Analytics/
+  Subscriptions/IOU) you're on — this is an account-level concern, not a Transactions-tab-only one.
+</p>
+
+<div class="gallery">
+
+  <div>
+    <div class="frame-label">Current — today, all clear (no banner)</div>
+    <div class="phone">
+      <div class="header">
+        <div class="row">
+          <div class="col">
+            <div class="count">42 transactions</div>
+            <div class="total">₹28,450</div>
+          </div>
+          <div class="col right">
+            <div class="icons"><div class="icon-btn">🚩</div><div class="icon-btn">⬇</div><div class="icon-btn">⬆</div></div>
+            <div class="pill">💳 Safe: <span class="amt">₹12,300</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="tabstrip">
+        <div class="t active">Transactions</div><div class="t">Analytics</div><div class="t">Subscriptions</div><div class="t">IOU</div>
+      </div>
+      <div class="body-fill">— transaction list —</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="frame-label proposed">Proposed — full-width tappable banner, 1 account</div>
+    <div class="phone">
+      <div class="header">
+        <div class="row">
+          <div class="col">
+            <div class="count">42 transactions</div>
+            <div class="total">₹28,450</div>
+          </div>
+          <div class="col right">
+            <div class="icons"><div class="icon-btn">🚩</div><div class="icon-btn">⬇</div><div class="icon-btn">⬆</div></div>
+            <div class="pill">💳 Safe: <span class="amt">₹12,300</span></div>
+          </div>
+        </div>
+        <div class="banner">
+          <div class="ic">⚠</div>
+          <div class="txt">1 account needs attention<span class="sub">HDFC Savings · balance may not match your bank</span></div>
+          <div class="chev">›</div>
+        </div>
+      </div>
+      <div class="tabstrip">
+        <div class="t active">Transactions</div><div class="t">Analytics</div><div class="t">Subscriptions</div><div class="t">IOU</div>
+      </div>
+      <div class="body-fill">— transaction list —</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="frame-label proposed">Proposed — 2+ accounts</div>
+    <div class="phone">
+      <div class="header">
+        <div class="row">
+          <div class="col">
+            <div class="count">42 transactions</div>
+            <div class="total">₹28,450</div>
+          </div>
+          <div class="col right">
+            <div class="icons"><div class="icon-btn">🚩</div><div class="icon-btn">⬇</div><div class="icon-btn">⬆</div></div>
+            <div class="pill">💳 Safe: <span class="amt">₹12,300</span></div>
+          </div>
+        </div>
+        <div class="banner">
+          <div class="ic">⚠</div>
+          <div class="txt">2 accounts need attention<span class="sub">Tap to review in Accounts</span></div>
+          <div class="chev">›</div>
+        </div>
+      </div>
+      <div class="tabstrip">
+        <div class="t active">Transactions</div><div class="t">Analytics</div><div class="t">Subscriptions</div><div class="t">IOU</div>
+      </div>
+      <div class="body-fill">— transaction list —</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="callout">
+  <b>Behavior:</b> the whole strip is one tap target → <code>navigate('Home', {'{'} screen: 'Accounts' {'}'})</code>
+  (same cross-tab pattern the "Safe: ₹X" pill already uses for CashFlow) — the existing Accounts screen's
+  own per-account badges and detail modal take it from there. For exactly one flagged account, names it
+  directly (no need to make the user open Accounts just to find out which one); for 2+, stays generic
+  and lets the Accounts list itself show which ones. No dismiss (×) — this isn't a one-time tip, it
+  should keep showing for as long as the account genuinely needs attention, same as
+  <code>AccountVerificationBanner.tsx</code>'s own mismatch banner has no standalone dismiss separate
+  from its own explicit "I've reviewed this" action.
+</div>
+
+</body>
+</html>

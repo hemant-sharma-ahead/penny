@@ -59,8 +59,14 @@ interface TransactionsSliceProps {
   goalLinkedTxnIds: Set<string>;
   /** For the edit form's "matched from bank statement" audit-trail caption (docs/plans/
    *  bank-statement-import.md §10a's purpose #1) — which transactions were resolved from a bank
-   *  statement import, and what the original line looked like. */
-  bankImportLinkByTxn: Map<string, { rawNarration: string; date: number }>;
+   *  statement import, and what the original line(s) looked like. An array per transaction since
+   *  2026-08-09 — a cross-account transfer absorbed via `linkAsCrossAccountTransfer` carries one linked
+   *  line per side. */
+  bankImportLinkByTxn: Map<string, { rawNarration: string; date: number }[]>;
+  /** Every transaction whose recorded payment mode disagrees with its original bank-statement
+   *  narration (2026-08-06, `useExpenses.ts`'s `paymentModeMismatchTxnIds`) — drives both the row
+   *  warning icon (`TransactionsTab`) and the "Payment mode mismatch" filter toggle. */
+  paymentModeMismatchTxnIds: Set<string>;
   /** Adds/edits an account from the expense form's own "+" tile (`AccountChips.tsx`), inline. */
   saveAccount: (data: AccountInput, editing: Account | null) => Promise<Account>;
   accountBalances: Record<string, number>;
@@ -110,6 +116,7 @@ export function TransactionsSlice({
   goalLinkByTxn,
   goalLinkedTxnIds,
   bankImportLinkByTxn,
+  paymentModeMismatchTxnIds,
   saveAccount,
   accountBalances,
   shareGroups,
@@ -144,6 +151,8 @@ export function TransactionsSlice({
     setEventFilters,
     monthFilter,
     setMonthFilter,
+    paymentModeMismatchOnly,
+    setPaymentModeMismatchOnly,
     activeFilterCount,
     grouped,
     filterState,
@@ -286,7 +295,8 @@ export function TransactionsSlice({
     accountFilters.size > 0 ||
     parentCategoryFilters.size > 0 ||
     categoryFilters.size > 0 ||
-    eventFilters.size > 0;
+    eventFilters.size > 0 ||
+    paymentModeMismatchOnly;
 
   return (
     <View className="flex-1">
@@ -419,6 +429,13 @@ export function TransactionsSlice({
                   const color = evList.length === 1 ? (evList[0]?.color ?? theme.primary) : theme.primary;
                   return <DismissibleChip label={label} color={color} onDismiss={() => setEventFilters(new Set())} />;
                 })()}
+              {paymentModeMismatchOnly && (
+                <DismissibleChip
+                  label="Payment mismatch"
+                  color={theme.warning}
+                  onDismiss={() => setPaymentModeMismatchOnly(false)}
+                />
+              )}
               <Pressable
                 onPress={clearChipFilters}
                 className="shrink-0 flex-row items-center gap-1 px-3 py-1.5 rounded-full"
@@ -496,12 +513,17 @@ export function TransactionsSlice({
         selectedIds={selected}
         onToggleSelect={toggleSelect}
         goalLinkedTxnIds={goalLinkedTxnIds}
+        paymentModeMismatchTxnIds={paymentModeMismatchTxnIds}
       />
 
-      {/* Bulk action bar (select mode) */}
+      {/* Bulk action bar (select mode). Each Pressable is a plain `flex: 1` third — the previous
+          `flexBasis: '33%'` didn't account for the row's own `gap`/`px` overhead, so the 3 items'
+          combined width exceeded the container and `flex-wrap` pushed the third icon onto its own row
+          (found 2026-08-05). `flex: 1` always sums to exactly the available width, so wrap never
+          triggers regardless of gap/padding. */}
       {selectMode && selected.size > 0 && (
         <View
-          className="absolute left-0 right-0 flex-row flex-wrap gap-1 px-2 py-2 border-t border-theme bg-surface"
+          className="absolute left-0 right-0 flex-row gap-1 px-2 py-2 border-t border-theme bg-surface"
           style={{ bottom: insets.bottom }}
         >
           <Pressable
@@ -510,7 +532,7 @@ export function TransactionsSlice({
               setShowBulkCategory(true);
             }}
             className="items-center gap-1 py-2 rounded-xl"
-            style={{ flexBasis: '33%', flexGrow: 1 }}
+            style={{ flex: 1 }}
           >
             <Icon name="ti-tag" size={19} color={theme.textSecondary} />
             <Text className="text-[10px] font-medium text-secondary">Category</Text>
@@ -518,7 +540,7 @@ export function TransactionsSlice({
           <Pressable
             onPress={() => setShowAcctPay(true)}
             className="items-center gap-1 py-2 rounded-xl"
-            style={{ flexBasis: '33%', flexGrow: 1 }}
+            style={{ flex: 1 }}
           >
             <Icon name="ti-wallet" size={19} color={theme.textSecondary} />
             <Text className="text-[10px] font-medium text-secondary">Account/Pay</Text>
@@ -526,7 +548,7 @@ export function TransactionsSlice({
           <Pressable
             onPress={() => setConfirmBulkDelete(true)}
             className="items-center gap-1 py-2 rounded-xl"
-            style={{ flexBasis: '33%', flexGrow: 1 }}
+            style={{ flex: 1 }}
           >
             <Icon name="ti-trash" size={19} color={theme.danger} />
             <Text className="text-[10px] font-medium" style={{ color: theme.danger }}>
@@ -564,6 +586,7 @@ export function TransactionsSlice({
           accounts={accounts}
           categories={categories}
           goals={goals}
+          hasPaymentModeMismatches={paymentModeMismatchTxnIds.size > 0}
           initial={filterState}
           onApply={applyFilters}
           onClose={() => setShowFilterSheet(false)}
@@ -603,7 +626,7 @@ export function TransactionsSlice({
           goals={goals}
           onSeedGoal={onSeedGoal}
           linkedGoal={editingExpense ? goalLinkByTxn.get(editingExpense.id) : undefined}
-          linkedBankStatementLine={editingExpense ? bankImportLinkByTxn.get(editingExpense.id) : undefined}
+          linkedBankStatementLines={editingExpense ? bankImportLinkByTxn.get(editingExpense.id) : undefined}
           saveAccount={saveAccount}
           searchMerchant={searchMerchant}
           onDuplicate={handleDuplicate}

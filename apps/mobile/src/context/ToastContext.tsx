@@ -30,6 +30,15 @@ import { useThemeColors } from '~/theme/useThemeColors';
  * neutral style. Defaults to `'info'` when a caller doesn't pass one, so every pre-existing `showToast`
  * call site (none of which passed a variant before this) keeps working unchanged.
  *
+ * **Solid card background** (2026-08-04 follow-up) — the card's fill uses `ink(color, theme.surface,
+ * 14)` (an opaque mix into the theme's actual surface colour), not `tint()`'s translucent `rgba()`.
+ * Unlike `Banner`, which always sits on the screen's own already-known background, a toast floats in
+ * its own transparent `Modal` above arbitrary content (photos, gradient cards, other modals) — a
+ * translucent fill there meant the toast's own text-contrast varied with whatever happened to be
+ * underneath it at the time, sometimes unreadable. `border` stays a translucent `tint()` (a thin edge
+ * blending with whatever's just outside the card is fine; it's the whole card's fill that needed to be
+ * predictable).
+ *
  * **Countdown progress bar** (same follow-up) — a thin bar under the message, animated from full to
  * empty over the real `durationMs` via `react-native-reanimated`'s `withTiming` (linear easing, so the
  * bar's drain rate always matches the actual remaining time, not just a decorative loop). Reset to full
@@ -133,7 +142,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           >
             <View
               className="w-full rounded-xl border shadow-lg overflow-hidden"
-              style={{ backgroundColor: tint(color, 12), borderColor: tint(color, 30) }}
+              style={{ backgroundColor: ink(color, theme.surface, 14), borderColor: tint(color, 30) }}
             >
               <View className="flex-row items-center gap-3 px-4 pt-3 pb-3.5">
                 <Icon name={BANNER_DEFAULT_ICON[variant]} size={17} color={color} />

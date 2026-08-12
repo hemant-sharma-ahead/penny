@@ -4,8 +4,13 @@ import type { Account, Expense } from '@/core/db/types';
 import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { logActivity, restoreActivity, summarizeDiff } from '@/core/db/activityLog';
 import { useToast } from '~/context/ToastContext';
-import { useTxnRefresh } from '@/hooks/useTxnRefresh';
-import { useAccountsRefresh, useCategoriesRefresh, useTagsRefresh } from '@/hooks/useDataRefresh';
+import { useTxnRefresh, notifyTxnChanged } from '@/hooks/useTxnRefresh';
+import {
+  useAccountsRefresh,
+  useCategoriesRefresh,
+  useTagsRefresh,
+  notifyAccountsChanged
+} from '@/hooks/useDataRefresh';
 import { useRepository } from '@/hooks/useRepository';
 import type { AccountInput } from '~/hooks/useAccountForm';
 
@@ -69,7 +74,9 @@ export function useAccounts() {
         summary: `Added account: ${record.name}`
       });
     }
+    notifyAccountsChanged();
     setSaving(false);
+    return record;
   }, []);
 
   const deleteAccount = useCallback(
@@ -77,6 +84,7 @@ export function useAccounts() {
       const acct = accounts.find((a) => a.id === id);
       await accountsRepo.delete(id);
       setAccounts((prev) => prev.filter((a) => a.id !== id));
+      notifyAccountsChanged();
       if (!acct) return;
       const logId = logActivity({
         action: 'DELETE',
@@ -91,6 +99,7 @@ export function useAccounts() {
         onAction: async () => {
           await restoreActivity(logId);
           setAccounts((prev) => [...prev, acct].sort((a, b) => a.createdAt - b.createdAt));
+          notifyAccountsChanged();
         }
       });
     },
@@ -130,6 +139,7 @@ export function useAccounts() {
         entityId: adj.id,
         summary: `Reconciled ${account.name}: ${surplus ? '+' : '−'}₹${Math.abs(diff)}`
       });
+      notifyTxnChanged();
     },
     [txns]
   );

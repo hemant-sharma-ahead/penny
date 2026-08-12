@@ -23,7 +23,7 @@ export function SearchInput({ value, onChange, placeholder = 'Search…', classN
         style={{ includeFontPadding: false, padding: 0, margin: 0 }}
         className="flex-1 text-sm text-primary"
       />
-      {value && (
+      {value.length > 0 && (
         <Pressable onPress={() => onChange('')} accessibilityLabel="Clear search">
           <Icon name="ti-x" size={13} color={theme.textTertiary} />
         </Pressable>

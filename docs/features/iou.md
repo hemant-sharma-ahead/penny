@@ -91,7 +91,22 @@ Key files:
 - Pairwise only — multi-party group splits (uneven shares / who-paid) arrive in Phase 1.5 Track E
 - Loans recorded as Expense/Income appear in normal spend/income analytics (no separate category, by
   design) — net worth is corrected via the IOU receivable/payable, but cash-flow shows the movement
-- IOU→transaction uses a default category (`cat-other` / `cat-inc-other`); edit the transaction to refine
+- **IOU→transaction default category (updated 2026-08-06):** a **settlement**'s linked transaction now
+  defaults to the dedicated `cat-collected-money` (income — someone paid back what you lent them) /
+  `cat-return-borrowed` (expense — you paid back what you borrowed) categories instead of the generic
+  Other/Other Income fallback (`reconcileLinkedTxn`'s new `defaultCategoryId` override, passed only by
+  `IouView.tsx`'s settle call site). A brand-new manual "lent"/"borrowed" ledger entry's own linked
+  transaction is unchanged — still defaults to generic Other/Other Income (its own category concept,
+  `cat-lending`/`cat-inc-borrowed`, is reachable via the normal Expense/Income form, not this quick-entry
+  flow); edit the transaction to refine either way.
+- **Four categories now make the person mandatory, not optional (2026-08-06):** `cat-lending`
+  ("Lending"), `cat-inc-borrowed` ("Borrowed Money"), `cat-collected-money` ("Collected Money" — new,
+  the reverse of Lending), `cat-return-borrowed` ("Return Borrowed" — new, the reverse of Borrowed
+  Money). Picking any of these in `ExpenseForm.tsx` (including bank-import's single-row flow) or
+  bank-import's `BulkCategorizeModal` auto-opens *and locks open* the Lent/Borrowed panel (the
+  `ExtraCircle` toggle becomes unresponsive to taps while one of these is selected — see `IOU_MANDATORY_CATEGORY_IDS`
+  in `packages/core/src/core/db/defaultCategories.ts`) instead of leaving it as a manual toggle someone
+  might never open before an otherwise-silent validation failure on Save/Apply.
 - Person names are local free text — not yet linked to real group members (`linkedMemberId` reserved)
 - No push/OS reminders for due dates (in-app only)
 

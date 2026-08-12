@@ -19,6 +19,7 @@ import type { ExpenseSeedIntent } from '@/core/iou/expenseLink';
 import type { ExpenseGoalIntent } from '@/core/goals/goalLink';
 import type { ActiveEvent } from '~/context/EventModeContext';
 import { accountsRepo, groupMembersRepo, profileRepo } from '@/core/db/repositories';
+import { IOU_MANDATORY_CATEGORY_IDS } from '@/core/db/defaultCategories';
 import { getRiskColor } from '@/core/goals/meta';
 import { epochToDateInput, formatCurrency } from '@/lib/formatters';
 import { epochToTimeInput, combineDateTime, formatDate } from '@/lib/date';
@@ -47,6 +48,8 @@ import { useAccountForm, type AccountInput } from '~/hooks/useAccountForm';
 import { AccountChips } from './AccountChips';
 import { PaymentModeChips } from './PaymentModeChips';
 import { couplePaymentToAccount } from './paymentModes';
+import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
+import { usePaymentModes } from '~/hooks/usePaymentModes';
 import { tint } from '~/lib/color';
 
 interface Props {
@@ -81,8 +84,11 @@ interface Props {
   /** When editing: this transaction was resolved from a bank-statement import — shows a small audit-
    *  trail caption ("Matched from bank statement: `<raw narration>`, `<date>`"), mirroring the
    *  `goalPreset` caption below (docs/plans/bank-statement-import.md §10a's purpose #1). Read-only —
-   *  purely informational, nothing here is editable or re-triggers the import flow. */
-  linkedBankStatementLine?: { rawNarration: string; date: number } | undefined;
+   *  purely informational, nothing here is editable or re-triggers the import flow. An ARRAY (not a
+   *  single line) since 2026-08-09 — a cross-account transfer absorbed via `linkAsCrossAccountTransfer`
+   *  legitimately carries one linked statement line per side, not just one; a plain expense/income still
+   *  only ever has exactly one entry here, same as before. */
+  linkedBankStatementLines?: { rawNarration: string; date: number }[] | undefined;
   /** Adds/edits an account from this form's own "+" tile (`AccountChips.tsx`) without leaving it. */
   saveAccount: (data: AccountInput, editing: Account | null) => Promise<Account>;
   searchMerchant: (type: TransactionType, query: string) => MerchantMemory[];
@@ -99,6 +105,12 @@ interface Props {
   /** Omitted when `goalPreset` is set — the category tile is locked/non-interactive there, so the
    *  category-management picker never opens and never needs it. */
   categoryManager?: CategoryManager;
+  /** Feeds `CategoryPickerModal`'s "Frequent" quick-pick row when `categoryManager` is omitted (e.g.
+   *  bank-import's statement-preset flow, which deliberately never builds a full manager) — without
+   *  this, "Frequent" silently read off an always-empty count map and never rendered there (found
+   *  2026-08-05; see `CategoryPickerModal.tsx`'s own `txnCountByCategory` prop doc). Ignored when
+   *  `categoryManager` is provided — that already carries its own counts. */
+  txnCountByCategory?: Map<string, number>;
   /** Opens this form scoped to one fixed goal (Goals screen's "Add contribution"/edit-linked-txn flow):
    *  hides the Goal/Lent-Borrowed sections entirely (goal is already fixed, not a separate choice this
    *  form makes), shows a small "Contributing to {name}" caption instead, restricts the type switch to
@@ -109,20 +121,40 @@ interface Props {
    *  picker's own `onSeedGoal` (which this prop deliberately doesn't touch). */
   goalPreset?: { goalId: string; goalName: string };
   /** Opens this form scoped to one bank-statement line (`features/bank-import/`'s review flow,
-   *  docs/plans/bank-statement-import.md §8): locks Amount, Date, Account (+ To-account for a
-   *  transfer), and Type — reusing the exact same visual components as the normal form (hero amount,
-   *  DateInput, AccountChips), just non-interactive (`disabled`/`pointerEvents:'none'`), rather than a
-   *  separate compact "locked fields" list — the form should look like the real Add-transaction popup,
-   *  not a different screen (2026-08-03 redesign, per explicit user feedback). Type itself is conveyed
-   *  via the header ("Add Expense"/"Add Income"/"Add Transfer") instead of its own locked row. Time has
-   *  no equivalent in a statement line at all, so it's hidden rather than shown-and-disabled. Payment
-   *  mode is shown via the normal, still-editable `PaymentModeChips`, just pre-selected and captioned
-   *  "guessed from statement". Only Category and Description are genuinely open, with Description
-   *  pre-filled from merchant memory when available and always auto-focused (same convention as every
-   *  other new-entry mode). `handleSave()` reads the locked fields directly off this object rather than
-   *  off local state, so there's no path for the saved Expense to disagree with what was shown as
-   *  locked. New-entry only (never combined with `editing`) — the caller (`useBankImport.ts`) always
-   *  renders this on a fresh instance. */
+   *  docs/plans/bank-statement-import.md §8): locks Amount, Date, and (From-)Account — reusing the
+   *  exact same visual components as the normal form (hero amount, DateInput, AccountChips), just
+   *  non-interactive (`disabled`/`pointerEvents:'none'`), rather than a separate compact "locked
+   *  fields" list — the form should look like the real Add-transaction popup, not a different screen
+   *  (2026-08-03 redesign, per explicit user feedback). Time has no equivalent in a statement line at
+   *  all, so it's hidden rather than shown-and-disabled. Payment mode is shown via the normal, still-
+   *  editable `PaymentModeChips`, just pre-selected and captioned "guessed from statement". Category
+   *  and Description are genuinely open, with Description pre-filled from merchant memory when
+   *  available and always auto-focused (same convention as every other new-entry mode).
+   *
+   *  **Type and To-account are deliberately editable too (2026-08-05)** — a statement line's direction
+   *  (debit/credit) is a fact from the file, but whether it's a plain expense/income or actually a
+   *  transfer (a cash withdrawal, a move between the user's own accounts) is a judgment call the
+   *  matcher/caller can suggest but not force. The header's type toggle offers exactly two options —
+   *  `type` (the file's own direction, always `'expense'` or `'income'`, never `'transfer'` itself) and
+   *  `'transfer'` — never a third, since flipping a debit into "income" or vice versa would misrepresent
+   *  the statement fact. `suggestedType`/`toAccountId` seed the *initial* selection for a confident
+   *  auto-detected match (e.g. an ATW/NWD-coded cash withdrawal); the user can still switch back.
+   *  `handleSave()` reads Amount/Date/(From-)Account directly off this object (never local state, so
+   *  there's no path for those three to disagree with what was shown as locked), but Type/To-account
+   *  from local state, which already seeds from this object and tracks the user's own edits from there.
+   *
+   *  **Direction swap for a credit row marked Transfer (2026-08-05 fix)** — the locked statement
+   *  account always renders in the *first* chip row and the picked account in the second, but which one
+   *  is actually the schema's `accountId` (source) vs `toAccountId` (destination) depends on the row's
+   *  own natural direction: for a debit (`type: 'expense'`), the locked account is the source, as the
+   *  labels say. For a credit (`type: 'income'`), money arrived *into* the locked account, so it must be
+   *  the destination — the first chip row is relabeled "To account" and the roles are swapped when
+   *  building the final `Expense` (see `handleSave()`). Without this, marking a credit row as a transfer
+   *  would record it backwards — found while designing the cross-account "possible internal transfer"
+   *  suggestion, the first feature to actually exercise a credit-direction transfer (cash-withdrawal
+   *  detection is debit-only).
+   *  New-entry only (never combined with `editing`) — the caller (`useBankImport.ts`) always renders
+   *  this on a fresh instance. */
   statementPreset?: StatementPresetInput;
   onClose: () => void;
 }
@@ -132,9 +164,24 @@ export interface StatementPresetInput {
   amount: number;
   date: number; // epoch ms
   accountId: string;
+  /** The statement line's own natural direction — always `'expense'` or `'income'`, matching its
+   *  debit/credit — never `'transfer'` itself (see the `statementPreset` prop doc comment). */
   type: TransactionType;
-  /** Only meaningful when `type === 'transfer'` — the statement line's other side. */
+  /** Initial type selection, if different from `type` — set to `'transfer'` to suggest (not force) a
+   *  confident auto-detected match. Omit to just default to `type` as before. */
+  suggestedType?: TransactionType;
+  /** Initial "To account" when suggesting a transfer — left unset when ambiguous (e.g. more than one
+   *  cash account exists), requiring the user to pick. Always the *other* account regardless of the
+   *  statement row's own debit/credit direction — `handleSave()` decides which schema role (source vs
+   *  destination) this and the locked account actually play, see the direction-swap note below. */
   toAccountId?: string;
+  /** Short, user-visible explanation for why Transfer was suggested (e.g. "Might be the other side of
+   *  a transfer with HDFC Savings — recorded there as ...") — shown next to the type toggle only while
+   *  `type === 'transfer'`. Omit for a suggestion that's already self-explanatory (e.g. a narration-
+   *  code cash-withdrawal match, obvious from the "guessed from statement" payment-mode caption) —
+   *  primarily for the fuzzier cross-account amount/date suggestion, where the "why" isn't otherwise
+   *  visible anywhere in the form. */
+  suggestionNote?: string;
   /** From `inferPaymentMode()`'s `.id` — still user-editable via the normal `PaymentModeChips`, just
    *  pre-filled. */
   paymentMode: string;
@@ -183,12 +230,13 @@ export function ExpenseForm({
   goals,
   onSeedGoal,
   linkedGoal,
-  linkedBankStatementLine,
+  linkedBankStatementLines,
   saveAccount,
   searchMerchant,
   onDuplicate,
   onSaveTemplate,
   categoryManager,
+  txnCountByCategory,
   goalPreset,
   statementPreset,
   onClose
@@ -197,7 +245,9 @@ export function ExpenseForm({
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   // Editing seeds from the record; a new entry may seed from a duplicate/template prefill.
   const seed = editing ?? prefill ?? null;
-  const [type, setType] = useState<TransactionType>(seed?.type ?? statementPreset?.type ?? initialType ?? 'expense');
+  const [type, setType] = useState<TransactionType>(
+    seed?.type ?? statementPreset?.suggestedType ?? statementPreset?.type ?? initialType ?? 'expense'
+  );
   // A goal contribution defaults to Savings (or the transfer bank category once a destination account
   // is picked) — never left blank the way a normal transaction's category is, since there's always one
   // obviously-correct answer here and the picker itself is locked/non-interactive (see below).
@@ -215,6 +265,7 @@ export function ExpenseForm({
       const record = await saveAccount(data, editingAccount);
       setAccounts((prev) => (editingAccount ? prev.map((a) => (a.id === record.id ? record : a)) : [...prev, record]));
       if (!editingAccount && type !== 'transfer') setAccountId(record.id);
+      return record;
     } finally {
       setAccountFormSaving(false);
     }
@@ -239,6 +290,24 @@ export function ExpenseForm({
         : (statementPreset?.categorySuggestion ?? ''))
   );
   const [paymentMode, setPaymentMode] = useState(seed?.paymentMode ?? statementPreset?.paymentMode ?? '');
+  // Payment-mode mismatch note (2026-08-06) — re-derived live off the CURRENT `paymentMode` state (not
+  // a frozen snapshot from import time), so picking a different chip in "Paid via" below makes the
+  // warning disappear immediately, no separate "mark as fixed" step needed.
+  const { modes: allPaymentModesForLabels } = usePaymentModes();
+  const paymentModeLabelById = useMemo(
+    () => new Map(allPaymentModesForLabels.map((m) => [m.id, m.label])),
+    [allPaymentModesForLabels]
+  );
+  // Payment-mode inference stays scoped to THIS account's own leg — for a cross-account transfer with
+  // two linked lines, that's always the first one (the source side, whose narration is what
+  // `paymentMode`/`inferPaymentMode` actually describes here; the destination side's own narration
+  // belongs to the OTHER bank's own transaction, shown for audit-trail purposes only, see the caption
+  // below).
+  const impliedPaymentMode = useMemo(
+    () => (linkedBankStatementLines?.[0] ? inferPaymentMode(linkedBankStatementLines[0].rawNarration) : null),
+    [linkedBankStatementLines]
+  );
+  const paymentModeMismatch = !!impliedPaymentMode && !!paymentMode && paymentMode !== impliedPaymentMode.id;
   const [description, setDescription] = useState(
     seed?.description ??
       (goalPreset ? `Contribution: ${goalPreset.goalName}` : (statementPreset?.descriptionSuggestion ?? ''))
@@ -289,6 +358,18 @@ export function ExpenseForm({
   const [showIouPanel, setShowIouPanel] = useState(!!linkedIou);
   const [iouPerson, setIouPerson] = useState(linkedIou?.personName ?? '');
   const iouKind: 'lent' | 'borrowed' = type === 'income' ? 'borrowed' : 'lent';
+  // Lending / Borrowed Money / Collected Money / Return Borrowed (2026-08-06, explicit user decision) —
+  // picking one of these categories makes the person mandatory, not just a manual toggle someone might
+  // never open before an otherwise-silent validation failure on Save. `iouPanelOpen` (used for
+  // rendering + the toggle's disabled state) is `showIouPanel` OR'd with this; the underlying manual
+  // toggle state itself is untouched, so switching away from a mandatory category reverts to whatever
+  // it was before, same as any other optional panel.
+  const iouMandatory = IOU_MANDATORY_CATEGORY_IDS.has(categoryId);
+  const iouPanelOpen = showIouPanel || iouMandatory;
+  // See `StatementPresetInput`'s doc comment ("Direction swap for a credit row marked Transfer") —
+  // true only when a credit statement row (money arriving into the locked account) has been switched
+  // to Transfer, in which case the locked account plays the *destination* role, not the source.
+  const isCreditDirectionTransfer = type === 'transfer' && statementPreset?.type === 'income';
   // Shown for new AND editing expense/income — editing prefills from the existing link so it can be changed or removed.
   const showIouSection = !!onSeedIou && (type === 'expense' || type === 'income');
 
@@ -375,20 +456,25 @@ export function ExpenseForm({
 
   // Soft cash-negative guard (Track E): warn (non-blocking) when this entry would drive a CASH account
   // below ₹0 — usually a missed cash withdrawal or the wrong account. Save is still allowed.
+  // Swapped the same way `handleSave()` does for a credit row marked Transfer — the account that would
+  // actually go negative is whichever one is really paying out, not always the locked statement account.
+  const effectiveFromAccountId = isCreditDirectionTransfer ? toAccountId : accountId;
+  const effectiveToAccountId = isCreditDirectionTransfer ? accountId : toAccountId;
   const cashWarningBalance = useMemo(() => {
     const amt = Number(amount) || 0;
-    if (!accountBalances || amt <= 0 || !selectedAccount || selectedAccount.type !== 'cash') return null;
+    const payingAccount = accounts.find((a) => a.id === effectiveFromAccountId);
+    if (!accountBalances || amt <= 0 || !payingAccount || payingAccount.type !== 'cash') return null;
     if (type === 'income') return null; // income only increases the balance
-    let base = accountBalances[selectedAccount.id] ?? selectedAccount.openingBalance;
-    if (editing) base -= projectedBalance(selectedAccount.id, 0, [], editing);
-    const projected = projectedBalance(selectedAccount.id, base, [], {
-      accountId,
-      toAccountId,
+    let base = accountBalances[payingAccount.id] ?? payingAccount.openingBalance;
+    if (editing) base -= projectedBalance(payingAccount.id, 0, [], editing);
+    const projected = projectedBalance(payingAccount.id, base, [], {
+      accountId: effectiveFromAccountId,
+      toAccountId: effectiveToAccountId,
       amount: amt,
       type
     });
     return projected < 0 ? projected : null;
-  }, [accountBalances, amount, selectedAccount, type, accountId, toAccountId, editing]);
+  }, [accountBalances, amount, accounts, type, effectiveFromAccountId, effectiveToAccountId, editing]);
 
   function handleAccountSelect(id: string) {
     setAccountId(id);
@@ -505,7 +591,7 @@ export function ExpenseForm({
       cat: type !== 'transfer' && !categoryId,
       // Each of these is required only while its own toggle is on — off entirely, they're skipped.
       tags: type !== 'transfer' && showTags && activeTags.length === 0,
-      iouPerson: showIouSection && showIouPanel && !iouPerson.trim(),
+      iouPerson: showIouSection && iouPanelOpen && !iouPerson.trim(),
       goal: showGoalSection && showGoalPanel && !selectedGoalId,
       shareGroup: showShareSection && shareEnabled && !shareGroupId,
       repeatInterval: isRecurring && !intervalDays.trim()
@@ -535,14 +621,23 @@ export function ExpenseForm({
     setErrors({});
     setSaving(true);
     const now = Date.now();
-    // In statementPreset mode, Amount/Date/Account/Type are locked/read-only in the UI (no rendered
+    // In statementPreset mode, Amount/Date/(From-)Account are locked/read-only in the UI (no rendered
     // control ever mutates their state away from the preset) — reading them directly off the preset
     // here as well, rather than trusting local state to have stayed in sync, guarantees the saved
-    // Expense can never disagree with what the user was actually shown as locked.
+    // Expense can never disagree with what the user was actually shown as locked. Type and To-account
+    // are the two fields statementPreset mode deliberately leaves editable (2026-08-05, so a
+    // statement row can be marked as a transfer) — those two always read from local state, which
+    // already seeds from the preset at mount (see `useState` initializers above) and tracks further
+    // edits from here.
     const resolvedDate = statementPreset ? statementPreset.date : combineDateTime(date, time);
     const resolvedAccountId = statementPreset ? statementPreset.accountId : accountId;
-    const resolvedToAccountId = statementPreset ? statementPreset.toAccountId : toAccountId;
-    const resolvedType = statementPreset ? statementPreset.type : type;
+    const resolvedToAccountId = toAccountId;
+    const resolvedType = type;
+    // Direction swap for a credit row marked Transfer — see `StatementPresetInput`'s doc comment.
+    // `resolvedAccountId` is always the locked statement account; when it's really the destination
+    // (money arrived here), the schema's `accountId`/`toAccountId` (source/destination) must swap.
+    const finalAccountId = isCreditDirectionTransfer ? resolvedToAccountId : resolvedAccountId;
+    const finalToAccountId = isCreditDirectionTransfer ? resolvedAccountId : resolvedToAccountId;
     const base: Expense = {
       id: editing?.id ?? crypto.randomUUID(),
       amount: amt,
@@ -554,8 +649,8 @@ export function ExpenseForm({
       ...(isRecurring && { recurringIntervalDays: parseInt(intervalDays, 10) || 30 }),
       ...(paymentMode && { paymentMode }),
       type: resolvedType,
-      ...(resolvedAccountId && { accountId: resolvedAccountId }),
-      ...(resolvedType === 'transfer' && resolvedToAccountId ? { toAccountId: resolvedToAccountId } : {}),
+      ...(finalAccountId && { accountId: finalAccountId }),
+      ...(resolvedType === 'transfer' && finalToAccountId ? { toAccountId: finalToAccountId } : {}),
       ...(receipt && { receiptDataUrl: receipt }),
       ...(showShareSection && shareEnabled && shareGroupId
         ? { shareWith: [shareGroupId] }
@@ -682,12 +777,26 @@ export function ExpenseForm({
           </View>
         }
       >
-        {/* Header: type switch (adding) / title (editing), left — close, right */}
+        {/* Header: type switch (adding) / title (editing), left — close, right. statementPreset mode
+            (2026-08-05) gets a real 2-option toggle too, not static "Add {type}" text — see
+            `StatementPresetInput`'s doc comment for why it's restricted to exactly
+            [statementPreset.type, 'transfer'] rather than the full 3-way switch. */}
         <View className="flex-row items-center gap-2">
           {editing ? (
             <Text className="text-base font-semibold text-primary flex-1">{titleText}</Text>
           ) : statementPreset ? (
-            <Text className="text-base font-semibold text-primary flex-1">Add {typeMeta.label}</Text>
+            <View className="flex-1">
+              <SegmentedControl
+                options={[
+                  statementPreset.type === 'income'
+                    ? { value: 'income' as const, label: 'Income', icon: 'ti-arrow-up-circle', color: '#10b981' }
+                    : { value: 'expense' as const, label: 'Expense', icon: 'ti-arrow-down-circle', color: '#ef4444' },
+                  { value: 'transfer' as const, label: 'Transfer', icon: 'ti-arrows-exchange', color: '#3b82f6' }
+                ]}
+                value={type}
+                onChange={handleTypeChange}
+              />
+            </View>
           ) : (
             <View className="flex-1">
               <SegmentedControl
@@ -717,6 +826,13 @@ export function ExpenseForm({
           </Pressable>
         </View>
 
+        {statementPreset?.suggestionNote && type === 'transfer' && (
+          <View className="flex-row items-center gap-1.5 -mt-1.5">
+            <Icon name="ti-sparkles" size={13} color={theme.info} />
+            <Text className="text-xs text-tertiary flex-1">{statementPreset.suggestionNote}</Text>
+          </View>
+        )}
+
         {goalPreset && (
           <View className="flex-row items-center gap-1.5 -mt-1.5">
             <Icon name="ti-target" size={13} color={theme.info} />
@@ -727,14 +843,40 @@ export function ExpenseForm({
         )}
 
         {/* Audit trail (docs/plans/bank-statement-import.md §10a's purpose #1) — read-only, editing
-            only (a brand-new entry has no import link yet). */}
-        {editing && linkedBankStatementLine && (
-          <View className="flex-row items-center gap-1.5 -mt-1.5">
-            <Icon name="ti-building-bank" size={13} color={theme.textTertiary} />
-            <Text className="text-xs text-tertiary flex-1" numberOfLines={1}>
-              Matched from bank statement: &ldquo;{linkedBankStatementLine.rawNarration}&rdquo;,{' '}
-              {formatDate(linkedBankStatementLine.date)}
-            </Text>
+            only (a brand-new entry has no import link yet). Was a cropped single-line icon+text row
+            (found via user report 2026-08-06: long narrations got cut off, and it didn't follow the
+            app's info/warning/success Banner convention at all) — now a proper `Banner`, full text
+            wrapping, no truncation. The payment-mode mismatch note directly below it (also 2026-08-06)
+            re-derives every render off the live `paymentMode` state, so fixing it via "Paid via" below
+            removes this warning immediately — no separate dismiss/acknowledge action needed. */}
+        {editing && linkedBankStatementLines && linkedBankStatementLines.length > 0 && (
+          <View className="gap-2">
+            <Banner variant="info" icon="ti-building-bank">
+              {linkedBankStatementLines.length === 1 ? (
+                <>
+                  Matched from bank statement: &ldquo;{linkedBankStatementLines[0]?.rawNarration}&rdquo;,{' '}
+                  {formatDate(linkedBankStatementLines[0]?.date ?? 0)}
+                </>
+              ) : (
+                // A cross-account transfer absorbed via `linkAsCrossAccountTransfer` (found + fixed
+                // 2026-08-09) — carries one linked statement line per side, not just one; showing only
+                // the first was the exact on-device bug report ("only showed the statement for HDFC").
+                <>
+                  Matched from both sides of this transfer:
+                  {linkedBankStatementLines.map((line, i) => (
+                    <Text key={i}>
+                      {'\n'}&ldquo;{line.rawNarration}&rdquo;, {formatDate(line.date)}
+                    </Text>
+                  ))}
+                </>
+              )}
+            </Banner>
+            {paymentModeMismatch && impliedPaymentMode && (
+              <Banner variant="warning">
+                Statement suggests {impliedPaymentMode.label} · recorded as{' '}
+                {paymentModeLabelById.get(paymentMode) ?? paymentMode}. Update &ldquo;Paid via&rdquo; below to fix.
+              </Banner>
+            )}
           </View>
         )}
 
@@ -872,10 +1014,14 @@ export function ExpenseForm({
           )}
         </View>
 
-        {/* Account — `statementPreset` locks it to the statement's own account (same `AccountChips` row,
-            just non-interactive: the whole point is the user sees the real, familiar chip row with the
-            right one already selected, not a separate compact "locked field" list). */}
-        <View pointerEvents={statementPreset ? 'none' : 'auto'} style={statementPreset ? { opacity: 0.6 } : undefined}>
+        {/* Account — `statementPreset` locks the statement's own ("From", for a transfer) account to
+            the same `AccountChips` row, just non-interactive: the whole point is the user sees the
+            real, familiar chip row with the right one already selected, not a separate compact
+            "locked field" list. "To account" is a different story (2026-08-05): marking a statement
+            row as a transfer is exactly the point of that toggle existing at all in statementPreset
+            mode (see the header above), so the To-account picker must stay interactive regardless —
+            only the statement's own side of the transfer is a fixed fact from the file. */}
+        <View>
           {type === 'transfer' ? (
             accounts.length === 0 ? (
               <Button variant="ghost" size="sm" icon="ti-plus" onPress={accountForm.openAdd}>
@@ -883,8 +1029,13 @@ export function ExpenseForm({
               </Button>
             ) : (
               <View className="gap-3">
-                <View>
-                  <Text className="text-xs font-medium text-secondary mb-1">From account</Text>
+                <View
+                  pointerEvents={statementPreset ? 'none' : 'auto'}
+                  style={statementPreset ? { opacity: 0.6 } : undefined}
+                >
+                  <Text className="text-xs font-medium text-secondary mb-1">
+                    {isCreditDirectionTransfer ? 'To account' : 'From account'}
+                  </Text>
                   <AccountChips
                     accounts={accounts}
                     value={accountId}
@@ -894,7 +1045,9 @@ export function ExpenseForm({
                   />
                 </View>
                 <View>
-                  <Text className="text-xs font-medium text-secondary mb-1">To account</Text>
+                  <Text className="text-xs font-medium text-secondary mb-1">
+                    {isCreditDirectionTransfer ? 'From account' : 'To account'}
+                  </Text>
                   <AccountChips
                     accounts={accounts}
                     value={toAccountId}
@@ -906,7 +1059,10 @@ export function ExpenseForm({
               </View>
             )
           ) : (
-            <View>
+            <View
+              pointerEvents={statementPreset ? 'none' : 'auto'}
+              style={statementPreset ? { opacity: 0.6 } : undefined}
+            >
               <Text className="text-xs font-medium text-secondary mb-1">Account</Text>
               <AccountChips
                 accounts={accounts}
@@ -972,7 +1128,8 @@ export function ExpenseForm({
             <ExtraCircle
               icon="ti-users"
               label={iouKind === 'lent' ? 'Lent' : 'Borrowed'}
-              active={showIouPanel || iouPerson.trim().length > 0}
+              active={iouPanelOpen || iouPerson.trim().length > 0}
+              disabled={iouMandatory}
               accent={accent}
               onPress={() => setShowIouPanel((v) => !v)}
             />
@@ -1196,8 +1353,10 @@ export function ExpenseForm({
           </View>
         )}
 
-        {/* Lent / Borrowed panel */}
-        {showIouSection && showIouPanel && (
+        {/* Lent / Borrowed panel — auto-opens (and can't be collapsed, see the `ExtraCircle` above)
+            whenever `iouMandatory`, since Lending/Borrowed Money/Collected Money/Return Borrowed exist
+            specifically to record a money movement with a person (2026-08-06). */}
+        {showIouSection && iouPanelOpen && (
           <View
             ref={iouPanelRef}
             className="rounded-xl border p-3 gap-2"
@@ -1213,7 +1372,13 @@ export function ExpenseForm({
                 if (errors.iouPerson) setErrors((e) => ({ ...e, iouPerson: false }));
               }}
               placeholder="Person's name"
-              error={errors.iouPerson ? 'Enter who this is with — you turned this on' : undefined}
+              error={
+                errors.iouPerson
+                  ? iouMandatory
+                    ? 'Enter who this is with — required for this category'
+                    : 'Enter who this is with — you turned this on'
+                  : undefined
+              }
             />
             {!errors.iouPerson && (
               <Text className="text-xs text-tertiary">
@@ -1395,6 +1560,7 @@ export function ExpenseForm({
           categories={categories}
           selectedId={categoryId}
           manager={categoryManager}
+          txnCountByCategory={txnCountByCategory}
           activeVacationEvent={
             activeVacationEvent ? { id: activeVacationEvent.id, name: activeVacationEvent.name } : undefined
           }

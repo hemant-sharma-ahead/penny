@@ -62,6 +62,13 @@ export interface PpfTransaction {
   date: number; // epoch ms
   amount: number;
   note?: string;
+  /** The statement row's own narration, when this transaction came from an import — kept separate
+   *  from user-authored `note` so an import can never silently overwrite something the user typed.
+   *  Same rationale as `EpfTransaction.sourceParticulars`. */
+  sourceParticulars?: string;
+  /** Import-batch identifier, when this transaction came from an import — provenance/traceability,
+   *  same pattern as `EpfTransaction.sourceRef`. Absent for manually-entered transactions. */
+  sourceRef?: string;
 }
 
 // ─── EPF employment + transaction ledger ─────────────────────────────────────
@@ -71,6 +78,18 @@ export interface EpfSalaryHike {
   basicSalary: number; // new basic + DA
 }
 
+/** A snapshot of EPFO's own stated balance as of a specific date — distinct from the transaction
+ *  ledger below. Sourced from a passbook PDF's `OB Int. Updated upto`/`Closing Balance as on` rows
+ *  (2026-08-07, EPF passbook import — see docs/plans/epf-passbook-import.md §5). Never derived —
+ *  Penny's own computed running total (sum of transactions) is checked AGAINST this, not replaced
+ *  by it, so a mismatch is visible rather than silently reconciled away. */
+export interface EpfBalanceCheckpoint {
+  asOfDate: number; // epoch ms
+  employeeBalance: number;
+  employerBalance: number;
+  pensionBalance: number;
+}
+
 export interface EpfEmployer {
   id: string;
   companyName: string;
@@ -78,7 +97,45 @@ export interface EpfEmployer {
   employeeContribPct: number; // default 12; higher for VPF
   fromDate: number; // epoch ms — start of employment
   toDate?: number; // undefined = current employer
+  /** Set `true` only once the user has explicitly confirmed "yes, still employed here" in response
+   *  to the post-import prompt (docs/plans/epf-passbook-import.md §10.1) — importing a historical
+   *  (non-latest) passbook FY is NOT itself evidence the employment is still ongoing, so a
+   *  newly-created-or-extended-by-import employer with no `toDate` must ask rather than assume.
+   *  Never set for an employer added via manual entry (that flow already asks "current employer?"
+   *  implicitly by leaving `toDate` blank) — only relevant to disambiguate the import path. */
+  currentEmploymentConfirmed?: boolean;
+  /** "YYYY" financial-year start years for which a real passbook (or Excel export) has been
+   *  imported for this employer — even one with ZERO contribution rows (found via real-device
+   *  testing: a year with no contributions, e.g. after leaving mid-way through a prior year, is
+   *  still real, authoritative EPFO data, not a gap to fill with a guess). `epfComputeAllMonths`
+   *  treats any month within a confirmed FY that has no matching real transaction as a CONFIRMED
+   *  zero, not the usual formula-based estimate. */
+  confirmedFys?: number[];
   hikeTimeline?: EpfSalaryHike[]; // sorted ascending by fromDate
+  // EPF passbook import (2026-08-07) — see docs/plans/epf-passbook-import.md §5. Never inferred —
+  // populated only from a real parsed passbook's own header block.
+  establishmentId?: string; // e.g. "TSTEST0000000001" — from the passbook's "Establishment ID/Name"
+  /** e.g. "TSTEST00000000019999999" — from the passbook's "Member ID/Name". THE real matching key
+   *  for "which employer does this PDF belong to" during import — company name alone is
+   *  unreliable (e.g. rejoining the same employer later would otherwise be ambiguous). */
+  memberId?: string;
+  balanceCheckpoints?: EpfBalanceCheckpoint[];
+  /** Set `true` only once the user has explicitly confirmed this employer's real joining date via
+   *  the "New employer detected" import-time setup step (2026-08-11 follow-up round — see
+   *  docs/plans/epf-passbook-import.md §10.9). Mirrors `currentEmploymentConfirmed`'s own
+   *  convention: distinguishes a `fromDate` the user actually confirmed from one only ever
+   *  auto-derived (originally from a contribution's deposit date, later from the earliest wage
+   *  month — always just a prefill until confirmed). Once `true`, a LATER import that would push
+   *  `fromDate` even earlier no longer silently moves it — see `epfReviewFlags.ts`'s
+   *  `joiningDateContradiction` flag. Never set for a manually-added employer (no import ever
+   *  happens for it, so there's nothing to confirm against). */
+  joiningDateConfirmed?: boolean;
+  /** Editable override for the "Estimated Gross Salary / CTC" stat (2026-08-11 follow-up round) —
+   *  what percentage of Gross this employer's `basicSalary` represents. Defaults to 50 when unset,
+   *  matching the common ~40-50% Indian payroll convention (and the Nov-2025 labour-code floor of
+   *  50%) — always shown as a labelled estimate with its formula visible, never asserted as fact,
+   *  since Penny has no way to know the real Gross/CTC split from EPF data alone. */
+  basicToGrossPct?: number;
 }
 
 export type EpfTransactionType = 'contribution' | 'interest' | 'transfer_in' | 'withdrawal' | 'advance';
@@ -87,12 +144,45 @@ export interface EpfTransaction {
   id: string;
   type: EpfTransactionType;
   wagesMonth?: string; // "YYYY-MM" — salary month contributions relate to
+  /** Which `EpfEmployer.id` this transaction belongs to — set at import time (the parser/import
+   *  flow always knows exactly which employer's passbook a row came from). Exists specifically to
+   *  handle a mid-month employer switch: two DIFFERENT employers can each have a real, legitimate
+   *  contribution for the SAME `wagesMonth` (pro-rata, split across the switch), which a
+   *  wagesMonth-only reconciliation key would otherwise see as one entry conflicting with the
+   *  other. Optional — a manually-typed transaction (no employer picker exists for that flow
+   *  today) or a transaction written before this field existed has no `employerId`; date-range
+   *  containment against `EpfEmployer.fromDate`/`toDate` is the fallback attribution for those,
+   *  same as before this field existed.
+   *
+   *  2026-08-11: stamped on EVERY import-created transaction type now (interest/transfer_in/
+   *  withdrawal/advance too, not just `contribution`) — needed so a per-employer ledger view can
+   *  scope ALL of an employer's transactions, not just its contributions. */
+  employerId?: string;
   date: number; // epoch ms — date credited to EPF account
   employeeAmount?: number; // employee share (contribution type)
   employerAmount?: number; // employer share to EPF 3.67% (contribution type)
   pensionAmount?: number; // EPS 8.33% — informational only
   amount?: number; // interest / transfer_in / withdrawal / advance
   note?: string;
+  // EPF passbook import (2026-08-07) — see docs/plans/epf-passbook-import.md §5.
+  epfWages?: number; // the wage baseline this contribution's EPF share was calculated on
+  epsWages?: number; // the wage baseline this contribution's EPS share was calculated on
+  /** The passbook's own row label (e.g. "Cont. for Due-Month 122014", "TRANSFER IN - ...") — kept
+   *  SEPARATE from `note` (user-authored free text) so imported provenance and manual annotation
+   *  never collide or get silently overwritten by each other. */
+  sourceParticulars?: string;
+  /** Import-batch identifier — mirrors bank-import/CSV-import's own traceability pattern. Lets a
+   *  row be identified as "came from a PDF import" at a glance, and backs the reconciliation
+   *  matcher's dedup logic (see epfReconciliation.ts). */
+  sourceRef?: string;
+  /** Set `true` only when the user explicitly chose "Keep recorded" in the interest breakdown
+   *  popup's mismatch banner (2026-08-xx) — an interest transaction whose recorded amount disagrees
+   *  with Penny's fresh recalculation, where the user has confirmed the RECORDED figure (the real
+   *  passbook's own value) is the one to trust, not Penny's math. `checkInterestMismatch` itself
+   *  still reports the raw disagreement (never hides it), but `findAllReviewFlags` stops counting it
+   *  as a "needs review" flag once acknowledged — same "computed on demand, dismissal tracked
+   *  separately" pattern already used elsewhere in this app (e.g. `Account.dismissedVerificationFindings`). */
+  interestMismatchAcknowledged?: boolean;
 }
 
 // ─── Asset metadata ───────────────────────────────────────────────────────────
@@ -265,6 +355,23 @@ export interface Expense {
   /** Groups this transaction is shared into (Phase 1.5 Track E). Each id also has a mirrored group
    *  `shared_expense` event; this keeps the personal↔group link so shares can be shown/undone. */
   shareWith?: string[];
+  /** GROUND TRUTH ONLY (docs/plans/bank-balance-sync.md §4/§7) — the bank statement's own stated
+   *  running balance immediately after this transaction, copied verbatim from a statement row with a
+   *  mapped balance column. Set once, at bank-statement-import commit time, never recomputed, never
+   *  guessed. Present only on transactions that came from, or were matched against, a bank-statement
+   *  import that had a balance column mapped — scoped to `Account.type === 'bank'` only (credit cards
+   *  are explicitly out of scope, inverted sign convention, see plan §3/§16). Absent on every
+   *  manually-entered / Cashew/MoneyView-imported / no-balance-column-statement transaction. THE
+   *  marker of "checkpointed" — gates two-tier matching's Tier 2 candidate-pool exclusion
+   *  (`core/bank-import/matcher.ts`, plan §5/§17): a checkpointed transaction is never offered as a
+   *  fuzzy-match candidate for a different import's row. */
+  statementBalance?: number;
+  /** Intra-day order (1st, 2nd, 3rd… among that day's statement rows) — plan §4/§9 (Stage 5, not yet
+   *  built as of this field's addition). Set ONLY when every one of this account's transactions on
+   *  this calendar day is explained by one statement's own rows (enables true intra-day checkpoints
+   *  instead of end-of-day-only). Absent otherwise — never guessed. Field added ahead of its own
+   *  logic per plan §7's Stage 0 grouping; no reader exists yet. */
+  reconciledSeq?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -286,6 +393,118 @@ export interface Account {
   updatedAt: number;
   /** Safe Mode masks this account's balance; undefined/false = visible. */
   hideInSafeMode?: boolean;
+  /** The date `openingBalance` is "as of" (docs/plans/bank-balance-sync.md §4/§10a/§14) — epoch ms.
+   *  Absent = legacy/implicit "before every transaction that exists" (today's behavior, preserved
+   *  unchanged for every existing account). Set explicitly once a bank-statement import establishes
+   *  or moves the anchor (first-ever import, or a later-discovered earlier statement — plan §7
+   *  Stage 3, not yet built as of this field's addition). */
+  openingBalanceAsOfDate?: number;
+  /** One entry per completed statement-import batch for this account (docs/plans/bank-balance-sync.md
+   *  §4/§11a/§11b, plan §7 Stage 2 — built 2026-08-08). Applies to any statement-importable account
+   *  (`bank` AND `credit_card`) — this is batch-level history, not the checkpoint/balance-sync
+   *  guarantee itself, which stays bank-only (see `ImportBatchSummary`'s own doc comment). Powers
+   *  gap-detection between imports, deferred lone-wolf escalation, the re-import convenience check, and
+   *  the Import History screen. Never removed once added (append-only history). */
+  coveredStatementRanges?: ImportBatchSummary[];
+  /** Immutable historical reference for a still-possibly-disagreeing anchor shift (Stage 3, redesigned
+   *  2026-08-09 to fix the "frozen forever" bug, then again same day to fix a SECOND bug — see
+   *  openingBalanceAnchor.ts's `recomputeAnchorAgreement` doc comment for both). Three facts worth
+   *  permanently remembering: what the OLD anchor was, what the backfill's OWN un-back-derived claim was
+   *  (`newOpeningBalance` — this account's own `openingBalance` field is NOT this value once "Keep"/
+   *  "Review" is chosen; see `backDerivedOpeningBalance`'s doc comment), and when this was first detected
+   *  (for a stable fingerprint). The actual comparison (`impliedOldBalance`/`diff`/`agrees`) is NEVER
+   *  stored — always recomputed live from current transactions, so a later corrective import/edit/delete
+   *  that actually fixes the ledger makes the finding disappear on its own, instead of a stale, frozen
+   *  number surviving the fix. */
+  anchorReference?: {
+    oldOpeningBalance: number;
+    oldAnchorDate: number;
+    newOpeningBalance: number;
+    detectedAt: number;
+  };
+  /** Balance-verification findings (docs/plans/bank-balance-sync.md §9 Q1's resolved decision, §7
+   *  Stage 4) the user explicitly acknowledged via the persistent "unverified account" badge's "I've
+   *  reviewed this, dismiss" action (`core/bank-import/accountVerification.ts`'s unification of the
+   *  checkpoint-diff mismatch, the standing-gap sweep, and an anchor disagreement into ONE indicator).
+   *  Scoped to the SPECIFIC finding via a stable fingerprint of its own identifying facts (which
+   *  checkpoint pair / which standing-gap expense set / which anchor-disagreement event) — never a
+   *  blanket per-account silence, so a NEW, different finding of any of the three kinds still surfaces
+   *  even if an earlier, unrelated one was dismissed (its fingerprint won't match any entry here).
+   *  Never cleared automatically — a "Re-open" action (`bank-balance-sync-v2.html` Frame 2f) removes a
+   *  specific entry; the underlying condition resolving on its own (e.g. the missing transaction gets
+   *  added later) also makes an entry's fingerprint stop recomputing at all, at which point it's simply
+   *  never surfaced again (this array is never proactively pruned for that case — a stale, no-longer-
+   *  matching fingerprint sitting here forever is harmless, never re-matched by construction). */
+  dismissedVerificationFindings?: { fingerprint: string; dismissedAt: number }[];
+  /** Full Ledger's "not mine, stop flagging this" action (`docs/plans/bank-reconciliation-ledger.md`
+   *  Phase 1) for a still-unresolved skipped statement row. Keyed the same way
+   *  `dismissedVerificationFindings` is — a stable fingerprint of the row's own identifying facts
+   *  (`batchId` + normalized narration + date + amount), never a blanket per-account silence. A
+   *  fingerprint that later stops matching anything (e.g. the row gets resolved by a later import
+   *  after all) is simply never looked up again — harmless, never proactively pruned, same convention
+   *  as `dismissedVerificationFindings`. */
+  dismissedSkippedRows?: { fingerprint: string; dismissedAt: number }[];
+}
+
+/**
+ * One completed statement-import batch's own record, attached to `Account.coveredStatementRanges`
+ * (docs/plans/bank-balance-sync.md §4/§7 Stage 2). Deliberately one consolidated record rather than a
+ * second parallel store — `start`/`end` power gap-detection and deferred lone-wolf escalation,
+ * `matchedCount`/`addedCount`/`skippedCount`/`skippedRows` power the commit confirmation and the Import
+ * History screen's list + batch-detail drill-in. Built for every statement import (`bank` and
+ * `credit_card` accounts alike) — only the checkpoint mechanism itself (`Expense.statementBalance`) is
+ * gated to `bank` accounts.
+ */
+export interface ImportBatchSummary {
+  /** Shared with the same-batch `BankStatementImportRecord`s written for its matched/new rows. */
+  batchId: string;
+  /** The statement file's own actual min transaction date — never assumed from a filename or the
+   *  user's stated intent. */
+  start: number;
+  /** The statement file's own actual max transaction date. */
+  end: number;
+  /** When this batch was committed (epoch ms) — distinct from `start`/`end`, which are the statement's
+   *  own dates, not the import event's own timing. */
+  importedAt: number;
+  /** The uploaded file's own name, shown in Import History. */
+  fileName: string;
+  /** Statement rows the matcher confirmed against an existing transaction — an automatic confident
+   *  match, or a user-resolved "possible match". */
+  matchedCount: number;
+  /** Statement rows that became a brand-new transaction. */
+  addedCount: number;
+  /** Statement rows seen in the file but left unresolved at commit time — an unconfirmed "possible
+   *  match", or an unmatched row never added (§11a: a durable, visible record of what was skipped, not
+   *  silence). */
+  skippedCount: number;
+  /** One entry per skipped row — just enough to identify it in the Import History batch-detail
+   *  drill-in. Was purely "a read-only historical record, never re-parsed/re-actionable" (§11a) —
+   *  reversed 2026-08-10 (`docs/plans/bank-reconciliation-ledger.md`): the Full Ledger view treats a
+   *  still-unresolved entry here as live, checking at render time whether a LATER import already
+   *  caught it (via `normalizeNarration` + date/amount, never a stored link) before showing it as
+   *  unresolved. `direction` is optional only because historical batches committed before this field
+   *  existed lack it — the ledger falls back to an unsigned, neutral rendering for those rather than
+   *  guessing a sign. Deliberately `'debit' | 'credit'` inline rather than importing
+   *  `bank-import/types.ts`'s `StatementLineDirection` — this file is a dependency-free leaf every
+   *  other core module imports FROM, never the reverse.
+   *
+   *  `rowIndex` (added 2026-08-11) — the ORIGINAL statement file's own 1-based line number
+   *  (`ParsedStatementRow.rowIndex`, previously only used for the rejected-rows report, now persisted
+   *  end-to-end). Two genuinely separate real transactions can legitimately share identical
+   *  narration/date/amount (e.g. two same-day, same-merchant purchases) — `rowIndex` is what tells
+   *  them apart, since it's tied to a specific physical file line rather than a value that can
+   *  collide. Only ever compared against `BankStatementImportRecord.sourceRowIndex` WITHIN THE SAME
+   *  `batchId` (a different import's own row numbering starts over from 1 and has no relationship to
+   *  this one) — cross-batch resolution stays value-based, same as before. Optional because entries
+   *  committed before this field existed lack it; those fall back to the old value-based matching,
+   *  same ambiguity as always (a documented, accepted limitation for legacy data only). */
+  skippedRows: {
+    rawNarration: string;
+    date: number;
+    amount: number;
+    direction?: 'debit' | 'credit';
+    rowIndex?: number;
+  }[];
 }
 
 export interface Budget {
@@ -481,6 +700,7 @@ export type ActivityAction =
   | 'BULK_MOVE'
   | 'BULK_UPDATE'
   | 'IMPORT'
+  | 'UNDO_IMPORT' // reverses an IMPORT entry (packages/core/src/core/import/importWriter.ts's undoImportBatch, 2026-08-06) — its own dated, restorable Timeline entry, not a silent mutation of the original
   | 'RESTORE'
   | 'CHECKPOINT';
 
@@ -500,6 +720,13 @@ export interface ActivityLog {
   entityCount?: number; // number of records affected (bulk actions)
   restorePointId?: string; // groups entries under a named checkpoint (restore points / rewind)
   restored?: boolean; // true once a deleted entry has been restored (hides it from Recently Deleted)
+  // Links this entry back to the ORIGINAL entry it reverses/is a reversal of (2026-08-06, undoImportBatch
+  // v2) — e.g. an 'UNDO_IMPORT' entry's relatedLogId points at the 'IMPORT' entry it reversed, and vice
+  // versa once that IMPORT entry's own `restored` flag is flipped back to false by a later re-restore of
+  // the UNDO_IMPORT entry. Lets the Timeline render "Undid import: removed 800 transactions" as its own
+  // real, dated entry — reusing restoreActivity()'s existing snapshot/restore machinery — instead of
+  // silently mutating the original IMPORT entry in place with no visible trace of when Undo happened.
+  relatedLogId?: string;
 }
 
 // Envelope encryption (Track 2): a random Data Master Key (DMK) encrypts all data
@@ -782,6 +1009,14 @@ export interface BankStatementImportRecord {
    *  created during this import. */
   linkedTxnId: string;
   createdAt: number;
+  /** The ORIGINAL statement file's own 1-based line number this record resolved (added 2026-08-11) —
+   *  see `ImportBatchSummary.skippedRows`' own doc comment on `rowIndex` for the full rationale (two
+   *  genuinely separate transactions can share identical narration/date/amount; this is what tells
+   *  them apart). Set at commit time from `ParsedStatementRow.rowIndex` for every record — both a
+   *  live-matched/newly-added row AND a later "resolve"/"relink" (Full Ledger Phase 2) action, which
+   *  carries the original skipped entry's own `rowIndex` forward onto the new record it creates.
+   *  Optional because records written before this field existed lack it. */
+  sourceRowIndex?: number;
 }
 
 /** A manual override for the normalization heuristic (core/bank-import/normalization.ts) — always
@@ -793,6 +1028,29 @@ export interface BankNarrationOverride {
   id: string;
   keyword: string; // as typed by the user; matched case-insensitively as a substring
   normalizedKey: string; // uppercased, trimmed
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** A narration code/keyword (ATW, NWD, SELF, ...) that identifies a bank statement line as a cash
+ *  withdrawal — matched case-insensitively as a whole-word token against the raw narration during
+ *  review, so it can be auto-classified as a Transfer to the user's cash account instead of a plain
+ *  expense (docs/plans/bank-statement-import.md's transfer-marking work, 2026-08-05). `bankId` is a
+ *  loose string rather than importing `BankPresetId` (matching this file's existing convention of not
+ *  depending on `core/bank-import/`'s types) — expected to be a real `BankPresetId` value, or the
+ *  literal `'any'` for a bank-agnostic code that applies regardless of which preset is active (NFS,
+ *  the National Financial Switch interbank ATM network marker, and SELF, the RBI-mandated self-
+ *  withdrawal narration convention, are both real across virtually every Indian bank — see
+ *  `BANK_CASH_WITHDRAWAL_CODE_SEEDS` in `packages/core/src/core/bank-import/cashWithdrawalCodes.ts`
+ *  for the researched defaults and their confidence notes). Seeded once (`isDefault: true`), fully
+ *  user-editable/extensible from Settings — codes vary by bank and this is deliberately not
+ *  presented as exhaustive or fully verified. */
+export interface BankCashWithdrawalCode {
+  id: string;
+  bankId: string;
+  code: string;
+  label: string;
+  isDefault: boolean;
   createdAt: number;
   updatedAt: number;
 }

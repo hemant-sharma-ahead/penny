@@ -7,7 +7,14 @@ import { formatCurrency } from '@/lib/formatters';
 import { IconBadge, Modal, ProgressBar } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { useTheme } from '~/theme/ThemeProvider';
 import { tint } from '~/lib/color';
+
+// Same violet pair RetirementCorpusChart/RetirementFundedSummary use for "today"/"projected" —
+// kept in sync manually (2026-08-05: "Net worth"/"View breakdown" brought in line with those so the
+// whole fused hero reads as one coherent violet-accented unit instead of two different tertiary grays).
+const VIOLET_LIGHT = '#a78bfa';
+const VIOLET_ON_LIGHT_THEME = '#6d28d9';
 import { useRetirementProjection } from './useRetirementProjection';
 import { RetirementCorpusChart } from './RetirementCorpusChart';
 import { RetirementFundedSummary } from './RetirementFundedSummary';
@@ -69,6 +76,8 @@ interface Props {
 export function GlanceHeader({ summary, assetGroups, totalAssets }: Props) {
   const { shouldMask } = usePrivacy();
   const theme = useThemeColors();
+  const { activePalette } = useTheme();
+  const violet = activePalette === 'light' ? VIOLET_ON_LIGHT_THEME : VIOLET_LIGHT;
   const [detailOpen, setDetailOpen] = useState(false);
   const [drilldownOpen, setDrilldownOpen] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
@@ -84,6 +93,26 @@ export function GlanceHeader({ summary, assetGroups, totalAssets }: Props) {
     else if (ac === 'iou') navigation.navigate('Expenses', { screen: 'ExpensesMain', params: { initialTab: 'iou' } });
     else navigation.navigate('Portfolio', assetPortfolioTarget(ac));
   };
+
+  // Empty state (2026-08-05, docs/mockups/proposals/home-empty-states-v2.html) — a brand-new user with
+  // no real net worth anywhere used to see a real ₹0 hero over a blank 244px chart spacer
+  // (RetirementCorpusChart never renders without a `projection`, but the text overlay above it rendered
+  // unconditionally).
+  //
+  // Gated on the actual *values* (`totalAssets`/`netWorth`), not `accountBalances.length` — an account
+  // with a genuinely zero balance (freshly added, not yet reconciled) still counts as a row in that
+  // array, which let the real ₹0 hero through even though there was nothing meaningful to show (found
+  // 2026-08-05). `netWorth` alone isn't enough either: a liabilities-only user (a loan, no assets) has
+  // `totalAssets === 0` but a real, meaningful negative `netWorth` — both need to be zero together for
+  // this to genuinely be "nothing to show yet".
+  //
+  // Renders nothing at all rather than its own "Add an account" prompt (2026-08-05 follow-up) —
+  // `MoneyStatsCard`'s own empty-state "Track your expenses" card already offers that exact same
+  // "+ Add account" action just below this on Home, so a second, near-identical card here was pure
+  // duplication, not a second useful nudge.
+  if (totalAssets === 0 && summary.netWorth === 0) {
+    return null;
+  }
 
   return (
     <>
@@ -105,7 +134,7 @@ export function GlanceHeader({ summary, assetGroups, totalAssets }: Props) {
             className="absolute left-0 top-4"
             accessibilityLabel="View net worth breakdown"
           >
-            <Text className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: theme.textTertiary }}>
+            <Text className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: violet }}>
               Net worth
             </Text>
             <Text
@@ -115,10 +144,10 @@ export function GlanceHeader({ summary, assetGroups, totalAssets }: Props) {
               {open ? formatCurrency(summary.netWorth) : '••••'}
             </Text>
             <View className="flex-row items-center gap-1 mt-0.5">
-              <Text className="text-[10px]" style={{ color: theme.textTertiary }}>
+              <Text className="text-[10px]" style={{ color: violet }}>
                 View breakdown
               </Text>
-              <Icon name="ti-chevron-right" size={11} color={theme.textTertiary} />
+              <Icon name="ti-chevron-right" size={11} color={violet} />
             </View>
           </Pressable>
         </View>

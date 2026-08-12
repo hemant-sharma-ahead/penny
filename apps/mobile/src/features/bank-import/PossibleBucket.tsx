@@ -2,16 +2,18 @@ import { useState } from 'react';
 import { View, Pressable, Text } from 'react-native';
 import type { Account, Expense } from '@/core/db/types';
 import type { ParsedStatementRow } from '@/core/bank-import/types';
-import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import type { PossibleTransferSuggestion } from '@/core/bank-import/matcher';
+import { formatCurrency, formatDate } from '@/lib/formatters';
 import { normalizeNarration } from '@/core/bank-import/normalization';
 import { suggestForMerchant } from '@/core/bank-import/merchantMemory';
 import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';
-import { ExpenseForm } from '~/components/shared';
+import { ExpenseForm, PossibleMatchPickerModal } from '~/components/shared';
+import { Button, Modal, SelectInput } from '~/components/ui';
 import type { UseBankImportReturn } from './useBankImport';
-import { PossibleMatchPickerModal } from './PossibleMatchPickerModal';
+import { AmbiguousTransferPickerModal } from './AmbiguousTransferPickerModal';
 
 interface PossibleBucketProps {
   bi: UseBankImportReturn;
@@ -31,9 +33,70 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
   const [expanded, setExpanded] = useState(false);
   const [choosing, setChoosing] = useState<number | null>(null);
   const [addingNew, setAddingNew] = useState<ParsedStatementRow | null>(null);
+  // Auto cash-withdrawal detection (2026-08-05) — when the narration matches but more than one cash
+  // account exists, ask which one *before* opening ExpenseForm (a small dedicated cash-accounts-only
+  // picker, not the form's own general any-account To-account picker), per explicit user feedback.
+  const [pendingCashChoice, setPendingCashChoice] = useState<ParsedStatementRow | null>(null);
+  const [chosenCashAccountId, setChosenCashAccountId] = useState('');
+  const [resolvedToAccountId, setResolvedToAccountId] = useState('');
+  // Ambiguous cross-account transfer choice (docs/plans/bank-balance-sync.md §13, §7 Stage 6) — asked
+  // only when no cash-withdrawal suggestion fired AND `suggestAmbiguousTransferCandidatesFor` finds 2+
+  // equally-plausible candidates. Picking a candidate now absorbs it in place via
+  // `linkAsCrossAccountTransfer` (found + fixed 2026-08-09 — see that function's own doc comment), no
+  // `ExpenseForm` involved; `transferResolvedAsNeither` records an explicit "Neither" so the `addingNew`
+  // step below never re-runs the single-suggestion heuristic and silently re-surfaces a note for a
+  // choice already made.
+  const [pendingTransferChoice, setPendingTransferChoice] = useState<{
+    row: ParsedStatementRow;
+    candidates: PossibleTransferSuggestion[];
+  } | null>(null);
+  const [transferResolvedAsNeither, setTransferResolvedAsNeither] = useState(false);
+  // Single-candidate cross-account transfer absorption (found + fixed 2026-08-09, see
+  // `convertCandidateToTransfer`'s own doc comment) — `suggestPossibleTransferFor` found exactly one
+  // confident candidate on a DIFFERENT account; offered as a "Link these" chip instead of silently
+  // prefilling a note into a brand-new record (the pre-fix behavior, which duplicated the real-world
+  // transfer's other leg). `singleTransferLinkDismissed` records an explicit "Not the same, add
+  // separately" so the `addingNew` step below never re-runs the same single-candidate heuristic and
+  // silently re-surfaces the note for a choice already made — same role `transferResolvedAsNeither`
+  // plays for the ambiguous (2+ candidate) sibling case.
+  const [pendingCrossAccountLink, setPendingCrossAccountLink] = useState<{
+    row: ParsedStatementRow;
+    candidate: PossibleTransferSuggestion;
+  } | null>(null);
+  const [singleTransferLinkDismissed, setSingleTransferLinkDismissed] = useState(false);
   const choosingItem = choosing !== null ? bi.possibleItems.find((p) => p.statementRow.rowIndex === choosing) : null;
 
   if (bi.possibleItems.length === 0) return null;
+
+  /** Routes a statement row (post "no match — add as new" / "no match" resolution) to whichever of the
+   *  four add-flow gates applies, in priority order: the cash-account-choice gate (already existed),
+   *  then the ambiguous-transfer-choice gate (§13), then the new single-candidate cross-account-link
+   *  gate (found + fixed 2026-08-09), then straight to `ExpenseForm`. Cash-withdrawal detection always
+   *  wins over the softer cross-account heuristic when both apply (same precedence the `addingNew`
+   *  block below already documents) — `suggestPossibleTransferFor`/`suggestAmbiguousTransferCandidatesFor`
+   *  are mutually exclusive by construction (exactly-one vs. 2+ candidates), so at most one of the two
+   *  gates below ever fires for a given row. */
+  function routeRowForAdding(row: ParsedStatementRow) {
+    const cashSuggestion = bi.suggestCashTransferFor(row.rawNarration);
+    if (cashSuggestion && !cashSuggestion.toAccountId && bi.cashAccounts.length > 1) {
+      setChosenCashAccountId('');
+      setPendingCashChoice(row);
+      return;
+    }
+    if (!cashSuggestion) {
+      const ambiguousCandidates = bi.suggestAmbiguousTransferCandidatesFor(row);
+      if (ambiguousCandidates) {
+        setPendingTransferChoice({ row, candidates: ambiguousCandidates });
+        return;
+      }
+      const singleCandidate = bi.suggestPossibleTransferFor(row);
+      if (singleCandidate) {
+        setPendingCrossAccountLink({ row, candidate: singleCandidate });
+        return;
+      }
+    }
+    setAddingNew(row);
+  }
 
   return (
     <View>
@@ -67,8 +130,7 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
                   </Text>
                   <Text className="text-xs text-secondary mt-0.5">
                     {item.statementRow.direction === 'debit' ? '−' : '+'}
-                    {masked ? '••••' : formatCurrency(item.statementRow.amount)} ·{' '}
-                    {formatDateShort(item.statementRow.date)}
+                    {masked ? '••••' : formatCurrency(item.statementRow.amount)} · {formatDate(item.statementRow.date)}
                   </Text>
                 </View>
                 <View
@@ -84,7 +146,7 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
                         {only.description}
                       </Text>
                       <Text className="text-xs text-secondary mt-0.5">
-                        {masked ? '••••' : formatCurrency(only.amount)} · {formatDateShort(only.date)}
+                        {masked ? '••••' : formatCurrency(only.amount)} · {formatDate(only.date)}
                       </Text>
                     </>
                   ) : (
@@ -111,7 +173,7 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
           onAddAsNew={() => {
             bi.dismissPossibleAsNew(choosingItem.statementRow);
             setChoosing(null);
-            setAddingNew(choosingItem.statementRow);
+            routeRowForAdding(choosingItem.statementRow);
           }}
           onMoveToUnmatched={() => {
             bi.dismissPossibleAsNew(choosingItem.statementRow);
@@ -119,6 +181,111 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
           }}
           onClose={() => setChoosing(null)}
         />
+      )}
+
+      {pendingCashChoice && (
+        <Modal
+          onClose={() => setPendingCashChoice(null)}
+          title="Which cash account?"
+          footer={
+            <Button
+              variant="primary"
+              fullWidth
+              disabled={!chosenCashAccountId}
+              onPress={() => {
+                setResolvedToAccountId(chosenCashAccountId);
+                setAddingNew(pendingCashChoice);
+                setPendingCashChoice(null);
+              }}
+            >
+              Continue
+            </Button>
+          }
+        >
+          <Text className="text-xs text-secondary mb-3">
+            This looks like a cash withdrawal — which of your cash accounts did it go into? You can still change this in
+            the next step.
+          </Text>
+          <SelectInput
+            label="Cash account"
+            value={chosenCashAccountId}
+            onChange={setChosenCashAccountId}
+            options={bi.cashAccounts.map((a) => ({ value: a.id, label: a.name }))}
+          />
+        </Modal>
+      )}
+
+      {pendingTransferChoice && (
+        <AmbiguousTransferPickerModal
+          statementRow={pendingTransferChoice.row}
+          candidates={pendingTransferChoice.candidates}
+          masked={masked}
+          onPick={(candidate) => {
+            // Absorbs the picked candidate in place (found + fixed 2026-08-09) — no `ExpenseForm`
+            // involved, since there's nothing left to fill in (date/amount are already known, and
+            // category/description don't apply to a transfer). See `linkAsCrossAccountTransfer`'s own
+            // doc comment.
+            bi.linkAsCrossAccountTransfer(pendingTransferChoice.row, candidate.expense);
+            setPendingTransferChoice(null);
+          }}
+          onNeither={() => {
+            setTransferResolvedAsNeither(true);
+            setAddingNew(pendingTransferChoice.row);
+            setPendingTransferChoice(null);
+          }}
+          onClose={() => {
+            // Cancelling the picker without a decision — the row already left the "Possible" bucket
+            // (`dismissPossibleAsNew` already ran before this gate), so there's no "still undecided"
+            // state to fall back to; the safe default is the same as an explicit "Neither" (never
+            // auto-links). The user can still manually mark it as a transfer inside `ExpenseForm` itself.
+            setTransferResolvedAsNeither(true);
+            setAddingNew(pendingTransferChoice.row);
+            setPendingTransferChoice(null);
+          }}
+        />
+      )}
+
+      {/* Single-candidate cross-account transfer link chip (found + fixed 2026-08-09) — same visual
+       *  language as `MatchedBucket.tsx`'s retroactive-cash-transfer chip (warning-tinted card, 🔁
+       *  lead-in, sm secondary/ghost button pair), presented as this row's own modal step since there's
+       *  no persistent list row to attach an inline chip to at this point in the "add as new" flow. */}
+      {pendingCrossAccountLink && (
+        <Modal onClose={() => setPendingCrossAccountLink(null)} title="Possible transfer">
+          <View
+            className="rounded-xl border px-3 py-2.5 gap-2"
+            style={{ borderColor: theme.warning, backgroundColor: tint(theme.warning, 6) }}
+          >
+            <Text className="text-xs" style={{ color: theme.warning }}>
+              🔁 Might be the transfer you recorded on {pendingCrossAccountLink.candidate.account.name} (
+              {formatDate(pendingCrossAccountLink.candidate.expense.date)},{' '}
+              {masked ? '••••' : formatCurrency(pendingCrossAccountLink.candidate.expense.amount)}) — recorded there as
+              "{pendingCrossAccountLink.candidate.expense.description}".
+            </Text>
+            <View className="flex-row gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onPress={() => {
+                  bi.linkAsCrossAccountTransfer(pendingCrossAccountLink.row, pendingCrossAccountLink.candidate.expense);
+                  setPendingCrossAccountLink(null);
+                }}
+              >
+                Link these
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onPress={() => {
+                  setSingleTransferLinkDismissed(true);
+                  setAddingNew(pendingCrossAccountLink.row);
+                  setPendingCrossAccountLink(null);
+                }}
+              >
+                Not the same, add separately
+              </Button>
+            </View>
+          </View>
+        </Modal>
       )}
 
       {addingNew &&
@@ -133,9 +300,34 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
           // invisible to it until `commitAndImport()` creates it.
           const inferredMode = inferPaymentMode(addingNew.rawNarration);
           const resolvedPaymentMode = suggestion?.paymentMode ?? inferredMode.id;
+          // Auto cash-withdrawal detection (2026-08-05) — `resolvedToAccountId` (set via the
+          // `pendingCashChoice` picker above) wins when present; otherwise falls back to the
+          // suggestion's own resolved account (the confident, exactly-one-cash-account case never
+          // needed the picker at all). Falls back further (2026-08-05) to the softer cross-account
+          // amount/date suggestion only when no cash-code match fired — narration-code detection is
+          // the more confident signal of the two, so it always wins when both happen to apply.
+          const cashSuggestion = bi.suggestCashTransferFor(addingNew.rawNarration);
+          // Cross-account transfer note (2026-08-05; absorb-in-place path found + fixed 2026-08-09) —
+          // an explicit "Neither" from `AmbiguousTransferPickerModal`, or an explicit "Not the same, add
+          // separately" from the single-candidate link chip above, always wins over recomputing either
+          // heuristic fresh (which would just return the same result again for the same row). A
+          // confidently-linked single candidate never reaches this point at all any more —
+          // `routeRowForAdding`'s own gate absorbs it via `linkAsCrossAccountTransfer` before
+          // `ExpenseForm` ever opens — so this is now only reachable for a row with no candidate, or one
+          // whose suggestion was explicitly declined.
+          const crossAccountSuggestion =
+            transferResolvedAsNeither || singleTransferLinkDismissed || cashSuggestion
+              ? null
+              : bi.suggestPossibleTransferFor(addingNew);
+          const toAccountId = resolvedToAccountId || cashSuggestion?.toAccountId || crossAccountSuggestion?.account.id;
+          const suggestedType = cashSuggestion?.suggestedType ?? (crossAccountSuggestion ? 'transfer' : undefined);
+          const suggestionNote = crossAccountSuggestion
+            ? `Might be the other side of a transfer with ${crossAccountSuggestion.account.name} — recorded there as "${crossAccountSuggestion.expense.description}".`
+            : undefined;
           return (
             <ExpenseForm
               categories={bi.categories}
+              txnCountByCategory={bi.txnCountByCategory}
               hashtags={bi.hashtags}
               editing={null}
               activeEvents={[]}
@@ -146,6 +338,9 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
                 date: addingNew.date,
                 accountId: bi.account?.id ?? '',
                 type: addingNew.direction === 'debit' ? 'expense' : 'income',
+                ...(suggestedType && { suggestedType }),
+                ...(toAccountId && { toAccountId }),
+                ...(suggestionNote && { suggestionNote }),
                 paymentMode: resolvedPaymentMode,
                 ...(resolvedPaymentMode === inferredMode.id && { paymentModeCandidate: inferredMode }),
                 ...(suggestion?.description && { descriptionSuggestion: suggestion.description }),
@@ -154,9 +349,17 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
               onSave={async (expense, newTagSetAside) => {
                 bi.stageNewTxnFromForm(expense, addingNew, newTagSetAside);
                 setAddingNew(null);
+                setResolvedToAccountId('');
+                setTransferResolvedAsNeither(false);
+                setSingleTransferLinkDismissed(false);
               }}
               onDelete={async () => {}}
-              onClose={() => setAddingNew(null)}
+              onClose={() => {
+                setAddingNew(null);
+                setResolvedToAccountId('');
+                setTransferResolvedAsNeither(false);
+                setSingleTransferLinkDismissed(false);
+              }}
             />
           );
         })()}

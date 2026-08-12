@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Account, AccountType } from '@/core/db/types';
 import { ACCOUNT_TYPE_META } from '@/core/accounts/meta';
 import { findDuplicateAccountName } from '@/core/accounts/accountValidation';
@@ -38,12 +38,15 @@ const DEFAULT_FORM: AccountFormState = {
  *  current account list, used to reject a duplicate name (case-insensitive, trimmed) — no two
  *  accounts may ever share the same name (app-wide rule, see accountValidation.ts). */
 export function useAccountForm(
-  saveAccount: (data: AccountInput, editing: Account | null) => Promise<unknown>,
+  saveAccount: (data: AccountInput, editing: Account | null) => Promise<Account>,
   accounts: Account[]
 ) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
   const [form, setForm] = useState<AccountFormState>(DEFAULT_FORM);
+  // Fires once, only for a brand-new (never editing) account — see `openAddWithType` — then clears
+  // itself. A ref rather than state since setting it never needs to trigger a re-render.
+  const onCreatedRef = useRef<((acc: Account) => void) | null>(null);
 
   const nameError = findDuplicateAccountName(form.name, accounts, editing?.id)
     ? 'An account with this name already exists'
@@ -64,6 +67,19 @@ export function useAccountForm(
     setShowForm(true);
   }
 
+  /** Same as `openAdd`, but pre-seeds the type (and its icon/color/net-worth default via `selectType`'s
+   *  own logic) instead of leaving it at `DEFAULT_FORM`'s `'cash'` — used by the Accounts empty state's
+   *  "or import a bank statement" secondary action, which needs a brand-new account created as `'bank'`
+   *  with no type-picker step in between. `onCreated` fires once, after a successful save, with the
+   *  created record — e.g. to hand off straight into Bank Import's setup screen. */
+  function openAddWithType(type: AccountType, onCreated?: (acc: Account) => void) {
+    const meta = ACCOUNT_TYPE_META[type];
+    setEditing(null);
+    setForm({ ...DEFAULT_FORM, type, icon: meta.icon, color: meta.color, includeInNetWorth: type !== 'credit_card' });
+    onCreatedRef.current = onCreated ?? null;
+    setShowForm(true);
+  }
+
   function openEdit(acc: Account) {
     setEditing(acc);
     setForm({
@@ -80,7 +96,8 @@ export function useAccountForm(
   async function save() {
     const name = form.name.trim();
     if (!name || nameError) return;
-    await saveAccount(
+    const wasEditing = editing;
+    const record = await saveAccount(
       {
         name,
         type: form.type,
@@ -92,6 +109,11 @@ export function useAccountForm(
       editing
     );
     setShowForm(false);
+    if (!wasEditing && onCreatedRef.current) {
+      onCreatedRef.current(record);
+      onCreatedRef.current = null;
+    }
+    return record;
   }
 
   return {
@@ -102,6 +124,7 @@ export function useAccountForm(
     patch,
     selectType,
     openAdd,
+    openAddWithType,
     openEdit,
     save,
     close: () => setShowForm(false)

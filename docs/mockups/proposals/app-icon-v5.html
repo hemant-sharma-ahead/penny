@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Penny — App Icon Directions v5 (gold coin, Chip motif)</title>
+<style>
+  :root {
+    --green: #00a86b;
+    --green-dark: #067a4f;
+    --green-deep: #045538;
+    --cream: #fff8ec;
+    --gold-hi: #ffefc2;
+    --gold-mid: #f6c74b;
+    --gold-low: #d89b2b;
+    --gold-deep: #8a5a12;
+    --bronze: #6b430d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 32px 100px;
+    background: #12151a;
+    color: #eef1f4;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lead { color: #9aa3ad; font-size: 14px; max-width: 780px; line-height: 1.6; margin-bottom: 36px; }
+  .lead b { color: #eef1f4; }
+  section { margin-bottom: 56px; }
+  .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #6f7a86; margin-bottom: 14px; font-weight: 600; }
+  .row { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+  .card {
+    background: #1b1f26;
+    border: 1px solid #2a2f38;
+    border-radius: 16px;
+    padding: 20px;
+    width: 280px;
+  }
+  .card.pick { border-color: var(--gold-mid); box-shadow: 0 0 0 1px var(--gold-mid); }
+  .card h3 { font-size: 14px; margin: 12px 0 4px; color: #eef1f4; }
+  .card p { font-size: 12px; color: #9aa3ad; line-height: 1.5; margin: 0 0 12px; }
+  .badge {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+    color: var(--gold-mid); background: rgba(246,199,75,0.15); border: 1px solid rgba(246,199,75,0.4);
+    border-radius: 999px; padding: 3px 9px; margin-bottom: 8px; text-transform: uppercase;
+  }
+  .icon-tray { display: flex; align-items: center; gap: 18px; justify-content: center; padding: 16px 0; }
+  .tile-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .tile-label { font-size: 9px; color: #6f7a86; }
+  .squircle {
+    border-radius: 22.5%;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .home-strip {
+    display: flex; gap: 10px; padding: 14px; border-radius: 14px; margin-top: 6px;
+  }
+  .home-strip.light { background: linear-gradient(180deg,#dfe7ee,#c9d4de); }
+  .home-strip.dark { background: linear-gradient(180deg,#20242c,#14171c); }
+  .home-strip .squircle { width: 40px; height: 40px; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+
+<h1>Penny — App Icon Directions v5</h1>
+<div class="lead">
+  Two pieces of feedback drove this round. First: <b>real coins read as gold</b>, not green — every
+  previous round kept the coin body in brand green, which is exactly why nothing said "money" clearly.
+  Dark green + gold is also a genuinely premium palette in its own right (British racing green, old-money
+  jewellers' branding), and gold specifically carries strong prosperity associations in an India-first
+  context (gold jewellery, Dhanteras) — so this isn't a compromise on brand, it's brand green as the
+  <i>field</i> the gold coin sits on, same relationship as a medal on a ribbon. Second: <b>a coin is
+  sometimes called a "chip"</b> — not a poker chip, a literal microchip — which opens a real, ownable
+  pun: the same coin can carry a small embossed circuit mark and read as both "Penny" (money) and
+  "Chip" (the AI advisor) at once. All three directions below are a real, dimensional gold coin first —
+  reeded edge, curved-metal shading, specular highlight kept from the version you liked — with the
+  glyph question narrowed down rather than scattered.
+</div>
+
+<!-- A -->
+<section>
+  <div class="section-title">Direction A — Gold Coin, Struck "P" <span style="color:#6f7a86; font-weight: 400; text-transform: none; letter-spacing: 0;">(clearest read)</span></div>
+  <div class="row">
+    <div class="card">
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gA96" cx="35%" cy="26%" r="80%">
+                <stop offset="0%" stop-color="var(--gold-hi)"/>
+                <stop offset="30%" stop-color="var(--gold-mid)"/>
+                <stop offset="62%" stop-color="var(--gold-low)"/>
+                <stop offset="100%" stop-color="var(--gold-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green-deep)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gA96)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,244,214,0.55)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.7)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <text x="256" y="304" font-family="Georgia, 'Times New Roman', serif" font-size="220" font-weight="700" text-anchor="middle" fill="var(--bronze)" opacity="0.55">P</text>
+            <text x="252" y="300" font-family="Georgia, 'Times New Roman', serif" font-size="220" font-weight="700" text-anchor="middle" fill="var(--gold-hi)" opacity="0.9">P</text>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gA48" cx="35%" cy="26%" r="80%">
+                <stop offset="0%" stop-color="var(--gold-hi)"/>
+                <stop offset="30%" stop-color="var(--gold-mid)"/>
+                <stop offset="62%" stop-color="var(--gold-low)"/>
+                <stop offset="100%" stop-color="var(--gold-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green-deep)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gA48)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,244,214,0.55)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.7)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <text x="256" y="304" font-family="Georgia, 'Times New Roman', serif" font-size="220" font-weight="700" text-anchor="middle" fill="var(--bronze)" opacity="0.55">P</text>
+            <text x="252" y="300" font-family="Georgia, 'Times New Roman', serif" font-size="220" font-weight="700" text-anchor="middle" fill="var(--gold-hi)" opacity="0.9">P</text>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gA24" cx="35%" cy="26%" r="80%">
+                <stop offset="0%" stop-color="var(--gold-hi)"/>
+                <stop offset="30%" stop-color="var(--gold-mid)"/>
+                <stop offset="62%" stop-color="var(--gold-low)"/>
+                <stop offset="100%" stop-color="var(--gold-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green-deep)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gA24)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,244,214,0.55)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.7)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <text x="256" y="304" font-family="Georgia, 'Times New Roman', serif" font-size="220" font-weight="700" text-anchor="middle" fill="var(--bronze)" opacity="0.55">P</text>
+            <text x="252" y="300" font-family="Georgia, 'Times New Roman', serif" font-size="220" font-weight="700" text-anchor="middle" fill="var(--gold-hi)" opacity="0.9">P</text>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>An actual struck gold coin with a monogram "P" — the offset dark/light letter pair fakes a
+      real engraved-metal emboss. This is the "no one could possibly misread it" option: gold + coin +
+      initial is how real currency and medallions have worked for centuries. Least inventive of the
+      three, most bulletproof.</p>
+    </div>
+  </div>
+</section>
+
+<!-- B -->
+<section>
+  <div class="section-title">Direction B — Gold Coin, Chip Struck In <span style="color:#6f7a86; font-weight: 400; text-transform: none; letter-spacing: 0;">(Penny + Chip, literally fused)</span></div>
+  <div class="row">
+    <div class="card pick">
+      <div class="badge">Top pick</div>
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gB96" cx="35%" cy="26%" r="80%">
+                <stop offset="0%" stop-color="var(--gold-hi)"/>
+                <stop offset="30%" stop-color="var(--gold-mid)"/>
+                <stop offset="62%" stop-color="var(--gold-low)"/>
+                <stop offset="100%" stop-color="var(--gold-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green-deep)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gB96)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,244,214,0.55)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.7)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <g stroke="var(--bronze)" stroke-width="9" stroke-linecap="round" opacity="0.85">
+              <line x1="230" y1="216" x2="230" y2="192"/>
+              <line x1="256" y1="216" x2="256" y2="192"/>
+              <line x1="282" y1="216" x2="282" y2="192"/>
+              <line x1="230" y1="296" x2="230" y2="320"/>
+              <line x1="256" y1="296" x2="256" y2="320"/>
+              <line x1="282" y1="296" x2="282" y2="320"/>
+              <line x1="216" y1="230" x2="192" y2="230"/>
+              <line x1="216" y1="256" x2="192" y2="256"/>
+              <line x1="216" y1="282" x2="192" y2="282"/>
+              <line x1="296" y1="230" x2="320" y2="230"/>
+              <line x1="296" y1="256" x2="320" y2="256"/>
+              <line x1="296" y1="282" x2="320" y2="282"/>
+            </g>
+            <rect x="216" y="216" width="80" height="80" rx="10" fill="var(--bronze)" opacity="0.9"/>
+            <rect x="223" y="223" width="66" height="66" rx="6" fill="none" stroke="var(--gold-hi)" stroke-width="4" opacity="0.85"/>
+            <circle cx="256" cy="192" r="7" fill="var(--gold-hi)"/>
+            <circle cx="320" cy="256" r="7" fill="var(--gold-hi)"/>
+            <circle cx="230" cy="320" r="7" fill="var(--gold-hi)"/>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gB48" cx="35%" cy="26%" r="80%">
+                <stop offset="0%" stop-color="var(--gold-hi)"/>
+                <stop offset="30%" stop-color="var(--gold-mid)"/>
+                <stop offset="62%" stop-color="var(--gold-low)"/>
+                <stop offset="100%" stop-color="var(--gold-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green-deep)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gB48)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,244,214,0.55)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.7)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <g stroke="var(--bronze)" stroke-width="9" stroke-linecap="round" opacity="0.85">
+              <line x1="230" y1="216" x2="230" y2="192"/>
+              <line x1="256" y1="216" x2="256" y2="192"/>
+              <line x1="282" y1="216" x2="282" y2="192"/>
+              <line x1="230" y1="296" x2="230" y2="320"/>
+              <line x1="256" y1="296" x2="256" y2="320"/>
+              <line x1="282" y1="296" x2="282" y2="320"/>
+              <line x1="216" y1="230" x2="192" y2="230"/>
+              <line x1="216" y1="256" x2="192" y2="256"/>
+              <line x1="216" y1="282" x2="192" y2="282"/>
+              <line x1="296" y1="230" x2="320" y2="230"/>
+              <line x1="296" y1="256" x2="320" y2="256"/>
+              <line x1="296" y1="282" x2="320" y2="282"/>
+            </g>
+            <rect x="216" y="216" width="80" height="80" rx="10" fill="var(--bronze)" opacity="0.9"/>
+            <rect x="223" y="223" width="66" height="66" rx="6" fill="none" stroke="var(--gold-hi)" stroke-width="4" opacity="0.85"/>
+            <circle cx="256" cy="192" r="7" fill="var(--gold-hi)"/>
+            <circle cx="320" cy="256" r="7" fill="var(--gold-hi)"/>
+            <circle cx="230" cy="320" r="7" fill="var(--gold-hi)"/>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gB24" cx="35%" cy="26%" r="80%">
+                <stop offset="0%" stop-color="var(--gold-hi)"/>
+                <stop offset="30%" stop-color="var(--gold-mid)"/>
+                <stop offset="62%" stop-color="var(--gold-low)"/>
+                <stop offset="100%" stop-color="var(--gold-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green-deep)"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gB24)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,244,214,0.55)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.7)" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <g stroke="var(--bronze)" stroke-width="9" stroke-linecap="round" opacity="0.85">
+              <line x1="230" y1="216" x2="230" y2="192"/>
+              <line x1="256" y1="216" x2="256" y2="192"/>
+              <line x1="282" y1="216" x2="282" y2="192"/>
+              <line x1="230" y1="296" x2="230" y2="320"/>
+              <line x1="256" y1="296" x2="256" y2="320"/>
+              <line x1="282" y1="296" x2="282" y2="320"/>
+              <line x1="216" y1="230" x2="192" y2="230"/>
+              <line x1="216" y1="256" x2="192" y2="256"/>
+              <line x1="216" y1="282" x2="192" y2="282"/>
+              <line x1="296" y1="230" x2="320" y2="230"/>
+              <line x1="296" y1="256" x2="320" y2="256"/>
+              <line x1="296" y1="282" x2="320" y2="282"/>
+            </g>
+            <rect x="216" y="216" width="80" height="80" rx="10" fill="var(--bronze)" opacity="0.9"/>
+            <rect x="223" y="223" width="66" height="66" rx="6" fill="none" stroke="var(--gold-hi)" stroke-width="4" opacity="0.85"/>
+            <circle cx="256" cy="192" r="7" fill="var(--gold-hi)"/>
+            <circle cx="320" cy="256" r="7" fill="var(--gold-hi)"/>
+            <circle cx="230" cy="320" r="7" fill="var(--gold-hi)"/>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>The coin's face is struck with a tiny IC-chip die — a square with pin leads on all four sides,
+      three of them lit gold like active connections. Nothing about a square chip die with pin leads
+      resembles a felt-table poker chip; it reads as a literal microprocessor. At a glance it's
+      unambiguously a gold coin (money); look closer and it's also literally a chip (Chip, your AI
+      advisor, built into the money). One mark, both names, no cliché. The pin detail is a 48px+ reward
+      — at 24px it reads as a coin with a small dark square mint-mark, still distinctive, not generic.</p>
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-bottom:10px;">On a home screen</div>
+      <div class="home-strip light">
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512">
+          <rect width="512" height="512" fill="var(--green-deep)"/>
+          <circle cx="256" cy="256" r="208" fill="var(--gold-mid)"/>
+          <rect x="216" y="216" width="80" height="80" rx="10" fill="var(--bronze)" opacity="0.9"/>
+        </svg>
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#3b82f6"/></svg>
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#111827"/></svg>
+      </div>
+      <div class="home-strip dark">
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512">
+          <rect width="512" height="512" fill="var(--green-deep)"/>
+          <circle cx="256" cy="256" r="208" fill="var(--gold-mid)"/>
+          <rect x="216" y="216" width="80" height="80" rx="10" fill="var(--bronze)" opacity="0.9"/>
+        </svg>
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#3b82f6"/></svg>
+        <svg class="squircle" width="40" height="40" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#111827"/></svg>
+      </div>
+      <p style="margin-top:12px;">The gold coin is unmistakable next to any neighbouring app icon, both wallpapers.</p>
+    </div>
+  </div>
+</section>
+
+<!-- C -->
+<section>
+  <div class="section-title">Direction C — Gold Coin Stack <span style="color:#6f7a86; font-weight: 400; text-transform: none; letter-spacing: 0;">(most literal "watch it grow")</span></div>
+  <div class="row">
+    <div class="card">
+      <div class="icon-tray">
+        <div class="tile-wrap">
+          <svg class="squircle" width="96" height="96" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gC96" cx="35%" cy="26%" r="80%">
+                <stop offset="0%" stop-color="var(--gold-hi)"/>
+                <stop offset="30%" stop-color="var(--gold-mid)"/>
+                <stop offset="62%" stop-color="var(--gold-low)"/>
+                <stop offset="100%" stop-color="var(--gold-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green-deep)"/>
+            <circle cx="292" cy="292" r="200" fill="var(--gold-deep)" stroke="rgba(255,244,214,0.3)" stroke-width="6"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gC96)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,244,214,0.55)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.7)" stroke-width="12" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">96px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="48" height="48" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gC48" cx="35%" cy="26%" r="80%">
+                <stop offset="0%" stop-color="var(--gold-hi)"/>
+                <stop offset="30%" stop-color="var(--gold-mid)"/>
+                <stop offset="62%" stop-color="var(--gold-low)"/>
+                <stop offset="100%" stop-color="var(--gold-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green-deep)"/>
+            <circle cx="292" cy="292" r="200" fill="var(--gold-deep)" stroke="rgba(255,244,214,0.3)" stroke-width="6"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gC48)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,244,214,0.55)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.7)" stroke-width="12" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">48px</div>
+        </div>
+        <div class="tile-wrap">
+          <svg class="squircle" width="24" height="24" viewBox="0 0 512 512">
+            <defs>
+              <radialGradient id="gC24" cx="35%" cy="26%" r="80%">
+                <stop offset="0%" stop-color="var(--gold-hi)"/>
+                <stop offset="30%" stop-color="var(--gold-mid)"/>
+                <stop offset="62%" stop-color="var(--gold-low)"/>
+                <stop offset="100%" stop-color="var(--gold-deep)"/>
+              </radialGradient>
+            </defs>
+            <rect width="512" height="512" fill="var(--green-deep)"/>
+            <circle cx="292" cy="292" r="200" fill="var(--gold-deep)" stroke="rgba(255,244,214,0.3)" stroke-width="6"/>
+            <circle cx="256" cy="256" r="208" fill="url(#gC24)"/>
+            <circle cx="256" cy="256" r="198" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="12" stroke-dasharray="3 8"/>
+            <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,244,214,0.55)" stroke-width="4"/>
+            <path d="M112 196 A200 200 0 0 1 196 112" stroke="rgba(255,255,255,0.7)" stroke-width="12" fill="none" stroke-linecap="round"/>
+          </svg>
+          <div class="tile-label">24px</div>
+        </div>
+      </div>
+      <p>No glyph at all — just two overlapping gold coins, a second one peeking out bottom-right,
+      telling "more than one coin, a growing pile" purely through the stack itself. The plainest of the
+      three and, arguably, the most confident: it trusts the gold coin alone to say "money," and the
+      stack to say "growing," without adding a symbol to explain either.</p>
+    </div>
+  </div>
+</section>
+
+<div class="lead" style="margin-top: -20px;">
+  <b>Recommendation: Direction B.</b> It's the only one of the three (or of any round so far) that
+  actually names both halves of the product — Penny and Chip — in a single, unmistakable gold coin, and
+  it's built from simple repeated shapes (a square, straight pin lines, a few dots) so it holds up at
+  every size rather than degrading into an unrecognisable blur. Direction A is the zero-risk fallback if
+  you'd rather not gamble on the chip pun landing; Direction C if you want the icon to say nothing but
+  "money, and more of it over time."
+</div>
+
+</body>
+</html>

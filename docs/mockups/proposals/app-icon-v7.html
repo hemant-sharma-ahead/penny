@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Penny — App Icon Directions v7 (12 options, coin-first)</title>
+<style>
+  :root {
+    --green: #00a86b;
+    --green-dark: #067a4f;
+    --green-deep: #045538;
+    --cream: #fff8ec;
+    --gold-hi: #ffefc2;
+    --gold-mid: #f6c74b;
+    --gold-low: #d89b2b;
+    --gold-deep: #8a5a12;
+    --bronze: #6b430d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 32px 100px;
+    background: #12151a;
+    color: #eef1f4;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lead { color: #9aa3ad; font-size: 14px; max-width: 820px; line-height: 1.6; margin-bottom: 28px; }
+  .lead b { color: #eef1f4; }
+  .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #6f7a86; margin: 40px 0 16px; font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
+  .card {
+    background: #1b1f26;
+    border: 1px solid #2a2f38;
+    border-radius: 16px;
+    padding: 16px;
+  }
+  .card.pick { border-color: var(--gold-mid); box-shadow: 0 0 0 1px var(--gold-mid); }
+  .card.ref { border-style: dashed; }
+  .card p { font-size: 11.5px; color: #9aa3ad; line-height: 1.45; margin: 10px 0 0; }
+  .badge {
+    display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
+    color: var(--gold-mid); background: rgba(246,199,75,0.15); border: 1px solid rgba(246,199,75,0.4);
+    border-radius: 999px; padding: 2px 8px; margin-bottom: 8px; text-transform: uppercase;
+  }
+  .name { font-size: 13px; font-weight: 700; color: #eef1f4; margin-top: 10px; }
+  .squircle {
+    border-radius: 22.5%;
+    overflow: hidden;
+    display: block;
+    margin: 0 auto;
+  }
+  svg { display: block; }
+</style>
+</head>
+<body>
+
+<h1>Penny — App Icon Directions v7</h1>
+<div class="lead">
+  Pulling back from the abstract ones (sun, orbiting constellation) that didn't read as financial —
+  every option below is built around an unmistakable gold coin front-and-center, so "money" is never in
+  question, and each one adds a different, concrete way of showing growth/investing on top of that
+  (a rising stack, a chart line, an arrow, a pie of holdings, coins compounding into one). Ten fresh
+  ones, plus — as asked — the current shipped leaf icon and the original, never-shipped
+  <code>apps/web-react/public/icons/icon.svg</code> sprouting-leaf icon, both re-rendered in this same
+  dimensional-gold-coin style so you can compare directly.
+</div>
+
+<div class="section-title">Reference — your existing marks, re-rendered in the new coin style</div>
+<div class="grid">
+
+  <div class="card ref">
+    <svg class="squircle" width="140" height="140" viewBox="0 0 512 512">
+      <defs>
+        <radialGradient id="rg1" cx="35%" cy="26%" r="80%">
+          <stop offset="0%" stop-color="var(--gold-hi)"/><stop offset="30%" stop-color="var(--gold-mid)"/>
+          <stop offset="62%" stop-color="var(--gold-low)"/><stop offset="100%" stop-color="var(--gold-deep)"/>
+        </radialGradient>
+      </defs>
+      <rect width="512" height="512" fill="var(--green)"/>
+      <circle cx="288" cy="288" r="200" fill="var(--green-deep)" stroke="rgba(255,244,214,0.25)" stroke-width="6"/>
+      <circle cx="256" cy="256" r="200" fill="url(#rg1)"/>
+      <circle cx="256" cy="256" r="190" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="11" stroke-dasharray="3 8"/>
+      <circle cx="256" cy="256" r="172" fill="none" stroke="rgba(255,244,214,0.55)" stroke-width="4"/>
+      <path d="M120 196 A172 172 0 0 1 196 120" stroke="rgba(255,255,255,0.7)" stroke-width="11" fill="none" stroke-linecap="round"/>
+      <path d="M256 366C186 366 146 316 146 246C146 176 196 116 256 96C316 116 366 176 366 246C366 316 326 366 256 366Z" fill="var(--cream)"/>
+      <path d="M256 366V166" stroke="var(--bronze)" stroke-width="14" stroke-linecap="round"/>
+      <path d="M256 320 C220 300 196 270 210 236" stroke="var(--bronze)" stroke-width="10" fill="none" stroke-linecap="round"/>
+      <path d="M256 270 C292 250 316 220 302 186" stroke="var(--bronze)" stroke-width="10" fill="none" stroke-linecap="round"/>
+    </svg>
+    <div class="name">Ref 1 — Current shipped icon, gold-styled</div>
+    <p>Your exact existing leaf medallion, unchanged, with the coin body switched from flat green to
+    the dimensional gold treatment. Same silhouette you already have, now on a real-looking coin.</p>
+  </div>
+
+  <div class="card ref">
+    <svg class="squircle" width="140" height="140" viewBox="0 0 512 512">
+      <defs>
+        <radialGradient id="rg2" cx="35%" cy="26%" r="80%">
+          <stop offset="0%" stop-color="var(--gold-hi)"/><stop offset="30%" stop-color="var(--gold-mid)"/>
+          <stop offset="62%" stop-color="var(--gold-low)"/><stop offset="100%" stop-color="var(--gold-deep)"/>
+        </radialGradient>
+      </defs>
+      <rect width="512" height="512" fill="var(--green)"/>
+      <circle cx="256" cy="256" r="200" fill="url(#rg2)"/>
+      <circle cx="256" cy="256" r="190" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="11" stroke-dasharray="3 8"/>
+      <circle cx="256" cy="256" r="172" fill="none" stroke="rgba(255,244,214,0.55)" stroke-width="4"/>
+      <path d="M120 196 A172 172 0 0 1 196 120" stroke="rgba(255,255,255,0.7)" stroke-width="11" fill="none" stroke-linecap="round"/>
+      <path d="M256 368V224" stroke="var(--bronze)" stroke-width="26" stroke-linecap="round"/>
+      <path d="M256 288 C216 272 168 240 184 176 C200 112 256 152 256 232" fill="var(--cream)" opacity="0.95"/>
+      <path d="M256 256 C296 240 344 208 328 144 C312 80 256 120 256 200" fill="var(--cream)"/>
+    </svg>
+    <div class="name">Ref 2 — Original web-react icon.svg, gold-styled</div>
+    <p>The very first coin/sprout mark (never actually shipped anywhere) — two leaf blades off a
+    central stem — rendered on the same dimensional gold coin instead of its original flat green rings.</p>
+  </div>
+
+</div>
+
+<div class="section-title">Fresh — ten coin-first directions</div>
+<div class="grid">
+
+  <div class="card">
+    <svg class="squircle" width="140" height="140" viewBox="0 0 512 512">
+      <defs>
+        <radialGradient id="g1" cx="35%" cy="26%" r="80%">
+          <stop offset="0%" stop-color="var(--gold-hi)"/><stop offset="30%" stop-color="var(--gold-mid)"/>
+          <stop offset="62%" stop-color="var(--gold-low)"/><stop offset="100%" stop-color="var(--gold-deep)"/>
+        </radialGradient>
+      </defs>
+      <rect width="512" height="512" fill="var(--green-deep)"/>
+      <circle cx="256" cy="372" r="90" fill="var(--gold-deep)"/>
+      <circle cx="256" cy="270" r="130" fill="var(--gold-low)"/>
+      <circle cx="256" cy="175" r="170" fill="url(#g1)"/>
+      <circle cx="256" cy="175" r="160" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="10" stroke-dasharray="3 8"/>
+      <circle cx="256" cy="175" r="144" fill="none" stroke="rgba(255,244,214,0.55)" stroke-width="4"/>
+      <path d="M126 130 A160 160 0 0 1 196 60" stroke="rgba(255,255,255,0.7)" stroke-width="10" fill="none" stroke-linecap="round"/>
+    </svg>
+    <div class="name">1. The Rising Stack</div>
+    <p>Three coins stacked, each one bigger than the one below — a pile that widens as it climbs,
+    instead of the usual pile that tapers. Unmistakably coins, unmistakably growing.</p>
+  </div>
+
+  <div class="card">
+    <svg class="squircle" width="140" height="140" viewBox="0 0 512 512">
+      <defs>
+        <radialGradient id="g2" cx="35%" cy="26%" r="80%">
+          <stop offset="0%" stop-color="var(--gold-hi)"/><stop offset="30%" stop-color="var(--gold-mid)"/>
+          <stop offset="62%" stop-color="var(--gold-low)"/><stop offset="100%" stop-color="var(--gold-deep)"/>
+        </radialGradient>
+      </defs>
+      <rect width="512" height="512" fill="var(--green-deep)"/>
+      <circle cx="256" cy="256" r="200" fill="url(#g2)"/>
+      <circle cx="256" cy="256" r="190" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="11" stroke-dasharray="3 8"/>
+      <circle cx="256" cy="256" r="172" fill="none" stroke="rgba(255,244,214,0.55)" stroke-width="4"/>
+      <path d="M120 196 A172 172 0 0 1 196 120" stroke="rgba(255,255,255,0.7)" stroke-width="11" fill="none" stroke-linecap="round"/>
+      <path d="M150 320 L210 280 L250 310 L300 220 L364 166" stroke="var(--bronze)" stroke-width="16" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="364" cy="166" r="13" fill="var(--bronze)"/>
+    </svg>
+    <div class="name">2. Growth Line Coin</div>
+    <p>A simple rising investment line struck into the coin's face, ending in a marker dot. Direct,
+    finance-literate, no interpretation required.</p>
+  </div>
+
+  <div class="card">
+    <svg class="squircle" width="140" height="140" viewBox="0 0 512 512">
+      <defs>
+        <radialGradient id="g3" cx="35%" cy="26%" r="80%">
+          <stop offset="0%" stop-color="var(--gold-hi)"/><stop offset="30%" stop-color="var(--gold-mid)"/>
+          <stop offset="62%" stop-color="var(--gold-low)"/><stop offset="100%" stop-color="var(--gold-deep)"/>
+        </radialGradient>
+      </defs>
+      <rect width="512" height="512" fill="var(--green-deep)"/>
+      <circle cx="256" cy="300" r="168" fill="url(#g3)"/>
+      <circle cx="256" cy="300" r="158" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="10" stroke-dasharray="3 8"/>
+      <circle cx="256" cy="300" r="142" fill="none" stroke="rgba(255,244,214,0.55)" stroke-width="4"/>
+      <path d="M200 340 C220 260 200 200 260 150 C300 115 320 130 336 112" stroke="var(--gold-hi)" stroke-width="30" fill="none" stroke-linecap="round"/>
+      <path d="M336 112 L302 138 L358 150Z" fill="var(--gold-hi)"/>
+    </svg>
+    <div class="name">3. Ascending Ribbon</div>
+    <p>A coin with a flowing ribbon-arrow rising out of it and off the edge — motion and direction, not
+    a flat static arrow.</p>
+  </div>
+
+  <div class="card">
+    <svg class="squircle" width="140" height="140" viewBox="0 0 512 512">
+      <defs>
+        <radialGradient id="g4" cx="35%" cy="26%" r="80%">
+          <stop offset="0%" stop-color="var(--gold-hi)"/><stop offset="30%" stop-color="var(--gold-mid)"/>
+          <stop offset="62%" stop-color="var(--gold-low)"/><stop offset="100%" stop-color="var(--gold-deep)"/>
+        </radialGradient>
+      </defs>
+      <rect width="512" height="512" fill="var(--green-deep)"/>
+      <path d="M140 370 C180 300 260 260 330 200" stroke="var(--gold-hi)" stroke-width="6" stroke-dasharray="2 14" fill="none" opacity="0.8" stroke-linecap="round"/>
+      <circle cx="140" cy="372" r="52" fill="var(--gold-deep)" stroke="rgba(255,244,214,0.4)" stroke-width="4"/>
+      <circle cx="356" cy="180" r="150" fill="url(#g4)"/>
+      <circle cx="356" cy="180" r="140" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="9" stroke-dasharray="3 7"/>
+      <circle cx="356" cy="180" r="126" fill="none" stroke="rgba(255,244,214,0.55)" stroke-width="4"/>
+    </svg>
+    <div class="name">4. Penny Into Gold</div>
+    <p>A small coin, a dotted trail, a big coin — the same coin, grown, told through scale alone. "Chip
+    in" small, watch it become this.</p>
+  </div>
+
+  <div class="card">
+    <svg class="squircle" width="140" height="140" viewBox="0 0 512 512">
+      <defs>
+        <radialGradient id="g5" cx="35%" cy="26%" r="80%">
+          <stop offset="0%" stop-color="var(--gold-hi)"/><stop offset="30%" stop-color="var(--gold-mid)"/>
+          <stop offset="62%" stop-color="var(--gold-low)"/><stop offset="100%" stop-color="var(--gold-deep)"/>
+        </radialGradient>
+      </defs>
+      <rect width="512" height="512" fill="var(--green-deep)"/>
+      <rect x="330" y="230" width="28" height="46" fill="var(--gold-hi)"/>
+      <rect x="366" y="184" width="28" height="92" fill="var(--gold-hi)" opacity="0.9"/>
+      <rect x="402" y="128" width="28" height="148" fill="var(--gold-hi)" opacity="0.8"/>
+      <circle cx="256" cy="270" r="200" fill="url(#g5)"/>
+      <circle cx="256" cy="270" r="190" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="11" stroke-dasharray="3 8"/>
+      <circle cx="256" cy="270" r="172" fill="none" stroke="rgba(255,244,214,0.55)" stroke-width="4"/>
+      <path d="M120 210 A172 172 0 0 1 196 134" stroke="rgba(255,255,255,0.7)" stroke-width="11" fill="none" stroke-linecap="round"/>
+    </svg>
+    <div class="name">5. Stepped-Rim Coin</div>
+    <p>A staircase of ascending bars grows straight out of the coin's own edge, as if the coin's rim is
+    generating the chart itself.</p>
+  </div>
+
+  <div class="card">
+    <svg class="squircle" width="140" height="140" viewBox="0 0 512 512">
+      <rect width="512" height="512" fill="var(--green-deep)"/>
+      <circle cx="256" cy="256" r="200" fill="var(--gold-deep)"/>
+      <path d="M256 256 L256 71 A185 185 0 0 1 441 256 Z" fill="var(--gold-hi)"/>
+      <path d="M256 256 L441 256 A185 185 0 0 1 256 441 Z" fill="var(--gold-mid)"/>
+      <path d="M256 256 L256 441 A185 185 0 0 1 132 291 Z" fill="var(--gold-low)"/>
+      <circle cx="256" cy="256" r="190" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="11" stroke-dasharray="3 8"/>
+      <circle cx="256" cy="256" r="172" fill="none" stroke="rgba(255,244,214,0.4)" stroke-width="4"/>
+      <path d="M120 196 A172 172 0 0 1 196 120" stroke="rgba(255,255,255,0.55)" stroke-width="11" fill="none" stroke-linecap="round"/>
+    </svg>
+    <div class="name">6. Portfolio Coin</div>
+    <p>The coin's face is a struck allocation pie — stocks, funds, gold, cash — literally "your complete
+    financial picture" on a coin.</p>
+  </div>
+
+  <div class="card">
+    <svg class="squircle" width="140" height="140" viewBox="0 0 512 512">
+      <defs>
+        <radialGradient id="g7" cx="35%" cy="26%" r="80%">
+          <stop offset="0%" stop-color="var(--gold-hi)"/><stop offset="30%" stop-color="var(--gold-mid)"/>
+          <stop offset="62%" stop-color="var(--gold-low)"/><stop offset="100%" stop-color="var(--gold-deep)"/>
+        </radialGradient>
+      </defs>
+      <rect width="512" height="512" fill="var(--green-deep)"/>
+      <circle cx="256" cy="256" r="200" fill="url(#g7)"/>
+      <circle cx="256" cy="256" r="190" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="11" stroke-dasharray="3 8"/>
+      <circle cx="256" cy="256" r="172" fill="none" stroke="rgba(255,244,214,0.55)" stroke-width="4"/>
+      <path d="M120 196 A172 172 0 0 1 196 120" stroke="rgba(255,255,255,0.7)" stroke-width="11" fill="none" stroke-linecap="round"/>
+      <rect x="234" y="70" width="44" height="16" rx="8" fill="var(--bronze)"/>
+      <path d="M256 70V40" stroke="var(--cream)" stroke-width="9" stroke-linecap="round"/>
+      <path d="M256 56 C244 50 238 40 242 28" stroke="var(--cream)" stroke-width="7" fill="none" stroke-linecap="round"/>
+      <path d="M256 62 C268 56 274 46 270 34" stroke="var(--cream)" stroke-width="7" fill="none" stroke-linecap="round"/>
+    </svg>
+    <div class="name">7. Sprouting Coin</div>
+    <p>A dominant gold coin with a tiny money-plant poking out of a coin-slot at the top — literal
+    "grow your money," kept small so the coin still leads. (Closest of the ten to the leaf language you
+    said no to — worth judging on its own since it's an accent here, not the whole icon.)</p>
+  </div>
+
+  <div class="card">
+    <svg class="squircle" width="140" height="140" viewBox="0 0 512 512">
+      <rect width="512" height="512" fill="var(--green-deep)"/>
+      <path d="M170 380 Q256 420 342 380 L322 340 Q256 360 190 340 Z" fill="var(--gold-deep)"/>
+      <circle cx="256" cy="150" r="16" fill="var(--gold-hi)"/>
+      <circle cx="320" cy="250" r="20" fill="var(--gold-mid)"/>
+      <circle cx="210" cy="260" r="24" fill="var(--gold-mid)"/>
+      <circle cx="270" cy="200" r="30" fill="var(--gold-hi)"/>
+    </svg>
+    <div class="name">8. Coin Fountain</div>
+    <p>Coins arcing upward out of a base, mid-air — abundance overflowing, kept elegant rather than a
+    literal coin-rain/jackpot burst.</p>
+  </div>
+
+  <div class="card">
+    <svg class="squircle" width="140" height="140" viewBox="0 0 512 512">
+      <defs>
+        <radialGradient id="g9" cx="35%" cy="22%" r="90%">
+          <stop offset="0%" stop-color="var(--gold-hi)"/><stop offset="30%" stop-color="var(--gold-mid)"/>
+          <stop offset="62%" stop-color="var(--gold-low)"/><stop offset="100%" stop-color="var(--gold-deep)"/>
+        </radialGradient>
+      </defs>
+      <rect width="512" height="512" fill="var(--green-deep)"/>
+      <path d="M150 415 Q256 385 362 415" stroke="var(--bronze)" stroke-width="12" fill="none" stroke-linecap="round" opacity="0.6"/>
+      <path d="M130 400 Q256 365 382 400" stroke="var(--bronze)" stroke-width="14" fill="none" stroke-linecap="round" opacity="0.8"/>
+      <path d="M110 380 Q256 340 402 380" stroke="var(--bronze)" stroke-width="16" fill="none" stroke-linecap="round"/>
+      <ellipse cx="256" cy="285" rx="128" ry="152" fill="url(#g9)"/>
+      <ellipse cx="256" cy="285" rx="118" ry="141" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="9" stroke-dasharray="3 8"/>
+      <ellipse cx="256" cy="285" rx="104" ry="126" fill="none" stroke="rgba(255,244,214,0.5)" stroke-width="4"/>
+      <path d="M150 220 A118 141 0 0 1 210 148" stroke="rgba(255,255,255,0.6)" stroke-width="10" fill="none" stroke-linecap="round"/>
+    </svg>
+    <div class="name">9. The Nest Egg</div>
+    <p>The actual English word for savings, drawn literally — one warm gold egg cradled in a nest.
+    Safest, most instantly-readable of the ten.</p>
+  </div>
+
+  <div class="card pick">
+    <div class="badge">Top pick</div>
+    <svg class="squircle" width="140" height="140" viewBox="0 0 512 512">
+      <defs>
+        <radialGradient id="g10" cx="35%" cy="26%" r="80%">
+          <stop offset="0%" stop-color="var(--gold-hi)"/><stop offset="30%" stop-color="var(--gold-mid)"/>
+          <stop offset="62%" stop-color="var(--gold-low)"/><stop offset="100%" stop-color="var(--gold-deep)"/>
+        </radialGradient>
+      </defs>
+      <rect width="512" height="512" fill="var(--green-deep)"/>
+      <line x1="256" y1="410" x2="180" y2="322" stroke="var(--gold-low)" stroke-width="6" opacity="0.7"/>
+      <line x1="256" y1="410" x2="332" y2="322" stroke="var(--gold-low)" stroke-width="6" opacity="0.7"/>
+      <line x1="180" y1="322" x2="256" y2="192" stroke="var(--gold-low)" stroke-width="7" opacity="0.75"/>
+      <line x1="332" y1="322" x2="256" y2="192" stroke="var(--gold-low)" stroke-width="7" opacity="0.75"/>
+      <circle cx="256" cy="410" r="34" fill="var(--gold-deep)"/>
+      <circle cx="180" cy="322" r="52" fill="var(--gold-low)"/>
+      <circle cx="332" cy="322" r="52" fill="var(--gold-low)"/>
+      <circle cx="256" cy="192" r="130" fill="url(#g10)"/>
+      <circle cx="256" cy="192" r="120" fill="none" stroke="rgba(74,42,6,0.5)" stroke-width="9" stroke-dasharray="3 7"/>
+      <circle cx="256" cy="192" r="108" fill="none" stroke="rgba(255,244,214,0.55)" stroke-width="3"/>
+      <path d="M156 148 A108 108 0 0 1 196 90" stroke="rgba(255,255,255,0.7)" stroke-width="8" fill="none" stroke-linecap="round"/>
+    </svg>
+    <div class="name">10. Compound Coins</div>
+    <p>One small coin at the base, two feeding up into one large coin at the top — many small
+    contributions converging and compounding into one outcome. The clearest visual of "chip in, watch it
+    grow" of all ten: coins the whole way through, and the shape itself <i>is</i> the compounding.</p>
+  </div>
+
+</div>
+
+<div class="lead" style="margin-top: 28px;">
+  <b>Recommendation: #10, Compound Coins.</b> Every element in it is a coin — nothing to decode — and
+  the composition itself (small ones converging upward into one big one) <i>is</i> the growth story,
+  rather than a growth symbol added next to a coin. #9 (Nest Egg) and #2 (Growth Line Coin) are the
+  safest fallbacks if you want zero ambiguity. #7 (Sprouting Coin) is the one most likely to trip the
+  same "plantation" objection — flagged so you can rule it out quickly rather than by surprise.
+</div>
+
+</body>
+</html>

@@ -12,6 +12,11 @@ interface Props {
   masked: boolean;
   onRestore?: (id: string) => void;
   restoring?: boolean;
+  /** Reverses a whole import batch (packages/core/src/core/import/importWriter.ts's undoImportBatch)
+   *  — mutually exclusive with onRestore: only ever shown for `action === 'IMPORT' && !entry.restored`
+   *  rows, never alongside a Restore button on the same row. */
+  onUndo?: (id: string) => void;
+  undoing?: boolean;
 }
 
 function timeOf(ts: number): string {
@@ -19,7 +24,7 @@ function timeOf(ts: number): string {
 }
 
 /** RN port of apps/web-react/src/features/activity/components/ActivityRow.tsx. */
-export function ActivityRow({ entry, masked, onRestore, restoring }: Props) {
+export function ActivityRow({ entry, masked, onRestore, restoring, onUndo, undoing }: Props) {
   const theme = useThemeColors();
   const meta = getActionMeta(theme)[entry.action];
   return (
@@ -44,6 +49,18 @@ export function ActivityRow({ entry, masked, onRestore, restoring }: Props) {
         >
           <Text className="text-xs font-semibold" style={{ color: theme.primary }}>
             Restore
+          </Text>
+        </Pressable>
+      )}
+      {onUndo && entry.action === 'IMPORT' && !entry.restored && (
+        <Pressable
+          onPress={() => onUndo(entry.id)}
+          disabled={undoing}
+          className="flex-shrink-0 px-2.5 py-1 rounded-lg bg-surface-2"
+          style={{ opacity: undoing ? 0.5 : 1 }}
+        >
+          <Text className="text-xs font-semibold" style={{ color: theme.primary }}>
+            Undo
           </Text>
         </Pressable>
       )}

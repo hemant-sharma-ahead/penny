@@ -2,14 +2,15 @@ import { useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
-import { Button, Card, SectionLabel, SelectInput } from '~/components/ui';
+import { Banner, Button, Card, SectionLabel, SelectInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
-import { formatDateShort } from '@/lib/date';
+import { formatDate, formatDateShort } from '@/lib/date';
 import { CUSTOM_PRESET_ID } from '@/core/bank-import/presets';
 import type { BankPresetId } from '@/core/bank-import/types';
 import type { UseBankImportReturn } from './useBankImport';
 import { MappingEditModal } from './MappingEditModal';
+import { OpeningBalancePrompt } from './OpeningBalancePrompt';
 
 interface SetupStepProps {
   bi: UseBankImportReturn;
@@ -42,13 +43,37 @@ export function SetupStep({ bi }: SetupStepProps) {
     ? 'your custom format'
     : (bi.banks.find((b) => b.id === bi.presetId)?.label ?? 'your bank');
 
+  /** Excel support (2026-08-05, issue #4) — extension-based, not mimeType-based: some Android
+   *  content-provider URIs report a generic `application/octet-stream` regardless of real file type,
+   *  while the picked file's own name is always reliable. Anything not recognized as Excel falls back
+   *  to the original CSV/plain-text path unchanged. */
+  function isExcelFile(name: string): boolean {
+    return /\.xlsx?$/i.test(name);
+  }
+
   async function pickFile() {
     const result = await DocumentPicker.getDocumentAsync({
-      type: Platform.OS === 'web' ? '*/*' : ['text/csv', '*/*'],
+      type:
+        Platform.OS === 'web'
+          ? '*/*'
+          : [
+              'text/csv',
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              'application/vnd.ms-excel',
+              '*/*'
+            ],
       copyToCacheDirectory: true
     });
     if (result.canceled || !result.assets?.[0]) return;
     const asset = result.assets[0];
+    if (isExcelFile(asset.name)) {
+      const bytes =
+        Platform.OS === 'web' && asset.file
+          ? new Uint8Array(await asset.file.arrayBuffer())
+          : await new File(asset.uri).bytes();
+      bi.importFromXlsx(bytes, asset.name);
+      return;
+    }
     const text = Platform.OS === 'web' && asset.file ? await asset.file.text() : await new File(asset.uri).text();
     bi.importFromText(text, asset.name);
   }
@@ -73,14 +98,16 @@ export function SetupStep({ bi }: SetupStepProps) {
         <View className="gap-2">
           <SectionLabel className="mb-0">Statement file</SectionLabel>
           <Text className="text-xs text-tertiary -mt-1">
-            Upload a CSV statement export from {bankLabel}. Delimiter and every column stay editable below.
+            Upload a CSV or Excel statement export from {bankLabel}. Delimiter and every column stay editable below.
           </Text>
           <Pressable
             onPress={() => void pickFile()}
             className="bg-surface rounded-xl p-8 items-center gap-3 border-2 border-dashed border-theme"
           >
             <Icon name="ti-file-upload" size={30} color={theme.textTertiary} />
-            <Text className="text-sm text-secondary text-center">{bi.fileName || 'Tap to choose a CSV file'}</Text>
+            <Text className="text-sm text-secondary text-center">
+              {bi.fileName || 'Tap to choose a CSV or Excel file'}
+            </Text>
           </Pressable>
           {bi.parseError ? (
             <Text className="text-xs" style={{ color: theme.danger }}>
@@ -111,23 +138,73 @@ export function SetupStep({ bi }: SetupStepProps) {
                 key={key}
                 className={`flex-row items-center justify-between py-2 ${i > 0 ? 'border-t border-theme' : ''}`}
               >
-                <Text className="text-xs text-secondary">{label}</Text>
+                <Text className="text-xs text-secondary">
+                  {/* Shows the actually-in-effect date format right on the summary row (2026-08-05) —
+                      previously only visible after tapping into "Edit mapping". */}
+                  {key === 'date' ? `${label} (${bi.dateFormat})` : label}
+                </Text>
                 <Text className="text-xs font-medium text-primary">{bi.mapping[key] || '— Not mapped —'}</Text>
               </View>
             ))}
           </Card>
-          {bi.mappingPreview && (
-            <Text className="text-xs text-tertiary">
-              {bi.mappingPreview.rows.length} row{bi.mappingPreview.rows.length === 1 ? '' : 's'} detected
-              {minDate !== null && maxDate !== null ? ` · ${formatDateShort(minDate)}–${formatDateShort(maxDate)}` : ''}
-              {bi.mappingPreview.rejected.length > 0
-                ? ` · ${bi.mappingPreview.rejected.length} row${bi.mappingPreview.rejected.length === 1 ? '' : 's'} couldn't be read`
-                : ''}
-            </Text>
+          {/* Was a single `text-xs text-tertiary` caption (2026-08-05 feedback: "too subtle to see",
+              and a 0-row outcome looked visually identical to a healthy one — same tiny grey line,
+              just different numbers, with no explanation of why). Now a real `Banner`: `info` when
+              anything parsed (row count + date range as the bold headline, any rejected-row count as
+              a plain detail line), `warning` when nothing did — surfacing the *first* row's actual
+              rejection reason from `parseStatementRows` (`RejectedStatementRow.reason` — already
+              computed, just never shown beyond an aggregate count before) and pointing at the date
+              format specifically, since an unparseable-date mismatch is the overwhelmingly likely
+              cause. */}
+          {bi.mappingPreview &&
+            (bi.mappingPreview.rows.length > 0 ? (
+              <Banner
+                variant="info"
+                icon="ti-table"
+                title={`${bi.mappingPreview.rows.length} row${bi.mappingPreview.rows.length === 1 ? '' : 's'} detected${
+                  minDate !== null && maxDate !== null ? ` · ${formatDate(minDate)}–${formatDate(maxDate)}` : ''
+                }`}
+              >
+                {bi.mappingPreview.rejected.length > 0
+                  ? `${bi.mappingPreview.rejected.length} row${bi.mappingPreview.rejected.length === 1 ? '' : 's'} couldn't be read — first reason: ${bi.mappingPreview.rejected[0]?.reason}.`
+                  : 'Every row in the file parsed cleanly.'}
+              </Banner>
+            ) : (
+              <Banner variant="warning" icon="ti-alert-triangle" title="No rows could be read from this file">
+                {bi.mappingPreview.rejected[0]?.reason
+                  ? `Most likely cause: ${bi.mappingPreview.rejected[0].reason.toLowerCase()}. Check the date format above (${bi.dateFormat}) against how dates actually look in your file.`
+                  : `Double-check the column mapping above, especially the date format (${bi.dateFormat}) — it should match how dates actually look in your file.`}
+              </Banner>
+            ))}
+          {/* Gap-detection warning (docs/plans/bank-balance-sync.md §5/§11b) — compares this file's own
+              date range against the account's prior covered ranges. Advisory only: "Continue to review"
+              below proceeds regardless — a genuinely statement-free period (a dormant account) is a
+              real possibility, not something to block on. */}
+          {bi.coverageGap && (
+            <Banner variant="warning" icon="ti-calendar-exclamation" title="Possible gap in your statement history">
+              {`There's a gap between ${formatDateShort(bi.coverageGap.gapStart)} and ${formatDateShort(bi.coverageGap.gapEnd)} this account has no statement for — was that period genuinely empty, or is there a statement you haven't found yet?`}
+            </Banner>
           )}
-          <Button variant="primary" fullWidth disabled={!bi.mappingReady} onPress={bi.confirmMapping}>
-            Continue to review
-          </Button>
+          {/* Opening-balance confirm (§10a) / anchor-shift (§14a/§14b) — docs/plans/
+              bank-balance-sync.md §7 Stage 3. Replaces the plain "Continue to review" button below
+              entirely (never both at once) — every branch inside owns its own button that both stages
+              the account write and proceeds, per docs/mockups/proposals/bank-balance-sync-v2.html §5/§6. */}
+          {bi.openingBalanceTrigger ? (
+            <OpeningBalancePrompt bi={bi} />
+          ) : (
+            // Was gated on `mappingReady` alone (every field mapped) — that says nothing about whether
+            // the mapping actually *works*, so a wrong date format could map every field "correctly"
+            // and still produce zero usable rows, yet still let the user proceed into an empty review
+            // screen. Also requires at least one row having actually parsed.
+            <Button
+              variant="primary"
+              fullWidth
+              disabled={!bi.mappingReady || bi.mappingPreview?.rows.length === 0}
+              onPress={bi.confirmMapping}
+            >
+              Continue to review
+            </Button>
+          )}
         </View>
       )}
 

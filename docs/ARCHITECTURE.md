@@ -107,6 +107,136 @@ Full dependency survey (every `apps/web-react/src/features/*`'s context/hook imp
 
 **Portfolio (Track 4, eighth module, done) — largest yet:** `apps/mobile/src/features/portfolio/` ports `apps/web-react/src/features/portfolio/` (~7,462 web lines across 53 files — the original 4,957-line monolithic `PortfolioPage.tsx` was already split by Pre-Phase 1.5 into per-asset-class files, which made this port tractable). Structure: `usePortfolioHoldings.ts`/`PortfolioPage.tsx` (tab shell: Holdings sub-tabs + IPO tab), `holdings/shared/` (reusable field helpers), one directory per asset class (`equity/` — Stocks+MF, `fixed-income/` — FD/RD, `precious-metals/` — Gold/Silver, `real-assets/` — Vehicle/Property/Other, `retirement/` — NPS/PPF/EPF, the single biggest sub-scope at ~1,760 lines), and `ipo/`. Ported in parallel by asset class (independent directories, no shared mutable state) after shared infra landed first. **Unlike IOU/Home, no personal-only scoping decision was needed** — a full dependency survey found zero `GroupContext`/`EventModeContext`/`OnboardingDraftContext` imports anywhere in the module; ported in full. **Two more `packages/core` `localStorage` bugs, a harder variant than `marketDataClient.ts`'s:** `core/ipo/ipoClient.ts` and `core/nps/npsClient.ts` both cache data via _synchronous_ `localStorage` feeding otherwise-async fetch functions — a mechanical `AsyncStorage` swap doesn't drop in cleanly, so both got `.native.ts` siblings keeping an in-memory-only cache (session-scoped, not persisted across cold starts) instead. **A real mid-port lesson:** the first draft of `ipoClient.native.ts` dropped `fetchIpos`'s `forceRefresh` parameter on the assumption that only Metro (not `tsc`) resolves `.native.ts` files — wrong for this repo, since `apps/mobile/tsconfig.json`'s `moduleSuffixes: [".native", ""]` makes `tsc` itself resolve them too for any mobile-reachable `packages/core` file; the mismatch surfaced only once the IPO tab actually imported `useIpos`. Fixed by restoring a real in-memory cache instead of dropping the parameter — **`.native.ts` siblings must match their web counterpart's exported signatures exactly**. Several hand-rolled `fixed inset-0` modal overlays (Real Assets' `VehicleDetailModal`, Retirement's `NpsLifecycleDetail`/an `EpfAllTransactionsSheet`/an inline `RetirementSheets` popup, IPO's `IpoDetailModal`) rebuilt on the real ported `Modal` component instead of translated, same rationale as Track 3's `SelectInput` redesign. `STATUS.x` colors (~30+ sites across 9 files, worst in `RetirementCard.tsx`) → `useThemeColors()`, including one variant found in `RdCard.tsx` that hardcoded a literal hex directly rather than referencing `STATUS`. Two integration-time bugs caught and fixed during the final wiring pass: Equity's `MfModal`/`StockModal` were missing the established sibling-`fullWidth`-Buttons-in-a-`flex-row` fix (flagged by a different section's porting agent while reading a neighboring file); and `EquitySection`'s floating FAB used `position: absolute` correctly in isolation but incorrectly here since the section renders _inside_ `PortfolioPage`'s own `ScrollView` (absolute positions relative to the section's own content box, not the viewport) — replaced with an inline `Button`, matching every other section's already-independent convention. No new native deps needed — reused everything Home already installed (`react-native-svg`, `react-native-view-shot`, `expo-sharing`, `expo-linear-gradient`, `react-native-reanimated`).
 
+**Portfolio — PPF card redesign + "See all transactions" popup (2026-08-08, `apps/mobile` only, per
+`docs/mockups/proposals/ppf-card-redesign-v1.html`, layout/grouping only — no new calculation logic):**
+`RetirementCard.tsx`'s PPF branch replaces its old back-to-back stacked maturity/This-FY progress
+bars (which could both render purple at once) with two-up stat tiles (Maturity always purple,
+This-FY blue-in-progress/green-at-100%, never purple); the April-5 tip becomes a quiet caption inside
+the This-FY tile instead of a standalone banner; N stacked per-FY missing-interest banners plus a
+separate "N need review" pill both merge into one consolidated "needs attention" banner (missing FYs
+as tappable chips, review count as a second line) — same `findMissingPpfInterestFys`/
+`findAllPpfReviewFlags` inputs, purely restyled; the "Import" pill goes neutral/ghost, matching EPF's
+own treatment. **The card no longer renders any inline transaction list at all** (not even the old
+capped 5-row + "+N more" text) — a permanent "See all transactions" row is the only transaction
+element left on the card, opening a new `PpfAllTransactionsSheet` (`RetirementSheets.tsx`) that
+mirrors `EpfAllTransactionsSheet`'s FY-band grouping but deliberately omits EPF's All/Interest/
+Transfers filter (PPF's per-year volume is far lower) and its repeated "N need review" header count
+(already lives once, in the card's own banner). Each FY band gets a new per-year progress bar via
+`ppfDepositsForFy(txns, fyStartYear)` (`packages/core/src/core/portfolio/ppfCalculations.ts` —
+generalizes `ppfThisYearDeposits`, which now just calls it with the current FY): the current open FY
+keeps the actionable blue/green language, past closed FYs render the same bar muted/neutral instead.
+Flagged interest rows keep their warning icon (same `findAllPpfReviewFlags` check as the card) but
+stay flag-only, not tappable for a correction — PPF has no equivalent of EPF's "Update to ₹X" popup
+yet, so this sheet takes no `onSave` prop. New shared-constants file `ppfTxLabels.ts`
+(`PPF_TX_LABELS`/`PPF_TX_COLORS`) mirrors `epfTxLabels.ts`'s same Fast-Refresh-driven split.
+`apps/web-react` is frozen and has no equivalent — see `docs/MOBILE_PARITY.md`.
+
+**Portfolio — PPF withdrawal tile, "i" info-icon modals, edit/delete transaction (2026-08-08,
+`apps/mobile` only, additive on the card redesign above):** new full-width Withdrawal tile on
+`RetirementCard.tsx`, powered by a new core function `ppfWithdrawalEligibility()` (plus its
+`ppfBalanceAsOfFyEnd()` helper, both in `ppfCalculations.ts`) — the real partial-withdrawal rule
+(eligible from the 7th FY, capped at 50% of the lower of two historical FY-end balances). New
+`PpfInfoModal` component (`RetirementSheets.tsx`) — this app's first tappable-"i"-icon →
+small-centered-modal pattern (no tooltip/popover primitive existed before), reused for all three info
+icons (This-FY deposit rules, Withdrawal rules, Maturity options) from one shared sections-list props
+shape rather than three bespoke modals. `PpfTransactionSheet` gained `editing?`/`onDelete?` props
+(edit-in-place + immediate no-confirmation delete, matching `PpfModal`/`EntryForm`'s established
+`FormModal` convention) — every row in `PpfAllTransactionsSheet` is now tappable into edit mode.
+`apps/web-react` is frozen and has no equivalent — see `docs/MOBILE_PARITY.md`.
+
+**Portfolio — EPF passbook/Excel import + export UI (2026-08-08, `apps/mobile` only — wires up the
+two `packages/core`-only entries below into the actual EPF card):** five new files in
+`apps/mobile/src/features/portfolio/holdings/retirement/`. `epfImportLogic.ts` owns the file
+picking/parsing dispatch (extension-routed to `epfPassbookParser.ts`/`epfExcelImport.ts`, doc §11's
+"same entry point handles both formats") and every actual `Holding` write — matching an employer by
+`memberId` first and never falling back to a plain company-name match once a unit carries a real
+`memberId` (protects the "rejoined the same employer under a new Member ID" case §5's `memberId`
+field exists to resolve), creating a new `EpfEmployer` when none matches (basic salary approximated
+from the passbook's own EPF-wages column, since a brand-new import has no other source for it), and
+merging `balanceCheckpoints`. `EpfImportFlow.tsx` is the batch summary → sequential review → done
+flow component (kept components-only per this repo's Fast-Refresh lint rule — all non-component
+exports live in `epfImportLogic.ts` instead); `EpfImportReviewSheet.tsx` is the conflict-first
+triage screen (mockup v4 §2 Direction C) — the one real conflict pinned open with the imported value
+pre-selected, new rows a pre-checked checklist borrowed from bank-import's `UnmatchedBucket`
+pattern, matches collapsed to one quiet summary line. A single multi-group `.xlsx` file reuses this
+exact same per-unit review flow as a batch of PDFs, just flattened into one queue of reconciliation
+units instead of files. `epfInterestOnDemand.ts` holds the on-demand interest helpers shared by the
+"Want me to calculate it for you?" assistant (`EpfTransactionSheet`) and the interest-breakdown
+popup (`EpfAllTransactionsSheet`, whose interest rows are now tappable, previously only contribution
+rows were) — deliberately NOT a recursive re-simulation of every prior year's interest (never invent
+interest for a year the user didn't actually log); the "prior closing balance" fed into
+`calculateEpfInterestForYear()` is a flat sum of whatever's already really on the ledger before that
+FY. `epfTxLabels.ts` is a small shared-constants file (`EPF_TX_LABELS`/`EPF_TX_COLORS`) split out of
+`RetirementSheets.tsx` for the same Fast-Refresh reason. Export reuses `PlannerResults.tsx`'s
+already-solved `write()`/`Uint8Array`/`Blob`-vs-`File` RN gotchas verbatim, no new pattern.
+`apps/web-react` is frozen and has no equivalent — see `docs/MOBILE_PARITY.md`.
+
+**Portfolio — EPF real-user-feedback round (2026-08, `apps/mobile` only):** a sixth file,
+`epfInterestOnDemand.ts`'s new sibling `epfReviewFlags.ts`, adds two on-demand "needs review" flag
+checks (interest mismatch, wage discrepancy) behind one shared function (`findAllReviewFlags`) so a
+transaction row's badge and the EPF card's summary count can never disagree — the wage-discrepancy
+comparison math itself (`epfCheckWageDiscrepancy`) lives in `packages/core`'s `epfCalculations.ts`
+instead, since it's pure calculation with no React dependency (consistent with this feature's
+existing core/mobile split) and is unit-tested there. `RetirementCard.tsx` also gained a card-level
+"Are you still working at X?" Yes/No prompt (`findEmployersNeedingEmploymentConfirmation`, added to
+`epfInterestOnDemand.ts`) — a root-cause fix for a real bug where an import-created employer with no
+later employer to bound it stayed "current" with no actual evidence tying it to today.
+
+**Portfolio — EPF full-statement Excel export/import + interest trace (2026-08-08, `packages/core`
+only, extends the 2026-08-07 entry below):** two new pure modules —
+`epfExcelExport.ts` builds one combined workbook (5 sheets: Summary, Employers, Transactions,
+Interest History, Salary Hikes) across every employer/year Penny knows about, unlike EPFO's own
+one-employer-one-FY passbook download, mirroring `core/loans/planExport.ts`'s "plain arrays in,
+platform renders to `.xlsx`" shape exactly (no `xlsx` import in this file — the actual write call
+stays in the apps/mobile UI layer, reusing `PlannerResults.tsx`'s already-solved
+`write()`/`ArrayBuffer` RN gotchas). `epfExcelImport.ts` reads that same shape back in — deliberately
+does NOT reuse `epfPassbookParser.ts`'s `ParsedEpfPassbook` container type (which requires
+non-optional `establishmentId`/`memberId`, unavailable for a manually-entered employer never itself
+imported from a PDF) but DOES reuse its row-level `ParsedEpfPassbookRow` shape as-is, so
+`epfReconciliation.ts` needed zero changes to accept either source — verified end-to-end with a real
+export→bytes→import round-trip test that reconciles every row as an exact `matches` (and a
+genuinely-edited amount still correctly reconciles as `conflict`, not a false positive). Split
+deliberately from a phase-2, presentation-only PDF export (not re-importable — would need a second
+fragile PDF parser for no real benefit, since `unpdf` only reads PDFs, no write library exists yet).
+Also: `epfInterestCalculator.ts`'s `calculateEpfInterestForYear()` now returns an optional
+`employeeTrace`/`employerTrace` (month-by-month opening balance/rate/interest), and a new
+`getInterestRateForFy()` convenience wrapper — both purely additive (no existing field changed,
+computed fresh on demand, never stored) so any interest transaction can show its rate and full
+calculation regardless of whether it was typed manually, calculated via the app's assistant, or
+imported. All UI design decisions for the whole EPF import/export feature are now finalized via 4
+rounds of mockup review (`docs/mockups/proposals/epf-passbook-import-v1.html` through `-v4.html`) —
+see `docs/plans/epf-passbook-import.md` §10/§11.
+
+**Portfolio — EPF passbook import + interest calculator, core logic (2026-08-07, `packages/core`
+only — wired into the `apps/mobile` UI by the 2026-08-08 entry above, see
+`docs/plans/epf-passbook-import.md`):** four new pure `packages/
+core/src/core/portfolio/` modules.
+`epfPassbookParser.ts` — takes raw PDF bytes, uses `unpdf` (chosen after a real on-device
+feasibility spike bundling it under Metro; `pdfjs-dist` raw was avoided as the same failure class
+that once broke `@zip.js/zip.js`'s dynamic import) to extract text, then regex-parses the
+passbook's bilingual (English-clean/Hindi-mojibake) header and transaction table — verified against
+a real downloaded EPFO passbook, though the committed test fixture
+(`packages/core/tests/fixtures/epf-passbook-synthetic.pdf`) is a synthetic stand-in built to mirror
+that real structure exactly (a real passbook's text layer carries PII even with its image visually
+redacted, so one was never committed). `epfInterestCalculator.ts` — a month-by-month accrual
+simulation of EPFO's real interest rule (a contribution deposited in month M+1 earns zero interest
+that month, only starting to accrue from M+2; the year's interest sums once at FY-end, never
+compounding mid-year) — verified to reproduce a real passbook's exact credited interest and closing
+balance. `epfInterestRates.ts` — the full 1986-87–2026-27 rate table, modelled as rate PERIODS (not
+one-per-FY) so the one historical mid-year rate change (2000-01) needs no special-casing; fetched
+from a new Worker route (`workers/api-proxy`'s `/epf-rates`, a static JSON response, no upstream
+call) with the exact same table baked in as an offline-first fallback — new platform-suffixed
+`epfRatesStorage.ts`/`.native.ts`/`.web.ts` trio for its local cache, following the established
+`apiBase.ts`/`.native.ts`/`.web.ts` split. `epfReconciliation.ts` — deliberately not bank-import's
+fuzzy amount/date matcher; a contribution row has a natural exact key,
+`(memberId, wagesMonth, type)`, since EPFO funds at most one contribution per employer per
+wage-month. `EpfEmployer`/`EpfTransaction` (`core/db/types/index.ts`) both gained new optional
+fields to carry real passbook data without inferring anything Penny didn't previously capture (see
+`docs/SCHEMA.md`). This whole feature was scoped as an alternative to INDmoney-style UAN+password
+auto-sync, which was researched and explicitly rejected (server-side credential custody, an
+EPFO-advisory violation, real account-lockout risk, and no live Account-Aggregator path for EPF) —
+see `docs/plans/epf-passbook-import.md` §1 for the full reasoning.
+
 **Portfolio — Equity consolidation (2026-08-01, `apps/mobile` only, `apps/web-react` untouched/frozen):**
 `PortfolioPage.tsx`'s main tabs went from `Holdings`/`IPO` (2 tabs, Holdings' own 6-item sub-tab pill
 row) to 5 asset-class main tabs — `equity` (new) plus `fixed_income`/`precious_metals`/`retirement`/
@@ -852,6 +982,105 @@ initially vanished from the review entirely instead of resurfacing as a lone wol
 extracting `matcher.ts`'s lone-wolf filter into an exported `deriveLoneWolves()` the hook now calls
 reactively off live staged state, not the one-shot pass's frozen result.
 
+**Bank Statement Import, 2026-08-05 additions:** `core/bank-import/matcher.ts` gained
+`suggestPossibleTransfer()` — a softer, amount/date-only cross-account heuristic (never touches
+narration) for flagging a statement row that might be the unlinked other leg of a transfer already
+recorded on a different account; only ever a dismissible suggestion, never an auto-classification
+(see the function's own doc comment for why). **2026-08-09 fix:** accepting that suggestion (or its
+ambiguous-tie sibling, `suggestAmbiguousTransferCandidates()`) now absorbs the existing candidate
+expense in place via a new `convertCandidateToTransfer()` (`matcher.ts`) /
+`linkAsCrossAccountTransfer()` (`useBankImport.ts`) pair, instead of building a brand-new record
+alongside it — a real on-device bug found two records both debiting the source account for the same
+real-world transfer; see `docs/plans/bank-balance-sync.md`'s dated write-up. `core/bank-import/xlsxParser.ts` is a new file — Excel
+(.xlsx/.xls) import support, built on the `xlsx`/SheetJS library (already a `packages/core`
+dependency, previously unused), converting a workbook's first sheet into the same `string[][]` grid
+shape `csvParser.ts`'s `tokenizeCsv()` produces so the entire downstream review pipeline stays
+format-agnostic. Full detail on both, plus the same-day `ExpenseForm` credit-row transfer-direction
+fix and `BulkCategorizeModal`'s cash-only→any-account generalization, in
+[`docs/features/bank-import.md`](features/bank-import.md).
+
+**Bank balance sync, Stages 0–4 (2026-08-08/09, design in
+[`docs/plans/bank-balance-sync.md`](../plans/bank-balance-sync.md)):** turns a bank statement's own
+balance column into a permanent, per-transaction checkpoint (`Expense.statementBalance`, `bank`-type
+accounts only — credit cards' inverted sign convention is out of scope) instead of `balanceCheck.ts`'s
+one-shot end-of-import nudge. New file `core/bank-import/checkpoint.ts` (`attachCheckpoint()`/
+`reconcileMatchedExpense()` — the latter also corrects a matched pair's date/amount to the statement's
+own value on commit). `matcher.ts` gained two-tier matching: an exact prior-import lookup
+(`findProvenanceMatch()`) always runs before the existing fuzzy pass, and any already-checkpointed
+expense is excluded from fuzzy candidacy for any _other_ import, so a later statement's coincidentally
+same-amount row can never be silently absorbed into an already-reconciled transaction. New file
+`core/bank-import/coverage.ts` (`detectCoverageGap()`/`countSkippedRows()`) plus a new `Account` field,
+`coveredStatementRanges: ImportBatchSummary[]`, populated on every completed import (any
+statement-importable account type, not just `bank` — batch history is a separate concern from the
+bank-only checkpoint guarantee) — powers a gap-detection banner in `SetupStep.tsx`, a skipped-row
+breakdown on `DoneStep.tsx`'s commit confirmation, and a new screen,
+`apps/mobile/src/features/bank-import/BankImportHistoryPage.tsx` (registered in `HomeStack.tsx`,
+reachable from a new `AccountsPage.tsx` header icon), listing past import batches with a per-batch
+detail drill-in. `matcher.ts`'s `LoneWolf` also gained a `status: 'provisional' | 'escalated'` field —
+a lone wolf near a statement's own date-range boundary defers to "provisional" until an adjacent
+already-completed import's own coverage has also failed to explain it, rather than flagging
+immediately. **Stage 3** (opening-balance anchor): new file `core/bank-import/openingBalanceAnchor.ts`
+(`isFirstEverImport`/`isAnchorShiftImport`/`currentAnchorDate`/`deriveOpeningBalanceSuggestion`/
+`computeAnchorShiftCheck`, all pure, reusing `balanceCalculator.ts`'s `delta()`), two new `Account`
+fields (`openingBalanceAsOfDate`, `anchorReference` — renamed 2026-08-09, see below), and a new `apps/mobile/src/features/
+bank-import/OpeningBalancePrompt.tsx` rendered by `SetupStep.tsx` in place of "Continue to review"
+whenever the trigger fires. **Stage 4** (checkpoint-diff diagnostics UI + the unified "unverified
+account" badge): two new pure core modules — `core/bank-import/checkpointDiagnostics.ts`
+(`computeCheckpointDiagnostics()`, walks an account's own transactions chronologically comparing
+Penny's derived balance against every `statementBalance` checkpoint, day-bucketed per §7e, classifying
+a mismatch as `'steps-partway'` vs `'flat-from-start'`) and `core/bank-import/accountVerification.ts`
+(`computeAccountVerificationStatus()`, unifying that mismatch with Stage 2's `findStandingCoverageGaps()`
+and Stage 3's anchor-shift disagreement into ONE `activeFinding`, priority-ordered, never three competing
+indicators) — plus a new `Account.dismissedVerificationFindings` field for per-finding-fingerprint
+dismiss/re-open. **Redesigned 2026-08-09**: `Account.anchorDisagreement` (a frozen, once-computed
+snapshot) renamed to `Account.anchorReference` (only the immutable `{oldOpeningBalance, oldAnchorDate,
+detectedAt}` fact) — the comparison against it is now always recomputed LIVE
+(`openingBalanceAnchor.ts`'s `recomputeAnchorAgreement()`), fixing an on-device bug where a later
+corrective import that actually fixed the ledger left a stale disagreement showing forever. The same
+fix also closes a related write-path bug: every §14b choice (not just "Accept") now always moves the
+anchor DATE to the new, earlier date at commit time (`useBankImport.ts`), with only the anchor VALUE
+differing by choice (`openingBalanceAnchor.ts`'s `backDerivedOpeningBalance()` for "Keep"/"Review rows
+first") — previously, "Keep"/"Review" left the date pinned at the OLD, later date while committing
+transactions dated before it, silently double-counting the whole backfilled period on top of the kept
+balance. `CheckpointTimelinePage.tsx` also gained an `AnchorBoundaryDivider` row (mockup
+`bank-balance-sync-v3.html`'s "#optiond") extending the existing single reconciliation timeline through
+the anchor boundary, and a shared `useOpeningBalanceResolution.ts` hook (update/dismiss actions, reused
+by `CheckOpeningBalancePage.tsx` and the new divider). New `apps/mobile/src/features/accounts/` files: `useAccountVerification.ts` (the
+`CHECKPOINT_ELIGIBLE` gate + the per-account status map + dismiss/reopen actions),
+`AccountVerificationBanner.tsx` + `verificationCopy.ts` (the account-detail snapshot banner, all 6
+mockup states), `AccountDetailModal.tsx` (wraps `EntityTransactionsModal` with the banner + drill-in
+state), `CheckpointTimelinePage.tsx` and `CheckOpeningBalancePage.tsx` (two new screens, registered in
+`HomeStack.tsx`). `EntityTransactionsModal.tsx` gained two new generic `banner`/`footer` slots
+(`undefined` everywhere else) and `TransactionsTab.tsx` gained an optional `checkpointHighlight` prop
+(marks + a scroll-to target via `FlashList`'s `scrollToItem` ref API) — both omitted, so zero behavior
+change, for every other existing caller of either component. Full behavior/limitations writeup in
+[`docs/features/bank-import.md`](features/bank-import.md)'s "Balance sync" section.
+
+**Full Ledger (2026-08-10, `docs/plans/bank-reconciliation-ledger.md`) — a deeper zoom on the same
+reconciliation feature family, not a new one.** `CheckpointTimelinePage.tsx` gained a "View full ledger
+›" action (shown only in its all-clear state) into a new `apps/mobile/src/features/accounts/
+FullLedgerPage.tsx` (registered in `HomeStack.tsx`): a dense, row-by-row Statement ⟷ Expense
+reconciliation for a bounded, continuously-growing date window. Core: `core/bank-import/ledger.ts`
+(`buildLedgerRows` — classifies every row as matched/skipped-unresolved/anomaly/not-covered, reusing
+`findStandingCoverageGaps()` and `normalizeNarration()` rather than new logic) and `core/bank-import/
+ledgerActions.ts` (Phase 2: pure relink/unmatch/resolve-to-existing functions, reusing
+`reconcileMatchedExpense()` verbatim). **Required a real architecture fix**: Phase 2's relink/resolve
+actions needed the exact same "choose the match" picker `features/bank-import/`'s own bucket 1/2
+already use — `PossibleMatchPickerModal.tsx` moved from `features/bank-import/` to
+`apps/mobile/src/components/shared/` (added to that folder's barrel) so both feature modules could use
+it without a feature-to-feature import, the same reasoning `ExpenseForm.tsx`'s own earlier relocation
+documents above. `FullLedgerPage.tsx`'s new "Add as a new transaction" action (for a skipped row)
+renders `ExpenseForm` directly with its own locally-sourced `categories`/`hashtags`/`saveAccount` —
+mirrors the account-creation snippet `useBankImport.ts`'s `saveAccountForForm` already uses, plus a
+`notifyAccountsChanged()` broadcast that one doesn't need (bank-import's own bucket screens read
+`bi.accounts` directly, not `useRepository`). All four Phase 2 mutations (relink/unmatch/resolve/add-
+new) call `logActivity()` directly (a core function, not `useExpenses.ts`'s own logging) so they still
+show up in the activity feed. Known, accepted simplification: none of the four route through
+`useExpenses.ts`'s `saveExpenseWithHashtags` (a `features/expenses/`-scoped hook, off-limits to
+`features/accounts/`), so they don't update hashtag usage counts or merchant-memory suggestions the way
+adding/editing an expense from the Expenses tab does — the expense itself, its activity/balance
+visibility, and its statement link are all still fully correct.
+
 **Payment mode made a real creatable entity (2026-08-02):** previously `Expense.paymentMode` drew
 from a hardcoded 5-value list (`components/shared/paymentModes.ts`) with no way to add to it. Bank
 Statement Import needed this — bank narrations carry rail keywords (NEFT/IMPS/RTGS/Cheque) that
@@ -973,12 +1202,32 @@ modal should reuse real app UI, not a plain dropdown):**
    - Three new default categories, additive-seeded via `useExpenses.ts`'s new v8 seeding effect
      (`penny_cats_v8`): `cat-food-drinks` ("Food & Drinks", Daily Living — added despite overlapping
      Groceries/Dining & Café, per explicit user request), `cat-lending` ("Lending", Family & Giving,
-     expense), `cat-inc-borrowed` ("Borrowed Money", Income). Both IOU categories are **free choice,
-     not auto-locked** to the Lent/Borrowed panel (unlike `goalPreset`'s auto-locked category) —
-     deliberate, since a shared-bill split is often kept under its real category (e.g. Dining) "for
-     remembrance" rather than a generic bucket. `categoryTaxMap.ts` gained `cat-food-drinks` (`gst-5`)
-     and `cat-lending` (`exempt`, also added to `SPEND_EXCLUDED` — lending isn't consumption); income
-     categories were already outside this map (indirect tax only applies to spend).
+     expense), `cat-inc-borrowed` ("Borrowed Money", Income). ~~Both IOU categories are free choice,
+     not auto-locked to the Lent/Borrowed panel~~ — **superseded 2026-08-06, see below**: picking either
+     now auto-opens and locks the panel, person mandatory. `categoryTaxMap.ts` gained `cat-food-drinks`
+     (`gst-5`) and `cat-lending` (`exempt`, also added to `SPEND_EXCLUDED` — lending isn't consumption);
+     income categories were already outside this map (indirect tax only applies to spend).
+   - **Two more IOU categories + a reversed decision (2026-08-06), additive-seeded via `useExpenses.ts`'s
+     new v10 seeding effect (`penny_cats_v10`):** `cat-collected-money` ("Collected Money", Income — the
+     reverse of Lending: someone paying back what you lent them) and `cat-return-borrowed` ("Return
+     Borrowed", Family & Giving, expense — the reverse of Borrowed Money: you paying back what you
+     borrowed). Explicit user decision this time reverses v8's "free choice, not auto-locked" call
+     above for **all four** Lending/Borrowed-Money/Collected-Money/Return-Borrowed categories: picking
+     any of them in `ExpenseForm.tsx` (including bank-import's single-row flow) or bank-import's
+     `BulkCategorizeModal` now auto-opens _and locks open_ the Lent/Borrowed panel (`IOU_MANDATORY_CATEGORY_IDS`
+     in `core/db/defaultCategories.ts`; `ExtraCircle` gained a `disabled` prop for the lock), and
+     Save/Apply is blocked until a person is entered. Also: settling an IOU (`IouView.tsx`'s "Settle"
+     button) now defaults its linked transaction to `cat-collected-money`/`cat-return-borrowed` instead
+     of the generic Other/Other Income fallback (`reconcileLinkedTxn`'s new `defaultCategoryId` override
+     on `LinkedTxnIntent`, passed only by the settle call site — the original manual lent/borrowed
+     entry's own linked transaction is unchanged, still generic Other/Other Income). **Real mistake
+     found the same day:** the first version shipped with invented icon names
+     (`ti-wallet-plus`/`ti-wallet-minus`) that don't exist in the actual bundled Tabler set — corrected
+     to `ti-receipt-refund`/`ti-cash-minus`, both verified directly against `tablerIconIndex.json`. A
+     device that had already run the v10 seed against the wrong values before the fix landed wouldn't
+     pick up the correction on its own (the `penny_cats_v10` flag blocks re-seeding, and seeding only
+     ever inserts _missing_ rows, never patches existing ones) — a separate, unconditional one-time
+     effect directly patches these two ids' `icon` field if it doesn't match the corrected value.
 
 **Retirement Corpus — Home hero redesign (2026-08-03, `apps/mobile` only, `apps/web-react` untouched/frozen):**
 replaced Home's Net worth/Safe-to-spend two-column hero (plus the colored asset-proportion bar and the
@@ -1098,16 +1347,16 @@ that math. Full writeup: `docs/features/home.md`.
 
 ### `src/hooks/`
 
-| File                       | Returns                                                                                                                                                             | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `useRepository.ts`         | `{ items, loading, error, save, remove, reload }`                                                                                                                   | Generic hook to load/write from any EncryptedRepository. Used in most feature pages.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `useLoggedRepository.ts`   | same shape as `useRepository`                                                                                                                                       | Wraps `useRepository`, recording CREATE/UPDATE on save + DELETE on remove to the activity log, and firing an Undo toast (restore + reload). Single-entity modules adopt it with `{ entityType, summarize, diffFields? }`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `usePassphraseStrength.ts` | `{ score, ready }`                                                                                                                                                  | Lazy-loads zxcvbn and scores a passphrase (0–4). Used by onboarding setup and Change Passphrase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `useProfile.ts`            | `{ profile, loading }`                                                                                                                                              | The single profile record (or null). Used by FIRE, tax, health, retirement, and the profile editor to read dob/employmentType.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `useForecast.ts`           | `{ loading, nowMs, todayStart, startBalance, events, forecast, dueRecurring, goalReserved, goalBreakdown, safeToSpendRaw, safeToSpend, safeToSpendPerDay, reload }` | Loads recurring-flow sources + accounts, computes current liquid balance, and projects it forward via `core/cashflow` (running balance, lowest point, buffer breach, `forecast.discretionary` — a pure, goal-agnostic balance/commitments/buffer figure). Shared by the Cash Flow page, the safe-to-spend surfaces (Home, Expenses header), and reminders — lives here so features don't cross-import. **2026-08-02:** also independently loads goals + `GoalContribution`s (can't import `features/goals/useGoals.ts` — a shared hook depending on one feature's own hook) and uses `core/goals/progress.ts` to exclude every "counts" goal's saved amount from `forecast.discretionary`, exposed as `safeToSpend` (clamped ≥0) / `safeToSpendRaw` (unclamped, for an overcommitted check) / `safeToSpendPerDay`; `goalBreakdown` feeds Cash Flow's expandable "Excludes ₹X saved for goals" list. All three "Safe to spend" surfaces read `safeToSpend`, not `forecast.discretionary`. |
-| `useReminders.ts`          | `{ loading, nowMs, reminders, counts, snooze, markDone, log, cancelSub }`                                                                                           | Builds the header bell's in-app reminders from `useForecast` + `core/reminders`, holding snooze/done state in localStorage. Actions: snooze, mark done, log a due bill (reuses the recurring occurrence builder), cancel a subscription.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `useTxnRefresh.ts`         | `notifyTxnChanged()` + `useTxnRefresh(reload)`                                                                                                                      | Cross-instance live-refresh for transactions/balances. The IOU screen writes expenses through separate repo instances and calls `notifyTxnChanged()` (a `penny:txn-changed` window event); `useExpenses`, `useForecast`, `useHome`, and `useAccounts` subscribe via `useTxnRefresh` so lists, balances, forecast, and net worth reload live.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `useDataRefresh.ts`        | `notifyCategoriesChanged()`/`useCategoriesRefresh(reload)`, `notifyAccountsChanged()`/`useAccountsRefresh(reload)`, `notifyTagsChanged()`/`useTagsRefresh(reload)`  | Same pattern as `useTxnRefresh`, for categories/accounts/tags. `SafeModeSettingsPage` and `ManageTagsPage` edit these through their own repo instances (separate routes from Expenses); `useExpenses` subscribes to all three events, so a Safe Mode or Manage Tags change reflects immediately without waiting for those screens to remount.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| File                       | Returns                                                                                                                                                                                                                                                                            | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useRepository.ts`         | `{ items, loading, error, save, remove, reload }`                                                                                                                                                                                                                                  | Generic hook to load/write from any EncryptedRepository. Used in most feature pages.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `useLoggedRepository.ts`   | same shape as `useRepository`                                                                                                                                                                                                                                                      | Wraps `useRepository`, recording CREATE/UPDATE on save + DELETE on remove to the activity log, and firing an Undo toast (restore + reload). Single-entity modules adopt it with `{ entityType, summarize, diffFields? }`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `usePassphraseStrength.ts` | `{ score, ready }`                                                                                                                                                                                                                                                                 | Lazy-loads zxcvbn and scores a passphrase (0–4). Used by onboarding setup and Change Passphrase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `useProfile.ts`            | `{ profile, loading }`                                                                                                                                                                                                                                                             | The single profile record (or null). Used by FIRE, tax, health, retirement, and the profile editor to read dob/employmentType.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `useForecast.ts`           | `{ loading, nowMs, todayStart, startBalance, events, forecast, dueRecurring, goalReserved, goalBreakdown, safeToSpendRaw, safeToSpend, safeToSpendPerDay, reload }`                                                                                                                | Loads recurring-flow sources + accounts, computes current liquid balance, and projects it forward via `core/cashflow` (running balance, lowest point, buffer breach, `forecast.discretionary` — a pure, goal-agnostic balance/commitments/buffer figure). Shared by the Cash Flow page, the safe-to-spend surfaces (Home, Expenses header), and reminders — lives here so features don't cross-import. **2026-08-02:** also independently loads goals + `GoalContribution`s (can't import `features/goals/useGoals.ts` — a shared hook depending on one feature's own hook) and uses `core/goals/progress.ts` to exclude every "counts" goal's saved amount from `forecast.discretionary`, exposed as `safeToSpend` (clamped ≥0) / `safeToSpendRaw` (unclamped, for an overcommitted check) / `safeToSpendPerDay`; `goalBreakdown` feeds Cash Flow's expandable "Excludes ₹X saved for goals" list. All three "Safe to spend" surfaces read `safeToSpend`, not `forecast.discretionary`. |
+| `useReminders.ts`          | `{ loading, nowMs, reminders, counts, snooze, markDone, log, cancelSub }`                                                                                                                                                                                                          | Builds the header bell's in-app reminders from `useForecast` + `core/reminders`, holding snooze/done state in localStorage. Actions: snooze, mark done, log a due bill (reuses the recurring occurrence builder), cancel a subscription.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `useTxnRefresh.ts`         | `notifyTxnChanged()` + `useTxnRefresh(reload)`                                                                                                                                                                                                                                     | Cross-instance live-refresh for transactions/balances. The IOU screen writes expenses through separate repo instances and calls `notifyTxnChanged()` (a `penny:txn-changed` window event); `useExpenses`, `useForecast`, `useHome`, and `useAccounts` subscribe via `useTxnRefresh` so lists, balances, forecast, and net worth reload live.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `useDataRefresh.ts`        | `notifyCategoriesChanged()`/`useCategoriesRefresh(reload)`, `notifyAccountsChanged()`/`useAccountsRefresh(reload)`, `notifyTagsChanged()`/`useTagsRefresh(reload)`, `notifyGoalsChanged()`/`useGoalsRefresh(reload)`, `notifyBankImportsChanged()`/`useBankImportsRefresh(reload)` | Same pattern as `useTxnRefresh`, for categories/accounts/tags/goals/bank-statement-import records. `SafeModeSettingsPage` and `ManageTagsPage` edit categories/accounts/tags through their own repo instances (separate routes from Expenses); `useExpenses` subscribes to those three events, so a Safe Mode or Manage Tags change reflects immediately without waiting for those screens to remount. **2026-08-09:** `notifyBankImportsChanged()` added — `useBankImport.ts`'s `commitAndImport()` calls it after writing `bankStatementImportsRepo` provenance records, so `useAccountVerification.ts`'s own separately-mounted `useRepository(bankStatementImportsRepo)` (on the persistent `AccountsPage`, which never unmounts under a pushed `BankImportPage`) doesn't keep sweeping against a stale, pre-commit snapshot — a real bug found via on-device testing, see `docs/plans/bank-balance-sync.md`.                                                                        |
 
 _(Track 1 adds: `useDisclosure.ts`, `useAsync.ts`)_
 
@@ -1471,8 +1720,14 @@ src/features/portfolio/
     real-assets/          ← RealAssetsSection, Vehicle/Property cards, VehicleDetailModal,
                             UpdateValueSheet, Vehicle/Property/Other modals, Vehicle/Property fields,
                             useVehicleLookup, ValidityBadge, realAssetHelpers
-    retirement/           ← RetirementSection, RetirementCard, EPF/PPF sheets, RetirementSheets,
-                            Nps/Ppf/Epf modals + fields, NpsLifecycleDetail
+    retirement/           ← RetirementSection, RetirementCard, EPF/PPF sheets (incl.
+                            PpfAllTransactionsSheet), RetirementSheets, Nps/Ppf/Epf modals + fields,
+                            NpsLifecycleDetail, EPF import/export (epfImportLogic, EpfImportFlow,
+                            EpfImportReviewSheet, epfInterestOnDemand, epfReviewFlags, epfTxLabels),
+                            EPF employer-switch fixes + per-employer ledger
+                            (EpfNewEmployerSetupSheet, EpfEmployerPickerSheet, epfEmployerScoping),
+                            PPF statement import (ppfImportLogic, PpfImportFlow,
+                            PpfImportReviewSheet, ppfInterestOnDemand, ppfReviewFlags, ppfTxLabels)
     equity/               ← EquitySection (stocks+MF grouping/lots), Stock/Mf modals + fields,
                             useLivePrice, useMfSearch, useMfSchemeDetail
     shared/               ← ONLY cross-category form primitives:

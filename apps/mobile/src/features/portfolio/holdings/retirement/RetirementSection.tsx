@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import type { EmploymentType, Holding } from '@/core/db/types';
 import { useProfile } from '@/hooks/useProfile';
+import { epfBuildCardData } from '@/core/portfolio/epfCalculations';
 import { RetirementCard, RetirementUntrackedCard } from './RetirementCard';
 import { NpsScheduleSheet } from './RetirementSheets';
 import { NpsModal } from './NpsModal';
@@ -31,9 +32,29 @@ export function RetirementSection({ holdings, masked, onSave, onRemove }: Retire
   const { profile } = useProfile();
   const hideEpfPrompt = profile?.employmentType ? NO_EPF_PROMPT.has(profile.employmentType) : false;
 
+  // EPF is the one asset class whose value is never entered directly (unlike PPF/NPS's "Current
+  // corpus" field, or a mutual fund's live NAV × units) — it's entirely derived from the employer/
+  // transaction ledger via `epfBuildCardData`. That derived corpus was never actually being persisted
+  // onto `holding.currentValue`, so net worth's `h.currentValue ?? h.investedAmount` convention
+  // (`useHome.ts`, `calcInvestableCorpus`, `usePortfolioHoldings.ts` — all asset-class-agnostic, none
+  // of them call `epfBuildCardData` themselves) silently read `0` for every EPF holding, dropping it
+  // from both the net-worth total and the breakdown's `> 0` filter entirely. Fixed at this single
+  // choke point — every EPF save in this whole feature (`RetirementCard.tsx`, `EpfImportFlow.tsx`,
+  // `EpfModal.tsx`, and everything nested under them) already flows through this one `onSave` prop —
+  // rather than special-casing every individual save call site, matching the same "write the derived
+  // value back on save" pattern `usePortfolioHoldings.ts`'s own `refreshPrices()` already uses for a
+  // live-priced MF/stock holding's `currentValue`.
+  const saveHolding = async (h: Holding) => {
+    if (h.assetClass === 'epf') {
+      await onSave({ ...h, currentValue: epfBuildCardData(h.assetMeta ?? {}).corpus });
+      return;
+    }
+    await onSave(h);
+  };
+
   const close = () => setForm(null);
   const save = async (h: Holding) => {
-    await onSave(h);
+    await saveHolding(h);
     close();
   };
   const del = (id: string) => {
@@ -50,7 +71,7 @@ export function RetirementSection({ holdings, masked, onSave, onRemove }: Retire
               key={h.id}
               holding={h}
               onEdit={() => setForm({ ac, editing: h })}
-              onSave={onSave}
+              onSave={saveHolding}
               onViewSchedule={() => setScheduleHolding(h)}
               masked={masked}
             />
@@ -58,7 +79,14 @@ export function RetirementSection({ holdings, masked, onSave, onRemove }: Retire
         }
         // No holding yet — suppress the EPF prompt for employment types that don't have EPF.
         if (ac === 'epf' && hideEpfPrompt) return null;
-        return <RetirementUntrackedCard key={ac} type={ac} onTrack={() => setForm({ ac, editing: null })} />;
+        return (
+          <RetirementUntrackedCard
+            key={ac}
+            type={ac}
+            onTrack={() => setForm({ ac, editing: null })}
+            {...((ac === 'epf' || ac === 'ppf') && { onSave: saveHolding })}
+          />
+        );
       })}
 
       {/* Gratuity/SSY calculators — 2026-08-01 relocation out of Home's generic hub, into the

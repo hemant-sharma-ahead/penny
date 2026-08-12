@@ -93,8 +93,36 @@ export interface ResolvedPreviewRow {
 
 export type ConfirmedCategoryMap = Map<
   string,
-  { categoryId: string; categoryName: string; skip?: boolean; type?: 'transfer'; tag?: string }
+  {
+    categoryId: string;
+    categoryName: string;
+    skip?: boolean;
+    type?: 'transfer';
+    /** Destination account for a `type: 'transfer'` entry (2026-08-09) — see `CategoryAction`'s
+     *  'transfer' variant doc comment. Absent/empty means the user hasn't picked one yet; a row built
+     *  from such an entry writes with no `toAccountId` unless `applyConfirmedTransferPairs` below fills
+     *  it in from an auto-detected same-file reciprocal row instead. */
+    toAccountId?: string;
+    tag?: string;
+  }
 >;
+
+/** A per-row correction layered ON TOP of (never replacing) the source-category-name-level resolution
+ *  above — added 2026-08-06 so a user can bulk-select an arbitrary subset of one CategoryTile's rows
+ *  and either move just those to a different EXISTING category, or tag just those, without disturbing
+ *  the rest of that source category's rows or its own group-level resolution. Keyed by the row's plain
+ *  index into the `parsedRows` array (stable for a session — that array is append-only, never reordered
+ *  or spliced; see `useImport.ts`). Both fields are independently optional and independently fall back
+ *  to the group's own resolution when absent — a tag-only override doesn't force a category move, and a
+ *  category-move override without an explicit tag still inherits the group's own tag. Deliberately
+ *  narrower than a full `CategoryAction`: a row-level override only ever supports "move to this EXISTING
+ *  category" (via the same `CategoryPickerModal` already used for group-level "Map Existing"), never
+ *  'create'/'skip'/'transfer' — those remain exclusively group-level decisions. */
+export interface RowOverride {
+  categoryId?: string;
+  categoryName?: string;
+  tag?: string;
+}
 
 /** Builds the confirmed source-category-name → final-category map from the user's reviewed
  *  CategoryResolution list. 'create' actions must already have a real categoryId by this point (the
@@ -129,6 +157,7 @@ export function toConfirmedCategoryMap(
         categoryId: r.suggestion.categoryId,
         categoryName: r.suggestion.categoryName,
         type: 'transfer',
+        ...(r.suggestion.toAccountId && { toAccountId: r.suggestion.toAccountId }),
         ...(tag && { tag })
       });
     } else if (r.suggestion.kind === 'create') {
@@ -143,36 +172,58 @@ export function toConfirmedCategoryMap(
 
 /** Enriches parsed rows with the user-confirmed category + account, and duplicate status against BOTH
  *  existing DB expenses and earlier rows already seen in this same batch (fixes the in-batch dedup
- *  gap the legacy pipeline had). */
+ *  gap the legacy pipeline had).
+ *
+ *  @param rowOverrides Optional per-row corrections (2026-08-06), keyed by index into `rows` — see
+ *    `RowOverride`'s doc comment. A present override's `categoryId`/`categoryName` wins over the
+ *    group-level resolution entirely (including its `skip`/`type: 'transfer'`, since a row-level move
+ *    always resolves to a normal category); its `tag` is layered onto the row's hashtags in place of
+ *    (not in addition to) the group's own tag when set, so a bulk-tag action on a subset doesn't also
+ *    inherit whatever tag the rest of the group has. */
 export function buildResolvedPreviewRows(
   rows: ParsedRow[],
   categoryMap: ConfirmedCategoryMap,
   resolveAccountId: (row: ParsedRow) => string,
-  existingKeys: Set<string>
+  existingKeys: Set<string>,
+  rowOverrides?: Map<number, RowOverride>
 ): ResolvedPreviewRow[] {
   const seenInBatch = new Set<string>();
-  return rows.map((row) => {
+  return rows.map((row, i) => {
     const catKey = row.categoryName.trim() || 'Other';
     const resolved = categoryMap.get(catKey);
+    const override = rowOverrides?.get(i);
     const ref = dedupKey(row.date, row.amount, row.description);
     const duplicate = existingKeys.has(ref) || seenInBatch.has(ref);
     seenInBatch.add(ref);
-    // Apply the source category's custom tag (if any) on top of the row's own parsed hashtags, rather
-    // than overwriting them — and never duplicate a tag the row already carries.
+    // Apply whichever tag actually governs this row (the override's own tag if it set one, else the
+    // group's) on top of the row's own parsed hashtags, rather than overwriting them — and never
+    // duplicate a tag the row already carries.
+    const effectiveTag = override?.tag ?? resolved?.tag;
     const hashtags =
-      resolved?.tag && !row.hashtags.includes(resolved.tag) ? [...row.hashtags, resolved.tag] : row.hashtags;
+      effectiveTag && !row.hashtags.includes(effectiveTag) ? [...row.hashtags, effectiveTag] : row.hashtags;
     return {
       date: row.date,
       amount: row.amount,
       description: row.description,
-      type: resolved?.type ?? row.type,
+      // An override always means "move to this existing category" — never 'transfer' — so it also
+      // overrides the group's own `type: 'transfer'` back to the row's natural expense/income type.
+      type: override?.categoryId ? row.type : (resolved?.type ?? row.type),
+      // The category-level "transfer" resolution's own chosen destination account (2026-08-09 fix) —
+      // dropped along with `type` when a row-level override reverts this row to a normal category, and
+      // may still be overwritten below by `applyConfirmedTransferPairs` if this row also happens to be
+      // part of an auto-detected same-file reciprocal pair (that source is more precise: a real paired
+      // row's own accountId, not just the category-wide destination the user picked once for every row
+      // under this source category).
+      ...(!override?.categoryId && resolved?.type === 'transfer' && resolved.toAccountId
+        ? { toAccountId: resolved.toAccountId }
+        : {}),
       ...(row.paymentMode && { paymentMode: row.paymentMode }),
       hashtags,
       ...(row.notes && { notes: row.notes }),
-      categoryId: resolved?.categoryId ?? 'cat-other',
-      categoryName: resolved?.categoryName ?? 'Other',
+      categoryId: override?.categoryId ?? resolved?.categoryId ?? 'cat-other',
+      categoryName: override?.categoryName ?? resolved?.categoryName ?? 'Other',
       accountId: resolveAccountId(row),
-      skipped: !!resolved?.skip,
+      skipped: override ? false : !!resolved?.skip,
       duplicate,
       sourceRef: ref
     };

@@ -1,0 +1,1058 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — PPF card redesign: UI proposal (v1)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --page:#eef2f9; --surface:#ffffff; --surface2:#f1f5fb; --surface3:#e7edf6;
+        --text:#0f172a; --text2:#475569; --text3:#94a3b8;
+        --border:#dbe4f0; --borderStrong:#c3d1e3;
+        --primary:#00a86b; --ppf:#8b5cf6; --info:#3b82f6; --success:#10b981; --warning:#f59e0b; --danger:#ef4444; --neutral:#64748b; --withdraw:#0d9488;
+        --ppf-tint:rgba(139,92,246,.12); --info-tint:rgba(59,130,246,.12); --success-tint:rgba(16,185,129,.12);
+        --warning-tint:rgba(245,158,11,.14); --warning-border:rgba(245,158,11,.35); --warning-ink:#8a5a05;
+        --neutral-tint:rgba(100,116,139,.13);
+        --bodybg:#f3f6fc; --heading:#0f172a; --sub:#475569;
+      }
+      [data-theme="dark"] {
+        --page:#0a1120; --surface:#141d2f; --surface2:#1b2740; --surface3:#101828;
+        --text:#f1f5f9; --text2:#b9c4d6; --text3:#7c8aa3;
+        --border:#28334c; --borderStrong:#39456400;
+        --primary:#2fd694; --ppf:#a78bfa; --info:#60a5fa; --success:#34d399; --warning:#fbbf24; --danger:#f87171; --neutral:#94a3b8; --withdraw:#2dd4bf;
+        --ppf-tint:rgba(167,139,250,.18); --info-tint:rgba(96,165,250,.16); --success-tint:rgba(52,211,153,.16);
+        --warning-tint:rgba(251,191,36,.16); --warning-border:rgba(251,191,36,.4); --warning-ink:#fbbf24;
+        --neutral-tint:rgba(148,163,184,.16);
+        --bodybg:#060a13; --heading:#f1f5f9; --sub:#aab6c9;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bodybg); color:var(--heading); -webkit-font-smoothing:antialiased; transition:background .2s,color .2s; }
+      h1 { text-align:center; margin:0; padding:28px 16px 6px; font-size:22px; color:var(--heading); }
+      h1 small { display:block; font-size:12.5px; font-weight:500; color:var(--sub); margin-top:6px; }
+      .sub { text-align:center; margin:0 16px 18px; color:var(--sub); font-size:13.5px; max-width:880px; margin-left:auto; margin-right:auto; line-height:1.65; }
+
+      /* Toolbar */
+      .toolbar { position:sticky; top:0; z-index:50; display:flex; justify-content:center; gap:10px; padding:10px; background:var(--bodybg); border-bottom:1px solid var(--border); }
+      .tbtn { display:inline-flex; align-items:center; gap:7px; font-size:12px; font-weight:700; padding:8px 14px; border-radius:999px; border:1px solid var(--border); background:var(--surface); color:var(--heading); cursor:pointer; user-select:none; }
+      .tbtn i { font-size:14px; }
+      .tbtn.on { border-color:var(--ppf); color:var(--ppf); background:var(--ppf-tint); }
+
+      .sectiontitle { text-align:center; font-size:16px; font-weight:800; color:var(--heading); margin:48px 0 4px; }
+      .sectiontitle .num { display:inline-flex; width:22px; height:22px; border-radius:7px; background:var(--ppf); color:#fff; font-size:12px; align-items:center; justify-content:center; margin-right:8px; vertical-align:middle; }
+      .sectionsub { text-align:center; color:var(--sub); font-size:12.5px; max-width:820px; margin:0 auto 22px; line-height:1.65; }
+      .sectionsub code { background:var(--surface3); padding:1px 6px; border-radius:5px; font-size:11.5px; }
+
+      .hgallery { display:flex; flex-wrap:nowrap; gap:22px; overflow-x:auto; padding:8px 24px 22px; justify-content:center; }
+      .hgallery.wrap { flex-wrap:wrap; }
+      .frame-wrap { width:284px; flex-shrink:0; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:var(--heading); display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:var(--surface3); color:var(--text2); white-space:nowrap; }
+      .vtitle .tag.cur { background:#fde8cc; color:#b1650a; }
+      [data-theme="dark"] .vtitle .tag.cur { background:rgba(251,191,36,.2); color:#fbbf24; }
+      .vtitle .tag.rec { background:#ede4fd; color:#6d28d9; }
+      [data-theme="dark"] .vtitle .tag.rec { background:rgba(167,139,250,.22); color:#c4b5fd; }
+      .vsub { font-size:11px; color:var(--text2); margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:284px; background:var(--page); border-radius:30px; border:8px solid #0f172a; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 14px 30px rgba(15,23,42,.18); }
+      [data-theme="dark"] .phone { border-color:#000; }
+      .statusbar { height:16px; background:var(--page); flex-shrink:0; }
+      .header { height:38px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; background:var(--surface); border-bottom:1px solid var(--border); }
+      .htitle { flex:1; text-align:center; font-size:12.5px; font-weight:700; color:var(--text); }
+      .hicon { width:24px; height:24px; border-radius:8px; display:grid; place-items:center; color:var(--text2); font-size:15px; }
+
+      .scr { flex:1; padding:12px; overflow-y:auto; }
+
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:13px 14px; display:flex; flex-direction:column; gap:9px; }
+      .card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+      .icon-badge { width:32px; height:32px; border-radius:10px; background:var(--ppf-tint); display:grid; place-items:center; flex-shrink:0; }
+      .icon-badge i { color:var(--ppf); font-size:16px; }
+      .titleblock { display:flex; gap:8px; align-items:center; }
+      .h-name { font-size:13.5px; font-weight:700; color:var(--text); }
+      .h-sub { font-size:10.5px; color:var(--text3); margin-top:1px; }
+      .h-value { font-size:15px; font-weight:800; color:var(--text); text-align:right; }
+      .meta-line { font-size:11px; color:var(--text2); margin:0; }
+      .divider { border-top:1px solid var(--border); margin:0; }
+
+      .row-label { font-size:9.5px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:.04em; }
+      .pill { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; padding:4px 9px; border-radius:999px; white-space:nowrap; border:none; }
+      .pill-purple { background:var(--ppf-tint); color:var(--ppf); }
+      .pill-neutral { background:var(--neutral-tint); color:var(--neutral); }
+      .pill-warn { background:var(--warning-tint); color:var(--warning-ink); }
+
+      .progressbar { height:5px; border-radius:99px; background:var(--surface3); overflow:hidden; }
+      .progressbar .fill { height:100%; border-radius:99px; }
+
+      /* current-card stacked progress rows */
+      .prog-row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px; }
+      .prog-row .l { font-size:10px; color:var(--text3); }
+      .prog-row .r { font-size:10px; color:var(--text2); }
+      .prog-row .r.hi { font-size:12px; font-weight:700; color:var(--ppf); }
+
+      .banner { border-radius:12px; padding:9px 10px; display:flex; gap:7px; border:1px solid var(--warning-border); background:var(--warning-tint); }
+      .banner i { font-size:14px; color:var(--warning); flex-shrink:0; margin-top:1px; }
+      .banner .b1 { font-size:10.5px; color:var(--warning-ink); line-height:1.45; }
+      .banner .b1 b { color:var(--text); }
+      .banner .addpill { flex-shrink:0; align-self:center; }
+
+      .stack-note { text-align:center; font-size:9.5px; font-weight:700; color:var(--danger); margin:-2px 0 0; }
+
+      .badge-inline { display:inline-flex; align-items:center; gap:3px; padding:2px 6px; border-radius:999px; background:var(--warning-tint); color:var(--warning-ink); font-size:8.5px; font-weight:800; }
+
+      .txns-head { display:flex; align-items:center; justify-content:space-between; gap:6px; }
+      .txns-head-left { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+      .txns-head-right { display:flex; gap:5px; }
+
+      .txrow { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px dashed var(--border); }
+      .txrow:last-child { border-bottom:none; }
+      .txdate { font-size:10px; color:var(--text3); width:32px; flex-shrink:0; }
+      .txtype { font-size:10px; width:52px; flex-shrink:0; }
+      .txamt { flex:1; text-align:right; font-size:10px; font-weight:600; color:var(--text); }
+      .more-link { text-align:center; font-size:10px; color:var(--ppf); font-weight:700; padding:2px 0 0; }
+      .warn-icon { color:var(--warning); font-size:11px; flex-shrink:0; }
+
+      .footer-row { display:flex; align-items:center; justify-content:space-between; }
+      .footer-row .muted { font-size:9px; color:var(--text3); }
+
+      /* Two-up stat tiles — proposed redesign */
+      .tiles { display:flex; gap:8px; }
+      .tile { flex:1; background:var(--surface2); border-radius:11px; border-top:3px solid var(--ppf); padding:8px 9px 9px; min-width:0; }
+      .tile.info { border-top-color:var(--info); }
+      .tile.success { border-top-color:var(--success); }
+      /* Withdrawal tile (round 3 addition) — its own teal, distinct from Maturity's purple and
+         This-FY's blue/green, since it isn't a "make progress toward a goal" metric like the other
+         two — it's a fixed fact (eligible or not) plus, once eligible, a real withdrawable amount. */
+      .tile.withdraw { border-top-color:var(--withdraw); }
+      .tile .tlabel { font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--text3); margin-bottom:5px; }
+      .tile .tval { font-size:12px; font-weight:800; color:var(--text); margin-bottom:5px; }
+      .tile .tsub { font-size:9px; color:var(--text2); margin-top:4px; }
+      .tile .tsub.warn { color:var(--warning-ink); font-weight:700; }
+      .tile .tsub.ok { color:var(--success); font-weight:700; }
+
+      .attn { border:1px solid var(--warning-border); background:var(--warning-tint); border-radius:12px; padding:9px 10px; }
+      .attn-head { display:flex; gap:7px; align-items:flex-start; }
+      .attn-head i { color:var(--warning); font-size:14px; margin-top:1.5px; flex-shrink:0; }
+      .attn-head .t { font-size:10.5px; font-weight:800; color:var(--warning-ink); line-height:1.4; }
+      .attn-chips { display:flex; gap:5px; flex-wrap:wrap; margin:7px 0 0 21px; }
+      .attn-chip { display:inline-flex; align-items:center; gap:3px; font-size:9.5px; font-weight:700; padding:4px 8px; border-radius:999px; background:rgba(245,158,11,.22); color:var(--warning-ink); }
+      [data-theme="dark"] .attn-chip { background:rgba(251,191,36,.22); }
+      .attn-sub { display:flex; align-items:center; gap:4px; font-size:9.5px; color:var(--warning-ink); opacity:.9; margin:7px 0 0 21px; line-height:1.4; }
+      .attn-sub i { font-size:11px; }
+
+      .diag { max-width:980px; margin:0 auto 10px; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px 24px; color:var(--text2); font-size:13.5px; line-height:1.75; }
+      .diag h2 { font-size:15px; margin:0 0 10px; color:var(--heading); }
+      .diag b { color:var(--heading); }
+      .diag ol, .diag ul { margin:0; padding-left:20px; }
+      .diag li { margin-bottom:10px; }
+      .diag li:last-child { margin-bottom:0; }
+
+      .recommend { max-width:980px; margin:20px auto 30px; background:var(--ppf-tint); border:1px solid rgba(139,92,246,.35); border-radius:16px; padding:18px 22px; color:var(--heading); font-size:13.5px; line-height:1.7; }
+      .recommend h2 { font-size:14px; margin:0 0 8px; color:var(--ppf); }
+      .recommend b { color:var(--ppf); }
+
+      table.move { width:100%; border-collapse:collapse; font-size:12.5px; }
+      table.move th, table.move td { border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+      table.move th { background:var(--surface3); font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2); }
+
+      footer.notes { max-width:980px; margin:40px auto 70px; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px 24px; color:var(--text2); font-size:12.5px; line-height:1.7; }
+      footer.notes h2 { font-size:14px; color:var(--heading); margin:0 0 8px; }
+      footer.notes code { background:var(--surface3); padding:1px 6px; border-radius:5px; font-size:11px; color:var(--heading); }
+
+      .scenariolabel { text-align:center; font-weight:800; font-size:12px; color:var(--text2); text-transform:uppercase; letter-spacing:.05em; margin:6px 0 2px; }
+
+      /* "See all transactions" row — replaces today's dead-end "+N more" text */
+      .seeall-row { display:flex; align-items:center; gap:6px; padding:2px 0 0; }
+      .seeall-row i { font-size:13px; color:var(--neutral); flex-shrink:0; }
+      .seeall-row .t { font-size:11px; font-weight:700; color:var(--neutral); }
+      .seeall-row .c { font-size:9.5px; color:var(--text3); font-weight:500; }
+
+      /* All-transactions popup */
+      .dim { position:absolute; inset:0; background:rgba(15,23,42,.45); display:flex; align-items:flex-end; justify-content:center; padding:44px 8px 0; }
+      [data-theme="dark"] .dim { background:rgba(0,0,0,.6); }
+      .modal-card { width:100%; height:100%; background:var(--surface); border-radius:16px 16px 0 0; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 -10px 30px rgba(15,23,42,.25); }
+      .modal-head { display:flex; align-items:center; justify-content:space-between; padding:13px 15px 8px; border-bottom:1px solid var(--border); flex-shrink:0; }
+      .modal-head .t { font-size:13.5px; font-weight:700; color:var(--text); }
+      .modal-head .x { color:var(--text3); font-size:15px; }
+      .modal-body { padding:10px 15px 14px; overflow-y:auto; flex:1; }
+      .modal-toprow { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+      .modal-toprow .c { font-size:10px; color:var(--text3); }
+
+      .fy-band { display:flex; justify-content:space-between; align-items:center; padding:7px 9px; border-radius:9px; background:var(--surface3); margin-top:12px; margin-bottom:2px; }
+      .fy-band:first-child { margin-top:0; }
+      .fy-band .l { font-size:11.5px; font-weight:800; color:var(--ppf); }
+      .fy-band .r { font-size:9.5px; color:var(--text3); text-align:right; }
+      .fy-progress { padding:6px 2px 8px; border-bottom:1px solid var(--border); margin-bottom:2px; }
+      .fy-progress .row { display:flex; justify-content:space-between; font-size:9px; color:var(--text3); margin-bottom:3px; }
+      .fy-progress .row .ok { color:var(--success); font-weight:700; }
+
+      .plist-row { display:flex; align-items:center; gap:9px; padding:8px 1px; border-bottom:1px dashed var(--border); }
+      .plist-row:last-child { border-bottom:none; }
+      .picn { width:26px; height:26px; border-radius:999px; display:grid; place-items:center; flex-shrink:0; }
+      .pmid { flex:1; min-width:0; display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+      .pmid .t1 { font-size:11px; font-weight:700; }
+      .pmeta { width:100%; font-size:9.5px; color:var(--text3); margin-top:1px; }
+      .pright { text-align:right; flex-shrink:0; }
+      .pright .a { font-size:11px; font-weight:800; color:var(--text); }
+
+      /* ==== Round 2 addition: "i" info icons + their centered modals ==== */
+      /* Tappable info glyph — inline next to a tile/row label. No existing tooltip/popover component
+         anywhere in this app (checked apps/mobile/src/components/ui/) — this establishes the pattern:
+         a small `ti-info-circle`, muted (never warning-colored — it's neutral education, not a flag
+         about THIS account), opening the app's existing centered `Modal` (small size), not a new
+         popover primitive. */
+      .info-icon { font-size:12.5px; color:var(--text3); margin-left:4px; vertical-align:middle; }
+      .tlabel-row { display:flex; align-items:center; }
+
+      /* Centered small modal — deliberately NOT the bottom-anchored `.dim`/`.modal-card` §3 uses for
+         the full transaction list (that shape approximates RN's real `Modal` component in
+         `scrollable` full-body mode). This is the same real `Modal` component in its default compact
+         centered mode (see e.g. `NpsScheduleSheet`'s own popups already in the codebase) — a short
+         reference card, not a browse surface, so it should look like one. */
+      .dim-center { position:absolute; inset:0; background:rgba(15,23,42,.45); display:flex; align-items:center; justify-content:center; padding:20px; }
+      [data-theme="dark"] .dim-center { background:rgba(0,0,0,.6); }
+      .info-card { width:100%; max-width:236px; background:var(--surface); border-radius:16px; padding:16px; box-shadow:0 14px 30px rgba(15,23,42,.25); }
+      .info-card .ihead { display:flex; align-items:center; justify-content:space-between; margin-bottom:11px; }
+      .info-card .ihead .t { font-size:13px; font-weight:800; color:var(--heading); }
+      .info-card .ihead .x { color:var(--text3); font-size:15px; }
+      .info-card .isection { margin-bottom:12px; }
+      .info-card .isection:last-child { margin-bottom:0; }
+      .info-card .isection .ilabel { display:flex; align-items:center; gap:5px; font-size:9.5px; font-weight:800; color:var(--ppf); text-transform:uppercase; letter-spacing:.03em; margin-bottom:4px; }
+      .info-card .isection .ibody { font-size:11px; color:var(--text2); line-height:1.6; }
+      .info-card .isection .ibody b { color:var(--heading); }
+      .info-card .iexample { margin-top:6px; background:var(--surface3); border-radius:8px; padding:7px 9px; font-size:10px; color:var(--text2); line-height:1.5; }
+      .info-card .ipersonal { margin-top:11px; padding:8px 10px; border-radius:9px; font-size:10.5px; line-height:1.5; font-weight:600; }
+      .info-card .ipersonal.eligible { background:var(--success-tint); color:var(--success); }
+      .info-card .ipersonal.pending { background:var(--neutral-tint); color:var(--text2); }
+    </style>
+  </head>
+  <body data-theme="light">
+    <div class="toolbar">
+      <div class="tbtn" id="themeBtn" onclick="toggleTheme()"><i class="ti ti-moon"></i><span id="themeLabel">Dark theme</span></div>
+      <div class="tbtn" id="maskBtn" onclick="toggleMask()"><i class="ti ti-eye-off"></i><span id="maskLabel">Mask amounts</span></div>
+    </div>
+
+    <h1>PPF card redesign — UI proposal (v1)
+      <small>docs/DESIGN_GUIDELINES.md · grounded in the real current PPF card (RetirementCard.tsx's PPF branch,
+      lines ~446–627), ppfCalculations.ts / ppfInterestOnDemand.ts / ppfReviewFlags.ts, and EPF's own already-shipped
+      density patterns (epf-passbook-import-v4.html §0.2)</small>
+    </h1>
+    <p class="sub">
+      The PPF card grew four bolted-on additions this session (Import pill, per-FY missing-interest banners, a
+      "N need review" count badge, per-row warning icons) without a step-back pass. This proposal keeps every one of
+      those capabilities but restructures where and how they show up, so the card stays legible whether it has zero
+      issues or several stacked at once. Toggle theme/masking above — it applies to every frame below.
+    </p>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle"><span class="num">0</span>The real current card — two states</div>
+    <div class="sectionsub">Reproduced from <code>RetirementCard.tsx</code>. Left: a clean account with no open
+      issues. Right: an account that's gone 2 financial years without logging interest, has 1 recorded interest
+      transaction flagged as a mismatch, and is being viewed in March with no deposit yet this FY — a realistic
+      combination given all four features fire independently and none suppress the others.</div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">0.1 — Clean account <span class="tag cur">today</span></div>
+        <div class="vsub">No missing interest years, no review flags, outside the Feb/Mar tip window.</div>
+        <div class="phone" style="height:500px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-safe"></i></div><div><div class="h-name">PPF</div><div class="h-sub">PPF</div></div></div>
+                <div class="h-value amt" data-real="₹4,32,600" data-mask="••••">₹4,32,600</div>
+              </div>
+              <div class="meta-line">7.1% p.a. · SBI · Opened Apr 2018 · Matures Apr 2033</div>
+              <div>
+                <div class="prog-row"><span class="l">8 yrs to maturity</span><span class="r hi amt" data-real="Proj. ₹9,80,400" data-mask="Proj. ••••">Proj. ₹9,80,400</span></div>
+                <div class="progressbar"><div class="fill" style="width:47%;background:var(--ppf)"></div></div>
+              </div>
+              <div>
+                <div class="prog-row"><span class="l">This FY</span><span class="r amt" data-real="₹1,50,000 / ₹1.5L" data-mask="•••• / ₹1.5L">₹1,50,000 / ₹1.5L <b style="color:var(--success)">✓ Full</b></span></div>
+                <div class="progressbar"><div class="fill" style="width:100%;background:var(--success)"></div></div>
+              </div>
+              <div class="divider"></div>
+              <div class="txns-head">
+                <div class="txns-head-left"><span class="row-label">Transactions</span></div>
+                <div class="txns-head-right"><span class="pill pill-purple"><i class="ti ti-file-upload" style="font-size:9px"></i>Import</span><span class="pill pill-purple"><i class="ti ti-plus" style="font-size:9px"></i>Add</span></div>
+              </div>
+              <div>
+                <div class="txrow"><span class="txdate">1 Apr</span><span class="txtype" style="color:var(--ppf)">Deposit</span><span class="txamt amt" data-real="₹1,50,000" data-mask="••••">₹1,50,000</span></div>
+                <div class="txrow"><span class="txdate">31 Mar</span><span class="txtype" style="color:var(--success)">Interest</span><span class="txamt amt" data-real="₹28,900" data-mask="••••">₹28,900</span></div>
+              </div>
+              <div class="footer-row" style="padding-top:2px;border-top:1px solid var(--border)">
+                <span class="muted">Updated today</span>
+                <span class="muted">Tap to edit</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">0.2 — Everything firing at once <span class="tag cur">today</span></div>
+        <div class="vsub">2 stacked missing-interest banners + the April tip banner + the "need review" badge + a
+          per-row warning icon, all amber, all at once. Card height nearly doubles vs 0.1 with zero new information
+          density — it's the same handful of facts, repeated across separate boxes.</div>
+        <div class="phone" style="height:760px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-safe"></i></div><div><div class="h-name">PPF</div><div class="h-sub">PPF</div></div></div>
+                <div class="h-value amt" data-real="₹4,32,600" data-mask="••••">₹4,32,600</div>
+              </div>
+              <div class="meta-line">7.1% p.a. · SBI · Opened Apr 2018 · Matures Apr 2033</div>
+              <div>
+                <div class="prog-row"><span class="l">8 yrs to maturity</span><span class="r hi amt" data-real="Proj. ₹9,80,400" data-mask="Proj. ••••">Proj. ₹9,80,400</span></div>
+                <div class="progressbar"><div class="fill" style="width:47%;background:var(--ppf)"></div></div>
+              </div>
+              <div>
+                <div class="prog-row"><span class="l">This FY</span><span class="r amt" data-real="₹0 / ₹1.5L" data-mask="•••• / ₹1.5L">₹0 / ₹1.5L</span></div>
+                <div class="progressbar"><div class="fill" style="width:0%;background:var(--ppf)"></div></div>
+              </div>
+              <div class="banner"><i class="ti ti-calendar-event"></i><div class="b1">Deposit before April 5 to earn interest for the full year</div></div>
+              <div class="banner"><i class="ti ti-calendar-event"></i><div class="b1"><b>FY 2021-22</b> interest not recorded yet — add it, or import your statement.</div><span class="pill pill-warn addpill"><i class="ti ti-plus" style="font-size:9px"></i>Add</span></div>
+              <div class="banner"><i class="ti ti-calendar-event"></i><div class="b1"><b>FY 2022-23</b> interest not recorded yet — add it, or import your statement.</div><span class="pill pill-warn addpill"><i class="ti ti-plus" style="font-size:9px"></i>Add</span></div>
+              <div class="divider"></div>
+              <div class="txns-head">
+                <div class="txns-head-left"><span class="row-label">Transactions</span><span class="badge-inline"><i class="ti ti-alert-triangle" style="font-size:9px"></i>1 need review</span></div>
+                <div class="txns-head-right"><span class="pill pill-purple"><i class="ti ti-file-upload" style="font-size:9px"></i>Import</span><span class="pill pill-purple"><i class="ti ti-plus" style="font-size:9px"></i>Add</span></div>
+              </div>
+              <div>
+                <div class="txrow"><span class="txdate">31 Mar</span><span class="txtype" style="color:var(--success)">Interest</span><span class="txamt amt" data-real="₹22,150" data-mask="••••">₹22,150</span><i class="ti ti-alert-triangle warn-icon"></i></div>
+                <div class="txrow"><span class="txdate">15 Aug</span><span class="txtype" style="color:var(--ppf)">Deposit</span><span class="txamt amt" data-real="₹50,000" data-mask="••••">₹50,000</span></div>
+                <div class="txrow"><span class="txdate">31 Mar</span><span class="txtype" style="color:var(--success)">Interest</span><span class="txamt amt" data-real="₹19,800" data-mask="••••">₹19,800</span></div>
+                <div class="txrow"><span class="txdate">1 Apr</span><span class="txtype" style="color:var(--ppf)">Deposit</span><span class="txamt amt" data-real="₹1,00,000" data-mask="••••">₹1,00,000</span></div>
+              </div>
+              <div class="more-link">+3 more transactions</div>
+              <div class="footer-row" style="padding-top:2px;border-top:1px solid var(--border)">
+                <span class="muted">Updated 12d ago</span>
+                <span class="muted">Tap to edit</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle"><span class="num">1</span>What's actually wrong</div>
+    <div class="diag">
+      <h2>Diagnosis</h2>
+      <ol>
+        <li><b>The two progress bars are visually confusable.</b> "N yrs to maturity" and "This FY" sit back-to-back,
+          both thin purple/purple-tinted bars at the same width, same track color, same font sizes for their labels.
+          They measure completely different things on completely different timescales (a 15-year lock-in vs a
+          ₹1.5L annual ceiling) but read as one continuous ribbon of "progress," especially once the FY bar turns
+          purple at its own ≥75% threshold — at that point there are literally two purple bars in a row with no
+          visual seam between them.</li>
+        <li><b>Every new addition reached for the same amber warning color, regardless of severity.</b> The April
+          tip (a friendly, non-urgent reminder), the missing-interest nudge (an actual data gap), and the review
+          badge (a real calculation mismatch) are three different severities of "you might want to look at this" —
+          but they're indistinguishable at a glance because they're all amber banners/badges of similar size. Nothing
+          tells the eye which one to act on first.</li>
+        <li><b>N missing years means N nearly-identical stacked banners.</b> <code>findMissingPpfInterestFys</code>
+          returns every gap, and the card renders one full bordered banner block per entry, each repeating almost
+          the same sentence ("FY X interest not recorded yet — add it, or import your statement") with its own icon
+          and its own "+ Add" pill. Two gap years already pushes the card height up ~40%; three or four (a dormant
+          account re-opened after years away) would make the card mostly banners.</li>
+        <li><b>The "N need review" badge is squeezed into the least visible spot on the card.</b> It's a 9px pill
+          wedged next to a 10px uppercase section label — both already small — competing for the same thin strip of
+          horizontal space as the label itself. It represents the same underlying "something needs your attention"
+          concept as the banners above it, just rendered as a totally different UI mechanism (inline pill vs full
+          banner) in a totally different spot.</li>
+        <li><b>The Import and Add pills are both filled purple, and there can be up to four purple/amber pills
+          on screen at once</b> (2 banner "+Add" pills, the header "Import" pill, the header "Add" pill) — all
+          roughly the same shape and weight, with no hierarchy signalling that Import and Add are two distinct
+          capabilities, or that the banner Add pills are a shortcut into the same sheet the header Add pill also
+          opens.</li>
+      </ol>
+    </div>
+
+    <div class="recommend">
+      <h2>Recommendation</h2>
+      <p><b>Consolidate, don't remove.</b> Every capability above stays reachable — this is a hierarchy and
+      severity-of-color fix, not a scope cut. Concretely:</p>
+      <ul>
+        <li><b>Two-up stat tiles</b> for maturity + This-FY, each in its own bordered box with a coloured top edge —
+          spatially and stylistically distinct, not two bars in a row. This-FY's bar switches to a neutral blue while
+          in progress and green only on completion; it never turns purple, so it can never be mistaken for the
+          maturity bar.</li>
+        <li><b>One severity tier for "needs a decision," a different tier for "FYI."</b> The April tip becomes a
+          quiet caption line inside the This-FY tile itself (no border, no icon-in-a-box) — it's a timing reminder,
+          not a problem. Missing-interest years and review flags — both genuine data gaps — merge into a single
+          amber "Needs attention" banner.</li>
+        <li><b>N missing years become chips inside one banner</b>, not N banners. Each chip keeps its own tap target
+          (still opens the transaction sheet pre-filled to that FY's 31 March, exactly as today) — the capability is
+          relocated into a compact chip row, not lost.</li>
+        <li><b>The review count moves into that same banner</b> as a second line, instead of a squeezed pill next to
+          the section label — same information, a legible spot with room to breathe, and it's back in the same place
+          as the other "needs attention" content instead of a third separate mechanism.</li>
+        <li><b>Import goes neutral/ghost</b> (matching EPF's own slate treatment of its Import/Export pair), leaving
+          purple exclusively for "Add," the one truly primary action on this section.</li>
+      </ul>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle"><span class="num">2</span>Proposed redesign — side by side</div>
+    <div class="sectionsub">Same two data scenarios as §0, current vs proposed, so every element can be checked
+      against its real equivalent.</div>
+
+    <div class="scenariolabel">Scenario A — clean account</div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">today</span></div>
+        <div class="vsub">Reference only — identical to 0.1.</div>
+        <div class="phone" style="height:480px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-safe"></i></div><div><div class="h-name">PPF</div><div class="h-sub">PPF</div></div></div>
+                <div class="h-value amt" data-real="₹4,32,600" data-mask="••••">₹4,32,600</div>
+              </div>
+              <div class="meta-line">7.1% p.a. · SBI · Opened Apr 2018 · Matures Apr 2033</div>
+              <div>
+                <div class="prog-row"><span class="l">8 yrs to maturity</span><span class="r hi amt" data-real="Proj. ₹9,80,400" data-mask="Proj. ••••">Proj. ₹9,80,400</span></div>
+                <div class="progressbar"><div class="fill" style="width:47%;background:var(--ppf)"></div></div>
+              </div>
+              <div>
+                <div class="prog-row"><span class="l">This FY</span><span class="r amt" data-real="₹1,50,000 / ₹1.5L" data-mask="•••• / ₹1.5L">₹1,50,000 / ₹1.5L <b style="color:var(--success)">✓ Full</b></span></div>
+                <div class="progressbar"><div class="fill" style="width:100%;background:var(--success)"></div></div>
+              </div>
+              <div class="divider"></div>
+              <div class="txns-head">
+                <div class="txns-head-left"><span class="row-label">Transactions</span></div>
+                <div class="txns-head-right"><span class="pill pill-purple"><i class="ti ti-file-upload" style="font-size:9px"></i>Import</span><span class="pill pill-purple"><i class="ti ti-plus" style="font-size:9px"></i>Add</span></div>
+              </div>
+              <div>
+                <div class="txrow"><span class="txdate">1 Apr</span><span class="txtype" style="color:var(--ppf)">Deposit</span><span class="txamt amt" data-real="₹1,50,000" data-mask="••••">₹1,50,000</span></div>
+                <div class="txrow"><span class="txdate">31 Mar</span><span class="txtype" style="color:var(--success)">Interest</span><span class="txamt amt" data-real="₹28,900" data-mask="••••">₹28,900</span></div>
+              </div>
+              <div class="footer-row" style="padding-top:2px;border-top:1px solid var(--border)">
+                <span class="muted">Updated today</span>
+                <span class="muted">Tap to edit</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Proposed <span class="tag rec">recommended</span></div>
+        <div class="vsub">No open issues → no attention banner at all. Two-up tiles replace the stacked bars; a new
+          full-width Withdrawal tile sits below them (round 3 addition, §4) — this running example account (opened
+          2018) has cleared the 6-year mark, so it shows the real withdrawable amount. New: a permanent "See all
+          transactions" row replaces the old dead-end "+N more" text — it's the entry point into §3's new FY-grouped
+          popup, shown even when nothing is hidden, since it's also how you browse by year, not just an overflow
+          escape hatch.</div>
+        <div class="phone" style="height:545px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-safe"></i></div><div><div class="h-name">PPF</div><div class="h-sub">PPF</div></div></div>
+                <div class="h-value amt" data-real="₹4,32,600" data-mask="••••">₹4,32,600</div>
+              </div>
+              <div class="meta-line">7.1% p.a. · SBI · Opened Apr 2018 · Matures Apr 2033</div>
+              <div class="tiles">
+                <div class="tile">
+                  <div class="tlabel">Maturity</div>
+                  <div class="tval">8 yrs left</div>
+                  <div class="progressbar"><div class="fill" style="width:47%;background:var(--ppf)"></div></div>
+                  <div class="tsub amt" data-real="Proj. ₹9,80,400" data-mask="Proj. ••••">Proj. ₹9,80,400</div>
+                </div>
+                <div class="tile success">
+                  <div class="tlabel tlabel-row">This FY<i class="ti ti-info-circle info-icon"></i></div>
+                  <div class="tval amt" data-real="₹1.50L / ₹1.5L" data-mask="•••• / ₹1.5L">₹1.50L / ₹1.5L</div>
+                  <div class="progressbar"><div class="fill" style="width:100%;background:var(--success)"></div></div>
+                  <div class="tsub ok">✓ Full for this year</div>
+                </div>
+              </div>
+              <div class="tiles">
+                <div class="tile withdraw">
+                  <div class="tlabel tlabel-row">Withdrawal<i class="ti ti-info-circle info-icon"></i></div>
+                  <div class="tval amt" data-real="₹2,50,000 available" data-mask="•••• available" style="color:var(--withdraw)">₹2,50,000 available</div>
+                  <div class="tsub" style="color:var(--withdraw)">✓ Eligible — one partial withdrawal allowed this FY</div>
+                </div>
+              </div>
+              <div class="divider"></div>
+              <div class="txns-head">
+                <div class="txns-head-left"><span class="row-label">Transactions</span></div>
+                <div class="txns-head-right"><span class="pill pill-neutral"><i class="ti ti-file-upload" style="font-size:9px"></i>Import</span><span class="pill pill-purple"><i class="ti ti-plus" style="font-size:9px"></i>Add</span></div>
+              </div>
+              <div>
+                <div class="txrow"><span class="txdate">1 Apr</span><span class="txtype" style="color:var(--ppf)">Deposit</span><span class="txamt amt" data-real="₹1,50,000" data-mask="••••">₹1,50,000</span></div>
+                <div class="txrow"><span class="txdate">31 Mar</span><span class="txtype" style="color:var(--success)">Interest</span><span class="txamt amt" data-real="₹28,900" data-mask="••••">₹28,900</span></div>
+              </div>
+              <div class="seeall-row">
+                <i class="ti ti-list"></i><span class="t">See all transactions</span><span class="c">(2 transactions)</span>
+              </div>
+              <div class="footer-row" style="padding-top:2px;border-top:1px solid var(--border)">
+                <span class="muted">Updated today</span>
+                <span class="muted">Tap to edit</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scenariolabel">Scenario B — 2 missing years + 1 flagged + April crunch</div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">today</span></div>
+        <div class="vsub">Reference only — identical to 0.2. 760px tall.</div>
+        <div class="phone" style="height:640px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-safe"></i></div><div><div class="h-name">PPF</div><div class="h-sub">PPF</div></div></div>
+                <div class="h-value amt" data-real="₹4,32,600" data-mask="••••">₹4,32,600</div>
+              </div>
+              <div class="meta-line">7.1% p.a. · SBI · Opened Apr 2018 · Matures Apr 2033</div>
+              <div>
+                <div class="prog-row"><span class="l">8 yrs to maturity</span><span class="r hi amt" data-real="Proj. ₹9,80,400" data-mask="Proj. ••••">Proj. ₹9,80,400</span></div>
+                <div class="progressbar"><div class="fill" style="width:47%;background:var(--ppf)"></div></div>
+              </div>
+              <div>
+                <div class="prog-row"><span class="l">This FY</span><span class="r amt" data-real="₹0 / ₹1.5L" data-mask="•••• / ₹1.5L">₹0 / ₹1.5L</span></div>
+                <div class="progressbar"><div class="fill" style="width:0%;background:var(--ppf)"></div></div>
+              </div>
+              <div class="banner"><i class="ti ti-calendar-event"></i><div class="b1">Deposit before April 5 to earn interest for the full year</div></div>
+              <div class="banner"><i class="ti ti-calendar-event"></i><div class="b1"><b>FY 2021-22</b> interest not recorded yet — add it, or import your statement.</div><span class="pill pill-warn addpill"><i class="ti ti-plus" style="font-size:9px"></i>Add</span></div>
+              <div class="banner"><i class="ti ti-calendar-event"></i><div class="b1"><b>FY 2022-23</b> interest not recorded yet — add it, or import your statement.</div><span class="pill pill-warn addpill"><i class="ti ti-plus" style="font-size:9px"></i>Add</span></div>
+              <div class="divider"></div>
+              <div class="txns-head">
+                <div class="txns-head-left"><span class="row-label">Transactions</span><span class="badge-inline"><i class="ti ti-alert-triangle" style="font-size:9px"></i>1 need review</span></div>
+                <div class="txns-head-right"><span class="pill pill-purple"><i class="ti ti-file-upload" style="font-size:9px"></i>Import</span><span class="pill pill-purple"><i class="ti ti-plus" style="font-size:9px"></i>Add</span></div>
+              </div>
+              <div>
+                <div class="txrow"><span class="txdate">31 Mar</span><span class="txtype" style="color:var(--success)">Interest</span><span class="txamt amt" data-real="₹22,150" data-mask="••••">₹22,150</span><i class="ti ti-alert-triangle warn-icon"></i></div>
+                <div class="txrow"><span class="txdate">15 Aug</span><span class="txtype" style="color:var(--ppf)">Deposit</span><span class="txamt amt" data-real="₹50,000" data-mask="••••">₹50,000</span></div>
+                <div class="txrow"><span class="txdate">31 Mar</span><span class="txtype" style="color:var(--success)">Interest</span><span class="txamt amt" data-real="₹19,800" data-mask="••••">₹19,800</span></div>
+              </div>
+              <div class="more-link">+4 more transactions</div>
+              <div class="footer-row" style="padding-top:2px;border-top:1px solid var(--border)">
+                <span class="muted">Updated 12d ago</span>
+                <span class="muted">Tap to edit</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Proposed <span class="tag rec">recommended</span></div>
+        <div class="vsub">Same 3 issues (2 missing years, 1 flag, April crunch), one banner. The tip lives quietly
+          inside the This-FY tile; the two missing years are chips (still individually tappable → pre-filled Add);
+          the review flag is a second line in the same banner, and its row still keeps the warning icon so it's
+          locatable at a glance once you scroll to it. The new full-width Withdrawal tile (round 3, §4) sits between
+          the two-up row and the attention banner — unaffected by this account's missing-interest/review issues,
+          since eligibility only depends on years elapsed and balance history, not on whether interest was logged on
+          time. "See all transactions" replaces "+4 more" — same spot, now tappable, opens §3's popup where all 7
+          transactions across 3 FYs live.</div>
+        <div class="phone" style="height:715px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-safe"></i></div><div><div class="h-name">PPF</div><div class="h-sub">PPF</div></div></div>
+                <div class="h-value amt" data-real="₹4,32,600" data-mask="••••">₹4,32,600</div>
+              </div>
+              <div class="meta-line">7.1% p.a. · SBI · Opened Apr 2018 · Matures Apr 2033</div>
+              <div class="tiles">
+                <div class="tile">
+                  <div class="tlabel">Maturity</div>
+                  <div class="tval">8 yrs left</div>
+                  <div class="progressbar"><div class="fill" style="width:47%;background:var(--ppf)"></div></div>
+                  <div class="tsub amt" data-real="Proj. ₹9,80,400" data-mask="Proj. ••••">Proj. ₹9,80,400</div>
+                </div>
+                <div class="tile info">
+                  <div class="tlabel tlabel-row">This FY<i class="ti ti-info-circle info-icon"></i></div>
+                  <div class="tval amt" data-real="₹0 / ₹1.5L" data-mask="•••• / ₹1.5L">₹0 / ₹1.5L</div>
+                  <div class="progressbar"><div class="fill" style="width:0%;background:var(--info)"></div></div>
+                  <div class="tsub warn">Deposit by Apr 5 for full-year interest</div>
+                </div>
+              </div>
+              <div class="tiles">
+                <div class="tile withdraw">
+                  <div class="tlabel tlabel-row">Withdrawal<i class="ti ti-info-circle info-icon"></i></div>
+                  <div class="tval amt" data-real="₹2,50,000 available" data-mask="•••• available" style="color:var(--withdraw)">₹2,50,000 available</div>
+                  <div class="tsub" style="color:var(--withdraw)">✓ Eligible — one partial withdrawal allowed this FY</div>
+                </div>
+              </div>
+              <div class="attn">
+                <div class="attn-head"><i class="ti ti-alert-triangle"></i><div class="t">2 years of interest not recorded</div></div>
+                <div class="attn-chips">
+                  <span class="attn-chip"><i class="ti ti-plus" style="font-size:8px"></i>FY 2021-22</span>
+                  <span class="attn-chip"><i class="ti ti-plus" style="font-size:8px"></i>FY 2022-23</span>
+                </div>
+                <div class="attn-sub"><i class="ti ti-corner-down-right"></i>1 recorded amount looks different from Penny's recalculation — see the flagged row below</div>
+              </div>
+              <div class="divider"></div>
+              <div class="txns-head">
+                <div class="txns-head-left"><span class="row-label">Transactions</span></div>
+                <div class="txns-head-right"><span class="pill pill-neutral"><i class="ti ti-file-upload" style="font-size:9px"></i>Import</span><span class="pill pill-purple"><i class="ti ti-plus" style="font-size:9px"></i>Add</span></div>
+              </div>
+              <div>
+                <div class="txrow"><span class="txdate">31 Mar</span><span class="txtype" style="color:var(--success)">Interest</span><span class="txamt amt" data-real="₹22,150" data-mask="••••">₹22,150</span><i class="ti ti-alert-triangle warn-icon"></i></div>
+                <div class="txrow"><span class="txdate">15 Aug</span><span class="txtype" style="color:var(--ppf)">Deposit</span><span class="txamt amt" data-real="₹50,000" data-mask="••••">₹50,000</span></div>
+                <div class="txrow"><span class="txdate">31 Mar</span><span class="txtype" style="color:var(--success)">Interest</span><span class="txamt amt" data-real="₹19,800" data-mask="••••">₹19,800</span></div>
+              </div>
+              <div class="seeall-row">
+                <i class="ti ti-list"></i><span class="t">See all transactions</span><span class="c">(7 transactions)</span>
+              </div>
+              <div class="footer-row" style="padding-top:2px;border-top:1px solid var(--border)">
+                <span class="muted">Updated 12d ago</span>
+                <span class="muted">Tap to edit</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle"><span class="num">3</span>New — "See all transactions" popup</div>
+    <div class="sectionsub">Mirrors <code>EpfAllTransactionsSheet</code>'s structure (<code>RetirementSheets.tsx</code>)
+      — FY-band header per year, most recent first, rows within each band — reusing this proposal's own visual
+      language (tile/banner colors, pill styles) rather than a new system. Two deliberate divergences from EPF's
+      exact shape, both explained below the frame.</div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">All PPF transactions <span class="tag rec">recommended</span></div>
+        <div class="vsub">Sample data for Scenario B's account: 7 transactions across 3 financial years — one still
+          open (partial), one fully closed at the ₹1.5L cap, one closed partway. The flagged interest row from the
+          card keeps its same warning icon here, so it's the same signal in both places, not a new one.</div>
+        <div class="phone" style="height:660px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-chevron-left"></i></div><div class="htitle">Retirement</div><div style="width:24px"></div></div>
+          <div class="scr"><div class="dim">
+            <div class="modal-card">
+              <div class="modal-head"><span class="t">PPF Transactions</span><span class="x">✕</span></div>
+              <div class="modal-body">
+                <div class="modal-toprow">
+                  <span class="c">7 transactions · 3 years</span>
+                  <span class="pill pill-neutral"><i class="ti ti-plus" style="font-size:9px"></i>Add</span>
+                </div>
+
+                <div class="fy-band"><span class="l">FY 2026-27</span><span class="r">1 transaction</span></div>
+                <div class="fy-progress">
+                  <div class="row"><span>This FY deposits</span><span class="amt" data-real="₹1,00,000 / ₹1.5L" data-mask="•••• / ₹1.5L">₹1,00,000 / ₹1.5L</span></div>
+                  <div class="progressbar"><div class="fill" style="width:67%;background:var(--info)"></div></div>
+                </div>
+                <div class="plist-row">
+                  <div class="picn" style="background:var(--ppf-tint)"><i class="ti ti-arrow-down" style="color:var(--ppf);font-size:12px"></i></div>
+                  <div class="pmid">
+                    <span class="t1" style="color:var(--ppf)">Deposit</span>
+                    <span class="pmeta">1 Apr 2026 · ≤5th</span>
+                  </div>
+                  <div class="pright"><span class="a amt" data-real="₹1,00,000" data-mask="••••">₹1,00,000</span></div>
+                </div>
+
+                <div class="fy-band"><span class="l">FY 2025-26</span><span class="r">3 transactions</span></div>
+                <div class="fy-progress">
+                  <div class="row"><span>Year's deposits</span><span class="ok amt" data-real="₹1,50,000 / ₹1.5L ✓" data-mask="•••• / ₹1.5L ✓">₹1,50,000 / ₹1.5L ✓</span></div>
+                  <div class="progressbar"><div class="fill" style="width:100%;background:var(--neutral)"></div></div>
+                </div>
+                <div class="plist-row">
+                  <div class="picn" style="background:var(--success-tint)"><i class="ti ti-percentage" style="color:var(--success);font-size:12px"></i></div>
+                  <div class="pmid">
+                    <span class="t1" style="color:var(--success)">Interest</span>
+                    <i class="ti ti-alert-triangle warn-icon"></i>
+                    <span class="pmeta">31 Mar 2026 · FY 2025-26</span>
+                  </div>
+                  <div class="pright"><span class="a amt" data-real="₹22,150" data-mask="••••">₹22,150</span></div>
+                </div>
+                <div class="plist-row">
+                  <div class="picn" style="background:var(--warning-tint)"><i class="ti ti-arrow-down" style="color:var(--warning-ink);font-size:12px"></i></div>
+                  <div class="pmid">
+                    <span class="t1" style="color:var(--ppf)">Deposit</span>
+                    <span class="pmeta">15 Aug 2025 · &gt;5th</span>
+                  </div>
+                  <div class="pright"><span class="a amt" data-real="₹50,000" data-mask="••••">₹50,000</span></div>
+                </div>
+                <div class="plist-row">
+                  <div class="picn" style="background:var(--ppf-tint)"><i class="ti ti-arrow-down" style="color:var(--ppf);font-size:12px"></i></div>
+                  <div class="pmid">
+                    <span class="t1" style="color:var(--ppf)">Deposit</span>
+                    <span class="pmeta">2 Apr 2025 · ≤5th</span>
+                  </div>
+                  <div class="pright"><span class="a amt" data-real="₹1,00,000" data-mask="••••">₹1,00,000</span></div>
+                </div>
+
+                <div class="fy-band"><span class="l">FY 2024-25</span><span class="r">2 transactions</span></div>
+                <div class="fy-progress">
+                  <div class="row"><span>Year's deposits</span><span class="amt" data-real="₹90,000 / ₹1.5L" data-mask="•••• / ₹1.5L">₹90,000 / ₹1.5L</span></div>
+                  <div class="progressbar"><div class="fill" style="width:60%;background:var(--neutral)"></div></div>
+                </div>
+                <div class="plist-row">
+                  <div class="picn" style="background:var(--success-tint)"><i class="ti ti-percentage" style="color:var(--success);font-size:12px"></i></div>
+                  <div class="pmid">
+                    <span class="t1" style="color:var(--success)">Interest</span>
+                    <span class="pmeta">31 Mar 2025 · FY 2024-25</span>
+                  </div>
+                  <div class="pright"><span class="a amt" data-real="₹19,800" data-mask="••••">₹19,800</span></div>
+                </div>
+                <div class="plist-row">
+                  <div class="picn" style="background:var(--ppf-tint)"><i class="ti ti-arrow-down" style="color:var(--ppf);font-size:12px"></i></div>
+                  <div class="pmid">
+                    <span class="t1" style="color:var(--ppf)">Deposit</span>
+                    <span class="pmeta">3 Apr 2024 · ≤5th</span>
+                  </div>
+                  <div class="pright"><span class="a amt" data-real="₹90,000" data-mask="••••">₹90,000</span></div>
+                </div>
+              </div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="diag" style="max-width:900px">
+      <h2>Two deliberate divergences from EPF's exact shape</h2>
+      <ol>
+        <li><b>No "N need review" pill repeated in this popup's header.</b> EPF's own list header carries that count
+          again next to its "See all transactions" trigger. Here, the review flag already has one legible home — the
+          "Needs attention" banner on the card (§2) — so repeating the count a third place (banner → this popup's
+          header) would recreate the exact "same signal, multiple mechanisms" problem §1 diagnosed. The flagged row
+          itself still carries its warning icon inside the popup, same as on the card, so you can still find it —
+          just not a second counter.</li>
+        <li><b>No filter segmented control (All/Interest/Transfers).</b> EPF's version needs one because a single FY
+          can hold 12+ contribution rows plus occasional interest/transfer rows — filtering matters at that volume.
+          PPF has at most a handful of rows per year (1–2 deposits, 1 interest), so a filter would be UI for a
+          problem PPF doesn't have. If PPF ever grows multiple withdrawals/transfers per year this is easy to add
+          back using the same `SegmentedControl` EPF already uses.</li>
+      </ol>
+      <p style="margin-top:12px"><b>New per-FY progress bar</b> (the one genuinely PPF-specific ask): every FY band
+      gets its own "₹X / ₹1.5L" bar in the same visual language as the card's This-FY tile. The <b>current, still-open
+      FY</b> (2026-27 above) keeps the tile's blue "in progress" / green "full" coloring, since it's still actionable
+      — you can still deposit before the year closes. <b>Past, closed FYs</b> (2025-26, 2024-25) render the same bar
+      in a muted slate fill instead — they're historical record, not something to act on, so they intentionally don't
+      borrow the actionable blue/green language that could wrongly suggest there's still something to do about last
+      year's deposits. A fully-maxed closed year gets a small "✓" next to its total, mirroring the card tile's own
+      "✓ Full" treatment, so "this year was maxed out" reads the same way everywhere it appears.</p>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle"><span class="num">4</span>New — educational info icons + the Withdrawal tile</div>
+    <div class="sectionsub">Rounds 2+3, additive to the already-approved design above — nothing in §0–§3 changes.
+      Three verified PPF facts the user wants surfaced (5th-of-month interest timing, the ₹500 minimum
+      deposit/penalty, and partial-withdrawal eligibility) become two tappable <code>ti-info-circle</code> icons,
+      each opening a small centered modal. <b>Two icons, not three</b> — the 5th-of-month rule and the minimum-deposit
+      rule are merged into one "This FY" info icon, since both are about the SAME underlying question ("what do I
+      need to know about depositing into this account this year?"). <b>Round 3 revision</b>: withdrawal rules no
+      longer live on an icon bolted onto the Maturity tile — they get their own dedicated full-width
+      <b>Withdrawal tile</b> below the two-up row instead (powered by the new
+      <code>ppfWithdrawalEligibility()</code>), showing the actual eligibility state and, once eligible, the real
+      withdrawable rupee amount — not just a fact-lookup icon. The "i" on it still opens the identical rules modal
+      unchanged from round 2.</div>
+
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">This FY tile <span class="tag rec">recommended</span></div>
+        <div class="vsub">Unchanged from round 2. Tapping the "i" opens a compact reference card — NOT a new popover
+          primitive. This app has no tooltip/popover component anywhere
+          (<code>apps/mobile/src/components/ui/</code> checked) — reusing the existing centered <code>Modal</code>
+          in its default compact mode (same shape as e.g. <code>NpsScheduleSheet</code>'s own popups already in
+          this codebase) is more consistent than inventing one, per <code>docs/DESIGN_GUIDELINES.md</code>'s
+          "centered modals, never bottom sheets" rule. Deliberately NEUTRAL/slate styling throughout, not amber —
+          this is general PPF education, not a flag about THIS account (that's what the "Needs attention" banner in
+          §2 is for; conflating the two would blur "here's how PPF works" with "here's a problem with your
+          account").</div>
+        <div class="phone" style="height:430px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr"><div class="dim-center">
+            <div class="info-card">
+              <div class="ihead"><span class="t">This FY deposit rules</span><span class="x">✕</span></div>
+              <div class="isection">
+                <div class="ilabel"><i class="ti ti-clock-hour-4"></i>Interest timing</div>
+                <div class="ibody">Deposit <b>on or before the 5th</b> of a month and it starts earning interest that
+                  same month. After the 5th, it only starts earning from the <b>following month</b>.</div>
+                <div class="iexample">e.g. deposit on 3 Aug → earns interest from August.<br>Deposit on 15 Aug → earns
+                  interest only from September.</div>
+              </div>
+              <div class="isection">
+                <div class="ilabel"><i class="ti ti-alert-circle"></i>Minimum &amp; penalties</div>
+                <div class="ibody">PPF needs at least <b>₹500 deposited every financial year</b> to stay active. Miss
+                  a year and the account goes <b>inactive</b> — no deposits or loans against it until revived.</div>
+                <div class="iexample">Reviving costs a <b>₹50 penalty</b> + <b>₹500 arrears</b> per missed year.
+                  A 2-year gap = ₹100 penalty + ₹1,000 arrears = ₹1,100 to reactivate.</div>
+              </div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Withdrawal tile — not yet eligible (closed) <span class="tag rec">recommended</span></div>
+        <div class="vsub">A different, younger account (opened Apr 2024, ~2 years elapsed) than the running example
+          used everywhere else in this mockup — shown here specifically to demonstrate the tile's OTHER state, since
+          every account elsewhere in this doc is already past year 6. <code>eligibleFromFy</code> (2029, i.e.
+          <code>openingFy + 6</code>) renders directly — no amount shown, since <code>maxWithdrawable</code> is 0
+          until eligible.</div>
+        <div class="phone" style="height:400px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr">
+            <div class="card">
+              <div class="card-head">
+                <div class="titleblock"><div class="icon-badge"><i class="ti ti-safe"></i></div><div><div class="h-name">PPF — SBI</div><div class="h-sub">PPF</div></div></div>
+                <div class="h-value amt" data-real="₹1,10,000" data-mask="••••">₹1,10,000</div>
+              </div>
+              <div class="meta-line">7.1% p.a. · SBI · Opened Apr 2024 · Matures Apr 2039</div>
+              <div class="tiles">
+                <div class="tile">
+                  <div class="tlabel">Maturity</div>
+                  <div class="tval">13 yrs left</div>
+                  <div class="progressbar"><div class="fill" style="width:13%;background:var(--ppf)"></div></div>
+                </div>
+                <div class="tile info">
+                  <div class="tlabel tlabel-row">This FY<i class="ti ti-info-circle info-icon"></i></div>
+                  <div class="tval amt" data-real="₹80,000 / ₹1.5L" data-mask="•••• / ₹1.5L">₹80,000 / ₹1.5L</div>
+                  <div class="progressbar"><div class="fill" style="width:53%;background:var(--info)"></div></div>
+                </div>
+              </div>
+              <div class="tiles">
+                <div class="tile withdraw">
+                  <div class="tlabel tlabel-row">Withdrawal<i class="ti ti-info-circle info-icon"></i></div>
+                  <div class="tval">Available from FY 2029-30</div>
+                  <div class="tsub">Partial withdrawal opens after 6 full years</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Withdrawal tile — not yet eligible (tapped) <span class="tag rec">recommended</span></div>
+        <div class="vsub">Same "i" from the previous frame, tapped. The rules modal itself is byte-for-byte identical
+          to round 2's — only the entry point changed. Personalization line still reads from
+          <code>ppfData.yearsElapsed</code> (unchanged from round 2) — <code>ppfWithdrawalEligibility()</code>'s own
+          <code>eligible</code>/<code>eligibleFromFy</code> fields drive the TILE's closed-state text in the previous
+          frame; this modal's bottom line is worded independently for a slightly warmer, more conversational tone.</div>
+        <div class="phone" style="height:430px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr"><div class="dim-center">
+            <div class="info-card">
+              <div class="ihead"><span class="t">Partial withdrawal rules</span><span class="x">✕</span></div>
+              <div class="isection">
+                <div class="ilabel"><i class="ti ti-calendar-time"></i>Eligibility</div>
+                <div class="ibody">Opens up from the <b>7th financial year</b> of the account — i.e. once it's
+                  completed <b>6 full years</b>. One withdrawal allowed per financial year.</div>
+              </div>
+              <div class="isection">
+                <div class="ilabel"><i class="ti ti-percentage"></i>How much</div>
+                <div class="ibody">Capped at <b>50%</b> of whichever is LOWER: the balance at the end of the <b>4th
+                  year before</b> the withdrawal year, or the balance at the end of the year <b>right before</b> it.</div>
+              </div>
+              <div class="ipersonal pending"><i class="ti ti-hourglass" style="margin-right:4px"></i>Your account has
+                completed 2 years — eligible from year 7 (~4 more years).</div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Withdrawal tile — eligible (tapped) <span class="tag rec">recommended</span></div>
+        <div class="vsub">The running 2018-opened example account used throughout §0–§3 — already shown in its
+          CLOSED state on both §2 Proposed frames ("₹2,50,000 available"); this is that same tile's "i" tapped. Same
+          modal, same two static-fact sections — only the bottom personalization line changes.</div>
+        <div class="phone" style="height:430px">
+          <div class="statusbar"></div>
+          <div class="header"><div class="hicon"><i class="ti ti-menu-2"></i></div><div class="htitle">Retirement</div><div class="hicon"><i class="ti ti-dots"></i></div></div>
+          <div class="scr"><div class="dim-center">
+            <div class="info-card">
+              <div class="ihead"><span class="t">Partial withdrawal rules</span><span class="x">✕</span></div>
+              <div class="isection">
+                <div class="ilabel"><i class="ti ti-calendar-time"></i>Eligibility</div>
+                <div class="ibody">Opens up from the <b>7th financial year</b> of the account — i.e. once it's
+                  completed <b>6 full years</b>. One withdrawal allowed per financial year.</div>
+              </div>
+              <div class="isection">
+                <div class="ilabel"><i class="ti ti-percentage"></i>How much</div>
+                <div class="ibody">Capped at <b>50%</b> of whichever is LOWER: the balance at the end of the <b>4th
+                  year before</b> the withdrawal year, or the balance at the end of the year <b>right before</b> it.</div>
+              </div>
+              <div class="ipersonal eligible"><i class="ti ti-circle-check" style="margin-right:4px"></i>Your account
+                has completed 8 years — you're eligible now.</div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="diag" style="max-width:900px">
+      <h2>Why always-visible, not conditional on account age</h2>
+      <p>The Withdrawal tile is <b>always present, regardless of the account's age</b> — a brand-new 1-year-old PPF
+      still shows it (in its "not yet eligible" state), not hidden until a few years before eligibility. This call
+      carries over unchanged from round 2's reasoning (then about an icon, now about the tile it lives on):
+      considered and rejected hiding it, since <b>conditionally showing/hiding this affordance based on account age
+      teaches the wrong lesson</b> — it would imply the RULE itself doesn't exist yet for a young account, when it's
+      a fixed fact about PPF that's genuinely useful to know early. The tile's own "not yet eligible" state plus the
+      "i" already handle "is this relevant to me right now" without hiding the fact itself — and unlike a pure fact
+      icon, the tile ALSO surfaces something an icon-only design couldn't: <code>eligibleFromFy</code>, a concrete
+      "come back in FY 2029-30" date, right on the card, with no tap required.</p>
+      <p style="margin-top:10px"><b>Icon color deliberately never inherits the tile's own state color</b> (This-FY's
+      blue/green, Withdrawal's teal, Maturity's purple) — every info icon renders in the same neutral slate
+      (<code>--text3</code>/<code>theme.textTertiary</code>) regardless of which tile it sits on or that tile's own
+      current color, so "this is general reference material" reads as one consistent visual language, distinct from
+      the tile's own live, account-specific state.</p>
+      <p style="margin-top:10px"><b>Masking</b>: the Withdrawal tile's amount masks the same way the This-FY tile's
+      does — the digits swap to <code>••••</code> while the static " available" suffix stays visible
+      (<code>data-real</code>/<code>data-mask</code> above mirror the app's own real convention of masking only the
+      number, never the surrounding label). The "not yet eligible" state has no rupee amount to mask at all — an FY
+      label reveals nothing sensitive.</p>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle"><span class="num">5</span>Capability relocation map</div>
+    <div class="sectionsub">Nothing is removed. This is where each existing capability moves to.</div>
+    <div class="diag" style="max-width:980px">
+      <table class="move">
+        <tr><th>Capability</th><th>Today</th><th>Proposed</th></tr>
+        <tr>
+          <td>Maturity progress + projected corpus</td>
+          <td>Full-width purple progress bar + inline "Proj. ₹X" text</td>
+          <td>Left stat tile, purple top-border — same numbers, own bounded box</td>
+        </tr>
+        <tr>
+          <td>This-FY deposit progress</td>
+          <td>Full-width bar, purple at ≥75%, amber &lt;75%, green at 100%</td>
+          <td>Right stat tile, blue while in progress → green at 100% (never purple) — removes the collision with the maturity bar</td>
+        </tr>
+        <tr>
+          <td>April 5 tip</td>
+          <td>Standalone bordered amber Banner</td>
+          <td>Quiet caption line inside the This-FY tile — same trigger condition, shown only when relevant, no border/icon-box</td>
+        </tr>
+        <tr>
+          <td>Per-FY missing-interest nudge (+ pre-filled Add)</td>
+          <td>One full bordered banner per missing FY, stacked</td>
+          <td>One shared "Needs attention" banner; each FY becomes a tappable chip inside it, same pre-fill behaviour on tap</td>
+        </tr>
+        <tr>
+          <td>"N need review" count</td>
+          <td>9px pill squeezed beside the "Transactions" section label</td>
+          <td>Second line inside the same "Needs attention" banner, next to the missing-year chips</td>
+        </tr>
+        <tr>
+          <td>Per-row mismatch warning icon</td>
+          <td>Small triangle icon on the flagged transaction row</td>
+          <td>Unchanged — still the way to locate *which* row the banner is referring to</td>
+        </tr>
+        <tr>
+          <td>Import statement</td>
+          <td>Filled purple pill, visually equal weight to Add</td>
+          <td>Neutral/ghost pill (matches EPF's own Import treatment) — purple reserved for the one primary action, Add</td>
+        </tr>
+        <tr>
+          <td>Browsing the full transaction history</td>
+          <td>Capped at 5 inline rows + static, non-tappable "+N more transactions" text — no way to reach the rest</td>
+          <td>Permanent tappable "See all transactions" row (§3) → FY-grouped popup, mirroring <code>EpfAllTransactionsSheet</code>; each FY band gets its own new "₹X / ₹1.5L" progress bar</td>
+        </tr>
+        <tr>
+          <td>Education: 5th-of-month timing, ₹500 minimum/penalty</td>
+          <td>Not present anywhere on the card (a narrower April-only tip existed, but not the general rule or the
+            minimum-deposit/penalty rule)</td>
+          <td><b>New (§4)</b> — a <code>ti-info-circle</code> "i" on the This FY tile opening one modal (timing +
+            minimum/penalty merged), reusing the existing centered <code>Modal</code> component</td>
+        </tr>
+        <tr>
+          <td>Partial-withdrawal eligibility + withdrawable amount</td>
+          <td>Not present anywhere on the card</td>
+          <td><b>New (§4)</b> — a dedicated full-width <b>Withdrawal tile</b> below the two-up row, powered by
+            <code>ppfWithdrawalEligibility()</code>: shows <code>eligibleFromFy</code> when not yet eligible, the
+            real <code>maxWithdrawable</code> amount once eligible, and an "i" opening the rules modal — always
+            visible regardless of account age</td>
+        </tr>
+      </table>
+    </div>
+
+    <footer class="notes">
+      <h2>Notes for the build step (not part of this proposal's approval)</h2>
+      <p><b>No app-code changes have been made.</b> This is a mockup-only proposal per
+      <code>docs/DESIGN_GUIDELINES.md</code> §6 / <code>CLAUDE.md</code>'s design workflow.</p>
+      <p><b>Data this reuses as-is, unchanged</b>: <code>ppfBuildCardData</code> (maturity/FY figures),
+      <code>findMissingPpfInterestFys</code> (drives the chip list), <code>findAllPpfReviewFlags</code> (drives the
+      review-count line and the row icon). No new calculation logic — purely a layout/grouping change to the same
+      inputs the current card already reads.</p>
+      <p><b>Divergence from EPF's card, deliberate</b>: EPF keeps Import/Export as their own top-of-card row because
+      EPF genuinely has more going on below (Employment, hikes, monthly contribution, retirement projection) that the
+      Import/Export pair sits above as a clear "utility strip." PPF has only one sub-section (Transactions), so
+      folding Import into that section's own header — just recoloured neutral — avoids adding a whole extra row for
+      a single button pair. The "one attention banner, chips for repeats" pattern proposed here for PPF is worth
+      considering as a follow-up for EPF's own stacked missing-interest banners and "still working here?" prompts,
+      which have the identical N-banners problem — flagged here, not solved here, since this task's scope is the PPF
+      card only.</p>
+      <p><b>Open question for the approver</b>: whether the missing-year chips should open the transaction sheet
+      directly (today's behaviour, kept as the default assumption above) or a small inline list — a chip row already
+      avoids the N-banner problem either way, so this is a minor follow-up decision, not a blocker.</p>
+      <p><b>New for §3's popup — core logic that doesn't exist yet</b>: <code>ppfThisYearDeposits()</code>
+      (<code>packages/core/src/core/portfolio/ppfCalculations.ts</code>) currently only computes deposits for the
+      live financial year (it filters from <code>ppfFyStart()</code> onward). The per-FY bars in §3 need a
+      generalized <code>ppfDepositsForFy(transactions, fyStartYear)</code> variant the popup can call once per FY
+      group — same ₹1.5L ceiling, just parameterized by year instead of hardcoded to "now." This mockup shows the
+      target UI only; that function doesn't need to exist for this proposal to be reviewed.</p>
+      <p><b>Preserved as-is</b>: interest rows in the new popup are shown with their existing flag icon but are
+      <i>not</i> tappable for a correction flow — matching <code>ppfReviewFlags.ts</code>'s own doc comment that PPF
+      has "no equivalent transaction-detail popup today; this is flag-only," unlike EPF's tappable interest
+      breakdown. Making PPF's flagged rows correctable is a real follow-up, but out of scope here — introducing it
+      quietly inside this popup would be scope creep past what was asked.</p>
+      <p><b>Round 2 addition (§4, this pass)</b>: two new "i" info icons + their modals, additive on top of the
+      already-built §0–§3 design (which has since shipped to <code>apps/mobile</code>) — nothing above this note was
+      re-opened or changed. All three facts they surface (5th-of-month interest timing, ₹500 minimum deposit/₹50
+      penalty per defaulted year + arrears, and partial-withdrawal eligibility/cap) are verified PPF rules supplied
+      directly by the requester, not invented or guessed. <b>No new calculation logic needed</b> for the withdrawal
+      modal's personalization — it reads the already-computed <code>ppfData.yearsElapsed</code>, just formats a
+      sentence from it (<code>≥ 6 → "eligible now"</code>, else <code>"eligible from year 7 (~N more years)"</code>
+      where N = <code>Math.ceil(6 - yearsElapsed)</code>). This establishes the app's first "i" info-icon → centered
+      small-modal pattern (no tooltip/popover component existed anywhere before this) — worth reusing verbatim for
+      any future "explain a rule, don't flag a problem" need elsewhere in the app, rather than each screen inventing
+      its own variant.</p>
+      <p><b>Round 3 revision (this pass)</b>: the withdrawal-rules icon moves off the Maturity tile entirely onto its
+      own new full-width <b>Withdrawal tile</b> below the two-up row, now backed by a real, already-built-and-tested
+      core function — <code>ppfWithdrawalEligibility(txns, ppfOpeningDate): PpfWithdrawalEligibility | null</code>
+      (<code>packages/core/src/core/portfolio/ppfCalculations.ts</code>) — returning
+      <code>{ eligible, eligibleFromFy, maxWithdrawable }</code>, <code>null</code> only when the opening date is
+      unknown at all. This is a genuine capability upgrade, not just a relayout: round 2's icon could only ever
+      explain the RULE; this tile now also shows the real computed rupee amount once eligible, and a concrete
+      "come back in FY 2029-30" date before that — both come from the same function, so the tile and its "i" modal
+      can never disagree about eligibility. The modal's own content/copy is untouched from round 2, byte-for-byte —
+      only its entry point changed. The This-FY tile's "i" (interest timing + minimum/penalty) is completely
+      unaffected by this revision.</p>
+    </footer>
+
+    <script>
+      let masked = false;
+      let dark = false;
+      function toggleMask() {
+        masked = !masked;
+        document.querySelectorAll('.amt').forEach((el) => {
+          el.textContent = masked ? (el.dataset.mask || '••••') : el.dataset.real;
+        });
+        document.getElementById('maskBtn').classList.toggle('on', masked);
+        document.getElementById('maskLabel').textContent = masked ? 'Show amounts' : 'Mask amounts';
+        document.querySelector('#maskBtn i').className = masked ? 'ti ti-eye' : 'ti ti-eye-off';
+      }
+      function toggleTheme() {
+        dark = !dark;
+        document.body.dataset.theme = dark ? 'dark' : 'light';
+        document.getElementById('themeBtn').classList.toggle('on', dark);
+        document.getElementById('themeLabel').textContent = dark ? 'Light theme' : 'Dark theme';
+        document.querySelector('#themeBtn i').className = dark ? 'ti ti-sun' : 'ti ti-moon';
+      }
+    </script>
+  </body>
+</html>

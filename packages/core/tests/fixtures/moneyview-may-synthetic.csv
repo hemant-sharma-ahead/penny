@@ -1,0 +1,5 @@
+Date,Type,SubType,Txn Type, Payment Type,Merchant/Receiver/Sender,Category,Bank Name,Account Id,Account Type,Credit,Debit,Balance,Outstanding,Available Limit,Notes
+2026/May/03 16:42:48,credit-transaction,income,regular,netbanking,XYZCORP,Salary,HDFC,HDFC Savings,bank,80000,0,0,0,0,null
+2026/May/08 11:20:15,debit-transaction,expense,cash-forward,atm,SELF,Cash Withdrawal,HDFC,HDFC Savings,bank,0,3000,0,0,0,null
+2026/May/12 09:05:00,debit-transaction,expense,regular,imps,Electricity Board,Electricity,HDFC,HDFC Savings,bank,0,1800,0,0,0,null
+2026/May/18 19:40:22,debit-transaction,expense,regular,upi,BigBasket,Grocery,HDFC,HDFC Savings,bank,0,2500,0,0,0,null

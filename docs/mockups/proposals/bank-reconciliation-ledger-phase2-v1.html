@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Full Ledger — Phase 2 (relink / unmatch / resolve)</title>
+<style>
+  :root {
+    --primary: #00a86b; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #3b82f6;
+    --bg: #0b0f14; --surface: #161b22; --surface2: #1c2128; --border: #2d333b;
+    --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+  }
+  * { box-sizing: border-box; }
+  body { background: #05070a; color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 40px 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .intro { color: var(--text2); font-size: 13px; max-width: 760px; line-height: 1.6; margin-bottom: 28px; }
+  .gallery { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+  .frame-label { font-size: 12px; font-weight: 700; color: var(--primary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .phone { width: 375px; background: var(--bg); border-radius: 28px; border: 8px solid #000; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+  .screen { min-height: 640px; display: flex; flex-direction: column; position: relative; }
+  .dim { position: absolute; inset: 0; background: rgba(0,0,0,0.55); }
+  .row-behind { padding: 14px; }
+  .ledger-row { display: flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 10px; }
+  .ledger-row .side { flex: 1; padding: 8px; }
+  .ledger-row .side.stmt { border-right: 1px solid var(--border); background: var(--surface); }
+  .ledger-row .side.exp { background: var(--surface); }
+  .ledger-row .narration { font-weight: 600; font-size: 10px; }
+  .ledger-row .amount { font-size: 9px; margin-top: 1px; }
+  .tap-hint { text-align: center; font-size: 9px; color: var(--text3); margin-top: 6px; }
+
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-top-left-radius: 18px; border-top-right-radius: 18px; padding: 16px; border-top: 1px solid var(--border); }
+  .sheet-title { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+  .sheet-sub { font-size: 10.5px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; }
+  .context-card { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; margin-bottom: 14px; background: var(--surface2); }
+  .context-row { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 4px; }
+  .context-row:last-child { margin-bottom: 0; }
+  .context-label { color: var(--text3); font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .sheet-btn { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 12px; margin-bottom: 8px; border: 1px solid var(--border); }
+  .sheet-btn .ic { width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+  .sheet-btn .label { font-size: 12px; font-weight: 700; }
+  .sheet-btn .desc { font-size: 9.5px; color: var(--text2); margin-top: 1px; }
+  .sheet-btn.relink .ic { background: rgba(59,130,246,0.15); color: var(--info); }
+  .sheet-btn.unmatch .ic { background: rgba(239,68,68,0.12); color: var(--danger); }
+  .sheet-btn.pick .ic { background: rgba(59,130,246,0.15); color: var(--info); }
+  .sheet-btn.addnew .ic { background: rgba(0,168,107,0.15); color: var(--primary); }
+  .sheet-btn.dismiss .ic { background: rgba(110,118,129,0.15); color: var(--text3); }
+  .sheet-cancel { text-align: center; font-size: 12px; font-weight: 700; color: var(--text2); padding: 10px; margin-top: 4px; }
+
+  .confirm-box { position: absolute; left: 20px; right: 20px; top: 50%; transform: translateY(-50%); background: var(--surface); border-radius: 16px; padding: 18px; border: 1px solid var(--border); }
+  .confirm-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+  .confirm-body { font-size: 11px; color: var(--text2); line-height: 1.6; margin-bottom: 16px; }
+  .confirm-actions { display: flex; gap: 8px; }
+  .confirm-btn { flex: 1; text-align: center; padding: 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .confirm-btn.cancel { border: 1px solid var(--border); color: var(--text2); }
+  .confirm-btn.danger { background: var(--danger); color: #fff; }
+
+  .callout { border: 1px dashed var(--border); border-radius: 10px; padding: 12px 14px; font-size: 11px; color: var(--text2); line-height: 1.65; margin-top: 28px; max-width: 900px; }
+  .callout b { color: var(--text); }
+</style>
+</head>
+<body>
+
+<h1>Full Ledger — Phase 2 (relink / unmatch / resolve a skipped row)</h1>
+<p class="intro">
+  Reuses everything already shipped — <code>PossibleMatchPickerModal</code> for picking a different
+  transaction (unchanged, no new visual design there), <code>ExpenseForm</code>'s existing
+  <code>statementPreset</code> path for "add as new". The only genuinely new UI is the small action
+  sheet a row tap opens, and the unmatch confirm — both built from the existing <code>Modal</code>/
+  <code>Button</code>/<code>ConfirmDialog</code> components, not a new pattern.
+</p>
+
+<div class="gallery">
+
+  <div>
+    <div class="frame-label">Tap a matched row → "Fix this match"</div>
+    <div class="phone"><div class="screen">
+      <div class="row-behind">
+        <div class="ledger-row">
+          <div class="side stmt"><div class="narration">SWIGGY BLR</div><div class="amount" style="color:var(--danger)">−₹460</div></div>
+          <div class="side exp"><div class="narration">Zomato</div><div class="amount" style="color:var(--danger)">−₹460</div></div>
+        </div>
+        <div class="tap-hint">↑ tapped this row (wrong pairing — Swiggy matched to a Zomato entry)</div>
+      </div>
+      <div class="dim"></div>
+      <div class="sheet">
+        <div class="sheet-title">Fix this match</div>
+        <div class="sheet-sub">9 Apr · this statement line is currently linked to an expense.</div>
+        <div class="context-card">
+          <div class="context-row"><span class="context-label">Statement</span><span>SWIGGY BLR · −₹460</span></div>
+          <div class="context-row"><span class="context-label">Currently linked to</span><span>Zomato · −₹460</span></div>
+        </div>
+        <div class="sheet-btn relink">
+          <div class="ic">⇄</div>
+          <div><div class="label">This isn't the right match</div><div class="desc">Choose the correct transaction instead</div></div>
+        </div>
+        <div class="sheet-btn unmatch">
+          <div class="ic">✕</div>
+          <div><div class="label">Unmatch</div><div class="desc">Nothing recorded corresponds to this statement line</div></div>
+        </div>
+        <div class="sheet-cancel">Cancel</div>
+      </div>
+    </div></div>
+  </div>
+
+  <div>
+    <div class="frame-label">"Unmatch" → confirm (nothing lost, just unlinked)</div>
+    <div class="phone"><div class="screen">
+      <div class="row-behind">
+        <div class="ledger-row">
+          <div class="side stmt"><div class="narration">SWIGGY BLR</div><div class="amount" style="color:var(--danger)">−₹460</div></div>
+          <div class="side exp"><div class="narration">Zomato</div><div class="amount" style="color:var(--danger)">−₹460</div></div>
+        </div>
+      </div>
+      <div class="dim"></div>
+      <div class="confirm-box">
+        <div class="confirm-title">Unmatch this line?</div>
+        <div class="confirm-body">
+          "Zomato" stays exactly as recorded — it just won't be linked to this statement line anymore.
+          "SWIGGY BLR" goes back to showing as unresolved in the ledger, same as any other skipped row,
+          until you relink or resolve it.
+        </div>
+        <div class="confirm-actions">
+          <div class="confirm-btn cancel">Cancel</div>
+          <div class="confirm-btn danger">Unmatch</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <div>
+    <div class="frame-label">Tap a skipped row → "Resolve this statement line"</div>
+    <div class="phone"><div class="screen">
+      <div class="row-behind">
+        <div class="ledger-row">
+          <div class="side stmt"><div class="narration">NEFT-XXCREDIT-UNKNOWN</div><div class="amount" style="color:var(--success)">+₹2,000</div></div>
+          <div class="side exp"><div class="narration" style="color:var(--warning);font-style:italic;font-weight:400;">Skipped during import…</div></div>
+        </div>
+      </div>
+      <div class="dim"></div>
+      <div class="sheet">
+        <div class="sheet-title">Resolve this statement line</div>
+        <div class="sheet-sub">14 Apr · never became a recorded transaction.</div>
+        <div class="context-card">
+          <div class="context-row"><span class="context-label">Statement</span><span>NEFT-XXCREDIT-UNKNOWN · +₹2,000</span></div>
+        </div>
+        <div class="sheet-btn pick">
+          <div class="ic">🔍</div>
+          <div><div class="label">Pick the matching transaction</div><div class="desc">Already recorded, just wasn't linked</div></div>
+        </div>
+        <div class="sheet-btn addnew">
+          <div class="ic">+</div>
+          <div><div class="label">Add as a new transaction</div><div class="desc">Never recorded — log it now</div></div>
+        </div>
+        <div class="sheet-btn dismiss">
+          <div class="ic">—</div>
+          <div><div class="label">Not mine, dismiss</div><div class="desc">Stop flagging this line</div></div>
+        </div>
+        <div class="sheet-cancel">Cancel</div>
+      </div>
+    </div></div>
+  </div>
+
+</div>
+
+<div class="callout">
+  <b>What's genuinely new here:</b> the two action sheets above (built from the existing <code>Modal</code>
+  + row-of-<code>Button</code>s pattern, same visual language as <code>PossibleMatchPickerModal</code>'s
+  own bottom actions) and the unmatch confirm (<code>ConfirmDialog</code>, unchanged component). Picking
+  "This isn't the right match" or "Pick the matching transaction" both hand off to
+  <code>PossibleMatchPickerModal</code> exactly as it already exists today — no changes to that modal at
+  all. "Add as a new transaction" hands off to <code>ExpenseForm</code> with a <code>statementPreset</code>,
+  the same path bucket 3's "add as new" already uses live during import.
+  <br /><br />
+  <b>Design call worth flagging:</b> Unmatch is a direct, one-step action (not funneled through the
+  picker's own "no match" option) — tapping it immediately shows the confirm above, no extra screen. The
+  unmatched statement line reappears as an ordinary skipped-unresolved row afterward, with the exact same
+  resolve sheet available on it — no new row state, no lost data.
+</div>
+
+</body>
+</html>

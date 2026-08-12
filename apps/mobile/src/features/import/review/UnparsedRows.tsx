@@ -10,10 +10,12 @@ import type { ColumnMapping } from '@/core/import/importMatcher';
 function RejectedRowEditor({
   row,
   mapping,
+  header,
   onFix
 }: {
   row: RejectedRow;
   mapping: ColumnMapping | null;
+  header: string[];
   onFix: (fields: { date: string; amount: string; description: string }) => boolean;
 }) {
   const theme = useThemeColors();
@@ -31,6 +33,20 @@ function RejectedRowEditor({
       <Text className="text-[11px]" style={{ color: theme.warning }}>
         Row {row.rowIndex} · {row.reason}
       </Text>
+      {/* Full original row, all columns — not just the 3 fields below. Without this the user had no way
+       *  to see what the source file actually contained for a row that failed to parse (e.g. a blank
+       *  description column) short of opening the CSV outside the app (found via user report 2026-08-06). */}
+      <View
+        className="flex-row flex-wrap gap-x-3 gap-y-0.5 rounded-lg px-2 py-1.5"
+        style={{ backgroundColor: tint(theme.warning, 6) }}
+      >
+        {row.raw.map((value, i) => (
+          <Text key={i} className="text-[10px] text-tertiary">
+            <Text className="font-semibold">{header[i] || `Column ${i + 1}`}: </Text>
+            {value || '(empty)'}
+          </Text>
+        ))}
+      </View>
       <View className="flex-row gap-2">
         <View className="flex-1">
           <TextInput label="Date" value={date} onChange={setDate} placeholder="DD/MM/YYYY" />
@@ -58,6 +74,9 @@ function RejectedRowEditor({
 interface UnparsedRowsProps {
   rejectedRows: RejectedRow[];
   mapping: ColumnMapping | null;
+  /** Original CSV header row, used to label each column in the full-row-data display below the 3 edit
+   *  fields — falls back to "Column N" for any index without a header label. */
+  header: string[];
   onFixRejected: (rowIndex: number, fields: { date: string; amount: string; description: string }) => boolean;
 }
 
@@ -65,7 +84,7 @@ interface UnparsedRowsProps {
  *  structurally unparsed rows (missing date/amount/description), kept visually distinct (amber/warning
  *  tone) from category-undecided state, so a user never confuses "structurally broken" with "category
  *  undecided". */
-export function UnparsedRows({ rejectedRows, mapping, onFixRejected }: UnparsedRowsProps) {
+export function UnparsedRows({ rejectedRows, mapping, header, onFixRejected }: UnparsedRowsProps) {
   const theme = useThemeColors();
   const [expanded, setExpanded] = useState(true);
   if (rejectedRows.length === 0) return null;
@@ -91,6 +110,7 @@ export function UnparsedRows({ rejectedRows, mapping, onFixRejected }: UnparsedR
               key={row.rowIndex}
               row={row}
               mapping={mapping}
+              header={header}
               onFix={(fields) => onFixRejected(row.rowIndex, fields)}
             />
           ))}

@@ -1,5 +1,6 @@
 set -e
 
+npm run check:pii
 npx lint-staged
 npx tsc --noEmit
 npm test

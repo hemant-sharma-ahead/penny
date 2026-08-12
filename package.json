@@ -15,6 +15,8 @@
     "test:workers": "vitest run",
     "test:watch": "pnpm --filter @penny/core test:watch",
     "test:coverage": "pnpm --filter @penny/core test:coverage",
+    "check:pii": "node scripts/check-pii.mjs",
+    "check:pii:full": "node scripts/check-pii.mjs --full",
     "prepare": "husky"
   },
   "lint-staged": {

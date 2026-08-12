@@ -1,0 +1,1056 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — EPF employer-switch handling + per-company ledger: UI proposal (v1)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --page: #e4eeff;
+        --surface: #ffffff;
+        --surface2: #eff6ff;
+        --surface3: #e4eeff;
+        --text: #0f172a;
+        --text2: #475569;
+        --text3: #94a3b8;
+        --border: #c7d8f0;
+        --borderStrong: #a5bfdf;
+        --primary: #00a86b;
+        --info: #3b82f6;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --success: #10b981;
+        --epf: #64748b;
+        --primary-tint: rgba(0, 168, 107, 0.12);
+        --info-tint: rgba(59, 130, 246, 0.12);
+        --warning-tint: rgba(245, 158, 11, 0.14);
+        --success-tint: rgba(16, 185, 129, 0.12);
+        --epf-tint: rgba(100, 116, 139, 0.12);
+        --danger-tint: rgba(239, 68, 68, 0.12);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family:
+          'Inter',
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        background: #f3f6fc;
+        color: #0f172a;
+        -webkit-font-smoothing: antialiased;
+      }
+      h1 {
+        text-align: center;
+        margin: 32px 16px 6px;
+        font-size: 22px;
+        color: #0f172a;
+      }
+      h1 small {
+        display: block;
+        font-size: 12.5px;
+        font-weight: 500;
+        color: #64748b;
+        margin-top: 6px;
+      }
+      .sub {
+        text-align: center;
+        margin: 0 16px 20px;
+        color: #475569;
+        font-size: 13.5px;
+        max-width: 860px;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.65;
+      }
+      .sectiontitle {
+        text-align: center;
+        font-size: 16px;
+        font-weight: 800;
+        color: #0f172a;
+        margin: 52px 0 4px;
+      }
+      .sectiontitle .num {
+        display: inline-flex;
+        width: 22px;
+        height: 22px;
+        border-radius: 7px;
+        background: var(--epf);
+        color: #fff;
+        font-size: 12px;
+        align-items: center;
+        justify-content: center;
+        margin-right: 8px;
+        vertical-align: middle;
+      }
+      .sectionsub {
+        text-align: center;
+        color: #475569;
+        font-size: 12.5px;
+        max-width: 800px;
+        margin: 0 auto 22px;
+        line-height: 1.65;
+      }
+      .sectionsub code {
+        background: #e2e8f0;
+        padding: 1px 6px;
+        border-radius: 5px;
+        font-size: 11.5px;
+      }
+
+      .hgallery {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 22px;
+        overflow-x: auto;
+        padding: 8px 24px 22px;
+        scroll-snap-type: x proximity;
+      }
+      .hgallery::-webkit-scrollbar {
+        height: 8px;
+      }
+      .hgallery::-webkit-scrollbar-thumb {
+        background: #c7d8f0;
+        border-radius: 8px;
+      }
+      .frame-wrap {
+        width: 280px;
+        flex-shrink: 0;
+        scroll-snap-align: start;
+      }
+      .vtitle {
+        font-size: 13px;
+        font-weight: 800;
+        margin: 0 2px 3px;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .vtitle .tag {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 2px 7px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        color: #475569;
+        white-space: nowrap;
+      }
+      .vtitle .tag.cur {
+        background: #fde8cc;
+        color: #b1650a;
+      }
+      .vtitle .tag.rec {
+        background: #d3f3e3;
+        color: #067a4c;
+      }
+      .vsub {
+        font-size: 11px;
+        color: #64748b;
+        margin: 0 2px 12px;
+        line-height: 1.55;
+      }
+
+      .phone {
+        width: 280px;
+        background: var(--page);
+        border-radius: 30px;
+        border: 8px solid #0f172a;
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);
+      }
+      .statusbar {
+        height: 16px;
+        background: var(--page);
+        flex-shrink: 0;
+      }
+      .header {
+        height: 38px;
+        display: flex;
+        align-items: center;
+        padding: 0 12px;
+        flex-shrink: 0;
+        background: #fff;
+        border-bottom: 1px solid var(--border);
+      }
+      .htitle {
+        flex: 1;
+        text-align: center;
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .back,
+      .hicon {
+        width: 24px;
+        height: 24px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        color: var(--text2);
+        font-size: 15px;
+      }
+
+      .scr {
+        flex: 1;
+        padding: 12px;
+        overflow-y: auto;
+      }
+
+      .dim {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 8px;
+      }
+      .modal-card {
+        width: 100%;
+        max-height: 100%;
+        background: #fff;
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+      }
+      .modal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 13px 15px 8px;
+      }
+      .modal-head .t {
+        font-size: 13.5px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .modal-head .x {
+        color: #94a3b8;
+        font-size: 15px;
+      }
+      .modal-body {
+        padding: 0 15px 14px;
+        overflow-y: auto;
+      }
+      .modal-foot {
+        padding: 11px 15px 14px;
+        border-top: 1px solid var(--border);
+      }
+
+      .card {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 13px 14px;
+      }
+      .icon-badge {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        background: var(--epf-tint);
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+      }
+      .icon-badge i {
+        color: var(--epf);
+        font-size: 16px;
+      }
+      .h-name {
+        font-size: 13.5px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .h-sub {
+        font-size: 10.5px;
+        color: #94a3b8;
+        margin-top: 1px;
+      }
+      .meta-line {
+        font-size: 11px;
+        color: #475569;
+        margin: 8px 2px 8px;
+      }
+      .divider {
+        border-top: 1px solid var(--border);
+        margin: 8px 0;
+      }
+
+      .row-label {
+        font-size: 9.5px;
+        font-weight: 700;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .pill-green {
+        background: var(--primary-tint);
+        color: var(--primary);
+      }
+      .pill-slate {
+        background: var(--epf-tint);
+        color: var(--epf);
+      }
+      .badge-current {
+        background: var(--success-tint);
+        color: var(--success);
+        font-size: 9px;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 5px;
+      }
+
+      .emp-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 12px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        margin-top: 6px;
+      }
+      .emp-row .name {
+        font-size: 11.5px;
+        font-weight: 700;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+      }
+      .emp-row .dates {
+        font-size: 9.5px;
+        color: #94a3b8;
+        margin-top: 2px;
+      }
+      .emp-row .chev {
+        color: #94a3b8;
+        font-size: 13px;
+      }
+      .emp-row.tappable {
+        border-color: var(--info);
+      }
+
+      .stat-strip {
+        display: flex;
+        gap: 7px;
+        margin: 9px 0;
+      }
+      .stat-box {
+        flex: 1;
+        border-radius: 10px;
+        padding: 8px 4px;
+        text-align: center;
+        background: var(--surface2);
+        position: relative;
+      }
+      .stat-box .n {
+        font-size: 12.5px;
+        font-weight: 800;
+        line-height: 1.1;
+        color: #0f172a;
+      }
+      .stat-box .l {
+        font-size: 7.5px;
+        color: #94a3b8;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        margin-top: 3px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+      }
+      .stat-box .l i {
+        font-size: 8px;
+      }
+      .stat-box.est {
+        background: #f1f5f9;
+      }
+
+      .banner {
+        border-radius: 12px;
+        padding: 9px 10px;
+        display: flex;
+        gap: 7px;
+        margin: 8px 0;
+        border: 1px solid rgba(245, 158, 11, 0.35);
+        background: var(--warning-tint);
+      }
+      .banner i {
+        font-size: 14px;
+        color: var(--warning);
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+      .banner .b1 {
+        font-size: 10.5px;
+        color: #7a4a06;
+        line-height: 1.45;
+      }
+      .banner .b1 b {
+        color: #0f172a;
+      }
+      .banner.danger {
+        border-color: rgba(239, 68, 68, 0.35);
+        background: var(--danger-tint);
+      }
+      .banner.danger i {
+        color: var(--danger);
+      }
+      .banner.danger .b1 {
+        color: #7a1a1a;
+      }
+
+      .info-card {
+        border-radius: 12px;
+        padding: 9px 10px;
+        border: 1px solid var(--border);
+        background: var(--surface2);
+        display: flex;
+        gap: 8px;
+        margin: 9px 0;
+      }
+      .info-card i.lead {
+        font-size: 15px;
+        color: var(--epf);
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+      .info-card .body-text {
+        font-size: 10.5px;
+        color: #475569;
+        line-height: 1.5;
+      }
+      .info-card .body-text b {
+        color: #0f172a;
+      }
+
+      .field {
+        margin: 10px 0;
+      }
+      .field .lbl {
+        font-size: 10.5px;
+        color: #334155;
+        font-weight: 700;
+        margin-bottom: 5px;
+      }
+      .field .lbl .hint {
+        color: #94a3b8;
+        font-weight: 500;
+      }
+      .field .datepick {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 11px;
+        font-size: 12.5px;
+        color: #0f172a;
+        background: var(--surface2);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-weight: 700;
+      }
+      .field .datepick i {
+        color: #94a3b8;
+      }
+      .field .caption {
+        font-size: 9.5px;
+        color: #94a3b8;
+        margin-top: 5px;
+        line-height: 1.4;
+      }
+
+      .consistency-note {
+        border-radius: 10px;
+        padding: 8px 9px;
+        margin-top: 6px;
+        display: flex;
+        gap: 6px;
+        font-size: 9.5px;
+        line-height: 1.5;
+      }
+      .consistency-note.ok {
+        background: var(--success-tint);
+        color: #0a5c3f;
+      }
+      .consistency-note.ok i {
+        color: var(--success);
+      }
+      .consistency-note.off {
+        background: var(--warning-tint);
+        color: #7a4a06;
+      }
+      .consistency-note.off i {
+        color: var(--warning);
+      }
+      .consistency-note i {
+        font-size: 12px;
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+
+      .btn {
+        border: none;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 12px;
+        padding: 10px 14px;
+        text-align: center;
+      }
+      .btn-primary {
+        background: var(--primary);
+        color: #fff;
+      }
+      .btn-secondary {
+        background: #fff;
+        border: 1px solid var(--border);
+        color: #334155;
+      }
+      .btn-full {
+        width: 100%;
+      }
+      .btn-sm {
+        padding: 5px 10px;
+        font-size: 10px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .fy-band {
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: var(--surface2);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 9px 0 2px;
+      }
+      .fy-band .l {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .fy-band .r {
+        font-size: 9px;
+        color: #94a3b8;
+      }
+      .txrow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 0;
+        border-bottom: 1px dashed var(--border);
+      }
+      .txicn {
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        background: var(--epf-tint);
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+      }
+      .txicn i {
+        color: var(--epf);
+        font-size: 10.5px;
+      }
+      .txmid {
+        flex: 1;
+        min-width: 0;
+      }
+      .txmid .t1 {
+        font-size: 11px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .txmid .t2 {
+        font-size: 9px;
+        color: #94a3b8;
+        margin-top: 1px;
+      }
+      .txright {
+        text-align: right;
+      }
+      .txright .a {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .picker-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 4px;
+        border-bottom: 1px solid var(--border);
+      }
+      .picker-row .icon-badge {
+        width: 30px;
+        height: 30px;
+      }
+      .picker-row .name {
+        font-size: 12px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .picker-row .dates {
+        font-size: 9.5px;
+        color: #94a3b8;
+        margin-top: 1px;
+      }
+      .picker-row .count {
+        font-size: 9.5px;
+        color: #94a3b8;
+        text-align: right;
+      }
+      .picker-row .chev {
+        color: #94a3b8;
+        font-size: 13px;
+      }
+
+      .footer-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: 7px;
+        margin-top: 5px;
+        border-top: 1px solid var(--border);
+      }
+      .see-all {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--epf);
+      }
+      .see-all .n {
+        font-weight: 500;
+        color: #94a3b8;
+        font-size: 9.5px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>
+      EPF employer-switch handling + per-company ledger
+      <small
+        >Proposal v1 — grounded in the real EPF card / import review screens already shipped
+        (epf-passbook-import-v2/v4)</small
+      >
+    </h1>
+    <p class="sub">
+      Fixes the real reported bug (importing a 2nd employer's passbook mid-career corrupted the 1st employer's rows) at
+      the root, adds the "always confirm a new employer's real joining date" step, and moves EPF transactions to a
+      per-employer model — mirroring how EPFO's own portal and INDmoney already organize this data ("select Member ID →
+      view that passbook").
+    </p>
+
+    <div class="sectiontitle"><span class="num">0</span>Current (today) — the actual bug</div>
+    <div class="sectionsub">
+      What you're seeing right now: both employers end up "current" after a switch, so a September row gets fabricated
+      under Cognizant using the NEW company's real numbers.
+    </div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Today <span class="tag cur">current behavior</span></div>
+        <div class="vsub">
+          EPF card — Cognizant never got bounded, New Co is also "current." Sept shows under Cognizant with the wrong
+          (New Co's) numbers.
+        </div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-arrow-left"></i></div>
+            <div class="htitle">EPF Transactions</div>
+            <div class="hicon"><i class="ti ti-plus"></i></div>
+          </div>
+          <div class="scr">
+            <div class="fy-band">
+              <div class="l">FY 2017-18</div>
+              <div class="r">13 months · ₹39,705</div>
+            </div>
+            <div class="txrow">
+              <div class="txicn"><i class="ti ti-building"></i></div>
+              <div class="txmid">
+                <div class="t1">2017-09</div>
+                <div class="t2">COGNIZANT TECHNOLOGY SOLUTIONS</div>
+              </div>
+              <div class="txright"><div class="a">₹0</div></div>
+            </div>
+            <div class="txrow">
+              <div class="txicn"><i class="ti ti-alert-triangle" style="color: var(--warning)"></i></div>
+              <div class="txmid">
+                <div class="t1">2017-08</div>
+                <div class="t2">COGNIZANT TECHNOLOGY SOLUTIONS</div>
+              </div>
+              <div class="txright"><div class="a">₹3,041</div></div>
+            </div>
+            <div class="banner danger" style="margin-top: 10px">
+              <i class="ti ti-bug"></i>
+              <div class="b1">
+                <b>Bug:</b> Sept's ₹0 is Cognizant's own estimate (basic salary was never set) — but a real transaction
+                for New Co's Sept exists too, and can bleed into this row depending on ordering. Aug's amount was also
+                silently overwritten by a later import.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle"><span class="num">1</span>New-employer setup — joining date only</div>
+    <div class="sectionsub">
+      Fires the moment an import is about to create a brand-new employer with no ambiguity (e.g. the very first employer
+      ever tracked). Suggests a day using real pro-rata math when a partial first month exists — never silently assumed.
+    </div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">New employer detected <span class="tag rec">new step</span></div>
+        <div class="vsub">
+          Inserted into the import review flow, right before the reconciliation review screen for this unit.
+        </div>
+        <div class="phone" style="height: 480px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-arrow-left"></i></div>
+            <div class="htitle">Import passbooks</div>
+            <div class="hicon"></div>
+          </div>
+          <div class="scr">
+            <div class="dim">
+              <div class="modal-card">
+                <div class="modal-head">
+                  <div class="t">New employer detected</div>
+                  <div class="x"><i class="ti ti-x"></i></div>
+                </div>
+                <div class="modal-body">
+                  <div class="info-card">
+                    <i class="ti ti-info-circle lead"></i>
+                    <div class="body-text">
+                      This passbook is for <b>New Company Pvt Ltd</b>, an employer we haven't seen before. When did you
+                      actually join?
+                    </div>
+                  </div>
+                  <div class="field">
+                    <div class="lbl">Joining date at New Company Pvt Ltd</div>
+                    <div class="datepick"><span>29 Aug 2017</span><i class="ti ti-calendar"></i></div>
+                  </div>
+                  <div class="consistency-note ok">
+                    <i class="ti ti-circle-check"></i
+                    ><span
+                      >This implies ~3 of 31 days worked in August — the passbook shows ₹356, consistent with
+                      that.</span
+                    >
+                  </div>
+                </div>
+                <div class="modal-foot"><button class="btn btn-primary btn-full">Confirm &amp; continue</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle"><span class="num">2</span>New-employer setup — genuine switch (two dates)</div>
+    <div class="sectionsub">
+      Fires when an existing "current" employer's own start date precedes this new unit — the real ambiguity case. Both
+      dates are asked together, each with its own pro-rata consistency check.
+    </div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Switch detected</div>
+        <div class="vsub">
+          Old employer's suggested last day is inverted from ITS OWN established full-month rate, not a guess.
+        </div>
+        <div class="phone" style="height: 560px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-arrow-left"></i></div>
+            <div class="htitle">Import passbooks</div>
+            <div class="hicon"></div>
+          </div>
+          <div class="scr">
+            <div class="dim">
+              <div class="modal-card">
+                <div class="modal-head">
+                  <div class="t">New employer detected</div>
+                  <div class="x"><i class="ti ti-x"></i></div>
+                </div>
+                <div class="modal-body">
+                  <div class="info-card">
+                    <i class="ti ti-info-circle lead"></i>
+                    <div class="body-text">
+                      This looks like a switch — <b>Cognizant</b> is still marked "current" but this passbook is for
+                      <b>New Company Pvt Ltd</b>, starting around the same time.
+                    </div>
+                  </div>
+                  <div class="field">
+                    <div class="lbl">Joining date at New Company Pvt Ltd</div>
+                    <div class="datepick"><span>29 Aug 2017</span><i class="ti ti-calendar"></i></div>
+                  </div>
+                  <div class="consistency-note ok">
+                    <i class="ti ti-circle-check"></i
+                    ><span>~3 of 31 days worked — consistent with the ₹356 shown.</span>
+                  </div>
+                  <div class="field">
+                    <div class="lbl">Last working day at Cognizant</div>
+                    <div class="datepick"><span>28 Aug 2017</span><i class="ti ti-calendar"></i></div>
+                  </div>
+                  <div class="consistency-note ok">
+                    <i class="ti ti-circle-check"></i
+                    ><span>~28 of 31 days worked — consistent with Cognizant's own ₹124.</span>
+                  </div>
+                  <div class="field" style="margin-top: 2px">
+                    <div class="caption">
+                      Both dates are editable — pick the real ones if you remember them exactly. This fixes Cognizant
+                      showing fabricated months after this point, and stops Sept's contribution being misattributed.
+                    </div>
+                  </div>
+                </div>
+                <div class="modal-foot"><button class="btn btn-primary btn-full">Confirm &amp; continue</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Consistency note — off</div>
+        <div class="vsub">
+          If the user manually picks a date that contradicts the passbook's own pro-rata amount, say so plainly — never
+          block, never silently correct it for them.
+        </div>
+        <div class="phone" style="height: 420px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-arrow-left"></i></div>
+            <div class="htitle">Import passbooks</div>
+            <div class="hicon"></div>
+          </div>
+          <div class="scr">
+            <div class="dim">
+              <div class="modal-card">
+                <div class="modal-head">
+                  <div class="t">New employer detected</div>
+                  <div class="x"><i class="ti ti-x"></i></div>
+                </div>
+                <div class="modal-body">
+                  <div class="field">
+                    <div class="lbl">Joining date at New Company Pvt Ltd</div>
+                    <div class="datepick"><span>1 Aug 2017</span><i class="ti ti-calendar"></i></div>
+                  </div>
+                  <div class="consistency-note off">
+                    <i class="ti ti-alert-triangle"></i
+                    ><span
+                      >A full month would predict ₹6,000 — the passbook shows ₹356. Double-check this date if you're not
+                      sure.</span
+                    >
+                  </div>
+                </div>
+                <div class="modal-foot"><button class="btn btn-primary btn-full">Confirm &amp; continue</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle">
+      <span class="num">3</span>Per-employer ledger — tap an employer, employer picker, Gross/CTC
+    </div>
+    <div class="sectionsub">
+      Mirrors EPFO's own "select Member ID → view that passbook" model. The employer row on the card becomes tappable
+      directly; "See all transactions" opens a picker only when 2+ employers exist.
+    </div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">EPF card — tappable employer rows</div>
+        <div class="vsub">Chevron added; tapping opens that employer's own scoped ledger directly.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-arrow-left"></i></div>
+            <div class="htitle">EPF</div>
+            <div class="hicon"><i class="ti ti-dots-vertical"></i></div>
+          </div>
+          <div class="scr">
+            <div class="card">
+              <div class="row-label" style="margin-bottom: 6px">Employment</div>
+              <div class="emp-row tappable">
+                <div>
+                  <div class="name">Cognizant Technology <span class="pill pill-slate">Apr 2013 – Aug 2017</span></div>
+                  <div class="dates">52 months</div>
+                </div>
+                <i class="ti ti-chevron-right chev"></i>
+              </div>
+              <div class="emp-row tappable">
+                <div>
+                  <div class="name">New Company Pvt Ltd <span class="badge-current">Current</span></div>
+                  <div class="dates">Aug 2017 – present</div>
+                </div>
+                <i class="ti ti-chevron-right chev"></i>
+              </div>
+              <div class="footer-row">
+                <div class="see-all">
+                  <i class="ti ti-list"></i>See all transactions <span class="n">(choose employer)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Employer picker</div>
+        <div class="vsub">
+          Only shown when 2+ employers exist — skipped entirely for the common single-employer case.
+        </div>
+        <div class="phone" style="height: 420px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-arrow-left"></i></div>
+            <div class="htitle">EPF</div>
+            <div class="hicon"></div>
+          </div>
+          <div class="scr">
+            <div class="dim">
+              <div class="modal-card">
+                <div class="modal-head">
+                  <div class="t">Choose employer</div>
+                  <div class="x"><i class="ti ti-x"></i></div>
+                </div>
+                <div class="modal-body">
+                  <div class="picker-row">
+                    <div class="icon-badge"><i class="ti ti-building"></i></div>
+                    <div style="flex: 1">
+                      <div class="name">Cognizant Technology</div>
+                      <div class="dates">Apr 2013 – Aug 2017 · 52 months</div>
+                    </div>
+                    <div class="count">64 txns</div>
+                    <i class="ti ti-chevron-right chev"></i>
+                  </div>
+                  <div class="picker-row">
+                    <div class="icon-badge"><i class="ti ti-building"></i></div>
+                    <div style="flex: 1">
+                      <div class="name">New Company Pvt Ltd</div>
+                      <div class="dates">Aug 2017 – present · 108 months</div>
+                    </div>
+                    <div class="count">109 txns</div>
+                    <i class="ti ti-chevron-right chev"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Scoped ledger + Estimated Gross/CTC</div>
+        <div class="vsub">
+          Title becomes the company name/tenure. New Gross/CTC tiles, clearly estimates with an "i" to show the formula.
+        </div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-arrow-left"></i></div>
+            <div class="htitle">Cognizant Technology</div>
+            <div class="hicon"><i class="ti ti-plus"></i></div>
+          </div>
+          <div class="scr">
+            <div class="meta-line" style="margin-top: 0">Apr 2013 – Aug 2017 · 52 months · 64 transactions</div>
+            <div class="stat-strip">
+              <div class="stat-box est">
+                <div class="n">₹50,000</div>
+                <div class="l">Est. Gross <i class="ti ti-info-circle"></i></div>
+              </div>
+              <div class="stat-box est">
+                <div class="n">₹57,200</div>
+                <div class="l">Est. CTC <i class="ti ti-info-circle"></i></div>
+              </div>
+            </div>
+            <div class="fy-band">
+              <div class="l">FY 2017-18</div>
+              <div class="r">5 months · ₹18,240</div>
+            </div>
+            <div class="txrow">
+              <div class="txicn"><i class="ti ti-alert-triangle" style="color: var(--warning)"></i></div>
+              <div class="txmid">
+                <div class="t1">2017-08</div>
+                <div class="t2">Cognizant Technology</div>
+              </div>
+              <div class="txright"><div class="a">₹124</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Gross/CTC formula popup</div>
+        <div class="vsub">Tapping the "i" — never presented as more precise than it is, ratio is editable.</div>
+        <div class="phone" style="height: 420px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-arrow-left"></i></div>
+            <div class="htitle">Cognizant Technology</div>
+            <div class="hicon"></div>
+          </div>
+          <div class="scr">
+            <div class="dim">
+              <div class="modal-card">
+                <div class="modal-head">
+                  <div class="t">Estimated CTC</div>
+                  <div class="x"><i class="ti ti-x"></i></div>
+                </div>
+                <div class="modal-body">
+                  <div class="info-card">
+                    <i class="ti ti-info-circle lead"></i>
+                    <div class="body-text">
+                      Penny doesn't know your real Gross/CTC split — this is an estimate using a common ~50%
+                      Basic-to-Gross ratio. Edit it below if you know your real one.
+                    </div>
+                  </div>
+                  <div class="field">
+                    <div class="lbl">Basic is what % of Gross? <span class="hint">default 50%</span></div>
+                    <div class="datepick"><span>50%</span><i class="ti ti-edit"></i></div>
+                  </div>
+                  <div class="divider"></div>
+                  <div class="meta-line">Gross = ₹25,000 ÷ 50% = <b>₹50,000</b></div>
+                  <div class="meta-line">
+                    CTC = Gross + Employer EPF (₹1,835) + EPS (₹4,165) + Gratuity accrual (₹1,202) = <b>₹57,202</b>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

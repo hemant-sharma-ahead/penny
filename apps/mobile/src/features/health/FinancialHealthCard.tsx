@@ -7,6 +7,7 @@ import { tint } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { ThemeTokens } from '@penny/core/theme/tokens';
 import type { ComponentStatus, ScoreComponent } from '@/core/health/scorer';
+import { notifyGoalsChanged } from '@/hooks/useDataRefresh';
 import {
   createGoalFromTemplate,
   guidanceForComponent,
@@ -78,7 +79,31 @@ export function FinancialHealthCard({ onNavigate }: { onNavigate?: (to: AppRoute
   const [detailOpen, setDetailOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const score = hs.healthScore;
-  if (!score) return null;
+  const derived = hs.derived;
+  if (!score || !derived) return null;
+
+  // Empty state (2026-08-05, docs/mockups/proposals/home-empty-states-v2.html) — with literally
+  // nothing entered, every component earns 0, which the grade formula maps straight to `grade: 'F'`,
+  // `gradeLabel: 'Critical'`, a red ring — a false, alarming verdict for someone who just opened the
+  // app, not an actual assessment.
+  //
+  // Checked against the raw derived inputs, not each component's own `status` — `insuranceComponent`
+  // (`core/health/scorer.ts`) hardcodes `hasData: true` unconditionally (having *no* insurance is real,
+  // meaningful information there, unlike the other components), so it can never report `'no_data'` and
+  // an `every(c => c.status === 'no_data')` check across all 6 components never actually becomes true
+  // (found 2026-08-05 — this silently broke the empty-state gate entirely). `score.total === 0` isn't a
+  // safe substitute either: several components can legitimately earn exactly 0 from real, entered data
+  // (a real savings rate of -5%, real goals with none on track, real holdings in only one asset class),
+  // so a genuinely very poor but real financial picture could false-positive as "no data yet" too.
+  const hasNoData =
+    hs.incomeNeeded &&
+    derived.avgMonthlyExpenses === 0 &&
+    derived.liquidAssets === 0 &&
+    derived.monthlyEmiObligations === 0 &&
+    derived.totalActiveGoals === 0 &&
+    derived.assetClassCount === 0 &&
+    !derived.hasLifeInsurance &&
+    !derived.hasHealthInsurance;
 
   const ctx: AdvisorContext = {
     derived: hs.derived,
@@ -101,6 +126,7 @@ export function FinancialHealthCard({ onNavigate }: { onNavigate?: (to: AppRoute
       setBusy(true);
       try {
         await createGoalFromTemplate(action.template);
+        notifyGoalsChanged();
         showToast({ message: `Added "${action.template.name}" to Goals` });
         onNavigate?.('goals');
       } finally {
@@ -111,64 +137,110 @@ export function FinancialHealthCard({ onNavigate }: { onNavigate?: (to: AppRoute
 
   return (
     <View className="mb-4">
-      <View className="flex-row items-center justify-between mb-2">
-        <Text className="text-sm font-semibold text-primary">Financial health</Text>
-        <Pressable onPress={() => setDetailOpen(true)}>
-          <Text className="text-xs font-semibold" style={{ color: theme.primary }}>
-            See all
-          </Text>
-        </Pressable>
-      </View>
+      {/* No "Financial health" heading / "See all" while there's nothing to see all of yet (2026-08-05
+          follow-up) — the empty-state card below already has its own "Financial Health Score" title, so
+          a second, redundant outer heading (plus a "See all" pointing at a detail view with nothing
+          real in it) added nothing. Comes back once real data exists. */}
+      {!hasNoData && (
+        <View className="flex-row items-center justify-between mb-2">
+          <Text className="text-sm font-semibold text-primary">Financial health</Text>
+          <Pressable onPress={() => setDetailOpen(true)}>
+            <Text className="text-xs font-semibold" style={{ color: theme.primary }}>
+              See all
+            </Text>
+          </Pressable>
+        </View>
+      )}
 
-      <View className="bg-surface border border-theme rounded-2xl p-4">
-        <View className="flex-row items-center gap-4">
-          <View className="w-[68px] h-[68px] items-center justify-center flex-shrink-0">
-            <Svg viewBox={`0 0 ${RING_CX * 2} ${RING_CY * 2}`} width={68} height={68} style={{ position: 'absolute' }}>
-              {segments.map((seg) => (
-                <Circle
-                  key={seg.key}
-                  cx={RING_CX}
-                  cy={RING_CY}
-                  r={RING_R}
-                  fill="none"
-                  stroke={seg.color}
-                  strokeWidth={8}
-                  strokeDasharray={seg.dasharray}
-                  rotation={seg.rotation}
-                  origin={`${RING_CX}, ${RING_CY}`}
-                />
-              ))}
-            </Svg>
-            <View className="w-[52px] h-[52px] rounded-full bg-surface items-center justify-center">
-              <Text className="text-[22px] font-extrabold leading-none text-primary">{score.total}</Text>
+      {hasNoData ? (
+        <View className="bg-surface border border-theme rounded-2xl p-4">
+          <View className="flex-row items-center gap-4">
+            <View className="w-[60px] h-[60px] items-center justify-center flex-shrink-0">
+              <Svg
+                viewBox={`0 0 ${RING_CX * 2} ${RING_CY * 2}`}
+                width={60}
+                height={60}
+                style={{ position: 'absolute' }}
+              >
+                <Circle cx={RING_CX} cy={RING_CY} r={RING_R} fill="none" stroke={theme.border} strokeWidth={7} />
+              </Svg>
+              <View className="w-[46px] h-[46px] rounded-full bg-surface items-center justify-center">
+                <Text className="text-[10px] font-bold text-tertiary text-center">0–100</Text>
+              </View>
+            </View>
+            <View className="flex-1 min-w-0">
+              <Text className="text-sm font-bold text-primary">Financial Health Score</Text>
+              <Text className="text-xs text-secondary leading-relaxed mt-0.5">
+                A 0–100 score across savings, debt, insurance, goals & more. Add some data to see where you stand.
+              </Text>
             </View>
           </View>
-          <View className="flex-1 min-w-0">
-            <Text className="text-sm font-bold" style={{ color: score.color }}>
-              {score.gradeLabel}
+          <Pressable
+            onPress={() => setDetailOpen(true)}
+            className="rounded-full px-3.5 py-2 mt-3 self-start"
+            style={{ backgroundColor: theme.primary }}
+          >
+            <Text className="text-[11.5px] font-bold" style={{ color: '#fff' }}>
+              Get started
             </Text>
-            <Text className="text-xs text-secondary leading-relaxed mt-0.5">
-              {score.total >= 90
-                ? "You're in great shape — keep it up."
-                : 'A few quick wins would lift your score toward excellent.'}
-            </Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View className="bg-surface border border-theme rounded-2xl p-4">
+          <View className="flex-row items-center gap-4">
+            <View className="w-[68px] h-[68px] items-center justify-center flex-shrink-0">
+              <Svg
+                viewBox={`0 0 ${RING_CX * 2} ${RING_CY * 2}`}
+                width={68}
+                height={68}
+                style={{ position: 'absolute' }}
+              >
+                {segments.map((seg) => (
+                  <Circle
+                    key={seg.key}
+                    cx={RING_CX}
+                    cy={RING_CY}
+                    r={RING_R}
+                    fill="none"
+                    stroke={seg.color}
+                    strokeWidth={8}
+                    strokeDasharray={seg.dasharray}
+                    rotation={seg.rotation}
+                    origin={`${RING_CX}, ${RING_CY}`}
+                  />
+                ))}
+              </Svg>
+              <View className="w-[52px] h-[52px] rounded-full bg-surface items-center justify-center">
+                <Text className="text-[22px] font-extrabold leading-none text-primary">{score.total}</Text>
+              </View>
+            </View>
+            <View className="flex-1 min-w-0">
+              <Text className="text-sm font-bold" style={{ color: score.color }}>
+                {score.gradeLabel}
+              </Text>
+              <Text className="text-xs text-secondary leading-relaxed mt-0.5">
+                {score.total >= 90
+                  ? "You're in great shape — keep it up."
+                  : 'A few quick wins would lift your score toward excellent.'}
+              </Text>
+            </View>
+          </View>
+
+          <View className="mt-2">
+            {quickWins.map((c, i) => (
+              <QuickWin
+                key={c.key}
+                c={c}
+                first={i === 0}
+                action={guidanceForComponent(c, ctx)}
+                busy={busy}
+                onOpen={() => setDetailOpen(true)}
+                onAction={runAction}
+              />
+            ))}
           </View>
         </View>
-
-        <View className="mt-2">
-          {quickWins.map((c, i) => (
-            <QuickWin
-              key={c.key}
-              c={c}
-              first={i === 0}
-              action={guidanceForComponent(c, ctx)}
-              busy={busy}
-              onOpen={() => setDetailOpen(true)}
-              onAction={runAction}
-            />
-          ))}
-        </View>
-      </View>
+      )}
 
       {detailOpen && (
         <HealthDetailModal

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Pressable, Text } from 'react-native';
-import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import type { PossibleTransferSuggestion } from '@/core/bank-import/matcher';
+import { formatCurrency, formatDate } from '@/lib/formatters';
 import { suggestForMerchant } from '@/core/bank-import/merchantMemory';
 import { Icon } from '~/components/Icon';
 import { Button } from '~/components/ui';
@@ -8,6 +9,51 @@ import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';
 import type { UseBankImportReturn } from './useBankImport';
 import { BulkCategorizeModal } from './BulkCategorizeModal';
+
+/**
+ * Single-row cross-account transfer link chip (found + fixed 2026-08-09, corrected same day — the first
+ * pass of this fix landed only in `PossibleBucket.tsx`, which a genuinely unmatched row with ZERO
+ * same-account candidates never reaches at all; every `unmatchedRows` occurrence, including a merchant
+ * group of size 1, only ever flows through THIS bucket → `BulkCategorizeModal`, which is the actual path
+ * the real HDFC/ICICI repro takes). Only rendered for a size-1 merchant group with exactly one confident
+ * cross-account candidate (`suggestPossibleTransferFor`) — a genuine multi-row group, or an ambiguous
+ * multi-candidate tie, still falls through to the ordinary "Categorize N selected" → `BulkCategorizeModal`
+ * flow unchanged (a documented, narrower residual gap, not this fix's scope). Same visual language as
+ * `MatchedBucket.tsx`'s retroactive-cash-transfer chip / `PossibleBucket.tsx`'s own copy of it.
+ */
+function CrossAccountLinkChip({
+  candidate,
+  masked,
+  onLink,
+  onDismiss
+}: {
+  candidate: PossibleTransferSuggestion;
+  masked: boolean;
+  onLink: () => void;
+  onDismiss: () => void;
+}) {
+  const theme = useThemeColors();
+  return (
+    <View
+      className="mx-3 mb-2 rounded-lg border px-2.5 py-2 gap-1.5"
+      style={{ borderColor: theme.warning, backgroundColor: tint(theme.warning, 6) }}
+    >
+      <Text className="text-[10.5px]" style={{ color: theme.warning }}>
+        🔁 Might be the transfer you recorded on {candidate.account.name} ({formatDate(candidate.expense.date)},{' '}
+        {masked ? '••••' : formatCurrency(candidate.expense.amount)}) — recorded there as "
+        {candidate.expense.description}".
+      </Text>
+      <View className="flex-row gap-2">
+        <Button size="sm" variant="secondary" onPress={onLink}>
+          Link these
+        </Button>
+        <Button size="sm" variant="ghost" onPress={onDismiss}>
+          Not the same, add separately
+        </Button>
+      </View>
+    </View>
+  );
+}
 
 interface UnmatchedBucketProps {
   bi: UseBankImportReturn;
@@ -34,6 +80,10 @@ export function UnmatchedBucket({ bi, masked }: UnmatchedBucketProps) {
     () => new Set(bi.merchantGroups.map((g) => g.normalizedKey))
   );
   const [categorizing, setCategorizing] = useState<string | null>(null);
+  // An explicit "Not the same, add separately" on the cross-account link chip below, per row index — a
+  // confident candidate is re-derived fresh on every render (`bi.suggestPossibleTransferFor`), so without
+  // this the same declined suggestion would just reappear (found + fixed 2026-08-09).
+  const [dismissedCrossAccountLinks, setDismissedCrossAccountLinks] = useState<Set<number>>(new Set());
 
   if (bi.unmatchedRows.length === 0) return null;
 
@@ -79,6 +129,15 @@ export function UnmatchedBucket({ bi, masked }: UnmatchedBucketProps) {
             const unchecked = uncheckedByGroup.get(g.normalizedKey) ?? new Set<number>();
             const checkedCount = g.rows.filter((r) => !unchecked.has(r.rowIndex)).length;
             const groupCollapsed = collapsedGroups.has(g.normalizedKey);
+            // Cross-account transfer link (found + fixed 2026-08-09 — see `CrossAccountLinkChip`'s own
+            // doc comment for why this lives here and not just in `PossibleBucket.tsx`). Only offered for
+            // a size-1 group — a genuine multi-row merchant group has no single 1:1 candidate to absorb,
+            // and still falls through to the ordinary bulk flow below unchanged.
+            const soloRow = g.rows.length === 1 ? g.rows[0] : undefined;
+            const crossAccountCandidate =
+              soloRow && !dismissedCrossAccountLinks.has(soloRow.rowIndex)
+                ? bi.suggestPossibleTransferFor(soloRow)
+                : null;
             return (
               <View key={g.normalizedKey} className="rounded-xl border border-theme overflow-hidden">
                 <Pressable
@@ -128,7 +187,7 @@ export function UnmatchedBucket({ bi, masked }: UnmatchedBucketProps) {
                               {row.rawNarration}
                             </Text>
                             <Text className="text-[10px] text-tertiary" numberOfLines={1}>
-                              {formatDateShort(row.date)}
+                              {formatDate(row.date)}
                               {!isChecked && <Text style={{ color: theme.warning }}> · unchecked</Text>}
                             </Text>
                           </View>
@@ -139,17 +198,31 @@ export function UnmatchedBucket({ bi, masked }: UnmatchedBucketProps) {
                         </Pressable>
                       );
                     })}
-                    <View className="px-3 py-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        icon="ti-category"
-                        disabled={checkedCount === 0}
-                        onPress={() => setCategorizing(g.normalizedKey)}
-                      >
-                        {`Categorize ${checkedCount} selected ›`}
-                      </Button>
-                    </View>
+                  </View>
+                )}
+                {/* Always visible, independent of the row-list's expand/collapse state (2026-08-09) —
+                 *  a correctly-grouped merchant batch should be categorizable straight off the
+                 *  collapsed card; expanding is only needed to inspect/adjust individual rows. A confident
+                 *  cross-account candidate gates this — resolve that first, same pattern as every other
+                 *  suggestion chip in this feature (found + fixed 2026-08-09). */}
+                {crossAccountCandidate && soloRow ? (
+                  <CrossAccountLinkChip
+                    candidate={crossAccountCandidate}
+                    masked={masked}
+                    onLink={() => bi.linkAsCrossAccountTransfer(soloRow, crossAccountCandidate.expense)}
+                    onDismiss={() => setDismissedCrossAccountLinks((prev) => new Set(prev).add(soloRow.rowIndex))}
+                  />
+                ) : (
+                  <View className="bg-surface px-3 py-2 border-t border-theme">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon="ti-category"
+                      disabled={checkedCount === 0}
+                      onPress={() => setCategorizing(g.normalizedKey)}
+                    >
+                      {`Categorize ${checkedCount} selected ›`}
+                    </Button>
                   </View>
                 )}
               </View>
@@ -168,9 +241,14 @@ export function UnmatchedBucket({ bi, masked }: UnmatchedBucketProps) {
               checkedRows={checkedRows}
               totalInGroup={group.rows.length}
               categories={bi.categories}
+              txnCountByCategory={bi.txnCountByCategory}
               hashtags={bi.hashtags}
               iouPersons={bi.iouPersons}
               suggestion={suggestion}
+              suggestCashTransferForRow={bi.suggestCashTransferFor}
+              suggestPossibleTransferForRow={bi.suggestPossibleTransferFor}
+              accounts={bi.accounts.filter((a) => a.id !== bi.account?.id)}
+              cashAccounts={bi.cashAccounts}
               onApply={(fields) => {
                 bi.resolveMerchantGroup(checkedRows, fields);
                 setCategorizing(null);

@@ -51,6 +51,20 @@ The expense tracking module — the heart of Penny's day-to-day usage. You log e
   NativeWind/interop setup, so the same three-equal-`flex: 1`-column technique used there is reused here.
   The vacation pill simply doesn't render on a day with no active event — no placeholder gap, no layout
   shift.
+- **`apps/mobile`, 2026-08-11:** `ExpensesHeader.tsx` gained a full-width, tappable **account
+  verification banner** below the header row (`docs/mockups/proposals/expenses-account-verification-
+  badge-v2.html`) — Expenses is where users spend the most day-to-day time, so an unverified bank
+  account (checkpoint mismatch, anchor disagreement, or standing gap — the same
+  `computeAccountVerificationStatus()` signal Home/Accounts already surface) needed a visible presence
+  here too, not just those two screens. Renders nothing at all when every account is verified (or not
+  `CHECKPOINT_ELIGIBLE`) — pixel-identical to before this existed. Names the specific account directly
+  when exactly one needs attention; stays generic ("N accounts need attention") for 2+, since the
+  Accounts screen it links to (`navigate('Home', { screen: 'Accounts' })`, the same cross-tab pattern
+  the header's own Safe-to-spend pill already uses for CashFlow) shows which ones. `useExpenses.ts`
+  also gained a `useBankImportsRefresh` subscription it was missing (found alongside this — the same
+  staleness class of bug `useHome.ts` hit and fixed 2026-08-10: a commit while Expenses sits mounted
+  underneath the import flow would otherwise leave this banner reading a stale, empty snapshot of
+  import records).
 - The **Tags panel** shows a horizontally-scrollable **Frequent** row (your top-8 tags by usage) and any active-event tags immediately when opened — no typing required — plus a **Manage tags** link straight to the full list. Typing a genuinely new tag surfaces an inline, editable **Set aside** toggle; picking an existing tag instead shows its current Set Aside status read-only (changing an already-established tag's classification only happens in Manage Tags, since it retroactively affects every past transaction carrying it).
 - Transactions render as a **day-grouped timeline** — a continuous left rail, newest first; same-day items order by the **time they were entered** (`Expense.date` now carries the time-of-day). **`apps/mobile`, 2026-08-02:** the account name moved from the subtitle line (which crammed category, account, and tags onto one row) to a small second line under the amount, right-aligned — the subtitle is now just category + tags.
 - **`apps/mobile`, 2026-08-02:** the rail's plain colour dot is now the transaction's own category/type
@@ -64,6 +78,19 @@ The expense tracking module — the heart of Penny's day-to-day usage. You log e
   spend is tracked separately) is now dismissible — persisted per-event (`AsyncStorage`, not just
   per-session), so closing it once means it stays gone for the rest of that trip specifically, not just
   until the app restarts. The "Vacation On · {name}" status pill above it stays always-visible.
+- **`apps/mobile`, 2026-08-06:** `CategoryPickerModal` now renders both the fixed intent groups and any
+  user-created parent groups **fully alphabetically by label** (no group, including "Other", is pinned
+  last — there was no functional reason for it to sit apart, just `INTENT_GROUP_META` declaration-order
+  history), and sorts the categories within each group alphabetically by name too. The "Frequent"
+  quick-pick row is unaffected (still sorted by `txnCountByCategory` descending).
+- **`apps/mobile`, 2026-08-06:** `CategoryPickerModal` gained a `disabledCategoryIds` prop — tiles whose
+  id is in the set render dimmed (opacity 0.35, matching `AccountChips`' existing disabled-tile
+  convention) and non-pressable, without hiding them. Both "move transactions to a different category"
+  destination pickers, which previously used a plain `SelectInput` dropdown, now reuse the same
+  grouped/sorted tile-grid UI (via a shared internal `CategoryTileGrid`) with the source categor(y/ies)
+  being emptied out disabled instead of filtered out of the list: `CategoryPickerModal`'s own bulk-move
+  sub-picker (manage mode → multi-select → "Move all to…"), and `CategoryEditorModal`'s single-category
+  "Move to…" picker (opens `CategoryPickerModal` itself as a nested select-only modal).
 - Description is the first field in the Add form; as you type, Penny shows ranked type-ahead suggestions of remembered merchants beneath it (substring match). Each suggestion fills the merchant, category, account, and payment mode on tap — nothing changes until you tap. A merchant you've logged under more than one category surfaces as a separate suggestion per category, ranked by how often you use each.
 - View annual analytics: an income line over monthly expense bars, last-year ghost bars for context, a 3-month forward projection (faded), a savings-rate headline, biggest category movers vs your trailing average, and a per-month breakdown
 - **`apps/mobile`, 2026-08-02: Annual view now mirrors Monthly** — the Daily Living ring + top groups,
@@ -137,6 +164,8 @@ The category system has three levels: intentGroup (parent group), ExpenseCategor
 
 **Three new default categories (2026-08-03)**, back-filled via the additive `penny_cats_v8` seed: **Food & Drinks** (`cat-food-drinks`, Daily Living — alongside the existing Groceries/Dining & Café, kept deliberately distinct despite the overlap), **Lending** (`cat-lending`, Family & Giving, expense), and **Borrowed Money** (`cat-inc-borrowed`, Income). The latter two exist for `ExpenseForm`'s Lent/Borrowed panel and bank-import's bulk equivalent, but are **free choice, not auto-assigned/locked** — a shared-bill split with a friend is often deliberately kept under its real category (e.g. Dining) for future reference, so forcing a generic category would lose that context; the existing Lending & IOU exclusion from daily-routine analytics (above) already works off the transaction's IOU link, not its category, so this doesn't weaken that separation. `cat-food-drinks` is `gst-5` and `cat-lending` is `exempt` (and excluded from the spend base entirely, alongside `cat-sip`/`cat-savings`) in `categoryTaxMap.ts`.
 
+**Cash Income (2026-08-05)**, back-filled via the additive `penny_cats_v9` seed: **Cash Income** (`cat-inc-cash`, Income, `ti-cash`) — for informal/off-books cash earnings (tips, cash gigs, cash sales) that don't fit Salary, Freelance & Business, or the other named income categories. Distinct from the existing **Cash** payment mode (`paymentModes.ts`) — a transaction can be categorized "Cash Income" and paid via any payment mode, same as any other category/payment-mode pairing; the two aren't coupled.
+
 **Family spend that shouldn't count as your own daily living (2026-07).** Two independent, non-exclusive paths land in the same "set aside" bucket, deliberately without a dedicated boolean field on the expense itself (a flag scoped to "family" doesn't generalise to a friend, colleague, or anyone else you support — see the design discussion for the fuller reasoning):
 - **Set Aside tags** — any `hashtags` record can be marked `setAside` (once, per tag, in **Manage Tags** — Settings → Manage tags, or inline in the Add form's Tags panel the moment a brand-new tag is created). Every transaction carrying that tag is excluded from the daily-living split regardless of category, budgets are unaffected (a tagged grocery run still counts against your Groceries budget — tags only change the routine/set-aside split, not the money). `hideInSafeMode` is a second, independent field on the same record (Settings → Safe Mode → Tags) — a tag can be set aside without being hidden, or hidden without being set aside.
 - **Sharing to a Family-type group** — any expense shared into a Family-type group (as opposed to Trip/Roommates) is excluded the same way, whether or not it ends up actually split. Family-type groups default the participant picker to just the person sharing it (no split) when enabled, since Indian family spend is usually one-directional; Trip/Roommates keep the existing "split evenly" default.
@@ -174,6 +203,102 @@ Account balances are derived, not stored — every balance is calculated from th
 
 **Import (rewritten 2026-07-28; review screen merged 2026-07-28).** One generic column-matching engine (`importMatcher.ts`) — Penny/YNAB/Cashew/MoneyView are presets (priority-ordered synonym lists) over it, not bespoke per-format parsers; Custom uses the same engine with no format bias, so its starting guess is never blank. Column resolution is two-pass (exact header match across all columns, then substring) so a more specific column (e.g. MoneyView's "Account Id") wins over a more generic one (e.g. "Bank Name") regardless of column order — found via real MoneyView export data, which has both, and whose actual shape (split `Credit`/`Debit` columns, no single "amount" column; a `Merchant/Receiver/Sender` description header) the original per-format parser didn't handle at all. Category/account resolution (`importCategoryResolution.ts` / `importAccountResolution.ts`) suggests once per **distinct source value**; a source category that looks like inter-account bookkeeping (e.g. Cashew's "Balance Correction", MoneyView's "A/c to A/c") is offered as a proper `type: 'transfer'` resolution against `DEFAULT_TRANSFER_CATEGORIES`, not forced into a spending category. A third, distinct case (found 2026-07-29): MoneyView's "Cash Forward" and similar carry-forward markers (`isLikelyCarryForward()`) look similar but aren't transfers at all — there's no second account to pair with, and writing one as an unpaired `type: 'transfer'` row would incorrectly *decrease* the account's calculated balance (`balanceCalculator.ts`'s `delta()` treats any unpaired transfer as a debit against its own account, regardless of the source row's real direction — carry-forward rows are always an inflow). `importCarryForward.ts`'s `identifyRedundantCarryForwardRows()` groups these rows **per account** (never globally) and keeps only the chronologically-earliest one — Penny computes balance continuously (`openingBalance` + every transaction's delta) so it never needs more than that one marker; every later occurrence for the same account is redundant and excluded from the write, surfaced in the review screen's dedicated `CarryForwardExcluded.tsx` card rather than silently dropped. The earliest occurrence itself isn't special-cased further — it just flows through the normal category-tile resolution as a plain (never pre-suggested-as-transfer) category, same as any other unrecognised source name. `importTransferPairing.ts`'s `detectTransferPairs()` conservatively pairs two rows into one displayed "linked transfer" only when confident (same amount within a paisa, opposite expense/income direction, two different accounts, dates within **3 days** of each other — widened from 1 day to tolerate real-world data-entry lag, confirmed against a real MoneyView export with a 2-day gap — at least one side transfer-like or both sharing an identical title+note) — never on category match alone, since a wrong pairing would misrepresent the user's data. Every detected pair is shown in the "Linked transfers" list, even one whose leg is a duplicate/skipped row (marked "Already imported" rather than silently hidden, so a re-uploaded file's already-imported transfers are still visible, just excluded from the count). Unparseable rows are surfaced with a reason (never silently dropped) and editable inline. The former separate Resolve and Preview steps are now one **review** step (`ReviewStep.tsx` + `src/features/import/review/`): the live preview (`buildResolvedPreviewRows` output, ready/attention/duplicate counts, per-account/per-category breakdowns) is computed reactively via `useMemo` off the in-progress resolutions — nothing is written to the vault until the single final "Import" action, which is when `useImport`'s `commitAndImport()` creates any new categories/accounts (deduping two source account names that share an identical merge-suggested name+type into one real account, and — app-wide rule — never creating a second account sharing an existing account's exact name; see `core/accounts/accountValidation.ts`'s `findDuplicateAccountName()`) and calls `importWriter.ts`. Each CONFIRMED transfer pair (both legs ready) is collapsed via `importPipeline.ts`'s `applyConfirmedTransferPairs()` into ONE `ResolvedPreviewRow` — `type: 'transfer'`, `accountId` = the outgoing account, `toAccountId` = the incoming account — matching Penny's native transfer model (a single `Expense` record, not two independent expense/income rows that used to double-debit both accounts instead of debiting one and crediting the other). `importWriter.ts` writes each row independently (one failure never blocks the rest, and is retryable) and persists `toAccountId` when present; it also logs an activity-log entry whose snapshot is the created expense ids — the whole batch can be undone via `undoImportBatch()`, the mirror-image of the existing delete-undo mechanism (which re-inserts a snapshot; import-undo deletes one instead). **`apps/mobile` now mirrors this flow in full** (ported 2026-07-29, see Mobile section below) — same reactive review screen, Custom format, and retry/undo-capable Done step. Export produces a ZIP (using zip.js) with AES-256 encryption; the password is chosen by the user at export time.
 
+**Two real bugs found and fixed 2026-08-06, both specific to RN Web (`apps/mobile` run via `pnpm web`)
+— a blank screen immediately on selecting a file to import:**
+1. `~/components/ui/SearchInput.tsx` had `{value && (<Pressable>...)}`, where `value` is a plain
+   `string` prop — an empty string isn't `false`, so React renders it as a literal (empty) text node.
+   Native RN silently tolerates a stray text-node child of a `View`; react-native-web's stricter DOM
+   rendering throws "Unexpected text node" warnings for it. Fixed to `{value.length > 0 && (...)}`.
+   Several other components have the identical risky pattern (`Banner`, `Badge`, `EmptyState`,
+   `FormField`, `OptionButton`, `TextInput`'s prefix/suffix, `Button`'s icon, `SegmentedControl`,
+   bank-import's `Pill`) — none of them are actually reachable from the CSV-import screen today (none
+   currently get passed an empty string), so they're latent, not live, but worth hardening the same way
+   the next time one of them is touched.
+2. `ImportPage.tsx`'s `stepBack` callback depended on the *entire* `useImport()` return object (`imp`)
+   instead of just the stable `setStep` setter it actually calls — `useImport()` returns a fresh object
+   literal every render (never memoized), so `stepBack` got a new identity on every render, which fed
+   into `useRegisterHeaderScreen`'s own `useFocusEffect` (whose deps include this screen's
+   `backHandler`), re-firing `setScreen(...)` on the shared header context every render → re-render →
+   new `imp` → new `stepBack` → forever. This is the actual "Maximum update depth exceeded" crash —
+   reproducible on any CSV import regardless of file size, since it has nothing to do with data volume.
+   Fixed by destructuring `setStep` out of `imp` first and depending on that directly — the exact same
+   bug, already found and fixed once before in the parallel `BankImportPage.tsx` (see
+   `docs/features/bank-import.md`), which this port didn't inherit the fix for.
+
+**Three more real bugs found and fixed 2026-08-06, in this generic CSV/Cashew/YNAB/MoneyView import
+flow specifically (distinct from Bank Statement Import — see `docs/features/bank-import.md`):**
+1. The Done step's "Go to Expenses" button called `navigation.navigate('Expenses')`, but `ImportPage`
+   is pushed as the `'Import'` route inside `ExpensesStack` (which has no route named `'Expenses'`,
+   only `'ExpensesMain'`/`'Import'` — `'Expenses'` only exists as the parent `Tab.Navigator`'s screen
+   name in `MainTabs.tsx`). Since that tab was already focused, the call bubbled up and no-op'd
+   silently — the button appeared broken on both the normal "just imported" Done screen and the
+   "import undone" Done screen (same `onDone` prop). Fixed to `navigation.goBack()`, the same
+   already-proven-correct pattern `BankImportPage.tsx` uses for its own Done step.
+2. `useImport.ts` had no equivalent of `useBankImport.ts`'s `txnCountByCategory` memo, so
+   `CategoryTile`'s "Map Existing" → `CategoryPickerModal` never got a `txnCountByCategory` prop and
+   silently lost its "Frequent" quick-pick row for this import flow. Fixed by computing the same
+   per-category count map off the already-fetched expenses list (see bug 3 below) and threading it
+   through `ImportPage` → `ReviewStep` → `PreviewSection` → `CategoryTile` → `CategoryPickerModal`.
+3. `useImport.ts`'s one-shot reference-data effect (`expenseCategoriesRepo.getAll()` /
+   `expensesRepo.getAll()` / `accountsRepo.getAll()`, empty deps, silently-swallowed `catch`) could
+   permanently leave `categories`/`accounts` empty for the entire Import session: category/account
+   repos decrypt via `keystore.getMasterKey()`, which throws synchronously if the encryption session
+   isn't unlocked yet — a real, transient race (e.g. a privacy/PIN re-lock timer firing right as the
+   user navigates into Import). Since the effect never retried, hitting that race once meant every
+   subsequent "Map Existing" category picker opened completely empty with no indication why —
+   matching the confirmed repro ("during import of bank statement or other app data when mapping
+   transactions to an existing category"). Fixed with a 3-attempt retry with backoff (300ms/800ms/
+   1500ms) before giving up; if all retries are exhausted, `categoriesLoadError` is exposed from the
+   hook and `ReviewStep.tsx` shows an inline "Couldn't load categories — tap to retry" affordance
+   (`onRetryLoadCategories`, wired back to the same `loadReferenceData` function).
+
+**Rejected-row editor now shows the full original row, 2026-08-06.** `UnparsedRows.tsx`'s
+`RejectedRowEditor` previously only prefilled Date/Amount/Description from `RejectedRow.raw` (the full
+original CSV columns for that row, already carried on the type but never rendered beyond those 3
+fields) — a row rejected for e.g. "Missing description" showed only "Row 12 · Missing description" with
+no way to see what the source file actually contained short of opening the CSV outside the app. Fixed
+by rendering every `row.raw[i]` value labeled with its original header column name (`header[i]`,
+threaded down from `useImport.ts`'s existing `header` state via `ImportPage` → `ReviewStep` →
+`PreviewSection` → `UnparsedRows`, falling back to "Column N" for any index without a header label).
+
+**Bulk row-select within a category tile, 2026-08-06 — ported (in scoped-down form) from Bank
+Statement Import's bulk-select.** Bank-import's own bulk-select lets the user check an arbitrary subset
+of rows and bulk-apply a decision to just those (`docs/features/bank-import.md`'s "Not yet logged"
+bucket). This generic CSV import flow's resolution model is structurally different — `CategoryResolution`/
+`toConfirmedCategoryMap`/`buildResolvedPreviewRows` are all keyed only by **source category name**, never
+by individual row, so one resolution decision has always applied to every row sharing that name by
+construction. Full parity (arbitrary rows spanning multiple source-category groups) would need a bigger
+pipeline change than this feature is worth; what got built instead, per explicit user decision, is scoped
+to **within one already-expanded `CategoryTile`**: check a subset of that tile's own rows (not none, not
+all — selecting everything is equivalent to the tile's own group-level decision, so no override kicks in
+below that threshold) to reveal:
+1. A **"Move N selected to…"** button, opening the same `CategoryPickerModal` "Map Existing" already
+   uses, moving just the checked rows to a different existing category — the rest of that source
+   category's rows keep whatever the tile's own group-level resolution says. Deliberately narrower than
+   bank-import's bulk actions: a row-level override can only ever move to an EXISTING category, never
+   create/skip/mark-as-transfer — those remain exclusively group-level decisions.
+2. The tile's existing **"Tag all transactions" field switches meaning** while a strict subset is
+   checked — it reads/writes only the SELECTED rows' own tag (placeholder changes to "Tag N selected"),
+   instead of the whole tile's group-level tag, so tagging a subset never touches the rest of the
+   group's tag. Selecting 0 or literally everything reverts it to the plain group-level field, unchanged.
+- **Core (`packages/core/src/core/import/importPipeline.ts`)**: a new `RowOverride` type
+  (`{ categoryId?, categoryName?, tag? }`) and a new optional 5th parameter on `buildResolvedPreviewRows`
+  — `rowOverrides?: Map<number, RowOverride>`, keyed by plain index into `parsedRows` (a stable identity
+  for one review session since that array is append-only, never reordered/spliced). When present for a
+  row, its `categoryId`/`categoryName` win over the group's resolution entirely (including un-skipping a
+  row whose group resolved to 'skip', and reverting `type: 'transfer'` back to the row's natural
+  expense/income type — a row-level move always means "resolve to a normal category"); its `tag`
+  replaces (not adds to) the group's own tag for that row only.
+- **`useImport.ts`**: new `rowOverrides` state, `moveRowsToCategory(rowIndices, categoryId, categoryName)`
+  and `tagRows(rowIndices, tag)` mutators, threaded into both the live `preview` memo and
+  `commitAndImport()`'s final write. `rowTriage` treats any overridden row as `'ready'` (an explicit
+  per-row decision, same as a touched group-level resolution).
+- **UI** (`CategoryTile.tsx`): a checkbox per row (only reachable once the tile is expanded), a
+  "Select all"/count header, and a "show all"/"show fewer" toggle for tiles with more than 8 rows (the
+  original hard 8-row cap stayed for the collapsed default view, but selection needs to reach every row,
+  not just the ones currently rendered). An overridden row shows "· moved to X" / "· #tag" inline so its
+  divergence from the rest of the group is visible without re-opening the picker.
+
 The feature is organised as **vertical slices** (mirroring portfolio): `ExpensesPage.tsx` is a thin
 shell that renders `ExpensesHeader` + a tab strip and dispatches to one self-contained slice per tab.
 Tabs are **Transactions (default) · Analytics · Subscriptions · IOU**; **Budgets** is no longer a tab —
@@ -184,7 +309,40 @@ former `/app/iou` page was removed; the Home Net Worth IOU line opens this tab).
 `TransactionsTab` — a day-grouped **timeline** on a single uniform
 background (`SwipeableRow` foreground uses `bg-surface-3`); same-day ordering is by full timestamp
 (`b.date - a.date || b.createdAt - a.createdAt`), with `lib/date.dateInputToEpoch` stamping the
-time-of-day on form save.
+time-of-day on form save. **Transfer rows show both accounts, 2026-08-06:** the small account-name line
+below the amount previously showed only the source account (`accountMap.get(txn.accountId)`) even
+though the destination (`Expense.toAccountId` — a transfer is one record, not two paired rows; no async
+lookup needed, `accountMap` already has both) was sitting right there unused. A transfer row now shows
+`{fromAccount} → {toAccount}` in that same slot, so confirming a transfer's destination no longer
+requires opening the row.
+
+**Payment-mode mismatch: correction UX + persistent surfacing (2026-08-06).** Follow-up to bank-import's
+mismatch flag (see `docs/features/bank-import.md`) after user feedback on the edit form's presentation:
+- `ExpenseForm`'s "Matched from bank statement" audit-trail note (docs/plans/bank-statement-import.md
+  §10a) was a cropped single-line icon+text row (`numberOfLines={1}`) that also didn't follow the app's
+  info/warning/success `Banner` convention at all. Now a proper `Banner` (`variant="info"`), full text
+  wrapping, no truncation.
+- Directly below it, a second `Banner` (`variant="warning"`) shows the SAME payment-mode mismatch
+  comparison bank-import already flags at import time — re-run live here via `inferPaymentMode()` +
+  `usePaymentModes()` against the form's current `paymentMode` state (not a frozen import-time
+  snapshot), so picking a different "Paid via" chip makes the warning disappear immediately. This is
+  also where the user actually corrects a mismatch — no new "fix" affordance was added anywhere else;
+  the picker was already right there.
+- **Persistent surfacing past the one-time import review or a single edit**: `useExpenses.ts`'s new
+  `paymentModeMismatchTxnIds` (a `Set<string>`, `useMemo`'d off the existing `bankImportLinkByTxn` audit
+  map + `inferPaymentMode` + each expense's current `paymentMode` — no schema change, nothing persisted,
+  same "derived, not stored" principle account balances already follow) now covers **every** past
+  import, not just the one currently being reviewed, and is automatically self-healing the moment a
+  mismatch is fixed. Two consumers:
+  1. `TransactionsTab.tsx` shows a small `ti-alert-triangle` icon next to a flagged row's title, same
+     conditional-icon pattern already used for the receipt/shared-group/goal-linked icons.
+  2. A new "Payment mode mismatch" toggle in `FilterModal.tsx`/`useTransactionFilters.ts` (a single
+     boolean, not a multi-select set like the other filters — there's only one thing to filter by) lets
+     the user isolate flagged transactions instead of having to scroll a long list looking for the icon;
+     the section only renders at all when at least one mismatch exists (same convention already used
+     for Event/Goal). No dismiss/acknowledge mechanism was added for an intentionally-different
+     recorded mode — deferred until it's actually shown to be a real annoyance in practice, per
+     explicit decision, rather than building it speculatively.
 
 **IOU ↔ transactions:** an expense/income can seed an IOU entry (`useExpenses.seedIouFromExpense` +
 `core/iou/expenseLink`), and the IOU screen can create the matching expense/income — linked both ways
@@ -202,7 +360,7 @@ Key files:
 - `src/core/expenses/categoryIcons.ts` — curated icon set + shared `CAT_COLORS`
 - `scripts/build-icon-index.mjs` — generates `public/tablerIconIndex.json` for icon search
 - `src/features/import/` — import wizard as step slices (`UploadStep`/`MapColumnsStep`/`ReviewStep`/`DoneStep`) + `useImport` hook
-- `src/features/import/review/` — the merged review screen's sub-components: `AccountsSection.tsx` (dense pill-row accounts list — same-file merge suggestion AND a separate "same account, written differently?" banner for a fuzzy match against a real existing account), `PreviewSection.tsx` (summary + unparsed rows + transfer pairs + category tiles), `CategoryTile.tsx` (per-source-category tile — its 4 action pills (Map Existing/New Category/Skip/Mark as Transfer) sit in a horizontally-scrollable single row rather than wrapping; "Map Existing" opens `expenses/categories/CategoryPickerModal.tsx` in select-only mode — Penny's real grouped-by-intent-group category picker — instead of a flat dropdown, so mapping an import source to an existing category shows the same hierarchy as everywhere else in the app; each tile also has an optional "Tag all transactions" field that applies one custom hashtag to every transaction under that source category, independent of which category it resolves to), `TransferPairCard.tsx` (dims + labels "Already imported" when its pair's `alreadyImported` flag is set), `UnparsedRows.tsx`, `CarryForwardExcluded.tsx` (distinctly-labeled card listing every redundant carry-forward marker excluded from the batch, per `importCarryForward.ts` — never silently dropped), `Pill.tsx` (compact pill action button, single-consumer so it lives here rather than `components/ui/`), `accountMergeSuggestion.ts` (same-file merge suggestion; its `normalize()` fuzzy-matching helper now lives in `importAccountResolution.ts` since it's shared core matching logic, not UI-only)
+- `src/features/import/review/` — the merged review screen's sub-components: `AccountsSection.tsx` (dense pill-row accounts list — same-file merge suggestion AND a separate "same account, written differently?" banner for a fuzzy match against a real existing account), `PreviewSection.tsx` (summary + unparsed rows + transfer pairs + category tiles), `CategoryTile.tsx` (per-source-category tile — its 4 action pills (Map Existing/New Category/Skip/Mark as Transfer) sit in a horizontally-scrollable single row rather than wrapping; "Map Existing" opens `expenses/categories/CategoryPickerModal.tsx` in select-only mode — Penny's real grouped-by-intent-group category picker — instead of a flat dropdown, so mapping an import source to an existing category shows the same hierarchy as everywhere else in the app; each tile also has an optional "Tag all transactions" field that applies one custom hashtag to every transaction under that source category, independent of which category it resolves to; a bulk row-select mode (2026-08-06, see the dated section above) lets a checked subset of the tile's own rows be moved to a different existing category and/or tagged independently of the rest of the group), `TransferPairCard.tsx` (dims + labels "Already imported" when its pair's `alreadyImported` flag is set), `UnparsedRows.tsx`, `CarryForwardExcluded.tsx` (distinctly-labeled card listing every redundant carry-forward marker excluded from the batch, per `importCarryForward.ts` — never silently dropped), `Pill.tsx` (compact pill action button, single-consumer so it lives here rather than `components/ui/`), `accountMergeSuggestion.ts` (same-file merge suggestion; its `normalize()` fuzzy-matching helper now lives in `importAccountResolution.ts` since it's shared core matching logic, not UI-only)
 - `src/core/import/importMatcher.ts` — the generic column-guessing engine (exact-then-substring header matching, split debit/credit + single-amount resolution, flexible date parsing) every format preset sits on top of
 - `src/core/import/importParsers.ts` — CSV tokenizer, the 5 format presets (Penny/YNAB/Cashew/MoneyView/Custom) over importMatcher, rejected-row tracking
 - `src/core/import/importCategoryResolution.ts` — per-distinct-source-category resolution (existing/transfer/create/skip), transfer-keyword + intent-group-keyword suggestion, `isLikelyCarryForward()` (carry-forward-keyword detection, kept separate from `isLikelyTransfer()`'s keyword list)
@@ -222,6 +380,27 @@ Key files:
 - **Two SVG charts** (`analytics/AnnualChart.tsx`'s bar+line chart, `analytics/AnalyticsTab.tsx`'s `IntentDonut`) — both ported as plain `react-native-svg`, no new charting library. The donut reuses the exact multi-arc "one stroked circle per segment" technique already proven in Health's `FinancialHealthCard` score ring.
 - **Receipt attachment** (web's `<input type="file">` + canvas-downscale flow) — built now with two new native deps, `expo-image-picker` (camera + library) and `expo-image-manipulator` (canvas-downscale equivalent); a new mobile-only `apps/mobile/src/lib/receiptImage.ts` (not a `.native.ts` sibling — the input type is fundamentally different, a picker URI vs. a browser `File`) wraps both into `captureReceiptPhoto()`/`pickReceiptPhoto()`, returning the same downscaled JPEG data-URL shape web stores.
 - **CSV/ZIP export** (`ExpenseExportModal.tsx`) — built now via a new `core/export/exportCsv.native.ts` sibling using `expo-file-system` + `expo-sharing` (same pattern as Home's Stories share flow), replacing web's Blob/object-URL/synthetic-`<a>` download.
+  - **A real, hard-to-diagnose bug found and fixed 2026-08-05:** the password-protected ZIP export
+    (`downloadProtectedZip`) reliably threw `TypeError: undefined is not a function` on native only
+    (worked fine on RN Web). Root cause, found via a real stack trace captured through `adb logcat`
+    (the on-device error overlay only ever showed the bare message with no origin, since RN's LogBox
+    doesn't render a caught `Error`'s own `.stack` unless it's logged as its own string): `TextReader`
+    (used to feed the CSV string into `@zip.js/zip.js`'s `ZipWriter`) extends zip.js's `BlobReader`,
+    whose `readUint8Array()` calls `blob.arrayBuffer()` on a `Blob` it builds internally — but RN's own
+    `Blob` class (`Libraries/Blob/Blob.js`) implements exactly `constructor`/`slice()`/`close()`, no
+    `.arrayBuffer()` at all. Fixed by using `Uint8ArrayReader` (a direct, Blob-free `Reader`) fed
+    pre-encoded bytes via `TextEncoder` instead of `TextReader` — the same underlying
+    RN-Blob-incompatibility class of bug as the Loan Planner's `downloadXlsx` fix the same day (see
+    `docs/features/loans.md`'s "Download XLSX" entry), just a different missing method in a different
+    library. Two other theories were seriously investigated and
+    ruled out via direct Node reproductions before finding the real cause (kept only as a cautionary
+    note, not current behavior): `react-native-quick-crypto`'s WebCrypto shim breaking zip.js's
+    AES-256/PBKDF2 path, and RN lacking the Streams API entirely — neither reproduced this error.
+    Separately, `@zip.js/zip.js` itself had to move from a lazy `await import(...)` to a static
+    top-level import (and an explicit `@zip.js/zip.js/index-native.js` subpath, not the bare specifier)
+    after its dynamic import reproducibly crashed Metro's async-require mechanism with `Requiring
+    unknown module "NNNN"` — confirmed not a stale-cache issue (reproduced across multiple from-scratch
+    rebuilds) and not fixed by disabling Metro's dev-only lazy-bundling (`EXPO_NO_METRO_LAZY=1`).
 - **`EventModeContext`** (vacation/trip mode) — ported as a real prerequisite (not dropped): unlike IOU/Home's single droppable Groups banner, event tagging is threaded through filtering, analytics, and the header banner, so it was ported in full (`apps/mobile/src/context/EventModeContext.tsx`, AsyncStorage-backed).
 - **Groups (Tier 2), initially dropped everywhere it appears** (`ShareToGroupModal` skipped, `shareGroups`/`onShareToGroup`/`onShareLater`/`familyGroupIds`/the Share swipe action removed — same personal-only-scope precedent as IOU/Home/Portfolio) **— restored once Groups was ported to mobile**: `apps/mobile/src/features/expenses/transactions/ShareToGroupModal.tsx` ports the web modal; `shareGroups`/`onShareToGroup`/`onShareLater`/`sharingExpense`/the Share swipe action are back in `ExpensesPage.tsx`/`TransactionsTab.tsx`/`TransactionsSlice.tsx`/`ExpenseForm.tsx` (the restored "Share with a group" toggle), `familyGroupIds` is back in `useExpenseAnalytics.ts`/`AnalyticsSlice.tsx`, and `EventsModal.tsx`'s inline `VacationGroupLink` sub-section is restored too. See [`docs/plans/mobile-migration.md`](../plans/mobile-migration.md)'s Groups progress-log entry.
 - `IconGridPicker.tsx`'s icon-search index (`tablerIconIndex.json`, fetched at runtime on web via `import.meta.env.BASE_URL`) is bundled directly as a static JSON import on mobile instead — no runtime fetch needed.

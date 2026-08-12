@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — EPF hike journey (CTC/Gross/Net per hike): UI proposal (v1)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --page: #e4eeff;
+        --surface: #ffffff;
+        --surface2: #eff6ff;
+        --text: #0f172a;
+        --text2: #475569;
+        --text3: #94a3b8;
+        --border: #c7d8f0;
+        --primary: #00a86b;
+        --info: #3b82f6;
+        --epf: #64748b;
+        --epf-tint: rgba(100, 116, 139, 0.12);
+        --info-tint: rgba(59, 130, 246, 0.12);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family:
+          'Inter',
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        background: #f3f6fc;
+        color: #0f172a;
+        -webkit-font-smoothing: antialiased;
+      }
+      h1 {
+        text-align: center;
+        margin: 32px 16px 6px;
+        font-size: 22px;
+      }
+      h1 small {
+        display: block;
+        font-size: 12.5px;
+        font-weight: 500;
+        color: #64748b;
+        margin-top: 6px;
+      }
+      .sub {
+        text-align: center;
+        margin: 0 16px 20px;
+        color: #475569;
+        font-size: 13.5px;
+        max-width: 820px;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.65;
+      }
+      .sectiontitle {
+        text-align: center;
+        font-size: 16px;
+        font-weight: 800;
+        margin: 48px 0 4px;
+      }
+      .sectionsub {
+        text-align: center;
+        color: #475569;
+        font-size: 12.5px;
+        max-width: 760px;
+        margin: 0 auto 22px;
+        line-height: 1.65;
+      }
+      .hgallery {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 22px;
+        overflow-x: auto;
+        padding: 8px 24px 22px;
+      }
+      .frame-wrap {
+        width: 280px;
+        flex-shrink: 0;
+      }
+      .vtitle {
+        font-size: 13px;
+        font-weight: 800;
+        margin: 0 2px 3px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .vtitle .tag {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        padding: 2px 7px;
+        border-radius: 999px;
+        background: #fde8cc;
+        color: #b1650a;
+      }
+      .vtitle .tag.rec {
+        background: #d3f3e3;
+        color: #067a4c;
+      }
+      .vsub {
+        font-size: 11px;
+        color: #64748b;
+        margin: 0 2px 12px;
+        line-height: 1.55;
+      }
+      .phone {
+        width: 280px;
+        background: var(--page);
+        border-radius: 30px;
+        border: 8px solid #0f172a;
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);
+      }
+      .statusbar {
+        height: 16px;
+      }
+      .header {
+        height: 38px;
+        display: flex;
+        align-items: center;
+        padding: 0 12px;
+        background: #fff;
+        border-bottom: 1px solid var(--border);
+      }
+      .htitle {
+        flex: 1;
+        text-align: center;
+        font-size: 12.5px;
+        font-weight: 700;
+      }
+      .back,
+      .hicon {
+        width: 24px;
+        height: 24px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        color: #475569;
+        font-size: 15px;
+      }
+      .scr {
+        flex: 1;
+        padding: 12px;
+        overflow-y: auto;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 13px 14px;
+      }
+      .row-label {
+        font-size: 9.5px;
+        font-weight: 700;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .emp-row {
+        border-radius: 12px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        margin-top: 6px;
+        overflow: hidden;
+      }
+      .emp-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 8px 10px;
+      }
+      .emp-head .name {
+        font-size: 11.5px;
+        font-weight: 700;
+      }
+      .emp-head .dates {
+        font-size: 9.5px;
+        color: #94a3b8;
+        margin-top: 2px;
+      }
+      .hikebtn {
+        display: flex;
+        align-items: center;
+        gap: 0.5px;
+        gap: 3px;
+        padding: 1px 5px;
+        border-radius: 5px;
+        background: #dbeafe;
+      }
+      .hikebtn span {
+        font-size: 8.5px;
+        font-weight: 700;
+        color: #2563a3;
+      }
+
+      /* current (today) — flat single-line rows */
+      .hike-row-old {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 5px 10px;
+      }
+      .hike-row-old .d {
+        font-size: 10px;
+        color: #94a3b8;
+      }
+      .hike-row-old .v {
+        font-size: 10px;
+        font-weight: 600;
+        color: #334155;
+      }
+
+      /* new — journey card per hike point */
+      .hikelist {
+        padding: 2px 8px 8px;
+        border-top: 1px solid var(--border);
+      }
+      .hikecard {
+        border-radius: 10px;
+        background: #fff;
+        border: 1px solid var(--border);
+        padding: 8px 9px;
+        margin-top: 6px;
+      }
+      .hikecard .top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .hikecard .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--primary);
+        margin-right: 6px;
+        flex-shrink: 0;
+      }
+      .hikecard .dlabel {
+        font-size: 9.5px;
+        font-weight: 700;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+      }
+      .hikecard .basic {
+        font-size: 11.5px;
+        font-weight: 800;
+        color: #0f172a;
+      }
+      .hikecard .basiclbl {
+        font-size: 7.5px;
+        color: #94a3b8;
+        text-align: right;
+        text-transform: uppercase;
+      }
+      .hikecard .grid3 {
+        display: flex;
+        gap: 6px;
+        margin-top: 7px;
+        padding-top: 7px;
+        border-top: 1px dashed var(--border);
+      }
+      .hikecard .cell {
+        flex: 1;
+        text-align: center;
+      }
+      .hikecard .cell .n {
+        font-size: 10px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .hikecard .cell .l {
+        font-size: 7px;
+        color: #94a3b8;
+        text-transform: uppercase;
+        font-weight: 700;
+        margin-top: 1px;
+      }
+      .hikecard.joined {
+        background: var(--epf-tint);
+        border-color: transparent;
+      }
+      .hikecard.joined .dot {
+        background: var(--epf);
+      }
+      .growth-pill {
+        font-size: 8px;
+        font-weight: 800;
+        padding: 1px 5px;
+        border-radius: 999px;
+        background: var(--info-tint);
+        color: var(--info);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>
+      EPF hike journey — CTC / Gross / Net per hike
+      <small
+        >Proposal v1 — extends the already-approved Est. CTC/Gross/Net-monthly tiles down into the existing per-employer
+        hike list</small
+      >
+    </h1>
+    <p class="sub">
+      Today the hike list only shows Basic per raise. This adds the same Gross/CTC/Net breakdown already shown at the
+      top of the ledger (docs/mockups/proposals/epf-employer-switch-v1.html) to EVERY point in the hike timeline, so you
+      can see how your full package grew, not just Basic — including a "Joined" starting point, and a growth-% pill vs.
+      the previous point.
+    </p>
+
+    <div class="sectiontitle">0 &nbsp;Current (today)</div>
+    <div class="sectionsub">Flat list — date + Basic only, no visibility into how Gross/CTC/Net actually moved.</div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Today <span class="tag">current</span></div>
+        <div class="vsub">Cognizant's hike list, expanded.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-arrow-left"></i></div>
+            <div class="htitle">EPF</div>
+            <div class="hicon"></div>
+          </div>
+          <div class="scr">
+            <div class="card">
+              <div class="row-label" style="margin-bottom: 6px">Employment</div>
+              <div class="emp-row">
+                <div class="emp-head">
+                  <div>
+                    <div class="name">
+                      Cognizant Technology <span class="hikebtn"><span>3 hikes</span></span>
+                    </div>
+                    <div class="dates">Apr 2013 – Aug 2017</div>
+                  </div>
+                </div>
+                <div class="hikelist">
+                  <div class="hike-row-old">
+                    <div class="d">Jul 2016</div>
+                    <div class="v">₹52,000</div>
+                  </div>
+                  <div class="hike-row-old">
+                    <div class="d">Jul 2015</div>
+                    <div class="v">₹45,000</div>
+                  </div>
+                  <div class="hike-row-old">
+                    <div class="d">Jul 2014</div>
+                    <div class="v">₹38,000</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle">1 &nbsp;Proposed — hike journey cards</div>
+    <div class="sectionsub">
+      Each point (including "Joined") becomes its own small card with Basic + the same Est. Gross/CTC/Net breakdown,
+      plus a growth-% pill vs. the point before it. Still tappable through to the existing formula popup for the
+      ratio/methodology.
+    </div>
+    <div class="hgallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Full journey, expanded <span class="tag rec">proposed</span></div>
+        <div class="vsub">Newest first (matches today's sort order), "Joined" always last/oldest.</div>
+        <div class="phone" style="height: 560px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-arrow-left"></i></div>
+            <div class="htitle">EPF</div>
+            <div class="hicon"></div>
+          </div>
+          <div class="scr">
+            <div class="card">
+              <div class="row-label" style="margin-bottom: 6px">Employment</div>
+              <div class="emp-row">
+                <div class="emp-head">
+                  <div>
+                    <div class="name">
+                      Cognizant Technology <span class="hikebtn"><span>3 hikes</span></span>
+                    </div>
+                    <div class="dates">Apr 2013 – Aug 2017</div>
+                  </div>
+                </div>
+                <div class="hikelist">
+                  <div class="hikecard">
+                    <div class="top">
+                      <div class="dlabel">
+                        <span class="dot"></span>Jul 2016
+                        <span class="growth-pill" style="margin-left: 5px">+15.6%</span>
+                      </div>
+                      <div style="text-align: right">
+                        <div class="basic">₹52,000</div>
+                        <div class="basiclbl">Basic</div>
+                      </div>
+                    </div>
+                    <div class="grid3">
+                      <div class="cell">
+                        <div class="n">₹1.04L</div>
+                        <div class="l">Gross/mo</div>
+                      </div>
+                      <div class="cell">
+                        <div class="n">₹14.4L</div>
+                        <div class="l">CTC/yr</div>
+                      </div>
+                      <div class="cell">
+                        <div class="n">₹97.8k</div>
+                        <div class="l">Net/mo</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="hikecard">
+                    <div class="top">
+                      <div class="dlabel">
+                        <span class="dot"></span>Jul 2015
+                        <span class="growth-pill" style="margin-left: 5px">+18.4%</span>
+                      </div>
+                      <div style="text-align: right">
+                        <div class="basic">₹45,000</div>
+                        <div class="basiclbl">Basic</div>
+                      </div>
+                    </div>
+                    <div class="grid3">
+                      <div class="cell">
+                        <div class="n">₹90k</div>
+                        <div class="l">Gross/mo</div>
+                      </div>
+                      <div class="cell">
+                        <div class="n">₹12.5L</div>
+                        <div class="l">CTC/yr</div>
+                      </div>
+                      <div class="cell">
+                        <div class="n">₹84.6k</div>
+                        <div class="l">Net/mo</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="hikecard">
+                    <div class="top">
+                      <div class="dlabel">
+                        <span class="dot"></span>Jul 2014
+                        <span class="growth-pill" style="margin-left: 5px">+18.75%</span>
+                      </div>
+                      <div style="text-align: right">
+                        <div class="basic">₹38,000</div>
+                        <div class="basiclbl">Basic</div>
+                      </div>
+                    </div>
+                    <div class="grid3">
+                      <div class="cell">
+                        <div class="n">₹76k</div>
+                        <div class="l">Gross/mo</div>
+                      </div>
+                      <div class="cell">
+                        <div class="n">₹10.6L</div>
+                        <div class="l">CTC/yr</div>
+                      </div>
+                      <div class="cell">
+                        <div class="n">₹71.4k</div>
+                        <div class="l">Net/mo</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="hikecard joined">
+                    <div class="top">
+                      <div class="dlabel"><span class="dot"></span>Joined · Apr 2013</div>
+                      <div style="text-align: right">
+                        <div class="basic">₹32,000</div>
+                        <div class="basiclbl">Basic</div>
+                      </div>
+                    </div>
+                    <div class="grid3">
+                      <div class="cell">
+                        <div class="n">₹64k</div>
+                        <div class="l">Gross/mo</div>
+                      </div>
+                      <div class="cell">
+                        <div class="n">₹8.9L</div>
+                        <div class="l">CTC/yr</div>
+                      </div>
+                      <div class="cell">
+                        <div class="n">₹60.2k</div>
+                        <div class="l">Net/mo</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

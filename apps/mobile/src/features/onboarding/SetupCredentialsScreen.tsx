@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, ScrollView, TextInput as RNTextInput, Pressable, ActivityIndicator, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { exitDemoMode, initialize, isWeakPin } from '@/core/crypto/securityManager';
+import { exitDemoMode, initialize, isWeakPin, wipeAllData } from '@/core/crypto/securityManager';
 import { EncryptedRepository } from '@/core/db/repository';
 import { db } from '@/core/db/schema';
 import { accountsRepo } from '@/core/db/repositories';
@@ -122,6 +122,14 @@ export function SetupCredentialsScreen() {
           return;
         }
       } else {
+        // `initialize()` only writes a new `db.security` row — it never touches expenses/accounts/
+        // holdings/etc. "Start Fresh" needs to actually mean fresh regardless of what's already sitting
+        // in the device's DB (an abandoned/never-exited Demo Mode session, a prior incomplete setup,
+        // anything) — found 2026-08-05: a "fresh" account could still surface old demo transactions on
+        // Expenses that were never cleared. `wipeAllData()` (`db.tables.map(t => t.clear())`) is the
+        // same comprehensive wipe already used defensively on a failed Reclaim, just needed here too,
+        // proactively, before creating the new vault.
+        await wipeAllData();
         await initialize(passphrase, pin);
       }
       await writeProfileAndAccounts();

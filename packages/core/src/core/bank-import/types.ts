@@ -13,13 +13,25 @@ export interface ColumnMapping {
   credit?: string;
   amount?: string;
   balance?: string;
+  /** A token format string — `DD`, `MM`, `YYYY`, `YY`, `MMM` (3+ letter month name), with any other
+   *  character taken as a literal separator (`/`, `-`, `.`, a space, or none at all for a
+   *  concatenated form like `DDMMMYYYY`). Compiled by `csvParser.ts`'s `parseStatementDate` —
+   *  replaces the narrower `NumericDateOrder` (`'day-first' | 'month-first'`) this session started
+   *  with, which only covered one numeric shape and couldn't express e.g. `DD-MM-YY` or a
+   *  no-separator `DDMMMYYYY` (found 2026-08-05, via direct user feedback after the first version
+   *  shipped). Defaults to `DEFAULT_DATE_FORMAT` ('DD/MM/YYYY') in `parseStatementDate` when omitted. */
+  dateFormat?: string;
 }
 
 export interface BankPreset {
   id: BankPresetId;
   label: string;
   delimiter: string;
-  /** Display hint only — date parsing itself (`parseStatementDate`) is format-tolerant. */
+  /** A token format string (`DD`, `MM`, `YYYY`, `YY`, `MMM`) — both the human-readable label shown
+   *  in the UI and the actual parsing directive `csvParser.ts` consumes directly (e.g. `'DD/MM/YY'`,
+   *  `'DD MMM YYYY'`). No longer just a display hint (2026-08-05) — every preset's format string was
+   *  already written in this exact token grammar, so once the parser could read it directly, the
+   *  separate `dateOrder` field this session briefly added became redundant and was removed. */
   dateFormat: string;
   mapping: ColumnMapping;
 }

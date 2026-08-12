@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Expenses header — account verification indicator</title>
+<style>
+  :root {
+    --primary: #00a86b; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #3b82f6;
+    --bg: #0b0f14; --surface: #161b22; --surface2: #1c2128; --border: #2d333b;
+    --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+  }
+  * { box-sizing: border-box; }
+  body { background: #05070a; color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 40px 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .intro { color: var(--text2); font-size: 13px; max-width: 760px; line-height: 1.6; margin-bottom: 28px; }
+  .gallery { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+  .frame-label { font-size: 12px; font-weight: 700; color: var(--text2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .frame-label.proposed { color: var(--primary); }
+  .phone { width: 375px; background: var(--bg); border-radius: 28px; border: 8px solid #000; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+  .header { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+  .row { display: flex; align-items: flex-start; justify-content: space-between; }
+  .col { flex: 1; }
+  .col.right { align-items: flex-end; display: flex; flex-direction: column; gap: 6px; }
+  .count { font-size: 10px; font-weight: 600; color: var(--text3); }
+  .total { font-size: 16px; font-weight: 800; margin-top: 2px; }
+  .icons { display: flex; gap: 4px; align-items: center; }
+  .icon-btn { width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; font-size: 13px; color: var(--text2); }
+  .dot { position: absolute; top: 1px; right: 1px; width: 6px; height: 6px; border-radius: 3px; background: var(--danger); }
+  .pill { display: flex; align-items: center; gap: 5px; border-radius: 999px; background: var(--surface2); border: 1px solid var(--border); padding: 5px 10px; font-size: 10.5px; color: var(--text2); }
+  .pill .amt { color: var(--text); }
+  .warn-pill { display: flex; align-items: center; gap: 5px; border-radius: 999px; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.35); padding: 5px 10px; font-size: 10.5px; color: var(--danger); font-weight: 700; }
+  .body-fill { padding: 40px 16px; text-align: center; color: var(--text3); font-size: 11px; }
+  .callout { border: 1px dashed var(--border); border-radius: 10px; padding: 12px 14px; font-size: 11px; color: var(--text2); line-height: 1.65; margin-top: 28px; max-width: 900px; }
+  .callout b { color: var(--text); }
+</style>
+</head>
+<body>
+
+<h1>Expenses header — account verification indicator</h1>
+<p class="intro">
+  Reuses the exact same signal Home's <code>AccountsStrip</code> already computes
+  (<code>computeAccountVerificationStatus()</code> per bank account) — nothing new to calculate, just a
+  new place to show it. Left frame is today's real header, unchanged. Right two frames are placement
+  options, both only appearing when at least one account actually needs attention (pixel-identical to
+  today otherwise).
+</p>
+
+<div class="gallery">
+
+  <div>
+    <div class="frame-label">Current — today, all clear</div>
+    <div class="phone">
+      <div class="header">
+        <div class="row">
+          <div class="col">
+            <div class="count">42 transactions</div>
+            <div class="total">₹28,450</div>
+          </div>
+          <div class="col right">
+            <div class="icons">
+              <div class="icon-btn">🚩</div>
+              <div class="icon-btn">⬇</div>
+              <div class="icon-btn">⬆</div>
+            </div>
+            <div class="pill">💳 Safe: <span class="amt">₹12,300</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="body-fill">— transaction list —</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="frame-label proposed">Option A — warning pill stacked above Safe</div>
+    <div class="phone">
+      <div class="header">
+        <div class="row">
+          <div class="col">
+            <div class="count">42 transactions</div>
+            <div class="total">₹28,450</div>
+          </div>
+          <div class="col right">
+            <div class="icons">
+              <div class="icon-btn">🚩</div>
+              <div class="icon-btn">⬇</div>
+              <div class="icon-btn">⬆</div>
+            </div>
+            <div class="warn-pill">⚠ 1 account</div>
+            <div class="pill">💳 Safe: <span class="amt">₹12,300</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="body-fill">— transaction list —</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="frame-label proposed">Option B — small dot on the Import icon</div>
+    <div class="phone">
+      <div class="header">
+        <div class="row">
+          <div class="col">
+            <div class="count">42 transactions</div>
+            <div class="total">₹28,450</div>
+          </div>
+          <div class="col right">
+            <div class="icons">
+              <div class="icon-btn">🚩</div>
+              <div class="icon-btn">⬇<div class="dot"></div></div>
+              <div class="icon-btn">⬆</div>
+            </div>
+            <div class="pill">💳 Safe: <span class="amt">₹12,300</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="body-fill">— transaction list —</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="callout">
+  <b>My recommendation: Option A.</b> Option B reuses the events-flag icon's own existing "small dot"
+  pattern, but attaching it to the <i>Import</i> icon implies "tap Import to fix this," which is only
+  sometimes true (the actual fix is often a relink/resolve action in the Ledger, not a fresh import) —
+  a misleading affordance. Option A is honest about what it's reporting (an account-level status, not
+  an action shortcut) and matches the "Safe: ₹X" pill's own visual weight/scale exactly, so it reads as
+  a sibling status chip rather than a decoration on an unrelated button. Tapping it navigates cross-tab
+  to Accounts (<code>navigate('Home', {'{'} screen: 'Accounts' {'}'})</code>, the same pattern
+  <code>ExpensesHeader.tsx</code> already uses for the Safe pill → CashFlow) — the existing Accounts
+  screen's own per-account badges and detail modal take it from there; this pill's only job is
+  "something needs attention, go look."
+  <br /><br />
+  <b>Text for 2+ accounts:</b> "⚠ 2 accounts" (plural), tapping still goes to the Accounts list rather
+  than picking one arbitrarily.
+</div>
+
+</body>
+</html>

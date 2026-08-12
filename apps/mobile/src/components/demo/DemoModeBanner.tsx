@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Pressable, Text } from 'react-native';
+import { Pressable, Text } from 'react-native';
 import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,10 +10,16 @@ import { useToast } from '~/context/ToastContext';
 import { wipeDemoData } from '@/core/db/seedDemoData';
 
 /**
- * Persistent strip shown for as long as the vault is a throwaway Demo Mode one (profile.demoSeeded).
- * RN port of web's `components/demo/DemoModeBanner.tsx` — same exit flow as `SettingsPage`'s Danger
- * zone entry (`wipeDemoData()` then hand off to the real account-start flow), just also reachable from
- * every screen instead of only Settings.
+ * Slim strip shown for as long as the vault is a throwaway Demo Mode one (profile.demoSeeded).
+ * Rendered by `MainTabs.tsx` directly below the persistent header row, inside that same
+ * safe-area-padded block (not as a separate sibling above it) — a single-line strip, not the
+ * original two-line version with a subtitle, since it now shares vertical space with a header
+ * row that already accounts for the notch/status-bar inset once. Two independent top-inset
+ * calculations (this banner's old flush-to-the-top layout + the header's own `insets.top`) is
+ * what produced a dead gap between them on real devices — see
+ * docs/mockups/proposals/demo-mode-banner-v1.html for the before/after. Hidden while on the
+ * Settings screen, which has its own relocated Exit Demo Mode entry point instead (right below
+ * the profile) — no need for two exits on screen at once.
  */
 export function DemoModeBanner() {
   const { profile } = useProfile();
@@ -43,15 +49,12 @@ export function DemoModeBanner() {
         colors={['#7c3aed', '#9333ea']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8 }}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6 }}
       >
-        <Icon name="ti-flask" size={12} color="#ffffff" />
-        <View className="flex-1">
-          <Text className="text-xs font-bold leading-tight text-white">Demo Mode</Text>
-          <Text className="text-[10px] leading-tight text-white opacity-85">Exploring with sample data</Text>
-        </View>
-        <Pressable onPress={() => setConfirming(true)} className="rounded-lg px-2.5 py-1.5 bg-white/20" hitSlop={4}>
-          <Text className="text-[10px] font-bold text-white">Exit Demo Mode</Text>
+        <Icon name="ti-flask" size={11} color="#ffffff" />
+        <Text className="flex-1 text-[11px] font-bold text-white">Demo Mode</Text>
+        <Pressable onPress={() => setConfirming(true)} className="rounded-lg px-2 py-1 bg-white/20" hitSlop={4}>
+          <Text className="text-[10px] font-bold text-white">Exit</Text>
         </Pressable>
       </LinearGradient>
 

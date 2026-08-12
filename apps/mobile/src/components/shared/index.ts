@@ -13,6 +13,7 @@ export { IconGridPicker } from './IconGridPicker';
 export { ListRow } from './ListRow';
 export { PaymentModeChips } from './PaymentModeChips';
 export { PaymentModeFormModal } from './PaymentModeFormModal';
+export { PossibleMatchPickerModal } from './PossibleMatchPickerModal';
 export {
   DEFAULT_PAYMENT_MODES,
   generatePaymentModeId,

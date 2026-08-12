@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Reconciliation table — how to tell Statement from Penny without a label on every row</title>
+<style>
+  :root {
+    --bg: #eef0fa;
+    --card: #ffffff;
+    --border: #e5e7f0;
+    --text1: #111827;
+    --text2: #4b5563;
+    --text3: #9ca3af;
+    --danger: #b3261e;
+    --danger-bg: #fdecea;
+    --success: #0f8a3f;
+    --info-bg: #f2f4f7;
+    --penny: #5b5bd6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 32px; background: #f7f7fb; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--text1); }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  .lead { font-size: 13px; color: var(--text2); max-width: 760px; line-height: 1.6; margin: 0 0 26px; }
+  h2 { font-size: 15px; margin: 0 0 4px; }
+  .tag { display: inline-block; font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 20px; margin-left: 6px; vertical-align: middle; background: #e8f7ee; color: var(--success); }
+  .sub { font-size: 11.5px; color: var(--text3); margin: 0 0 14px; max-width: 340px; line-height: 1.55; }
+  .phone { width: 350px; background: var(--bg); border-radius: 20px; padding: 12px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+  .screen-title { font-size: 9px; color: var(--text2); text-align: center; margin-bottom: 2px; }
+  .content { padding: 0 10px 14px; }
+  .table { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .thead { display: flex; align-items: center; background: var(--info-bg); font-size: 8px; text-transform: uppercase; letter-spacing: 0.03em; color: #6b7280; font-weight: 700; padding: 6px 9px; }
+  .th-date { flex: 0.65; }
+  .th-txn { flex: 1.05; }
+  .th-bal { flex: 0.95; text-align: right; }
+  .th-diff { flex: 0.6; text-align: right; }
+  .seclabel { font-size: 8px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.03em; padding: 6px 9px 3px; background: var(--card); }
+  .legend { display: flex; gap: 12px; align-items: center; padding: 6px 9px 8px; font-size: 8.5px; color: var(--text2); background: var(--card); }
+  .legend .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  .row { display: flex; align-items: center; padding: 6px 9px; border-top: 1px solid var(--border); }
+  .row.alt { background: #fafbfc; }
+  .date { flex: 0.65; color: var(--text2); font-size: 9px; }
+  .txn { flex: 1.05; }
+  .txn .name { font-weight: 600; font-size: 10px; display: block; color: var(--text1); }
+  .txn .amt { font-size: 8.3px; }
+  .amt-cr { color: var(--success); }
+  .amt-db { color: var(--danger); }
+  .bal-cell { flex: 0.95; text-align: right; line-height: 1.35; }
+  .bal-cell .v1, .bal-cell .v2 { display: flex; align-items: center; justify-content: flex-end; gap: 3px; }
+  .bal-cell .v1 { font-size: 10px; font-weight: 700; color: var(--text1); }
+  .bal-cell .v2 { font-size: 8.5px; color: var(--text3); }
+  .bal-cell.bad .v1 { color: var(--danger); }
+  .diff-cell { flex: 0.6; text-align: right; font-size: 9.5px; font-weight: 800; }
+  .diff-ok { color: var(--success); }
+  .diff-bad { color: var(--danger); }
+  .ic { font-size: 8px; opacity: 0.75; }
+  .grid { display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start; }
+  .callout { border-radius: 10px; padding: 12px 14px; font-size: 12px; line-height: 1.6; max-width: 760px; }
+  .callout.info { background: #eef2ff; border: 1px solid #c7d2fe; color: #3730a3; margin: 26px 0 0; }
+  .th-bal .key { display: flex; flex-direction: column; align-items: flex-end; font-size: 7px; margin-top: 2px; gap: 1px; }
+  .first-label { font-size: 6.5px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.02em; }
+</style>
+</head>
+<body>
+
+<h1>Telling Statement from Penny apart, without labeling every row</h1>
+<p class="lead">Header now just says "Balance" everywhere, single line, as asked. Four different ways to still make top-vs-bottom unambiguous without repeating "Statement"/"Penny" text on every row.</p>
+
+<div class="grid">
+
+<div>
+  <h2>1 — Icons, self-explanatory</h2>
+  <p class="sub">A bank icon marks the statement figure, a calculator icon marks Penny's computed one. Universal enough that most people won't even need to be told which is which.</p>
+  <div class="phone">
+    <div class="screen-title">Reconciliation · HDFC Savings</div>
+    <div class="content">
+      <div class="table">
+        <div class="thead"><div class="th-date">Date</div><div class="th-txn">Txn</div><div class="th-bal">Balance</div><div class="th-diff">Diff</div></div>
+        <div class="seclabel">Before 2 Apr 2026 (this backfill)</div>
+        <div class="row">
+          <div class="date">5 Jan</div>
+          <div class="txn"><span class="name">Salary</span><span class="amt amt-cr">+₹37,000</span></div>
+          <div class="bal-cell bad"><span class="v1"><span class="ic">🏦</span>₹57,000</span><span class="v2"><span class="ic">🧮</span>₹55,000</span></div>
+          <div class="diff-cell diff-bad">+2,000</div>
+        </div>
+        <div class="row alt">
+          <div class="date">15 Jan</div>
+          <div class="txn"><span class="name">Rent</span><span class="amt amt-db">−₹15,000</span></div>
+          <div class="bal-cell bad"><span class="v1"><span class="ic">🏦</span>₹42,000</span><span class="v2"><span class="ic">🧮</span>₹40,000</span></div>
+          <div class="diff-cell diff-bad">+2,000</div>
+        </div>
+        <div class="row">
+          <div class="date">5 Feb</div>
+          <div class="txn"><span class="name">Salary</span><span class="amt amt-cr">+₹35,000</span></div>
+          <div class="bal-cell bad"><span class="v1"><span class="ic">🏦</span>₹77,000</span><span class="v2"><span class="ic">🧮</span>₹75,000</span></div>
+          <div class="diff-cell diff-bad">+2,000</div>
+        </div>
+        <div class="row alt">
+          <div class="date">20 Mar</div>
+          <div class="txn"><span class="name">Misc Adjustment</span><span class="amt amt-db">−₹30,000</span></div>
+          <div class="bal-cell bad"><span class="v1"><span class="ic">🏦</span>₹52,000</span><span class="v2"><span class="ic">🧮</span>₹50,000</span></div>
+          <div class="diff-cell diff-bad">+2,000</div>
+        </div>
+        <div class="seclabel" style="color:var(--success);border-top:2px solid var(--success);margin-top:2px;">2 Apr 2026 onward (verified)</div>
+        <div class="row">
+          <div class="date">2 Apr</div>
+          <div class="txn"><span class="name">Salary</span><span class="amt amt-cr">+₹80,000</span></div>
+          <div class="bal-cell"><span class="v1"><span class="ic">🏦</span>₹1,30,000</span><span class="v2"><span class="ic">🧮</span>₹1,30,000</span></div>
+          <div class="diff-cell diff-ok">₹0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div>
+  <h2>2 — Color only, one legend chip</h2>
+  <p class="sub">Top always dark, bottom always Penny's own accent color. One small colored-dot legend, stated once near the top of the screen, never repeated.</p>
+  <div class="phone">
+    <div class="screen-title">Reconciliation · HDFC Savings</div>
+    <div class="content">
+      <div class="legend"><span><span class="dot" style="background:#111827"></span>Statement</span><span><span class="dot" style="background:var(--penny)"></span>Penny</span></div>
+      <div class="table">
+        <div class="thead"><div class="th-date">Date</div><div class="th-txn">Txn</div><div class="th-bal">Balance</div><div class="th-diff">Diff</div></div>
+        <div class="seclabel">Before 2 Apr 2026 (this backfill)</div>
+        <div class="row">
+          <div class="date">5 Jan</div>
+          <div class="txn"><span class="name">Salary</span><span class="amt amt-cr">+₹37,000</span></div>
+          <div class="bal-cell"><span class="v1" style="color:#111827">₹57,000</span><span class="v2" style="color:var(--penny);font-weight:700;font-size:9px">₹55,000</span></div>
+          <div class="diff-cell diff-bad">+2,000</div>
+        </div>
+        <div class="row alt">
+          <div class="date">15 Jan</div>
+          <div class="txn"><span class="name">Rent</span><span class="amt amt-db">−₹15,000</span></div>
+          <div class="bal-cell"><span class="v1" style="color:#111827">₹42,000</span><span class="v2" style="color:var(--penny);font-weight:700;font-size:9px">₹40,000</span></div>
+          <div class="diff-cell diff-bad">+2,000</div>
+        </div>
+        <div class="row">
+          <div class="date">5 Feb</div>
+          <div class="txn"><span class="name">Salary</span><span class="amt amt-cr">+₹35,000</span></div>
+          <div class="bal-cell"><span class="v1" style="color:#111827">₹77,000</span><span class="v2" style="color:var(--penny);font-weight:700;font-size:9px">₹75,000</span></div>
+          <div class="diff-cell diff-bad">+2,000</div>
+        </div>
+        <div class="row alt">
+          <div class="date">20 Mar</div>
+          <div class="txn"><span class="name">Misc Adjustment</span><span class="amt amt-db">−₹30,000</span></div>
+          <div class="bal-cell"><span class="v1" style="color:#111827">₹52,000</span><span class="v2" style="color:var(--penny);font-weight:700;font-size:9px">₹50,000</span></div>
+          <div class="diff-cell diff-bad">+2,000</div>
+        </div>
+        <div class="seclabel" style="color:var(--success);border-top:2px solid var(--success);margin-top:2px;">2 Apr 2026 onward (verified)</div>
+        <div class="row">
+          <div class="date">2 Apr</div>
+          <div class="txn"><span class="name">Salary</span><span class="amt amt-cr">+₹80,000</span></div>
+          <div class="bal-cell"><span class="v1" style="color:#111827">₹1,30,000</span><span class="v2" style="color:var(--penny);font-weight:700;font-size:9px">₹1,30,000</span></div>
+          <div class="diff-cell diff-ok">₹0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div>
+  <h2>3 — Key lives in the header only</h2>
+  <p class="sub">The header cell itself carries two tiny stacked icons aligned with the values below — rows show bare numbers, nothing added per row at all.</p>
+  <div class="phone">
+    <div class="screen-title">Reconciliation · HDFC Savings</div>
+    <div class="content">
+      <div class="table">
+        <div class="thead"><div class="th-date">Date</div><div class="th-txn">Txn</div><div class="th-bal">Balance<div class="key"><span>🏦</span><span>🧮</span></div></div><div class="th-diff">Diff</div></div>
+        <div class="seclabel">Before 2 Apr 2026 (this backfill)</div>
+        <div class="row">
+          <div class="date">5 Jan</div>
+          <div class="txn"><span class="name">Salary</span><span class="amt amt-cr">+₹37,000</span></div>
+          <div class="bal-cell bad"><span class="v1">₹57,000</span><span class="v2">₹55,000</span></div>
+          <div class="diff-cell diff-bad">+2,000</div>
+        </div>
+        <div class="row alt">
+          <div class="date">15 Jan</div>
+          <div class="txn"><span class="name">Rent</span><span class="amt amt-db">−₹15,000</span></div>
+          <div class="bal-cell bad"><span class="v1">₹42,000</span><span class="v2">₹40,000</span></div>
+          <div class="diff-cell diff-bad">+2,000</div>
+        </div>
+        <div class="row">
+          <div class="date">5 Feb</div>
+          <div class="txn"><span class="name">Salary</span><span class="amt amt-cr">+₹35,000</span></div>
+          <div class="bal-cell bad"><span class="v1">₹77,000</span><span class="v2">₹75,000</span></div>
+          <div class="diff-cell diff-bad">+2,000</div>
+        </div>
+        <div class="row alt">
+          <div class="date">20 Mar</div>
+          <div class="txn"><span class="name">Misc Adjustment</span><span class="amt amt-db">−₹30,000</span></div>
+          <div class="bal-cell bad"><span class="v1">₹52,000</span><span class="v2">₹50,000</span></div>
+          <div class="diff-cell diff-bad">+2,000</div>
+        </div>
+        <div class="seclabel" style="color:var(--success);border-top:2px solid var(--success);margin-top:2px;">2 Apr 2026 onward (verified)</div>
+        <div class="row">
+          <div class="date">2 Apr</div>
+          <div class="txn"><span class="name">Salary</span><span class="amt amt-cr">+₹80,000</span></div>
+          <div class="bal-cell"><span class="v1">₹1,30,000</span><span class="v2">₹1,30,000</span></div>
+          <div class="diff-cell diff-ok">₹0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div>
+  <h2>4 — First row only carries the words</h2>
+  <p class="sub">Literally what was asked: the words "Statement"/"Penny" appear once, as tiny labels on the very first row only — every row after that drops them, since the pattern's already set.</p>
+  <div class="phone">
+    <div class="screen-title">Reconciliation · HDFC Savings</div>
+    <div class="content">
+      <div class="table">
+        <div class="thead"><div class="th-date">Date</div><div class="th-txn">Txn</div><div class="th-bal">Balance</div><div class="th-diff">Diff</div></div>
+        <div class="seclabel">Before 2 Apr 2026 (this backfill)</div>
+        <div class="row">
+          <div class="date">5 Jan</div>
+          <div class="txn"><span class="name">Salary</span><span class="amt amt-cr">+₹37,000</span></div>
+          <div class="bal-cell bad"><span class="v1">₹57,000 <span class="first-label">(statement)</span></span><span class="v2">₹55,000 <span class="first-label">(penny)</span></span></div>
+          <div class="diff-cell diff-bad">+2,000</div>
+        </div>
+        <div class="row alt">
+          <div class="date">15 Jan</div>
+          <div class="txn"><span class="name">Rent</span><span class="amt amt-db">−₹15,000</span></div>
+          <div class="bal-cell bad"><span class="v1">₹42,000</span><span class="v2">₹40,000</span></div>
+          <div class="diff-cell diff-bad">+2,000</div>
+        </div>
+        <div class="row">
+          <div class="date">5 Feb</div>
+          <div class="txn"><span class="name">Salary</span><span class="amt amt-cr">+₹35,000</span></div>
+          <div class="bal-cell bad"><span class="v1">₹77,000</span><span class="v2">₹75,000</span></div>
+          <div class="diff-cell diff-bad">+2,000</div>
+        </div>
+        <div class="row alt">
+          <div class="date">20 Mar</div>
+          <div class="txn"><span class="name">Misc Adjustment</span><span class="amt amt-db">−₹30,000</span></div>
+          <div class="bal-cell bad"><span class="v1">₹52,000</span><span class="v2">₹50,000</span></div>
+          <div class="diff-cell diff-bad">+2,000</div>
+        </div>
+        <div class="seclabel" style="color:var(--success);border-top:2px solid var(--success);margin-top:2px;">2 Apr 2026 onward (verified)</div>
+        <div class="row">
+          <div class="date">2 Apr</div>
+          <div class="txn"><span class="name">Salary</span><span class="amt amt-cr">+₹80,000</span></div>
+          <div class="bal-cell"><span class="v1">₹1,30,000</span><span class="v2">₹1,30,000</span></div>
+          <div class="diff-cell diff-ok">₹0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<div class="callout info">
+  <b>My honest read:</b> I'd go with <b>3 — key in the header only</b>. It's the cleanest reading of "don't mention it in all the rows" — the header carries the explanation exactly once, in the one place a user's eye naturally checks when they're unsure what a column means, and every row underneath stays pure numbers with zero extra ink. Option 1 (icons per row) works too and is arguably even more foolproof since the icon rides right next to the number you're looking at, but it does mean two tiny glyphs on every single row forever, which is a little more visual noise for a fact you only really need to learn once. Option 2 (color-only) is the lightest-weight but riskiest — it depends on the user noticing and remembering an arbitrary color convention, and doesn't hold up well for colorblind users. Option 4 (first-row-only) is a nice idea in principle but reads a little oddly in practice — the very first row looks different from every other row for no reason once you're a few rows down and forget why.
+</div>
+
+</body>
+</html>

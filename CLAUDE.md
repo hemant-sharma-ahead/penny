@@ -58,6 +58,15 @@ Phase 1.
 
 - `buildUserContext()` is the only path from raw data to the Anthropic API
 - The PII gate (`packages/core/tests/pii-gate/piiGate.test.ts`) is a CI gate — never skip
+- The pre-commit repo PII gate (`scripts/check-pii.mjs`, run via `.husky/pre-commit`) blocks
+  real personal data from ever being committed — risky binary documents (PDF/XLSX/CSV/etc.
+  unless an explicit synthetic fixture) and distinctive PII patterns (PAN, IFSC, Aadhaar,
+  UAN, non-placeholder emails) in staged content. Never bypass with `--no-verify` to get a
+  real file/value committed. **Visual redaction of an image or PDF does not remove PII from
+  its underlying text layer** — a box drawn over text doesn't delete the text object beneath
+  it; never assume a "redacted" file someone shares is safe to commit or reference without
+  independently checking its extracted text. See `docs/PRIVACY.md` for the full incident/gate
+  writeup.
 
 **Design:**
 
@@ -98,27 +107,27 @@ Never mark a step complete without checking this list.
 
 ## Where to find things
 
-| Need | Go to |
-| --- | --- |
-| Product vision, users, competitive positioning | [`docs/BRD.md`](docs/BRD.md) |
-| Encryption model, Chip AI architecture, PII pipeline | [`docs/TSD.md`](docs/TSD.md) |
-| Full database schema | [`docs/SCHEMA.md`](docs/SCHEMA.md) |
-| Privacy rules, PII definitions | [`docs/PRIVACY.md`](docs/PRIVACY.md) |
-| UI design — ethos, patterns, themes, colors | [`docs/DESIGN_GUIDELINES.md`](docs/DESIGN_GUIDELINES.md) |
-| Codebase map, architectural decision log | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
-| External API registry | [`docs/EXTERNAL_APIS.md`](docs/EXTERNAL_APIS.md) |
-| Backend strategy (Cloudflare Workers, Model B, scale) | [`docs/BACKEND_STRATEGY.md`](docs/BACKEND_STRATEGY.md) |
-| Roadmap — shipped, in-progress, future ideas | [`docs/ROADMAP.md`](docs/ROADMAP.md) |
-| Mobile parity status per module | [`docs/MOBILE_PARITY.md`](docs/MOBILE_PARITY.md) |
-| Detailed phase/track plans | [`docs/plans/`](docs/plans/) |
-| Per-feature documentation | [`docs/features/`](docs/features/) |
-| Running any surface (web, mobile, Capacitor, workers) | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
-| Code standards + best practices | [`.claude/commands/penny-standards.md`](.claude/commands/penny-standards.md) |
-| Adding a feature module | [`.claude/commands/penny-feature-module.md`](.claude/commands/penny-feature-module.md) |
-| Shared component library | [`.claude/commands/penny-components.md`](.claude/commands/penny-components.md) |
-| Adding an external API integration | [`.claude/commands/penny-api-client.md`](.claude/commands/penny-api-client.md) |
-| Auditing `apps/mobile` vs `apps/web-react` for parity gaps | [`.claude/skills/parity-sweep/`](.claude/skills/parity-sweep/SKILL.md) |
-| Keeping docs current after a change | [`.claude/skills/documentation-maintenance/`](.claude/skills/documentation-maintenance/SKILL.md) |
-| Reviewing/proposing UI, cross-platform design consistency | [`.claude/skills/ui-design-check/`](.claude/skills/ui-design-check/SKILL.md) |
-| Specialized subagents (mobile-developer, web-developer, parity-auditor, code-reviewer, test-writer, ui-designer) | [`.claude/agents/`](.claude/agents/) |
-| Current docs for a fast-moving library (RN/Expo/native packages) instead of relying on training data | Context7 MCP, configured project-wide in [`.mcp.json`](.mcp.json) — works anonymously; add an API key in Context7's dashboard only if you hit rate limits |
+| Need                                                                                                             | Go to                                                                                                                                                     |
+| ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product vision, users, competitive positioning                                                                   | [`docs/BRD.md`](docs/BRD.md)                                                                                                                              |
+| Encryption model, Chip AI architecture, PII pipeline                                                             | [`docs/TSD.md`](docs/TSD.md)                                                                                                                              |
+| Full database schema                                                                                             | [`docs/SCHEMA.md`](docs/SCHEMA.md)                                                                                                                        |
+| Privacy rules, PII definitions                                                                                   | [`docs/PRIVACY.md`](docs/PRIVACY.md)                                                                                                                      |
+| UI design — ethos, patterns, themes, colors                                                                      | [`docs/DESIGN_GUIDELINES.md`](docs/DESIGN_GUIDELINES.md)                                                                                                  |
+| Codebase map, architectural decision log                                                                         | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                                                                                                            |
+| External API registry                                                                                            | [`docs/EXTERNAL_APIS.md`](docs/EXTERNAL_APIS.md)                                                                                                          |
+| Backend strategy (Cloudflare Workers, Model B, scale)                                                            | [`docs/BACKEND_STRATEGY.md`](docs/BACKEND_STRATEGY.md)                                                                                                    |
+| Roadmap — shipped, in-progress, future ideas                                                                     | [`docs/ROADMAP.md`](docs/ROADMAP.md)                                                                                                                      |
+| Mobile parity status per module                                                                                  | [`docs/MOBILE_PARITY.md`](docs/MOBILE_PARITY.md)                                                                                                          |
+| Detailed phase/track plans                                                                                       | [`docs/plans/`](docs/plans/)                                                                                                                              |
+| Per-feature documentation                                                                                        | [`docs/features/`](docs/features/)                                                                                                                        |
+| Running any surface (web, mobile, Capacitor, workers)                                                            | [`CONTRIBUTING.md`](CONTRIBUTING.md)                                                                                                                      |
+| Code standards + best practices                                                                                  | [`.claude/commands/penny-standards.md`](.claude/commands/penny-standards.md)                                                                              |
+| Adding a feature module                                                                                          | [`.claude/commands/penny-feature-module.md`](.claude/commands/penny-feature-module.md)                                                                    |
+| Shared component library                                                                                         | [`.claude/commands/penny-components.md`](.claude/commands/penny-components.md)                                                                            |
+| Adding an external API integration                                                                               | [`.claude/commands/penny-api-client.md`](.claude/commands/penny-api-client.md)                                                                            |
+| Auditing `apps/mobile` vs `apps/web-react` for parity gaps                                                       | [`.claude/skills/parity-sweep/`](.claude/skills/parity-sweep/SKILL.md)                                                                                    |
+| Keeping docs current after a change                                                                              | [`.claude/skills/documentation-maintenance/`](.claude/skills/documentation-maintenance/SKILL.md)                                                          |
+| Reviewing/proposing UI, cross-platform design consistency                                                        | [`.claude/skills/ui-design-check/`](.claude/skills/ui-design-check/SKILL.md)                                                                              |
+| Specialized subagents (mobile-developer, web-developer, parity-auditor, code-reviewer, test-writer, ui-designer) | [`.claude/agents/`](.claude/agents/)                                                                                                                      |
+| Current docs for a fast-moving library (RN/Expo/native packages) instead of relying on training data             | Context7 MCP, configured project-wide in [`.mcp.json`](.mcp.json) — works anonymously; add an API key in Context7's dashboard only if you hit rate limits |

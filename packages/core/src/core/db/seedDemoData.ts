@@ -1031,7 +1031,7 @@ const epfHolding = (ago: (d: number) => number): Holding => ({
   investedAmount: 820000,
   currentValue: 820000,
   assetMeta: {
-    uan: '100987654321',
+    uan: '100987654321', // pii-ignore: fabricated demo data
     epfBirthYear: 1990,
     epfEmployers: [
       {

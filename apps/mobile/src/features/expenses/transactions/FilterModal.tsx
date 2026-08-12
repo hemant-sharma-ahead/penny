@@ -21,6 +21,9 @@ export interface FilterState {
   categoryFilters: Set<string>;
   eventFilters: Set<string>;
   goalFilters: Set<string>;
+  /** 2026-08-06 — single boolean, not a multi-select set like the others above (there's only one thing
+   *  to filter by: mismatched vs. not). See `useTransactionFilters.ts`'s doc comment. */
+  paymentModeMismatchOnly: boolean;
 }
 
 interface FilterModalProps {
@@ -29,6 +32,10 @@ interface FilterModalProps {
   accounts: Account[];
   categories: ExpenseCategory[];
   goals: Goal[];
+  /** Whether there's at least one payment-mode-mismatched transaction at all — the toggle below only
+   *  renders when true, same "hide the section entirely rather than show a filter with zero possible
+   *  results" convention already used for Event/Goal above. */
+  hasPaymentModeMismatches: boolean;
   initial: FilterState;
   onApply: (filters: FilterState) => void;
   onClose: () => void;
@@ -40,6 +47,7 @@ export function FilterModal({
   accounts,
   categories,
   goals,
+  hasPaymentModeMismatches,
   initial,
   onApply,
   onClose
@@ -54,6 +62,7 @@ export function FilterModal({
   const [categoryFilters, setCategoryFilters] = useState<Set<string>>(new Set(initial.categoryFilters));
   const [eventFilters, setEventFilters] = useState<Set<string>>(new Set(initial.eventFilters));
   const [goalFilters, setGoalFilters] = useState<Set<string>>(new Set(initial.goalFilters));
+  const [paymentModeMismatchOnly, setPaymentModeMismatchOnly] = useState(initial.paymentModeMismatchOnly);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
 
   // Tile grid (Account/Category) auto-adjusts its column count to the actual available width instead of
@@ -78,7 +87,8 @@ export function FilterModal({
       parentCategoryFilters,
       categoryFilters,
       eventFilters,
-      goalFilters
+      goalFilters,
+      paymentModeMismatchOnly
     });
     onClose();
   }
@@ -91,6 +101,7 @@ export function FilterModal({
     setCategoryFilters(new Set());
     setEventFilters(new Set());
     setGoalFilters(new Set());
+    setPaymentModeMismatchOnly(false);
   }
 
   const parentCategoryMap = buildParentCategoryMap(categories);
@@ -240,6 +251,23 @@ export function FilterModal({
             })}
           </View>
         </View>
+
+        {/* Payment mode mismatch (2026-08-06) — a single toggle, not a multi-select set, and only
+            shown at all when there's at least one flagged transaction (same "hide the section
+            entirely rather than show a filter for zero results" convention Event/Goal already use). */}
+        {hasPaymentModeMismatches && (
+          <View>
+            <Text className="text-xs font-medium text-secondary mb-2">Data quality</Text>
+            <View className="flex-row flex-wrap gap-2">
+              {chip(
+                paymentModeMismatchOnly,
+                'Payment mode mismatch only',
+                () => setPaymentModeMismatchOnly((v) => !v),
+                { icon: 'ti-alert-triangle', iconColor: theme.warning, key: 'payment-mode-mismatch' }
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Event */}
         {[...events, ...pastEvents].length > 0 && (

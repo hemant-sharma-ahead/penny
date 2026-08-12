@@ -83,7 +83,15 @@ export function IouView() {
   // `reconcileLinkedTxn`; this only persists + logs the result.
   async function syncLinkedTxn(
     existing: Expense | null,
-    intent: { record: boolean; accountId: string; amount: number; date: number; moneyIn: boolean; description: string }
+    intent: {
+      record: boolean;
+      accountId: string;
+      amount: number;
+      date: number;
+      moneyIn: boolean;
+      description: string;
+      defaultCategoryId?: string;
+    }
   ): Promise<string | undefined> {
     const { put, deleteId } = reconcileLinkedTxn(existing, intent, Date.now());
     if (put) {
@@ -166,7 +174,10 @@ export function IouView() {
         amount: result.amount,
         date: Date.now(),
         moneyIn,
-        description: moneyIn ? `Settlement from ${person.name}` : `Settled with ${person.name}`
+        description: moneyIn ? `Settlement from ${person.name}` : `Settled with ${person.name}`,
+        // A settlement is exactly what these two categories exist for (2026-08-06) — otherwise it'd
+        // land on the generic Other/Other Income fallback like any uncategorized transaction.
+        defaultCategoryId: moneyIn ? 'cat-collected-money' : 'cat-return-borrowed'
       });
     }
     await settle(person.id, result.amount, result.direction, {

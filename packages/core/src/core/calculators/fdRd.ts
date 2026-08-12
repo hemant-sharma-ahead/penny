@@ -4,11 +4,9 @@
 // `src/core/fd/fdCalculations.ts` so the calculator and the portfolio tracker stay
 // on a single source of truth for the maths.
 
-import { calcFdMaturity, calcRdMaturity, type CompoundingFreq } from '@/core/fd/fdCalculations';
+import { calcFdMaturity, calcRdMaturity, MS_PER_YEAR, type CompoundingFreq } from '@/core/fd/fdCalculations';
 
 export type { CompoundingFreq };
-
-const MS_PER_YEAR = 365.25 * 24 * 3600 * 1000;
 
 export interface FdCalcInput {
   principal: number;

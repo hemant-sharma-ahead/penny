@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   accountsRepo,
+  bankStatementImportsRepo,
   expensesRepo,
   holdingsRepo,
   ledgerEntriesRepo,
@@ -10,10 +11,11 @@ import {
 } from '@/core/db/repositories';
 import type { Holding, Liability } from '@/core/db/types';
 import { calcLiquidFunds, computeBalance } from '@/core/accounts/balanceCalculator';
+import { CHECKPOINT_ELIGIBLE, computeAccountVerificationStatus } from '@/core/bank-import/accountVerification';
 import { signedAmount } from '@/core/iou/ledger';
 import { calcInvestableCorpus } from '@/core/calculators/retirementProjection';
 import { useTxnRefresh } from '@/hooks/useTxnRefresh';
-import { useAccountsRefresh } from '@/hooks/useDataRefresh';
+import { useAccountsRefresh, useBankImportsRefresh } from '@/hooks/useDataRefresh';
 import { toMonthYearKey } from '@/lib/formatters';
 
 export interface AccountBalance {
@@ -23,6 +25,14 @@ export interface AccountBalance {
   color: string;
   icon: string;
   hideInSafeMode?: boolean;
+  /** Read-only mirror of the Accounts screen's own "Unverified" badge (2026-08-10) — every day-to-day
+   *  visibility argument for this feature applies to Home at least as much as the Accounts screen itself.
+   *  Deliberately computed via the PURE `computeAccountVerificationStatus()` here, never by mounting
+   *  `useAccountVerification()` a second time — that hook also owns a self-correcting write side effect
+   *  (`Account.openingBalance`, found + fixed 2026-08-09), and running it concurrently from two mounted
+   *  screens at once would be wasteful and needlessly hard to reason about. Reads are cheap to duplicate;
+   *  that write should stay singular, owned by the Accounts screen alone. */
+  needsAttention: boolean;
 }
 
 export interface CreditCardAccount {
@@ -49,6 +59,11 @@ export interface HomeSummary {
    *  4%-withdrawal retirement). Powers the Home Retirement Corpus card — see
    *  `core/calculators/retirementProjection.ts`'s `calcInvestableCorpus()`. */
   investableCorpus: number;
+  /** True when ANY account in `accountBalances` has `needsAttention` set (2026-08-10) — drives a small
+   *  header-level signal on `AccountsStrip.tsx`, independent of scroll position: the strip scrolls
+   *  horizontally, so a per-tile badge alone would be invisible for an account currently scrolled off
+   *  screen, defeating the whole point of putting this on a daily-visibility surface. */
+  anyAccountNeedsAttention: boolean;
 }
 
 export interface AssetGroup {
@@ -77,13 +92,14 @@ const LIQUID_META = { label: 'Liquid Funds', short: 'Liquid', color: '#06b6d4', 
 const IOU_META = { label: 'Owed to You', short: 'IOU', color: '#14b8a6', icon: 'ti-users' };
 
 async function loadSummary(): Promise<HomeSummary> {
-  const [liabilities, expenses, holdings, accs, ledgerEntries, persons] = await Promise.all([
+  const [liabilities, expenses, holdings, accs, ledgerEntries, persons, importRecords] = await Promise.all([
     liabilitiesRepo.getAll(),
     expensesRepo.getAll(),
     holdingsRepo.getAll(),
     accountsRepo.getAll(),
     ledgerEntriesRepo.getAll(),
-    personsRepo.getAll()
+    personsRepo.getAll(),
+    bankStatementImportsRepo.getAll()
   ]);
 
   const totalPortfolio = holdings.reduce((s, h) => s + (h.currentValue ?? h.investedAmount), 0);
@@ -103,14 +119,33 @@ async function loadSummary(): Promise<HomeSummary> {
   const accountBalances: AccountBalance[] = accs
     .filter((a) => !a.isArchived)
     .sort((a, b) => a.createdAt - b.createdAt)
-    .map((acc) => ({
-      id: acc.id,
-      name: acc.name,
-      balance: computeBalance(acc.id, acc.openingBalance, expenses),
-      color: acc.color,
-      icon: acc.icon,
-      ...(acc.hideInSafeMode !== undefined ? { hideInSafeMode: acc.hideInSafeMode } : {})
-    }));
+    .map((acc) => {
+      // Pure read, deliberately not `useAccountVerification()` — see `AccountBalance.needsAttention`'s
+      // own doc comment for why that hook's write side effect must stay singular, owned by the Accounts
+      // screen alone.
+      const needsAttention =
+        CHECKPOINT_ELIGIBLE.has(acc.type) &&
+        computeAccountVerificationStatus({
+          accountId: acc.id,
+          openingBalance: acc.openingBalance,
+          openingBalanceAsOfDate: acc.openingBalanceAsOfDate,
+          accountTxns: expenses.filter((e) => e.accountId === acc.id || e.toAccountId === acc.id),
+          importRecords: importRecords.filter((r) => r.accountId === acc.id),
+          coveredRanges: acc.coveredStatementRanges ?? [],
+          anchorReference: acc.anchorReference,
+          dismissed: acc.dismissedVerificationFindings ?? []
+        }).needsAttention;
+      return {
+        id: acc.id,
+        name: acc.name,
+        balance: computeBalance(acc.id, acc.openingBalance, expenses),
+        color: acc.color,
+        icon: acc.icon,
+        needsAttention,
+        ...(acc.hideInSafeMode !== undefined ? { hideInSafeMode: acc.hideInSafeMode } : {})
+      };
+    });
+  const anyAccountNeedsAttention = accountBalances.some((a) => a.needsAttention);
 
   const liquidFunds = calcLiquidFunds(accs, expenses);
 
@@ -139,7 +174,8 @@ async function loadSummary(): Promise<HomeSummary> {
     liabilities,
     creditCardAccounts,
     netIou,
-    investableCorpus
+    investableCorpus,
+    anyAccountNeedsAttention
   };
 }
 
@@ -168,6 +204,10 @@ export function useHome() {
   useTxnRefresh(reload);
   // Settings → Safe Mode edits accounts through a separately-mounted repo instance; reload here too.
   useAccountsRefresh(reload);
+  // `needsAttention` reads `bankStatementImportsRepo` (2026-08-10) — without this, a commit while Home
+  // sits mounted underneath the import flow would leave `anyAccountNeedsAttention`/each tile's own flag
+  // stale, the exact class of bug already found once in `useAccountVerification.ts` for this same repo.
+  useBankImportsRefresh(reload);
 
   const assetGroups = useMemo<AssetGroup[]>(() => {
     if (!summary) return [];

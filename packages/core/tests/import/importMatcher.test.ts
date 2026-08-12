@@ -96,4 +96,41 @@ describe('parseFlexibleDate', () => {
     expect(parseFlexibleDate('', 'auto')).toBeNull();
     expect(parseFlexibleDate('not a date', 'auto')).toBeNull();
   });
+
+  // Real bug, found via on-device testing 2026-08-09: 'auto' used to hand a bare numeric DD/MM/YYYY
+  // date straight to the native `Date` constructor, which guesses US MM/DD/YYYY for this shape —
+  // silently swapping day/month for any day ≤ 12, and overflowing into a wrong year for day > 12
+  // (both confirmed against real Cashew/MoneyView statement rows). 'auto' must mean DMY (India-first
+  // default) for this shape, never a native-parser guess.
+  it('auto-parses a bare numeric date as DMY (India-first default), not the native US MM/DD/YYYY guess', () => {
+    // Day > 12 — native `new Date('25/04/2026')` can't be MM/DD (no 25th month) and used to overflow
+    // into a nonsense future date (04 Jan 2028) instead of falling back to DMY.
+    expect(new Date(parseFlexibleDate('25/04/2026', 'auto')!).toDateString()).toBe(
+      new Date(2026, 3, 25).toDateString()
+    );
+    // Day ≤ 12 — native `new Date('05/04/2026')` "succeeds" as May 4 2026 (US MM/DD), silently wrong;
+    // must resolve to 5 April 2026 instead.
+    expect(new Date(parseFlexibleDate('05/04/2026', 'auto')!).toDateString()).toBe(new Date(2026, 3, 5).toDateString());
+  });
+
+  // Exact rows from the real Cashew (April) and MoneyView (May) synthetic fixtures that produced
+  // wrong 2026/2027/2028 dates on-device before this fix.
+  it('auto-parses every reported Cashew/MoneyView regression row correctly', () => {
+    const cases: Array<[string, [number, number, number]]> = [
+      ['02/04/2026', [2026, 3, 2]],
+      ['05/04/2026', [2026, 3, 5]],
+      ['10/04/2026', [2026, 3, 10]],
+      ['15/04/2026', [2026, 3, 15]],
+      ['25/04/2026', [2026, 3, 25]],
+      ['03/05/2026', [2026, 4, 3]],
+      ['08/05/2026', [2026, 4, 8]],
+      ['12/05/2026', [2026, 4, 12]],
+      ['18/05/2026', [2026, 4, 18]]
+    ];
+    for (const [raw, [y, m, d]] of cases) {
+      const t = parseFlexibleDate(raw, 'auto');
+      expect(t).not.toBeNull();
+      expect(new Date(t!).toDateString()).toBe(new Date(y, m, d).toDateString());
+    }
+  });
 });

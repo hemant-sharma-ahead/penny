@@ -12,6 +12,15 @@ Invoke this at the start of any implementation task on Penny. These rules apply 
 
 3. **The CI PII gate is non-negotiable.** `tests/pii-gate/piiGate.test.ts` must always pass. Never use `eslint-disable`, `// @ts-ignore`, or test skips to work around it.
 
+3a. **The pre-commit repo PII gate is non-negotiable.** `scripts/check-pii.mjs` runs on every
+`git commit` via `.husky/pre-commit` and blocks risky binary documents (PDF/XLSX/CSV/etc.)
+and distinctive PII text patterns from being staged. Never bypass with `--no-verify` to
+get a real personal file or real PII string committed — fix the content (use a synthetic
+fixture, redact the value, or genuinely confirm-and-`pii-ignore` a false positive) instead.
+Visual/image redaction of a document (a box drawn over text) does **not** remove PII from
+its underlying text layer — never assume a "redacted" PDF/image someone shares is safe to
+commit without independently checking its extracted text.
+
 4. **Permitted outbound domains.** The app may only contact these external domains — any other fetch is a bug:
    - `api.anthropic.com` — Chip AI (anonymised payload only)
    - `api.mfapi.in` — MF NAV data (scheme codes, no user data)

@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { View, Pressable, Text } from 'react-native';
 import type { Expense } from '@/core/db/types';
-import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import { formatCurrency, formatDate } from '@/lib/formatters';
 import { Icon } from '~/components/Icon';
 import { Button, ConfirmDialog } from '~/components/ui';
 import { ExpenseForm } from '~/components/shared';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { tint } from '~/lib/color';
 import type { UseBankImportReturn } from './useBankImport';
 
 interface LoneWolfBucketProps {
@@ -41,22 +42,28 @@ export function LoneWolfBucket({ bi, masked }: LoneWolfBucketProps) {
 
       {expanded && (
         <View className="gap-1.5 mt-1">
-          {loneWolves.map(({ expense, nearEdge }) => {
+          {loneWolves.map(({ expense, status }) => {
             const pendingDelete = bi.loneWolfDeletions.has(expense.id);
             return (
               <View
                 key={expense.id}
                 className="rounded-xl border px-3 py-2.5"
                 style={{
-                  borderColor: pendingDelete ? theme.danger : '#4a2a1c',
-                  backgroundColor: '#1f150e',
+                  // Hardcoded hex colors here (found + fixed 2026-08-09, on-device: invisible text) were
+                  // never theme-aware — they happened to work only in dark mode, since the description/
+                  // amount text above uses `text-primary` (theme-aware, dark in light mode), rendering as
+                  // dark-on-near-black in light mode. `tint()` on `theme.warning` matches this feature's
+                  // own established pattern for a warning-toned card (see `AccountVerificationBanner.tsx`,
+                  // `AnchorBoundaryDivider` in `CheckpointTimelinePage.tsx`).
+                  borderColor: pendingDelete ? theme.danger : tint(theme.warning, 25),
+                  backgroundColor: tint(theme.warning, 8),
                   opacity: pendingDelete ? 0.6 : 1
                 }}
               >
                 <View className="flex-row items-center gap-2.5">
                   <View
                     className="w-7 h-7 rounded-lg items-center justify-center shrink-0"
-                    style={{ backgroundColor: '#3a2412' }}
+                    style={{ backgroundColor: tint(theme.warning, 15) }}
                   >
                     <Icon name="ti-alert-triangle" size={14} color={theme.warning} />
                   </View>
@@ -64,12 +71,19 @@ export function LoneWolfBucket({ bi, masked }: LoneWolfBucketProps) {
                     <Text className="text-xs font-semibold text-primary" numberOfLines={1}>
                       &ldquo;{expense.description}&rdquo; — {masked ? '••••' : formatCurrency(expense.amount)}
                     </Text>
-                    <Text className="text-[11px] mt-0.5" style={{ color: theme.warning }}>
-                      Logged {formatDateShort(expense.date)} ·{' '}
+                    <Text
+                      className="text-[11px] mt-0.5"
+                      style={{ color: status === 'provisional' && !pendingDelete ? theme.info : theme.warning }}
+                    >
+                      Logged {formatDate(expense.date)} ·{' '}
                       {pendingDelete
                         ? 'marked for deletion — reverts if you leave without importing'
-                        : nearEdge
-                          ? 'near the edge of this statement’s range — may appear in an adjacent one'
+                        : status === 'provisional'
+                          ? // Deferred lone-wolf escalation (docs/plans/bank-balance-sync.md §12) — near
+                            // this statement's own boundary, and no adjacent import has had a chance to
+                            // explain it yet; usually resolves silently once that adjacent statement is
+                            // imported, so this is deliberately a softer status than the escalated case.
+                            'provisional — near the edge of this statement’s range, may resolve once an adjacent statement is imported'
                           : 'no statement line found'}
                     </Text>
                   </View>
@@ -119,6 +133,7 @@ export function LoneWolfBucket({ bi, masked }: LoneWolfBucketProps) {
       {editing && (
         <ExpenseForm
           categories={bi.categories}
+          txnCountByCategory={bi.txnCountByCategory}
           hashtags={bi.hashtags}
           editing={editing}
           activeEvents={[]}

@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Bank Balance Sync, implementation-ready spec v2</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --blue:#3b82f6; --danger:#ef4444; --amber:#f59e0b; --violet:#8b5cf6;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 20px; color:#9aa5b1; font-size:14px; max-width:920px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .thoughts { max-width:900px; margin:0 auto 30px; background:#101720; border:1px solid var(--border); border-radius:14px; padding:16px 22px; font-size:13px; line-height:1.8; color:#c3cad2; }
+      .thoughts b { color:#fff; }
+      .thoughts ul { margin:8px 0 0; padding-left:18px; }
+      .thoughts li { margin-bottom:4px; }
+
+      .flowbar { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; padding:0 20px 10px; position:sticky; top:0; background:#05070a; z-index:5; padding-top:10px; }
+      .flowbar a { font-size:10.5px; font-weight:700; color:#9aa5b1; background:#141a22; border:1px solid var(--border); border-radius:999px; padding:5px 11px; text-decoration:none; }
+      .flowbar a:hover { color:#fff; border-color:#3a4451; }
+
+      .sectiontitle { text-align:center; font-size:15px; font-weight:800; color:#fff; margin:56px 0 4px; scroll-margin-top:60px; }
+      .stepnum { display:inline-flex; width:20px; height:20px; border-radius:10px; background:var(--primary); color:#04150d; font-size:11px; font-weight:800; align-items:center; justify-content:center; margin-right:6px; }
+      .stepnum.alt { background:var(--blue); }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:840px; margin:0 auto 18px; line-height:1.65; }
+      .statepill { display:inline-block; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; background:#232b35; color:#9aa5b1; border-radius:999px; padding:2px 8px; margin-bottom:2px; }
+      .statepill.new { background:#123524; color:#7ee6b8; }
+      .statepill.dec { background:#1c2440; color:#9db4ff; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 18px; justify-content:center; align-items:flex-start; padding:16px 20px 10px; }
+      .frame-wrap { width:290px; }
+      .vtitle { font-size:13px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.cur { background:#3a2412; color:#f0b060; }
+      .vtitle .tag.rec { background:#123524; color:#7ee6b8; }
+      .vtitle .tag.new { background:#1c2440; color:#9db4ff; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:290px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:16px; background:var(--bg); flex-shrink:0; }
+      .header { height:42px; display:flex; align-items:center; justify-content:space-between; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .header .t { font-size:13px; font-weight:700; color:#fff; }
+      .header .t .s { display:block; font-size:9.5px; font-weight:600; color:var(--text3); margin-top:1px; }
+      .content { padding:10px 12px; overflow-y:auto; }
+      .content.tall { height:580px; }
+      .content.med { height:460px; }
+      .content.short { height:320px; }
+      .content.xshort { height:220px; }
+
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:11px 12px; }
+      .row { display:flex; align-items:center; }
+      .between { justify-content:space-between; }
+      .lbl { font-size:9.5px; color:var(--text3); text-transform:uppercase; letter-spacing:.04em; }
+      .btn { display:flex; align-items:center; justify-content:center; gap:6px; border-radius:11px; padding:10px 0; font-size:12px; font-weight:700; cursor:default; }
+      .btn.pri { background:var(--primary); color:#04150d; }
+      .btn.sec { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+      .btn.ghost { background:transparent; color:var(--text2); }
+      .chip { display:inline-flex; align-items:center; gap:4px; background:var(--surface2); border:1px solid var(--border); border-radius:999px; padding:4px 9px; font-size:10.5px; font-weight:700; color:var(--text2); }
+      .chip.on { background:#123524; border-color:#1d4d34; color:#7ee6b8; }
+
+      /* ===== shared: transaction rows ===== */
+      .txrow { display:flex; align-items:center; gap:9px; padding:9px 4px; border-bottom:1px solid var(--border); position:relative; }
+      .txrow .ticn { width:30px; height:30px; border-radius:9px; background:var(--surface2); display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:13px; flex-shrink:0; }
+      .txrow .tmid { flex:1; min-width:0; }
+      .txrow .tmid .t1 { font-size:11.5px; font-weight:700; color:var(--text); }
+      .txrow .tmid .t2 { font-size:9.5px; color:var(--text3); margin-top:1px; }
+      .txrow .tamt { font-size:11.5px; font-weight:700; text-align:right; }
+      .txrow .tamt.cr { color:#7ee6b8; }
+      .txrow .tamt.db { color:var(--text); }
+      .datehead { font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--text3); padding:10px 4px 4px; }
+
+      /* ===== checkpoint marker styles ===== */
+      .txrow.ckpt-agree .ckdot { position:absolute; left:-2px; top:50%; transform:translateY(-50%); width:5px; height:22px; border-radius:3px; background:var(--primary); }
+      .txrow.ckpt-flag { background:rgba(239,68,68,.07); margin:0 -8px; padding-left:12px; padding-right:8px; border-radius:8px; border-bottom-color:transparent; }
+      .txrow.ckpt-flag .ckdot { position:absolute; left:-2px; top:50%; transform:translateY(-50%); width:5px; height:22px; border-radius:3px; background:var(--danger); }
+      .txrow.ckpt-still { background:rgba(239,68,68,.03); margin:0 -8px; padding-left:12px; padding-right:8px; }
+      .txrow.ckpt-still .ckdot { position:absolute; left:-2px; top:50%; transform:translateY(-50%); width:5px; height:14px; border-radius:3px; background:rgba(239,68,68,.35); }
+      .ckpt-inline-badge { display:inline-flex; align-items:center; gap:3px; font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:1.5px 6px; border-radius:999px; margin-top:2px; }
+      .ckpt-inline-badge.good { background:#123524; color:#7ee6b8; }
+      .ckpt-inline-badge.bad { background:#3a1412; color:#ff9b8f; }
+      .ckpt-inline-badge.faint { background:rgba(239,68,68,.1); color:#e8968c; }
+      .ckpt-divider { display:flex; align-items:center; gap:8px; padding:6px 2px; margin:2px 0; }
+      .ckpt-divider .line { flex:1; height:1px; background:repeating-linear-gradient(90deg, var(--danger), var(--danger) 4px, transparent 4px, transparent 8px); }
+      .ckpt-divider .lbl2 { font-size:9px; font-weight:800; color:var(--danger); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap; }
+
+      /* ===== persistent unverified banner/badge ===== */
+      .unverified-banner { display:flex; gap:8px; background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3); border-radius:12px; padding:10px 11px; }
+      .unverified-banner i.lead { color:var(--danger); font-size:14px; margin-top:1px; }
+      .unverified-banner .txt { font-size:10.5px; color:#f4b8b0; line-height:1.5; flex:1; }
+      .unverified-banner .txt b { color:#fff; }
+      .unverified-banner.muted { background:rgba(139,148,158,.07); border-color:var(--border); }
+      .unverified-banner.muted i.lead { color:var(--text3); }
+      .unverified-banner.muted .txt { color:var(--text2); }
+      .unverified-banner.muted .txt b { color:var(--text); }
+      .unverified-pill { display:inline-flex; align-items:center; gap:4px; font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:2px 7px; border-radius:999px; background:rgba(239,68,68,.16); color:#ff9b8f; }
+
+      /* ===== quiet verified / neutral lines (empty states) ===== */
+      .verified-line { display:flex; align-items:center; gap:6px; font-size:10.5px; color:#7ee6b8; padding:2px 2px; }
+      .verified-line i { font-size:13px; }
+      .neutral-line { display:flex; align-items:flex-start; gap:6px; font-size:10.5px; color:var(--text2); line-height:1.5; padding:2px 2px; }
+      .neutral-line i { font-size:13px; color:var(--text3); margin-top:1px; }
+      .neutral-line a { color:var(--blue); font-weight:700; }
+
+      /* ===== loading skeleton ===== */
+      .skeleton { height:44px; border-radius:12px; background:linear-gradient(90deg, var(--surface2) 25%, var(--surface3) 37%, var(--surface2) 63%); background-size:400% 100%; animation:shimmer 1.4s ease infinite; }
+      @keyframes shimmer { 0% { background-position:100% 0; } 100% { background-position:0 0; } }
+
+      /* ===== checkpoint timeline table ===== */
+      .ckpt-table { border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+      .ckpt-thead { display:grid; grid-template-columns:44px 1fr 52px 52px; gap:4px; padding:6px 8px; background:var(--surface2); font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:var(--text3); }
+      .ckpt-trow { display:grid; grid-template-columns:44px 1fr 52px 52px; gap:4px; padding:7px 8px; align-items:center; border-top:1px solid var(--border); font-size:10px; }
+      .ckpt-trow.agree { color:var(--text2); }
+      .ckpt-trow.agree .diff { color:#7ee6b8; font-weight:700; }
+      .ckpt-trow.flagged { background:rgba(239,68,68,.09); }
+      .ckpt-trow.flagged .diff { color:var(--danger); font-weight:800; }
+      .ckpt-trow .desc { font-weight:700; color:var(--text); }
+      .ckpt-trow .amt { text-align:right; font-variant-numeric:tabular-nums; }
+      .ckpt-trow .diff { text-align:right; font-variant-numeric:tabular-nums; }
+      .ckpt-ellipsis { text-align:center; padding:5px; color:var(--text3); font-size:9.5px; border-top:1px solid var(--border); background:var(--surface); }
+      .tablefooter { display:flex; gap:6px; padding:8px; border-top:1px solid var(--border); background:var(--surface2); }
+
+      /* ===== nudge (legacy, removed) ===== */
+      .nudge { display:flex; gap:8px; background:#3a2412; border:1px solid #5c3a17; border-radius:12px; padding:10px 11px; }
+      .nudge.warnalt { background:rgba(245,158,11,.12); border-color:rgba(245,158,11,.35); }
+      .nudge i { color:var(--amber); font-size:14px; margin-top:1px; }
+      .nudge .txt { font-size:10.5px; color:#f0d0a0; line-height:1.5; }
+
+      /* ===== account list mini-card ===== */
+      .acctcard { border-radius:16px; padding:12px; position:relative; overflow:hidden; margin-bottom:10px; }
+      .acctcard.bank { background:linear-gradient(135deg,#1b2c4d,#0d1626); }
+      .acctcard.bank2 { background:linear-gradient(135deg,#2a1b4d,#160d26); }
+      .acctcard.cash { background:linear-gradient(135deg,#164a34,#0a2117); }
+      .acctcard.cc { background:linear-gradient(135deg,#4d1b2c,#260d16); }
+      .acctcard .toprow { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; }
+      .acctcard .icontile { width:28px; height:28px; border-radius:9px; background:rgba(255,255,255,.16); display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; }
+      .acctcard .typepill { padding:3px 8px; border-radius:999px; background:rgba(255,255,255,.12); font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:rgba(255,255,255,.65); }
+      .acctcard .namerow { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+      .acctcard .name { color:#fff; font-weight:700; font-size:13px; }
+      .acctcard .bal { color:#fff; font-weight:800; font-size:13.5px; text-align:right; }
+      .acctcard .netcap { color:rgba(255,255,255,.6); font-size:9px; text-align:right; margin-top:2px; }
+      .acctcard .divider { height:1px; background:rgba(255,255,255,.14); margin:9px 0; }
+      .acctcard .acts { display:flex; gap:6px; }
+      .acctcard .acts .ib { width:26px; height:26px; border-radius:8px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; color:#fff; font-size:12px; }
+      .excl-flag { position:absolute; top:-8px; right:8px; background:#1c2128; border:1px solid var(--border); border-radius:999px; padding:2px 8px; font-size:8px; font-weight:800; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; }
+
+      /* ===== opening balance / anchor forms ===== */
+      .fieldlabel { font-size:10px; font-weight:700; color:var(--text2); margin-bottom:4px; margin-top:10px; }
+      .fieldbox { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:9px 10px; font-size:11px; color:var(--text); }
+      .fieldbox.focused { border-color:var(--primary); }
+      .fieldbox.ph { color:var(--text3); }
+      .anchorstrip { display:flex; gap:8px; }
+      .anchorstrip .s { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:11px; padding:9px; }
+      .anchorstrip .s .l { font-size:8.5px; color:var(--text3); text-transform:uppercase; margin-bottom:3px; }
+      .anchorstrip .s .v { font-size:12.5px; font-weight:800; color:var(--text); }
+      .anchorstrip .s.new { border-color:#1d4d34; background:#0f1f16; }
+      .anchorstrip .s.new .v { color:#7ee6b8; }
+      .anchorstrip .arrow { display:flex; align-items:center; color:var(--text3); font-size:14px; }
+
+      /* ===== transfer candidate choice ===== */
+      .candcard { display:flex; align-items:center; gap:8px; padding:9px; border:1.5px solid var(--border); border-radius:12px; margin-bottom:7px; }
+      .candcard.sel { border-color:var(--primary); background:rgba(0,168,107,.08); }
+      .candcard .cicn { width:30px; height:30px; border-radius:9px; background:var(--surface2); display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:13px; }
+      .candcard .cmid { flex:1; }
+      .candcard .cmid .t1 { font-size:11px; font-weight:700; color:var(--text); }
+      .candcard .cmid .t2 { font-size:9.5px; color:var(--text3); margin-top:1px; }
+      .candcard .radio { width:16px; height:16px; border-radius:50%; border:1.5px solid var(--border); flex-shrink:0; }
+      .candcard.sel .radio { border-color:var(--primary); background:radial-gradient(circle, var(--primary) 0 40%, transparent 42%); }
+
+      /* ===== modal (centred, per no-bottom-sheet rule) ===== */
+      .modalback { position:absolute; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:16px; }
+      .modalcard { width:100%; max-width:260px; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:14px; max-height:80%; overflow-y:auto; }
+      .modalcard .mtitle { font-size:12.5px; font-weight:800; color:#fff; margin-bottom:8px; }
+
+      /* ===== import history ===== */
+      .histrow { display:flex; align-items:center; gap:9px; padding:10px 4px; border-bottom:1px solid var(--border); }
+      .histrow .hicn { width:30px; height:30px; border-radius:9px; background:var(--surface2); display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:13px; }
+      .histrow .hmid { flex:1; min-width:0; }
+      .histrow .hmid .t1 { font-size:11px; font-weight:700; color:var(--text); }
+      .histrow .hmid .t2 { font-size:9.5px; color:var(--text3); margin-top:1px; }
+      .histrow .hright { text-align:right; }
+      .histrow .hright .n { font-size:10.5px; font-weight:700; color:var(--text); }
+      .histrow .hright .n2 { font-size:9px; color:var(--text3); }
+
+      .compare2 { display:flex; gap:10px; }
+      .compare2 .half { flex:1; }
+      .compare2 .half .htag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; margin-bottom:5px; }
+      .compare2 .half.flat .htag { color:var(--amber); }
+      .compare2 .half.step .htag { color:var(--danger); }
+
+      /* ===== flow connectors between chained frames ===== */
+      .flow-connector { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; width:64px; align-self:center; padding-top:60px; }
+      .flow-connector .circ { width:24px; height:24px; border-radius:50%; background:var(--blue); color:#fff; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .flow-connector i.arr { font-size:20px; color:#3a4451; }
+      .flow-connector .cap { font-size:8.5px; color:var(--text3); text-align:center; line-height:1.35; }
+
+      .branch-note { max-width:640px; margin:14px auto 0; background:#101720; border:1px solid var(--border); border-radius:12px; padding:12px 16px; font-size:12px; color:#c3cad2; line-height:1.7; }
+      .branch-note b { color:#fff; }
+    </style>
+  </head>
+  <body>
+    <h1>Bank Balance Sync — Implementation-Ready Spec v2</h1>
+    <p class="sub">
+      Refinement round on <code>docs/mockups/proposals/bank-balance-sync-v1.html</code> (kept intact, not
+      edited). v1 was a decision gallery; this is the single finished spec — every real state, exact
+      copy, and the full Direction C interaction chain as connected frames. Same HDFC savings ledger and
+      real numbers as the simulation throughout (§7b/7c/7d, §11a/§11b, §13, §14/§14b) — nothing invented
+      except decorative balances on accounts the simulation never covers (ICICI Savings, Cash Wallet,
+      HDFC Credit Card — clearly labelled as such).
+    </p>
+
+    <div class="thoughts">
+      <b>What changed since v1, and why — read this before the frames below:</b>
+      <ul>
+        <li><b>Direction C is the only direction shown now</b> — approved 2026-08-08, no alternates
+          re-presented. Every state that direction needs (loading / empty-verified / never-imported /
+          collapsed-mismatch / expanded-mismatch / dismissed) is spec'd for the first time here; v1 only
+          ever showed the "expanded mismatch" happy path.</li>
+        <li><b>Two diagnostic signatures need two different "Investigate" destinations</b> — a gap v1's §5
+          left unwired. "Steps in partway" (§7b/7c) has a real two-row window to point at, so
+          "Investigate" drills into the transaction list (Frames 3→4 below). <b>"Flat from day one"
+          (§7d) has no such window</b> — every checkpoint disagrees, including the first, so there's
+          nothing to scroll to. Its "Investigate" instead opens a dedicated opening-balance check (Frame
+          2b) — reusing the same anchor-strip visual language already built for Surface 6, not a new
+          pattern. Flagged as a v1 gap, fixed here, not a new open question.</li>
+        <li><b>The account-list badge only ever means one thing: "needs a look."</b> Absence of the badge
+          is ambiguous by itself (verified vs. never-imported look identical at list level, on purpose —
+          neither needs action, so neither earns list-level clutter per "uncluttered first"). The
+          <i>account detail</i> view is where that ambiguity gets resolved, with three distinct calm
+          states (Frame 2a/2b/2c below) — this two-tier resolution is a deliberate v2 decision, not an
+          oversight.</li>
+        <li><b>Dismissing is per checkpoint-pair, never global</b>, and never makes the mismatch vanish
+          without a trace — a dismissed variance shows a quiet, muted acknowledgement line in the account
+          detail (Frame 2f) rather than reverting to silence, so it stays legible/honest (§1 of the
+          guidelines: "if something is masked... make it legible why and how") without nagging.</li>
+        <li><b>One control, reused everywhere it applies</b> — the "I've reviewed this, dismiss" action is
+          the same control in the compact snapshot (Frame 2) and the full timeline escape hatch (Frame 4),
+          not two separate dismiss mechanisms to keep in sync.</li>
+      </ul>
+    </div>
+
+    <div class="flowbar">
+      <a href="#s1">1. Scope: bank vs credit card</a>
+      <a href="#s2">2. Direction C — full chain</a>
+      <a href="#s2a">Frame 1: List</a>
+      <a href="#s2b">Frame 2: Detail states</a>
+      <a href="#s2branch">Frame 2b: Flat-signature branch</a>
+      <a href="#s2c">Frame 3: Drill-in</a>
+      <a href="#s2d">Frame 4: Full timeline</a>
+      <a href="#s3">3. Gap banner</a>
+      <a href="#s4">4. Skipped-row + Import History</a>
+      <a href="#s5">5. Opening balance</a>
+      <a href="#s6">6. Anchor shift</a>
+      <a href="#s7">7. Ambiguous transfer</a>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle" id="s1"><span class="stepnum">1</span>Scope boundary — bank accounts only, credit cards untouched</div>
+    <div class="sectionsub">
+      Finding 2 (confirmed): none of these surfaces render for <code>credit_card</code>, even though
+      <code>AccountList.tsx</code>'s <code>STATEMENT_IMPORTABLE</code> set already includes it alongside
+      <code>bank</code> for ordinary statement import. Implementation note: a new, narrower
+      <code>CHECKPOINT_ELIGIBLE = new Set(['bank'])</code> constant is needed in <code>AccountList.tsx</code>
+      — gating the badge below — kept separate from <code>STATEMENT_IMPORTABLE</code> (import itself still
+      works the same for credit cards) and separate from <code>RECONCILABLE</code> (unrelated, cash/wallet-only
+      feature). This one frame also doubles as Direction C's <b>Frame 1</b> (referenced again in §2).
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap" style="width:300px;">
+        <div class="vtitle">Accounts list — every state at once<span class="tag rec">Frame 1</span></div>
+        <div class="vsub">Four accounts, four outcomes. HDFC Savings (unverified) and ICICI Savings (verified) are both <code>bank</code> — same eligibility, different current state. Cash Wallet was never eligible (no statement to check against). HDFC Credit Card <i>is</i> statement-importable today but explicitly gets no checkpoint badge — the boundary this section exists to make unambiguous.</div>
+        <div class="phone" style="width:300px;">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Accounts</span><i class="ti ti-plus" style="color:#8b949e;"></i></div>
+          <div class="content tall">
+            <div class="acctcard bank">
+              <div class="toprow">
+                <div class="icontile"><i class="ti ti-building-bank"></i></div>
+                <span class="unverified-pill"><i class="ti ti-alert-triangle" style="font-size:8px;"></i>Unverified</span>
+              </div>
+              <div class="namerow"><div class="name">HDFC Savings</div><div><div class="bal">₹1,79,210</div><div class="netcap">Included in net worth</div></div></div>
+              <div class="divider"></div>
+              <div class="acts"><div class="ib"><i class="ti ti-upload"></i></div><div class="ib"><i class="ti ti-pencil"></i></div><div class="ib" style="margin-left:auto;"><i class="ti ti-trash"></i></div></div>
+            </div>
+            <div class="acctcard bank2">
+              <div class="toprow"><div class="icontile"><i class="ti ti-building-bank"></i></div><span class="typepill">Bank</span></div>
+              <div class="namerow"><div class="name">ICICI Savings</div><div><div class="bal">₹92,450</div><div class="netcap">Included in net worth</div></div></div>
+              <div class="divider"></div>
+              <div class="acts"><div class="ib"><i class="ti ti-upload"></i></div><div class="ib"><i class="ti ti-pencil"></i></div><div class="ib" style="margin-left:auto;"><i class="ti ti-trash"></i></div></div>
+            </div>
+            <div class="acctcard cash">
+              <div class="toprow"><div class="icontile"><i class="ti ti-wallet"></i></div><span class="typepill">Cash</span></div>
+              <div class="namerow"><div class="name">Cash Wallet</div><div><div class="bal">₹8,400</div><div class="netcap">Included in net worth</div></div></div>
+              <div class="divider"></div>
+              <div class="acts"><div class="ib"><i class="ti ti-scale"></i></div><div class="ib"><i class="ti ti-pencil"></i></div><div class="ib" style="margin-left:auto;"><i class="ti ti-trash"></i></div></div>
+            </div>
+            <div class="acctcard cc" style="margin-top:14px;">
+              <div class="excl-flag">✕ no checkpoint badge</div>
+              <div class="toprow"><div class="icontile"><i class="ti ti-credit-card"></i></div><span class="typepill">Credit card</span></div>
+              <div class="namerow"><div class="name">HDFC Credit Card</div><div><div class="bal">₹12,340</div><div class="netcap">Included in net worth</div></div></div>
+              <div class="divider"></div>
+              <div class="acts"><div class="ib"><i class="ti ti-upload"></i></div><div class="ib"><i class="ti ti-pencil"></i></div><div class="ib" style="margin-left:auto;"><i class="ti ti-trash"></i></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="branch-note" style="max-width:900px;">
+      <b>Why the credit card still shows the upload icon:</b> statement import itself is unrelated to this
+      feature and stays available (that's <code>STATEMENT_IMPORTABLE</code>'s job, unchanged). What's gated
+      is purely the checkpoint machinery layered on top — no <code>statementBalance</code> ever gets
+      attached to a credit-card transaction, no badge, no snapshot banner, no entry in Import History's
+      per-account reconciliation state (Import History itself, §4 below, still lists a credit card's import
+      <i>batches</i> — matched/added/skipped counts are batch-level facts, not checkpoint facts).
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle" id="s2"><span class="stepnum">C</span>Direction C — the full interaction chain</div>
+    <div class="sectionsub">
+      Four connected frames, tap by tap, plus one branch. Numbered circles + arrows show the path a real
+      user takes. <b>Frame 1</b> is the account list (§1 above — not repeated). <b>Frame 2</b> is the account
+      detail's snapshot banner, shown in all six states it can actually be in. <b>Frame 2b</b> is the branch
+      taken when the diagnosis is "flat from day one" instead of "steps in partway." <b>Frame 3</b> is the
+      existing transaction list, scrolled to and highlighting the exact two rows. <b>Frame 4</b> is the "view
+      full table" escape hatch.
+    </div>
+
+    <div class="sectiontitle" id="s2a" style="margin-top:30px; font-size:13px;">Frame 1 → Frame 2: tap the account row</div>
+    <div class="gallery">
+      <div class="flow-connector">
+        <div class="circ">1</div>
+        <i class="ti ti-arrow-right arr"></i>
+        <div class="cap">Tap "HDFC Savings" row (§1's Frame 1, unverified state)</div>
+      </div>
+    </div>
+
+    <div class="sectiontitle" id="s2b" style="margin-top:10px; font-size:14px;">Frame 2 — Account detail snapshot banner, all six states</div>
+    <div class="sectionsub">
+      Same modal (<code>EntityTransactionsModal</code>), same stat-row slot, same position for the banner
+      every time — only its content changes per state. This is the single component that needs to handle
+      all six of these; nothing here is a separate screen.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">a. Loading<span class="statepill">transient</span></div>
+        <div class="vsub">Right after the modal opens, before the checkpoint diff finishes computing. The balance figure above never waits for this — only the banner slot shows a placeholder.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-x" style="color:#8b949e;"></i><span class="t">HDFC Savings</span><span style="width:16px;"></span></div>
+          <div class="content xshort">
+            <div class="row between" style="background:var(--surface2); border-radius:12px; padding:10px 14px; margin-bottom:10px;">
+              <span style="font-size:11px; color:var(--text2);">Current balance</span>
+              <span style="font-size:14px; font-weight:800; color:#fff;">₹1,79,210</span>
+            </div>
+            <div class="skeleton"></div>
+            <div style="font-size:9px; color:var(--text3); margin-top:6px; text-align:center;">Checking against your bank statement…</div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">b. Verified<span class="statepill new">empty state · happy path</span></div>
+        <div class="vsub">Every checkpoint agrees. Deliberately the quietest possible treatment — a plain line, not a card — per "positive zero/empty states" (§1 of the guidelines): nothing wrong, so nothing shouts.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-x" style="color:#8b949e;"></i><span class="t">ICICI Savings</span><span style="width:16px;"></span></div>
+          <div class="content xshort">
+            <div class="row between" style="background:var(--surface2); border-radius:12px; padding:10px 14px; margin-bottom:10px;">
+              <span style="font-size:11px; color:var(--text2);">Current balance</span>
+              <span style="font-size:14px; font-weight:800; color:#fff;">₹92,450</span>
+            </div>
+            <div class="verified-line"><i class="ti ti-circle-check"></i>Verified through 31 May 2026</div>
+            <div class="datehead" style="padding-top:14px;">May 2026</div>
+            <div class="txrow"><div class="ticn"><i class="ti ti-cash"></i></div><div class="tmid"><div class="t1">Salary</div><div class="t2">3 May</div></div><div class="tamt cr">+₹65,000</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">c. Never imported<span class="statepill">empty state · distinct from "verified"</span></div>
+        <div class="vsub">A bank account that's eligible but has no statement import yet. Deliberately distinguished from "verified" (b) — silence at list level is the same for both, but conflating them in the one place that matters (detail view) would be dishonest about what's actually been checked.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-x" style="color:#8b949e;"></i><span class="t">HDFC Savings 2</span><span style="width:16px;"></span></div>
+          <div class="content xshort">
+            <div class="row between" style="background:var(--surface2); border-radius:12px; padding:10px 14px; margin-bottom:10px;">
+              <span style="font-size:11px; color:var(--text2);">Current balance</span>
+              <span style="font-size:14px; font-weight:800; color:#fff;">₹34,000</span>
+            </div>
+            <div class="neutral-line"><i class="ti ti-info-circle"></i><span>No bank statement imported yet — this balance is Penny's own running total, not yet checked against your bank. <a href="#">Import a statement ›</a></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">d. Mismatch — collapsed<span class="tag rec">default on open, steps-in-partway</span></div>
+        <div class="vsub">§7b/7c's exact scenario: missing 30-Apr interest credit. One line, tap to expand. This is what a returning user sees first — not the full diagnostic paragraph every time.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-x" style="color:#8b949e;"></i><span class="t">HDFC Savings</span><span style="width:16px;"></span></div>
+          <div class="content xshort">
+            <div class="row between" style="background:var(--surface2); border-radius:12px; padding:10px 14px; margin-bottom:10px;">
+              <span style="font-size:11px; color:var(--text2);">Current balance</span>
+              <span style="font-size:14px; font-weight:800; color:#fff;">₹1,79,210</span>
+            </div>
+            <div class="unverified-banner">
+              <i class="ti ti-alert-triangle lead"></i>
+              <div class="txt">Balance mismatch between <b>25 Apr</b> and <b>3 May</b>, <b>₹120</b>.</div>
+              <i class="ti ti-chevron-down" style="color:var(--text3); font-size:12px; margin-top:1px;"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">e. Mismatch — expanded, steps-in-partway<span class="tag rec">tap to expand</span></div>
+        <div class="vsub">Same banner, tapped open. Full diagnostic copy + both actions. "Investigate" is <b>Step 2</b> below, going to Frame 3.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-x" style="color:#8b949e;"></i><span class="t">HDFC Savings</span><span style="width:16px;"></span></div>
+          <div class="content short">
+            <div class="row between" style="background:var(--surface2); border-radius:12px; padding:10px 14px; margin-bottom:10px;">
+              <span style="font-size:11px; color:var(--text2);">Current balance</span>
+              <span style="font-size:14px; font-weight:800; color:#fff;">₹1,79,210</span>
+            </div>
+            <div class="unverified-banner" style="margin-bottom:10px;">
+              <i class="ti ti-alert-triangle lead"></i>
+              <div class="txt">Balance mismatch between <b>25 Apr</b> and <b>3 May</b>, <b>₹120</b>.<br/><span style="color:#9aa5b1;">Every checkpoint agreed until 25-Apr, then jumped to a steady +₹120 from 3-May on. Signature: steps in partway, then holds steady → look for one missing or duplicate transaction in that window, not a wrong opening balance.</span></div>
+            </div>
+            <div class="row" style="gap:8px;">
+              <div class="btn sec" style="flex:1; font-size:10.5px;"><i class="ti ti-search" style="font-size:12px;"></i>Investigate ›</div>
+              <div class="btn ghost" style="flex:1; font-size:10.5px; color:var(--text3);">I've reviewed this, dismiss</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">f. Dismissed<span class="statepill">after tapping "dismiss" above</span></div>
+        <div class="vsub">Muted, not gone — honest about what happened without nagging. "Re-open" un-dismisses if the user changes their mind (e.g. after later finding the actual cause). Per checkpoint-pair: a future, unrelated gap on this same account would show its own fresh mismatch banner regardless.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-x" style="color:#8b949e;"></i><span class="t">HDFC Savings</span><span style="width:16px;"></span></div>
+          <div class="content xshort">
+            <div class="row between" style="background:var(--surface2); border-radius:12px; padding:10px 14px; margin-bottom:10px;">
+              <span style="font-size:11px; color:var(--text2);">Current balance</span>
+              <span style="font-size:14px; font-weight:800; color:#fff;">₹1,79,210</span>
+            </div>
+            <div class="unverified-banner muted">
+              <i class="ti ti-check lead"></i>
+              <div class="txt">Reviewed — you accepted the <b>₹120</b> variance between <b>25 Apr</b> and <b>3 May</b> on 6 Aug 2026. <span style="color:var(--blue); font-weight:700;">Re-open ›</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="branch-note" style="max-width:900px;">
+      Note the account-list badge (Frame 1) for this account: states (d), (e) show the red "Unverified"
+      pill; state (f) — dismissed — <b>also</b> drops the list pill (nothing left needing a look), same as
+      states (b)/(c). Only the detail view (here) distinguishes all six; the list only ever distinguishes
+      "needs a look" vs. not.
+    </div>
+
+    <div class="sectiontitle" id="s2branch" style="margin-top:40px;">Frame 2b — the flat-from-day-one branch</div>
+    <div class="sectionsub">
+      §7d's scenario: <code>Account.openingBalance</code> was typed as ₹49,000, months ago, instead of the
+      true ₹50,000. Every checkpoint disagrees by a constant +₹1,000 — including the very first one. There
+      is no "last agreeing" row to point at, so Direction C's transaction-list drill-in (Frame 3) doesn't
+      apply here — this is the wiring v1 left as a gap (its §5 showed the copy distinction but never routed
+      "Investigate" anywhere for this case).
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Mismatch — expanded, flat-from-day-one<span class="tag new">different CTA</span></div>
+        <div class="vsub">Same banner slot as (e), different copy and a different button: "Check opening balance" instead of "Investigate," since there's no transaction pair to scroll to.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-x" style="color:#8b949e;"></i><span class="t">HDFC Savings</span><span style="width:16px;"></span></div>
+          <div class="content short">
+            <div class="row between" style="background:var(--surface2); border-radius:12px; padding:10px 14px; margin-bottom:10px;">
+              <span style="font-size:11px; color:var(--text2);">Current balance</span>
+              <span style="font-size:14px; font-weight:800; color:#fff;">₹1,78,330</span>
+            </div>
+            <div class="unverified-banner" style="margin-bottom:10px;">
+              <i class="ti ti-alert-triangle lead"></i>
+              <div class="txt">Every checkpoint has disagreed by a constant <b>₹1,000</b>, all the way back to your <b>very first one (2 Apr 2026)</b>.<br/><span style="color:#9aa5b1;">Signature: flat from day one, never zero → check your opening balance, not a missing transaction.</span></div>
+            </div>
+            <div class="row" style="gap:8px;">
+              <div class="btn sec" style="flex:1; font-size:10.5px;"><i class="ti ti-anchor" style="font-size:12px;"></i>Check opening balance ›</div>
+              <div class="btn ghost" style="flex:1; font-size:10.5px; color:var(--text3);">Dismiss</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">"Check opening balance" destination<span class="tag rec">reuses Surface 6's anchor-strip pattern</span></div>
+        <div class="vsub">Not a new pattern — the same visual language as §6's anchor-shift flow below, applied here to a suspected-wrong-from-the-start balance instead of a backfill. Three honest options, none auto-applied.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Opening balance<span class="s">HDFC Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content short">
+            <div class="card" style="border-color:rgba(245,158,11,.35);">
+              <div class="anchorstrip" style="margin-bottom:8px;">
+                <div class="s"><div class="l">Currently set</div><div class="v">₹49,000<br/><span style="font-size:9px; color:var(--text3); font-weight:400;">as of 2 Apr 2026</span></div></div>
+                <div class="arrow"><i class="ti ti-arrow-right"></i></div>
+                <div class="s new"><div class="l">Implied by checkpoints</div><div class="v">₹50,000</div></div>
+              </div>
+              <div style="font-size:9.5px; color:var(--text2); line-height:1.6; margin-bottom:9px;">This only rules out a missing transaction if 2-Apr was itself independently verified — if it was a typed-in guess, importing an even earlier statement is the only way to fully confirm it (§7d).</div>
+              <div class="btn pri" style="margin-bottom:6px; font-size:10.5px;">Update to ₹50,000</div>
+              <div class="btn sec" style="margin-bottom:6px; font-size:10.5px;">Import an earlier statement to confirm</div>
+              <div class="btn ghost" style="font-size:10.5px; color:var(--text3);">Keep ₹49,000, dismiss</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle" id="s2c" style="margin-top:40px;">Frame 3 — the drill-in (steps-in-partway path only)</div>
+    <div class="gallery">
+      <div class="flow-connector">
+        <div class="circ">2</div>
+        <i class="ti ti-arrow-right arr"></i>
+        <div class="cap">Tap "Investigate ›" from Frame 2e</div>
+      </div>
+    </div>
+    <div class="sectionsub">
+      Opens the account's <i>existing</i> transaction list (no new screen) — the same one Frame 1's account
+      row already opens today, just auto-scrolled and with two rows marked. Rows in between the marked pair
+      that don't exist here (none, in this example) would render completely normally; rows <i>after</i> the
+      first-disagreeing one get a faint continuation mark, not full alarm styling, so the eye still finds
+      the one row that matters.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Transaction list, scrolled + highlighted<span class="tag rec">arrival state</span></div>
+        <div class="vsub">A small "scrolled to" context card confirms this wasn't a manual scroll — then the marked pair, exactly as diagnosed.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-x" style="color:#8b949e;"></i><span class="t">HDFC Savings</span><span style="width:16px;"></span></div>
+          <div class="content med">
+            <div class="card" style="border-color:rgba(239,68,68,.3); margin-bottom:8px;">
+              <div style="font-size:10px; color:#f4b8b0;"><i class="ti ti-arrow-down" style="color:var(--danger);"></i>&nbsp;Scrolled to the flagged window below</div>
+            </div>
+            <div class="datehead">April 2026</div>
+            <div class="txrow ckpt-agree">
+              <div class="ckdot"></div>
+              <div class="ticn"><i class="ti ti-shopping-cart"></i></div>
+              <div class="tmid"><div class="t1">Groceries</div><div class="t2">25 Apr<span class="ckpt-inline-badge good">✓ last agreeing</span></div></div>
+              <div class="tamt db">−₹2,200</div>
+            </div>
+            <div class="ckpt-divider"><div class="line"></div><span class="lbl2">₹120 gap</span><div class="line"></div></div>
+            <div class="datehead">May 2026</div>
+            <div class="txrow ckpt-flag">
+              <div class="ckdot"></div>
+              <div class="ticn"><i class="ti ti-cash"></i></div>
+              <div class="tmid"><div class="t1">Salary</div><div class="t2">3 May<span class="ckpt-inline-badge bad">⚠ first disagreeing</span></div></div>
+              <div class="tamt cr">+₹80,000</div>
+            </div>
+            <div class="txrow ckpt-still">
+              <div class="ckdot"></div>
+              <div class="ticn"><i class="ti ti-cash-banknote"></i></div>
+              <div class="tmid"><div class="t1">ATM withdrawal</div><div class="t2">8 May<span class="ckpt-inline-badge faint">still unexplained</span></div></div>
+              <div class="tamt db">−₹3,000</div>
+            </div>
+            <div class="btn ghost" style="margin-top:8px; font-size:10px; color:var(--text3);">View full reconciliation table ›</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle" id="s2d" style="margin-top:40px;">Frame 4 — full checkpoint timeline (escape hatch)</div>
+    <div class="gallery">
+      <div class="flow-connector">
+        <div class="circ">3</div>
+        <i class="ti ti-arrow-right arr"></i>
+        <div class="cap">Tap "View full reconciliation table ›" from Frame 3</div>
+      </div>
+    </div>
+    <div class="sectionsub">
+      Direction B's idea, demoted to progressive disclosure. Two variants — one per diagnostic signature —
+      since the flat case has no "last agreeing" row to anchor the table around.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Full timeline — steps-in-partway<span class="tag rec">from Frame 3</span></div>
+        <div class="vsub">Literal ledger table. Sticky footer reuses the exact same "I've reviewed this, dismiss" control as Frame 2e — one dismiss mechanism, reachable from either depth.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Reconciliation<span class="s">HDFC Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content" style="height:500px;">
+            <div style="font-size:10px; color:var(--text2); line-height:1.5; margin-bottom:8px;">Comparing Penny's running balance against your bank's own stated balance after each checkpointed transaction.</div>
+            <div class="ckpt-table">
+              <div class="ckpt-thead"><span>Date</span><span>Txn</span><span style="text-align:right;">Penny</span><span style="text-align:right;">Diff</span></div>
+              <div class="ckpt-trow agree"><span>15 Apr</span><span class="desc">Rent</span><span class="amt">1,09,150</span><span class="diff">0</span></div>
+              <div class="ckpt-trow agree"><span>20 Apr</span><span class="desc">SMS charges</span><span class="amt">1,09,000</span><span class="diff">0</span></div>
+              <div class="ckpt-trow agree"><span>25 Apr</span><span class="desc">Groceries</span><span class="amt">1,06,800</span><span class="diff">0</span></div>
+              <div class="ckpt-ellipsis">— last agreeing checkpoint —</div>
+              <div class="ckpt-trow flagged"><span>3 May</span><span class="desc">Salary</span><span class="amt">1,86,800</span><span class="diff">+120</span></div>
+              <div class="ckpt-trow flagged"><span>8 May</span><span class="desc">ATM w/draw</span><span class="amt">1,83,800</span><span class="diff">+120</span></div>
+              <div class="ckpt-trow flagged"><span>12 May</span><span class="desc">Electricity</span><span class="amt">1,82,000</span><span class="diff">+120</span></div>
+              <div class="ckpt-ellipsis">first disagreeing — steady at +120 ever since</div>
+            </div>
+            <div class="card" style="margin-top:10px; border-color:rgba(245,158,11,.35);">
+              <div style="font-size:10px; color:#f0d0a0; line-height:1.5;"><i class="ti ti-bulb" style="color:var(--amber);"></i>&nbsp;A missing or duplicate transaction between <b>25 Apr</b> and <b>3 May</b> — most likely a ₹120 debit or credit that never got recorded. Not an opening-balance issue, since earlier checkpoints agree.</div>
+            </div>
+          </div>
+          <div class="tablefooter">
+            <div class="btn ghost" style="flex:1; font-size:10.5px; color:var(--text3);">I've reviewed this, dismiss</div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Full timeline — flat-from-day-one<span class="tag new">from Frame 2b</span></div>
+        <div class="vsub">No "last agreeing" section — every row is flagged, starting at the very first checkpoint. CTA points at the opening-balance check (Frame 2b's destination), not a transaction pair.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Reconciliation<span class="s">HDFC Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content" style="height:340px;">
+            <div style="font-size:10px; color:var(--text2); line-height:1.5; margin-bottom:8px;">Every checkpoint below disagrees with the bank by the same amount — including the very first one.</div>
+            <div class="ckpt-table">
+              <div class="ckpt-thead"><span>Date</span><span>Txn</span><span style="text-align:right;">Penny</span><span style="text-align:right;">Diff</span></div>
+              <div class="ckpt-trow flagged"><span>2 Apr</span><span class="desc">Salary</span><span class="amt">1,29,000</span><span class="diff">+1,000</span></div>
+              <div class="ckpt-trow flagged"><span>5 Apr</span><span class="desc">ATM w/draw</span><span class="amt">1,24,000</span><span class="diff">+1,000</span></div>
+              <div class="ckpt-ellipsis">every checkpoint since — no exceptions</div>
+            </div>
+            <div class="card" style="margin-top:10px; border-color:rgba(59,130,246,.35);">
+              <div style="font-size:10px; color:#c7d5ff; line-height:1.5;"><i class="ti ti-anchor" style="color:var(--blue);"></i>&nbsp;Flat from the very first checkpoint — this points at your opening balance, not a missing row.</div>
+            </div>
+          </div>
+          <div class="tablefooter">
+            <div class="btn sec" style="flex:1; font-size:10.5px;">Check opening balance ›</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle" id="s3"><span class="stepnum">3</span>Gap-warning banner at import time</div>
+    <div class="sectionsub">§11b, exact wording. Lives in <code>SetupStep.tsx</code>, in the same slot as the existing mapping-preview <code>Banner</code> — after column mapping succeeds, before "Continue to review." Never blocks.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">No gap<span class="statepill new">default, silent</span></div>
+        <div class="vsub">New range picks up exactly where the last import ended — nothing shown at all beyond the existing row-count banner. This is the common case; showing a green "no gap!" banner every time would be noise, not reassurance.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Import statement<span class="s">HDFC Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content xshort">
+            <div class="card" style="margin-bottom:8px;">
+              <div class="row between"><span style="font-size:10.5px; color:var(--text2);">320 rows detected · 1–30 Jun 2026</span></div>
+            </div>
+            <div style="font-size:9px; color:var(--text3); text-align:center; margin:6px 0;">(no gap banner — last import covered through 31-May, this one starts 1-Jun)</div>
+            <div class="btn pri">Continue to review</div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Gap detected<span class="tag">warning, never blocking</span></div>
+        <div class="vsub">Last import for this account covered through 15-Mar; this file starts 1-Apr. Tapping "Continue to review" proceeds regardless — a genuinely statement-free period (dormant account) is possible.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Import statement<span class="s">HDFC Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content short">
+            <div class="card" style="margin-bottom:8px;">
+              <div class="row between"><span style="font-size:10.5px; color:var(--text2);">312 rows detected · 1–30 Apr 2026</span></div>
+            </div>
+            <div class="nudge warnalt" style="margin-bottom:10px;">
+              <i class="ti ti-calendar-exclamation"></i>
+              <div class="txt">There's a gap between <b style="color:#fff;">16-Mar</b> and <b style="color:#fff;">31-Mar</b> this account has no statement for — was that period genuinely empty, or is there a statement you haven't found yet?</div>
+            </div>
+            <div class="btn pri">Continue to review</div>
+            <div style="font-size:9px; color:var(--text3); text-align:center; margin-top:6px;">Tapping Continue proceeds either way — this is advisory, not a block.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle" id="s4"><span class="stepnum">4</span>Skipped-row count + Import History (new IA)</div>
+    <div class="sectionsub">§11a, exact wording. Reachable the same way as "Merchant recognition" / "Cash-withdrawal codes" — a new icon action in <code>AccountsPage.tsx</code>'s header. Three states below: the commit confirmation, the history list, and a batch's own detail drill-in.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Commit confirmation<span class="tag">extends DoneStep</span></div>
+        <div class="vsub">Note what's gone: the old "Reconcile now ›" nudge (dead end for bank accounts) no longer appears here at all — the persistent Frame 2 banner is where mismatch surfaces from now on, the next time this account is opened.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Import statement<span class="s">HDFC Savings</span></span></div>
+          <div class="content short">
+            <div class="card" style="items-center: text-align:center; padding:16px 10px; margin-bottom:10px; text-align:center;">
+              <i class="ti ti-circle-check" style="color:var(--primary); font-size:26px;"></i>
+              <div style="font-size:12px; font-weight:700; color:#fff; margin-top:6px;">Import complete</div>
+            </div>
+            <div class="card" style="margin-bottom:10px;">
+              <div class="row between" style="margin-bottom:6px;"><span style="font-size:11px; color:var(--text2);">New transactions</span><span style="font-size:12px; font-weight:700;">4</span></div>
+              <div class="row between" style="margin-bottom:6px;"><span style="font-size:11px; color:var(--text2);">Confirmed matches</span><span style="font-size:12px; font-weight:700;">9</span></div>
+              <div class="row between" style="margin-bottom:6px;"><span style="font-size:11px; color:var(--text2);">Excluded — you chose not to add</span><span style="font-size:12px; font-weight:700; color:var(--amber);">2</span></div>
+              <div class="row between"><span style="font-size:11px; color:var(--text2);">Lone-wolf actions</span><span style="font-size:12px; font-weight:700;">0</span></div>
+            </div>
+            <div style="font-size:9.5px; color:var(--text3); margin-bottom:10px;">15 rows found in this file · 13 handled, 2 skipped intentionally.</div>
+            <div class="btn pri">Done</div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Import History — list<span class="tag new">new screen</span></div>
+        <div class="vsub">One entry per completed batch, most recent first. Tap any row for the detail drill-in (next frame).</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Import history<span class="s">HDFC Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content med">
+            <div class="histrow">
+              <div class="hicn"><i class="ti ti-file-check"></i></div>
+              <div class="hmid"><div class="t1">statement_jun.csv</div><div class="t2">1–30 Jun 2026 · imported 8 Aug</div></div>
+              <div class="hright"><div class="n">6 added</div><div class="n2">0 skipped</div></div>
+            </div>
+            <div class="histrow">
+              <div class="hicn"><i class="ti ti-file-check"></i></div>
+              <div class="hmid"><div class="t1">statement_may.csv</div><div class="t2">1–31 May 2026 · imported 6 Aug</div></div>
+              <div class="hright"><div class="n">9 added</div><div class="n2">0 skipped</div></div>
+            </div>
+            <div class="histrow">
+              <div class="hicn"><i class="ti ti-file-check"></i></div>
+              <div class="hmid"><div class="t1">statement_apr.csv</div><div class="t2">1–30 Apr 2026 · imported 6 Aug</div></div>
+              <div class="hright"><div class="n">4 added</div><div class="n2" style="color:var(--amber);">2 skipped</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Batch detail<span class="tag new">tap a history row</span></div>
+        <div class="vsub">The full breakdown for one batch, including exactly which rows were excluded and why — closing the "silence vs. intentional skip" gap from §11a.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">statement_apr.csv<span class="s">HDFC Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content med">
+            <div class="card" style="margin-bottom:10px;">
+              <div class="row between" style="margin-bottom:6px;"><span style="font-size:10.5px; color:var(--text2);">Covered range</span><span style="font-size:10.5px; font-weight:700; color:#fff;">1–30 Apr 2026</span></div>
+              <div class="row between" style="margin-bottom:6px;"><span style="font-size:10.5px; color:var(--text2);">New</span><span style="font-size:10.5px; font-weight:700;">4</span></div>
+              <div class="row between" style="margin-bottom:6px;"><span style="font-size:10.5px; color:var(--text2);">Matched</span><span style="font-size:10.5px; font-weight:700;">9</span></div>
+              <div class="row between"><span style="font-size:10.5px; color:var(--text2);">Excluded</span><span style="font-size:10.5px; font-weight:700; color:var(--amber);">2</span></div>
+            </div>
+            <div class="datehead" style="padding-top:0;">Excluded rows</div>
+            <div class="txrow"><div class="ticn"><i class="ti ti-x"></i></div><div class="tmid"><div class="t1">POS DUPLICATE-LOOKING 850</div><div class="t2">10 Apr · you chose not to add</div></div><div class="tamt db">−₹850</div></div>
+            <div class="txrow"><div class="ticn"><i class="ti ti-x"></i></div><div class="tmid"><div class="t1">UNKNOWN MERCHANT CODE</div><div class="t2">22 Apr · you chose not to add</div></div><div class="tamt db">−₹40</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle" id="s5"><span class="stepnum">5</span>Opening-balance confirm — first-ever import</div>
+    <div class="sectionsub">§10a: always ask, never silently assume. Two states — a statement header that parses cleanly vs. one that doesn't.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Parsed suggestion found<span class="tag">prefilled, still confirmed</span></div>
+        <div class="vsub">The field is prefilled but "Continue" still requires the user to have looked at and accepted it — never auto-applied silently.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Import statement<span class="s">HDFC Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content xshort">
+            <div class="card" style="border-color:rgba(59,130,246,.35); margin-bottom:10px;">
+              <div class="row" style="gap:6px; margin-bottom:6px;"><i class="ti ti-anchor" style="color:var(--blue); font-size:14px;"></i><span style="font-size:11.5px; font-weight:800; color:#fff;">Confirm opening balance</span></div>
+              <div style="font-size:10px; color:var(--text2); line-height:1.5; margin-bottom:8px;">First statement ever imported for this account. What was the real balance immediately before this statement's first row (1 Apr 2026)?</div>
+              <div class="fieldlabel" style="margin-top:0;">Opening balance, as of 1 Apr 2026</div>
+              <div class="fieldbox focused">₹50,000 <span style="color:var(--text3); font-size:9px;">— parsed from statement header</span></div>
+            </div>
+            <div class="btn pri">Continue to review</div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Nothing parseable<span class="tag">manual entry required</span></div>
+        <div class="vsub">Some banks' exports have no header balance line at all. Empty field, placeholder shows the expected format — "Continue" stays disabled until a value is typed.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Import statement<span class="s">ICICI Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content xshort">
+            <div class="card" style="border-color:rgba(59,130,246,.35); margin-bottom:10px;">
+              <div class="row" style="gap:6px; margin-bottom:6px;"><i class="ti ti-anchor" style="color:var(--blue); font-size:14px;"></i><span style="font-size:11.5px; font-weight:800; color:#fff;">Confirm opening balance</span></div>
+              <div style="font-size:10px; color:var(--text2); line-height:1.5; margin-bottom:8px;">First statement ever imported for this account. This file's header doesn't state a balance — enter it from your passbook or a recent statement.</div>
+              <div class="fieldlabel" style="margin-top:0;">Opening balance, as of 1 Jun 2026</div>
+              <div class="fieldbox ph">e.g. ₹25,000</div>
+            </div>
+            <div class="btn sec" style="opacity:.5;">Continue to review</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle" id="s6"><span class="stepnum">6</span>Anchor-shift flow — backfilling an earlier statement</div>
+    <div class="sectionsub">§14a (clean case) and §14b (disagreement) — never auto-resolved. §14b's three choices, each with its actual outcome shown.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Clean backfill<span class="tag">§14a</span></div>
+        <div class="vsub">Backfilling 2022–23 statements moves the anchor back to 1-Jan-2022 — the numbers agree, nothing downstream changes.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Import statement<span class="s">HDFC Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content short">
+            <div class="card" style="border-color:rgba(59,130,246,.35);">
+              <div class="row" style="gap:6px; margin-bottom:8px;"><i class="ti ti-anchor" style="color:var(--blue); font-size:14px;"></i><span style="font-size:11.5px; font-weight:800; color:#fff;">Opening-balance anchor moves earlier</span></div>
+              <div class="anchorstrip" style="margin-bottom:8px;">
+                <div class="s"><div class="l">Was</div><div class="v">₹50,000<br/><span style="font-size:9px; color:var(--text3); font-weight:400;">as of 1 Jan 2024</span></div></div>
+                <div class="arrow"><i class="ti ti-arrow-right"></i></div>
+                <div class="s new"><div class="l">Now</div><div class="v">₹20,000<br/><span style="font-size:9px; color:var(--text3); font-weight:400;">as of 1 Jan 2022</span></div></div>
+              </div>
+              <div style="font-size:10px; color:#7ee6b8; line-height:1.5;"><i class="ti ti-circle-check"></i>&nbsp;2022–23 activity (net +₹30,000) lands exactly back on your existing 1-Jan-2024 figure — nothing after that date needs to change.</div>
+            </div>
+            <div class="btn pri" style="margin-top:10px;">Continue to review</div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Disagreeing backfill<span class="tag">§14b — needs a human</span></div>
+        <div class="vsub">The new anchor implies 1-Jan-2024 should have been ₹52,000, not ₹50,000. Three choices, three different outcomes shown below.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Import statement<span class="s">HDFC Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content short">
+            <div class="card" style="border-color:rgba(239,68,68,.4);">
+              <div class="row" style="gap:6px; margin-bottom:8px;"><i class="ti ti-alert-triangle" style="color:var(--danger); font-size:14px;"></i><span style="font-size:11.5px; font-weight:800; color:#fff;">This backfill disagrees with your existing anchor</span></div>
+              <div style="font-size:10px; color:var(--text2); line-height:1.6; margin-bottom:9px;">
+                Your account's 1-Jan-2024 opening balance is <b style="color:#fff;">₹50,000</b>. But these
+                2022–23 statements imply it should have been <b style="color:#fff;">₹52,000</b> — a
+                <b style="color:var(--danger);"> ₹2,000</b> disagreement.
+              </div>
+              <div class="btn sec" style="margin-bottom:6px; font-size:10.5px;">Review the new import's rows first</div>
+              <div class="btn sec" style="margin-bottom:6px; font-size:10.5px;">Accept — shift everything by ₹2,000</div>
+              <div class="btn ghost" style="font-size:10.5px; color:var(--text3);">Keep the original ₹50,000, flag for later</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Outcome — "Accept, shift by ₹2,000"<span class="statepill">resulting state</span></div>
+        <div class="vsub">Every checkpoint from 1-Jan-2024 forward gets recomputed against the new figure (§10b's "recheck forward" rule) — a real write, confirmed inline before it happens.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-arrow-left" style="color:#8b949e;"></i><span class="t">Import statement<span class="s">HDFC Savings</span></span><span style="width:16px;"></span></div>
+          <div class="content xshort">
+            <div class="card" style="border-color:rgba(0,168,107,.35);">
+              <div style="font-size:10.5px; color:#7ee6b8; line-height:1.6;"><i class="ti ti-circle-check"></i>&nbsp;Opening balance updated to <b style="color:#fff;">₹52,000</b> as of 1-Jan-2024. Recomputing every checkpoint since — this may take a moment on a long history.</div>
+            </div>
+            <div class="btn pri" style="margin-top:10px;">Continue to review</div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Outcome — "Keep original, flag for later"<span class="statepill">ties into Direction C</span></div>
+        <div class="vsub">Doesn't vanish — becomes exactly the same persistent account-level state as a checkpoint mismatch (Frame 2), just with anchor-specific copy. One badge slot, two possible causes — not a second parallel indicator to keep in sync.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><i class="ti ti-x" style="color:#8b949e;"></i><span class="t">HDFC Savings</span><span style="width:16px;"></span></div>
+          <div class="content xshort">
+            <div class="row between" style="background:var(--surface2); border-radius:12px; padding:10px 14px; margin-bottom:10px;">
+              <span style="font-size:11px; color:var(--text2);">Current balance</span>
+              <span style="font-size:14px; font-weight:800; color:#fff;">₹50,000</span>
+            </div>
+            <div class="unverified-banner">
+              <i class="ti ti-alert-triangle lead"></i>
+              <div class="txt">Your 1-Jan-2024 opening balance may be off by <b>₹2,000</b> — a 2022–23 backfill disagreed with it and you chose to keep the original for now.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <div class="sectiontitle" id="s7"><span class="stepnum">7</span>Ambiguous multi-candidate transfer choice</div>
+    <div class="sectionsub">§13's HDFC→ICICI example, complicated by a coincidental second ₹20,000 same-day credit. Centred modal, never auto-linked. Two outcomes shown.</div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">2 candidates, choosing one<span class="tag">centred modal</span></div>
+        <div class="vsub">Same pattern as <code>PossibleMatchPickerModal.tsx</code>. Neither candidate gets auto-linked.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">HDFC Savings</span></div>
+          <div class="content" style="position:relative; height:400px;">
+            <div class="modalback">
+              <div class="modalcard">
+                <div class="mtitle">Which transaction is this transfer?</div>
+                <div class="card" style="margin-bottom:10px; padding:9px;">
+                  <div class="lbl">HDFC statement line</div>
+                  <div style="font-size:11px; font-weight:700; color:#fff; margin-top:2px;">NEFT TO ICICI XXXX1234</div>
+                  <div style="font-size:10px; color:var(--text2); margin-top:1px;">10 Jun · −₹20,000</div>
+                </div>
+                <div class="candcard sel">
+                  <div class="cicn"><i class="ti ti-arrows-left-right"></i></div>
+                  <div class="cmid"><div class="t1">NEFT FROM HDFC XXXX5678</div><div class="t2">10 Jun · +₹20,000 · ICICI Savings</div></div>
+                  <div class="radio"></div>
+                </div>
+                <div class="candcard">
+                  <div class="cicn"><i class="ti ti-help-circle"></i></div>
+                  <div class="cmid"><div class="t1">IMPS FROM RAJESH K.</div><div class="t2">10 Jun · +₹20,000 · ICICI Savings</div></div>
+                  <div class="radio"></div>
+                </div>
+                <div class="btn pri" style="margin-bottom:6px;">Link selected as transfer</div>
+                <div class="btn sec" style="font-size:10.5px;">Neither — keep both separate</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Outcome — "Neither"<span class="statepill">quiet, no error</span></div>
+        <div class="vsub">Both rows commit as independent plain expense/income entries — each account's own balance still reconciles fine either way (§13's key clarification: linking is for reporting accuracy, not the balance-sync guarantee).</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">HDFC Savings</span></div>
+          <div class="content xshort">
+            <div class="txrow"><div class="ticn"><i class="ti ti-arrow-up-right"></i></div><div class="tmid"><div class="t1">NEFT TO ICICI XXXX1234</div><div class="t2">10 Jun · not linked as transfer</div></div><div class="tamt db">−₹20,000</div></div>
+            <div style="font-size:9px; color:var(--text3); text-align:center; margin-top:8px;">Recorded as a plain expense — still counts correctly toward this account's own balance, just shows in cash-flow analytics as spending rather than a transfer.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </body>
+</html>
