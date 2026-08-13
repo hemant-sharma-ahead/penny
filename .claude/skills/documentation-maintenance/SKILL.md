@@ -26,7 +26,8 @@ real, concrete change — not a summary of intent. Categorize it:
 - A phase/track status change, or a new architectural decision affecting the roadmap →
   `docs/ROADMAP.md`
 - A new non-negotiable rule (something that should block a future PR if violated) →
-  `.claude/commands/penny-standards.md`
+  `CLAUDE.md`'s own Non-negotiable rules if broad, or `CONTRIBUTING.md` if it's a
+  build/architecture/TypeScript standard specifically
 - Scope or approach change to an in-progress initiative → the relevant file under
   `docs/plans/`
 - A new or changed external API call → `docs/EXTERNAL_APIS.md`

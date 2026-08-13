@@ -2,8 +2,11 @@
 
 This file is read at the start of every Claude Code session. It's deliberately minimal —
 an orientation + a map of where everything actually lives, not a restatement of it. Deep
-reference lives in `docs/`; how-to patterns live in `.claude/commands/`; reusable
-methodology lives in `.claude/skills/`; specialized personas live in `.claude/agents/`.
+reference lives in `docs/`; reusable methodology lives in `.claude/skills/`; specialized
+personas live in `.claude/agents/`. (There used to be a fourth category, `.claude/commands/`
+— retired 2026-08-13: unlike this file, it wasn't guaranteed to load each session, so
+durable rules kept drifting stale there. Its content now lives in `docs/` and this file,
+per the table below.)
 
 ## What this project is
 
@@ -90,9 +93,80 @@ Phase 1.
   changes. It's kept only as a historical reference for what `apps/mobile` was built to
   match. If a change genuinely requires touching it, confirm with the user first.
 
-## Documentation discipline (every session)
+**Reliability:**
 
-After completing any implementation step, update whichever of these actually changed:
+- The app must never hard-crash — always show what went wrong (a `parseError`
+  banner/toast), never let an exception throw uncaught. Wrap risky parsing/I/O in
+  try/catch; `apps/mobile/src/components/shared/ErrorBoundary.tsx` is the last line of
+  defense, not a substitute for fixing the root cause.
+- Hermes (native builds) and V8 (RN Web/Node) do **not** parse non-ISO date strings
+  identically — never assume a format that "parses fine" in `pnpm web`/Node also works on
+  a real device without testing it there.
+- Any `.map()` over user-imported/bulk data needs a render cap ("first N + show all") —
+  an unbounded render of a large real file is a native crash risk even when parsing itself
+  is instant. Full writeup + the real crash this codifies: `docs/ARCHITECTURE.md`'s
+  2026-08-13 entry.
+
+## Working style
+
+These govern how to work in this repo day to day — distinct from the non-negotiable rules
+above, which govern what the code must do.
+
+- **Never take a screenshot or run automated visual verification** (emulator screencap,
+  Playwright, browser automation) to confirm a UI/functional change worked — not even to
+  "just check once," and don't ask first. The user always verifies manually. Still run the
+  real compile/type/lint/test gates (those aren't visual verification). If launching an
+  app/emulator is itself the requested task (not verification of a change), that's fine —
+  just stop short of screenshotting it.
+- **Give proactive, opinionated design/product input** — on any "what do you think?" or
+  "should we do X?" question, lead with a real recommendation and the concrete scenario
+  where the literal ask breaks, not a neutral list of options. Unsolicited-but-grounded
+  pushback (with a specific failure case, not just "I don't recommend that") is explicitly
+  wanted here, even mid-iteration.
+- **Implement exactly what was asked in a correction — don't bundle in adjacent changes**
+  that weren't requested (e.g. inverting an existing UI convention because one ambiguous
+  sentence could be read that way). When a request is ambiguous between "just add X" and
+  "add X and also change Y," default to the narrower reading, especially when Y already
+  works and wasn't called out as broken. Ask if genuinely unsure.
+- **Verify before theorizing.** When a report doesn't match what the code should do and an
+  environment-level explanation (stale server, wrong port, cached build) seems plausible,
+  confirm what's actually being tested against _before_ presenting that theory as the
+  likely cause — frame an unconfirmed environment finding as "here's something I found, can
+  you confirm this applies?", not as a stated verdict. Reserve confident causal claims for
+  things actually traced through the code/data.
+- **Once code has been read and understood earlier in the same conversation, don't
+  delegate the next iteration to a brand-new subagent instructed to re-verify against
+  source** — it has no memory of prior rounds and will re-read the same files. Either do
+  the next step directly with the context already in hand, or resume the _same_ prior
+  agent (`SendMessage`) rather than spawning a new one. Reserve a fresh `Agent` call for
+  genuinely new scope.
+- **When a PR is merged, immediately switch to `main`, pull, and delete the merged local
+  branch — without being asked.** `git checkout main && git pull origin main && git branch
+-d <branch>`. Safe, easily-reversible local housekeeping, not something requiring
+  approval.
+- **Never commit or push directly on `main` — no exceptions.** Before any commit, check
+  the current branch; if it's `main`, create a branch first (`git checkout -b
+<name>`) even for something as small as a docs/memory cleanup. See `CONTRIBUTING.md`'s
+  Branch rules.
+
+## Verification & documentation cadence — batch once, right before commit
+
+**Do not run the verification sweep or touch docs after every individual edit/step.** Both
+of the below are done exactly **once per task, right before committing** — not iteratively
+along the way. This has been stated many times; treat it as absolute, not a default that
+can slip back to "after each step" over a long session.
+
+**Verification sweep (once, right before commit):** `tsc -b` for every touched package
+(`packages/core`, `apps/mobile`), `eslint` scoped to the files actually touched, `prettier
+--write` on those files, the full `vitest` suite, and the PII gate (`node
+scripts/check-pii.mjs` after `git add -A`, or just let `.husky/pre-commit` run it). Iterate
+freely on the actual code without running any of this in between — only sweep once,
+immediately before the commit itself.
+
+**Documentation (once, right before commit, covering the whole task's changes at once —
+not incrementally after each step):** run `git diff`/`git status` against everything
+changed since the task started, then check each of these and update whichever actually
+changed (see `.claude/skills/documentation-maintenance/` for the full procedure):
 
 1. `docs/features/<module>.md` if the feature's capabilities, data model, or limitations changed
 2. `docs/SCHEMA.md` if any Dexie store fields were added/changed/removed
@@ -100,10 +174,21 @@ After completing any implementation step, update whichever of these actually cha
 4. `docs/DESIGN_GUIDELINES.md` if a UI pattern, rule, theme, or color token changed
 5. `docs/MOBILE_PARITY.md` if a mobile-vs-web parity gap was found or fixed
 6. `docs/ROADMAP.md` if a phase/track status or architectural decision changed
-7. `.claude/commands/penny-standards.md` if a new non-negotiable rule applies
+7. This file's own Non-negotiable rules (above) if a new hard rule applies broadly, or
+   `CONTRIBUTING.md` if it's a build/architecture/TypeScript standard specifically
 8. The relevant `docs/plans/` file if the approach or scope of an in-progress initiative changed
+9. **The persistent memory folder** — check it for anything durable that isn't written in a
+   doc yet (a decision, a gotcha, a still-open item, a standing preference). Memory is
+   recalled contextually, not guaranteed to load every session the way this file and
+   `docs/` are — anything that needs to survive should live in a doc, not stay memory-only.
+   Migrate it into the right doc from the list above (or this file's Non-negotiable rules /
+   Working style, for something that isn't project documentation), **then delete the source
+   memory file** — never leave a trimmed stub behind once its content has a home in docs.
+   The goal is a memory folder that stays empty in steady state: each session should be able
+   to work entirely from `docs/` + this file, never depending on memory recall for anything
+   that matters.
 
-Never mark a step complete without checking this list.
+Never mark a task complete without checking this list — but check it **once**, at the end.
 
 ## Where to find things
 
@@ -122,10 +207,10 @@ Never mark a step complete without checking this list.
 | Detailed phase/track plans                                                                                       | [`docs/plans/`](docs/plans/)                                                                                                                              |
 | Per-feature documentation                                                                                        | [`docs/features/`](docs/features/)                                                                                                                        |
 | Running any surface (web, mobile, Capacitor, workers)                                                            | [`CONTRIBUTING.md`](CONTRIBUTING.md)                                                                                                                      |
-| Code standards + best practices                                                                                  | [`.claude/commands/penny-standards.md`](.claude/commands/penny-standards.md)                                                                              |
-| Adding a feature module                                                                                          | [`.claude/commands/penny-feature-module.md`](.claude/commands/penny-feature-module.md)                                                                    |
-| Shared component library                                                                                         | [`.claude/commands/penny-components.md`](.claude/commands/penny-components.md)                                                                            |
-| Adding an external API integration                                                                               | [`.claude/commands/penny-api-client.md`](.claude/commands/penny-api-client.md)                                                                            |
+| Code standards + best practices (architecture rules, TypeScript standards, pre-commit gates)                     | [`CONTRIBUTING.md`](CONTRIBUTING.md)                                                                                                                      |
+| Adding a feature module, anti-patterns, refactor signals, file naming, India-specific conventions                | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) ("Feature module architecture" onward)                                                                     |
+| Shared component library                                                                                         | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) ("Component inventory")                                                                                    |
+| Adding an external API integration                                                                               | [`docs/EXTERNAL_APIS.md`](docs/EXTERNAL_APIS.md)                                                                                                          |
 | Auditing `apps/mobile` vs `apps/web-react` for parity gaps                                                       | [`.claude/skills/parity-sweep/`](.claude/skills/parity-sweep/SKILL.md)                                                                                    |
 | Keeping docs current after a change                                                                              | [`.claude/skills/documentation-maintenance/`](.claude/skills/documentation-maintenance/SKILL.md)                                                          |
 | Reviewing/proposing UI, cross-platform design consistency                                                        | [`.claude/skills/ui-design-check/`](.claude/skills/ui-design-check/SKILL.md)                                                                              |

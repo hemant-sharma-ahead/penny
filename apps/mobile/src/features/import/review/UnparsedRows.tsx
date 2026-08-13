@@ -80,6 +80,17 @@ interface UnparsedRowsProps {
   onFixRejected: (rowIndex: number, fields: { date: string; amount: string; description: string }) => boolean;
 }
 
+/** Initial render cap — same "show first N, then a real toggle" convention `CategoryTile.tsx` already
+ *  uses for its own row list, applied here for the same reason (2026-08-13): a genuinely large rejected
+ *  batch (e.g. every row in a file failing to parse — see `parseFlexibleDate`'s own doc comment for the
+ *  real MoneyView bug this was found alongside) used to render ALL of them at once, each a
+ *  `RejectedRowEditor` with 3 `TextInput`s plus a full raw-column dump — thousands of native views
+ *  mounted simultaneously for a 1500+-row file, which crashed the app outright on a real device (while
+ *  RN Web's much cheaper DOM + far more available memory tolerated it fine). This cap is defense in
+ *  depth independent of that date-parsing fix — any other future/format-specific rejection spike should
+ *  never be able to repeat this crash either. */
+const INITIAL_VISIBLE_ROWS = 20;
+
 /** RN port of apps/web-react/src/features/import/review/UnparsedRows.tsx. "Rows needing attention" —
  *  structurally unparsed rows (missing date/amount/description), kept visually distinct (amber/warning
  *  tone) from category-undecided state, so a user never confuses "structurally broken" with "category
@@ -87,7 +98,9 @@ interface UnparsedRowsProps {
 export function UnparsedRows({ rejectedRows, mapping, header, onFixRejected }: UnparsedRowsProps) {
   const theme = useThemeColors();
   const [expanded, setExpanded] = useState(true);
+  const [showAll, setShowAll] = useState(false);
   if (rejectedRows.length === 0) return null;
+  const visibleRows = showAll ? rejectedRows : rejectedRows.slice(0, INITIAL_VISIBLE_ROWS);
 
   return (
     <View
@@ -105,7 +118,7 @@ export function UnparsedRows({ rejectedRows, mapping, header, onFixRejected }: U
       </Pressable>
       {expanded && (
         <View className="px-3 pb-3 pt-1 border-t border-dashed" style={{ borderColor: tint(theme.warning, 45) }}>
-          {rejectedRows.map((row) => (
+          {visibleRows.map((row) => (
             <RejectedRowEditor
               key={row.rowIndex}
               row={row}
@@ -114,6 +127,13 @@ export function UnparsedRows({ rejectedRows, mapping, header, onFixRejected }: U
               onFix={(fields) => onFixRejected(row.rowIndex, fields)}
             />
           ))}
+          {rejectedRows.length > INITIAL_VISIBLE_ROWS && (
+            <Pressable onPress={() => setShowAll((v) => !v)} className="items-center py-2">
+              <Text className="text-xs font-semibold" style={{ color: theme.warning }}>
+                {showAll ? 'Show fewer' : `+ ${rejectedRows.length - INITIAL_VISIBLE_ROWS} more`}
+              </Text>
+            </Pressable>
+          )}
         </View>
       )}
     </View>

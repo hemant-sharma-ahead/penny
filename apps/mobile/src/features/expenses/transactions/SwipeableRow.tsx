@@ -15,6 +15,10 @@ interface Props {
   /** Revealed by swiping the row left — same semantics as web's `actions` (Copy/Delete etc). */
   actions: SwipeAction[];
   onTap: () => void;
+  /** Long-press — used by `TransactionsTab` to enter select mode with this row pre-selected, same
+   *  gesture convention as most list-based multi-select UIs (long-press one row instead of hunting for
+   *  a separate select-mode icon first). Omit for rows with no such affordance (e.g. read-only lists). */
+  onLongPress?: () => void;
   children: ReactNode;
   className?: string;
 }
@@ -43,7 +47,13 @@ const ACTION_W = 72;
  * That's `renderRightActions` here (the actions live off the row's right edge, revealed as content
  * moves left) — `renderLeftActions` would be the mirror (swipe right), which this row never uses.
  */
-export const SwipeableRow = memo(function SwipeableRow({ actions, onTap, children, className = '' }: Props) {
+export const SwipeableRow = memo(function SwipeableRow({
+  actions,
+  onTap,
+  onLongPress,
+  children,
+  className = ''
+}: Props) {
   const ref = useRef<SwipeableMethods>(null);
   const openW = actions.length * ACTION_W;
 
@@ -74,7 +84,12 @@ export const SwipeableRow = memo(function SwipeableRow({ actions, onTap, childre
         </View>
       )}
     >
-      <Pressable onPress={onTap} className={`w-full bg-surface-3 ${className}`}>
+      <Pressable
+        onPress={onTap}
+        onLongPress={onLongPress}
+        delayLongPress={350}
+        className={`w-full bg-surface-3 ${className}`}
+      >
         {children}
       </Pressable>
     </ReanimatedSwipeable>

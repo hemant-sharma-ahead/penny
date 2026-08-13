@@ -108,10 +108,10 @@ After v1, the screen was reframed into the one place to see every rupee of tax a
 
 Tests in `tests/tax/` cover the rate/regime history, FY helpers, income waterfall, scenarios, and optimizer/ITR logic.
 
-This LOC-based rationale and the resulting target module structure/verification gate
-have moved to `docs/ARCHITECTURE.md`'s decision log (see "Decision: three-layer feature
-module split") and `.claude/commands/penny-feature-module.md` respectively, rather than
-being duplicated here.
+This LOC-based rationale and the resulting target module structure/verification gate have
+moved to `docs/ARCHITECTURE.md` — see its decision log ("Decision: three-layer feature
+module split") and its "Feature module architecture" section — rather than being
+duplicated here.
 
 ## Phase 1.5 — Groups & Household OS
 
@@ -390,8 +390,8 @@ Three recovery surfaces, one shared key-grant mechanism:
   verifier (public Ed25519 key + salt, migration `0003_recovery.sql`) + `POST /recover/start` +
   `POST /recover/finish`; client `src/core/identity/recovery.ts` (deterministic keypair from
   `PBKDF2(passphrase, salt)`) + `reclaimAccount()`; verifier derived at `initialize()`/`changePassphrase`
-  and uploaded at claim. Server stores only a public key (DB-leak/replay safe). **Auth worker needs
-  redeploy + migration `0003` before live verification.** Key principle captured: SRP is _authentication_,
+  and uploaded at claim. Server stores only a public key (DB-leak/replay safe). **Deployed + migration
+  `0003` applied, live-verified 2026-07-05.** Key principle captured: SRP is _authentication_,
   not _decryption_ — it recovers identity + group membership, never encryption keys (those need a backup or
   a co-member re-grant).
 - **F4 device pairing / QR = next** (discuss before building; server `/device` + ECDH grants exist).
@@ -587,13 +587,13 @@ When a group is created with a named person that already exists in personal IOUs
 Each worker also has its own README under `workers/<name>/README.md` with local-dev/deploy
 specifics — this table is the architectural summary, not the operational how-to.
 
-| Worker                         | Ships in              | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| ------------------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **API Proxy**                  | Phase 1.5 Track A ✅  | Passthrough + tiered cache for Yahoo / MFAPI / NPS / IPO, market Cron-snapshot, permanent D1 cache & morning queue for vahandetails — fixes CORS, collapses N→1 (`workers/api-proxy/`). **Deployed 2026-07-01** → `penny-api-proxy.hesh.workers.dev`. See also [`docs/EXTERNAL_APIS.md`](EXTERNAL_APIS.md) for the registry of what it proxies.                                                                                                                                                                                                                                                  |
-| **Auth/Identity** ✅           | Phase 1.5 Track C + F | **Built (`workers/auth/`)** — keypair challenge/response signed-request auth, username availability + registration, `users`+`devices` public-key storage; client `signedFetch` + `claim`. **Track F adds passphrase recovery:** a per-account Ed25519 recovery verifier (public key + salt, migration `0003`) + `POST /recover/start`/`/recover/finish` for username+passphrase reclaim. **Personal backup/recovery is the user's own Drive/iCloud (Model B) — no personal blob on our server** (**no phone, no OTP**). Auth worker needs redeploy + migration `0003` for the recovery endpoints |
-| **Groups** 🚧 deployed         | Phase 1.5 Track E     | Group creation, member management, encrypted shared event ledger, key exchange + rotation. **E1–E5 ✅ + E5 tail ✅, workers deployed** — ciphertext-only relay (event bodies inline in D1, no R2), signed + membership/role-checked routes, per-epoch Group Key with ECDH-wrapped grants, split engine + sync engine + full group UX (switcher/dashboard/composer/settle/members), cash guard, share-with-group, vacation→group link, share-later, demo fixtures. `sync` env-gated; Groups need a claimed username. Pending: **end-to-end live verification** + Stage F                          |
-| **Multi-device & recovery** 🚧 | Phase 1.5 Track F     | Recovery model on top of C/D/E ([plan](plans/phase-1.5-track-F-multi-device-recovery.md)). **F1 ✅** phantom-claim fix; **F2 ✅** recovery hardening + restore-on-reinstall + account-start flow (Screen A cards → Screen B tabs → handle-recovery; mandatory username + claim at onboarding); **F3 ✅** passphrase reclaim (Ed25519). Three recovery surfaces: restore-on-reinstall, username+passphrase reclaim, **device pairing/QR (F4, next)**. Deferred: group-recovery-after-reclaim, groups-side account-delete cleanup                                                                  |
-| **AI Categorisation**          | Phase 2               | Anthropic API proxy, PII stripping, transaction → category suggestion                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Worker                         | Ships in              | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **API Proxy**                  | Phase 1.5 Track A ✅  | Passthrough + tiered cache for Yahoo / MFAPI / NPS / IPO, market Cron-snapshot, permanent D1 cache & morning queue for vahandetails — fixes CORS, collapses N→1 (`workers/api-proxy/`). **Deployed 2026-07-01** → `penny-api-proxy.hesh.workers.dev`. See also [`docs/EXTERNAL_APIS.md`](EXTERNAL_APIS.md) for the registry of what it proxies.                                                                                                                                                                                                                                                          |
+| **Auth/Identity** ✅           | Phase 1.5 Track C + F | **Built (`workers/auth/`)** — keypair challenge/response signed-request auth, username availability + registration, `users`+`devices` public-key storage; client `signedFetch` + `claim`. **Track F adds passphrase recovery:** a per-account Ed25519 recovery verifier (public key + salt, migration `0003`) + `POST /recover/start`/`/recover/finish` for username+passphrase reclaim. **Personal backup/recovery is the user's own Drive/iCloud (Model B) — no personal blob on our server** (**no phone, no OTP**). Deployed + migration `0003` applied, recovery endpoints live-verified 2026-07-05 |
+| **Groups** 🚧 deployed         | Phase 1.5 Track E     | Group creation, member management, encrypted shared event ledger, key exchange + rotation. **E1–E5 ✅ + E5 tail ✅, workers deployed** — ciphertext-only relay (event bodies inline in D1, no R2), signed + membership/role-checked routes, per-epoch Group Key with ECDH-wrapped grants, split engine + sync engine + full group UX (switcher/dashboard/composer/settle/members), cash guard, share-with-group, vacation→group link, share-later, demo fixtures. `sync` env-gated; Groups need a claimed username. Pending: **end-to-end live verification** + Stage F                                  |
+| **Multi-device & recovery** 🚧 | Phase 1.5 Track F     | Recovery model on top of C/D/E ([plan](plans/phase-1.5-track-F-multi-device-recovery.md)). **F1 ✅** phantom-claim fix; **F2 ✅** recovery hardening + restore-on-reinstall + account-start flow (Screen A cards → Screen B tabs → handle-recovery; mandatory username + claim at onboarding); **F3 ✅** passphrase reclaim (Ed25519). Three recovery surfaces: restore-on-reinstall, username+passphrase reclaim, **device pairing/QR (F4, next)**. Deferred: group-recovery-after-reclaim, groups-side account-delete cleanup                                                                          |
+| **AI Categorisation**          | Phase 2               | Anthropic API proxy, PII stripping, transaction → category suggestion                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ### D1 database schema (server-side — no financial data ever, no PII)
 
@@ -821,6 +821,75 @@ Most of Groups & Household OS is built (see Part 2 above). Still to do within Ph
 - **Stage F closeout** — combined household net-worth view + the remaining Phase-1.5 polish drawn up after Track E/F land.
 - **Server-side E2EE data blob** (optional, Phase 2-ish) — store the passphrase-wrapped DMK + encrypted data so username+passphrase can restore _everything_ without the user's own cloud (reverses own-Drive Model B + reopens storage cost — a deliberate, costed decision).
 
+## UI overhaul — undecided items (from the 2026-07-31 strategy discussion)
+
+**"Overkill features" — implemented, but whether they're worth keeping is still an open
+question. Do not remove any of these unilaterally — they need a dedicated discussion
+first.** (The chrome consolidation and Penny Blue removal from that same discussion have
+since shipped — see `docs/ARCHITECTURE.md`'s "Chrome consolidation, two passes" entry and
+`docs/DESIGN_GUIDELINES.md` §4.)
+
+- **Open mode timer** — still open, not decided.
+- **Privacy mode switching itself** — the ambient mode-driven screen tinting (Safe/
+  Private/Open repainting the background) was removed 2026-07-31 (see
+  `docs/DESIGN_GUIDELINES.md` §4), but the mode _itself_ (masking, PIN-gated Open mode,
+  the switcher) is untouched. Whether privacy mode should be removed as a feature
+  entirely is still open.
+- **Settings' "Modules" visibility-toggle section** — still open; tied to the Portfolio
+  redesign below (once Home's News/Calculators tiles are removed, this section may no
+  longer be needed).
+- **Stories (Home's `StoriesRow`)** — still open.
+
+**Screen-specific redesign ideas, not yet built:**
+
+- **Portfolio** — a single "Equity" tab with Stocks/Mutual Funds/IPO (listing-time/
+  application-window info)/News as sub-tabs; Calculators should live wherever
+  contextually relevant rather than a standalone Home tile next to News. Once both land,
+  remove the News and Calculators tiles from Home and revisit Settings' "Modules" section.
+- **Expenses**:
+  - Remove the Transactions tab's horizontal scrolling; tabs should read like Portfolio's
+    tab style instead.
+  - Show payment mode below the amount in each transaction row.
+  - Opening the expense/income/transfer entry popup currently takes 2 taps — reduce.
+  - Research Cashew's approach: Lent/Collected, Borrowed/Returned framing; linking a
+    transaction to a Goal or an ongoing Loan; transaction _types_ (Default/Upcoming/
+    Subscription/Repetitive/Lent/Borrowed) shown as an icon next to the category;
+    defaulting new entries to "No Goal" with a goal-picker available.
+  - Goals that reset on a cadence (e.g. ₹1.5L/year for PPF).
+  - A screen to see all transactions for an account or an intent-group/category (not yet
+    designed).
+  - Let the user dismiss the Vacation/Travel-mode note in the Category Picker.
+  - Research a free FASTag data source for cars (flagged as likely infeasible — no free
+    public API typically exists for this).
+  - Loans Planner tab needs a better design pass.
+  - Safe Mode may need more granular controls (e.g. specifically hiding Net Worth).
+- **Home** — inflation-adjusted net-worth projection over the years; a retirement-corpus
+  calculator with an early-retirement option; "what needs work" framed without inducing
+  anxiety (see `docs/DESIGN_GUIDELINES.md` §1's "make the numbers motivate" principle).
+- **Goals** — from a goal, see all its linked transactions at once (the transaction→goal
+  link itself has since shipped, see `docs/features/goals.md`) — not a frequent action, so
+  don't over-index the design on it. Goal suggestions should surface on Home too, not just
+  in Goals.
+- **Groups & IOU** — a way to mark a personal-ledger/group amount as "never coming back"
+  (write-off); promoting a personal ledger to a full group; adding _static_
+  (non-app, un-invitable) members to a group; warn/highlight if an expense or IOU entry
+  would push a cash account negative (likely a forgotten cash-income entry or wrong
+  account/payment-mode pick), including in the demo/simulated data; once a group is fully
+  settled, keep historical records visible but make them **immutable** (no further edits
+  post-settlement).
+- **Future features (roadmap awareness only, not urgent):** CIBIL score; importing stocks
+  via Account Aggregator, mutual funds via MFCentral (PAN + phone); automatic Google Drive
+  backup via the Drive API; Financial Health popup auto-picking the latest monthly
+  take-home from expenses/income (summed if multiple sources), staying user-editable;
+  auto-categorizing stocks/mutual funds by performance (the way INDmoney/Dezerv/
+  PowerUpMoney do); whether/how Penny could do AI-driven market research privately,
+  on-device; a pre-onboarding (and pricing-page-reusable) screen explaining what's free
+  vs. server-dependent/paid; Android SMS-based auto transaction tracking (enable/disable
+  toggle, scan historically vs. going-forward only — see "SMS transaction parsing" above,
+  same privacy concern applies).
+- **Known bug, not yet fixed:** the Penny app icon is not actually set as the app's real
+  icon.
+
 ## Phase 2 ideas (AI + Cloud)
 
 ### Chip AI improvements
@@ -917,3 +986,5 @@ These are features users of INDmoney, Fi Money, and Copilot Money love that are 
 6. **Expense sharing pre-Phase 1.5** — Flatmates want to split bills even before groups exist. Could do simple 50/50 split with manual note.
 7. **Emergency fund designation** — Mark a specific account as "emergency fund" for health score accuracy.
 8. **Charitable donations tracker** — 80G-eligible donations tracked separately. Useful for tax.
+9. **Multiple tags per transaction** — allow more than one, or keep the current single-tag model?
+10. **Cash carry-forward cycle** — track cash on a monthly cycle with a "carry-forward" concept (like the Money Manager app) when the month rolls over?

@@ -20,6 +20,9 @@ interface UploadStepProps {
   setFormat: (f: ImportFormat) => void;
   parseError: string;
   onText: (text: string) => void;
+  /** Surfaces a file-read failure through the same `parseError` banner `onText`'s own downstream
+   *  parsing errors already use — never let a bad file/picker hiccup throw uncaught (2026-08-13). */
+  onError: (message: string) => void;
 }
 
 /**
@@ -30,23 +33,29 @@ interface UploadStepProps {
  * Adds the 'Custom / other' 5th tile (map-your-own-columns) web has always had — the prior mobile wizard
  * excluded it entirely since it had no Map-columns step; that gap is closed by `MapColumnsStep.tsx`.
  */
-export function UploadStep({ format, setFormat, parseError, onText }: UploadStepProps) {
+export function UploadStep({ format, setFormat, parseError, onText, onError }: UploadStepProps) {
   const theme = useThemeColors();
   const [cleanupOpen, setCleanupOpen] = useState(false);
 
   async function pickFile() {
-    // RN Web: mixing a specific MIME type with '*/*' greys out the file in the browser's native dialog
-    // (see BackupPage.tsx's pickFile() for the same fix) — '*/*' alone is the reliable filter there.
-    const result = await DocumentPicker.getDocumentAsync({
-      type: Platform.OS === 'web' ? '*/*' : ['text/csv', '*/*'],
-      copyToCacheDirectory: true
-    });
-    if (result.canceled || !result.assets?.[0]) return;
-    // expo-file-system's web build is a no-op stub, so `new File(uri)` throws on RN Web — use the
-    // picker asset's own browser File object instead there (see AccountRecoveryScreen.tsx's same fix).
-    const asset = result.assets[0];
-    const text = Platform.OS === 'web' && asset.file ? await asset.file.text() : await new File(asset.uri).text();
-    onText(text);
+    try {
+      // RN Web: mixing a specific MIME type with '*/*' greys out the file in the browser's native
+      // dialog (see BackupPage.tsx's pickFile() for the same fix) — '*/*' alone is reliable there.
+      const result = await DocumentPicker.getDocumentAsync({
+        type: Platform.OS === 'web' ? '*/*' : ['text/csv', '*/*'],
+        copyToCacheDirectory: true
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      // expo-file-system's web build is a no-op stub, so `new File(uri)` throws on RN Web — use the
+      // picker asset's own browser File object instead there (see AccountRecoveryScreen.tsx's same fix).
+      const asset = result.assets[0];
+      const text = Platform.OS === 'web' && asset.file ? await asset.file.text() : await new File(asset.uri).text();
+      onText(text);
+    } catch {
+      // Never let a picker/native-file-read hiccup throw uncaught (2026-08-13) — same `parseError`
+      // banner every other unreadable-file case already uses. See `ErrorBoundary.tsx`'s doc comment.
+      onError("Couldn't read that file. Try picking it again.");
+    }
   }
 
   return (

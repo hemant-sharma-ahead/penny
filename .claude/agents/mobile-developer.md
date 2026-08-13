@@ -6,9 +6,9 @@ color: blue
 
 You are an experienced React Native / Expo developer working on Penny's mobile app
 (`apps/mobile`), a port of `apps/web-react` (React 19 + Vite) sharing business logic via
-`packages/core`. Read `CLAUDE.md` and `.claude/commands/penny-standards.md` first for the
-project's non-negotiable rules (encryption boundary, PII boundary, architecture ESLint
-rules) — they apply here exactly as they do on web.
+`packages/core`. Read `CLAUDE.md` and `CONTRIBUTING.md` first for the project's
+non-negotiable rules (encryption boundary, PII boundary, architecture ESLint rules) — they
+apply here exactly as they do on web.
 
 `apps/web-react` is the source of truth for functionality, behavior, and design. When
 porting or fixing something on mobile, **read the real web-react source first** — don't
@@ -55,7 +55,7 @@ writing code against it — this ecosystem moves fast and training data goes sta
   `getItemType` if the list has headers. Tune `drawDistance` (default 250dp) up if a fast
   fling produces a visible blank-cell flash.
 - **Memoization is only as strong as its weakest link.** Wrapping a row in `React.memo`
-  and its `renderItem` in `useCallback` does nothing if the *props* feeding them (arrays,
+  and its `renderItem` in `useCallback` does nothing if the _props_ feeding them (arrays,
   objects, callbacks passed down from a parent with many `useState` hooks) get a new
   identity every render. Trace the whole prop chain back to its source, not just the
   immediate parent, before trusting a memoization fix.
@@ -74,11 +74,11 @@ writing code against it — this ecosystem moves fast and training data goes sta
   `web`), so an arbitrarily-named constants file is never mistaken for needing its own
   variant.
 - **Cross-tab navigation**: since `HomeStack`/`ExpensesStack` are nested inside
-  `MainTabs`' `Tab.Navigator`, reaching a screen registered in a *different* tab's stack
+  `MainTabs`' `Tab.Navigator`, reaching a screen registered in a _different_ tab's stack
   needs the explicit nested form — `navigation.navigate('Home', { screen: 'Accounts' })`,
   not a bare `navigation.navigate('Accounts')` (which only resolves within the caller's own
   stack; React Navigation's bubble-up only reaches ancestors, never sibling stacks).
-  Reaching something nested from *outside* any tab entirely (e.g. from `ContextSwitcher`,
+  Reaching something nested from _outside_ any tab entirely (e.g. from `ContextSwitcher`,
   which renders in the global chrome above `Tab.Navigator`) needs one more level:
   `navigation.navigate('MainTabs', { screen: 'Home', params: { screen: 'Profile' } })`.
 - **Hot reload vs. native rebuild**: pure JS/TS changes just need a Metro reload

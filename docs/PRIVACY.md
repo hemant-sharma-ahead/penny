@@ -28,7 +28,11 @@ Penny is local-first and encrypted-at-rest. The architecture has three layers:
    PDF text layer still carried a real UAN/member ID/name — a box drawn over text doesn't
    delete the text object beneath it. Run `npm run check:pii:full` any time to audit the whole
    tracked repo, not just a staged diff. False positives get a trailing `pii-ignore` comment on
-   that line, never a blanket bypass.
+   that line, never a blanket bypass. When adding new EPF/passbook/financial-document example
+   data anywhere (fixtures, docs, code comments), use the synthetic placeholders already
+   established for this — `TSTEST0000000001` / `TSTEST00000000019999999` / "SYNTHETIC TEST
+   EMPLOYER PRIVATE LIMITED" / "TEST SYNTHETIC USER" (matching
+   `tests/fixtures/epf-passbook-synthetic.pdf`) — never a real captured value.
 
 ---
 
@@ -212,6 +216,21 @@ In Phase 1.5+, the backend (Cloudflare Workers + D1 + R2) is designed so the ser
 
 **The server never stores a personal backup blob (Model B).** Personal data lives on-device and in the user's **own Google Drive/iCloud** — see the Backup model section below. See `docs/BACKEND_STRATEGY.md` §5 and `docs/ROADMAP.md` for the full Phase 1.5 backend design.
 
+### Permitted outbound domains
+
+The app may only contact these external domains — any other `fetch` target is a bug, found via a code review, not a runtime check:
+
+| Domain                                                                     | Purpose                                    | User data sent                            |
+| -------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------- |
+| `api.anthropic.com`                                                        | Chip AI (via `buildUserContext()`)         | Anonymised payload only                   |
+| `api.mfapi.in`                                                             | MF NAV data                                | Scheme codes only                         |
+| `query.yahoofinance.com`                                                   | Stock prices                               | Tickers only                              |
+| `webnodejs.investorgain.com`                                               | IPO data                                   | None                                      |
+| `npsnav.in`                                                                | NPS NAV                                    | None                                      |
+| `vahandetails.com`                                                         | Vehicle RC                                 | None                                      |
+| `api.openweathermap.org`                                                   | Market data                                | None                                      |
+| Deployed Cloudflare Workers (`*.workers.dev`, per `docs/EXTERNAL_APIS.md`) | Auth/Groups/API-Proxy backend (Phase 1.5+) | See "What the server sees" above — no PII |
+
 ---
 
 ## Backup model (Track 2)
@@ -280,6 +299,14 @@ Groups/sharing are an **additive, opt-in layer**. The offline single-user app st
 - **Can see:** device public keys, an optional public username, the group-membership graph (which `userId`s share a group), and per-group **encrypted** event + key-grant ciphertext.
 - **Cannot see:** any financial data, any personal backup blob (that's in the user's **own Drive/iCloud**), any Group Key or plaintext, any name/phone/amount. No phone, no PII.
 
+**Developer enforcement points:** anything a group relays — the group **name**, all shared-ledger
+**event bodies** — must be encrypted with the per-epoch Group Key via
+`packages/core/src/core/groups/keys.ts`'s `encryptForGroup()` **before** it leaves the device.
+Share the Group Key only by wrapping it to a member's ECDH key (`wrapGroupKeyFor()` → a grant);
+never put a raw Group Key or the raw invite secret in a request body (invites send only
+`SHA-256(secret)`). All group calls go through `groupsClient.ts` / `signedFetch(…, GROUPS_BASE)` —
+never `fetch` the worker directly.
+
 ---
 
 ## Credit profile privacy
@@ -295,7 +322,9 @@ The `credit_profile` store has two fields:
 
 1. **Never bypass `buildUserContext()`** to send data to the AI
 2. **Never read from Dexie tables directly** — always use `EncryptedRepository`
-3. **Never log financial data** — `console.log(expense.amount)` is a PII leak
-4. **Never weaken the CI gate** — `tests/pii-gate/piiGate.test.ts` must always pass
-5. **Never store data in localStorage or sessionStorage** — IndexedDB only, through the repository
-6. When adding new fields to any store, evaluate the PII category and update this document
+3. **Never call `window.crypto.subtle` directly from feature code** — only
+   `packages/core/src/core/crypto/engine.ts` and `securityManager.ts` may do this
+4. **Never log financial data** — `console.log(expense.amount)` is a PII leak
+5. **Never weaken the CI gate** — `tests/pii-gate/piiGate.test.ts` must always pass
+6. **Never store data in localStorage or sessionStorage** — IndexedDB only, through the repository
+7. When adding new fields to any store, evaluate the PII category and update this document

@@ -154,12 +154,29 @@ export function resolveCategories(rows: ParsedRow[], categories: ExpenseCategory
  *  'skip' are confident from the start; 'create' only becomes decided once the user has explicitly
  *  reviewed its tile (even if they leave it as 'create' — see the "N of M decided" convention this
  *  mirrors); 'transfer' additionally needs a destination account picked (2026-08-09 fix, see
- *  `CategoryAction`'s doc comment) before it's importable. Shared by every "N of M decided"/sort-order/
- *  row-triage computation across the review screen so they can never drift out of sync with each other. */
-export function isCategoryResolutionDecided(resolution: CategoryResolution, touchedSources: Set<string>): boolean {
+ *  `CategoryAction`'s doc comment) before it's importable — UNLESS every one of its rows already writes
+ *  correctly some other way (2026-08-13 fix, see `fullyAutoResolvedTransferSources` below). Shared by
+ *  every "N of M decided"/sort-order/row-triage computation across the review screen so they can never
+ *  drift out of sync with each other.
+ *
+ *  @param fullyAutoResolvedTransferSources Source names whose 'transfer' resolution needs no explicit
+ *    `toAccountId` because EVERY one of its rows is already either a duplicate (never written at all) or
+ *    part of a CONFIRMED auto-detected transfer pair (written using the pair's own real destination
+ *    account — see `applyConfirmedTransferPairs`, which ignores the category-level `toAccountId`
+ *    entirely for a confirmed pair). Without this, a category whose rows auto-pair perfectly (e.g. "Self
+ *    Transfer") would be permanently stuck "undecided" with zero way to fix it once the review redesign
+ *    (2026-08-13, issue #4) stopped rendering a category tile for fully-paired rows at all — there'd be
+ *    no visible `toAccountId` picker left anywhere. See `useImport.ts`'s own doc comment on this set. */
+export function isCategoryResolutionDecided(
+  resolution: CategoryResolution,
+  touchedSources: Set<string>,
+  fullyAutoResolvedTransferSources?: Set<string>
+): boolean {
   const { suggestion, sourceName } = resolution;
   if (suggestion.kind === 'create') return touchedSources.has(sourceName);
-  if (suggestion.kind === 'transfer') return !!suggestion.toAccountId;
+  if (suggestion.kind === 'transfer') {
+    return !!suggestion.toAccountId || !!fullyAutoResolvedTransferSources?.has(sourceName);
+  }
   return true;
 }
 

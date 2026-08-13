@@ -21,7 +21,7 @@ import type { HomeStackParamList } from '~/navigation/HomeStack';
  *  the checkpoint/balance-sync guarantee itself, which stays bank-only — see
  *  `docs/mockups/proposals/bank-balance-sync-v2.html` §1's own "batch-level facts, not checkpoint
  *  facts" distinction). Duplicated as a literal here rather than imported — feature modules must not
- *  cross-import (`.claude/commands/penny-standards.md`). */
+ *  cross-import (`CONTRIBUTING.md`'s "Architecture rules"). */
 const STATEMENT_IMPORTABLE = new Set<Account['type']>(['bank', 'credit_card']);
 
 /**

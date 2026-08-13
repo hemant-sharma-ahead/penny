@@ -20,8 +20,8 @@ interface PillProps {
 /**
  * RN port of apps/web-react/src/features/import/review/Pill.tsx. Small pill-shaped action button for
  * the import review screen's dense per-account/per-category action rows. Single-consumer (the import
- * review screen only) — per penny-standards.md's shared/ rule, lives in this feature's folder, not
- * components/ui/.
+ * review screen only) — per `docs/ARCHITECTURE.md`'s "A `shared/` folder that isn't actually shared"
+ * anti-pattern, lives in this feature's folder, not components/ui/.
  */
 export function Pill({ children, active, suggested, icon, compact, onPress }: PillProps) {
   const theme = useThemeColors();

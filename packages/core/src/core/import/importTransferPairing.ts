@@ -39,6 +39,15 @@ export interface TransferPair {
   date: number;
 }
 
+/** Stable identity for a detected pair, used to track a user's explicit "not a transfer — log
+ *  separately" un-pair action (see `useImport.ts`'s `unpairedTransferKeys`) across re-renders —
+ *  `detectTransferPairs` recomputes fresh every time, so the pair itself is never a stable
+ *  reference, but the (outgoingIndex, incomingIndex) tuple is (both indices are stable for a
+ *  session — see `parsedRows`' append-only doc comment elsewhere). */
+export function transferPairKey(outgoingIndex: number, incomingIndex: number): string {
+  return `${outgoingIndex}-${incomingIndex}`;
+}
+
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const DATE_TOLERANCE_MS = 3 * ONE_DAY_MS;
 /** Amounts within 1 paisa of each other count as "the same" — real-world exports can carry binary

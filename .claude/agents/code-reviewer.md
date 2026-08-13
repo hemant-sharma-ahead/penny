@@ -10,7 +10,8 @@ lenses before it's committed: correctness, the project's own non-negotiable stan
 consistency with `apps/web-react` (source of truth) when the change touches `apps/mobile`,
 and the concrete performance/design pitfalls this codebase has already hit once.
 
-Read `.claude/commands/penny-standards.md` and `docs/DESIGN_GUIDELINES.md` first. Then
+Read `CLAUDE.md`, `CONTRIBUTING.md`, `docs/ARCHITECTURE.md`, and `docs/DESIGN_GUIDELINES.md`
+first. Then
 review the actual diff (`git diff`, `git diff --staged`, or the specific files named) —
 never review from a description of what changed, always the real code. If a claim in the
 diff or its commit message depends on a library's current behavior you're unsure of, check
@@ -33,7 +34,7 @@ Context7 (see `CLAUDE.md`) rather than assuming.
   from `useModeBackgroundColor()`/`useModeAccentColor()`, not a flat `theme.surface` or
   hardcoded class — confirmed multiple times as a real bug pattern already.
 - **Memoization correctness**: if a list/row is wrapped in `React.memo`/`useCallback`,
-  verify the *props feeding it* are actually stable too — a memoized leaf fed unstable
+  verify the _props feeding it_ are actually stable too — a memoized leaf fed unstable
   callback/array props from its parent gains nothing, which is exactly what happened here
   before it was traced through the full prop chain.
 - **Navigation changes on mobile**: if the diff touches `apps/mobile/src/navigation/` or

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { View, Pressable, ScrollView, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SearchInput, DismissibleChip, Button, Modal, SelectInput, ConfirmDialog } from '~/components/ui';
+import { SearchInput, DismissibleChip, ConfirmDialog } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';
@@ -25,6 +25,7 @@ import { toMonthYearKey } from '@/lib/formatters';
 import { monthLabel } from '@/lib/date';
 import { TransactionsTab } from './TransactionsTab';
 import { ExpenseForm } from '~/components/shared/ExpenseForm';
+import { CategoryPickerModal } from '../categories/CategoryPickerModal';
 import { FilterModal } from './FilterModal';
 import { MonthPickerModal } from './MonthPickerModal';
 import { BulkAccountPaymentModal } from './BulkAccountPaymentModal';
@@ -173,16 +174,20 @@ export function TransactionsSlice({
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkCategory, setShowBulkCategory] = useState(false);
-  const [bulkCategoryTarget, setBulkCategoryTarget] = useState('');
   const [showAcctPay, setShowAcctPay] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
 
   const allFilteredIds = useMemo(() => grouped.flatMap((g) => g.items.map((i) => i.id)), [grouped]);
-  const categoryOptions = useMemo(
-    () => categories.filter((c) => !c.isGroup).map((c) => ({ value: c.id, label: c.name })),
-    [categories]
-  );
+  // A bulk selection is overwhelmingly one direction in practice — pick whichever the majority of the
+  // selected rows actually are, same majority-vote approach `BulkCategorizeModal.tsx` (bank-import) uses
+  // for its own picker-type, so `CategoryPickerModal`'s expense/income category filtering is right for
+  // the common case even for a mixed selection.
+  const bulkPickerType: 'expense' | 'income' = useMemo(() => {
+    const selectedExpenses = grouped.flatMap((g) => g.items).filter((e) => selected.has(e.id));
+    const incomeCount = selectedExpenses.filter((e) => e.type === 'income').length;
+    return incomeCount > selectedExpenses.length / 2 ? 'income' : 'expense';
+  }, [grouped, selected]);
 
   const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
@@ -197,6 +202,13 @@ export function TransactionsSlice({
     setSelectMode(true);
   }
 
+  /** Long-pressing a row in normal mode — enters select mode with that row already selected, same
+   *  end state as tapping the select icon then tapping the row, in one gesture. */
+  const handleLongPressSelect = useCallback((id: string) => {
+    setSelectMode(true);
+    setSelected(new Set([id]));
+  }, []);
+
   function exitSelect() {
     setSelectMode(false);
     setSelected(new Set());
@@ -208,15 +220,13 @@ export function TransactionsSlice({
     exitSelect();
   }
 
-  async function handleBulkCategory() {
-    if (!bulkCategoryTarget) return;
+  async function handleBulkCategory(categoryId: string) {
     setBulkBusy(true);
     try {
-      await applyBulkPatch({ categoryId: bulkCategoryTarget });
-      setShowBulkCategory(false);
-      setBulkCategoryTarget('');
+      await applyBulkPatch({ categoryId });
     } finally {
       setBulkBusy(false);
+      setShowBulkCategory(false);
     }
   }
 
@@ -512,6 +522,7 @@ export function TransactionsSlice({
         selectMode={selectMode}
         selectedIds={selected}
         onToggleSelect={toggleSelect}
+        onLongPressSelect={handleLongPressSelect}
         goalLinkedTxnIds={goalLinkedTxnIds}
         paymentModeMismatchTxnIds={paymentModeMismatchTxnIds}
       />
@@ -527,10 +538,7 @@ export function TransactionsSlice({
           style={{ bottom: insets.bottom }}
         >
           <Pressable
-            onPress={() => {
-              setBulkCategoryTarget('');
-              setShowBulkCategory(true);
-            }}
+            onPress={() => setShowBulkCategory(true)}
             className="items-center gap-1 py-2 rounded-xl"
             style={{ flex: 1 }}
           >
@@ -657,42 +665,20 @@ export function TransactionsSlice({
         />
       )}
 
-      {/* Bulk: move to category */}
+      {/* Bulk: move to category — full CategoryPickerModal (grouped tiles, Frequent row, Manage),
+          same as a single expense's own category edit (ExpenseForm.tsx), not a plain dropdown
+          (found 2026-08-13: this used to be a bare `SelectInput`, the only category-change surface in
+          the app that wasn't the real picker). `bulkPickerType` majority-votes expense vs. income across
+          the selection, same approach `BulkCategorizeModal.tsx` (bank-import) uses for its own picker. */}
       {showBulkCategory && (
-        <Modal
-          size="sm"
+        <CategoryPickerModal
+          type={bulkPickerType}
+          categories={categories}
+          manager={categoryManager}
+          selectedId=""
+          onSelect={(id) => void handleBulkCategory(id)}
           onClose={() => setShowBulkCategory(false)}
-          title="Move to category"
-          footer={
-            <View className="flex-row gap-3">
-              <View className="flex-1">
-                <Button variant="secondary" fullWidth onPress={() => setShowBulkCategory(false)} disabled={bulkBusy}>
-                  Cancel
-                </Button>
-              </View>
-              <View className="flex-1">
-                <Button
-                  fullWidth
-                  disabled={!bulkCategoryTarget}
-                  loading={bulkBusy}
-                  onPress={() => void handleBulkCategory()}
-                >
-                  Move
-                </Button>
-              </View>
-            </View>
-          }
-        >
-          <Text className="text-sm text-secondary">
-            Move {selected.size} transaction{selected.size === 1 ? '' : 's'} to:
-          </Text>
-          <SelectInput
-            value={bulkCategoryTarget}
-            onChange={setBulkCategoryTarget}
-            placeholder="Choose category…"
-            options={categoryOptions}
-          />
-        </Modal>
+        />
       )}
 
       {/* Bulk: account + payment mode (coupled) */}

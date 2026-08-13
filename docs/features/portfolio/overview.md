@@ -38,7 +38,7 @@ Each asset category is a self-contained slice under `src/features/portfolio/hold
 (its cards, `<XSection>`, add/edit `<XModal>`(s), field-groups, and class-specific hooks/helpers).
 Cross-category form primitives live in `holdings/shared/`; the IPO tab in `portfolio/ipo/`. Per-class
 save logic is pure (`core/portfolio/holdingMappers.ts` + `vehicleMeta.ts`, unit-tested); external
-APIs in `core/portfolio/*Client.ts`. See `docs/ARCHITECTURE.md` and `penny-standards.md`.
+APIs in `core/portfolio/*Client.ts`. See `docs/ARCHITECTURE.md` and `docs/EXTERNAL_APIS.md`.
 
 **Sub-tabs:**
 

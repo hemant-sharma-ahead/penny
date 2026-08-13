@@ -1251,6 +1251,61 @@ other — can compute the same investable-corpus/trailing-spend figures via shar
 `core/accounts/balanceCalculator.ts`/`core/expenses/monthlySpend.ts` pure functions instead of duplicating
 that math. Full writeup: `docs/features/home.md`.
 
+**Error boundary + "app must never hard-crash" (2026-08-13) — new `apps/mobile/src/components/shared/
+ErrorBoundary.tsx`**, a class component (`getDerivedStateFromError`/`componentDidCatch`) rendering a
+themed fallback banner + "Try again" reset instead of letting a render-time exception take down the
+whole app. Mounted once at `App.tsx`'s root (every screen covered) and again scoped to
+`features/import/ImportPage.tsx` around its review step specifically (a bad/unusual imported file being
+the single likeliest place for a rendering surprise; its own reset steps back to the Upload step rather
+than just re-rendering the same still-broken data). Added after a real on-device crash whose actual root
+cause was two compounding bugs, both fixed alongside this boundary: (1) `core/import/importMatcher.ts`'s
+`parseFlexibleDate` relied on the native `Date` constructor's lenient parsing for MoneyView's
+`"YYYY/Mon/DD HH:mm:ss"` format — V8 (RN Web, Node) parses it fine, but Hermes (real native builds) does
+not, silently rejecting every row of a real 1500+-row file; fixed with an explicit, portable named-month
+regex parse instead of relying on either engine's non-portable native lenience. (2)
+`features/import/review/UnparsedRows.tsx` then rendered every rejected row's full editor unvirtualized
+(no cap) — fine for a handful of rows, but 1500+ of them mounted at once was enough alone to crash a real
+device (while RN Web's much cheaper DOM tolerated it) — fixed with the same "first N + show all" render
+cap `CategoryTile.tsx` already established for its own row lists. `useImport.ts`'s `importFromText` and
+`UploadStep.tsx`'s `pickFile` also gained try/catch around their parsing/file-read paths, surfacing any
+failure through the existing `parseError` banner rather than throwing uncaught — matching
+`useBankImport.ts`'s own `importFromXlsx` precedent. Standing rule this codifies:
+`CLAUDE.md`'s "Reliability" non-negotiables.
+
+**Expense Import review-screen redesign (2026-08-13)** — a full comparison sweep against Bank
+Statement Import (real user report: the two flows had drifted apart in maturity) found 10 issues,
+all fixed together since several shared the same underlying "tiles are a frozen one-shot snapshot,
+not live-recomputed" root cause. New shared component:
+**`apps/mobile/src/components/shared/RowCheckbox.tsx`** — a higher-contrast checkbox (1.75px
+`theme.borderStrong` border + `theme.surfaceTertiary` fill when unchecked, vs. the previous
+barely-visible 1px `theme.border` outline), factored out so it doesn't silently drift between
+`CategoryTile.tsx`'s bulk-select checkboxes and any future consumer (Bank Import's own identical
+inline checkboxes weren't migrated to it in this pass — a follow-up should, per "keep shared
+controls in sync"). New core module **`packages/core/src/core/import/importTileGrouping.ts`**
+(`groupRowsIntoTiles`) replaces `PreviewSection.tsx`'s previous inline grouping with a single-pass
+function that excludes duplicate and transfer-paired rows from normal category tiles, splits a
+source name's rows by `type` (expense/income never share a tile outside a transfer pair), and
+synthesizes a fresh tile identity for a row moved to a category with no existing tile of its own
+(previously it silently stayed in its origin tile with just a "· moved to X" annotation — the
+reported bug). New **`packages/core/src/core/import/importCategoryMemory.ts`** + mobile-side
+`apps/mobile/src/features/import/importCategoryMemory.ts` add a cross-session "remembered category"
+suggestion via `AsyncStorage` (key `penny_import_category_memory_v1`) — deliberately not a new
+Dexie store, since it's a small, non-sensitive UI preference, not vault data; matches the existing
+`usePaymentModes.ts`/`useBankCashWithdrawalCodes.ts` precedent for this class of persisted setting.
+
+**Same-day follow-up: bucket-card pattern ported from Bank Import.** New
+**`apps/mobile/src/features/import/review/ImportCategorizeModal.tsx`** moves `CategoryTile.tsx`'s
+kind picker/tag box/create-transfer fields out of the always-visible tile body and into a modal
+(mirroring `apps/mobile/src/features/bank-import/BulkCategorizeModal.tsx`'s chrome, widened to a
+4-way kind picker since generic import also needs create/skip, not just existing-or-transfer) —
+`CategoryTile.tsx` itself collapses to a header-only bucket card by default, opened via an
+always-visible "Categorize N selected ›" footer button (`UnmatchedBucket.tsx`'s exact convention).
+`PreviewSection.tsx`'s plain-text section labels became three real bordered bucket cards ("Needs
+your input"/"Staged — ready to import"/"Already imported"), and `ReviewStep.tsx`'s Accounts/Preview
+sections lost their mutual-exclusion (both can be expanded at once, matching how Bank Import's own
+buckets coexist). Full writeup: `docs/features/expenses.md`'s "Review-screen redesign, 2026-08-13"
+and "Bucket-card follow-up, 2026-08-13" sections.
+
 ---
 
 ## Layer architecture
@@ -1750,6 +1805,21 @@ Complex pages compose multiple focused domain hooks — one per domain concern. 
 its own UI interaction state (form fields, modal toggles, which item is being edited).
 Bridge functions that read UI state then call a hook mutation live in the page.
 
+**What belongs in the hook (Layer 2):** all `useEffect` data loading, all `useCallback`
+mutations, all `useMemo` derived values that depend on fetched data, loading/saving flags.
+**What stays in the page (Layer 3), never the hook:** form field state, modal open/close
+state, which item is being edited/selected, `useNavigate`/routing, `usePrivacy()`/masking —
+these are UI concerns, not business state — plus the bridge functions above.
+
+**When a page outgrows ~400 lines, decompose in this order:** (1) **modals** → their own
+files, each owning its own internal state, parent holds only the show/hide boolean; (2)
+**tab content** → their own files, each receiving only the data it renders; (3) **row
+components** → their own files once a `.map()` item exceeds ~10 lines; (4) **pure
+helpers** → `lib/` (not the feature folder) — anything with zero React belongs there so
+it's importable anywhere and testable in isolation. A page hosting several independent
+domains (not just modals/tabs of one domain) uses the vertical-slice pattern instead — see
+the Portfolio/Expenses examples above.
+
 ### React Native portability by layer
 
 This table reflects the approved plan in [`docs/plans/mobile-migration.md`](plans/mobile-migration.md) (single Expo codebase, targeting iOS/Android/web via `react-native-web`; NativeWind for styling; `@op-engineering/op-sqlite` + `react-native-quick-crypto` as native adapters — the storage adapter went `expo-sqlite` → `react-native-mmkv` → `op-sqlite`, all on 2026-07-26). Track 0 (done) physically separated the two layers below into `packages/core/` and `apps/web-react/`; the remaining rows land in later tracks.
@@ -1762,6 +1832,127 @@ This table reflects the approved plan in [`docs/plans/mobile-migration.md`](plan
 | `apps/web-react/src/components/ui/` | ✅ Done — rewritten as `apps/mobile/src/components/ui/`                                                                                   | Same prop APIs, different renderer (Track 3)                                                                    |
 | `packages/core/src/core/db/`        | ✅ Done — `@op-engineering/op-sqlite` adapter behind `RowStore<T>` (was `expo-sqlite`, then `react-native-mmkv`, both swapped 2026-07-26) | `EncryptedRepository<T>`'s constructor narrowed from Dexie's `Table` to `RowStore<T>` — type-only change on web |
 | `packages/core/src/core/crypto/`    | ✅ Done — `react-native-quick-crypto` polyfills `crypto.subtle`                                                                           | `engine.ts`/`securityManager.ts`/`identityKeys.ts`/`recovery.ts` needed **zero logic changes**                  |
+
+### RN/Metro export & debugging gotchas
+
+Recurring, engine/bundler-level gotchas found across multiple binary-file-write/export
+features (Expenses' CSV/ZIP export, Loans' XLSX download) — read before touching any
+export/file-write feature, not just the two case studies below where each was first found:
+
+- **"Works on RN Web, fails on native" is a strong signal the bug is Blob/native-module
+  related, not a Metro bundling issue.** RN's `Blob` implementation is incomplete compared
+  to a browser's — notably missing `.arrayBuffer()` — so code that reads a Blob's bytes
+  needs a platform-suffixed path on native. See `docs/features/expenses.md`'s CSV/ZIP
+  export entry for the concrete fix.
+- **`console.error`'s output in LogBox doesn't show `err.stack`** — a caught error logged
+  this way looks like a bare message with no useful trace on-device. Log the stack
+  explicitly (or use a temporary `console.log(err.stack)`) when diagnosing a native-only
+  crash.
+- **A dynamic `import()` of a library like `zip.js` can behave differently under Metro**
+  than it does in a browser/Node bundler — confirm the actual resolved module shape rather
+  than assuming parity. See `docs/features/expenses.md`'s export entry.
+- **`xlsx.write()` returns a bare `ArrayBuffer`, not a typed array** — code expecting a
+  `Uint8Array` needs an explicit `new Uint8Array(...)` wrap before writing it to a native
+  file. See `docs/features/loans.md`'s "Download XLSX" entry.
+- **When two competing theories exist for a bug, test one directly with a quick standalone
+  `node some-script.mjs` from the repo root** (isolating the pure logic outside the app)
+  before spending more time reasoning about it inside the running app — this is often the
+  fastest way to rule a theory in or out.
+
+---
+
+## Anti-patterns — never do these
+
+**Logic in component files** — a calculation belongs in `core/`, not inline in a
+component's `useMemo`:
+
+```tsx
+// WRONG
+const totalSpend = useMemo(
+  () => expenses.reduce((sum, e) => (e.type === 'expense' ? sum + e.amount : sum), 0),
+  [expenses]
+);
+// RIGHT
+import { totalExpenseAmount } from '@/core/expenses/filterAndAggregate';
+const totalSpend = useMemo(() => totalExpenseAmount(expenses), [expenses]);
+```
+
+**Data fetching in page components** — repo calls belong in the feature hook, never a
+`useEffect` inside the page itself.
+
+**Duplicate utility functions across files** — one copy in `lib/`, imported everywhere;
+the second copy appearing anywhere is the signal to extract, not a shrug.
+
+**Monolithic feature files** — a file over ~400 lines mixing UI and logic is a code smell;
+split it (see the decomposition order above).
+
+**Parent holding modal state** — a modal owns its own internal form state; the parent
+holds only the open/close boolean and passes the minimum data the modal needs:
+
+```tsx
+// WRONG
+const [exportRange, setExportRange] = useState('this_month');
+{showExportSheet && <ExportModal range={exportRange} setRange={setExportRange} ... />}
+// RIGHT
+{showExportSheet && <ExportModal expenses={expenses} onClose={() => setShowExportSheet(false)} />}
+```
+
+**Prop-drilling instead of direct hook consumption** — a modal/child component calls the
+shared hook itself rather than receiving its whole return value threaded down as props;
+the parent passes only what it uniquely owns.
+
+**Live-threaded filter setters** — a buffered filter modal owns its own local state and
+applies on "Done" (`onApply`), rather than the parent threading 6 setter-pairs down as
+props.
+
+**A `shared/` folder that isn't actually shared** — a file used by exactly one category
+belongs in that category's own folder, not `shared/`. Grep its importers before placing a
+file in `shared/`; one importing folder → it lives there.
+
+## File naming conventions
+
+- Components: `PascalCase.tsx`
+- Hooks: `useCamelCase.ts`
+- Utilities / clients: `camelCase.ts`
+- Types: colocated in `packages/core/src/core/db/types/index.ts` or feature-local `types.ts`
+- Tests: `fileName.test.ts`
+- Route/screen pages: `ModulePage.tsx` (e.g. `ExpensesPage.tsx`)
+
+## When to refactor a component
+
+Refactor when you observe any of these — they're signals the code has already crossed a
+line, not suggestions:
+
+1. **The file exceeds ~400 lines** (200 for a form) of JSX/logic — count only what's
+   genuinely in the file; if it's large because it duplicates logic that belongs in
+   `core/`/`lib/`, extract that first.
+2. **A modal has 5+ state variables in the parent** — state that only exists while a modal
+   is open belongs inside the modal.
+3. **You're passing 4+ props only used inside one child** — that child should own that
+   state instead; pass the initial value + an `onApply` callback.
+4. **The same inline JSX block appears in 3+ places** — a shared component is overdue.
+5. **A tab/section's JSX is longer than the page's own logic** — extract it into its own
+   file.
+6. **A utility function is copy-pasted across 2+ files** — the second copy is the signal,
+   not the first; move it to `lib/`.
+
+**When NOT to refactor:** a 250-line component that reads clearly (line count is a proxy,
+not the goal); mid-feature-delivery (refactor before or after, not during); a stable
+component with no active development; a component used exactly once with no reuse
+potential.
+
+## India-specific conventions
+
+- **Currency:** always `formatCurrency()` from `lib/formatters.ts` — never format ₹
+  amounts inline. Always `en-IN` locale.
+- **Large numbers:** `formatCompact()` for lakhs/crores, not millions/billions —
+  ₹1,00,000 = ₹1L, ₹1,00,00,000 = ₹1Cr.
+- **Financial year:** Indian FY runs April–March; FY 2026 = April 2025–March 2026. Use the
+  shared `CURRENT_FY` constant, don't recompute it inline.
+- **Dates:** always through `lib/formatters.ts` helpers — never
+  `new Date().toLocaleDateString()` directly (locale must stay `en-IN`).
+- **Tax slabs:** senior citizen = 60+, super senior = 80+ — these thresholds drive
+  different tax-calculator branches.
 
 ---
 
@@ -1835,9 +2026,8 @@ ports directly or behind an isolated adapter (Dexie/Web-Crypto/`window`-event us
 swap-behind-interface); the remaining ~64% (`components/ui` + feature JSX) is inherent
 UI-renderer rework, made mechanical by the same clean isolation. (An earlier "~85% reuse"
 estimate had counted straightforward UI-swap work as "reuse" — the honest logic-only figure
-is ~36%; shared-component adoption raises effective UI reuse further.) See
-`.claude/commands/penny-feature-module.md` for the resulting target structure and
-checklist.
+is ~36%; shared-component adoption raises effective UI reuse further.) See this doc's own
+"Feature module architecture" section below for the resulting target structure.
 
 ### Decision: Domain hooks, not page-god-hooks
 
@@ -1863,7 +2053,7 @@ This is safe under both bundlers: Metro's platform-suffix resolution only matche
 list (`ios`/`android`/`native`/`web`, plus whatever's explicitly added to `resolver.platforms`),
 so an arbitrarily-named file is never mistaken for needing its own platform variant; Vite has no
 such resolution convention at all. See [`docs/EXTERNAL_APIS.md`](EXTERNAL_APIS.md) for the
-external-API constants this produced, and `.claude/commands/penny-standards.md` for the
+external-API constants this produced, and `CONTRIBUTING.md`'s "Architecture rules" for the
 enforcement-level restatement of this rule. Inspired partly by looking at Cashew (a mature
 cross-platform Flutter app) for structural comparison — see `docs/plans/mobile-migration.md`'s
 long-term react-native-web vision, which this same principle also feeds.

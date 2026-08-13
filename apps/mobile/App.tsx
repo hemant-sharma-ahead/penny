@@ -9,6 +9,7 @@ import { ToastProvider } from './src/context/ToastContext';
 import { EventModeProvider } from './src/context/EventModeContext';
 import { OnboardingDraftProvider } from './src/context/OnboardingDraftContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { ErrorBoundary } from './src/components/shared/ErrorBoundary';
 
 export default function App() {
   return (
@@ -21,7 +22,12 @@ export default function App() {
               <ToastProvider>
                 <EventModeProvider>
                   <OnboardingDraftProvider>
-                    <RootNavigator />
+                    {/* App-wide safety net (2026-08-13) — see ErrorBoundary.tsx's own doc comment for the
+                        real crash this was added after. Inside every provider above so the fallback UI
+                        itself still has theme/privacy/toast context available. */}
+                    <ErrorBoundary>
+                      <RootNavigator />
+                    </ErrorBoundary>
                     <StatusBar style="auto" />
                   </OnboardingDraftProvider>
                 </EventModeProvider>

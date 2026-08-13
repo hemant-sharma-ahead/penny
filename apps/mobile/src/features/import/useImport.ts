@@ -28,10 +28,12 @@ import {
 } from '@/core/import/importCategoryResolution';
 import { resolveAccounts, type AccountResolution, type AccountAction } from '@/core/import/importAccountResolution';
 import { findDuplicateAccountName } from '@/core/accounts/accountValidation';
-import { detectTransferPairs, type TransferPair } from '@/core/import/importTransferPairing';
+import { detectTransferPairs, transferPairKey, type TransferPair } from '@/core/import/importTransferPairing';
 import { identifyRedundantCarryForwardRows } from '@/core/import/importCarryForward';
 import { writeImportBatch, undoImportBatch, type FailedImportRow } from '@/core/import/importWriter';
+import type { RowTriage as CoreRowTriage } from '@/core/import/importTileGrouping';
 import { notifyTxnChanged } from '@/hooks/useTxnRefresh';
+import { loadRememberedSuggestions, rememberCategoryChoices } from './importCategoryMemory';
 
 /** A transfer pair as shown on the review screen — every DETECTED pair is shown (never silently
  *  hidden), with `alreadyImported` set when either leg is a duplicate/skipped so the UI can mark it
@@ -43,7 +45,10 @@ export interface DisplayTransferPair extends TransferPair {
 }
 
 type Step = 'upload' | 'mapColumns' | 'review' | 'done';
-export type RowTriage = 'ready' | 'attention' | 'duplicate';
+/** Re-exported from packages/core (2026-08-13, review redesign) so `PreviewSection.tsx`'s new
+ *  `groupRowsIntoTiles` call — and every existing consumer importing `RowTriage` from this hook — share
+ *  the exact same type without a duplicated literal union. */
+export type RowTriage = CoreRowTriage;
 
 /**
  * RN port of apps/web-react/src/features/import/useImport.ts. This hook is pure business-logic/state
@@ -91,6 +96,22 @@ export function useImport() {
    *  subset to a different existing category, and/or tag just that subset, without disturbing the rest
    *  of the group or its own group-level resolution. */
   const [rowOverrides, setRowOverrides] = useState<Map<number, RowOverride>>(new Map());
+  /** Detected transfer pairs the user has explicitly un-paired via "Not a transfer — log separately"
+   *  (2026-08-13, review redesign issue #4) — keyed by `transferPairKey(outgoingIndex, incomingIndex)`.
+   *  An un-paired pair stops being treated as a transfer entirely: excluded from `transferPairs` below
+   *  (so it disappears from "Linked transfers"), and its two rows fall back into normal per-sourceName-
+   *  per-type grouping in `PreviewSection.tsx`, using whatever `CategoryResolution` already exists for
+   *  their own `categoryName` — never a fabricated new category guess for the un-paired legs. */
+  const [unpairedTransferKeys, setUnpairedTransferKeys] = useState<Set<string>>(new Set());
+  /** "Remembered — {categoryName}" suggestions (2026-08-13, review redesign issue #8), keyed by source
+   *  category name exactly as it appears in THIS file (not normalized — normalization is
+   *  `importCategoryMemory.ts`'s own internal lookup concern). Computed once per `goToReview()` call
+   *  from AsyncStorage-persisted history of prior imports' confirmed category choices. Never changes
+   *  `categoryResolutions[].suggestion` itself — purely a side-channel suggestion `CategoryTile` can
+   *  offer as an editable one-tap accept, exactly like Bank Import's `merchantMemory.ts`. */
+  const [rememberedSuggestions, setRememberedSuggestions] = useState<
+    Map<string, { categoryId: string; categoryName: string }>
+  >(new Map());
 
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ succeededCount: number; failed: FailedImportRow[] }>({
@@ -164,42 +185,53 @@ export function useImport() {
   }, [loadReferenceData]);
 
   /** Step 1 → 2/3: reads the file's header. Known formats parse immediately and go straight to
-   *  Review; Custom shows the Map-columns step first with a pre-filled (never blank) guess. */
+   *  Review; Custom shows the Map-columns step first with a pre-filled (never blank) guess.
+   *
+   *  Wrapped in try/catch (2026-08-13) — never let a parsing surprise (a format edge case the parser
+   *  doesn't handle, an unexpectedly-shaped file) throw uncaught. Always fall back to the same
+   *  `parseError` banner every other bad-file case already uses, matching `useBankImport.ts`'s own
+   *  `importFromXlsx` precedent. See `ErrorBoundary.tsx`'s doc comment for the real crash (a MoneyView
+   *  import silently rejecting every row on native, then rendering a 1500+-row unvirtualized list) this
+   *  principle — the app must never hard-crash, only ever show what went wrong — was written up after. */
   function importFromText(text: string) {
     setParseError('');
     setRawText(text);
-    const h = readHeader(text);
-    if (!h) {
-      setParseError('Could not read the file. Make sure it is a valid CSV.');
-      return;
-    }
-    setHeader(h);
+    try {
+      const h = readHeader(text);
+      if (!h) {
+        setParseError('Could not read the file. Make sure it is a valid CSV.');
+        return;
+      }
+      setHeader(h);
 
-    if (format === 'custom') {
-      setMapping(guessMappingForFormat(text, 'custom'));
-      setStep('mapColumns');
-      return;
-    }
+      if (format === 'custom') {
+        setMapping(guessMappingForFormat(text, 'custom'));
+        setStep('mapColumns');
+        return;
+      }
 
-    const guessedMapping = guessMappingForFormat(text, format);
-    // Always surface the guessed mapping to state, not just for 'custom' — RejectedRowEditor prefills
-    // its Date/Amount/Description inputs from `mapping`.
-    setMapping(guessedMapping);
+      const guessedMapping = guessMappingForFormat(text, format);
+      // Always surface the guessed mapping to state, not just for 'custom' — RejectedRowEditor prefills
+      // its Date/Amount/Description inputs from `mapping`.
+      setMapping(guessedMapping);
 
-    const mappingError = guessedMapping ? validateMappingForFormat(guessedMapping, format) : null;
-    if (mappingError) {
-      setParseError(mappingError);
-      return;
-    }
+      const mappingError = guessedMapping ? validateMappingForFormat(guessedMapping, format) : null;
+      if (mappingError) {
+        setParseError(mappingError);
+        return;
+      }
 
-    const { rows, rejected } = parseByFormat(text, format);
-    if (rows.length === 0 && rejected.length === 0) {
-      setParseError('No valid rows found. Check the file format or that you selected the correct parser.');
-      return;
+      const { rows, rejected } = parseByFormat(text, format);
+      if (rows.length === 0 && rejected.length === 0) {
+        setParseError('No valid rows found. Check the file format or that you selected the correct parser.');
+        return;
+      }
+      setParsedRows(rows);
+      setRejectedRows(rejected);
+      goToReview(rows, categories, accounts);
+    } catch {
+      setParseError("Couldn't read this file — it may be corrupted or not a real CSV. Try a different file.");
     }
-    setParsedRows(rows);
-    setRejectedRows(rejected);
-    goToReview(rows, categories, accounts);
   }
 
   /** Step 2 → 3 (Custom only): parses with the user-confirmed mapping. */
@@ -217,17 +249,39 @@ export function useImport() {
   }
 
   function goToReview(rows: ParsedRow[], cats: ExpenseCategory[], accts: Account[]) {
-    setCategoryResolutions(resolveCategories(rows, cats));
+    const resolutions = resolveCategories(rows, cats);
+    setCategoryResolutions(resolutions);
     const accountRes = resolveAccounts(rows, accts);
     setAccountResolutions(accountRes);
     setSingleAccountId(accountRes.length === 0 ? (accts[0]?.id ?? null) : null);
     setTouchedCategorySources(new Set());
+    setUnpairedTransferKeys(new Set());
+    setRememberedSuggestions(new Map());
+    void loadRememberedSuggestions(
+      resolutions.map((r) => r.sourceName),
+      cats
+    ).then(setRememberedSuggestions);
     setStep('review');
   }
 
   function updateCategoryResolution(sourceName: string, suggestion: CategoryAction) {
     setCategoryResolutions((prev) => prev.map((r) => (r.sourceName === sourceName ? { ...r, suggestion } : r)));
     setTouchedCategorySources((prev) => (prev.has(sourceName) ? prev : new Set(prev).add(sourceName)));
+  }
+
+  /** Marks an unconfirmed 'create' suggestion reviewed-and-accepted-as-is (2026-08-13, review redesign
+   *  issue #7's "Looks good, create it" gate action) — WITHOUT changing `suggestion` at all, unlike
+   *  `updateCategoryResolution` (which always both changes the suggestion AND marks it touched). This is
+   *  the only way to mark a 'create' tile decided while keeping its current suggested name/group exactly
+   *  as-is. */
+  function acknowledgeCategory(sourceName: string) {
+    setTouchedCategorySources((prev) => (prev.has(sourceName) ? prev : new Set(prev).add(sourceName)));
+  }
+
+  /** "Not a transfer — log separately" (2026-08-13, review redesign issue #4) — the pair stops being
+   *  treated as a transfer entirely; see `unpairedTransferKeys`'s own doc comment above. */
+  function unpairTransfer(outgoingIndex: number, incomingIndex: number) {
+    setUnpairedTransferKeys((prev) => new Set(prev).add(transferPairKey(outgoingIndex, incomingIndex)));
   }
 
   function updateAccountResolution(sourceName: string, suggestion: AccountAction) {
@@ -333,6 +387,58 @@ export function useImport() {
     rowOverrides
   ]);
 
+  /** Every DETECTED pair, minus any the user has explicitly un-paired (2026-08-13, review redesign
+   *  issue #4) — filtered here at the base memo so `confirmedTransferPairs`/`displayTransferPairs` below
+   *  and `PreviewSection.tsx`'s own transfer-exclusion pass all agree an un-paired pair is no longer a
+   *  transfer at all, not just hidden from one specific view. */
+  const transferPairs: TransferPair[] = useMemo(
+    () =>
+      detectTransferPairs(parsedRows).filter(
+        (p) => !unpairedTransferKeys.has(transferPairKey(p.outgoingIndex, p.incomingIndex))
+      ),
+    [parsedRows, unpairedTransferKeys]
+  );
+  /** Only pairs whose both rows are actually ready (not duplicate/skipped) get collapsed into a single
+   *  "actual transaction" AND written as one merged transfer record — a pair with a duplicate/skipped
+   *  side is left counted (and written) as normal independent rows. */
+  const confirmedTransferPairs = useMemo(
+    () =>
+      transferPairs.filter((p) => {
+        const out = preview[p.outgoingIndex];
+        const inc = preview[p.incomingIndex];
+        return !!out && !!inc && !out.duplicate && !out.skipped && !inc.duplicate && !inc.skipped;
+      }),
+    [transferPairs, preview]
+  );
+
+  /** Source names whose 'transfer' resolution needs no explicit `toAccountId` because EVERY one of its
+   *  rows is already either a duplicate or part of a `confirmedTransferPairs` pair (2026-08-13, review
+   *  redesign issue #4's fallout — see `isCategoryResolutionDecided`'s doc comment in packages/core for
+   *  why this is necessary: once a fully-paired category's rows are hidden inside "Linked transfers",
+   *  there's no `toAccountId` picker left anywhere for the user to ever satisfy). A category with even
+   *  ONE row that ISN'T paired/duplicate is deliberately excluded here — that row genuinely still needs
+   *  the category-level `toAccountId` to write correctly (the original 2026-08-09 bug this guarded
+   *  against), and its tile stays visible precisely because that row remains un-excluded. */
+  const fullyAutoResolvedTransferSources = useMemo(() => {
+    const pairedIndices = new Set<number>();
+    for (const p of confirmedTransferPairs) {
+      pairedIndices.add(p.outgoingIndex);
+      pairedIndices.add(p.incomingIndex);
+    }
+    const result = new Set<string>();
+    for (const r of categoryResolutions) {
+      if (r.suggestion.kind !== 'transfer' || r.suggestion.toAccountId) continue;
+      const rowIndices = parsedRows.reduce<number[]>((acc, row, i) => {
+        if ((row.categoryName.trim() || 'Other') === r.sourceName) acc.push(i);
+        return acc;
+      }, []);
+      if (rowIndices.length === 0) continue;
+      const allAutoHandled = rowIndices.every((i) => pairedIndices.has(i) || preview[i]?.duplicate);
+      if (allAutoHandled) result.add(r.sourceName);
+    }
+    return result;
+  }, [categoryResolutions, parsedRows, preview, confirmedTransferPairs]);
+
   /** Per-row triage aligned index-for-index with `parsedRows`/`preview` (buildResolvedPreviewRows never
    *  reorders or drops rows). A row is 'attention' only when its category is still an unreviewed
    *  'create' guess — an 'existing'/'transfer' match, a touched/explicit resolution, or a row-level
@@ -343,10 +449,18 @@ export function useImport() {
       if (rowOverrides.has(i)) return 'ready';
       const catKey = parsedRows[i]?.categoryName.trim() || 'Other';
       const res = categoryResolutions.find((r) => r.sourceName === catKey);
-      const undecided = !!res && !isCategoryResolutionDecided(res, touchedCategorySources);
+      const undecided =
+        !!res && !isCategoryResolutionDecided(res, touchedCategorySources, fullyAutoResolvedTransferSources);
       return undecided ? 'attention' : 'ready';
     });
-  }, [preview, parsedRows, categoryResolutions, touchedCategorySources, rowOverrides]);
+  }, [
+    preview,
+    parsedRows,
+    categoryResolutions,
+    touchedCategorySources,
+    rowOverrides,
+    fullyAutoResolvedTransferSources
+  ]);
 
   /** Indices (into `parsedRows`/`preview`, which stay index-aligned — see buildResolvedPreviewRows'
    *  doc comment) of MoneyView-style carry-forward markers ("Cash Forward" et al) that are redundant
@@ -372,19 +486,6 @@ export function useImport() {
   const skippedCount = useMemo(() => preview.filter((r) => r.skipped).length, [preview]);
   const totalRowsRead = parsedRows.length + rejectedRows.length;
 
-  const transferPairs: TransferPair[] = useMemo(() => detectTransferPairs(parsedRows), [parsedRows]);
-  /** Only pairs whose both rows are actually ready (not duplicate/skipped) get collapsed into a single
-   *  "actual transaction" AND written as one merged transfer record — a pair with a duplicate/skipped
-   *  side is left counted (and written) as normal independent rows. */
-  const confirmedTransferPairs = useMemo(
-    () =>
-      transferPairs.filter((p) => {
-        const out = preview[p.outgoingIndex];
-        const inc = preview[p.incomingIndex];
-        return !!out && !!inc && !out.duplicate && !out.skipped && !inc.duplicate && !inc.skipped;
-      }),
-    [transferPairs, preview]
-  );
   const actualTransactionCount = readyCount - confirmedTransferPairs.length;
 
   /** ALL detected pairs, for display — a pair involving a duplicate/skipped leg is still shown, just
@@ -421,20 +522,33 @@ export function useImport() {
 
   /** "N of M decided" — see `isCategoryResolutionDecided`'s doc comment for exactly what counts:
    *  'existing'/'skip' from the start, 'create' once its tile has been touched, 'transfer' once a
-   *  destination account has been picked. */
+   *  destination account has been picked (or every one of its rows is already auto-handled via pairing
+   *  — see `fullyAutoResolvedTransferSources`). */
   const categoriesDecidedCount = useMemo(
-    () => categoryResolutions.filter((r) => isCategoryResolutionDecided(r, touchedCategorySources)).length,
-    [categoryResolutions, touchedCategorySources]
+    () =>
+      categoryResolutions.filter((r) =>
+        isCategoryResolutionDecided(r, touchedCategorySources, fullyAutoResolvedTransferSources)
+      ).length,
+    [categoryResolutions, touchedCategorySources, fullyAutoResolvedTransferSources]
   );
 
   /** Import must stay blocked while any source category resolved as a transfer still has no destination
    *  account picked (2026-08-09 fix) — unlike an unreviewed 'create' guess (which can safely import
    *  using its current suggested name and be renamed later), an incomplete transfer would silently write
    *  with no `toAccountId`, debiting the source account with the money never landing anywhere. See
-   *  `CategoryAction`'s 'transfer' variant doc comment. */
+   *  `CategoryAction`'s 'transfer' variant doc comment. EXCEPT when every one of that category's rows is
+   *  already auto-handled via a confirmed transfer pair (`fullyAutoResolvedTransferSources`, 2026-08-13)
+   *  — those write correctly regardless, and (since the review redesign's issue #4) have no tile left
+   *  anywhere for the user to ever set a `toAccountId` on. */
   const transfersResolved = useMemo(
-    () => categoryResolutions.every((r) => r.suggestion.kind !== 'transfer' || !!r.suggestion.toAccountId),
-    [categoryResolutions]
+    () =>
+      categoryResolutions.every(
+        (r) =>
+          r.suggestion.kind !== 'transfer' ||
+          !!r.suggestion.toAccountId ||
+          fullyAutoResolvedTransferSources.has(r.sourceName)
+      ),
+    [categoryResolutions, fullyAutoResolvedTransferSources]
   );
 
   /** Creates any brand-new categories/accounts the user confirmed (explicit, one-time, never silent —
@@ -459,6 +573,10 @@ export function useImport() {
       createdCategoryIds.set(r.sourceName, id);
     }
     const categoryMap = toConfirmedCategoryMap(categoryResolutions, createdCategoryIds, categoryTags);
+    // Fire-and-forget (2026-08-13, review redesign issue #8) — must never block or delay the actual
+    // import write below. `categoryMap` at this point has the real, final, post-creation category ids
+    // (never a preview placeholder), so a remembered 'create' entry always points at a real category.
+    void rememberCategoryChoices(categoryResolutions, (sourceName) => categoryMap.get(sourceName));
 
     const createdAccountIds = new Map<string, string>();
     const createdAccountsByKey = new Map<string, string>();
@@ -564,12 +682,22 @@ export function useImport() {
     if (deletedCount > 0) notifyTxnChanged();
   }
 
+  /** Surfaces a file-read failure (picker/native file API threw — e.g. a corrupted file, a permissions
+   *  hiccup) through the same `parseError` banner every other unreadable-file case already uses, rather
+   *  than letting `UploadStep.tsx`'s `pickFile()` throw uncaught. Never crash on a bad file — always
+   *  tell the user what happened and let them try a different one (2026-08-13, see `ErrorBoundary.tsx`'s
+   *  doc comment for the real on-device crash this principle was written up after). */
+  function reportUploadError(message: string) {
+    setParseError(message);
+  }
+
   return {
     format,
     setFormat,
     step,
     setStep,
     parseError,
+    reportUploadError,
     header,
     mapping,
     parsedRows,
@@ -604,6 +732,8 @@ export function useImport() {
     touchedCategorySources,
     categoryTags,
     rowOverrides,
+    unpairedTransferKeys,
+    rememberedSuggestions,
     importing,
     importResult,
     activityLogId,
@@ -611,10 +741,12 @@ export function useImport() {
     importFromText,
     confirmMapping,
     updateCategoryResolution,
+    acknowledgeCategory,
     updateAccountResolution,
     setCategoryTag,
     moveRowsToCategory,
     tagRows,
+    unpairTransfer,
     fixRejectedRow,
     commitAndImport,
     retryFailed,

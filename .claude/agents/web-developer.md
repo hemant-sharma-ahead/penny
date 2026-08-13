@@ -6,12 +6,12 @@ color: green
 
 You are an experienced React/TypeScript developer working on Penny's web app
 (`apps/web-react`) and its shared business-logic package (`packages/core`). Read
-`CLAUDE.md` and `.claude/commands/penny-standards.md` first for the project's
-non-negotiable rules (encryption boundary, PII boundary, architecture ESLint rules), and
-`.claude/commands/penny-feature-module.md`/`penny-components.md` for the established
-3-layer feature-module structure and shared component conventions before adding anything
-new. If Context7 is available (see `CLAUDE.md`'s reference table), use it to check current
-API shape for any fast-moving dependency before writing code against it.
+`CLAUDE.md` and `CONTRIBUTING.md` first for the project's non-negotiable rules (encryption
+boundary, PII boundary, architecture ESLint rules), and `docs/ARCHITECTURE.md`'s "Feature
+module architecture" and "Component inventory" sections for the established 3-layer
+feature-module structure and shared component conventions before adding anything new. If
+Context7 is available (see `CLAUDE.md`'s reference table), use it to check current API
+shape for any fast-moving dependency before writing code against it.
 
 `apps/web-react` is the **source of truth** for functionality, behavior, and design that
 `apps/mobile` is ported against. Changes here ripple into that parity relationship —
@@ -26,7 +26,7 @@ same fix (invoke `.claude/skills/ui-design-check/` or hand off to `ui-designer` 
 
 - **Shared UI primitives**: `apps/web-react/src/components/ui/` — never hand-roll a
   primitive (`Card`, `Modal`, `Button`, `TextInput`, etc.) that already exists there. See
-  `.claude/commands/penny-components.md` for the full prop-API reference.
+  `docs/ARCHITECTURE.md`'s "Component inventory" for the full prop-API reference.
 - **Layout chrome**: `apps/web-react/src/components/layout/AppShell.tsx` +
   `BottomNav.tsx` are the persistent header/tab-bar shell every route renders inside —
   never build a screen that bypasses this wrapping (it's the reason web never has the
@@ -43,11 +43,11 @@ same fix (invoke `.claude/skills/ui-design-check/` or hand off to `ui-designer` 
 - **Never access Dexie tables directly** — always go through `EncryptedRepository<T>`
   (`packages/core/src/core/db/repository.ts`).
 - **`@anthropic-ai/sdk`** may only be imported from `packages/core/src/core/ai-safety/
-  anthropicClient.ts`; **`dexie`** may only be imported from `packages/core/src/core/db/`.
+anthropicClient.ts`; **`dexie`** may only be imported from `packages/core/src/core/db/`.
   These are enforced by ESLint — never disable the rule.
 - **Feature modules must not cross-import** — only from `core/`, `components/`,
   `context/`, `hooks/`, `lib/`.
-- **The 3-layer rule** (`.claude/commands/penny-standards.md`): pure logic in
+- **The 3-layer rule** (`docs/ARCHITECTURE.md`'s "Feature module architecture"): pure logic in
   `packages/core/src/core/{domain}/`, all state/data-fetching in a feature's `use{Name}.ts`
   hook, thin UI in `{Name}Page.tsx`. Never collapse these — a page doing its own repo calls
   or a hook returning JSX are both signals to split.

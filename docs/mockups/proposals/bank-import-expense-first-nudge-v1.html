@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Bank Import: "log expenses first" nudge, v1</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg: #0b0f14;
+        --surface: #161b22;
+        --surface2: #1c2128;
+        --surface3: #20262f;
+        --text: #e6edf3;
+        --text2: #8b949e;
+        --text3: #6e7681;
+        --border: #2d333b;
+        --borderStrong: #444c56;
+        --primary: #00a86b;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --info: #3b82f6;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family:
+          'Inter',
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        background: #05070a;
+        color: #e6edf3;
+        -webkit-font-smoothing: antialiased;
+      }
+      h1 {
+        text-align: center;
+        margin: 30px 16px 4px;
+        font-size: 22px;
+        color: #fff;
+      }
+      .sub {
+        text-align: center;
+        margin: 0 16px 20px;
+        color: #9aa5b1;
+        font-size: 14px;
+        max-width: 900px;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.65;
+      }
+      .sectiontitle {
+        text-align: center;
+        font-size: 15px;
+        font-weight: 800;
+        color: #fff;
+        margin: 46px 0 4px;
+      }
+      .sectionsub {
+        text-align: center;
+        color: #9aa5b1;
+        font-size: 12.5px;
+        max-width: 760px;
+        margin: 0 auto 18px;
+        line-height: 1.65;
+      }
+
+      .gallery {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 36px 24px;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 16px 20px 10px;
+      }
+      .frame-wrap {
+        width: 292px;
+      }
+      .vtitle {
+        font-size: 13px;
+        font-weight: 800;
+        margin: 0 2px 3px;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .vtitle .tag {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 2px 7px;
+        border-radius: 999px;
+        background: #232b35;
+        color: #9aa5b1;
+      }
+      .vtitle .tag.cur {
+        background: #3a2412;
+        color: #f0b060;
+      }
+      .vtitle .tag.rec {
+        background: #123524;
+        color: #7ee6b8;
+      }
+      .vsub {
+        font-size: 11px;
+        color: #9aa5b1;
+        margin: 0 2px 12px;
+        line-height: 1.55;
+      }
+
+      .phone {
+        width: 292px;
+        background: var(--bg);
+        border-radius: 30px;
+        border: 8px solid #1c2128;
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+      }
+      .statusbar {
+        height: 16px;
+        background: var(--bg);
+        flex-shrink: 0;
+      }
+      .header {
+        height: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+        flex-shrink: 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .header .t {
+        font-size: 13px;
+        font-weight: 700;
+        color: #fff;
+      }
+      .header .t .s {
+        display: block;
+        font-size: 9px;
+        font-weight: 600;
+        color: var(--text3);
+        margin-top: 1px;
+      }
+      .content {
+        padding: 10px 12px;
+        overflow-y: auto;
+      }
+      .content.tall {
+        height: 480px;
+      }
+      .content.short {
+        height: 300px;
+      }
+
+      .fieldlabel {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--text2);
+        margin-bottom: 5px;
+        margin-top: 12px;
+      }
+      .fieldlabel:first-child {
+        margin-top: 0;
+      }
+      .bankgrid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 7px;
+      }
+      .bankgrid .b {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 11px;
+        padding: 9px 4px;
+        text-align: center;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--text2);
+      }
+      .bankgrid .b.sel {
+        background: #123524;
+        border-color: #1d4d34;
+        color: #7ee6b8;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 13px;
+        padding: 10px 11px;
+      }
+      .maprow {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 7px 0;
+        border-bottom: 1px dashed var(--border);
+      }
+      .maprow:last-child {
+        border-bottom: none;
+      }
+      .maprow .k {
+        font-size: 10px;
+        color: var(--text2);
+      }
+      .maprow .v {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--text);
+        background: var(--surface2);
+        border-radius: 8px;
+        padding: 3px 8px;
+      }
+
+      .banner {
+        border-radius: 12px;
+        padding: 9px 10px;
+        margin-top: 10px;
+        display: flex;
+        gap: 8px;
+      }
+      .banner i {
+        font-size: 13px;
+        margin-top: 1px;
+        flex-shrink: 0;
+      }
+      .banner .txt {
+        font-size: 10px;
+        line-height: 1.55;
+      }
+      .banner.info {
+        background: rgba(59, 130, 246, 0.12);
+      }
+      .banner.info i {
+        color: var(--info);
+      }
+      .banner.info .txt {
+        color: #bcd4f5;
+      }
+      .banner.warn {
+        background: rgba(245, 158, 11, 0.14);
+      }
+      .banner.warn i {
+        color: var(--warning);
+      }
+      .banner.warn .txt {
+        color: #f0d0a0;
+      }
+
+      /* the expense-first nudge card */
+      .nudge {
+        border: 1px solid var(--warning);
+        background: rgba(245, 158, 11, 0.1);
+        border-radius: 14px;
+        padding: 11px 12px;
+        margin-top: 10px;
+      }
+      .nudge .head {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+      }
+      .nudge .head i {
+        color: var(--warning);
+        font-size: 16px;
+        margin-top: 1px;
+        flex-shrink: 0;
+      }
+      .nudge .head .t1 {
+        font-size: 11.5px;
+        font-weight: 800;
+        color: #fff;
+      }
+      .nudge .head .t2 {
+        font-size: 10px;
+        color: #f0d0a0;
+        line-height: 1.55;
+        margin-top: 3px;
+      }
+      .nudge .stats {
+        display: flex;
+        gap: 6px;
+        margin: 9px 0;
+      }
+      .nudge .stats .s {
+        flex: 1;
+        background: var(--surface2);
+        border-radius: 9px;
+        padding: 6px 4px;
+        text-align: center;
+      }
+      .nudge .stats .s .n {
+        font-size: 12.5px;
+        font-weight: 800;
+        color: #fff;
+      }
+      .nudge .stats .s .l {
+        font-size: 7.5px;
+        color: var(--text3);
+        text-transform: uppercase;
+        margin-top: 1px;
+      }
+      .nudge .acts {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 2px;
+      }
+      .nbtn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border-radius: 10px;
+        padding: 9px 0;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .nbtn.pri {
+        background: var(--warning);
+        color: #241705;
+      }
+      .nbtn.gho {
+        border: 1px solid var(--border);
+        color: var(--text2);
+        background: transparent;
+      }
+
+      .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border-radius: 11px;
+        padding: 10px 0;
+        font-size: 12px;
+        font-weight: 700;
+        margin-top: 10px;
+      }
+      .btn.pri {
+        background: var(--primary);
+        color: #04150d;
+      }
+      .toast {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 11px;
+        padding: 9px 10px;
+        margin-top: 10px;
+      }
+      .toast i {
+        color: var(--primary);
+        font-size: 14px;
+      }
+      .toast span {
+        font-size: 10px;
+        color: var(--text2);
+        line-height: 1.5;
+      }
+
+      .legend {
+        max-width: 940px;
+        margin: 14px auto 20px;
+        background: #0e141b;
+        border: 1px solid #1e2733;
+        border-radius: 16px;
+        padding: 22px 26px;
+        color: #c3ccd6;
+        font-size: 13.5px;
+        line-height: 1.75;
+      }
+      .legend h2 {
+        font-size: 15px;
+        margin: 22px 0 8px;
+        color: #fff;
+      }
+      .legend h2:first-child {
+        margin-top: 0;
+      }
+      .legend b {
+        color: #fff;
+      }
+      .legend code {
+        background: #1c2128;
+        padding: 1px 6px;
+        border-radius: 5px;
+        font-size: 12px;
+      }
+      .legend ul {
+        margin: 6px 0 0;
+        padding-left: 20px;
+      }
+      .legend li {
+        margin-bottom: 6px;
+      }
+      .recommend {
+        max-width: 940px;
+        margin: 0 auto 20px;
+        background: #0f2419;
+        border: 1px solid #1c3d2a;
+        border-radius: 16px;
+        padding: 18px 22px;
+        color: #d7f5e6;
+        font-size: 13.5px;
+        line-height: 1.7;
+      }
+      .recommend b {
+        color: #7ee6b8;
+      }
+      .finding {
+        max-width: 940px;
+        margin: 0 auto 44px;
+        background: #101720;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 18px 22px;
+        color: #c3ccd6;
+        font-size: 13.5px;
+        line-height: 1.7;
+      }
+      .finding b {
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Bank Import — "log expenses first" nudge, v1</h1>
+    <p class="sub">
+      One small addition to <code>SetupStep.tsx</code>'s real layout — nudges the user toward the intended workflow (log
+      expenses for a period, <i>then</i> import the bank statement for it) when the statement's own date range has
+      little or no existing expense coverage. Advisory only, same timing/placement convention as the existing
+      coverage-gap and opening-balance banners already on this screen — never blocks.
+    </p>
+
+    <div class="sectiontitle">0 — Current SetupStep (grounded, for reference)</div>
+    <div class="sectionsub">
+      The real merged setup screen today: bank picker → file upload → column mapping card → row-count banner → "Continue
+      to review". No expense-coverage awareness exists yet.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">SetupStep, mapping confirmed <span class="tag cur">today</span></div>
+        <div class="vsub">
+          Matches <code>SetupStep.tsx</code>'s real structure: bank grid, dropzone, mapping card, info banner, plain
+          Continue button.
+        </div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <i class="ti ti-arrow-left" style="color: #8b949e"></i
+            ><span class="t">Import statement<span class="s">HDFC Savings</span></span
+            ><span style="width: 16px"></span>
+          </div>
+          <div class="content tall">
+            <div class="fieldlabel">Bank</div>
+            <div class="bankgrid">
+              <div class="b sel">HDFC</div>
+              <div class="b">ICICI</div>
+              <div class="b">Other</div>
+            </div>
+            <div class="fieldlabel">Statement file</div>
+            <div class="card" style="text-align: center; color: var(--text3); font-size: 10.5px">
+              statement_july.csv
+            </div>
+            <div class="fieldlabel">Column mapping</div>
+            <div class="card">
+              <div class="maprow"><span class="k">Date (DD/MM/YYYY)</span><span class="v">Txn Date</span></div>
+              <div class="maprow"><span class="k">Narration</span><span class="v">Narration</span></div>
+              <div class="maprow"><span class="k">Debit / withdrawal</span><span class="v">Withdrawal Amt</span></div>
+              <div class="maprow"><span class="k">Credit / deposit</span><span class="v">Deposit Amt</span></div>
+              <div class="maprow"><span class="k">Balance</span><span class="v">Closing Balance</span></div>
+            </div>
+            <div class="banner info">
+              <i class="ti ti-table"></i>
+              <div class="txt">312 rows detected · 1–31 Jul 2026</div>
+            </div>
+            <div class="btn pri">Continue to review</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle">1 — With the new nudge (little/no expense coverage)</div>
+    <div class="sectionsub">
+      Same screen, same file — this account has almost nothing logged for 1–31 Jul 2026 yet. The nudge takes over where
+      the plain button was (same "owns its own button, never both at once" convention
+      <code>OpeningBalancePrompt</code> already uses on this screen) — but always with an equally-visible way to proceed
+      anyway.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">SetupStep with nudge <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          Sits exactly where the coverage-gap banner already lives on this screen — visible before "Continue to review",
+          never gating it.
+        </div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <i class="ti ti-arrow-left" style="color: #8b949e"></i
+            ><span class="t">Import statement<span class="s">HDFC Savings</span></span
+            ><span style="width: 16px"></span>
+          </div>
+          <div class="content tall">
+            <div class="fieldlabel">Bank</div>
+            <div class="bankgrid">
+              <div class="b sel">HDFC</div>
+              <div class="b">ICICI</div>
+              <div class="b">Other</div>
+            </div>
+            <div class="fieldlabel">Statement file</div>
+            <div class="card" style="text-align: center; color: var(--text3); font-size: 10.5px">
+              statement_july.csv
+            </div>
+            <div class="fieldlabel">Column mapping</div>
+            <div class="card">
+              <div class="maprow"><span class="k">Date (DD/MM/YYYY)</span><span class="v">Txn Date</span></div>
+              <div class="maprow"><span class="k">Balance</span><span class="v">Closing Balance</span></div>
+            </div>
+            <div class="banner info">
+              <i class="ti ti-table"></i>
+              <div class="txt">312 rows detected · 1–31 Jul 2026</div>
+            </div>
+
+            <div class="nudge">
+              <div class="head">
+                <i class="ti ti-bulb"></i>
+                <div>
+                  <div class="t1">You haven't logged expenses for Jul 2026 yet</div>
+                  <div class="t2">
+                    For the best reconciliation experience, consider importing your expenses for 1–31 Jul 2026 first,
+                    then re-importing this statement — Penny can then match each line against what you've already
+                    recorded instead of creating everything fresh.
+                  </div>
+                </div>
+              </div>
+              <div class="stats">
+                <div class="s">
+                  <div class="n">312</div>
+                  <div class="l">Statement lines</div>
+                </div>
+                <div class="s">
+                  <div class="n" style="color: var(--warning)">3</div>
+                  <div class="l">Already logged</div>
+                </div>
+              </div>
+              <div class="acts">
+                <div class="nbtn pri"><i class="ti ti-receipt-2" style="font-size: 12px"></i>Go log expenses first</div>
+                <div class="nbtn gho">Continue anyway</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Tapping "Go log expenses first" <span class="tag rec">navigates away</span></div>
+        <div class="vsub">
+          Bank Import's own in-progress state (bank/file/mapping) is preserved — a small toast confirms it, so coming
+          back doesn't mean starting over.
+        </div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <i class="ti ti-arrow-left" style="color: #8b949e"></i><span class="t">Import expenses</span
+            ><span style="width: 16px"></span>
+          </div>
+          <div class="content short">
+            <div class="toast">
+              <i class="ti ti-info-circle"></i
+              ><span
+                >Bank Import kept your progress — HDFC Savings, statement_july.csv. Come back anytime to continue.</span
+              >
+            </div>
+            <div class="fieldlabel">Upload a file</div>
+            <div class="card" style="text-align: center; color: var(--text3); font-size: 10.5px; padding: 22px 4px">
+              <i
+                class="ti ti-file-upload"
+                style="font-size: 22px; display: block; margin-bottom: 6px; color: var(--text3)"
+              ></i
+              >Tap to choose a CSV or Excel file
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Tapping "Continue anyway" <span class="tag rec">proceeds normally</span></div>
+        <div class="vsub">
+          Identical to today's plain "Continue to review" outcome — the nudge never blocks or changes the review screen
+          itself, only offers the recommendation first.
+        </div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <i class="ti ti-x" style="color: #8b949e"></i
+            ><span class="t">Review import<span class="s">HDFC Savings · Jul 2026</span></span
+            ><span style="width: 16px"></span>
+          </div>
+          <div class="content short" style="display: flex; align-items: center; justify-content: center">
+            <div style="text-align: center; color: var(--text3); font-size: 11px">
+              → same four-bucket review screen as always
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectiontitle">2 — Healthy coverage: no nudge shown</div>
+    <div class="sectionsub">
+      Same screen, different account — this one already has good expense coverage for the statement's period, so the
+      nudge never appears at all. Confirms the check is conditional, not a permanent extra step in the flow.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">SetupStep, well-covered period <span class="tag rec">no nudge</span></div>
+        <div class="vsub">
+          280 of 312 lines already have a same-period logged expense — comfortably past the "little/no coverage"
+          threshold, so the screen looks exactly like it does today.
+        </div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <i class="ti ti-arrow-left" style="color: #8b949e"></i
+            ><span class="t">Import statement<span class="s">HDFC Savings</span></span
+            ><span style="width: 16px"></span>
+          </div>
+          <div class="content short">
+            <div class="banner info">
+              <i class="ti ti-table"></i>
+              <div class="txt">312 rows detected · 1–31 Jul 2026</div>
+            </div>
+            <div class="btn pri">Continue to review</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <b>Recommendation:</b> gate this on the statement's own account, not a global check — compare the count of
+      already-recorded expenses (any category, this account, <code>date</code> within the statement's detected range)
+      against the statement's own row count, and only show the nudge below a low ratio (a real "almost nothing logged"
+      case, not "this account has 90% coverage and 30 legitimately-new lines"). Reuse <code>coverageGap</code>'s
+      existing timing (visible on <code>SetupStep</code> once <code>mappingPreview</code>
+      has rows, before "Continue to review") rather than inventing a new place in the flow for it — it's the same kind
+      of advisory, just a different signal (statement-history gaps vs. expense-logging gaps).
+    </div>
+
+    <div class="finding">
+      <b>Confirmed, per your explicit ask:</b> Expense Import's own code (<code>importPipeline.ts</code>,
+      <code>importCategoryResolution.ts</code>, <code>useImport.ts</code>) does <b>not</b> perform any
+      balance/reconciliation check anywhere — the only "balance" mentions in that module are doc-comments describing how
+      a transfer row eventually affects <code>balanceCalculator.ts</code> downstream, not an actual check run during
+      import. That responsibility stays exclusively Bank Import's (<code>checkpoint.ts</code>,
+      <code>openingBalanceAnchor.ts</code>), as it should — nothing to flag or fix here, just confirming the boundary
+      holds before adding this nudge next to it.
+    </div>
+  </body>
+</html>

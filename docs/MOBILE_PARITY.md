@@ -15,6 +15,14 @@ folder (`components/`, `context/`, `navigation/`) and every `<Modal>` usage acro
 app respectively, tracked as their own rows since they belong to no single module but
 are used everywhere.
 
+**Note on the framing above:** `apps/web-react` is frozen as of 2026-07-31 (see
+`CLAUDE.md`), so "web-react is always the source of truth" is no longer literally true for
+new work — there's nothing left to chase. Reframing this doc (and `parity-sweep`'s own
+SKILL.md) around that shift was flagged to the user 2026-07-31 and **explicitly declined
+for now** ("leave them as historical for now") — don't re-propose that reframing
+unprompted; only do it if asked. This doc otherwise stays exactly as useful as it already
+is: a record of what was verified.
+
 ## Program status — read this first, every session
 
 The Web-react → Mobile Parity Program runs in numbered phases:
@@ -41,7 +49,7 @@ The Web-react → Mobile Parity Program runs in numbered phases:
   `eslint --max-warnings 0` + the full test suite (401 core + 39 workers passing).
 - **Phase 9 — full from-scratch re-sweep: done, 2026-07-31.** Triggered by a user report
   that the date picker didn't work on RN Web. Root-caused first (`@react-native-community/
-  datetimepicker` ships no web build at all — its platform-less fallback silently renders
+datetimepicker` ships no web build at all — its platform-less fallback silently renders
   `null`), fixed, and added to the skill as a new permanent bug class. That triggered a
   full, from-scratch re-audit of all 24 modules + chrome/shared components + an app-wide
   popups/modals pass (10 parallel `parity-auditor` runs, none trusting the existing ✅
@@ -54,7 +62,7 @@ The Web-react → Mobile Parity Program runs in numbered phases:
   two Change PIN/Passphrase screens, and ~14 smaller findings (a systemic `theme.danger`-
   vs-`theme.open` error-color mismatch across the shared UI kit, a dropped `tabular-nums`
   on numeric displays, a missing bottom scroll inset in `tax`, a duplicated `entitlement.
-  native.ts`/`.web.ts` pair, and several one-off style/spacing misses). All fixed,
+native.ts`/`.web.ts` pair, and several one-off style/spacing misses). All fixed,
   verified via `tsc -b` + `eslint --max-warnings 0` + the full test suite (491 core/web +
   43 workers passing), and now consistent between `apps/mobile` and `apps/web-react` — per
   the skill's Step 9, the per-finding detail was cleared from "Findings by module" below
@@ -68,6 +76,7 @@ The Web-react → Mobile Parity Program runs in numbered phases:
   reorganization).
 
 **Open items (all fixes below are code-complete, not yet confirmed on-device):**
+
 - **Loans' XLSX export** — the library was switched from web's `xlsx` to
   `write-excel-file/universal` (`xlsx`'s CJS `require('fs')` fails under Metro); the two
   libraries' cell/column type models differ enough that output can't be confirmed
@@ -117,34 +126,34 @@ The Web-react → Mobile Parity Program runs in numbered phases:
 **Status legend**: ✅ verified (swept, no open gaps) · ⚠️ gaps open (swept, findings
 below) · 🔍 not yet audited (no formal sweep has run yet).
 
-| Module | Status | Last audited | Priority |
-|---|---|---|---|
-| chrome/shared components | ✅ | 2026-07-31 | — |
-| popups/modals (app-wide) | ✅ | 2026-07-31 | — |
-| accounts | ✅ | 2026-07-31 | — |
-| activity | ✅ | 2026-07-31 | — |
-| backup | ✅ | 2026-07-31 | — |
-| calculators | ✅ | 2026-07-31 | — |
-| cashflow | ✅ | 2026-07-31 | — |
-| chip | ✅ | 2026-07-31 | — |
-| [expenses](#expenses) | ⚠️ | 2026-07-31 | On-device verify |
-| feedback | ✅ | 2026-07-31 | — |
-| goals | ✅ | 2026-07-31 | — |
-| groups | ✅ | 2026-07-31 | — |
-| health | ✅ | 2026-07-31 | — |
-| home | ✅ | 2026-07-31 | — |
-| import | ✅ | 2026-07-31 | — |
-| insurance | ✅ | 2026-07-31 | — |
-| iou | ✅ | 2026-07-31 | — |
-| [loans](#loans) | ⚠️ | 2026-07-31 | On-device verify |
-| news | ✅ | 2026-07-31 | — |
-| onboarding | ✅ | 2026-07-31 | — |
-| portfolio | ✅ | 2026-07-31 | — |
-| profile | ✅ | 2026-07-31 | — |
-| security | ✅ | 2026-07-31 | — |
-| settings | ✅ | 2026-07-31 | — |
-| subscriptions | ✅ | 2026-07-31 | — |
-| tax | ✅ | 2026-07-31 | — |
+| Module                   | Status | Last audited | Priority         |
+| ------------------------ | ------ | ------------ | ---------------- |
+| chrome/shared components | ✅     | 2026-07-31   | —                |
+| popups/modals (app-wide) | ✅     | 2026-07-31   | —                |
+| accounts                 | ✅     | 2026-07-31   | —                |
+| activity                 | ✅     | 2026-07-31   | —                |
+| backup                   | ✅     | 2026-07-31   | —                |
+| calculators              | ✅     | 2026-07-31   | —                |
+| cashflow                 | ✅     | 2026-07-31   | —                |
+| chip                     | ✅     | 2026-07-31   | —                |
+| [expenses](#expenses)    | ⚠️     | 2026-07-31   | On-device verify |
+| feedback                 | ✅     | 2026-07-31   | —                |
+| goals                    | ✅     | 2026-07-31   | —                |
+| groups                   | ✅     | 2026-07-31   | —                |
+| health                   | ✅     | 2026-07-31   | —                |
+| home                     | ✅     | 2026-07-31   | —                |
+| import                   | ✅     | 2026-07-31   | —                |
+| insurance                | ✅     | 2026-07-31   | —                |
+| iou                      | ✅     | 2026-07-31   | —                |
+| [loans](#loans)          | ⚠️     | 2026-07-31   | On-device verify |
+| news                     | ✅     | 2026-07-31   | —                |
+| onboarding               | ✅     | 2026-07-31   | —                |
+| portfolio                | ✅     | 2026-07-31   | —                |
+| profile                  | ✅     | 2026-07-31   | —                |
+| security                 | ✅     | 2026-07-31   | —                |
+| settings                 | ✅     | 2026-07-31   | —                |
+| subscriptions            | ✅     | 2026-07-31   | —                |
+| tax                      | ✅     | 2026-07-31   | —                |
 
 Modules with no findings just show ✅ above — see "Findings by module" below for the
 ones with something still open or worth a note.

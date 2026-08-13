@@ -11,6 +11,7 @@ import type { BankPresetId } from '@/core/bank-import/types';
 import type { UseBankImportReturn } from './useBankImport';
 import { MappingEditModal } from './MappingEditModal';
 import { OpeningBalancePrompt } from './OpeningBalancePrompt';
+import { ExpenseCoverageNudge } from './ExpenseCoverageNudge';
 
 interface SetupStepProps {
   bi: UseBankImportReturn;
@@ -186,11 +187,20 @@ export function SetupStep({ bi }: SetupStepProps) {
             </Banner>
           )}
           {/* Opening-balance confirm (§10a) / anchor-shift (§14a/§14b) — docs/plans/
-              bank-balance-sync.md §7 Stage 3. Replaces the plain "Continue to review" button below
-              entirely (never both at once) — every branch inside owns its own button that both stages
-              the account write and proceeds, per docs/mockups/proposals/bank-balance-sync-v2.html §5/§6. */}
+              bank-balance-sync.md §7 Stage 3 — vs. the expense-first nudge
+              (docs/mockups/proposals/bank-import-expense-first-nudge-v1.html) below it. Both replace the
+              plain "Continue to review" button entirely (never more than one of the three at once), so a
+              single priority order is needed for the (rare, but real) case both trigger together — e.g. a
+              first-ever bank-account import whose own period also has little/no logged expenses.
+              Opening-balance/anchor-shift wins: it's a correctness-affecting data decision (what the
+              account's own opening balance actually is) that every downstream balance/checkpoint
+              computation depends on, not merely advisory — it must be resolved before anything else takes
+              over this slot. The expense-coverage nudge is purely a recommendation, never a data decision,
+              so it only gets the slot once there's no opening-balance flow pending. */}
           {bi.openingBalanceTrigger ? (
             <OpeningBalancePrompt bi={bi} />
+          ) : bi.expenseCoverageWarning ? (
+            <ExpenseCoverageNudge bi={bi} bankLabel={bankLabel} />
           ) : (
             // Was gated on `mappingReady` alone (every field mapped) — that says nothing about whether
             // the mapping actually *works*, so a wrong date format could map every field "correctly"
