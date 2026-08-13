@@ -547,7 +547,7 @@ backend; the Worker-served dictionary refresh is the only backend piece.
   `sync_cursor` (later tracks).
 - `docs/ARCHITECTURE.md` — new `src/core/iou/`, `src/core/sync/`, `src/core/identity/`,
   `src/core/crypto/identityKeys.ts`; new IOU components.
-- `CLAUDE.md` milestone table; `.claude/commands/penny-standards.md` for any new rules.
+- `CLAUDE.md` for any new non-negotiable rules.
 
 ---
 

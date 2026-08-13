@@ -164,42 +164,53 @@ export function useImport() {
   }, [loadReferenceData]);
 
   /** Step 1 → 2/3: reads the file's header. Known formats parse immediately and go straight to
-   *  Review; Custom shows the Map-columns step first with a pre-filled (never blank) guess. */
+   *  Review; Custom shows the Map-columns step first with a pre-filled (never blank) guess.
+   *
+   *  Wrapped in try/catch (2026-08-13) — never let a parsing surprise (a format edge case the parser
+   *  doesn't handle, an unexpectedly-shaped file) throw uncaught. Always fall back to the same
+   *  `parseError` banner every other bad-file case already uses, matching `useBankImport.ts`'s own
+   *  `importFromXlsx` precedent. See `ErrorBoundary.tsx`'s doc comment for the real crash (a MoneyView
+   *  import silently rejecting every row on native, then rendering a 1500+-row unvirtualized list) this
+   *  principle — the app must never hard-crash, only ever show what went wrong — was written up after. */
   function importFromText(text: string) {
     setParseError('');
     setRawText(text);
-    const h = readHeader(text);
-    if (!h) {
-      setParseError('Could not read the file. Make sure it is a valid CSV.');
-      return;
-    }
-    setHeader(h);
+    try {
+      const h = readHeader(text);
+      if (!h) {
+        setParseError('Could not read the file. Make sure it is a valid CSV.');
+        return;
+      }
+      setHeader(h);
 
-    if (format === 'custom') {
-      setMapping(guessMappingForFormat(text, 'custom'));
-      setStep('mapColumns');
-      return;
-    }
+      if (format === 'custom') {
+        setMapping(guessMappingForFormat(text, 'custom'));
+        setStep('mapColumns');
+        return;
+      }
 
-    const guessedMapping = guessMappingForFormat(text, format);
-    // Always surface the guessed mapping to state, not just for 'custom' — RejectedRowEditor prefills
-    // its Date/Amount/Description inputs from `mapping`.
-    setMapping(guessedMapping);
+      const guessedMapping = guessMappingForFormat(text, format);
+      // Always surface the guessed mapping to state, not just for 'custom' — RejectedRowEditor prefills
+      // its Date/Amount/Description inputs from `mapping`.
+      setMapping(guessedMapping);
 
-    const mappingError = guessedMapping ? validateMappingForFormat(guessedMapping, format) : null;
-    if (mappingError) {
-      setParseError(mappingError);
-      return;
-    }
+      const mappingError = guessedMapping ? validateMappingForFormat(guessedMapping, format) : null;
+      if (mappingError) {
+        setParseError(mappingError);
+        return;
+      }
 
-    const { rows, rejected } = parseByFormat(text, format);
-    if (rows.length === 0 && rejected.length === 0) {
-      setParseError('No valid rows found. Check the file format or that you selected the correct parser.');
-      return;
+      const { rows, rejected } = parseByFormat(text, format);
+      if (rows.length === 0 && rejected.length === 0) {
+        setParseError('No valid rows found. Check the file format or that you selected the correct parser.');
+        return;
+      }
+      setParsedRows(rows);
+      setRejectedRows(rejected);
+      goToReview(rows, categories, accounts);
+    } catch {
+      setParseError("Couldn't read this file — it may be corrupted or not a real CSV. Try a different file.");
     }
-    setParsedRows(rows);
-    setRejectedRows(rejected);
-    goToReview(rows, categories, accounts);
   }
 
   /** Step 2 → 3 (Custom only): parses with the user-confirmed mapping. */
@@ -564,12 +575,22 @@ export function useImport() {
     if (deletedCount > 0) notifyTxnChanged();
   }
 
+  /** Surfaces a file-read failure (picker/native file API threw — e.g. a corrupted file, a permissions
+   *  hiccup) through the same `parseError` banner every other unreadable-file case already uses, rather
+   *  than letting `UploadStep.tsx`'s `pickFile()` throw uncaught. Never crash on a bad file — always
+   *  tell the user what happened and let them try a different one (2026-08-13, see `ErrorBoundary.tsx`'s
+   *  doc comment for the real on-device crash this principle was written up after). */
+  function reportUploadError(message: string) {
+    setParseError(message);
+  }
+
   return {
     format,
     setFormat,
     step,
     setStep,
     parseError,
+    reportUploadError,
     header,
     mapping,
     parsedRows,

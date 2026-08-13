@@ -139,17 +139,45 @@ export function resolveAmount(cols: string[], mapping: ColumnMapping): AmountRes
 
 export type DateHint = 'DMY' | 'MDY' | 'auto';
 
-/** Parses a date string that may be a bare numeric DD/MM/YYYY or MM/DD/YYYY date, or any other format
- *  `new Date()` understands (ISO-ish "YYYY-MM-DD HH:mm:ss", "YYYY/Mon/DD HH:mm:ss", etc. — both
- *  real-world sample exports used in this rewrite parse fine via the native constructor). `hint`
- *  disambiguates a bare numeric DD/MM vs MM/DD date; `'auto'` means DMY (India-first product default)
- *  — it must NOT be handed to the native `Date` constructor: a bare "NN/NN/YYYY" string is exactly the
- *  shape every engine's lenient (non-ISO) string parser guesses at using its own convention (US
- *  MM/DD/YYYY), which "succeeds" (no `NaN`) for any day ≤ 12 by silently swapping day/month, and for a
- *  day > 12 overflows the month argument into a wildly wrong future date instead of failing — found +
- *  fixed 2026-08-09 via real on-device Cashew/MoneyView imports producing transactions dated up to two
- *  years off from their actual statement date. Native parsing is only safe (and only used) for a string
- *  that ISN'T this bare numeric shape, where there's no day/month ambiguity to guess at. */
+const MONTH_ABBREVIATIONS: Record<string, number> = {
+  jan: 0,
+  feb: 1,
+  mar: 2,
+  apr: 3,
+  may: 4,
+  jun: 5,
+  jul: 6,
+  aug: 7,
+  sep: 8,
+  oct: 9,
+  nov: 10,
+  dec: 11
+};
+
+/** Parses a date string that may be a bare numeric DD/MM/YYYY or MM/DD/YYYY date, a named-month
+ *  "YYYY/Mon/DD[ HH:mm:ss]" date (MoneyView's own export format), or any other format `new Date()`
+ *  understands (ISO-ish "YYYY-MM-DD HH:mm:ss", etc.). `hint` disambiguates a bare numeric DD/MM vs
+ *  MM/DD date; `'auto'` means DMY (India-first product default) — it must NOT be handed to the native
+ *  `Date` constructor: a bare "NN/NN/YYYY" string is exactly the shape every engine's lenient (non-ISO)
+ *  string parser guesses at using its own convention (US MM/DD/YYYY), which "succeeds" (no `NaN`) for
+ *  any day ≤ 12 by silently swapping day/month, and for a day > 12 overflows the month argument into a
+ *  wildly wrong future date instead of failing — found + fixed 2026-08-09 via real on-device
+ *  Cashew/MoneyView imports producing transactions dated up to two years off from their actual
+ *  statement date. Native parsing is only safe (and only used) for a string that ISN'T this bare
+ *  numeric shape, where there's no day/month ambiguity to guess at.
+ *
+ *  2026-08-13 fix — the named-month "YYYY/Mon/DD HH:mm:ss" shape (MoneyView's own real export format)
+ *  used to fall through to the native `new Date(s)` constructor too, on the assumption (recorded in
+ *  this comment until today) that "real-world sample exports used in this rewrite parse fine via the
+ *  native constructor" — true for V8 (Chrome/Node, i.e. `pnpm web` and any local repro script), but
+ *  Hermes (the JS engine actually running on a native Android/iOS build) is spec-strict and does NOT
+ *  understand this non-ISO shape, silently returning Invalid Date for every single row. A real,
+ *  full-year MoneyView export (1500+ rows) therefore parsed 1562/1563 rows fine on RN Web and 0/1563 on
+ *  a real device — every row rejected as unparseable, which then crashed the native app outright when
+ *  `UnparsedRows.tsx` tried to render 1500+ unvirtualized "fix this row" cards at once (see that file's
+ *  own doc comment for the matching defense-in-depth fix). Parsing this shape explicitly here, rather
+ *  than relying on an engine's non-portable lenient `Date` parsing, makes the result identical on every
+ *  JS engine. */
 export function parseFlexibleDate(str: string, hint: DateHint = 'auto'): number | null {
   const s = str.trim();
   if (!s) return null;
@@ -161,6 +189,19 @@ export function parseFlexibleDate(str: string, hint: DateHint = 'auto'): number 
     const y = Number(numeric[3]);
     const [d, mo] = hint === 'MDY' ? [b, a] : [a, b];
     const t = new Date(y, mo - 1, d).getTime();
+    return isNaN(t) ? null : t;
+  }
+
+  const namedMonth = /^(\d{4})[/-]([A-Za-z]{3})[A-Za-z]*[/-](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(s);
+  if (namedMonth) {
+    const y = Number(namedMonth[1]);
+    const mo = MONTH_ABBREVIATIONS[(namedMonth[2] ?? '').toLowerCase()];
+    const d = Number(namedMonth[3]);
+    if (mo === undefined) return null;
+    const hh = namedMonth[4] ? Number(namedMonth[4]) : 0;
+    const min = namedMonth[5] ? Number(namedMonth[5]) : 0;
+    const ss = namedMonth[6] ? Number(namedMonth[6]) : 0;
+    const t = new Date(y, mo, d, hh, min, ss).getTime();
     return isNaN(t) ? null : t;
   }
 

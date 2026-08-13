@@ -291,6 +291,22 @@ export function useExpenses() {
     })().catch(() => {});
   }, [categoriesLoading, categories, reloadCategories]);
 
+  // Additive default-category seeding (v12): inserts Daily Products (Daily Living) and Fund Settled
+  // (Income) — added 2026-08-13. Same non-clobbering, once-per-version pattern as v3/v6/v7/v8/v9/v10/v11.
+  const catSeedV12Ref = useRef(false);
+  useEffect(() => {
+    if (categoriesLoading || catSeedV12Ref.current) return;
+    catSeedV12Ref.current = true;
+    (async () => {
+      if (await getItem('penny_cats_v12')) return;
+      const existingIds = new Set(categories.map((c) => c.id));
+      const missing = ALL_DEFAULT_CATEGORIES.filter((c) => !existingIds.has(c.id));
+      await Promise.all(missing.map((c) => expenseCategoriesRepo.put({ ...c, createdAt: Date.now() })));
+      await setItem('penny_cats_v12', '1');
+      if (missing.length > 0) reloadCategories();
+    })().catch(() => {});
+  }, [categoriesLoading, categories, reloadCategories]);
+
   // One-time icon fix for v10's two categories (2026-08-06): the very first version of this seeding
   // effect shipped with invented, non-existent icon names (`ti-wallet-plus`/`ti-wallet-minus` — not in
   // the actual bundled Tabler set), and a Fast-Refresh-connected device could easily have already run

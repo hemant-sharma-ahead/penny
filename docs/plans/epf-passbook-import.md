@@ -476,6 +476,10 @@ Still genuinely open, not yet resolved:
   proper fix needs its own scoping pass — likely a small edit affordance on `EpfAllTransactionsSheet`
   rows, gated to whichever fields make sense to edit post-hoc — deliberately not built as a
   drive-by inside the wage-discrepancy flag's own scope.
+- **Manual EPF entry has no employer link at all.** `EpfTransaction.employerId` is only ever set
+  by the import flow — the manual "Add EPF transaction" form has no employer picker, so a
+  manually-entered transaction can't be attributed to a specific employer the way an imported one
+  can. Not yet scoped.
 
 ## 10. UI design decisions (finalized via mockup review, 2026-08-07/08)
 
@@ -826,7 +830,7 @@ holdings/retirement/`.
   exported `epfMonthKeyOf(ms)` ("YYYY-MM" from an epoch ms) — the comparison is now done at month
   granularity, not raw ms.
 - **`checkWageDiscrepancy` now skips an employer's own joining/leaving month entirely**
-  (`apps/mobile`'s `epfReviewFlags.ts`) — a pro-rata partial month is *expected* there by
+  (`apps/mobile`'s `epfReviewFlags.ts`) — a pro-rata partial month is _expected_ there by
   construction (always "lower than a full month would predict"), so it was never a genuine
   discrepancy. Before this fix the joining/leaving month showed a permanent, never-resolvable
   "lower than predicted" warning with no way to actually confirm anything — this was the reported
@@ -846,12 +850,12 @@ holdings/retirement/`.
   `selectedMonthRealTxn` lookup only matched by `wagesMonth`, not employer — for a genuine
   mid-month switch where two employers share the same `wagesMonth`, it could silently show the
   wrong employer's transaction; now also matched against `resolveAnyTxnOwner(...)?.id ===
-  selectedMonth.employerId`. (b) the month-row list's React `key={entry.month}` collided for a
+selectedMonth.employerId`. (b) the month-row list's React `key={entry.month}` collided for a
   shared switch month across two employers — a real duplicate-key bug — changed to
   `key={`${entry.employerId}-${entry.month}`}`. (c) `wageDiscrepancyMonths` (the row-badge `Set`)
   was keyed by bare `wagesMonth` string, so a discrepancy on ONE employer's shared-month row could
   wrongly badge the OTHER employer's same-month row too — now keyed by `${employerId}|
-  ${wagesMonth}`.
+${wagesMonth}`.
 - **New "pending transfer" banner.** `epfHasPendingTransfer(employer, employers, transactions)`
   (new, `apps/mobile`'s `epfEmployerScoping.ts`) is a heuristic check for a closed employer whose
   immediate successor (by `fromDate`) has no `transfer_in` transaction attributed to it yet — shown
@@ -897,7 +901,7 @@ unless noted; UI lives in `apps/mobile/src/features/portfolio/holdings/retiremen
   the app — `apps/mobile/src/features/home/useHome.ts`'s `loadSummary()`,
   `packages/core/src/core/calculators/retirementProjection.ts`'s `calcInvestableCorpus()`,
   `usePortfolioHoldings.ts`'s `effectiveValue()` — reads `holding.currentValue ?? holding
-  .investedAmount`, a deliberately asset-class-agnostic convention used everywhere. PPF/NPS work
+.investedAmount`, a deliberately asset-class-agnostic convention used everywhere. PPF/NPS work
   correctly because their own modals collect a manually-typed "Current corpus/balance" figure that
   gets saved straight onto `investedAmount` (`PpfModal.tsx`, `NpsModal.tsx`). EPF has no such field
   — by its own code comment, "Corpus is derived from transaction history... no manual amount is
@@ -962,6 +966,7 @@ unless noted; UI lives in `apps/mobile/src/features/portfolio/holdings/retiremen
   per-employer iteration already stops exactly at `employer.toDate` once it's actually set (true
   since §10.9); the underlying issue was purely that `toDate` was never getting set in the first
   place for this specific unconfirmed-departure scenario.
+
 - **User-reported concern about "TRANSFER IN - INTEREST AMOUNT ONLY (Old Member Id-:...)" and
   "TRANSFER IN - SAME OFFICE (Old Member Id-:...)" passbook particulars variants — investigated,
   found to already work correctly, not a bug.** Traced `classifyRow()`'s existing regex
@@ -1026,7 +1031,7 @@ portfolio/epfInterestCalculator.ts` and `epfReconciliation.ts`; UI-layer storage
   (`monthlyContributions`); a real withdrawal transaction during the FY was completely invisible to
   the simulation, so the balance kept compounding every remaining month as if the withdrawal never
   happened. Fixed: `EpfInterestCalculationInput` gained an optional `monthlyWithdrawals?: { month:
-  string; employeeAmount: number; employerAmount: number }[]`. `calculateEpfInterestForYear` now
+string; employeeAmount: number; employerAmount: number }[]`. `calculateEpfInterestForYear` now
   merges deposits and withdrawals into one NET monthly flow per stream (employee/employer) before
   simulating, applying a withdrawal at the exact same point in the month-by-month loop (month-END,
   after that month's own interest is already computed) that a deposit is applied — so a mid-month

@@ -128,6 +128,18 @@ export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
     applicableTo: 'expense',
     createdAt: 0
   },
+  {
+    // Added 2026-08-13 — everyday consumables that aren't a grocery run (single-item pharmacy/kirana
+    // pickups, household essentials bought ad hoc rather than as part of a weekly Groceries trip).
+    id: 'cat-daily-products',
+    name: 'Daily Products',
+    icon: 'ti-package',
+    color: '#84cc16',
+    isDefault: true,
+    intentGroup: 'daily_living',
+    applicableTo: 'expense',
+    createdAt: 0
+  },
   // ── Home & Utilities ─────────────────────────────────────────────────────────
   {
     id: 'cat-rent',
@@ -804,6 +816,19 @@ export const DEFAULT_INCOME_CATEGORIES: ExpenseCategory[] = [
     name: 'Capital Gains',
     icon: 'ti-trending-up',
     color: '#10b981',
+    isDefault: true,
+    intentGroup: 'income',
+    applicableTo: 'income',
+    createdAt: 0
+  },
+  {
+    // Added 2026-08-13 — a mutual fund/stock redemption (or FD/RD maturity) landing in the bank
+    // account as its own settlement credit, distinct from `cat-inc-capital-gains` (the taxable gain
+    // portion specifically) — this is the whole settled amount as it actually shows up on a statement.
+    id: 'cat-inc-fund-settled',
+    name: 'Fund Settled',
+    icon: 'ti-building-bank',
+    color: '#14b8a6',
     isDefault: true,
     intentGroup: 'income',
     applicableTo: 'income',

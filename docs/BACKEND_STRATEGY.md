@@ -72,6 +72,21 @@ CORS work needed. Authenticated endpoints (Tracks C–E) are gated by **signed r
 **Bottom line:** building/deploying the worker is a **one-time backend task**, decoupled from the
 Capacitor app lifecycle. You will _not_ rebuild the worker per app iteration.
 
+### Design principle: decide server-side vs. app-binary for every new feature
+
+For any new feature involving parsing/logic that depends on an external, changeable
+format (a bank's SMS template, a third-party site's HTML/API shape, a regex against
+free-text input), explicitly decide at design time whether that logic belongs in a
+Cloudflare Worker or shipped inside the app binary — don't default to "just put it in the
+app" out of habit. Concrete example: **SMS-based transaction-parsing regex should live in
+a backend worker, not hardcoded in the app** — so if a bank changes its SMS format, the
+fix is a backend deploy (reaches every user immediately), not a new app release users
+have to manually update to. The question to ask for every new feature: _if the external
+format/API changes, do we need to ship a new app version, or can a backend-only change fix
+it?_ — prefer the backend whenever that matters. This is the same principle behind
+`workers/api-proxy/`'s existing market-data/vehicle-RC proxying, just stated as a general
+rule to apply going forward rather than re-derived per feature.
+
 ---
 
 ## 3. Scale model for 10M users — the wake-up call
@@ -364,19 +379,19 @@ Feedback module itself is already built (see [`docs/features/feedback.md`](featu
 using a placeholder address — this section only covers the email-hosting side, a pure
 config value that never blocks code.
 
-**The one unavoidable cost is a domain** (~₹900-1,100/yr) — no reliable free *branded*
+**The one unavoidable cost is a domain** (~₹900-1,100/yr) — no reliable free _branded_
 domain exists. A domain is wanted anyway for the production PWA URL (vs `*.pages.dev`), so
 it does double duty. Free non-branded addresses (on a provider's domain) work as a
 temporary placeholder but read as untrustworthy for a finance app's Contact screen.
 
 **Options compared:**
 
-| Path | Receive | Reply-as | Cost beyond domain | Effort | Notes |
-|---|---|---|---|---|---|
-| **C · Domain + Zoho Mail Free** ⭐ | ✅ | ✅ | ₹0 | Low | Real send+receive mailbox, ≤5 users/1 domain. Webmail + app only (no IMAP on free). |
-| **A · Domain + Cloudflare Email Routing + Gmail "Send mail as"** | ✅ | ✅ | ₹0 | Medium | CF Routing forwards inbound (free); replying-as needs a free SMTP relay (Brevo ~300/day, Resend ~3k/mo) wired into Gmail's send-as + SPF/DKIM DNS. |
-| **B · Domain + SimpleLogin Premium** | ✅ | ✅ | ~₹2,500/yr | Low | Cleanest UX, but custom domain is a paid tier on top of the domain. |
-| **Placeholder · SimpleLogin Free** | ✅ | ✅ | ₹0 (no domain) | Low | Non-branded address, good only as a stop-gap. |
+| Path                                                             | Receive | Reply-as | Cost beyond domain | Effort | Notes                                                                                                                                              |
+| ---------------------------------------------------------------- | ------- | -------- | ------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **C · Domain + Zoho Mail Free** ⭐                               | ✅      | ✅       | ₹0                 | Low    | Real send+receive mailbox, ≤5 users/1 domain. Webmail + app only (no IMAP on free).                                                                |
+| **A · Domain + Cloudflare Email Routing + Gmail "Send mail as"** | ✅      | ✅       | ₹0                 | Medium | CF Routing forwards inbound (free); replying-as needs a free SMTP relay (Brevo ~300/day, Resend ~3k/mo) wired into Gmail's send-as + SPF/DKIM DNS. |
+| **B · Domain + SimpleLogin Premium**                             | ✅      | ✅       | ~₹2,500/yr         | Low    | Cleanest UX, but custom domain is a paid tier on top of the domain.                                                                                |
+| **Placeholder · SimpleLogin Free**                               | ✅      | ✅       | ₹0 (no domain)     | Low    | Non-branded address, good only as a stop-gap.                                                                                                      |
 
 **Recommendation: Path C** (Domain + Zoho Mail Free) — branded, send+receive, ₹0 beyond
 the domain, one service. Use Path A instead to keep everything inside an existing Gmail.

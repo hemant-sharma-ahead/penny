@@ -5,6 +5,7 @@ import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useRegisterHeaderScreen } from '~/navigation/HeaderBackContext';
+import { ErrorBoundary } from '~/components/shared/ErrorBoundary';
 import { useImport } from './useImport';
 import { UploadStep } from './UploadStep';
 import { MapColumnsStep } from './MapColumnsStep';
@@ -54,89 +55,97 @@ export function ImportPage() {
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      {imp.step === 'review' ? (
-        // Its own flex-1 layout (fixed progress summary + internally-scrolling accordion body) — see
-        // ReviewStep.tsx's doc comment for why this can't share the plain ScrollView the other steps use.
-        <ReviewStep
-          parsedRows={imp.parsedRows}
-          rejectedRows={imp.rejectedRows}
-          carryForwardExcludedRows={imp.carryForwardExcludedRows}
-          mapping={imp.mapping}
-          header={imp.header}
-          categoryResolutions={imp.categoryResolutions}
-          accountResolutions={imp.accountResolutions}
-          noAccountColumn={imp.noAccountColumn}
-          singleAccountId={imp.singleAccountId}
-          setSingleAccountId={imp.setSingleAccountId}
-          singleAccountCreate={imp.singleAccountCreate}
-          setSingleAccountCreate={imp.setSingleAccountCreate}
-          categories={imp.categories}
-          accounts={imp.accounts}
-          txnCountByCategory={imp.txnCountByCategory}
-          categoriesLoadError={imp.categoriesLoadError}
-          onRetryLoadCategories={imp.retryLoadReferenceData}
-          rowTriage={imp.rowTriage}
-          totalRowsRead={imp.totalRowsRead}
-          actualTransactionCount={imp.actualTransactionCount}
-          readyCount={imp.readyCount}
-          attentionCount={imp.attentionCount}
-          duplicateCount={imp.duplicateCount}
-          transferPairs={imp.transferPairs}
-          accountsResolved={imp.accountsResolved}
-          confirmedAccountCount={imp.confirmedAccountCount}
-          transfersResolved={imp.transfersResolved}
-          categoriesDecidedCount={imp.categoriesDecidedCount}
-          touchedCategorySources={imp.touchedCategorySources}
-          categoryTags={imp.categoryTags}
-          rowOverrides={imp.rowOverrides}
-          importing={imp.importing}
-          onUpdateCategory={imp.updateCategoryResolution}
-          onUpdateCategoryTag={imp.setCategoryTag}
-          onMoveRowsToCategory={imp.moveRowsToCategory}
-          onTagRows={imp.tagRows}
-          onUpdateAccount={imp.updateAccountResolution}
-          onFixRejected={imp.fixRejectedRow}
-          onImport={() => void imp.commitAndImport()}
-        />
-      ) : (
-        <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-          <View className="flex-1 px-4 py-4 gap-4">
-            {imp.step === 'upload' && (
-              <UploadStep
-                format={imp.format}
-                setFormat={imp.setFormat}
-                parseError={imp.parseError}
-                onText={imp.importFromText}
-              />
-            )}
+      {/* Screen-scoped safety net (2026-08-13, see ErrorBoundary.tsx's own doc comment for the real
+          on-device crash this was added after) — a bad/unexpected file is the single most likely place
+          for a rendering surprise, so a reset here steps back to Upload (a sane, recoverable state)
+          instead of just clearing the error and re-rendering the same still-broken review data. The
+          app-level boundary in App.tsx is still there as a fallback if this one somehow isn't. */}
+      <ErrorBoundary message="This import couldn't be shown" onReset={() => imp.setStep('upload')}>
+        {imp.step === 'review' ? (
+          // Its own flex-1 layout (fixed progress summary + internally-scrolling accordion body) — see
+          // ReviewStep.tsx's doc comment for why this can't share the plain ScrollView the other steps use.
+          <ReviewStep
+            parsedRows={imp.parsedRows}
+            rejectedRows={imp.rejectedRows}
+            carryForwardExcludedRows={imp.carryForwardExcludedRows}
+            mapping={imp.mapping}
+            header={imp.header}
+            categoryResolutions={imp.categoryResolutions}
+            accountResolutions={imp.accountResolutions}
+            noAccountColumn={imp.noAccountColumn}
+            singleAccountId={imp.singleAccountId}
+            setSingleAccountId={imp.setSingleAccountId}
+            singleAccountCreate={imp.singleAccountCreate}
+            setSingleAccountCreate={imp.setSingleAccountCreate}
+            categories={imp.categories}
+            accounts={imp.accounts}
+            txnCountByCategory={imp.txnCountByCategory}
+            categoriesLoadError={imp.categoriesLoadError}
+            onRetryLoadCategories={imp.retryLoadReferenceData}
+            rowTriage={imp.rowTriage}
+            totalRowsRead={imp.totalRowsRead}
+            actualTransactionCount={imp.actualTransactionCount}
+            readyCount={imp.readyCount}
+            attentionCount={imp.attentionCount}
+            duplicateCount={imp.duplicateCount}
+            transferPairs={imp.transferPairs}
+            accountsResolved={imp.accountsResolved}
+            confirmedAccountCount={imp.confirmedAccountCount}
+            transfersResolved={imp.transfersResolved}
+            categoriesDecidedCount={imp.categoriesDecidedCount}
+            touchedCategorySources={imp.touchedCategorySources}
+            categoryTags={imp.categoryTags}
+            rowOverrides={imp.rowOverrides}
+            importing={imp.importing}
+            onUpdateCategory={imp.updateCategoryResolution}
+            onUpdateCategoryTag={imp.setCategoryTag}
+            onMoveRowsToCategory={imp.moveRowsToCategory}
+            onTagRows={imp.tagRows}
+            onUpdateAccount={imp.updateAccountResolution}
+            onFixRejected={imp.fixRejectedRow}
+            onImport={() => void imp.commitAndImport()}
+          />
+        ) : (
+          <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+            <View className="flex-1 px-4 py-4 gap-4">
+              {imp.step === 'upload' && (
+                <UploadStep
+                  format={imp.format}
+                  setFormat={imp.setFormat}
+                  parseError={imp.parseError}
+                  onText={imp.importFromText}
+                  onError={imp.reportUploadError}
+                />
+              )}
 
-            {imp.step === 'mapColumns' && imp.mapping && (
-              <MapColumnsStep
-                header={imp.header}
-                mapping={imp.mapping}
-                onConfirm={imp.confirmMapping}
-                onBack={() => imp.setStep('upload')}
-              />
-            )}
+              {imp.step === 'mapColumns' && imp.mapping && (
+                <MapColumnsStep
+                  header={imp.header}
+                  mapping={imp.mapping}
+                  onConfirm={imp.confirmMapping}
+                  onBack={() => imp.setStep('upload')}
+                />
+              )}
 
-            {imp.step === 'done' && (
-              <DoneStep
-                succeededCount={imp.importResult.succeededCount}
-                failed={imp.importResult.failed}
-                activityLogId={imp.activityLogId}
-                undone={imp.undone}
-                retrying={retrying}
-                onRetryFailed={() => {
-                  setRetrying(true);
-                  void imp.retryFailed().finally(() => setRetrying(false));
-                }}
-                onUndo={imp.undoImport}
-                onDone={() => navigation.goBack()}
-              />
-            )}
-          </View>
-        </ScrollView>
-      )}
+              {imp.step === 'done' && (
+                <DoneStep
+                  succeededCount={imp.importResult.succeededCount}
+                  failed={imp.importResult.failed}
+                  activityLogId={imp.activityLogId}
+                  undone={imp.undone}
+                  retrying={retrying}
+                  onRetryFailed={() => {
+                    setRetrying(true);
+                    void imp.retryFailed().finally(() => setRetrying(false));
+                  }}
+                  onUndo={imp.undoImport}
+                  onDone={() => navigation.goBack()}
+                />
+              )}
+            </View>
+          </ScrollView>
+        )}
+      </ErrorBoundary>
     </SafeAreaView>
   );
 }

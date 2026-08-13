@@ -5,6 +5,7 @@ export { BackButton } from './BackButton';
 export { DueDateBadge } from './DueDateBadge';
 export { dueDateInfo } from '@/lib/date';
 export { EntityTransactionsModal } from './EntityTransactionsModal';
+export { ErrorBoundary } from './ErrorBoundary';
 export { ExpenseForm } from './ExpenseForm';
 export type { StatementPresetInput } from './ExpenseForm';
 export { ExtraCircle } from './ExtraCircle';

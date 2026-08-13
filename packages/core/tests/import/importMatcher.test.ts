@@ -92,6 +92,36 @@ describe('parseFlexibleDate', () => {
     expect(new Date(t!).getMonth()).toBe(9); // October
   });
 
+  // 2026-08-13 fix: this shape used to fall through to the native `new Date(s)` constructor, which V8
+  // (this test runner, RN Web) parses leniently but Hermes (real native builds) does not — silently
+  // rejecting every row of a real MoneyView export on-device while the exact same code appeared to work
+  // fine here. Asserting exact Y/M/D/H/M/S (not just "not null") pins down the portable regex parse, not
+  // just "some engine's native guess happened to work" — this test alone can't catch a Hermes-only
+  // regression, but it does guarantee the parse is no longer relying on native lenience at all.
+  it('parses every field of a named-month timestamp exactly, via the portable parser (not native Date lenience)', () => {
+    const t = parseFlexibleDate('2022/Jan/05 14:23:07', 'auto');
+    expect(t).not.toBeNull();
+    const d = new Date(t!);
+    expect([d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds()]).toEqual([
+      2022, 0, 5, 14, 23, 7
+    ]);
+  });
+
+  it('parses a named-month date with no time component', () => {
+    const t = parseFlexibleDate('2022/Dec/31', 'auto');
+    expect(t).not.toBeNull();
+    const d = new Date(t!);
+    expect([d.getFullYear(), d.getMonth(), d.getDate()]).toEqual([2022, 11, 31]);
+  });
+
+  it('is case-insensitive for the month abbreviation', () => {
+    expect(parseFlexibleDate('2022/JAN/05', 'auto')).toBe(parseFlexibleDate('2022/jan/05', 'auto'));
+  });
+
+  it('returns null for a named-month string with an unrecognized month abbreviation', () => {
+    expect(parseFlexibleDate('2022/Xyz/05', 'auto')).toBeNull();
+  });
+
   it('returns null for an empty or unparseable string', () => {
     expect(parseFlexibleDate('', 'auto')).toBeNull();
     expect(parseFlexibleDate('not a date', 'auto')).toBeNull();
