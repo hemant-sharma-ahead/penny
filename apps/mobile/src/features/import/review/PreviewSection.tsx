@@ -1,6 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { View, Pressable, Text } from 'react-native';
-import { SectionLabel } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { Account, ExpenseCategory } from '@/core/db/types';
@@ -9,8 +8,11 @@ import type { ColumnMapping } from '@/core/import/importMatcher';
 import type { CategoryResolution, CategoryAction } from '@/core/import/importCategoryResolution';
 import { allIntentGroups, isCategoryResolutionDecided } from '@/core/import/importCategoryResolution';
 import type { RowOverride } from '@/core/import/importPipeline';
+import { groupRowsIntoTiles } from '@/core/import/importTileGrouping';
 import type { DisplayTransferPair, RowTriage } from '../useImport';
 import { CategoryTile } from './CategoryTile';
+import { MovedRowsTile } from './MovedRowsTile';
+import { DuplicatesBucket } from './DuplicatesBucket';
 import { TransferPairCard } from './TransferPairCard';
 import { UnparsedRows } from './UnparsedRows';
 import { CarryForwardExcluded } from './CarryForwardExcluded';
@@ -26,7 +28,6 @@ interface PreviewSectionProps {
   carryForwardExcludedRows: ParsedRow[];
   transferPairs: DisplayTransferPair[];
   categoryResolutions: CategoryResolution[];
-  categoriesDecidedCount: number;
   touchedCategorySources: Set<string>;
   parsedRows: ParsedRow[];
   rowTriage: RowTriage[];
@@ -46,20 +47,74 @@ interface PreviewSectionProps {
   /** Per-source-category custom tag, keyed by source name (see CategoryTile's "Tag all transactions"
    *  field) — orthogonal to which category kind the source resolves to. */
   categoryTags: Map<string, string>;
-  /** Per-row overrides (2026-08-06) — see `RowOverride`'s doc comment. Read here only to compute each
-   *  tile's own override-affected count for its status tint; the actual per-row bulk-select UI/state
-   *  lives inside `CategoryTile` itself. */
+  /** Per-row overrides (2026-08-06) — see `RowOverride`'s doc comment. Read here to compute the
+   *  effective tile grouping (`groupRowsIntoTiles`) — the actual per-row bulk-select UI/state lives
+   *  inside `CategoryTile`/`MovedRowsTile` themselves. */
   rowOverrides: Map<number, RowOverride>;
+  /** "Remembered — {categoryName}" suggestions (2026-08-13, review redesign issue #8), keyed by source
+   *  category name — see `useImport.ts`'s doc comment. */
+  rememberedSuggestions: Map<string, { categoryId: string; categoryName: string }>;
   onUpdateCategory: (sourceName: string, suggestion: CategoryAction) => void;
   onUpdateCategoryTag: (sourceName: string, tag: string) => void;
   onMoveRowsToCategory: (rowIndices: number[], categoryId: string, categoryName: string) => void;
   onTagRows: (rowIndices: number[], tag: string) => void;
+  /** "Looks good, create it" (2026-08-13, review redesign issue #7) — see `useImport.ts`'s
+   *  `acknowledgeCategory` doc comment. */
+  onAcknowledge: (sourceName: string) => void;
+  /** "Not a transfer — log separately" (2026-08-13, review redesign issue #4) — see `useImport.ts`'s
+   *  `unpairTransfer` doc comment. */
+  onUnpairTransfer: (outgoingIndex: number, incomingIndex: number) => void;
+}
+
+/** One of the three peer readiness buckets below — used both to key `manuallyExpanded` and to compute
+ *  the auto-expand cascade (2026-08-13, bucket-tiles redesign, decision #4). */
+type BucketKey = 'attention' | 'ready' | 'duplicate';
+
+/** Bordered, independently-collapsible bucket card — same colored-dot + title + count + chevron header
+ *  convention as `UnmatchedBucket.tsx`'s own outer-bucket header, wrapped in the same bordered-card
+ *  treatment this file's "Linked transfers" card already uses (2026-08-13, bucket-tiles redesign §5).
+ *  Single-consumer (this file only), so it stays local rather than moving to `components/shared/`. */
+function BucketCard({
+  dotColor,
+  title,
+  count,
+  expanded,
+  onToggle,
+  children
+}: {
+  dotColor: string;
+  title: string;
+  count: number;
+  expanded: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  const theme = useThemeColors();
+  return (
+    <View className="rounded-xl overflow-hidden bg-surface border border-theme">
+      <Pressable onPress={onToggle} className="flex-row items-center justify-between gap-2 p-3">
+        <View className="flex-1 flex-row items-center gap-1.5">
+          <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
+          <Text className="text-sm font-semibold text-primary">{title}</Text>
+          <View className="bg-surface-3 rounded-full px-1.5 py-0.5">
+            <Text className="text-[10px] font-bold text-secondary">{count}</Text>
+          </View>
+        </View>
+        <Icon name={expanded ? 'ti-chevron-up' : 'ti-chevron-down'} size={14} color={theme.textTertiary} />
+      </Pressable>
+      {expanded && <View className="border-t border-theme px-3 pb-3 pt-2 gap-2">{children}</View>}
+    </View>
+  );
 }
 
 /** RN port of apps/web-react/src/features/import/review/PreviewSection.tsx. Section 2 of the review
  *  screen. Internal order: unparsed rows → excluded carry-forward markers → linked transfer pairs →
- *  category tiles. The rows-read/ready/attention/duplicate/actual-transactions summary lives only in
- *  the accordion header above (see ReviewStep.tsx). */
+ *  three peer readiness buckets — "Needs your input" / "Staged — ready to import" / "Already imported"
+ *  (2026-08-13, review redesign issue #6; promoted from plain text section labels to real bordered
+ *  bucket cards in the bucket-tiles redesign, same day — see
+ *  `docs/mockups/proposals/expense-import-bucket-tiles-v1.html` §5). The rows-read/ready/attention/
+ *  duplicate/actual-transactions summary lives only in the accordion header above (see
+ *  `ReviewStep.tsx`). */
 export function PreviewSection({
   rejectedRows,
   mapping,
@@ -68,7 +123,6 @@ export function PreviewSection({
   carryForwardExcludedRows,
   transferPairs,
   categoryResolutions,
-  categoriesDecidedCount,
   touchedCategorySources,
   parsedRows,
   rowTriage,
@@ -78,10 +132,13 @@ export function PreviewSection({
   txnCountByCategory,
   categoryTags,
   rowOverrides,
+  rememberedSuggestions,
   onUpdateCategory,
   onUpdateCategoryTag,
   onMoveRowsToCategory,
-  onTagRows
+  onTagRows,
+  onAcknowledge,
+  onUnpairTransfer
 }: PreviewSectionProps) {
   const theme = useThemeColors();
   const [transfersExpanded, setTransfersExpanded] = useState(false);
@@ -89,9 +146,10 @@ export function PreviewSection({
 
   /** Any source category name already resolved ('existing') to a given real `categoryId` — the first
    *  one found, if more than one source name happens to map to the same category (an accepted,
-   *  pre-existing ambiguity; there's no more-correct tile to prefer among ties). Used below to actually
-   *  regroup a row-level override (`CategoryTile`'s "Move N selected to…") into wherever that target
-   *  category is already shown, instead of leaving it on its original tile. */
+   *  pre-existing ambiguity; there's no more-correct tile to prefer among ties). Used by
+   *  `groupRowsIntoTiles` to regroup a row-level override ("Move N selected to…") into wherever that
+   *  target category is already shown, falling back to a freshly-synthesized tile when no such tile
+   *  exists yet — see `computeEffectiveTileKey`'s doc comment in packages/core. */
   const tileForExistingCategoryId = useMemo(() => {
     const map = new Map<string, string>();
     for (const r of categoryResolutions) {
@@ -102,66 +160,15 @@ export function PreviewSection({
     return map;
   }, [categoryResolutions]);
 
-  /** A row with an active override (moved to a different EXISTING category) resolves to whichever
-   *  source-category tile is already mapped to that same target category, falling back to its own
-   *  source name when no such tile exists yet (a new "moved-to" tile is a real UI element of its own —
-   *  out of scope for a pure regrouping fix without its own design pass, see
-   *  docs/DESIGN_GUIDELINES.md). Shared by `rowsByCategory`/`statusByCategory` below so a tile's visible
-   *  rows and its background-tint stats always agree on where each row actually lives. */
-  const effectiveTileKey = useCallback(
-    (row: ParsedRow, index: number): string => {
-      const sourceKey = row.categoryName.trim() || 'Other';
-      const override = rowOverrides.get(index);
-      const overriddenTile = override?.categoryId ? tileForExistingCategoryId.get(override.categoryId) : undefined;
-      return overriddenTile && overriddenTile !== sourceKey ? overriddenTile : sourceKey;
-    },
-    [rowOverrides, tileForExistingCategoryId]
+  /** Single-pass grouping (2026-08-13, review redesign issues #3/#4/#5/#10) — excludes every
+   *  transfer-paired and duplicate row from the normal category tiles entirely (never double-rendered),
+   *  splits any genuinely mixed source category into homogeneous expense/income tiles, and synthesizes a
+   *  fresh tile identity for a moved row with no existing resolution-backed destination. See
+   *  `importTileGrouping.ts`'s doc comment for the full rules. */
+  const grouping = useMemo(
+    () => groupRowsIntoTiles(parsedRows, rowTriage, transferPairs, tileForExistingCategoryId, rowOverrides),
+    [parsedRows, rowTriage, transferPairs, tileForExistingCategoryId, rowOverrides]
   );
-
-  /** Grouped by EFFECTIVE category tile (see `effectiveTileKey` above, 2026-08-09 fix — previously
-   *  grouped by the row's own untouched source `categoryName` regardless of any row-level override,
-   *  so a reassigned row stayed stuck on its original tile with only a cosmetic "moved to X" annotation
-   *  underneath it, never actually regrouped). Each entry also carries its ORIGINAL index into
-   *  `parsedRows` (2026-08-06), not just the row itself. `rowsByCategory`/`statusByCategory` are
-   *  recomputed fresh from `parsedRows` on every render (never a stable keyed structure — see
-   *  `useImport.ts`'s doc comments on why `parsedRows` is append-only, so plain array index stays a
-   *  valid identity for a whole review session), so the index has to be captured here, at the one place
-   *  that still has it, for `CategoryTile`'s bulk-select UI to reference later. */
-  const rowsByCategory = useMemo(() => {
-    const map = new Map<string, { row: ParsedRow; index: number }[]>();
-    parsedRows.forEach((row, index) => {
-      const key = effectiveTileKey(row, index);
-      const list = map.get(key) ?? [];
-      list.push({ row, index });
-      map.set(key, list);
-    });
-    return map;
-  }, [parsedRows, effectiveTileKey]);
-
-  /** Ready/attention/duplicate counts per EFFECTIVE category tile (same regrouping as `rowsByCategory`
-   *  above), from the same per-row `rowTriage` the Accounts section already uses — drives each tile's
-   *  background tint. */
-  const statusByCategory = useMemo(() => {
-    const map = new Map<string, { ready: number; attention: number; duplicate: number }>();
-    parsedRows.forEach((row, i) => {
-      const key = effectiveTileKey(row, i);
-      const bucket = map.get(key) ?? { ready: 0, attention: 0, duplicate: 0 };
-      bucket[rowTriage[i] ?? 'ready']++;
-      map.set(key, bucket);
-    });
-    return map;
-  }, [parsedRows, rowTriage, effectiveTileKey]);
-
-  /** Undecided tiles (still showing "Choose…") sort first, so what needs attention is immediately
-   *  visible instead of buried below already-resolved tiles — original file order preserved within
-   *  each group. */
-  const orderedCategoryResolutions = useMemo(() => {
-    return [...categoryResolutions].sort(
-      (a, b) =>
-        Number(isCategoryResolutionDecided(a, touchedCategorySources)) -
-        Number(isCategoryResolutionDecided(b, touchedCategorySources))
-    );
-  }, [categoryResolutions, touchedCategorySources]);
 
   /** Real accounts eligible as a transfer destination for a given tile — excludes `excludeAccountId`
    *  (this import's own single target account, when there is one) so a transfer can never be pointed
@@ -170,6 +177,98 @@ export function PreviewSection({
     () => accounts.filter((a) => a.id !== excludeAccountId),
     [accounts, excludeAccountId]
   );
+
+  interface ResolutionTileItem {
+    kind: 'resolution';
+    key: string;
+    resolution: CategoryResolution;
+    typeSuffix?: 'expense' | 'income';
+    rows: { row: ParsedRow; index: number }[];
+    decided: boolean;
+  }
+  interface SyntheticTileItem {
+    kind: 'synthetic';
+    key: string;
+    categoryId: string;
+    categoryName: string;
+    rows: { row: ParsedRow; index: number }[];
+  }
+  type TileItem = ResolutionTileItem | SyntheticTileItem;
+
+  /** Flattens every resolution + its (0, 1, or 2 — see homogeneity) rendered tile variants, plus every
+   *  synthetic moved-to tile, into one list — then partitioned into the three readiness sections below.
+   *  Undecided tiles sort first within their own section, same original-file-order-within-group
+   *  convention the flat list used before this redesign. */
+  const { attentionTiles, readyTiles } = useMemo(() => {
+    const items: TileItem[] = [];
+
+    for (const r of categoryResolutions) {
+      const expenseRows = grouping.rowsByTileKey.get(`${r.sourceName}::expense`) ?? [];
+      const incomeRows = grouping.rowsByTileKey.get(`${r.sourceName}::income`) ?? [];
+      const bothPresent = expenseRows.length > 0 && incomeRows.length > 0;
+      const decided = isCategoryResolutionDecided(r, touchedCategorySources);
+      if (expenseRows.length > 0) {
+        items.push({
+          kind: 'resolution',
+          key: `${r.sourceName}::expense`,
+          resolution: r,
+          typeSuffix: bothPresent ? 'expense' : undefined,
+          rows: expenseRows,
+          decided
+        });
+      }
+      if (incomeRows.length > 0) {
+        items.push({
+          kind: 'resolution',
+          key: `${r.sourceName}::income`,
+          resolution: r,
+          typeSuffix: bothPresent ? 'income' : undefined,
+          rows: incomeRows,
+          decided
+        });
+      }
+    }
+
+    for (const [key, info] of grouping.syntheticTiles) {
+      items.push({
+        kind: 'synthetic',
+        key,
+        categoryId: info.categoryId,
+        categoryName: info.categoryName,
+        rows: grouping.rowsByTileKey.get(key) ?? []
+      });
+    }
+
+    return {
+      attentionTiles: items.filter((t): t is ResolutionTileItem => t.kind === 'resolution' && !t.decided),
+      // Synthetic tiles are always ready (a row-level override is itself an explicit decision).
+      readyTiles: items.filter((t) => t.kind === 'synthetic' || (t.kind === 'resolution' && t.decided))
+    };
+  }, [categoryResolutions, grouping, touchedCategorySources]);
+
+  /** Auto-expand cascade for the three peer bucket cards below (2026-08-13, bucket-tiles redesign,
+   *  decision #4) — whichever is non-empty first, in priority order Needs-input → Staged → Already-
+   *  imported, mirrors `ReviewStep.tsx`'s own "auto-expand whatever most needs the user's attention"
+   *  convention. None expanded if all three are empty (shouldn't normally happen, but guarded). Each
+   *  bucket's expanded state stays on this computed default until the user manually toggles THAT bucket
+   *  — toggling one never affects its siblings' own auto/manual state (same "auto until touched"
+   *  convention as `ReviewStep.tsx`'s Accounts/Preview sections). */
+  const defaultExpandedBucket: BucketKey | null =
+    attentionTiles.length > 0
+      ? 'attention'
+      : readyTiles.length > 0
+        ? 'ready'
+        : grouping.duplicateRows.length > 0
+          ? 'duplicate'
+          : null;
+  const [manuallyExpandedBuckets, setManuallyExpandedBuckets] = useState<Partial<Record<BucketKey, boolean>>>({});
+
+  function isBucketExpanded(key: BucketKey): boolean {
+    return manuallyExpandedBuckets[key] ?? key === defaultExpandedBucket;
+  }
+  function toggleBucket(key: BucketKey) {
+    setManuallyExpandedBuckets((prev) => ({ ...prev, [key]: !isBucketExpanded(key) }));
+  }
 
   return (
     <View className="gap-3">
@@ -180,7 +279,8 @@ export function PreviewSection({
       <CarryForwardExcluded rows={carryForwardExcludedRows} />
 
       {/* (b) linked transfer pairs — collapsed by default, like a category tile, so a file with many
-       *  self-transfers doesn't push the category tiles far down the scroll. */}
+       *  self-transfers doesn't push the category tiles far down the scroll. Never ALSO shown inside a
+       *  category tile below (2026-08-13, review redesign issue #4) — this is their one and only home. */}
       {transferPairs.length > 0 && (
         <View className="rounded-xl overflow-hidden bg-surface border border-theme">
           <Pressable
@@ -200,7 +300,10 @@ export function PreviewSection({
             <View className="border-t border-theme px-3 pb-3 pt-2 gap-2">
               {transferPairs.map((pair, i) => (
                 <View key={i} className="gap-1">
-                  <TransferPairCard pair={pair} />
+                  <TransferPairCard
+                    pair={pair}
+                    onUnpair={() => onUnpairTransfer(pair.outgoingIndex, pair.incomingIndex)}
+                  />
                   <Text className="text-center text-[9.5px] text-tertiary">
                     {pair.alreadyImported
                       ? 'Already imported — not counted or re-imported'
@@ -213,41 +316,96 @@ export function PreviewSection({
         </View>
       )}
 
-      {/* (d) category tiles */}
-      <View className="gap-2">
-        <View className="flex-row items-center gap-1.5 mb-2">
-          <SectionLabel className="mb-0">Categories</SectionLabel>
-          <View className="bg-surface-3 rounded-full px-1.5 py-0.5">
-            <Text className="text-[10px] font-bold text-secondary">
-              {categoriesDecidedCount} of {categoryResolutions.length} decided
-            </Text>
-          </View>
-        </View>
-        {orderedCategoryResolutions.map((r) => {
-          const decided = isCategoryResolutionDecided(r, touchedCategorySources);
-          const stats = statusByCategory.get(r.sourceName);
-          const allDuplicate = !!stats && stats.ready === 0 && stats.attention === 0 && stats.duplicate > 0;
-          return (
+      {/* (c) the three peer readiness buckets (2026-08-13, review redesign issue #6; promoted to real
+       *  bordered bucket cards in the bucket-tiles redesign, same day) — each independently collapsible,
+       *  auto-expanded per the cascade computed above. */}
+      {attentionTiles.length > 0 && (
+        <BucketCard
+          dotColor={theme.warning}
+          title="Needs your input"
+          count={attentionTiles.length}
+          expanded={isBucketExpanded('attention')}
+          onToggle={() => toggleBucket('attention')}
+        >
+          {attentionTiles.map((t) => (
             <CategoryTile
-              key={r.sourceName}
-              resolution={r}
-              decided={decided}
-              status={!decided ? 'attention' : allDuplicate ? 'duplicate' : 'ready'}
-              rows={rowsByCategory.get(r.sourceName) ?? []}
+              key={t.key}
+              resolution={t.resolution}
+              decided={t.decided}
+              status="attention"
+              rows={t.rows}
               categories={categories}
               transferAccountOptions={transferAccountOptions}
               txnCountByCategory={txnCountByCategory}
               groupOptions={groupOptions}
-              tag={categoryTags.get(r.sourceName) ?? ''}
+              tag={categoryTags.get(t.resolution.sourceName) ?? ''}
               rowOverrides={rowOverrides}
-              onTagChange={(tag) => onUpdateCategoryTag(r.sourceName, tag)}
-              onUpdate={(suggestion) => onUpdateCategory(r.sourceName, suggestion)}
+              typeSuffix={t.typeSuffix}
+              rememberedSuggestion={rememberedSuggestions.get(t.resolution.sourceName)}
+              onTagChange={(tag) => onUpdateCategoryTag(t.resolution.sourceName, tag)}
+              onUpdate={(suggestion) => onUpdateCategory(t.resolution.sourceName, suggestion)}
               onMoveRowsToCategory={onMoveRowsToCategory}
               onTagRows={onTagRows}
+              onAcknowledge={() => onAcknowledge(t.resolution.sourceName)}
             />
-          );
-        })}
-      </View>
+          ))}
+        </BucketCard>
+      )}
+
+      {readyTiles.length > 0 && (
+        <BucketCard
+          dotColor={theme.success}
+          title="Staged — ready to import"
+          count={readyTiles.length}
+          expanded={isBucketExpanded('ready')}
+          onToggle={() => toggleBucket('ready')}
+        >
+          {readyTiles.map((t) =>
+            t.kind === 'synthetic' ? (
+              <MovedRowsTile
+                key={t.key}
+                categoryName={t.categoryName}
+                rows={t.rows}
+                rowOverrides={rowOverrides}
+                onTagRows={onTagRows}
+              />
+            ) : (
+              <CategoryTile
+                key={t.key}
+                resolution={t.resolution}
+                decided={t.decided}
+                status="ready"
+                rows={t.rows}
+                categories={categories}
+                transferAccountOptions={transferAccountOptions}
+                txnCountByCategory={txnCountByCategory}
+                groupOptions={groupOptions}
+                tag={categoryTags.get(t.resolution.sourceName) ?? ''}
+                rowOverrides={rowOverrides}
+                typeSuffix={t.typeSuffix}
+                rememberedSuggestion={rememberedSuggestions.get(t.resolution.sourceName)}
+                onTagChange={(tag) => onUpdateCategoryTag(t.resolution.sourceName, tag)}
+                onUpdate={(suggestion) => onUpdateCategory(t.resolution.sourceName, suggestion)}
+                onMoveRowsToCategory={onMoveRowsToCategory}
+                onTagRows={onTagRows}
+                onAcknowledge={() => onAcknowledge(t.resolution.sourceName)}
+              />
+            )
+          )}
+        </BucketCard>
+      )}
+
+      {grouping.duplicateRows.length > 0 && (
+        <BucketCard
+          dotColor={theme.neutral}
+          title="Already imported"
+          count={grouping.duplicateRows.length}
+          expanded={isBucketExpanded('duplicate')}
+          onToggle={() => toggleBucket('duplicate')}
+        >
+          <DuplicatesBucket rows={grouping.duplicateRows} rowOverrides={rowOverrides} />
+        </BucketCard>
+      )}
     </View>
   );
 }

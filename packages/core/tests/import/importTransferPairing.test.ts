@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectTransferPairs } from '@/core/import/importTransferPairing';
+import { detectTransferPairs, transferPairKey } from '@/core/import/importTransferPairing';
 import type { ParsedRow } from '@/core/import/importParsers';
 
 function row(overrides: Partial<ParsedRow>): ParsedRow {
@@ -163,5 +163,13 @@ describe('detectTransferPairs', () => {
     const pairs = detectTransferPairs(rows);
     expect(pairs).toHaveLength(1);
     expect(pairs[0]?.incomingIndex).toBe(1);
+  });
+});
+
+describe('transferPairKey', () => {
+  it('is stable for the same indices and distinct otherwise', () => {
+    expect(transferPairKey(0, 1)).toBe('0-1');
+    expect(transferPairKey(0, 1)).toBe(transferPairKey(0, 1));
+    expect(transferPairKey(1, 0)).not.toBe(transferPairKey(0, 1));
   });
 });

@@ -1,0 +1,1713 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Expense Import review screen, redesign v1</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg: #0b0f14;
+        --surface: #161b22;
+        --surface2: #1c2128;
+        --surface3: #20262f;
+        --text: #e6edf3;
+        --text2: #8b949e;
+        --text3: #6e7681;
+        --border: #2d333b;
+        --borderStrong: #444c56;
+        --primary: #00a86b;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --info: #3b82f6;
+        --neutral: #64748b;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family:
+          'Inter',
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        background: #05070a;
+        color: #e6edf3;
+        -webkit-font-smoothing: antialiased;
+      }
+      h1 {
+        text-align: center;
+        margin: 30px 16px 4px;
+        font-size: 22px;
+        color: #fff;
+      }
+      .sub {
+        text-align: center;
+        margin: 0 16px 20px;
+        color: #9aa5b1;
+        font-size: 14px;
+        max-width: 920px;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.65;
+      }
+      .flowbar {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 0 20px 10px;
+      }
+      .flowbar a {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: #9aa5b1;
+        background: #141a22;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 5px 11px;
+        text-decoration: none;
+      }
+      .flowbar a:hover {
+        color: #fff;
+        border-color: #3a4451;
+      }
+
+      .sectiontitle {
+        text-align: center;
+        font-size: 15px;
+        font-weight: 800;
+        color: #fff;
+        margin: 48px 0 4px;
+        scroll-margin-top: 20px;
+      }
+      .stepnum {
+        display: inline-flex;
+        width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        background: var(--primary);
+        color: #04150d;
+        font-size: 11px;
+        font-weight: 800;
+        align-items: center;
+        justify-content: center;
+        margin-right: 6px;
+      }
+      .sectionsub {
+        text-align: center;
+        color: #9aa5b1;
+        font-size: 12.5px;
+        max-width: 780px;
+        margin: 0 auto 18px;
+        line-height: 1.65;
+      }
+
+      .gallery {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 36px 24px;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 16px 20px 10px;
+      }
+      .frame-wrap {
+        width: 292px;
+      }
+      .vtitle {
+        font-size: 13px;
+        font-weight: 800;
+        margin: 0 2px 3px;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .vtitle .tag {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 2px 7px;
+        border-radius: 999px;
+        background: #232b35;
+        color: #9aa5b1;
+      }
+      .vtitle .tag.cur {
+        background: #3a2412;
+        color: #f0b060;
+      }
+      .vtitle .tag.rec {
+        background: #123524;
+        color: #7ee6b8;
+      }
+      .vsub {
+        font-size: 11px;
+        color: #9aa5b1;
+        margin: 0 2px 12px;
+        line-height: 1.55;
+      }
+
+      .phone {
+        width: 292px;
+        background: var(--bg);
+        border-radius: 30px;
+        border: 8px solid #1c2128;
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+      }
+      .statusbar {
+        height: 16px;
+        background: var(--bg);
+        flex-shrink: 0;
+      }
+      .header {
+        height: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+        flex-shrink: 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .header .t {
+        font-size: 13px;
+        font-weight: 700;
+        color: #fff;
+      }
+      .header .t .s {
+        display: block;
+        font-size: 9px;
+        font-weight: 600;
+        color: var(--text3);
+        margin-top: 1px;
+      }
+      .content {
+        padding: 10px 12px;
+        overflow-y: auto;
+      }
+      .content.tall {
+        height: 580px;
+      }
+      .content.med {
+        height: 440px;
+      }
+      .content.short {
+        height: 280px;
+      }
+
+      /* progress strip */
+      .progstrip {
+        padding: 0 0 8px;
+      }
+      .progstrip .toprow {
+        display: flex;
+        justify-content: space-between;
+        font-size: 9.5px;
+        color: var(--text2);
+        margin-bottom: 4px;
+      }
+      .progbar {
+        height: 4px;
+        background: var(--surface2);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .progbar .fill {
+        height: 100%;
+        background: var(--primary);
+      }
+
+      /* accordion sections */
+      .acc {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        overflow: hidden;
+        margin-bottom: 12px;
+      }
+      .acchead {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 10px;
+      }
+      .accicn {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 11px;
+        font-weight: 800;
+        color: #fff;
+      }
+      .accmid {
+        flex: 1;
+        min-width: 0;
+      }
+      .accmid .t1 {
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .accmid .t2 {
+        font-size: 9.5px;
+        color: var(--text3);
+        margin-top: 1px;
+      }
+      .accmid .t2 b.rd {
+        color: var(--success);
+        font-weight: 800;
+      }
+      .accmid .t2 b.at {
+        color: var(--warning);
+        font-weight: 800;
+      }
+      .accbody {
+        border-top: 1px solid var(--border);
+        padding: 8px 9px 10px;
+      }
+
+      /* section labels for readiness grouping */
+      .glabel {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 2px 2px 6px;
+      }
+      .glabel .t {
+        font-size: 10.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text3);
+      }
+      .glabel .n {
+        font-size: 9.5px;
+        font-weight: 800;
+        background: var(--surface2);
+        color: var(--text2);
+        border-radius: 999px;
+        padding: 1px 7px;
+      }
+      .glabel.needs .t {
+        color: var(--warning);
+      }
+      .glabel.needs .n {
+        background: rgba(245, 158, 11, 0.16);
+        color: #f0b060;
+      }
+
+      /* category tile */
+      .tile {
+        border-radius: 13px;
+        padding: 9px 10px;
+        margin-bottom: 8px;
+        border: 1.5px solid;
+      }
+      .tile.ready {
+        border-color: var(--success);
+        background: rgba(16, 185, 129, 0.08);
+      }
+      .tile.attn {
+        border-color: var(--warning);
+        background: rgba(245, 158, 11, 0.14);
+      }
+      .tile.dup {
+        border-color: var(--neutral);
+        background: rgba(100, 116, 139, 0.14);
+      }
+      .tilehead {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .tilehead .name {
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .tilehead .arrow {
+        color: var(--text3);
+        font-size: 10px;
+      }
+      .tilehead .target {
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--text);
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tilehead .cnt {
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--text2);
+        background: var(--surface3);
+        border-radius: 999px;
+        padding: 2px 7px;
+        flex-shrink: 0;
+      }
+      .tilehead i.chev {
+        color: var(--text3);
+        font-size: 12px;
+        flex-shrink: 0;
+      }
+      .choose {
+        border: 1px dashed var(--text3);
+        border-radius: 999px;
+        padding: 1px 8px;
+        font-size: 10px;
+        font-style: italic;
+        color: var(--text3);
+      }
+
+      .pillrow {
+        display: flex;
+        gap: 6px;
+        margin-top: 7px;
+      }
+      .pillrow .p {
+        flex: 1;
+        text-align: center;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 5px 0;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--text2);
+      }
+
+      .rememberpill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: var(--surface2);
+        border-radius: 999px;
+        padding: 3px 9px;
+        margin-top: 6px;
+      }
+      .rememberpill i {
+        color: var(--primary);
+        font-size: 10.5px;
+      }
+      .rememberpill span {
+        font-size: 9.5px;
+        font-weight: 700;
+        color: var(--primary);
+      }
+
+      .rows {
+        border-top: 1px dashed var(--border);
+        margin-top: 8px;
+        padding-top: 6px;
+      }
+      .selectall {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 3px 0 7px;
+      }
+      .selectall span {
+        font-size: 9.5px;
+        font-weight: 700;
+        color: var(--text2);
+      }
+      .rowline {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 5px 0;
+        border-top: 1px dashed var(--border);
+      }
+      .rowline:first-child {
+        border-top: none;
+      }
+      .rmid {
+        flex: 1;
+        min-width: 0;
+      }
+      .rmid .t1 {
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .rmid .t2 {
+        font-size: 8.8px;
+        color: var(--text3);
+        margin-top: 1px;
+      }
+      .ramt {
+        font-size: 10.5px;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+
+      /* checkbox variants */
+      .cb {
+        width: 16px;
+        height: 16px;
+        border-radius: 5px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .cb-old-off {
+        border: 1px solid var(--border);
+        background: transparent;
+      }
+      .cb-old-on {
+        background: var(--primary);
+        border: 1px solid var(--primary);
+      }
+      .cb-new-off {
+        border: 1.75px solid var(--borderStrong);
+        background: var(--surface3);
+      }
+      .cb-new-on {
+        background: var(--primary);
+        border: 1.75px solid var(--primary);
+      }
+      .cb i {
+        font-size: 10px;
+        color: #04150d;
+      }
+
+      /* dup badge (same visual language as TransferPairCard's "Already imported") */
+      .dupbadge {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        background: rgba(100, 116, 139, 0.18);
+        border-radius: 999px;
+        padding: 1px 7px;
+        margin-left: 6px;
+      }
+      .dupbadge span {
+        font-size: 8px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #a9b3c0;
+      }
+
+      /* transfer pair card */
+      .pair {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 13px;
+        border: 1px solid;
+        padding: 9px 8px;
+        margin-bottom: 8px;
+      }
+      .pair.live {
+        border-color: rgba(59, 130, 246, 0.4);
+        background: rgba(59, 130, 246, 0.08);
+      }
+      .pair.dim {
+        border-color: rgba(100, 116, 139, 0.4);
+        background: rgba(100, 116, 139, 0.1);
+      }
+      .pair .side {
+        flex: 1;
+        text-align: center;
+        min-width: 0;
+      }
+      .pair .side .t1 {
+        font-size: 10px;
+        font-weight: 800;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .pair .side .t2 {
+        font-size: 8.8px;
+        color: var(--text3);
+        margin-top: 1px;
+      }
+      .pair .mid {
+        text-align: center;
+        flex-shrink: 0;
+        min-width: 56px;
+      }
+      .pair .mid i {
+        color: var(--info);
+        font-size: 15px;
+      }
+      .pair .mid .lab {
+        font-size: 8px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: var(--info);
+        margin-top: 1px;
+      }
+      .pair.dim .mid i,
+      .pair.dim .mid .lab {
+        color: var(--neutral);
+      }
+      .separatebtn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 5px 0;
+        margin-top: 6px;
+        font-size: 9.5px;
+        font-weight: 700;
+        color: var(--text2);
+      }
+
+      /* attention gate chip */
+      .gatechip {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(245, 158, 11, 0.16);
+        border: 1px dashed var(--warning);
+        border-radius: 10px;
+        padding: 6px 8px;
+        margin-top: 7px;
+      }
+      .gatechip i {
+        color: var(--warning);
+        font-size: 12px;
+      }
+      .gatechip span {
+        font-size: 9.5px;
+        color: #f0b060;
+        flex: 1;
+      }
+      .gateacts {
+        display: flex;
+        gap: 6px;
+        margin-top: 6px;
+      }
+      .gateacts .b {
+        flex: 1;
+        text-align: center;
+        border-radius: 999px;
+        padding: 5px 0;
+        font-size: 9.5px;
+        font-weight: 700;
+      }
+      .gateacts .b.pri {
+        background: var(--warning);
+        color: #241705;
+      }
+      .gateacts .b.gho {
+        border: 1px solid var(--border);
+        color: var(--text2);
+      }
+
+      /* generic buttons/banners */
+      .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border-radius: 11px;
+        padding: 10px 0;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .btn.pri {
+        background: var(--primary);
+        color: #04150d;
+      }
+      .btn.pri.off {
+        background: var(--surface2);
+        color: var(--text3);
+      }
+      .btn.gho {
+        color: var(--text2);
+        font-size: 10.5px;
+        text-align: center;
+      }
+      .helper {
+        font-size: 9.5px;
+        color: var(--text3);
+        text-align: center;
+        margin-top: 6px;
+      }
+      .nudge {
+        display: flex;
+        gap: 8px;
+        background: rgba(245, 158, 11, 0.14);
+        border: 1px solid var(--warning);
+        border-radius: 12px;
+        padding: 9px 10px;
+        margin-bottom: 10px;
+      }
+      .nudge i {
+        color: var(--warning);
+        font-size: 14px;
+        margin-top: 1px;
+      }
+      .nudge .txt {
+        font-size: 10px;
+        color: #f0d0a0;
+        line-height: 1.5;
+      }
+
+      .legend {
+        max-width: 940px;
+        margin: 14px auto 20px;
+        background: #0e141b;
+        border: 1px solid #1e2733;
+        border-radius: 16px;
+        padding: 22px 26px;
+        color: #c3ccd6;
+        font-size: 13.5px;
+        line-height: 1.75;
+      }
+      .legend h2 {
+        font-size: 15px;
+        margin: 22px 0 8px;
+        color: #fff;
+      }
+      .legend h2:first-child {
+        margin-top: 0;
+      }
+      .legend b {
+        color: #fff;
+      }
+      .legend code {
+        background: #1c2128;
+        padding: 1px 6px;
+        border-radius: 5px;
+        font-size: 12px;
+      }
+      .legend ul {
+        margin: 6px 0 0;
+        padding-left: 20px;
+      }
+      .legend li {
+        margin-bottom: 6px;
+      }
+      .recommend {
+        max-width: 940px;
+        margin: 0 auto 20px;
+        background: #0f2419;
+        border: 1px solid #1c3d2a;
+        border-radius: 16px;
+        padding: 18px 22px;
+        color: #d7f5e6;
+        font-size: 13.5px;
+        line-height: 1.7;
+      }
+      .recommend b {
+        color: #7ee6b8;
+      }
+      .openq {
+        max-width: 940px;
+        margin: 0 auto 44px;
+        background: #1a1409;
+        border: 1px solid #3d2f1c;
+        border-radius: 16px;
+        padding: 18px 22px;
+        color: #f5e6d7;
+        font-size: 13.5px;
+        line-height: 1.7;
+      }
+      .openq b {
+        color: #f0b060;
+      }
+      .openq ol {
+        margin: 6px 0 0;
+        padding-left: 20px;
+      }
+      .openq li {
+        margin-bottom: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Expense Import — review screen redesign, v1</h1>
+    <p class="sub">
+      Grounded in the real <code>ReviewStep.tsx</code> / <code>CategoryTile.tsx</code> /
+      <code>PreviewSection.tsx</code> / <code>useImport.ts</code>. Ten confirmed issues, all root-caused already — this
+      mockup shows the fix for each. Proposal only; no app code touched yet.
+    </p>
+    <div class="flowbar">
+      <a href="#s0">0. Current (today)</a><a href="#s1">1. Redesigned tile list</a
+      ><a href="#s2">2. Checkbox contrast</a> <a href="#s3">3. Duplicate bucket</a
+      ><a href="#s4">4/10. Transfers &amp; homogeneity</a><a href="#s5">5. Moved row</a>
+      <a href="#s6">6. Readiness grouping</a><a href="#s7">7. Attention gate</a><a href="#s8">8. Remembered pill</a>
+      <a href="#s9">9. Select-all fix</a>
+    </div>
+
+    <!-- 0. CURRENT -->
+    <div class="sectiontitle" id="s0"><span class="stepnum">0</span>Current (today)</div>
+    <div class="sectionsub">
+      The real screen, as it renders now. Rows start unchecked, checkboxes are a barely-visible 1px hairline, a transfer
+      pair shows up a second time inside its own category tile, a duplicate has no per-row marking, and a "moved" row
+      never actually leaves its old tile.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Preview accordion, expanded <span class="tag cur">today</span></div>
+        <div class="vsub">
+          "Self Transfer ₹8,000" appears both in Linked Transfers <i>and</i> its own category tile below — no way to
+          isolate it. "Uber" mixes a duplicate row in silently. Checkboxes: unchecked default, 1px border only.
+        </div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <i class="ti ti-arrow-left" style="color: #8b949e"></i
+            ><span class="t">Review<span class="s">Import</span></span
+            ><span style="width: 16px"></span>
+          </div>
+          <div class="content tall">
+            <div class="acc">
+              <div class="acchead">
+                <div class="accicn" style="background: var(--success)"><i class="ti ti-check"></i></div>
+                <div class="accmid">
+                  <div class="t1">Preview — 42 rows</div>
+                  <div class="t2"><b class="rd">31 ready</b> · <b class="at">6 attention</b> · 5 duplicate</div>
+                </div>
+                <i class="ti ti-chevron-up" style="color: var(--text3)"></i>
+              </div>
+              <div class="accbody">
+                <div class="tile ready" style="border-color: var(--info); background: rgba(59, 130, 246, 0.08)">
+                  <div class="tilehead">
+                    <i class="ti ti-arrows-left-right" style="color: var(--info); font-size: 12px"></i
+                    ><span class="name" style="flex: 1">Linked transfers</span><span class="cnt">1</span
+                    ><i class="ti ti-chevron-down chev"></i>
+                  </div>
+                </div>
+                <div class="tile ready">
+                  <div class="tilehead">
+                    <span class="name">"Self Transfer"</span><i class="ti ti-arrow-right arrow"></i
+                    ><span class="target">Transfer → Cash</span><span class="cnt">2 txns</span
+                    ><i class="ti ti-chevron-down chev"></i>
+                  </div>
+                  <div class="pillrow">
+                    <div class="p">Mark as Transfer</div>
+                    <div class="p">Tag all transactions</div>
+                  </div>
+                  <div style="font-size: 9px; color: var(--text3); margin-top: 5px">
+                    ⚠ Same 2 rows also live in "Linked transfers" above — no way to tell these apart or act on just this
+                    pair.
+                  </div>
+                </div>
+                <div class="tile ready">
+                  <div class="tilehead">
+                    <span class="name">"Uber"</span><i class="ti ti-arrow-right arrow"></i
+                    ><span class="target">Travel</span><span class="cnt">6 txns</span
+                    ><i class="ti ti-chevron-up chev"></i>
+                  </div>
+                  <div class="pillrow">
+                    <div class="p">Map Existing</div>
+                    <div class="p">Tag all transactions</div>
+                  </div>
+                  <div class="rows">
+                    <div class="selectall">
+                      <div class="cb cb-old-off"></div>
+                      <span>Select all</span>
+                    </div>
+                    <div class="rowline">
+                      <div class="cb cb-old-off"></div>
+                      <div class="rmid">
+                        <div class="t1">UBER TRIP 4471</div>
+                        <div class="t2">3 Jul</div>
+                      </div>
+                      <div class="ramt" style="color: var(--text)">₹410</div>
+                    </div>
+                    <div class="rowline">
+                      <div class="cb cb-old-off"></div>
+                      <div class="rmid">
+                        <div class="t1">UBER TRIP 4489</div>
+                        <div class="t2">3 Jul — identical to an existing logged trip, will be silently skipped</div>
+                      </div>
+                      <div class="ramt" style="color: var(--text)">₹410</div>
+                    </div>
+                    <div class="rowline">
+                      <div class="cb cb-old-off"></div>
+                      <div class="rmid">
+                        <div class="t1">UBER TRIP 4502</div>
+                        <div class="t2">6 Jul <span style="color: var(--primary)">· moved to Food</span></div>
+                      </div>
+                      <div class="ramt" style="color: var(--text)">₹260</div>
+                    </div>
+                  </div>
+                  <div style="font-size: 9px; color: var(--danger); margin-top: 5px">
+                    ⚠ Row 3 says "moved to Food" but is still rendered here — Food tile shows a separate, disconnected
+                    count.
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="btn pri">Import 36 transactions</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1. REDESIGNED FULL SCREEN -->
+    <div class="sectiontitle" id="s1">
+      <span class="stepnum">1</span>Redesigned tile list — the full proposal together
+    </div>
+    <div class="sectionsub">
+      Same data as above, redesigned: rows start checked, checkboxes read as real controls, the transfer pair lives only
+      in "Linked transfers" (with an explicit un-pair action), duplicates are structurally pulled out into their own
+      collapsed "Already imported" bucket — never shown mixed into a working tile — and a lightweight
+      Ready/Needs-input/Already-imported split replaces the flat undecided-sorts-first list.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Full redesigned Preview <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          Everything below is scrollable inside the same accordion body ReviewStep already uses — no new screen, no new
+          navigation.
+        </div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <i class="ti ti-arrow-left" style="color: #8b949e"></i
+            ><span class="t">Review<span class="s">Import</span></span
+            ><span style="width: 16px"></span>
+          </div>
+          <div class="content tall">
+            <div class="acc">
+              <div class="acchead">
+                <div class="accicn" style="background: var(--warning)"><span style="color: #241705">2</span></div>
+                <div class="accmid">
+                  <div class="t1">Preview — 42 rows</div>
+                  <div class="t2"><b class="rd">31 ready</b> · <b class="at">6 attention</b> · 5 duplicate</div>
+                </div>
+                <i class="ti ti-chevron-up" style="color: var(--text3)"></i>
+              </div>
+              <div class="accbody">
+                <div class="glabel needs"><span class="t">Needs your input</span><span class="n">2</span></div>
+                <div class="tile attn">
+                  <div class="tilehead">
+                    <span class="name">"Zomato Guess"</span><i class="ti ti-arrow-right arrow"></i
+                    ><span class="choose">New · Food &amp; Dining</span><span class="cnt">4 txns</span
+                    ><i class="ti ti-chevron-down chev"></i>
+                  </div>
+                  <div class="gatechip">
+                    <i class="ti ti-alert-triangle"></i
+                    ><span>Unconfirmed new category — won't import until you decide</span>
+                  </div>
+                  <div class="gateacts">
+                    <div class="b pri">Looks good, create it</div>
+                    <div class="b gho">Skip for now</div>
+                  </div>
+                </div>
+                <div class="tile attn">
+                  <div class="tilehead">
+                    <span class="name">"NEFT-XYZ-771"</span><i class="ti ti-arrow-right arrow"></i
+                    ><span class="choose">Choose…</span><span class="cnt">1 txn</span
+                    ><i class="ti ti-chevron-down chev"></i>
+                  </div>
+                  <div class="pillrow">
+                    <div class="p">Map Existing</div>
+                    <div class="p">Tag all transactions</div>
+                  </div>
+                </div>
+
+                <div class="glabel" style="margin-top: 12px"><span class="t">Ready</span><span class="n">3</span></div>
+                <div class="tile ready">
+                  <div class="tilehead">
+                    <span class="name">"Uber"</span><i class="ti ti-arrow-right arrow"></i
+                    ><span class="target">Travel</span><span class="cnt">5 txns</span
+                    ><i class="ti ti-chevron-up chev"></i>
+                  </div>
+                  <div class="pillrow">
+                    <div class="p">Map Existing</div>
+                    <div class="p">Tag all transactions</div>
+                  </div>
+                  <div class="rememberpill"><i class="ti ti-sparkles"></i><span>Remembered — Travel</span></div>
+                  <div class="rows">
+                    <div class="selectall">
+                      <div class="cb cb-new-on"><i class="ti ti-check"></i></div>
+                      <span>Unselect all</span>
+                    </div>
+                    <div class="rowline">
+                      <div class="cb cb-new-on"><i class="ti ti-check"></i></div>
+                      <div class="rmid">
+                        <div class="t1">UBER TRIP 4471</div>
+                        <div class="t2">3 Jul</div>
+                      </div>
+                      <div class="ramt" style="color: var(--text)">₹410</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="glabel" style="margin-top: 12px">
+                  <span class="t" style="color: var(--text3)">Already imported</span><span class="n">2</span>
+                </div>
+                <div class="tile dup">
+                  <div class="tilehead">
+                    <i class="ti ti-chevron-right chev"></i
+                    ><span class="name" style="flex: 1; color: var(--text2)">2 rows won't be re-added</span
+                    ><span style="font-size: 8.5px; color: var(--text3)">tap to view</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="helper" style="color: #f0b060">2 items need your input before importing</div>
+            <div class="btn pri off">Confirm the 2 items above to continue</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. CHECKBOX CONTRAST -->
+    <div class="sectiontitle" id="s2"><span class="stepnum">2</span>Checkbox contrast — Issue #2</div>
+    <div class="sectionsub">
+      Today's unselected state is a 1px <code>theme.border</code>-coloured outline — indistinguishable from an ordinary
+      hairline divider, worse in Dark. Fix: a heavier 1.75px border in <code>theme.borderStrong</code> plus a filled
+      neutral <code>theme.surfaceTertiary</code> background, so an unchecked box reads as a real, tappable control at a
+      glance. Selected state is unchanged (filled <code>theme.primary</code> + check). Same token change reads correctly
+      applied to Bank Import's identical checkbox (<code>UnmatchedBucket.tsx</code>/<code>MatchedBucket.tsx</code>
+      reassign picker) — not touched in this PR, but sharing the fix keeps every checkbox in the app consistent.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Current <span class="tag cur">low contrast</span></div>
+        <div class="vsub">
+          1px border, transparent fill — reads as a divider, not a control. Worse against dark surfaces.
+        </div>
+        <div class="phone" style="height: 150px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — unselected checkbox</span></div>
+          <div class="content">
+            <div class="rowline" style="border: none">
+              <div class="cb cb-old-off"></div>
+              <div class="rmid">
+                <div class="t1">UBER TRIP 4471</div>
+                <div class="t2">3 Jul</div>
+              </div>
+              <div class="ramt">₹410</div>
+            </div>
+            <div class="rowline">
+              <div class="cb cb-old-off"></div>
+              <div class="rmid">
+                <div class="t1">UBER TRIP 4489</div>
+                <div class="t2">3 Jul</div>
+              </div>
+              <div class="ramt">₹410</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Redesigned <span class="tag rec">visible control</span></div>
+        <div class="vsub">
+          1.75px <code>borderStrong</code> + filled <code>surfaceTertiary</code> background — clearly a tap target even
+          unchecked, in both themes.
+        </div>
+        <div class="phone" style="height: 150px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — unselected checkbox</span></div>
+          <div class="content">
+            <div class="rowline" style="border: none">
+              <div class="cb cb-new-off"></div>
+              <div class="rmid">
+                <div class="t1">UBER TRIP 4471</div>
+                <div class="t2">3 Jul</div>
+              </div>
+              <div class="ramt">₹410</div>
+            </div>
+            <div class="rowline">
+              <div class="cb cb-new-off"></div>
+              <div class="rmid">
+                <div class="t1">UBER TRIP 4489</div>
+                <div class="t2">3 Jul</div>
+              </div>
+              <div class="ramt">₹410</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Selected state <span class="tag">unchanged</span></div>
+        <div class="vsub">
+          Filled primary + check — already fine, shown here only for contrast reference against the two unselected
+          states above.
+        </div>
+        <div class="phone" style="height: 150px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — selected checkbox</span></div>
+          <div class="content">
+            <div class="rowline" style="border: none">
+              <div class="cb cb-new-on"><i class="ti ti-check"></i></div>
+              <div class="rmid">
+                <div class="t1">UBER TRIP 4471</div>
+                <div class="t2">3 Jul</div>
+              </div>
+              <div class="ramt">₹410</div>
+            </div>
+            <div class="rowline">
+              <div class="cb cb-new-on"><i class="ti ti-check"></i></div>
+              <div class="rmid">
+                <div class="t1">UBER TRIP 4489</div>
+                <div class="t2">3 Jul</div>
+              </div>
+              <div class="ramt">₹410</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. DUPLICATE BUCKET -->
+    <div class="sectiontitle" id="s3">
+      <span class="stepnum">3</span>Duplicates isolated into their own bucket — Issue #3
+    </div>
+    <div class="sectionsub">
+      Dedup already works and already excludes these rows from the write — the question is where that exclusion is
+      shown. An inline per-row badge sitting inside an otherwise-normal tile (rejected direction, left) still makes the
+      duplicate look like part of that tile's working set. The fix instead structurally relocates it, matching Bank
+      Import's own model: an already-recorded transaction gets pulled out into a dedicated, collapsed "Already imported"
+      bucket — never left sitting inline with rows that still need action.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Inline badge <span class="tag cur">rejected direction</span></div>
+        <div class="vsub">
+          Reuses <code>TransferPairCard.tsx</code>'s "Already imported" visual language, but only as a per-row
+          annotation — the duplicate still renders inside "Uber", still counted in its tile total. Doesn't match how
+          Bank Import isolates matched transactions.
+        </div>
+        <div class="phone" style="height: 260px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — badge left inline</span></div>
+          <div class="content">
+            <div class="tile ready">
+              <div class="tilehead">
+                <span class="name">"Uber"</span><i class="ti ti-arrow-right arrow"></i><span class="target">Travel</span
+                ><span class="cnt">3 txns · 1 dup</span><i class="ti ti-chevron-up chev"></i>
+              </div>
+              <div class="rows">
+                <div class="rowline">
+                  <div class="cb cb-new-on"><i class="ti ti-check"></i></div>
+                  <div class="rmid">
+                    <div class="t1">UBER TRIP 4471</div>
+                    <div class="t2">3 Jul</div>
+                  </div>
+                  <div class="ramt" style="color: var(--text)">₹410</div>
+                </div>
+                <div class="rowline">
+                  <div class="cb cb-new-on"><i class="ti ti-check"></i></div>
+                  <div class="rmid">
+                    <div class="t1">
+                      UBER TRIP 4489<span class="dupbadge"><span>Already imported</span></span>
+                    </div>
+                    <div class="t2">3 Jul — same date, amount &amp; description as a logged expense</div>
+                  </div>
+                  <div class="ramt" style="color: var(--text3)">₹410</div>
+                </div>
+                <div class="rowline">
+                  <div class="cb cb-new-on"><i class="ti ti-check"></i></div>
+                  <div class="rmid">
+                    <div class="t1">UBER TRIP 4502</div>
+                    <div class="t2">6 Jul</div>
+                  </div>
+                  <div class="ramt" style="color: var(--text)">₹260</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Extracted to its own bucket <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          "Uber" now shows only its 2 genuinely-new rows — count updated accordingly. The duplicate lives only in
+          "Already imported", shown here expanded to illustrate its contents; collapsed by default in the real screen
+          (see section 1).
+        </div>
+        <div class="phone" style="height: 280px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — structurally relocated</span></div>
+          <div class="content">
+            <div class="tile ready">
+              <div class="tilehead">
+                <span class="name">"Uber"</span><i class="ti ti-arrow-right arrow"></i><span class="target">Travel</span
+                ><span class="cnt">2 txns</span><i class="ti ti-chevron-up chev"></i>
+              </div>
+              <div class="rows">
+                <div class="rowline">
+                  <div class="cb cb-new-on"><i class="ti ti-check"></i></div>
+                  <div class="rmid">
+                    <div class="t1">UBER TRIP 4471</div>
+                    <div class="t2">3 Jul</div>
+                  </div>
+                  <div class="ramt" style="color: var(--text)">₹410</div>
+                </div>
+                <div class="rowline">
+                  <div class="cb cb-new-on"><i class="ti ti-check"></i></div>
+                  <div class="rmid">
+                    <div class="t1">UBER TRIP 4502</div>
+                    <div class="t2">6 Jul</div>
+                  </div>
+                  <div class="ramt" style="color: var(--text)">₹260</div>
+                </div>
+              </div>
+            </div>
+            <div class="glabel" style="margin-top: 10px">
+              <span class="t" style="color: var(--text3)">Already imported</span><span class="n">1</span>
+            </div>
+            <div class="tile dup">
+              <div class="tilehead">
+                <i class="ti ti-chevron-down chev"></i
+                ><span class="name" style="flex: 1; color: var(--text2)">1 row won't be re-added</span>
+              </div>
+              <div class="rows">
+                <div class="rowline">
+                  <div class="rmid">
+                    <div class="t1">UBER TRIP 4489</div>
+                    <div class="t2">3 Jul — same date, amount &amp; description as a logged expense</div>
+                  </div>
+                  <div class="ramt" style="color: var(--text3)">₹410</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4/10. TRANSFERS + HOMOGENEITY -->
+    <div class="sectiontitle" id="s4">
+      <span class="stepnum">4</span>Transfers pulled out of tiles, with an un-pair action — Issues #4 &amp; #10
+    </div>
+    <div class="sectionsub">
+      A transfer-paired row no longer renders in its normal category tile at all — it lives only in "Linked transfers",
+      clubbed as one unit (debit leg + credit leg together), matching Penny's own transfer data model. Every pair still
+      offers an explicit "log separately" escape hatch. A tile itself is never allowed to mix expense + income rows
+      unless they're this clubbed pair.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Before <span class="tag cur">today</span></div>
+        <div class="vsub">
+          "Self Transfer" category tile duplicates the exact same 2 rows already shown in Linked Transfers above it — no
+          isolation, no un-pair action.
+        </div>
+        <div class="phone" style="height: 280px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — duplicated transfer</span></div>
+          <div class="content">
+            <div class="tile ready" style="border-color: var(--info); background: rgba(59, 130, 246, 0.08)">
+              <div class="tilehead">
+                <i class="ti ti-arrows-left-right" style="color: var(--info); font-size: 12px"></i
+                ><span class="name" style="flex: 1">Linked transfers</span><span class="cnt">1</span
+                ><i class="ti ti-chevron-up chev"></i>
+              </div>
+              <div class="pair live" style="margin-top: 8px">
+                <div class="side">
+                  <div class="t1">HDFC Savings</div>
+                  <div class="t2">-₹8,000</div>
+                </div>
+                <div class="mid">
+                  <i class="ti ti-arrow-narrow-right"></i>
+                  <div class="lab">Transfer</div>
+                </div>
+                <div class="side">
+                  <div class="t1">Cash</div>
+                  <div class="t2" style="color: var(--success)">+₹8,000</div>
+                </div>
+              </div>
+            </div>
+            <div class="tile ready">
+              <div class="tilehead">
+                <span class="name">"Self Transfer"</span><i class="ti ti-arrow-right arrow"></i
+                ><span class="target">Transfer → Cash</span><span class="cnt">2 txns</span>
+              </div>
+              <div style="font-size: 9px; color: var(--danger); margin-top: 5px">
+                ⚠ Same 2 rows, again — no way to tell this is the identical pair shown above.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">After <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          Category tiles never show this pair — Linked Transfers is now its one and only home. "Not a transfer?"
+          un-pairs it back into two ordinary homogeneous tiles.
+        </div>
+        <div class="phone" style="height: 280px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — single source of truth</span></div>
+          <div class="content">
+            <div class="tile ready" style="border-color: var(--info); background: rgba(59, 130, 246, 0.08)">
+              <div class="tilehead">
+                <i class="ti ti-arrows-left-right" style="color: var(--info); font-size: 12px"></i
+                ><span class="name" style="flex: 1">Linked transfers</span><span class="cnt">1</span
+                ><i class="ti ti-chevron-up chev"></i>
+              </div>
+              <div class="pair live" style="margin-top: 8px">
+                <div class="side">
+                  <div class="t1">HDFC Savings</div>
+                  <div class="t2">-₹8,000</div>
+                </div>
+                <div class="mid">
+                  <i class="ti ti-arrow-narrow-right"></i>
+                  <div class="lab">Transfer</div>
+                </div>
+                <div class="side">
+                  <div class="t1">Cash</div>
+                  <div class="t2" style="color: var(--success)">+₹8,000</div>
+                </div>
+              </div>
+              <div class="separatebtn">
+                <i class="ti ti-arrows-split" style="font-size: 11px"></i>Not a transfer — log separately
+              </div>
+            </div>
+            <div style="font-size: 9.5px; color: var(--text3); text-align: center; margin-top: 4px">
+              No "Self Transfer" tile anymore — nothing else references these 2 rows.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Tapping "log separately" <span class="tag rec">un-paired</span></div>
+        <div class="vsub">
+          The pair splits into its two real legs, each landing on its own homogeneous (all-expense or all-income) tile —
+          never mixed. This is what Issue #10 requires even outside the transfer case.
+        </div>
+        <div class="phone" style="height: 280px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — after un-pairing</span></div>
+          <div class="content">
+            <div class="tile attn">
+              <div class="tilehead">
+                <span class="name">"Cash Withdrawal"</span><i class="ti ti-arrow-right arrow"></i
+                ><span class="choose">Choose…</span><span class="cnt">1 txn</span>
+              </div>
+              <div style="font-size: 9px; color: var(--text3); margin-top: 4px">Expense leg — ₹8,000, HDFC Savings</div>
+            </div>
+            <div class="tile attn">
+              <div class="tilehead">
+                <span class="name">"Cash Deposit"</span><i class="ti ti-arrow-right arrow"></i
+                ><span class="choose">Choose…</span><span class="cnt">1 txn</span>
+              </div>
+              <div style="font-size: 9px; color: var(--text3); margin-top: 4px">Income leg — ₹8,000, Cash</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectionsub" style="margin-top: -6px">
+      <b style="color: #fff">Issue #10 on its own</b> (no transfer involved): a source label like "Cash" that today
+      groups an ATM withdrawal (expense) and a cash gift received (income) into one tile now always splits into "Cash
+      (expense)" and "Cash (income)" tiles, never a mixed one — the exact same homogeneity rule the un-pairing above
+      falls back to.
+    </div>
+
+    <!-- 5. MOVED ROW -->
+    <div class="sectiontitle" id="s5"><span class="stepnum">5</span>Moved row actually relocates — Issue #5</div>
+    <div class="sectionsub">
+      Today, moving a row via bulk-select only annotates it ("· moved to Travel") — it never leaves its origin tile's
+      rendered list. Redesign: tiles are live-recomputed off the row's effective destination, the same way Bank Import's
+      buckets already recompute — a moved row structurally disappears from its old tile and lands in its real one
+      (creating it fresh if needed).
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Before <span class="tag cur">today</span></div>
+        <div class="vsub">
+          "Uber" still shows 6 txns including the moved one — "Travel" (its real destination) shows a disconnected count
+          with no visible link back.
+        </div>
+        <div class="phone" style="height: 280px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — origin tile stays messy</span></div>
+          <div class="content">
+            <div class="tile ready">
+              <div class="tilehead">
+                <span class="name">"Uber"</span><i class="ti ti-arrow-right arrow"></i><span class="target">Travel</span
+                ><span class="cnt">6 txns</span>
+              </div>
+              <div class="rows">
+                <div class="rowline">
+                  <div class="cb cb-old-on"><i class="ti ti-check"></i></div>
+                  <div class="rmid">
+                    <div class="t1">UBER TRIP 4471</div>
+                    <div class="t2">3 Jul</div>
+                  </div>
+                  <div class="ramt">₹410</div>
+                </div>
+                <div class="rowline">
+                  <div class="cb cb-old-on"><i class="ti ti-check"></i></div>
+                  <div class="rmid">
+                    <div class="t1">UBER TRIP 4502</div>
+                    <div class="t2">6 Jul <span style="color: var(--primary)">· moved to Food</span></div>
+                  </div>
+                  <div class="ramt">₹260</div>
+                </div>
+              </div>
+              <div style="font-size: 9px; color: var(--danger); margin-top: 5px">
+                ⚠ Row 2 says "moved to Food" but is still counted &amp; rendered here as one of "6 txns".
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">After <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          "Uber" now correctly shows 5 — the moved row is gone. "Food" is created fresh (or joined, if it already
+          existed) and shows the row living there for real.
+        </div>
+        <div class="phone" style="height: 320px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — row structurally relocated</span></div>
+          <div class="content">
+            <div class="tile ready">
+              <div class="tilehead">
+                <span class="name">"Uber"</span><i class="ti ti-arrow-right arrow"></i><span class="target">Travel</span
+                ><span class="cnt">5 txns</span>
+              </div>
+              <div class="rows">
+                <div class="rowline">
+                  <div class="cb cb-new-on"><i class="ti ti-check"></i></div>
+                  <div class="rmid">
+                    <div class="t1">UBER TRIP 4471</div>
+                    <div class="t2">3 Jul</div>
+                  </div>
+                  <div class="ramt">₹410</div>
+                </div>
+              </div>
+            </div>
+            <div class="tile ready">
+              <div class="tilehead">
+                <span class="name"
+                  >"Food" <span style="font-weight: 400; color: var(--text3)">(new, from a moved row)</span></span
+                ><span class="cnt">1 txn</span>
+              </div>
+              <div class="rows">
+                <div class="rowline">
+                  <div class="cb cb-new-on"><i class="ti ti-check"></i></div>
+                  <div class="rmid">
+                    <div class="t1">UBER TRIP 4502</div>
+                    <div class="t2">6 Jul</div>
+                  </div>
+                  <div class="ramt">₹260</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. READINESS GROUPING -->
+    <div class="sectiontitle" id="s6">
+      <span class="stepnum">6</span>Lightweight Ready / Needs-input split — Issue #6
+    </div>
+    <div class="sectionsub">
+      Not a full 4-bucket copy of Bank Import — the two flows have different data shapes, so this stays a section-label
+      grouping over the same tile list, using the sort order the code already computes (undecided-first). "Needs your
+      input" up top, "Ready" below, "Already imported" collapsed at the bottom — no separate screen, no new component.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Grouped tile list <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          Same tiles as section 1 above (including its duplicate-extraction fix from section 3), isolated here to show
+          just the grouping mechanic clearly.
+        </div>
+        <div class="phone" style="height: 360px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — readiness grouping</span></div>
+          <div class="content">
+            <div class="glabel needs"><span class="t">Needs your input</span><span class="n">2</span></div>
+            <div class="tile attn">
+              <div class="tilehead">
+                <span class="name">"Zomato Guess"</span><i class="ti ti-arrow-right arrow"></i
+                ><span class="choose">New category</span><span class="cnt">4 txns</span>
+              </div>
+            </div>
+            <div class="tile attn">
+              <div class="tilehead">
+                <span class="name">"NEFT-XYZ-771"</span><i class="ti ti-arrow-right arrow"></i
+                ><span class="choose">Choose…</span><span class="cnt">1 txn</span>
+              </div>
+            </div>
+            <div class="glabel" style="margin-top: 10px"><span class="t">Ready</span><span class="n">3</span></div>
+            <div class="tile ready">
+              <div class="tilehead">
+                <span class="name">"Uber"</span><i class="ti ti-arrow-right arrow"></i><span class="target">Travel</span
+                ><span class="cnt">5 txns</span>
+              </div>
+            </div>
+            <div class="glabel" style="margin-top: 10px">
+              <span class="t" style="color: var(--text3)">Already imported</span><span class="n">2</span>
+            </div>
+            <div class="tile dup">
+              <div class="tilehead">
+                <i class="ti ti-chevron-right chev"></i
+                ><span class="name" style="flex: 1; color: var(--text2)">2 rows won't be re-added</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7. ATTENTION GATE -->
+    <div class="sectiontitle" id="s7"><span class="stepnum">7</span>Attention actually gates Import — Issue #7</div>
+    <div class="sectionsub">
+      Today an unreviewed auto-guessed "create" category still imports on commit — cosmetic only. Redesign: the Import
+      button stays disabled while any unconfirmed new category remains, mirroring Bank Import's "nothing commits without
+      an explicit resolution." A one-tap "Skip for now" (excludes those rows, doesn't silently create the category) is
+      the honest escape hatch, never a silent default.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Blocked <span class="tag cur">before acknowledging</span></div>
+        <div class="vsub">
+          Import stays disabled and explains exactly why, with a direct pointer at what needs resolving.
+        </div>
+        <div class="phone" style="height: 220px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — gated commit bar</span></div>
+          <div class="content">
+            <div class="tile attn">
+              <div class="tilehead">
+                <span class="name">"Zomato Guess"</span><i class="ti ti-arrow-right arrow"></i
+                ><span class="choose">New · Food &amp; Dining</span><span class="cnt">4 txns</span>
+              </div>
+              <div class="gatechip"><i class="ti ti-alert-triangle"></i><span>Unconfirmed new category</span></div>
+              <div class="gateacts">
+                <div class="b pri">Looks good, create it</div>
+                <div class="b gho">Skip for now</div>
+              </div>
+            </div>
+            <div class="helper" style="color: #f0b060">1 new category needs confirming</div>
+            <div class="btn pri off">Confirm to continue</div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Unblocked <span class="tag rec">after "Looks good"</span></div>
+        <div class="vsub">Tile flips to Ready, Import re-enables with the real, honest count.</div>
+        <div class="phone" style="height: 220px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — unblocked commit bar</span></div>
+          <div class="content">
+            <div class="tile ready">
+              <div class="tilehead">
+                <span class="name">"Zomato Guess"</span><i class="ti ti-arrow-right arrow"></i
+                ><span class="target"
+                  >Food &amp; Dining <span style="font-weight: 400; color: var(--text3)">(new)</span></span
+                ><span class="cnt">4 txns</span>
+              </div>
+            </div>
+            <div class="btn pri">Import 36 transactions</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8. REMEMBERED PILL -->
+    <div class="sectiontitle" id="s8">
+      <span class="stepnum">8</span>"Remembered" merchant/category suggestion — Issue #8
+    </div>
+    <div class="sectionsub">
+      Bank Import already remembers a merchant's last-used category across sessions (<code>merchantMemory.ts</code>,
+      surfaced as "Remembered from last import"). Same visual pill proposed for a source category tile here — pure UI
+      affordance in this mockup; the matching logic isn't detailed, just the surface it would show on.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Tile with a remembered suggestion <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          Shown right under the pill row, above the row list — same pattern as <code>BulkCategorizeModal.tsx</code>'s
+          existing pill.
+        </div>
+        <div class="phone" style="height: 180px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — remembered pill</span></div>
+          <div class="content">
+            <div class="tile ready">
+              <div class="tilehead">
+                <span class="name">"Swiggy Order"</span><i class="ti ti-arrow-right arrow"></i
+                ><span class="choose">Choose…</span><span class="cnt">3 txns</span>
+              </div>
+              <div class="rememberpill"><i class="ti ti-sparkles"></i><span>Remembered — Food &amp; Dining</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9. SELECT-ALL FIX -->
+    <div class="sectiontitle" id="s9"><span class="stepnum">9</span>"Select all" no longer a footgun — Issue #9</div>
+    <div class="sectionsub">
+      In a tile with more than 8 rows, today's "Select all" only ever selects the visible 8, silently leaving the rest
+      of the group untouched. Fix: selection is tracked as a <code>Set&lt;number&gt;</code> over the tile's full logical
+      row-index set, entirely decoupled from what's currently rendered. The master toggle ("Select all" / "Unselect
+      all") always means literally every row in the tile — whether or not it's on screen — with no separate "load all
+      first" step required. The "N of M rows shown" cap becomes a pure display/performance concern, with its own
+      unrelated "Show all" affordance for anyone who actually wants to scroll and look.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Before <span class="tag cur">today</span></div>
+        <div class="vsub">
+          "Select all" gives no hint it's capped — a user with 23 rows in this tile reasonably assumes all 23 got
+          selected.
+        </div>
+        <div class="phone" style="height: 170px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — ambiguous label, selection tied to rendering</span></div>
+          <div class="content">
+            <div class="tile ready">
+              <div class="tilehead"><span class="name">"Amazon"</span><span class="cnt">23 txns</span></div>
+              <div class="rows">
+                <div class="selectall">
+                  <div class="cb cb-old-off"></div>
+                  <span>Select all</span>
+                </div>
+              </div>
+              <div style="font-size: 9px; color: var(--danger)">
+                ⚠ Only the 8 currently rendered get selected — 15 rows silently untouched.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">After <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          Rows start fully selected (Issue #1), so the master toggle starts as "Unselect all" — never an ambiguous
+          "Select all" when everything's already checked. Tapping it clears all 23 index entries at once, not just the 8
+          rendered. "Show all 23 rows" is a separate, purely visual control with no effect on selection.
+        </div>
+        <div class="phone" style="height: 210px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — selection decoupled from rendering</span></div>
+          <div class="content">
+            <div class="tile ready">
+              <div class="tilehead"><span class="name">"Amazon"</span><span class="cnt">23 txns</span></div>
+              <div class="rows">
+                <div class="selectall">
+                  <div class="cb cb-new-on"><i class="ti ti-check"></i></div>
+                  <span>Unselect all</span>
+                </div>
+                <div style="font-size: 9px; color: var(--text3); margin: 2px 0 4px">8 of 23 rows shown</div>
+                <div
+                  style="font-size: 9.5px; font-weight: 700; color: var(--primary); text-align: center; padding: 4px 0"
+                >
+                  Show all 23 rows →
+                </div>
+              </div>
+              <div style="font-size: 9px; color: var(--success); margin-top: 2px">
+                ✓ "Unselect all" clears every one of the 23 — not just the 8 rendered.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <b>Recommendation:</b> ship all ten together as one pass — they all touch the same
+      <code>PreviewSection</code>/<code>CategoryTile</code>/<code>useImport</code> surface, and several are genuinely
+      coupled (the moved-row fix and the transfer-homogeneity fix both need the same "tiles are live-recomputed off each
+      row's real destination" groundwork; the checkbox-contrast fix and the default-checked fix touch the exact same
+      JSX). Splitting them into separate PRs would mean re-deriving that shared groundwork twice. The one piece I'd
+      genuinely stage separately is the Ready/Needs-input grouping (#6) — it's the least load-bearing (pure section
+      labels over an ordering the code already computes) and easiest to drop if it reads as visual clutter once it's in
+      front of real data.
+    </div>
+
+    <div class="openq">
+      <b>Open questions / judgment calls I made — flagging for your decision:</b>
+      <ol>
+        <li>
+          <b>Attention gate's "Skip for now" (#7):</b> I modeled this as excluding those rows from the batch entirely
+          (same as the existing per-source "Skip" kind) rather than importing them under a generic fallback category. If
+          you'd rather they land in a catch-all "Uncategorized" than be dropped, that's a one-line change to which
+          existing <code>CategoryAction</code> kind it maps to.
+        </li>
+        <li>
+          <b>Un-pairing a transfer (#4) mid-review:</b> after "log separately", I show the two legs immediately as their
+          own attention tiles (needing a fresh category decision each) rather than trying to guess one. Guessing felt
+          riskier than an honest "needs your input" — but it does mean un-pairing always creates at least one new
+          decision to make.
+        </li>
+        <li>
+          <b>"Remembered" pill (#8):</b> this mockup only specifies the surface, not the matching rule (e.g.
+          exact-normalized-description match vs. fuzzy). Bank Import's <code>merchantMemory.ts</code> already solves a
+          very similar problem — worth checking whether Expense Import can reuse that logic directly, or whether its
+          rows (no merchant-narration concept, just a free-text <code>categoryName</code>) need a different matching
+          key. That's an implementation question, not a design one, but it'll affect scope.
+        </li>
+        <li>
+          <b>Readiness grouping (#6) and homogeneity (#10) interaction:</b> once a tile is guaranteed single-type, a
+          source category that's genuinely mixed (some rows expense, some income, no transfer relationship at all — e.g.
+          a shared "Reimbursement" label) now always produces two tiles instead of one. I think that's correct (it's
+          exactly the bug #10 describes), but it does mean the tile count for a messy real-world file could go up, not
+          down, after this redesign — worth knowing going in.
+        </li>
+      </ol>
+    </div>
+
+    <div class="legend">
+      <h2>Where each fix actually lives (implementation-facing, for when this is approved)</h2>
+      <ul>
+        <li>
+          <b>#1 default-checked</b> — <code>CategoryTile.tsx</code>'s <code>selected</code> state initializer (currently
+          <code>new Set()</code>) seeds every row's index instead, matching <code>UnmatchedBucket.tsx</code>'s own
+          "everything checked, track the exceptions" convention.
+        </li>
+        <li>
+          <b>#2 checkbox contrast</b> — a shared style, not a copy-pasted one: worth pulling the checkbox visual into a
+          tiny shared piece (or at minimum shared token values) so <code>CategoryTile.tsx</code> and Bank Import's own
+          inline checkboxes stay in sync going forward, per "keep shared controls in sync."
+        </li>
+        <li>
+          <b>#4/#10 transfer + homogeneity</b> — needs <code>PreviewSection.tsx</code>'s
+          <code>rowsByCategory</code> grouping to exclude any row already claimed by <code>transferPairs</code>, and to
+          split by <code>row.type</code> within a source-category key, not just by <code>sourceName</code> alone.
+        </li>
+        <li>
+          <b>#5 moved row</b> — <code>effectiveTileKey()</code> already computes the right destination key; the gap is
+          that it doesn't yet <i>create</i> a fresh tile identity for a destination category with no existing
+          source-name tile of its own (today it only regroups into an already-existing tile via
+          <code>tileForExistingCategoryId</code>).
+        </li>
+        <li>
+          <b>#7 attention gate</b> — <code>ReviewStep.tsx</code>'s Import <code>disabled</code> condition needs one more
+          clause alongside <code>!accountsResolved || !transfersResolved</code>: no tile left in an unconfirmed "create"
+          state that hasn't been explicitly acknowledged or skipped.
+        </li>
+        <li>
+          <b>Group tagging is unchanged</b> — the "Tag all transactions" / "Tag N selected" pill in every tile's
+          <code>pillrow</code> is not being removed or altered by this redesign. A tile that loses row(s) to the new
+          "Already imported" bucket (#3) keeps its own tag control exactly as before, just scoped to whatever rows
+          remain in that tile.
+        </li>
+      </ul>
+    </div>
+  </body>
+</html>

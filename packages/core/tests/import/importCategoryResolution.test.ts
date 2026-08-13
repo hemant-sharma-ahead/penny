@@ -3,7 +3,9 @@ import {
   isLikelyTransfer,
   isLikelyCarryForward,
   suggestIntentGroup,
-  resolveCategories
+  resolveCategories,
+  isCategoryResolutionDecided,
+  type CategoryResolution
 } from '@/core/import/importCategoryResolution';
 import type { ExpenseCategory } from '@/core/db/types';
 import type { ParsedRow } from '@/core/import/importParsers';
@@ -88,5 +90,58 @@ describe('resolveCategories', () => {
   it('suggests "create" (never a silent fallback) for a genuinely unrecognised category', () => {
     const result = resolveCategories([row('Some Random App-Specific Label')], categories);
     expect(result[0]?.suggestion).toMatchObject({ kind: 'create', suggestedName: 'Some Random App-Specific Label' });
+  });
+});
+
+describe('isCategoryResolutionDecided', () => {
+  it('"existing"/"skip" are decided from the start, regardless of touched sources', () => {
+    const existing: CategoryResolution = {
+      sourceName: 'Groceries',
+      count: 1,
+      suggestion: { kind: 'existing', categoryId: 'cat-food', categoryName: 'Food' }
+    };
+    const skip: CategoryResolution = { sourceName: 'A/c to A/c', count: 1, suggestion: { kind: 'skip' } };
+    expect(isCategoryResolutionDecided(existing, new Set())).toBe(true);
+    expect(isCategoryResolutionDecided(skip, new Set())).toBe(true);
+  });
+
+  it('"create" is only decided once its source name has been touched', () => {
+    const create: CategoryResolution = {
+      sourceName: 'Zomato',
+      count: 1,
+      suggestion: { kind: 'create', suggestedName: 'Zomato', suggestedIntentGroup: 'daily_living' }
+    };
+    expect(isCategoryResolutionDecided(create, new Set())).toBe(false);
+    expect(isCategoryResolutionDecided(create, new Set(['Zomato']))).toBe(true);
+  });
+
+  it('"transfer" is undecided while toAccountId is blank', () => {
+    const transfer: CategoryResolution = {
+      sourceName: 'Balance Correction',
+      count: 2,
+      suggestion: { kind: 'transfer', categoryId: 'cat-tr-other', categoryName: 'Other Transfer', toAccountId: '' }
+    };
+    expect(isCategoryResolutionDecided(transfer, new Set())).toBe(false);
+  });
+
+  it('"transfer" is decided once toAccountId is picked', () => {
+    const transfer: CategoryResolution = {
+      sourceName: 'Balance Correction',
+      count: 2,
+      suggestion: { kind: 'transfer', categoryId: 'cat-tr-other', categoryName: 'Other Transfer', toAccountId: 'acc-1' }
+    };
+    expect(isCategoryResolutionDecided(transfer, new Set())).toBe(true);
+  });
+
+  it('a blank-toAccountId "transfer" is ALSO decided when every one of its rows is already fully auto-resolved (2026-08-13 fix)', () => {
+    const transfer: CategoryResolution = {
+      sourceName: 'Self Transfer',
+      count: 2,
+      suggestion: { kind: 'transfer', categoryId: 'cat-tr-other', categoryName: 'Other Transfer', toAccountId: '' }
+    };
+    expect(isCategoryResolutionDecided(transfer, new Set(), new Set(['Self Transfer']))).toBe(true);
+    // Without the source name in the auto-resolved set, still undecided — the set must be checked
+    // by exact sourceName, not just "some set was passed".
+    expect(isCategoryResolutionDecided(transfer, new Set(), new Set(['Some Other Category']))).toBe(false);
   });
 });

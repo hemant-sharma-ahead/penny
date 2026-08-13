@@ -1,0 +1,1635 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Expense Import: bucket tiles + categorize modal, v1</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg: #0b0f14;
+        --surface: #161b22;
+        --surface2: #1c2128;
+        --surface3: #20262f;
+        --text: #e6edf3;
+        --text2: #8b949e;
+        --text3: #6e7681;
+        --border: #2d333b;
+        --borderStrong: #444c56;
+        --primary: #00a86b;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --info: #3b82f6;
+        --neutral: #64748b;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family:
+          'Inter',
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        background: #05070a;
+        color: #e6edf3;
+        -webkit-font-smoothing: antialiased;
+      }
+      h1 {
+        text-align: center;
+        margin: 30px 16px 4px;
+        font-size: 22px;
+        color: #fff;
+      }
+      .sub {
+        text-align: center;
+        margin: 0 16px 20px;
+        color: #9aa5b1;
+        font-size: 14px;
+        max-width: 940px;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.65;
+      }
+      .flowbar {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 0 20px 10px;
+      }
+      .flowbar a {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: #9aa5b1;
+        background: #141a22;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 5px 11px;
+        text-decoration: none;
+      }
+      .flowbar a:hover {
+        color: #fff;
+        border-color: #3a4451;
+      }
+
+      .sectiontitle {
+        text-align: center;
+        font-size: 15px;
+        font-weight: 800;
+        color: #fff;
+        margin: 48px 0 4px;
+        scroll-margin-top: 20px;
+      }
+      .stepnum {
+        display: inline-flex;
+        width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        background: var(--primary);
+        color: #04150d;
+        font-size: 11px;
+        font-weight: 800;
+        align-items: center;
+        justify-content: center;
+        margin-right: 6px;
+      }
+      .sectionsub {
+        text-align: center;
+        color: #9aa5b1;
+        font-size: 12.5px;
+        max-width: 820px;
+        margin: 0 auto 18px;
+        line-height: 1.65;
+      }
+
+      .gallery {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 36px 24px;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 16px 20px 10px;
+      }
+      .frame-wrap {
+        width: 292px;
+      }
+      .vtitle {
+        font-size: 13px;
+        font-weight: 800;
+        margin: 0 2px 3px;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .vtitle .tag {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 2px 7px;
+        border-radius: 999px;
+        background: #232b35;
+        color: #9aa5b1;
+      }
+      .vtitle .tag.cur {
+        background: #3a2412;
+        color: #f0b060;
+      }
+      .vtitle .tag.rec {
+        background: #123524;
+        color: #7ee6b8;
+      }
+      .vsub {
+        font-size: 11px;
+        color: #9aa5b1;
+        margin: 0 2px 12px;
+        line-height: 1.55;
+      }
+
+      .phone {
+        width: 292px;
+        background: var(--bg);
+        border-radius: 30px;
+        border: 8px solid #1c2128;
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+      }
+      .statusbar {
+        height: 16px;
+        background: var(--bg);
+        flex-shrink: 0;
+      }
+      .header {
+        height: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+        flex-shrink: 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .header .t {
+        font-size: 13px;
+        font-weight: 700;
+        color: #fff;
+      }
+      .header .t .s {
+        display: block;
+        font-size: 9px;
+        font-weight: 600;
+        color: var(--text3);
+        margin-top: 1px;
+      }
+      .content {
+        padding: 10px 12px;
+        overflow-y: auto;
+      }
+      .content.tall {
+        height: 580px;
+      }
+      .content.med {
+        height: 440px;
+      }
+      .content.short {
+        height: 300px;
+      }
+
+      /* category tile (current + collapsed-bucket variants) */
+      .tile {
+        border-radius: 13px;
+        padding: 9px 10px;
+        margin-bottom: 8px;
+        border: 1.5px solid;
+      }
+      .tile.ready {
+        border-color: var(--success);
+        background: rgba(16, 185, 129, 0.08);
+      }
+      .tile.attn {
+        border-color: var(--warning);
+        background: rgba(245, 158, 11, 0.14);
+      }
+      .tile.dup {
+        border-color: var(--neutral);
+        background: rgba(100, 116, 139, 0.14);
+      }
+      .tilehead {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .tilehead .name {
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .tilehead .arrow {
+        color: var(--text3);
+        font-size: 10px;
+      }
+      .tilehead .target {
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--text);
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tilehead .cnt {
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--text2);
+        background: var(--surface3);
+        border-radius: 999px;
+        padding: 2px 7px;
+        flex-shrink: 0;
+      }
+      .tilehead i.chev {
+        color: var(--text3);
+        font-size: 12px;
+        flex-shrink: 0;
+      }
+      .choose {
+        border: 1px dashed var(--text3);
+        border-radius: 999px;
+        padding: 1px 8px;
+        font-size: 10px;
+        font-style: italic;
+        color: var(--text3);
+      }
+
+      .pillrow {
+        display: flex;
+        gap: 6px;
+        margin-top: 7px;
+      }
+      .pillrow .p {
+        flex: 1;
+        text-align: center;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 5px 0;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--text2);
+      }
+
+      .rows {
+        border-top: 1px dashed var(--border);
+        margin-top: 8px;
+        padding-top: 6px;
+      }
+      .selectall {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 3px 0 7px;
+      }
+      .selectall span {
+        font-size: 9.5px;
+        font-weight: 700;
+        color: var(--text2);
+      }
+      .rowline {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 5px 0;
+        border-top: 1px dashed var(--border);
+      }
+      .rowline:first-child {
+        border-top: none;
+      }
+      .rmid {
+        flex: 1;
+        min-width: 0;
+      }
+      .rmid .t1 {
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .rmid .t2 {
+        font-size: 8.8px;
+        color: var(--text3);
+        margin-top: 1px;
+      }
+      .ramt {
+        font-size: 10.5px;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+
+      .cb {
+        width: 16px;
+        height: 16px;
+        border-radius: 5px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .cb-off {
+        border: 1.75px solid var(--borderStrong);
+        background: var(--surface3);
+      }
+      .cb-on {
+        background: var(--primary);
+        border: 1.75px solid var(--primary);
+      }
+      .cb i {
+        font-size: 10px;
+        color: #04150d;
+      }
+
+      /* "needs confirming" badge — collapsed-header signal for an unconfirmed create-kind resolution */
+      .confirmbadge {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        background: rgba(245, 158, 11, 0.18);
+        border-radius: 999px;
+        padding: 2px 7px;
+        margin-left: 2px;
+        flex-shrink: 0;
+      }
+      .confirmbadge i {
+        color: var(--warning);
+        font-size: 9px;
+      }
+      .confirmbadge span {
+        font-size: 8px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #f0b060;
+      }
+
+      /* always-visible "Categorize N selected ›" footer, exact convention as UnmatchedBucket.tsx */
+      .catfooter {
+        border-top: 1px dashed var(--border);
+        margin-top: 8px;
+        padding-top: 8px;
+      }
+      .catbtn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 7px 0;
+        font-size: 10.5px;
+        font-weight: 700;
+        border: 1px solid var(--border);
+        color: var(--text2);
+        background: var(--surface2);
+      }
+      .catbtn i {
+        font-size: 12px;
+      }
+      .catbtn.dim {
+        opacity: 0.5;
+      }
+
+      /* readiness bucket cards (§5) — bordered card (same treatment as PreviewSection's own "Linked
+         transfers" card) with a colored-dot header (UnmatchedBucket.tsx's own outer-bucket convention) */
+      .bucketcard {
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        overflow: hidden;
+        margin-bottom: 10px;
+      }
+      .bhead {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 11px;
+      }
+      .bdot {
+        width: 7px;
+        height: 7px;
+        border-radius: 4px;
+        flex-shrink: 0;
+      }
+      .bhead .t {
+        font-size: 12.5px;
+        font-weight: 800;
+        color: #fff;
+        flex: 1;
+        min-width: 0;
+      }
+      .bhead .n {
+        font-size: 9.5px;
+        font-weight: 800;
+        background: var(--surface2);
+        color: var(--text2);
+        border-radius: 999px;
+        padding: 2px 8px;
+        flex-shrink: 0;
+      }
+      .bbody {
+        border-top: 1px solid var(--border);
+        padding: 9px 10px 10px;
+      }
+
+      /* accordion sections (Accounts / Preview) */
+      .acc {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        overflow: hidden;
+        margin-bottom: 12px;
+      }
+      .acchead {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 10px;
+      }
+      .accicn {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 11px;
+        font-weight: 800;
+        color: #fff;
+      }
+      .accmid {
+        flex: 1;
+        min-width: 0;
+      }
+      .accmid .t1 {
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .accmid .t2 {
+        font-size: 9.5px;
+        color: var(--text3);
+        margin-top: 1px;
+      }
+      .accmid .t2 b.rd {
+        color: var(--success);
+        font-weight: 800;
+      }
+      .accmid .t2 b.at {
+        color: var(--warning);
+        font-weight: 800;
+      }
+      .accbody {
+        border-top: 1px solid var(--border);
+        padding: 8px 9px 10px;
+      }
+
+      /* modal mock */
+      .modalbackdrop {
+        padding: 14px 10px;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.55);
+      }
+      .modalcard {
+        width: 100%;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      }
+      .modalhead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 13px 14px 8px;
+      }
+      .modalhead .t {
+        font-size: 12.5px;
+        font-weight: 800;
+        color: #fff;
+      }
+      .modalhead .x {
+        color: var(--text3);
+        font-size: 14px;
+      }
+      .modalbody {
+        padding: 2px 14px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+        overflow-y: auto;
+      }
+      .modalfoot {
+        border-top: 1px solid var(--border);
+        padding: 10px 14px;
+      }
+
+      .banner {
+        border-radius: 10px;
+        padding: 8px 9px;
+        display: flex;
+        gap: 6px;
+      }
+      .banner i {
+        font-size: 12px;
+        margin-top: 1px;
+        flex-shrink: 0;
+      }
+      .banner .txt {
+        font-size: 9.5px;
+        line-height: 1.5;
+      }
+      .banner.info {
+        background: rgba(59, 130, 246, 0.12);
+      }
+      .banner.info i {
+        color: var(--info);
+      }
+      .banner.info .txt {
+        color: #bcd4f5;
+      }
+
+      .kindgrid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 7px;
+      }
+      .kindtile {
+        border: 1.5px solid var(--border);
+        border-radius: 11px;
+        padding: 9px 6px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        background: var(--surface2);
+      }
+      .kindtile.sel {
+        border-color: var(--primary);
+        background: rgba(0, 168, 107, 0.12);
+      }
+      .kindtile i {
+        font-size: 15px;
+        color: var(--text2);
+      }
+      .kindtile.sel i {
+        color: var(--primary);
+      }
+      .kindtile span {
+        font-size: 9.5px;
+        font-weight: 700;
+        color: var(--text2);
+        text-align: center;
+      }
+      .kindtile.sel span {
+        color: var(--primary);
+      }
+
+      .lgshortcut {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px dashed var(--warning);
+        border-radius: 11px;
+        padding: 8px 9px;
+        background: rgba(245, 158, 11, 0.1);
+      }
+      .lgshortcut i {
+        color: var(--warning);
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+      .lgshortcut .txt {
+        flex: 1;
+        font-size: 9.5px;
+        color: #f0d0a0;
+        line-height: 1.45;
+      }
+      .lgshortcut .go {
+        flex-shrink: 0;
+        font-size: 9.5px;
+        font-weight: 800;
+        color: #241705;
+        background: var(--warning);
+        border-radius: 999px;
+        padding: 5px 9px;
+      }
+
+      .blf {
+        position: relative;
+        padding-top: 9px;
+      }
+      .blf .lab {
+        position: absolute;
+        left: 8px;
+        top: -1px;
+        background: var(--surface);
+        padding: 0 4px;
+        font-size: 8px;
+        font-weight: 700;
+        color: var(--text3);
+        border-radius: 4px;
+        z-index: 2;
+      }
+      .blf .fld {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px 9px;
+        font-size: 10.5px;
+        color: var(--text);
+        background: var(--surface2);
+      }
+      .blf2 {
+        display: flex;
+        gap: 7px;
+      }
+      .blf2 .blf {
+        flex: 1;
+      }
+
+      .catrow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px dashed var(--border);
+        border-radius: 11px;
+        padding: 8px 9px;
+      }
+      .catrow .ic {
+        width: 24px;
+        height: 24px;
+        border-radius: 7px;
+        background: var(--surface3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .catrow .lab {
+        flex: 1;
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--text2);
+      }
+      .catrow.filled {
+        border-style: solid;
+        border-color: var(--success);
+      }
+      .catrow.filled .ic {
+        background: rgba(16, 185, 129, 0.16);
+      }
+      .catrow.filled .lab {
+        color: var(--text);
+        font-weight: 700;
+      }
+
+      .fieldlabel {
+        font-size: 9.5px;
+        font-weight: 700;
+        color: var(--text2);
+        margin-top: 2px;
+      }
+      .tagfield {
+        display: flex;
+        align-items: center;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 8px 12px;
+        font-size: 10.5px;
+        color: var(--text3);
+        background: var(--surface2);
+        text-align: center;
+        justify-content: center;
+      }
+
+      .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border-radius: 11px;
+        padding: 10px 0;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .btn.pri {
+        background: var(--primary);
+        color: #04150d;
+      }
+      .btn.pri.off {
+        background: var(--surface2);
+        color: var(--text3);
+      }
+      .helper {
+        font-size: 9.5px;
+        color: var(--text3);
+        text-align: center;
+        margin-top: 6px;
+      }
+
+      .legend {
+        max-width: 940px;
+        margin: 14px auto 20px;
+        background: #0e141b;
+        border: 1px solid #1e2733;
+        border-radius: 16px;
+        padding: 22px 26px;
+        color: #c3ccd6;
+        font-size: 13.5px;
+        line-height: 1.75;
+      }
+      .legend h2 {
+        font-size: 15px;
+        margin: 22px 0 8px;
+        color: #fff;
+      }
+      .legend h2:first-child {
+        margin-top: 0;
+      }
+      .legend b {
+        color: #fff;
+      }
+      .legend code {
+        background: #1c2128;
+        padding: 1px 6px;
+        border-radius: 5px;
+        font-size: 12px;
+      }
+      .legend ul {
+        margin: 6px 0 0;
+        padding-left: 20px;
+      }
+      .legend li {
+        margin-bottom: 6px;
+      }
+      .recommend {
+        max-width: 940px;
+        margin: 0 auto 20px;
+        background: #0f2419;
+        border: 1px solid #1c3d2a;
+        border-radius: 16px;
+        padding: 18px 22px;
+        color: #d7f5e6;
+        font-size: 13.5px;
+        line-height: 1.7;
+      }
+      .recommend b {
+        color: #7ee6b8;
+      }
+      .openq {
+        max-width: 940px;
+        margin: 0 auto 44px;
+        background: #1a1409;
+        border: 1px solid #3d2f1c;
+        border-radius: 16px;
+        padding: 18px 22px;
+        color: #f5e6d7;
+        font-size: 13.5px;
+        line-height: 1.7;
+      }
+      .openq b {
+        color: #f0b060;
+      }
+      .openq ol {
+        margin: 6px 0 0;
+        padding-left: 20px;
+      }
+      .openq li {
+        margin-bottom: 8px;
+      }
+      .finding {
+        max-width: 940px;
+        margin: 0 auto 20px;
+        background: #101720;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 18px 22px;
+        color: #c3ccd6;
+        font-size: 13.5px;
+        line-height: 1.7;
+      }
+      .finding b {
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Expense Import — bucket tiles + categorize modal, v1</h1>
+    <p class="sub">
+      Grounded in the real, already-implemented (uncommitted) <code>CategoryTile.tsx</code> /
+      <code>PreviewSection.tsx</code> / <code>ReviewStep.tsx</code> / <code>TileRowList.tsx</code> /
+      <code>DuplicatesBucket.tsx</code> / <code>MovedRowsTile.tsx</code>, and Bank Import's
+      <code>UnmatchedBucket.tsx</code> / <code>BulkCategorizeModal.tsx</code> (the pattern being ported over). Three
+      related changes shown together: (1) <code>CategoryTile</code> collapses to a bucket card, resolution moves into a
+      new <code>ImportCategorizeModal</code>; (2) Accounts and Preview become independently expandable; (3) the "Ready"
+      section label becomes a real "Staged — ready to import" bucket card, peer to "Needs your input" and "Already
+      imported". Mobile-only — <code>apps/web-react</code> is frozen. Proposal only; no app code touched yet.
+    </p>
+    <div class="flowbar">
+      <a href="#s0">0. Current tile (today)</a><a href="#s1">1. Collapsed bucket card</a>
+      <a href="#s2">2. Row list + footer action</a><a href="#s3">3. ImportCategorizeModal</a>
+      <a href="#s4">4. Accounts + Preview both open</a><a href="#s5">5. Three peer buckets</a>
+    </div>
+
+    <!-- 0. CURRENT -->
+    <div class="sectiontitle" id="s0"><span class="stepnum">0</span>Current tile (today, already implemented)</div>
+    <div class="sectionsub">
+      <code>CategoryTile.tsx</code> as it stands right now: the kind dropdown ("Map Existing" / "New Category" / "Skip"
+      / "Mark as Transfer") and the tag box are always visible in the tile's own header, whether or not the row list
+      below is expanded. An unconfirmed "create" guess additionally shows a gate chip + two buttons, also always
+      visible. Nothing about resolving a tile is ever collapsed away.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">"Uber" — resolved, ready <span class="tag cur">today</span></div>
+        <div class="vsub">
+          Kind dropdown + tag box sit inline in the header permanently, even though this tile needs no further input at
+          all.
+        </div>
+        <div class="phone" style="height: 230px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — always-visible controls</span></div>
+          <div class="content">
+            <div class="tile ready">
+              <div class="tilehead">
+                <span class="name">"Uber"</span><i class="ti ti-arrow-right arrow"></i><span class="target">Travel</span
+                ><span class="cnt">5 txns</span><i class="ti ti-chevron-down chev"></i>
+              </div>
+              <div class="pillrow">
+                <div class="p">Map Existing</div>
+                <div class="p">Tag all transactions</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">"Zomato Guess" — unconfirmed create <span class="tag cur">today</span></div>
+        <div class="vsub">
+          Kind dropdown + tag box + gate chip + two buttons, all in the always-visible header — busy even before
+          expanding to see a single row.
+        </div>
+        <div class="phone" style="height: 280px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — attention tile, today</span></div>
+          <div class="content">
+            <div class="tile attn">
+              <div class="tilehead">
+                <span class="name">"Zomato Guess"</span><i class="ti ti-arrow-right arrow"></i
+                ><span class="target"
+                  >Food &amp; Dining <span style="font-weight: 400; color: var(--text3)">(new)</span></span
+                ><span class="cnt">4 txns</span><i class="ti ti-chevron-down chev"></i>
+              </div>
+              <div class="pillrow">
+                <div class="p">New Category ✨</div>
+                <div class="p">Tag all transactions</div>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 6px;
+                  background: rgba(245, 158, 11, 0.16);
+                  border: 1px dashed var(--warning);
+                  border-radius: 10px;
+                  padding: 6px 8px;
+                  margin-top: 7px;
+                "
+              >
+                <i class="ti ti-alert-triangle" style="color: var(--warning); font-size: 12px"></i>
+                <span style="font-size: 9.5px; color: #f0b060; flex: 1"
+                  >Unconfirmed new category — won't import until you decide</span
+                >
+              </div>
+              <div style="display: flex; gap: 6px; margin-top: 6px">
+                <div
+                  style="
+                    flex: 1;
+                    text-align: center;
+                    border-radius: 999px;
+                    padding: 5px 0;
+                    font-size: 9.5px;
+                    font-weight: 700;
+                    background: var(--warning);
+                    color: #241705;
+                  "
+                >
+                  Looks good, create it
+                </div>
+                <div
+                  style="
+                    flex: 1;
+                    text-align: center;
+                    border-radius: 999px;
+                    padding: 5px 0;
+                    font-size: 9.5px;
+                    font-weight: 700;
+                    border: 1px solid var(--border);
+                    color: var(--text2);
+                  "
+                >
+                  Skip for now
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1. COLLAPSED BUCKET CARD -->
+    <div class="sectiontitle" id="s1">
+      <span class="stepnum">1</span>Collapsed-by-default bucket card
+      <span style="font-weight: 400; color: #9aa5b1">— porting Bank Import's model</span>
+    </div>
+    <div class="sectionsub">
+      No inline dropdown, no inline tag box at the collapsed level — just icon + "{sourceName}" → target (or a dashed
+      "Needs categorizing" pill) + row count + chevron, exactly like a merchant group header in
+      <code>UnmatchedBucket.tsx</code>. An unconfirmed "create" guess shows a small warning-tinted
+      <b>"Needs confirming"</b> badge in the collapsed header instead of a permanently-open gate block.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">"Uber" — resolved, ready <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          Same tile as section 0's first example — collapsed header only, nothing else. One line, scannable.
+        </div>
+        <div class="phone" style="height: 130px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — collapsed, resolved</span></div>
+          <div class="content">
+            <div class="tile ready">
+              <div class="tilehead">
+                <span class="name">"Uber"</span><i class="ti ti-arrow-right arrow"></i><span class="target">Travel</span
+                ><span class="cnt">5 txns</span><i class="ti ti-chevron-down chev"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">"NEFT-XYZ-771" — never resolved <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          Dashed "Needs categorizing" pill instead of a target — same visual language as the pre-existing "Choose…"
+          pill, relabeled to say what's actually needed.
+        </div>
+        <div class="phone" style="height: 130px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — collapsed, unresolved</span></div>
+          <div class="content">
+            <div class="tile attn">
+              <div class="tilehead">
+                <span class="name">"NEFT-XYZ-771"</span><i class="ti ti-arrow-right arrow"></i
+                ><span class="choose">Needs categorizing</span><span class="cnt">1 txn</span
+                ><i class="ti ti-chevron-down chev"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">"Zomato Guess" — unconfirmed create <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          The gate chip + two buttons from section 0 collapse into one small badge next to the target label.
+          Confirming/changing now happens inside the modal (section 3), not on the tile itself.
+        </div>
+        <div class="phone" style="height: 150px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — collapsed, unconfirmed create</span></div>
+          <div class="content">
+            <div class="tile attn">
+              <div class="tilehead">
+                <span class="name">"Zomato Guess"</span><i class="ti ti-arrow-right arrow"></i>
+                <span class="target"
+                  >Food &amp; Dining <span style="font-weight: 400; color: var(--text3)">(new)</span></span
+                >
+                <span class="confirmbadge"><i class="ti ti-alert-triangle"></i><span>Needs confirming</span></span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-top: 2px">
+                <span class="cnt">4 txns</span><i class="ti ti-chevron-down chev"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. ROW LIST + ALWAYS-VISIBLE FOOTER -->
+    <div class="sectiontitle" id="s2">
+      <span class="stepnum">2</span>Expanding reveals rows; "Categorize N selected ›" stays in the footer regardless
+    </div>
+    <div class="sectionsub">
+      Expanding the chevron reveals <code>TileRowList</code>'s existing visual (checkboxes default-checked, "Select
+      all"/"Unselect all" master toggle, "N of M shown" render cap) — unchanged from today. What's new: the "Categorize
+      N selected ›" action is a footer button that's ALWAYS visible, whether the row list itself is expanded or
+      collapsed — exact same convention as <code>UnmatchedBucket.tsx</code>'s merchant-group footer. A correctly-grouped
+      tile is actionable straight off the collapsed card; expanding is only for inspecting/excepting individual rows.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Collapsed — footer still visible <span class="tag rec">proposed</span></div>
+        <div class="vsub">Row list hidden, footer action present regardless.</div>
+        <div class="phone" style="height: 190px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — collapsed + footer</span></div>
+          <div class="content">
+            <div class="tile ready">
+              <div class="tilehead">
+                <span class="name">"Uber"</span><i class="ti ti-arrow-right arrow"></i><span class="target">Travel</span
+                ><span class="cnt">5 txns</span><i class="ti ti-chevron-down chev"></i>
+              </div>
+              <div class="catfooter">
+                <div class="catbtn"><i class="ti ti-category"></i>Categorize 5 selected ›</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Expanded — footer unchanged <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          Row list visible with its own master toggle; the footer button is the exact same control, same position, same
+          label logic (reflects the current checked count).
+        </div>
+        <div class="phone" style="height: 320px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — expanded + footer</span></div>
+          <div class="content">
+            <div class="tile ready">
+              <div class="tilehead">
+                <span class="name">"Uber"</span><i class="ti ti-arrow-right arrow"></i><span class="target">Travel</span
+                ><span class="cnt">5 txns</span><i class="ti ti-chevron-up chev"></i>
+              </div>
+              <div class="rows">
+                <div class="selectall">
+                  <div class="cb cb-on"><i class="ti ti-check"></i></div>
+                  <span>Unselect all</span>
+                </div>
+                <div class="rowline">
+                  <div class="cb cb-on"><i class="ti ti-check"></i></div>
+                  <div class="rmid">
+                    <div class="t1">UBER TRIP 4471</div>
+                    <div class="t2">3 Jul</div>
+                  </div>
+                  <div class="ramt" style="color: var(--text)">₹410</div>
+                </div>
+                <div class="rowline">
+                  <div class="cb cb-on"><i class="ti ti-check"></i></div>
+                  <div class="rmid">
+                    <div class="t1">UBER TRIP 4489</div>
+                    <div class="t2">3 Jul</div>
+                  </div>
+                  <div class="ramt" style="color: var(--text)">₹410</div>
+                </div>
+                <div class="rowline">
+                  <div class="cb cb-off"></div>
+                  <div class="rmid">
+                    <div class="t1">UBER TRIP 4502</div>
+                    <div class="t2">6 Jul <span style="color: var(--warning)">· unchecked</span></div>
+                  </div>
+                  <div class="ramt" style="color: var(--text)">₹260</div>
+                </div>
+              </div>
+              <div class="catfooter">
+                <div class="catbtn"><i class="ti ti-category"></i>Categorize 4 selected ›</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. IMPORTCATEGORIZEMODAL -->
+    <div class="sectiontitle" id="s3"><span class="stepnum">3</span>New <code>ImportCategorizeModal</code></div>
+    <div class="sectionsub">
+      Mirrors <code>BulkCategorizeModal.tsx</code>'s chrome (centered card, title bar, scope <code>Banner</code>, footer
+      button) but swaps its category-only body for a 4-way kind picker — Bank Import's modal only ever supports
+      existing-or-transfer; Expense Import needs all 4 <code>CategoryAction</code> kinds (existing / create / transfer /
+      skip). The "Tag all/selected transactions" field that used to sit inline on the tile now lives here, below the
+      kind picker.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">"Map to existing category" selected <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          Tapping this tile (or the category row below) opens the real <code>CategoryPickerModal</code>, same as today —
+          this modal just adds the kind picker around it.
+        </div>
+        <div class="phone" style="height: 420px">
+          <div class="statusbar"></div>
+          <div class="modalbackdrop">
+            <div class="modalcard">
+              <div class="modalhead"><span class="t">Categorize · "NEFT-XYZ-771"</span><i class="ti ti-x x"></i></div>
+              <div class="modalbody">
+                <div style="font-size: 9.5px; color: var(--text3)">1 of 1 selected</div>
+                <div class="banner info">
+                  <i class="ti ti-info-circle"></i>
+                  <div class="txt">
+                    Applies to the 1 checked transaction — its own date, amount &amp; account are untouched.
+                  </div>
+                </div>
+                <div class="fieldlabel">How should these be recorded?</div>
+                <div class="kindgrid">
+                  <div class="kindtile sel"><i class="ti ti-tag"></i><span>Map to existing</span></div>
+                  <div class="kindtile"><i class="ti ti-square-plus"></i><span>Create new</span></div>
+                  <div class="kindtile"><i class="ti ti-arrows-left-right"></i><span>Mark as transfer</span></div>
+                  <div class="kindtile"><i class="ti ti-player-skip-forward"></i><span>Skip</span></div>
+                </div>
+                <div class="fieldlabel">Category</div>
+                <div class="catrow">
+                  <div class="ic">
+                    <i class="ti ti-layout-grid-add" style="color: var(--text3); font-size: 13px"></i>
+                  </div>
+                  <div class="lab">Choose a category…</div>
+                  <i class="ti ti-chevron-right" style="color: var(--text3)"></i>
+                </div>
+                <div class="fieldlabel">Tag (optional)</div>
+                <div class="tagfield">Tag 1 selected transaction</div>
+              </div>
+              <div class="modalfoot"><div class="btn pri off">Apply to 1 transaction</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">
+          "Create new category" — unconfirmed-suggestion shortcut <span class="tag rec">proposed</span>
+        </div>
+        <div class="vsub">
+          For a tile whose current suggestion is already 'create', a "Looks good, use this" shortcut sits right
+          alongside the normal kind picker — the modal is already the one surface making this decision, so no separate
+          on-tile gate is needed.
+        </div>
+        <div class="phone" style="height: 460px">
+          <div class="statusbar"></div>
+          <div class="modalbackdrop">
+            <div class="modalcard">
+              <div class="modalhead"><span class="t">Categorize · "Zomato Guess"</span><i class="ti ti-x x"></i></div>
+              <div class="modalbody">
+                <div style="font-size: 9.5px; color: var(--text3)">4 of 4 selected</div>
+                <div class="lgshortcut">
+                  <i class="ti ti-sparkles"></i>
+                  <div class="txt">Suggested: create "Food &amp; Dining" (new · Daily Living)</div>
+                  <div class="go">Use this</div>
+                </div>
+                <div class="fieldlabel">How should these be recorded?</div>
+                <div class="kindgrid">
+                  <div class="kindtile"><i class="ti ti-tag"></i><span>Map to existing</span></div>
+                  <div class="kindtile sel"><i class="ti ti-square-plus"></i><span>Create new</span></div>
+                  <div class="kindtile"><i class="ti ti-arrows-left-right"></i><span>Mark as transfer</span></div>
+                  <div class="kindtile"><i class="ti ti-player-skip-forward"></i><span>Skip</span></div>
+                </div>
+                <div class="blf2">
+                  <div class="blf" style="flex: 1.4">
+                    <div class="lab">New category name</div>
+                    <div class="fld">Food &amp; Dining</div>
+                  </div>
+                  <div class="blf" style="flex: 1">
+                    <div class="lab">Group</div>
+                    <div class="fld">Daily Living</div>
+                  </div>
+                </div>
+                <div class="fieldlabel">Tag (optional)</div>
+                <div class="tagfield">Tag all transactions</div>
+              </div>
+              <div class="modalfoot"><div class="btn pri">Apply to 4 transactions</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">"Mark as transfer" selected <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          Transfer-category + destination-account fields, same as today's inline fields, just relocated into the modal.
+        </div>
+        <div class="phone" style="height: 420px">
+          <div class="statusbar"></div>
+          <div class="modalbackdrop">
+            <div class="modalcard">
+              <div class="modalhead"><span class="t">Categorize · "Self Transfer"</span><i class="ti ti-x x"></i></div>
+              <div class="modalbody">
+                <div style="font-size: 9.5px; color: var(--text3)">2 of 2 selected</div>
+                <div class="kindgrid">
+                  <div class="kindtile"><i class="ti ti-tag"></i><span>Map to existing</span></div>
+                  <div class="kindtile"><i class="ti ti-square-plus"></i><span>Create new</span></div>
+                  <div class="kindtile sel"><i class="ti ti-arrows-left-right"></i><span>Mark as transfer</span></div>
+                  <div class="kindtile"><i class="ti ti-player-skip-forward"></i><span>Skip</span></div>
+                </div>
+                <div class="blf2">
+                  <div class="blf" style="flex: 1">
+                    <div class="lab">Transfer category</div>
+                    <div class="fld">Other Transfer</div>
+                  </div>
+                  <div class="blf" style="flex: 1">
+                    <div class="lab">Transfer to account</div>
+                    <div class="fld" style="color: var(--text3)">Choose…</div>
+                  </div>
+                </div>
+                <div class="fieldlabel">Tag (optional)</div>
+                <div class="tagfield">Tag all transactions</div>
+              </div>
+              <div class="modalfoot"><div class="btn pri off">Pick a destination account</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">"Skip" selected <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          Purely explanatory — no fields to fill. Tag field is hidden here (tagging something that won't import has no
+          effect) — flagged as an open judgment call below.
+        </div>
+        <div class="phone" style="height: 300px">
+          <div class="statusbar"></div>
+          <div class="modalbackdrop">
+            <div class="modalcard">
+              <div class="modalhead">
+                <span class="t">Categorize · "Round-off Adjustment"</span><i class="ti ti-x x"></i>
+              </div>
+              <div class="modalbody">
+                <div style="font-size: 9.5px; color: var(--text3)">3 of 3 selected</div>
+                <div class="kindgrid">
+                  <div class="kindtile"><i class="ti ti-tag"></i><span>Map to existing</span></div>
+                  <div class="kindtile"><i class="ti ti-square-plus"></i><span>Create new</span></div>
+                  <div class="kindtile"><i class="ti ti-arrows-left-right"></i><span>Mark as transfer</span></div>
+                  <div class="kindtile sel"><i class="ti ti-player-skip-forward"></i><span>Skip</span></div>
+                </div>
+                <div class="banner info" style="background: rgba(100, 116, 139, 0.14)">
+                  <i class="ti ti-info-circle" style="color: var(--neutral)"></i>
+                  <div class="txt" style="color: #a9b3c0">
+                    These 3 transactions will be excluded from this import entirely — nothing is created or written for
+                    them.
+                  </div>
+                </div>
+              </div>
+              <div class="modalfoot"><div class="btn pri">Apply to 3 transactions</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. ACCOUNTS + PREVIEW BOTH EXPANDABLE -->
+    <div class="sectiontitle" id="s4">
+      <span class="stepnum">4</span>Accounts and Preview become independently expandable
+    </div>
+    <div class="sectionsub">
+      Today's <code>manualSection</code> state forces exactly one of {Accounts, Preview} open at a time. Removed here —
+      both can be open simultaneously, one continuous scroll, matching how Bank Import's own
+      Matched/Possible/Not-yet-logged/Lone-Wolf buckets all coexist independently. No forced exclusivity.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Both sections expanded at once <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          Accounts (resolved, collapsed content still shown here for illustration) and Preview both show their chevron
+          pointing up — no click on one collapses the other.
+        </div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <i class="ti ti-arrow-left" style="color: #8b949e"></i
+            ><span class="t">Review<span class="s">Import</span></span
+            ><span style="width: 16px"></span>
+          </div>
+          <div class="content tall">
+            <div class="acc">
+              <div class="acchead">
+                <div class="accicn" style="background: var(--success)"><i class="ti ti-check"></i></div>
+                <div class="accmid">
+                  <div class="t1">Accounts</div>
+                  <div class="t2">1 → 1 confirmed</div>
+                </div>
+                <i class="ti ti-chevron-up" style="color: var(--text3)"></i>
+              </div>
+              <div class="accbody">
+                <div class="tile ready">
+                  <div class="tilehead"><span class="name">HDFC Savings</span><span class="cnt">confirmed</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="acc">
+              <div class="acchead">
+                <div class="accicn" style="background: var(--warning)"><span style="color: #241705">2</span></div>
+                <div class="accmid">
+                  <div class="t1">Preview — 42 rows</div>
+                  <div class="t2"><b class="rd">36 ready</b> · <b class="at">2 attention</b></div>
+                </div>
+                <i class="ti ti-chevron-up" style="color: var(--text3)"></i>
+              </div>
+              <div class="accbody">
+                <div class="tile attn">
+                  <div class="tilehead">
+                    <span class="name">"Zomato Guess"</span><i class="ti ti-arrow-right arrow"></i
+                    ><span class="target"
+                      >Food &amp; Dining <span style="font-weight: 400; color: var(--text3)">(new)</span></span
+                    ><span class="confirmbadge"><i class="ti ti-alert-triangle"></i><span>Needs confirming</span></span>
+                  </div>
+                </div>
+                <div class="tile ready">
+                  <div class="tilehead">
+                    <span class="name">"Uber"</span><i class="ti ti-arrow-right arrow"></i
+                    ><span class="target">Travel</span><span class="cnt">5 txns</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="helper" style="color: var(--text3)">
+              Both cards stay open independently — no toggle collapses the other.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. THREE PEER BUCKET CARDS -->
+    <div class="sectiontitle" id="s5">
+      <span class="stepnum">5</span>"Staged — ready to import" replaces the plain "Ready" label
+    </div>
+    <div class="sectionsub">
+      Today's "Needs your input" / "Ready" / "Already imported" are plain text <code>glabel</code>s (uppercase text +
+      count pill) sitting inline above their tiles. Proposed: three real bordered, independently- collapsible bucket
+      CARDS — peers, matching <code>UnmatchedBucket.tsx</code>'s own outer-bucket header style (colored dot + title +
+      count + chevron), wrapped in the same bordered-card treatment <code>PreviewSection.tsx</code>'s own "Linked
+      transfers" section already uses. "Ready" is renamed <b>"Staged — ready to import"</b> to make the "look at what's
+      staged before importing" framing explicit. Each bucket is collapsed by default except "Needs your input" while
+      it's non-empty — same auto-expand convention <code>ReviewStep.tsx</code> already uses for Accounts vs Preview.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Preview body — three peer buckets <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          "Needs your input" auto-expanded (non-empty); "Staged" and "Already imported" collapsed. All three
+          independently toggleable, one continuous scroll — no tabs.
+        </div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — Preview body, redesigned</span></div>
+          <div class="content tall">
+            <div class="bucketcard">
+              <div class="bhead">
+                <div class="bdot" style="background: var(--warning)"></div>
+                <span class="t">Needs your input</span><span class="n">2</span
+                ><i class="ti ti-chevron-up" style="color: var(--text3)"></i>
+              </div>
+              <div class="bbody">
+                <div class="tile attn">
+                  <div class="tilehead">
+                    <span class="name">"Zomato Guess"</span><i class="ti ti-arrow-right arrow"></i
+                    ><span class="target"
+                      >Food &amp; Dining <span style="font-weight: 400; color: var(--text3)">(new)</span></span
+                    ><span class="confirmbadge"><i class="ti ti-alert-triangle"></i><span>Needs confirming</span></span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; margin-top: 2px">
+                    <span class="cnt">4 txns</span><i class="ti ti-chevron-down chev"></i>
+                  </div>
+                  <div class="catfooter">
+                    <div class="catbtn"><i class="ti ti-category"></i>Categorize 4 selected ›</div>
+                  </div>
+                </div>
+                <div class="tile attn">
+                  <div class="tilehead">
+                    <span class="name">"NEFT-XYZ-771"</span><i class="ti ti-arrow-right arrow"></i
+                    ><span class="choose">Needs categorizing</span><span class="cnt">1 txn</span
+                    ><i class="ti ti-chevron-down chev"></i>
+                  </div>
+                  <div class="catfooter">
+                    <div class="catbtn"><i class="ti ti-category"></i>Categorize 1 selected ›</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="bucketcard">
+              <div class="bhead">
+                <div class="bdot" style="background: var(--success)"></div>
+                <span class="t">Staged — ready to import</span><span class="n">36</span
+                ><i class="ti ti-chevron-down" style="color: var(--text3)"></i>
+              </div>
+            </div>
+            <div class="bucketcard">
+              <div class="bhead">
+                <div class="bdot" style="background: var(--neutral)"></div>
+                <span class="t">Already imported</span><span class="n">2</span
+                ><i class="ti ti-chevron-down" style="color: var(--text3)"></i>
+              </div>
+            </div>
+            <div class="helper" style="color: #f0b060">2 items need your input before importing</div>
+            <div class="btn pri off">Confirm the 2 items above to continue</div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">"Staged — ready to import" expanded <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          Tapping the card reveals its own collapsed-by-default bucket tiles — the "final look before import" the
+          request asked for, without a tab/navigation pattern.
+        </div>
+        <div class="phone" style="height: 320px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — Staged, expanded</span></div>
+          <div class="content">
+            <div class="bucketcard">
+              <div class="bhead">
+                <div class="bdot" style="background: var(--success)"></div>
+                <span class="t">Staged — ready to import</span><span class="n">36</span
+                ><i class="ti ti-chevron-up" style="color: var(--text3)"></i>
+              </div>
+              <div class="bbody">
+                <div class="tile ready">
+                  <div class="tilehead">
+                    <span class="name">"Uber"</span><i class="ti ti-arrow-right arrow"></i
+                    ><span class="target">Travel</span><span class="cnt">5 txns</span
+                    ><i class="ti ti-chevron-down chev"></i>
+                  </div>
+                  <div class="catfooter">
+                    <div class="catbtn"><i class="ti ti-category"></i>Categorize 5 selected ›</div>
+                  </div>
+                </div>
+                <div class="tile ready">
+                  <div class="tilehead">
+                    <span class="name">"Swiggy"</span><i class="ti ti-arrow-right arrow"></i
+                    ><span class="target">Food &amp; Dining</span><span class="cnt">8 txns</span
+                    ><i class="ti ti-chevron-down chev"></i>
+                  </div>
+                  <div class="catfooter">
+                    <div class="catbtn"><i class="ti ti-category"></i>Categorize 8 selected ›</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">"Already imported" expanded <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          Same <code>DuplicatesBucket</code> contents as today, now styled as a peer bucket card instead of a lighter
+          dimmed one sitting under a plain text label.
+        </div>
+        <div class="phone" style="height: 280px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — Already imported, expanded</span></div>
+          <div class="content">
+            <div class="bucketcard">
+              <div class="bhead">
+                <div class="bdot" style="background: var(--neutral)"></div>
+                <span class="t">Already imported</span><span class="n">2</span
+                ><i class="ti ti-chevron-up" style="color: var(--text3)"></i>
+              </div>
+              <div class="bbody">
+                <div class="rowline" style="border-top: none">
+                  <div class="rmid">
+                    <div class="t1">UBER TRIP 4489</div>
+                    <div class="t2">3 Jul — same date, amount &amp; description as a logged expense</div>
+                  </div>
+                  <div class="ramt" style="color: var(--text3)">₹410</div>
+                </div>
+                <div class="rowline">
+                  <div class="rmid">
+                    <div class="t1">SWIGGY ORDER 991</div>
+                    <div class="t2">8 Jul — same date, amount &amp; description as a logged expense</div>
+                  </div>
+                  <div class="ramt" style="color: var(--text3)">₹260</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <b>Recommendation:</b> ship all three changes together as one pass. They compose into the same screen and share
+      groundwork — collapsing <code>CategoryTile</code> into a bucket card is what makes the "Staged" bucket card
+      actually scannable (three peer cards of already-busy inline tiles would be worse than today, not better); and
+      removing the Accounts/Preview mutual exclusion only matters once Preview itself is calm enough to sit open
+      alongside Accounts without the screen feeling crowded, which the bucket-card collapse also buys you. If forced to
+      stage, do #1 (bucket card + modal) first — it's the one with real behavior change (moving 4-way resolution into a
+      modal) and the most implementation risk; #2 and #3 are comparatively mechanical (a state removal, and a
+      label/wrapper swap) and easy to layer on after.
+    </div>
+
+    <div class="openq">
+      <b>Open judgment calls — flagging for your decision:</b>
+      <ol>
+        <li>
+          <b>Tag field hidden for "Skip" (§3):</b> I hid the tag field entirely when Skip is selected, since tagging a
+          transaction that won't be imported has no effect. An alternative is to keep it visible but disabled, so the
+          layout doesn't visibly shift between kinds — I judged hiding it as the more honest "this field doesn't apply"
+          signal, but it's a real tradeoff.
+        </li>
+        <li>
+          <b>Footer button copy for "Skip" (§3):</b> I kept it as "Apply to N transactions" for consistency with every
+          other kind, even though "Skip 3 transactions" would be more honest about what actually happens. Kept uniform
+          per the spec's stated footer convention, but flagging since it reads slightly oddly for this one kind.
+        </li>
+        <li>
+          <b>"Needs confirming" badge color (§1):</b> reuses <code>theme.warning</code> (amber), same as every other
+          attention-tinted surface on this screen (the tile's own border, the old gate chip). Worth double-checking it
+          doesn't read as visually identical to the tile's own "attention" background tint at a glance — if that's a
+          concern, a distinct icon (e.g. <code>ti-help-circle</code> instead of <code>ti-alert-triangle</code>) could
+          differentiate "needs confirming" from "needs categorizing" more clearly.
+        </li>
+        <li>
+          <b>Auto-expand rule when "Needs your input" is empty (§5):</b> mirrors <code>ReviewStep.tsx</code>'s existing
+          Accounts/Preview convention (auto-expand whatever needs attention, else the "next" thing) — when nothing needs
+          input, I did NOT default-expand "Staged" instead; all three collapse. Worth confirming that's the right
+          default vs. auto-expanding Staged as the reasonable "nothing to fix, look here" behavior once everything's
+          clean.
+        </li>
+        <li>
+          <b>"Looks good, use this" button style (§3):</b> styled as a warning-tinted pill inside a dashed
+          warning-tinted banner (matching the badge/tile's own warning tone), distinct from the modal's primary "Apply"
+          button at the bottom. An alternative is making it look like a second primary action — I chose the quieter
+          treatment since it's a shortcut for one specific starting state, not the modal's main action.
+        </li>
+      </ol>
+    </div>
+
+    <div class="legend">
+      <h2>Why bucket CARDS in one scroll, not tabs (deliberate departure from a literal reading)</h2>
+      <p>
+        The request's framing — "a staged tab to look at one final time before import" — could be read literally as
+        introducing a tab/navigation control. This mockup deliberately does NOT do that. Reasons:
+      </p>
+      <ul>
+        <li>
+          <b>This app's import flows don't use tabs anywhere.</b> Bank Import's four buckets (Matched / Possible /
+          Not-yet-logged / Lone-Wolf) — the exact precedent this whole proposal is porting from — are peer collapsible
+          sections in one scroll, never a tab bar. Introducing a tab paradigm here would be a new, unprecedented
+          interaction model for this exact screen family.
+        </li>
+        <li>
+          <b>docs/DESIGN_GUIDELINES.md §2</b> states the navigation principle directly: "Full-screen, single-scroll over
+          hidden navigation. Prefer a single scrolling page with grouped sections over tabs / sub-screens / drawers that
+          bury content or add clicks." A tab control here would bury "Needs your input" and "Already imported" behind an
+          extra tap exactly when the user most needs to see all three at a glance (e.g. realizing mid-review that
+          something in "Staged" actually needs fixing).
+        </li>
+        <li>
+          <b
+            >The actual need — "look at what's staged before importing" — is fully satisfied by a bordered,
+            independently-collapsible bucket card.</b
+          >
+          It reads as its own distinct section (not just a text label), can be expanded for a final look, and sits
+          directly alongside its siblings with zero navigation cost — nothing the request needed is lost by not using
+          tabs.
+        </li>
+      </ul>
+      <h2>Where each piece actually lives (implementation-facing, for when this is approved)</h2>
+      <ul>
+        <li>
+          <b>Bucket-card collapse (§1/§2)</b> — <code>CategoryTile.tsx</code> gains its own collapsed/expanded state for
+          the WHOLE resolution surface (not just the row list, which already has this). The kind picker/tag
+          box/create-transfer fields/gate block all move out of the tile and into the new
+          <code>ImportCategorizeModal</code>; the tile itself renders only the header + (if expanded)
+          <code>TileRowList</code> + the always-visible footer button.
+        </li>
+        <li>
+          <b>ImportCategorizeModal (§3)</b> — new file, sibling to <code>CategoryTile.tsx</code>, structured like
+          <code>BulkCategorizeModal.tsx</code> (same <code>Modal</code>/<code>Banner</code>/footer conventions) but
+          built around <code>CategoryAction</code>'s 4 kinds instead of Bank Import's 2. Reuses
+          <code>CategoryPickerModal</code> (existing kind), the existing create-fields/transfer-fields JSX currently
+          inline in <code>CategoryTile.tsx</code> (moved, not rewritten), and a new "Looks good, use this" shortcut only
+          rendered when the tile's CURRENT suggestion is already <code>kind: 'create'</code> and undecided.
+        </li>
+        <li>
+          <b>ReviewStep.tsx (§4)</b> — delete the <code>manualSection</code>-forces-exclusivity logic; replace with two
+          independent <code>expanded</code> booleans (one per section), each still defaulting per the existing
+          auto-expand rule (Accounts open until resolved, then Preview) but no longer collapsing its sibling when
+          toggled.
+        </li>
+        <li>
+          <b>Three peer buckets (§5)</b> — <code>PreviewSection.tsx</code>'s three <code>glabel</code> blocks (Needs
+          your input / Ready / Already imported via <code>DuplicatesBucket</code>) become three <code>View</code>s with
+          their own local <code>expanded</code> state and the bordered-card + dot-header treatment shown above — same
+          visual weight as the existing "Linked transfers" card just above them in the same file. "Ready" renames to
+          "Staged — ready to import" in copy only; no data-shape change.
+        </li>
+      </ul>
+    </div>
+  </body>
+</html>

@@ -202,6 +202,13 @@ export function TransactionsSlice({
     setSelectMode(true);
   }
 
+  /** Long-pressing a row in normal mode — enters select mode with that row already selected, same
+   *  end state as tapping the select icon then tapping the row, in one gesture. */
+  const handleLongPressSelect = useCallback((id: string) => {
+    setSelectMode(true);
+    setSelected(new Set([id]));
+  }, []);
+
   function exitSelect() {
     setSelectMode(false);
     setSelected(new Set());
@@ -515,6 +522,7 @@ export function TransactionsSlice({
         selectMode={selectMode}
         selectedIds={selected}
         onToggleSelect={toggleSelect}
+        onLongPressSelect={handleLongPressSelect}
         goalLinkedTxnIds={goalLinkedTxnIds}
         paymentModeMismatchTxnIds={paymentModeMismatchTxnIds}
       />

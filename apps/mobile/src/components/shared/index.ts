@@ -15,6 +15,7 @@ export { ListRow } from './ListRow';
 export { PaymentModeChips } from './PaymentModeChips';
 export { PaymentModeFormModal } from './PaymentModeFormModal';
 export { PossibleMatchPickerModal } from './PossibleMatchPickerModal';
+export { RowCheckbox } from './RowCheckbox';
 export {
   DEFAULT_PAYMENT_MODES,
   generatePaymentModeId,

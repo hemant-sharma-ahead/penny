@@ -1,11 +1,13 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, type ParamListBase } from '@react-navigation/native';
+import { useNavigation, useRoute, type ParamListBase, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useRegisterHeaderScreen } from '~/navigation/HeaderBackContext';
+import { useToast } from '~/context/ToastContext';
 import { ErrorBoundary } from '~/components/shared/ErrorBoundary';
+import type { ExpensesStackParamList } from '~/navigation/ExpensesStack';
 import { useImport } from './useImport';
 import { UploadStep } from './UploadStep';
 import { MapColumnsStep } from './MapColumnsStep';
@@ -29,8 +31,30 @@ import { DoneStep } from './DoneStep';
 export function ImportPage() {
   const modeBg = useModeBackgroundColor();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const route = useRoute<RouteProp<ExpensesStackParamList, 'Import'>>();
+  const { showToast } = useToast();
   const imp = useImport();
   const [retrying, setRetrying] = useState(false);
+
+  // Bank Import handoff toast (docs/mockups/proposals/bank-import-expense-first-nudge-v1.html) — set
+  // only when this screen was reached via `ExpenseCoverageNudge.tsx`'s "Go log expenses first" button.
+  // `shownHandoffRef` "consumes" it after the first show: this component instance stays mounted for as
+  // long as this screen stays on the Expenses stack, so without the ref a re-render (any of `imp`'s own
+  // state changes) would re-run the effect's dependency check against the same still-truthy params and
+  // never actually re-fire (dependency is unchanged) — the ref is what keeps a *genuinely new* handoff
+  // (a fresh push with new params, after this instance was popped and recreated) working on its own,
+  // with no need to explicitly clear navigation params back to undefined.
+  const bankImportHandoff = route.params?.fromBankImport;
+  const shownHandoffRef = useRef(false);
+  useEffect(() => {
+    if (bankImportHandoff && !shownHandoffRef.current) {
+      shownHandoffRef.current = true;
+      showToast({
+        message: `Bank Import kept your progress — ${bankImportHandoff.bankName}, ${bankImportHandoff.fileName}. Come back anytime to continue.`,
+        variant: 'info'
+      });
+    }
+  }, [bankImportHandoff, showToast]);
   // Destructured out so `stepBack` below can depend on the stable setter directly (from `useState`)
   // instead of the whole `imp` object — `useImport()` returns a fresh object literal every render, so
   // depending on `imp` itself defeated memoization entirely: `stepBack` was a new function every
@@ -96,11 +120,14 @@ export function ImportPage() {
             touchedCategorySources={imp.touchedCategorySources}
             categoryTags={imp.categoryTags}
             rowOverrides={imp.rowOverrides}
+            rememberedSuggestions={imp.rememberedSuggestions}
             importing={imp.importing}
             onUpdateCategory={imp.updateCategoryResolution}
             onUpdateCategoryTag={imp.setCategoryTag}
             onMoveRowsToCategory={imp.moveRowsToCategory}
             onTagRows={imp.tagRows}
+            onAcknowledgeCategory={imp.acknowledgeCategory}
+            onUnpairTransfer={imp.unpairTransfer}
             onUpdateAccount={imp.updateAccountResolution}
             onFixRejected={imp.fixRejectedRow}
             onImport={() => void imp.commitAndImport()}

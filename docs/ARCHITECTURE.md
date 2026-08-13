@@ -1272,6 +1272,40 @@ failure through the existing `parseError` banner rather than throwing uncaught �
 `useBankImport.ts`'s own `importFromXlsx` precedent. Standing rule this codifies:
 `CLAUDE.md`'s "Reliability" non-negotiables.
 
+**Expense Import review-screen redesign (2026-08-13)** — a full comparison sweep against Bank
+Statement Import (real user report: the two flows had drifted apart in maturity) found 10 issues,
+all fixed together since several shared the same underlying "tiles are a frozen one-shot snapshot,
+not live-recomputed" root cause. New shared component:
+**`apps/mobile/src/components/shared/RowCheckbox.tsx`** — a higher-contrast checkbox (1.75px
+`theme.borderStrong` border + `theme.surfaceTertiary` fill when unchecked, vs. the previous
+barely-visible 1px `theme.border` outline), factored out so it doesn't silently drift between
+`CategoryTile.tsx`'s bulk-select checkboxes and any future consumer (Bank Import's own identical
+inline checkboxes weren't migrated to it in this pass — a follow-up should, per "keep shared
+controls in sync"). New core module **`packages/core/src/core/import/importTileGrouping.ts`**
+(`groupRowsIntoTiles`) replaces `PreviewSection.tsx`'s previous inline grouping with a single-pass
+function that excludes duplicate and transfer-paired rows from normal category tiles, splits a
+source name's rows by `type` (expense/income never share a tile outside a transfer pair), and
+synthesizes a fresh tile identity for a row moved to a category with no existing tile of its own
+(previously it silently stayed in its origin tile with just a "· moved to X" annotation — the
+reported bug). New **`packages/core/src/core/import/importCategoryMemory.ts`** + mobile-side
+`apps/mobile/src/features/import/importCategoryMemory.ts` add a cross-session "remembered category"
+suggestion via `AsyncStorage` (key `penny_import_category_memory_v1`) — deliberately not a new
+Dexie store, since it's a small, non-sensitive UI preference, not vault data; matches the existing
+`usePaymentModes.ts`/`useBankCashWithdrawalCodes.ts` precedent for this class of persisted setting.
+
+**Same-day follow-up: bucket-card pattern ported from Bank Import.** New
+**`apps/mobile/src/features/import/review/ImportCategorizeModal.tsx`** moves `CategoryTile.tsx`'s
+kind picker/tag box/create-transfer fields out of the always-visible tile body and into a modal
+(mirroring `apps/mobile/src/features/bank-import/BulkCategorizeModal.tsx`'s chrome, widened to a
+4-way kind picker since generic import also needs create/skip, not just existing-or-transfer) —
+`CategoryTile.tsx` itself collapses to a header-only bucket card by default, opened via an
+always-visible "Categorize N selected ›" footer button (`UnmatchedBucket.tsx`'s exact convention).
+`PreviewSection.tsx`'s plain-text section labels became three real bordered bucket cards ("Needs
+your input"/"Staged — ready to import"/"Already imported"), and `ReviewStep.tsx`'s Accounts/Preview
+sections lost their mutual-exclusion (both can be expanded at once, matching how Bank Import's own
+buckets coexist). Full writeup: `docs/features/expenses.md`'s "Review-screen redesign, 2026-08-13"
+and "Bucket-card follow-up, 2026-08-13" sections.
+
 ---
 
 ## Layer architecture

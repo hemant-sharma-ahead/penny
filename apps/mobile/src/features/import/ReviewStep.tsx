@@ -14,8 +14,6 @@ import type { RowTriage, DisplayTransferPair } from './useImport';
 import { AccountsSection } from './review/AccountsSection';
 import { PreviewSection } from './review/PreviewSection';
 
-type Section = 'accounts' | 'preview';
-
 interface ReviewStepProps {
   parsedRows: ParsedRow[];
   rejectedRows: RejectedRow[];
@@ -60,11 +58,20 @@ interface ReviewStepProps {
   categoryTags: Map<string, string>;
   /** Per-row overrides (2026-08-06) — see `RowOverride`'s doc comment. */
   rowOverrides: Map<number, RowOverride>;
+  /** "Remembered — {categoryName}" suggestions (2026-08-13, review redesign issue #8) — see
+   *  `useImport.ts`'s doc comment. */
+  rememberedSuggestions: Map<string, { categoryId: string; categoryName: string }>;
   importing: boolean;
   onUpdateCategory: (sourceName: string, suggestion: CategoryAction) => void;
   onUpdateCategoryTag: (sourceName: string, tag: string) => void;
   onMoveRowsToCategory: (rowIndices: number[], categoryId: string, categoryName: string) => void;
   onTagRows: (rowIndices: number[], tag: string) => void;
+  /** "Looks good, create it" (2026-08-13, review redesign issue #7) — see `useImport.ts`'s
+   *  `acknowledgeCategory` doc comment. */
+  onAcknowledgeCategory: (sourceName: string) => void;
+  /** "Not a transfer — log separately" (2026-08-13, review redesign issue #4) — see `useImport.ts`'s
+   *  `unpairTransfer` doc comment. */
+  onUnpairTransfer: (outgoingIndex: number, incomingIndex: number) => void;
   onUpdateAccount: (sourceName: string, suggestion: AccountAction) => void;
   onFixRejected: (rowIndex: number, fields: { date: string; amount: string; description: string }) => boolean;
   onImport: () => void;
@@ -76,6 +83,13 @@ interface ReviewStepProps {
  * top progress bar has no RN equivalent, so this renders it as its own fixed `View` above a `ScrollView`
  * that carries everything else (the two accordion cards, the hint text, and the Import button) — the
  * same "fixed header, scrolling body below" split `ImportPage.tsx` already uses for `PageHeader` itself.
+ *
+ * Accounts and Preview are independently expandable (2026-08-13, bucket-tiles redesign §4) — the former
+ * `manualSection`-forces-exclusivity state (exactly one of the two open at a time) is gone; both can be
+ * open simultaneously, same as every other pair of sibling sections in this app. Each still defaults per
+ * the same "auto until manually touched" rule as before (Accounts starts expanded while unresolved and
+ * auto-collapses once resolved; Preview starts expanded once Accounts is resolved), just no longer
+ * coupled to its sibling's own state.
  */
 export function ReviewStep({
   parsedRows,
@@ -109,25 +123,34 @@ export function ReviewStep({
   touchedCategorySources,
   categoryTags,
   rowOverrides,
+  rememberedSuggestions,
   importing,
   onUpdateCategory,
   onUpdateCategoryTag,
   onMoveRowsToCategory,
   onTagRows,
+  onAcknowledgeCategory,
+  onUnpairTransfer,
   onUpdateAccount,
   onFixRejected,
   onImport
 }: ReviewStepProps) {
   const theme = useThemeColors();
-  // Auto-expand/collapse: Accounts is expanded while it has an outstanding decision and auto-collapses
-  // (auto-expanding Preview) the moment it's resolved — but only until the user manually toggles a
-  // section themselves. `manualSection` is null until the user's first manual toggle, so this is a
-  // derived value (no effect/setState needed).
-  const [manualSection, setManualSection] = useState<Section | null>(null);
-  const expanded: Section = manualSection ?? (accountsResolved ? 'preview' : 'accounts');
+  // Auto-expand/collapse, independently per section (2026-08-13, bucket-tiles redesign §4 — no more
+  // mutual exclusion): each starts `null` (not yet manually touched), in which case its expanded state
+  // derives from `accountsResolved` — Accounts open while unresolved, Preview open once resolved. Once a
+  // section is manually toggled, IT (and only it) switches to being fully user-controlled; its sibling
+  // keeps following the same derived default until it too is touched.
+  const [accountsManuallyExpanded, setAccountsManuallyExpanded] = useState<boolean | null>(null);
+  const [previewManuallyExpanded, setPreviewManuallyExpanded] = useState<boolean | null>(null);
+  const accountsExpanded = accountsManuallyExpanded ?? !accountsResolved;
+  const previewExpanded = previewManuallyExpanded ?? accountsResolved;
 
-  function toggleSection(section: Section) {
-    setManualSection(section);
+  function toggleAccounts() {
+    setAccountsManuallyExpanded(!accountsExpanded);
+  }
+  function togglePreview() {
+    setPreviewManuallyExpanded(!previewExpanded);
   }
 
   const sourceAccountCount = accountResolutions.length;
@@ -153,10 +176,7 @@ export function ReviewStep({
 
       <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingTop: 12, paddingBottom: 16, gap: 16 }}>
         <View className="bg-surface rounded-xl overflow-hidden border border-theme">
-          <Pressable
-            onPress={() => toggleSection('accounts')}
-            className="flex-row items-center justify-between gap-2 p-3"
-          >
+          <Pressable onPress={toggleAccounts} className="flex-row items-center justify-between gap-2 p-3">
             <View className="flex-1 flex-row items-center gap-2.5">
               <View
                 className="w-6 h-6 rounded-md items-center justify-center flex-shrink-0"
@@ -181,13 +201,9 @@ export function ReviewStep({
                 </Text>
               </View>
             </View>
-            <Icon
-              name={expanded === 'accounts' ? 'ti-chevron-up' : 'ti-chevron-down'}
-              size={14}
-              color={theme.textTertiary}
-            />
+            <Icon name={accountsExpanded ? 'ti-chevron-up' : 'ti-chevron-down'} size={14} color={theme.textTertiary} />
           </Pressable>
-          {expanded === 'accounts' && (
+          {accountsExpanded && (
             <View className="border-t border-theme px-3 pb-3 pt-1">
               <AccountsSection
                 accountResolutions={accountResolutions}
@@ -206,10 +222,7 @@ export function ReviewStep({
         </View>
 
         <View className="bg-surface rounded-xl overflow-hidden border border-theme">
-          <Pressable
-            onPress={() => toggleSection('preview')}
-            className="flex-row items-center justify-between gap-2 p-3"
-          >
+          <Pressable onPress={togglePreview} className="flex-row items-center justify-between gap-2 p-3">
             <View className="flex-1 flex-row items-center gap-2.5">
               <View
                 className="w-6 h-6 rounded-md items-center justify-center flex-shrink-0"
@@ -237,13 +250,9 @@ export function ReviewStep({
                 </Text>
               </View>
             </View>
-            <Icon
-              name={expanded === 'preview' ? 'ti-chevron-up' : 'ti-chevron-down'}
-              size={14}
-              color={theme.textTertiary}
-            />
+            <Icon name={previewExpanded ? 'ti-chevron-up' : 'ti-chevron-down'} size={14} color={theme.textTertiary} />
           </Pressable>
-          {expanded === 'preview' && (
+          {previewExpanded && (
             <View className="border-t border-theme px-3 pb-3 pt-2">
               <PreviewSection
                 rejectedRows={rejectedRows}
@@ -253,7 +262,6 @@ export function ReviewStep({
                 carryForwardExcludedRows={carryForwardExcludedRows}
                 transferPairs={transferPairs}
                 categoryResolutions={categoryResolutions}
-                categoriesDecidedCount={categoriesDecidedCount}
                 touchedCategorySources={touchedCategorySources}
                 parsedRows={parsedRows}
                 rowTriage={rowTriage}
@@ -263,10 +271,13 @@ export function ReviewStep({
                 txnCountByCategory={txnCountByCategory}
                 categoryTags={categoryTags}
                 rowOverrides={rowOverrides}
+                rememberedSuggestions={rememberedSuggestions}
                 onUpdateCategory={onUpdateCategory}
                 onUpdateCategoryTag={onUpdateCategoryTag}
                 onMoveRowsToCategory={onMoveRowsToCategory}
                 onTagRows={onTagRows}
+                onAcknowledge={onAcknowledgeCategory}
+                onUnpairTransfer={onUnpairTransfer}
               />
             </View>
           )}
@@ -295,22 +306,33 @@ export function ReviewStep({
             Pick a destination account for every category marked as a transfer
           </Text>
         )}
+        {/* 2026-08-13, review redesign issue #7 — an unconfirmed "create" guess must never silently
+         *  import; "Confirm the N items above" points the user directly at what's blocking them,
+         *  mirroring the accounts/transfers hints above it. */}
+        {accountsResolved && transfersResolved && attentionCount > 0 && (
+          <Text className="text-center text-[10.5px]" style={{ color: theme.warning, marginTop: -8 }}>
+            {attentionCount} item{attentionCount !== 1 ? 's' : ''} need{attentionCount === 1 ? 's' : ''} your input
+            before importing
+          </Text>
+        )}
 
         <View className="flex-row gap-3">
           <Button
             variant="primary"
             className="flex-1"
             loading={importing}
-            disabled={!accountsResolved || !transfersResolved || importing || readyCount === 0}
+            disabled={!accountsResolved || !transfersResolved || importing || readyCount === 0 || attentionCount > 0}
             onPress={onImport}
           >
             {!accountsResolved
               ? 'Resolve accounts to continue'
               : !transfersResolved
                 ? 'Pick every transfer destination to continue'
-                : importing
-                  ? 'Importing…'
-                  : `Import ${actualTransactionCount} transaction${actualTransactionCount !== 1 ? 's' : ''}`}
+                : attentionCount > 0
+                  ? `Confirm the ${attentionCount} item${attentionCount !== 1 ? 's' : ''} above to continue`
+                  : importing
+                    ? 'Importing…'
+                    : `Import ${actualTransactionCount} transaction${actualTransactionCount !== 1 ? 's' : ''}`}
           </Button>
         </View>
       </ScrollView>

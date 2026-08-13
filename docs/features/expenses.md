@@ -326,6 +326,125 @@ below that threshold) to reveal:
   not just the ones currently rendered). An overridden row shows "· moved to X" / "· #tag" inline so its
   divergence from the rest of the group is visible without re-opening the picker.
 
+**Review-screen redesign, 2026-08-13 — closes most of the "full parity... not worth it" gap above,**
+plus a comparison sweep against Bank Statement Import that surfaced several more gaps (real user
+report, mockups `expense-import-review-redesign-v1.html` / `bank-import-expense-first-nudge-v1.html`):
+
+1. **Rows default to selected, not unselected** — `CategoryTile.tsx`'s bulk-select flipped from an
+   opt-in `selected: Set<number>` (started empty) to an opt-out `uncheckedIndices` model, mirroring
+   bank-import's own "everything checked, track the exceptions" convention. The master toggle reads
+   "Unselect all"/"Select all" depending on state, and always operates on the tile's full logical
+   row-index set regardless of how many rows are currently rendered — no more "select all" silently
+   capping at the visible 8. (This selection state still only scopes the bulk move/tag actions below —
+   see the row-level override section above — it has never gated import inclusion, and still doesn't.)
+2. **Checkbox contrast** — the unselected checkbox's 1px `theme.border` outline (indistinguishable from
+   an ordinary divider, worse in Dark) became a shared `RowCheckbox` component
+   (`apps/mobile/src/components/shared/RowCheckbox.tsx`): 1.75px `theme.borderStrong` + a filled
+   `theme.surfaceTertiary` background when unchecked. Selected state unchanged. Not yet applied to
+   Bank Import's own identical inline checkboxes (out of scope for this PR) — a follow-up should adopt
+   this same shared component there per "keep shared controls in sync."
+3. **Duplicates structurally isolated** — a row matching an existing expense (or an earlier row in the
+   same batch) no longer renders inline inside its normal category tile with just a badge; it's
+   excluded from that tile entirely and collected into one global, collapsed-by-default "Already
+   imported" bucket (`review/DuplicatesBucket.tsx`) at the bottom of the tile list, listing each
+   excluded row's description/date/amount with the "same date, amount & description as a logged
+   expense" caption. Matches how Bank Import isolates already-matched transactions into their own
+   bucket instead of leaving them mixed with rows still needing a decision.
+4. **Transfers pulled out of category tiles, with an un-pair escape hatch** — a `detectTransferPairs()`
+   pair used to render BOTH in "Linked transfers" AND inside its own category tile a second time, with
+   no way to isolate or act on just that pair. Now excluded from category-tile grouping entirely (lives
+   only in "Linked transfers"); `TransferPairCard.tsx` gained a "Not a transfer — log separately" action
+   (`useImport.ts`'s `unpairTransfer`/`unpairedTransferKeys`) that stops treating those two specific rows
+   as a pair, letting them fall back to their own sourceName's ordinary group-level resolution (no guessed
+   category invented for the un-paired legs).
+5. **Tiles never mix expense and income** — grouping now splits by `` `${effectiveTileKey}::${row.type}` ``
+   (`packages/core/src/core/import/importTileGrouping.ts`'s `groupRowsIntoTiles`), not just by source
+   name, so a genuinely mixed source label (e.g. "Reimbursement" covering both an outgoing and an
+   incoming row with no transfer relationship) now produces two homogeneous tiles instead of one mixed
+   one — intentionally increases tile count for a messy file; a `CategoryTile` shows a "(expense)"/
+   "(income)" suffix only when both exist for the same source name.
+6. **A moved row actually relocates** — `PreviewSection.tsx`'s `effectiveTileKey()` previously only
+   regrouped an overridden row into an ALREADY-EXISTING tile mapped to the same target category,
+   otherwise leaving it stuck in its origin tile with just a "· moved to X" annotation (the exact
+   reported bug). `groupRowsIntoTiles()` now synthesizes a fresh tile identity when no existing one
+   matches, rendered via a new `review/MovedRowsTile.tsx` (no resolution controls — just the
+   destination category name, a "(new, from a moved row)" qualifier, and the row list) — the row
+   structurally disappears from its old tile's count and lives only in its real destination.
+7. **Ready / Needs-input / Already-imported grouping** (superseded same day — see the bucket-card
+   follow-up immediately below) — originally shipped as plain text section labels over the existing
+   tile list/sort order; promoted to real bucket cards a few hours later in the same work session.
+8. **Attention actually gates Import** — previously cosmetic: an unreviewed auto-guessed "create"
+   category still imported on commit. `ReviewStep.tsx`'s Import button `disabled` condition gained
+   `attentionCount > 0` (this part is unchanged by the follow-up below — only the tile-level UI for
+   resolving it moved into the new modal).
+9. **Cross-session "remembered category" suggestion** — new `importCategoryMemory.ts` (split
+   core/mobile: matching/normalization logic in `packages/core/src/core/import/importCategoryMemory.ts`
+   for real unit-test coverage, the `AsyncStorage` read/write wrapper in
+   `apps/mobile/src/features/import/importCategoryMemory.ts`, key `penny_import_category_memory_v1` —
+   no Dexie schema change). Keyed by normalized source category name (not a merchant/narration concept
+   like bank-import's `merchantMemory.ts`, since generic import rows have no merchant field, just a
+   free-text source category label): every 'existing'/'create' resolution's final category is
+   remembered at `commitAndImport()`, and re-surfaced at the next `goToReview()` as a "Remembered —
+   {category}" suggestion — never auto-applied, one tap to accept, exactly like bank-import's own
+   memory feature (surfaced inside the categorize modal as of the follow-up below, not a tile-header
+   pill).
+10. `ReviewStep.tsx`, `PreviewSection.tsx`, `CategoryTile.tsx`, `TransferPairCard.tsx`, `useImport.ts`,
+    `ImportPage.tsx` all touched; new `review/TileRowList.tsx` factors the checkbox+render-cap row list
+    shared by `CategoryTile`, `DuplicatesBucket`, and `MovedRowsTile` so it isn't triplicated. Group
+    tagging ("Tag all transactions"/"Tag N selected") is unchanged by any of the above.
+
+**Bucket-card follow-up, 2026-08-13 (same day) — ported Bank Import's `UnmatchedBucket.tsx`/
+`BulkCategorizeModal.tsx` pattern onto the redesign above** (real user feedback comparing the two
+flows' screenshots side by side, mockup `expense-import-bucket-tiles-v1.html`):
+
+- **`CategoryTile.tsx` collapses to a header-only bucket card by default** — source name → target
+  category (or a dashed "Needs categorizing" pill) + row count + chevron. The always-visible kind
+  dropdown, tag box, and create/transfer conditional fields are gone from the tile entirely; an
+  unconfirmed `'create'` suggestion now shows a small "Needs confirming" badge (`theme.info`/
+  `ti-help-circle` — deliberately a different color/icon from the tile's own amber attention tint, so
+  the two signals don't blur together) instead of the previous always-visible gate chip + two buttons.
+  Expanding reveals the row list unchanged; a **"Categorize N selected ›"** button is always visible in
+  the footer regardless of expand state (exact `UnmatchedBucket.tsx` convention) and opens the new
+  **`review/ImportCategorizeModal.tsx`**.
+- **`ImportCategorizeModal.tsx`** owns the full resolution UI moved out of the tile: a 4-way kind picker
+  (existing/create/transfer/skip — wider than bank-import's own existing-or-transfer-only modal, since
+  generic import also needs create/skip), the tag field (visible but disabled when the kind is 'skip'),
+  the "Remembered — X" suggestion (prefills the kind picker, still requires Apply — never auto-applied),
+  and a "Looks good, use this ›" shortcut (styled as a plain text link, not a second filled button, so
+  it doesn't visually compete with the modal's primary Apply/Skip action) shown only when the tile's
+  current suggestion is already `'create'`. Footer button reads "Apply to N transaction(s)" or "Skip N
+  transaction(s)" depending on the selected kind. When a strict subset of a tile's rows is checked, the
+  kind picker narrows to "Map to existing category" only — `RowOverride` (the row-level move mechanism)
+  never supported create/transfer/skip for a partial selection, so the modal doesn't offer them there
+  either.
+- **Accounts and Preview are independently expandable** — `ReviewStep.tsx`'s single `manualSection`
+  (only one of the two ever open) is gone; each section now has its own expand state, defaulting the
+  same "auto-expand until manually touched" way as before, but no longer mutually exclusive — matches
+  how Bank Import's own buckets all coexist in one scroll.
+- **Three peer bucket cards replace the plain text section labels** — "Needs your input", **"Staged —
+  ready to import"** (renamed from "Ready"), and "Already imported" are now real bordered,
+  independently-collapsible cards with a colored-dot + title + count + chevron header (same treatment
+  as the existing "Linked transfers" card), not plain `glabel` text. Auto-expand cascades to whichever
+  is non-empty first, in that priority order (mirrors the same "show whatever most needs attention"
+  convention already used elsewhere on this screen).
+- Deliberately **not** a tabs/navigation pattern — bucket cards in one continuous scroll match both
+  Bank Import's own precedent and `docs/DESIGN_GUIDELINES.md`'s single-scroll-over-tabs preference.
+
+**Tile color scoped to the header only, 2026-08-13 (same day, second follow-up)** — real on-device
+screenshots comparing the two flows showed `CategoryTile.tsx`/`MovedRowsTile.tsx` still tinting their
+_entire_ card background/border by status (green/amber/gray), unlike Bank Import's
+`UnmatchedBucket.tsx`, whose card is a constant neutral `border-theme` with color living only in a
+small icon accent. Per explicit user preference (keep the color, just narrow where it applies): the
+outer card border is now always `theme.border`; the status tint (`tint(statusColor, ...)`) stays
+exactly where it was, but scoped to just the header `Pressable`/`View`; the row list (when expanded)
+and `CategoryTile`'s footer button now sit on an explicit `theme.surface` background instead of
+inheriting the header's tint. Mockup: `expense-import-neutral-tile-shell-v1.html`.
+
+**Long-press to select (2026-08-13).** Long-pressing a transaction row in the Transactions tab
+(`SwipeableRow.tsx`'s new `onLongPress` prop, wired through `TransactionsTab.tsx`/
+`TransactionsSlice.tsx`'s `onLongPressSelect`) now enters select mode with that row pre-selected in
+one gesture — the same end state as tapping the select icon, then tapping the row.
+
 The feature is organised as **vertical slices** (mirroring portfolio): `ExpensesPage.tsx` is a thin
 shell that renders `ExpensesHeader` + a tab strip and dispatches to one self-contained slice per tab.
 Tabs are **Transactions (default) · Analytics · Subscriptions · IOU**; **Budgets** is no longer a tab —
@@ -388,14 +507,16 @@ Key files:
 - `src/core/expenses/categoryIcons.ts` — curated icon set + shared `CAT_COLORS`
 - `scripts/build-icon-index.mjs` — generates `public/tablerIconIndex.json` for icon search
 - `src/features/import/` — import wizard as step slices (`UploadStep`/`MapColumnsStep`/`ReviewStep`/`DoneStep`) + `useImport` hook
-- `src/features/import/review/` — the merged review screen's sub-components: `AccountsSection.tsx` (dense pill-row accounts list — same-file merge suggestion AND a separate "same account, written differently?" banner for a fuzzy match against a real existing account), `PreviewSection.tsx` (summary + unparsed rows + transfer pairs + category tiles), `CategoryTile.tsx` (per-source-category tile — its 4 action pills (Map Existing/New Category/Skip/Mark as Transfer) sit in a horizontally-scrollable single row rather than wrapping; "Map Existing" opens `expenses/categories/CategoryPickerModal.tsx` in select-only mode — Penny's real grouped-by-intent-group category picker — instead of a flat dropdown, so mapping an import source to an existing category shows the same hierarchy as everywhere else in the app; each tile also has an optional "Tag all transactions" field that applies one custom hashtag to every transaction under that source category, independent of which category it resolves to; a bulk row-select mode (2026-08-06, see the dated section above) lets a checked subset of the tile's own rows be moved to a different existing category and/or tagged independently of the rest of the group), `TransferPairCard.tsx` (dims + labels "Already imported" when its pair's `alreadyImported` flag is set), `UnparsedRows.tsx`, `CarryForwardExcluded.tsx` (distinctly-labeled card listing every redundant carry-forward marker excluded from the batch, per `importCarryForward.ts` — never silently dropped), `Pill.tsx` (compact pill action button, single-consumer so it lives here rather than `components/ui/`), `accountMergeSuggestion.ts` (same-file merge suggestion; its `normalize()` fuzzy-matching helper now lives in `importAccountResolution.ts` since it's shared core matching logic, not UI-only)
+- `src/features/import/review/` — the merged review screen's sub-components: `AccountsSection.tsx` (dense pill-row accounts list — same-file merge suggestion AND a separate "same account, written differently?" banner for a fuzzy match against a real existing account), `PreviewSection.tsx` (summary + unparsed rows + transfer pairs + category tiles, grouped via `groupRowsIntoTiles()` into three peer bucket cards — Needs your input/Staged — ready to import/Already imported, each with a colored-dot+count+chevron header, auto-expanding whichever is non-empty first — see the 2026-08-13 redesign + same-day bucket-card follow-up above), `CategoryTile.tsx` (collapsed-by-default bucket card as of the bucket-card follow-up — header only: source name → target category or a dashed "Needs categorizing" pill, a distinct "Needs confirming" badge for an unconfirmed new-category suggestion, row count, chevron; expanding reveals the row list; an always-visible "Categorize N selected ›" footer button opens `ImportCategorizeModal.tsx` rather than exposing the kind picker/tag box/create-transfer fields inline), `ImportCategorizeModal.tsx` (2026-08-13, new — owns the 4-way kind picker (Map Existing/New Category/Skip/Mark as Transfer; "Map Existing" opens `expenses/categories/CategoryPickerModal.tsx` in select-only mode), the "Tag all/N selected transactions" field, the "Remembered — X" suggestion, and a "Looks good, use this ›" shortcut for an already-`create` suggestion — mirrors bank-import's `BulkCategorizeModal.tsx` chrome; a strict-subset row selection narrows the kind picker to "Map to existing category" only, matching `RowOverride`'s existing create/transfer/skip restriction), `TileRowList.tsx` (2026-08-13, the shared checkbox+render-cap row list reused by `CategoryTile`/`DuplicatesBucket`/`MovedRowsTile`), `DuplicatesBucket.tsx` (2026-08-13, the row-list body of the "Already imported" bucket card — header/expand chrome now owned by `PreviewSection.tsx`'s shared bucket-card component), `MovedRowsTile.tsx` (2026-08-13, the synthetic destination tile for a row moved to a category with no existing tile of its own), `TransferPairCard.tsx` (dims + labels "Already imported" when its pair's `alreadyImported` flag is set; gained a "Not a transfer — log separately" un-pair action 2026-08-13), `UnparsedRows.tsx`, `CarryForwardExcluded.tsx` (distinctly-labeled card listing every redundant carry-forward marker excluded from the batch, per `importCarryForward.ts` — never silently dropped), `Pill.tsx` (compact pill action button, single-consumer so it lives here rather than `components/ui/`), `accountMergeSuggestion.ts` (same-file merge suggestion; its `normalize()` fuzzy-matching helper now lives in `importAccountResolution.ts` since it's shared core matching logic, not UI-only)
 - `src/core/import/importMatcher.ts` — the generic column-guessing engine (exact-then-substring header matching, split debit/credit + single-amount resolution, flexible date parsing) every format preset sits on top of
 - `src/core/import/importParsers.ts` — CSV tokenizer, the 5 format presets (Penny/YNAB/Cashew/MoneyView/Custom) over importMatcher, rejected-row tracking
 - `src/core/import/importCategoryResolution.ts` — per-distinct-source-category resolution (existing/transfer/create/skip), transfer-keyword + intent-group-keyword suggestion, `isLikelyCarryForward()` (carry-forward-keyword detection, kept separate from `isLikelyTransfer()`'s keyword list)
 - `src/core/import/importCarryForward.ts` — `identifyRedundantCarryForwardRows()`: per-account, chronologically-earliest-only resolution for MoneyView-style carry-forward markers (a row-level exclusion, distinct from category-name-level resolution)
 - `src/core/import/importAccountResolution.ts` — per-distinct-source-account resolution (existing/create), `normalize()` (shared fuzzy-match helper), and `fuzzyExistingMatch` on `AccountResolution` (a normalized-fuzzy, never-auto-applied match against a real existing account)
 - `src/core/import/importPipeline.ts` — dedup keys (incl. in-batch), the resolution-based preview-row builder, `applyConfirmedTransferPairs()` (collapses a confirmed transfer pair's two rows into one `toAccountId`-carrying row before write), plus a **legacy** section (`matchCategory`/`buildPreviewRows`) that predates the 2026-07-28 resolution-based rewrite — kept only so any old references still compile; no current caller on either platform uses it. `toConfirmedCategoryMap()` takes an optional per-source-category `tags: Map<sourceName, tag>` (from `CategoryTile`'s "Tag all transactions" field), normalises it (trim/strip leading `#`/lowercase, same as the manual hashtag input elsewhere), and `buildResolvedPreviewRows()` appends it onto each matching row's own `hashtags` (deduped, never overwritten) — reflected live in the preview and applied identically at `commitAndImport()`.
-- `src/core/import/importTransferPairing.ts` — conservative `detectTransferPairs()` for the review screen's "linked transfer" cards (3-day date tolerance)
+- `src/core/import/importTransferPairing.ts` — conservative `detectTransferPairs()` for the review screen's "linked transfer" cards (3-day date tolerance); `transferPairKey()` (2026-08-13) identifies a pair for the un-pair action
+- `src/core/import/importTileGrouping.ts` (2026-08-13) — `groupRowsIntoTiles()`/`computeEffectiveTileKey()`: the single-pass grouping behind the review-screen redesign above (duplicate + transfer-pair row exclusion, expense/income homogeneity split, moved-row synthetic-tile key generation)
+- `src/core/import/importCategoryMemory.ts` (2026-08-13) — storage-agnostic remembered-category matching/normalization logic (`computeRememberedSuggestions`/`mergeRememberedCategories`); the `AsyncStorage` read/write wrapper lives mobile-side at `apps/mobile/src/features/import/importCategoryMemory.ts`
 - `src/core/import/importWriter.ts` — partial-success-tolerant batch writer (persists `toAccountId`) + `undoImportBatch()`
 - `src/core/accounts/accountValidation.ts` — `findDuplicateAccountName()`, the app-wide no-duplicate-account-name check shared by the manual Add Account form and the import flow's account-creation path
 - `src/core/export/exportCsv.ts` — CSV generation + AES-256 ZIP creation

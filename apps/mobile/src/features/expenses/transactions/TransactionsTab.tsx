@@ -51,6 +51,10 @@ interface TransactionsTabProps {
   selectMode?: boolean;
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
+  /** Long-pressing a row (normal mode only) enters select mode with that row pre-selected — as if the
+   *  user had tapped the select icon and then tapped the row. Omit for read-only lists (no select mode
+   *  to enter). */
+  onLongPressSelect?: (id: string) => void;
   /** Transactions that back a goal contribution — shown with a small target icon next to the title,
    *  same treatment as the receipt/shared-expense icons already here. */
   goalLinkedTxnIds?: Set<string>;
@@ -90,6 +94,7 @@ interface RowProps {
   checkpointMark?: CheckpointRowMark;
   checkpointDividerLabel?: string;
   onToggleSelect?: (id: string) => void;
+  onLongPressSelect?: (id: string) => void;
   isLastRowOverall: boolean;
   isGoalLinked: boolean;
   isPaymentModeMismatch: boolean;
@@ -122,6 +127,7 @@ const TransactionRow = memo(function TransactionRow({
   selectMode,
   isSelected,
   onToggleSelect,
+  onLongPressSelect,
   isLastRowOverall,
   isGoalLinked,
   isPaymentModeMismatch,
@@ -340,7 +346,11 @@ const TransactionRow = memo(function TransactionRow({
   if (!onEdit) return rowInner;
 
   return (
-    <SwipeableRow actions={actions} onTap={() => onEdit(txn)}>
+    <SwipeableRow
+      actions={actions}
+      onTap={() => onEdit(txn)}
+      onLongPress={onLongPressSelect ? () => onLongPressSelect(txn.id) : undefined}
+    >
       {rowInner}
     </SwipeableRow>
   );
@@ -380,6 +390,7 @@ export function TransactionsTab({
   selectMode = false,
   selectedIds,
   onToggleSelect,
+  onLongPressSelect,
   goalLinkedTxnIds,
   paymentModeMismatchTxnIds,
   checkpointHighlight
@@ -446,6 +457,7 @@ export function TransactionsTab({
         selectMode={selectMode}
         isSelected={selectedIds?.has(item.txn.id) ?? false}
         onToggleSelect={onToggleSelect}
+        onLongPressSelect={onLongPressSelect}
         isLastRowOverall={item.isLastRowOverall}
         isGoalLinked={goalLinkedTxnIds?.has(item.txn.id) ?? false}
         isPaymentModeMismatch={paymentModeMismatchTxnIds?.has(item.txn.id) ?? false}
@@ -466,6 +478,7 @@ export function TransactionsTab({
       selectMode,
       selectedIds,
       onToggleSelect,
+      onLongPressSelect,
       goalLinkedTxnIds,
       paymentModeMismatchTxnIds
     ]

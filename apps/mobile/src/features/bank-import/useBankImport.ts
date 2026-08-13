@@ -414,6 +414,25 @@ export function useBankImport(accountId: string) {
     return detectCoverageGap(range, account?.coveredStatementRanges ?? []);
   }, [mappingPreview, account]);
 
+  /** Expense-first nudge (advisory only) — checks whether this statement's own date range has
+   *  little/no existing expense coverage for THIS account (either side — `accountId` or `toAccountId`,
+   *  same "touches this account" convention `anchorShiftCheck`'s own `existingInWindow` filter uses
+   *  below), so we can recommend logging expenses for the period before importing the statement for it.
+   *  Gated on the statement's own account only, never a global check. Lives on `mappingPreview` so it's
+   *  visible on `SetupStep` before "Continue to review", same timing as `coverageGap` above. */
+  const expenseCoverageWarning = useMemo(() => {
+    if (!mappingPreview || mappingPreview.rows.length === 0) return null;
+    const dates = mappingPreview.rows.map((r) => r.date);
+    const rangeStart = Math.min(...dates);
+    const rangeEnd = Math.max(...dates);
+    const existingCount = allExpenses.filter(
+      (e) => (e.accountId === accountId || e.toAccountId === accountId) && e.date >= rangeStart && e.date <= rangeEnd
+    ).length;
+    const statementCount = mappingPreview.rows.length;
+    const lowCoverage = existingCount === 0 || existingCount < statementCount * 0.15;
+    return lowCoverage ? { statementCount, existingCount, rangeStart, rangeEnd } : null;
+  }, [mappingPreview, allExpenses, accountId]);
+
   // ── Opening-balance confirm / anchor-shift (docs/plans/bank-balance-sync.md §3 decision #10/§10a/
   // §14, §7 Stage 3) ────────────────────────────────────────────────────────────────────────────────
   // Scoped to `bank` accounts only (§3 decision 1/§16 Finding 2 — same gate Stage 1's checkpoint
@@ -1211,6 +1230,7 @@ export function useBankImport(accountId: string) {
     dateFormatConfident,
     setDateFormat,
     coverageGap,
+    expenseCoverageWarning,
 
     // opening-balance confirm / anchor-shift (plan §7 Stage 3)
     openingBalanceTrigger,

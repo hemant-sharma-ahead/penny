@@ -56,7 +56,7 @@ match.
   read-only "How automatic recognition works" card explains the fixed underlying heuristic (and lists
   its current keyword list) alongside the editable overrides — added 2026-08-03 so the algorithm isn't
   a total black box next to your own overrides. `CONNECTOR_KEYWORDS` (`core/bank-import/
-  normalization.ts`) grew a second batch on 2026-08-05 — INFT, TPT, ONL, ECOM, EMI, RET, CHG, TAX,
+normalization.ts`) grew a second batch on 2026-08-05 — INFT, TPT, ONL, ECOM, EMI, RET, CHG, TAX,
   AMB, AQB, VPS, IPS — from the same user-sourced research pass as the cash-withdrawal code table
   below; `SI` and the bare `I`/`W` fragments from "I/W CLG" were deliberately left out as too short/
   generic (real risk of stripping an actual merchant's initials instead of noise).
@@ -79,12 +79,12 @@ match.
   to let the user make. This manual override always exists regardless of any auto-detection below —
   by explicit design: a UPI transfer to the user's own account at a bank they haven't imported a
   statement from yet has no narration code and no existing record to cross-reference against, so
-  *only* the user knows it's really a transfer.
+  _only_ the user knows it's really a transfer.
 - **Direction-swap fix (2026-08-05).** The locked statement account always renders in the first chip
   row, but which schema field it actually fills — `accountId` (source) vs `toAccountId`
   (destination) — depends on the row's own direction: a debit's locked account is the source (as
   originally built, matching cash-withdrawal's debit-only shape); a **credit** row means money arrived
-  *into* the locked account, so it's the destination, and the chip row is relabeled "To account" with
+  _into_ the locked account, so it's the destination, and the chip row is relabeled "To account" with
   the roles swapped when the `Expense` is built. Found while adding the cross-account suggestion below,
   the first feature to actually exercise a credit-direction transfer — without the fix, marking an
   incoming statement line as a transfer recorded the money movement backwards.
@@ -99,7 +99,7 @@ match.
 - **Cross-account "possible internal transfer" suggestion (2026-08-05; absorb-in-place fix
   2026-08-09).** A second, much softer signal, `suggestPossibleTransfer()`/
   `suggestAmbiguousTransferCandidates()` (`core/bank-import/matcher.ts`) — for a row with no cash-code
-  match, checks whether some *other* account has an already-recorded plain expense/income (never a
+  match, checks whether some _other_ account has an already-recorded plain expense/income (never a
   transfer or an IOU-linked entry) with the opposite direction, a matching or close amount, within the
   same ±3-day window `matchStatementRows` itself uses. A hit surfaces "Might be the transfer you
   recorded on `<Account>` (`<date>`, `<amount>`) — Link these ›" as an inline chip in `PossibleBucket`
@@ -108,10 +108,10 @@ match.
   auto-applied. **Accepting it now absorbs the existing candidate expense in place**
   (`convertCandidateToTransfer()`, `linkAsCrossAccountTransfer()` in `useBankImport.ts`) rather than
   building a brand-new record alongside it — found + fixed 2026-08-09 after an on-device repro showed
-  the original "only converts *this* row, the other leg stays whatever it already was" behavior created
+  the original "only converts _this_ row, the other leg stays whatever it already was" behavior created
   two records both debiting the source account for the same real-world transfer, corrupting that
   account's own already-verified checkpoint history. This closes the 1:1 candidate case only;
-  `BulkCategorizeModal`'s bulk "Mark as transfer" for a merchant *group* of several rows is a genuinely
+  `BulkCategorizeModal`'s bulk "Mark as transfer" for a merchant _group_ of several rows is a genuinely
   different, less precise scenario (many rows to one destination account, not a 1:1 match) and still
   creates fresh records, unchanged. Also structurally can't be confused with a Lent/Borrowed entry: IOU
   money movements are recorded as plain `type: 'expense'`/`'income'` (never `'transfer'`, and
@@ -142,11 +142,11 @@ match.
   2. **Digit-adjacent boundary.** The original word-boundary check (`[^A-Z0-9]` on both sides) treated
      a directly-adjacent digit as "not a real word boundary," which broke the extremely common
      real-world shape of a reference number butted straight up against the code with zero separator
-     (`ATMWDL123456`). The boundary now only blocks on an *adjacent letter* (so `SELF` still can't
+     (`ATMWDL123456`). The boundary now only blocks on an _adjacent letter_ (so `SELF` still can't
      match inside `SELFRIDGES`) — a digit on either side is always an acceptable boundary.
   3. **Exclusion list.** A bare `'ATM'` code (SBI/ICICI/BOB/HSBC's own-bank withdrawal term per the
      table) is real but broad — `isCashWithdrawalNarration` now checks the narration against a small
-     exclusion list (REV, POS, AQB, AMB) *before* checking withdrawal codes at all, so an ATM
+     exclusion list (REV, POS, AQB, AMB) _before_ checking withdrawal codes at all, so an ATM
      transaction reversal ("ATM REV" — a failed withdrawal credited back, not a real one) or a
      balance-maintenance fee narration mentioning ATM never gets misclassified as a transfer.
 - Nothing is written until one final "Import" tap — leaving the review screen before that discards
@@ -243,13 +243,13 @@ regardless of format, so a mismatched format rejects the row instead of producin
 **Mapping-preview prominence + diagnosability (2026-08-06).** The row-count/date-range readout under
 the mapping summary card was a single `text-xs text-tertiary` caption — barely visible, and a 0-row
 outcome (e.g. a wrong date format silently rejecting every row) looked visually identical to a healthy
-one, just with different numbers, with no explanation of *why*. Now a real `Banner`: `info` (row count +
+one, just with different numbers, with no explanation of _why_. Now a real `Banner`: `info` (row count +
 date range as the bold headline) when anything parsed, `warning` when nothing did — surfacing the
-*first* row's actual rejection reason from `parseStatementRows`'s `RejectedStatementRow.reason` (already
+_first_ row's actual rejection reason from `parseStatementRows`'s `RejectedStatementRow.reason` (already
 computed by the parser, just never shown beyond an aggregate count before) and pointing at the current
 date format specifically, since a mismatch is the overwhelmingly likely cause. "Continue to review" is
 now also disabled when the mapping produces zero usable rows (previously gated only on every field being
-*mapped*, not on the mapping actually producing anything).
+_mapped_, not on the mapping actually producing anything).
 
 **"Frequent" categories missing from the category picker (2026-08-06).** `CategoryPickerModal`'s
 "Frequent" quick-pick row reads usage counts off `manager.txnCountByCategory` — but every bank-import
@@ -319,13 +319,14 @@ entirely for an older expense with no recorded payment mode at all (nothing to c
 
 **Reassign picker now highlights the current match; correction + persistent surfacing added
 (2026-08-06).** Three follow-ups from user feedback on the above:
+
 1. `PossibleMatchPickerModal.tsx` (opened via "Disagree with a match? Tap any pair to re-choose" in
    `MatchedBucket.tsx`) previously opened with nothing highlighted, even though it's replacing an
    already-linked expense — a new `currentlyMatchedId` prop (distinct from `suggestedIds`, bucket 2's
    own "closest guess" highlight) now floats the currently-matched expense to the top with a "Currently
    matched" badge, mirroring "Suggested"'s treatment.
 2. **How to actually correct a flagged mismatch**: rather than adding a new fix action to this review
-   screen (which is about *matching*, not editing), the fix lives where editing already happens —
+   screen (which is about _matching_, not editing), the fix lives where editing already happens —
    `ExpenseForm`'s pre-existing "Matched from bank statement" audit-trail note (see
    `docs/features/expenses.md`'s Import section) now shows the same mismatch comparison directly above
    the "Paid via" payment-mode picker, re-derived live off the form's current `paymentMode` state — so
@@ -344,7 +345,7 @@ than silent. Built so far:
 - Every matched/new transaction from a `bank`-type account's statement (with a mapped Balance
   column) gets `Expense.statementBalance` attached — ground truth, never recomputed. A matched
   pair's date (and, when it differs, amount) is corrected to the statement's own value on commit.
-  A checkpointed transaction is permanently excluded from any *other* import's fuzzy-match
+  A checkpointed transaction is permanently excluded from any _other_ import's fuzzy-match
   candidate pool (two-tier matching: an exact prior-import lookup always runs first).
 - Every completed statement-import batch (any account type — `bank` or `credit_card`) records an
   `ImportBatchSummary` on `Account.coveredStatementRanges`: the file's own actual date range, and
@@ -409,6 +410,30 @@ anchor-shift screens both live on `SetupStep.tsx`, right where "Continue to revi
   every checkpoint after any retrospective import" rule; Stage 4's diagnostic engine (below) always
   recomputes fresh from the account's whole history on every read instead, so this is a non-issue in
   practice — nothing needs to explicitly "re-run" anything, there's simply nothing stale to re-run.
+
+**"Log expenses first" nudge (2026-08-13).** Advisory-only recommendation on `SetupStep.tsx`, in the
+same slot/timing as `coverageGap`'s own banner (visible once `mappingPreview` has rows, before
+"Continue to review") — a different signal from that banner (statement-history gaps vs. expense-
+logging gaps), never both stacked. `useBankImport.ts`'s new `expenseCoverageWarning` memo compares
+the statement's own detected date range against how many of the user's already-logged expenses
+(`accountId` or `toAccountId` matching this account, dated inside that range) exist — below a 15%
+coverage ratio (or zero), it surfaces `ExpenseCoverageNudge.tsx`: statement-line-count vs. already-
+logged-count stat tiles, then two actions, replacing the plain "Continue to review" button entirely
+(same "owns its own button, never both at once" convention `OpeningBalancePrompt` already uses on
+this screen). **"Continue anyway"** proceeds exactly like today's plain button. **"Go log expenses
+first"** cross-navigates to Expense Import (`navigation.navigate('Expenses', { screen: 'Import',
+params: { fromBankImport: {...} } })` — Bank Import lives in `HomeStack`, Expense Import in
+`ExpensesStack`, sibling tabs, so a same-stack `navigate('Import')` wouldn't resolve); Bank Import's
+own in-progress setup state (bank/file/mapping) survives the trip since neither tab unmounts on
+blur (React Navigation's default), and `ImportPage.tsx` shows a one-time toast confirming the handoff
+via the existing `ToastContext`. When both this nudge and the opening-balance/anchor-shift prompt
+above would apply to the same import, the opening-balance prompt takes priority (it's a correctness-
+affecting data decision every downstream balance computation depends on; this nudge is purely
+advisory) — `SetupStep.tsx` documents this precedence inline. Rationale: the app's own bank-
+reconciliation logic (checkpoints, anomaly detection) is built around statements being imported
+_after_ the corresponding expenses already exist — importing a statement first for a period with
+no logged expenses forfeits that matching benefit, so this nudges toward the intended order without
+ever blocking the alternative.
 
 **Checkpoint-diff diagnostics UI (Stage 4, built 2026-08-09).** `bank`-type accounts only
 (`CHECKPOINT_ELIGIBLE`, `useAccountVerification.ts`) — mockup `bank-balance-sync-v2.html`'s Direction
@@ -478,7 +503,7 @@ found via on-device testing, see `docs/plans/bank-balance-sync.md`'s dated 2026-
 write-up)**. Two bugs, both in the anchor-shift disagreement mechanism:
 
 1. `Account.anchorDisagreement` was a frozen, once-computed snapshot (`{detectedAt, oldOpeningBalance,
-   oldAnchorDate, impliedOldBalance, diff}`), written once at import-commit time and never re-derived —
+oldAnchorDate, impliedOldBalance, diff}`), written once at import-commit time and never re-derived —
    unlike a checkpoint mismatch, which is fully recomputed live every call. Confirmed on-device: chose
    "Keep original, flag" on a disagreeing anchor-shift, later re-imported a corrected statement that
    fixed the actual ledger error — the account kept showing the stale, now-wrong disagreement forever.
@@ -518,6 +543,7 @@ continuously-growing date window (60-day chunks, "Load earlier transactions" ext
 rather than swapping windows, pinned to "now" as of when the screen opened — never pages into the
 future). Core: `core/bank-import/ledger.ts`'s `buildLedgerRows()`. One row per transaction the
 statement OR the app's own records contain, classified into four kinds:
+
 - `'matched'` — a statement line and its linked `Expense`, side by side. Tap to open "Fix this match":
   **relink** ("This isn't the right match" — reuses `PossibleMatchPickerModal` to pick a different
   existing expense, correcting it to the statement via `reconcileMatchedExpense`) or **unmatch**
@@ -526,7 +552,7 @@ statement OR the app's own records contain, classified into four kinds:
   reappears as an ordinary unresolved one). Core: `core/bank-import/ledgerActions.ts`'s
   `relinkLedgerRow`/`unmatchLedgerRow`.
 - `'skipped-unresolved'` — a statement line still sitting in an old batch's `ImportBatchSummary.
-  skippedRows` snapshot with no linking `Expense` yet. **Reverses that field's original "read-only,
+skippedRows` snapshot with no linking `Expense` yet. **Reverses that field's original "read-only,
   never re-parsed/re-actionable" design** (§11a) — checked live at render time (via
   `normalizeNarration()`, never a stored link) against every import record the account has, so a later
   corrective re-import that actually resolved the row makes it disappear from here on its own, without
@@ -559,7 +585,7 @@ this — nothing here closes it, by design.
 **Intra-day sequencing (Stage 5), inter-account-transfer refinements (Stage 6), and the
 cash-withdrawal retroactive-transfer prompt (Stage 7, the final stage) are also built** — see plan §7
 for the full per-stage write-up of each. Stage 7 specifically: a statement row carrying a
-cash-withdrawal narration code that *matches* an already-existing plain expense (rather than building
+cash-withdrawal narration code that _matches_ an already-existing plain expense (rather than building
 a new one) now gets the same "looks like a transfer to your cash account — convert it?" suggestion,
 surfaced as a small dismissible chip on that row in the Matched bucket (`MatchedBucket.tsx`).
 Accepting it sets the expense's own `type` to `'transfer'` and `toAccountId` to the chosen cash
@@ -573,8 +599,8 @@ linked cash account). Core: `suggestRetroactiveCashTransfer()`/`applyCashTransfe
 
 - PDF import is deferred (issue #4, second half) — text-layer extraction only, no OCR/scanned-PDF
   support, consistent with Penny's zero-server privacy model. Not yet designed.
-- Detecting duplicate/glitched lines *within the same uploaded file* is out of scope.
-- No dedicated balance-*correction* mechanism — the balance-sync work above verifies a bank account's
+- Detecting duplicate/glitched lines _within the same uploaded file_ is out of scope.
+- No dedicated balance-_correction_ mechanism — the balance-sync work above verifies a bank account's
   balance against its own statement checkpoint by checkpoint, but never auto-corrects (by design); the
   existing Reconcile feature remains the manual fallback for any residual drift,
   and credit cards are out of scope for checkpointing entirely (inverted sign convention).
