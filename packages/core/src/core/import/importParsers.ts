@@ -16,6 +16,11 @@ export interface ParsedRow {
   paymentMode?: string;
   hashtags: string[];
   notes?: string;
+  /** Raw Bank Name text (2026-08-14, CSV-import redesign) — independent of whichever column `account`
+   *  itself resolved to; see `ColumnMapping.bankName`'s doc comment in importMatcher.ts. */
+  bankName?: string;
+  /** Raw Account Type text, e.g. "bank"/"cash"/"debit-card"/"credit-card" — same 2026-08-14 addition. */
+  accountType?: string;
 }
 
 /** A source row that couldn't be turned into a ParsedRow — surfaced in the wizard's "needs attention"
@@ -100,7 +105,17 @@ export const FORMAT_SYNONYMS: Record<Exclude<ImportFormat, 'custom'>, Partial<Co
     outflow: ['debit'],
     inflow: ['credit'],
     amount: ['amount'],
-    notes: ['notes']
+    // Was entirely absent (found 2026-08-14): the `paymentMode` field/write-through already exists
+    // end-to-end for every other format, but a real MoneyView export's " Payment Type" column (leading
+    // space trimmed by guessColumnMapping) never got mapped to it, so payment mode silently never made
+    // it onto any MoneyView-imported transaction.
+    paymentMode: ['payment type', 'payment mode'],
+    notes: ['notes'],
+    // Added 2026-08-14 for the card→account merge suggestion (see importAccountResolution.ts's
+    // suggestCardAccountMerges) — independent of `account` above, which a real MoneyView export's
+    // higher-priority "Account Id" column usually wins instead of "Bank Name".
+    bankName: ['bank name'],
+    accountType: ['account type']
   }
 };
 
@@ -205,6 +220,21 @@ function parseTags(s: string): string[] {
     .filter(Boolean);
 }
 
+/** True for a "no data" placeholder literal from the source file itself (case-insensitive) — found
+ *  2026-08-14 via a real MoneyView export whose Merchant/Receiver/Sender, Notes, and Account Id columns
+ *  sometimes contain the literal string `"null"` rather than being genuinely blank. A plain `.trim()`
+ *  doesn't catch this, since the string itself is non-empty — without this, "null" silently becomes
+ *  the transaction's real description/account/note shown to the user. */
+function isNullLikeValue(s: string): boolean {
+  return /^(null|n\/a|na|undefined)$/i.test(s.trim());
+}
+
+/** Blanks out a null-like placeholder so every existing `|| 'Other'` / `... && { field }` fallback
+ *  already in this file treats it exactly like a genuinely-empty column, instead of a real value. */
+function cleanNullLike(s: string): string {
+  return isNullLikeValue(s) ? '' : s;
+}
+
 /** Parses CSV text with an already-resolved column mapping. Every format ultimately goes through this
  *  — the 4 known formats via their preset synonym lists (see FORMAT_SYNONYMS), Custom via whatever
  *  mapping the user confirmed in the Map-columns step. Rows that can't be turned into a ParsedRow are
@@ -235,11 +265,13 @@ export function parseWithMapping(text: string, mapping: ColumnMapping, dateHint:
       return;
     }
 
-    const cat = (mapping.category >= 0 ? (cols[mapping.category] ?? '') : '').trim();
-    const account = mapping.account >= 0 ? (cols[mapping.account] ?? '').trim() : '';
-    const notes = mapping.notes >= 0 ? (cols[mapping.notes] ?? '').trim() : '';
+    const cat = cleanNullLike((mapping.category >= 0 ? (cols[mapping.category] ?? '') : '').trim());
+    const account = mapping.account >= 0 ? cleanNullLike((cols[mapping.account] ?? '').trim()) : '';
+    const notes = mapping.notes >= 0 ? cleanNullLike((cols[mapping.notes] ?? '').trim()) : '';
     const tags = mapping.tags >= 0 ? parseTags(cols[mapping.tags] ?? '') : [];
-    const paymentMode = mapping.paymentMode >= 0 ? (cols[mapping.paymentMode] ?? '').trim() : '';
+    const paymentMode = mapping.paymentMode >= 0 ? cleanNullLike((cols[mapping.paymentMode] ?? '').trim()) : '';
+    const bankName = mapping.bankName >= 0 ? cleanNullLike((cols[mapping.bankName] ?? '').trim()) : '';
+    const accountType = mapping.accountType >= 0 ? cleanNullLike((cols[mapping.accountType] ?? '').trim()) : '';
 
     let type: ParsedRow['type'] = amountResult.type;
     if (mapping.typeText >= 0) {
@@ -247,16 +279,23 @@ export function parseWithMapping(text: string, mapping: ColumnMapping, dateHint:
       if (rawType === 'income' || rawType === 'expense' || rawType === 'transfer') type = rawType;
     }
 
+    // A null-like description (the "Missing description" rejection above only ever fires for a
+    // genuinely-empty raw value, unchanged) falls back to the row's own category rather than shipping
+    // the literal placeholder text as the transaction's real description.
+    const finalDesc = isNullLikeValue(desc) ? cat || 'Other' : desc;
+
     rows.push({
       date,
       amount: amountResult.amount,
-      description: desc,
+      description: finalDesc,
       categoryName: cat || 'Other',
       type,
       ...(account && { account }),
       ...(paymentMode && { paymentMode }),
       hashtags: tags,
-      ...(notes && { notes })
+      ...(notes && { notes }),
+      ...(bankName && { bankName }),
+      ...(accountType && { accountType })
     });
   });
 

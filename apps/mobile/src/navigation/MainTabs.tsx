@@ -208,14 +208,17 @@ function MainTabsContent() {
   // genuinely non-dismissible — otherwise a user could tap the settings button or switch tabs and leave
   // the flow unfinished. `ChangePinPage`'s own in-screen guards (`gestureEnabled`/`headerBackVisible` on
   // its stack screen, `BackHandler` for the Android back button) only cover its own stack; they can't
-  // reach up into this component's header/tab-bar, which is why this needs its own check.
+  // reach up into this component's header/tab-bar, which is why this needs its own check. Generalized
+  // 2026-08-14 to a second, unrelated screen — the Import Progress screen's own "Importing" sub-state
+  // needs the identical guarantee (a live write loop the user must not be able to abandon via a tab
+  // switch either) — see `chromeLocked`'s own doc comment in `HeaderBackContext.tsx`.
   //
-  // Which screen is focused right now (and whether it's a forced PIN reset) — reported directly by that
-  // screen via `useRegisterHeaderScreen`/`useDefaultHeaderBack` (see `HeaderBackContext.tsx`'s doc
+  // Which screen is focused right now (and whether its chrome must be locked) — reported directly by
+  // that screen via `useRegisterHeaderScreen`/`useDefaultHeaderBack` (see `HeaderBackContext.tsx`'s doc
   // comment for why deriving this from `navigation.getState()`/`useNavigationState()` here instead
-  // doesn't reliably work — `pinResetForced` used to be the one field still read that broken way and
-  // hit the identical bug, resolving to `true` on ordinary screens and hiding the avatar).
-  const { name: activeRouteName, backHandler, pinResetForced } = useHeaderScreen();
+  // doesn't reliably work — `chromeLocked` used to be the one field still read that broken way and hit
+  // the identical bug, resolving to `true` on ordinary screens and hiding the avatar).
+  const { name: activeRouteName, backHandler, chromeLocked } = useHeaderScreen();
   const isTabRoot = TAB_ROOT_ROUTES.has(activeRouteName);
   const isHomeRoot = activeRouteName === 'HomeMain';
 
@@ -260,7 +263,7 @@ function MainTabsContent() {
         <View className="flex-row items-center px-3" style={{ height: 46 }}>
           <View style={{ flex: 1, alignItems: 'flex-start' }}>
             <HeaderLeft
-              hidden={pinResetForced}
+              hidden={chromeLocked}
               isTabRoot={isTabRoot}
               backHandler={backHandler}
               onAvatarPress={() => navigation.navigate('MainTabs', { screen: 'Home', params: { screen: 'Settings' } })}
@@ -273,14 +276,14 @@ function MainTabsContent() {
             <HeaderRight />
           </View>
         </View>
-        {!pinResetForced && activeRouteName !== 'Settings' && <DemoModeBanner />}
+        {!chromeLocked && activeRouteName !== 'Settings' && <DemoModeBanner />}
       </View>
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
           tabBarActiveTintColor: ICON_COLORS[route.name],
           tabBarInactiveTintColor: theme.textTertiary,
-          tabBarStyle: pinResetForced
+          tabBarStyle: chromeLocked
             ? { display: 'none' }
             : {
                 backgroundColor: modeColors.headerBg,

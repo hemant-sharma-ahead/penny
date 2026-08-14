@@ -2,9 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   isLikelyTransfer,
   isLikelyCarryForward,
+  isLikelyIouSuspect,
+  isLikelyInvestmentMovement,
   suggestIntentGroup,
   resolveCategories,
+  resolveCategoriesDirectional,
   isCategoryResolutionDecided,
+  isDirectionalCategoryResolutionDecided,
+  draftCategoryKey,
   type CategoryResolution
 } from '@/core/import/importCategoryResolution';
 import type { ExpenseCategory } from '@/core/db/types';
@@ -143,5 +148,119 @@ describe('isCategoryResolutionDecided', () => {
     // Without the source name in the auto-resolved set, still undecided — the set must be checked
     // by exact sourceName, not just "some set was passed".
     expect(isCategoryResolutionDecided(transfer, new Set(), new Set(['Some Other Category']))).toBe(false);
+  });
+});
+
+// ─── Direction-aware resolution + IOU/investment keyword flags (2026-08-14, CSV-import redesign) ────
+
+describe('isLikelyIouSuspect', () => {
+  it('flags lend/borrow-style category names', () => {
+    expect(isLikelyIouSuspect('Loan')).toBe(true);
+    expect(isLikelyIouSuspect('Personal Loan Repayment')).toBe(true);
+    expect(isLikelyIouSuspect('Money Lent')).toBe(true);
+    expect(isLikelyIouSuspect('Amount Borrowed')).toBe(true);
+  });
+
+  it('does not flag genuine spending or plain transfer categories', () => {
+    expect(isLikelyIouSuspect('Groceries')).toBe(false);
+    expect(isLikelyIouSuspect('Balance Correction')).toBe(false);
+  });
+});
+
+describe('isLikelyInvestmentMovement', () => {
+  it('flags investment-movement category names from the real sample file (redesign doc §9.d)', () => {
+    expect(isLikelyInvestmentMovement('Investments')).toBe(true);
+    expect(isLikelyInvestmentMovement('Mutual Funds')).toBe(true);
+    expect(isLikelyInvestmentMovement('Stocks')).toBe(true);
+  });
+
+  it('does not flag genuine spending categories', () => {
+    expect(isLikelyInvestmentMovement('Groceries')).toBe(false);
+  });
+});
+
+function directionalRow(categoryName: string, type: ParsedRow['type'] = 'expense'): ParsedRow {
+  return { date: 0, amount: 1, description: 'x', categoryName, type, hashtags: [] };
+}
+
+describe('resolveCategoriesDirectional', () => {
+  it('produces two INDEPENDENT resolution objects for the same source name split by direction (Issue #5 regression)', () => {
+    const rows = [
+      directionalRow('A/c to A/c', 'expense'),
+      directionalRow('A/c to A/c', 'expense'),
+      directionalRow('A/c to A/c', 'income')
+    ];
+    const result = resolveCategoriesDirectional(rows, categories);
+    const expenseSide = result.find((r) => r.key === 'A/c to A/c::expense');
+    const incomeSide = result.find((r) => r.key === 'A/c to A/c::income');
+    expect(expenseSide).toBeDefined();
+    expect(incomeSide).toBeDefined();
+    expect(expenseSide?.count).toBe(2);
+    expect(incomeSide?.count).toBe(1);
+
+    // The real regression: mutating one direction's resolution object must NEVER affect the other —
+    // they must be genuinely distinct object references, not one shared resolution read by both tiles.
+    expect(expenseSide).not.toBe(incomeSide);
+    if (!expenseSide) throw new Error('expenseSide must be defined');
+    const mutated = { ...expenseSide, suggestion: { kind: 'skip' as const } };
+    expect(mutated.suggestion.kind).toBe('skip');
+    expect(incomeSide?.suggestion.kind).not.toBe('skip');
+  });
+
+  it('keys by `${sourceName}::${type}` and flags transfer/IOU/investment suspects', () => {
+    const result = resolveCategoriesDirectional(
+      [directionalRow('Loan', 'expense'), directionalRow('Mutual Funds', 'expense'), directionalRow('Groceries')],
+      categories
+    );
+    const loan = result.find((r) => r.sourceName === 'Loan');
+    const mf = result.find((r) => r.sourceName === 'Mutual Funds');
+    const groceries = result.find((r) => r.sourceName === 'Groceries');
+    expect(loan?.isIouSuspect).toBe(true);
+    expect(loan?.suggestion.kind).toBe('transfer');
+    expect(mf?.isInvestmentMovement).toBe(true);
+    expect(mf?.suggestion.kind).toBe('transfer');
+    expect(groceries?.isTransferSuspect).toBe(false);
+    expect(groceries?.isIouSuspect).toBe(false);
+    expect(groceries?.isInvestmentMovement).toBe(false);
+  });
+});
+
+describe('isDirectionalCategoryResolutionDecided', () => {
+  it('tracks touched state by the full key, not by sourceName alone', () => {
+    const result = resolveCategoriesDirectional(
+      [directionalRow('Zomato Guess', 'expense'), directionalRow('Zomato Guess', 'income')],
+      categories
+    );
+    const expenseSide = result.find((r) => r.key === 'Zomato Guess::expense');
+    const incomeSide = result.find((r) => r.key === 'Zomato Guess::income');
+    if (!expenseSide || !incomeSide) throw new Error('both directions must be present');
+    const touched = new Set([expenseSide.key]);
+    expect(isDirectionalCategoryResolutionDecided(expenseSide, touched)).toBe(true);
+    // Touching the expense-direction key must NOT mark the income-direction sibling decided too.
+    expect(isDirectionalCategoryResolutionDecided(incomeSide, touched)).toBe(false);
+  });
+});
+
+describe('draftCategoryKey', () => {
+  it('collapses two "create" suggestions with the same name+group into one key', () => {
+    const a = draftCategoryKey({ kind: 'create', suggestedName: 'Lending', suggestedIntentGroup: 'family_giving' });
+    const b = draftCategoryKey({ kind: 'create', suggestedName: '  lending  ', suggestedIntentGroup: 'family_giving' });
+    expect(a).toBe(b);
+  });
+
+  it('treats a different suggested name or group as a distinct key', () => {
+    const lending = draftCategoryKey({
+      kind: 'create',
+      suggestedName: 'Lending',
+      suggestedIntentGroup: 'family_giving'
+    });
+    const otherName = draftCategoryKey({
+      kind: 'create',
+      suggestedName: 'Borrowing',
+      suggestedIntentGroup: 'family_giving'
+    });
+    const otherGroup = draftCategoryKey({ kind: 'create', suggestedName: 'Lending', suggestedIntentGroup: 'other' });
+    expect(lending).not.toBe(otherName);
+    expect(lending).not.toBe(otherGroup);
   });
 });

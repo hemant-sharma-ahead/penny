@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveAccounts, normalize } from '@/core/import/importAccountResolution';
+import { resolveAccounts, normalize, suggestCardAccountMerges } from '@/core/import/importAccountResolution';
 import type { Account } from '@/core/db/types';
 import type { ParsedRow } from '@/core/import/importParsers';
 
@@ -67,6 +67,76 @@ describe('resolveAccounts', () => {
     const result = resolveAccounts([row('HDFC1234')], accounts);
     expect(result[0]?.suggestion.kind).toBe('existing');
     expect(result[0]?.fuzzyExistingMatch).toBeUndefined();
+  });
+
+  it('never auto-suggests "skip" (manual-testing gap #1) — it is exclusively a user-initiated action, never a default', () => {
+    const result = resolveAccounts([row('HDFC1234'), row('Cash'), row('Some New Wallet')], accounts);
+    expect(result.every((r) => r.suggestion.kind !== 'skip')).toBe(true);
+  });
+});
+
+function cardRow(account: string, bankName: string, accountType: string): ParsedRow {
+  return {
+    date: 0,
+    amount: 1,
+    description: 'x',
+    categoryName: 'Other',
+    type: 'expense',
+    hashtags: [],
+    account,
+    bankName,
+    accountType
+  };
+}
+
+describe('suggestCardAccountMerges', () => {
+  it('suggests merging a debit-card row into another resolution sharing its Bank Name', () => {
+    const rows = [cardRow('HDFC Bank', 'HDFC Bank', 'bank'), cardRow('HDFC Bank •• 4471', 'HDFC Bank', 'debit-card')];
+    const resolutions = resolveAccounts(rows, []);
+    const suggestions = suggestCardAccountMerges(rows, resolutions);
+    expect(suggestions).toEqual([
+      { cardSourceName: 'HDFC Bank •• 4471', targetSourceName: 'HDFC Bank', paymentMode: 'Debit Card' }
+    ]);
+  });
+
+  it('gives each card on the same bank its OWN independent suggestion (no bulk merge)', () => {
+    const rows = [
+      cardRow('HDFC Bank', 'HDFC Bank', 'bank'),
+      cardRow('HDFC Bank •• 4471', 'HDFC Bank', 'debit-card'),
+      cardRow('HDFC Bank •• 9012', 'HDFC Bank', 'credit-card')
+    ];
+    const resolutions = resolveAccounts(rows, []);
+    const suggestions = suggestCardAccountMerges(rows, resolutions);
+    expect(suggestions).toHaveLength(2);
+    expect(suggestions.find((s) => s.cardSourceName === 'HDFC Bank •• 4471')).toMatchObject({
+      targetSourceName: 'HDFC Bank',
+      paymentMode: 'Debit Card'
+    });
+    expect(suggestions.find((s) => s.cardSourceName === 'HDFC Bank •• 9012')).toMatchObject({
+      targetSourceName: 'HDFC Bank',
+      paymentMode: 'Credit Card'
+    });
+  });
+
+  it('does not suggest a merge when no other resolution shares the card’s Bank Name', () => {
+    const rows = [cardRow('ICICI Bank •• 1111', 'ICICI Bank', 'credit-card')];
+    const resolutions = resolveAccounts(rows, []);
+    expect(suggestCardAccountMerges(rows, resolutions)).toEqual([]);
+  });
+
+  it('does not suggest merging a card into another card row', () => {
+    const rows = [
+      cardRow('HDFC Bank •• 4471', 'HDFC Bank', 'debit-card'),
+      cardRow('HDFC Bank •• 9012', 'HDFC Bank', 'credit-card')
+    ];
+    const resolutions = resolveAccounts(rows, []);
+    expect(suggestCardAccountMerges(rows, resolutions)).toEqual([]);
+  });
+
+  it('does not suggest a merge for a plain (non-card) account row', () => {
+    const rows = [cardRow('HDFC Bank', 'HDFC Bank', 'bank'), cardRow('ICICI Bank', 'ICICI Bank', 'bank')];
+    const resolutions = resolveAccounts(rows, []);
+    expect(suggestCardAccountMerges(rows, resolutions)).toEqual([]);
   });
 });
 

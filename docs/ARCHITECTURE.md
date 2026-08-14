@@ -1306,6 +1306,73 @@ sections lost their mutual-exclusion (both can be expanded at once, matching how
 buckets coexist). Full writeup: `docs/features/expenses.md`'s "Review-screen redesign, 2026-08-13"
 and "Bucket-card follow-up, 2026-08-13" sections.
 
+**CSV/Manual Expense Import redesign (2026-08-14) — supersedes the single-review-screen shape
+above.** `ReviewStep.tsx`, `PreviewSection.tsx`, and `core/import/importTileGrouping.ts` (all three
+described in the two entries directly above) are **deleted** — every reference to them elsewhere in
+this doc is now historical, not current. Full design doc (rationale, alternatives rejected, every
+bug found via real on-device testing against a real 9,384-row file): [`docs/plans/csv-expense-import-redesign.md`](plans/csv-expense-import-redesign.md);
+user-facing behavior: `docs/features/expenses.md`.
+
+_Rationale (why a 3-stage wizard, not a bigger single screen):_ the single-review-screen model kept
+accounts, categories, and per-transaction triage all resolvable on one page, which worked for a
+small file but broke down for a real multi-thousand-row, 79-category import — resolving a category
+inherently needed to happen before a transaction tile could show anything meaningful for it, and
+cramming both onto one screen meant neither got proper bucket-grouping or partial-progress
+support. Splitting into **Accounts → Categories → Transactions**, each a dedicated step with its own
+Needs-Review/Ready/Skipped buckets, let each resolution layer be finished (or partially finished) on
+its own terms before the next one needs it — matching the same "one clear stage decides one thing"
+principle already used for the Upload → Map Columns split. **Explicitly rejected**: unifying this
+importer with Bank Statement Import (a prior doc argued for exactly that, `docs/plans/csv-import-vs-bank-import-comparison.md`,
+deleted as part of this redesign, superseded) — kept permanently separate instead, preserving the
+existing zero-shared-code principle between `core/import/` and `core/bank-import/` (a bug fixed in
+one must never regress the other) rather than trading it away for less total code.
+
+New core modules (`packages/core/src/core/import/`, all **additive** — `apps/web-react`'s frozen
+`useImport.ts` still calls the original `resolveCategories`/`resolveAccounts`/`buildResolvedPreviewRows`/
+`writeImportBatch` unchanged, confirmed via zero `git diff` on `apps/web-react` after every round of
+this redesign):
+
+- **`importCounterpartySplit.ts`** — sub-splits a transfer/IOU-suspect category's rows by counterparty
+  (tiered: high-confidence `Person` match, editable low-confidence text candidate, residual "no clear
+  person" group). Deliberately its own normalization logic, not a shared import from
+  `core/bank-import/normalization.ts`, per the same zero-shared-code principle above.
+- **`importTransactionsGrouping.ts`** — applies transfer-pair/duplicate exclusion on top of the
+  Categories stage's already-formed row groups, for the Transactions stage specifically.
+- **`resolveCategoriesDirectional`**/`isDirectionalCategoryResolutionDecided`/`draftCategoryKey`
+  (new exports in `importCategoryResolution.ts`) — the real fix for a shared-mutable-resolution bug:
+  keys a resolution by `${sourceName}::${type}` instead of `sourceName` alone, so an expense-direction
+  and income-direction split of one source category name can never again share one mutable object
+  (the earlier bug: categorizing one silently re-categorized the other).
+- **`suggestCardAccountMerges`** (new export in `importAccountResolution.ts`) — the card→account merge
+  suggestion, extending the existing fuzzy-name-merge-suggestion pattern to also trigger on a shared
+  bank name + card account type.
+- **`detectSelfAccountMovementPairs`**/`isLikelySelfAccountMovement` (new exports in
+  `importTransferPairing.ts`) — one general detector for cash withdrawal/wallet top-up/CC bill payment
+  (money moving between two of the user's own accounts), replacing what would otherwise have been
+  three separate bespoke heuristics.
+- **`writeImportBatchDetailed`** (new export in `importWriter.ts`) — a `writeImportBatch` sibling
+  adding live progress/cancellation callbacks and per-row expense ids (needed for the commit-time IOU
+  ledger write), for the new Import Progress screen.
+
+New mobile components (`apps/mobile/src/features/import/`): `AccountsStage.tsx`, `CategoriesStage.tsx`,
+`TransactionsStage.tsx` (replacing `ReviewStep.tsx`), `WizardProgress.tsx` (cross-stage progress
+chrome + the "draft, nothing saved yet" indicator), `ImportProgressStep.tsx` (the new pre-start →
+importing → complete flow, folded into the existing "Done" wizard step rather than adding a 7th
+step), and `review/BucketCard.tsx` + `review/useBucketExpansion.ts` (the shared Needs-Review/Ready/
+Skipped bucket shell, reused by all three resolution stages so the pattern can't drift between them).
+`review/CategoryTile.tsx` gained an `expandable` prop (default `true`) so it doubles as the Categories
+stage's own row shell (`expandable={false}` — header+footer only, no chevron) via a new thin wrapper,
+`review/CategoryResolutionRow.tsx`.
+
+**Reliability lesson this codifies, mirroring the unbounded-`.map()` rule above**: any user-facing
+operation that locks navigation for its duration (this screen's back-button/hardware-back/swipe-gesture
+lock while writing) must guarantee that lock releases on every exit path — success, user cancellation,
+**and an unexpected exception** — via `try/catch/finally`, not just the happy path. Found as a real,
+severe bug during this redesign: `commitAndImport()` originally had no exception handling at all, so
+any unhandled throw partway through left the phase-tracking state stuck, and since navigation was
+locked exactly on that state, the user would have been stranded with no way to leave short of
+force-quitting the app. See `CLAUDE.md`'s Reliability non-negotiables.
+
 ---
 
 ## Layer architecture

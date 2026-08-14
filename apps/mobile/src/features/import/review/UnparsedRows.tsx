@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Pressable, Text } from 'react-native';
+import { View, Pressable, ScrollView, Text } from 'react-native';
 import { Button, TextInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { tint } from '~/lib/color';
@@ -11,12 +11,17 @@ function RejectedRowEditor({
   row,
   mapping,
   header,
-  onFix
+  onFix,
+  onDiscard
 }: {
   row: RejectedRow;
   mapping: ColumnMapping | null;
   header: string[];
   onFix: (fields: { date: string; amount: string; description: string }) => boolean;
+  /** Permanently excludes this row from the import (2026-08-14, redesign §9.1/Issue #1) — distinct from
+   *  just leaving it unfixed, which today already silently excludes it with no visibility. Quiet/muted
+   *  styling (confirmed decision) — discarding a broken row isn't alarming, just a decision. */
+  onDiscard: () => void;
 }) {
   const theme = useThemeColors();
   const [date, setDate] = useState(mapping && mapping.date >= 0 ? (row.raw[mapping.date] ?? '') : '');
@@ -25,8 +30,9 @@ function RejectedRowEditor({
     mapping && mapping.description >= 0 ? (row.raw[mapping.description] ?? '') : ''
   );
   const [fixed, setFixed] = useState(false);
+  const [discarded, setDiscarded] = useState(false);
 
-  if (fixed) return null;
+  if (fixed || discarded) return null;
 
   return (
     <View className="gap-2 py-2 border-b border-dashed" style={{ borderColor: tint(theme.warning, 45) }}>
@@ -58,15 +64,30 @@ function RejectedRowEditor({
           <TextInput label="Description" value={description} onChange={setDescription} placeholder="What was this?" />
         </View>
       </View>
-      <Button
-        variant="secondary"
-        size="sm"
-        onPress={() => {
-          if (onFix({ date, amount, description })) setFixed(true);
-        }}
-      >
-        Include this row
-      </Button>
+      <View className="flex-row gap-2">
+        <View className="flex-1">
+          <Button
+            variant="secondary"
+            size="sm"
+            onPress={() => {
+              if (onFix({ date, amount, description })) setFixed(true);
+            }}
+          >
+            Include this row
+          </Button>
+        </View>
+        <Pressable
+          onPress={() => {
+            onDiscard();
+            setDiscarded(true);
+          }}
+          className="flex-row items-center gap-1 rounded-full border border-dashed px-3"
+          style={{ borderColor: theme.textTertiary }}
+        >
+          <Icon name="ti-x" size={11} color={theme.textTertiary} />
+          <Text className="text-[10.5px] font-semibold text-tertiary">Discard</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -78,29 +99,47 @@ interface UnparsedRowsProps {
    *  fields — falls back to "Column N" for any index without a header label. */
   header: string[];
   onFixRejected: (rowIndex: number, fields: { date: string; amount: string; description: string }) => boolean;
+  /** "Discard" (2026-08-14, redesign §9.1/Issue #1) — see `RejectedRowEditor`'s own doc comment. */
+  onDiscardRejected: (rowIndex: number) => void;
 }
 
-/** Initial render cap — same "show first N, then a real toggle" convention `CategoryTile.tsx` already
- *  uses for its own row list, applied here for the same reason (2026-08-13): a genuinely large rejected
- *  batch (e.g. every row in a file failing to parse — see `parseFlexibleDate`'s own doc comment for the
- *  real MoneyView bug this was found alongside) used to render ALL of them at once, each a
- *  `RejectedRowEditor` with 3 `TextInput`s plus a full raw-column dump — thousands of native views
- *  mounted simultaneously for a 1500+-row file, which crashed the app outright on a real device (while
- *  RN Web's much cheaper DOM + far more available memory tolerated it fine). This cap is defense in
- *  depth independent of that date-parsing fix — any other future/format-specific rejection spike should
- *  never be able to repeat this crash either. */
+/** Hard render cap — a genuinely large rejected batch (e.g. every row in a file failing to parse — see
+ *  `parseFlexibleDate`'s own doc comment for the real MoneyView bug this was found alongside) must never
+ *  render ALL of them at once: each `RejectedRowEditor` mounts 3 `TextInput`s plus a full raw-column
+ *  dump, so thousands of native views mounted simultaneously for a 1500+-row file crashed the app
+ *  outright on a real device (RN Web's much cheaper DOM + far more available memory tolerated it fine).
+ *  2026-08-14 (code-review fix): the original "+N more" toggle still rendered EVERY row once tapped —
+ *  the exact same shape of unbounded-`.map()` bug `TileRowList.tsx` was fixed for in this same pass, just
+ *  not yet applied here. Now there is no expand toggle at all — a fixed-height, internally-scrolling
+ *  container (mirroring `TileRowList.tsx`'s own fix) replaces it, so the render count is a REAL cap,
+ *  never something a tap can defeat. */
 const INITIAL_VISIBLE_ROWS = 20;
+/** Taller than `TileRowList.tsx`'s own 260 — each `RejectedRowEditor` is a much heavier row (3 inputs +
+ *  a full raw-column dump vs. one line of text), so a shorter box would feel cramped for what's already
+ *  a "something needs fixing" flow the user is likely to spend real time in. */
+const SCROLL_MAX_HEIGHT = 420;
 
 /** RN port of apps/web-react/src/features/import/review/UnparsedRows.tsx. "Rows needing attention" —
  *  structurally unparsed rows (missing date/amount/description), kept visually distinct (amber/warning
  *  tone) from category-undecided state, so a user never confuses "structurally broken" with "category
  *  undecided". */
-export function UnparsedRows({ rejectedRows, mapping, header, onFixRejected }: UnparsedRowsProps) {
+export function UnparsedRows({ rejectedRows, mapping, header, onFixRejected, onDiscardRejected }: UnparsedRowsProps) {
   const theme = useThemeColors();
   const [expanded, setExpanded] = useState(true);
-  const [showAll, setShowAll] = useState(false);
   if (rejectedRows.length === 0) return null;
-  const visibleRows = showAll ? rejectedRows : rejectedRows.slice(0, INITIAL_VISIBLE_ROWS);
+  const visibleRows = rejectedRows.slice(0, INITIAL_VISIBLE_ROWS);
+  const needsScroll = rejectedRows.length > 3;
+
+  const editors = visibleRows.map((row) => (
+    <RejectedRowEditor
+      key={row.rowIndex}
+      row={row}
+      mapping={mapping}
+      header={header}
+      onFix={(fields) => onFixRejected(row.rowIndex, fields)}
+      onDiscard={() => onDiscardRejected(row.rowIndex)}
+    />
+  ));
 
   return (
     <View
@@ -118,21 +157,17 @@ export function UnparsedRows({ rejectedRows, mapping, header, onFixRejected }: U
       </Pressable>
       {expanded && (
         <View className="px-3 pb-3 pt-1 border-t border-dashed" style={{ borderColor: tint(theme.warning, 45) }}>
-          {visibleRows.map((row) => (
-            <RejectedRowEditor
-              key={row.rowIndex}
-              row={row}
-              mapping={mapping}
-              header={header}
-              onFix={(fields) => onFixRejected(row.rowIndex, fields)}
-            />
-          ))}
+          {needsScroll ? (
+            <ScrollView style={{ maxHeight: SCROLL_MAX_HEIGHT }} nestedScrollEnabled showsVerticalScrollIndicator>
+              {editors}
+            </ScrollView>
+          ) : (
+            editors
+          )}
           {rejectedRows.length > INITIAL_VISIBLE_ROWS && (
-            <Pressable onPress={() => setShowAll((v) => !v)} className="items-center py-2">
-              <Text className="text-xs font-semibold" style={{ color: theme.warning }}>
-                {showAll ? 'Show fewer' : `+ ${rejectedRows.length - INITIAL_VISIBLE_ROWS} more`}
-              </Text>
-            </Pressable>
+            <Text className="text-center text-xs font-semibold pt-2" style={{ color: theme.warning }}>
+              {rejectedRows.length} rows need fixing · showing first {INITIAL_VISIBLE_ROWS}
+            </Text>
           )}
         </View>
       )}

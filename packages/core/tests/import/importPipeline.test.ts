@@ -4,11 +4,13 @@ import {
   buildPreviewRows,
   matchCategory,
   buildResolvedPreviewRows,
+  buildResolvedPreviewRowsByIndex,
   toConfirmedCategoryMap,
   applyConfirmedTransferPairs,
   type ConfirmedCategoryMap,
   type ResolvedPreviewRow,
-  type RowOverride
+  type RowOverride,
+  type RowAction
 } from '@/core/import/importPipeline';
 import type { CategoryResolution } from '@/core/import/importCategoryResolution';
 import type { TransferPair } from '@/core/import/importTransferPairing';
@@ -79,6 +81,17 @@ describe('buildResolvedPreviewRows', () => {
     const ref = dedupKey(0, 100, 'Coffee');
     const preview = buildResolvedPreviewRows([row()], categoryMap, resolveAccountId, new Set([ref]));
     expect(preview[0]?.duplicate).toBe(true);
+  });
+
+  it('does NOT flag two genuinely distinct same-day/amount/description rows as duplicates of each other (2026-08-14 fix)', () => {
+    // Real MoneyView shape: two separate ATM withdrawals, same day/amount/description, different
+    // exact timestamps (confirmed 149 such collisions / 334 rows in one real 9,384-row file) — before
+    // this fix, dedupKey truncated to day-only, so the second was silently dropped as a false-positive
+    // "already imported" duplicate despite never existing anywhere before.
+    const rows = [row({ date: 1_700_000_000_000 }), row({ date: 1_700_003_600_000 })]; // 1 hour apart
+    const preview = buildResolvedPreviewRows(rows, categoryMap, resolveAccountId, new Set());
+    expect(preview[0]?.duplicate).toBe(false);
+    expect(preview[1]?.duplicate).toBe(false);
   });
 
   it('marks a row skipped when its category resolution was "skip", excluding it without dropping it', () => {
@@ -282,5 +295,55 @@ describe('toConfirmedCategoryMap', () => {
     ];
     const map = toConfirmedCategoryMap(resolutions, new Map(), new Map());
     expect(map.get('Groceries')).not.toHaveProperty('tag');
+  });
+});
+
+describe('buildResolvedPreviewRowsByIndex (2026-08-14, CSV-import redesign Chunk B)', () => {
+  const resolveAccountId = () => 'acc-1';
+
+  it('resolves two rows sharing the same source category name to COMPLETELY different actions, keyed by index', () => {
+    const rows = [
+      row({ categoryName: 'A/c to A/c', type: 'expense' }),
+      row({ categoryName: 'A/c to A/c', type: 'income' })
+    ];
+    const rowActions = new Map<number, RowAction>([
+      [0, { categoryId: 'cat-tr-other', categoryName: 'Other Transfer', type: 'transfer', toAccountId: 'acc-cash' }],
+      [1, { categoryId: 'cat-salary', categoryName: 'Salary' }]
+    ]);
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Set());
+    expect(result[0]).toMatchObject({ type: 'transfer', categoryId: 'cat-tr-other', toAccountId: 'acc-cash' });
+    expect(result[1]).toMatchObject({ type: 'income', categoryId: 'cat-salary' });
+  });
+
+  it('an override always wins over the row-action map entry', () => {
+    const rows = [row()];
+    const rowActions = new Map<number, RowAction>([[0, { categoryId: 'cat-other', categoryName: 'Other' }]]);
+    const rowOverrides = new Map<number, RowOverride>([[0, { categoryId: 'cat-food', categoryName: 'Dining' }]]);
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Set(), rowOverrides);
+    expect(result[0]).toMatchObject({ categoryId: 'cat-food', categoryName: 'Dining' });
+  });
+
+  it('marks duplicate against both existing DB keys and earlier rows in the same batch', () => {
+    const rows = [row({ description: 'Same' }), row({ description: 'Same' })];
+    const rowActions = new Map<number, RowAction>([
+      [0, { categoryId: 'cat-food', categoryName: 'Food' }],
+      [1, { categoryId: 'cat-food', categoryName: 'Food' }]
+    ]);
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Set());
+    expect(result[0]?.duplicate).toBe(false);
+    expect(result[1]?.duplicate).toBe(true); // duplicate of the first row within this same batch
+  });
+
+  it('a "skip" action marks the row skipped with an empty categoryId, falling back to "Other"', () => {
+    const rows = [row()];
+    const rowActions = new Map<number, RowAction>([[0, { categoryId: '', categoryName: 'A/c to A/c', skip: true }]]);
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Set());
+    expect(result[0]).toMatchObject({ skipped: true, categoryName: 'A/c to A/c' });
+  });
+
+  it('falls back to cat-other/"Other" for a row with no action at all', () => {
+    const rows = [row()];
+    const result = buildResolvedPreviewRowsByIndex(rows, new Map(), resolveAccountId, new Set());
+    expect(result[0]).toMatchObject({ categoryId: 'cat-other', categoryName: 'Other' });
   });
 });

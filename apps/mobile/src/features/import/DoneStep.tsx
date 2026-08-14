@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text } from 'react-native';
-import { Button } from '~/components/ui';
+import { Button, Banner } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { tint } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -12,6 +12,33 @@ interface DoneStepProps {
   activityLogId: string | null;
   undone: boolean;
   retrying: boolean;
+  /** How many rejected rows the user explicitly discarded (2026-08-14, redesign §9.1/Issue #1) — never
+   *  silently vanish without a final count. */
+  discardedCount: number;
+  /** Rows still needing attention this run — left out of the commit (per §3.2, only "Staged"/"Skipped"
+   *  rows are ever written) and picked up on a later re-upload pass instead. */
+  stillUnresolvedCount: number;
+  /** Rows excluded because their whole SOURCE ACCOUNT was skipped in the Accounts stage (2026-08-14,
+   *  manual-testing gap #1) — a distinct reason from `discardedCount`/`stillUnresolvedCount`, so it gets
+   *  its own dedicated line rather than being folded into either. */
+  accountSkippedCount: number;
+  /** True when this run was ended early via the Import Progress screen's Cancel confirm (2026-08-14,
+   *  redesign §14 item 8), rather than running to completion. Distinct from `hasFailures` below (an
+   *  actual per-row write error) — cancelling is a deliberate, successful user action, so it gets its
+   *  own warning-amber (not danger) framing and its own copy, leading with what's already safe vs.
+   *  what's left — same shape as the "still unresolved" framing, but distinctly worded so a stop is
+   *  never confused with a category left unresolved. */
+  cancelled?: boolean;
+  /** Only meaningful when `cancelled` — how many of THIS run's rows were never attempted because the
+   *  write loop stopped early. */
+  cancelledRemainingCount?: number;
+  /** Set only when `commitAndImport()` itself threw something genuinely UNEXPECTED (2026-08-14, severe
+   *  bug found in verification) — never for an already-handled per-row write failure (`failed`, above)
+   *  or a deliberate `cancelled`. Takes PRIORITY over both of those in the title/icon below: a genuine
+   *  crash is neither an expected outcome (per-row failure) nor a deliberate one (cancel), so it gets
+   *  its own danger-red framing distinct from either's warning-amber. Whatever `succeededCount` already
+   *  reflects at the point of the throw is still real, already-written data — never rolled back. */
+  importError?: string | null;
   onRetryFailed: () => void;
   onUndo: () => Promise<void>;
   onDone: () => void;
@@ -26,6 +53,12 @@ export function DoneStep({
   activityLogId,
   undone,
   retrying,
+  discardedCount,
+  stillUnresolvedCount,
+  accountSkippedCount,
+  cancelled = false,
+  cancelledRemainingCount = 0,
+  importError = null,
   onRetryFailed,
   onUndo,
   onDone
@@ -46,30 +79,77 @@ export function DoneStep({
   }
 
   const hasFailures = failed.length > 0;
+  // A stopped-early run (`cancelled`) gets its own distinct icon/tint/title, taking priority over the
+  // hasFailures framing — cancelling is a deliberate, successful user action (nothing failed), so it
+  // shares `hasFailures`' warning-amber (not danger-red) tint but its own copy and icon
+  // (`ti-player-stop-filled`, matching the mockup) rather than being folded into "partially complete".
+  // `importError` (2026-08-14, verification-round fix) outranks BOTH — a genuine crash is neither an
+  // expected outcome (per-row failure) nor a deliberate one (cancel), so it's the one case that gets
+  // danger-red rather than warning-amber.
+  const warnTint = cancelled || hasFailures;
 
   return (
     <View className="flex-1 items-center justify-center gap-6 py-12 px-2">
       <View
         className="w-16 h-16 rounded-full items-center justify-center"
-        style={{ backgroundColor: tint(hasFailures ? theme.warning : theme.success) }}
+        style={{ backgroundColor: tint(importError ? theme.danger : warnTint ? theme.warning : theme.success) }}
       >
         <Icon
-          name={hasFailures ? 'ti-alert-triangle' : 'ti-check'}
-          size={32}
-          color={hasFailures ? theme.warning : theme.success}
+          name={importError || hasFailures ? 'ti-alert-triangle' : cancelled ? 'ti-player-stop-filled' : 'ti-check'}
+          size={cancelled && !importError ? 26 : 32}
+          color={importError ? theme.danger : warnTint ? theme.warning : theme.success}
         />
       </View>
       <View className="items-center">
         <Text className="text-xl font-semibold text-primary">
-          {hasFailures ? 'Import partially complete' : 'Import complete'}
+          {importError
+            ? 'Something went wrong'
+            : cancelled
+              ? 'Import stopped'
+              : hasFailures
+                ? 'Import partially complete'
+                : 'Import complete'}
         </Text>
+        {/* Partial commits are the EXPECTED common case now (2026-08-14, manual-testing gap — §3.2/
+         *  Issue #4's per-bucket partial commit), not an edge case — this line leads with exactly what
+         *  the user needs to see, never silently: how many imported now, and (when nonzero) how many
+         *  are still waiting and what to do about them. */}
         <Text className="text-sm text-secondary mt-1 text-center">
-          {succeededCount} expense{succeededCount !== 1 ? 's' : ''} added to your vault
-          {hasFailures && ` · ${failed.length} row${failed.length !== 1 ? 's' : ''} failed`}
+          {importError
+            ? succeededCount > 0
+              ? `${succeededCount} transaction${succeededCount !== 1 ? 's' : ''} saved before this happened — they'll stay; the rest weren't attempted.`
+              : `Nothing was saved before this happened.`
+            : cancelled
+              ? `${succeededCount} added · ${cancelledRemainingCount} left for later — re-upload this file later to pick ${cancelledRemainingCount === 1 ? 'it' : 'them'} up.`
+              : stillUnresolvedCount > 0
+                ? `${succeededCount} imported now · ${stillUnresolvedCount} left unresolved — re-upload this file later to pick ${stillUnresolvedCount === 1 ? 'it' : 'them'} up.`
+                : `${succeededCount} expense${succeededCount !== 1 ? 's' : ''} added to your vault`}
+          {!importError && hasFailures && ` · ${failed.length} row${failed.length !== 1 ? 's' : ''} failed`}
         </Text>
+        {/* Nothing vanishes silently (2026-08-14, redesign §9.1) — a discarded row is always accounted
+         *  for too, even though it's a distinct reason from "still unresolved" above. */}
+        {discardedCount > 0 && (
+          <Text className="text-xs text-tertiary mt-2 text-center">{discardedCount} discarded</Text>
+        )}
+        {/* Dedicated line (2026-08-14, manual-testing gap #1) — a skipped account is a distinct reason
+         *  from discarded/still-unresolved, so it's never folded into that same sentence. */}
+        {accountSkippedCount > 0 && (
+          <Text className="text-xs text-tertiary mt-1 text-center">
+            {accountSkippedCount} transaction{accountSkippedCount !== 1 ? 's' : ''} excluded — account skipped
+          </Text>
+        )}
       </View>
 
-      {hasFailures && (
+      {/* The raw error message (2026-08-14, verification-round fix) — never silently swallowed, per this
+       *  repo's reliability rule. A plain `Banner`, not folded into the title/subtext above, so the
+       *  actual technical reason is still available without crowding the headline result. */}
+      {importError && (
+        <Banner variant="danger" title="What happened">
+          {importError}
+        </Banner>
+      )}
+
+      {!importError && hasFailures && (
         <View className="w-full gap-2">
           <Text className="text-xs text-center" style={{ color: theme.danger }}>
             {failed.length} row{failed.length !== 1 ? 's' : ''} couldn&apos;t be saved (e.g. a transient encryption

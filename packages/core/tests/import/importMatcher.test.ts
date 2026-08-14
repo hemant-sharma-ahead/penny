@@ -54,6 +54,16 @@ describe('resolveAmount', () => {
     expect(resolveAmount(['d', 'x', '0', '5000'], mapping)).toEqual({ amount: 5000, type: 'income' });
   });
 
+  it('flips a negative debit/outflow to income — a MoneyView refund-reversal, not a same-size expense (2026-08-14 fix)', () => {
+    const mapping = { ...base, outflow: 2, inflow: 3 };
+    expect(resolveAmount(['d', 'x', '-10000.0', '0'], mapping)).toEqual({ amount: 10000, type: 'income' });
+  });
+
+  it('symmetrically flips a negative credit/inflow to expense', () => {
+    const mapping = { ...base, outflow: 2, inflow: 3 };
+    expect(resolveAmount(['d', 'x', '0', '-500'], mapping)).toEqual({ amount: 500, type: 'expense' });
+  });
+
   it('resolves a single signed amount column (negative = expense)', () => {
     const mapping = { ...base, amount: 2 };
     expect(resolveAmount(['d', 'x', '-240.0'], mapping)).toEqual({ amount: 240, type: 'expense' });
@@ -68,6 +78,11 @@ describe('resolveAmount', () => {
   it('returns null when no amount pattern is present or the amount is zero', () => {
     expect(resolveAmount(['d', 'x'], base)).toBeNull();
     expect(resolveAmount(['d', 'x', '0'], { ...base, amount: 2 })).toBeNull();
+  });
+
+  it('returns null (unresolvable) rather than silently picking a direction when BOTH outflow and inflow are negative — a nonsensical/corrupted row (code-review fix)', () => {
+    const mapping = { ...base, outflow: 2, inflow: 3 };
+    expect(resolveAmount(['d', 'x', '-150', '-200'], mapping)).toBeNull();
   });
 });
 

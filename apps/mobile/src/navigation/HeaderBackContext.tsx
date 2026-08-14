@@ -8,15 +8,20 @@ interface HeaderScreen {
    *  header's center title and left-slot (avatar vs. back-chevron). */
   name: string;
   backHandler: BackHandler;
-  /** `true` only while `ChangePinPage` is showing a forced PIN reset (see its own `forced` flag) —
-   *  hides the whole header/tab-bar. Reported directly by that one screen, same as `name`/`backHandler`
-   *  — see this file's top doc comment for why nothing here is derived from react-navigation's own
-   *  nested-state APIs (`useNavigationState`/`navigation.getState()`) anymore. An earlier version kept
-   *  *this one flag* on the old `useNavigationState`-based `isForcedPinResetActive` walk, reasoning it
-   *  was a rare, low-risk edge case not worth migrating — that was wrong: it hit the identical
-   *  `CHILD_STATE`-vs-`route.state` staleness bug, resolved to `true` on real devices when no forced
-   *  reset was active, and hid the avatar (rendered as an empty placeholder) on ordinary screens. */
-  pinResetForced: boolean;
+  /** Hides the whole header-left slot AND the bottom tab bar — for a screen that genuinely has NOTHING
+   *  safe to navigate away to right now, not just "no back handler for this one control". Originally
+   *  `pinResetForced` (`true` only while `ChangePinPage` shows a forced PIN reset, its own `forced`
+   *  flag) — renamed 2026-08-14 when the Import Progress screen's locked "Importing" sub-state became a
+   *  second, unrelated consumer of this exact same mechanism (redesign §14 item 8: a live write loop the
+   *  user must not be able to abandon via a tab switch either, not just the header back-chevron).
+   *  Reported directly by whichever screen needs it, same as `name`/`backHandler` — see this file's top
+   *  doc comment for why nothing here is derived from react-navigation's own nested-state APIs
+   *  (`useNavigationState`/`navigation.getState()`) instead. An earlier version kept *this one flag* on
+   *  the old `useNavigationState`-based `isForcedPinResetActive` walk, reasoning it was a rare, low-risk
+   *  edge case not worth migrating — that was wrong: it hit the identical `CHILD_STATE`-vs-`route.state`
+   *  staleness bug, resolved to `true` on real devices when no forced reset was active, and hid the
+   *  avatar (rendered as an empty placeholder) on ordinary screens. */
+  chromeLocked: boolean;
 }
 
 interface HeaderBackContextValue {
@@ -24,7 +29,7 @@ interface HeaderBackContextValue {
   setScreen: (s: HeaderScreen) => void;
 }
 
-const DEFAULT_SCREEN: HeaderScreen = { name: 'HomeMain', backHandler: null, pinResetForced: false };
+const DEFAULT_SCREEN: HeaderScreen = { name: 'HomeMain', backHandler: null, chromeLocked: false };
 
 const HeaderBackContext = createContext<HeaderBackContextValue | null>(null);
 
@@ -71,16 +76,17 @@ export function useHeaderScreen(): HeaderScreen {
  * Called by every screen (tab root or pushed) while focused, reporting its own route `name` — used
  * for the global header's title/avatar-vs-back-chevron — and its `backHandler` (`null` for tab roots,
  * since they show the avatar, not a back-chevron; also `null` for a screen that has nothing to go back
- * to right now, e.g. `ChangePinPage` during a forced reset). No cleanup-on-blur reset is needed: every
- * screen re-registers on its own focus (including a tab root regaining focus after a pushed screen
- * pops away), so the context is always kept current by whichever screen actually has focus right now.
+ * to right now, e.g. `ChangePinPage` during a forced reset, or the Import Progress screen while its
+ * write loop is running). No cleanup-on-blur reset is needed: every screen re-registers on its own focus
+ * (including a tab root regaining focus after a pushed screen pops away), so the context is always kept
+ * current by whichever screen actually has focus right now.
  */
-export function useRegisterHeaderScreen(name: string, backHandler: BackHandler = null, pinResetForced = false): void {
+export function useRegisterHeaderScreen(name: string, backHandler: BackHandler = null, chromeLocked = false): void {
   const { setScreen } = useHeaderBackContext();
   useFocusEffect(
     useCallback(() => {
-      setScreen({ name, backHandler, pinResetForced });
-    }, [name, backHandler, pinResetForced, setScreen])
+      setScreen({ name, backHandler, chromeLocked });
+    }, [name, backHandler, chromeLocked, setScreen])
   );
 }
 

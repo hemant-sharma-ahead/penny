@@ -186,3 +186,138 @@ export type TransferCategoryOption = { id: string; name: string };
 export function transferCategoryOptions(): TransferCategoryOption[] {
   return DEFAULT_TRANSFER_CATEGORIES.map((c) => ({ id: c.id, name: c.name }));
 }
+
+// ─── Direction-aware resolution + counterparty-split support (2026-08-14, CSV-import redesign) ──────
+// New, additive exports for apps/mobile's new Categories wizard stage
+// (docs/plans/csv-expense-import-redesign.md §7/§9.4/§9.d). `apps/web-react`'s frozen `useImport.ts`
+// calls `resolveCategories`/`isLikelyTransfer` directly — everything below is a NEW function/type
+// alongside them, never a modification, so web's behavior is byte-for-byte unchanged. In particular,
+// `isLikelyIouSuspect`/`isLikelyInvestmentMovement` below are deliberately their OWN keyword lists
+// rather than additions to `TRANSFER_KEYWORDS` — extending that shared list would silently change what
+// `resolveCategories()` (and therefore web) suggests for those category names too.
+
+/** Keywords for source categories that read as a lend/borrow event (Issue #8) — kept separate from
+ *  `TRANSFER_KEYWORDS` (see file-header comment above) even though both ultimately suggest a
+ *  `kind: 'transfer'` default in `suggestForNameDirectional` below; the real reason to distinguish IOU
+ *  from a plain transfer is `isIouSuspect` (below), which additionally gates the counterparty sub-split
+ *  (`splitByCounterparty`, importCounterpartySplit.ts) toward the IOU-specific Lend/Borrow treatment
+ *  Chunk B's `ImportCategorizeModal` panel needs, not just a same-name-shared boolean. */
+const IOU_KEYWORDS = ['loan', 'lent', 'borrowed', 'borrow', 'lending', 'returned money', 'repaid', 'repayment'];
+
+export function isLikelyIouSuspect(categoryName: string): boolean {
+  const lower = categoryName.toLowerCase().trim();
+  return IOU_KEYWORDS.some((k) => lower.includes(k));
+}
+
+/** Keywords for source categories that are really money moving INTO an investment vehicle Penny already
+ *  tracks separately (Portfolio) — found 2026-08-14 (redesign doc §5/9.d) via a real MoneyView export:
+ *  "Investments"/"Mutual Funds"/"Stocks"-labelled rows showed real amounts flowing out of a bank account
+ *  with no special handling, materially inflating spend analytics with what's actually a transfer into
+ *  an already-tracked asset. Flagged as transfer-suspect/needs-review by default (not silently a plain
+ *  expense category) — no real Portfolio integration attempted here, explicitly out of scope (§12). */
+const INVESTMENT_MOVEMENT_KEYWORDS = ['investment', 'mutual fund', 'stocks', 'stock market', 'equity', 'demat', 'sip'];
+
+export function isLikelyInvestmentMovement(categoryName: string): boolean {
+  const lower = categoryName.toLowerCase().trim();
+  return INVESTMENT_MOVEMENT_KEYWORDS.some((k) => lower.includes(k));
+}
+
+/** Same suggestion logic as `suggestForName` (existing/create), except a source category that ISN'T
+ *  already `isLikelyTransfer` but IS IOU- or investment-movement-suspect also defaults to
+ *  `kind: 'transfer'` (reviewable, never silently a spend category) — the redesign's §7/§9.d fix. Kept
+ *  as its own function (never touching `suggestForName` itself) so `resolveCategories()` — the function
+ *  `apps/web-react` calls directly — keeps its exact original behavior for these category names. */
+function suggestForNameDirectional(name: string, categories: ExpenseCategory[]): CategoryAction {
+  if (!isLikelyTransfer(name) && (isLikelyIouSuspect(name) || isLikelyInvestmentMovement(name))) {
+    const fallback = DEFAULT_TRANSFER_CATEGORIES.find((c) => c.id === 'cat-tr-other');
+    return {
+      kind: 'transfer',
+      categoryId: fallback?.id ?? 'cat-tr-other',
+      categoryName: fallback?.name ?? 'Other Transfer',
+      toAccountId: ''
+    };
+  }
+  return suggestForName(name, categories);
+}
+
+export interface DirectionalCategoryResolution {
+  /** Stable identity for this resolution — `${sourceName}::${type}` — used everywhere as the grouping
+   *  AND touched-tracking key, so the Issue #5 bug (one shared, mutable resolution object read by both
+   *  an expense-direction and income-direction tile of the same source category name) is structurally
+   *  impossible: each direction gets its own object, under its own key, from the start. */
+  key: string;
+  /** Raw source category name from the file (NOT unique on its own — see `key`). */
+  sourceName: string;
+  type: 'expense' | 'income' | 'transfer';
+  count: number;
+  suggestion: CategoryAction;
+  /** Convenience flags, precomputed once here rather than re-derived by every UI consumer — also what
+   *  `shouldSplitByCounterparty` (importCounterpartySplit.ts) gates on. */
+  isTransferSuspect: boolean;
+  isIouSuspect: boolean;
+  isInvestmentMovement: boolean;
+}
+
+/** Direction-aware sibling of `resolveCategories()` — group key is `${sourceName}::${row.type}` instead
+ *  of `sourceName` alone, mirroring the pattern `importTileGrouping.ts` already uses one layer up for
+ *  the exact same reason. This is the real fix for Issue #5 (a shared `CategoryResolution` object,
+ *  mutated in place, silently re-categorizing both an expense-direction and income-direction tile of the
+ *  same source category name) — see the regression test in importCategoryResolution.test.ts proving two
+ *  direction-tiles no longer share mutable state. `resolveCategories()` itself is untouched; this is a
+ *  new function for apps/mobile's Categories wizard stage only. */
+export function resolveCategoriesDirectional(
+  rows: ParsedRow[],
+  categories: ExpenseCategory[]
+): DirectionalCategoryResolution[] {
+  const counts = new Map<string, { sourceName: string; type: ParsedRow['type']; count: number }>();
+  for (const row of rows) {
+    const sourceName = row.categoryName.trim() || 'Other';
+    const key = `${sourceName}::${row.type}`;
+    const existing = counts.get(key);
+    if (existing) existing.count++;
+    else counts.set(key, { sourceName, type: row.type, count: 1 });
+  }
+  return Array.from(counts.entries())
+    .map(([key, { sourceName, type, count }]) => ({
+      key,
+      sourceName,
+      type,
+      count,
+      suggestion: suggestForNameDirectional(sourceName, categories),
+      isTransferSuspect: isLikelyTransfer(sourceName),
+      isIouSuspect: isLikelyIouSuspect(sourceName),
+      isInvestmentMovement: isLikelyInvestmentMovement(sourceName)
+    }))
+    .sort((a, b) => b.count - a.count);
+}
+
+/** Direction-aware sibling of `isCategoryResolutionDecided` — takes a `touchedKeys`/
+ *  `fullyAutoResolvedTransferKeys` set keyed by `DirectionalCategoryResolution.key`
+ *  (`${sourceName}::${type}`) rather than plain `sourceName`, so "has this been touched" tracking can't
+ *  regress into the same cross-direction bug at the touched-set layer. */
+export function isDirectionalCategoryResolutionDecided(
+  resolution: DirectionalCategoryResolution,
+  touchedKeys: Set<string>,
+  fullyAutoResolvedTransferKeys?: Set<string>
+): boolean {
+  if (resolution.suggestion.kind === 'create') return touchedKeys.has(resolution.key);
+  if (resolution.suggestion.kind === 'transfer') {
+    return !!resolution.suggestion.toAccountId || !!fullyAutoResolvedTransferKeys?.has(resolution.key);
+  }
+  return true;
+}
+
+/** Draft-category key (§3.1's "draft object, materialized only at commit" mechanic, extended to
+ *  categories) — collapses multiple 'create' resolutions that would each independently create the
+ *  "same" category (same suggested name + intent group) into ONE real category at commit time, mirroring
+ *  `commitAndImport()`'s existing `createdAccountsByKey` dedup for accounts' own 'create' resolutions.
+ *  Categories never needed this before the Categories-stage redesign — the old flow only ever had ONE
+ *  resolution per source category name, so two different resolutions could never legitimately want "the
+ *  same" new category. The counterparty sub-split (`splitByCounterparty`, importCounterpartySplit.ts)
+ *  changes that: two different counterparty rows under one parent label (e.g. two distinct "no person
+ *  match" groups under "A/c to A/c") can each independently choose 'create' with the same suggested
+ *  name, and must collapse into one real category, not two duplicates. Chunk B's commit orchestration is
+ *  expected to key its own `createdCategoryIds` map by this instead of by source name alone. */
+export function draftCategoryKey(suggestion: Extract<CategoryAction, { kind: 'create' }>): string {
+  return `${suggestion.suggestedName.trim().toLowerCase()}|${suggestion.suggestedIntentGroup}`;
+}
