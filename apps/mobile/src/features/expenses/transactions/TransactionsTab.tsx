@@ -242,6 +242,26 @@ const TransactionRow = memo(function TransactionRow({
     </>
   );
 
+  // Rules-of-hooks: `isShared`/`actions` (needed only by normal mode, below) are computed unconditionally,
+  // ahead of the `selectMode` early return — a hook (the `useMemo` for `actions`) can't sit after a
+  // conditional `return` without changing hook-call order between renders.
+  const isShared = (txn.shareWith?.length ?? 0) > 0;
+  // Memoized — `SwipeableRow` below is `memo`'d, but a plain inline array literal here got a fresh
+  // identity on every render of this (already-memoized) row, defeating that memo the moment anything
+  // else about this row's own render changed (e.g. an unrelated prop like `hashtags`/`categoryMap`
+  // getting a new identity elsewhere in the tree). Low-severity on its own, but free to fix alongside
+  // the real O(n) issues above (found 2026-08-14).
+  const actions: SwipeAction[] = useMemo(
+    () => [
+      ...(onDuplicate ? [{ icon: 'ti-copy', label: 'Copy', color: theme.info, onPress: () => onDuplicate(txn) }] : []),
+      ...(onShare && txnType === 'expense' && !isShared
+        ? [{ icon: 'ti-users-group', label: 'Share', color: theme.primary, onPress: () => onShare(txn) }]
+        : []),
+      ...(onDelete ? [{ icon: 'ti-trash', label: 'Delete', color: theme.danger, onPress: () => onDelete(txn.id) }] : [])
+    ],
+    [onDuplicate, onShare, txnType, isShared, onDelete, txn, theme.info, theme.primary, theme.danger]
+  );
+
   // Select mode: flat tappable row with a checkbox; no rail, so it needs its own icon badge.
   if (selectMode) {
     return (
@@ -268,15 +288,6 @@ const TransactionRow = memo(function TransactionRow({
 
   // Normal mode: timeline rail lives INSIDE the row, its dot now the category/type icon itself (filled,
   // tinted) — doing what the separate icon badge above used to do; swipe-left → Copy/Delete; tap → edit.
-  const isShared = (txn.shareWith?.length ?? 0) > 0;
-  const actions: SwipeAction[] = [
-    ...(onDuplicate ? [{ icon: 'ti-copy', label: 'Copy', color: theme.info, onPress: () => onDuplicate(txn) }] : []),
-    ...(onShare && txnType === 'expense' && !isShared
-      ? [{ icon: 'ti-users-group', label: 'Share', color: theme.primary, onPress: () => onShare(txn) }]
-      : []),
-    ...(onDelete ? [{ icon: 'ti-trash', label: 'Delete', color: theme.danger, onPress: () => onDelete(txn.id) }] : [])
-  ];
-
   // Stage 4's search-window divider (mockup Frame 3's dashed "₹120 gap" separator) — a small full-width
   // callout inserted immediately above the first-disagreeing row, regardless of `dateLabel`/day grouping.
   const dividerRow = checkpointDividerLabel && (

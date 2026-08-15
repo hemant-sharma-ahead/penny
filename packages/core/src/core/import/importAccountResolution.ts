@@ -22,6 +22,32 @@ export interface AccountResolution {
   fuzzyExistingMatch?: { accountId: string; accountName: string };
 }
 
+// ─── apps/mobile-only "skip this account" widening (2026-08-14, manual-testing gap #1) ────────────────
+// A user importing a file spanning several accounts may only want some of them — there was no way to
+// exclude an account (and every row belonging to it) rather than importing all of them. Deliberately
+// NEW, additive types here — NOT a `'skip'` member added to `AccountAction`/`AccountResolution`
+// themselves — because `apps/web-react`'s frozen `useImport.ts` narrows over `AccountAction`'s exact
+// existing 2-member union in a couple of places (`kind === 'existing' ? ... : suggestion.suggestedName`
+// -style ternaries); widening the shared type breaks that narrowing's compilation even though web never
+// actually produces or reads a 'skip' value at runtime. `resolveAccounts()` itself is untouched — it
+// never returns 'skip' either way, exclusively a user-initiated state apps/mobile's own Accounts stage
+// introduces on top of a resolution `resolveAccounts()` already produced.
+export type AccountActionOrSkip =
+  | AccountAction
+  /** Excludes this source account — and every row that belongs to it — from the import entirely.
+   *  Mirrors `CategoryAction`'s existing `'skip'` kind. Always immediately "decided" — same treatment
+   *  `'existing'` already gets — since there's nothing further to configure once skipped. */
+  | { kind: 'skip' };
+
+/** `AccountResolution`, widened to allow `AccountActionOrSkip` instead of the narrower `AccountAction`
+ *  — see the file-header comment above for why this is a separate type. `resolveAccounts()`'s own
+ *  return type (`AccountResolution[]`) is structurally assignable to `AccountResolutionOrSkip[]`
+ *  (widening a union is always a safe assignment), so apps/mobile can store `resolveAccounts()`'s
+ *  output directly in state typed this way without any cast. */
+export interface AccountResolutionOrSkip extends Omit<AccountResolution, 'suggestion'> {
+  suggestion: AccountActionOrSkip;
+}
+
 /** Normalizes an account name for fuzzy matching: strips punctuation/whitespace and the masking "x"
  *  banks put before the last few digits of an account number (e.g. "HDFC-x1234" -> "hdfc1234",
  *  matching "HDFC1234"). Deliberately simple — a false-negative here just means no suggestion is
@@ -62,6 +88,85 @@ function findFuzzyExistingMatch(
   if (!target) return undefined;
   const match = accounts.find((a) => normalize(a.name) === target);
   return match ? { accountId: match.id, accountName: match.name } : undefined;
+}
+
+// ─── Card→account merge suggestion (2026-08-14, CSV-import redesign §9.7, Issue #9) ──────────────────
+// Additive — a NEW function alongside `findFuzzyExistingMatch`/`resolveAccounts` above, for
+// apps/mobile's new Accounts wizard stage only. `resolveAccounts()` itself is untouched, so
+// `apps/web-react`'s frozen direct call to it keeps its exact existing behavior.
+
+export interface CardAccountMergeSuggestion {
+  /** Source name of the card-type resolution (e.g. `"HDFC Bank •• 4471"`). */
+  cardSourceName: string;
+  /** Source name of the resolution to merge into — shares the same (normalized) Bank Name and isn't
+   *  itself a card row. Named by its RAW source name, regardless of that resolution's own kind
+   *  (existing/create) — the suggestion still shows and can be accepted "regardless of the bank row's
+   *  own resolution state" (confirmed 2026-08-14, post-mockup-review). */
+  targetSourceName: string;
+  /** Payment mode to apply to the card's rows once merged, derived from its own Account Type. */
+  paymentMode: 'Debit Card' | 'Credit Card';
+}
+
+function normalizeCardAccountType(raw: string): 'debit-card' | 'credit-card' | null {
+  const lower = raw.toLowerCase().replace(/[-_\s]/g, '');
+  if (lower.includes('creditcard')) return 'credit-card';
+  if (lower.includes('debitcard')) return 'debit-card';
+  return null;
+}
+
+/** One suggestion per distinct source account name whose rows carry a card-type `Account Type`
+ *  (`debit-card`/`credit-card`) AND share a normalized `Bank Name` with another resolution's rows — e.g.
+ *  a real MoneyView export's "Account Id"-keyed card row sharing "HDFC Bank" with the underlying bank
+ *  account's own resolution. Independent suggestion per card (confirmed 2026-08-14, post-mockup-review —
+ *  no bulk "merge all cards on this bank" shortcut); never auto-applied, same as the existing same-file
+ *  (`suggestAccountMerges`, apps/mobile's own review/accountMergeSuggestion.ts) and fuzzy-vs-existing
+ *  (`findFuzzyExistingMatch` above) suggestion types this is visually/behaviorally parallel to. */
+export function suggestCardAccountMerges(
+  rows: ParsedRow[],
+  // Deliberately the narrowest shape this function actually reads (only `sourceName`) rather than the
+  // full `AccountResolution[]` — so a caller storing a WIDER per-row type (e.g. apps/mobile's own
+  // `AccountResolutionOrSkip[]`, once "skip this account" exists) can pass it straight through with no
+  // cast. This function never reads `.suggestion` at all.
+  resolutions: Pick<AccountResolution, 'sourceName'>[]
+): CardAccountMergeSuggestion[] {
+  const bankNameBySource = new Map<string, string>();
+  const cardTypeBySource = new Map<string, 'debit-card' | 'credit-card' | null>();
+
+  for (const row of rows) {
+    if (!row.account) continue;
+    if (!bankNameBySource.has(row.account) && row.bankName) bankNameBySource.set(row.account, row.bankName);
+    if (!cardTypeBySource.has(row.account)) {
+      cardTypeBySource.set(row.account, row.accountType ? normalizeCardAccountType(row.accountType) : null);
+    }
+  }
+
+  const suggestions: CardAccountMergeSuggestion[] = [];
+  for (const res of resolutions) {
+    const cardType = cardTypeBySource.get(res.sourceName);
+    if (!cardType) continue;
+    const bank = bankNameBySource.get(res.sourceName);
+    if (!bank) continue;
+    const bankKey = normalize(bank);
+    if (!bankKey) continue;
+
+    const target = resolutions.find((other) => {
+      if (other.sourceName === res.sourceName) return false;
+      const otherBank = bankNameBySource.get(other.sourceName);
+      if (!otherBank || normalize(otherBank) !== bankKey) return false;
+      // Never suggest merging a card INTO another card row — the target must be the underlying
+      // (non-card) bank account itself.
+      return !cardTypeBySource.get(other.sourceName);
+    });
+    if (!target) continue;
+
+    suggestions.push({
+      cardSourceName: res.sourceName,
+      targetSourceName: target.sourceName,
+      paymentMode: cardType === 'credit-card' ? 'Credit Card' : 'Debit Card'
+    });
+  }
+
+  return suggestions;
 }
 
 /** One suggested resolution per distinct raw account name found in the parsed rows. Returns an empty

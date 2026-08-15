@@ -41,13 +41,80 @@ export interface ImportWriteResult {
   activityLogId: string | null;
 }
 
-/** Writes every non-duplicate, non-skipped row, tolerating individual failures. */
-export async function writeImportBatch(rows: ResolvedPreviewRow[]): Promise<ImportWriteResult> {
+interface WriteLoopResult {
+  succeededIds: string[];
+  /** Each successfully-written row paired with its newly-created expense id — only populated for
+   *  `writeImportBatchDetailed` below; `writeImportBatch` itself never reads this field, so its own
+   *  external behavior (and `apps/web-react`'s frozen direct call to it) is completely unchanged by this
+   *  2026-08-14 refactor. */
+  succeededRows: { row: ResolvedPreviewRow; expenseId: string }[];
+  failed: FailedImportRow[];
+  /** `true` only when `options.shouldCancel` returned `true` and stopped the loop before every writable
+   *  row was attempted — always `false` for `writeImportBatch` (never passes `options` at all). */
+  cancelled: boolean;
+}
+
+/** Optional live-progress/cancellation hooks (2026-08-14, Import Progress screen —
+ *  docs/plans/csv-expense-import-redesign.md §14 item 8) — additive only, `writeImportBatch`'s own
+ *  signature/behavior stays untouched (it never passes these); only apps/mobile's
+ *  `writeImportBatchDetailed` call site uses them. */
+export interface WriteRowsOptions {
+  /** Called after each row write attempt (success or failure) — never for a duplicate/skipped row,
+   *  since those are excluded from `total` entirely (they were never going to be written). May be
+   *  throttled for a large batch; always called once more with `completed === total` at the very end
+   *  (or at whatever `completed` the loop had reached when cancelled). */
+  onProgress?: (completed: number, total: number) => void;
+  /** Polled once before each row write attempt — returning `true` stops the loop immediately, before
+   *  writing another row. Whatever already succeeded stays written (independent per-row commits, same
+   *  partial-tolerance this file's header comment already documents for a genuine write failure). */
+  shouldCancel?: () => boolean;
+}
+
+/** Shared write loop — extracted 2026-08-14 (CSV-import redesign Chunk B) so the new
+ *  `writeImportBatchDetailed` below (which also needs each row's created expense id, for apps/mobile's
+ *  new IOU `ledger_entries` write) can reuse the exact same per-row try/catch logic as `writeImportBatch`
+ *  without duplicating it. `writeImportBatch`'s own behavior is unchanged — it calls this with the exact
+ *  same loop body it always had (no `options`, so `onProgress`/`shouldCancel` are simply never invoked
+ *  and `cancelled` is always `false`). */
+async function writeRows(rows: ResolvedPreviewRow[], options?: WriteRowsOptions): Promise<WriteLoopResult> {
   const succeededIds: string[] = [];
+  const succeededRows: { row: ResolvedPreviewRow; expenseId: string }[] = [];
   const failed: FailedImportRow[] = [];
 
-  for (const row of rows) {
-    if (row.duplicate || row.skipped) continue;
+  // Filtered upfront (rather than `continue`-ing past a duplicate/skipped row inline, as this loop used
+  // to) so `total` below is the real count of rows this run will actually attempt — exactly what a live
+  // progress display needs. Purely a restructuring, not a behavior change: iterating the filtered list
+  // writes the identical set of rows as before.
+  const writable = rows.filter((row) => !row.duplicate && !row.skipped);
+  const total = writable.length;
+  let completed = 0;
+  let cancelled = false;
+  let lastProgressAt = 0;
+
+  for (const row of writable) {
+    // `shouldCancel`/`onProgress` (below) are caller-supplied UI hooks (2026-08-14, Import Progress
+    // screen) — a bug in either must never itself abort the write loop or escape this function. Without
+    // this guard, a throwing callback would propagate straight out of `writeRows`/
+    // `writeImportBatchDetailed`, silently truncating however many rows hadn't been attempted yet (a
+    // real, if lower-severity, sibling of the "caller's importPhase state gets stuck" bug this same day's
+    // round fixed at the `commitAndImport()` call-site level — belt-and-suspenders here, not redundant:
+    // this stops the write itself from being cut short, independent of whatever the caller does with the
+    // exception). Deliberately swallowed with no logging — `no-console` is one of CLAUDE.md's
+    // non-negotiable ESLint rules here, never disabled with an inline comment — the write loop simply
+    // continues writing the rest of `writable` as if this one signal was never sent; the caller's own
+    // (separately hardened) exception handling is the right place for anything genuinely worth surfacing
+    // to the user.
+    let shouldStop = false;
+    try {
+      shouldStop = options?.shouldCancel?.() ?? false;
+    } catch {
+      // Deliberately swallowed — see the doc comment above; treat a throwing `shouldCancel` as "don't
+      // stop", the same as if it simply hadn't been provided at all.
+    }
+    if (shouldStop) {
+      cancelled = true;
+      break;
+    }
     const id = crypto.randomUUID();
     try {
       const now = Date.now();
@@ -70,26 +137,69 @@ export async function writeImportBatch(rows: ResolvedPreviewRow[]): Promise<Impo
         updatedAt: now
       });
       succeededIds.push(id);
+      succeededRows.push({ row, expenseId: id });
     } catch (err) {
       failed.push({ row, error: err instanceof Error ? err.message : 'Could not save this row' });
     }
+    completed++;
+    const now = Date.now();
+    if (options?.onProgress && (completed === total || now - lastProgressAt >= 80)) {
+      lastProgressAt = now;
+      try {
+        options.onProgress(completed, total);
+      } catch {
+        // Deliberately swallowed — see the `shouldCancel` guard's doc comment above.
+      }
+    }
   }
 
-  let activityLogId: string | null = null;
-  if (succeededIds.length > 0) {
-    // Awaited (not the usual fire-and-forget logActivity()) — undoImportBatch() may be called
-    // immediately after this resolves, and needs the entry to definitely already exist.
-    activityLogId = await logActivityAwaited({
-      action: 'IMPORT',
-      entityType: 'expense',
-      entityId: 'import',
-      summary: `Imported ${succeededIds.length} transaction${succeededIds.length === 1 ? '' : 's'}`,
-      entityCount: succeededIds.length,
-      snapshot: JSON.stringify(succeededIds)
-    });
-  }
+  return { succeededIds, succeededRows, failed, cancelled };
+}
 
+async function logImportBatch(succeededIds: string[]): Promise<string | null> {
+  if (succeededIds.length === 0) return null;
+  // Awaited (not the usual fire-and-forget logActivity()) — undoImportBatch() may be called
+  // immediately after this resolves, and needs the entry to definitely already exist.
+  return logActivityAwaited({
+    action: 'IMPORT',
+    entityType: 'expense',
+    entityId: 'import',
+    summary: `Imported ${succeededIds.length} transaction${succeededIds.length === 1 ? '' : 's'}`,
+    entityCount: succeededIds.length,
+    snapshot: JSON.stringify(succeededIds)
+  });
+}
+
+/** Writes every non-duplicate, non-skipped row, tolerating individual failures. */
+export async function writeImportBatch(rows: ResolvedPreviewRow[]): Promise<ImportWriteResult> {
+  const { succeededIds, failed } = await writeRows(rows);
+  const activityLogId = await logImportBatch(succeededIds);
   return { succeededCount: succeededIds.length, failed, activityLogId };
+}
+
+export interface ImportWriteDetailedResult extends ImportWriteResult {
+  /** Every row that WAS successfully written, paired with its newly-created expense id — needed by
+   *  apps/mobile's new Categories-stage IOU commit step (resolving a `Person` + writing a
+   *  `ledger_entries` row per IOU-mandatory-category row, mirroring `useBankImport.ts`'s existing
+   *  commit-time equivalent). Absent from `writeImportBatch` since nothing needed it before this. */
+  succeededRows: { row: ResolvedPreviewRow; expenseId: string }[];
+  /** `true` when `options.shouldCancel` stopped the write loop early (2026-08-14, Import Progress
+   *  screen) — whatever succeeded before that point is still durably written and still reflected in
+   *  `succeededCount`/`succeededRows`; this only signals that the REST of `rows` was never attempted. */
+  cancelled: boolean;
+}
+
+/** Same write as `writeImportBatch`, plus each succeeded row's created expense id (2026-08-14, CSV-
+ *  import redesign Chunk B) and, as of the same day's Import Progress screen (§14 item 8), optional live
+ *  progress/cancellation — a NEW, additive sibling, not a modification of `writeImportBatch` itself
+ *  (which `apps/web-react`'s frozen `useImport.ts` calls directly and keeps calling unchanged). */
+export async function writeImportBatchDetailed(
+  rows: ResolvedPreviewRow[],
+  options?: WriteRowsOptions
+): Promise<ImportWriteDetailedResult> {
+  const { succeededIds, succeededRows, failed, cancelled } = await writeRows(rows, options);
+  const activityLogId = await logImportBatch(succeededIds);
+  return { succeededCount: succeededIds.length, failed, activityLogId, succeededRows, cancelled };
 }
 
 /** Undoes a whole import batch: fetches the full expense records (not just ids — needed so the

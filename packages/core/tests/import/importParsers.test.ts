@@ -143,6 +143,31 @@ describe('custom format (guessed mapping + parseWithMapping)', () => {
   });
 });
 
+// A row shaped like the real MoneyView rows found 2026-08-14 with a literal "null" string (not a
+// genuinely blank cell) in Merchant/Receiver/Sender and Notes, plus a populated " Payment Type" column.
+const MONEYVIEW_NULL_LITERAL_CSV = [
+  'Date,Type,SubType,Txn Type, Payment Type,Merchant/Receiver/Sender,Category,Bank Name,Account Id,Account Type,Credit,Debit,Balance,Outstanding,Available Limit,Notes',
+  '2022/Nov/05 10:00:00,debit-transaction,expense,regular,upi,null,Groceries,HDFC,HDFC-x1234,bank,0,120,0,0,0,null'
+].join('\n');
+
+describe('parseByFormat — moneyview null-like literals and payment mode (2026-08-14 fixes)', () => {
+  it('falls back to the category instead of showing the literal "null" as the description', () => {
+    const { rows, rejected } = parseByFormat(MONEYVIEW_NULL_LITERAL_CSV, 'moneyview');
+    expect(rejected).toHaveLength(0);
+    expect(rows[0]?.description).toBe('Groceries');
+  });
+
+  it('omits notes entirely rather than storing the literal "null" string', () => {
+    const { rows } = parseByFormat(MONEYVIEW_NULL_LITERAL_CSV, 'moneyview');
+    expect(rows[0]?.notes).toBeUndefined();
+  });
+
+  it('maps the " Payment Type" column to paymentMode (previously entirely unmapped for this format)', () => {
+    const { rows } = parseByFormat(MONEYVIEW_NULL_LITERAL_CSV, 'moneyview');
+    expect(rows[0]?.paymentMode).toBe('upi');
+  });
+});
+
 describe('rejected rows are surfaced, not silently dropped', () => {
   it('reports a reason for a row missing a required field', () => {
     const csv = [

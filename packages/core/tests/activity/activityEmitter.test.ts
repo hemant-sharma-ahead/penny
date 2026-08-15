@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from '@/core/db/schema';
 import { keystore } from '@/core/crypto/keystore';
 import { initialize } from '@/core/crypto/securityManager';
-import { logActivity, subscribeActivity } from '@/core/db/activityLog';
+import { logActivity, logActivityAwaited, subscribeActivity } from '@/core/db/activityLog';
 
 const PASS = 'correct horse battery staple';
 const PIN = '123456';
@@ -38,5 +38,19 @@ describe('subscribeActivity', () => {
 
     unsub1();
     unsub2();
+  });
+
+  // 2026-08-14 (manual-testing investigation — Timeline missing a CSV import's IMPORT entry until
+  // remounted) — CSV import specifically uses `logActivityAwaited`, never plain `logActivity`; must fire
+  // the same subscriber signal, since that's the exact mechanism `useActivityLog.ts` now relies on to
+  // keep an already-mounted Timeline fresh (see its own doc comment on `subscribeActivity`).
+  it('notifies subscribers on logActivityAwaited too, not just the fire-and-forget logActivity', async () => {
+    const seen: string[] = [];
+    const unsub = subscribeActivity((e) => seen.push(e.action));
+
+    await logActivityAwaited({ action: 'IMPORT', entityType: 'expense', entityId: 'import', summary: 'Imported 3' });
+    expect(seen).toEqual(['IMPORT']);
+
+    unsub();
   });
 });

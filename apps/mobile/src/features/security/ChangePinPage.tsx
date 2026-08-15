@@ -27,9 +27,10 @@ const isSixDigits = (v: string) => /^\d{6}$/.test(v);
  * 2026-07-25 rendering-model parity re-sweep: a locked-out user could press back and exit the forced-reset
  * screen entirely, bypassing recovery). Fixed with a `BackHandler` listener that swallows the event
  * whenever `forced` is true. The global header's back-chevron (`MainTabs`' `HeaderLeft`, since the
- * 2026-08-01 chrome consolidation) is also hidden whenever `forced` is true — see `MainTabs.tsx`'s
- * `pinResetForced` gate — so this screen registers no back handler at all while forced, matching web's
- * intent that there's nothing to go back to during a forced reset.
+ * 2026-08-01 chrome consolidation) is also hidden whenever `forced` is true — see `HeaderBackContext.tsx`'s
+ * `chromeLocked` flag (renamed from `pinResetForced` 2026-08-14, once the Import Progress screen became
+ * a second consumer of this exact mechanism) — so this screen registers no back handler at all while
+ * forced, matching web's intent that there's nothing to go back to during a forced reset.
  *
  * `handleSubmitViaPassphrase`/`handleSubmitViaPin` wrap their `securityManager` call in try/catch
  * (2026-07-25, found via audit): previously a thrown error (as opposed to a resolved failure `status`)

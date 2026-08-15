@@ -106,6 +106,13 @@ Phase 1.
   an unbounded render of a large real file is a native crash risk even when parsing itself
   is instant. Full writeup + the real crash this codifies: `docs/ARCHITECTURE.md`'s
   2026-08-13 entry.
+- Any screen that locks navigation for the duration of an operation (back button/hardware
+  back/swipe gesture disabled while a write is in flight) must guarantee that lock releases
+  on every exit path — success, user cancellation, **and an unexpected exception** — via
+  `try/catch/finally`, never just the happy path. A bare `try` with no `catch` around such an
+  operation leaves the user stranded with no way to leave, short of force-quitting the app,
+  the moment anything throws. Full writeup + the real bug this codifies: `docs/ARCHITECTURE.md`'s
+  2026-08-14 CSV Import redesign entry.
 
 ## Working style
 
@@ -118,6 +125,11 @@ above, which govern what the code must do.
   real compile/type/lint/test gates (those aren't visual verification). If launching an
   app/emulator is itself the requested task (not verification of a change), that's fine —
   just stop short of screenshotting it.
+- **One HTML mockup file per discussion, never one file per screen/component.** When
+  proposing mockups (`docs/mockups/proposals/`), consolidate every screen/piece belonging to
+  one design discussion into a single `<topic>-vN.html` — distinct labeled sections with
+  in-page anchor nav — rather than a separate file per screen. This applies whether
+  producing mockups directly or delegating to the `ui-designer` agent.
 - **Give proactive, opinionated design/product input** — on any "what do you think?" or
   "should we do X?" question, lead with a real recommendation and the concrete scenario
   where the literal ask breaks, not a neutral list of options. Unsolicited-but-grounded

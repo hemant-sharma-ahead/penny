@@ -63,7 +63,16 @@ function sameNarrative(a: ParsedRow, b: ParsedRow): boolean {
   return norm(a.description) === norm(b.description) && note === norm(b.notes);
 }
 
-export function detectTransferPairs(rows: ParsedRow[]): TransferPair[] {
+/** Shared pairing loop — every gate (same amount within epsilon, opposite direction, two different
+ *  accounts, date within tolerance) is identical for every caller; only the final "does this actually
+ *  look like one transfer" signal varies, via `looksLikeTransfer`. Extracted 2026-08-14 so the new
+ *  `detectSelfAccountMovementPairs` below (redesign doc §7.1) can reuse the exact same conservative
+ *  pairing algorithm with a broader signal, without duplicating it — `detectTransferPairs`'s own
+ *  behavior is unchanged (it calls this with the exact same signal it always used). */
+function findPairsBySignal(
+  rows: ParsedRow[],
+  looksLikeTransfer: (a: ParsedRow, b: ParsedRow) => boolean
+): TransferPair[] {
   const used = new Set<number>();
   const pairs: TransferPair[] = [];
 
@@ -83,8 +92,7 @@ export function detectTransferPairs(rows: ParsedRow[]): TransferPair[] {
       const oppositeDirection =
         (a.type === 'expense' && b.type === 'income') || (a.type === 'income' && b.type === 'expense');
       if (!oppositeDirection) continue;
-      const looksLikeTransfer = isLikelyTransfer(a.categoryName) || isLikelyTransfer(b.categoryName);
-      if (!looksLikeTransfer && !sameNarrative(a, b)) continue;
+      if (!looksLikeTransfer(a, b)) continue;
 
       const outgoingIsA = a.type === 'expense';
       const outgoing = outgoingIsA ? a : b;
@@ -105,4 +113,66 @@ export function detectTransferPairs(rows: ParsedRow[]): TransferPair[] {
   }
 
   return pairs;
+}
+
+export function detectTransferPairs(rows: ParsedRow[]): TransferPair[] {
+  return findPairsBySignal(
+    rows,
+    (a, b) => isLikelyTransfer(a.categoryName) || isLikelyTransfer(b.categoryName) || sameNarrative(a, b)
+  );
+}
+
+// ─── Self-account-movement generalization (2026-08-14, redesign doc §7.1) ─────────────────────────────
+// Re-reading the category list surfaced that wallet top-ups, cash withdrawal, and CC bill payment are
+// all the same real-world shape — money moving from one of the user's own accounts into another of
+// their own accounts. One general detector, not three/four bespoke heuristics, per the doc's explicit
+// decision. Lives alongside `detectTransferPairs` as an extension of it (reusing `findPairsBySignal`
+// above), not a parallel system — but is its OWN new function, never a modification of
+// `detectTransferPairs` itself, so `apps/web-react`'s frozen direct call to that function keeps its
+// exact existing behavior.
+
+/** Keywords for a self-account movement NOT already covered by `TRANSFER_KEYWORDS`
+ *  (importCategoryResolution.ts's `isLikelyTransfer`) — cash withdrawal and CC bill payment phrasing.
+ *  Kept as its own list (not an addition to `TRANSFER_KEYWORDS`) for the same reason
+ *  `isLikelyIouSuspect`/`isLikelyInvestmentMovement` are their own lists in importCategoryResolution.ts:
+ *  `isLikelyTransfer` feeds `resolveCategories()`, which `apps/web-react` calls directly — broadening
+ *  that shared list would silently change web's category-resolution suggestions too. This list only
+ *  ever feeds `detectSelfAccountMovementPairs` below, used exclusively by apps/mobile's new Categories
+ *  wizard stage. */
+const SELF_ACCOUNT_MOVEMENT_KEYWORDS = [
+  'cash withdrawal',
+  'atm withdrawal',
+  'cash wdl',
+  'wallet recharge',
+  'wallet reload',
+  'wallet load',
+  'add money',
+  'credit card bill',
+  'credit card payment',
+  'cc bill',
+  'cc payment',
+  'card bill payment'
+];
+
+export function isLikelySelfAccountMovement(categoryName: string): boolean {
+  const lower = categoryName.toLowerCase().trim();
+  return SELF_ACCOUNT_MOVEMENT_KEYWORDS.some((k) => lower.includes(k));
+}
+
+/** Same conservative pairing algorithm as `detectTransferPairs` (identical amount/date-window/opposite-
+ *  direction gates — see this file's header comment), but with a BROADER "does this look like one
+ *  movement" signal: `isLikelyTransfer` OR `isLikelySelfAccountMovement` on either leg, OR
+ *  `sameNarrative` — so a cash-withdrawal or CC-bill-payment pair auto-pairs the same way a
+ *  "Balance Correction"-style row already does today. Mobile's new Categories stage calls this instead
+ *  of `detectTransferPairs` for its own pairing needs; `detectTransferPairs` itself is unchanged. */
+export function detectSelfAccountMovementPairs(rows: ParsedRow[]): TransferPair[] {
+  return findPairsBySignal(
+    rows,
+    (a, b) =>
+      isLikelyTransfer(a.categoryName) ||
+      isLikelyTransfer(b.categoryName) ||
+      isLikelySelfAccountMovement(a.categoryName) ||
+      isLikelySelfAccountMovement(b.categoryName) ||
+      sameNarrative(a, b)
+  );
 }

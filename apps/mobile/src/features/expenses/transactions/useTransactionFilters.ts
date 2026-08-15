@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Expense, ExpenseCategory, TransactionType } from '@/core/db/types';
 import { normalizeHashtag } from '~/context/EventModeContext';
 import { toMonthYearKey } from '@/lib/formatters';
@@ -24,6 +24,16 @@ export function useTransactionFilters(
   mismatchedTxnIds: Set<string>
 ) {
   const [search, setSearch] = useState('');
+  // The search box itself stays bound to `search` (updated synchronously on every keystroke, so typing
+  // still feels instant) — only the expensive re-filter below is decoupled from it, via this debounced
+  // shadow copy. Without this, every keystroke re-ran a full filter+sort pass over the entire (up to
+  // 4,000+ row) expense array (found 2026-08-14, on a heavily-imported account). 200ms is comfortably
+  // above per-keystroke interval for real typing but still reads as immediate once typing pauses.
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 200);
+    return () => clearTimeout(t);
+  }, [search]);
   const [typeFilter, setTypeFilter] = useState<'all' | TransactionType>('all');
   const [accountFilters, setAccountFilters] = useState<Set<string>>(new Set());
   const [parentCategoryFilters, setParentCategoryFilters] = useState<Set<string>>(new Set());
@@ -43,7 +53,7 @@ export function useTransactionFilters(
     (paymentModeMismatchOnly ? 1 : 0);
 
   const filteredExpenses = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     return expenses.filter((e) => {
       if (typeFilter !== 'all' && (e.type ?? 'expense') !== typeFilter) return false;
       if (accountFilters.size > 0 && !accountFilters.has(e.accountId ?? '')) return false;
@@ -87,7 +97,7 @@ export function useTransactionFilters(
     monthFilter,
     paymentModeMismatchOnly,
     mismatchedTxnIds,
-    search,
+    debouncedSearch,
     categoryMap
   ]);
 

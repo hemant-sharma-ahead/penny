@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
 import type { ViewStyle } from 'react-native';
-import { ActivityIndicator, Pressable, Text } from 'react-native';
+import { Pressable, Text } from 'react-native';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { PennyLoader } from './PennyLoader';
 
 type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -82,7 +83,10 @@ export function Button({
       style={[backgroundColor ? { backgroundColor } : undefined, style]}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={textColor} />
+        // Fixed `sm` (rotate) treatment regardless of Button's own `size` — PennyLoader only exposes
+        // `sm`/`lg` (per the approved mockup, size doubles as the animation-style selector, not a
+        // freely-scalable dial), and the button-inline case is always the small/rotate one.
+        <PennyLoader size="sm" />
       ) : (
         icon && <Icon name={icon} size={iconSize} color={textColor} />
       )}

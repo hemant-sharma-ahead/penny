@@ -1,0 +1,2097 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Expense Import Redesign: full discussion, v1</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root { --bg: #0b0f14;
+        --surface: #161b22;
+        --surface2: #1c2128;
+        --surface3: #20262f;
+        --text: #e6edf3;
+        --text2: #8b949e;
+        --text3: #6e7681;
+        --border: #2d333b;
+        --borderStrong: #444c56;
+        --primary: #00a86b;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --info: #3b82f6;
+        --neutral: #64748b; }
+      * { box-sizing: border-box; }
+      body { margin: 0;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #05070a;
+        color: #e6edf3;
+        -webkit-font-smoothing: antialiased; }
+      h1 { text-align: center;
+        margin: 30px 16px 4px;
+        font-size: 22px;
+        color: #fff; }
+      .sub { text-align: center;
+        margin: 0 16px 20px;
+        color: #9aa5b1;
+        font-size: 14px;
+        max-width: 940px;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.65; }
+      .flowbar { display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 0 20px 10px; }
+      .flowbar a { font-size: 10.5px;
+        font-weight: 700;
+        color: #9aa5b1;
+        background: #141a22;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 5px 11px;
+        text-decoration: none; }
+      .flowbar a:hover { color: #fff;
+        border-color: #3a4451; }
+      .sectiontitle { text-align: center;
+        font-size: 15px;
+        font-weight: 800;
+        color: #fff;
+        margin: 48px 0 4px;
+        scroll-margin-top: 20px; }
+      .stepnum { display: inline-flex;
+        width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        background: var(--primary);
+        color: #04150d;
+        font-size: 11px;
+        font-weight: 800;
+        align-items: center;
+        justify-content: center;
+        margin-right: 6px; }
+      .sectionsub { text-align: center;
+        color: #9aa5b1;
+        font-size: 12.5px;
+        max-width: 820px;
+        margin: 0 auto 18px;
+        line-height: 1.65; }
+      .gallery { display: flex;
+        flex-wrap: wrap;
+        gap: 36px 24px;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 16px 20px 10px; }
+      .frame-wrap { width: 292px; }
+      .vtitle { font-size: 13px;
+        font-weight: 800;
+        margin: 0 2px 3px;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 6px; }
+      .vtitle .tag { font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 2px 7px;
+        border-radius: 999px;
+        background: #232b35;
+        color: #9aa5b1; }
+      .vtitle .tag.cur { background: #3a2412;
+        color: #f0b060; }
+      .vtitle .tag.rec { background: #123524;
+        color: #7ee6b8; }
+      .vsub { font-size: 11px;
+        color: #9aa5b1;
+        margin: 0 2px 12px;
+        line-height: 1.55; }
+      .phone { width: 292px;
+        background: var(--bg);
+        border-radius: 30px;
+        border: 8px solid #1c2128;
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5); }
+      .statusbar { height: 16px;
+        background: var(--bg);
+        flex-shrink: 0; }
+      .header { height: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+        flex-shrink: 0;
+        border-bottom: 1px solid var(--border); }
+      .header .t { font-size: 13px;
+        font-weight: 700;
+        color: #fff; }
+      .header .t .s { display: block;
+        font-size: 9px;
+        font-weight: 600;
+        color: var(--text3);
+        margin-top: 1px; }
+      .content { padding: 10px 12px;
+        overflow-y: auto; }
+      /* stage stepper */
+      .stagebar { padding: 10px 12px 8px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0; }
+      .steprow { display: flex;
+        align-items: center;
+        gap: 4px; }
+      .stepseg { flex: 1;
+        height: 4px;
+        border-radius: 3px;
+        background: var(--surface3); }
+      .stepseg.done { background: var(--success); }
+      .stepseg.current { background: var(--primary); }
+      .stepmeta { display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 7px; }
+      .stepmeta .lab { font-size: 10.5px;
+        font-weight: 800;
+        color: #fff; }
+      .stepmeta .n { font-size: 9.5px;
+        font-weight: 700;
+        color: var(--text3); }
+      .draftbadge { display: flex;
+        align-items: center;
+        gap: 3px;
+        padding: 3px 7px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--surface2);
+        flex-shrink: 0; }
+      .draftbadge i { font-size: 9px;
+        color: var(--text3); }
+      .draftbadge span { font-size: 7.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--text3); }
+      /* dot-stepper variant */
+      .dotrow { display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        padding: 4px 0 2px; }
+      .dot { width: 7px;
+        height: 7px;
+        border-radius: 4px;
+        background: var(--surface3); }
+      .dot.done { background: var(--success); }
+      .dot.current { background: var(--primary);
+        width: 16px; }
+      .dotline { width: 12px;
+        height: 1.5px;
+        background: var(--border); }
+      .dotlabel { text-align: center;
+        font-size: 10.5px;
+        font-weight: 800;
+        color: #fff;
+        margin-top: 6px; }
+      .dotsub { text-align: center;
+        font-size: 9px;
+        color: var(--text3);
+        margin-top: 1px; }
+      /* generic card/tile bits reused from other import mockups */
+      .card { background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 13px;
+        padding: 10px 11px;
+        margin-bottom: 8px; }
+      .card .t1 { font-size: 11.5px;
+        font-weight: 700;
+        color: var(--text); }
+      .card .t2 { font-size: 9.5px;
+        color: var(--text3);
+        margin-top: 2px;
+        line-height: 1.5; }
+      .section-wizard .rowline { display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 0;
+        border-top: 1px dashed var(--border); }
+      .section-wizard .rowline:first-child { border-top: none; }
+      .rowic { width: 22px;
+        height: 22px;
+        border-radius: 7px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 10px;
+        font-weight: 800; }
+      .rowbody { flex: 1;
+        min-width: 0; }
+      .rowbody .t1 { font-size: 11px;
+        font-weight: 700;
+        color: var(--text); }
+      .rowbody .t2 { font-size: 9px;
+        color: var(--text3);
+        margin-top: 1px; }
+      .arrowback { display: flex;
+        align-items: center;
+        gap: 6px;
+        justify-content: center;
+        font-size: 10px;
+        color: var(--text2);
+        margin: 8px 0; }
+      .arrowback i { color: var(--primary); }
+      .legend { max-width: 940px;
+        margin: 14px auto 20px;
+        background: #0e141b;
+        border: 1px solid #1e2733;
+        border-radius: 16px;
+        padding: 22px 26px;
+        color: #c3ccd6;
+        font-size: 13.5px;
+        line-height: 1.75; }
+      .legend h2 { font-size: 15px;
+        margin: 22px 0 8px;
+        color: #fff; }
+      .legend h2:first-child { margin-top: 0; }
+      .legend b { color: #fff; }
+      .legend code { background: #1c2128;
+        padding: 1px 6px;
+        border-radius: 5px;
+        font-size: 12px; }
+      .legend ul { margin: 6px 0 0;
+        padding-left: 20px; }
+      .legend li { margin-bottom: 6px; }
+      .recommend { max-width: 940px;
+        margin: 0 auto 20px;
+        background: #0f2419;
+        border: 1px solid #1c3d2a;
+        border-radius: 16px;
+        padding: 18px 22px;
+        color: #d7f5e6;
+        font-size: 13.5px;
+        line-height: 1.7; }
+      .recommend b { color: #7ee6b8; }
+      .openq { max-width: 940px;
+        margin: 0 auto 44px;
+        background: #1a1409;
+        border: 1px solid #3d2f1c;
+        border-radius: 16px;
+        padding: 18px 22px;
+        color: #f5e6d7;
+        font-size: 13.5px;
+        line-height: 1.7; }
+      .openq b { color: #f0b060; }
+      .openq ol { margin: 6px 0 0;
+        padding-left: 20px; }
+      .openq li { margin-bottom: 8px; }
+      .decided { max-width: 940px;
+        margin: 0 auto 44px;
+        background: #0d1b2a;
+        border: 1px solid #1c3350;
+        border-radius: 16px;
+        padding: 18px 22px;
+        color: #d7e6f5;
+        font-size: 13.5px;
+        line-height: 1.7; }
+      .decided b { color: #8ec4f0; }
+      .decided ol { margin: 6px 0 0;
+        padding-left: 20px; }
+      .decided li { margin-bottom: 8px; }
+      .content.tall { height: 580px; }
+      .content.med { height: 440px; }
+      .stagebar { padding: 8px 12px 7px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+      /* account card (ports AccountsSection.tsx) */
+      .acard { border-radius: 13px; padding: 10px 11px; margin-bottom: 9px; border: 1.5px solid; }
+      .acard.ready { border-color: var(--success); background: rgba(16, 185, 129, 0.08); }
+      .acard.attn { border-color: var(--warning); background: rgba(245, 158, 11, 0.14); }
+      .ahead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      .ahead .name { font-size: 11.5px; font-weight: 700; color: var(--text); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .ahead .cnt { font-size: 9.5px; color: var(--text3); flex-shrink: 0; }
+      .sugbadge { display: flex; align-items: center; gap: 5px; margin-top: 7px; }
+      .sugbadge span { font-size: 10px; color: var(--success); font-weight: 600; }
+      .sugbadge.card span { color: var(--info); }
+      .pillrow2 { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
+      .pill2 { display: flex; align-items: center; gap: 4px; border-radius: 999px; padding: 6px 10px; font-size: 10px; font-weight: 700; border: 1px solid var(--border); color: var(--text2); background: transparent; }
+      .pill2.active { background: var(--primary); border-color: var(--primary); color: #04150d; }
+      .pill2.info { background: rgba(59,130,246,0.15); border-color: var(--info); color: #bcd4f5; }
+      .kindpill { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 6px 11px; font-size: 10px; font-weight: 700; background: var(--surface2); border: 1px solid var(--border); color: var(--text2); margin-top: 8px; }
+      .blf { position: relative; padding-top: 9px; margin-top: 6px; }
+      .blf .lab { position: absolute; left: 8px; top: -1px; background: var(--surface); padding: 0 4px; font-size: 8px; font-weight: 700; color: var(--text3); border-radius: 4px; z-index: 2; }
+      .blf .fld { border: 1px solid var(--border); border-radius: 10px; padding: 8px 9px; font-size: 10.5px; color: var(--text); background: var(--surface2); }
+      .blf2 { display: flex; gap: 7px; }
+      .blf2 .blf { flex: 1; }
+      .stats { font-size: 9.5px; color: var(--text2); margin-top: 7px; }
+      .stats b.rd { color: var(--success); }
+      .stats b.at { color: var(--warning); }
+      .cardtag { display: inline-flex; align-items: center; gap: 4px; background: rgba(59,130,246,0.15); border-radius: 6px; padding: 2px 7px; margin-top: 6px; }
+      .cardtag i { color: var(--info); font-size: 10px; }
+      .cardtag span { font-size: 9px; font-weight: 700; color: #bcd4f5; }
+      /* category resolution row (collapsed, no row-list — that's the Transactions stage now) */
+      .ctile { border-radius: 13px; padding: 9px 10px; margin-bottom: 8px; border: 1.5px solid; }
+      .ctile.ready { border-color: var(--success); background: rgba(16, 185, 129, 0.08); }
+      .ctile.attn { border-color: var(--warning); background: rgba(245, 158, 11, 0.14); }
+      .chead { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+      .chead .name { font-size: 11.5px; font-weight: 700; color: var(--text); }
+      .chead .arrow { color: var(--text3); font-size: 10px; }
+      .chead .target { font-size: 11.5px; font-weight: 700; color: var(--text); flex: 1; min-width: 0; }
+      .chead .cnt { font-size: 9px; font-weight: 700; color: var(--text2); background: var(--surface3); border-radius: 999px; padding: 2px 7px; flex-shrink: 0; }
+      .choose { border: 1px dashed var(--text3); border-radius: 999px; padding: 1px 8px; font-size: 10px; font-style: italic; color: var(--text3); }
+      .dirtag { font-size: 9px; font-weight: 700; color: var(--text3); background: var(--surface3); border-radius: 6px; padding: 1px 6px; }
+      /* group header for counterparty split (parent label + children indented) */
+      .grouplabel { display: flex; align-items: center; gap: 6px; margin: 14px 2px 6px; }
+      .grouplabel .name { font-size: 11.5px; font-weight: 800; color: #fff; }
+      .grouplabel .cnt { font-size: 9px; color: var(--text3); }
+      .groupsub { font-size: 9.5px; color: var(--text3); margin: -3px 2px 8px; line-height: 1.5; }
+      .subwrap { margin-left: 10px; border-left: 2px solid var(--border); padding-left: 9px; }
+      .confbadge { display: inline-flex; align-items: center; gap: 3px; border-radius: 999px; padding: 2px 7px; flex-shrink: 0; }
+      .confbadge.high { background: rgba(16,185,129,0.16); }
+      .confbadge.high i, .confbadge.high span { color: var(--success); }
+      .confbadge.low { background: rgba(100,116,139,0.18); }
+      .confbadge.low i, .confbadge.low span { color: var(--text2); }
+      .confbadge i { font-size: 9px; }
+      .confbadge span { font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; }
+      .catbtn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 999px; padding: 7px 0; font-size: 10.5px; font-weight: 700; border: 1px solid var(--border); color: var(--text2); background: var(--surface2); margin-top: 8px; }
+      .catbtn i { font-size: 12px; }
+      .kindgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+      .kindtile { border: 1.5px solid var(--border); border-radius: 11px; padding: 9px 6px; display: flex; flex-direction: column; align-items: center; gap: 4px; background: var(--surface2); }
+      .kindtile.sel { border-color: var(--primary); background: rgba(0, 168, 107, 0.12); }
+      .kindtile i { font-size: 15px; color: var(--text2); }
+      .kindtile.sel i { color: var(--primary); }
+      .kindtile span { font-size: 9.5px; font-weight: 700; color: var(--text2); text-align: center; }
+      .kindtile.sel span { color: var(--primary); }
+      .modalbackdrop { padding: 14px 10px; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.55); }
+      .modalcard { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+      .modalhead { display: flex; align-items: center; justify-content: space-between; padding: 13px 14px 8px; }
+      .modalhead .t { font-size: 12.5px; font-weight: 800; color: #fff; }
+      .modalhead .x { color: var(--text3); font-size: 14px; }
+      .modalbody { padding: 2px 14px 12px; display: flex; flex-direction: column; gap: 9px; overflow-y: auto; }
+      .modalfoot { border-top: 1px solid var(--border); padding: 10px 14px; }
+      .btn { display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 11px; padding: 10px 0; font-size: 12px; font-weight: 700; }
+      .btn.pri { background: var(--primary); color: #04150d; }
+      .btn.pri.off { background: var(--surface2); color: var(--text3); }
+      .fieldlabel { font-size: 9.5px; font-weight: 700; color: var(--text2); margin-top: 2px; }
+      .bucketcard { border-radius: 14px; border: 1px solid var(--border); background: var(--surface); overflow: hidden; margin-bottom: 10px; }
+      .bhead { display: flex; align-items: center; gap: 8px; padding: 11px; }
+      .bdot { width: 7px; height: 7px; border-radius: 4px; flex-shrink: 0; }
+      .bhead .t { font-size: 12.5px; font-weight: 800; color: #fff; flex: 1; min-width: 0; }
+      .bhead .n { font-size: 9.5px; font-weight: 800; background: var(--surface2); color: var(--text2); border-radius: 999px; padding: 2px 8px; flex-shrink: 0; }
+      .bbody { border-top: 1px solid var(--border); padding: 9px 10px 10px; }
+      .tile { border-radius: 13px; padding: 9px 10px; margin-bottom: 8px; border: 1.5px solid; }
+      .tile.ready { border-color: var(--success); background: rgba(16, 185, 129, 0.08); }
+      .tile.attn { border-color: var(--warning); background: rgba(245, 158, 11, 0.14); }
+      .tile.dup { border-color: var(--neutral); background: rgba(100, 116, 139, 0.14); }
+      .tile.skip { border-color: var(--text3); background: rgba(110, 118, 129, 0.1); }
+      .tilehead { display: flex; align-items: center; gap: 6px; }
+      .tilehead .name { font-size: 11.5px; font-weight: 700; color: var(--text); }
+      .tilehead .arrow { color: var(--text3); font-size: 10px; }
+      .tilehead .target { font-size: 11.5px; font-weight: 700; color: var(--text); flex: 1; min-width: 0; }
+      .tilehead .cnt { font-size: 9px; font-weight: 700; color: var(--text2); background: var(--surface3); border-radius: 999px; padding: 2px 7px; flex-shrink: 0; }
+      /* capped, internally-scrolling row list (replaces "+N more" unbounded expand) */
+      .scrollcap { max-height: 128px; overflow-y: auto; border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 6px; }
+      .scrollcap::-webkit-scrollbar { width: 5px; }
+      .scrollcap::-webkit-scrollbar-thumb { background: var(--borderStrong); border-radius: 3px; }
+      .caphint { font-size: 8.5px; color: var(--text3); text-align: center; padding: 4px 0 2px; border-top: 1px dashed var(--border); margin-top: 2px; }
+      .section-txn .rowline { display: flex; align-items: center; gap: 7px; padding: 5px 0; border-top: 1px dashed var(--border); }
+      .section-txn .rowline:first-child { border-top: none; }
+      .rmid { flex: 1; min-width: 0; }
+      .rmid .t1 { font-size: 10.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .rmid .t2 { font-size: 8.8px; color: var(--text3); margin-top: 1px; }
+      .ramt { font-size: 10.5px; font-weight: 700; flex-shrink: 0; }
+      .catfooter { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; display: flex; gap: 6px; }
+      .catbtn.quiet { color: var(--text3); background: transparent; }
+      .rejectcard { border-radius: 12px; border: 1px dashed; border-color: rgba(245,158,11,0.45); background: rgba(245,158,11,0.1); padding: 9px 10px; margin-bottom: 8px; }
+      .rejectrow { font-size: 10.5px; color: var(--warning); margin-bottom: 6px; }
+      .rejectfield { border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; font-size: 10px; color: var(--text); background: var(--surface2); flex: 1; }
+      .rejectgrid { display: flex; gap: 6px; margin-bottom: 8px; }
+      .actionrow { display: flex; gap: 6px; }
+      .abtn { flex: 1; text-align: center; border-radius: 999px; padding: 7px 0; font-size: 10px; font-weight: 700; border: 1px solid var(--border); color: var(--text2); }
+      .abtn.pri { background: var(--warning); color: #241705; border-color: var(--warning); }
+      .abtn.discard { color: var(--text3); border-style: dashed; }
+      .dupcaption { font-size: 8.8px; color: var(--text3); margin-top: 1px; }
+      .undoaction { font-size: 9.5px; font-weight: 700; color: var(--info); flex-shrink: 0; }
+      /* re-added for §5's standing kind-picker override (reused from the categories-stage/IOU-panel mockups) */
+      .modalbackdrop { padding: 14px 10px; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.55); }
+      .catrow { display: flex; align-items: center; gap: 8px; border: 1px dashed var(--border); border-radius: 11px; padding: 8px 9px; }
+      .catrow .ic { width: 24px; height: 24px; border-radius: 7px; background: var(--surface3); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .catrow .lab { flex: 1; font-size: 10.5px; font-weight: 600; color: var(--text2); }
+      .catrow.filled { border-style: solid; border-color: var(--success); }
+      .catrow.filled .ic { background: rgba(16, 185, 129, 0.16); }
+      .catrow.filled .lab { color: var(--text); font-weight: 700; }
+      /* ExtraCircle port — circular icon button + caption, same visual as ExpenseForm/BulkCategorizeModal */
+      .circlerow { display: flex; justify-content: center; gap: 18px; padding-top: 2px; }
+      .circlewrap { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 64px; }
+      .circle { width: 42px; height: 42px; border-radius: 21px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: var(--surface2); }
+      .circle.active { border-color: var(--danger); background: rgba(239,68,68,0.12); }
+      .circle.active.borrowed { border-color: var(--success); background: rgba(16,185,129,0.12); }
+      .circle i { font-size: 17px; color: var(--text3); }
+      .circle.active i { color: var(--danger); }
+      .circle.active.borrowed i { color: var(--success); }
+      .circlecap { font-size: 9.5px; font-weight: 600; color: var(--text3); }
+      .circlecap.active { color: var(--text); }
+      .lockbadge { position: absolute; margin-top: -46px; margin-left: 30px; width: 13px; height: 13px; border-radius: 7px; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; }
+      .lockbadge i { font-size: 7px; color: var(--text3); }
+      .ioupanel { border-radius: 11px; border: 1px solid var(--border); background: var(--surface3); padding: 10px; display: flex; flex-direction: column; gap: 7px; }
+      .ioupanel.err { border-color: var(--danger); }
+      .ioufield { border: 1px solid var(--border); border-radius: 10px; padding: 8px 9px; font-size: 10.5px; color: var(--text); background: var(--surface2); }
+      .ioufield.err { border-color: var(--danger); color: var(--text3); }
+      .ioufield.filled { color: var(--text); }
+      .iouhelp { font-size: 9.5px; color: var(--text3); line-height: 1.5; }
+      .iouerr { font-size: 9.5px; color: var(--danger); font-weight: 600; }
+      .ioumatches { display: flex; flex-wrap: wrap; gap: 5px; }
+      .ioumatch { border-radius: 999px; padding: 5px 10px; font-size: 9.5px; font-weight: 700; border: 1px solid var(--border); color: var(--text2); background: var(--surface2); }
+
+      /* consolidation-specific chrome */
+      .topnav {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 4px 20px 28px;
+      }
+      .topnav a {
+        font-size: 12px;
+        font-weight: 800;
+        color: #fff;
+        background: #123524;
+        border: 1px solid #1c3d2a;
+        border-radius: 999px;
+        padding: 8px 16px;
+        text-decoration: none;
+      }
+      .topnav a:hover {
+        background: #16472e;
+      }
+      section[id^="section-"] {
+        border-top: 3px solid #1c2128;
+        margin-top: 30px;
+        padding-top: 6px;
+      }
+      .topline {
+        text-align: right;
+        max-width: 940px;
+        margin: 0 auto;
+        padding: 0 20px;
+      }
+      .totop {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: #9aa5b1;
+        text-decoration: none;
+      }
+      .totop:hover {
+        color: #fff;
+      }
+      .sectionh1 {
+        text-align: center;
+        margin: 6px 16px 4px;
+        font-size: 19px;
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+
+    <h1>Expense Import Redesign — full discussion, v1</h1>
+    <p class="sub">
+      Consolidated single-file mockup covering the whole <code>docs/plans/csv-expense-import-redesign.md</code>
+      discussion for <code>apps/mobile</code>'s CSV/Manual Expense Import — the new
+      <b>Upload → MapColumns → Accounts → Categories → Transactions → Done</b> wizard shape. Five sections below,
+      each grounded in the real, already-implemented screens it adapts or replaces: wizard stage chrome, the
+      Accounts stage (incl. the new card→account merge suggestion), the Categories stage (incl. direction-aware
+      resolution and the counterparty sub-split), the Transactions stage (capped row lists, Skipped bucket,
+      Discard, un-flag duplicates, and the standing kind-picker override), and the IOU lock-open panel ported into
+      <code>ImportCategorizeModal</code>. Every "— decided" / "— confirmed" tag below reflects a resolution from
+      user review; nothing is left open. Mobile-only — <code>apps/web-react</code> is frozen. Proposal only; no
+      app code touched yet.
+    </p>
+<div id="top" class="topnav">
+      <a href="#section-wizard">Wizard stage chrome</a>
+      <a href="#section-acct">Accounts stage</a>
+      <a href="#section-cat">Categories stage</a>
+      <a href="#section-txn">Transactions stage</a>
+      <a href="#section-iou">IOU lock-open panel</a>
+    </div>
+<section id="section-wizard" class="section-wizard">
+  <div class="topline"><a href="#top" class="totop">↑ back to top</a></div>
+  <h2 class="sectionh1">Expense Import — 6-stage wizard progress, v1</h2>
+
+    <p class="sub">
+      Grounded in <code>ImportPage.tsx</code>'s existing step orchestration (<code>backTarget</code> map,
+      <code>useRegisterHeaderScreen</code>) and <code>ReviewStep.tsx</code>'s own internal progress bar (the only
+      progress indicator that exists today, and only for its own 2 internal sections). Per
+      <code>docs/plans/csv-expense-import-redesign.md</code> §3, <code>ReviewStep</code> splits into three real stages:
+      <b>Upload → MapColumns → Accounts → Categories → Transactions → Done</b>. This mockup covers the cross-stage
+      chrome only — the stages' own bodies are covered in the sibling mockups. Mobile-only —
+      <code>apps/web-react</code> is frozen. Proposal only; no app code touched yet.
+    </p>
+    <div class="flowbar">
+      <a href="#wizard-s0">0. Current (today)</a><a href="#wizard-s1">1. Segmented progress bar</a
+      ><a href="#wizard-s2">2. Dot-stepper alternative</a><a href="#wizard-s3">3. Back-navigation</a
+      ><a href="#wizard-s4">4. Draft badge (header chrome)</a>
+    </div>
+
+    <!-- 0. CURRENT -->
+    <div class="sectiontitle" id="wizard-s0"><span class="stepnum">0</span>Current (today)</div>
+    <div class="sectionsub">
+      No cross-stage indicator exists at all — the header just shows "Import" as the subtitle under whatever step's
+      own title (e.g. "Review"). <code>ReviewStep.tsx</code> has its own progress bar, but it's scoped to that one
+      screen's 2 internal accordion sections ("Accounts" / "Preview"), not the whole wizard.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Review step, today <span class="tag cur">today</span></div>
+        <div class="vsub">
+          A user on step 3 of the current 4-step flow (Upload → MapColumns → Review → Done) has no way to see how
+          far through the whole import they are — only "0 of 2 sections done" for Review's own internal split.
+        </div>
+        <div class="phone" style="height: 210px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <i class="ti ti-arrow-left" style="color: #8b949e"></i
+            ><span class="t">Review<span class="s">Import</span></span><span style="width: 16px"></span>
+          </div>
+          <div class="content" style="padding: 0">
+            <div style="padding: 10px 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between">
+              <span style="font-size: 9.5px; color: var(--text2)">0 of 2 sections done</span>
+              <span style="font-size: 9.5px; color: var(--text2)">9,384 rows</span>
+            </div>
+            <div style="padding: 8px 12px; font-size: 10px; color: var(--text3)">
+              ↳ this is the ONLY progress indicator anywhere in the wizard today, and it only covers Review's own 2
+              sections (Accounts / Preview) — nothing tells the user "you're on stage 3 of import overall".
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1. SEGMENTED PROGRESS BAR (RECOMMENDED) -->
+    <div class="sectiontitle" id="wizard-s1">
+      <span class="stepnum">1</span>Segmented progress bar + "Step N of M · Stage" <span style="color:#7ee6b8; font-weight:700; font-size: 11px">— recommended</span>
+    </div>
+    <div class="sectionsub">
+      A slim multi-segment bar directly under the header (reusing <code>ReviewStep.tsx</code>'s existing
+      <code>ProgressBar</code> component and its exact visual weight), with a plain-language "Step N of M · Stage
+      name" line beneath. <b>M varies</b> — 5 for a known format (Upload → Accounts → Categories → Transactions →
+      Done, MapColumns skipped), 6 for Custom format (MapColumns included) — same conditional MapColumns skip
+      <code>ImportPage.tsx</code> already has today.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Known format (moneyview) — 5 steps <span class="tag rec">proposed</span></div>
+        <div class="vsub">On stage 3 of 5 — Accounts. MapColumns never shown for a recognized preset format. The "Draft" badge now lives in the header itself (right slot), not as a caption under the bar.</div>
+        <div class="phone" style="height: 230px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <i class="ti ti-arrow-left" style="color: #8b949e"></i
+            ><span class="t">Accounts<span class="s">Import</span></span>
+            <div class="draftbadge"><i class="ti ti-device-floppy"></i><span>Draft</span></div>
+          </div>
+          <div class="stagebar">
+            <div class="steprow">
+              <div class="stepseg done"></div>
+              <div class="stepseg current"></div>
+              <div class="stepseg"></div>
+              <div class="stepseg"></div>
+            </div>
+            <div class="stepmeta">
+              <span class="lab">Step 3 of 5 · Accounts</span><span class="n">9,384 rows</span>
+            </div>
+          </div>
+          <div class="content">
+            <div class="card">
+              <div class="t1">"HDFC Bank"</div>
+              <div class="t2">4,120 rows · needs a decision</div>
+            </div>
+            <div class="card">
+              <div class="t1">"Cash"</div>
+              <div class="t2">890 rows · needs a decision</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Custom format — 6 steps <span class="tag rec">proposed</span></div>
+        <div class="vsub">MapColumns present as its own segment — same conditional inclusion as today, just now counted. Header badge stays put regardless of step count.</div>
+        <div class="phone" style="height: 230px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <i class="ti ti-arrow-left" style="color: #8b949e"></i
+            ><span class="t">Categories<span class="s">Import</span></span>
+            <div class="draftbadge"><i class="ti ti-device-floppy"></i><span>Draft</span></div>
+          </div>
+          <div class="stagebar">
+            <div class="steprow">
+              <div class="stepseg done"></div>
+              <div class="stepseg done"></div>
+              <div class="stepseg done"></div>
+              <div class="stepseg current"></div>
+              <div class="stepseg"></div>
+            </div>
+            <div class="stepmeta">
+              <span class="lab">Step 4 of 6 · Categories</span><span class="n">79 categories</span>
+            </div>
+          </div>
+          <div class="content">
+            <div class="card">
+              <div class="t1">"Groceries"</div>
+              <div class="t2">2,214 rows · Existing → Groceries</div>
+            </div>
+            <div class="card">
+              <div class="t1">"A/c to A/c" (expense)</div>
+              <div class="t2">splits into 3 rows — see Categories-stage mockup</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Done step — bar completes, badge drops <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          Once committed the header's "Draft" badge disappears entirely (nothing left to caveat) and the bar
+          shows every segment filled/success-colored.
+        </div>
+        <div class="phone" style="height: 210px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <span class="t" style="margin-left: 4px">Done<span class="s">Import</span></span><span style="width: 16px"></span>
+          </div>
+          <div class="stagebar">
+            <div class="steprow">
+              <div class="stepseg done"></div>
+              <div class="stepseg done"></div>
+              <div class="stepseg done"></div>
+              <div class="stepseg done"></div>
+            </div>
+            <div class="stepmeta">
+              <span class="lab" style="color: var(--success)">Step 5 of 5 · Done</span><span class="n">Imported</span>
+            </div>
+          </div>
+          <div class="content">
+            <div class="card" style="border-color: var(--success); background: rgba(16,185,129,0.08)">
+              <div class="t1" style="color: var(--success)">9,102 transactions imported</div>
+              <div class="t2">18 discarded · 264 still unresolved — re-upload the file to pick those up next time.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. DOT-STEPPER ALTERNATIVE -->
+    <div class="sectiontitle" id="wizard-s2"><span class="stepnum">2</span>Alternative — dot-stepper with stage names</div>
+    <div class="sectionsub">
+      A more literal "stepper" — one dot per stage, current one wider/filled, connected by hairlines, stage name
+      + count as a caption beneath. More visually explicit about "6 discrete stages" than option 1's bar, but
+      takes noticeably more vertical space for the same information, and 6 dots + connecting lines get visually
+      tight on a 292px-wide phone frame (worse on smaller devices) — flagged as the tradeoff below.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Dot-stepper, stage 4 of 6 <span class="tag rec">alternative</span></div>
+        <div class="vsub">Every stage gets a literal dot — reads as "a sequence of steps" more explicitly than option 1.</div>
+        <div class="phone" style="height: 220px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <i class="ti ti-arrow-left" style="color: #8b949e"></i
+            ><span class="t">Categories<span class="s">Import</span></span>
+            <div class="draftbadge"><i class="ti ti-device-floppy"></i><span>Draft</span></div>
+          </div>
+          <div class="stagebar" style="border-bottom: 1px solid var(--border)">
+            <div class="dotrow">
+              <div class="dot done"></div><div class="dotline"></div>
+              <div class="dot done"></div><div class="dotline"></div>
+              <div class="dot done"></div><div class="dotline"></div>
+              <div class="dot current"></div><div class="dotline"></div>
+              <div class="dot"></div><div class="dotline"></div>
+              <div class="dot"></div>
+            </div>
+            <div class="dotlabel">Categories</div>
+            <div class="dotsub">Step 4 of 6</div>
+          </div>
+          <div class="content">
+            <div class="card"><div class="t1">"Groceries"</div><div class="t2">2,214 rows</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. BACK NAVIGATION -->
+    <div class="sectiontitle" id="wizard-s3"><span class="stepnum">3</span>Back-navigation extends today's exact mechanism</div>
+    <div class="sectionsub">
+      <code>ImportPage.tsx</code>'s <code>backTarget</code> map already handles this shape (upload → null,
+      mapColumns → upload, review → mapColumns-or-upload) — the same map just grows two more entries:
+      <code>categories → 'accounts'</code>, <code>transactions → 'categories'</code>. The global header's
+      back-chevron (already wired via <code>useRegisterHeaderScreen</code>) needs no new mechanism, just a
+      longer lookup table. Per §3.1, stepping back always freely edits in-memory state — there's no "already
+      written, now what" case, since nothing is written until the final commit.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Tapping back from Categories <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          Returns to Accounts with every prior decision (kind, merge acceptances, payment mode) exactly as left —
+          nothing to reconcile, since nothing was ever written to disk.
+        </div>
+        <div class="phone" style="height: 260px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <i class="ti ti-arrow-left" style="color: #fff"></i
+            ><span class="t">Categories<span class="s">Import</span></span>
+            <div class="draftbadge"><i class="ti ti-device-floppy"></i><span>Draft</span></div>
+          </div>
+          <div class="content">
+            <div class="arrowback"><i class="ti ti-arrow-back-up"></i> tap header back-chevron</div>
+            <div class="card" style="border-color: var(--primary)">
+              <div class="t1" style="color: var(--primary)">→ lands back on Accounts</div>
+              <div class="t2">
+                "HDFC Bank" still shows your earlier "New account" choice; the card→account merge you accepted
+                is still merged. Nothing resets.
+              </div>
+            </div>
+            <div class="card">
+              <div class="t1">Jump-forward also preserved</div>
+              <div class="t2">
+                Returning to Categories afterwards finds every resolution exactly as you left it too — editing a
+                draft mid-flow never loses work in either direction (§3.1).
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Jumping back to create a missing category <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          From Transactions, if a row needs a category that doesn't exist yet, back out to Categories, create it
+          (in memory), then return — it's now in the picker with a "new" badge (see Transactions-stage mockup).
+        </div>
+        <div class="phone" style="height: 260px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <i class="ti ti-arrow-left" style="color: #fff"></i
+            ><span class="t">Transactions<span class="s">Import</span></span>
+            <div class="draftbadge"><i class="ti ti-device-floppy"></i><span>Draft</span></div>
+          </div>
+          <div class="content">
+            <div class="rowline" style="border-top: none">
+              <div class="rowic" style="background: var(--surface3); color: var(--text3)"><i class="ti ti-corner-up-left"></i></div>
+              <div class="rowbody">
+                <div class="t1">1. Back to Categories</div>
+                <div class="t2">Create "Freelance Income" · Group: Income</div>
+              </div>
+            </div>
+            <div class="rowline">
+              <div class="rowic" style="background: var(--surface3); color: var(--text3)"><i class="ti ti-arrow-forward-up"></i></div>
+              <div class="rowbody">
+                <div class="t1">2. Forward to Transactions</div>
+                <div class="t2">"Freelance Income" now appears in the category picker, badged "new"</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. DRAFT BADGE (HEADER CHROME) -->
+    <div class="sectiontitle" id="wizard-s4">
+      <span class="stepnum">4</span>"Draft" badge — shared header chrome, not a repeated sentence
+      <span style="color:#8ec4f0; font-weight:700; font-size: 11px">— decided</span>
+    </div>
+    <div class="sectionsub">
+      <b style="color:#fff">Resolved:</b> a small, persistent badge in the shared stage-header chrome (the same
+      global header every pushed screen already uses for its back-chevron/title), visible across every mid-flow
+      stage — not a full sentence repeated on each screen. Sits in the header's right slot, replacing the empty
+      spacer today's header leaves there. Disappears on Upload (nothing exists to save yet) and Done (already
+      committed) — same two exceptions as the earlier caption-based design, just carried by the badge now instead.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Header badge, zoomed <span class="tag rec">decided</span></div>
+        <div class="vsub">Compact pill — icon + "Draft", same weight as a small status chip, never competing with the title next to it.</div>
+        <div class="phone" style="height: 110px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <i class="ti ti-arrow-left" style="color: #8b949e"></i
+            ><span class="t">Categories<span class="s">Import</span></span>
+            <div class="draftbadge"><i class="ti ti-device-floppy"></i><span>Draft</span></div>
+          </div>
+          <div class="content" style="padding: 12px">
+            <div style="font-size: 9.5px; color: var(--text3); text-align: center">↳ this is the whole treatment — no separate caption line anywhere else on the stage.</div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Done step — badge gone <span class="tag rec">decided</span></div>
+        <div class="vsub">Once committed, the header goes back to its plain today-shape — nothing left to caveat.</div>
+        <div class="phone" style="height: 110px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <span class="t" style="margin-left: 4px">Done<span class="s">Import</span></span><span style="width: 16px"></span>
+          </div>
+          <div class="content" style="padding: 12px">
+            <div style="font-size: 9.5px; color: var(--text3); text-align: center">↳ no badge — the import is already written.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <b>Recommendation:</b> option 1 (segmented progress bar + "Step N of M · Stage" text). It reuses
+      <code>ReviewStep.tsx</code>'s existing <code>ProgressBar</code> component verbatim (no new primitive), costs
+      almost no vertical space, and states the stage name in plain language rather than relying on the user to
+      decode which dot means what — consistent with "Calm, glanceable hierarchy" in
+      <code>docs/DESIGN_GUIDELINES.md</code> §1. The dot-stepper (option 2) is a reasonable alternative if a more
+      literal "N discrete steps" visual is preferred, but 6 dots + 5 connecting lines is tight on a 292px frame and
+      would need real testing on a narrower device before committing to it.
+    </div>
+
+    <div class="decided">
+      <b>Judgment calls — resolved (user review):</b>
+      <ol>
+        <li>
+          <b>Draft indicator: header badge vs. repeated caption sentence.</b> RESOLVED — shown as a small,
+          persistent badge in the shared stage-header chrome, visible on every mid-flow stage (Accounts through
+          Transactions), not a full sentence repeated per screen (§4). This also settles the former "does it
+          repeat every stage or show once" question (yes, every mid-flow stage, since it now costs near-zero
+          visual weight) and the former wording concern (a fixed "Draft" label sidesteps the phrasing question
+          entirely — no stage name embedded in it to get stale).
+        </li>
+        <li>
+          <b>Variable step count (5 vs 6) in the same progress bar:</b> CONFIRMED as designed — the bar renders
+          fewer segments when MapColumns is skipped, rather than always reserving a 6th slot. No change.
+        </li>
+      </ol>
+    </div>
+
+    <div class="legend">
+      <h2>Where each piece actually lives (implementation-facing, for when this is approved)</h2>
+      <ul>
+        <li>
+          <b>Segmented bar + label</b> — new small component, sibling to <code>ReviewStep.tsx</code>'s own
+          <code>ProgressBar</code> usage; likely lives in <code>ImportPage.tsx</code> itself (above whichever
+          stage component is currently rendered) rather than duplicated per-stage-file, since it's cross-stage
+          chrome, not stage-specific content.
+        </li>
+        <li>
+          <b>Back-navigation</b> — <code>ImportPage.tsx</code>'s existing <code>backTarget</code> record literal
+          grows two entries (<code>categories</code>, <code>transactions</code>); no new mechanism, since
+          <code>useRegisterHeaderScreen</code> already handles arbitrary lookup-table depth.
+        </li>
+        <li>
+          <b>Step type</b> — <code>useImport.ts</code>'s <code>Step</code> union
+          (<code>'upload' | 'mapColumns' | 'review' | 'done'</code>) becomes
+          <code>'upload' | 'mapColumns' | 'accounts' | 'categories' | 'transactions' | 'done'</code>, replacing the
+          single <code>'review'</code> value the three new stages split out of.
+        </li>
+        <li>
+          <b>Draft note</b> — a single small text component, rendered conditionally (hidden on
+          <code>upload</code>/<code>done</code>) alongside the progress bar.
+        </li>
+      </ul>
+    </div>
+  
+</section>
+
+<section id="section-acct" class="section-acct">
+  <div class="topline"><a href="#top" class="totop">↑ back to top</a></div>
+  <h2 class="sectionh1">Expense Import — Accounts stage + card→account merge, v1</h2>
+
+    <p class="sub">
+      Grounded in the real, already-implemented <code>AccountsSection.tsx</code> (per-source-name card, its
+      "same account, written two ways?" same-file merge and "same account, written differently?" fuzzy-vs-existing
+      merge, both dismissible) and <code>importAccountResolution.ts</code>/<code>accountMergeSuggestion.ts</code>.
+      Two changes shown: (1) this becomes its own full wizard stage instead of a nested accordion inside
+      <code>ReviewStep</code>; (2) a <b>third</b> suggestion kind — card→account merge (redesign doc §9.7, Issue #9)
+      — for a debit/credit-card row sharing a Bank Name with another resolution. Mobile-only —
+      <code>apps/web-react</code> is frozen. Proposal only; no app code touched yet.
+    </p>
+    <div class="flowbar">
+      <a href="#acct-s0">0. Current (today)</a><a href="#acct-s1">1. Own full stage</a
+      ><a href="#acct-s2">2. Card→account merge suggestion</a><a href="#acct-s3">3. Accepted state</a
+      ><a href="#acct-s4">4. Dismissed / kept separate</a>
+    </div>
+
+    <!-- 0. CURRENT -->
+    <div class="sectiontitle" id="acct-s0"><span class="stepnum">0</span>Current (today) — real MoneyView-shaped gap</div>
+    <div class="sectionsub">
+      Today, <code>resolveAccounts()</code> groups purely by the raw account-column value. A real MoneyView export's
+      <code>Account Id</code> priority (over <code>Bank Name</code>) means one real HDFC bank account plus its two
+      cards surface as <b>three unrelated "create new account" cards</b> — no signal anywhere that they're the same
+      underlying bank relationship (Issue #9's root cause).
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Three unrelated cards for one bank <span class="tag cur">today</span></div>
+        <div class="vsub">
+          "HDFC Bank", "HDFC Bank •• 4471" (debit card), "HDFC Bank •• 9012" (credit card) — each suggests
+          <code>create</code> independently. Nothing hints they should collapse into one Penny account with
+          separate payment modes.
+        </div>
+        <div class="phone" style="height: 380px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — today, no card detection</span></div>
+          <div class="content">
+            <div class="acard attn">
+              <div class="ahead"><span class="name">"HDFC Bank"</span><span class="cnt">4,120 rows</span></div>
+              <div class="kindpill">New account · Bank</div>
+            </div>
+            <div class="acard attn">
+              <div class="ahead"><span class="name">"HDFC Bank •• 4471"</span><span class="cnt">612 rows</span></div>
+              <div class="kindpill">New account · Bank</div>
+            </div>
+            <div class="acard attn">
+              <div class="ahead"><span class="name">"HDFC Bank •• 9012"</span><span class="cnt">340 rows</span></div>
+              <div class="kindpill">New account · Bank</div>
+            </div>
+            <div style="font-size: 9.5px; color: var(--text3); text-align: center; margin-top: 4px">
+              ↳ 3 pseudo-accounts created for what's really 1 bank relationship + 2 cards on it.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1. OWN FULL STAGE -->
+    <div class="sectiontitle" id="acct-s1"><span class="stepnum">1</span>Its own full wizard stage</div>
+    <div class="sectionsub">
+      Same per-account card visual as today, promoted from a nested accordion section to the screen's entire
+      content — reached via the segmented stepper (see the wizard-stages mockup), with the "no account column at
+      all" single-picker fallback unchanged.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Accounts stage, full screen <span class="tag rec">proposed</span></div>
+        <div class="vsub">Same card visual, now the whole screen — no Preview accordion sharing space with it anymore.</div>
+        <div class="phone" style="height: 460px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <i class="ti ti-arrow-left" style="color: #8b949e"></i
+            ><span class="t">Accounts<span class="s">Import</span></span><span style="width: 16px"></span>
+          </div>
+          <div class="stagebar">
+            <div class="steprow">
+              <div class="stepseg done"></div><div class="stepseg current"></div><div class="stepseg"></div><div class="stepseg"></div>
+            </div>
+            <div class="stepmeta"><span class="lab">Step 3 of 5 · Accounts</span><span class="n">3 source accounts</span></div>
+          </div>
+          <div class="content med">
+            <div class="acard attn">
+              <div class="ahead"><span class="name">"HDFC Bank"</span><span class="cnt">4,120 rows</span></div>
+              <div class="kindpill">New account · Bank</div>
+              <div class="blf2">
+                <div class="blf" style="flex: 1"><div class="lab">Type</div><div class="fld">Bank</div></div>
+                <div class="blf" style="flex: 2"><div class="lab">New account name</div><div class="fld">HDFC Bank</div></div>
+              </div>
+            </div>
+            <div class="acard attn">
+              <div class="ahead"><span class="name">"HDFC Bank •• 4471"</span><span class="cnt">612 rows</span></div>
+              <div class="sugbadge card"><i class="ti ti-credit-card" style="color: var(--info); font-size: 12px"></i><span>Looks like a card on this account?</span></div>
+              <div class="pillrow2">
+                <div class="pill2 active">Merge → "HDFC Bank"</div>
+                <div class="pill2">Keep separate</div>
+              </div>
+              <div style="font-size: 9px; color: var(--text3); margin-top:5px">↳ see §2 below — full detail</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. CARD MERGE SUGGESTION (the novel piece) -->
+    <div class="sectiontitle" id="acct-s2"><span class="stepnum">2</span>Card→account merge suggestion — the novel new UI</div>
+    <div class="sectionsub">
+      Triggers when a card-type row (<code>Account Type: debit-card</code>/<code>credit-card</code>) shares a
+      <code>Bank Name</code> with another resolution. Visually distinct from the two existing merge types
+      (same-file fuzzy-name match, fuzzy-vs-existing-account match) via a <b>info-blue credit-card icon</b> instead
+      of the green ✦ sparkle used for name-similarity suggestions — this is a different signal (shared bank
+      identity + card type), not "these names look alike". <b>Dismissible, never auto-applied</b> — same
+      accept/dismiss pill pair as the existing two suggestion types.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Debit card on an already-resolved bank <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          "HDFC Bank" (row above, already resolved) + "HDFC Bank •• 4471" (debit-card type, same Bank Name) →
+          suggestion appears on the card row, referencing the bank row by name.
+        </div>
+        <div class="phone" style="height: 340px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — card merge suggestion</span></div>
+          <div class="content">
+            <div class="acard attn">
+              <div class="ahead"><span class="name">"HDFC Bank •• 4471"</span><span class="cnt">612 rows</span></div>
+              <div class="sugbadge card">
+                <i class="ti ti-credit-card" style="color: var(--info); font-size: 12px"></i>
+                <span>Looks like a card on your "HDFC Bank" account?</span>
+              </div>
+              <div class="pillrow2">
+                <div class="pill2 active">Merge → "HDFC Bank"</div>
+                <div class="pill2">Keep as separate account</div>
+              </div>
+              <div class="cardtag"><i class="ti ti-info-circle"></i><span>Merging sets this row's payment mode to Debit Card instead of creating a new account</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Credit card, second card on same bank <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          A second card sharing the same Bank Name gets its own independent suggestion — each card resolves (and
+          can be dismissed) on its own, not as one bundled group action.
+        </div>
+        <div class="phone" style="height: 340px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — 2nd card, same bank</span></div>
+          <div class="content">
+            <div class="acard attn">
+              <div class="ahead"><span class="name">"HDFC Bank •• 9012"</span><span class="cnt">340 rows</span></div>
+              <div class="sugbadge card">
+                <i class="ti ti-credit-card" style="color: var(--info); font-size: 12px"></i>
+                <span>Looks like a card on your "HDFC Bank" account?</span>
+              </div>
+              <div class="pillrow2">
+                <div class="pill2 active">Merge → "HDFC Bank"</div>
+                <div class="pill2">Keep as separate account</div>
+              </div>
+              <div class="cardtag"><i class="ti ti-info-circle"></i><span>Merging sets this row's payment mode to Credit Card</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. ACCEPTED STATE -->
+    <div class="sectiontitle" id="acct-s3"><span class="stepnum">3</span>After accepting — payment mode set, no new account</div>
+    <div class="sectionsub">
+      Accepting collapses the card row into the bank row's resolution (same "mutate both source names to point at
+      one target" mechanic <code>AccountsSection.tsx</code>'s <code>acceptMerge()</code> already uses for the
+      same-file merge type) — the card's rows now write against the bank account, tagged with the card's own
+      payment mode, and the card row itself disappears as a separate resolution.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Merged — one account, two payment modes <span class="tag rec">proposed</span></div>
+        <div class="vsub">"HDFC Bank" now shows both its own rows and the merged card's rows, tagged by payment mode.</div>
+        <div class="phone" style="height: 300px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — after accepting merge</span></div>
+          <div class="content">
+            <div class="acard ready">
+              <div class="ahead"><span class="name">"HDFC Bank" (+ 2 cards merged)</span><span class="cnt">5,072 rows</span></div>
+              <div class="kindpill" style="background: rgba(16,185,129,0.15); border-color: var(--success); color: var(--success)">Existing → HDFC Bank</div>
+              <div class="stats">
+                <b class="rd">4,120</b> · Net Banking &nbsp;·&nbsp; <b class="rd">612</b> · Debit Card &nbsp;·&nbsp; <b class="rd">340</b> · Credit Card
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. DISMISSED -->
+    <div class="sectiontitle" id="acct-s4"><span class="stepnum">4</span>Dismissed — falls back to a normal new account</div>
+    <div class="sectionsub">
+      "Keep as separate account" behaves exactly like dismissing either existing merge type — the card resolves as
+      its own ordinary <code>create</code> account, no different from today, just without the suggestion banner
+      showing again for this row.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Dismissed, reverts to normal create flow <span class="tag rec">proposed</span></div>
+        <div class="vsub">Same fields as any other "New account" card — type + name, fully editable.</div>
+        <div class="phone" style="height: 260px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — kept separate</span></div>
+          <div class="content">
+            <div class="acard attn">
+              <div class="ahead"><span class="name">"HDFC Bank •• 4471"</span><span class="cnt">612 rows</span></div>
+              <div class="kindpill">New account · Credit Card</div>
+              <div class="blf2">
+                <div class="blf" style="flex: 1"><div class="lab">Type</div><div class="fld">Credit Card</div></div>
+                <div class="blf" style="flex: 2"><div class="lab">New account name</div><div class="fld">HDFC Bank •• 4471</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <b>Recommendation:</b> ship the card→account merge as visually and behaviorally parallel to the two existing
+      merge types (same accept/dismiss pill shape, same "never auto-applied" rule) rather than inventing a new
+      interaction pattern — the only genuinely new pieces are the trigger condition (shared Bank Name + card
+      Account Type, not name similarity) and the payment-mode side effect on accept. Reusing the established visual
+      vocabulary means a user who's already seen the other two merge types instantly recognizes what this one does.
+    </div>
+
+    <div class="decided">
+      <b>Judgment calls — resolved (user review):</b>
+      <ol>
+        <li>
+          <b>Multiple cards on the same bank — one suggestion each, not grouped:</b> CONFIRMED as designed — each
+          card gets its own independent suggestion row (§2), no bulk "merge all cards on this bank" shortcut. No
+          change.
+        </li>
+        <li>
+          <b>What if the bank row itself isn't resolved yet (no "existing"/"create" chosen)?</b> CONFIRMED as
+          designed — the suggestion still names the target by its raw source name and shows regardless of the
+          bank row's own resolution state. No change flagged as part of the approved direction.
+        </li>
+        <li>
+          <b>Payment-mode source of truth (Account Type vs. a separate Payment Type column):</b> CONFIRMED as
+          designed — no explicit tie-break beyond what's shown; not called out for change. If a real file
+          surfaces a genuine conflict between the two columns, that's a follow-on implementation detail to
+          resolve against the actual data, not a mockup-level decision.
+        </li>
+      </ol>
+    </div>
+
+    <div class="legend">
+      <h2>Where each piece actually lives (implementation-facing, for when this is approved)</h2>
+      <ul>
+        <li><b>Own stage</b> — <code>AccountsSection.tsx</code>'s body becomes a full stage screen (own
+        <code>useImport.ts</code> step value), losing the accordion header/chevron wrapper <code>ReviewStep.tsx</code>
+        currently gives it.</li>
+        <li><b>Card merge detection</b> — new function alongside <code>suggestAccountMerges()</code> in
+        <code>accountMergeSuggestion.ts</code> (or a new sibling), keyed on Bank Name + card
+        <code>AccountType</code> rather than <code>normalize()</code>'s string-similarity — a different match
+        rule from the existing two, reusing only the accept/dismiss UI shape.</li>
+        <li><b>Payment mode on accept</b> — the merge's "accept" handler needs to additionally set the merged
+        rows' payment mode (new behavior; today's <code>acceptMerge()</code> only reassigns the account name/id),
+        threading through to <code>commitAndImport()</code>'s per-row <code>paymentMode</code> field.</li>
+      </ul>
+    </div>
+  
+</section>
+
+<section id="section-cat" class="section-cat">
+  <div class="topline"><a href="#top" class="totop">↑ back to top</a></div>
+  <h2 class="sectionh1">Expense Import — Categories stage + counterparty split, v1</h2>
+
+    <p class="sub">
+      Grounded in the real, already-implemented <code>CategoryTile.tsx</code>/<code>ImportCategorizeModal.tsx</code>
+      (the resolution surface being reused here) and <code>importCategoryResolution.ts</code>. Per
+      <code>docs/plans/csv-expense-import-redesign.md</code> §9.4/§7, this new stage resolves every distinct
+      source category BEFORE any row-level triage — direction-aware (a category keyed by
+      <code>${name}::${type}</code>, fixing Issue #5) and, for transfer/IOU-suspect categories, split further by
+      detected counterparty (Issue #8). Mobile-only — <code>apps/web-react</code> is frozen. Proposal only; no app
+      code touched yet.
+    </p>
+    <div class="flowbar">
+      <a href="#cat-s0">0. Current (today's bug)</a><a href="#cat-s1">1. Own stage, per-category rows</a
+      ><a href="#cat-s2">2. Direction split</a><a href="#cat-s3">3. Counterparty sub-split</a
+      ><a href="#cat-s4">4. New-category creation</a><a href="#cat-s5">5. Simplified resolve modal</a>
+    </div>
+
+    <!-- 0. CURRENT BUG -->
+    <div class="sectiontitle" id="cat-s0"><span class="stepnum">0</span>Current (today) — Issue #5's bug</div>
+    <div class="sectionsub">
+      <code>resolveCategories()</code> groups by <code>categoryName</code> alone, ignoring <code>row.type</code>.
+      Categorizing the expense-direction tile for "A/c to A/c" silently re-categorizes its income-direction
+      sibling too — one shared <code>CategoryResolution</code> object, mutated in place, read by both.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">One resolution, two directions <span class="tag cur">today</span></div>
+        <div class="vsub">
+          Marking the expense-side "A/c to A/c" as Transfer → Cash also silently marks every income-side
+          "A/c to A/c" row the same way, even though a lending repayment (income) needs a different resolution
+          than a self-transfer out (expense).
+        </div>
+        <div class="phone" style="height: 240px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — shared resolution bug</span></div>
+          <div class="content">
+            <div class="ctile ready">
+              <div class="chead">
+                <span class="name">"A/c to A/c"</span><i class="ti ti-arrow-right arrow"></i
+                ><span class="target">Transfer → Cash</span><span class="cnt">2,481 rows</span>
+              </div>
+            </div>
+            <div style="font-size: 9.5px; color: var(--warning); text-align: center; margin-top: -2px">
+              ↳ this ONE resolution covers expense rows (self-transfer out), income rows (repayment in), AND
+              lending/borrowing — no way to treat them differently today.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1. OWN STAGE -->
+    <div class="sectiontitle" id="cat-s1"><span class="stepnum">1</span>Its own full wizard stage</div>
+    <div class="sectionsub">
+      One row per distinct source category — resolved here, before any row-level triage. The row visual reuses
+      <code>CategoryTile.tsx</code>'s collapsed-header language (source → target/pill + count), but drops the
+      row-list/checkbox machinery entirely — that's a Transactions-stage concern now, not this stage's.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Categories stage, full screen <span class="tag rec">proposed</span></div>
+        <div class="vsub">Plain categories resolve simply; "A/c to A/c" (transfer-suspect) already shows as split rows — see §3.</div>
+        <div class="phone" style="height: 500px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <i class="ti ti-arrow-left" style="color: #8b949e"></i
+            ><span class="t">Categories<span class="s">Import</span></span><span style="width: 16px"></span>
+          </div>
+          <div class="stagebar">
+            <div class="steprow"><div class="stepseg done"></div><div class="stepseg done"></div><div class="stepseg current"></div><div class="stepseg"></div></div>
+            <div class="stepmeta"><span class="lab">Step 4 of 5 · Categories</span><span class="n">79 categories</span></div>
+          </div>
+          <div class="content med">
+            <div class="ctile ready">
+              <div class="chead"><span class="name">"Groceries"</span><i class="ti ti-arrow-right arrow"></i><span class="target">Groceries</span><span class="cnt">2,214</span></div>
+            </div>
+            <div class="ctile attn">
+              <div class="chead"><span class="name">"Zomato Guess"</span><i class="ti ti-arrow-right arrow"></i><span class="target">Food &amp; Dining <span style="font-weight:400;color:var(--text3)">(new)</span></span><span class="cnt">318</span></div>
+            </div>
+            <div class="grouplabel"><span class="name">"A/c to A/c"</span><span class="cnt">2,481 rows · splits below</span></div>
+            <div class="subwrap">
+              <div class="ctile attn"><div class="chead"><span class="name">— Person A</span><i class="ti ti-arrow-right arrow"></i><span class="target">Lending</span><span class="cnt">14</span></div></div>
+              <div class="ctile attn"><div class="chead"><span class="name">— (no clear person)</span><i class="ti ti-arrow-right arrow"></i><span class="choose">Needs categorizing</span><span class="cnt">2,467</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. DIRECTION SPLIT -->
+    <div class="sectiontitle" id="cat-s2"><span class="stepnum">2</span>Direction-aware resolution — fixes Issue #5</div>
+    <div class="sectionsub">
+      Keyed by <code>${categoryName}::${type}</code> (mirrors <code>importTileGrouping.ts</code>'s existing
+      pattern one layer up) — the SAME source category name now produces two independently-resolvable rows
+      whenever it has both expense and income rows, exactly like <code>CategoryTile.tsx</code>'s existing
+      <code>typeSuffix</code> disambiguation already does for the Transactions-stage tiles.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Same name, two independent rows <span class="tag rec">proposed</span></div>
+        <div class="vsub">Editing one never touches the other — the bug in §0 is structurally impossible once each direction has its own resolution object.</div>
+        <div class="phone" style="height: 260px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — direction split</span></div>
+          <div class="content">
+            <div class="ctile ready">
+              <div class="chead">
+                <span class="name">"A/c to A/c"</span><span class="dirtag">expense</span><i class="ti ti-arrow-right arrow"></i
+                ><span class="target">Transfer → Cash</span><span class="cnt">1,690</span>
+              </div>
+            </div>
+            <div class="ctile attn">
+              <div class="chead">
+                <span class="name">"A/c to A/c"</span><span class="dirtag">income</span><i class="ti ti-arrow-right arrow"></i
+                ><span class="choose">Needs categorizing</span><span class="cnt">791</span>
+              </div>
+            </div>
+            <div style="font-size: 9px; color: var(--text3); text-align: center; margin-top: 2px">
+              ↳ the income-direction row is a separate, independently-resolvable decision now.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. COUNTERPARTY SUB-SPLIT -->
+    <div class="sectiontitle" id="cat-s3"><span class="stepnum">3</span>Counterparty sub-split — Issue #8, §7</div>
+    <div class="sectionsub">
+      For a category already flagged transfer- or IOU-suspect, its rows are further sub-split by a normalized
+      counterparty name (moneyview's <code>Merchant/Receiver/Sender</code> column, already mapped as
+      <code>description</code>) — surfaced as separate top-level rows directly in this stage (per §7's explicit
+      decision), not deferred to the Transactions stage. Each row shows a confidence badge: a match against an
+      existing <code>Person</code> record pre-fills Lending/Borrowed with high confidence; no match falls back to
+      an editable candidate grouped by raw normalized text, never auto-locked.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Parent label + independently-resolvable children <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          "A/c to A/c" (expense) itself never resolves as one lump — it's a group label over 3 real rows, each with
+          its own kind/target.
+        </div>
+        <div class="phone" style="height: 400px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — counterparty split</span></div>
+          <div class="content">
+            <div class="grouplabel"><span class="name">"A/c to A/c" <span class="dirtag" style="margin-left:2px">expense</span></span><span class="cnt">1,690 rows</span></div>
+            <div class="groupsub">Sub-split by counterparty (Merchant/Receiver/Sender column) — each row below resolves on its own.</div>
+            <div class="subwrap">
+              <div class="ctile ready">
+                <div class="chead">
+                  <span class="name">— Person A</span>
+                  <span class="confbadge high"><i class="ti ti-user-check"></i><span>Matches Person</span></span>
+                </div>
+                <div style="display:flex; align-items:center; gap:6px; margin-top:6px">
+                  <i class="ti ti-arrow-right" style="color:var(--text3); font-size:10px"></i>
+                  <span style="font-size:11px; font-weight:700; color:var(--text)">Lending</span>
+                  <span class="cnt" style="margin-left:auto">14 rows</span>
+                </div>
+              </div>
+              <div class="ctile attn">
+                <div class="chead">
+                  <span class="name">— "XFR REF 88213"</span>
+                  <span class="confbadge low"><i class="ti ti-help-circle"></i><span>No person match</span></span>
+                </div>
+                <div class="choose" style="margin-top: 6px; display:inline-block">Needs categorizing</div>
+                <span class="cnt" style="float:right; margin-top:-16px">9 rows</span>
+              </div>
+              <div class="ctile ready">
+                <div class="chead">
+                  <span class="name">— (no clear person)</span>
+                  <span class="confbadge low"><i class="ti ti-arrows-left-right"></i><span>Residual</span></span>
+                </div>
+                <div style="display:flex; align-items:center; gap:6px; margin-top:6px">
+                  <i class="ti ti-arrow-right" style="color:var(--text3); font-size:10px"></i>
+                  <span style="font-size:11px; font-weight:700; color:var(--text)">Transfer → <span style="color:var(--text3)">choose account</span></span>
+                  <span class="cnt" style="margin-left:auto">1,667 rows</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Correcting a wrong grouping <span class="tag rec">proposed</span></div>
+        <div class="vsub">
+          "XFR REF 88213" reads like a reference code, not a real name — the existing per-row override mechanism
+          (extended here) lets it move into the residual bucket, or a genuine name-carrying row move out of it.
+        </div>
+        <div class="phone" style="height: 220px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — move to residual</span></div>
+          <div class="content">
+            <div class="ctile attn">
+              <div class="chead">
+                <span class="name">— "XFR REF 88213"</span>
+                <span class="confbadge low"><i class="ti ti-help-circle"></i><span>No person match</span></span>
+              </div>
+              <div class="catbtn"><i class="ti ti-arrows-left-right"></i>Move 9 rows to "(no clear person)"</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. NEW CATEGORY CREATION -->
+    <div class="sectiontitle" id="cat-s4"><span class="stepnum">4</span>New-category creation shows its intent group</div>
+    <div class="sectionsub">
+      Unchanged from today's <code>CategoryTile.tsx</code>/<code>ImportCategorizeModal.tsx</code> "create"
+      fields, just now the primary (only) resolution surface for this row rather than one option among several
+      shown alongside row-level selection.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Create shows its landing group <span class="tag rec">proposed</span></div>
+        <div class="vsub">"(new · Daily Living)" — same convention CategoryTile's targetLabel already renders.</div>
+        <div class="phone" style="height: 180px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — create, with group</span></div>
+          <div class="content">
+            <div class="ctile attn">
+              <div class="chead">
+                <span class="name">"Zomato Guess"</span><i class="ti ti-arrow-right arrow"></i
+                ><span class="target">Food &amp; Dining <span style="font-weight:400;color:var(--text3)">(new · Daily Living)</span></span>
+                <span class="cnt">318</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. SIMPLIFIED RESOLVE MODAL -->
+    <div class="sectiontitle" id="cat-s5"><span class="stepnum">5</span>Resolve modal — same 4-way picker, always full-scope</div>
+    <div class="sectionsub">
+      Tapping a row opens the existing <code>ImportCategorizeModal</code> (existing/create/transfer/skip kind
+      grid), but at this stage <code>isPartialSelection</code> is always false — there's no row-level checkbox
+      selection yet, since that's the Transactions stage's job. The modal is otherwise identical to today's.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Resolving "(no clear person)" as Transfer <span class="tag rec">proposed</span></div>
+        <div class="vsub">Same modal, applied to the whole category row — no partial-selection banner needed here.</div>
+        <div class="phone" style="height: 420px">
+          <div class="statusbar"></div>
+          <div class="modalbackdrop">
+            <div class="modalcard">
+              <div class="modalhead"><span class="t">Categorize · "A/c to A/c — (no clear person)"</span><i class="ti ti-x x"></i></div>
+              <div class="modalbody">
+                <div style="font-size: 9.5px; color: var(--text3)">1,667 rows</div>
+                <div class="fieldlabel">How should these be recorded?</div>
+                <div class="kindgrid">
+                  <div class="kindtile"><i class="ti ti-tag"></i><span>Map to existing</span></div>
+                  <div class="kindtile"><i class="ti ti-square-plus"></i><span>Create new</span></div>
+                  <div class="kindtile sel"><i class="ti ti-arrows-left-right"></i><span>Mark as transfer</span></div>
+                  <div class="kindtile"><i class="ti ti-player-skip-forward"></i><span>Skip</span></div>
+                </div>
+                <div class="blf2">
+                  <div class="blf" style="flex:1"><div class="lab">Transfer category</div><div class="fld">Self Transfer</div></div>
+                  <div class="blf" style="flex:1"><div class="lab">Transfer to account</div><div class="fld" style="color: var(--text3)">Choose…</div></div>
+                </div>
+                <div style="font-size: 9.5px; color: var(--text3); line-height: 1.5">
+                  The actual destination account is picked per row-group in the Transactions stage next — this
+                  stage only fixes the category-level shape (transfer vs. spend vs. skip).
+                </div>
+              </div>
+              <div class="modalfoot"><div class="btn pri">Apply to 1,667 rows</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <b>Recommendation:</b> ship the direction split (§2) and counterparty sub-split (§3) together — they're
+      both fixes to the same root cause (one resolution object standing in for genuinely different real-world
+      things) and share the same underlying mechanic (more granular resolution keys). Splitting them into two
+      separate releases would leave the sub-split's parent rows still direction-blind in between.
+    </div>
+
+    <div class="decided">
+      <b>Judgment calls — resolved (user review):</b>
+      <ol>
+        <li>
+          <b>Group-label row is not itself resolvable, no bulk-resolve shortcut on the parent label (§1/§3):</b>
+          CONFIRMED as designed — each sub-row under "A/c to A/c" resolves independently; the parent label stays
+          a pure visual grouping header, never a bulk-apply-to-all control. No change.
+        </li>
+        <li>
+          <b>"No person match" confidence badge wording:</b> CONFIRMED as designed — not flagged for a copy
+          change as part of the approved direction.
+        </li>
+        <li>
+          <b>How many counterparty rows show before this stage feels overwhelming:</b> CONFIRMED as designed for
+          this pass — no cap/"show more" added to the sub-split list; revisit only if a real file is found to
+          produce an unwieldy number of counterparty groups under one category.
+        </li>
+      </ol>
+    </div>
+
+    <div class="legend">
+      <h2>Where each piece actually lives (implementation-facing, for when this is approved)</h2>
+      <ul>
+        <li><b>Own stage</b> — new stage screen, reusing <code>CategoryTile.tsx</code>'s collapsed-header
+        rendering (without <code>TileRowList</code>/selection) and <code>ImportCategorizeModal.tsx</code>
+        unmodified (called with <code>isPartialSelection</code> always <code>false</code>).</li>
+        <li><b>Direction keying</b> — <code>resolveCategories()</code> in
+        <code>importCategoryResolution.ts</code> keys its output map by <code>`${categoryName}::${row.type}`</code>
+        instead of <code>categoryName</code> alone.</li>
+        <li><b>Counterparty sub-split</b> — new function alongside <code>resolveCategories()</code>, gated on
+        <code>isLikelyTransfer</code>/an extended IOU-keyword check, grouping by a normalized
+        <code>Merchant/Receiver/Sender</code> value (adapting bank-import's <code>normalizeNarration()</code>) and
+        checked against the <code>persons</code> store for the confidence badge.</li>
+      </ul>
+    </div>
+  
+</section>
+
+<section id="section-txn" class="section-txn">
+  <div class="topline"><a href="#top" class="totop">↑ back to top</a></div>
+  <h2 class="sectionh1">Expense Import — Transactions stage refinements, v1</h2>
+
+    <p class="sub">
+      Grounded in the real, already-implemented <code>PreviewSection.tsx</code>/<code>TileRowList.tsx</code>/
+      <code>UnparsedRows.tsx</code>/<code>DuplicatesBucket.tsx</code>/<code>CarryForwardExcluded.tsx</code>. Four
+      changes shown together, all scoped to what's left once Accounts + Categories are already resolved (§9.1–9.3,
+      §8): (1) capped, internally-scrolling row list replacing the unbounded "+N more" expand, with a year now in
+      every date; (2) a real "Skipped (N)" bucket, a peer to the existing three; (3) a "Discard" action next to
+      "Include this row" in the rejected-rows card; (4) "not a duplicate — import anyway" in the Already-imported
+      bucket. Mobile-only — <code>apps/web-react</code> is frozen. Proposal only; no app code touched yet.
+    </p>
+    <div class="flowbar">
+      <a href="#txn-s1">1. Capped scrollable row list + year</a><a href="#txn-s2">2. Skipped (N) bucket</a
+      ><a href="#txn-s3">3. Discard a broken row</a><a href="#txn-s4">4. Not a duplicate — import anyway</a
+      ><a href="#txn-s5">5. Full kind picker stays available — standing override</a>
+    </div>
+
+    <!-- 1. CAPPED SCROLLABLE ROW LIST -->
+    <div class="sectiontitle" id="txn-s1"><span class="stepnum">1</span>Capped, scrollable row list — fixes Issue #2</div>
+    <div class="sectionsub">
+      Today's "+N more" sets <code>showAllRows(true)</code>, rendering EVERY row via an unbounded
+      <code>.map()</code> — the same shape of bug that already caused a real on-device crash elsewhere in this PR.
+      Proposed: a fixed-max-height internally-scrolling container, always capped, no expand toggle needed at all.
+      Dates now include the year — <code>CarryForwardExcluded.tsx</code>'s <code>fmtShortDate</code> already has
+      this (<code>day: 'numeric', month: 'short', year: 'numeric'</code>); <code>TileRowList.tsx</code>'s copy is
+      missing <code>year</code> and needs the same fix.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Today — "+N more" unbounded expand <span class="tag cur">today</span></div>
+        <div class="vsub">Tapping "+26 more" renders all 34 rows at once — no cap once expanded, and no year in the date.</div>
+        <div class="phone" style="height: 260px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — today's expand</span></div>
+          <div class="content">
+            <div class="tile ready">
+              <div class="tilehead"><span class="name">"Groceries"</span><span class="cnt">34 txns</span></div>
+              <div class="scrollcap" style="max-height: none; overflow: visible">
+                <div class="rowline" style="border-top:none"><div class="rmid"><div class="t1">BIGBASKET ORDER</div><div class="t2">3 Jul</div></div><div class="ramt">₹1,240</div></div>
+                <div class="rowline"><div class="rmid"><div class="t1">DMART PURCHASE</div><div class="t2">5 Jul</div></div><div class="ramt">₹890</div></div>
+              </div>
+              <div style="font-size: 9.5px; color: var(--primary); text-align:center; padding-top:6px">+ 32 more <span style="color:var(--danger)">← renders ALL 32 at once</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Proposed — fixed-height scroll, year included <span class="tag rec">proposed</span></div>
+        <div class="vsub">No expand toggle — the list itself scrolls within a fixed max-height. Every row's date now reads "3 Jul 2024".</div>
+        <div class="phone" style="height: 260px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — capped scroll</span></div>
+          <div class="content">
+            <div class="tile ready">
+              <div class="tilehead"><span class="name">"Groceries"</span><span class="cnt">34 txns</span></div>
+              <div class="scrollcap">
+                <div class="rowline" style="border-top:none"><div class="rmid"><div class="t1">BIGBASKET ORDER</div><div class="t2">3 Jul 2024</div></div><div class="ramt">₹1,240</div></div>
+                <div class="rowline"><div class="rmid"><div class="t1">DMART PURCHASE</div><div class="t2">5 Jul 2024</div></div><div class="ramt">₹890</div></div>
+                <div class="rowline"><div class="rmid"><div class="t1">RELIANCE FRESH</div><div class="t2">9 Jul 2024</div></div><div class="ramt">₹455</div></div>
+                <div class="rowline"><div class="rmid"><div class="t1">MORE SUPERMARKET</div><div class="t2">14 Jul 2024</div></div><div class="ramt">₹612</div></div>
+                <div class="rowline"><div class="rmid"><div class="t1">BIGBASKET ORDER</div><div class="t2">21 Jul 2024</div></div><div class="ramt">₹980</div></div>
+              </div>
+              <div class="caphint">34 rows total · scroll for more</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. SKIPPED (N) BUCKET -->
+    <div class="sectiontitle" id="txn-s2"><span class="stepnum">2</span>"Skipped (N)" — a real, visible peer bucket</div>
+    <div class="sectionsub">
+      <code>skippedCount</code> is already computed in <code>useImport.ts</code> today but never surfaced — dead
+      state. Proposed: a fourth bucket card, peer to Needs input / Staged / Already imported, using the exact same
+      bordered-card + colored-dot header convention and the tile's already-fully-editable re-categorize flow (no
+      new edit mechanism needed).
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Four peer buckets <span class="tag rec">proposed</span></div>
+        <div class="vsub">"Skipped" sits after "Already imported" — same collapsed-by-default convention as the other buckets once non-empty.</div>
+        <div class="phone" style="height: 380px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <i class="ti ti-arrow-left" style="color: #8b949e"></i
+            ><span class="t">Transactions<span class="s">Import</span></span><span style="width: 16px"></span>
+          </div>
+          <div class="content med">
+            <div class="bucketcard"><div class="bhead"><div class="bdot" style="background: var(--warning)"></div><span class="t">Needs your input</span><span class="n">2</span><i class="ti ti-chevron-down" style="color:var(--text3)"></i></div></div>
+            <div class="bucketcard"><div class="bhead"><div class="bdot" style="background: var(--success)"></div><span class="t">Staged — ready to import</span><span class="n">9,024</span><i class="ti ti-chevron-down" style="color:var(--text3)"></i></div></div>
+            <div class="bucketcard"><div class="bhead"><div class="bdot" style="background: var(--neutral)"></div><span class="t">Already imported</span><span class="n">334</span><i class="ti ti-chevron-down" style="color:var(--text3)"></i></div></div>
+            <div class="bucketcard">
+              <div class="bhead"><div class="bdot" style="background: var(--text3)"></div><span class="t">Skipped</span><span class="n">24</span><i class="ti ti-chevron-up" style="color:var(--text3)"></i></div>
+              <div class="bbody">
+                <div class="tile skip">
+                  <div class="tilehead"><span class="name">"Round-off Adjustment"</span><i class="ti ti-arrow-right arrow"></i><span class="target" style="color: var(--text3)">Skip</span><span class="cnt">24 txns</span></div>
+                  <div class="catfooter"><div class="catbtn"><i class="ti ti-category"></i>Recategorize instead ›</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. DISCARD ACTION -->
+    <div class="sectiontitle" id="txn-s3"><span class="stepnum">3</span>Discard a broken row — Issue #1</div>
+    <div class="sectionsub">
+      <code>RejectedRowEditor</code> today has only "Include this row" — no way to permanently exclude a row that
+      can't be fixed. Proposed: a quiet "Discard" action alongside it (not danger-red — excluding a broken row
+      isn't alarming, just a decision), and a Done-step summary line so nothing vanishes silently.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Discard alongside Include <span class="tag rec">proposed</span></div>
+        <div class="vsub">Two actions, equal visual weight but distinct treatment: "Include" is the primary warning-filled action, "Discard" is a quiet dashed-outline secondary.</div>
+        <div class="phone" style="height: 300px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — rejected row editor</span></div>
+          <div class="content">
+            <div class="rejectcard">
+              <div class="rejectrow">Row 4,812 · missing amount</div>
+              <div class="rejectgrid">
+                <div class="rejectfield">12/03/2024</div>
+                <div class="rejectfield" style="color: var(--text3)">(empty)</div>
+                <div class="rejectfield">ATM Withdrawal</div>
+              </div>
+              <div class="actionrow">
+                <div class="abtn pri">Include this row</div>
+                <div class="abtn discard"><i class="ti ti-x" style="font-size:10px"></i> Discard</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Done step — nothing vanishes silently <span class="tag rec">proposed</span></div>
+        <div class="vsub">Per §9.1's explicit requirement: a summary line so a discarded/unresolved row is always accounted for.</div>
+        <div class="phone" style="height: 200px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t" style="margin-left:4px">Done<span class="s">Import</span></span></div>
+          <div class="content">
+            <div class="tile ready" style="border-color: var(--success); background: rgba(16,185,129,0.08)">
+              <div style="font-size: 12.5px; font-weight: 800; color: var(--success)">9,024 transactions imported</div>
+              <div style="font-size: 10px; color: var(--text2); margin-top: 4px">18 discarded · 264 still unresolved — re-upload the file to pick those up next time.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. NOT A DUPLICATE -->
+    <div class="sectiontitle" id="txn-s4"><span class="stepnum">4</span>"Not a duplicate — import anyway" — Issue #7, §8</div>
+    <div class="sectionsub">
+      <code>DuplicatesBucket.tsx</code> deliberately has no selection prop today ("nothing to bulk-act on"). Light
+      touch per §8: a per-row action that moves the row back into its normal category tile. Also folds in the
+      literal-<code>"null"</code> description fix (§9.a) and the dedup-key time-precision fix (§9.c) — a genuinely
+      distinct same-day transaction should land here far less often once the key includes time, not just date.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Per-row un-flag action <span class="tag rec">proposed</span></div>
+        <div class="vsub">A quiet inline link, not a full button — this bucket is meant to stay low-friction to skim through.</div>
+        <div class="phone" style="height: 260px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — Already imported</span></div>
+          <div class="content">
+            <div class="bucketcard">
+              <div class="bhead"><div class="bdot" style="background: var(--neutral)"></div><span class="t">Already imported</span><span class="n">334</span><i class="ti ti-chevron-up" style="color:var(--text3)"></i></div>
+              <div class="bbody">
+                <div class="rowline" style="border-top:none">
+                  <div class="rmid">
+                    <div class="t1">ATM WDL 8827</div>
+                    <div class="dupcaption">3 Jul 2024 — same date, amount &amp; description as a logged expense</div>
+                  </div>
+                  <div class="ramt" style="color: var(--text3)">₹2,000</div>
+                </div>
+                <div style="display:flex; justify-content:flex-end; padding: 2px 0 6px">
+                  <span class="undoaction">Not a duplicate — import anyway ›</span>
+                </div>
+                <div class="rowline">
+                  <div class="rmid">
+                    <div class="t1">ATM WDL 8827</div>
+                    <div class="dupcaption">3 Jul 2024, 6:42 PM — genuinely a second withdrawal, minutes apart</div>
+                  </div>
+                  <div class="ramt" style="color: var(--text3)">₹2,000</div>
+                </div>
+                <div style="display:flex; justify-content:flex-end; padding: 2px 0 2px">
+                  <span class="undoaction">Not a duplicate — import anyway ›</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. STANDING KIND-PICKER OVERRIDE -->
+    <div class="sectiontitle" id="txn-s5">
+      <span class="stepnum">5</span>Full kind picker stays available per tile — a standing override
+      <span style="color:#8ec4f0; font-weight:700; font-size: 11px">— decided</span>
+    </div>
+    <div class="sectionsub">
+      <b style="color:#fff">Resolved:</b> the full existing/create/transfer/skip kind picker (today's
+      <code>ImportCategorizeModal</code>) stays reachable from every Transactions-stage tile, IN ADDITION to
+      whatever the Categories stage already decided — not removed. Tapping a tile still opens the exact same
+      picker used today; it now simply opens <b>pre-populated</b> with the Categories-stage decision as its
+      starting state (e.g. "existing → Travel") instead of blank, so overriding a specific row-group is always
+      one tap away without ever needing to jump back to the Categories stage.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Tile — resolved target shown, picker still one tap away <span class="tag rec">decided</span></div>
+        <div class="vsub">Same collapsed-header language as today's <code>CategoryTile.tsx</code> — the footer button still opens the picker, now pre-filled rather than a no-op.</div>
+        <div class="phone" style="height: 220px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — Transactions tile</span></div>
+          <div class="content">
+            <div class="tile ready">
+              <div class="tilehead"><span class="name">"Uber"</span><i class="ti ti-arrow-right arrow"></i><span class="target">Travel</span><span class="cnt">5 txns</span></div>
+              <div class="catfooter"><div class="catbtn"><i class="ti ti-category"></i>Recategorize · 5 selected ›</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Picker opens pre-populated, not blank <span class="tag rec">decided</span></div>
+        <div class="vsub">Same 4-way kind grid as <code>ImportCategorizeModal</code> today — "Map to existing" starts selected and "Travel" already chosen, since that's what the Categories stage decided for this source category.</div>
+        <div class="phone" style="height: 420px">
+          <div class="statusbar"></div>
+          <div class="modalbackdrop">
+            <div class="modalcard">
+              <div class="modalhead"><span class="t">Categorize · "Uber"</span><i class="ti ti-x x"></i></div>
+              <div class="modalbody">
+                <div style="font-size: 9.5px; color: var(--text3)">5 of 5 selected</div>
+                <div class="fieldlabel">How should these be recorded?</div>
+                <div class="kindgrid">
+                  <div class="kindtile sel"><i class="ti ti-tag"></i><span>Map to existing</span></div>
+                  <div class="kindtile"><i class="ti ti-square-plus"></i><span>Create new</span></div>
+                  <div class="kindtile"><i class="ti ti-arrows-left-right"></i><span>Mark as transfer</span></div>
+                  <div class="kindtile"><i class="ti ti-player-skip-forward"></i><span>Skip</span></div>
+                </div>
+                <div class="fieldlabel">Category</div>
+                <div class="catrow filled"><div class="ic"><i class="ti ti-car" style="color:var(--success); font-size:13px"></i></div><div class="lab">Travel</div><i class="ti ti-chevron-right" style="color:var(--text3)"></i></div>
+                <div style="font-size: 9.5px; color: var(--text3); line-height: 1.5">
+                  Pre-filled from the Categories stage's decision — still fully editable, e.g. switch to "Create
+                  new" or "Mark as transfer" here if this specific row-group needs a different outcome than the
+                  rest of "Uber".
+                </div>
+              </div>
+              <div class="modalfoot"><div class="btn pri">Apply to 5 transactions</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div class="vtitle">Transfer tile — same picker, toAccount also pre-fillable <span class="tag rec">decided</span></div>
+        <div class="vsub">A transfer-resolved category still uses the same modal to pick its destination account — no separate, lighter-weight surface.</div>
+        <div class="phone" style="height: 260px">
+          <div class="statusbar"></div>
+          <div class="header"><span class="t">Zoom — transfer tile</span></div>
+          <div class="content">
+            <div class="tile attn">
+              <div class="tilehead"><span class="name">"A/c to A/c" (expense)</span><i class="ti ti-arrow-right arrow"></i><span class="target">Transfer → <span style="color:var(--text3)">choose account</span></span><span class="cnt">1,690</span></div>
+              <div class="catfooter"><div class="catbtn"><i class="ti ti-category"></i>Recategorize · 1,690 selected ›</div></div>
+            </div>
+            <div style="font-size: 9px; color: var(--text3); text-align:center; margin-top:4px">↳ opens the same modal, pre-selected to "Mark as transfer" with the transfer category already chosen — only the destination account itself is left blank.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <b>Recommendation:</b> ship all four fixes together — they're independent enough not to depend on each
+      other structurally, but each addresses a distinct piece of "things that already quietly happen today, but
+      the user never sees" (skipped rows, discarded rows, duplicate false-positives), so shipping them piecemeal
+      would leave some silent-exclusion cases fixed and others not, which is a confusing partial state to explain.
+    </div>
+
+    <div class="decided">
+      <b>Judgment calls — resolved (user review):</b>
+      <ol>
+        <li>
+          <b>Tile re-picker — full kind picker kept, not removed (§5):</b> REVERSED from this file's original
+          design. The full existing/create/transfer/skip picker stays reachable from every Transactions-stage
+          tile as a standing override, in addition to whatever the Categories stage already decided — now shown
+          pre-populated with that decision as its starting state rather than blank. The earlier "lighter tile"
+          treatment (kind picker removed entirely, only toAccount/IOU-person left as inputs) has been replaced
+          with this section.
+        </li>
+        <li>
+          <b>"Discard" button styling (§3):</b> CONFIRMED as designed — stays quiet/muted (dashed border, no
+          red), same visual weight as "Include this row." No change.
+        </li>
+        <li>
+          <b>Scroll-cap height (128px):</b> CONFIRMED as designed for this pass — real on-device confirmation
+          remains the user's own verification step, not a further mockup decision.
+        </li>
+      </ol>
+    </div>
+
+    <div class="legend">
+      <h2>Where each piece actually lives (implementation-facing, for when this is approved)</h2>
+      <ul>
+        <li><b>Capped scroll (§1)</b> — <code>TileRowList.tsx</code>'s <code>showAllRows</code>/"+N more" state
+        removed; replaced with a fixed-<code>maxHeight</code> <code>ScrollView</code> wrapping the row list,
+        rendering all of <code>rows</code> (RN's <code>ScrollView</code> only mounts visible-ish children lazily
+        enough to avoid the original crash — same reasoning already applied to
+        <code>UnparsedRows.tsx</code>'s own 20-row cap). <code>fmtShortDate</code> gains <code>year: 'numeric'</code>,
+        matching <code>CarryForwardExcluded.tsx</code>'s copy (worth de-duplicating both into one shared
+        formatter while touching this).</li>
+        <li><b>Skipped bucket (§2)</b> — <code>PreviewSection.tsx</code> gains a 4th <code>BucketCard</code>,
+        reading the already-computed <code>skippedCount</code>/skip-resolution rows <code>useImport.ts</code>
+        already tracks.</li>
+        <li><b>Discard (§3)</b> — <code>UnparsedRows.tsx</code>'s <code>RejectedRowEditor</code> gains a second
+        button + an `onDiscard` callback; <code>DoneStep.tsx</code> gains the discarded/unresolved summary line.</li>
+        <li><b>Not a duplicate (§4)</b> — <code>DuplicatesBucket.tsx</code> gains a per-row action (currently has
+        no <code>selection</code> prop at all, by design); the dedup-key fix (§9.c) lives in
+        <code>importPipeline.ts</code>'s <code>dedupKey()</code>, independent of this UI change.</li>
+        <li><b>Standing kind-picker override (§5, decided)</b> — <code>CategoryTile.tsx</code> keeps its footer
+        button opening <code>ImportCategorizeModal</code> exactly as it does today at this stage; the only real
+        change is confirming the modal's initial <code>localSuggestion</code> seed always comes from the
+        Categories-stage resolution (today the two are identical by construction, since nothing else has changed
+        it yet) — no picker code is removed or gated off for this stage.</li>
+      </ul>
+    </div>
+  
+</section>
+
+<section id="section-iou" class="section-iou">
+  <div class="topline"><a href="#top" class="totop">↑ back to top</a></div>
+  <h2 class="sectionh1">Expense Import — IOU lock-open panel in ImportCategorizeModal, v1</h2>
+
+    <p class="sub">
+      Grounded in the real, already-implemented <code>BulkCategorizeModal.tsx</code> (Bank Import's Lent/Borrowed
+      <code>ExtraCircle</code> pattern — locked-open when <code>IOU_MANDATORY_CATEGORY_IDS.has(categoryId)</code>,
+      person-required validation, <code>Person</code> autocomplete) and <code>ImportCategorizeModal.tsx</code>
+      (which currently has zero Tags/IOU support — just a plain always-visible "Tag" field). Per
+      <code>docs/plans/csv-expense-import-redesign.md</code> §9.6, this ports the SAME pattern in — reusing
+      <code>ExtraCircle</code>, <code>IOU_MANDATORY_CATEGORY_IDS</code>, and <code>CategoryPickerModal</code>
+      exactly as-is. The person field pre-fills from the Categories stage's own counterparty detection (§7 of the
+      redesign doc) whenever the row already carries a specific name (e.g. "A/c to A/c — Person A") — still fully
+      editable, never locked to the guess. Mobile-only — <code>apps/web-react</code> is frozen. Proposal only; no
+      app code touched yet.
+    </p>
+    <div class="flowbar">
+      <a href="#iou-s0">0. Non-IOU category — unchanged</a><a href="#iou-s1">1. Panel locks open, person pre-filled</a
+      ><a href="#iou-s2">2. Residual row — blank + autocomplete</a><a href="#iou-s3">3. Validation error state</a
+      ><a href="#iou-s4">4. Borrowed (income direction)</a>
+    </div>
+
+    <!-- 0. NON-IOU BASELINE -->
+    <div class="sectiontitle" id="iou-s0"><span class="stepnum">0</span>Ordinary category — no change</div>
+    <div class="sectionsub">
+      Picking a normal category (e.g. "Travel") shows nothing new — the IOU affordance only ever appears for the
+      4 IOU-mandatory categories, exactly as <code>BulkCategorizeModal.tsx</code>'s existing rule already works.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">"Travel" selected — no IOU UI <span class="tag rec">proposed</span></div>
+        <div class="vsub">Same modal as today, unchanged for the common case.</div>
+        <div class="phone" style="height: 320px">
+          <div class="statusbar"></div>
+          <div class="modalbackdrop">
+            <div class="modalcard">
+              <div class="modalhead"><span class="t">Categorize · "Uber"</span><i class="ti ti-x x"></i></div>
+              <div class="modalbody">
+                <div class="fieldlabel">Category</div>
+                <div class="catrow filled"><div class="ic"><i class="ti ti-car" style="color:var(--success); font-size:13px"></i></div><div class="lab">Travel</div><i class="ti ti-chevron-right" style="color:var(--text3)"></i></div>
+                <div class="fieldlabel">Tag (optional)</div>
+                <div class="ioufield" style="color: var(--text3)">Tag all transactions</div>
+              </div>
+              <div class="modalfoot"><div class="btn pri">Apply to 5 transactions</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1. IOU CATEGORY — LOCKS OPEN, PERSON PRE-FILLED -->
+    <div class="sectiontitle" id="iou-s1">
+      <span class="stepnum">1</span>IOU category selected — panel auto-opens, locked, person pre-filled
+      <span style="color:#8ec4f0; font-weight:700; font-size: 11px">— decided</span>
+    </div>
+    <div class="sectionsub">
+      Picking "Lending" (<code>cat-lending</code>, one of the 4 <code>IOU_MANDATORY_CATEGORY_IDS</code>) shows the
+      <code>ExtraCircle</code> toggle already lit and <b>locked open</b> (<code>disabled=true</code>, same as
+      <code>BulkCategorizeModal.tsx</code>'s <code>disabled={iouMandatory}</code>) — the person panel is not
+      collapsible away from underneath a now-required field. <b style="color:#fff">Resolved:</b> since this row
+      is "A/c to A/c — Person A" (the Categories stage already detected "Person A" as the counterparty, §7), the
+      person field starts <b>pre-filled with "Person A"</b> instead of blank — still fully editable, not locked to
+      the guess.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">"Lending" — Lent circle locked active, name pre-filled <span class="tag rec">decided</span></div>
+        <div class="vsub">The circle can't be tapped closed (it's disabled) — same rule as ExpenseForm's own IOU panel. The person field is no longer blank on open.</div>
+        <div class="phone" style="height: 420px">
+          <div class="statusbar"></div>
+          <div class="modalbackdrop">
+            <div class="modalcard">
+              <div class="modalhead"><span class="t">Categorize · "A/c to A/c — Person A"</span><i class="ti ti-x x"></i></div>
+              <div class="modalbody">
+                <div class="fieldlabel">Category</div>
+                <div class="catrow filled"><div class="ic"><i class="ti ti-cash-plus" style="color:var(--success); font-size:13px"></i></div><div class="lab">Lending</div><i class="ti ti-chevron-right" style="color:var(--text3)"></i></div>
+
+                <div style="position: relative">
+                  <div class="circlerow">
+                    <div class="circlewrap">
+                      <div class="circle"><i class="ti ti-hash"></i></div>
+                      <span class="circlecap">Tags</span>
+                    </div>
+                    <div class="circlewrap">
+                      <div class="circle active"><i class="ti ti-users"></i></div>
+                      <span class="circlecap active">Lent</span>
+                    </div>
+                  </div>
+                  <div class="lockbadge"><i class="ti ti-lock"></i></div>
+                </div>
+
+                <div class="ioupanel">
+                  <div class="ioufield filled">Person A</div>
+                  <div class="iouhelp">Pre-filled from the Categories stage's own counterparty detection for this row — still editable. Adds a they-owe-you entry to this person's ledger for each of the 14 checked transactions.</div>
+                </div>
+
+                <div class="fieldlabel">Tag (optional)</div>
+                <div class="ioufield" style="color: var(--text3)">Tag all transactions</div>
+              </div>
+              <div class="modalfoot"><div class="btn pri">Apply to 14 transactions</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. RESIDUAL ROW — NO PRE-FILL, AUTOCOMPLETE STILL HELPS -->
+    <div class="sectiontitle" id="iou-s2">
+      <span class="stepnum">2</span>Residual row — nothing to pre-fill, autocomplete still matches existing contacts
+    </div>
+    <div class="sectionsub">
+      Not every row has a name to pre-fill: the Categories stage's "(no clear person)" residual row (§7 — reference
+      codes, genuine self-transfers with no name) has no counterparty guess at all, so its person field starts
+      blank exactly as before. Typing still filters against real <code>Person</code> records (same
+      <code>iouMatches</code> logic <code>BulkCategorizeModal.tsx</code> already has) — tapping a suggestion fills
+      the field; free text still works for a brand-new person.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">"(no clear person)" row — starts blank, typing surfaces matches <span class="tag rec">decided</span></div>
+        <div class="vsub">No Categories-stage guess exists for this row, so nothing to pre-fill — suggestion pills appear below the field the moment there's a partial match.</div>
+        <div class="phone" style="height: 360px">
+          <div class="statusbar"></div>
+          <div class="modalbackdrop">
+            <div class="modalcard">
+              <div class="modalhead"><span class="t">Categorize · "A/c to A/c — (no clear person)"</span><i class="ti ti-x x"></i></div>
+              <div class="modalbody">
+                <div class="fieldlabel">Category</div>
+                <div class="catrow filled"><div class="ic"><i class="ti ti-cash-plus" style="color:var(--success); font-size:13px"></i></div><div class="lab">Lending</div><i class="ti ti-chevron-right" style="color:var(--text3)"></i></div>
+                <div class="circlerow">
+                  <div class="circlewrap"><div class="circle"><i class="ti ti-hash"></i></div><span class="circlecap">Tags</span></div>
+                  <div class="circlewrap"><div class="circle active"><i class="ti ti-users"></i></div><span class="circlecap active">Lent</span></div>
+                </div>
+                <div class="ioupanel">
+                  <div class="ioufield filled">Per</div>
+                  <div class="ioumatches">
+                    <div class="ioumatch">Person A</div>
+                    <div class="ioumatch">Persis Kapadia</div>
+                  </div>
+                  <div class="iouhelp">Adds a they-owe-you entry to this person's ledger for each of the 9 checked transactions.</div>
+                </div>
+              </div>
+              <div class="modalfoot"><div class="btn pri off">Enter who this is with to continue</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. VALIDATION ERROR -->
+    <div class="sectiontitle" id="iou-s3"><span class="stepnum">3</span>Validation — required field, never silently blocked</div>
+    <div class="sectionsub">
+      Attempting Apply with an empty person field shows the same red-border + inline error
+      <code>BulkCategorizeModal.tsx</code> already uses (<code>touched &amp;&amp; iouMandatory &amp;&amp;
+      !iouPersonName.trim()</code>) — the footer button stays disabled/off-state until it's filled, so the user is
+      never left wondering why Apply silently didn't do anything. Same "(no clear person)" residual row as §2 —
+      it started blank (nothing to pre-fill) and the user attempted Apply without typing anything.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Empty person, after attempting Apply <span class="tag rec">proposed</span></div>
+        <div class="vsub">Red border on the field + an explicit inline reason, not just a disabled button with no explanation. A pre-filled row (§1) would only ever reach this state if the user explicitly cleared it.</div>
+        <div class="phone" style="height: 400px">
+          <div class="statusbar"></div>
+          <div class="modalbackdrop">
+            <div class="modalcard">
+              <div class="modalhead"><span class="t">Categorize · "A/c to A/c — (no clear person)"</span><i class="ti ti-x x"></i></div>
+              <div class="modalbody">
+                <div class="fieldlabel">Category</div>
+                <div class="catrow filled"><div class="ic"><i class="ti ti-cash-plus" style="color:var(--success); font-size:13px"></i></div><div class="lab">Lending</div><i class="ti ti-chevron-right" style="color:var(--text3)"></i></div>
+                <div class="circlerow">
+                  <div class="circlewrap"><div class="circle"><i class="ti ti-hash"></i></div><span class="circlecap">Tags</span></div>
+                  <div class="circlewrap"><div class="circle active"><i class="ti ti-users"></i></div><span class="circlecap active">Lent</span></div>
+                </div>
+                <div class="ioupanel err">
+                  <div class="ioufield err">Person's name</div>
+                  <div class="iouerr">Enter who this is with — required for this category</div>
+                </div>
+              </div>
+              <div class="modalfoot"><div class="btn pri off">Enter who this is with to continue</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. BORROWED -->
+    <div class="sectiontitle" id="iou-s4"><span class="stepnum">4</span>"Borrowed" — income-direction IOU, same pattern</div>
+    <div class="sectionsub">
+      For an income-direction IOU category ("Borrowed Money"/"Collected Money"), the circle's icon/caption reads
+      "Borrowed" and accents success-green instead of danger-red — same
+      <code>pickerType === 'income' → iouKind = 'borrowed'</code> convention <code>BulkCategorizeModal.tsx</code>
+      already uses, so the color always matches how amounts are colored everywhere else (green = money in). Same
+      pre-fill rule as §1 applies regardless of direction: this row is "A/c to A/c — Person B", so "Person B" is
+      pre-filled here too, not typed by the user.
+    </div>
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">"Collected Money" — Borrowed circle, green accent, name pre-filled <span class="tag rec">decided</span></div>
+        <div class="vsub">Same locked-open mechanic, opposite direction and accent color. "Person B" is pre-filled from the Categories-stage row, not user-typed.</div>
+        <div class="phone" style="height: 360px">
+          <div class="statusbar"></div>
+          <div class="modalbackdrop">
+            <div class="modalcard">
+              <div class="modalhead"><span class="t">Categorize · "A/c to A/c — Person B" (income)</span><i class="ti ti-x x"></i></div>
+              <div class="modalbody">
+                <div class="fieldlabel">Category</div>
+                <div class="catrow filled"><div class="ic"><i class="ti ti-receipt-refund" style="color:var(--success); font-size:13px"></i></div><div class="lab">Collected Money</div><i class="ti ti-chevron-right" style="color:var(--text3)"></i></div>
+                <div class="circlerow">
+                  <div class="circlewrap"><div class="circle"><i class="ti ti-hash"></i></div><span class="circlecap">Tags</span></div>
+                  <div class="circlewrap"><div class="circle active borrowed"><i class="ti ti-users"></i></div><span class="circlecap active">Borrowed</span></div>
+                </div>
+                <div class="ioupanel">
+                  <div class="ioufield filled">Person B</div>
+                  <div class="iouhelp">Adds a you-owe-them entry to this person's ledger for each of the 9 checked transactions.</div>
+                </div>
+              </div>
+              <div class="modalfoot"><div class="btn pri">Apply to 9 transactions</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <b>Recommendation:</b> port <code>BulkCategorizeModal.tsx</code>'s Lent/Borrowed handling verbatim rather
+      than redesigning it — it's already a proven, shipped pattern (locked-open <code>ExtraCircle</code>,
+      required-field validation, <code>Person</code> autocomplete) that users may already recognize from Bank
+      Import. The only genuinely new work is wiring <code>IOU_MANDATORY_CATEGORY_IDS</code>/<code>iouPersons</code>
+      into <code>ImportCategorizeModal.tsx</code>, which currently has none of this at all — not a redesign of the
+      pattern itself.
+    </div>
+
+    <div class="decided">
+      <b>Judgment calls — resolved (user review):</b>
+      <ol>
+        <li>
+          <b>Tags stays a plain field, doesn't become its own ExtraCircle:</b> CONFIRMED as designed —
+          <code>ImportCategorizeModal.tsx</code>'s existing always-visible "Tag" text field stays as-is; only the
+          Lent/Borrowed circle was added. No change.
+        </li>
+        <li>
+          <b>Person pre-fill from the Categories-stage-detected counterparty:</b> REVERSED from this file's
+          original design. The person field now pre-fills from the Categories stage's own per-row counterparty
+          guess whenever one exists (e.g. "A/c to A/c — Person A" → "Person A" pre-filled, §1/§4) — still fully
+          editable, never locked to the guess. This clarifies the redesign doc's §7 "never a category default"
+          language to mean "never one shared person across a whole undifferentiated category," not "never
+          pre-fill a per-counterparty-group guess" (the two are different claims — see the plan doc's updated
+          wording). A row with no detected counterparty (the "(no clear person)" residual bucket) still starts
+          blank, exactly as before (§2/§3) — there's nothing to pre-fill for that row.
+        </li>
+      </ol>
+    </div>
+
+    <div class="legend">
+      <h2>Where each piece actually lives (implementation-facing, for when this is approved)</h2>
+      <ul>
+        <li><b>ExtraCircle + panel</b> — <code>ImportCategorizeModal.tsx</code> imports the already-shared
+        <code>~/components/shared/ExtraCircle.tsx</code> (used verbatim, no changes needed) and ports the
+        <code>showIouPanel</code>/<code>iouPersonName</code>/<code>iouMatches</code> state + JSX block from
+        <code>BulkCategorizeModal.tsx</code> nearly line-for-line.</li>
+        <li><b>Mandatory check</b> — <code>IOU_MANDATORY_CATEGORY_IDS.has(localSuggestion.categoryId)</code> (only
+        meaningful when <code>localSuggestion.kind === 'existing'</code>), imported from
+        <code>@/core/db/defaultCategories</code>, same as Bank Import.</li>
+        <li><b>Commit-time write</b> — needs a new equivalent of <code>useBankImport.ts</code>'s Person
+        resolution + <code>ledger_entries</code> write inside <code>useImport.ts</code>'s
+        <code>commitAndImport()</code>, per redesign doc §9.6 — the modal/UI change alone doesn't complete this;
+        the actual ledger-entry write is separate follow-on work in the same stage.</li>
+        <li><b>Person pre-fill (decided)</b> — the Categories stage's counterparty sub-split (§7) already
+        computes a per-row detected name (or "no clear person"); <code>ImportCategorizeModal</code>'s initial
+        <code>iouPersonName</code> state seeds from that same value when opening for a row that has one, instead
+        of always starting <code>''</code>. Still just a starting value — editing it never writes back to the
+        Categories-stage row itself.</li>
+      </ul>
+    </div>
+  
+</section>
+
+  </body>
+</html>

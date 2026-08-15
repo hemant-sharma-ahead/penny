@@ -1,6 +1,6 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { activityLogRepo } from '@/core/db/repositories';
-import { restoreActivity } from '@/core/db/activityLog';
+import { restoreActivity, subscribeActivity } from '@/core/db/activityLog';
 import { undoImportBatch, restoreUndoneImport } from '@/core/import/importWriter';
 import type { ActivityLog } from '@/core/db/types';
 import { useRepository } from '@/hooks/useRepository';
@@ -29,6 +29,28 @@ export function groupByDay(entries: ActivityLog[]): ActivityDay[] {
 /** Loads the activity log and derives the reverse-chronological feed, day grouping, and the restore bin. */
 export function useActivityLog() {
   const { items, loading, reload } = useRepository(activityLogRepo);
+
+  // Found in manual testing (2026-08-14) — a CSV import's `IMPORT` entry never appeared in an
+  // already-mounted Timeline until the screen was fully unmounted and remounted (so Undo, only reachable
+  // from that entry, wasn't reachable either). Root cause: `useRepository` only ever loads once at mount
+  // (or on an explicit `reload` this hook itself calls, e.g. after `restore`/`undo`) — it has no live
+  // subscription of its own, so a write made through a SEPARATE `activityLogRepo` instance
+  // (`logActivityAwaited`, called directly by `useImport.ts`'s `commitAndImport()`) never reaches an
+  // already-mounted Timeline. `Timeline` is a pushed `HomeStack` screen (not a tab root), so it stays
+  // mounted across a tab switch (this app's persistent-chrome architecture) — exactly the scenario that
+  // exposes this: open Timeline, switch to Expenses, run a CSV import, switch back to Home → the SAME
+  // still-mounted Timeline instance, now showing stale data.
+  //
+  // `subscribeActivity` (`packages/core/src/core/db/activityLog.ts`) is the purpose-built fix for exactly
+  // this — a synchronous "an activity was just logged" signal, fired by every `logActivity`/
+  // `logActivityAwaited` call regardless of which repo instance made it. Deliberately NOT `useTxnRefresh`
+  // (the pattern `useExpenses.ts`/`useAccounts.ts`/`CheckpointTimelinePage.tsx` use for their own "another
+  // repo instance wrote a transaction elsewhere" refresh): that signal only fires for transaction writes
+  // specifically (`notifyTxnChanged()`), so Timeline would still miss a non-transaction activity entry
+  // logged elsewhere while already mounted (e.g. a bulk category merge, a CHECKPOINT set from a different
+  // screen) — `subscribeActivity` is the broader, exact-match signal for "this is an activity-log feed,"
+  // and until now had exactly one consumer (`backupEngine.ts`'s Track D change-signal), not this screen.
+  useEffect(() => subscribeActivity(() => reload()), [reload]);
 
   const entries = useMemo(() => [...items].sort((a, b) => b.timestamp - a.timestamp), [items]);
 

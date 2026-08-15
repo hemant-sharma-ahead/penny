@@ -19,7 +19,12 @@ export type ExpensesStackParamList = {
    *  confirming Bank Import's own in-progress state is preserved, then never re-shows it for this screen
    *  instance. Primitive fields only (bank display name + file name) — no import of anything from
    *  `features/bank-import/` here, keeping the feature-module boundary clean. */
-  Import: { fromBankImport?: { bankName: string; fileName: string } } | undefined;
+  /** `importLocked` (2026-08-14, Import Progress screen — redesign §14 item 8) — set via
+   *  `navigation.setParams` from `ImportPage.tsx` itself while its 'done' step's Importing sub-state is
+   *  actually running a write loop; read below to disable the swipe-back gesture for exactly that
+   *  window, the same `route.params`-driven pattern `ChangePinPage.tsx`'s own forced-PIN-reset lock
+   *  already uses (`forcedPinReset` → `gestureEnabled`). */
+  Import: { fromBankImport?: { bankName: string; fileName: string }; importLocked?: boolean } | undefined;
 };
 
 const Stack = createNativeStackNavigator<ExpensesStackParamList>();
@@ -31,7 +36,11 @@ export function ExpensesStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: modeColors.bg } }}>
       <Stack.Screen name="ExpensesMain" component={ExpensesPage} />
-      <Stack.Screen name="Import" component={ImportPage} />
+      <Stack.Screen
+        name="Import"
+        component={ImportPage}
+        options={({ route }) => ({ gestureEnabled: !route.params?.importLocked })}
+      />
     </Stack.Navigator>
   );
 }

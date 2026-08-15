@@ -4,9 +4,24 @@ import type { ParsedRow } from './importParsers';
 import type { CategoryResolution } from './importCategoryResolution';
 import type { TransferPair } from './importTransferPairing';
 
-/** Stable key for detecting duplicate transactions (date + amount + normalised description). */
+/** Stable key for detecting duplicate transactions (date + amount + normalised description).
+ *
+ *  Uses the FULL epoch-ms `date`, not truncated to the day — found 2026-08-14 via a real MoneyView
+ *  export: truncating to day-only meant any two genuinely distinct same-day, same-amount,
+ *  same-description transactions (e.g. two separate ATM withdrawals an hour apart, two separate wallet
+ *  top-ups minutes apart — confirmed 149 such (day, amount, description) collisions / 334 rows in one
+ *  real 9,384-row file) collided under one key. Since `buildResolvedPreviewRows` below checks this key
+ *  against BOTH existing DB expenses and earlier rows already seen in the same batch, the second/third
+ *  same-day occurrence was silently dropped as an "already imported duplicate" of the first, despite
+ *  never existing anywhere before — real data loss, not a display quirk. `Expense.date` already stores
+ *  full epoch-ms precision and MoneyView's own export has second-level timestamps, so nothing about the
+ *  underlying data forced day-only granularity; it was lost only in how this key was built. A genuine
+ *  same-file duplicate (an export glitch producing the identical source row twice, the reason this
+ *  batch-wide check exists at all — see this file's own 2026-07-28 note below) still shares the exact
+ *  same source timestamp and is still caught; only distinct real transactions that happen to share a
+ *  day/amount/description are no longer falsely conflated. */
 export function dedupKey(date: number, amount: number, desc: string): string {
-  return `${new Date(date).toISOString().slice(0, 10)}|${amount}|${desc.toLowerCase().trim()}`;
+  return `${date}|${amount}|${desc.toLowerCase().trim()}`;
 }
 
 // ─── Legacy pipeline (apps/mobile's current import wizard) ─────────────────────
@@ -269,4 +284,64 @@ export function applyConfirmedTransferPairs(rows: ResolvedPreviewRow[], pairs: T
   });
 
   return merged;
+}
+
+// ─── Row-index-keyed pipeline (2026-08-14, CSV-import redesign Chunk B, apps/mobile only) ────────────
+// `buildResolvedPreviewRows` above is keyed by source CATEGORY NAME (`ConfirmedCategoryMap`) — correct
+// for the flow apps/web-react's frozen `useImport.ts` still uses, but genuinely insufficient for the new
+// Categories-stage model (`resolveCategoriesDirectional`/`splitByCounterparty`,
+// importCategoryResolution.ts/importCounterpartySplit.ts): two rows sharing the same raw source category
+// name can now resolve completely differently (different direction, or a different detected
+// counterparty), which a per-name map cannot represent at all. `buildResolvedPreviewRows` itself is
+// untouched below — this is a NEW, additive sibling, used exclusively by apps/mobile's new Categories/
+// Transactions wizard stages.
+
+export interface RowAction {
+  categoryId: string;
+  categoryName: string;
+  skip?: boolean;
+  type?: 'transfer';
+  toAccountId?: string;
+  tag?: string;
+}
+
+/** Row-index-keyed sibling of `buildResolvedPreviewRows` — identical shape/behavior otherwise (same
+ *  dedup-against-DB-and-batch check, same `RowOverride` precedence, same tag-layering rule), just reads
+ *  each row's resolution from `rowActions.get(i)` instead of `categoryMap.get(row.categoryName)`. */
+export function buildResolvedPreviewRowsByIndex(
+  rows: ParsedRow[],
+  rowActions: Map<number, RowAction>,
+  resolveAccountId: (row: ParsedRow) => string,
+  existingKeys: Set<string>,
+  rowOverrides?: Map<number, RowOverride>
+): ResolvedPreviewRow[] {
+  const seenInBatch = new Set<string>();
+  return rows.map((row, i) => {
+    const resolved = rowActions.get(i);
+    const override = rowOverrides?.get(i);
+    const ref = dedupKey(row.date, row.amount, row.description);
+    const duplicate = existingKeys.has(ref) || seenInBatch.has(ref);
+    seenInBatch.add(ref);
+    const effectiveTag = override?.tag ?? resolved?.tag;
+    const hashtags =
+      effectiveTag && !row.hashtags.includes(effectiveTag) ? [...row.hashtags, effectiveTag] : row.hashtags;
+    return {
+      date: row.date,
+      amount: row.amount,
+      description: row.description,
+      type: override?.categoryId ? row.type : (resolved?.type ?? row.type),
+      ...(!override?.categoryId && resolved?.type === 'transfer' && resolved.toAccountId
+        ? { toAccountId: resolved.toAccountId }
+        : {}),
+      ...(row.paymentMode && { paymentMode: row.paymentMode }),
+      hashtags,
+      ...(row.notes && { notes: row.notes }),
+      categoryId: override?.categoryId ?? resolved?.categoryId ?? 'cat-other',
+      categoryName: override?.categoryName ?? resolved?.categoryName ?? 'Other',
+      accountId: resolveAccountId(row),
+      skipped: override ? false : !!resolved?.skip,
+      duplicate,
+      sourceRef: ref
+    };
+  });
 }

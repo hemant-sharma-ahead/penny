@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '@/core/db/schema';
 import { activityLogRepo, expensesRepo } from '@/core/db/repositories';
-import { restoreActivity } from '@/core/db/activityLog';
+import { restoreActivity, subscribeActivity } from '@/core/db/activityLog';
 import { deriveKey, generateSalt } from '@/core/crypto/engine';
 import { keystore } from '@/core/crypto/keystore';
-import { writeImportBatch, undoImportBatch, restoreUndoneImport } from '@/core/import/importWriter';
+import {
+  writeImportBatch,
+  writeImportBatchDetailed,
+  undoImportBatch,
+  restoreUndoneImport
+} from '@/core/import/importWriter';
 import { applyConfirmedTransferPairs, type ResolvedPreviewRow } from '@/core/import/importPipeline';
 import type { TransferPair } from '@/core/import/importTransferPairing';
 import { computeBalance } from '@/core/accounts/balanceCalculator';
@@ -111,6 +116,154 @@ describe('writeImportBatch — confirmed transfer pair regression (real balance-
     const cashBalance = computeBalance('acc-cash', 10_000, written);
     expect(hdfcBalance).toBe(5_000); // debited
     expect(cashBalance).toBe(15_000); // credited
+  });
+});
+
+describe('writeImportBatchDetailed', () => {
+  beforeEach(async () => {
+    await setupKeystore();
+  });
+
+  // 2026-08-14 (manual-testing investigation — "no IMPORT entry appeared in Timeline") — traced the
+  // write path itself here (real import, at least one genuinely ready/succeeding row, exactly as asked):
+  // it's correct — an activity-log entry IS created and DOES notify `subscribeActivity` subscribers.
+  // The actual root cause was on the READ side (`apps/mobile/src/features/activity/useActivityLog.ts`
+  // never subscribed to this signal, so an already-mounted Timeline never re-fetched) — fixed separately;
+  // this test closes the loop on the write-path half of that investigation.
+  it('a real import with at least one succeeding row logs an IMPORT entry AND notifies subscribeActivity', async () => {
+    const seen: { action: string; entityCount?: number }[] = [];
+    const unsub = subscribeActivity((e) => seen.push({ action: e.action, entityCount: e.entityCount }));
+
+    const detailed = await writeImportBatchDetailed([
+      row({ sourceRef: 'ref-timeline-1' }),
+      row({ sourceRef: 'ref-timeline-2', description: 'Tea' })
+    ]);
+
+    expect(detailed.succeededCount).toBe(2);
+    expect(detailed.activityLogId).not.toBeNull();
+    expect(seen).toEqual([{ action: 'IMPORT', entityCount: 2 }]);
+
+    const logged = detailed.activityLogId ? await activityLogRepo.get(detailed.activityLogId) : null;
+    expect(logged?.action).toBe('IMPORT');
+
+    unsub();
+  });
+
+  it('behaves identically to writeImportBatch for count/failed/activityLogId', async () => {
+    const rows = [row(), row({ sourceRef: 'ref-detailed-2', description: 'Tea' })];
+    const detailed = await writeImportBatchDetailed(rows);
+    expect(detailed.succeededCount).toBe(2);
+    expect(detailed.failed).toHaveLength(0);
+    expect(detailed.activityLogId).not.toBeNull();
+  });
+
+  it('also returns each succeeded row paired with its newly-created expense id', async () => {
+    const rows = [row({ sourceRef: 'ref-detailed-3' }), row({ sourceRef: 'ref-detailed-4', description: 'Tea' })];
+    const detailed = await writeImportBatchDetailed(rows);
+    expect(detailed.succeededRows).toHaveLength(2);
+    const ids = detailed.succeededRows.map((r) => r.expenseId);
+    expect(new Set(ids).size).toBe(2); // distinct ids
+    const all = await expensesRepo.getAll();
+    for (const { expenseId, row: r } of detailed.succeededRows) {
+      const written = all.find((e) => e.id === expenseId);
+      expect(written?.description).toBe(r.description);
+    }
+  });
+
+  it('excludes duplicate/skipped rows from succeededRows too', async () => {
+    const detailed = await writeImportBatchDetailed([
+      row({ duplicate: true, sourceRef: 'ref-detailed-5' }),
+      row({ skipped: true, sourceRef: 'ref-detailed-6' })
+    ]);
+    expect(detailed.succeededRows).toHaveLength(0);
+    expect(detailed.succeededCount).toBe(0);
+  });
+
+  // 2026-08-14 (Import Progress screen, redesign §14 item 8) — live progress + cancellation, additive to
+  // this one function only; `writeImportBatch` never passes `options` so its behavior is provably
+  // untouched (covered by the "behaves identically" test above, still passing unchanged).
+  it('writeImportBatch (no options param at all) never gains a cancelled field — behavior provably untouched', async () => {
+    const detailed = await writeImportBatch([row({ sourceRef: 'ref-progress-0' })]);
+    expect(detailed).not.toHaveProperty('cancelled');
+  });
+
+  it('excludes duplicate/skipped rows from the progress total — they were never going to be written', async () => {
+    const seen: Array<[number, number]> = [];
+    await writeImportBatchDetailed(
+      [
+        row({ duplicate: true, sourceRef: 'ref-progress-1' }),
+        row({ sourceRef: 'ref-progress-2' }),
+        row({ skipped: true, sourceRef: 'ref-progress-3' }),
+        row({ sourceRef: 'ref-progress-4', description: 'Tea' })
+      ],
+      { onProgress: (completed, total) => seen.push([completed, total]) }
+    );
+    // Total is 2 (the two writable rows), not 4 — every reported total agrees.
+    expect(seen.every(([, total]) => total === 2)).toBe(true);
+    expect(seen.at(-1)).toEqual([2, 2]);
+  });
+
+  it('stops writing further rows once shouldCancel returns true, leaving already-written rows in place', async () => {
+    let calls = 0;
+    const detailed = await writeImportBatchDetailed(
+      [
+        row({ sourceRef: 'ref-cancel-1' }),
+        row({ sourceRef: 'ref-cancel-2', description: 'Tea' }),
+        row({ sourceRef: 'ref-cancel-3', description: 'Snacks' })
+      ],
+      {
+        shouldCancel: () => {
+          calls++;
+          return calls > 1; // let the first row through, then cancel before the second
+        }
+      }
+    );
+    expect(detailed.cancelled).toBe(true);
+    expect(detailed.succeededCount).toBe(1);
+    const all = await expensesRepo.getAll();
+    expect(all.filter((e) => e.source === 'import')).toHaveLength(1);
+  });
+
+  it('never sets cancelled when the loop runs to completion untouched', async () => {
+    const detailed = await writeImportBatchDetailed([row({ sourceRef: 'ref-nocancel-1' })], {
+      shouldCancel: () => false
+    });
+    expect(detailed.cancelled).toBe(false);
+    expect(detailed.succeededCount).toBe(1);
+  });
+
+  // Verification-round hardening (2026-08-14) — a caller's own `onProgress`/`shouldCancel` must never be
+  // able to truncate the write loop or escape this function just because ITS OWN code has a bug. Found
+  // as a real, if lower-severity, sibling of the "importPhase gets stuck forever" bug the same round's
+  // coordinator caught at the `commitAndImport()` call-site level.
+  it('keeps writing every row even when onProgress throws on every call', async () => {
+    const detailed = await writeImportBatchDetailed(
+      [
+        row({ sourceRef: 'ref-throwing-progress-1' }),
+        row({ sourceRef: 'ref-throwing-progress-2', description: 'Tea' }),
+        row({ sourceRef: 'ref-throwing-progress-3', description: 'Snacks' })
+      ],
+      {
+        onProgress: () => {
+          throw new Error('boom — a buggy UI callback');
+        }
+      }
+    );
+    expect(detailed.succeededCount).toBe(3);
+    expect(detailed.cancelled).toBe(false);
+  });
+
+  it('keeps writing every row even when shouldCancel throws on every call (never itself stops the loop)', async () => {
+    const detailed = await writeImportBatchDetailed(
+      [row({ sourceRef: 'ref-throwing-cancel-1' }), row({ sourceRef: 'ref-throwing-cancel-2', description: 'Tea' })],
+      {
+        shouldCancel: () => {
+          throw new Error('boom — a buggy UI callback');
+        }
+      }
+    );
+    expect(detailed.succeededCount).toBe(2);
+    expect(detailed.cancelled).toBe(false);
   });
 });
 

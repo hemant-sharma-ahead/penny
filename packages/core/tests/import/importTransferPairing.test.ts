@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { detectTransferPairs, transferPairKey } from '@/core/import/importTransferPairing';
+import {
+  detectTransferPairs,
+  detectSelfAccountMovementPairs,
+  isLikelySelfAccountMovement,
+  transferPairKey
+} from '@/core/import/importTransferPairing';
 import type { ParsedRow } from '@/core/import/importParsers';
 
 function row(overrides: Partial<ParsedRow>): ParsedRow {
@@ -163,6 +168,70 @@ describe('detectTransferPairs', () => {
     const pairs = detectTransferPairs(rows);
     expect(pairs).toHaveLength(1);
     expect(pairs[0]?.incomingIndex).toBe(1);
+  });
+});
+
+describe('isLikelySelfAccountMovement', () => {
+  it('flags cash withdrawal and CC bill payment phrasing (redesign doc §7.1)', () => {
+    expect(isLikelySelfAccountMovement('Cash Withdrawal')).toBe(true);
+    expect(isLikelySelfAccountMovement('ATM Withdrawal')).toBe(true);
+    expect(isLikelySelfAccountMovement('Credit Card Bill Payment')).toBe(true);
+    expect(isLikelySelfAccountMovement('CC Payment')).toBe(true);
+  });
+
+  it('does not flag genuine spending categories', () => {
+    expect(isLikelySelfAccountMovement('Groceries')).toBe(false);
+  });
+});
+
+describe('detectSelfAccountMovementPairs', () => {
+  it('pairs a cash-withdrawal category that detectTransferPairs itself would NOT pair (broader signal)', () => {
+    const rows: ParsedRow[] = [
+      row({ account: 'HDFC1234', amount: 5000, type: 'expense', categoryName: 'Cash Withdrawal', date: 100 }),
+      row({ account: 'Cash', amount: 5000, type: 'income', categoryName: 'Cash Withdrawal', date: 100 })
+    ];
+    // Baseline: detectTransferPairs itself doesn't know "Cash Withdrawal" — this is the whole point of
+    // the new, broader detector, not a change to detectTransferPairs' own existing behavior.
+    expect(detectTransferPairs(rows)).toEqual([]);
+    const pairs = detectSelfAccountMovementPairs(rows);
+    expect(pairs).toHaveLength(1);
+    expect(pairs[0]).toMatchObject({ fromAccount: 'HDFC1234', toAccount: 'Cash', amount: 5000 });
+  });
+
+  it('also still pairs everything detectTransferPairs already pairs (isLikelyTransfer keywords)', () => {
+    const rows: ParsedRow[] = [
+      row({ account: 'HDFC1234', amount: 140000, type: 'expense', categoryName: 'Balance Correction', date: 100 }),
+      row({ account: 'Cash', amount: 140000, type: 'income', categoryName: 'Balance Correction', date: 100 })
+    ];
+    expect(detectSelfAccountMovementPairs(rows)).toHaveLength(1);
+  });
+
+  it('pairs a CC bill payment the same broader way', () => {
+    const rows: ParsedRow[] = [
+      row({ account: 'HDFC1234', amount: 8000, type: 'expense', categoryName: 'Credit Card Bill Payment', date: 100 }),
+      row({
+        account: 'HDFC Credit Card',
+        amount: 8000,
+        type: 'income',
+        categoryName: 'Credit Card Bill Payment',
+        date: 100
+      })
+    ];
+    expect(detectSelfAccountMovementPairs(rows)).toHaveLength(1);
+  });
+
+  it('still requires opposite direction / two different accounts / date+amount tolerance, same as detectTransferPairs', () => {
+    const rows: ParsedRow[] = [
+      row({ account: 'HDFC1234', amount: 5000, type: 'expense', categoryName: 'Cash Withdrawal', date: 0 }),
+      row({
+        account: 'Cash',
+        amount: 5000,
+        type: 'income',
+        categoryName: 'Cash Withdrawal',
+        date: 4 * 24 * 60 * 60 * 1000
+      })
+    ];
+    expect(detectSelfAccountMovementPairs(rows)).toEqual([]);
   });
 });
 

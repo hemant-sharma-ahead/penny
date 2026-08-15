@@ -4,7 +4,8 @@ import { Modal, Button, Banner, SelectInput, TextInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { tint } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
-import type { Account, ExpenseCategory } from '@/core/db/types';
+import type { Account, ExpenseCategory, Person } from '@/core/db/types';
+import { IOU_MANDATORY_CATEGORY_IDS } from '@/core/db/defaultCategories';
 import {
   isLikelyTransfer,
   intentGroupLabel,
@@ -13,6 +14,7 @@ import {
   type CategoryAction
 } from '@/core/import/importCategoryResolution';
 import { CategoryPickerModal } from '~/features/expenses/categories/CategoryPickerModal';
+import { ExtraCircle } from '~/components/shared/ExtraCircle';
 
 /** Same border-notched-label wrapper `CategoryTile.tsx`/`AccountsSection.tsx` each already have their own
  *  copy of — a third local copy here follows that same established (if duplicative) single-consumer
@@ -99,12 +101,30 @@ interface ImportCategorizeModalProps {
    *  here from the tile header (bucket-tiles redesign) since it's a resolution-affecting shortcut like
    *  everything else in this modal. Still requires pressing Apply — never auto-applied. */
   rememberedSuggestion?: { categoryId: string; categoryName: string };
-  /** Applies to the WHOLE tile (every one of its rows) — used whenever `isPartialSelection` is false. */
-  onApplyFull: (suggestion: CategoryAction, tag: string) => void;
+  /** For the Lent/Borrowed panel's autocomplete (2026-08-14, redesign §9.6, Issue #8) — omit (or pass
+   *  empty) to hide suggestions; the free-text field itself still works either way, same as
+   *  `BulkCategorizeModal`'s own IOU panel. */
+  iouPersons?: Person[];
+  /** Seed value for the Lent/Borrowed person field (2026-08-14, redesign §9.6/§7's 2026-08-14
+   *  clarification) — pre-fills from the Categories stage's own per-row counterparty detection when one
+   *  exists (a `CounterpartyGroup`'s matched Person name, or its raw low-confidence candidate text),
+   *  still fully editable. A row with no detected counterparty (the residual group, or a plain
+   *  non-split category) starts blank. */
+  initialIouPersonName?: string;
+  /** Whether this modal instance should show/require the Lent/Borrowed panel at all (2026-08-14,
+   *  redesign §3/§9.6) — supplying the IOU person is explicitly a TRANSACTIONS-stage concern, never a
+   *  Categories-stage gate (the doc's own sequencing: Categories only decides the category KIND; a
+   *  category that happens to be IOU-mandatory still doesn't block Categories-stage "Continue" on a
+   *  missing person). Defaults to `true` (Transactions stage's own standing-override usage); the
+   *  Categories stage passes `false` explicitly. */
+  enforceIouPerson?: boolean;
+  /** Applies to the WHOLE tile (every one of its rows) — used whenever `isPartialSelection` is false.
+   *  `iouPersonName` is set only when the applied category is `IOU_MANDATORY_CATEGORY_IDS`-gated. */
+  onApplyFull: (suggestion: CategoryAction, tag: string, iouPersonName?: string) => void;
   /** Applies to just the checked subset via a row-level override — `suggestion.kind` is always
    *  'existing' here (the only kind a row-level override supports); the caller is trusted to route this
    *  to `moveRowsToCategory`/`tagRows` rather than the group-level `onUpdateCategory`. */
-  onApplyPartial: (categoryId: string, categoryName: string, tag: string) => void;
+  onApplyPartial: (categoryId: string, categoryName: string, tag: string, iouPersonName?: string) => void;
   /** "Looks good, use this" (2026-08-13, bucket-tiles redesign, decision #5) — acknowledges the tile's
    *  CURRENT 'create' suggestion as-is, without changing it. Only ever rendered for a whole-tile
    *  selection whose suggestion is already 'create' and not yet decided. */
@@ -134,6 +154,9 @@ export function ImportCategorizeModal({
   groupOptions,
   pickerType,
   rememberedSuggestion,
+  iouPersons = [],
+  initialIouPersonName = '',
+  enforceIouPerson = true,
   onApplyFull,
   onApplyPartial,
   onAcknowledge,
@@ -143,11 +166,40 @@ export function ImportCategorizeModal({
   const [localSuggestion, setLocalSuggestion] = useState<CategoryAction>(suggestion);
   const [tag, setTag] = useState(initialTag);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [touched, setTouched] = useState(false);
+  const [showIouPanel, setShowIouPanel] = useState(false);
+  const [iouPersonName, setIouPersonName] = useState(initialIouPersonName);
 
   const transferOptions = transferCategoryOptions().map((c) => ({ value: c.id, label: c.name }));
   const suggestedTransfer = localSuggestion.kind !== 'transfer' && isLikelyTransfer(sourceName);
   const selectedCat =
     localSuggestion.kind === 'existing' ? categories.find((c) => c.id === localSuggestion.categoryId) : undefined;
+
+  // Lending / Borrowed Money / Collected Money / Return Borrowed (2026-08-14, ported from
+  // `BulkCategorizeModal.tsx`'s identical rule) — makes the person mandatory and auto-opens (and locks
+  // open) the Lent/Borrowed panel rather than leaving it a manual toggle someone might never open before
+  // an otherwise-silent Apply-button failure. Only ever true for `kind === 'existing'` — a transfer/
+  // create/skip resolution never maps to one of these four real category ids.
+  const iouMandatory =
+    enforceIouPerson &&
+    localSuggestion.kind === 'existing' &&
+    IOU_MANDATORY_CATEGORY_IDS.has(localSuggestion.categoryId);
+  const iouApplicable =
+    localSuggestion.kind === 'existing' && IOU_MANDATORY_CATEGORY_IDS.has(localSuggestion.categoryId);
+  const iouPanelOpen = showIouPanel || iouMandatory;
+  // Expense group → they owe you (lent); income group → you owe them (borrowed) — same convention as
+  // `ExpenseForm`/`BulkCategorizeModal`. Also the icon-row accent color.
+  const iouKind: 'lent' | 'borrowed' = pickerType === 'income' ? 'borrowed' : 'lent';
+  const iouAccent = pickerType === 'income' ? theme.success : theme.danger;
+  const iouMatches =
+    iouPersonName.trim().length > 0
+      ? (() => {
+          const q = iouPersonName.trim().toLowerCase();
+          return iouPersons
+            .filter((p) => !p.isArchived && p.name.toLowerCase().includes(q) && p.name.toLowerCase() !== q)
+            .slice(0, 6);
+        })()
+      : [];
 
   function handleKindChange(kind: CategoryAction['kind']) {
     if (isPartialSelection && kind !== 'existing') return;
@@ -174,7 +226,7 @@ export function ImportCategorizeModal({
   }
 
   const canApply =
-    localSuggestion.kind === 'existing'
+    (localSuggestion.kind === 'existing'
       ? localSuggestion.categoryId.length > 0
       : isPartialSelection
         ? false // only 'existing' is reachable for a partial selection — see handleKindChange's guard
@@ -182,16 +234,19 @@ export function ImportCategorizeModal({
           ? localSuggestion.suggestedName.trim().length > 0
           : localSuggestion.kind === 'transfer'
             ? localSuggestion.toAccountId.length > 0
-            : true; // 'skip' has no further requirement
+            : true) && // 'skip' has no further requirement
+    (!iouMandatory || iouPersonName.trim().length > 0);
 
   function handleApply() {
+    setTouched(true);
     if (!canApply) return;
+    const iou = iouMandatory ? iouPersonName.trim() : undefined;
     if (isPartialSelection) {
       if (localSuggestion.kind === 'existing')
-        onApplyPartial(localSuggestion.categoryId, localSuggestion.categoryName, tag);
+        onApplyPartial(localSuggestion.categoryId, localSuggestion.categoryName, tag, iou);
       return;
     }
-    onApplyFull(localSuggestion, tag);
+    onApplyFull(localSuggestion, tag, iou);
   }
 
   const showAcknowledgeShortcut = !isPartialSelection && !decided && suggestion.kind === 'create';
@@ -333,6 +388,60 @@ export function ImportCategorizeModal({
             </Text>
             <Icon name="ti-chevron-right" size={14} color={theme.textTertiary} />
           </Pressable>
+        )}
+
+        {/* Lent/Borrowed lock-open panel (2026-08-14, redesign §9.6, Issue #8) — ported from
+         *  `BulkCategorizeModal.tsx`'s identical pattern. Only ever relevant for `kind === 'existing'`,
+         *  AND only when `enforceIouPerson` (Transactions-stage usage) — the Categories stage passes
+         *  `enforceIouPerson={false}` since supplying the person is explicitly not its concern. */}
+        {enforceIouPerson && iouApplicable && (
+          <View className="flex-row justify-center pt-1">
+            <ExtraCircle
+              icon="ti-users"
+              label={iouKind === 'lent' ? 'Lent' : 'Borrowed'}
+              active={iouPanelOpen || iouPersonName.trim().length > 0}
+              disabled={iouMandatory}
+              accent={iouAccent}
+              onPress={() => setShowIouPanel((v) => !v)}
+            />
+          </View>
+        )}
+
+        {enforceIouPerson && iouApplicable && iouPanelOpen && (
+          <View
+            className="rounded-xl border p-3 gap-2"
+            style={{
+              borderColor: touched && iouMandatory && !iouPersonName.trim() ? theme.danger : theme.border,
+              backgroundColor: theme.surfaceTertiary
+            }}
+          >
+            <TextInput
+              placeholder="Person's name"
+              value={iouPersonName}
+              onChange={setIouPersonName}
+              error={
+                touched && iouMandatory && !iouPersonName.trim()
+                  ? 'Enter who this is with — required for this category'
+                  : undefined
+              }
+            />
+            {!(touched && iouMandatory && !iouPersonName.trim()) && (
+              <Text className="text-xs text-tertiary">
+                {iouKind === 'lent'
+                  ? `Adds a they-owe-you entry to this person's ledger for each of the ${checkedCount} transaction${checkedCount === 1 ? '' : 's'}.`
+                  : `Adds a you-owe-them entry to this person's ledger for each of the ${checkedCount} transaction${checkedCount === 1 ? '' : 's'}.`}
+              </Text>
+            )}
+            {iouMatches.length > 0 && (
+              <View className="flex-row flex-wrap gap-1">
+                {iouMatches.map((p) => (
+                  <Button key={p.id} variant="secondary" size="sm" onPress={() => setIouPersonName(p.name)}>
+                    {p.name}
+                  </Button>
+                ))}
+              </View>
+            )}
+          </View>
         )}
 
         {localSuggestion.kind === 'transfer' && (

@@ -26,6 +26,17 @@ export interface ColumnSynonyms {
   inflow: string[];
   /** Explicit income boolean/flag column (Cashew's `income` TRUE/FALSE). */
   incomeFlag: string[];
+  /** Bank/institution name column, independent of whichever column `account` itself resolved to — added
+   *  2026-08-14 for the CSV-import redesign's card→account merge suggestion (see
+   *  `importAccountResolution.ts`'s `suggestCardAccountMerges`), which needs the raw Bank Name text even
+   *  when a MoneyView export's higher-priority `Account Id`/card-number column won the `account` slot.
+   *  Deliberately NOT added to `PENNY_FIELDS` — that constant drives nothing in the current Custom-format
+   *  Map-columns UI (`MapColumnsStep.tsx` lists its fields explicitly, not via `PENNY_FIELDS`), and only
+   *  the `moneyview` preset maps this synonym; Custom format has no manual picker for it yet. */
+  bankName: string[];
+  /** Raw account-type text column (e.g. MoneyView's "Account Type": `bank`/`cash`/`debit-card`/
+   *  `credit-card`) — same 2026-08-14 addition, same "not in PENNY_FIELDS" reasoning as `bankName` above. */
+  accountType: string[];
 }
 
 export interface ColumnMapping {
@@ -41,6 +52,8 @@ export interface ColumnMapping {
   outflow: number;
   inflow: number;
   incomeFlag: number;
+  bankName: number;
+  accountType: number;
 }
 
 export const PENNY_FIELDS: (keyof ColumnMapping)[] = [
@@ -70,7 +83,9 @@ const EMPTY_SYNONYMS: ColumnSynonyms = {
   amount: [],
   outflow: [],
   inflow: [],
-  incomeFlag: []
+  incomeFlag: [],
+  bankName: [],
+  accountType: []
 };
 
 function findColumn(header: string[], synonyms: string[]): number {
@@ -101,7 +116,9 @@ export function guessColumnMapping(header: string[], synonyms: Partial<ColumnSyn
     amount: findColumn(h, s.amount),
     outflow: findColumn(h, s.outflow),
     inflow: findColumn(h, s.inflow),
-    incomeFlag: findColumn(h, s.incomeFlag)
+    incomeFlag: findColumn(h, s.incomeFlag),
+    bankName: findColumn(h, s.bankName),
+    accountType: findColumn(h, s.accountType)
   };
 }
 
@@ -115,11 +132,29 @@ function parseAmt(s: string): number {
 }
 
 /** Split debit/credit (or outflow/inflow) columns take priority over a single signed amount column,
- *  when both patterns are somehow present. Returns null when no usable amount was found. */
+ *  when both patterns are somehow present. Returns null when no usable amount was found.
+ *
+ *  A NEGATIVE value in the outflow/debit column (or, symmetrically, the inflow/credit column) is a
+ *  reversal — MoneyView's own convention for e.g. a `refund-reversal` row, where a negative Debit
+ *  means money coming back, not a same-signed larger expense. Found 2026-08-14 via a real MoneyView
+ *  export: `Math.abs()` was applied before direction was decided, so a negative debit silently became
+ *  a same-size positive EXPENSE instead of the income/reversal it actually represents. Checking the
+ *  raw sign first, before taking the absolute value, flips direction correctly for both columns.
+ *
+ *  BOTH columns negative simultaneously has no sane interpretation (found in code review, 2026-08-14) —
+ *  a genuinely corrupted/nonsensical row in practice, not a real export convention, so this deliberately
+ *  returns `null` (unresolvable) rather than silently picking one direction over the other. The caller
+ *  (`parseWithMapping`) already routes a `null` result into the existing rejected-rows flow ("Missing or
+ *  zero amount"), surfaced to the user instead of silently guessed at. */
 export function resolveAmount(cols: string[], mapping: ColumnMapping): AmountResult | null {
   if (mapping.outflow >= 0 && mapping.inflow >= 0) {
-    const out = Math.abs(parseAmt(cols[mapping.outflow] ?? ''));
-    const inc = Math.abs(parseAmt(cols[mapping.inflow] ?? ''));
+    const rawOut = parseAmt(cols[mapping.outflow] ?? '');
+    const rawInc = parseAmt(cols[mapping.inflow] ?? '');
+    if (rawOut < 0 && rawInc < 0) return null;
+    if (rawOut < 0) return { amount: Math.abs(rawOut), type: 'income' };
+    if (rawInc < 0) return { amount: Math.abs(rawInc), type: 'expense' };
+    const out = Math.abs(rawOut);
+    const inc = Math.abs(rawInc);
     if (out > 0) return { amount: out, type: 'expense' };
     if (inc > 0) return { amount: inc, type: 'income' };
     return null;

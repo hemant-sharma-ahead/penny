@@ -73,6 +73,23 @@ export function useExpenses() {
     remove: removeExpense,
     reload: reloadExpenses
   } = useRepository(expensesRepo);
+  // Always-fresh handle onto the latest `expenses` array, read (never as a render dependency) by the
+  // write-path callbacks below (`moveTransactions`/`patchExpenses`/`removeExpenses`/`deleteExpense`/
+  // `saveExpenseWithHashtags`). Those callbacks used to close over `expenses` directly and list it in
+  // their own `useCallback` deps, so every one of them got a new identity on every reload — including
+  // reloads triggered by a totally unrelated `notifyTxnChanged()` broadcast elsewhere in the app. That
+  // cascaded into `TransactionsTab.tsx`'s `renderItem` (which lists these callbacks in its own deps),
+  // forcing every mounted/recycled row through a memo re-compare on any such event (found 2026-08-14).
+  // Reading `expensesRef.current` instead keeps each callback's own identity stable across reloads
+  // without going stale. Assigned in an effect, not during render — this project's lint config (the
+  // React Compiler-era `react-hooks/refs` rule) forbids writing a ref's `.current` synchronously during
+  // render; every read of it happens later anyway (inside an event-handler callback, never during this
+  // component's own render), so syncing it in an effect (runs after commit, before any user interaction
+  // can fire) is equivalent here.
+  const expensesRef = useRef(expenses);
+  useEffect(() => {
+    expensesRef.current = expenses;
+  }, [expenses]);
   const {
     items: categories,
     loading: categoriesLoading,
@@ -422,14 +439,22 @@ export function useExpenses() {
     [categories, reloadCategories]
   );
 
-  /** Reassign every transaction in `sourceIds` to `targetId`. Sources are not deleted. */
+  /** Reassign every transaction in `sourceIds` to `targetId`. Sources are not deleted.
+   *
+   *  Uses `saveExpense` (the same `useRepository.save()` every single-row edit already goes through) per
+   *  affected row instead of `expensesRepo.put()` + `reloadExpenses()` — `save()` already does the
+   *  optimistic in-memory splice (no re-`getAll()`/re-decrypt), so calling it once per affected row gets
+   *  the same effect for a bulk mutation without `EncryptedRepository.getAll()` re-decrypting the ENTIRE
+   *  table afterward (found 2026-08-14: previously every bulk move/patch/delete on a 4,000+-row table
+   *  triggered exactly that full re-decrypt via `reloadExpenses()`, even though only a handful of rows
+   *  actually changed). `save()`'s functional `setState` updater keys off each item's own id, so calling
+   *  it concurrently for many different ids is race-free — each update only ever touches its own row. */
   const moveTransactions = useCallback(
     async (sourceIds: string[], targetId: string) => {
       const sources = new Set(sourceIds);
       const now = Date.now();
-      const affected = expenses.filter((e) => sources.has(e.categoryId));
-      await Promise.all(affected.map((e) => expensesRepo.put({ ...e, categoryId: targetId, updatedAt: now })));
-      reloadExpenses();
+      const affected = expensesRef.current.filter((e) => sources.has(e.categoryId));
+      await Promise.all(affected.map((e) => saveExpense({ ...e, categoryId: targetId, updatedAt: now })));
       if (affected.length > 0) {
         logActivity({
           action: 'BULK_MOVE',
@@ -440,17 +465,18 @@ export function useExpenses() {
         });
       }
     },
-    [expenses, reloadExpenses]
+    [saveExpense]
   );
 
-  /** Apply a partial field update to specific transactions (by id) in one batch. */
+  /** Apply a partial field update to specific transactions (by id) in one batch. See `moveTransactions`'
+   *  own comment above for why this goes through `saveExpense` per row instead of `expensesRepo.put()` +
+   *  `reloadExpenses()`. */
   const patchExpenses = useCallback(
     async (expenseIds: string[], patch: Partial<Pick<Expense, 'categoryId' | 'accountId' | 'paymentMode'>>) => {
       const ids = new Set(expenseIds);
       const now = Date.now();
-      const affected = expenses.filter((e) => ids.has(e.id));
-      await Promise.all(affected.map((e) => expensesRepo.put({ ...e, ...patch, updatedAt: now })));
-      reloadExpenses();
+      const affected = expensesRef.current.filter((e) => ids.has(e.id));
+      await Promise.all(affected.map((e) => saveExpense({ ...e, ...patch, updatedAt: now })));
       const first = affected[0];
       if (first) {
         logActivity({
@@ -462,22 +488,25 @@ export function useExpenses() {
         });
       }
     },
-    [expenses, reloadExpenses]
+    [saveExpense]
   );
 
-  /** Delete specific transactions (by id) in one batch, with Undo. */
+  /** Delete specific transactions (by id) in one batch, with Undo. Goes through `removeExpense` (the
+   *  same optimistic single-row `useRepository.remove()`) per id for the same reason `moveTransactions`'
+   *  comment above explains — the Undo action below still does a full `reloadExpenses()`, since
+   *  `restoreActivity` can resurrect more than just these rows (cascaded ledger entries) and is a rare,
+   *  user-initiated action, not a hot path. */
   const removeExpenses = useCallback(
     async (expenseIds: string[]) => {
       const ids = new Set(expenseIds);
-      const removed = expenses.filter((e) => ids.has(e.id));
+      const removed = expensesRef.current.filter((e) => ids.has(e.id));
       // Cascade-delete any IOU ledger entries linked to these transactions (parity with single delete),
       // so bulk-deleting IOU-seeded expenses doesn't leave orphaned ledger entries.
       const linkedEntries = (await ledgerEntriesRepo.getAll()).filter(
         (le) => le.linkedTxnId !== undefined && ids.has(le.linkedTxnId)
       );
-      await Promise.all(expenseIds.map((id) => expensesRepo.delete(id)));
+      await Promise.all(expenseIds.map((id) => removeExpense(id)));
       for (const le of linkedEntries) await ledgerEntriesRepo.delete(le.id);
-      reloadExpenses();
       if (linkedEntries.length > 0) reloadLedger();
       // Unconditional — any transaction delete can change account balances/net worth, not just
       // IOU-linked ones (found 2026-08-04: Home's net-worth figure went stale after deleting ordinary,
@@ -508,13 +537,13 @@ export function useExpenses() {
         }
       });
     },
-    [expenses, reloadExpenses, reloadLedger, showToast]
+    [removeExpense, reloadExpenses, reloadLedger, showToast]
   );
 
   /** Delete a single transaction, with Undo. Cascade-deletes linked IOU entries and restores both atomically. */
   const deleteExpense = useCallback(
     async (id: string) => {
-      const exp = expenses.find((e) => e.id === id);
+      const exp = expensesRef.current.find((e) => e.id === id);
       await removeExpense(id);
       // Cascade-delete any IOU ledger entries linked to this transaction.
       const linkedEntries = (await ledgerEntriesRepo.getAll()).filter((le) => le.linkedTxnId === id);
@@ -545,7 +574,7 @@ export function useExpenses() {
         }
       });
     },
-    [expenses, removeExpense, reloadExpenses, reloadLedger, showToast]
+    [removeExpense, reloadExpenses, reloadLedger, showToast]
   );
 
   /** Delete a custom, empty category and any budgets attached to it. No-op for defaults or non-empty. */
@@ -653,7 +682,7 @@ export function useExpenses() {
   // ignored for tags that already exist (their classification only changes via Manage Tags).
   const saveExpenseWithHashtags = useCallback(
     async (expense: Expense, newTagSetAside?: Record<string, boolean>) => {
-      const existing = expenses.find((e) => e.id === expense.id);
+      const existing = expensesRef.current.find((e) => e.id === expense.id);
       await saveExpense(expense);
       // Found + fixed 2026-08-10, on-device testing: this is the canonical single-expense add/edit
       // path (every `ExpenseForm` save goes through here) but never broadcast `notifyTxnChanged()` —
@@ -699,7 +728,7 @@ export function useExpenses() {
         ...(diff ? { diff } : {})
       });
     },
-    [expenses, saveExpense, saveHashtag, hashtags, merchantMemoryMap, reloadMerchantMemory]
+    [saveExpense, saveHashtag, hashtags, merchantMemoryMap, reloadMerchantMemory]
   );
 
   // Resolve a typed name to an existing (case-insensitive) or freshly created person.
