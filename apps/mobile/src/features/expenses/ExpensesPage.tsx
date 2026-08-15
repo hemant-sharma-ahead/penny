@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute } from '@react-navigation/native';
-import { TabStrip, Modal } from '~/components/ui';
+import { TabStrip, Modal, PennyLoader } from '~/components/ui';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { useSettings } from '~/context/SettingsContext';
 import { useEventMode } from '~/context/EventModeContext';
@@ -93,6 +93,24 @@ export function ExpensesPage() {
   const [visitedTabs, setVisitedTabs] = useState<Set<ExpensesTab>>(() => new Set([initialTab ?? 'transactions']));
   const [showBudgets, setShowBudgets] = useState(false);
 
+  // Analytics' first-ever mount does real, unavoidable work — `useExpenseAnalytics.ts`'s ~15 memoized
+  // aggregates, each a full pass over the (up to 4,000+ row) expense array, computed synchronously as
+  // part of `AnalyticsSlice`'s own render (a `useMemo` can't yield mid-computation to let a spinner
+  // paint first). `analyticsReady` gates that first mount behind one extra render: the moment Analytics
+  // is newly visited, this paints `PennyLoader` alone (cheap — `AnalyticsSlice` isn't mounted yet, so
+  // none of the heavy aggregation has run), then the effect below flips `analyticsReady` on the next
+  // macrotask (`setTimeout(0)`, not `InteractionManager` — RN's own re-export of that warns on read, see
+  // `reactNativeShim.ts`), giving the loader's frame a chance to actually reach the screen before the
+  // heavy synchronous work blocks the JS thread. Once true, it stays true — every switch back to
+  // Analytics after this first mount is genuinely free (see the `familyGroupIds`/`setAsideTagNames` fix
+  // above, which removes the bug that used to make every switch pay this same cost, not just the first).
+  const [analyticsReady, setAnalyticsReady] = useState(false);
+  useEffect(() => {
+    if (!visitedTabs.has('analytics') || analyticsReady) return;
+    const t = setTimeout(() => setAnalyticsReady(true), 0);
+    return () => clearTimeout(t);
+  }, [visitedTabs, analyticsReady]);
+
   function changeTab(tab: ExpensesTab) {
     setActiveTab(tab);
     setVisitedTabs((prev) => (prev.has(tab) ? prev : new Set(prev).add(tab)));
@@ -107,8 +125,21 @@ export function ExpensesPage() {
       : [];
   // Any expense shared into a Family-type group, or carrying a Set-Aside tag, is excluded from
   // daily-living analytics regardless of category — see useExpenseAnalytics's classify().
-  const familyGroupIds = new Set(groups.filter((g) => g.type === 'family').map((g) => g.id));
-  const setAsideTagNames = new Set(hashtags.filter((h) => h.setAside).map((h) => h.name));
+  //
+  // Memoized — found 2026-08-14 via a "switching Transactions↔Analytics feels slow every time, not just
+  // the first time" report: these two used to be plain `new Set(...)` literals recomputed on every
+  // render of `ExpensesPage` (i.e. on every tab switch, or any other state change here — `showBudgets`
+  // toggling, etc.), even though `AnalyticsSlice` stays mounted (see the "lazy-mount-once" comment
+  // below). A fresh `Set` identity each render fed straight into `useExpenseAnalytics`'s `classify`
+  // memo (`familyGroupIds`/`setAsideTagNames` are both in its dep array), which in turn is a dependency
+  // of nearly every one of that hook's ~15 memoized aggregates — so every single tab switch was silently
+  // paying the SAME full recompute the docblock below claims only the first visit pays. `groups`
+  // (`useGroupContext()`) and `hashtags` (`useExpenses()`) are themselves already stable
+  // repository-backed arrays (unchanged reference unless the underlying data actually changes), so
+  // keying off them here is enough to make `familyGroupIds`/`setAsideTagNames` — and therefore
+  // `classify` and everything downstream of it — stable across unrelated re-renders too.
+  const familyGroupIds = useMemo(() => new Set(groups.filter((g) => g.type === 'family').map((g) => g.id)), [groups]);
+  const setAsideTagNames = useMemo(() => new Set(hashtags.filter((h) => h.setAside).map((h) => h.name)), [hashtags]);
   const handleShareToGroup = (expense: Expense, groupId: string, participants?: string[]): Promise<void> =>
     shareExpenseToGroup(groupId, {
       amount: expense.amount,
@@ -235,18 +266,24 @@ export function ExpensesPage() {
 
         {visitedTabs.has('analytics') && (
           <View style={{ flex: 1, display: activeTab === 'analytics' ? 'flex' : 'none' }}>
-            <AnalyticsSlice
-              expenses={expenses}
-              categoryMap={categoryMap}
-              accountMap={accountMap}
-              accounts={accounts}
-              hashtags={hashtags}
-              masked={shouldMask(false)}
-              iouLinkedTxnIds={iouLinkedTxnIds}
-              goalLinkedTxnIds={goalLinkedTxnIds}
-              familyGroupIds={familyGroupIds}
-              setAsideTagNames={setAsideTagNames}
-            />
+            {analyticsReady ? (
+              <AnalyticsSlice
+                expenses={expenses}
+                categoryMap={categoryMap}
+                accountMap={accountMap}
+                accounts={accounts}
+                hashtags={hashtags}
+                masked={shouldMask(false)}
+                iouLinkedTxnIds={iouLinkedTxnIds}
+                goalLinkedTxnIds={goalLinkedTxnIds}
+                familyGroupIds={familyGroupIds}
+                setAsideTagNames={setAsideTagNames}
+              />
+            ) : (
+              <View className="flex-1 items-center justify-center">
+                <PennyLoader size="lg" accessibilityLabel="Loading analytics" />
+              </View>
+            )}
           </View>
         )}
       </View>

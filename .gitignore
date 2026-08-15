@@ -45,3 +45,8 @@ workbox-*.js
 **/public/tablerIconIndex.json
 
 .claude/worktrees/
+
+# Expo CLI local dev cache — machine-specific (device list, server logs), never shared.
+# apps/mobile/.gitignore already covers apps/mobile/.expo/; this covers the root, in case
+# `expo`/`pnpm web` gets invoked from the repo root instead.
+.expo/

@@ -183,11 +183,20 @@ export function TransactionsSlice({
   // selected rows actually are, same majority-vote approach `BulkCategorizeModal.tsx` (bank-import) uses
   // for its own picker-type, so `CategoryPickerModal`'s expense/income category filtering is right for
   // the common case even for a mixed selection.
+  //
+  // Guarded on `showBulkCategory` (only actually used while that modal is open) rather than computed
+  // unconditionally — this used to flatten + filter the ENTIRE filtered dataset (up to all 4,000+ rows)
+  // on every change to `selected`, i.e. on every single row tap, select-all, or clear (found 2026-08-14).
+  // React still re-invokes this factory whenever `selected`/`grouped` changes (they're still real deps),
+  // but the early return means that's an O(1) check on every one of those — the real O(selected size) scan
+  // only happens when the modal is actually open (bounded by how often the user opens/re-triggers the
+  // bulk-category picker, not by every selection change).
   const bulkPickerType: 'expense' | 'income' = useMemo(() => {
+    if (!showBulkCategory) return 'expense';
     const selectedExpenses = grouped.flatMap((g) => g.items).filter((e) => selected.has(e.id));
     const incomeCount = selectedExpenses.filter((e) => e.type === 'income').length;
     return incomeCount > selectedExpenses.length / 2 ? 'income' : 'expense';
-  }, [grouped, selected]);
+  }, [showBulkCategory, grouped, selected]);
 
   const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {

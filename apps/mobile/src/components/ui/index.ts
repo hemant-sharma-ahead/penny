@@ -18,6 +18,7 @@ export { OptionalSeg } from './OptionalSeg';
 export { OptionButton } from './OptionButton';
 export { PageHeader } from './PageHeader';
 export { PassphraseStrengthMeter } from './PassphraseStrengthMeter';
+export { PennyLoader } from './PennyLoader';
 export { PennyLogo, PennyWordmark } from './PennyLogo';
 export { ProgressBar } from './ProgressBar';
 export { ProgressRing } from './ProgressRing';
