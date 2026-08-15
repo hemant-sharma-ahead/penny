@@ -94,6 +94,15 @@ export function yearBounds(year: number): { start: number; end: number } {
   return { start: new Date(year, 0, 1).getTime(), end: new Date(year + 1, 0, 1).getTime() };
 }
 
+/** Start (inclusive, epoch 0) / end (exclusive, one day past `nowMs`) bounds for "all time" — the
+ *  lifetime-scoped counterpart of {@link monthBounds}/{@link yearBounds}, added 2026-08-16 for
+ *  Analytics' All Time view. `start: 0` deliberately means "no txn before this account existed" rather
+ *  than the true earliest transaction date, so `computeCashFlowSummary`'s "Initial" column reads as 0
+ *  for all time (matching that it's a lifetime figure, not a mid-history snapshot). */
+export function allTimeBounds(nowMs: number = Date.now()): { start: number; end: number } {
+  return { start: 0, end: nowMs + DAY_MS };
+}
+
 // ── Labels ───────────────────────────────────────────────────────────────────
 
 /** Relative day label for a date key: "Today" / "Yesterday" / "5 Jan 2026". */

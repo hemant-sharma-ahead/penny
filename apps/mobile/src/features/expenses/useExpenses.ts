@@ -540,6 +540,48 @@ export function useExpenses() {
     [removeExpense, reloadExpenses, reloadLedger, showToast]
   );
 
+  /** Bulk-add one hashtag to every selected transaction — additive only, never removes or replaces a
+   *  transaction's existing tags (2026-08-16, real user report: bulk categorize/account-pay/delete already
+   *  existed but there was no bulk way to tag). Only rows that don't already carry the tag are actually
+   *  written + counted toward the tag's `usageCount`, so re-running this on an already-tagged selection is
+   *  a safe no-op for those rows. Goes through `saveExpense` per affected row for the same reason
+   *  `moveTransactions`/`patchExpenses` above do (see their own comments) — deliberately NOT
+   *  `saveExpenseWithHashtags`, which would re-bump the usage count of every OTHER tag already on the row
+   *  too, not just this new one. */
+  const bulkAddHashtag = useCallback(
+    async (expenseIds: string[], rawTag: string) => {
+      const tag = rawTag.replace(/^#/, '').trim().toLowerCase();
+      if (!tag) return;
+      const ids = new Set(expenseIds);
+      const now = Date.now();
+      const targets = expensesRef.current.filter((e) => ids.has(e.id));
+      const toUpdate = targets.filter((e) => !e.hashtags.includes(tag));
+      await Promise.all(toUpdate.map((e) => saveExpense({ ...e, hashtags: [...e.hashtags, tag], updatedAt: now })));
+      if (toUpdate.length === 0) return;
+      const existingTag = hashtags.find((h) => h.name === tag);
+      if (existingTag) {
+        await saveHashtag({ ...existingTag, usageCount: existingTag.usageCount + toUpdate.length });
+      } else {
+        await saveHashtag({
+          id: crypto.randomUUID(),
+          name: tag,
+          usageCount: toUpdate.length,
+          setAside: false,
+          hideInSafeMode: false,
+          createdAt: now
+        });
+      }
+      logActivity({
+        action: 'BULK_UPDATE',
+        entityType: 'expense',
+        entityId: toUpdate[0]?.id ?? '',
+        summary: `Tagged ${toUpdate.length} transaction${toUpdate.length === 1 ? '' : 's'} with #${tag}`,
+        entityCount: toUpdate.length
+      });
+    },
+    [saveExpense, saveHashtag, hashtags]
+  );
+
   /** Delete a single transaction, with Undo. Cascade-deletes linked IOU entries and restores both atomically. */
   const deleteExpense = useCallback(
     async (id: string) => {
@@ -1013,6 +1055,7 @@ export function useExpenses() {
     accountsNeedingAttention,
     patchExpenses,
     removeExpenses,
+    bulkAddHashtag,
     saveCategory,
     moveTransactions,
     deleteCategory,

@@ -215,12 +215,14 @@ Drive v3 REST, mirroring the web provider) and a real native on-device daily flo
 (`localBackup.native.ts`, `expo-file-system`'s persistent storage — previously a no-op, since OPFS
 doesn't exist on RN). Also fixed a real restore bug: a stale PIN lockout carried over from the backup's
 source device could block the (correct) original PIN after restore — `importBackup()` now resets
-`pinAttempts`/`lockedUntil`/etc. while leaving the key-wrapping material untouched. **Blocked on a user
-action:** native Google Drive backup can't be tested end-to-end until the Google Cloud Console setup is
-done (Android OAuth client keyed to this app's package + SHA-1, plus a Web OAuth client — full steps in
-`docs/features/backup.md`'s "Enabling Google Drive backup"); `app.json`'s `extra.googleWebClientId` and
-`apps/web-react`'s `VITE_GOOGLE_CLIENT_ID` both still need real values. Until then Drive stays disabled
-(honestly, not faked) on every platform.
+`pinAttempts`/`lockedUntil`/etc. while leaving the key-wrapping material untouched. **Update (2026-08-16):**
+the Google Cloud Console setup is now done for `apps/mobile` (Android) — real Web + Android OAuth clients,
+`app.json`'s `extra.googleWebClientId` set, and the Expo-scaffolded `com.anonymous.penny` package renamed
+to `com.hesh.penny` (done now since it hadn't been published to Play Store yet — a rename after that would
+be permanent-package-loss territory). Full steps + the package-rename gotchas in `docs/features/backup.md`'s
+"Enabling Google Drive backup". Still open: the actual sign-in flow needs a manual on-device confirmation;
+iOS is deliberately deferred (no Xcode set up yet); `apps/web-react`'s `VITE_GOOGLE_CLIENT_ID` remains
+unset (that app is frozen).
 
 **Track E — Groups & Household OS · E1: worker + group crypto + client wiring (2026-07-01):** the third
 per-user backend (`workers/groups/` — `penny-groups`), mirroring the Track C template. **Model B /

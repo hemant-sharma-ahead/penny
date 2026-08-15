@@ -29,6 +29,7 @@ import { CategoryPickerModal } from '../categories/CategoryPickerModal';
 import { FilterModal } from './FilterModal';
 import { MonthPickerModal } from './MonthPickerModal';
 import { BulkAccountPaymentModal } from './BulkAccountPaymentModal';
+import { BulkHashtagModal } from './BulkHashtagModal';
 import { RecurringInboxModal } from './RecurringInboxModal';
 import { ShareToGroupModal } from './ShareToGroupModal';
 import type { useTransactionFilters } from './useTransactionFilters';
@@ -81,6 +82,9 @@ interface TransactionsSliceProps {
     patch: Partial<Pick<Expense, 'categoryId' | 'accountId' | 'paymentMode'>>
   ) => Promise<void>;
   onRemoveExpenses: (ids: string[]) => Promise<void>;
+  /** Additive-only bulk tag (2026-08-16) — adds `tag` to every selected transaction's existing tags,
+   *  never replaces them. See `BulkHashtagModal`'s own doc comment. */
+  onBulkAddHashtag: (ids: string[], tag: string) => Promise<void>;
   searchMerchant: (type: TransactionType, query: string) => MerchantMemory[];
   dueRecurring: DueRecurring[];
   onPostRecurring: (d: DueRecurring) => Promise<void>;
@@ -126,6 +130,7 @@ export function TransactionsSlice({
   onOpenBudgets,
   onPatchExpenses,
   onRemoveExpenses,
+  onBulkAddHashtag,
   searchMerchant,
   dueRecurring,
   onPostRecurring,
@@ -175,6 +180,7 @@ export function TransactionsSlice({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkCategory, setShowBulkCategory] = useState(false);
   const [showAcctPay, setShowAcctPay] = useState(false);
+  const [showBulkHashtag, setShowBulkHashtag] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
 
@@ -236,6 +242,17 @@ export function TransactionsSlice({
     } finally {
       setBulkBusy(false);
       setShowBulkCategory(false);
+    }
+  }
+
+  async function handleBulkHashtag(tag: string) {
+    if (selected.size === 0) return;
+    setBulkBusy(true);
+    try {
+      await onBulkAddHashtag([...selected], tag);
+      exitSelect();
+    } finally {
+      setBulkBusy(false);
     }
   }
 
@@ -536,11 +553,14 @@ export function TransactionsSlice({
         paymentModeMismatchTxnIds={paymentModeMismatchTxnIds}
       />
 
-      {/* Bulk action bar (select mode). Each Pressable is a plain `flex: 1` third — the previous
-          `flexBasis: '33%'` didn't account for the row's own `gap`/`px` overhead, so the 3 items'
-          combined width exceeded the container and `flex-wrap` pushed the third icon onto its own row
+      {/* Bulk action bar (select mode). Each Pressable is a plain `flex: 1` — the previous
+          `flexBasis: '33%'` didn't account for the row's own `gap`/`px` overhead, so the items'
+          combined width exceeded the container and `flex-wrap` pushed the last icon onto its own row
           (found 2026-08-05). `flex: 1` always sums to exactly the available width, so wrap never
-          triggers regardless of gap/padding. */}
+          triggers regardless of gap/padding — holds for 4 icons the same as it did for 3.
+          Hashtag added 2026-08-16 (real user report: "assigning bulk tag to the selected ones should
+          also be there") — before Delete, same position CategoryPickerModal/BulkAccountPaymentModal's
+          own icons occupy relative to the destructive action staying last. */}
       {selectMode && selected.size > 0 && (
         <View
           className="absolute left-0 right-0 flex-row gap-1 px-2 py-2 border-t border-theme bg-surface"
@@ -561,6 +581,14 @@ export function TransactionsSlice({
           >
             <Icon name="ti-wallet" size={19} color={theme.textSecondary} />
             <Text className="text-[10px] font-medium text-secondary">Account/Pay</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setShowBulkHashtag(true)}
+            className="items-center gap-1 py-2 rounded-xl"
+            style={{ flex: 1 }}
+          >
+            <Icon name="ti-hash" size={19} color={theme.textSecondary} />
+            <Text className="text-[10px] font-medium text-secondary">Hashtag</Text>
           </Pressable>
           <Pressable
             onPress={() => setConfirmBulkDelete(true)}
@@ -687,6 +715,16 @@ export function TransactionsSlice({
           selectedId=""
           onSelect={(id) => void handleBulkCategory(id)}
           onClose={() => setShowBulkCategory(false)}
+        />
+      )}
+
+      {/* Bulk: add a tag (additive-only — see BulkHashtagModal's own doc comment) */}
+      {showBulkHashtag && (
+        <BulkHashtagModal
+          hashtags={hashtags}
+          count={selected.size}
+          onApply={handleBulkHashtag}
+          onClose={() => setShowBulkHashtag(false)}
         />
       )}
 

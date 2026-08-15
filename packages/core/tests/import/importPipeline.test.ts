@@ -310,7 +310,7 @@ describe('buildResolvedPreviewRowsByIndex (2026-08-14, CSV-import redesign Chunk
       [0, { categoryId: 'cat-tr-other', categoryName: 'Other Transfer', type: 'transfer', toAccountId: 'acc-cash' }],
       [1, { categoryId: 'cat-salary', categoryName: 'Salary' }]
     ]);
-    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Set());
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map());
     expect(result[0]).toMatchObject({ type: 'transfer', categoryId: 'cat-tr-other', toAccountId: 'acc-cash' });
     expect(result[1]).toMatchObject({ type: 'income', categoryId: 'cat-salary' });
   });
@@ -319,7 +319,7 @@ describe('buildResolvedPreviewRowsByIndex (2026-08-14, CSV-import redesign Chunk
     const rows = [row()];
     const rowActions = new Map<number, RowAction>([[0, { categoryId: 'cat-other', categoryName: 'Other' }]]);
     const rowOverrides = new Map<number, RowOverride>([[0, { categoryId: 'cat-food', categoryName: 'Dining' }]]);
-    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Set(), rowOverrides);
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map(), rowOverrides);
     expect(result[0]).toMatchObject({ categoryId: 'cat-food', categoryName: 'Dining' });
   });
 
@@ -329,21 +329,79 @@ describe('buildResolvedPreviewRowsByIndex (2026-08-14, CSV-import redesign Chunk
       [0, { categoryId: 'cat-food', categoryName: 'Food' }],
       [1, { categoryId: 'cat-food', categoryName: 'Food' }]
     ]);
-    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Set());
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map());
     expect(result[0]?.duplicate).toBe(false);
     expect(result[1]?.duplicate).toBe(true); // duplicate of the first row within this same batch
+  });
+
+  it('2026-08-16 fix: caps DB-match consumption at the real existing count, not unlimited Set membership', () => {
+    // Two rows share a dedupKey, but differ in every OTHER field the same-batch check now looks at
+    // (different category/payment mode/notes) — so they must NOT suppress each other as a "same file,
+    // repeated line" (fix #2); only the DB's own real count (1 id) should explain either of them.
+    const rows = [
+      row({ description: 'Same', categoryName: 'Groceries', paymentMode: 'upi', notes: 'a' }),
+      row({ description: 'Same', categoryName: 'Rent', paymentMode: 'cash', notes: 'b' })
+    ];
+    const rowActions = new Map<number, RowAction>([
+      [0, { categoryId: 'cat-food', categoryName: 'Groceries' }],
+      [1, { categoryId: 'cat-rent', categoryName: 'Rent' }]
+    ]);
+    const key = dedupKey(0, 100, 'same');
+    // Only ONE real existing expense id shares this key — a plain Set would have flagged BOTH rows
+    // (unconditional membership test); the id-list-based fix only lets one of them claim it.
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map([[key, ['exp-1']]]));
+    const duplicateCount = result.filter((r) => r.duplicate).length;
+    expect(duplicateCount).toBe(1);
+  });
+
+  it('2026-08-16: the duplicate row carries the specific matched expense id, not just a boolean flag', () => {
+    const rows = [row({ description: 'Same' })];
+    const rowActions = new Map<number, RowAction>([[0, { categoryId: 'cat-food', categoryName: 'Groceries' }]]);
+    const key = dedupKey(0, 100, 'same');
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map([[key, ['exp-42']]]));
+    expect(result[0]).toMatchObject({ duplicate: true, matchedExpenseId: 'exp-42' });
+  });
+
+  it('2026-08-16: a same-batch-only duplicate (no real DB match) never gets a matchedExpenseId', () => {
+    // Two rows sharing the exact same signature in-file — a genuine "repeated line" duplicate, not a
+    // DB match — the second is flagged duplicate but has no specific existing expense to point at.
+    const rows = [row({ description: 'Same' }), row({ description: 'Same' })];
+    const rowActions = new Map<number, RowAction>([
+      [0, { categoryId: 'cat-food', categoryName: 'Food' }],
+      [1, { categoryId: 'cat-food', categoryName: 'Food' }]
+    ]);
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map());
+    expect(result[1]).toMatchObject({ duplicate: true });
+    expect(result[1]?.matchedExpenseId).toBeUndefined();
+  });
+
+  it('2026-08-16 fix: same-batch matching requires a fuller row signature, not just date/amount/description', () => {
+    // Two DIFFERENT real transactions coincidentally sharing date+amount+description (the day-precision-
+    // collision case dedupKey's own doc comment measured) but differing in category — must NOT suppress
+    // each other, since the bare 3-field key used to conflate them with a genuine same-file repeat.
+    const rows = [
+      row({ description: 'Same', categoryName: 'Groceries' }),
+      row({ description: 'Same', categoryName: 'Rent' })
+    ];
+    const rowActions = new Map<number, RowAction>([
+      [0, { categoryId: 'cat-food', categoryName: 'Groceries' }],
+      [1, { categoryId: 'cat-rent', categoryName: 'Rent' }]
+    ]);
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map());
+    expect(result[0]?.duplicate).toBe(false);
+    expect(result[1]?.duplicate).toBe(false); // no longer falsely flagged as a repeat of row 0
   });
 
   it('a "skip" action marks the row skipped with an empty categoryId, falling back to "Other"', () => {
     const rows = [row()];
     const rowActions = new Map<number, RowAction>([[0, { categoryId: '', categoryName: 'A/c to A/c', skip: true }]]);
-    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Set());
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map());
     expect(result[0]).toMatchObject({ skipped: true, categoryName: 'A/c to A/c' });
   });
 
   it('falls back to cat-other/"Other" for a row with no action at all', () => {
     const rows = [row()];
-    const result = buildResolvedPreviewRowsByIndex(rows, new Map(), resolveAccountId, new Set());
+    const result = buildResolvedPreviewRowsByIndex(rows, new Map(), resolveAccountId, new Map());
     expect(result[0]).toMatchObject({ categoryId: 'cat-other', categoryName: 'Other' });
   });
 });

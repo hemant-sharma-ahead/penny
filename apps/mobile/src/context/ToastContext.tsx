@@ -6,6 +6,7 @@ import { Icon } from '~/components/Icon';
 import { BANNER_DEFAULT_ICON, type BannerVariant } from '~/components/ui/Banner.constants';
 import { tint, ink } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { navigationRef } from '~/navigation/navigationRef';
 
 /**
  * RN port of apps/web-react/src/context/ToastContext.tsx. Same API (`showToast`), same one-toast-
@@ -44,6 +45,18 @@ import { useThemeColors } from '~/theme/useThemeColors';
  * bar's drain rate always matches the actual remaining time, not just a decorative loop). Reset to full
  * and restarted whenever `toast.id` changes (a new `showToast` call, including one that replaces a
  * still-visible toast) — see the `useEffect` below.
+ *
+ * **Android back button/gesture no longer swallowed while a toast is showing** (2026-08-16 fix, real
+ * user report: "blocks app navigation until it is dismissed"). A native `<Modal>` on Android always
+ * intercepts the hardware back button/gesture exclusively while `visible` — this is inherent to how an
+ * Android Dialog window receives input, not something `pointerEvents`/`onRequestClose` content choices
+ * can opt out of; the underlying screen's own navigator never even sees the back-press while any Modal
+ * (including this transparent one) is on screen. Since a toast is an ambient, auto-dismissing
+ * notification — never something the user is expected to deliberately act on before continuing — a back
+ * press must do BOTH in one motion: dismiss the toast AND perform the navigation the user actually
+ * wanted, not just the former (previously requiring a second back-press to actually navigate).
+ * `handleRequestClose` below does exactly that via `navigationRef` (React Navigation's documented
+ * outside-any-navigator handle, already used by `SessionGate.tsx`), rather than only calling `dismiss`.
  */
 
 export interface ToastOptions {
@@ -111,6 +124,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToast(null);
   }, []);
 
+  /** Fired by the Modal's `onRequestClose` (Android hardware back button/gesture) — see this file's own
+   *  2026-08-16 doc comment above for why this must forward the back-navigation, not just dismiss. */
+  const handleRequestClose = useCallback(() => {
+    dismiss();
+    if (navigationRef.isReady() && navigationRef.canGoBack()) {
+      navigationRef.goBack();
+    }
+  }, [dismiss]);
+
   const showToast = useCallback((options: ToastOptions) => {
     if (timer.current) clearTimeout(timer.current);
     const id = Date.now();
@@ -132,7 +154,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ showToast }}>
       {children}
       {toast && (
-        <RNModal transparent visible animationType="none" statusBarTranslucent onRequestClose={dismiss}>
+        <RNModal transparent visible animationType="none" statusBarTranslucent onRequestClose={handleRequestClose}>
           {/* insets.top + 46 clears MainTabs' persistent header (see that file's own header-row height)
               the same way the old bottom position cleared the tab bar — plus a small gap below it. */}
           <View

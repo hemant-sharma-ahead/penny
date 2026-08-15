@@ -71,8 +71,12 @@ function bucketForAccount(
  * see its own `onlyRenderSourceNames` doc comment) and is rendered once per bucket, each time scoped
  * down to just that bucket's own source names via that prop.
  *
- * "Continue" is gated on `accountsResolved` (a 'skip' resolution counts as immediately decided, same as
- * 'existing' — manual-testing gap #1).
+ * "Continue" is gated on `anyAccountReady` — at least one account resolved (a 'skip' resolution counts
+ * as immediately decided, same as 'existing' — manual-testing gap #1) — not on `accountsResolved`
+ * (every account resolved), which was found to be wrong via real user testing 2026-08-15: unlike
+ * Categories (no gate) and Transactions (blocks only when nothing at all is ready), Accounts had been
+ * the sole "block until 100%" stage, with no argued rationale for the asymmetry and a write path that
+ * already tolerates a mix of ready/not-ready accounts regardless.
  */
 export function AccountsStage({
   accountResolutions,
@@ -123,6 +127,15 @@ export function AccountsStage({
           ? 'skipped'
           : null;
   const { isExpanded, toggle } = useBucketExpansion<AccountBucketKey>(defaultExpandedBucket);
+
+  /** "Continue" gate — loosened 2026-08-15 (real user report: blocking on `accountsResolved`, i.e.
+   *  requiring EVERY account resolved, was wrong; Categories has no gate at all and Transactions only
+   *  blocks when NOTHING is ready — Accounts was the sole "block until 100%" outlier, and the
+   *  commit/write path already fully tolerates a mix of ready/not-ready accounts via
+   *  `notReadyAccountSourceNames` — see `useImport.ts`'s `commitAndImport` doc comment). Only blocks
+   *  when there is truly nothing to proceed with; a `noAccountColumn` file always has exactly one
+   *  "account" so ready-or-not there collapses to the same check `accountsResolved` already does. */
+  const anyAccountReady = noAccountColumn ? accountsResolved : buckets.ready.size > 0;
 
   function renderSection(sourceNames: Set<string>) {
     return (
@@ -207,11 +220,13 @@ export function AccountsStage({
 
         {!accountsResolved && (
           <Text className="text-center text-[10.5px] text-tertiary" style={{ marginTop: -4 }}>
-            Resolve every account above to continue
+            {anyAccountReady
+              ? 'You can continue now — any account still needing a decision will have its transactions skipped for later'
+              : 'Resolve at least one account above to continue'}
           </Text>
         )}
 
-        <Button variant="primary" disabled={!accountsResolved} onPress={onNext}>
+        <Button variant="primary" disabled={!anyAccountReady} onPress={onNext}>
           Continue
         </Button>
       </ScrollView>

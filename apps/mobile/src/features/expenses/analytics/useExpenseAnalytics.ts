@@ -8,7 +8,7 @@ import { buildAnnualSeries, computeSavingsRate, biggestMovers } from '@/core/exp
 import { monthlyRecap, computeAnomalies } from '@/core/expenses/monthlyInsights';
 import { computeCashFlowSummary } from '@/core/expenses/cashFlowSummary';
 import { toMonthYearKey } from '@/lib/formatters';
-import { offsetMonth, monthBounds, yearBounds } from '@/lib/date';
+import { offsetMonth, monthBounds, yearBounds, allTimeBounds, DAY_MS } from '@/lib/date';
 
 interface Args {
   expenses: Expense[];
@@ -506,6 +506,111 @@ export function useExpenseAnalytics({
     return annualTotal / (isLeap ? 366 : 365);
   }, [analyticsYear, annualTotal, nowMs]);
 
+  // ── All Time counterparts (2026-08-16, real user report: "we only have Monthly and Annual, we should
+  // also have an AllTime") — same scope-generic `buildXxx` helpers, fed `inAllTime` (unconditionally true)
+  // instead of a month/year predicate. Per the approved mockup (docs/mockups/proposals/
+  // expenses-batch-fixes-v1.html §3), All Time deliberately does NOT get a "vs previous period" delta,
+  // anomaly nudges, spend velocity, Biggest Movers, or a MoM/YoY chart — there's no well-defined "previous"
+  // for a lifetime scope, and faking one against "all prior years" would show a number nobody asked for. ──
+
+  const inAllTime: Scope = useMemo(() => () => true, []);
+
+  const allTimeGroupData = useMemo(
+    () => buildGroupData(expenses, inAllTime, classify, categoryMap, parentCategoryMap, []),
+    [expenses, inAllTime, classify, categoryMap, parentCategoryMap]
+  );
+  const allTimeGroupTotal = useMemo(() => allTimeGroupData.reduce((s, seg) => s + seg.amount, 0), [allTimeGroupData]);
+
+  const allTimeSetAsideData = useMemo(
+    () => buildSetAsideData(expenses, inAllTime, classify, parentCategoryMap),
+    [expenses, inAllTime, classify, parentCategoryMap]
+  );
+  const allTimeSetAsideTotal = useMemo(
+    () => allTimeSetAsideData.reduce((s, seg) => s + seg.amount, 0),
+    [allTimeSetAsideData]
+  );
+
+  const allTimeEvents = useMemo(
+    () => buildEventsData(expenses, inAllTime, events, pastEvents, categoryMap),
+    [expenses, inAllTime, events, pastEvents, categoryMap]
+  );
+
+  const allTimeHashtagSummary = useMemo(
+    () => buildHashtagSummary(expenses, inAllTime, allEventHashtags),
+    [expenses, inAllTime, allEventHashtags]
+  );
+
+  const allTimeCashFlowSummaries = useMemo(
+    () =>
+      accounts
+        .filter((a) => !a.isArchived)
+        .map((account) => ({
+          account,
+          summary: computeCashFlowSummary(account, expenses, allTimeBounds(nowMs))
+        })),
+    [accounts, expenses, nowMs]
+  );
+
+  // Lifetime "true total" (all expense-type transactions, no scope filter) — the All Time counterpart of
+  // `monthTotal`/`annualTotal`.
+  const allTimeTotal = useMemo(() => {
+    let total = 0;
+    for (const e of expenses) {
+      if (e.type && e.type !== 'expense') continue;
+      total += e.amount;
+    }
+    return total;
+  }, [expenses]);
+
+  // Lifetime net (income − expense, transfers excluded) — the All Time counterpart of `recap.net`/
+  // `annualSavings.saved`.
+  const allTimeNet = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+    for (const e of expenses) {
+      const kind = e.type ?? 'expense';
+      if (kind === 'transfer') continue;
+      if (kind === 'income') income += e.amount;
+      else expense += e.amount;
+    }
+    return income - expense;
+  }, [expenses]);
+
+  // Lifetime equivalent of `recap.txnCount`/`topCategory` — unscoped, same routine-only category basis.
+  const allTimeRecap = useMemo(() => {
+    let txnCount = 0;
+    const catTotals = new Map<string, number>();
+    for (const e of expenses) {
+      const kind = e.type ?? 'expense';
+      if (kind === 'transfer') continue;
+      txnCount++;
+      if (kind === 'expense' && classify(e).kind === 'routine') {
+        catTotals.set(e.categoryId, (catTotals.get(e.categoryId) ?? 0) + e.amount);
+      }
+    }
+    let topCategory: { name: string; amount: number } | undefined;
+    for (const [catId, amount] of catTotals) {
+      if (!topCategory || amount > topCategory.amount) {
+        const c = categoryMap.get(catId);
+        topCategory = { name: c?.name ?? catId, amount };
+      }
+    }
+    return { txnCount, topCategory };
+  }, [expenses, classify, categoryMap]);
+
+  // Average daily spend over the account's real lifetime — divides `allTimeTotal` by days elapsed since
+  // the earliest transaction of any kind (not just expense-type), so a fresh account with one day of data
+  // doesn't get diluted by dividing over a longer span than it actually has history for.
+  const allTimeAvgPerDay = useMemo(() => {
+    if (expenses.length === 0) return 0;
+    let earliest = nowMs;
+    for (const e of expenses) {
+      if (e.date < earliest) earliest = e.date;
+    }
+    const days = Math.max(1, Math.floor((nowMs - earliest) / DAY_MS) + 1);
+    return allTimeTotal / days;
+  }, [expenses, nowMs, allTimeTotal]);
+
   return {
     analyticsData,
     analyticsTotal,
@@ -540,6 +645,17 @@ export function useExpenseAnalytics({
     prevYearGroupData,
     annualRecap,
     annualDeltaPct,
-    annualAvgPerDay
+    annualAvgPerDay,
+    allTimeGroupData,
+    allTimeGroupTotal,
+    allTimeSetAsideData,
+    allTimeSetAsideTotal,
+    allTimeEvents,
+    allTimeHashtagSummary,
+    allTimeCashFlowSummaries,
+    allTimeTotal,
+    allTimeNet,
+    allTimeRecap,
+    allTimeAvgPerDay
   };
 }

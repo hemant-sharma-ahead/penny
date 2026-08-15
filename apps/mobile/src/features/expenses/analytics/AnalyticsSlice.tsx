@@ -45,7 +45,7 @@ export function AnalyticsSlice({
   const { shouldMask } = usePrivacy();
   const { budgets } = useBudgets();
 
-  const [analyticsView, setAnalyticsView] = useState<'monthly' | 'annual'>('monthly');
+  const [analyticsView, setAnalyticsView] = useState<'monthly' | 'annual' | 'allTime'>('monthly');
   const [analyticsYear, setAnalyticsYear] = useState(() => new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<string>(() => toMonthYearKey());
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
@@ -88,7 +88,18 @@ export function AnalyticsSlice({
     prevYearGroupData,
     annualRecap,
     annualDeltaPct,
-    annualAvgPerDay
+    annualAvgPerDay,
+    allTimeGroupData,
+    allTimeGroupTotal,
+    allTimeSetAsideData,
+    allTimeSetAsideTotal,
+    allTimeEvents,
+    allTimeHashtagSummary,
+    allTimeCashFlowSummaries,
+    allTimeTotal,
+    allTimeNet,
+    allTimeRecap,
+    allTimeAvgPerDay
   } = useExpenseAnalytics({
     expenses,
     categoryMap,
@@ -105,16 +116,20 @@ export function AnalyticsSlice({
     setAsideTagNames
   });
 
-  // Same in-scope, expense-only filtering `analyticsData`/`setAsideData` (or their annual counterparts)
-  // already use — this just keeps the matching transactions instead of summing them. Scope follows
-  // whichever view (monthly/annual) is currently open, so the same drill-down callbacks work from either.
+  // Same in-scope, expense-only filtering `analyticsData`/`setAsideData` (or their annual/all-time
+  // counterparts) already use — this just keeps the matching transactions instead of summing them. Scope
+  // follows whichever view (monthly/annual/allTime) is currently open, so the same drill-down callbacks
+  // work from any of the three. All Time has no date filter at all — every expense-type transaction is
+  // in scope, same as `allTimeGroupData`/`allTimeSetAsideData` etc. use `inAllTime` unconditionally.
   const inScopeExpenses = (predicate: (e: Expense) => boolean) =>
     expenses.filter((e) => {
       if (e.type && e.type !== 'expense') return false;
       const inScope =
-        analyticsView === 'annual'
-          ? new Date(e.date).getFullYear() === analyticsYear
-          : toMonthYearKey(new Date(e.date)) === selectedMonth;
+        analyticsView === 'allTime'
+          ? true
+          : analyticsView === 'annual'
+            ? new Date(e.date).getFullYear() === analyticsYear
+            : toMonthYearKey(new Date(e.date)) === selectedMonth;
       return inScope && predicate(e);
     });
 
@@ -122,11 +137,13 @@ export function AnalyticsSlice({
     setViewing({
       title: label,
       subtitle:
-        analyticsView === 'annual'
-          ? `${analyticsYear}`
-          : selectedMonth === toMonthYearKey()
-            ? 'This month'
-            : 'Selected month',
+        analyticsView === 'allTime'
+          ? 'All time'
+          : analyticsView === 'annual'
+            ? `${analyticsYear}`
+            : selectedMonth === toMonthYearKey()
+              ? 'This month'
+              : 'Selected month',
       list: inScopeExpenses((e) => classify(e).group === group)
     });
   }
@@ -134,7 +151,12 @@ export function AnalyticsSlice({
   function viewCategory(catId: string, label: string) {
     setViewing({
       title: label,
-      subtitle: analyticsView === 'annual' ? `This category · ${analyticsYear}` : 'This category · selected month',
+      subtitle:
+        analyticsView === 'allTime'
+          ? 'This category · all time'
+          : analyticsView === 'annual'
+            ? `This category · ${analyticsYear}`
+            : 'This category · selected month',
       list: inScopeExpenses((e) => e.categoryId === catId)
     });
   }
@@ -143,7 +165,12 @@ export function AnalyticsSlice({
     const norm = normalizeHashtag(tag);
     setViewing({
       title: `#${tag}`,
-      subtitle: analyticsView === 'annual' ? `Tagged · ${analyticsYear}` : 'Tagged · selected month',
+      subtitle:
+        analyticsView === 'allTime'
+          ? 'Tagged · all time'
+          : analyticsView === 'annual'
+            ? `Tagged · ${analyticsYear}`
+            : 'Tagged · selected month',
       list: inScopeExpenses((e) => e.hashtags.some((t) => normalizeHashtag(t) === norm))
     });
   }
@@ -191,6 +218,17 @@ export function AnalyticsSlice({
         annualRecap={annualRecap}
         annualDeltaPct={annualDeltaPct}
         annualAvgPerDay={annualAvgPerDay}
+        allTimeGroupData={allTimeGroupData}
+        allTimeGroupTotal={allTimeGroupTotal}
+        allTimeSetAsideData={allTimeSetAsideData}
+        allTimeSetAsideTotal={allTimeSetAsideTotal}
+        allTimeEvents={allTimeEvents}
+        allTimeHashtagSummary={allTimeHashtagSummary}
+        allTimeCashFlowSummaries={allTimeCashFlowSummaries}
+        allTimeTotal={allTimeTotal}
+        allTimeNet={allTimeNet}
+        allTimeRecap={allTimeRecap}
+        allTimeAvgPerDay={allTimeAvgPerDay}
         eventsThisMonth={eventsThisMonth}
         hashtagSummary={hashtagSummary}
         masked={masked}

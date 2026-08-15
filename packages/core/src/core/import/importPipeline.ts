@@ -104,6 +104,13 @@ export interface ResolvedPreviewRow {
   /** True against an existing DB expense OR an earlier row in this same batch. */
   duplicate: boolean;
   sourceRef: string;
+  /** The specific existing DB expense (by id) this row matched against — set ONLY when `duplicate` came
+   *  from a real DB match (`buildResolvedPreviewRowsByIndex`'s `existingExpenseIdsByKey` consumption),
+   *  never for a same-batch "repeated line in this file" match, since there's no second DB row to point
+   *  at in that case. Added 2026-08-16 so the "Already imported" bucket UI can show a real side-by-side
+   *  comparison against the actual matched `Expense` (date/amount/description/category/account), not just
+   *  a static "same date, amount & description" caption with nothing concrete backing it. */
+  matchedExpenseId?: string;
 }
 
 export type ConfirmedCategoryMap = Map<
@@ -307,21 +314,68 @@ export interface RowAction {
 
 /** Row-index-keyed sibling of `buildResolvedPreviewRows` — identical shape/behavior otherwise (same
  *  dedup-against-DB-and-batch check, same `RowOverride` precedence, same tag-layering rule), just reads
- *  each row's resolution from `rowActions.get(i)` instead of `categoryMap.get(row.categoryName)`. */
+ *  each row's resolution from `rowActions.get(i)` instead of `categoryMap.get(row.categoryName)`, PLUS
+ *  a real over-counting fix `buildResolvedPreviewRows` doesn't have (2026-08-16, real user report: a
+ *  re-import's "Already imported" bucket showed MORE duplicate rows than the account actually had
+ *  recorded — 231 flagged against 218 real recorded expenses). Two independent contributors, both fixed:
+ *
+ *  1. **DB-match had no consumption limit.** `existingKeys` used to be a plain `Set<string>` —
+ *     `existingKeys.has(ref)` is a boolean membership test, so if the DB has exactly ONE expense
+ *     matching a given `dedupKey`, EVERY file row sharing that key independently matched `true`, with
+ *     no 1:1 correspondence enforced. Fixed by taking, per key, the actual LIST of matching existing DB
+ *     expense ids (`existingExpenseIdsByKey`) and popping one id per row that claims a match — once a
+ *     key's list is exhausted, further same-key rows can no longer claim a DB match. This list (not just
+ *     a count) is also what makes `matchedExpenseId` below possible — the UI needs to know WHICH real
+ *     expense a row matched, not just that some count was decremented.
+ *  2. **Same-batch matching was ALSO keyed on the bare 3-field `dedupKey`, which silently defeated fix
+ *     #1 on its own** (found while verifying #1 actually changes anything observable — it didn't, on
+ *     its own): `seenInBatch` used to add/check the same `ref` as the DB check, so once ANY row with a
+ *     given key was seen once, EVERY later row sharing that key was flagged via `seenInBatch` regardless
+ *     of whether the DB-match pool for that key was already exhausted — silently re-introducing
+ *     unlimited flagging through the back door. This conflates two different things: a genuine same-file
+ *     duplicate (an export glitch repeating the identical source line — the ORIGINAL 2026-07-28 reason
+ *     this check exists at all) vs. several genuinely DIFFERENT transactions that merely happen to share
+ *     date+amount+description (the day-precision-collision case `dedupKey`'s own doc comment already
+ *     measured at "149 collisions / 334 rows" in one real file — different category, payment mode, or
+ *     notes is real evidence they're NOT the same line repeated). Fixed by keying the same-batch check on
+ *     a fuller row signature (date/amount/description PLUS category/payment-mode/notes/type) instead of
+ *     just the 3-field key — two rows only suppress each other now if they look identical across every
+ *     field this pipeline actually captures, not merely the 3 fields `dedupKey` hashes for DB comparison.
+ *
+ *  This does NOT fully solve every residual false-positive (an unrelated, coincidentally-identical
+ *  expense elsewhere in the DB — from a manual entry or a different import entirely — can still count
+ *  as a real "DB match," since the comparison pool is intentionally the whole DB, not scoped to one
+ *  prior import; the plan doc's own flagged "a wider matching window could still resurface false
+ *  positives" case would need bank-import's row-index-based disambiguation to fully close, deferred),
+ *  but it does make both the DB-match and same-batch portions honestly bounded rather than either
+ *  silently amplifying the other. */
 export function buildResolvedPreviewRowsByIndex(
   rows: ParsedRow[],
   rowActions: Map<number, RowAction>,
   resolveAccountId: (row: ParsedRow) => string,
-  existingKeys: Set<string>,
+  existingExpenseIdsByKey: Map<string, string[]>,
   rowOverrides?: Map<number, RowOverride>
 ): ResolvedPreviewRow[] {
-  const seenInBatch = new Set<string>();
+  const seenFullRowSignatures = new Set<string>();
+  // Local, deep-copied mutable working set — arrays are consumed via `.pop()` below, so a shallow `new
+  // Map(existingExpenseIdsByKey)` would still share (and mutate) the caller's own array instances; this
+  // function may run again (re-renders, re-computed memos) against the same reference.
+  const remainingExistingMatches = new Map<string, string[]>();
+  for (const [key, ids] of existingExpenseIdsByKey) remainingExistingMatches.set(key, [...ids]);
   return rows.map((row, i) => {
     const resolved = rowActions.get(i);
     const override = rowOverrides?.get(i);
     const ref = dedupKey(row.date, row.amount, row.description);
-    const duplicate = existingKeys.has(ref) || seenInBatch.has(ref);
-    seenInBatch.add(ref);
+    const remainingIds = remainingExistingMatches.get(ref);
+    const matchedExpenseId = remainingIds && remainingIds.length > 0 ? remainingIds.pop() : undefined;
+    const matchesExistingExpense = matchedExpenseId !== undefined;
+    // Fuller signature than `ref` alone (see this function's own doc comment, fix #2) — two rows only
+    // suppress each other as "same file, repeated line" if they agree on every field captured here, not
+    // merely date/amount/description.
+    const fullRowSignature = `${ref}|${row.categoryName}|${row.paymentMode ?? ''}|${row.notes ?? ''}|${row.type}`;
+    const isSameFileRepeat = seenFullRowSignatures.has(fullRowSignature);
+    seenFullRowSignatures.add(fullRowSignature);
+    const duplicate = matchesExistingExpense || isSameFileRepeat;
     const effectiveTag = override?.tag ?? resolved?.tag;
     const hashtags =
       effectiveTag && !row.hashtags.includes(effectiveTag) ? [...row.hashtags, effectiveTag] : row.hashtags;
@@ -341,7 +395,8 @@ export function buildResolvedPreviewRowsByIndex(
       accountId: resolveAccountId(row),
       skipped: override ? false : !!resolved?.skip,
       duplicate,
-      sourceRef: ref
+      sourceRef: ref,
+      ...(matchedExpenseId ? { matchedExpenseId } : {})
     };
   });
 }

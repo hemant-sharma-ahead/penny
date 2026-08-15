@@ -292,6 +292,11 @@ function CashFlowTile({
 
 const MONTH_LABELS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+/** All Time's `DailyRoutineSection` has no "previous period" to diff against (see this file's All Time
+ *  render block) — a stable empty `Map` so every group's delta badge computation harmlessly no-ops
+ *  (`prevAmount` is always 0 → `delta` stays `null`) without allocating a fresh Map every render. */
+const EMPTY_PREV_GROUP_DATA = new Map<string, number>();
+
 /**
  * Web's local `MonthPickerModal` was a hand-rolled `fixed inset-0` overlay, never converted to the shared
  * `Modal` even on web (distinct from transactions' own `MonthPickerModal`). Rebuilt here on the real
@@ -826,9 +831,16 @@ function HashtagsSection({
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
+type AnalyticsViewMode = 'monthly' | 'annual' | 'allTime';
+
+/** Segmented-control labels — kept as an explicit map rather than deriving from the mode string (e.g.
+ *  capitalizing `v`), since `'allTime'.charAt(0).toUpperCase() + 'allTime'.slice(1)` would render
+ *  "AllTime" with no space, not the "All Time" label the approved mockup uses. */
+const VIEW_LABELS: Record<AnalyticsViewMode, string> = { monthly: 'Monthly', annual: 'Annual', allTime: 'All Time' };
+
 interface AnalyticsTabProps {
-  analyticsView: 'monthly' | 'annual';
-  onChangeAnalyticsView: (v: 'monthly' | 'annual') => void;
+  analyticsView: AnalyticsViewMode;
+  onChangeAnalyticsView: (v: AnalyticsViewMode) => void;
   analyticsYear: number;
   onChangeAnalyticsYear: (y: number) => void;
   selectedMonth: string;
@@ -876,6 +888,20 @@ interface AnalyticsTabProps {
   annualRecap: { txnCount: number; topCategory?: { name: string; amount: number } };
   annualDeltaPct: number | null;
   annualAvgPerDay: number;
+  /** All Time equivalents (2026-08-16) of the monthly/annual breakdowns above — unscoped (every
+   *  expense-type transaction ever recorded). Deliberately has NO delta/anomaly/velocity/movers/chart
+   *  counterpart — see `AnalyticsTab`'s render body and `useExpenseAnalytics.ts` for why. */
+  allTimeGroupData: GroupSegment[];
+  allTimeGroupTotal: number;
+  allTimeSetAsideData: SetAsideSegment[];
+  allTimeSetAsideTotal: number;
+  allTimeEvents: EventSegment[];
+  allTimeHashtagSummary: Array<{ tag: string; amount: number }>;
+  allTimeCashFlowSummaries: Array<{ account: Account; summary: CashFlowSummary }>;
+  allTimeTotal: number;
+  allTimeNet: number;
+  allTimeRecap: { txnCount: number; topCategory?: { name: string; amount: number } };
+  allTimeAvgPerDay: number;
   eventsThisMonth: EventSegment[];
   hashtagSummary: Array<{ tag: string; amount: number }>;
   masked: boolean;
@@ -930,6 +956,17 @@ export function AnalyticsTab({
   annualRecap,
   annualDeltaPct,
   annualAvgPerDay,
+  allTimeGroupData,
+  allTimeGroupTotal,
+  allTimeSetAsideData,
+  allTimeSetAsideTotal,
+  allTimeEvents,
+  allTimeHashtagSummary,
+  allTimeCashFlowSummaries,
+  allTimeTotal,
+  allTimeNet,
+  allTimeRecap,
+  allTimeAvgPerDay,
   eventsThisMonth,
   hashtagSummary,
   masked,
@@ -944,9 +981,9 @@ export function AnalyticsTab({
     <View className="px-4 py-4 gap-4">
       {/* View toggle + navigation */}
       <View className="flex-row items-center justify-between gap-3">
-        {/* Monthly / Annual toggle */}
+        {/* Monthly / Annual / All Time toggle */}
         <View className="flex-row gap-0.5 bg-surface-2 rounded-lg p-0.5 flex-shrink-0">
-          {(['monthly', 'annual'] as const).map((v) => (
+          {(['monthly', 'annual', 'allTime'] as const).map((v) => (
             <Pressable
               key={v}
               onPress={() => onChangeAnalyticsView(v)}
@@ -961,7 +998,7 @@ export function AnalyticsTab({
                 className="text-xs font-semibold"
                 style={{ color: analyticsView === v ? theme.textPrimary : theme.textTertiary }}
               >
-                {v.charAt(0).toUpperCase() + v.slice(1)}
+                {VIEW_LABELS[v]}
               </Text>
             </Pressable>
           ))}
@@ -1170,6 +1207,80 @@ export function AnalyticsTab({
               <Text className="text-[11px] text-center text-tertiary">
                 Tap any month in the chart to open its details.
               </Text>
+            </>
+          )}
+        </>
+      )}
+
+      {/* ── All Time view (2026-08-16) ── per the approved mockup (docs/mockups/proposals/
+          expenses-batch-fixes-v1.html §3): Daily Living, the Total-spent (Pulse) card, Cash Flow, and the
+          Events/Set-aside/Daily-routine/Hashtags breakdowns all carry over unchanged (same scope-generic
+          components, just fed the unscoped `allTimeXxx` data) — but the Pulse Card gets no delta badge
+          (`deltaPct={null}`) and no anomalies, and there's deliberately no spend-velocity card, Biggest
+          Movers card, or income-vs-spend chart here: all of those need a "previous period" that a lifetime
+          scope doesn't have, and faking one would show a number nobody asked for. */}
+      {analyticsView === 'allTime' && (
+        <>
+          {allTimeGroupData.length === 0 && allTimeSetAsideData.length === 0 && allTimeEvents.length === 0 ? (
+            <View className="p-10 items-center">
+              <Icon name="ti-chart-donut" size={44} color={theme.textTertiary} />
+              <Text className="text-sm mt-3 text-tertiary">No expenses recorded yet.</Text>
+            </View>
+          ) : (
+            <>
+              <DailyLivingCard
+                segments={allTimeGroupData}
+                total={allTimeGroupTotal}
+                masked={masked}
+                caption="all time"
+              />
+
+              <PulseCard
+                periodLabel="All time"
+                total={allTimeTotal}
+                masked={masked}
+                deltaPct={null}
+                deltaLabel=""
+                routineAmount={allTimeGroupTotal}
+                setAsideAmount={allTimeSetAsideTotal}
+                eventsAmount={allTimeTotal - allTimeGroupTotal - allTimeSetAsideTotal}
+                hasRecap={allTimeRecap.txnCount > 0}
+                net={allTimeNet}
+                txnCount={allTimeRecap.txnCount}
+                topCategory={allTimeRecap.topCategory}
+                avgPerDay={allTimeAvgPerDay}
+              />
+
+              <CashFlowTile periodLabel="All time" summaries={allTimeCashFlowSummaries} masked={masked} />
+
+              <EventsSection
+                events={allTimeEvents}
+                expandedEventId={expandedEventId}
+                onChangeExpandedEventId={onChangeExpandedEventId}
+                masked={masked}
+              />
+              <SetAsideSection
+                data={allTimeSetAsideData}
+                total={allTimeSetAsideTotal}
+                masked={masked}
+                onViewGroup={onViewGroup}
+              />
+              <DailyRoutineSection
+                data={allTimeGroupData}
+                total={allTimeGroupTotal}
+                prevGroupData={EMPTY_PREV_GROUP_DATA}
+                expandedGroup={expandedGroup}
+                onChangeExpandedGroup={onChangeExpandedGroup}
+                masked={masked}
+                onViewCategory={onViewCategory}
+                onViewGroup={onViewGroup}
+              />
+              <HashtagsSection
+                data={allTimeHashtagSummary}
+                masked={masked}
+                onViewTag={onViewTag}
+                promoteHashtagToEvent={promoteHashtagToEvent}
+              />
             </>
           )}
         </>

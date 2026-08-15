@@ -12,7 +12,7 @@ Three cards, each doing one thing (consolidated from five on 2026-07-27 — see 
   - **This device** — a private on-device copy kept silently in the background as a daily safety floor, **and** "Back up now" shares/downloads a `.penny` file on demand (this is where "Export backup" now lives).
   - **Google Drive** — uploads the encrypted `.penny` to your own Drive (a private app folder); "Back up now" pushes immediately through the sync engine.
   - **iCloud** — native-app only, still dormant (no Capacitor bridge yet).
-  A status line shows the last backup, "syncing", "paused (offline)", "storage full", or "reconnect".
+    A status line shows the last backup, "syncing", "paused (offline)", "storage full", or "reconnect".
 - **Restore from backup** — pick a `.penny` file (or, once Drive is configured, restore straight from the latest Drive backup), enter your passphrase, and replace the current data. The session re-locks afterwards — **unlock with the PIN that was active when the backup was created**, not necessarily this device's current one (that's expected: the wrapped key material comes from the backup as-is). Any stale lockout/attempt-counter state from the source device is reset on restore so it can't block that correct PIN — only the counters are reset, never the key-wrapping material itself.
 - **Restore / reclaim without a file** — a lost or reinstalled device can come back through onboarding: **Restore** re-imports a backup (full recovery incl. data), while **Reclaim** recovers just your **identity + group membership** from your username + passphrase (no personal data without a backup). See the Onboarding doc.
 - **Reset Penny** — erases everything on the device and returns to onboarding. For a **claimed** account it first **deregisters from the server** (releasing your username) while the keys are still present; if that call fails (offline / server error) it **warns instead of silently wiping** ("Couldn't release your username" — the `orphanWarnUser` dialog) so you can retry online before orphaning the handle. Irreversible unless you have a backup (no key escrow).
@@ -27,7 +27,7 @@ The backup bundle is encrypted with the **Data Master Key (DMK)**; the file head
 
 Automatic backup (Track D) reuses that same encrypted blob. A **provider abstraction** treats Google Drive, iCloud, and on-device storage interchangeably; a background **engine** re-exports and uploads shortly after changes (debounced) and at least daily, and periodically **pulls + merges** other devices' changes (non-destructive last-write-wins via `mergeBundle`). Multi-device sync works between devices that share the same key (reached via a passphrase restore); a brand-new device still restores via passphrase. iCloud is only reachable in the native app, so it's shown but inactive on the web.
 
-**Restore vs. this device's current PIN.** `importBackup()` restores the `security` store (PIN/passphrase-wrapped key material) wholesale from the backup — by design, since that's what lets the file be restorable on any device with the right passphrase. But the backup's `security` row also carries the *attempt counters and lockout timestamps* from whatever device/moment it was exported at; restoring those unmodified could re-impose a stale lockout (or even a mid-lockout state) that blocks the otherwise-correct original PIN on the new device. `importBackup()` now resets `pinAttempts`/`lockedUntil`/`passphraseAttempts`/`passphraseLockedUntil` to fresh defaults as part of the restore, while leaving `encryptedMasterKey`/`kekSalt` (the actual wrapped key) untouched — found 2026-07-27 as "no PIN worked after restore" on mobile.
+**Restore vs. this device's current PIN.** `importBackup()` restores the `security` store (PIN/passphrase-wrapped key material) wholesale from the backup — by design, since that's what lets the file be restorable on any device with the right passphrase. But the backup's `security` row also carries the _attempt counters and lockout timestamps_ from whatever device/moment it was exported at; restoring those unmodified could re-impose a stale lockout (or even a mid-lockout state) that blocks the otherwise-correct original PIN on the new device. `importBackup()` now resets `pinAttempts`/`lockedUntil`/`passphraseAttempts`/`passphraseLockedUntil` to fresh defaults as part of the restore, while leaving `encryptedMasterKey`/`kekSalt` (the actual wrapped key) untouched — found 2026-07-27 as "no PIN worked after restore" on mobile.
 
 **Passphrase-based recovery (no file).** Beyond restoring a backup file, the passphrase is now also a **reclaim credential**. `securityManager.initialize()` derives an Ed25519 keypair from the passphrase + a random salt and stores the salt + public half as a **recovery verifier** in the security record; `claimAccount` uploads it. `reclaimAccount()` (`src/core/identity/`) later re-derives that keypair from the passphrase to prove ownership of the handle and bind a fresh device — recovering **identity + group membership only** (no personal data — the server can't decrypt anything). So: **restore** = full recovery including data; **reclaim** = identity + groups, then a backup restore (or a co-member re-share) fills in the data.
 
@@ -42,7 +42,7 @@ Key files:
 
 **Mobile (`apps/mobile`):** ported alongside the rest of Track 4's remaining-modules pass, then upgraded 2026-07-27 to real native Google Drive + real on-device backup (previously both were honest no-ops — see below). RN Web (`expo start --web`) needed its own further branch for export/restore, since `expo-file-system`'s web build is a no-op stub (`new File(...)` throws `"this.validatePath is not a function"` there) — export falls back to a plain Blob-URL `<a download>` (same as web-react) on that target, and restore reads the picked file via `expo-document-picker`'s own web build (which hands back a real browser `File` at `asset.file`) instead of touching `expo-file-system` at all.
 
-**Native Google Drive (real, since 2026-07-27):** `googleDriveProvider.native.ts` uses `@react-native-google-signin/google-signin` (chosen over the newer Credential-Manager-based `react-native-nitro-google-signin` for its maturity — Android's legacy Sign-In SDK it wraps is deprecated but still functional) for silent-reauth-capable OAuth, then the same Drive v3 REST calls (`files.list`/`files.get`/`files.create`/`files.update` against `appDataFolder`) as the web provider — validated against how the reference app Cashew (Flutter) implements the identical `drive.appdata` + silent-reauth-and-retry pattern. `isCloudBackupConfigured()` gates on `app.json`'s `extra.googleWebClientId` (a "Web application" OAuth client from the same Google Cloud project — required by the library for offline/refresh-capable access, distinct from the Android client registered against this app's package + SHA-1). See "Enabling Google Drive backup" below for the full Google Cloud Console setup, now covering both web and native.
+**Native Google Drive (real, since 2026-07-27):** `googleDriveProvider.native.ts` uses `@react-native-google-signin/google-signin` (chosen over the newer Credential-Manager-based `react-native-nitro-google-signin` for its maturity — Android's legacy Sign-In SDK it wraps is deprecated but still functional) for silent-reauth-capable OAuth, then the same Drive v3 REST calls (`files.list`/`files.get`/`files.create`/`files.update` against `appDataFolder`) as the web provider — validated against how the reference app Cashew (Flutter) implements the identical `drive.appdata` + silent-reauth-and-retry pattern. `isCloudBackupConfigured()` gates on `app.json`'s `extra.googleWebClientId` (a "Web application" OAuth client from the same Google Cloud project — required by the library for offline/refresh-capable access, distinct from the Android client registered against this app's package + SHA-1). See "Enabling Google Drive backup" below — this Google Cloud Console setup is **done for Android as of 2026-08-16**; web/iOS remain unconfigured.
 
 **Native on-device backup (real, since 2026-07-27):** `localBackup.native.ts` writes dated snapshots to `expo-file-system`'s persistent `Paths.document` directory (survives app restarts, unlike the `Paths.cache` the export/share flow deliberately uses) instead of the browser-only OPFS API web/RN-Web use — `isLocalBackupAvailable()` is unconditionally `true` on native now. This also means the daily automatic-backup floor genuinely runs on native for the first time (previously a silent no-op).
 
@@ -50,31 +50,40 @@ The automatic-backup engine itself runs natively via `packages/core/src/core/syn
 
 ## Enabling Google Drive backup (deployment setup)
 
-Drive backup is a **build-time, per-deployment** setting — not something an end user toggles. One Google Cloud project covers both platforms; every user then signs into their **own** Google account.
+Drive backup is a **build-time, per-deployment** setting — not something an end user toggles. One Google Cloud project covers every platform; every user then signs into their **own** Google account.
 
-1. **Google Cloud Console** → create (or pick) a project.
+**Status: done for `apps/mobile` (Android), 2026-08-16.** `apps/web-react` and iOS remain unconfigured — see the per-step notes below for what each still needs.
+
+1. **Google Cloud Console** → create (or pick) a project. A personal Google account is fine for this — no dedicated "app" email/inbox needed. The OAuth consent screen's support/developer-contact fields can be any email you control; since the app stays in **Testing** mode (no Play Store/App Store submission planned), none of this is publicly reviewed.
 2. **APIs & Services → Enable APIs** → enable the **Google Drive API**.
-3. **OAuth consent screen** → configure it (External is fine, testing mode supports up to 100 test users without review); add the `…/auth/drive.appdata` scope.
-4. **Web (`apps/web-react` + `apps/mobile`'s offline-access token)** — **Credentials → Create credentials → OAuth client ID → Web application**:
-   - For web-react: under **Authorized JavaScript origins**, add your app origin(s) (e.g. `http://localhost:5173` for dev, your production URL).
-   - Set `VITE_GOOGLE_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com` in `apps/web-react/.env.local` (copy from `.env.example`), and loosen the CSP in `index.html`:
-     ```
-     script-src  … https://accounts.google.com
-     connect-src … https://www.googleapis.com https://accounts.google.com
-     ```
-   - This same Web client ID is *also* what `@react-native-google-signin/google-signin` needs (its `webClientId` config, required for offline/refresh-capable access) — set it as `googleWebClientId` in `apps/mobile/app.json`'s `extra`.
-5. **Android (`apps/mobile` native)** — **Credentials → Create credentials → OAuth client ID → Android**:
-   - Package name: `com.anonymous.penny` (from `app.json`'s `android.package`).
-   - SHA-1 fingerprint: from your debug keystore for local dev (`keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android`, or the project's own `apps/mobile/android/app/debug.keystore` if present); a **release** build needs its own release-keystore SHA-1 registered too, as a separate step before shipping.
+3. **OAuth consent screen** → External → **Testing** mode (up to 100 test users, no Google review needed) → add the `…/auth/drive.appdata` scope — this app's only scope (the hidden per-app folder, never the user's regular Drive files; see `DRIVE_SCOPE` in `googleDriveProvider.constants.ts`).
+4. **Web application OAuth client** — **Credentials → Create credentials → OAuth client ID → Web application**. This is what `@react-native-google-signin/google-signin` needs (its `webClientId` config, required for offline/refresh-capable access even though the client _type_ is "Web") — set as `googleWebClientId` in `apps/mobile/app.json`'s `extra`.
+   - _(For `apps/web-react`, if that's ever configured too: same client ID works, but add real **Authorized JavaScript origins**, set it as `VITE_GOOGLE_CLIENT_ID` in `.env.local`, and loosen the CSP in `index.html` — untouched by this pass, since `apps/web-react` is frozen.)_
+5. **Android OAuth client** — **Credentials → Create credentials → OAuth client ID → Android**:
+   - Package name: `app.json`'s `android.package` — **`com.hesh.penny`** as of 2026-08-16 (renamed from the Expo-scaffolded `com.anonymous.penny`; see "Package rename" below).
+   - SHA-1 fingerprint: from the debug keystore — `keytool -list -v -keystore apps/mobile/android/app/debug.keystore -alias androiddebugkey -storepass android -keypass android`. This keystore is now **committed** (see below) specifically so this fingerprint never silently changes across machines/rebuilds.
    - No app-code config needed for this client — Google Play Services matches the app's signature + package to it automatically; only the Web client ID above is read in code.
-6. **iOS** — not set up yet (no `ios/` prebuilt directory exists in this repo currently); would need its own iOS OAuth client + `iosUrlScheme` config plugin entry when iOS support is actually being built.
-7. **Rebuild.** Web: `npm run build`. Native: a full `expo run:android` rebuild is required (the config is baked into the compiled app at build time, same as any other `app.json` `extra` change) — a JS reload is not enough.
+   - A **release** build needs its own release-keystore SHA-1 registered too, as a separate step before ever shipping a signed release through this path — not done yet (debug-only so far).
+6. **iOS** — deliberately **not set up** (2026-08-16 decision: no Mac/Xcode in place yet, focus on Android first). `app.json`'s `ios.bundleIdentifier` is already set (`com.hesh.penny`, same string as Android, ready for whenever this happens), but there's no iOS OAuth client yet, and `googleDriveProvider.native.ts`'s `GoogleSignin.configure()` doesn't pass `iosClientId` yet — both are needed before Drive backup works on a real iOS build.
+7. **Rebuild.** Native: a full `expo prebuild` + `expo run:android` is required (the config is baked into the compiled app at build time, same as any other `app.json` `extra`/`android.package` change) — a JS reload is not enough.
 
-> The Drive code path is fully implemented on web, native (Android), and RN Web as of 2026-07-27, but untested end-to-end until real client IDs are in place. The manual `.penny` export/import works regardless, with no Google Cloud setup needed at all.
+### Package rename (`com.anonymous.penny` → `com.hesh.penny`, 2026-08-16)
+
+Done as part of this same setup pass, not a separate change. `com.anonymous.penny` was just Expo's scaffolded placeholder (no real `owner`/EAS project was ever configured) — never a deliberate choice, and worth fixing before it became permanent: this was the last realistic moment to rename it for free, since the app had **not yet been published to Play Store** — a rename after publishing means losing every install/review and re-launching as a brand-new app, since a Play Store package name is permanent once live. Chosen to match the existing `*.hesh.workers.dev` Cloudflare Workers naming.
+
+Two things worth remembering if a rename like this happens again:
+
+- **The debug keystore must survive it.** A package/bundle-id change needs `expo prebuild --clean -p android` to fully regenerate the native project (an incremental, non-`--clean` prebuild can leave stale files from the old package's directory structure behind) — but `--clean` wipes the entire `android/` folder first, including the debug keystore. **Back the keystore file up before running `--clean`, copy it back in afterward, and re-verify its SHA-1 is unchanged** — otherwise the Android OAuth client above ends up registered against a fingerprint that no longer exists, silently breaking sign-in again.
+- **Grep for hardcoded references to the old package name** in docs/scripts, not just app code — found and fixed in `CONTRIBUTING.md`'s "reset app state"/"force relaunch" `adb` command examples, which would otherwise silently target a package that no longer exists.
+
+> The Drive code path is fully implemented on web, native (Android), and RN Web — **real end-to-end setup now done for Android** as of 2026-08-16 (Web OAuth client + Android OAuth client + package rename, all above). iOS and `apps/web-react` remain unconfigured. The manual `.penny` export/import works regardless, with no Google Cloud setup needed at all.
 
 ## Current limitations
 
-- **iCloud is dormant until the native app** — the provider is built, but iCloud is unreachable from the web PWA, so it's shown-but-disabled until the Capacitor shell lands. No iOS Google Drive setup exists yet either (see above).
+- **iCloud is dormant until the native app** — the provider is built, but iCloud is unreachable from the web PWA, so it's shown-but-disabled until the Capacitor shell lands. No iOS Google Drive setup exists yet either (see above) — deliberately deferred, not blocked.
+- **Android Google Drive is configured but not yet confirmed working end-to-end** (2026-08-16) — real Cloud Console setup is in place and a fresh debug build installs/launches cleanly under the renamed `com.hesh.penny` package, but the actual Drive sign-in flow itself still needs a manual on-device confirmation (per this project's own rule against automated UI verification).
+- `apps/web-react`'s Google Drive OAuth is unconfigured (`VITE_GOOGLE_CLIENT_ID` unset) — untouched since that app is frozen.
+- No **release**-keystore SHA-1 is registered yet — only the debug keystore's, so Drive sign-in would break on a signed release build until that's added as its own Google Cloud Console step.
 - Manual **restore** replaces all data; automatic pulls merge (LWW) but can't observe remote deletes (whole-blob).
 - Cloud sync uses a single overwrite file (no server-side compare-and-swap): a rare simultaneous multi-device write converges on the next sync rather than instantly.
 - The passphrase is still essential — it's the only thing that decrypts a backup **and** the credential that reclaims your handle; there's no escrow or backdoor, so a truly lost passphrase means the data can't be recovered.
@@ -82,7 +91,8 @@ Drive backup is a **build-time, per-deployment** setting — not something an en
 ## Planned improvements
 
 - **Native bring-up** to activate the iCloud provider (auto-default on Apple devices).
-- iOS Google Drive OAuth client + config-plugin setup.
+- iOS Google Drive OAuth client + `iosClientId`/URL-scheme config-plugin setup, once Xcode is installed.
+- Release-keystore SHA-1 registration before any signed release build ships.
 - Encrypted **delta** sync and Drive **etag** conditional writes if multi-device usage grows.
 
 > Cloud backup already runs through a live `cloud_backup` entitlement (`src/core/entitlement/entitlement.ts`) — free in Phase 1, but the single switch to make it a paid feature later, without touching backup code.

@@ -3,11 +3,11 @@ import { View, Pressable, ScrollView, Text } from 'react-native';
 import { Button, Banner } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
-import type { Account, ExpenseCategory, Person } from '@/core/db/types';
+import type { Account, Expense, ExpenseCategory, Person } from '@/core/db/types';
 import type { ParsedRow, RejectedRow } from '@/core/import/importParsers';
 import type { ColumnMapping } from '@/core/import/importMatcher';
 import { allIntentGroups, type CategoryAction } from '@/core/import/importCategoryResolution';
-import type { RowOverride } from '@/core/import/importPipeline';
+import type { ResolvedPreviewRow, RowOverride } from '@/core/import/importPipeline';
 import type { DisplayTransferPair, TransactionsRowGroup } from './useImport';
 import type { TransactionsGroupingResult } from '@/core/import/importTransactionsGrouping';
 import { CategoryTile } from './review/CategoryTile';
@@ -32,6 +32,10 @@ interface TransactionsStageProps {
   onUnpairTransfer: (outgoingIndex: number, incomingIndex: number) => void;
   rowGroups: TransactionsRowGroup[];
   grouping: TransactionsGroupingResult;
+  /** Row-index-keyed resolution, including which existing DB expense (if any) a duplicate row matched
+   *  (2026-08-16) — see `DuplicatesBucket`'s own doc comment for why this feeds the side-by-side view. */
+  preview: ResolvedPreviewRow[];
+  expenseById: Map<string, Expense>;
   categories: ExpenseCategory[];
   accounts: Account[];
   persons: Person[];
@@ -85,6 +89,8 @@ export function TransactionsStage({
   onUnpairTransfer,
   rowGroups,
   grouping,
+  preview,
+  expenseById,
   categories,
   accounts,
   persons,
@@ -119,6 +125,20 @@ export function TransactionsStage({
     () => accounts.filter((a) => a.id !== excludeAccountId),
     [accounts, excludeAccountId]
   );
+  const accountMap = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
+  const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
+  // Which real existing expense (if any) each "Already imported" row matched (2026-08-16) — resolves
+  // `preview[index].matchedExpenseId` against `expenseById` only for rows actually in this bucket, not
+  // the whole preview array.
+  const matchedExpenseByIndex = useMemo(() => {
+    const map = new Map<number, Expense>();
+    for (const { index } of grouping.duplicateRows) {
+      const id = preview[index]?.matchedExpenseId;
+      const exp = id ? expenseById.get(id) : undefined;
+      if (exp) map.set(index, exp);
+    }
+    return map;
+  }, [grouping.duplicateRows, preview, expenseById]);
 
   const defaultExpandedBucket: BucketKey | null =
     attentionCount > 0
@@ -319,6 +339,9 @@ export function TransactionsStage({
             <DuplicatesBucket
               rows={grouping.duplicateRows}
               rowOverrides={rowOverrides}
+              matchedExpenseByIndex={matchedExpenseByIndex}
+              accountMap={accountMap}
+              categoryMap={categoryMap}
               onNotADuplicate={onNotADuplicate}
             />
           </BucketCard>

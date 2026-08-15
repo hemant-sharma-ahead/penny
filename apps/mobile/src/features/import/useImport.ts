@@ -6,7 +6,7 @@ import {
   personsRepo,
   ledgerEntriesRepo
 } from '@/core/db/repositories';
-import type { ExpenseCategory, Account, AccountType, Person } from '@/core/db/types';
+import type { ExpenseCategory, Account, AccountType, Person, Expense } from '@/core/db/types';
 import { IOU_MANDATORY_CATEGORY_IDS } from '@/core/db/defaultCategories';
 import {
   parseByFormat,
@@ -279,7 +279,18 @@ export function useImport() {
 
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [existingKeys, setExistingKeys] = useState<Set<string>>(new Set());
+  /** Per-`dedupKey` LIST of matching existing DB expense ids — not just a count, and not just a `Set` of
+   *  which keys exist — see `buildResolvedPreviewRowsByIndex`'s own doc comment for the real
+   *  over-counting bug this fixes (2026-08-16): a plain Set let one existing expense be "claimed" as a
+   *  duplicate match by an unlimited number of re-uploaded file rows sharing its key. Keeping the actual
+   *  ids (not just a count) is also what lets `preview[i].matchedExpenseId` point at a real expense —
+   *  `expenseById` below resolves that id back to the full `Expense` for the "Already imported" bucket's
+   *  side-by-side comparison UI. */
+  const [existingKeys, setExistingKeys] = useState<Map<string, string[]>>(new Map());
+  /** Every existing expense, by id — built alongside `existingKeys` from the same `loadReferenceData()`
+   *  fetch (2026-08-16). Only consulted for rows `buildResolvedPreviewRowsByIndex` actually matched
+   *  (`preview[i].matchedExpenseId`), never iterated wholesale by the UI. */
+  const [expenseById, setExpenseById] = useState<Map<string, Expense>>(new Map());
   const [txnCountByCategory, setTxnCountByCategory] = useState<Map<string, number>>(new Map());
   const [categoriesLoadError, setCategoriesLoadError] = useState(false);
   /** IOU (Lent/Borrowed) person autocomplete — live subscription, same as `useBankImport.ts`'s own
@@ -297,7 +308,17 @@ export function useImport() {
         ]);
         setCategories(cats);
         setAccounts(accts);
-        setExistingKeys(new Set(exps.map((e) => dedupKey(e.date, e.amount, e.description))));
+        const keyIds = new Map<string, string[]>();
+        const byId = new Map<string, Expense>();
+        for (const e of exps) {
+          const key = dedupKey(e.date, e.amount, e.description);
+          const ids = keyIds.get(key) ?? [];
+          ids.push(e.id);
+          keyIds.set(key, ids);
+          byId.set(e.id, e);
+        }
+        setExistingKeys(keyIds);
+        setExpenseById(byId);
         const counts = new Map<string, number>();
         for (const e of exps) counts.set(e.categoryId, (counts.get(e.categoryId) ?? 0) + 1);
         setTxnCountByCategory(counts);
@@ -1186,12 +1207,14 @@ export function useImport() {
       // manual-testing finding) — mirrors the category-creation loop's own `g.transactionsReady` gate
       // directly above it exactly: a `'create'` account the user never actually looked at must never get
       // a real account created for it just because commit ran on a batch where OTHER accounts happened to
-      // be ready. Defense in depth, not the only guard — `accountsResolved` (this file, the Accounts
-      // stage's own advance-gate) was ALSO fixed the same day to require this, which should already
-      // prevent reaching commit with an unready account in the normal flow. Relying on only one layer is
-      // exactly what caused this same bug's category-side equivalent (manual-testing gap #5) — this
-      // write-path gate exists independently, same reasoning. A not-ready account's rows are excluded from
-      // this write below (see the `notReadyAccountSourceNames` pass near `finalRowActions`), deferred to a
+      // be ready. Defense in depth, not the only guard — this matters MORE, not less, now that
+      // `AccountsStage.tsx`'s own advance-gate was deliberately loosened (2026-08-15) from "every account
+      // resolved" to "at least one" (a real user-reported bug: the old all-or-nothing gate had no argued
+      // rationale, and this write-path check already made a stricter stage gate redundant defense-in-depth
+      // even before that change). Relying on only one layer is exactly what caused this same bug's
+      // category-side equivalent (manual-testing gap #5) — this write-path gate exists independently, same
+      // reasoning, and is now the PRIMARY guard rather than a backup one. A not-ready account's rows are
+      // excluded from this write below (see the `notReadyAccountSourceNames` pass near `finalRowActions`), deferred to a
       // later re-upload pass — never silently written with no real account, and never silently dropped
       // either (folded into `stillUnresolvedCount`).
       const createdAccountIds = new Map<string, string>();
@@ -1564,6 +1587,11 @@ export function useImport() {
     unpairTransfer,
 
     preview,
+    /** The matched existing DB expense for any duplicate-flagged row (2026-08-16) — see
+     *  `preview[i].matchedExpenseId`/`ResolvedPreviewRow`'s own doc comment. Resolved here (not inline in
+     *  `TransactionsStage.tsx`) since this hook is the only place that ever fetched the full expense
+     *  list. */
+    expenseById,
     rowTriage,
     readyRows,
     readyCount,

@@ -79,6 +79,7 @@ export function ExpensesPage() {
     accountsNeedingAttention,
     patchExpenses,
     removeExpenses,
+    bulkAddHashtag,
     saveCategory,
     moveTransactions,
     deleteCategory,
@@ -240,6 +241,7 @@ export function ExpensesPage() {
               onShareLater={handleShareLater}
               onPatchExpenses={patchExpenses}
               onRemoveExpenses={removeExpenses}
+              onBulkAddHashtag={bulkAddHashtag}
               searchMerchant={searchMerchant}
               dueRecurring={dueRecurring}
               onPostRecurring={postRecurring}

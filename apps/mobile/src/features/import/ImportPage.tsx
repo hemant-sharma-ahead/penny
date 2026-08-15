@@ -199,6 +199,8 @@ export function ImportPage() {
               onUnpairTransfer={imp.unpairTransfer}
               rowGroups={imp.transactionsRowGroups}
               grouping={imp.transactionsGrouping}
+              preview={imp.preview}
+              expenseById={imp.expenseById}
               categories={imp.categories}
               accounts={imp.accounts}
               persons={imp.persons}
