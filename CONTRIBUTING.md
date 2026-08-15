@@ -182,6 +182,16 @@ if one doesn't exist) / `pnpm web` (via `react-native-web`, no native modules in
 `npx expo run:android` (above) builds and installs onto an emulator/device in one step, but
 doesn't leave you a standalone `.apk` file. To produce one, run these in order:
 
+**Step 0, non-negotiable — bump the version first.** Every APK checked into
+`apps/mobile/builds/` (see below) MUST carry a version distinct from whatever was there
+before, reflecting what's actually changed since the last one. Before 2026-08-15, every
+rebuild left `"version"` at the original `"1.0.0"` in both `apps/mobile/app.json` and
+`apps/mobile/package.json` regardless of how much had changed since the last build (visible
+in git log as several `chore(mobile): rebuild debug/release APKs with latest features`
+commits, none of which bumped it) — meaning two APKs with completely different feature sets
+were indistinguishable by version number alone. Bump both files' `"version"` (semver:
+patch for a fix/small addition, minor for a real feature) before step 1 below, every time.
+
 ```bash
 # 1. From the repo root — installs deps with the pnpm hoisting this build needs (see note below)
 pnpm install
@@ -197,6 +207,11 @@ cd android
 # 4. Build the release variant — as its OWN separate command, not combined with step 3 (see note below)
 ./gradlew assembleRelease
 ```
+
+Copy the resulting `arm64-v8a` APKs (the variant to actually install/test with — see the ABI
+note below) into `apps/mobile/builds/` as `app-arm64-v8a-debug.apk`/
+`app-arm64-v8a-release.apk`, overwriting the previous ones, and commit them alongside the
+version bump above in the same commit.
 
 Each command produces **four `.apk` files, one per CPU architecture**, not one combined
 file:
