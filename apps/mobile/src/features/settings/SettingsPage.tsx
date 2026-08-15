@@ -563,6 +563,14 @@ export function SettingsPage() {
               onPress={() => navigation.navigate('SmsTrackingSettings')}
               trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
             />
+            <Row
+              icon="ti-bulb"
+              color={sectionColor.data}
+              label="Discover Penny"
+              sub="Tips and lesser-known things Penny can do"
+              onPress={() => navigation.navigate('DiscoverTips')}
+              trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
+            />
           </Card>
 
           {/* Danger zone */}

@@ -30,6 +30,9 @@ import { FilterModal } from './FilterModal';
 import { MonthPickerModal } from './MonthPickerModal';
 import { BulkAccountPaymentModal } from './BulkAccountPaymentModal';
 import { BulkHashtagModal } from './BulkHashtagModal';
+import { TipNudgeBanner } from '~/components/shared';
+import { dismissTip } from '~/lib/tipsStorage';
+import { shouldNudgeBulkHashtag } from '@/core/tips/tipTriggers';
 import { RecurringInboxModal } from './RecurringInboxModal';
 import { ShareToGroupModal } from './ShareToGroupModal';
 import type { useTransactionFilters } from './useTransactionFilters';
@@ -250,6 +253,9 @@ export function TransactionsSlice({
     setBulkBusy(true);
     try {
       await onBulkAddHashtag([...selected], tag);
+      // The user just did the exact thing the bulk-hashtag nudge (§ below) points at — suppress it for
+      // good, same "dismissed OR acted upon" rule every Tier 1 nudge follows.
+      void dismissTip('txn-bulk-hashtag');
       exitSelect();
     } finally {
       setBulkBusy(false);
@@ -351,7 +357,23 @@ export function TransactionsSlice({
             </Text>
           </Pressable>
         </View>
-      ) : (
+      ) : null}
+
+      {/* Tier 1 "Did you know" nudge (2026-08-16) — fires once, ever, the first time 3+ rows are
+          selected, pointing at bulk-hashtag specifically (the newest bulk action, easiest to miss).
+          Suppressed permanently on dismiss OR the moment the user actually uses bulk-hashtag (see
+          `handleBulkHashtag` above). */}
+      {selectMode && (
+        <View className="px-4 pt-2">
+          <TipNudgeBanner
+            id="txn-bulk-hashtag"
+            text="Did you know you can bulk-tag these with a hashtag too — not just category or account?"
+            active={shouldNudgeBulkHashtag(selected.size)}
+          />
+        </View>
+      )}
+
+      {!selectMode && (
         /* Filter bar */
         <View className="border-b border-theme">
           <View className="flex-row items-center gap-2 px-4 py-2">

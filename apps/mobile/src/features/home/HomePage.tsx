@@ -4,6 +4,7 @@ import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGroupContext } from '~/context/GroupContext';
 import { GroupDashboard } from '~/features/groups/GroupDashboard';
+import { DailyTipCard } from '~/components/shared';
 import { StoriesRow } from './stories/StoriesRow';
 import { GlanceHeader } from './GlanceHeader';
 import { AccountsStrip } from './AccountsStrip';
@@ -58,6 +59,12 @@ export function HomePage() {
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 96 }}>
         <View className="px-4 pt-3 pb-6">
+          {/* Home's daily "Did you know" card (2026-08-16) — deliberately the very first thing on the
+              screen, above the at-a-glance summary: Home is the most-visited screen, so this is where a
+              daily tip earns the most eyes. See DailyTipCard.tsx's own doc comment for the full mechanics
+              (one new curated tip a day, stops once all are shown, toggle in Discover Penny). */}
+          <DailyTipCard onSeeAll={() => navigation.navigate('DiscoverTips')} />
+
           {summary && <GlanceHeader summary={summary} assetGroups={assetGroups} totalAssets={totalAssets} />}
 
           <MoneyStatsCard />

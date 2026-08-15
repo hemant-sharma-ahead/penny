@@ -3,6 +3,7 @@ import { View, Pressable, Text } from 'react-native';
 import Svg, { Circle, Text as SvgText } from 'react-native-svg';
 import { formatCurrency, formatCompact, formatDate, toMonthYearKey } from '@/lib/formatters';
 import { ListContainer, SectionLabel, Banner, Modal } from '~/components/ui';
+import { DidYouKnowCard } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';
@@ -913,6 +914,9 @@ interface AnalyticsTabProps {
   onViewGroup: (group: string, label: string) => void;
   onViewCategory: (catId: string, label: string) => void;
   onViewTag: (tag: string) => void;
+  /** Tier 2 "Did You Know" ambient card (2026-08-16) — sits at the very bottom, below whichever view
+   *  (Monthly/Annual/All Time) is active. Navigates to the "Discover Penny" hub. */
+  onSeeAllTips: () => void;
 }
 
 export function AnalyticsTab({
@@ -973,7 +977,8 @@ export function AnalyticsTab({
   promoteHashtagToEvent,
   onViewGroup,
   onViewCategory,
-  onViewTag
+  onViewTag,
+  onSeeAllTips
 }: AnalyticsTabProps) {
   const theme = useThemeColors();
 
@@ -1377,6 +1382,11 @@ export function AnalyticsTab({
           />
         </>
       ) : null}
+
+      {/* Tier 2 "Did You Know" ambient card (2026-08-16) — always at the very bottom, regardless of which
+          view is active. Prefers Analytics-tagged curated facts first (falls back to the general curated
+          pool if that's ever exhausted — see DidYouKnowCard.tsx). */}
+      <DidYouKnowCard module="analytics" onSeeAll={onSeeAllTips} />
 
       {/* Month picker modal */}
       {showAnalyticsMonthPicker && (

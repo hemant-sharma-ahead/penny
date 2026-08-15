@@ -2134,9 +2134,9 @@ long-term react-native-web vision, which this same principle also feeds.
 A few structural choices worth recording here specifically:
 
 - **`core/sms-import/` is a deliberately separate module** from both `core/bank-import/` and
-  `core/import/` — SMS Tracking is a third, independent way to *record* a transaction (alongside
+  `core/import/` — SMS Tracking is a third, independent way to _record_ a transaction (alongside
   manual entry and CSV import), not a replacement for or variant of Bank Statement Import, which
-  stays the separate reconciliation feature. It reuses only the matching *algorithm* shape from
+  stays the separate reconciliation feature. It reuses only the matching _algorithm_ shape from
   `core/bank-import/matcher.ts` (`matchesDirection` was exported and generalized to a minimal
   `{ direction }` structural type specifically so `core/sms-import/smsTransactionMatch.ts` could
   reuse it instead of duplicating it), never Bank Statement Import's own types or role.
@@ -2186,6 +2186,50 @@ A few structural choices worth recording here specifically:
   `import()`, not a top-level import, specifically so the file loading on iOS (which Metro's
   `.native.ts` resolution covers too) never crashes at import time, since
   `expo-sms-capture`'s `expo-module.config.json` declares `platforms: ["android"]` only.
+
+### Decision: "Did You Know" tips — three delivery tiers, one shared content library (2026-08-16)
+
+**Rationale:** full design in [`docs/features/did-you-know-tips.md`](features/did-you-know-tips.md).
+A whole-app sweep found a large amount of genuinely useful, non-obvious capability with nowhere
+surfacing it — the design question was how to tell users without cluttering the UI or nagging them.
+Settled on three tiers rather than one: **contextual nudges** (earned by real behavior, fire once
+ever), a **rotating/daily card** (ambient, low-stakes), and a **"Discover Penny" hub** (on-demand, the
+full catalogue). A few structural choices worth recording:
+
+- **One content library (`packages/core/src/core/tips/didYouKnowFacts.ts`), tagged `curated: boolean`
+  per fact** — rather than maintaining separate lists per tier. Only `curated: true` facts (~39,
+  hand-picked for genuine surprise/value) ever feed contextual nudges or the rotating cards; "Discover
+  Penny" shows the full library regardless of the flag. This is also why the flag lives on the fact
+  itself, not on the tier — the same fact can be curated-and-ambient AND full-catalogue-browsable at
+  once, with zero duplication.
+- **`features/tax/DidYouKnow.tsx` (the one pre-existing precedent — a Tax-only, non-persisted
+  fact-cycling card) was generalized into a shared `DidYouKnowCard`, not left as a special case.**
+  `taxFacts.ts` stays the single source of truth for those specific facts, folded into the shared
+  library as `module: 'tax'` entries; Tax's own screen becomes a thin wrapper passing `module="tax"`,
+  with no behavior change for that screen.
+- **Home's daily card (`DailyTipCard.tsx`) is a genuinely separate component from the ambient
+  `DidYouKnowCard`**, not a variant/prop of it — its sequential "reveal one new curated tip per
+  calendar day, stop once all have been shown" state machine is meaningfully different from
+  `DidYouKnowCard`'s simpler "always show something, tap cycles freely" ambient behavior (used by
+  Analytics and Tax). Keeping them separate avoided forcing one component to carry two different
+  state models behind a mode flag.
+  - Its placement (the very top of Home, above the at-a-glance summary) was a real back-and-forth —
+    an initial mockup placed it lower (below the Financial Health Card) specifically to avoid
+    displacing the numbers users open the app to check; the user reconsidered and asked for the very
+    top instead, reasoning Home is the most-visited screen and deserves the highest-visibility spot.
+    Deferred to that explicit call after voicing the tradeoff once.
+- **Dismiss/seen persistence follows the exact existing `Set<string>`-JSON-in-AsyncStorage convention**
+  already used by `penny_vacation_note_dismissed`/`penny_recurring_due_dismissed`/
+  `penny_milestone_seen` (`apps/mobile/src/lib/tipsStorage.ts`) — no new persistence pattern introduced.
+- **Trigger conditions (`core/tips/tipTriggers.ts`) are plain, unit-tested pure functions taking
+  primitives** (a count, a boolean, a computed "months tracked" number) — never coupled to a specific
+  screen's hook shape, so each screen computes its own already-available state and just calls the
+  matching trigger function, keeping the core logic screen-agnostic and cheaply testable.
+- **Deliberately no cross-surface "only one new fact app-wide per day" coordination** between Home's
+  daily card and the ambient cards (Analytics/Tax) — considered and simplified away: Home's card alone
+  carries the "special, once-a-day" framing; the ambient cards staying simple, always-on tap-cycle
+  surfaces (matching the original Tax precedent's own simplicity) was judged not worth the added
+  cross-component state-coordination complexity for the marginal anti-repetition benefit.
 
 ---
 

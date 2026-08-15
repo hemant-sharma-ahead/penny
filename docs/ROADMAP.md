@@ -224,6 +224,14 @@ be permanent-package-loss territory). Full steps + the package-rename gotchas in
 iOS is deliberately deferred (no Xcode set up yet); `apps/web-react`'s `VITE_GOOGLE_CLIENT_ID` remains
 unset (that app is frozen).
 
+**"Did You Know" tips shipped (2026-08-16):** a whole-app sweep found a large amount of genuinely useful,
+non-obvious capability with no way to surface it — three delivery tiers now do: contextual nudges (earned
+by real behavior, fire once ever), Home's daily tip card (top of screen, one new curated tip a day, stops
+once all have been shown) + Analytics'/Tax's own ambient rotating card, and a "Discover Penny" hub
+(Settings) showing the full catalogue. See [`docs/features/did-you-know-tips.md`](features/did-you-know-tips.md)
+for the full design and `docs/ARCHITECTURE.md`'s matching decision-log entry. Mobile-only —
+`apps/web-react` is frozen.
+
 **Track E — Groups & Household OS · E1: worker + group crypto + client wiring (2026-07-01):** the third
 per-user backend (`workers/groups/` — `penny-groups`), mirroring the Track C template. **Model B /
 ciphertext-only:** D1 holds group metadata + membership + invites + wrapped key-grants + an event index
@@ -780,19 +788,19 @@ Full plan (locked decisions, tracks, tech-stack rationale, migration playbook):
 
 ## Deferred from Phase 1 (awaiting Phase 2+)
 
-| Feature                            | Originally planned    | Moving to                                                                                           |
-| ---------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------- |
-| CAS PDF import                     | M11 step 70           | Phase 2                                                                                             |
-| Watchlist                          | M11 step 71           | Phase 2                                                                                             |
-| Export PDF/HTML                    | M8 step 47 (CSV done) | Phase 2                                                                                             |
-| Chip mock chat UI                  | M8 step 44            | Phase 2                                                                                             |
-| Desktop layout                     | M8 step 48            | Phase 2                                                                                             |
-| Real Chip AI                       | All of Phase 1        | Phase 2                                                                                             |
+| Feature                            | Originally planned    | Moving to                                                                                                                                                                                                      |
+| ---------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CAS PDF import                     | M11 step 70           | Phase 2                                                                                                                                                                                                        |
+| Watchlist                          | M11 step 71           | Phase 2                                                                                                                                                                                                        |
+| Export PDF/HTML                    | M8 step 47 (CSV done) | Phase 2                                                                                                                                                                                                        |
+| Chip mock chat UI                  | M8 step 44            | Phase 2                                                                                                                                                                                                        |
+| Desktop layout                     | M8 step 48            | Phase 2                                                                                                                                                                                                        |
+| Real Chip AI                       | All of Phase 1        | Phase 2                                                                                                                                                                                                        |
 | SMS transaction parsing            | BRD v4                | Phase 2 — built 2026-08-15 (core, mobile UI, native Android capture layer), pending real-device verification before rollout; see [`docs/plans/sms-transaction-tracking.md`](plans/sms-transaction-tracking.md) |
-| Credit score via bureau aggregator | BRD v4                | Phase 2                                                                                             |
-| Biometric auth                     | TSD v1.0              | Phase 2 (native app) — WebAuthn-PRF on PWA too patchy; envelope crypto leaves a wrapping slot ready |
-| Cloud backup                       | Phase 1.5/2           | **Pulled into Phase 1** (Track 2) — user-owned Google Drive                                         |
-| Change passphrase / PIN            | "planned"             | **Pulled into Phase 1** (Track 2) — trivial under envelope crypto                                   |
+| Credit score via bureau aggregator | BRD v4                | Phase 2                                                                                                                                                                                                        |
+| Biometric auth                     | TSD v1.0              | Phase 2 (native app) — WebAuthn-PRF on PWA too patchy; envelope crypto leaves a wrapping slot ready                                                                                                            |
+| Cloud backup                       | Phase 1.5/2           | **Pulled into Phase 1** (Track 2) — user-owned Google Drive                                                                                                                                                    |
+| Change passphrase / PIN            | "planned"             | **Pulled into Phase 1** (Track 2) — trivial under envelope crypto                                                                                                                                              |
 
 ## Open decisions
 

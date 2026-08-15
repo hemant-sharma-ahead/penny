@@ -3,6 +3,8 @@ export { AccountFormModal } from './AccountFormModal';
 export { AssetTaxNote } from './AssetTaxNote';
 export { BackButton } from './BackButton';
 export { BucketCard } from './BucketCard';
+export { DailyTipCard } from './DailyTipCard';
+export { DidYouKnowCard } from './DidYouKnowCard';
 export { DueDateBadge } from './DueDateBadge';
 export { dueDateInfo } from '@/lib/date';
 export { EntityTransactionsModal } from './EntityTransactionsModal';
@@ -17,6 +19,7 @@ export { PaymentModeChips } from './PaymentModeChips';
 export { PaymentModeFormModal } from './PaymentModeFormModal';
 export { PossibleMatchPickerModal } from './PossibleMatchPickerModal';
 export { RowCheckbox } from './RowCheckbox';
+export { TipNudgeBanner } from './TipNudgeBanner';
 export {
   DEFAULT_PAYMENT_MODES,
   generatePaymentModeId,

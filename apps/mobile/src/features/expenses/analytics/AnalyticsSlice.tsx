@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { ScrollView } from 'react-native';
+import { useNavigation, type ParamListBase } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEventMode, normalizeHashtag } from '~/context/EventModeContext';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { EntityTransactionsModal } from '~/components/shared';
@@ -44,6 +46,7 @@ export function AnalyticsSlice({
   const { events, pastEvents, allEventHashtags, promoteHashtagToEvent } = useEventMode();
   const { shouldMask } = usePrivacy();
   const { budgets } = useBudgets();
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
 
   const [analyticsView, setAnalyticsView] = useState<'monthly' | 'annual' | 'allTime'>('monthly');
   const [analyticsYear, setAnalyticsYear] = useState(() => new Date().getFullYear());
@@ -236,6 +239,7 @@ export function AnalyticsSlice({
         onViewGroup={viewGroup}
         onViewCategory={viewCategory}
         onViewTag={viewTag}
+        onSeeAllTips={() => navigation.navigate('Home', { screen: 'DiscoverTips' })}
       />
 
       {viewing && (

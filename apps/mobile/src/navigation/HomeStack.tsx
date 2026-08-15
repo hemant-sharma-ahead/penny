@@ -7,6 +7,7 @@ import { ProfilePage } from '../features/profile/ProfilePage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 import { SafeModeSettingsPage } from '../features/settings/SafeModeSettingsPage';
 import { ManageTagsPage } from '../features/settings/ManageTagsPage';
+import { DiscoverTipsPage } from '../features/settings/DiscoverTipsPage';
 import { ChangePinPage } from '../features/security/ChangePinPage';
 import { ChangePassphrasePage } from '../features/security/ChangePassphrasePage';
 import { TimelinePage } from '../features/activity/TimelinePage';
@@ -59,6 +60,7 @@ export type HomeStackParamList = {
   Profile: undefined;
   SafeModeSettings: undefined;
   ManageTags: undefined;
+  DiscoverTips: undefined;
   ChangePin: { forcedPinReset?: boolean } | undefined;
   ChangePassphrase: undefined;
   Timeline: undefined;
@@ -125,6 +127,7 @@ export function HomeStack() {
       <Stack.Screen name="Profile" component={ProfilePage} />
       <Stack.Screen name="SafeModeSettings" component={SafeModeSettingsPage} />
       <Stack.Screen name="ManageTags" component={ManageTagsPage} />
+      <Stack.Screen name="DiscoverTips" component={DiscoverTipsPage} />
       <Stack.Screen
         name="ChangePin"
         component={ChangePinPage}
