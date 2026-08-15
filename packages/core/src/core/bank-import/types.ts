@@ -1,7 +1,12 @@
 // Bank Statement Import — deliberately a separate module from core/import/ (the multi-app CSV
 // importer). See docs/plans/bank-statement-import.md for the full feature spec this implements.
 
-export type BankPresetId = 'hdfc' | 'icici' | 'kotak' | 'sbi' | 'indusind' | 'hsbc' | 'bob' | 'custom';
+// `BankPresetId` itself now lives in `core/db/types` — promoted 2026-08-15 once `Account.bankId`
+// and `core/sms-import/` needed the same identifier set (see that file's own doc comment on
+// `BankPresetId`). Imported (for local use below) AND re-exported here (so every existing
+// `from './types'` import in this module keeps resolving it unchanged).
+import type { BankPresetId } from '@/core/db/types';
+export type { BankPresetId } from '@/core/db/types';
 
 /** Column-mapping for one bank statement export: either separate debit/credit columns (most
  *  Indian bank exports), or a single signed amount column. `balance`, if present, powers the

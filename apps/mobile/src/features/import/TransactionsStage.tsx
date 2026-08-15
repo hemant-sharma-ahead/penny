@@ -18,8 +18,8 @@ import { TransferPairCard } from './review/TransferPairCard';
 import { UnparsedRows } from './review/UnparsedRows';
 import { CarryForwardExcluded } from './review/CarryForwardExcluded';
 import { ImportCategorizeModal } from './review/ImportCategorizeModal';
-import { BucketCard } from './review/BucketCard';
-import { useBucketExpansion } from './review/useBucketExpansion';
+import { BucketCard } from '~/components/shared/BucketCard';
+import { useBucketExpansion } from '~/hooks/useBucketExpansion';
 
 interface TransactionsStageProps {
   rejectedRows: RejectedRow[];

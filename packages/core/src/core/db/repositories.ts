@@ -33,6 +33,8 @@ import type {
   PersonalIou,
   Profile,
   RetirementPlan,
+  SmsAccountMapping,
+  SmsTransactionRecord,
   Subscription,
   SyncCursor,
   TransactionTemplate
@@ -77,3 +79,5 @@ export const bankCashWithdrawalCodesRepo = new EncryptedRepository<BankCashWithd
 export const paymentModesRepo = new EncryptedRepository<PaymentMode>(db.payment_modes as never);
 export const retirementPlanRepo = new EncryptedRepository<RetirementPlan>(db.retirement_plan as never);
 export const netWorthSnapshotsRepo = new EncryptedRepository<NetWorthSnapshot>(db.net_worth_snapshots as never);
+export const smsTransactionsRepo = new EncryptedRepository<SmsTransactionRecord>(db.sms_transactions as never);
+export const smsAccountMappingsRepo = new EncryptedRepository<SmsAccountMapping>(db.sms_account_mappings as never);

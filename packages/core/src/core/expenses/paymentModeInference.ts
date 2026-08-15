@@ -10,6 +10,13 @@ export type PaymentModeCandidate = Pick<PaymentMode, 'id' | 'label' | 'icon' | '
  * default and are genuinely new, creatable `PaymentMode`s — the caller (the import commit step) is
  * responsible for creating each one exactly once per batch via `paymentModesRepo`, not per
  * transaction (docs/plans/bank-statement-import.md §8).
+ *
+ * Originally scoped to `core/bank-import/` only; promoted here 2026-08-15 once
+ * `core/sms-import/` needed the exact same rail-keyword vocabulary (SMS bodies use the same UPI/
+ * NEFT/IMPS/POS/ATM wording bank statement narrations do) — see
+ * docs/plans/sms-transaction-tracking.md §1/§6. `core/bank-import/`'s own 3 call sites were updated
+ * to import from here directly rather than left behind a re-export shim (a small, known consumer
+ * list, unlike `BankPresetId`'s many internal `bank-import/types.ts` re-exporters).
  */
 const PAYMENT_MODE_KEYWORDS: { keywords: string[]; mode: PaymentModeCandidate }[] = [
   { keywords: ['upi'], mode: { id: 'upi', label: 'UPI', icon: 'ti-qrcode', color: '#7c3aed' } },

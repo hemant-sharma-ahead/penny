@@ -6,8 +6,8 @@ import type { Account, ExpenseCategory } from '@/core/db/types';
 import { allIntentGroups, type CategoryAction } from '@/core/import/importCategoryResolution';
 import type { TransactionsRowGroup } from './useImport';
 import { CategoryResolutionRow } from './review/CategoryResolutionRow';
-import { BucketCard } from './review/BucketCard';
-import { useBucketExpansion } from './review/useBucketExpansion';
+import { BucketCard } from '~/components/shared/BucketCard';
+import { useBucketExpansion } from '~/hooks/useBucketExpansion';
 
 interface CategoriesStageProps {
   rowGroups: TransactionsRowGroup[];

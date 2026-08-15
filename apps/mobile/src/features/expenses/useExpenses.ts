@@ -51,7 +51,7 @@ import {
 import { computeDueRecurring, buildOccurrence, type DueRecurring } from '@/core/expenses/recurringDue';
 import { normalizeHashtag } from '~/context/EventModeContext';
 import { logActivity, restoreActivity, summarizeDiff } from '@/core/db/activityLog';
-import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
+import { inferPaymentMode } from '@/core/expenses/paymentModeInference';
 import { useToast } from '~/context/ToastContext';
 import { getItem, setItem, getJSON, setJSON, removeItem } from '~/lib/storage';
 
@@ -110,8 +110,16 @@ export function useExpenses() {
   // already rely on.
   const saveAccount = useCallback(async (data: AccountInput, editing: Account | null): Promise<Account> => {
     const now = Date.now();
+    // See `useAccounts.ts`'s own `saveAccount` doc comment — `bankId`/`last4` are stripped from
+    // `editing` before merging so clearing either in the form actually removes it, rather than a plain
+    // spread silently keeping the old value.
     const record: Account = editing
-      ? { ...editing, ...data, updatedAt: now }
+      ? (() => {
+          const { bankId: _oldBankId, last4: _oldLast4, ...editingRest } = editing;
+          void _oldBankId;
+          void _oldLast4;
+          return { ...editingRest, ...data, updatedAt: now };
+        })()
       : { id: crypto.randomUUID(), ...data, isArchived: false, createdAt: now, updatedAt: now };
     await accountsRepo.put(record);
     logActivity({

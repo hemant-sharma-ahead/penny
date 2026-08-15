@@ -40,6 +40,15 @@ export const EPF_RATES_BASE: string | null = PROXY ? `${PROXY}/epf-rates` : null
  *  (`ppfInterestRates.ts`'s `PPF_RATE_TABLE_FALLBACK`) and never blocks on network. */
 export const PPF_RATES_BASE: string | null = PROXY ? `${PROXY}/ppf-rates` : null;
 
+/** SMS transaction-parsing templates (2026-08-15, docs/plans/sms-transaction-tracking.md §5) — same
+ *  shape/rationale as `EPF_RATES_BASE` above: a small, mostly-static JSON route so a bank changing
+ *  its SMS wording is a backend redeploy, not an app-store release. Null when no backend is
+ *  configured; the app then falls back to its own bundled template set
+ *  (`core/sms-import/smsPatterns.ts`'s `SMS_PATTERNS_FALLBACK`) and never blocks on network. Only
+ *  the templates themselves cross this URL — raw SMS text and every field parsed from it stay
+ *  on-device always (see that file's own doc comment). */
+export const SMS_PATTERNS_BASE: string | null = PROXY ? `${PROXY}/sms-patterns` : null;
+
 /** News RSS proxy (`${PROXY}/rss/<feedId>`), or null when no backend is configured — the client then
  *  falls back to the public AllOrigins proxy (see newsClient.constants.ts). Added after AllOrigins
  *  started 408-timing-out on the RBI/SEBI feeds specifically (2026-07-27); routing through our own

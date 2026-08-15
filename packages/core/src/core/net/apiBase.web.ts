@@ -23,6 +23,7 @@ export const MARKET_SNAPSHOT: string | null = PROXY ? `${PROXY}/market` : null;
 export const NEWS_PROXY_BASE: string | null = PROXY ? `${PROXY}/rss` : null;
 export const EPF_RATES_BASE: string | null = PROXY ? `${PROXY}/epf-rates` : null;
 export const PPF_RATES_BASE: string | null = PROXY ? `${PROXY}/ppf-rates` : null;
+export const SMS_PATTERNS_BASE: string | null = PROXY ? `${PROXY}/sms-patterns` : null;
 
 export const AUTH_BASE: string | null = (extra?.authProxyUrl as string | undefined) ?? null;
 export const GROUPS_BASE: string | null = (extra?.groupsProxyUrl as string | undefined) ?? null;

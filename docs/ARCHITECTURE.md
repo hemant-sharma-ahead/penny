@@ -2128,6 +2128,67 @@ long-term react-native-web vision, which this same principle also feeds.
 
 ---
 
+### Decision: SMS-Based Transaction Tracking (Android only) — a third recording method, own native module (2026-08-15)
+
+**Rationale:** full design in [`docs/plans/sms-transaction-tracking.md`](plans/sms-transaction-tracking.md).
+A few structural choices worth recording here specifically:
+
+- **`core/sms-import/` is a deliberately separate module** from both `core/bank-import/` and
+  `core/import/` — SMS Tracking is a third, independent way to *record* a transaction (alongside
+  manual entry and CSV import), not a replacement for or variant of Bank Statement Import, which
+  stays the separate reconciliation feature. It reuses only the matching *algorithm* shape from
+  `core/bank-import/matcher.ts` (`matchesDirection` was exported and generalized to a minimal
+  `{ direction }` structural type specifically so `core/sms-import/smsTransactionMatch.ts` could
+  reuse it instead of duplicating it), never Bank Statement Import's own types or role.
+- **`BankPresetId` and `paymentModeInference.ts` were promoted out of `core/bank-import/`** into
+  `core/db/types/index.ts` (next to `AccountType`, since that file is deliberately self-contained
+  with zero imports of its own) and `core/expenses/`, respectively, once SMS Tracking needed the
+  same identifier set and rail-keyword vocabulary as Bank Statement Import. `bank-import/types.ts`
+  re-exports `BankPresetId` so its own ~16 internal `from './types'` imports kept resolving it
+  unchanged; `paymentModeInference.ts`'s 6 real consumers were repointed directly (small enough
+  list that a compatibility re-export shim wasn't worth it).
+- **`BucketCard.tsx`/`useBucketExpansion.ts` were promoted out of `features/import/review/`** into
+  `components/shared/`/`hooks/` respectively, once `features/sms-tracking/` needed the same
+  bucket-shell UI — a feature module importing directly from another feature module's internals is
+  an ESLint violation (feature modules may only import from `core/`, `components/`, `context/`,
+  `hooks/`, `lib/`), so this is a straight move, not a fork; the 3 pre-existing CSV-import
+  consumers were repointed to the new shared path with zero behavior change.
+- **`processRawSmsCore()`/`deriveStatusForAccount()` live in `packages/core`, not only inside the
+  `useSmsTracking` React hook** — a Headless JS task (the native live-capture path's background
+  processing step) has no React tree to call a hook from, so the "what happens when one raw SMS
+  needs to become a `SmsTransactionRecord`" logic had to be reachable from a plain async function.
+  The hook wraps these core functions rather than reimplementing them — exactly one place this
+  logic lives, consumed identically by the foreground manual-scan path and the headless task.
+- **`apps/mobile/modules/expo-sms-capture/` is Penny's first bespoke local Expo Module** (Kotlin,
+  Expo Modules API) — not a third-party npm package. Chosen deliberately: off-the-shelf SMS-reading
+  libraries mostly stop at "hand you the SMS text on a broadcast," and the durable
+  `BroadcastReceiver` → `WorkManager` → Headless JS plumbing this feature actually needs is custom
+  work regardless of the base library; writing it as an owned local module avoids depending on an
+  unaudited third-party package touching sensitive SMS content, consistent with this app's
+  privacy-first ethos. Scaffolded via the real `create-expo-module@latest --local` CLI. A
+  `BroadcastReceiver` (`SmsReceiver.kt`) does the absolute minimum allowed by Android's ~10s
+  execution budget (persist to a small SharedPreferences-backed queue, `SmsQueueStore.kt`, then
+  enqueue one `WorkManager` job) rather than any real parsing/matching/DB work inline.
+  `SmsProcessingWorker.kt` starts `SmsHeadlessTaskService.kt` (RN's real `HeadlessJsTaskService`),
+  which drains that queue through the exact same `processRawSmsCore` pipeline the manual scan uses.
+  `startService()` is wrapped in try/catch since Android 8+'s background-service-start
+  restrictions can legitimately reject it when the app process is fully backgrounded — this is the
+  plan's own documented, accepted fallback (messages stay durably queued natively until the app's
+  own next-foreground drain picks them up), not a bug.
+- **The Headless JS task checks `keystore.isUnlocked()` before touching anything** — a headless
+  context spun up because the app process was fully killed has no Data Master Key available to
+  decrypt an `EncryptedRepository` read/write, and there's no way to prompt for a passphrase from a
+  headless context. In that case it's a no-op and the native queue stays intact for the next
+  foreground drain; never a silent data-loss path.
+- **`apps/mobile/src/lib/smsCapture.ts` (a single unsuffixed stub) became a real
+  `.native.ts`/`.web.ts` pair** once Android gained a real implementation (iOS/RN-Web still have
+  none — no SMS API exists on either). The native module itself is loaded via a lazy dynamic
+  `import()`, not a top-level import, specifically so the file loading on iOS (which Metro's
+  `.native.ts` resolution covers too) never crashes at import time, since
+  `expo-sms-capture`'s `expo-module.config.json` declares `platforms: ["android"]` only.
+
+---
+
 ## Dependency graph (simplified)
 
 ```

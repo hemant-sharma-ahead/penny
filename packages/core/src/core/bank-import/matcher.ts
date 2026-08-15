@@ -1,7 +1,7 @@
 import type { Account, BankNarrationOverride, BankStatementImportRecord, Expense } from '@/core/db/types';
 import { DAY_MS, toDateKey } from '@/lib/date';
 import { normalizeNarration } from './normalization';
-import type { ParsedStatementRow } from './types';
+import type { ParsedStatementRow, StatementLineDirection } from './types';
 
 /** ±3 days, per docs/plans/bank-statement-import.md §5. */
 const CANDIDATE_WINDOW_MS = 3 * DAY_MS;
@@ -53,11 +53,20 @@ export function descriptionSimilarity(a: string, b: string): number {
   return shared / Math.max(ta.size, tb.size);
 }
 
-/** Whether a recorded transaction's own money-movement direction matches a statement line's
- *  debit/credit — a transfer counts from whichever side touches this account. */
-function matchesDirection(e: Expense, row: ParsedStatementRow, accountId: string): boolean {
+/** Whether a recorded transaction's own money-movement direction matches an incoming signal's
+ *  debit/credit — a transfer counts from whichever side touches this account. Takes a minimal
+ *  structural `{ direction }` shape rather than the concrete `ParsedStatementRow` so
+ *  `core/sms-import/smsTransactionMatch.ts`'s `ParsedSmsCandidate` (same `direction` field, entirely
+ *  different other fields) can reuse this exact logic too (docs/plans/sms-transaction-tracking.md
+ *  §4a) instead of duplicating it — exported 2026-08-15 for that reason; behavior is unchanged for
+ *  every existing caller. */
+export function matchesDirection(
+  e: Expense,
+  signal: { direction: StatementLineDirection },
+  accountId: string
+): boolean {
   const type = e.type ?? 'expense';
-  if (row.direction === 'debit') {
+  if (signal.direction === 'debit') {
     if (type === 'expense') return e.accountId === accountId;
     if (type === 'transfer') return e.accountId === accountId;
     return false;

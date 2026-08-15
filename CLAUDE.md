@@ -113,6 +113,15 @@ Phase 1.
   operation leaves the user stranded with no way to leave, short of force-quitting the app,
   the moment anything throws. Full writeup + the real bug this codifies: `docs/ARCHITECTURE.md`'s
   2026-08-14 CSV Import redesign entry.
+- Any code that can run in a **headless/background native context** (a React Native Headless
+  JS task, a background worker) with no guarantee the app was already open must check whether
+  the Data Master Key is actually unlocked (`keystore.isUnlocked()`) before touching any
+  `EncryptedRepository` — such a context can be spun up by the OS after the app process was
+  fully killed, with no DMK in memory and no way to prompt for a passphrase from a UI-less
+  context. Treat a locked DMK there as a no-op, not an error: whatever data triggered the
+  background run should stay durably queued/unprocessed until the app is next opened and
+  unlocked, never lost. First codified 2026-08-15 in the SMS Tracking native capture layer's
+  Headless JS task — see `docs/ARCHITECTURE.md`'s matching decision-log entry.
 
 ## Working style
 

@@ -43,6 +43,12 @@ const DEFAULT_SAFE_MODE_VISIBILITY: SafeModeVisibility = {
 };
 
 const SAFE_MODE_VISIBILITY_KEY = 'penny_settings_safe_mode_visibility';
+/** SMS Tracking master on/off toggle (docs/plans/sms-transaction-tracking.md §7) — sibling of
+ *  `SAFE_MODE_VISIBILITY_KEY` above: a simple AsyncStorage-backed preference, NOT an
+ *  `EncryptedRepository` field, per the plan's explicit call-out that this is a device-local UI
+ *  preference (like every other simple feature toggle in Settings), not durable domain data. Default
+ *  off — same privacy-first precedent as Safe Mode. */
+const SMS_TRACKING_ENABLED_KEY = 'penny_settings_sms_tracking_enabled';
 const FONT_SCALE_KEY = 'penny_settings_font_scale';
 export const DEFAULT_PRIVACY_KEY = 'penny_settings_default_privacy';
 const OPEN_MODE_DURATION_KEY = 'penny_settings_open_mode_duration';
@@ -79,6 +85,10 @@ async function loadSafeModeVisibility(): Promise<SafeModeVisibility> {
   return { ...DEFAULT_SAFE_MODE_VISIBILITY, ...(raw ?? {}) };
 }
 
+async function loadSmsTrackingEnabled(): Promise<boolean> {
+  return (await getItem(SMS_TRACKING_ENABLED_KEY)) === '1';
+}
+
 async function loadFontScale(): Promise<FontScale> {
   const raw = await getItem(FONT_SCALE_KEY);
   if (raw === 'small' || raw === 'default' || raw === 'large' || raw === 'xl') return raw;
@@ -108,6 +118,8 @@ export async function loadOpenModeDurationMinutes(): Promise<OpenModeDuration> {
 
 interface SettingsContextValue {
   safeModeVisibility: SafeModeVisibility;
+  /** SMS Tracking master on/off (docs/plans/sms-transaction-tracking.md §7) — default off. */
+  smsTrackingEnabled: boolean;
   fontScale: FontScale;
   defaultPrivacyMode: PersistedPrivacyMode;
   openModeDurationMinutes: OpenModeDuration;
@@ -122,6 +134,7 @@ interface SettingsContextValue {
   /** Manual annual statutory levies (professional tax + LWF); null = default (~₹2,400). */
   taxStatutoryOverride: number | null;
   setSafeModeVisibility: (key: keyof SafeModeVisibility, visible: boolean) => void;
+  setSmsTrackingEnabled: (value: boolean) => void;
   setFontScale: (scale: FontScale) => void;
   setDefaultPrivacyMode: (mode: PersistedPrivacyMode) => void;
   setOpenModeDurationMinutes: (minutes: OpenModeDuration) => void;
@@ -137,6 +150,7 @@ const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [safeModeVisibility, setSafeModeVisibilityState] = useState<SafeModeVisibility>(DEFAULT_SAFE_MODE_VISIBILITY);
+  const [smsTrackingEnabled, setSmsTrackingEnabledState] = useState(false);
   const [fontScale, setFontScaleState] = useState<FontScale>('default');
   const [defaultPrivacyMode, setDefaultPrivacyModeState] = useState<PersistedPrivacyMode>('safe');
   const [openModeDurationMinutes, setOpenModeDurationMinutesState] =
@@ -152,6 +166,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     Promise.all([
       loadSafeModeVisibility(),
+      loadSmsTrackingEnabled(),
       loadFontScale(),
       loadDefaultPrivacyMode(),
       loadOpenModeDurationMinutes(),
@@ -164,6 +179,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     ]).then(
       ([
         loadedSafeMode,
+        loadedSmsTrackingEnabled,
         loadedFontScale,
         loadedDefaultPrivacy,
         loadedOpenModeDuration,
@@ -176,6 +192,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       ]) => {
         if (cancelled) return;
         setSafeModeVisibilityState(loadedSafeMode);
+        setSmsTrackingEnabledState(loadedSmsTrackingEnabled);
         setFontScaleState(loadedFontScale);
         setDefaultPrivacyModeState(loadedDefaultPrivacy);
         setOpenModeDurationMinutesState(loadedOpenModeDuration);
@@ -198,6 +215,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       void setJSON(SAFE_MODE_VISIBILITY_KEY, next);
       return next;
     });
+  }, []);
+
+  const setSmsTrackingEnabled = useCallback((value: boolean) => {
+    void setItem(SMS_TRACKING_ENABLED_KEY, value ? '1' : '0');
+    setSmsTrackingEnabledState(value);
   }, []);
 
   const setFontScale = useCallback((scale: FontScale) => {
@@ -273,6 +295,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       safeModeVisibility,
+      smsTrackingEnabled,
       fontScale,
       defaultPrivacyMode,
       openModeDurationMinutes,
@@ -283,6 +306,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       taxEpfOverride,
       taxStatutoryOverride,
       setSafeModeVisibility,
+      setSmsTrackingEnabled,
       setFontScale,
       setDefaultPrivacyMode,
       setOpenModeDurationMinutes,
@@ -295,6 +319,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }),
     [
       safeModeVisibility,
+      smsTrackingEnabled,
       fontScale,
       defaultPrivacyMode,
       openModeDurationMinutes,
@@ -305,6 +330,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       taxEpfOverride,
       taxStatutoryOverride,
       setSafeModeVisibility,
+      setSmsTrackingEnabled,
       setFontScale,
       setDefaultPrivacyMode,
       setOpenModeDurationMinutes,

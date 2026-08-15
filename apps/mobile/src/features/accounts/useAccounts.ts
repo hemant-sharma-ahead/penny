@@ -52,8 +52,17 @@ export function useAccounts() {
   const saveAccount = useCallback(async (data: AccountInput, editing: Account | null) => {
     setSaving(true);
     const now = Date.now();
+    // `bankId`/`last4` are stripped from `editing` before the merge (not just spread over) so that
+    // CLEARING either field in the form (an omitted key on `data`, never an explicit `undefined` —
+    // exactOptionalPropertyTypes disallows that) actually removes it from the saved record, instead of
+    // a plain `{ ...editing, ...data }` silently keeping the old value forever once first set.
     const record: Account = editing
-      ? { ...editing, ...data, updatedAt: now }
+      ? (() => {
+          const { bankId: _oldBankId, last4: _oldLast4, ...editingRest } = editing;
+          void _oldBankId;
+          void _oldLast4;
+          return { ...editingRest, ...data, updatedAt: now };
+        })()
       : { id: crypto.randomUUID(), ...data, isArchived: false, createdAt: now, updatedAt: now };
     await accountsRepo.put(record);
     setAccounts((prev) => (editing ? prev.map((a) => (a.id === editing.id ? record : a)) : [...prev, record]));

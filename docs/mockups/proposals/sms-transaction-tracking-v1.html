@@ -1,0 +1,916 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — SMS-Based Expense Auto-Tracking (Android), mockup proposal v1</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#11151b; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --success:#10b981; --danger:#ef4444; --warning:#f59e0b; --info:#3b82f6;
+        --neutral:#64748b; --privacy:#7c3aed; --open:#dc2626;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 10px; color:#9aa5b1; font-size:13.5px; max-width:920px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .sourcenote { text-align:center; margin:0 16px 22px; color:#6e7681; font-size:11.5px; max-width:920px; margin-left:auto; margin-right:auto; line-height:1.6; font-style:italic; }
+
+      .navbar { position:sticky; top:0; z-index:5; background:rgba(5,7,10,.92); backdrop-filter:blur(6px); border-bottom:1px solid #1e2733; display:flex; gap:4px; justify-content:center; flex-wrap:wrap; padding:10px 12px; }
+      .navbar a { font-size:11.5px; font-weight:700; color:#c3ccd6; text-decoration:none; padding:6px 12px; border-radius:999px; border:1px solid #232b35; }
+      .navbar a:hover { border-color:var(--primary); color:#fff; }
+
+      .sectionhead { max-width:920px; margin:44px auto 2px; padding:0 16px; }
+      .sectionhead h2 { font-size:18px; color:#fff; margin:0 0 4px; display:flex; align-items:center; gap:8px; }
+      .sectionhead .stepno { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:7px; background:var(--primary); color:#04150e; font-size:12px; font-weight:900; flex-shrink:0; }
+      .sectionhead p { font-size:13px; color:#9aa5b1; line-height:1.6; margin:0; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:40px 22px; justify-content:center; align-items:flex-start; padding:18px 20px 12px; max-width:1400px; margin:0 auto; }
+      .frame-wrap { width:300px; }
+      .vtitle { font-size:12.5px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+      .vtitle .tag { font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#123524; color:#7ee6b8; }
+      .vtitle .tag.warn { background:#3a2a0e; color:#ffcf80; }
+      .vtitle .tag.danger { background:#3a1414; color:#ff9c9c; }
+      .vsub { font-size:10.5px; color:#9aa5b1; margin:0 2px 12px; line-height:1.55; }
+
+      .phone { width:300px; background:var(--bg); border-radius:30px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); min-height:560px; }
+      .statusbar { height:18px; background:var(--bg); flex-shrink:0; }
+      .header { height:42px; display:flex; align-items:center; gap:8px; padding:0 10px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .header .back { width:26px; height:26px; display:flex; align-items:center; justify-content:center; color:var(--text); font-size:16px; flex-shrink:0; }
+      .header .back.locked { color:var(--text3); }
+      .htitle { flex:1; text-align:center; font-size:13px; font-weight:700; color:var(--text); }
+      .headericons { display:flex; align-items:center; gap:7px; flex-shrink:0; width:26px; justify-content:flex-end; }
+      .headericons i { font-size:12px; color:var(--text3); }
+      .headeraction { width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:var(--surface2); flex-shrink:0; }
+      .headeraction i { font-size:13px; color:var(--text2); }
+
+      .content { padding:12px 14px 20px; flex:1; overflow:hidden; }
+      .contmark { text-align:center; font-size:9px; color:var(--text3); padding:6px 0 2px; border-top:1px dashed #2d333b; }
+
+      .seclabel { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text3); margin:14px 2px 7px; }
+      .seclabel:first-of-type { margin-top:2px; }
+      .caption { font-size:10.5px; color:var(--text2); line-height:1.5; margin:0 2px 8px; }
+
+      .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-bottom:2px; }
+      .crow { display:flex; align-items:center; gap:10px; padding:10.5px 11px; }
+      .crow + .crow { border-top:1px solid var(--border); }
+      .crow .ic { width:28px; height:28px; border-radius:9px; display:grid; place-items:center; flex-shrink:0; }
+      .crow .lbl { flex:1; min-width:0; }
+      .crow .lbl .t1 { font-size:12px; font-weight:600; color:var(--text); }
+      .crow .lbl .t1.muted { color:var(--text2); font-weight:500; }
+      .crow .lbl .t2 { font-size:9.5px; color:var(--text3); margin-top:1px; }
+      .crow i.chev { font-size:14px; color:var(--text3); flex-shrink:0; }
+
+      .toggle { width:34px; height:19px; border-radius:999px; background:var(--border); position:relative; flex-shrink:0; }
+      .toggle.on { background:var(--primary); }
+      .toggle::after { content:''; position:absolute; width:15px; height:15px; border-radius:50%; background:#fff; top:2px; left:2px; }
+      .toggle.on::after { left:17px; }
+
+      .countbadge { font-size:9.5px; font-weight:800; padding:2px 7px; border-radius:999px; flex-shrink:0; }
+      .countbadge.amber { background:rgba(245,158,11,.16); color:var(--warning); }
+      .countbadge.neutral { background:var(--surface3); color:var(--text2); }
+      .countbadge.info { background:rgba(59,130,246,.16); color:var(--info); }
+
+      .banner { border-radius:12px; border:1px solid; padding:10px 11px; display:flex; gap:8px; margin-bottom:10px; }
+      .banner i.bicon { font-size:15px; flex-shrink:0; margin-top:1px; }
+      .banner .btext { font-size:11px; line-height:1.55; }
+      .banner .btitle { font-size:12px; font-weight:700; margin-bottom:2px; display:block; }
+      .banner.info { background:rgba(59,130,246,.1); border-color:rgba(59,130,246,.3); }
+      .banner.info i, .banner.info .btitle, .banner.info .btext { color:#8fbaf7; }
+      .banner.warning { background:rgba(245,158,11,.1); border-color:rgba(245,158,11,.32); }
+      .banner.warning i, .banner.warning .btitle, .banner.warning .btext { color:#ffcf80; }
+      .banner.danger { background:rgba(239,68,68,.1); border-color:rgba(239,68,68,.32); }
+      .banner.danger i, .banner.danger .btitle, .banner.danger .btext { color:#ff9c9c; }
+      .banner.success { background:rgba(16,185,129,.1); border-color:rgba(16,185,129,.32); }
+      .banner.success i, .banner.success .btitle, .banner.success .btext { color:#7ee6b8; }
+      .banner .blink { text-decoration:underline; font-weight:700; }
+
+      .btn { border-radius:11px; padding:10px 14px; text-align:center; font-size:12.5px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px; }
+      .btn.primary { background:var(--primary); color:#04150e; }
+      .btn.secondary { background:var(--surface2); border:1px solid var(--border); color:var(--text); }
+      .btn.ghost { color:var(--text2); }
+      .btn.danger { border:1px solid var(--danger); color:var(--danger); }
+      .btn.sm { padding:7px 11px; font-size:11px; border-radius:9px; }
+      .btn.full { width:100%; }
+      .btnrow2 { display:flex; gap:8px; }
+
+      /* Permission-education hero + pillar cards (PrivacyPromiseScreen-style) */
+      .herowrap { display:flex; flex-direction:column; align-items:center; text-align:center; margin:6px 0 14px; }
+      .heroicon { width:52px; height:52px; border-radius:16px; background:var(--primary); display:grid; place-items:center; margin-bottom:10px; }
+      .heroicon i { font-size:24px; color:#04150e; }
+      .herowrap h3 { font-size:16px; color:var(--text); margin:0 0 5px; }
+      .herowrap p { font-size:11.5px; color:var(--text2); margin:0; line-height:1.5; }
+      .pillarcard { display:flex; align-items:flex-start; gap:9px; background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:10px; margin-bottom:8px; }
+      .pillarcard .pic { width:30px; height:30px; border-radius:9px; background:var(--primary); display:grid; place-items:center; flex-shrink:0; }
+      .pillarcard .pic i { font-size:15px; color:#04150e; }
+      .pillarcard .pt1 { font-size:11.5px; font-weight:700; color:var(--text); }
+      .pillarcard .pt2 { font-size:10px; color:var(--text2); margin-top:2px; line-height:1.45; }
+      .syscallout { border:1px dashed var(--border); border-radius:10px; padding:8px 9px; display:flex; align-items:center; gap:7px; margin-top:10px; }
+      .syscallout i { font-size:14px; color:var(--text3); }
+      .syscallout span { font-size:10px; color:var(--text3); line-height:1.4; }
+
+      /* Scan-history choice cards */
+      .choicecard { display:flex; align-items:flex-start; gap:9px; border:1.5px solid var(--border); border-radius:12px; padding:11px; margin-bottom:8px; }
+      .choicecard.on { border-color:var(--primary); background:rgba(0,168,107,.08); }
+      .choicecard .radio { width:17px; height:17px; border-radius:50%; border:2px solid var(--border); flex-shrink:0; margin-top:1px; }
+      .choicecard.on .radio { border-color:var(--primary); background:radial-gradient(circle,var(--primary) 0 40%,transparent 44%); }
+      .choicecard .cic { width:28px; height:28px; border-radius:9px; background:var(--surface2); display:grid; place-items:center; flex-shrink:0; }
+      .choicecard .cic i { font-size:14px; color:var(--text2); }
+      .choicecard.on .cic { background:rgba(0,168,107,.16); }
+      .choicecard.on .cic i { color:var(--primary); }
+      .choicecard .ct1 { font-size:12px; font-weight:700; color:var(--text); }
+      .choicecard .ct2 { font-size:10px; color:var(--text2); margin-top:1px; line-height:1.4; }
+
+      /* Captive scan-progress screen */
+      .progresswrap { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; padding:20px 6px; text-align:center; }
+      .prognum { font-size:26px; font-weight:800; color:var(--text); }
+      .prognum .of { font-size:13px; font-weight:700; color:var(--text3); }
+      .progeta { font-size:11px; color:var(--text2); margin-top:2px; }
+      .progbarwrap { width:100%; height:8px; background:var(--surface2); border-radius:999px; overflow:hidden; margin:14px 0 10px; }
+      .progbarfill { height:100%; background:var(--primary); border-radius:999px; }
+      .progstatus { display:flex; align-items:center; gap:5px; font-size:10px; font-weight:700; color:var(--text3); margin-bottom:14px; }
+      .locknote { display:flex; align-items:center; gap:5px; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text3); margin-top:12px; }
+
+      /* Sender mapping rows */
+      .maprow { display:flex; align-items:center; gap:9px; padding:9px 10px; }
+      .maprow + .maprow { border-top:1px solid var(--border); }
+      .maprow .mfrom { flex:1; min-width:0; }
+      .maprow .mfrom .t1 { font-size:11px; font-weight:600; color:var(--text); }
+      .maprow .mfrom .t2 { font-size:9px; color:var(--text3); margin-top:1px; }
+      .maprow .marrow { font-size:11px; color:var(--text3); flex-shrink:0; }
+      .maprow .mto { font-size:11px; font-weight:700; color:var(--text); flex-shrink:0; text-align:right; }
+      .pill { font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:2px 7px; border-radius:999px; flex-shrink:0; }
+      .pill.amber { background:rgba(245,158,11,.16); color:var(--warning); }
+      .pill.green { background:rgba(16,185,129,.16); color:var(--success); }
+      .pill.blue { background:rgba(59,130,246,.16); color:var(--info); }
+      .pill.gray { background:var(--surface3); color:var(--text2); }
+      .pill.violet { background:rgba(124,58,237,.18); color:#c4a8f7; }
+
+      /* Centered modal (Modal.tsx shell) */
+      .modalstage { display:flex; align-items:center; justify-content:center; height:100%; background:rgba(0,0,0,.55); padding:20px 8px; }
+      .modalcard { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:16px; box-shadow:0 0 20px rgba(0,0,0,.4); }
+      .modalhead { display:flex; align-items:center; justify-content:space-between; padding:14px 15px 0; }
+      .modalhead .mt { font-size:13.5px; font-weight:700; color:var(--text); }
+      .modalhead i { font-size:15px; color:var(--text3); }
+      .modalbody { padding:12px 15px 15px; }
+      .modalfoot { padding:12px 15px 15px; border-top:1px solid var(--border); margin-top:2px; }
+      .chiprow { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+      .datechip { padding:6px 10px; border-radius:999px; border:1px solid var(--border); font-size:10px; font-weight:700; color:var(--text2); }
+      .datechip.on { border-color:var(--primary); background:rgba(0,168,107,.14); color:var(--primary); }
+      .fieldlabel { font-size:9.5px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin:0 0 4px; }
+      .fieldbox { border:1px solid var(--border); border-radius:10px; padding:9px 10px; font-size:11.5px; color:var(--text); margin-bottom:8px; }
+      .radiorow { display:flex; align-items:center; gap:9px; padding:8px 2px; }
+      .radiorow + .radiorow { border-top:1px solid var(--border); }
+      .radiorow .rc { width:16px; height:16px; border-radius:50%; border:2px solid var(--border); flex-shrink:0; }
+      .radiorow.on .rc { border-color:var(--primary); background:radial-gradient(circle,var(--primary) 0 40%,transparent 44%); }
+      .radiorow span { font-size:11.5px; color:var(--text); }
+      .radiorow.on span { font-weight:700; }
+      .footnote { font-size:9.5px; color:var(--text3); line-height:1.5; margin-top:8px; }
+
+      /* Bucket-card shell (BucketCard.tsx) */
+      .bucket { border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--surface); margin-bottom:9px; }
+      .buckethead { display:flex; align-items:center; gap:7px; padding:10px 11px; }
+      .buckethead .dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+      .buckethead .bt { font-size:12.5px; font-weight:700; color:var(--text); flex:1; }
+      .buckethead .bc { background:var(--surface3); border-radius:999px; padding:2px 6px; font-size:9.5px; font-weight:800; color:var(--text2); }
+      .buckethead i.chev { font-size:13px; color:var(--text3); }
+      .bucketbody { border-top:1px solid var(--border); padding:9px 10px 10px; display:flex; flex-direction:column; gap:8px; }
+
+      /* CategoryTile-style resolution tile */
+      .tile { border:1px solid var(--border); border-radius:11px; overflow:hidden; }
+      .tilehead { padding:9px 10px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+      .tilehead .tt { font-size:11px; font-weight:700; color:var(--text); }
+      .tilehead .arrow { font-size:10px; color:var(--text3); }
+      .tilebadge { display:inline-flex; align-items:center; gap:3px; border-radius:999px; padding:2px 6px; font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; }
+      .tilebadge i { font-size:9px; }
+      .tilefoot { border-top:1px solid var(--border); background:var(--surface); padding:8px 9px; display:flex; gap:7px; }
+      .tilefoot .btn { flex:1; }
+
+      /* Paired side-by-side tile (MatchedBucket/PossibleBucket + possible-match screen) */
+      .paired { display:flex; border-radius:12px; overflow:hidden; border:1px solid var(--border); }
+      .pcol { flex:1; padding:10px 10px; min-width:0; }
+      .pcol.left { background:var(--surface2); }
+      .pcol.right { border-left:1px dashed var(--border); background:rgba(245,158,11,.06); }
+      .pcol.right.matchgreen { background:rgba(16,185,129,.06); border-left:1px dashed rgba(16,185,129,.4); }
+      .pcol .plabel { font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--text3); margin-bottom:6px; display:flex; align-items:center; gap:4px; }
+      .pcol.right .plabel { color:var(--warning); }
+      .pcol .prow { margin-bottom:6px; }
+      .pcol .prow .pk { font-size:8.5px; color:var(--text3); text-transform:uppercase; letter-spacing:.02em; }
+      .pcol .prow .pv { font-size:11.5px; font-weight:700; color:var(--text); margin-top:1px; }
+      .pcol .prow .pv.sub { font-size:9.5px; font-weight:500; color:var(--text2); }
+
+      /* Unparsed message card */
+      .msgcard { border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:9px; }
+      .msghead { padding:9px 10px 0; display:flex; align-items:center; gap:8px; }
+      .msghead .mic { width:26px; height:26px; border-radius:9px; background:var(--surface2); display:grid; place-items:center; flex-shrink:0; }
+      .msghead .mic i { font-size:13px; color:var(--text2); }
+      .msghead .sender { font-size:11.5px; font-weight:700; color:var(--text); flex:1; }
+      .msghead .mdate { font-size:9.5px; color:var(--text3); }
+      .msgprev { font-size:10.5px; color:var(--text2); line-height:1.5; padding:6px 10px 9px 44px; }
+      .msgfull { font-family:'SF Mono',ui-monospace,Menlo,monospace; font-size:9.5px; color:var(--text2); line-height:1.6; background:var(--surface3); border-radius:8px; padding:8px 9px; margin:4px 10px 9px 44px; }
+      .msgmaskednote { font-size:8.5px; color:var(--text3); font-style:italic; margin:0 10px 8px 44px; }
+      .msgactions { border-top:1px solid var(--border); background:var(--surface); padding:7px 9px; display:flex; gap:6px; }
+      .msgactions .btn { flex:1; }
+
+      /* Mini badge-entry-point illustration */
+      .miniillust { display:flex; gap:14px; align-items:center; justify-content:center; margin-top:8px; }
+      .minisettingsrow { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:8px 10px; display:flex; align-items:center; gap:7px; font-size:9.5px; color:var(--text2); }
+      .minitabbar { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:8px 12px; display:flex; gap:14px; align-items:center; }
+      .minitab { position:relative; font-size:15px; color:var(--text3); }
+      .minitab .minibadge { position:absolute; top:-4px; right:-6px; background:var(--danger); color:#fff; font-size:7px; font-weight:800; border-radius:999px; padding:1px 4px; }
+
+      .legend { max-width:920px; margin:14px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:22px 26px; color:#c3ccd6; font-size:13px; line-height:1.7; }
+      .legend h2 { font-size:15px; margin:0 0 10px; color:#fff; }
+      .legend b { color:#fff; }
+      .legend ul { margin:6px 0; padding-left:20px; }
+      .legend li { margin-bottom:8px; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:11.5px; }
+    </style>
+  </head>
+  <body>
+    <h1>SMS-Based Expense Auto-Tracking — mockup proposal v1</h1>
+    <p class="sub">Android-only, per <code>docs/plans/sms-transaction-tracking.md</code> (design approved 2026-08-15). This
+      is wholly new functionality — there is no existing screen to show a "Current (today)" frame against, so every
+      frame below is a new proposal, built directly on Penny's existing visual language: Settings' <code>Card</code>/<code>Row</code>/<code>ToggleRow</code>
+      shell, Bank Import's paired-tile "Statement | Recorded" comparison cards, the shared <code>BucketCard</code>/<code>CategoryTile</code>
+      review-queue shell, the onboarding "pillar card" explainer pattern, and the CSV-import captive progress screen.</p>
+    <p class="sourcenote">Grounded in: apps/mobile/src/features/settings/SettingsPage.tsx + SafeModeSettingsPage.tsx · apps/mobile/src/features/bank-import/MatchedBucket.tsx + PossibleBucket.tsx ·
+      apps/mobile/src/features/import/review/BucketCard.tsx + CategoryTile.tsx + useBucketExpansion.ts · apps/mobile/src/features/onboarding/PrivacyPromiseScreen.tsx ·
+      apps/mobile/src/features/import/ImportProgressStep.tsx · apps/mobile/src/components/ui/Modal.tsx + Banner.tsx + Toggle.tsx</p>
+
+    <div class="navbar">
+      <a href="#settings">1. Settings → SMS Tracking</a>
+      <a href="#unparsed">2. Unparsed Messages</a>
+      <a href="#review-queue">3. Review queue</a>
+      <a href="#possible-match">4. Possible-match screen</a>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- 1. SETTINGS -->
+    <!-- ============================================================= -->
+    <div class="sectionhead" id="settings">
+      <h2><span class="stepno">1</span>Settings → SMS Tracking</h2>
+      <p>Own sub-page off Settings (not just an inline toggle), matching <code>SafeModeSettingsPage.tsx</code>'s
+        sub-page structure. Frames below walk the full lifecycle: off → permission education → OS dialog → scan-history
+        choice → backfill progress → the steady-state "on" screen (mapping list, unparsed counter, standing scan
+        action, review-queue entry) → the two edge states (permission revoked, iOS/Web unavailable).</p>
+    </div>
+
+    <div class="gallery">
+
+      <!-- Frame: Off (default) -->
+      <div class="frame-wrap">
+        <div class="vtitle">Off <span class="tag">default</span></div>
+        <div class="vsub">Privacy-first default — same off-by-default precedent as Safe Mode. Explains what turning
+          this on will involve, before the toggle is ever touched.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-chevron-left"></i></div>
+            <div class="htitle">SMS Tracking</div>
+            <div class="headericons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="content">
+            <div class="card">
+              <div class="crow">
+                <div class="ic" style="background:rgba(100,116,139,.16)"><i class="ti ti-message-2" style="color:var(--neutral);font-size:14px"></i></div>
+                <div class="lbl"><div class="t1">Track expenses from SMS</div><div class="t2">Detect bank SMS and turn them into transactions automatically</div></div>
+                <div class="toggle"></div>
+              </div>
+            </div>
+            <div class="banner info" style="margin-top:12px">
+              <i class="ti ti-info-circle bicon"></i>
+              <div class="btext">Android only. When you turn this on we'll explain exactly what it needs — and why — before your phone's own permission dialog ever appears.</div>
+            </div>
+            <p class="caption" style="margin-top:6px">Not available on iOS or web — see the "Not available on this platform" frame below.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frame: Permission education -->
+      <div class="frame-wrap">
+        <div class="vtitle">Toggled on <span class="tag">step 1 of 2 — before OS dialog</span></div>
+        <div class="vsub">Shown the instant the toggle is flipped, before Android's own SMS-permission dialog. Improves
+          grant-rate and is Play's own guidance for a defensible Restricted-Permissions declaration (plan §2).</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-chevron-left"></i></div>
+            <div class="htitle">Why we need SMS access</div>
+            <div class="headericons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="content">
+            <div class="herowrap">
+              <div class="heroicon"><i class="ti ti-message-2"></i></div>
+              <h3>Why Penny needs SMS access</h3>
+              <p>So bank transactions can appear the moment they arrive — without typing them in.</p>
+            </div>
+            <div class="pillarcard">
+              <div class="pic"><i class="ti ti-bolt"></i></div>
+              <div><div class="pt1">Instant capture</div><div class="pt2">New transaction SMS from your banks become draft expenses within moments of arriving.</div></div>
+            </div>
+            <div class="pillarcard">
+              <div class="pic"><i class="ti ti-history"></i></div>
+              <div><div class="pt1">Backfill on demand</div><div class="pt2">Read a date range of your SMS inbox — the only way to backfill history, since Android keeps no old notification log.</div></div>
+            </div>
+            <div class="pillarcard">
+              <div class="pic"><i class="ti ti-device-mobile-lock"></i></div>
+              <div><div class="pt1">Everything stays on your device</div><div class="pt2">Only a small list of bank message formats is fetched from Penny's server. Your SMS text — and every number extracted from it — is matched entirely on your phone, never uploaded.</div></div>
+            </div>
+            <div class="pillarcard">
+              <div class="pic"><i class="ti ti-toggle-left"></i></div>
+              <div><div class="pt1">You're always in control</div><div class="pt2">Turn this off anytime. Every detected transaction waits in a review queue — nothing is recorded until you confirm it.</div></div>
+            </div>
+            <div class="btnrow2" style="margin-top:4px">
+              <div class="btn ghost" style="flex:1">Not now</div>
+              <div class="btn primary" style="flex:2">Continue</div>
+            </div>
+            <div class="syscallout">
+              <i class="ti ti-brand-android"></i>
+              <span>Next: Android will ask to allow SMS access — tap Allow to continue.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frame: Scan-history choice -->
+      <div class="frame-wrap">
+        <div class="vtitle">Permission granted <span class="tag">step 2 of 2</span></div>
+        <div class="vsub">Immediately after the OS grants permission — a bounded default keeps a brand-new user's
+          first-run scan reasonable (plan §7, the same lesson CSV-import's unbounded-first-scan learned).</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-chevron-left"></i></div>
+            <div class="htitle">Set up SMS tracking</div>
+            <div class="headericons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="content">
+            <div class="banner success" style="margin-bottom:14px">
+              <i class="ti ti-circle-check bicon"></i>
+              <div class="btext">Permission granted. Want us to scan your existing SMS for transactions?</div>
+            </div>
+            <div class="choicecard on">
+              <div class="radio"></div>
+              <div class="cic"><i class="ti ti-calendar-time"></i></div>
+              <div><div class="ct1">Last 3 months (recommended)</div><div class="ct2">A bounded starting window — good for most users.</div></div>
+            </div>
+            <div class="choicecard">
+              <div class="radio"></div>
+              <div class="cic"><i class="ti ti-calendar-event"></i></div>
+              <div><div class="ct1">Custom date range</div><div class="ct2">Pick your own start and end dates.</div></div>
+            </div>
+            <div class="choicecard">
+              <div class="radio"></div>
+              <div class="cic"><i class="ti ti-player-skip-forward"></i></div>
+              <div><div class="ct1">Skip — only new messages</div><div class="ct2">Don't scan history; track from now on.</div></div>
+            </div>
+            <div class="btn primary full" style="margin-top:6px">Continue</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frame: Scan in progress -->
+      <div class="frame-wrap">
+        <div class="vtitle">Scanning history <span class="tag">captive, bounded</span></div>
+        <div class="vsub">Reuses CSV-import's captive Import-Progress-screen pattern almost directly (plan §7) — this
+          IS a bounded, first-few-times-ish operation, unlike day-to-day capture. Back is locked for the duration.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back locked"><i class="ti ti-lock"></i></div>
+            <div class="htitle">Scanning SMS</div>
+            <div class="headericons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="content">
+            <div class="progresswrap">
+              <div class="prognum">128 <span class="of">of 412</span></div>
+              <div class="progeta">~40 seconds left</div>
+              <div class="progbarwrap"><div class="progbarfill" style="width:31%"></div></div>
+              <div class="progstatus"><i class="ti ti-loader-2"></i> Scanning Mar – Jun 2026…</div>
+              <div class="btn secondary full">Cancel</div>
+              <div class="locknote"><i class="ti ti-lock"></i> Back is locked until this finishes</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frame: Settings ON, part 1 -->
+      <div class="frame-wrap">
+        <div class="vtitle">On — steady state <span class="tag">1 of 2 — same screen, continues below</span></div>
+        <div class="vsub">Master toggle now on. "Scan a date range" is a standing action independent of first-time
+          setup (plan requirement 2) — usable any time, e.g. after a restore. Review queue and Unparsed-messages
+          counter both surface here as tappable rows with live counts, never a blocking screen.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-chevron-left"></i></div>
+            <div class="htitle">SMS Tracking</div>
+            <div class="headericons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="content">
+            <div class="card">
+              <div class="crow">
+                <div class="ic" style="background:rgba(0,168,107,.16)"><i class="ti ti-message-2" style="color:var(--primary);font-size:14px"></i></div>
+                <div class="lbl"><div class="t1">Track expenses from SMS</div><div class="t2">On since 15 Aug 2026</div></div>
+                <div class="toggle on"></div>
+              </div>
+            </div>
+
+            <div class="seclabel">Backfill</div>
+            <div class="card">
+              <div class="crow">
+                <div class="ic" style="background:rgba(59,130,246,.16)"><i class="ti ti-calendar-search" style="color:var(--info);font-size:14px"></i></div>
+                <div class="lbl"><div class="t1">Scan a date range</div><div class="t2">Backfill any time — e.g. after a restore, or to fill a gap</div></div>
+                <i class="ti ti-chevron-right chev"></i>
+              </div>
+            </div>
+
+            <div class="seclabel">Review</div>
+            <div class="card">
+              <div class="crow">
+                <div class="ic" style="background:rgba(0,168,107,.16)"><i class="ti ti-inbox" style="color:var(--primary);font-size:14px"></i></div>
+                <div class="lbl"><div class="t1">Review queue</div><div class="t2">Linked, needs review, new &amp; ignored</div></div>
+                <div class="countbadge info" style="margin-right:6px">12</div>
+                <i class="ti ti-chevron-right chev"></i>
+              </div>
+              <div class="crow">
+                <div class="ic" style="background:rgba(245,158,11,.16)"><i class="ti ti-alert-triangle" style="color:var(--warning);font-size:14px"></i></div>
+                <div class="lbl"><div class="t1">Unparsed messages</div><div class="t2">From banks Penny recognizes, but couldn't parse</div></div>
+                <div class="countbadge amber" style="margin-right:6px">3</div>
+                <i class="ti ti-chevron-right chev"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="contmark">▾ scroll continues in next frame ▾</div>
+      </div>
+
+      <!-- Frame: Settings ON, part 2 -->
+      <div class="frame-wrap">
+        <div class="vtitle">On — steady state <span class="tag">2 of 2 — same screen</span></div>
+        <div class="vsub">The live, editable sender→account mapping list — including the card-tier mapping (a card's
+          own last-4 differs from its underlying account's, plan §3) and an unresolved entry sitting in "Needs
+          mapping" until the user acts.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-chevron-left"></i></div>
+            <div class="htitle">SMS Tracking</div>
+            <div class="headericons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="content">
+            <div class="contmark" style="margin-bottom:8px">▴ continued from previous frame ▴</div>
+            <div class="seclabel" style="margin-top:2px">Sender mapping</div>
+            <p class="caption">What Penny has learned about your banks' SMS senders — fix anything that's wrong.</p>
+            <div class="card">
+              <div class="maprow">
+                <div class="mfrom"><div class="t1">HDFC Bank · XX8112</div><div class="t2">Bank-string mapping</div></div>
+                <div class="marrow"><i class="ti ti-arrow-right"></i></div>
+                <div class="mto">HDFC Salary</div>
+                <i class="ti ti-chevron-right chev"></i>
+              </div>
+              <div class="maprow">
+                <div class="mfrom"><div class="t1">AD-ICICIB</div><div class="t2">Bank-string mapping</div></div>
+                <div class="marrow"><i class="ti ti-arrow-right"></i></div>
+                <div class="mto">ICICI Everyday</div>
+                <i class="ti ti-chevron-right chev"></i>
+              </div>
+              <div class="maprow">
+                <div class="mfrom"><div class="t1">Card •• 4432</div><div class="t2">Card → underlying account</div></div>
+                <div class="marrow"><i class="ti ti-arrow-right"></i></div>
+                <div class="mto">HDFC Salary</div>
+                <i class="ti ti-chevron-right chev"></i>
+              </div>
+              <div class="maprow">
+                <div class="mfrom"><div class="t1">SBIINB</div><div class="t2">Seen 2 SMS, no account yet</div></div>
+                <div class="pill amber">Needs mapping</div>
+              </div>
+            </div>
+            <p class="footnote" style="margin:8px 2px 0">New senders are added here automatically the first time we recognize one from a known bank — never silently guessed.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frame: "Scan a date range" modal -->
+      <div class="frame-wrap">
+        <div class="vtitle">"Scan a date range" modal <span class="tag">standing action</span></div>
+        <div class="vsub">Centered modal (never a bottom sheet), opened from the standing row above. Independent of
+          first-time setup — usable any time.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-chevron-left"></i></div>
+            <div class="htitle">SMS Tracking</div>
+            <div class="headericons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="content" style="padding:0">
+            <div class="modalstage" style="height:520px">
+              <div class="modalcard">
+                <div class="modalhead"><div class="mt">Scan a date range</div><i class="ti ti-x"></i></div>
+                <div class="modalbody">
+                  <div class="chiprow">
+                    <div class="datechip">Last month</div>
+                    <div class="datechip on">Last 3 months</div>
+                    <div class="datechip">Last 6 months</div>
+                    <div class="datechip">All time</div>
+                  </div>
+                  <div class="fieldlabel">or choose custom dates</div>
+                  <div class="fieldbox">From · 15 May 2026</div>
+                  <div class="fieldbox" style="margin-bottom:0">To · 15 Aug 2026</div>
+                </div>
+                <div class="modalfoot"><div class="btn primary full">Start scan</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frame: Map sender modal -->
+      <div class="frame-wrap">
+        <div class="vtitle">"Map this sender" modal <span class="tag">one-time, per sender/card</span></div>
+        <div class="vsub">Fires once for a new normalized bank-string (or card last-4) with no existing match (plan
+          §3) — never a silent auto-create. Same shape covers the card-tier prompt ("which account does this card
+          belong to?").</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-chevron-left"></i></div>
+            <div class="htitle">SMS Tracking</div>
+            <div class="headericons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="content" style="padding:0">
+            <div class="modalstage" style="height:520px">
+              <div class="modalcard">
+                <div class="modalhead"><div class="mt">Which account is this?</div><i class="ti ti-x"></i></div>
+                <div class="modalbody">
+                  <p class="caption" style="margin-bottom:10px">We saw a transaction SMS from "HDFC Bank XX8112" that doesn't match an account yet.</p>
+                  <div class="radiorow on"><div class="rc"></div><span>HDFC Salary</span></div>
+                  <div class="radiorow"><div class="rc"></div><span>HDFC Everyday</span></div>
+                  <div class="radiorow"><div class="rc"></div><span>ICICI Everyday</span></div>
+                  <div class="radiorow"><div class="rc"></div><span style="color:var(--primary);font-weight:700"><i class="ti ti-plus" style="font-size:11px"></i>&nbsp; Create new account</span></div>
+                  <p class="footnote">This mapping applies to every future SMS from this sender — editable any time from this screen.</p>
+                </div>
+                <div class="modalfoot"><div class="btn primary full">Save mapping</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frame: Permission revoked -->
+      <div class="frame-wrap">
+        <div class="vtitle">Permission revoked <span class="tag danger">edge case</span></div>
+        <div class="vsub">Android lets the user revoke READ_SMS from OS Settings any time, outside the app. Detected
+          on next foreground and explained — never fails silently (per CLAUDE.md's "never hard-crash" rule).</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-chevron-left"></i></div>
+            <div class="htitle">SMS Tracking</div>
+            <div class="headericons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="content">
+            <div class="banner danger">
+              <i class="ti ti-alert-triangle bicon"></i>
+              <div class="btext"><span class="btitle">Permission turned off outside Penny</span>Tracking is paused — nothing new will be captured until you re-enable SMS access. <span class="blink">Open system settings</span></div>
+            </div>
+            <div class="card">
+              <div class="crow">
+                <div class="ic" style="background:rgba(0,168,107,.16)"><i class="ti ti-message-2" style="color:var(--primary);font-size:14px"></i></div>
+                <div class="lbl"><div class="t1">Track expenses from SMS <span class="pill amber" style="margin-left:4px;vertical-align:middle">Paused</span></div><div class="t2">Waiting for permission to be re-granted</div></div>
+                <div class="toggle on"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frame: Not available on this platform -->
+      <div class="frame-wrap">
+        <div class="vtitle">iOS / RN-Web <span class="tag">not a dead toggle</span></div>
+        <div class="vsub">The same Settings row, muted, with an explicit reason instead of a disabled/dead control —
+          never a silently-inert toggle (plan §2).</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-chevron-left"></i></div>
+            <div class="htitle">Settings</div>
+            <div class="headericons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="content">
+            <div class="seclabel">Data &amp; activity</div>
+            <div class="card">
+              <div class="crow">
+                <div class="ic" style="background:var(--surface3)"><i class="ti ti-message-2" style="color:var(--text3);font-size:14px"></i></div>
+                <div class="lbl"><div class="t1 muted">Track expenses from SMS</div><div class="t2">Android only</div></div>
+                <div class="pill gray">Unavailable</div>
+              </div>
+            </div>
+            <div class="banner info" style="margin-top:10px">
+              <i class="ti ti-info-circle bicon"></i>
+              <div class="btext">SMS reading isn't available on iOS or in a browser — neither exposes an SMS API to any app. This is an Android-only capability.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- 2. UNPARSED MESSAGES -->
+    <!-- ============================================================= -->
+    <div class="sectionhead" id="unparsed">
+      <h2><span class="stepno">2</span>Unparsed Messages</h2>
+      <p>2026-08-15 addition — most SMS-tracking apps silently drop unparseable messages; Penny does the opposite.
+        Pushed from the Settings counter row above. Masked-by-default copy/export, with an explicit secondary
+        "unmasked" action, and a per-item Dismiss.</p>
+    </div>
+
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Unparsed Messages screen</div>
+        <div class="vsub">One collapsed row, one expanded to show the full-text + masked/unmasked copy pattern.
+          "Export all" sits in the header's right-aligned action slot (screen-specific, per <code>PageHeader</code>'s
+          convention) — share-sheet style, same masked-by-default rule as a single item's copy.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-chevron-left"></i></div>
+            <div class="htitle">Unparsed Messages</div>
+            <div class="headeraction"><i class="ti ti-share-2"></i></div>
+          </div>
+          <div class="content">
+            <div class="banner info">
+              <i class="ti ti-info-circle bicon"></i>
+              <div class="btext">These looked like transactions from banks Penny recognizes, but didn't match a known message format — nothing was recorded from them.</div>
+            </div>
+
+            <div class="msgcard">
+              <div class="msghead">
+                <div class="mic"><i class="ti ti-building-bank"></i></div>
+                <div class="sender">HDFC Bank</div>
+                <div class="mdate">12 Aug</div>
+              </div>
+              <div class="msgprev">Your account is credited with Rs.###.## on 12-08-26 by UPI/P2A/###… (tap to expand full text)</div>
+              <div class="msgactions">
+                <div class="btn secondary sm"><i class="ti ti-copy" style="font-size:11px"></i> Copy</div>
+                <div class="btn ghost sm"><i class="ti ti-x" style="font-size:11px"></i> Dismiss</div>
+              </div>
+            </div>
+
+            <div class="msgcard">
+              <div class="msghead">
+                <div class="mic"><i class="ti ti-building-bank"></i></div>
+                <div class="sender">ICICI Bank</div>
+                <div class="mdate">15 Aug</div>
+              </div>
+              <div class="msgfull">Acct XX#### debited INR #,###.00 on 15-AUG-26; Avl Bal INR ##,###.00 — ref no. ####…</div>
+              <div class="msgmaskednote">Digits masked by default — amounts, account &amp; reference numbers</div>
+              <div class="msgactions">
+                <div class="btn secondary sm"><i class="ti ti-copy" style="font-size:11px"></i> Copy (masked)</div>
+                <div class="btn ghost sm"><i class="ti ti-eye" style="font-size:11px"></i> Copy unmasked</div>
+                <div class="btn ghost sm"><i class="ti ti-x" style="font-size:11px"></i> Dismiss</div>
+              </div>
+            </div>
+
+            <p class="footnote" style="margin-top:2px">Export shares every message below as a text file — masked by default, with an explicit option to include unmasked text.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- 3. REVIEW QUEUE -->
+    <!-- ============================================================= -->
+    <div class="sectionhead" id="review-queue">
+      <h2><span class="stepno">3</span>Review queue</h2>
+      <p>An ongoing inbox, not a wizard — reuses <code>BucketCard.tsx</code>/<code>CategoryTile.tsx</code>'s exact
+        shell. Needs Review starts expanded (the bucket that most needs attention, matching
+        <code>useBucketExpansion</code>'s "auto-expand whichever bucket most needs attention" convention); Linked and
+        Ignored default collapsed. One example tile per reason/state.</p>
+    </div>
+
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">SMS Review — inbox</div>
+        <div class="vsub">Linked (collapsed, informational) · Needs Review (expanded, one tile per reason: ambiguous
+          account, possible match, possible duplicate SMS, reconciled-date conflict) · New Pending (CategoryTile's
+          draft-not-final pattern) · Ignored/Dismissed (collapsed, muted).</div>
+        <div class="phone" style="min-height:900px">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-chevron-left"></i></div>
+            <div class="htitle">SMS Review</div>
+            <div class="headericons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="content">
+
+            <div class="bucket">
+              <div class="buckethead"><div class="dot" style="background:var(--success)"></div><div class="bt">Linked</div><div class="bc">24</div><i class="ti ti-chevron-down chev"></i></div>
+            </div>
+
+            <div class="bucket">
+              <div class="buckethead"><div class="dot" style="background:var(--warning)"></div><div class="bt">Needs Review</div><div class="bc">4</div><i class="ti ti-chevron-up chev"></i></div>
+              <div class="bucketbody">
+
+                <div class="tile">
+                  <div class="tilehead" style="background:rgba(245,158,11,.12)">
+                    <span class="tt">SBIINB SMS</span><span class="arrow"><i class="ti ti-arrow-right"></i></span>
+                    <span class="tt" style="color:var(--text3);font-style:italic;font-weight:500">no account yet</span>
+                    <span class="tilebadge" style="background:rgba(245,158,11,.18);color:var(--warning)"><i class="ti ti-help-circle"></i>Ambiguous account</span>
+                  </div>
+                  <div class="tilefoot"><div class="btn secondary sm">Resolve</div><div class="btn ghost sm">Ignore</div></div>
+                </div>
+
+                <div class="tile">
+                  <div class="tilehead" style="background:rgba(245,158,11,.12)">
+                    <span class="tt">₹1,240 · Amazon</span>
+                    <span class="tilebadge" style="background:rgba(245,158,11,.18);color:var(--warning)"><i class="ti ti-git-compare"></i>Possible match</span>
+                  </div>
+                  <div class="tilefoot"><div class="btn secondary sm full" style="flex:1">Review match ›</div></div>
+                </div>
+
+                <div class="tile">
+                  <div class="tilehead" style="background:rgba(245,158,11,.12)">
+                    <span class="tt">₹500 · UPI transfer</span>
+                    <span class="tilebadge" style="background:rgba(245,158,11,.18);color:var(--warning)"><i class="ti ti-copy"></i>Possible duplicate SMS</span>
+                  </div>
+                  <div class="tilefoot"><div class="btn secondary sm">These are different</div><div class="btn ghost sm">View both</div></div>
+                </div>
+
+                <div class="tile">
+                  <div class="tilehead" style="background:rgba(245,158,11,.12)">
+                    <span class="tt">₹2,000 · Rent</span>
+                    <span class="tilebadge" style="background:rgba(245,158,11,.18);color:var(--warning)"><i class="ti ti-alert-triangle"></i>Reconciled date conflict</span>
+                  </div>
+                  <div class="tilefoot"><div class="btn secondary sm full" style="flex:1">Review ›</div></div>
+                </div>
+
+              </div>
+            </div>
+
+            <div class="bucket">
+              <div class="buckethead"><div class="dot" style="background:var(--info)"></div><div class="bt">New Pending</div><div class="bc">31</div><i class="ti ti-chevron-up chev"></i></div>
+              <div class="bucketbody">
+                <div class="tile">
+                  <div class="tilehead" style="background:rgba(59,130,246,.1)">
+                    <span class="tt">"Swiggy"</span><span class="arrow"><i class="ti ti-arrow-right"></i></span>
+                    <span class="tt">Food &amp; Dining</span>
+                    <span class="tilebadge" style="background:var(--surface3);color:var(--text2)">UPI</span>
+                    <span class="tilebadge" style="background:var(--surface3);color:var(--text2)">HDFC Salary</span>
+                  </div>
+                  <div class="tilefoot"><div class="btn secondary sm" style="flex:1">Categorize ›</div><div class="btn ghost sm">Skip</div></div>
+                </div>
+                <p class="footnote" style="margin:0 2px">+30 more — category/account/payment-mode pre-filled, all editable before commit.</p>
+              </div>
+            </div>
+
+            <div class="bucket">
+              <div class="buckethead"><div class="dot" style="background:var(--neutral)"></div><div class="bt">Ignored / Dismissed</div><div class="bc">7</div><i class="ti ti-chevron-down chev"></i></div>
+            </div>
+
+            <div class="miniillust">
+              <div class="minisettingsrow"><i class="ti ti-inbox" style="font-size:12px;color:var(--primary)"></i> Settings row · badge "12"</div>
+              <div class="minitabbar">
+                <div class="minitab"><i class="ti ti-home"></i></div>
+                <div class="minitab"><i class="ti ti-receipt-2"></i><span class="minibadge">12</span></div>
+                <div class="minitab"><i class="ti ti-target-arrow"></i></div>
+              </div>
+            </div>
+            <p class="footnote" style="text-align:center">Badge count surfaces from Settings AND the Expenses tab — never a blocking screen (unlike CSV-import's one-shot progress screen).</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- 4. POSSIBLE MATCH -->
+    <!-- ============================================================= -->
+    <div class="sectionhead" id="possible-match">
+      <h2><span class="stepno">4</span>"Possible match" side-by-side screen</h2>
+      <p>Its own dedicated screen (plan §4), not a modal squeezed onto an existing one — reached from the "Needs
+        Review" bucket's "Possible match" / "Reconciled date conflict" tiles above. Same paired-column visual
+        language as Bank Import's <code>MatchedBucket</code>/<code>PossibleBucket</code> tiles, scaled up to a full
+        screen with richer detail per side.</div>
+    </div>
+
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Standard possible match</div>
+        <div class="vsub">Left: the already-recorded expense (date, amount, description/category, account, source).
+          Right: the SMS-derived candidate (date, amount, extracted merchant text, sender, payment-mode guess). No
+          silent default, no auto-timeout accept.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-chevron-left"></i></div>
+            <div class="htitle">Possible match</div>
+            <div class="headericons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="content">
+            <p class="caption" style="margin-bottom:10px">Is this the same transaction?</p>
+            <div class="paired">
+              <div class="pcol left">
+                <div class="plabel"><i class="ti ti-receipt" style="font-size:10px"></i> Already recorded</div>
+                <div class="prow"><div class="pk">Date</div><div class="pv">12 Aug 2026</div></div>
+                <div class="prow"><div class="pk">Amount</div><div class="pv">₹1,240</div></div>
+                <div class="prow"><div class="pk">Description</div><div class="pv">Amazon <span class="pill gray" style="vertical-align:middle">Shopping</span></div></div>
+                <div class="prow"><div class="pk">Account</div><div class="pv sub">HDFC Salary</div></div>
+                <div class="prow" style="margin-bottom:0"><div class="pk">Source</div><div class="pv sub"><i class="ti ti-file-import" style="font-size:10px"></i> CSV import</div></div>
+              </div>
+              <div class="pcol right">
+                <div class="plabel"><i class="ti ti-message-2" style="font-size:10px"></i> From SMS</div>
+                <div class="prow"><div class="pk">Date</div><div class="pv">12 Aug 2026</div></div>
+                <div class="prow"><div class="pk">Amount</div><div class="pv">₹1,240</div></div>
+                <div class="prow"><div class="pk">Merchant text</div><div class="pv">AMAZON PAY INDIA</div></div>
+                <div class="prow"><div class="pk">Sender</div><div class="pv sub">VM-HDFCBK</div></div>
+                <div class="prow" style="margin-bottom:0"><div class="pk">Payment mode</div><div class="pv sub">UPI <span style="color:var(--text3)">(guessed)</span></div></div>
+              </div>
+            </div>
+            <div class="btnrow2" style="margin-top:14px;flex-direction:column;gap:8px">
+              <div class="btn primary full">Yes, same transaction — link</div>
+              <div class="btn secondary full">No — keep as a separate transaction</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">Reconciled-date-conflict variant</div>
+        <div class="vsub">The bank-reconciled record is ground truth and is never overwritten by linking either way —
+          the banner makes the discrepancy explicit instead of silently hiding it (plan §4a).</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-chevron-left"></i></div>
+            <div class="htitle">Possible match</div>
+            <div class="headericons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div>
+          </div>
+          <div class="content">
+            <div class="banner warning" style="margin-bottom:10px">
+              <i class="ti ti-alert-triangle bicon"></i>
+              <div class="btext">This looks like a reconciled transaction from 12 Aug — the SMS says 15 Aug. Same transaction?</div>
+            </div>
+            <div class="paired">
+              <div class="pcol left">
+                <div class="plabel"><i class="ti ti-receipt" style="font-size:10px"></i> Already recorded</div>
+                <div class="prow"><div class="pk">Date</div><div class="pv">12 Aug 2026 <span class="pill green" style="vertical-align:middle">Reconciled ✓</span></div></div>
+                <div class="prow"><div class="pk">Amount</div><div class="pv">₹2,000</div></div>
+                <div class="prow"><div class="pk">Description</div><div class="pv">Rent <span class="pill gray" style="vertical-align:middle">Housing</span></div></div>
+                <div class="prow"><div class="pk">Account</div><div class="pv sub">HDFC Salary</div></div>
+                <div class="prow" style="margin-bottom:0"><div class="pk">Source</div><div class="pv sub"><i class="ti ti-building-bank" style="font-size:10px"></i> Bank Statement Import</div></div>
+              </div>
+              <div class="pcol right">
+                <div class="plabel"><i class="ti ti-message-2" style="font-size:10px"></i> From SMS</div>
+                <div class="prow"><div class="pk">Date</div><div class="pv" style="color:var(--warning)">15 Aug 2026 ⚠</div></div>
+                <div class="prow"><div class="pk">Amount</div><div class="pv">₹2,000</div></div>
+                <div class="prow"><div class="pk">Merchant text</div><div class="pv">RENT PAYOUT NEFT</div></div>
+                <div class="prow"><div class="pk">Sender</div><div class="pv sub">AD-HDFCBK</div></div>
+                <div class="prow" style="margin-bottom:0"><div class="pk">Payment mode</div><div class="pv sub">NEFT <span style="color:var(--text3)">(guessed)</span></div></div>
+              </div>
+            </div>
+            <div class="btnrow2" style="margin-top:14px;flex-direction:column;gap:8px">
+              <div class="btn primary full">Yes, link (date stays 12 Aug)</div>
+              <div class="btn secondary full">No — treat as separate</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <h2>Design notes &amp; what's reused vs. new</h2>
+      <ul>
+        <li><b>Nothing invents a new visual language.</b> The bucket shell, tile shell, paired-comparison card,
+          toggle rows, and modal chrome are pixel-for-pixel the same components already in the app
+          (<code>BucketCard</code>, <code>CategoryTile</code>, <code>MatchedBucket</code>/<code>PossibleBucket</code>'s
+          paired tile, <code>SafeModeSettingsPage</code>'s <code>ToggleRow</code>, <code>Modal.tsx</code>) — only the
+          copy and data shown are new.</li>
+        <li><b>Semantic tokens only.</b> Every color used here maps to an existing theme token
+          (<code>--success/--warning/--danger/--info/--neutral/--primary</code>) — no one-off hex values invented for
+          this feature.</li>
+        <li><b>Centered modals, never bottom sheets.</b> "Scan a date range" and "Map this sender" both render as
+          <code>Modal.tsx</code>'s existing centered card with a top-right close × — never a sheet sliding up from the
+          bottom.</li>
+        <li><b>Back button on every sub-page</b> via the shared header back-chevron — the one deliberate exception is
+          the mid-scan captive progress screen, which locks navigation exactly like CSV-import's own
+          <code>ImportProgressStep</code> (a padlock icon replaces the chevron, with an explicit "back is locked"
+          note) — not an oversight.</li>
+        <li><b>Cross-platform scope:</b> this is Android-only functionality per the approved plan — no
+          <code>apps/web-react</code> equivalent is proposed (that app is frozen). The one platform state shown for
+          completeness is the iOS/RN-Web "not available" row, which is a small inline explanation, never a dead
+          toggle.</li>
+        <li><b>Duplicated-capability check:</b> the review queue is the single, consolidated place SMS candidates are
+          resolved — there is deliberately no second "SMS inbox" surface anywhere else in the app; the Settings
+          counters and the Expenses-tab badge are two <i>entry points</i> into the same one queue, not two separate
+          controls doing the same job.</li>
+        <li><b>Open items, not this mockup's job:</b> the actual native permission dialog copy is OS-owned (Android
+          renders its own system dialog — the <code>syscallout</code> box above is a signpost, not a mockup of that
+          dialog). Implementation specifics (WorkManager/Headless-JS spike, native library choice) are unaffected by
+          anything here — this file is purely the on-screen Penny UI.</li>
+      </ul>
+    </div>
+  </body>
+</html>

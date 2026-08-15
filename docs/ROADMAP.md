@@ -788,7 +788,7 @@ Full plan (locked decisions, tracks, tech-stack rationale, migration playbook):
 | Chip mock chat UI                  | M8 step 44            | Phase 2                                                                                             |
 | Desktop layout                     | M8 step 48            | Phase 2                                                                                             |
 | Real Chip AI                       | All of Phase 1        | Phase 2                                                                                             |
-| SMS transaction parsing            | BRD v4                | Phase 2                                                                                             |
+| SMS transaction parsing            | BRD v4                | Phase 2 — built 2026-08-15 (core, mobile UI, native Android capture layer), pending real-device verification before rollout; see [`docs/plans/sms-transaction-tracking.md`](plans/sms-transaction-tracking.md) |
 | Credit score via bureau aggregator | BRD v4                | Phase 2                                                                                             |
 | Biometric auth                     | TSD v1.0              | Phase 2 (native app) — WebAuthn-PRF on PWA too patchy; envelope crypto leaves a wrapping slot ready |
 | Cloud backup                       | Phase 1.5/2           | **Pulled into Phase 1** (Track 2) — user-owned Google Drive                                         |
@@ -886,9 +886,9 @@ since shipped — see `docs/ARCHITECTURE.md`'s "Chrome consolidation, two passes
   auto-categorizing stocks/mutual funds by performance (the way INDmoney/Dezerv/
   PowerUpMoney do); whether/how Penny could do AI-driven market research privately,
   on-device; a pre-onboarding (and pricing-page-reusable) screen explaining what's free
-  vs. server-dependent/paid; Android SMS-based auto transaction tracking (enable/disable
-  toggle, scan historically vs. going-forward only — see "SMS transaction parsing" above,
-  same privacy concern applies).
+  vs. server-dependent/paid. (Android SMS-based auto transaction tracking, formerly listed
+  here, moved out to a real status line above — it's built, not just an idea; see "SMS
+  transaction parsing" above and [`docs/features/sms-tracking.md`](../features/sms-tracking.md).)
 - **Known bug, not yet fixed:** the Penny app icon is not actually set as the app's real
   icon.
 
@@ -934,7 +934,6 @@ since shipped — see `docs/ARCHITECTURE.md`'s "Chrome consolidation, two passes
   transfer (and vice versa) via the normal edit flow, not just during bank-import review (where this
   already works, 2026-08-05 — `ExpenseForm`'s statementPreset mode). Deferred 2026-08-05 pending a
   separate scoping discussion (app-wide edit-form behavior, not specific to bank import).
-- **SMS transaction parsing** — Auto-detect expenses from bank SMS alerts. Privacy concern: requires READ_SMS permission.
 - **"Import with Chip" conversational review** — Instead of (or as a toggle alongside) the tile-based review screen, let Chip ask about only the genuinely ambiguous items (an unresolved category, a suspected transfer pair) via quick-reply chips + free text, silently auto-applying high-confidence matches, with a "Show full review" escape hatch back to the tile view at any point. Explored as a concept sketch in `docs/mockups/proposals/import-wizard-redesign-v3.html`'s "out of the box" section. Open question flagged there: risk of hiding decisions from the user by auto-applying matches — needs a confidence-threshold and an always-visible audit trail (e.g. "12 rows auto-matched, tap to review") before this could ship, not just a chat UI.
 
 ### Export improvements

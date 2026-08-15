@@ -18,7 +18,7 @@ import {
   unmatchLedgerRow
 } from '@/core/bank-import/ledgerActions';
 import { normalizeNarration } from '@/core/bank-import/normalization';
-import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
+import { inferPaymentMode } from '@/core/expenses/paymentModeInference';
 import { RECONCILIATION_DESCRIPTION } from '@/core/expenses/cashFlowSummary';
 import { logActivity } from '@/core/db/activityLog';
 import { notifyAccountsChanged, notifyBankImportsChanged, useAccountsRefresh } from '@/hooks/useDataRefresh';

@@ -6,7 +6,7 @@ import type { PossibleTransferSuggestion } from '@/core/bank-import/matcher';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { normalizeNarration } from '@/core/bank-import/normalization';
 import { suggestForMerchant } from '@/core/bank-import/merchantMemory';
-import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
+import { inferPaymentMode } from '@/core/expenses/paymentModeInference';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';

@@ -34,6 +34,8 @@ import type {
   Profile,
   RetirementPlan,
   SecurityRecord,
+  SmsAccountMapping,
+  SmsTransactionRecord,
   Subscription,
   SyncCursor,
   TransactionTemplate
@@ -117,7 +119,9 @@ const ENCRYPTED_TABLES = [
   'bank_cash_withdrawal_codes',
   'payment_modes',
   'retirement_plan',
-  'net_worth_snapshots'
+  'net_worth_snapshots',
+  'sms_transactions',
+  'sms_account_mappings'
 ];
 const PLAIN_TABLES = ['security', 'price_cache', 'privacy_stats'];
 
@@ -299,7 +303,9 @@ const tableStores = {
   ) as unknown as RowStore<BankCashWithdrawalCode>,
   payment_modes: makeEncryptedRowStore('payment_modes') as unknown as RowStore<PaymentMode>,
   retirement_plan: makeEncryptedRowStore('retirement_plan') as unknown as RowStore<RetirementPlan>,
-  net_worth_snapshots: makeEncryptedRowStore('net_worth_snapshots') as unknown as RowStore<NetWorthSnapshot>
+  net_worth_snapshots: makeEncryptedRowStore('net_worth_snapshots') as unknown as RowStore<NetWorthSnapshot>,
+  sms_transactions: makeEncryptedRowStore('sms_transactions') as unknown as RowStore<SmsTransactionRecord>,
+  sms_account_mappings: makeEncryptedRowStore('sms_account_mappings') as unknown as RowStore<SmsAccountMapping>
 };
 
 export const db = {

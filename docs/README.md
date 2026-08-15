@@ -53,6 +53,8 @@ Each feature file follows a standard template: **What it is → User-facing capa
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | [`features/home.md`](features/home.md)                                     | Home dashboard: net worth card, accounts strip, market data strip, module tiles                                   |
 | [`features/expenses.md`](features/expenses.md)                             | Expenses: categories, transactions, analytics, import/export, budgets, recurring                                  |
+| [`features/bank-import.md`](features/bank-import.md)                       | Bank Statement Import: two-tier matching, checkpoints/balance sync, Full Ledger reconciliation                    |
+| [`features/sms-tracking.md`](features/sms-tracking.md)                     | SMS-Based Transaction Tracking (Android only): parsing, account matching, native capture layer                    |
 | [`features/portfolio/overview.md`](features/portfolio/overview.md)         | Portfolio structure, asset classes, net worth calculation                                                         |
 | [`features/portfolio/stocks-mf.md`](features/portfolio/stocks-mf.md)       | Stocks + MF: search, live prices, grouping, lot breakdown, weighted average                                       |
 | [`features/portfolio/retirement.md`](features/portfolio/retirement.md)     | NPS, PPF, EPF: data models, projections, ledger, employer history                                                 |

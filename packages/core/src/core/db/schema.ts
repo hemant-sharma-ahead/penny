@@ -33,6 +33,8 @@ import type {
   Profile,
   RetirementPlan,
   SecurityRecord,
+  SmsAccountMapping,
+  SmsTransactionRecord,
   Subscription,
   SyncCursor,
   TransactionTemplate
@@ -78,6 +80,8 @@ export class PennyDatabase extends Dexie {
   payment_modes!: EntityTable<PaymentMode, 'id'>;
   retirement_plan!: EntityTable<RetirementPlan, 'id'>;
   net_worth_snapshots!: EntityTable<NetWorthSnapshot, 'id'>;
+  sms_transactions!: EntityTable<SmsTransactionRecord, 'id'>;
+  sms_account_mappings!: EntityTable<SmsAccountMapping, 'id'>;
 
   constructor() {
     super('penny');
@@ -160,6 +164,10 @@ export class PennyDatabase extends Dexie {
     // v13 — cash-withdrawal narration codes (ATW, NWD, SELF, ...) for auto-classifying a bank
     // statement line as a Transfer instead of a plain expense (2026-08-05). Encrypted; id-only index.
     this.version(13).stores({ bank_cash_withdrawal_codes: 'id' });
+
+    // v14 — SMS-Based Transaction Tracking (docs/plans/sms-transaction-tracking.md): parsed-SMS
+    // link/audit table + the persisted sender/card→account mapping table. Encrypted; id-only index.
+    this.version(14).stores({ sms_transactions: 'id', sms_account_mappings: 'id' });
   }
 }
 

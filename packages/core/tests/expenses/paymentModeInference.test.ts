@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_INFERRED_MODE, inferPaymentMode } from '@/core/bank-import/paymentModeInference';
+import { DEFAULT_INFERRED_MODE, inferPaymentMode } from '@/core/expenses/paymentModeInference';
 
 describe('inferPaymentMode', () => {
   it('infers upi (an existing default mode)', () => {

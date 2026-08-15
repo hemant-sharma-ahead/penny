@@ -13,6 +13,7 @@ import { buildMarketSnapshot, getMarketSnapshot } from './market';
 import { fetchNewsFeed, isKnownFeed } from './news';
 import { EPF_RATE_TABLE } from './epfRates';
 import { PPF_RATE_TABLE } from './ppfRates';
+import { SMS_PATTERN_BUNDLE } from './smsPatterns';
 import {
   getVehicle,
   putVehicle,
@@ -50,6 +51,10 @@ export default {
 
     // PPF interest rate table — same shape/rationale as /epf-rates above.
     if (url.pathname === '/ppf-rates') return json(PPF_RATE_TABLE);
+
+    // SMS transaction-parsing templates — same shape/rationale as /epf-rates above; only pattern
+    // templates are served here, never any user SMS content (see smsPatterns.ts's own doc comment).
+    if (url.pathname === '/sms-patterns') return json(SMS_PATTERN_BUNDLE);
 
     const ip = req.headers.get('cf-connecting-ip') ?? 'anon';
     if (await isRateLimited(env.CACHE, ip)) return json({ error: 'rate_limited' }, 429);

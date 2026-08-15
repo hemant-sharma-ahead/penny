@@ -3,7 +3,7 @@ import { View, Pressable, Text } from 'react-native';
 import type { Account, Expense } from '@/core/db/types';
 import type { ParsedStatementRow } from '@/core/bank-import/types';
 import { formatCurrency, formatDate } from '@/lib/formatters';
-import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
+import { inferPaymentMode } from '@/core/expenses/paymentModeInference';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';

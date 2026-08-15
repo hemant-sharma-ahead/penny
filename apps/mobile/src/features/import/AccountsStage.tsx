@@ -11,8 +11,8 @@ import type {
 } from '@/core/import/importAccountResolution';
 import type { RowTriage } from './useImport';
 import { AccountsSection } from './review/AccountsSection';
-import { BucketCard } from './review/BucketCard';
-import { useBucketExpansion } from './review/useBucketExpansion';
+import { BucketCard } from '~/components/shared/BucketCard';
+import { useBucketExpansion } from '~/hooks/useBucketExpansion';
 
 interface AccountsStageProps {
   accountResolutions: AccountResolutionOrSkip[];

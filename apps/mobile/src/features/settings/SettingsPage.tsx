@@ -555,6 +555,14 @@ export function SettingsPage() {
               onPress={() => navigation.navigate('Feedback')}
               trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
             />
+            <Row
+              icon="ti-message-2"
+              color={sectionColor.data}
+              label="SMS Tracking"
+              sub="Android — detect bank SMS and turn them into transactions"
+              onPress={() => navigation.navigate('SmsTrackingSettings')}
+              trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
+            />
           </Card>
 
           {/* Danger zone */}

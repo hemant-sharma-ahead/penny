@@ -62,7 +62,7 @@ import {
   rowsAsCandidateTxns,
   type AnchorShiftCheck
 } from '@/core/bank-import/openingBalanceAnchor';
-import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
+import { inferPaymentMode } from '@/core/expenses/paymentModeInference';
 import {
   applyCashTransferConversion,
   suggestCashTransfer,

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { Account, AccountType } from '@/core/db/types';
+import type { Account, AccountType, BankPresetId } from '@/core/db/types';
 import { ACCOUNT_TYPE_META } from '@/core/accounts/meta';
 import { findDuplicateAccountName } from '@/core/accounts/accountValidation';
 import { parseNumber } from '@/lib/formatters';
@@ -14,6 +14,13 @@ export interface AccountInput {
   color: string;
   icon: string;
   includeInNetWorth: boolean;
+  /** Which bank this account belongs to (docs/plans/sms-transaction-tracking.md §3) — optional, feeds
+   *  SMS Tracking's account-resolution matching. Omitted entirely (never an explicit empty string)
+   *  when unset, so a plain `...data` spread onto `Account` never writes a bogus `bankId`. */
+  bankId?: BankPresetId;
+  /** Last 4 digits of this account's own number (never a card's) — see `Account.last4`'s own doc
+   *  comment for the full rationale. Optional, same treatment as `bankId` above. */
+  last4?: string;
 }
 
 export interface AccountFormState {
@@ -23,6 +30,9 @@ export interface AccountFormState {
   color: string;
   icon: string;
   includeInNetWorth: boolean;
+  /** Empty string = unset — converted to `undefined` in `save()` below, never persisted as `''`. */
+  bankId: BankPresetId | '';
+  last4: string;
 }
 
 const DEFAULT_FORM: AccountFormState = {
@@ -31,7 +41,9 @@ const DEFAULT_FORM: AccountFormState = {
   openingBalance: '0',
   color: '#10b981',
   icon: 'ti-cash',
-  includeInNetWorth: true
+  includeInNetWorth: true,
+  bankId: '',
+  last4: ''
 };
 
 /** Owns the add/edit account form lifecycle and bridges to the save mutation. `accounts` is the
@@ -88,7 +100,9 @@ export function useAccountForm(
       openingBalance: String(acc.openingBalance),
       color: acc.color,
       icon: acc.icon,
-      includeInNetWorth: acc.includeInNetWorth
+      includeInNetWorth: acc.includeInNetWorth,
+      bankId: acc.bankId ?? '',
+      last4: acc.last4 ?? ''
     });
     setShowForm(true);
   }
@@ -97,6 +111,7 @@ export function useAccountForm(
     const name = form.name.trim();
     if (!name || nameError) return;
     const wasEditing = editing;
+    const trimmedLast4 = form.last4.trim();
     const record = await saveAccount(
       {
         name,
@@ -104,7 +119,9 @@ export function useAccountForm(
         openingBalance: parseNumber(form.openingBalance),
         color: form.color,
         icon: form.icon,
-        includeInNetWorth: form.includeInNetWorth
+        includeInNetWorth: form.includeInNetWorth,
+        ...(form.bankId && { bankId: form.bankId }),
+        ...(trimmedLast4 && { last4: trimmedLast4 })
       },
       editing
     );

@@ -1,0 +1,32 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.smscapture'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.smscapture"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+dependencies {
+  // The live-capture path (docs/plans/sms-transaction-tracking.md §2): `SmsReceiver` enqueues a
+  // `WorkManager` job rather than doing real work itself (a `BroadcastReceiver` has a hard ~10s
+  // execution budget) — WorkManager is what actually guarantees eventual execution across process
+  // death/Doze/reboot.
+  implementation "androidx.work:work-runtime-ktx:2.9.1"
+
+  // `SmsHeadlessTaskService.kt` bridges to React Native's own `HeadlessJsTaskService`/`Arguments`/
+  // `HeadlessJsTaskConfig` — these aren't part of `expo-modules-core`, so this module needs its own
+  // explicit dependency on the RN Android artifact, same as `expo-file-system`'s own build.gradle does
+  // for the same reason (its upload/download tasks touch `com.facebook.react.bridge` directly too).
+  implementation "com.facebook.react:react-android"
+}

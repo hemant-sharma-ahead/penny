@@ -13,6 +13,7 @@ import type {
   MerchantMemory,
   PaymentMode,
   Person,
+  TransactionSource,
   TransactionType
 } from '@/core/db/types';
 import type { ExpenseSeedIntent } from '@/core/iou/expenseLink';
@@ -48,7 +49,7 @@ import { useAccountForm, type AccountInput } from '~/hooks/useAccountForm';
 import { AccountChips } from './AccountChips';
 import { PaymentModeChips } from './PaymentModeChips';
 import { couplePaymentToAccount } from './paymentModes';
-import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
+import { inferPaymentMode } from '@/core/expenses/paymentModeInference';
 import { usePaymentModes } from '~/hooks/usePaymentModes';
 import { tint } from '~/lib/color';
 
@@ -195,6 +196,13 @@ export interface StatementPresetInput {
   paymentModeCandidate?: Pick<PaymentMode, 'id' | 'label' | 'icon' | 'color'>;
   descriptionSuggestion?: string;
   categorySuggestion?: string;
+  /** Overrides the `TransactionSource` this form saves as — defaults to `'bank_sync'` when omitted
+   *  (every pre-existing caller is Bank Statement Import, which never set this). Added so SMS
+   *  Tracking's "New Pending" tile (docs/plans/sms-transaction-tracking.md §7) can reuse this exact
+   *  same preset-mode form for its own commit-to-Expense step, passing `'sms'` instead — same reasoning
+   *  as `paymentModeCandidate` above (a second, then third, consumer needing one more preset field
+   *  rather than forking the whole form). */
+  source?: TransactionSource;
 }
 
 const TYPE_META: Record<TransactionType, { label: string; color: string; icon: string }> = {
@@ -657,7 +665,7 @@ export function ExpenseForm({
         : editing?.shareWith
           ? { shareWith: editing.shareWith }
           : {}),
-      source: editing?.source ?? (statementPreset ? 'bank_sync' : 'manual'),
+      source: editing?.source ?? statementPreset?.source ?? (statementPreset ? 'bank_sync' : 'manual'),
       createdAt: editing?.createdAt ?? now,
       updatedAt: now
     };

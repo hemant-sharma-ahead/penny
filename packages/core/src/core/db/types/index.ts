@@ -380,6 +380,29 @@ export interface Expense {
 
 export type AccountType = 'cash' | 'bank' | 'credit_card' | 'wallet';
 
+/** Bank identifier — originally defined only in `core/bank-import/types.ts` (CSV column-mapping
+ *  presets); promoted here 2026-08-15 once `Account.bankId` below and `core/sms-import/` (SMS
+ *  parsing templates, docs/plans/sms-transaction-tracking.md §3/§5) needed the same identifier set.
+ *  Lives in this file rather than a separate `core/banks/` module because this file is deliberately
+ *  self-contained (no imports of its own — see `ImportBatchSummary` below for the same reasoning
+ *  applied to a bank-import-flavored type) and `Account` needs it directly.
+ *  `core/bank-import/types.ts` re-exports this rather than every one of its many internal consumers
+ *  switching to a new import path. */
+export type BankPresetId =
+  | 'hdfc'
+  | 'icici'
+  | 'kotak'
+  | 'sbi'
+  | 'indusind'
+  | 'hsbc'
+  | 'bob'
+  | 'axis'
+  | 'yesbank'
+  | 'pnb'
+  | 'canara'
+  | 'idfcfirst'
+  | 'custom';
+
 export interface Account {
   id: string;
   name: string;
@@ -388,6 +411,21 @@ export interface Account {
   color: string;
   icon: string; // Tabler icon class e.g. 'ti-wallet'
   includeInNetWorth: boolean; // cash + bank = yes, credit card = no (it's a liability)
+  /** Which bank this account belongs to (docs/plans/sms-transaction-tracking.md §3) — optional,
+   *  settable from the account-edit screen, absent on every account created before this field
+   *  existed (no migration/backfill). Used to resolve an incoming SMS's bank sender/name to this
+   *  account when there's exactly one non-archived account for that bank; with more than one, or no
+   *  `bankId` set at all, SMS tracking falls back to its own persisted sender→account mapping
+   *  instead (`core/sms-import/`) rather than guessing. Doesn't feed Bank Statement Import, which
+   *  already receives its target `accountId` explicitly and never needs to infer it. */
+  bankId?: BankPresetId;
+  /** Last 4 digits of THIS ACCOUNT's own number only — never a card number (a card's last 4 digits
+   *  differ from its underlying account's, and Penny doesn't track cards as separate accounts; see
+   *  `core/sms-import/`'s own card-last4 mapping tier for that case) and never the full number
+   *  (docs/PRIVACY.md Category-1: account numbers are never stored raw). Optional, same
+   *  no-migration/no-backfill treatment as `bankId` above. Used for exact-match SMS→account
+   *  resolution when both the SMS and this account carry a last4. */
+  last4?: string;
   isArchived: boolean;
   createdAt: number;
   updatedAt: number;
@@ -1073,6 +1111,137 @@ export interface PaymentMode {
   icon: string;
   color: string;
   isDefault: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ─── SMS-Based Transaction Tracking (Android only) ──────────────────────────
+// A deliberately separate module from core/bank-import/ and core/import/ (docs/plans/
+// sms-transaction-tracking.md §1) — a THIRD, independent way to record a transaction (alongside
+// manual entry and CSV import), not a replacement for or a variant of Bank Statement Import, which
+// stays the separate reconciliation feature. Reuses only the matching *algorithm* shape from
+// core/bank-import/matcher.ts's `matchStatementRows()`, not its role or its own types.
+
+/** Why a candidate needs a human decision before becoming "Linked" or "New Pending" — kept as its
+ *  own field rather than folded into `SmsTransactionStatus` so the review-queue UI can show a
+ *  specific reason string per bucket item (plan §4/§7) without a combinatorial status enum. Only
+ *  meaningful when `status === 'needs_review'`. */
+export type SmsReviewReason =
+  | 'ambiguous_account' // no/ambiguous bankId+last4+mapping match — which Account is this?
+  | 'possible_match' // Tier-2 fuzzy match against an existing Expense had 2+ tied candidates
+  | 'possible_duplicate_sms' // looks like it describes the same real event as another parsed SMS
+  | 'reconciled_date_conflict'; // matched a bank-reconciled Expense but the SMS's own date disagrees
+
+export type SmsTransactionStatus =
+  | 'unparsed' // sender matched a known bank, but no template fit its wording — see `UnparsedSmsPage`
+  | 'needs_review' // see reviewReason — user must resolve, never silently defaulted
+  | 'ready' // account resolved, no existing-transaction match found — "New Pending" in the review UI
+  | 'linked' // auto- or user-confirmed match to an existing Expense; that Expense is never edited
+  | 'dismissed'; // user said "not a transaction" (or the sender is muted) — never resurfaces
+
+/**
+ * One parsed (or parse-attempted) SMS candidate. Mirrors `BankStatementImportRecord`'s three-purpose
+ * shape (audit trail + merchant-memory-style backing store + re-processing dedup), not
+ * `Expense.sourceRef` — see plan §1 for why a dedicated link table was chosen over overloading a
+ * field. Written for EVERY sender-allowlisted SMS regardless of outcome — including one that matched
+ * a known bank's sender but no template ("unparsed"), and a dismissed/ignored one — so Tier-1
+ * provenance dedup (`contentHash`) can recognize a re-scanned duplicate at any status, and so
+ * "unparsed" messages have somewhere to live for the user-facing unparsed-messages screen (added
+ * 2026-08-15, direct user request: most SMS-tracking apps silently drop what they can't parse with
+ * no way for the user to even know it happened — Penny instead keeps every recognized-bank-sender
+ * message that failed to parse, visible and exportable, never silently discarded).
+ */
+export interface SmsTransactionRecord {
+  id: string;
+  /** Tier-1 exact-provenance dedup key (plan §4a) — a hash of (sender, receivedAt, body). A hit
+   *  means this literal message was already processed by a prior scan/listener event; re-running a
+   *  historical scan over the same date range is then a clean no-op, same guarantee
+   *  `BankStatementImportRecord.normalizedKey` gives bank-import re-imports. */
+  contentHash: string;
+  /** Raw SMS sender id/shortcode as reported by the OS (e.g. "VM-HDFCBK") — never the phone's own
+   *  number; always a bank/DLT shortcode by construction (plan §5's sender-ID allowlist). */
+  sender: string;
+  /** Raw SMS body — retained while `status` is `'unparsed' | 'needs_review' | 'ready'` (an unparsed
+   *  message needs it for the copy/export screen; a review-queue item needs it for the user to
+   *  visually confirm/correct); cleared (set to `undefined` via an update, not re-created) once
+   *  `linked` or `dismissed`, per this file's data-minimization rule. Never reaches
+   *  `buildUserContext()`/Chip — nothing in this table does. */
+  rawBody?: string;
+  /** SMS-received timestamp (epoch ms) — always present, used as `date`'s fallback (see below) and
+   *  as part of `contentHash`. */
+  receivedAt: number;
+  /** The actual transaction date — prefers a body-embedded date/time if the matched template
+   *  captured one, else falls back to `receivedAt` (plan §5/§8: delayed SMS-gateway delivery can
+   *  misalign the two). Absent when `status === 'unparsed'` (no template matched, so no date was
+   *  ever extracted — `receivedAt` above is still there for display). */
+  date?: number;
+  /** Absent only when `status === 'unparsed'` — every other status implies a template matched and
+   *  these fields were actually extracted. */
+  amount?: number;
+  direction?: 'debit' | 'credit';
+  transactionType?: 'debit' | 'credit' | 'upi_sent' | 'upi_received' | 'card_swipe' | 'refund';
+  /** Extracted merchant/counterparty free text, if the template captured one — feeds merchant-memory
+   *  category/payment-mode suggestions (plan §1) exactly like any other recording method's
+   *  description does. */
+  counterparty?: string;
+  /** Masked account tail from the SMS body (e.g. "1234" from "XX1234") — NOT a card number; see
+   *  `cardLast4` below for that case. Never the full account number (PRIVACY.md Category-1). */
+  accountLast4?: string;
+  /** Masked CARD tail from the SMS body, when the message is clearly card-rail (POS/card swipe) —
+   *  kept separate from `accountLast4` because a card's last 4 digits differ from its underlying
+   *  account's own (plan §3) and resolve through their own mapping tier. */
+  cardLast4?: string;
+  referenceNumber?: string;
+  /** Available-balance figure from the SMS, shown for user context only — never used in matching. */
+  balance?: number;
+  /** Which bank this SMS's sender resolved to, if recognized at all (independent of whether an
+   *  Account was successfully matched — see `accountId` below). */
+  bankId?: BankPresetId;
+  /** Inferred `PaymentMode.id` (via `core/expenses/paymentModeInference.ts`), always editable, never
+   *  auto-applied silently to the eventual transaction without going through the normal review tile. */
+  paymentModeGuess?: string;
+  /** Resolved via plan §3's matching order (card-last4 mapping → bank-string mapping → exact
+   *  Account.last4 → single-account bankId match → ambiguous/prompt). Absent while
+   *  `reviewReason === 'ambiguous_account'`. */
+  accountId?: string;
+  status: SmsTransactionStatus;
+  reviewReason?: SmsReviewReason;
+  /** Populated when `reviewReason === 'possible_match'` or `'reconciled_date_conflict'` — the
+   *  existing `Expense` id(s) the "Possible match" side-by-side screen (plan §4) shows as candidates.
+   *  Never more than a handful in practice (Tier 2's own same-day/exact-amount shortlist). */
+  possibleMatchExpenseIds?: string[];
+  /** Populated when `reviewReason === 'possible_duplicate_sms'` — the other `SmsTransactionRecord`
+   *  id(s) that might describe the same real-world event (plan §4b). */
+  possibleDuplicateSmsIds?: string[];
+  /** Set once `status === 'linked'` — the existing `Expense` this SMS was confirmed to match. That
+   *  Expense is never edited as a result of linking (plan §4: "linked... not replace"); this is
+   *  purely the audit pointer, same role as `BankStatementImportRecord.linkedTxnId`. */
+  linkedTxnId?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
+ * Persisted, user-confirmed mapping from a normalized SMS bank-string or a card's last-4 digits to
+ * one of the user's configured `Account`s (plan §3) — NOT a one-shot fuzzy guess re-run every scan.
+ * Written the first time an ambiguous sender/card is resolved (whether via an explicit user prompt
+ * or an unambiguous single-account `bankId` match the user then confirms), read on every subsequent
+ * SMS from the same normalized key. Editable any time from the SMS Tracking settings sub-page.
+ */
+export interface SmsAccountMapping {
+  id: string;
+  kind: 'bank_string' | 'card_last4';
+  /** The matching key: `normalize()`-d bank/sender text for `'bank_string'` (see
+   *  `core/import/importAccountResolution.ts`'s existing `normalize()`, reused as-is — strips
+   *  punctuation/whitespace and masking "x"s before digits), or the raw last-4 digits for
+   *  `'card_last4'`. Unique per `kind` — enforced at the application layer, not a DB constraint
+   *  (encrypted stores index `id` only). */
+  mappingKey: string;
+  /** The original, human-readable text this mapping was created from (e.g. "HDFC Bank XX8112", or
+   *  a card's own masked display) — shown in the editable sender-mapping list so the user recognizes
+   *  what they're looking at, since `mappingKey` itself is a normalized/stripped form. */
+  rawValue: string;
+  accountId: string;
   createdAt: number;
   updatedAt: number;
 }

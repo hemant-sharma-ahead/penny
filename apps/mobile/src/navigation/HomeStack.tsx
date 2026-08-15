@@ -25,6 +25,10 @@ import { BankImportHistoryPage } from '../features/bank-import/BankImportHistory
 import { CheckpointTimelinePage } from '../features/accounts/CheckpointTimelinePage';
 import { CheckOpeningBalancePage } from '../features/accounts/CheckOpeningBalancePage';
 import { FullLedgerPage } from '../features/accounts/FullLedgerPage';
+import { SmsTrackingSettingsPage } from '../features/sms-tracking/SmsTrackingSettingsPage';
+import { UnparsedMessagesPage } from '../features/sms-tracking/UnparsedMessagesPage';
+import { SmsReviewPage } from '../features/sms-tracking/SmsReviewPage';
+import { PossibleMatchPage } from '../features/sms-tracking/PossibleMatchPage';
 
 /**
  * The Home tab's own navigation stack — Track: chrome-persistence fix. Previously all of these
@@ -97,6 +101,15 @@ export type HomeStackParamList = {
    *  `CheckpointTimeline`'s sparse checkpoint-only table, reached from that page's "View full ledger
    *  ›" action. */
   FullLedger: { accountId: string };
+  /** SMS-Based Expense Auto-Tracking (docs/plans/sms-transaction-tracking.md), reached from Settings.
+   *  `scanLocked` mirrors `ExpensesStack.tsx`'s `Import` screen's own `importLocked` param — set via
+   *  `navigation.setParams` from `SmsTrackingSettingsPage.tsx` itself while a backfill scan is actually
+   *  running, to disable the swipe-back gesture for that window (the header back-chevron is disabled
+   *  separately, via `useRegisterHeaderScreen`'s own `chromeLocked`). */
+  SmsTrackingSettings: { scanLocked?: boolean } | undefined;
+  SmsUnparsedMessages: undefined;
+  SmsReview: undefined;
+  SmsPossibleMatch: { recordId: string };
 };
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
@@ -137,6 +150,14 @@ export function HomeStack() {
       <Stack.Screen name="CheckpointTimeline" component={CheckpointTimelinePage} />
       <Stack.Screen name="CheckOpeningBalance" component={CheckOpeningBalancePage} />
       <Stack.Screen name="FullLedger" component={FullLedgerPage} />
+      <Stack.Screen
+        name="SmsTrackingSettings"
+        component={SmsTrackingSettingsPage}
+        options={({ route }) => ({ gestureEnabled: !route.params?.scanLocked })}
+      />
+      <Stack.Screen name="SmsUnparsedMessages" component={UnparsedMessagesPage} />
+      <Stack.Screen name="SmsReview" component={SmsReviewPage} />
+      <Stack.Screen name="SmsPossibleMatch" component={PossibleMatchPage} />
     </Stack.Navigator>
   );
 }

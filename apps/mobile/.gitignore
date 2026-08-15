@@ -48,3 +48,8 @@ yarn-error.*
 !/android/app/
 /android/app/*
 !/android/app/debug.keystore
+
+# Gradle build output for local Expo modules (modules/*/android is source, checked in — only its own
+# build/ output is generated, mirroring the top-level /android ignore above)
+modules/*/android/build/
+modules/*/android/.cxx/

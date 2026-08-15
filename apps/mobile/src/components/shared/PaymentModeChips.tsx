@@ -21,7 +21,7 @@ interface PaymentModeChipsProps {
 }
 
 /** Horizontal, scrollable payment-mode selector — the 5 built-in modes plus any custom ones
- *  created so far (e.g. by Bank Statement Import, `core/bank-import/paymentModeInference.ts`).
+ *  created so far (e.g. by Bank Statement Import, `core/expenses/paymentModeInference.ts`).
  *  Disables modes incompatible with the account. */
 export function PaymentModeChips({ value, onChange, selectedAccount, pendingCandidate }: PaymentModeChipsProps) {
   const theme = useThemeColors();

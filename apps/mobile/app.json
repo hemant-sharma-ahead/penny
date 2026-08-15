@@ -43,7 +43,8 @@
           }
         }
       ],
-      "./plugins/withAbiSplits.js"
+      "./plugins/withAbiSplits.js",
+      "./plugins/withSmsPermissions.js"
     ],
     "extra": {
       "authProxyUrl": "https://penny-auth.hesh.workers.dev",

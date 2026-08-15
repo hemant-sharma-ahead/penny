@@ -18,6 +18,14 @@ interface BucketCardProps {
  * pattern Transactions stage already had, instead of a second bespoke implementation). Same colored-dot
  * + title + count + chevron header convention used everywhere else on the import wizard's bucket-style
  * screens.
+ *
+ * Promoted from `features/import/review/` to `components/shared/` on 2026-08-15 once SMS Tracking
+ * (docs/plans/sms-transaction-tracking.md §7) needed the exact same shell for its own review queue —
+ * a feature module may not cross-import another feature module's file (see CLAUDE.md's architecture
+ * rules), and this component has no import-specific logic, so relocating it here (rather than forking
+ * a duplicate) is the correct fix. Every pre-existing consumer (`TransactionsStage.tsx`/
+ * `CategoriesStage.tsx`/`AccountsStage.tsx`, all still within `features/import/`) was updated to this
+ * new path; behavior is unchanged.
  */
 export function BucketCard({ dotColor, title, count, expanded, onToggle, children }: BucketCardProps) {
   const theme = useThemeColors();

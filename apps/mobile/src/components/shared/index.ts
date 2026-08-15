@@ -2,6 +2,7 @@ export { AccountChips } from './AccountChips';
 export { AccountFormModal } from './AccountFormModal';
 export { AssetTaxNote } from './AssetTaxNote';
 export { BackButton } from './BackButton';
+export { BucketCard } from './BucketCard';
 export { DueDateBadge } from './DueDateBadge';
 export { dueDateInfo } from '@/lib/date';
 export { EntityTransactionsModal } from './EntityTransactionsModal';
