@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSms, redactDigits } from '@/core/sms-import/smsParser';
+import { parseSms, traceSms, redactDigits } from '@/core/sms-import/smsParser';
 import { SMS_PATTERNS_FALLBACK } from '@/core/sms-import/smsPatterns';
 
 // Every sample below is entirely synthetic — fabricated names/numbers/references constructed to
@@ -282,5 +282,87 @@ describe('redactDigits', () => {
     expect(redactDigits('Rs.500.00 debited from a/c XX1234 on 15-Aug-26')).toBe(
       'Rs.###.## debited from a/c XX#### on ##-Aug-##'
     );
+  });
+});
+
+// 2026-08-16 — traceSms() full diagnostic trace (SMS parser verifier tool §2/§3): every template
+// belonging to the sender-matched bank should show up as an attempt, whether or not it matched, and
+// parseSms()'s own outcome must be identical to traceSms()'s .outcome (parseSms is now a thin wrapper).
+describe('traceSms', () => {
+  it('matches on the FIRST template of several — later ones are recorded as not-attempted, not "didn\'t match"', () => {
+    const body =
+      'HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl (UPI Ref No 123456789012).';
+    const trace = traceSms('VM-HDFCBK', body, RECEIVED, BUNDLE);
+    expect(trace.matchedSenderBanks).toEqual(['hdfc']);
+    expect(trace.attempts).toHaveLength(3); // HDFC has 3 templates
+    expect(trace.attempts[0]).toMatchObject({ attempted: true, matched: true });
+    expect(trace.attempts[1]).toMatchObject({ attempted: false, matched: false });
+    expect(trace.attempts[2]).toMatchObject({ attempted: false, matched: false });
+    expect(trace.outcome).toEqual(parseSms('VM-HDFCBK', body, RECEIVED, BUNDLE));
+  });
+
+  it('matches on the LAST template of several — every earlier one is a real, attempted non-match', () => {
+    const body = 'Rs.500.00 debited from A/c No. XX1234 on 15/08/26. Info: ATM WDL. Avl Bal: Rs.10000.00-HDFC Bank';
+    const trace = traceSms('HDFCBK', body, RECEIVED, BUNDLE);
+    expect(trace.attempts).toHaveLength(3);
+    expect(trace.attempts[0]).toMatchObject({ attempted: true, matched: false });
+    expect(trace.attempts[1]).toMatchObject({ attempted: true, matched: false });
+    expect(trace.attempts[2]).toMatchObject({ attempted: true, matched: true });
+  });
+
+  it('recognized bank, no template matches — every template is a real, attempted non-match', () => {
+    const body = 'HDFC Bank: your account activity summary for this month is now available in the app.';
+    const trace = traceSms('VM-HDFCBK', body, RECEIVED, BUNDLE);
+    expect(trace.matchedSenderBanks).toEqual(['hdfc']);
+    expect(trace.attempts).toHaveLength(3);
+    expect(trace.attempts.every((a) => a.attempted && !a.matched)).toBe(true);
+    expect(trace.outcome).toEqual({ kind: 'unparsed_known_bank', bankId: 'hdfc' });
+  });
+
+  it('unrecognized sender — no attempts at all', () => {
+    const trace = traceSms('MOM', 'Hey, are we still on for dinner tonight?', RECEIVED, BUNDLE);
+    expect(trace.matchedSenderBanks).toEqual([]);
+    expect(trace.attempts).toEqual([]);
+    expect(trace.outcome).toEqual({ kind: 'unrecognized_sender' });
+  });
+
+  it('excluded as OTP — no attempts, no sender matching even performed', () => {
+    const trace = traceSms('VM-HDFCBK', '123456 is your OTP to login to HDFC NetBanking.', RECEIVED, BUNDLE);
+    expect(trace.excludedAsOtp).toBe(true);
+    expect(trace.matchedSenderBanks).toEqual([]);
+    expect(trace.attempts).toEqual([]);
+    expect(trace.outcome).toEqual({ kind: 'excluded_otp' });
+  });
+
+  it('captureRanges recover the exact substring each field came from', () => {
+    const body =
+      'HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl (UPI Ref No 123456789012).';
+    const trace = traceSms('VM-HDFCBK', body, RECEIVED, BUNDLE);
+    const matchedAttempt = trace.attempts.find((a) => a.matched);
+    const amountRange = matchedAttempt?.captureRanges?.amount;
+    const counterpartyRange = matchedAttempt?.captureRanges?.counterparty;
+    expect(amountRange).toBeDefined();
+    expect(counterpartyRange).toBeDefined();
+    if (!amountRange || !counterpartyRange) return;
+    expect(body.slice(amountRange[0], amountRange[1])).toBe('500.00');
+    expect(body.slice(counterpartyRange[0], counterpartyRange[1])).toBe('merchant@ybl');
+  });
+
+  it('parseSms and traceSms(...).outcome stay identical across every existing sample in this file', () => {
+    const samples: [string, string][] = [
+      [
+        'VM-HDFCBK',
+        'HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl (UPI Ref No 123456789012).'
+      ],
+      [
+        'VK-ICICIB',
+        'ICICI Bank Acct XX789 debited with Rs 2,500.00 on 15-Aug-26; Merchant Store credited. UPI:123456789012.'
+      ],
+      ['MOM', 'Hey, are we still on for dinner tonight?'],
+      ['VM-HDFCBK', '123456 is your OTP to login to HDFC NetBanking. Do not share this with anyone.']
+    ];
+    for (const [sender, body] of samples) {
+      expect(traceSms(sender, body, RECEIVED, BUNDLE).outcome).toEqual(parseSms(sender, body, RECEIVED, BUNDLE));
+    }
   });
 });

@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SMS Parser Verifier — unified workspace redesign, v1</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg: #0b0f14; --surface: #161b22; --border: #2d333b; --primary: #00a86b; --blue: #3b82f6;
+        --danger: #ef4444; --amber: #f59e0b; --pink: #ec4899; --violet: #a78bfa;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #05070a; color: #e6edf3; -webkit-font-smoothing: antialiased; }
+      h1 { text-align: center; margin: 30px 16px 4px; font-size: 22px; color: #fff; }
+      .sub { text-align: center; margin: 0 16px 14px; color: #9aa5b1; font-size: 14px; max-width: 940px; margin-left: auto; margin-right: auto; line-height: 1.65; }
+      .topnav { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 0 16px 34px; }
+      .topnav a { font-size: 12px; font-weight: 700; color: #cfe9db; background: #0f2419; border: 1px solid #1c3d2a; padding: 7px 14px; border-radius: 999px; text-decoration: none; }
+      .sectionband { border-top: 1px solid #1b222b; padding-top: 36px; margin-top: 10px; }
+      .sectiontitle { text-align: center; font-size: 16px; font-weight: 800; color: #fff; margin: 0 0 4px; }
+      .sectiontitle .num { display: inline-block; width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: #04140d; font-size: 12px; line-height: 22px; margin-right: 8px; }
+      .sectionsub { text-align: center; color: #9aa5b1; font-size: 12.5px; max-width: 820px; margin: 0 auto 18px; line-height: 1.7; }
+      .groundnote { max-width: 860px; margin: 0 auto 20px; background: #12181f; border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; color: #9aa5b1; font-size: 12px; line-height: 1.75; }
+      .groundnote code { background: #1c2128; padding: 1px 5px; border-radius: 5px; font-size: 10.5px; color: #c3ccd6; }
+      .groundnote b { color: #d5dbe3; }
+      .frame { max-width: 940px; margin: 0 auto; border-radius: 16px; overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.5); border: 1px solid #232a34; background: #0d1117; }
+      .recommend { max-width: 860px; margin: 16px auto 6px; background: #0f2419; border: 1px solid #1c3d2a; border-radius: 16px; padding: 18px 22px; color: #d7f5e6; font-size: 13.5px; line-height: 1.75; }
+      .recommend b { color: #7ee6b8; }
+      .legend { max-width: 860px; margin: 14px auto 60px; background: #0e141b; border: 1px solid #1e2733; border-radius: 16px; padding: 22px 26px; color: #c3ccd6; font-size: 13px; line-height: 1.7; }
+      .legend h2 { font-size: 14px; margin: 0 0 8px; color: #fff; }
+      .legend code { background: #1c2128; padding: 1px 6px; border-radius: 5px; font-size: 11.5px; }
+      .legend li { margin-bottom: 7px; }
+      .badbox { max-width: 860px; margin: 0 auto 24px; background: #1a1013; border: 1px solid #3d1c22; border-radius: 12px; padding: 14px 18px; color: #f3b4b4; font-size: 12px; line-height: 1.75; }
+      .badbox b { color: #ff8a8a; }
+
+      /* Command Center shell */
+      .cc { display: flex; height: 640px; background: #0d1117; }
+      .cc .side { width: 240px; flex-shrink: 0; background: #0a0e13; border-right: 1px solid #1d232c; padding: 16px 12px; overflow: auto; display: flex; flex-direction: column; }
+      .cc .main { flex: 1; padding: 18px 22px; overflow: auto; }
+      .navlbl { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #4a5361; margin: 10px 4px 8px; }
+      .searchbox { display: flex; align-items: center; gap: 6px; background: #151b23; border: 1px solid #232a34; border-radius: 8px; padding: 7px 10px; margin-bottom: 4px; }
+      .searchbox .ph { color: #8b949e; font-size: 11.5px; }
+      .pinrow { display: flex; align-items: center; gap: 9px; padding: 10px 9px; border-radius: 8px; font-size: 12.5px; font-weight: 700; cursor: pointer; background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.3); color: #93c5fd; margin-bottom: 6px; }
+      .pinrow i { font-size: 14px; }
+      .bankrow { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 7px; font-size: 12px; color: #b7c0cc; cursor: pointer; }
+      .bankrow.active { background: #151b23; color: #fff; }
+      .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+      .bankrow .cnt { margin-left: auto; font-size: 10px; color: #5b6472; display: flex; gap: 4px; align-items: center; }
+      .newbankrow { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 7px; font-size: 11.5px; color: #5b6472; cursor: pointer; border: 1px dashed #232a34; margin-top: 8px; }
+      .sidefoot { margin-top: auto; padding-top: 12px; border-top: 1px solid #1d232c; }
+      .exportbtn { display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 700; color: #b7c0cc; background: #151b23; border: 1px solid #232a34; padding: 8px 10px; border-radius: 8px; cursor: pointer; justify-content: center; }
+      .exportbtn:hover { border-color: #3b3f47; }
+
+      .mainhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+      .mainhead h3 { font-size: 15px; color: #fff; margin: 0; }
+      .breadcrumb { font-size: 10.5px; color: #5b6472; }
+      .headactions { display: flex; gap: 6px; }
+      .smallbtn { font-size: 10px; font-weight: 700; color: #b7c0cc; background: #151b23; border: 1px solid #232a34; padding: 5px 10px; border-radius: 7px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+
+      .subhead { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #5b6472; margin: 16px 0 8px; display: flex; align-items: center; gap: 8px; }
+      .subhead .cnt { font-weight: 600; text-transform: none; letter-spacing: 0; color: #4a5361; }
+
+      /* Sender patterns — official (locked) + user-added (removable) */
+      .senderbox { background: #131820; border: 1px solid #232a34; border-radius: 10px; padding: 10px 12px; margin-bottom: 4px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+      .pat { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: #9ea8b5; background: #0d1117; border-radius: 5px; padding: 4px 9px; display: inline-flex; align-items: center; gap: 6px; }
+      .pat .lock { color: #4a5361; font-size: 10px; }
+      .pat.custom { color: #93c5fd; background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.25); }
+      .pat.custom .x { cursor: pointer; color: #5b7284; }
+      .addpatinput { flex: 1; min-width: 160px; background: transparent; border: none; color: #d5dbe3; font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; outline: none; padding: 4px; }
+      .addpatinput::placeholder { color: #4a5361; }
+
+      /* Template cards — editable */
+      .tcard { background: #131820; border: 1px solid #232a34; border-radius: 12px; padding: 13px; margin-bottom: 9px; }
+      .tcard .head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+      .tcard .head b { font-size: 12px; color: #fff; }
+      .tcard .head .era { font-size: 9.5px; color: #6b7684; }
+      .tcard .head .spacer { flex: 1; }
+      .tcard .head .iconbtn { color: #5b6472; background: #0d1117; border: 1px solid #232a34; padding: 3px 7px; border-radius: 6px; font-size: 9.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+      .tcard .head .iconbtn.danger:hover { color: #ff8a8a; border-color: #3d1c22; }
+      .pill { font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
+      .pill.pass { background: rgba(16,185,129,.15); color: #10b981; }
+      .pill.official { background: rgba(148,163,184,.12); color: #94a3b8; }
+      .pill.modified { background: rgba(59,130,246,.15); color: #93c5fd; }
+      .pill.draft { background: rgba(59,130,246,.18); color: #93c5fd; }
+      .addcard { border-style: dashed; display: flex; align-items: center; gap: 8px; cursor: pointer; color: #5b6472; font-size: 11.5px; }
+
+      .smstext { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: #8b949e; background: #0d1117; border-radius: 7px; padding: 9px 10px; line-height: 1.6; word-break: break-word; }
+      .smstext mark { background: rgba(0,168,107,.28); color: #7ee6b8; border-radius: 3px; padding: 0 2px; font-weight: 700; }
+      .smstext mark.f2 { background: rgba(59,130,246,.28); color: #93c5fd; }
+      .smstext mark.f3 { background: rgba(236,72,153,.28); color: #f9a8d4; }
+      .smstext mark.f4 { background: rgba(245,158,11,.28); color: #fcd34d; }
+
+      /* Regex ↔ message side-by-side, same color-per-group mapping as .smstext mark — one shared
+         rendering primitive (markRanges()) applied to two different sources: the regex's own named-group
+         spans (parsed from its source text) vs a matched message's capture offsets (from traceSms). */
+      .regexmsg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 4px; }
+      .regexmsg-grid .minilabel { font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #4a5361; margin-bottom: 4px; }
+      @media (max-width: 720px) { .regexmsg-grid { grid-template-columns: 1fr; } }
+      .fields { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+      .fchip { font-size: 9.5px; background: #1a2028; border: 1px solid #232a34; border-radius: 6px; padding: 3px 7px; color: #9ea8b5; font-family: ui-monospace, Menlo, monospace; }
+      .fchip b { color: #d5dbe3; }
+      .fchip.f2 b { color: #93c5fd; } .fchip.f3 b { color: #f9a8d4; } .fchip.f4 b { color: #fcd34d; }
+
+      /* Inline edit form (shared shape for edit-existing + add-new) */
+      .editform { background: #0d1117; border: 1px solid #2d333b; border-radius: 10px; padding: 12px; margin-top: 4px; }
+      .formgrid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+      .formfield label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; color: #6b7684; display: block; margin-bottom: 4px; }
+      .formfield input, .formfield select, .formfield textarea { width: 100%; background: #0d1117; border: 1px solid #232a34; border-radius: 6px; padding: 6px 9px; color: #d5dbe3; font-size: 11px; font-family: ui-monospace, Menlo, monospace; outline: none; }
+      .formfield select { font-family: -apple-system, sans-serif; }
+      .regexstatus { display: flex; align-items: center; gap: 5px; font-size: 10px; margin-top: 5px; }
+      .regexstatus.ok { color: #10b981; } .regexstatus.err { color: #ef4444; }
+      .formbtnrow { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+      .formbtn { font-size: 10.5px; font-weight: 700; padding: 7px 13px; border-radius: 7px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+      .formbtn.primary { background: var(--primary); color: #04140d; }
+      .formbtn.ghost { background: #151b23; color: #b7c0cc; border: 1px solid #232a34; }
+      .formbtn.danger { background: rgba(239,68,68,.12); color: #ff8a8a; border: 1px solid rgba(239,68,68,.3); }
+
+      /* Regex helper — cheat sheet panel next to the pattern field */
+      .helperwrap { display: flex; gap: 12px; }
+      .helperwrap .field { flex: 1; }
+      .helper { flex: 0 0 250px; background: #0a0e13; border: 1px solid #1d232c; border-radius: 8px; padding: 10px; }
+      .helper .htitle { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #5b6472; margin-bottom: 7px; }
+      .snippetrow { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px 7px; border-radius: 6px; margin-bottom: 3px; cursor: pointer; }
+      .snippetrow:hover { background: #131820; }
+      .snippetrow .lbl { font-size: 10px; color: #9ea8b5; }
+      .snippetrow .lbl b { color: #d5dbe3; }
+      .snippetrow .insrt { font-size: 9px; color: #5b6472; }
+      .cheatgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; font-size: 9.5px; }
+      .cheatgrid .k { font-family: ui-monospace, Menlo, monospace; color: #7ee6b8; }
+      .cheatgrid .v { color: #7d8794; }
+      .helpertabs { display: flex; gap: 4px; margin-bottom: 8px; }
+      .helpertab { font-size: 9px; font-weight: 700; padding: 4px 9px; border-radius: 999px; background: #131820; color: #6b7684; cursor: pointer; }
+      .helpertab.active { background: rgba(0,168,107,.15); color: #7ee6b8; }
+
+      /* Tester (per-bank, embedded in the same workspace) */
+      .testmodes { display: flex; gap: 6px; margin-bottom: 10px; }
+      .testmode { font-size: 10.5px; font-weight: 700; padding: 6px 12px; border-radius: 999px; background: #131820; border: 1px solid #232a34; color: #8b949e; cursor: pointer; }
+      .testmode.active { background: rgba(59,130,246,.15); border-color: rgba(59,130,246,.4); color: #93c5fd; }
+      .console { background: #0d1117; border: 1px solid #232a34; border-radius: 8px; overflow: hidden; }
+      .console-top { display: flex; gap: 5px; padding: 6px 9px; background: #131820; border-bottom: 1px solid #232a34; }
+      .console-top span { width: 8px; height: 8px; border-radius: 50%; }
+      .console textarea { width: 100%; background: transparent; border: none; color: #b7c0cc; font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; padding: 9px 11px; resize: vertical; outline: none; line-height: 1.6; min-height: 60px; }
+      .runbtn { background: var(--primary); color: #04140d; font-weight: 800; font-size: 10.5px; padding: 7px 14px; border-radius: 7px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; margin: 10px 0; }
+
+      /* Upgraded results table — highlighted message column + trace-strip, no click required */
+      .filtertabs { display: flex; align-items: center; gap: 6px; margin: 4px 0 10px; flex-wrap: wrap; }
+      .ftab { font-size: 10.5px; font-weight: 700; padding: 6px 12px; border-radius: 999px; background: #131820; border: 1px solid #232a34; color: #8b949e; cursor: pointer; }
+      .ftab.active { background: rgba(0,168,107,.15); border-color: rgba(0,168,107,.4); color: #7ee6b8; }
+      .ftab .n { opacity: .7; margin-left: 3px; }
+      table.rtable { width: 100%; border-collapse: collapse; font-size: 11px; }
+      table.rtable th { text-align: left; font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em; color: #5b6472; padding: 7px 8px; border-bottom: 1px solid #1d232c; font-weight: 700; }
+      table.rtable td { padding: 8px; border-bottom: 1px solid #161b22; color: #b7c0cc; vertical-align: top; }
+      table.rtable tr.rrow { cursor: pointer; }
+      table.rtable tr.rrow:hover td { background: #10151b; }
+      table.rtable .chev { color: #4a5361; width: 14px; padding-top: 10px; }
+      table.rtable .sndcell { font-family: ui-monospace, Menlo, monospace; font-size: 10px; color: #d5dbe3; width: 110px; }
+      table.rtable .msgcell { font-family: ui-monospace, Menlo, monospace; font-size: 10px; line-height: 1.5; max-width: 380px; }
+      table.rtable .msgcell mark { background: rgba(0,168,107,.28); color: #7ee6b8; border-radius: 2px; padding: 0 1px; font-weight: 700; }
+      table.rtable .msgcell mark.f2 { background: rgba(59,130,246,.28); color: #93c5fd; }
+      table.rtable .msgcell mark.f3 { background: rgba(236,72,153,.28); color: #f9a8d4; }
+      table.rtable .msgcell mark.f4 { background: rgba(245,158,11,.28); color: #fcd34d; }
+      table.rtable .tracecell { width: 100px; }
+      .tracestrip { display: flex; gap: 3px; align-items: center; }
+      .tdot { width: 15px; height: 15px; border-radius: 50%; font-size: 8px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .tdot.matched { background: rgba(16,185,129,.25); color: #10b981; }
+      .tdot.tried { background: rgba(239,68,68,.2); color: #ff8a8a; }
+      .tdot.skipped { background: #1a2028; color: #4a5361; }
+      table.rtable .badgecell { width: 90px; }
+      .badge { font-size: 9px; font-weight: 800; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+      .badge.pass { background: rgba(16,185,129,.15); color: #10b981; }
+      .badge.warn { background: rgba(245,158,11,.15); color: #f59e0b; }
+      .badge.fail { background: rgba(239,68,68,.15); color: #ef4444; }
+      .exprow td { background: #0d1117 !important; padding: 14px 16px; border-bottom: 1px solid #1d232c; }
+      .tracelbl { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #5b6472; margin: 8px 0 4px; }
+
+      /* Export modal */
+      .modal { max-width: 640px; margin: 0 auto; background: #0d1117; border: 1px solid #232a34; border-radius: 14px; overflow: hidden; }
+      .modal .mtop { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid #232a34; }
+      .modal .mtop h4 { margin: 0; font-size: 13px; color: #fff; }
+      .modal .mtop .x { color: #5b6472; cursor: pointer; }
+      .modal .mbody { padding: 16px 18px; }
+      .modal .note { font-size: 11px; color: #9aa5b1; line-height: 1.6; margin-bottom: 10px; }
+      .jsonpre { background: #05070a; border: 1px solid #1d232c; border-radius: 8px; padding: 12px 14px; font-family: ui-monospace, Menlo, monospace; font-size: 10px; color: #9ea8b5; line-height: 1.6; max-height: 220px; overflow: auto; white-space: pre; }
+      .jsonpre .k { color: #93c5fd; } .jsonpre .s { color: #7ee6b8; }
+      .modal .mfoot { display: flex; gap: 8px; padding: 12px 18px; border-top: 1px solid #232a34; }
+    </style>
+  </head>
+  <body>
+    <h1>SMS Parser Verifier — unified workspace</h1>
+    <p class="sub">Direct response to real usage feedback: the 3-mode split (Known templates / Test your own /
+      Add a parser) was three disjoint destinations for what is actually one continuous job — browse what's
+      configured, test real messages against it, fix what's missing, right where you found the gap. This
+      redesign merges all three into one bank-centric workspace, makes both templates AND sender patterns
+      editable (not just append-only), adds a full-bundle export, upgrades the results table to show
+      highlighting + match trace without clicking, decouples sender-recognition testing from regex testing,
+      and adds a grounded regex-writing helper.</p>
+    <div class="topnav">
+      <a href="#problems">Every point, addressed</a>
+      <a href="#s1">① One workspace per bank — no more 3 tabs</a>
+      <a href="#s2">② Editable sender patterns + editable templates</a>
+      <a href="#s3">③ Bank-scoped tester — Auto vs Force sender matching</a>
+      <a href="#s4">④ Upgraded results table — see everything without clicking</a>
+      <a href="#s5">⑤ Regex helper — common snippets + syntax cheat sheet</a>
+      <a href="#s6">⑥ Export &amp; import — worker-compatible JSON</a>
+    </div>
+
+    <!-- ================= PROBLEMS -> ANSWERS MAP ================= -->
+    <div class="sectionband" id="problems">
+      <div class="sectiontitle">Every point you raised, and what changes</div>
+      <div class="groundnote">
+        <b>1. "Why 3 different tabs?"</b> → Gone. One sidebar list (banks + a pinned "Bulk test" entry), one
+        workspace per selection. Editing/adding a template is now just part of browsing a bank, not a
+        separate destination.<br><br>
+        <b>2. "Add a template to an existing bank doesn't let us define the sender"</b> → Sender ID patterns
+        are now editable for every bank, official or not — official patterns stay visible and locked (a real
+        bank's actual shortcodes shouldn't be silently deletable), but you can add as many of your own
+        patterns as you find (a bank issuing SMS from a new shortcode is a real, common thing).<br><br>
+        <b>3. "Can't change known templates"</b> → Every template card now has Edit. Editing an official
+        template creates a session-local override (badge flips <code>official → modified</code>, with a
+        "revert" action) — never mutates the real shipped data, same safe drafting model as adding a new one.<br><br>
+        <b>4. "No way to download everything into a worker-compatible format"</b> → A global "Export all
+        patterns" action, reachable from the sidebar, dumps the CURRENT effective bundle (official + every
+        override + every draft, across every bank) as JSON. Confirmed identical shape to
+        <code>workers/api-proxy</code>'s real <code>/sms-patterns</code> response — this isn't a guess, verified
+        against that route's actual handler.<br><br>
+        <b>5. "The table could show highlighting and the match trace inline"</b> → Done — the Message column
+        renders live color-coded highlighting directly (not gray plain text), and a compact trace-strip
+        (● ● ○ per template, colored by outcome) sits right next to it. Expanding a row is now for the deep
+        dive (field chips, "add pre-filled"), not a requirement just to see what happened.<br><br>
+        <b>6. "We should be able to test any sender/message, which is never implied"</b> → Made explicit two
+        ways: the paste box's own placeholder/hint says so directly, AND a new Auto-detect / Force-this-bank
+        toggle lets you test a message's BODY against one specific bank's templates regardless of whether the
+        sender you typed would normally match it — isolating "is my regex right" from "is the sender
+        recognized" as two separate, individually-testable questions.<br><br>
+        <b>7. "Give the most-used regex to help write new ones"</b> → A helper panel next to every regex field:
+        common capture-group idioms extracted from the real, already-shipped <code>smsPatterns.ts</code> (not
+        invented), one click to insert at the cursor, plus a general regex-syntax cheat sheet for anyone who
+        isn't fluent in regex at all.
+      </div>
+    </div>
+
+    <!-- ================= SECTION 1 ================= -->
+    <div class="sectionband" id="s1">
+      <div class="sectiontitle"><span class="num">1</span>One workspace per bank — no more 3 tabs</div>
+      <div class="sectionsub">The sidebar now holds one flat list: a pinned "⚡ Bulk test — all banks" entry
+        at the top (for validating a large, mixed real-world corpus across every bank's sender-matching), then
+        every configured bank, then "+ New bank" at the bottom. Selecting a bank shows everything about it —
+        browse, edit, add, test — on one screen. There's no separate "mode" for adding a parser anymore;
+        drafting a new template for SBI happens on SBI's own page, the same page you'd browse its existing
+        templates on.</div>
+      <div class="frame">
+        <div class="cc">
+          <div class="side">
+            <div class="searchbox"><i class="ti ti-search" style="color:#5b6472;font-size:12px"></i><span class="ph">Filter banks…</span></div>
+            <div class="pinrow"><i class="ti ti-bolt"></i>Bulk test — all banks</div>
+            <div class="navlbl">Banks (12 + 1 draft)</div>
+            <div class="bankrow active"><span class="dot" style="background:#10b981"></span>SBI<span class="cnt">3/4<span class="pill modified" style="padding:1px 5px;font-size:7.5px">1 edited</span></span></div>
+            <div class="bankrow"><span class="dot" style="background:#10b981"></span>HDFC<span class="cnt">3/3</span></div>
+            <div class="bankrow"><span class="dot" style="background:#10b981"></span>ICICI<span class="cnt">3/3</span></div>
+            <div class="bankrow"><span class="dot" style="background:#3b82f6"></span>IDBI<span class="cnt">1/1<span class="pill draft" style="padding:1px 5px;font-size:7.5px">draft</span></span></div>
+            <div class="newbankrow"><i class="ti ti-plus" style="font-size:12px"></i>New bank…</div>
+            <div class="sidefoot">
+              <div class="exportbtn"><i class="ti ti-download"></i>Export all patterns</div>
+              <div class="exportbtn" style="margin-top:6px"><i class="ti ti-upload"></i>Import patterns</div>
+            </div>
+          </div>
+          <div class="main">
+            <div class="mainhead">
+              <div><div class="breadcrumb">Bank workspace</div><h3>SBI</h3></div>
+              <div class="headactions"><div class="smallbtn"><i class="ti ti-download"></i>Export SBI only</div></div>
+            </div>
+            <div class="groundnote" style="margin:12px 0">Scroll to Sections 2–4 below for what this page
+              actually contains — sender patterns, editable templates, and the bank-scoped tester all live
+              here together; this frame is just establishing the shell/navigation change.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 2 ================= -->
+    <div class="sectionband" id="s2">
+      <div class="sectiontitle"><span class="num">2</span>Editable sender patterns + editable templates</div>
+      <div class="sectionsub">Official sender patterns stay visible with a lock icon (not silently
+        deletable — they're real production coverage) but you can add your own underneath, e.g. a new
+        shortcode a bank started using. Every template — official or yours — has Edit; editing an official
+        one doesn't touch the real shipped data, it creates a session override (badge flips to "modified",
+        with a one-click revert). <b style="color:#d5dbe3">New:</b> the regex and its sample message are now
+        shown side by side, both colorized with the same group→color mapping, so you can trace exactly which
+        chunk of the pattern produced which highlighted chunk of the message — while editing, the pattern side
+        becomes a live-updating preview of what you've typed, re-tested against the template's own original
+        sample as you go.</div>
+      <div class="frame">
+        <div class="cc" style="height:auto">
+          <div class="main" style="padding:20px 24px">
+            <div class="subhead">Sender ID patterns</div>
+            <div class="senderbox">
+              <span class="pat"><i class="ti ti-lock" style="font-size:9px" title="official — not removable"></i>^[A-Z]{2}-SBIINB$</span>
+              <span class="pat"><i class="ti ti-lock" style="font-size:9px"></i>^SBIINB$</span>
+              <span class="pat custom">^[A-Z]{2}-SBIPSG$<span class="x">✕</span></span>
+              <input class="addpatinput" value="^SBIINB2$" placeholder="+ add another sender pattern, e.g. ^SBIPSG$" />
+            </div>
+            <div class="regexstatus err" style="margin:6px 2px 0">
+              <i class="ti ti-alert-triangle"></i> This pattern would also match under HDFC's existing sender
+              patterns — <code>traceSms()</code> checks banks in order, so adding it here would silently steal
+              some HDFC messages instead of reaching HDFC's templates. Narrow the pattern or double-check
+              which bank actually owns this sender before adding it.
+            </div>
+
+            <div class="subhead" style="margin-top:18px">Templates <span class="cnt">4 (3 official, 1 modified)</span></div>
+
+            <div class="tcard">
+              <div class="head"><b>Template 1</b><span class="era">current-era debit</span><span class="pill official">official</span><span class="spacer"></span>
+                <span class="pill pass">✓ Parsed</span>
+                <span class="iconbtn"><i class="ti ti-pencil" style="font-size:10px"></i>Edit</span>
+                <span class="iconbtn"><i class="ti ti-copy" style="font-size:10px"></i>Copy regex</span>
+              </div>
+              <div class="regexmsg-grid">
+                <div>
+                  <div class="minilabel">Regex</div>
+                  <div class="smstext">A/C X<mark class="f2">(?&lt;acctLast4&gt;\d{3,6})</mark> debited by <mark>(?&lt;amount&gt;[\d.]+)</mark> on date <mark class="f4">(?&lt;dateStr&gt;\d{2}[A-Za-z]{3}\d{2})</mark> trf to <mark class="f3">(?&lt;counterparty&gt;[\w .]+)</mark> Refno<mark class="f4">(?&lt;ref&gt;\d+)</mark> -SBI</div>
+                </div>
+                <div>
+                  <div class="minilabel">Sample message</div>
+                  <div class="smstext">A/C X<mark class="f2">4567</mark> debited by <mark>500.0</mark> on date <mark class="f4">15Aug26</mark> trf to <mark class="f3">Merchant Name</mark> Refno <mark class="f4">123456789012</mark> -SBI</div>
+                </div>
+              </div>
+              <div class="fields"><span class="fchip">amount <b>₹500</b></span><span class="fchip f2">acctLast4 <b>••4567</b></span><span class="fchip f3">counterparty <b>Merchant Name</b></span><span class="fchip f4">ref <b>123456789012</b></span></div>
+            </div>
+
+            <div class="tcard">
+              <div class="head"><b>Template 3</b><span class="era">"Dear Customer" older era</span><span class="pill modified">modified — was official</span><span class="spacer"></span>
+                <span class="iconbtn"><i class="ti ti-arrow-back-up" style="font-size:10px"></i>Revert to official</span>
+              </div>
+              <div class="editform">
+                <div class="formgrid2">
+                  <div class="formfield"><label>Transaction type</label><select><option>debit</option></select></div>
+                  <div class="formfield"><label>Date format</label><input value="DD-MM-YY" /></div>
+                </div>
+                <div class="formfield">
+                  <label>Regex pattern</label>
+                  <textarea rows="2">Dear Customer, Rs\.?(?&lt;amount&gt;[\d,]+\.?\d*) debited from A/c XX(?&lt;acctLast4&gt;\d{3,6}) on (?&lt;dateStr&gt;\d{2}/\d{2}/\d{2}) transfer to (?&lt;counterparty&gt;[\w.@ ]+) Ref ?No(?&lt;ref&gt;\d+)\. -SBI</textarea>
+                  <div class="regexstatus ok"><i class="ti ti-circle-check"></i> Valid regex — fixed a missing space before "Ref No" that the official version required</div>
+                </div>
+
+                <div class="minilabel" style="margin:10px 0 4px">Live preview — updates on every keystroke, re-tested against this template's own original sample</div>
+                <div class="regexmsg-grid">
+                  <div>
+                    <div class="minilabel">Your edited regex</div>
+                    <div class="smstext">Dear Customer, Rs\.?<mark>(?&lt;amount&gt;[\d,]+\.?\d*)</mark> debited from A/c XX<mark class="f2">(?&lt;acctLast4&gt;\d{3,6})</mark> on <mark class="f4">(?&lt;dateStr&gt;\d{2}/\d{2}/\d{2})</mark> transfer to <mark class="f3">(?&lt;counterparty&gt;[\w.@ ]+)</mark> Ref ?No<mark class="f4">(?&lt;ref&gt;\d+)</mark>\. -SBI</div>
+                  </div>
+                  <div>
+                    <div class="minilabel">Original sample <span class="pill pass" style="margin-left:4px">✓ still matches</span></div>
+                    <div class="smstext">Dear Customer, Rs.<mark>1200</mark> debited from A/c XX<mark class="f2">4567</mark> on <mark class="f4">15/08/26</mark> transfer to <mark class="f3">merchant@sbi</mark> Ref No<mark class="f4">123456789012</mark>. -SBI</div>
+                  </div>
+                </div>
+
+                <div class="formbtnrow">
+                  <div class="formbtn primary">Save override</div>
+                  <div class="formbtn ghost">Cancel</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tcard addcard"><i class="ti ti-plus"></i>Add a new template for SBI</div>
+          </div>
+        </div>
+      </div>
+      <div class="sectionsub" style="margin-top:12px">Note the modified card's own status line explaining
+        <i>why</i> it was changed — free-text, same spirit as the existing <code>addedAt</code> changelog
+        label every template already carries, so a future developer merging this back into
+        <code>smsPatterns.ts</code> understands the fix, not just the diff. <b style="color:#d5dbe3">New:</b>
+        the sender-pattern box now checks every new pattern (custom OR official, for a new bank) against
+        every OTHER bank's patterns before it's added — a real risk once senders are freely editable, since
+        <code>traceSms()</code> matches banks in iteration order and a careless overlap would silently shadow
+        one bank's messages behind another's, with no error, just wrong-bank matches. This is a warning, not a
+        hard block — some real-world overlap is legitimate (a shared aggregator shortcode), so it's a
+        "double-check this" nudge, not a refusal.</div>
+    </div>
+
+    <!-- ================= SECTION 3 ================= -->
+    <div class="sectionband" id="s3">
+      <div class="sectiontitle"><span class="num">3</span>Bank-scoped tester — Auto-detect vs Force this bank</div>
+      <div class="sectionsub">Lives on the same SBI page, right below the templates — editing a regex and
+        re-testing your real messages is now a one-screen loop, not a mode switch. The explicit toggle is
+        the direct answer to "we should be able to test any sender/message, which is never implied":
+        <b style="color:#d5dbe3">Auto-detect</b> mirrors real app behavior (sender must match SBI's patterns
+        first); <b style="color:#d5dbe3">Force this bank</b> skips that gate entirely and tests every pasted
+        message's body against SBI's current templates regardless of what sender you typed — for exactly the
+        case where you have a message body that should match, but from a shortcode you haven't registered yet.</div>
+      <div class="frame">
+        <div class="cc" style="height:auto">
+          <div class="main" style="padding:20px 24px">
+            <div class="subhead">Test against SBI</div>
+            <div class="testmodes">
+              <div class="testmode active">Auto-detect sender (real app behavior)</div>
+              <div class="testmode">Force against SBI's templates</div>
+            </div>
+            <div class="console">
+              <div class="console-top"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#10b981"></span></div>
+              <textarea placeholder="Any sender, any wording — one message per block, sender line first, then body. Try a sender SBI doesn't recognize yet, or switch to Force mode to test just the body.">SBIPSG
+A/C X9988 debited by 640.0 on date 16Aug26 trf to Local Store Refno 556677889900 -SBI</textarea>
+            </div>
+            <div class="uploadrow" style="display:flex;align-items:center;gap:10px;margin:8px 0">
+              <div class="smallbtn"><i class="ti ti-file-upload"></i>Upload a .txt file instead</div>
+              <span style="font-size:10px;color:#5b6472">Kept from the current tool — same sender/---/body format, for testing a whole exported message history at once.</span>
+            </div>
+            <div class="runbtn">▸ Test against 1 message</div>
+            <div class="groundnote" style="margin:0">With <b>Auto-detect</b> on, this exact message shows
+              ❌ <b>Unrecognized sender</b> — "SBIPSG" isn't in SBI's sender patterns yet. Switch to
+              <b>Force against SBI's templates</b> and it shows ✓ <b>Matched (Template 1)</b> — confirming the
+              wording itself is fine, the gap is purely the missing sender pattern (fixed in Section 2 by
+              adding <code>^[A-Z]{2}-SBIPSG$</code> above).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 4 ================= -->
+    <div class="sectionband" id="s4">
+      <div class="sectiontitle"><span class="num">4</span>Upgraded results table — see everything without clicking</div>
+      <div class="sectionsub">Same dense one-row-per-message table as before (still built for hundreds or
+        thousands of messages), but the Message column now renders the real highlighted text directly instead
+        of flat gray, and a compact trace-strip shows which template(s) were tried at a glance — green =
+        matched, red = tried and failed, gray = never attempted (an earlier template already won). Rows still
+        expand on click for the full field-chip breakdown and the "add template, pre-filled" action — that's
+        now for the deep dive, not a requirement just to scan results.</div>
+      <div class="frame">
+        <div class="cc" style="height:auto">
+          <div class="main" style="padding:20px 24px">
+            <div class="filtertabs">
+              <div class="ftab active">All <span class="n">1,204</span></div>
+              <div class="ftab">✓ Parsed <span class="n">1,102</span></div>
+              <div class="ftab">⚠ Partial <span class="n">80</span></div>
+              <div class="ftab">❌ Unrecognized <span class="n">22</span></div>
+              <span style="margin-left:auto;display:flex;gap:6px">
+                <span class="smallbtn"><i class="ti ti-copy"></i>Copy (redacted)</span>
+                <span class="smallbtn"><i class="ti ti-copy"></i>Copy (unredacted)</span>
+              </span>
+            </div>
+            <table class="rtable">
+              <thead><tr><th></th><th>Sender</th><th>Message</th><th>Trace</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr class="rrow">
+                  <td class="chev"><i class="ti ti-chevron-right"></i></td>
+                  <td class="sndcell">VM-HDFCBK</td>
+                  <td class="msgcell">HDFC Bank: Rs.<mark>500.00</mark> debited from a/c <mark class="f2">XX1234</mark> to VPA <mark class="f3">merchant@ybl</mark> (Ref <mark class="f4">123456789012</mark>)</td>
+                  <td class="tracecell"><div class="tracestrip"><span class="tdot matched">1</span><span class="tdot skipped">2</span><span class="tdot skipped">3</span></div></td>
+                  <td class="badgecell"><span class="badge pass">✓ Parsed</span></td>
+                </tr>
+                <tr class="rrow" style="background:#0f141a">
+                  <td class="chev"><i class="ti ti-chevron-down"></i></td>
+                  <td class="sndcell">SBIPSG</td>
+                  <td class="msgcell">A/C X9988 debited by <mark>640.0</mark> on date <mark class="f4">16Aug26</mark> trf to <mark class="f3">Local Store</mark> Refno <mark class="f4">556677889900</mark> -SBI</td>
+                  <td class="tracecell"><div class="tracestrip"><span class="tdot skipped">—</span></div></td>
+                  <td class="badgecell"><span class="badge fail">❌ Unrecognized</span></td>
+                </tr>
+                <tr class="exprow">
+                  <td colspan="5">
+                    <div class="tracelbl" style="margin-top:0">No bank's sender patterns matched "SBIPSG"</div>
+                    <div class="regexstatus err" style="margin-top:6px">
+                      <i class="ti ti-bulb"></i> Did you mean <b style="color:#d5dbe3">SBI</b>? "SBIPSG" is a
+                      close match to SBI's existing <code>^SBIINB$</code>/<code>^[A-Z]{2}-SBIINB$</code>
+                      patterns (same "SBI" prefix, different suffix) — the message body itself also parses
+                      cleanly under SBI's Template 1 when tested with Force mode.
+                    </div>
+                    <div class="formbtnrow"><div class="formbtn primary">+ Add "^SBIPSG$" as a sender pattern for SBI</div></div>
+                  </td>
+                </tr>
+                <tr class="rrow" style="background:#0f141a">
+                  <td class="chev"><i class="ti ti-chevron-down"></i></td>
+                  <td class="sndcell">VM-SBIINB</td>
+                  <td class="msgcell">SBI: Your account will be credited with cashback of <mark>Rs.50</mark> within 3 working days.</td>
+                  <td class="tracecell"><div class="tracestrip"><span class="tdot tried">1</span><span class="tdot tried">2</span><span class="tdot tried">3</span></div></td>
+                  <td class="badgecell"><span class="badge warn">⚠ Partial</span></td>
+                </tr>
+                <tr class="exprow">
+                  <td colspan="5">
+                    <div class="tracelbl">Full trace — sender recognized as SBI, 3 templates tried, none matched</div>
+                    <div style="font-size:11px;color:#7d8794">Template 1 (current-era debit) ✗ · Template 2 (current-era credit) ✗ · Template 3 (modified — "Dear Customer") ✗</div>
+                    <div class="formbtnrow"><div class="formbtn primary">+ Add a template for SBI, pre-filled from this message</div></div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="sectionsub" style="margin-top:12px">The trace-strip's numbered dots are a compact stand-in
+        for "N templates tried" — hover (or tap on mobile) shows each template's label as a tooltip; full
+        detail is still one click away in the expanded row, exactly like the SBI cashback example above.
+        <b style="color:#d5dbe3">Both copy actions are back</b> (they existed in the original v1 tool and were
+        dropped during the Command Center rebuild — restoring per feedback): "Copy (redacted)" masks every
+        digit and stays the default-reachable action; "Copy (unredacted)" keeps the real numbers for when you
+        actually mean to share the raw data — never the default, always a second, deliberate click.
+        <b style="color:#d5dbe3">Also new:</b> the SBIPSG row above shows the "did you mean" fuzzy-sender
+        suggestion — a cheap string-similarity check (edit distance, or even simpler: shared literal prefix/
+        suffix against every bank's existing patterns) against unrecognized senders, surfaced only in the
+        expanded row so it never clutters the collapsed table. It's a nudge with a one-click fix, not just a
+        dead-end "Unrecognized" label.</div>
+    </div>
+
+    <!-- ================= SECTION 5 ================= -->
+    <div class="sectionband" id="s5">
+      <div class="sectiontitle"><span class="num">5</span>Regex helper — grounded common snippets + syntax cheat sheet</div>
+      <div class="sectionsub">Sits next to every regex field (editing an official template, fixing an
+        override, or drafting brand new). Two tabs: <b style="color:#d5dbe3">Common patterns</b> — capture-
+        group idioms extracted from the real, already-shipped <code>smsPatterns.ts</code> (not invented —
+        verified by grepping the actual 21 templates), one click inserts at the cursor. <b style="color:#d5dbe3">Regex syntax</b>
+        — a general reference for anyone not fluent in regex at all, per your own cheat-sheet suggestion.</div>
+      <div class="frame">
+        <div class="cc" style="height:auto">
+          <div class="main" style="padding:20px 24px">
+            <div class="helperwrap">
+              <div class="field">
+                <div class="formfield">
+                  <label>Regex pattern</label>
+                  <textarea rows="6" style="width:100%;background:#0d1117;border:1px solid #232a34;border-radius:7px;padding:9px 11px;color:#d5dbe3;font-family:ui-monospace,Menlo,monospace;font-size:11px">IDBI Bank: Rs\.?(?&lt;amount&gt;[\d,]+\.?\d*) debited from a/c |</textarea>
+                  <div class="regexstatus err"><i class="ti ti-alert-triangle"></i> Incomplete — cursor is where the next snippet inserts</div>
+                </div>
+              </div>
+              <div class="helper">
+                <div class="helpertabs">
+                  <div class="helpertab active">Common patterns</div>
+                  <div class="helpertab">Regex syntax</div>
+                </div>
+                <div class="htitle">Insert at cursor</div>
+                <div class="snippetrow"><span class="lbl"><b>acctLast4</b> — account last digits</span><span class="insrt">+ insert</span></div>
+                <div class="cheatgrid" style="margin:2px 0 8px 7px"><span class="k">X+(?&lt;acctLast4&gt;\d{3,6})</span></div>
+                <div class="snippetrow"><span class="lbl"><b>cardLast4</b> — card last 4</span><span class="insrt">+ insert</span></div>
+                <div class="cheatgrid" style="margin:2px 0 8px 7px"><span class="k">X(?&lt;cardLast4&gt;\d{4})</span></div>
+                <div class="snippetrow"><span class="lbl"><b>counterparty</b> — VPA/merchant/name</span><span class="insrt">+ insert</span></div>
+                <div class="cheatgrid" style="margin:2px 0 8px 7px"><span class="k">(?&lt;counterparty&gt;[\w .@-]+)</span></div>
+                <div class="snippetrow"><span class="lbl"><b>ref</b> — UPI/transaction ref no.</span><span class="insrt">+ insert</span></div>
+                <div class="cheatgrid" style="margin:2px 0 8px 7px"><span class="k">Ref\.?\s*No\.?\s*(?&lt;ref&gt;\d+)</span></div>
+                <div class="snippetrow"><span class="lbl"><b>balance</b> — available balance</span><span class="insrt">+ insert</span></div>
+                <div class="cheatgrid" style="margin:2px 0 8px 7px"><span class="k">Avl\.?\s*Bal\.?\s*Rs\.?\s?(?&lt;balance&gt;[\d,]+\.?\d*)</span></div>
+                <div class="snippetrow"><span class="lbl"><b>dateStr</b> — 3 common formats</span><span class="insrt">+ insert ▾</span></div>
+                <div class="cheatgrid" style="margin:2px 0 0 7px">
+                  <span class="k">\d{2}-[A-Za-z]{3}-\d{2}</span><span class="v">15-Aug-26</span>
+                  <span class="k">\d{2}\/\d{2}\/\d{2}</span><span class="v">15/08/26</span>
+                  <span class="k">\d{2}-\d{2}-\d{4}</span><span class="v">15-08-2026</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="sectionsub" style="margin-top:12px"><b style="color:#d5dbe3">"Regex syntax" tab (2nd tab
+        above)</b> is the general-purpose reference you sent — character classes (<code>\w \d \s</code>),
+        anchors (<code>^ $ \b</code>), groups/lookaround (<code>(?:...) (?=...) (?!...)</code>), quantifiers
+        (<code>* + ? {n,m}</code>) — always available, not specific to SMS parsing, for anyone drafting a
+        pattern from scratch rather than starting from a common-patterns snippet.</div>
+    </div>
+
+    <!-- ================= SECTION 6 ================= -->
+    <div class="sectionband" id="s6">
+      <div class="sectiontitle"><span class="num">6</span>Export &amp; import — worker-compatible JSON, shareable between testers</div>
+      <div class="sectionsub">One global "Export" action (sidebar footer, Section 1) dumps the full effective
+        bundle — every official bank, every override, every draft — as JSON. This is not a "best guess" at a
+        compatible format: <code>workers/api-proxy/src/index.ts</code>'s real <code>/sms-patterns</code> route
+        literally returns <code>SMS_PATTERN_BUNDLE</code>, the exact same <code>{version, banks: [{bankId,
+        senderIdPatterns, templates}]}</code> shape this tool already uses internally — so this export can be
+        pasted directly into that file (or diffed against it) with zero reshaping. A matching "Import" action
+        sits right next to it — paste or upload a previously-exported JSON to load someone else's whole draft
+        set into your own session, so two testers working the same bank don't have to redo each other's work
+        by hand.</div>
+      <div class="frame">
+        <div class="cc" style="height:auto">
+          <div class="main" style="padding:24px">
+            <div class="modal">
+              <div class="mtop"><h4>Export all patterns</h4><span class="x">✕</span></div>
+              <div class="mbody">
+                <div class="note">Includes every official bank, your session's overrides, and every draft
+                  template/bank — exactly what <code>effectiveBundle()</code> uses everywhere else in this
+                  tool right now. Matches <code>workers/api-proxy/src/smsPatterns.ts</code>'s
+                  <code>SMS_PATTERN_BUNDLE</code> shape exactly.</div>
+                <div class="jsonpre">{
+  <span class="k">"version"</span>: 1,
+  <span class="k">"banks"</span>: [
+    {
+      <span class="k">"bankId"</span>: <span class="s">"sbi"</span>,
+      <span class="k">"senderIdPatterns"</span>: [<span class="s">"^[A-Z]{2}-SBIINB$"</span>, <span class="s">"^SBIINB$"</span>, <span class="s">"^[A-Z]{2}-SBIPSG$"</span>],
+      <span class="k">"templates"</span>: [ <span class="s">/* 3 official + 1 modified */</span> ]
+    },
+    {
+      <span class="k">"bankId"</span>: <span class="s">"idbi"</span>,
+      <span class="k">"senderIdPatterns"</span>: [<span class="s">"^[A-Z]{2}-IDBIBK$"</span>],
+      <span class="k">"templates"</span>: [ <span class="s">/* 1 draft */</span> ]
+    }
+    <span class="s">/* … 11 more banks */</span>
+  ]
+}</div>
+              </div>
+              <div class="mfoot">
+                <div class="formbtn primary">Copy JSON</div>
+                <div class="formbtn ghost">Download sms-patterns.json</div>
+              </div>
+            </div>
+
+            <div class="modal" style="margin-top:20px">
+              <div class="mtop"><h4>Import patterns</h4><span class="x">✕</span></div>
+              <div class="mbody">
+                <div class="note">Paste JSON in the same shape, or upload a <code>.json</code> file. Every
+                  bank/template it contains merges into your <b style="color:#d5dbe3">drafts</b> — it never
+                  replaces the bundled official fallback, so importing someone else's session can't silently
+                  erase your own edits; a bank/template that exists in both gets a conflict badge you resolve
+                  by picking one side, same spirit as the "modified — was official" badge in Section 2.</div>
+                <div class="console" style="margin-bottom:0">
+                  <div class="console-top"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#10b981"></span></div>
+                  <textarea placeholder="Paste exported JSON here…" style="min-height:70px"></textarea>
+                </div>
+                <div class="uploadrow" style="display:flex;align-items:center;gap:10px;margin-top:8px">
+                  <div class="smallbtn"><i class="ti ti-file-upload"></i>Upload a .json file instead</div>
+                </div>
+              </div>
+              <div class="mfoot">
+                <div class="formbtn primary">Import into this session</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <b>Build this as one redesign, not incremental patches.</b> The 7 points aren't 7 separate small fixes —
+      they're one root cause (three artificially separate destinations for what's really one job) plus its
+      direct consequences (can't edit in place, can't test freely, no way out to a real deployable artifact,
+      too much hidden behind clicks). Fixing them piecemeal on top of the existing 3-mode shell would just be
+      more patches on a structure that needs to change. This is worth doing as a real rebuild of
+      <code>entry.ts</code>'s mode/render architecture, not another round of edits to <code>renderAddMain()</code>.
+    </div>
+
+    <div class="legend">
+      <h2>Summary of what changes</h2>
+      <ul>
+        <li><b>Architecture:</b> <code>mode: 'known' | 'test' | 'add'</code> and the 3-way sidebar mode-switch
+          are removed entirely. Sidebar selection becomes: the pinned "Bulk test" entry, or a bank (existing
+          or newly created) — one workspace renderer per selection, not three.</li>
+        <li><b>Sender patterns become editable for every bank</b> — official patterns render locked/
+          non-removable; user-added ones are a new draft concept (<code>customSenderPatterns: string[]</code>
+          per bank, merged into <code>effectiveBundle()</code> alongside existing template drafts).</li>
+        <li><b>Official templates become editable</b> — a new "override" draft kind (replaces template N of
+          bank X's effective definition for the session) alongside the existing "new template" draft kind;
+          both merge through the same <code>effectiveBundle()</code>, both export identically.</li>
+        <li><b>Regex ↔ message side by side (new):</b> the regex source's own named-group spans (found by a
+          small bracket-matching parser over the pattern string, not a runtime match) get wrapped in the same
+          colored <code>&lt;mark&gt;</code> elements as the message's capture offsets — both driven by one
+          shared <code>markRanges(text, ranges)</code> primitive, with <code>highlightedText()</code> becoming
+          a thin wrapper over it for the message case. While editing, the regex side re-renders live from the
+          textarea's current value on every keystroke, paired with the template's own bundled sample re-tested
+          against it in real time.</li>
+        <li><b>Bank-scoped tester</b> lives on every bank's page — Auto-detect (real sender-matching) vs
+          Force-this-bank (skips the sender gate, tests body only) as an explicit toggle, both built on the
+          same <code>traceSms()</code>, just with the sender-gate step conditionally skipped in Force mode.</li>
+        <li><b>Results table upgrade</b> (applies to both the bank-scoped tester and the Bulk-test page):
+          Message column always renders through <code>highlightedText()</code> (never plain gray text), plus a
+          new compact trace-strip column — reuses the existing per-attempt trace data, purely a rendering
+          addition.</li>
+        <li><b>Regex helper panel:</b> a static, curated set of capture-group snippets (grounded by grepping
+          the real <code>smsPatterns.ts</code>, not invented) with click-to-insert-at-cursor, plus a second
+          tab for the general regex-syntax reference — available next to every pattern textarea in the tool.</li>
+        <li><b>Global export:</b> one action serializing <code>effectiveBundle()</code> to JSON — copy or
+          download — confirmed (not assumed) to match <code>workers/api-proxy</code>'s real
+          <code>/sms-patterns</code> response shape exactly.</li>
+        <li><b>Global import (new):</b> the mirror of export — paste or upload a same-shaped JSON, merged
+          into <code>drafts</code>/overrides, never overwriting the bundled official fallback. A bank/template
+          present in both the import and your current session surfaces a conflict badge to resolve by hand,
+          rather than silently picking a side.</li>
+        <li><b>Kept from the current tool, unchanged in spirit:</b> "Upload a .txt file" for bulk pasting a
+          whole exported message history (now available on both the bank-scoped tester and the Bulk-test
+          page), and both "Copy (redacted)"/"Copy (unredacted)" results actions — redacted stays the
+          easy-to-reach default, unredacted is always one deliberate extra click.</li>
+        <li><b>Fuzzy "did you mean" sender suggestion (new):</b> a cheap string-similarity check against every
+          bank's existing sender patterns, surfaced only inside an unrecognized-sender row's expanded detail
+          (never cluttering the collapsed table) — turns a dead-end "Unrecognized" result into a one-click
+          "add this as a sender pattern for &lt;bank&gt;" fix when the match is a near-miss.</li>
+        <li><b>Overlap/duplicate sender-pattern warning (new):</b> before a new sender pattern is added
+          (custom, on an existing bank, or as part of a whole new bank), it's checked against every OTHER
+          bank's existing patterns — a soft warning, not a hard block, since some real-world overlap (a shared
+          aggregator shortcode) is legitimate; the point is making an accidental one visible before it silently
+          shadows another bank's messages.</li>
+      </ul>
+    </div>
+  </body>
+</html>

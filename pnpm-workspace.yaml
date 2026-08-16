@@ -10,6 +10,7 @@ packages:
 # workspace-level settings like this from here, not from .npmrc.
 shamefullyHoist: true
 allowBuilds:
+  esbuild: true
   ttf2woff2: true
 minimumReleaseAgeExclude:
   - '@expo/cli@57.0.10'

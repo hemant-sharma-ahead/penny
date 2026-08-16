@@ -1,0 +1,1360 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SMS Parser Verifier — v2 (light, scale-first, clickable prototype)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg: #f4f6f8;
+        --paper: #ffffff;
+        --border: #e2e5ea;
+        --text: #1a2233;
+        --text2: #667085;
+        --text3: #98a2b3;
+        --primary: #059669;
+        --primary-bg: #ecfdf5;
+        --blue: #2563eb;
+        --blue-bg: #eff6ff;
+        --pink: #be185d;
+        --pink-bg: #fce7f3;
+        --amber: #b45309;
+        --amber-bg: #fef3c7;
+        --danger: #dc2626;
+        --danger-bg: #fef2f2;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #eef1f4;
+        color: var(--text);
+      }
+      h1 {
+        text-align: center;
+        margin: 28px 16px 4px;
+        font-size: 21px;
+      }
+      .sub {
+        text-align: center;
+        margin: 0 16px 16px;
+        color: var(--text2);
+        font-size: 13.5px;
+        max-width: 880px;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.65;
+      }
+      .whatchanged {
+        max-width: 880px;
+        margin: 0 auto 22px;
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 12px;
+        padding: 14px 18px;
+        font-size: 12.5px;
+        line-height: 1.75;
+        color: #78350f;
+      }
+      .whatchanged b {
+        color: #1a2233;
+      }
+      .frame {
+        max-width: 1180px;
+        margin: 0 auto 40px;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 12px 40px rgba(20, 30, 45, 0.16);
+        border: 1px solid #d7dbe0;
+      }
+
+      /* ── App shell: left banks · middle test+results (the star) · right reference panel ── */
+      .app {
+        display: flex;
+        height: 700px;
+        background: var(--bg);
+      }
+      .left {
+        width: 190px;
+        flex-shrink: 0;
+        background: var(--paper);
+        border-right: 1px solid var(--border);
+        padding: 14px 10px;
+        display: flex;
+        flex-direction: column;
+        overflow: auto;
+      }
+      .navlbl {
+        font-size: 9.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text3);
+        margin: 10px 6px 6px;
+      }
+      .pinrow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 8px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        background: var(--blue-bg);
+        color: var(--blue);
+        margin-bottom: 4px;
+      }
+      .bankrow {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 8px;
+        border-radius: 7px;
+        font-size: 12px;
+        color: var(--text);
+        cursor: pointer;
+      }
+      .bankrow.active {
+        background: var(--primary-bg);
+        color: var(--primary);
+        font-weight: 700;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .bankrow .cnt {
+        margin-left: auto;
+        font-size: 10px;
+        color: var(--text3);
+      }
+      .newbankrow {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 8px;
+        border-radius: 7px;
+        font-size: 11px;
+        color: var(--text3);
+        cursor: pointer;
+        border: 1px dashed var(--border);
+        margin-top: 6px;
+      }
+      .sidefoot {
+        margin-top: auto;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .footbtn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--text2);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        padding: 7px 9px;
+        border-radius: 7px;
+        cursor: pointer;
+        justify-content: center;
+      }
+
+      .mid {
+        flex: 1;
+        min-width: 0;
+        padding: 16px 20px;
+        overflow: auto;
+        background: var(--bg);
+      }
+      .midhead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+      .midhead h2 {
+        font-size: 16px;
+        margin: 0;
+      }
+      .midhead .breadcrumb {
+        font-size: 10.5px;
+        color: var(--text3);
+      }
+      .smallbtn {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--text2);
+        background: var(--paper);
+        border: 1px solid var(--border);
+        padding: 6px 11px;
+        border-radius: 7px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .modechips {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+      .modechip {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        color: var(--text2);
+        cursor: pointer;
+      }
+      .modechip.active {
+        background: var(--blue-bg);
+        border-color: #bfdbfe;
+        color: var(--blue);
+      }
+      .console {
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px 14px;
+        margin-bottom: 8px;
+      }
+      .console textarea {
+        width: 100%;
+        min-height: 70px;
+        border: none;
+        outline: none;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 11.5px;
+        resize: vertical;
+        color: var(--text);
+      }
+      .uploadrow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+        justify-content: space-between;
+      }
+      .uploadrow .uploadleft {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .uploadrow .hint {
+        font-size: 10.5px;
+        color: var(--text3);
+      }
+      .runbtn {
+        background: var(--primary);
+        color: #fff;
+        font-weight: 700;
+        font-size: 12px;
+        padding: 8px 16px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        border: none;
+        flex-shrink: 0;
+      }
+
+      /* Progress — shown while "parsing" a large batch, never a silent multi-second freeze */
+      .progresswrap {
+        display: none;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px 14px;
+        margin-bottom: 14px;
+      }
+      .progresswrap.active {
+        display: block;
+      }
+      .progresslbl {
+        font-size: 11.5px;
+        color: var(--text2);
+        margin-bottom: 6px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .progressbar {
+        height: 7px;
+        border-radius: 999px;
+        background: var(--border);
+        overflow: hidden;
+      }
+      .progressbar > div {
+        height: 100%;
+        background: var(--primary);
+        width: 0%;
+        transition: width 0.12s linear;
+      }
+
+      /* Summary stat strip — the at-a-glance dashboard for "how did 10,000 messages do" */
+      .statstrip {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+      .statcard {
+        flex: 1;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 12px;
+        cursor: pointer;
+      }
+      .statcard.active {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 1px var(--primary) inset;
+      }
+      .statcard .n {
+        font-size: 19px;
+        font-weight: 800;
+      }
+      .statcard .l {
+        font-size: 10px;
+        color: var(--text2);
+        font-weight: 600;
+      }
+      .statcard.pass .n {
+        color: var(--primary);
+      }
+      .statcard.warn .n {
+        color: var(--amber);
+      }
+      .statcard.fail .n {
+        color: var(--danger);
+      }
+
+      .toolsrow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+      }
+      .searchbox {
+        flex: 1;
+        min-width: 180px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 10px;
+      }
+      .searchbox input {
+        border: none;
+        outline: none;
+        font-size: 11.5px;
+        flex: 1;
+        background: transparent;
+      }
+
+      table.rtable {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11.5px;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      table.rtable th {
+        text-align: left;
+        font-size: 9.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text3);
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+        background: #fafbfc;
+      }
+      table.rtable td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #f0f2f5;
+        vertical-align: top;
+      }
+      table.rtable tr.rrow {
+        cursor: pointer;
+      }
+      table.rtable tr.rrow:hover td {
+        background: #fafbfc;
+      }
+      table.rtable .chev {
+        color: var(--text3);
+        width: 14px;
+      }
+      table.rtable .sndcell {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10.5px;
+        width: 100px;
+      }
+      table.rtable .msgcell {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10.5px;
+        color: var(--text2);
+        max-width: 340px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      table.rtable .msgcell mark {
+        background: var(--primary-bg);
+        color: var(--primary);
+        border-radius: 3px;
+        padding: 0 2px;
+        font-weight: 700;
+      }
+      table.rtable .msgcell mark.f2 {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      table.rtable .msgcell mark.f3 {
+        background: var(--pink-bg);
+        color: var(--pink);
+      }
+      table.rtable .msgcell mark.f4 {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      .badge {
+        font-size: 9.5px;
+        font-weight: 800;
+        padding: 3px 9px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .badge.pass {
+        background: var(--primary-bg);
+        color: var(--primary);
+      }
+      .badge.warn {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      .badge.fail {
+        background: var(--danger-bg);
+        color: var(--danger);
+      }
+      .exprow td {
+        background: #fafbfc !important;
+        padding: 12px 16px;
+      }
+      /* Per-row quick-copy — for exactly the "unrecognized sender, I want to copy this string and go
+         write a template from it" workflow, without needing to expand the row first. */
+      .copycell {
+        width: 30px;
+        text-align: center;
+      }
+      .rowcopy {
+        color: var(--text3);
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .rowcopy:hover {
+        color: var(--primary);
+      }
+      .copytoast {
+        position: fixed;
+        bottom: 18px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #1a2233;
+        color: #fff;
+        font-size: 11.5px;
+        padding: 7px 14px;
+        border-radius: 999px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s;
+        z-index: 100;
+      }
+      .copytoast.show {
+        opacity: 1;
+      }
+
+      /* Pagination — the actual fix for "10,000 messages is not usable here" */
+      .pagerow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 10px;
+        font-size: 11px;
+        color: var(--text2);
+      }
+      .pagebtns {
+        display: flex;
+        gap: 4px;
+        margin-left: auto;
+      }
+      .pagebtn {
+        border: 1px solid var(--border);
+        background: var(--paper);
+        border-radius: 6px;
+        padding: 4px 9px;
+        cursor: pointer;
+        font-size: 11px;
+      }
+      .pagebtn.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+      }
+      select.pagesize {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 4px 6px;
+        font-size: 11px;
+      }
+
+      /* Right panel — read-only reference: "paper" cards of every configured template */
+      .right {
+        width: 300px;
+        flex-shrink: 0;
+        background: #f8f6f0;
+        border-left: 1px solid var(--border);
+        padding: 14px;
+        overflow: auto;
+      }
+      .rightsub {
+        font-size: 9.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text3);
+        margin: 4px 0 8px;
+      }
+      .senderref {
+        font-size: 10.5px;
+        color: var(--text2);
+        margin-bottom: 12px;
+        line-height: 1.7;
+      }
+      .senderref code {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 9.5px;
+      }
+      .papercard {
+        background: #fffefb;
+        border: 1px solid #e8e2d0;
+        border-radius: 8px;
+        padding: 11px 12px;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 6px rgba(120, 100, 40, 0.06);
+      }
+      .papercard .ptop {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 7px;
+      }
+      .papercard .ptop b {
+        font-size: 11px;
+      }
+      .papercard .ptop .era {
+        font-size: 9.5px;
+        color: var(--text3);
+      }
+      .papercard .ptop .spacer {
+        flex: 1;
+      }
+      .papercard .ptop .edit {
+        font-size: 9.5px;
+        color: var(--blue);
+        cursor: pointer;
+        font-weight: 700;
+      }
+      .paperregex {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 9.5px;
+        color: #6b6250;
+        background: #f4f0e4;
+        border-radius: 5px;
+        padding: 6px 8px;
+        line-height: 1.55;
+        margin-bottom: 7px;
+        word-break: break-word;
+      }
+      .papersample {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10px;
+        color: var(--text);
+        line-height: 1.55;
+      }
+      .papersample mark {
+        background: var(--primary-bg);
+        color: var(--primary);
+        border-radius: 2px;
+        padding: 0 2px;
+        font-weight: 700;
+      }
+      .papersample mark.f2 {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      .papersample mark.f3 {
+        background: var(--pink-bg);
+        color: var(--pink);
+      }
+      .addtplbtn {
+        border: 1px dashed #d8d0b8;
+        border-radius: 8px;
+        padding: 10px;
+        text-align: center;
+        font-size: 10.5px;
+        color: #8a7f60;
+        cursor: pointer;
+      }
+
+      /* Modal (Edit/Add template, Export, Import all share this) */
+      .modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(20, 25, 35, 0.4);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+      }
+      .modal-backdrop.active {
+        display: flex;
+      }
+      .modal {
+        width: 520px;
+        max-height: 80%;
+        display: flex;
+        flex-direction: column;
+        background: var(--paper);
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+      }
+      .modal .mtop {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+      }
+      .modal .mtop h4 {
+        margin: 0;
+        font-size: 13.5px;
+      }
+      .modal .mtop .x {
+        cursor: pointer;
+        color: var(--text3);
+      }
+      .modal .mbody {
+        padding: 16px 18px;
+        overflow: auto;
+        font-size: 12px;
+      }
+      .formfield {
+        margin-bottom: 10px;
+      }
+      .formfield label {
+        display: block;
+        font-size: 9.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--text3);
+        margin-bottom: 4px;
+      }
+      .formfield input,
+      .formfield select,
+      .formfield textarea {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 7px 9px;
+        font-size: 11.5px;
+        font-family: ui-monospace, Menlo, monospace;
+      }
+      .formrow2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .modal .mfoot {
+        display: flex;
+        gap: 8px;
+        padding: 12px 18px;
+        border-top: 1px solid var(--border);
+      }
+      .formbtn {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 7px 14px;
+        border-radius: 7px;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: var(--paper);
+      }
+      .formbtn.primary {
+        background: var(--primary);
+        color: #fff;
+        border: none;
+      }
+
+      /* Regex helper panel (Common patterns / Regex syntax) — same content as the already-built tool,
+         just relocated inside the template modal instead of an inline card. */
+      .helperwrap {
+        display: flex;
+        gap: 14px;
+        margin-top: 4px;
+      }
+      .helperwrap .field {
+        flex: 1;
+        min-width: 0;
+      }
+      .helper {
+        flex: 0 0 260px;
+        background: #fafbfc;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px;
+        max-height: 320px;
+        overflow: auto;
+      }
+      .helpertabs {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 8px;
+      }
+      .helpertab {
+        font-size: 9.5px;
+        font-weight: 700;
+        padding: 4px 9px;
+        border-radius: 999px;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        color: var(--text2);
+        cursor: pointer;
+      }
+      .helpertab.active {
+        background: var(--primary-bg);
+        border-color: #a7f3d0;
+        color: var(--primary);
+      }
+      .htitle {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text3);
+        margin: 8px 0 5px;
+      }
+      .snippetrow {
+        display: flex;
+        justify-content: space-between;
+        gap: 6px;
+        padding: 4px 6px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 10.5px;
+      }
+      .snippetrow:hover {
+        background: var(--paper);
+      }
+      .snippetrow .insrt {
+        font-size: 9px;
+        color: var(--text3);
+      }
+      .cheatcode {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 9px;
+        color: var(--primary);
+        background: var(--primary-bg);
+        border-radius: 5px;
+        padding: 3px 7px;
+        margin: 2px 0 6px;
+        word-break: break-word;
+      }
+      .cheatgrid2 {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 3px 10px;
+        font-size: 9.5px;
+        margin-bottom: 4px;
+      }
+      .cheatgrid2 .k {
+        font-family: ui-monospace, Menlo, monospace;
+        color: var(--primary);
+        white-space: nowrap;
+      }
+      .cheatgrid2 .v {
+        color: var(--text2);
+      }
+      .regexstatus-ok {
+        font-size: 10.5px;
+        color: var(--primary);
+        margin-top: 5px;
+      }
+      .regexmsg-preview {
+        margin-top: 10px;
+        background: #fafbfc;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 9px 10px;
+      }
+      .minilabel {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: var(--text3);
+        margin-bottom: 5px;
+      }
+      .pill-pass {
+        font-size: 9px;
+        font-weight: 800;
+        background: var(--primary-bg);
+        color: var(--primary);
+        padding: 2px 7px;
+        border-radius: 999px;
+        margin-left: 4px;
+        text-transform: none;
+      }
+
+      /* Sender-pattern editor modal — official (locked) + custom (removable) chips */
+      .senderbox {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        background: #fafbfc;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px;
+      }
+      .patchip {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10.5px;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        padding: 4px 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--text2);
+      }
+      .patchip.custom {
+        background: var(--blue-bg);
+        border-color: #bfdbfe;
+        color: var(--blue);
+      }
+      .patchip.custom .x {
+        cursor: pointer;
+        color: #93b4f5;
+      }
+      .addpatinput {
+        flex: 1;
+        min-width: 160px;
+        border: none;
+        outline: none;
+        background: transparent;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10.5px;
+        padding: 4px;
+      }
+      .legend {
+        max-width: 880px;
+        margin: 0 auto 60px;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 20px 24px;
+        font-size: 13px;
+        line-height: 1.7;
+      }
+      .legend h2 {
+        font-size: 14px;
+        margin: 0 0 8px;
+      }
+      .legend li {
+        margin-bottom: 6px;
+      }
+      .legend code {
+        background: #f4f6f8;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 11.5px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>SMS Parser Verifier — v2, light + scale-first (click through it)</h1>
+    <p class="sub">
+      This one is a working prototype, not a static picture — click banks, click "Test", click table rows,
+      click pages. It's pre-loaded with 2,400 synthetic fake results so pagination/search/filtering are
+      genuinely testable, not just implied.
+    </p>
+    <div class="whatchanged">
+      <b>What changed from the last version, directly from your feedback:</b><br />
+      1. Light theme, not dark.<br />
+      2. Layout flipped: a right-hand reference panel shows each template as a read-only "paper" card
+      (regex + sample, nothing to edit inline) — the whole middle column is now just testing input + the
+      results table, no competing sections.<br />
+      3. Editing or adding a template opens a popup (same modal pattern as Export/Import) instead of taking
+      over card space inline.<br />
+      4. The actual scale problem: the table is <b>paginated</b> (100/page here), there's a search box to
+      filter by sender/message text, a big stat-card summary strip up top, and a progress bar for the
+      parse itself — try pasting a large batch below and watch it, instead of the whole table just freezing
+      or dumping 10,000 rows into the DOM at once.
+    </div>
+
+    <div class="frame">
+      <div class="app" id="app" style="position: relative">
+        <!-- LEFT: banks -->
+        <div class="left">
+          <div class="pinrow"><i class="ti ti-bolt"></i>Bulk test — all banks</div>
+          <div class="navlbl">Banks (12)</div>
+          <div class="bankrow active"><span class="dot" style="background: #059669"></span>ICICI<span class="cnt">3</span></div>
+          <div class="bankrow"><span class="dot" style="background: #059669"></span>HDFC<span class="cnt">3</span></div>
+          <div class="bankrow"><span class="dot" style="background: #059669"></span>SBI<span class="cnt">3</span></div>
+          <div class="bankrow"><span class="dot" style="background: #b45309"></span>Axis<span class="cnt">2</span></div>
+          <div class="bankrow"><span class="dot" style="background: #98a2b3"></span>Kotak<span class="cnt">2</span></div>
+          <div class="newbankrow"><i class="ti ti-plus" style="font-size: 11px"></i>New bank…</div>
+          <div class="sidefoot">
+            <div class="footbtn"><i class="ti ti-download"></i>Export all</div>
+            <div class="footbtn"><i class="ti ti-upload"></i>Import</div>
+          </div>
+        </div>
+
+        <!-- MIDDLE: testing + results (the primary, only, job of this column) -->
+        <div class="mid">
+          <div class="midhead">
+            <div><div class="breadcrumb">Bank workspace</div><h2>ICICI</h2></div>
+            <div class="smallbtn"><i class="ti ti-download"></i>Export ICICI only</div>
+          </div>
+
+          <div class="modechips">
+            <div class="modechip active">Auto-detect sender</div>
+            <div class="modechip">Force against ICICI's templates</div>
+          </div>
+
+          <div class="console">
+            <textarea id="pasteArea" placeholder="Paste up to thousands of messages — sender line, body, --- between each. Or upload a .txt export.">VK-ICICIB
+ICICI Bank Acct XX789 debited with Rs 2,500.00 on 15-Aug-26; Merchant Store credited. UPI:123456789012.
+--- (2,399 more messages loaded for this demo) ---</textarea>
+          </div>
+          <div class="uploadrow">
+            <div class="uploadleft">
+              <div class="smallbtn"><i class="ti ti-file-upload"></i>Upload a .txt file</div>
+              <span class="hint">2,400 messages ready to test (loaded for this demo)</span>
+            </div>
+            <button class="runbtn" id="testBtn"><i class="ti ti-player-play-filled"></i> Test against 2,400 messages</button>
+          </div>
+
+          <div class="progresswrap" id="progressWrap">
+            <div class="progresslbl"><span>Parsing…</span><span id="progressText">0 / 2,400</span></div>
+            <div class="progressbar"><div id="progressBar"></div></div>
+          </div>
+
+          <div class="statstrip" id="statStrip" style="display: none">
+            <div class="statcard active" data-filter="all"><div class="n" id="statAll">2,400</div><div class="l">Total tested</div></div>
+            <div class="statcard pass" data-filter="parsed"><div class="n" id="statPass">2,014</div><div class="l">✓ Parsed</div></div>
+            <div class="statcard warn" data-filter="partial"><div class="n" id="statWarn">248</div><div class="l">⚠ Partial</div></div>
+            <div class="statcard fail" data-filter="unrecognized"><div class="n" id="statFail">138</div><div class="l">❌ Unrecognized</div></div>
+          </div>
+
+          <div class="toolsrow" id="toolsRow" style="display: none">
+            <div class="searchbox"><i class="ti ti-search" style="font-size: 12px; color: #98a2b3"></i><input id="searchInput" placeholder="Search sender or message text…" /></div>
+            <div class="smallbtn"><i class="ti ti-copy"></i>Copy (redacted)</div>
+            <div class="smallbtn"><i class="ti ti-copy"></i>Copy (unredacted)</div>
+          </div>
+
+          <!-- Pagination shown ABOVE the table too — with 100+ rows per page, the bottom controls are a
+               full scroll away; a tester shouldn't have to scroll past a whole page just to go to the next
+               one. Both bars are driven by the same render function, always in sync. -->
+          <div class="pagerow" id="pageRowTop" style="display: none; margin-top: 0; margin-bottom: 8px">
+            <span id="pageInfoTop">Showing 1–100 of 2,400</span>
+            <select class="pagesize" id="pageSizeTop">
+              <option value="50">50 / page</option>
+              <option value="100" selected>100 / page</option>
+              <option value="250">250 / page</option>
+            </select>
+            <div class="pagebtns" id="pageBtnsTop"></div>
+          </div>
+
+          <table class="rtable" id="resultsTable" style="display: none">
+            <thead>
+              <tr><th></th><th>Sender</th><th>Message</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+
+          <div class="pagerow" id="pageRow" style="display: none">
+            <span id="pageInfo">Showing 1–100 of 2,400</span>
+            <select class="pagesize" id="pageSize">
+              <option value="50">50 / page</option>
+              <option value="100" selected>100 / page</option>
+              <option value="250">250 / page</option>
+            </select>
+            <div class="pagebtns" id="pageBtns"></div>
+          </div>
+        </div>
+
+        <!-- RIGHT: read-only reference panel, "paper" cards -->
+        <div class="right">
+          <div class="rightsub" style="display: flex; align-items: center">
+            <span>Sender ID patterns</span>
+            <span class="spacer" style="flex: 1"></span>
+            <span class="edit" id="editSendersBtn" style="font-size: 9.5px; color: #2563eb; cursor: pointer; font-weight: 700; text-transform: none; letter-spacing: 0">Edit</span>
+          </div>
+          <div class="senderref"><code>^[A-Z]{2}-ICICIB$</code> <code>^ICICIB$</code></div>
+
+          <div class="rightsub">Templates (3)</div>
+          <div class="papercard">
+            <div class="ptop"><b>Template 1</b><span class="era">current-era debit</span><span class="spacer"></span><span class="edit">Edit</span></div>
+            <div class="paperregex">ICICI Bank Acct XX(?&lt;acctLast4&gt;\d+) debited with Rs (?&lt;amount&gt;[\d,]+\.?\d*) on (?&lt;dateStr&gt;\d{2}-[A-Za-z]{3}-\d{2}); (?&lt;counterparty&gt;[\w .]+) credited. UPI:(?&lt;ref&gt;\d+).</div>
+            <div class="papersample">ICICI Bank Acct XX789 debited with <mark>Rs 2,500.00</mark> on 15-Aug-26; <mark class="f3">Merchant Store</mark> credited. UPI:123456789012.</div>
+          </div>
+          <div class="papercard">
+            <div class="ptop"><b>Template 2</b><span class="era">current-era credit</span><span class="spacer"></span><span class="edit">Edit</span></div>
+            <div class="paperregex">ICICI Bank Acct XX(?&lt;acctLast4&gt;\d+) credited with Rs (?&lt;amount&gt;[\d,]+\.?\d*) on (?&lt;dateStr&gt;\d{2}-[A-Za-z]{3}-\d{2}) from (?&lt;counterparty&gt;[\w .]+). UPI:(?&lt;ref&gt;\d+).</div>
+            <div class="papersample">ICICI Bank Acct XX789 credited with <mark>Rs 5,000.00</mark> on 15-Aug-26 from <mark class="f3">John Doe</mark>. UPI:123456789013.</div>
+          </div>
+          <div class="papercard">
+            <div class="ptop"><b>Template 3</b><span class="era">older era</span><span class="spacer"></span><span class="edit">Edit</span></div>
+            <div class="paperregex">ICICI Bank: Acct XX(?&lt;acctLast4&gt;\d+) debited Rs\.(?&lt;amount&gt;[\d.]+) on (?&lt;dateStr&gt;\d{2}-\d{2}-\d{2}) towards (?&lt;counterparty&gt;[\w .]+). Avl bal Rs\.(?&lt;balance&gt;[\d.]+)</div>
+            <div class="papersample">ICICI Bank: Acct XX789 debited <mark>Rs.1200.00</mark> on 15-08-26 towards <mark class="f3">Electricity Bill</mark>. Avl bal <mark class="f4">Rs.8000.00</mark></div>
+          </div>
+          <div class="addtplbtn" id="addTplBtn">+ Add a new template for ICICI</div>
+        </div>
+
+        <!-- Modal: Edit/Add template — full fidelity with what's already built (regex helper included,
+             not a stand-in), just relocated from an inline card into a popup. -->
+        <div class="modal-backdrop" id="modalBackdrop">
+          <div class="modal" id="templateModal" style="width: 780px">
+            <div class="mtop"><h4 id="modalTitle">Edit template</h4><span class="x" id="modalClose">✕</span></div>
+            <div class="mbody">
+              <div class="formrow2">
+                <div class="formfield"><label>Transaction type</label><select><option>debit</option><option>credit</option></select></div>
+                <div class="formfield"><label>Date format</label><input value="DD-MMM-YY" /></div>
+              </div>
+              <div class="formfield"><label>Label</label><input value="current-era debit" /></div>
+
+              <div class="helperwrap">
+                <div class="field">
+                  <div class="formfield">
+                    <label>Regex pattern (amount, acctLast4, cardLast4, counterparty, ref, balance, dateStr)</label>
+                    <textarea id="modalPatternTa" rows="4">ICICI Bank Acct XX(?&lt;acctLast4&gt;\d+) debited with Rs (?&lt;amount&gt;[\d,]+\.?\d*) on (?&lt;dateStr&gt;\d{2}-[A-Za-z]{3}-\d{2}); (?&lt;counterparty&gt;[\w .]+) credited. UPI:(?&lt;ref&gt;\d+).</textarea>
+                    <div class="regexstatus-ok">✓ Valid regex syntax</div>
+                  </div>
+                  <div class="regexmsg-preview">
+                    <div class="minilabel">Original sample <span class="pill-pass">✓ still matches</span></div>
+                    <div class="papersample">ICICI Bank Acct XX789 debited with <mark>Rs 2,500.00</mark> on 15-Aug-26; <mark class="f3">Merchant Store</mark> credited. UPI:123456789012.</div>
+                  </div>
+                </div>
+                <div class="helper">
+                  <div class="helpertabs">
+                    <div class="helpertab active" data-tab="common">Common patterns</div>
+                    <div class="helpertab" data-tab="syntax">Regex syntax</div>
+                  </div>
+                  <div id="helperCommon">
+                    <div class="htitle">Insert at cursor</div>
+                    <div class="snippetrow"><span class="lbl"><b>amount</b></span><span class="insrt">+ insert</span></div>
+                    <div class="cheatcode">Rs\.?\s?(?&lt;amount&gt;[\d,]+\.?\d*)</div>
+                    <div class="snippetrow"><span class="lbl"><b>acctLast4</b></span><span class="insrt">+ insert</span></div>
+                    <div class="cheatcode">X+(?&lt;acctLast4&gt;\d{3,6})</div>
+                    <div class="snippetrow"><span class="lbl"><b>cardLast4</b></span><span class="insrt">+ insert</span></div>
+                    <div class="cheatcode">X(?&lt;cardLast4&gt;\d{4})</div>
+                    <div class="snippetrow"><span class="lbl"><b>counterparty</b></span><span class="insrt">+ insert</span></div>
+                    <div class="cheatcode">(?&lt;counterparty&gt;[\w .@-]+)</div>
+                    <div class="snippetrow"><span class="lbl"><b>ref</b></span><span class="insrt">+ insert</span></div>
+                    <div class="cheatcode">(?:UPI )?Ref(?:erence)?\.?\s*No\.?\s*(?&lt;ref&gt;\d+)</div>
+                    <div class="snippetrow"><span class="lbl"><b>balance</b></span><span class="insrt">+ insert</span></div>
+                    <div class="cheatcode">Avl\.?\s*Bal\.?\s*Rs\.?\s?(?&lt;balance&gt;[\d,]+\.?\d*)</div>
+                    <div class="snippetrow"><span class="lbl"><b>dateStr</b> (DD-Mon-YY)</span><span class="insrt">+ insert</span></div>
+                    <div class="cheatcode">(?&lt;dateStr&gt;\d{2}-[A-Za-z]{3}-\d{2})</div>
+                    <div class="snippetrow"><span class="lbl"><b>dateStr</b> (DD/MM/YY)</span><span class="insrt">+ insert</span></div>
+                    <div class="cheatcode">(?&lt;dateStr&gt;\d{2}\/\d{2}\/\d{2})</div>
+                  </div>
+                  <div id="helperSyntax" style="display: none">
+                    <div class="htitle">Character classes</div>
+                    <div class="cheatgrid2">
+                      <span class="k">.</span><span class="v">any char except newline</span>
+                      <span class="k">\w \d \s</span><span class="v">word, digit, whitespace</span>
+                      <span class="k">[abc]</span><span class="v">any of a, b, or c</span>
+                      <span class="k">[^abc]</span><span class="v">not a, b, or c</span>
+                    </div>
+                    <div class="htitle">Anchors</div>
+                    <div class="cheatgrid2">
+                      <span class="k">^abc$</span><span class="v">start / end of string</span>
+                      <span class="k">\b \B</span><span class="v">word / not-word boundary</span>
+                    </div>
+                    <div class="htitle">Groups &amp; lookaround</div>
+                    <div class="cheatgrid2">
+                      <span class="k">(abc)</span><span class="v">capture group</span>
+                      <span class="k">(?:abc)</span><span class="v">non-capturing group</span>
+                      <span class="k">(?=abc)</span><span class="v">positive lookahead</span>
+                      <span class="k">(?!abc)</span><span class="v">negative lookahead</span>
+                    </div>
+                    <div class="htitle">Quantifiers &amp; alternation</div>
+                    <div class="cheatgrid2">
+                      <span class="k">a* a+ a?</span><span class="v">0+, 1+, 0 or 1</span>
+                      <span class="k">a{5} a{2,}</span><span class="v">exactly 5, 2 or more</span>
+                      <span class="k">ab|cd</span><span class="v">match ab or cd</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="mfoot"><div class="formbtn primary">Save</div><div class="formbtn" id="modalCancel">Cancel</div></div>
+          </div>
+        </div>
+
+        <!-- Modal: Edit sender ID patterns — same official-locked + custom-removable + live overlap
+             warning as already built, just reachable via the "Edit" link next to the panel heading. -->
+        <div class="modal-backdrop" id="senderModalBackdrop">
+          <div class="modal" style="width: 460px">
+            <div class="mtop"><h4>Sender ID patterns — ICICI</h4><span class="x" id="senderModalClose">✕</span></div>
+            <div class="mbody">
+              <div class="senderbox">
+                <span class="patchip"><i class="ti ti-lock" style="font-size: 9px"></i> ^[A-Z]{2}-ICICIB$</span>
+                <span class="patchip"><i class="ti ti-lock" style="font-size: 9px"></i> ^ICICIB$</span>
+                <span class="patchip custom">^[A-Z]{2}-ICICIUP$ <span class="x">✕</span></span>
+                <input class="addpatinput" placeholder="+ add another sender pattern, e.g. ^ICICIUP$" />
+              </div>
+              <div class="formfield" style="margin-top: 8px; font-size: 10.5px; color: #667085">
+                🔒 = official (real production coverage, not removable). Typing a new pattern checks it
+                live against every other bank's patterns and warns — doesn't block — if it looks like it'd
+                overlap.
+              </div>
+            </div>
+            <div class="mfoot"><div class="formbtn primary" id="senderModalDone">Done</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="copytoast" id="copyToast">Copied to clipboard</div>
+
+    <div class="legend">
+      <h2>Why this actually solves the 5,000–10,000-message problem</h2>
+      <ul>
+        <li><b>Rendering is capped, data isn't.</b> Only the current page's rows (100 by default) ever touch
+          the DOM — pasting 10,000 messages parses all 10,000, but the table never tries to render more than
+          a page at a time. This is the same "first N + show all" render-cap principle already codified in
+          <code>docs/ARCHITECTURE.md</code> for bulk-import screens elsewhere in the app, applied here.</li>
+        <li><b>Parsing itself is chunked, with a real progress bar</b> — instead of one long synchronous loop
+          that can visibly freeze the page for several seconds on a slow machine, the parse runs in batches
+          (e.g. 500 at a time via <code>requestAnimationFrame</code>), yielding back to the browser between
+          batches so the tab stays responsive and you can literally watch it counting up.</li>
+        <li><b>Search + stat cards** make 10,000 results scannable</b> — the four big stat cards up top are
+          both a summary AND a filter (click "❌ Unrecognized" to jump straight to just those 138), and the
+          search box narrows by sender or message substring on top of that filter — so "show me every
+          unrecognized message from senders containing 'PSG'" is two clicks + a few keystrokes, not scrolling
+          through thousands of rows.</li>
+        <li><b>Copy actions operate on the full filtered set, not just the visible page</b> — pagination only
+          limits what's drawn on screen; "Copy (redacted)" still exports every matching row regardless of
+          which page you're looking at, since building a text string is cheap even at thousands of rows (only
+          DOM rendering is the expensive part).</li>
+        <li><b>Right panel is reference-only</b> — every configured template for the selected bank, always
+          visible while you work in the middle column, no clicking back and forth between "browse" and
+          "test." Editing opens a popup so it never disturbs this panel's layout or the middle column's space.</li>
+      </ul>
+    </div>
+
+    <script>
+      // ── Fake data + interaction, just enough to make pagination/search/progress genuinely clickable ──
+      const SENDERS = ['VK-ICICIB', 'ICICIB', 'AD-ICICIB'];
+      const BODIES = [
+        ['parsed', 'ICICI Bank Acct XX789 debited with <mark>Rs 2,500.00</mark> on 15-Aug-26; <mark class="f3">Merchant Store</mark> credited. UPI:123456789012.'],
+        ['parsed', 'ICICI Bank Acct XX789 credited with <mark>Rs 5,000.00</mark> on 15-Aug-26 from <mark class="f3">John Doe</mark>. UPI:123456789013.'],
+        ['partial', 'ICICI: Your account will be credited with cashback of <mark>Rs.50</mark> within 3 working days.'],
+        ['unrecognized', 'Hey, are we still on for dinner tonight?']
+      ];
+      let allResults = [];
+      for (let i = 0; i < 2400; i++) {
+        const [kind, html] = BODIES[i % 4 === 3 ? 3 : i % 13 === 0 ? 2 : (i % 4)];
+        allResults.push({ sender: SENDERS[i % 3], html, kind });
+      }
+      let filtered = allResults;
+      let currentFilter = 'all';
+      let currentSearch = '';
+      let currentPage = 1;
+      let pageSize = 100;
+
+      function applyFilters() {
+        filtered = allResults.filter((r) => {
+          if (currentFilter !== 'all' && r.kind !== currentFilter) return false;
+          if (currentSearch && !(r.sender + r.html).toLowerCase().includes(currentSearch.toLowerCase())) return false;
+          return true;
+        });
+        currentPage = 1;
+        renderTable();
+      }
+
+      function showToast(msg) {
+        const toast = document.getElementById('copyToast');
+        toast.textContent = msg;
+        toast.classList.add('show');
+        clearTimeout(showToast._t);
+        showToast._t = setTimeout(() => toast.classList.remove('show'), 1400);
+      }
+      function plainText(html) {
+        const d = document.createElement('div');
+        d.innerHTML = html;
+        return d.textContent;
+      }
+
+      function renderTable() {
+        const body = document.getElementById('resultsBody');
+        const start = (currentPage - 1) * pageSize;
+        const pageItems = filtered.slice(start, start + pageSize);
+        body.innerHTML = pageItems
+          .map((r, i) => {
+            const badgeCls = r.kind === 'parsed' ? 'pass' : r.kind === 'partial' ? 'warn' : 'fail';
+            const badgeLbl = r.kind === 'parsed' ? '✓ Parsed' : r.kind === 'partial' ? '⚠ Partial' : '❌ Unrecognized';
+            return `<tr class="rrow"><td class="chev"><i class="ti ti-chevron-right"></i></td><td class="sndcell">${r.sender}</td><td class="msgcell">${r.html}</td><td><span class="badge ${badgeCls}">${badgeLbl}</span></td><td class="copycell"><i class="ti ti-copy rowcopy" data-idx="${start + i}" title="Copy sender + message"></i></td></tr>`;
+          })
+          .join('');
+        body.querySelectorAll('.rowcopy').forEach((icon) => {
+          icon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const r = filtered[Number(icon.dataset.idx)];
+            navigator.clipboard?.writeText(`${r.sender}\n${plainText(r.html)}`);
+            showToast('Copied — paste it straight into "Add a new template"');
+          });
+        });
+
+        const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+        const infoText = `Showing ${filtered.length === 0 ? 0 : start + 1}–${Math.min(start + pageSize, filtered.length)} of ${filtered.length.toLocaleString()}`;
+        const first = Math.max(1, currentPage - 2);
+        const last = Math.min(totalPages, first + 4);
+        const btnsHtml = [];
+        for (let p = first; p <= last; p++) btnsHtml.push(`<div class="pagebtn${p === currentPage ? ' active' : ''}" data-page="${p}">${p}</div>`);
+
+        // Both pagination bars (above and below the table) are kept in sync — a tester on page 4 of a
+        // 24-page result set shouldn't have to scroll past a full page just to see "next page" again.
+        for (const suffix of ['', 'Top']) {
+          document.getElementById(`pageInfo${suffix}`).textContent = infoText;
+          const btnsEl = document.getElementById(`pageBtns${suffix}`);
+          btnsEl.innerHTML = btnsHtml.join('');
+          btnsEl.querySelectorAll('.pagebtn').forEach((b) =>
+            b.addEventListener('click', () => {
+              currentPage = Number(b.dataset.page);
+              renderTable();
+              document.getElementById('resultsTable').scrollIntoView?.({ block: 'nearest' });
+            })
+          );
+        }
+      }
+
+      document.getElementById('testBtn').addEventListener('click', () => {
+        document.getElementById('progressWrap').classList.add('active');
+        const total = allResults.length;
+        let done = 0;
+        const bar = document.getElementById('progressBar');
+        const text = document.getElementById('progressText');
+        const step = () => {
+          done = Math.min(total, done + 400);
+          bar.style.width = `${(done / total) * 100}%`;
+          text.textContent = `${done.toLocaleString()} / ${total.toLocaleString()}`;
+          if (done < total) {
+            (window.requestAnimationFrame || setTimeout)(() => setTimeout(step, 60));
+          } else {
+            setTimeout(() => {
+              document.getElementById('progressWrap').classList.remove('active');
+              document.getElementById('statStrip').style.display = 'flex';
+              document.getElementById('toolsRow').style.display = 'flex';
+              document.getElementById('resultsTable').style.display = 'table';
+              document.getElementById('pageRow').style.display = 'flex';
+              document.getElementById('pageRowTop').style.display = 'flex';
+              applyFilters();
+            }, 250);
+          }
+        };
+        step();
+      });
+
+      document.querySelectorAll('.statcard').forEach((card) => {
+        card.addEventListener('click', () => {
+          document.querySelectorAll('.statcard').forEach((c) => c.classList.remove('active'));
+          card.classList.add('active');
+          currentFilter = card.dataset.filter;
+          applyFilters();
+        });
+      });
+      document.getElementById('searchInput').addEventListener('input', (e) => {
+        currentSearch = e.target.value;
+        applyFilters();
+      });
+      // Both page-size dropdowns (top and bottom) drive the same state and stay in sync with each other.
+      ['pageSize', 'pageSizeTop'].forEach((id) => {
+        document.getElementById(id).addEventListener('change', (e) => {
+          pageSize = Number(e.target.value);
+          currentPage = 1;
+          document.getElementById(id === 'pageSize' ? 'pageSizeTop' : 'pageSize').value = String(pageSize);
+          renderTable();
+        });
+      });
+
+      // ── Template modal (Edit / Add) — full fidelity: live regex-syntax status, colorized preview
+      // against the template's own sample, insert-at-cursor snippets, and a regex-syntax reference tab ──
+      function openModal(title) {
+        document.getElementById('modalTitle').textContent = title;
+        document.getElementById('modalBackdrop').classList.add('active');
+      }
+      document.getElementById('addTplBtn').addEventListener('click', () => openModal('Add a new template for ICICI'));
+      document.querySelectorAll('.papercard .edit').forEach((e) => e.addEventListener('click', () => openModal('Edit template')));
+      document.getElementById('modalClose').addEventListener('click', () => document.getElementById('modalBackdrop').classList.remove('active'));
+      document.getElementById('modalCancel').addEventListener('click', () => document.getElementById('modalBackdrop').classList.remove('active'));
+
+      document.querySelectorAll('.helpertab').forEach((tab) => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.helpertab').forEach((t) => t.classList.remove('active'));
+          tab.classList.add('active');
+          document.getElementById('helperCommon').style.display = tab.dataset.tab === 'common' ? 'block' : 'none';
+          document.getElementById('helperSyntax').style.display = tab.dataset.tab === 'syntax' ? 'block' : 'none';
+        });
+      });
+      document.querySelectorAll('#helperCommon .snippetrow').forEach((row) => {
+        row.addEventListener('click', () => {
+          const snippet = row.nextElementSibling.textContent;
+          const ta = document.getElementById('modalPatternTa');
+          const start = ta.selectionStart ?? ta.value.length;
+          const end = ta.selectionEnd ?? ta.value.length;
+          ta.value = ta.value.slice(0, start) + snippet + ta.value.slice(end);
+          ta.focus();
+          ta.setSelectionRange(start + snippet.length, start + snippet.length);
+        });
+      });
+
+      // ── Sender-pattern modal — official (locked) + custom (removable) chips, opened via the "Edit"
+      // link next to the panel heading, exactly like the already-built version. ──
+      document.getElementById('editSendersBtn').addEventListener('click', () => {
+        document.getElementById('senderModalBackdrop').classList.add('active');
+      });
+      document.getElementById('senderModalClose').addEventListener('click', () => {
+        document.getElementById('senderModalBackdrop').classList.remove('active');
+      });
+      document.getElementById('senderModalDone').addEventListener('click', () => {
+        document.getElementById('senderModalBackdrop').classList.remove('active');
+      });
+      document.querySelectorAll('.patchip.custom .x').forEach((x) =>
+        x.addEventListener('click', () => x.closest('.patchip').remove())
+      );
+    </script>
+  </body>
+</html>

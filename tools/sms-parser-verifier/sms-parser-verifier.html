@@ -1,0 +1,3828 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — SMS Parser Verifier</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      /* Light "Unified Workspace v2" theme — ported from the approved
+         docs/mockups/proposals/sms-verifier-unified-workspace-v2.html mockup. Three columns: banks (left,
+         narrow) → test input + results (middle, the only thing in that column) → sender patterns +
+         template "paper" reference cards (right). Editing anything opens a popup, never displacing the
+         reference panel or the test column. Built around testing thousands of messages per bank as the
+         PRIMARY case, not an edge case: results are paginated + searchable, and parsing runs in
+         yield-back-to-the-browser batches with a visible progress bar instead of one blocking loop. */
+      :root {
+        --bg: #eef1f4;
+        --paper: #ffffff;
+        --border: #e2e5ea;
+        --text: #1a2233;
+        --text2: #667085;
+        --text3: #98a2b3;
+        --primary: #059669;
+        --primary-bg: #ecfdf5;
+        --blue: #2563eb;
+        --blue-bg: #eff6ff;
+        --pink: #be185d;
+        --pink-bg: #fce7f3;
+        --amber: #b45309;
+        --amber-bg: #fef3c7;
+        --danger: #dc2626;
+        --danger-bg: #fef2f2;
+        --violet: #7c3aed;
+        --violet-bg: #f5f3ff;
+        --teal: #0d9488;
+        --teal-bg: #f0fdfa;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      header {
+        flex-shrink: 0;
+        background: var(--paper);
+        border-bottom: 1px solid var(--border);
+        padding: 18px 24px;
+      }
+      header h1 {
+        margin: 0 0 4px;
+        font-size: 18px;
+        color: var(--text);
+      }
+      header p {
+        margin: 0;
+        color: var(--text2);
+        font-size: 12.5px;
+        max-width: 860px;
+        line-height: 1.65;
+      }
+      header code {
+        background: #f1f3f5;
+        padding: 1px 5px;
+        border-radius: 5px;
+        font-size: 11.5px;
+        color: var(--text);
+      }
+
+      #app {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      .source-control {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        background: var(--paper);
+        border-bottom: 1px solid var(--border);
+        padding: 10px 20px;
+        font-size: 12px;
+        color: var(--text2);
+      }
+      .url-input {
+        flex: 1;
+        min-width: 260px;
+        padding: 7px 10px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        color: var(--text);
+        font-size: 11.5px;
+        font-family: ui-monospace, Menlo, monospace;
+        outline: none;
+      }
+      .btn-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .muted {
+        color: var(--text3);
+        font-size: 12.5px;
+        line-height: 1.6;
+      }
+      code {
+        background: #f1f3f5;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 11px;
+      }
+
+      /* ── 3-column shell ── */
+      .cc {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        background: var(--bg);
+        position: relative;
+      }
+      .cc .left {
+        width: 190px;
+        flex-shrink: 0;
+        background: var(--paper);
+        border-right: 1px solid var(--border);
+        padding: 14px 10px;
+        display: flex;
+        flex-direction: column;
+        overflow: auto;
+      }
+      .cc .mid {
+        flex: 1;
+        min-width: 0;
+        padding: 16px 20px;
+        overflow: auto;
+      }
+      .cc .right {
+        width: 320px;
+        flex-shrink: 0;
+        background: #f8f6f0;
+        border-left: 1px solid var(--border);
+        padding: 14px;
+        overflow: auto;
+      }
+
+      /* Draggable divider — resizes the adjacent panel (see `makeResizeHandle()` in entry.ts). A thin
+         hit target that visibly highlights only on hover/drag, so it doesn't read as a stray border. */
+      .resize-handle {
+        width: 5px;
+        flex-shrink: 0;
+        cursor: col-resize;
+        background: transparent;
+      }
+      .resize-handle:hover,
+      .resize-handle:active {
+        background: var(--blue-bg);
+      }
+
+      .navlbl {
+        font-size: 9.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text3);
+        margin: 10px 6px 6px;
+      }
+      .searchbox {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 7px 10px;
+        margin-bottom: 4px;
+      }
+      .searchbox input {
+        border: none;
+        outline: none;
+        background: transparent;
+        font-size: 11.5px;
+        flex: 1;
+        color: var(--text);
+      }
+      .searchbox i {
+        color: var(--text3);
+        font-size: 12px;
+      }
+      .pinrow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 8px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        background: var(--blue-bg);
+        color: var(--blue);
+        margin-bottom: 4px;
+      }
+      .bankrow {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 8px;
+        border-radius: 7px;
+        font-size: 12px;
+        color: var(--text);
+        cursor: pointer;
+      }
+      .bankrow.active {
+        background: var(--primary-bg);
+        color: var(--primary);
+        font-weight: 700;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .bankrow .cnt {
+        margin-left: auto;
+        font-size: 10px;
+        color: var(--text3);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .minipill {
+        font-size: 8px;
+        font-weight: 800;
+        padding: 1px 5px;
+        border-radius: 999px;
+        text-transform: uppercase;
+      }
+      .minipill.draft {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      .minipill.modified {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      .minipill.official {
+        background: #f1f3f5;
+        color: var(--text2);
+      }
+      .minipill.pass {
+        background: var(--primary-bg);
+        color: var(--primary);
+      }
+      .minipill.warn {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      .minipill.disabled {
+        background: var(--danger-bg);
+        color: var(--danger);
+      }
+      .newbankrow {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 8px;
+        border-radius: 7px;
+        font-size: 11px;
+        color: var(--text3);
+        cursor: pointer;
+        border: 1px dashed var(--border);
+        margin-top: 6px;
+      }
+      .sidefoot {
+        margin-top: auto;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .footbtn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--text2);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        padding: 7px 9px;
+        border-radius: 7px;
+        cursor: pointer;
+        justify-content: center;
+      }
+
+      .midhead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+      .midhead h2 {
+        font-size: 16px;
+        margin: 0;
+      }
+      .breadcrumb {
+        font-size: 10.5px;
+        color: var(--text3);
+      }
+      .smallbtn {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--text2);
+        background: var(--paper);
+        border: 1px solid var(--border);
+        padding: 6px 11px;
+        border-radius: 7px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .modechips {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+      .modechip {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        color: var(--text2);
+        cursor: pointer;
+      }
+      .modechip.active {
+        background: var(--blue-bg);
+        border-color: #bfdbfe;
+        color: var(--blue);
+      }
+      .console {
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 4px;
+        margin-bottom: 8px;
+      }
+      .console textarea {
+        width: 100%;
+        min-height: 70px;
+        border: none;
+        outline: none;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 11.5px;
+        resize: vertical;
+        color: var(--text);
+        padding: 8px 10px;
+        background: transparent;
+      }
+      .uploadrow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+        justify-content: space-between;
+        flex-wrap: wrap;
+      }
+      .uploadleft {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .hint {
+        font-size: 10.5px;
+        color: var(--text3);
+      }
+      .runbtn {
+        background: var(--primary);
+        color: #fff;
+        font-weight: 700;
+        font-size: 12px;
+        padding: 8px 16px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        border: none;
+        flex-shrink: 0;
+      }
+
+      /* Progress — shown while parsing a large batch; the parse itself runs in yield-back-to-the-browser
+         batches (runBatchedTest()) so the tab stays responsive and this can actually animate. */
+      .progresswrap {
+        display: none;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px 14px;
+        margin-bottom: 14px;
+      }
+      .progresswrap.active {
+        display: block;
+      }
+      .progresslbl {
+        font-size: 11.5px;
+        color: var(--text2);
+        margin-bottom: 6px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .progressbar {
+        height: 7px;
+        border-radius: 999px;
+        background: var(--border);
+        overflow: hidden;
+      }
+      .progressbar > div {
+        height: 100%;
+        background: var(--primary);
+        width: 0%;
+        transition: width 0.12s linear;
+      }
+
+      /* Summary stat strip — doubles as the outcome filter (click a card to filter to it) */
+      .statstrip {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+      }
+      .statcard {
+        flex: 1;
+        min-width: 110px;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 12px;
+        cursor: pointer;
+      }
+      .statcard.active {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 1px var(--primary) inset;
+      }
+      .statcard .n {
+        font-size: 19px;
+        font-weight: 800;
+      }
+      .statcard .l {
+        font-size: 10px;
+        color: var(--text2);
+        font-weight: 600;
+      }
+      .statcard.pass .n {
+        color: var(--primary);
+      }
+      .statcard.warn .n {
+        color: var(--amber);
+      }
+      .statcard.fail .n {
+        color: var(--danger);
+      }
+
+      .toolsrow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+      }
+      .toolsrow .searchbox {
+        flex: 1;
+        min-width: 180px;
+        margin-bottom: 0;
+        background: var(--paper);
+      }
+
+      table.rtable {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11.5px;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      table.rtable th {
+        text-align: left;
+        font-size: 9.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text3);
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+        background: #fafbfc;
+      }
+      table.rtable td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #f0f2f5;
+        vertical-align: top;
+        color: var(--text);
+      }
+      table.rtable tr.rrow {
+        cursor: pointer;
+      }
+      table.rtable tr.rrow:hover td {
+        background: #fafbfc;
+      }
+      table.rtable .chev {
+        color: var(--text3);
+        width: 14px;
+      }
+      table.rtable .sndcell {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10.5px;
+        width: 100px;
+      }
+      /* Color-codes the sender text itself by whether it matched any bank's sender patterns — the same
+         "recognized vs not" signal the Bank/Status columns carry, but visible directly on the value. */
+      table.rtable .sndcell.recognized {
+        color: var(--primary);
+        font-weight: 700;
+      }
+      table.rtable .sndcell.unrecognized {
+        color: var(--danger);
+      }
+      table.rtable .bankcell {
+        font-size: 10.5px;
+        color: var(--text2);
+        width: 70px;
+      }
+      /* Message cell — the copy icon lives INSIDE this same cell, right next to the text it copies,
+         instead of its own separate column (a `.msgtext` inner span keeps the ellipsis-truncation working
+         even with the icon sitting beside it in a flex row). */
+      table.rtable .msgcell {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      /* Full message, never cropped — wraps onto multiple lines instead of ellipsis-truncating, so
+         nothing about a message is hidden just to keep rows to a single line. */
+      table.rtable .msgcell .msgtext {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10.5px;
+        color: var(--text2);
+        white-space: normal;
+        word-break: break-word;
+        min-width: 0;
+        flex: 1;
+        line-height: 1.5;
+      }
+      table.rtable .msgcell mark {
+        background: var(--primary-bg);
+        color: var(--primary);
+        border-radius: 3px;
+        padding: 0 2px;
+        font-weight: 700;
+      }
+      table.rtable .msgcell mark.f2 {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      table.rtable .msgcell mark.f3 {
+        background: var(--pink-bg);
+        color: var(--pink);
+      }
+      table.rtable .msgcell mark.f4 {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      table.rtable .msgcell mark.f5 {
+        background: var(--violet-bg);
+        color: var(--violet);
+      }
+      table.rtable .msgcell mark.f6 {
+        background: var(--teal-bg);
+        color: var(--teal);
+      }
+      table.rtable .tracecell {
+        width: 110px;
+      }
+      .tracestrip {
+        display: flex;
+        gap: 3px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .tdot {
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        font-size: 8px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .tdot.matched {
+        background: var(--primary-bg);
+        color: var(--primary);
+      }
+      .tdot.tried {
+        background: var(--danger-bg);
+        color: var(--danger);
+      }
+      .tdot.skipped {
+        background: #f1f3f5;
+        color: var(--text3);
+      }
+      table.rtable .badgecell {
+        width: 92px;
+      }
+      .badge {
+        font-size: 9.5px;
+        font-weight: 800;
+        padding: 3px 9px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .badge.pass {
+        background: var(--primary-bg);
+        color: var(--primary);
+      }
+      .badge.warn {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      .badge.fail {
+        background: var(--danger-bg);
+        color: var(--danger);
+      }
+      .badge.muted {
+        background: #f1f3f5;
+        color: var(--text2);
+      }
+      .exprow td {
+        background: #fafbfc !important;
+        padding: 12px 16px;
+      }
+      .tracelbl {
+        font-size: 9.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text3);
+        margin: 8px 0 4px;
+      }
+      .traceattempt {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 5px 0;
+        font-size: 11px;
+      }
+      .traceattempt .num {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #f1f3f5;
+        color: var(--text3);
+        font-size: 9px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .traceattempt .lbl {
+        flex: 1;
+        color: var(--text2);
+      }
+      .traceattempt .verdict {
+        font-size: 9.5px;
+        font-weight: 700;
+      }
+      .traceattempt .verdict.no {
+        color: var(--text3);
+      }
+      .traceattempt .verdict.yes {
+        color: var(--primary);
+      }
+
+      /* Per-row quick-copy — sits inside the Message cell itself (see `.msgcell` above), right next to
+         the text it copies, for exactly the "unrecognized sender, copy this string, go write a template"
+         workflow, without needing to expand the row first. */
+      .rowcopy {
+        color: var(--text3);
+        cursor: pointer;
+        font-size: 13px;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+      .rowcopy:hover {
+        color: var(--primary);
+      }
+      .copytoast {
+        position: fixed;
+        bottom: 18px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--text);
+        color: #fff;
+        font-size: 11.5px;
+        padding: 7px 14px;
+        border-radius: 999px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s;
+        z-index: 100;
+      }
+      .copytoast.show {
+        opacity: 1;
+      }
+
+      /* Pagination — shown both above AND below the table so a tester scrolled through one page never has
+         to scroll back to the top just to reach the next-page control. */
+      .pagerow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 8px 0;
+        font-size: 11px;
+        color: var(--text2);
+        flex-wrap: wrap;
+      }
+      .pagebtns {
+        display: flex;
+        gap: 4px;
+        margin-left: auto;
+      }
+      .pagebtn {
+        border: 1px solid var(--border);
+        background: var(--paper);
+        border-radius: 6px;
+        padding: 4px 9px;
+        cursor: pointer;
+        font-size: 11px;
+      }
+      .pagebtn.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+      }
+      select.pagesize {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 4px 6px;
+        font-size: 11px;
+        background: var(--paper);
+        color: var(--text);
+      }
+
+      /* ── Right panel: read-only reference — sender patterns + "paper" template cards ── */
+      .rightsub {
+        font-size: 9.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text3);
+        margin: 4px 0 8px;
+      }
+      .rightsub.withedit {
+        display: flex;
+        align-items: center;
+      }
+      .rightedit {
+        margin-left: auto;
+        font-size: 9.5px;
+        color: var(--blue);
+        cursor: pointer;
+        font-weight: 700;
+        text-transform: none;
+        letter-spacing: 0;
+      }
+      .senderref {
+        font-size: 10.5px;
+        color: var(--text2);
+        margin-bottom: 12px;
+        line-height: 1.9;
+      }
+      .senderref code {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 9.5px;
+        margin-right: 3px;
+      }
+      .papercard {
+        background: #fffefb;
+        border: 1px solid #e8e2d0;
+        border-radius: 8px;
+        padding: 11px 12px;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 6px rgba(120, 100, 40, 0.06);
+      }
+      .papercard.disabled {
+        opacity: 0.55;
+      }
+      .papercard .ptop {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 7px;
+        flex-wrap: wrap;
+      }
+      .papercard .ptop b {
+        font-size: 11px;
+      }
+      .papercard .ptop .era {
+        font-size: 9.5px;
+        color: var(--text3);
+      }
+      .papercard .ptop .spacer {
+        flex: 1;
+      }
+      .paperregex {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 9.5px;
+        color: #6b6250;
+        background: #f4f0e4;
+        border-radius: 5px;
+        padding: 6px 8px;
+        line-height: 1.55;
+        margin-bottom: 7px;
+        word-break: break-word;
+      }
+      .paperregex mark {
+        background: var(--primary-bg);
+        color: var(--primary);
+        border-radius: 2px;
+        padding: 0 2px;
+        font-weight: 700;
+      }
+      .paperregex mark.f2 {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      .paperregex mark.f3 {
+        background: var(--pink-bg);
+        color: var(--pink);
+      }
+      .paperregex mark.f4 {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      .paperregex mark.f5 {
+        background: var(--violet-bg);
+        color: var(--violet);
+      }
+      .paperregex mark.f6 {
+        background: var(--teal-bg);
+        color: var(--teal);
+      }
+      .papersample {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10px;
+        color: var(--text);
+        line-height: 1.55;
+        margin-bottom: 7px;
+      }
+      .papersample mark {
+        background: var(--primary-bg);
+        color: var(--primary);
+        border-radius: 2px;
+        padding: 0 2px;
+        font-weight: 700;
+      }
+      .papersample mark.f2 {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      .papersample mark.f3 {
+        background: var(--pink-bg);
+        color: var(--pink);
+      }
+      .papersample mark.f4 {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      .papersample mark.f5 {
+        background: var(--violet-bg);
+        color: var(--violet);
+      }
+      .papersample mark.f6 {
+        background: var(--teal-bg);
+        color: var(--teal);
+      }
+      .fields {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-bottom: 8px;
+      }
+      .fchip {
+        font-size: 9.5px;
+        background: #f4f0e4;
+        border: 1px solid #e8e2d0;
+        border-radius: 6px;
+        padding: 3px 7px;
+        color: #6b6250;
+        font-family: ui-monospace, Menlo, monospace;
+      }
+      .fchip b {
+        color: var(--text);
+      }
+      .fchip.f2 b {
+        color: var(--blue);
+      }
+      .fchip.f3 b {
+        color: var(--pink);
+      }
+      .fchip.f4 b {
+        color: var(--amber);
+      }
+      .fchip.f5 b {
+        color: var(--violet);
+      }
+      .fchip.f6 b {
+        color: var(--teal);
+      }
+      .paperactions {
+        display: flex;
+        gap: 12px;
+      }
+      .paperlink {
+        font-size: 9.5px;
+        color: var(--blue);
+        cursor: pointer;
+        font-weight: 700;
+      }
+      .paperlink.danger {
+        color: var(--danger);
+      }
+      .addtplbtn {
+        border: 1px dashed #d8d0b8;
+        border-radius: 8px;
+        padding: 10px;
+        text-align: center;
+        font-size: 10.5px;
+        color: #8a7f60;
+        cursor: pointer;
+      }
+
+      /* Regex ↔ message side-by-side — same color-per-group mapping as everywhere else, one shared
+         markedNodes() primitive applied to both the regex source and the matched message. */
+      .smstext {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10.5px;
+        color: var(--text2);
+        background: #fafbfc;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 9px 10px;
+        line-height: 1.6;
+        word-break: break-word;
+      }
+      .smstext mark {
+        background: var(--primary-bg);
+        color: var(--primary);
+        border-radius: 3px;
+        padding: 0 2px;
+        font-weight: 700;
+      }
+      .smstext mark.f2 {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      .smstext mark.f3 {
+        background: var(--pink-bg);
+        color: var(--pink);
+      }
+      .smstext mark.f4 {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      .smstext mark.f5 {
+        background: var(--violet-bg);
+        color: var(--violet);
+      }
+      .smstext mark.f6 {
+        background: var(--teal-bg);
+        color: var(--teal);
+      }
+      .regexmsg-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin: 10px 0;
+      }
+      .minilabel {
+        font-size: 8.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text3);
+        margin-bottom: 4px;
+      }
+      .pill {
+        font-size: 9px;
+        font-weight: 800;
+        padding: 2px 7px;
+        border-radius: 999px;
+        margin-left: 4px;
+        text-transform: none;
+      }
+      .pill.pass {
+        background: var(--primary-bg);
+        color: var(--primary);
+      }
+      .pill.warn {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      @media (max-width: 720px) {
+        .regexmsg-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* ── Forms (used inside modals) ── */
+      .formrow3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      .formfield label {
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        color: var(--text3);
+        display: block;
+        margin-bottom: 4px;
+      }
+      .formfield input,
+      .formfield select,
+      .formfield textarea {
+        width: 100%;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px 9px;
+        color: var(--text);
+        font-size: 11px;
+        font-family: ui-monospace, Menlo, monospace;
+        outline: none;
+      }
+      .formfield select {
+        font-family: -apple-system, sans-serif;
+      }
+      .regexstatus {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 10px;
+        margin-top: 5px;
+      }
+      .regexstatus.ok {
+        color: var(--primary);
+      }
+      .regexstatus.err {
+        color: var(--danger);
+      }
+      .regexstatus.warn {
+        color: var(--amber);
+      }
+      .formbtnrow {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+        flex-wrap: wrap;
+      }
+      .formbtn {
+        font-size: 10.5px;
+        font-weight: 700;
+        padding: 7px 13px;
+        border-radius: 7px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: var(--paper);
+        color: var(--text2);
+        border: 1px solid var(--border);
+      }
+      .formbtn.primary {
+        background: var(--primary);
+        color: #fff;
+        border: none;
+      }
+      .formbtn.ghost {
+        background: var(--paper);
+        color: var(--text2);
+        border: 1px solid var(--border);
+      }
+
+      /* Regex helper — common-pattern snippets + syntax cheat sheet, inside the template modal */
+      .helperwrap {
+        display: flex;
+        gap: 14px;
+        margin-top: 4px;
+      }
+      .helperwrap .field {
+        flex: 1;
+        min-width: 0;
+      }
+      /* Test sender/body, stacked below the pattern field in this same left column (see
+         `renderPatternFieldWithHelper`'s `extraLeftFields`) — uses the space that would otherwise sit
+         empty while the (taller) regex helper panel fills the right column. */
+      .field-extra {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .helper {
+        flex: 0 0 260px;
+        background: #fafbfc;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px;
+        max-height: 320px;
+        overflow: auto;
+      }
+      .helpertabs {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 8px;
+      }
+      .helpertab {
+        font-size: 9.5px;
+        font-weight: 700;
+        padding: 4px 9px;
+        border-radius: 999px;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        color: var(--text2);
+        cursor: pointer;
+      }
+      .helpertab.active {
+        background: var(--primary-bg);
+        border-color: #a7f3d0;
+        color: var(--primary);
+      }
+      .htitle {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text3);
+        margin: 8px 0 5px;
+      }
+      .snippetrow {
+        display: flex;
+        justify-content: space-between;
+        gap: 6px;
+        padding: 4px 6px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 10.5px;
+      }
+      .snippetrow:hover {
+        background: var(--paper);
+      }
+      .snippetrow .lbl {
+        font-size: 10px;
+        color: var(--text2);
+      }
+      .snippetrow .insrt {
+        font-size: 9px;
+        color: var(--text3);
+      }
+      /* Duplicate-detection highlight — flashes on the existing matching row while a tester is typing a
+         new/edited common pattern that already exists, rather than only warning in text. */
+      .snippetrow.dup {
+        background: var(--danger-bg);
+        outline: 1px solid var(--danger);
+      }
+      .snippetlinks {
+        display: flex;
+        gap: 10px;
+        padding: 0 6px 6px;
+        margin-top: -4px;
+      }
+      .snippet-editform {
+        padding: 6px;
+        margin-bottom: 4px;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+      }
+      .cheatcode {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 9px;
+        color: var(--primary);
+        background: var(--primary-bg);
+        border-radius: 5px;
+        padding: 3px 7px;
+        margin: 2px 0 6px;
+        word-break: break-word;
+      }
+      .cheatgrid2 {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 3px 10px;
+        font-size: 9.5px;
+        margin-bottom: 4px;
+      }
+      .cheatgrid2 .k {
+        font-family: ui-monospace, Menlo, monospace;
+        color: var(--primary);
+        white-space: nowrap;
+      }
+      .cheatgrid2 .v {
+        color: var(--text2);
+      }
+
+      /* Sender-pattern editor modal — official (locked) + custom (removable) chips */
+      .senderbox {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        background: #fafbfc;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px;
+      }
+      .patchip {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10.5px;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        padding: 4px 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--text2);
+      }
+      .patchip.custom {
+        background: var(--blue-bg);
+        border-color: #bfdbfe;
+        color: var(--blue);
+      }
+      .patchip.custom .x {
+        cursor: pointer;
+        color: #93b4f5;
+      }
+      .addpatinput {
+        flex: 1;
+        min-width: 160px;
+        border: none;
+        outline: none;
+        background: transparent;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10.5px;
+        padding: 4px;
+      }
+
+      /* ── Modals — Edit/Add template, Edit sender patterns, Export, Import all share this shell ── */
+      .modal-root {
+        position: absolute;
+        inset: 0;
+        z-index: 50;
+      }
+      .modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(20, 25, 35, 0.4);
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal-backdrop.active {
+        display: flex;
+      }
+      .modal {
+        width: 520px;
+        max-height: 85%;
+        display: flex;
+        flex-direction: column;
+        background: var(--paper);
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+        /* Every popup is user-resizable from its bottom-right corner — a native browser affordance
+           (works fine alongside `overflow: hidden`, which stays so the header/footer remain pinned while
+           only `.mbody` itself scrolls), never forced, purely there if a tester wants more room. */
+        resize: both;
+        min-width: 340px;
+        min-height: 220px;
+        max-width: 95vw;
+      }
+      .modal .mtop {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .modal .mtop h4 {
+        margin: 0;
+        font-size: 13.5px;
+      }
+      .modal .mtop .x {
+        cursor: pointer;
+        color: var(--text3);
+      }
+      .modal .mbody {
+        padding: 16px 18px;
+        overflow: auto;
+        font-size: 12px;
+      }
+      /* Buttons right-aligned, standard convention (Cancel, then the primary action, both pinned right). */
+      .modal .mfoot {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 12px 18px;
+        border-top: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .jsonpre {
+        background: #fafbfc;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px 14px;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10px;
+        color: var(--text2);
+        line-height: 1.6;
+        max-height: 320px;
+        overflow: auto;
+        white-space: pre;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Penny — SMS Parser Verifier</h1>
+      <p>
+        Runs the exact same parser Penny's app uses in production
+        (<code>packages/core/src/core/sms-import/smsParser.ts</code>), entirely in your browser.
+        <strong>Nothing you paste here is ever transmitted anywhere</strong> — there's no server behind this page at
+        all. If a message fails here, it will fail the same way in the real app; use this to find gaps in the pattern
+        library before they show up on a real device.
+      </p>
+    </header>
+    <div id="app"></div>
+    <script>
+      "use strict";
+(() => {
+  // <define:import.meta.env>
+  var define_import_meta_env_default = {};
+
+  // packages/core/src/core/bank-import/csvParser.ts
+  var MONTH_NAMES = {
+    jan: 0,
+    feb: 1,
+    mar: 2,
+    apr: 3,
+    may: 4,
+    jun: 5,
+    jul: 6,
+    aug: 7,
+    sep: 8,
+    oct: 9,
+    nov: 10,
+    dec: 11
+  };
+  var FORMAT_TOKENS = ["YYYY", "MMM", "YY", "MM", "DD"];
+  var DEFAULT_DATE_FORMAT = "DD/MM/YYYY";
+  var compiledFormatCache = /* @__PURE__ */ new Map();
+  function compileDateFormat(format) {
+    const cached = compiledFormatCache.get(format);
+    if (cached) return cached;
+    let pattern = "";
+    const tokens = [];
+    let i = 0;
+    while (i < format.length) {
+      const rest = format.slice(i).toUpperCase();
+      const token = FORMAT_TOKENS.find((t) => rest.startsWith(t));
+      if (token) {
+        tokens.push(token);
+        pattern += token === "YYYY" ? "(\\d{4})" : token === "YY" ? "(\\d{2})" : token === "MMM" ? "([A-Za-z]{3,})" : "(\\d{1,2})";
+        i += token.length;
+      } else {
+        pattern += (format[i] ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        i++;
+      }
+    }
+    const compiled = { regex: new RegExp(`^${pattern}$`, "i"), tokens };
+    compiledFormatCache.set(format, compiled);
+    return compiled;
+  }
+  function parseStatementDate(raw, format = DEFAULT_DATE_FORMAT) {
+    if (!raw) return null;
+    const s = raw.trim();
+    if (!s) return null;
+    const { regex, tokens } = compileDateFormat(format);
+    const m = regex.exec(s);
+    if (!m) return null;
+    let day = null;
+    let month = null;
+    let year = null;
+    tokens.forEach((token, idx) => {
+      const value = m[idx + 1] ?? "";
+      if (token === "DD") day = Number(value);
+      else if (token === "MM") month = Number(value) - 1;
+      else if (token === "YYYY") year = Number(value);
+      else if (token === "YY") year = Number(value) + 2e3;
+      else if (token === "MMM") month = MONTH_NAMES[value.slice(0, 3).toLowerCase()] ?? null;
+    });
+    if (day === null || month === null || year === null) return null;
+    if (month < 0 || month > 11 || day < 1 || day > 31) return null;
+    return new Date(year, month, day).getTime();
+  }
+
+  // packages/core/src/core/sms-import/smsParser.ts
+  var DIRECTION_BY_TYPE = {
+    debit: "debit",
+    upi_sent: "debit",
+    card_swipe: "debit",
+    credit: "credit",
+    upi_received: "credit",
+    refund: "credit"
+  };
+  var OTP_EXCLUSION_KEYWORDS = [
+    "otp",
+    "one time password",
+    "one-time password",
+    "verification code",
+    "is your otp",
+    "do not share",
+    "never share your otp"
+  ];
+  function looksLikeOtp(body) {
+    const lower = body.toLowerCase();
+    return OTP_EXCLUSION_KEYWORDS.some((k) => lower.includes(k));
+  }
+  function parseAmount(raw) {
+    return Number(raw.replace(/,/g, ""));
+  }
+  var CAPTURE_GROUP_NAMES = [
+    "amount",
+    "acctLast4",
+    "cardLast4",
+    "counterparty",
+    "ref",
+    "balance",
+    "dateStr"
+  ];
+  function traceSms(sender, body, receivedAt, bundle) {
+    if (looksLikeOtp(body)) {
+      return { excludedAsOtp: true, matchedSenderBanks: [], attempts: [], outcome: { kind: "excluded_otp" } };
+    }
+    const senderTrimmed = sender.trim();
+    const matchedSenderBanks = [];
+    const attempts = [];
+    let outcome = null;
+    for (const bank of bundle.banks) {
+      const senderMatches = bank.senderIdPatterns.some((p) => new RegExp(p, "i").test(senderTrimmed));
+      if (!senderMatches) continue;
+      matchedSenderBanks.push(bank.bankId);
+      for (const template of bank.templates) {
+        if (outcome) {
+          attempts.push({
+            bankId: bank.bankId,
+            transactionType: template.transactionType,
+            addedAt: template.addedAt,
+            attempted: false,
+            matched: false
+          });
+          continue;
+        }
+        const m = new RegExp(template.pattern, "id").exec(body);
+        const amountRaw = m?.groups?.amount;
+        const amount = amountRaw ? parseAmount(amountRaw) : NaN;
+        const matched = !!m?.groups && !!amountRaw && Number.isFinite(amount) && amount > 0;
+        let candidate;
+        let captureRanges;
+        if (matched && m?.groups) {
+          let date = receivedAt;
+          if (m.groups.dateStr && template.dateFormat) {
+            const parsed = parseStatementDate(m.groups.dateStr, template.dateFormat);
+            if (parsed !== null) date = parsed;
+          }
+          candidate = {
+            bankId: bank.bankId,
+            transactionType: template.transactionType,
+            direction: DIRECTION_BY_TYPE[template.transactionType],
+            amount,
+            date,
+            accountLast4: m.groups.acctLast4,
+            cardLast4: m.groups.cardLast4,
+            counterparty: m.groups.counterparty?.trim(),
+            referenceNumber: m.groups.ref,
+            balance: m.groups.balance ? parseAmount(m.groups.balance) : void 0
+          };
+          const indexGroups = m.indices?.groups;
+          if (indexGroups) {
+            captureRanges = {};
+            for (const name of CAPTURE_GROUP_NAMES) {
+              const range = indexGroups[name];
+              if (range) captureRanges[name] = range;
+            }
+          }
+        }
+        attempts.push({
+          bankId: bank.bankId,
+          transactionType: template.transactionType,
+          addedAt: template.addedAt,
+          attempted: true,
+          matched,
+          ...candidate ? { candidate } : {},
+          ...captureRanges ? { captureRanges } : {}
+        });
+        if (matched && candidate) outcome = { kind: "parsed", candidate };
+      }
+    }
+    if (!outcome) {
+      outcome = matchedSenderBanks[0] ? { kind: "unparsed_known_bank", bankId: matchedSenderBanks[0] } : { kind: "unrecognized_sender" };
+    }
+    return { excludedAsOtp: false, matchedSenderBanks, attempts, outcome };
+  }
+  function redactDigits(text) {
+    return text.replace(/\d/g, "#");
+  }
+
+  // packages/core/src/core/net/apiBase.constants.ts
+  var YF_DIRECT = "https://query1.finance.yahoo.com";
+  var MFAPI_DIRECT = "https://api.mfapi.in";
+  var NPS_DIRECT = "https://npsnav.in/api";
+  var IG_DIRECT = "https://webnodejs.investorgain.com";
+
+  // packages/core/src/core/net/apiBase.ts
+  var PROXY = define_import_meta_env_default.VITE_API_PROXY?.replace(/\/$/, "");
+  var YF_BASE = PROXY ? `${PROXY}/yf` : define_import_meta_env_default.VITE_YF_PROXY ?? (define_import_meta_env_default.DEV ? "/api/yf" : YF_DIRECT);
+  var MFAPI_BASE = PROXY ? `${PROXY}/mfapi` : MFAPI_DIRECT;
+  var NPS_BASE = PROXY ? `${PROXY}/nps` : NPS_DIRECT;
+  var IG_BASE = PROXY ? `${PROXY}/ig` : IG_DIRECT;
+  var VEHICLE_PROXY = PROXY ? `${PROXY}/vehicle` : null;
+  var MARKET_SNAPSHOT = PROXY ? `${PROXY}/market` : null;
+  var EPF_RATES_BASE = PROXY ? `${PROXY}/epf-rates` : null;
+  var PPF_RATES_BASE = PROXY ? `${PROXY}/ppf-rates` : null;
+  var SMS_PATTERNS_BASE = PROXY ? `${PROXY}/sms-patterns` : null;
+  var NEWS_PROXY_BASE = PROXY ? `${PROXY}/rss` : null;
+  var AUTH = define_import_meta_env_default.VITE_AUTH_PROXY?.replace(/\/$/, "");
+  var AUTH_BASE = AUTH ?? (PROXY ? `${PROXY}/auth` : null);
+  var GROUPS = define_import_meta_env_default.VITE_GROUPS_PROXY?.replace(/\/$/, "");
+  var GROUPS_BASE = GROUPS ?? (PROXY ? `${PROXY}/groups` : null);
+
+  // packages/core/src/core/sms-import/smsPatterns.ts
+  var SMS_PATTERNS_FALLBACK = {
+    version: 1,
+    banks: [
+      {
+        bankId: "hdfc",
+        senderIdPatterns: ["^[A-Z]{2}-HDFCBK$", "^HDFCBK$"],
+        templates: [
+          {
+            transactionType: "debit",
+            addedAt: "2026-08-15 (current era)",
+            dateFormat: "DD-MMM-YY",
+            pattern: "Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)\\s+debited from a\\/c\\s+X+(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>\\d{2}-[A-Za-z]{3}-\\d{2})\\s+to\\s+VPA\\s+(?<counterparty>[\\w.@-]+)\\s+\\(UPI Ref No\\s+(?<ref>\\d+)\\)"
+          },
+          {
+            transactionType: "credit",
+            addedAt: "2026-08-15 (current era)",
+            dateFormat: "DD-MMM-YY",
+            pattern: "Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)\\s+credited to a\\/c\\s+X+(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>\\d{2}-[A-Za-z]{3}-\\d{2})\\s+by\\s+VPA\\s+(?<counterparty>[\\w.@-]+)\\s+\\(UPI Ref No\\s+(?<ref>\\d+)\\)"
+          },
+          {
+            // Older, terser HDFC wording (pre-UPI-detail era) — narration-only, no VPA, "Info:" field.
+            transactionType: "debit",
+            addedAt: "2026-08-15 (older era, ~2012-2016)",
+            dateFormat: "DD/MM/YY",
+            pattern: "Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)\\s+debited from A\\/c No\\.\\s+X+(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>\\d{2}\\/\\d{2}\\/\\d{2})\\.\\s+Info:\\s+(?<counterparty>[\\w .]+)\\.\\s+Avl Bal:\\s?Rs\\.?(?<balance>[\\d,]+\\.?\\d*)"
+          }
+        ]
+      },
+      {
+        bankId: "icici",
+        senderIdPatterns: ["^[A-Z]{2}-ICICIB$", "^ICICIB$"],
+        templates: [
+          {
+            transactionType: "debit",
+            addedAt: "2026-08-15 (current era)",
+            dateFormat: "DD-MMM-YY",
+            pattern: "ICICI Bank Acct\\s+X+(?<acctLast4>\\d{3,6})\\s+debited with Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)\\s+on\\s+(?<dateStr>\\d{2}-[A-Za-z]{3}-\\d{2});\\s+(?<counterparty>[\\w .]+)\\s+credited\\.\\s+UPI:\\s?(?<ref>\\d+)"
+          },
+          {
+            transactionType: "credit",
+            addedAt: "2026-08-15 (current era)",
+            dateFormat: "DD-MMM-YY",
+            pattern: "ICICI Bank Acct\\s+X+(?<acctLast4>\\d{3,6})\\s+credited with Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)\\s+on\\s+(?<dateStr>\\d{2}-[A-Za-z]{3}-\\d{2})\\s+from\\s+(?<counterparty>[\\w .]+)\\.\\s+UPI:\\s?(?<ref>\\d+)"
+          },
+          {
+            // Older ICICI wording — "A/c" abbreviation, "Avl bal" spelled lowercase, no UPI ref field.
+            transactionType: "debit",
+            addedAt: "2026-08-15 (older era, ~2013-2017)",
+            dateFormat: "DD-MM-YY",
+            pattern: "ICICI Bank:\\s?Acct\\s+X+(?<acctLast4>\\d{3,6})\\s+debited Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)\\s+on\\s+(?<dateStr>\\d{2}-\\d{2}-\\d{2})\\s+towards\\s+(?<counterparty>[\\w .]+)\\.\\s+Avl bal Rs\\.?(?<balance>[\\d,]+\\.?\\d*)"
+          }
+        ]
+      },
+      {
+        bankId: "sbi",
+        senderIdPatterns: ["^[A-Z]{2}-SBIINB$", "^SBIINB$", "^[A-Z]{2}-SBIUPI$"],
+        templates: [
+          {
+            transactionType: "debit",
+            addedAt: "2026-08-15 (current era)",
+            dateFormat: "DD-MMM-YY",
+            pattern: "A\\/C\\s+X(?<acctLast4>\\d{3,6})\\s+debited by\\s+(?<amount>[\\d,]+\\.?\\d*)\\s+on date\\s+(?<dateStr>\\d{2}[A-Za-z]{3}\\d{2})\\s+trf to\\s+(?<counterparty>[\\w .]+)\\s+Refno\\s?(?<ref>\\d+)"
+          },
+          {
+            transactionType: "credit",
+            addedAt: "2026-08-15 (current era)",
+            dateFormat: "DD-MMM-YY",
+            pattern: "A\\/C\\s+X(?<acctLast4>\\d{3,6})\\s+credited by\\s+(?<amount>[\\d,]+\\.?\\d*)\\s+on date\\s+(?<dateStr>\\d{2}[A-Za-z]{3}\\d{2})\\s+by\\s+(?<counterparty>[\\w .]+)\\s+Refno\\s?(?<ref>\\d+)"
+          },
+          {
+            // Older SBI wording — "Dear Customer" preamble, "A/c" (not "A/C"), full "transfer to" verb.
+            transactionType: "debit",
+            addedAt: "2026-08-15 (older era, ~2014-2018)",
+            dateFormat: "DD/MM/YY",
+            pattern: "Dear Customer,\\s?Rs\\.?(?<amount>[\\d,]+\\.?\\d*)\\s+debited from A\\/c\\s+X+(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>\\d{2}\\/\\d{2}\\/\\d{2})\\s+transfer to\\s+(?<counterparty>[\\w .@]+)\\s+Ref No\\s?(?<ref>\\d+)"
+          }
+        ]
+      },
+      {
+        bankId: "axis",
+        senderIdPatterns: ["^[A-Z]{2}-AXISBK$", "^AXISBK$"],
+        templates: [
+          {
+            transactionType: "debit",
+            addedAt: "2026-08-15 (current era)",
+            dateFormat: "DD-MM-YYYY",
+            pattern: "Axis Bank:\\s?INR\\s?(?<amount>[\\d,]+\\.?\\d*)\\s+debited from A\\/c no\\.\\s+X+(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>\\d{2}-\\d{2}-\\d{4})\\s+towards UPI\\/P2M\\/(?<ref>\\d+)\\/(?<counterparty>[\\w .]+)\\.\\s+Avl bal:\\s?INR\\s?(?<balance>[\\d,]+\\.?\\d*)"
+          },
+          {
+            transactionType: "credit",
+            addedAt: "2026-08-15 (current era)",
+            dateFormat: "DD-MM-YYYY",
+            pattern: "Axis Bank:\\s?INR\\s?(?<amount>[\\d,]+\\.?\\d*)\\s+credited to A\\/c no\\.\\s+X+(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>\\d{2}-\\d{2}-\\d{4})\\s+towards UPI\\/P2A\\/(?<ref>\\d+)\\/(?<counterparty>[\\w .]+)\\.\\s+Avl bal:\\s?INR\\s?(?<balance>[\\d,]+\\.?\\d*)"
+          }
+        ]
+      },
+      {
+        bankId: "kotak",
+        senderIdPatterns: ["^[A-Z]{2}-KOTAKB$", "^KOTAKB$"],
+        templates: [
+          {
+            transactionType: "debit",
+            addedAt: "2026-08-15 (current era)",
+            dateFormat: "DD-MM-YY",
+            pattern: "Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)\\s+debited from Kotak Bank AC\\s+X(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>\\d{2}-\\d{2}-\\d{2})\\s+for UPI\\/(?<counterparty>[\\w.@-]+)\\/Ref\\s?(?<ref>\\d+)\\.\\s+Avl Bal Rs\\.?(?<balance>[\\d,]+\\.?\\d*)"
+          },
+          {
+            transactionType: "card_swipe",
+            addedAt: "2026-08-15 (current era)",
+            dateFormat: "DD-MM-YY",
+            pattern: "Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)\\s+spent on Kotak (?:Debit|Credit) Card\\s+X(?<cardLast4>\\d{4})\\s+at\\s+(?<counterparty>[\\w .]+)\\s+on\\s+(?<dateStr>\\d{2}-\\d{2}-\\d{2})"
+          }
+        ]
+      },
+      {
+        bankId: "indusind",
+        senderIdPatterns: ["^[A-Z]{2}-INDUSB$", "^INDUSB$"],
+        templates: [
+          {
+            transactionType: "debit",
+            addedAt: "2026-08-15 (current era)",
+            dateFormat: "DD-MM-YY",
+            pattern: "IndusInd Bank:\\s?Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)\\s+debited from A\\/c\\s+X(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>\\d{2}-\\d{2}-\\d{2})\\s+UPI Ref\\s?(?<ref>\\d+)\\s+to\\s+(?<counterparty>[\\w.@-]+)"
+          }
+        ]
+      },
+      {
+        bankId: "bob",
+        senderIdPatterns: ["^[A-Z]{2}-BOBTXN$", "^BOBTXN$"],
+        templates: [
+          {
+            transactionType: "debit",
+            addedAt: "2026-08-15 (current era)",
+            dateFormat: "DD-MM-YYYY",
+            pattern: "Your A\\/c\\s+X+(?<acctLast4>\\d{3,6})\\s+is debited by\\s+Rs\\.?(?<amount>[\\d,]+\\.?\\d*)\\s+on\\s+(?<dateStr>\\d{2}-\\d{2}-\\d{4})\\s+towards\\s+(?<counterparty>[\\w .]+)-Bank of Baroda"
+          }
+        ]
+      },
+      {
+        bankId: "hsbc",
+        senderIdPatterns: ["^[A-Z]{2}-HSBCIN$", "^HSBCIN$"],
+        templates: [
+          {
+            transactionType: "debit",
+            addedAt: "2026-08-15 (current era)",
+            dateFormat: "DD/MM/YYYY",
+            pattern: "HSBC:\\s?INR\\s?(?<amount>[\\d,]+\\.?\\d*)\\s+debited from a\\/c\\s+X+(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>\\d{2}\\/\\d{2}\\/\\d{4})\\s+for\\s+(?<counterparty>[\\w .]+)"
+          }
+        ]
+      },
+      {
+        bankId: "yesbank",
+        senderIdPatterns: ["^[A-Z]{2}-YESBNK$", "^YESBNK$"],
+        templates: [
+          {
+            transactionType: "debit",
+            addedAt: "2026-08-15 (current era)",
+            dateFormat: "DD-MM-YY",
+            pattern: "Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)\\s+debited from YES Bank A\\/c\\s+X(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>\\d{2}-\\d{2}-\\d{2})\\s+towards UPI\\/(?<counterparty>[\\w.@-]+)\\/Ref\\s?(?<ref>\\d+)"
+          }
+        ]
+      },
+      {
+        bankId: "pnb",
+        senderIdPatterns: ["^[A-Z]{2}-PNBSMS$", "^PNBSMS$"],
+        templates: [
+          {
+            transactionType: "debit",
+            addedAt: "2026-08-15 (current era)",
+            dateFormat: "DD-MM-YYYY",
+            pattern: "PNB:\\s?Rs\\.?(?<amount>[\\d,]+\\.?\\d*)\\s+debited from A\\/c\\s+X+(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>\\d{2}-\\d{2}-\\d{4})\\s+for\\s+(?<counterparty>[\\w .]+)\\.\\s+Avail Bal Rs\\.?(?<balance>[\\d,]+\\.?\\d*)"
+          }
+        ]
+      },
+      {
+        bankId: "canara",
+        senderIdPatterns: ["^[A-Z]{2}-CANBNK$", "^CANBNK$"],
+        templates: [
+          {
+            transactionType: "debit",
+            addedAt: "2026-08-15 (current era)",
+            dateFormat: "DD-MM-YY",
+            pattern: "Canara Bank A\\/c\\s+X+(?<acctLast4>\\d{3,6})\\s+debited for Rs\\.?(?<amount>[\\d,]+\\.?\\d*)\\s+on\\s+(?<dateStr>\\d{2}-\\d{2}-\\d{2})\\s+UPI Ref\\s?(?<ref>\\d+)"
+          }
+        ]
+      },
+      {
+        bankId: "idfcfirst",
+        senderIdPatterns: ["^[A-Z]{2}-IDFCFB$", "^IDFCFB$"],
+        templates: [
+          {
+            transactionType: "debit",
+            addedAt: "2026-08-15 (current era)",
+            dateFormat: "DD-MM-YY",
+            pattern: "IDFC FIRST Bank:\\s?Rs\\.?(?<amount>[\\d,]+\\.?\\d*)\\s+debited from a\\/c\\s+X(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>\\d{2}-\\d{2}-\\d{2})\\s+via UPI to\\s+(?<counterparty>[\\w.@-]+)\\s+\\(Ref\\s?(?<ref>\\d+)\\)"
+          }
+        ]
+      }
+    ]
+  };
+  var REFRESH_INTERVAL_MS = 7 * 24 * 60 * 60 * 1e3;
+
+  // tools/sms-parser-verifier/dom.ts
+  function el(tag, props = {}, children = []) {
+    const node = document.createElement(tag);
+    const { style, ...rest } = props;
+    Object.assign(node, rest);
+    if (style) Object.assign(node.style, style);
+    for (const child of children) node.append(child);
+    return node;
+  }
+  function legacyCopy(text) {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.append(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    } catch {
+    }
+  }
+  function copyText(text) {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).catch(() => legacyCopy(text));
+    } else {
+      legacyCopy(text);
+    }
+  }
+  function downloadTextFile(filename, content) {
+    const blob = new Blob([content], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = el("a", { href: url, download: filename });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+  var toastEl = null;
+  var toastTimer;
+  function initToast() {
+    toastEl = el("div", { className: "copytoast" }, ["Copied"]);
+    document.body.append(toastEl);
+  }
+  function showToast(message) {
+    if (!toastEl) return;
+    toastEl.textContent = message;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl?.classList.remove("show"), 1600);
+  }
+
+  // tools/sms-parser-verifier/highlighting.ts
+  var GROUP_COLOR_CLASS = {
+    amount: "",
+    acctLast4: "f2",
+    cardLast4: "f2",
+    counterparty: "f3",
+    ref: "f4",
+    balance: "f5",
+    dateStr: "f6"
+  };
+  var COLOR_PALETTE = ["", "f2", "f3", "f4", "f5", "f6"];
+  var customGroupColors = /* @__PURE__ */ new Map();
+  var nextCustomColorIndex = 0;
+  function colorClassFor(name) {
+    const known = GROUP_COLOR_CLASS[name];
+    if (known !== void 0) return known;
+    let assigned = customGroupColors.get(name);
+    if (assigned === void 0) {
+      assigned = COLOR_PALETTE[nextCustomColorIndex % COLOR_PALETTE.length] ?? "";
+      nextCustomColorIndex++;
+      customGroupColors.set(name, assigned);
+    }
+    return assigned;
+  }
+  function findNamedGroupSpans(pattern) {
+    const spans = [];
+    const startRe = /\(\?<([a-zA-Z_][a-zA-Z0-9_]*)>/g;
+    let m;
+    while (m = startRe.exec(pattern)) {
+      const name = m[1];
+      if (!name) continue;
+      const groupStart = m.index;
+      let depth = 1;
+      let i = m.index + m[0].length;
+      for (; i < pattern.length && depth > 0; i++) {
+        const c = pattern[i];
+        if (c === "\\") {
+          i++;
+          continue;
+        }
+        if (c === "(") depth++;
+        else if (c === ")") depth--;
+      }
+      spans.push({ name, start: groupStart, end: i });
+    }
+    return spans;
+  }
+  function markedNodes(text, ranges) {
+    const nodes = [];
+    const sorted = [...ranges].sort((a, b) => a.start - b.start);
+    let cursor = 0;
+    for (const { name, start, end } of sorted) {
+      if (start > cursor) nodes.push(text.slice(cursor, start));
+      const mark = el("mark", { className: colorClassFor(name) });
+      mark.textContent = text.slice(start, end);
+      nodes.push(mark);
+      cursor = end;
+    }
+    if (cursor < text.length) nodes.push(text.slice(cursor));
+    return nodes;
+  }
+  function captureRangesToSpans(captureRanges) {
+    if (!captureRanges) return [];
+    return Object.entries(captureRanges).filter((entry) => !!entry[1]).map(([name, [start, end]]) => ({ name, start, end }));
+  }
+  function highlightedText(body, captureRanges) {
+    const container = el("div", { className: "smstext" });
+    container.append(...markedNodes(body, captureRangesToSpans(captureRanges)));
+    return container;
+  }
+  function highlightedPattern(pattern) {
+    const container = el("div", { className: "paperregex" });
+    container.append(...markedNodes(pattern, findNamedGroupSpans(pattern)));
+    return container;
+  }
+  function markedTableCell(text, captureRanges, trailing) {
+    const td = el("td", { className: "msgcell" });
+    const textSpan = el("span", { className: "msgtext" });
+    textSpan.append(...markedNodes(text, captureRangesToSpans(captureRanges)));
+    td.append(textSpan);
+    if (trailing) td.append(trailing);
+    return td;
+  }
+  function fieldChips(candidate, captureRanges) {
+    const rows = [
+      ["amount", `\u20B9${candidate.amount}`, ""],
+      ["acctLast4", candidate.accountLast4 ? `\u2022\u2022${candidate.accountLast4}` : void 0, "f2"],
+      ["cardLast4", candidate.cardLast4 ? `\u2022\u2022${candidate.cardLast4}` : void 0, "f2"],
+      ["counterparty", candidate.counterparty, "f3"],
+      ["ref", candidate.referenceNumber, "f4"],
+      ["balance", candidate.balance !== void 0 ? `\u20B9${candidate.balance}` : void 0, "f5"],
+      ["date", captureRanges?.dateStr ? new Date(candidate.date).toISOString().slice(0, 10) : void 0, "f6"]
+    ];
+    return el(
+      "div",
+      { className: "fields" },
+      rows.filter((r) => r[1] !== void 0 && r[1] !== "").map(([label, value, cls]) => el("span", { className: `fchip ${cls}` }, [`${label} `, el("b", {}, [value])]))
+    );
+  }
+
+  // packages/core/src/core/sms-import/smsSampleMessages.ts
+  var SMS_SAMPLE_MESSAGES = [
+    // HDFC
+    {
+      bankId: "hdfc",
+      transactionType: "debit",
+      templateLabel: "current-era UPI debit",
+      sender: "VM-HDFCBK",
+      body: "HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl (UPI Ref No 123456789012). Not you? Call 18002586161"
+    },
+    {
+      bankId: "hdfc",
+      transactionType: "credit",
+      templateLabel: "current-era UPI credit",
+      sender: "AD-HDFCBK",
+      body: "HDFC Bank: Rs.1,500.00 credited to a/c XX1234 on 15-Aug-26 by VPA sender@okhdfcbank (UPI Ref No 123456789013)."
+    },
+    {
+      bankId: "hdfc",
+      transactionType: "debit",
+      templateLabel: "older era (~2012-2016), terser wording",
+      sender: "HDFCBK",
+      body: "Rs.500.00 debited from A/c No. XX1234 on 15/08/26. Info: ATM WDL. Avl Bal: Rs.10000.00-HDFC Bank"
+    },
+    // ICICI
+    {
+      bankId: "icici",
+      transactionType: "debit",
+      templateLabel: "current-era debit",
+      sender: "VK-ICICIB",
+      body: "ICICI Bank Acct XX789 debited with Rs 2,500.00 on 15-Aug-26; Merchant Store credited. UPI:123456789012. Call 18002662 for dispute."
+    },
+    {
+      bankId: "icici",
+      transactionType: "credit",
+      templateLabel: "current-era credit",
+      sender: "ICICIB",
+      body: "ICICI Bank Acct XX789 credited with Rs 5,000.00 on 15-Aug-26 from John Doe. UPI:123456789013."
+    },
+    {
+      bankId: "icici",
+      transactionType: "debit",
+      templateLabel: "older era (~2013-2017)",
+      sender: "VK-ICICIB",
+      body: "ICICI Bank: Acct XX789 debited Rs.1200.00 on 15-08-26 towards Electricity Bill. Avl bal Rs.8000.00"
+    },
+    // SBI
+    {
+      bankId: "sbi",
+      transactionType: "debit",
+      templateLabel: "current-era debit",
+      sender: "VM-SBIINB",
+      body: "A/C X4567 debited by 500.0 on date 15Aug26 trf to Merchant Name Refno 123456789012 -SBI"
+    },
+    {
+      bankId: "sbi",
+      transactionType: "credit",
+      templateLabel: "current-era credit",
+      sender: "SBIINB",
+      body: "A/C X4567 credited by 2000.0 on date 15Aug26 by Jane Roe Refno 123456789013 -SBI"
+    },
+    {
+      bankId: "sbi",
+      transactionType: "debit",
+      templateLabel: 'older era (~2014-2018), "Dear Customer"',
+      sender: "VM-SBIINB",
+      body: "Dear Customer, Rs.1200 debited from A/c XX4567 on 15/08/26 transfer to merchant@sbi Ref No123456789012. -SBI"
+    },
+    // Axis
+    {
+      bankId: "axis",
+      transactionType: "debit",
+      templateLabel: "current-era UPI debit",
+      sender: "VM-AXISBK",
+      body: "Axis Bank: INR 750.00 debited from A/c no. XX3456 on 15-08-2026 towards UPI/P2M/123456789012/Merchant Name. Avl bal: INR 25000.00"
+    },
+    {
+      bankId: "axis",
+      transactionType: "credit",
+      templateLabel: "current-era UPI credit",
+      sender: "AXISBK",
+      body: "Axis Bank: INR 900.00 credited to A/c no. XX3456 on 15-08-2026 towards UPI/P2A/123456789013/Jane Roe. Avl bal: INR 25900.00"
+    },
+    // Kotak
+    {
+      bankId: "kotak",
+      transactionType: "debit",
+      templateLabel: "current-era UPI debit",
+      sender: "VM-KOTAKB",
+      body: "Rs.300.00 debited from Kotak Bank AC X1122 on 15-08-26 for UPI/merchant@icici/Ref123456789012. Avl Bal Rs.8000.00"
+    },
+    {
+      bankId: "kotak",
+      transactionType: "card_swipe",
+      templateLabel: "current-era card swipe",
+      sender: "KOTAKB",
+      body: "Rs.1200.00 spent on Kotak Debit Card X5566 at Big Bazaar on 15-08-26"
+    },
+    // Remaining current-era-only banks
+    {
+      bankId: "indusind",
+      transactionType: "debit",
+      templateLabel: "current-era UPI debit",
+      sender: "VM-INDUSB",
+      body: "IndusInd Bank: Rs.400.00 debited from A/c X7788 on 15-08-26 UPI Ref123456789012 to merchant@indus"
+    },
+    {
+      bankId: "bob",
+      transactionType: "debit",
+      templateLabel: "current-era debit",
+      sender: "VM-BOBTXN",
+      body: "Your A/c XX9900 is debited by Rs.600.00 on 15-08-2026 towards Grocery Store-Bank of Baroda"
+    },
+    {
+      bankId: "hsbc",
+      transactionType: "debit",
+      templateLabel: "current-era debit",
+      sender: "VM-HSBCIN",
+      body: "HSBC: INR 1000.00 debited from a/c XX2233 on 15/08/2026 for Online Purchase"
+    },
+    {
+      bankId: "yesbank",
+      transactionType: "debit",
+      templateLabel: "current-era UPI debit",
+      sender: "VM-YESBNK",
+      body: "Rs.250.00 debited from YES Bank A/c X4455 on 15-08-26 towards UPI/merchant@yesb/Ref123456789012"
+    },
+    {
+      bankId: "pnb",
+      transactionType: "debit",
+      templateLabel: "current-era debit",
+      sender: "VM-PNBSMS",
+      body: "PNB: Rs.800.00 debited from A/c XX6677 on 15-08-2026 for School Fees. Avail Bal Rs.15000.00"
+    },
+    {
+      bankId: "canara",
+      transactionType: "debit",
+      templateLabel: "current-era UPI debit",
+      sender: "VM-CANBNK",
+      body: "Canara Bank A/c XX3344 debited for Rs.450.00 on 15-08-26 UPI Ref123456789012"
+    },
+    {
+      bankId: "idfcfirst",
+      transactionType: "debit",
+      templateLabel: "current-era UPI debit",
+      sender: "VM-IDFCFB",
+      body: "IDFC FIRST Bank: Rs.350.00 debited from a/c X8899 on 15-08-26 via UPI to merchant@idfc (Ref123456789012)"
+    }
+  ];
+
+  // tools/sms-parser-verifier/state.ts
+  var RECEIVED_AT = Date.now();
+  var SESSION_KEY = "smsVerifierSessionV2";
+  function emptySession() {
+    return {
+      newBankIds: [],
+      extraSenderPatterns: {},
+      newTemplates: {},
+      overrides: {},
+      disabledTemplates: {},
+      draftSamples: {},
+      customSnippets: [],
+      snippetOverrides: {}
+    };
+  }
+  function loadSession() {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) return emptySession();
+      const parsed = JSON.parse(raw);
+      return {
+        newBankIds: parsed.newBankIds ?? [],
+        extraSenderPatterns: parsed.extraSenderPatterns ?? {},
+        newTemplates: parsed.newTemplates ?? {},
+        overrides: parsed.overrides ?? {},
+        disabledTemplates: parsed.disabledTemplates ?? {},
+        draftSamples: parsed.draftSamples ?? {},
+        customSnippets: parsed.customSnippets ?? [],
+        snippetOverrides: parsed.snippetOverrides ?? {}
+      };
+    } catch {
+      return emptySession();
+    }
+  }
+  var session = loadSession();
+  function saveSession() {
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    } catch {
+    }
+  }
+  var baseBundle = SMS_PATTERNS_FALLBACK;
+  var baseBundleLabel = "Bundled fallback (offline, ships in the app)";
+  function setBaseBundle(bundle, label) {
+    baseBundle = bundle;
+    baseBundleLabel = label;
+  }
+  function officialCountFor(bankId) {
+    return baseBundle.banks.find((b) => b.bankId === bankId)?.templates.length ?? 0;
+  }
+  function effectiveBundle() {
+    const byBank = /* @__PURE__ */ new Map();
+    for (const b of baseBundle.banks) {
+      const templates = b.templates.map((t, i) => session.overrides[b.bankId]?.[i] ?? t);
+      byBank.set(b.bankId, {
+        bankId: b.bankId,
+        senderIdPatterns: [...b.senderIdPatterns, ...session.extraSenderPatterns[b.bankId] ?? []],
+        templates: [...templates, ...session.newTemplates[b.bankId] ?? []]
+      });
+    }
+    for (const bankId of session.newBankIds) {
+      if (byBank.has(bankId)) continue;
+      byBank.set(bankId, {
+        bankId,
+        // tester-typed, not yet a real BankPresetId — harmless at runtime,
+        // TS types don't exist post-build.
+        senderIdPatterns: session.extraSenderPatterns[bankId] ?? [],
+        templates: session.newTemplates[bankId] ?? []
+      });
+    }
+    return { version: baseBundle.version, banks: [...byBank.values()] };
+  }
+  function isTemplateDisabled(bankId, index) {
+    return (session.disabledTemplates[bankId] ?? []).includes(index);
+  }
+  function toggleTemplateDisabled(bankId, index) {
+    const current = session.disabledTemplates[bankId] ?? [];
+    session.disabledTemplates[bankId] = current.includes(index) ? current.filter((i) => i !== index) : [...current, index];
+    saveSession();
+  }
+  function getDraftSample(bankId, index) {
+    return session.draftSamples[bankId]?.[index];
+  }
+  function setDraftSample(bankId, index, sample) {
+    var _a;
+    (_a = session.draftSamples)[bankId] ?? (_a[bankId] = {});
+    session.draftSamples[bankId][index] = sample;
+    saveSession();
+  }
+  function effectiveBundleForTesting() {
+    const full = effectiveBundle();
+    return {
+      version: full.version,
+      banks: full.banks.map((b) => ({
+        ...b,
+        templates: b.templates.filter((_, i) => !isTemplateDisabled(b.bankId, i))
+      }))
+    };
+  }
+  function samplesByBank() {
+    const map = /* @__PURE__ */ new Map();
+    for (const s of SMS_SAMPLE_MESSAGES) {
+      const list = map.get(s.bankId) ?? [];
+      list.push(s);
+      map.set(s.bankId, list);
+    }
+    return map;
+  }
+  function bankPassState(bankId) {
+    const samples = samplesByBank().get(bankId) ?? [];
+    const bundle = effectiveBundleForTesting();
+    if (samples.length === 0) return "none";
+    let passCount = 0;
+    for (const s of samples) {
+      if (traceSms(s.sender, s.body, RECEIVED_AT, bundle).outcome.kind === "parsed") passCount++;
+    }
+    if (passCount === samples.length) return "pass";
+    if (passCount > 0) return "partial";
+    return "none";
+  }
+  var selection = { kind: "bank", bankId: "hdfc" };
+  function setSelection(next) {
+    selection = next;
+  }
+  var modal = null;
+  function setModal(next) {
+    modal = next;
+  }
+  var bankFilterQuery = "";
+  function setBankFilterQuery(next) {
+    bankFilterQuery = next;
+  }
+  function emptyResultsState() {
+    return { results: [], filter: "all", search: "", expandedIndex: null, page: 1, pageSize: 100, hasRun: false };
+  }
+  var bulkRaw = "";
+  function setBulkRaw(next) {
+    bulkRaw = next;
+  }
+  var bulkState = emptyResultsState();
+  var bankTesters = {};
+  function bankTesterFor(bankId) {
+    return bankTesters[bankId] ?? (bankTesters[bankId] = { mode: "auto", raw: "", state: emptyResultsState() });
+  }
+  var BUILTIN_SNIPPETS = [
+    { label: "amount", snippet: "Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)" },
+    { label: "acctLast4", snippet: "X+(?<acctLast4>\\d{3,6})" },
+    { label: "cardLast4", snippet: "X(?<cardLast4>\\d{4})" },
+    { label: "counterparty", snippet: "(?<counterparty>[\\w .@-]+)" },
+    { label: "ref", snippet: "(?:UPI )?Ref(?:erence)?\\.?\\s*No\\.?\\s*(?<ref>\\d+)" },
+    { label: "balance", snippet: "Avl\\.?\\s*Bal\\.?\\s*Rs\\.?\\s?(?<balance>[\\d,]+\\.?\\d*)" },
+    { label: "dateStr (DD-Mon-YY)", snippet: "(?<dateStr>\\d{2}-[A-Za-z]{3}-\\d{2})" },
+    { label: "dateStr (DD/MM/YY)", snippet: "(?<dateStr>\\d{2}\\/\\d{2}\\/\\d{2})" },
+    { label: "dateStr (DD-MM-YYYY)", snippet: "(?<dateStr>\\d{2}-\\d{2}-\\d{4})" }
+  ];
+  function effectiveSnippets() {
+    return [...BUILTIN_SNIPPETS.map((s, i) => session.snippetOverrides[i] ?? s), ...session.customSnippets];
+  }
+  function isSnippetCustom(effectiveIndex) {
+    return effectiveIndex >= BUILTIN_SNIPPETS.length;
+  }
+  function isSnippetModified(effectiveIndex) {
+    return effectiveIndex < BUILTIN_SNIPPETS.length && session.snippetOverrides[effectiveIndex] !== void 0;
+  }
+  function isDuplicateSnippet(candidate, excludeEffectiveIndex) {
+    const normalized = candidate.snippet.trim();
+    if (!normalized) return null;
+    const list = effectiveSnippets();
+    for (let i = 0; i < list.length; i++) {
+      if (i === excludeEffectiveIndex) continue;
+      if (list[i].snippet.trim() === normalized) return i;
+    }
+    return null;
+  }
+  function saveSnippet(effectiveIndex, snippet) {
+    if (effectiveIndex === "new") {
+      session.customSnippets = [...session.customSnippets, snippet];
+    } else if (effectiveIndex < BUILTIN_SNIPPETS.length) {
+      session.snippetOverrides[effectiveIndex] = snippet;
+    } else {
+      const customIndex = effectiveIndex - BUILTIN_SNIPPETS.length;
+      const arr = [...session.customSnippets];
+      arr[customIndex] = snippet;
+      session.customSnippets = arr;
+    }
+    saveSession();
+  }
+  function deleteCustomSnippet(effectiveIndex) {
+    if (!isSnippetCustom(effectiveIndex)) return;
+    const customIndex = effectiveIndex - BUILTIN_SNIPPETS.length;
+    session.customSnippets = session.customSnippets.filter((_, i) => i !== customIndex);
+    saveSession();
+  }
+
+  // tools/sms-parser-verifier/regexAuthoring.ts
+  function tryCompile(pattern) {
+    try {
+      new RegExp(pattern, "i");
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+  function singleTemplateBundle(bankId, template, senderIdPatterns) {
+    return { version: 1, banks: [{ bankId, senderIdPatterns, templates: [template] }] };
+  }
+  function forcedBankBundle(bank) {
+    return { version: 1, banks: [{ ...bank, senderIdPatterns: [".*"] }] };
+  }
+  function literalFragments(pattern) {
+    return pattern.toUpperCase().match(/[A-Z]{3,}/g) ?? [];
+  }
+  function sharesSignificantPrefixOrSubstring(a, b) {
+    if (a.includes(b) || b.includes(a)) return true;
+    let i = 0;
+    while (i < a.length && i < b.length && a[i] === b[i]) i++;
+    return i >= 3;
+  }
+  function suggestBankForSender(sender, bundle) {
+    const upper = sender.toUpperCase();
+    for (const bank of bundle.banks) {
+      for (const pattern of bank.senderIdPatterns) {
+        for (const fragment of literalFragments(pattern)) {
+          if (sharesSignificantPrefixOrSubstring(upper, fragment)) return { bankId: bank.bankId, fragment };
+        }
+      }
+    }
+    return null;
+  }
+  function findSenderPatternOverlap(newPattern, targetBankId, bundle) {
+    const newFragments = literalFragments(newPattern);
+    if (newFragments.length === 0) return null;
+    for (const bank of bundle.banks) {
+      if (bank.bankId === targetBankId) continue;
+      const existingFragments = bank.senderIdPatterns.flatMap(literalFragments);
+      if (newFragments.some((f) => existingFragments.some((ef) => sharesSignificantPrefixOrSubstring(f, ef))))
+        return bank.bankId;
+    }
+    return null;
+  }
+  function escapeRegExp(literal) {
+    return literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  function findUnrecognizedGroupNames(pattern) {
+    const known = new Set(CAPTURE_GROUP_NAMES);
+    const seen = /* @__PURE__ */ new Set();
+    const result = [];
+    for (const span of findNamedGroupSpans(pattern)) {
+      if (known.has(span.name) || seen.has(span.name)) continue;
+      seen.add(span.name);
+      result.push(span.name);
+    }
+    return result;
+  }
+  function findUncatalogedGroupPatterns(pattern) {
+    const catalog = effectiveSnippets();
+    const seen = /* @__PURE__ */ new Set();
+    const result = [];
+    for (const span of findNamedGroupSpans(pattern)) {
+      const fragment = pattern.slice(span.start, span.end);
+      if (seen.has(fragment)) continue;
+      seen.add(fragment);
+      if (!catalog.some((c) => c.snippet.includes(fragment))) result.push({ name: span.name, fragment });
+    }
+    return result;
+  }
+  var REGEX_SYNTAX_CHEATSHEET = [
+    {
+      category: "Character classes",
+      rows: [
+        [".", "any character except newline"],
+        ["\\w \\d \\s", "word, digit, whitespace"],
+        ["\\W \\D \\S", "not word, digit, whitespace"],
+        ["[abc]", "any of a, b, or c"],
+        ["[^abc]", "not a, b, or c"],
+        ["[a-g]", "character between a & g"]
+      ]
+    },
+    {
+      category: "Anchors",
+      rows: [
+        ["^abc$", "start / end of the string"],
+        ["\\b \\B", "word, not-word boundary"]
+      ]
+    },
+    {
+      category: "Escaped characters",
+      rows: [
+        ["\\. \\* \\\\", "escaped special characters"],
+        ["\\t \\n \\r", "tab, linefeed, carriage return"]
+      ]
+    },
+    {
+      category: "Groups & lookaround",
+      rows: [
+        ["(abc)", "capture group"],
+        ["\\1", "backreference to group #1"],
+        ["(?:abc)", "non-capturing group"],
+        ["(?=abc)", "positive lookahead"],
+        ["(?!abc)", "negative lookahead"]
+      ]
+    },
+    {
+      category: "Quantifiers & alternation",
+      rows: [
+        ["a* a+ a?", "0 or more, 1 or more, 0 or 1"],
+        ["a{5} a{2,}", "exactly five, two or more"],
+        ["a{1,3}", "between one & three"],
+        ["a+? a{2,}?", "match as few as possible"],
+        ["ab|cd", "match ab or cd"]
+      ]
+    }
+  ];
+  function renderRegexHelper(onInsert) {
+    let tab = "common";
+    let editing = null;
+    const body = el("div", {});
+    const tabsEl = el("div", { className: "helpertabs" });
+    let rowElements = /* @__PURE__ */ new Map();
+    function renderEditForm(initial, index) {
+      const labelInput = el("input", { value: initial.label, placeholder: "e.g. upiRefNo" });
+      const snippetTa = el("textarea", {
+        rows: 2,
+        value: initial.snippet,
+        placeholder: "(?<fieldName>...)",
+        style: { fontFamily: "ui-monospace, Menlo, monospace", fontSize: "10px" }
+      });
+      const warnBox = el("div", {});
+      function checkDuplicate() {
+        for (const row of rowElements.values()) row.classList.remove("dup");
+        const dupIndex = isDuplicateSnippet(
+          { label: labelInput.value, snippet: snippetTa.value },
+          index === "new" ? void 0 : index
+        );
+        if (dupIndex === null) {
+          warnBox.replaceChildren();
+          return;
+        }
+        const existingRow = rowElements.get(dupIndex);
+        existingRow?.classList.add("dup");
+        existingRow?.scrollIntoView?.({ block: "nearest" });
+        warnBox.replaceChildren(
+          el("div", { className: "regexstatus err" }, [
+            el("i", { className: "ti ti-alert-triangle" }),
+            ` This exact pattern already exists as "${effectiveSnippets()[dupIndex]?.label ?? ""}" (highlighted below).`
+          ])
+        );
+      }
+      snippetTa.addEventListener("input", checkDuplicate);
+      checkDuplicate();
+      const saveBtn = el("div", { className: "formbtn primary" }, ["Save"]);
+      saveBtn.addEventListener("click", () => {
+        if (!labelInput.value.trim() || !snippetTa.value.trim()) return;
+        saveSnippet(index, { label: labelInput.value.trim(), snippet: snippetTa.value.trim() });
+        editing = null;
+        renderCommonTab();
+      });
+      const cancelBtn = el("div", { className: "formbtn ghost" }, ["Cancel"]);
+      cancelBtn.addEventListener("click", () => {
+        editing = null;
+        renderCommonTab();
+      });
+      return el("div", { className: "snippet-editform" }, [
+        el("div", { className: "formfield" }, [el("label", {}, ["Label"]), labelInput]),
+        el("div", { className: "formfield" }, [el("label", {}, ["Snippet"]), snippetTa]),
+        warnBox,
+        el("div", { className: "formbtnrow" }, [cancelBtn, saveBtn])
+      ]);
+    }
+    function renderCommonTab() {
+      rowElements = /* @__PURE__ */ new Map();
+      const nodes = [el("div", { className: "htitle" }, ["Insert at cursor"])];
+      effectiveSnippets().forEach((s, i) => {
+        if (editing === i) {
+          nodes.push(renderEditForm(s, i));
+          return;
+        }
+        const kindPill = isSnippetCustom(i) ? el("span", { className: "minipill draft" }, ["custom"]) : isSnippetModified(i) ? el("span", { className: "minipill modified" }, ["edited"]) : null;
+        const row = el("div", { className: "snippetrow" }, [
+          el("span", { className: "lbl" }, [el("b", {}, [s.label]), ...kindPill ? [" ", kindPill] : []]),
+          el("span", { className: "insrt" }, ["+ insert"])
+        ]);
+        rowElements.set(i, row);
+        row.addEventListener("click", () => onInsert(s.snippet));
+        const code = el("div", { className: "cheatcode" }, [s.snippet]);
+        const editLink = el("span", { className: "paperlink" }, ["Edit"]);
+        editLink.addEventListener("click", (e) => {
+          e.stopPropagation();
+          editing = i;
+          renderCommonTab();
+        });
+        const links = [editLink];
+        if (isSnippetCustom(i)) {
+          const deleteLink = el("span", { className: "paperlink danger" }, ["Delete"]);
+          deleteLink.addEventListener("click", (e) => {
+            e.stopPropagation();
+            deleteCustomSnippet(i);
+            renderCommonTab();
+          });
+          links.push(deleteLink);
+        }
+        const linksRow = el("div", { className: "snippetlinks" }, links);
+        linksRow.addEventListener("click", (e) => e.stopPropagation());
+        nodes.push(row, code, linksRow);
+      });
+      const addBtn = el("div", { className: "addtplbtn", style: { marginTop: "4px" } }, ["+ Add a common pattern"]);
+      addBtn.addEventListener("click", () => {
+        editing = "new";
+        renderCommonTab();
+      });
+      nodes.push(addBtn);
+      if (editing === "new") nodes.push(renderEditForm({ label: "", snippet: "" }, "new"));
+      body.replaceChildren(...nodes);
+    }
+    function renderSyntaxTab() {
+      body.replaceChildren(
+        ...REGEX_SYNTAX_CHEATSHEET.flatMap(({ category, rows }) => [
+          el("div", { className: "htitle" }, [category]),
+          el(
+            "div",
+            { className: "cheatgrid2" },
+            rows.flatMap(([k, v]) => [el("span", { className: "k" }, [k]), el("span", { className: "v" }, [v])])
+          )
+        ])
+      );
+    }
+    function renderBody() {
+      editing = null;
+      if (tab === "common") renderCommonTab();
+      else renderSyntaxTab();
+    }
+    function renderTabs() {
+      const commonTab = el("div", { className: `helpertab${tab === "common" ? " active" : ""}` }, ["Common patterns"]);
+      commonTab.addEventListener("click", () => {
+        tab = "common";
+        renderTabs();
+        renderBody();
+      });
+      const syntaxTab = el("div", { className: `helpertab${tab === "syntax" ? " active" : ""}` }, ["Regex syntax"]);
+      syntaxTab.addEventListener("click", () => {
+        tab = "syntax";
+        renderTabs();
+        renderBody();
+      });
+      tabsEl.replaceChildren(commonTab, syntaxTab);
+    }
+    renderTabs();
+    renderBody();
+    return el("div", { className: "helper" }, [tabsEl, body]);
+  }
+  function insertAtCursor(textarea, snippet) {
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? textarea.value.length;
+    textarea.value = textarea.value.slice(0, start) + snippet + textarea.value.slice(end);
+    const pos = start + snippet.length;
+    textarea.focus();
+    textarea.setSelectionRange(pos, pos);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  function renderPatternFieldWithHelper(textarea, status, warning, extraLeftFields = []) {
+    return el("div", { className: "helperwrap" }, [
+      el("div", { className: "field" }, [
+        el("div", { className: "formfield" }, [
+          el("label", {}, ["Regex pattern (amount, acctLast4, cardLast4, counterparty, ref, balance, dateStr)"]),
+          textarea,
+          status,
+          warning
+        ]),
+        ...extraLeftFields.length > 0 ? [el("div", { className: "field-extra" }, extraLeftFields)] : []
+      ]),
+      renderRegexHelper((snippet) => insertAtCursor(textarea, snippet))
+    ]);
+  }
+  function buildTemplateFormFields(template) {
+    const typeSelect = el(
+      "select",
+      {},
+      ["debit", "credit", "upi_sent", "upi_received", "card_swipe", "refund"].map(
+        (t) => el("option", { value: t, selected: t === template.transactionType }, [t])
+      )
+    );
+    const dateFormatInput = el("input", { value: template.dateFormat ?? "", placeholder: "e.g. DD-MMM-YY" });
+    const labelInput = el("input", { value: template.addedAt, placeholder: "your own note, like addedAt" });
+    const patternTa = el("textarea", {
+      rows: 4,
+      value: template.pattern,
+      placeholder: "Rs\\.?(?<amount>[\\d,]+\\.?\\d*) debited..."
+    });
+    const patternStatus = el("div", { className: "regexstatus ok" }, [
+      el("i", { className: "ti ti-circle-check" }),
+      " Valid regex syntax"
+    ]);
+    const patternWarning = el("div", {});
+    return { typeSelect, dateFormatInput, labelInput, patternTa, patternStatus, patternWarning };
+  }
+  function currentTemplateFromFields(fields, fallbackLabel) {
+    return {
+      transactionType: fields.typeSelect.value,
+      addedAt: fields.labelInput.value.trim() || fallbackLabel,
+      pattern: fields.patternTa.value,
+      ...fields.dateFormatInput.value.trim() ? { dateFormat: fields.dateFormatInput.value.trim() } : {}
+    };
+  }
+
+  // tools/sms-parser-verifier/entry.ts
+  function renderSidebarContents() {
+    const bundle = effectiveBundle();
+    const nodes = [];
+    const searchInput = el("input", { value: bankFilterQuery, placeholder: "Filter banks\u2026" });
+    searchInput.addEventListener("input", () => {
+      setBankFilterQuery(searchInput.value);
+      renderSidebarInto();
+    });
+    nodes.push(el("div", { className: "searchbox" }, [el("i", { className: "ti ti-search" }), searchInput]));
+    const bulkRow = el("div", { className: "pinrow" }, [el("i", { className: "ti ti-bolt" }), "Bulk test \u2014 all banks"]);
+    bulkRow.addEventListener("click", () => {
+      setSelection({ kind: "bulk" });
+      renderAll();
+    });
+    nodes.push(bulkRow);
+    const query = bankFilterQuery.trim().toLowerCase();
+    const filteredBanks = bundle.banks.filter((b) => !query || b.bankId.includes(query));
+    nodes.push(el("div", { className: "navlbl" }, [`Banks (${bundle.banks.length})`]));
+    for (const bank of filteredBanks) {
+      const state = bankPassState(bank.bankId);
+      const isNewBank = session.newBankIds.includes(bank.bankId);
+      const modifiedCount = Object.keys(session.overrides[bank.bankId] ?? {}).length;
+      const draftCount = (session.newTemplates[bank.bankId] ?? []).length;
+      const active = selection.kind === "bank" && selection.bankId === bank.bankId;
+      const row = el("div", { className: `bankrow${active ? " active" : ""}` }, [
+        el("span", {
+          className: "dot",
+          style: {
+            background: state === "pass" ? "#059669" : state === "partial" ? "#b45309" : isNewBank ? "#2563eb" : "#c2c8d1"
+          }
+        }),
+        bank.bankId.toUpperCase(),
+        el("span", { className: "cnt" }, [
+          `${bank.templates.length}`,
+          ...isNewBank ? [el("span", { className: "minipill draft" }, ["new"])] : [],
+          ...modifiedCount ? [el("span", { className: "minipill modified" }, [`${modifiedCount}\u270E`])] : [],
+          ...draftCount && !isNewBank ? [el("span", { className: "minipill draft" }, [`+${draftCount}`])] : []
+        ])
+      ]);
+      row.addEventListener("click", () => {
+        setSelection({ kind: "bank", bankId: bank.bankId });
+        renderAll();
+      });
+      nodes.push(row);
+    }
+    const newBankRow = el("div", { className: "newbankrow" }, [el("i", { className: "ti ti-plus" }), "New bank\u2026"]);
+    newBankRow.addEventListener("click", () => {
+      setModal({ kind: "newBank" });
+      renderModalRoot();
+    });
+    nodes.push(newBankRow);
+    const foot = el("div", { className: "sidefoot" });
+    const exportBtn = el("div", { className: "footbtn" }, [
+      el("i", { className: "ti ti-download" }),
+      "Export all patterns"
+    ]);
+    exportBtn.addEventListener("click", () => {
+      setModal({ kind: "export" });
+      renderModalRoot();
+    });
+    const importBtn = el("div", { className: "footbtn" }, [el("i", { className: "ti ti-upload" }), "Import patterns"]);
+    importBtn.addEventListener("click", () => {
+      setModal({ kind: "import" });
+      renderModalRoot();
+    });
+    foot.append(exportBtn, importBtn);
+    nodes.push(foot);
+    return nodes;
+  }
+  function renderSidebarInto() {
+    sideEl.replaceChildren(...renderSidebarContents());
+  }
+  function renderRightPanel() {
+    if (selection.kind !== "bank") {
+      return [
+        el("div", { className: "muted" }, ["Select a bank to see its configured sender patterns and templates here."])
+      ];
+    }
+    const bankId = selection.bankId;
+    const bundle = effectiveBundle();
+    const bank = bundle.banks.find((b) => b.bankId === bankId);
+    if (!bank) return [el("div", { className: "muted" }, [`Bank "${bankId}" not found.`])];
+    const isNewBank = session.newBankIds.includes(bankId);
+    const officialCount = isNewBank ? 0 : officialCountFor(bankId);
+    const samples = samplesByBank().get(bankId) ?? [];
+    const nodes = [];
+    const senderHead = el("div", { className: "rightsub withedit" }, [el("span", {}, ["Sender ID patterns"])]);
+    const editSendersBtn = el("span", { className: "rightedit" }, ["Edit"]);
+    editSendersBtn.addEventListener("click", () => {
+      setModal({ kind: "senders", bankId });
+      renderModalRoot();
+    });
+    senderHead.append(editSendersBtn);
+    nodes.push(senderHead);
+    nodes.push(
+      el(
+        "div",
+        { className: "senderref" },
+        bank.senderIdPatterns.length === 0 ? [el("span", { className: "muted" }, ["No sender patterns configured yet."])] : bank.senderIdPatterns.map((p) => el("code", {}, [p]))
+      )
+    );
+    const modifiedCount = Object.keys(session.overrides[bankId] ?? {}).length;
+    const draftCount = (session.newTemplates[bankId] ?? []).length;
+    const countLabel = `(${officialCount - modifiedCount} official${modifiedCount ? `, ${modifiedCount} modified` : ""}${draftCount ? `, ${draftCount} draft` : ""})`;
+    nodes.push(
+      el("div", { className: "rightsub" }, [
+        `Templates ${bank.templates.length} `,
+        el("span", { className: "cnt" }, [countLabel])
+      ])
+    );
+    bank.templates.forEach((template, index) => {
+      const kind = index >= officialCount ? "draft" : session.overrides[bankId]?.[index] ? "modified" : "official";
+      const disabled = isTemplateDisabled(bankId, index);
+      const sample = getDraftSample(bankId, index) ?? (index < officialCount ? samples[index] : void 0);
+      const trace = sample ? traceSms(sample.sender, sample.body, RECEIVED_AT, bundle) : null;
+      const attempt = trace?.attempts.find(
+        (a) => a.transactionType === template.transactionType && a.addedAt === template.addedAt
+      );
+      const kindLabel = kind === "official" ? "official" : kind === "modified" ? "modified" : "draft";
+      const top = el("div", { className: "ptop" }, [
+        el("b", {}, [`Template ${index + 1}`]),
+        el("span", { className: "era" }, [template.addedAt]),
+        el("span", { className: `minipill ${kind}` }, [kindLabel]),
+        ...disabled ? [el("span", { className: "minipill disabled" }, ["disabled"])] : [],
+        el("span", { className: "spacer" }),
+        ...attempt ? [
+          el("span", { className: `minipill ${attempt.matched ? "pass" : "warn"}` }, [
+            attempt.matched ? "\u2713 Parsed" : "\u2717 No match"
+          ])
+        ] : []
+      ]);
+      const copyBtn = el("span", { className: "paperlink" }, ["Copy regex"]);
+      copyBtn.addEventListener("click", () => {
+        copyText(template.pattern);
+        showToast("Regex copied to clipboard");
+      });
+      const editBtn = el("span", { className: "paperlink" }, ["Edit"]);
+      editBtn.addEventListener("click", () => {
+        setModal({ kind: "template", bankId, index });
+        renderModalRoot();
+      });
+      const toggleDisableBtn = el("span", { className: "paperlink" }, [disabled ? "Enable" : "Disable"]);
+      toggleDisableBtn.addEventListener("click", () => {
+        toggleTemplateDisabled(bankId, index);
+        renderAll();
+      });
+      const actionsRow = el("div", { className: "paperactions" }, [copyBtn, editBtn, toggleDisableBtn]);
+      if (kind === "draft") {
+        const deleteBtn = el("span", { className: "paperlink danger" }, ["Delete"]);
+        deleteBtn.addEventListener("click", () => {
+          session.newTemplates[bankId]?.splice(index - officialCount, 1);
+          saveSession();
+          renderAll();
+        });
+        actionsRow.append(deleteBtn);
+      }
+      const card = el("div", { className: `papercard${disabled ? " disabled" : ""}` }, [
+        top,
+        highlightedPattern(template.pattern)
+      ]);
+      if (sample) {
+        card.append(
+          el("div", { className: "papersample" }, markedNodes(sample.body, captureRangesToSpans(attempt?.captureRanges)))
+        );
+        if (attempt?.matched && attempt.candidate) card.append(fieldChips(attempt.candidate, attempt.captureRanges));
+      } else {
+        card.append(
+          el("div", { className: "muted", style: { fontSize: "10px" } }, [
+            "No sample on file \u2014 verify it in the test column."
+          ])
+        );
+      }
+      card.append(actionsRow);
+      nodes.push(card);
+    });
+    const addCard = el("div", { className: "addtplbtn" }, [`+ Add a new template for ${bankId.toUpperCase()}`]);
+    addCard.addEventListener("click", () => {
+      setModal({ kind: "template", bankId, index: "new" });
+      renderModalRoot();
+    });
+    nodes.push(addCard);
+    return nodes;
+  }
+  function renderRightPanelInto() {
+    rightEl.replaceChildren(...renderRightPanel());
+  }
+  function renderTemplateModal(m) {
+    const bundle = effectiveBundle();
+    const bank = bundle.banks.find((b) => b.bankId === m.bankId);
+    const officialCount = officialCountFor(m.bankId);
+    const isNew = m.index === "new";
+    const existing = !isNew && bank ? bank.templates[m.index] : void 0;
+    const kind = isNew ? "new" : m.index >= officialCount ? "draft" : session.overrides[m.bankId]?.[m.index] ? "modified" : "official";
+    const originalSample = !isNew && m.index < officialCount ? samplesByBank().get(m.bankId)?.[m.index] : void 0;
+    const savedSample = !isNew ? getDraftSample(m.bankId, m.index) : void 0;
+    const fields = buildTemplateFormFields(
+      existing ?? { transactionType: "debit", dateFormat: "", addedAt: "", pattern: "" }
+    );
+    const previewBox = el("div", {});
+    const testSenderInput = el("input", {
+      value: m.prefillSender ?? savedSample?.sender ?? originalSample?.sender ?? m.bankId.toUpperCase(),
+      placeholder: "e.g. VM-SBIINB"
+    });
+    const testBodyTa = el("textarea", {
+      rows: 2,
+      value: m.prefillBody ?? savedSample?.body ?? originalSample?.body ?? "",
+      placeholder: "Paste one message to test your draft against\u2026"
+    });
+    const realSenderPatterns = bank?.senderIdPatterns?.length ? bank.senderIdPatterns : [".*"];
+    function updatePreview() {
+      const compiled = tryCompile(fields.patternTa.value);
+      fields.patternStatus.className = compiled.ok ? "regexstatus ok" : "regexstatus err";
+      fields.patternStatus.replaceChildren(
+        el("i", { className: `ti ti-circle-${compiled.ok ? "check" : "x"}` }),
+        compiled.ok ? " Valid regex syntax" : ` Invalid: ${compiled.error}`
+      );
+      const unrecognized = compiled.ok ? findUnrecognizedGroupNames(fields.patternTa.value) : [];
+      fields.patternWarning.replaceChildren(
+        ...unrecognized.length > 0 ? [
+          el("div", { className: "regexstatus warn" }, [
+            el("i", { className: "ti ti-alert-triangle" }),
+            ` Unrecognized field name(s): ${unrecognized.join(", ")} \u2014 the real parser only reads amount, acctLast4, cardLast4, counterparty, ref, balance, dateStr. Anything else compiles fine but is silently ignored: not extracted, not highlighted, in production.`
+          ])
+        ] : []
+      );
+      const left = el("div", {}, [
+        el("div", { className: "minilabel" }, ["Your regex"]),
+        highlightedPattern(fields.patternTa.value)
+      ]);
+      let statusEl;
+      let msgEl = null;
+      if (!testBodyTa.value.trim()) {
+        statusEl = el("div", { className: "muted" }, ["Paste a message above to check your regex live."]);
+      } else if (compiled.ok) {
+        const draftTemplate = currentTemplateFromFields(fields, existing?.addedAt ?? "draft");
+        const testBundle = singleTemplateBundle(m.bankId, draftTemplate, realSenderPatterns);
+        const trace = traceSms(
+          testSenderInput.value || m.bankId.toUpperCase(),
+          testBodyTa.value,
+          RECEIVED_AT,
+          testBundle
+        );
+        const attempt = trace.attempts[0];
+        const matched = trace.outcome.kind === "parsed" && !!attempt?.matched;
+        msgEl = highlightedText(testBodyTa.value, attempt?.captureRanges);
+        if (trace.matchedSenderBanks.length === 0) {
+          statusEl = el("span", { className: "pill warn" }, ["\u2717 sender not recognized"]);
+        } else {
+          statusEl = el("span", { className: `pill ${matched ? "pass" : "warn"}` }, [
+            matched ? "\u2713 matches" : "\u2717 no match"
+          ]);
+        }
+      } else {
+        msgEl = highlightedText(testBodyTa.value, void 0);
+        statusEl = el("span", { className: "pill warn" }, ["\u2717 invalid regex"]);
+      }
+      const right = el("div", {}, [
+        el("div", { className: "minilabel" }, ["Test message ", statusEl]),
+        msgEl ?? el("div", {})
+      ]);
+      previewBox.replaceChildren(el("div", { className: "regexmsg-grid" }, [left, right]));
+    }
+    fields.patternTa.addEventListener("input", updatePreview);
+    fields.typeSelect.addEventListener("change", updatePreview);
+    fields.dateFormatInput.addEventListener("input", updatePreview);
+    fields.labelInput.addEventListener("input", updatePreview);
+    testSenderInput.addEventListener("input", updatePreview);
+    testBodyTa.addEventListener("input", updatePreview);
+    updatePreview();
+    const saveBtn = el("div", { className: "formbtn primary" }, [
+      isNew ? "Save template" : kind === "official" ? "Save override" : "Save changes"
+    ]);
+    saveBtn.addEventListener("click", () => {
+      var _a, _b;
+      if (!fields.patternTa.value.trim()) return;
+      const newTemplate = currentTemplateFromFields(
+        fields,
+        isNew ? `draft, ${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}` : existing?.addedAt ?? ""
+      );
+      let effectiveIndex;
+      if (isNew) {
+        const arr = [...session.newTemplates[m.bankId] ?? [], newTemplate];
+        session.newTemplates[m.bankId] = arr;
+        effectiveIndex = officialCount + arr.length - 1;
+      } else if (kind === "draft") {
+        const arr = session.newTemplates[m.bankId] ?? [];
+        arr[m.index - officialCount] = newTemplate;
+        session.newTemplates[m.bankId] = arr;
+        effectiveIndex = m.index;
+      } else {
+        (_a = session.overrides)[_b = m.bankId] ?? (_a[_b] = {});
+        session.overrides[m.bankId][m.index] = newTemplate;
+        effectiveIndex = m.index;
+      }
+      if (testBodyTa.value.trim()) {
+        setDraftSample(m.bankId, effectiveIndex, {
+          sender: testSenderInput.value || m.bankId.toUpperCase(),
+          body: testBodyTa.value
+        });
+      }
+      saveSession();
+      renderRightPanelInto();
+      renderSidebarInto();
+      const suggestions = findUncatalogedGroupPatterns(newTemplate.pattern);
+      if (suggestions.length === 0) {
+        setModal(null);
+        renderModalRoot();
+      } else {
+        mbodyEl.replaceChildren(
+          renderSnippetSuggestionPanel(suggestions, () => {
+            setModal(null);
+            renderModalRoot();
+          })
+        );
+      }
+    });
+    const cancelBtn = el("div", { className: "formbtn ghost" }, ["Cancel"]);
+    cancelBtn.addEventListener("click", () => {
+      setModal(null);
+      renderModalRoot();
+    });
+    const closeBtn = el("span", { className: "x" }, ["\u2715"]);
+    closeBtn.addEventListener("click", () => {
+      setModal(null);
+      renderModalRoot();
+    });
+    const title = isNew ? `Add a new template for ${m.bankId.toUpperCase()}` : `Edit template \u2014 ${m.bankId.toUpperCase()}`;
+    const body = [
+      el("div", { className: "formrow3" }, [
+        el("div", { className: "formfield" }, [el("label", {}, ["Transaction type"]), fields.typeSelect]),
+        el("div", { className: "formfield" }, [el("label", {}, ["Date format (if any)"]), fields.dateFormatInput]),
+        el("div", { className: "formfield" }, [el("label", {}, ["Label"]), fields.labelInput])
+      ]),
+      // Test sender/body render BELOW the pattern field, in the same left column — filling the space the
+      // (taller) regex helper panel already occupies on the right, instead of needing their own separate
+      // full-width row further down the modal.
+      renderPatternFieldWithHelper(fields.patternTa, fields.patternStatus, fields.patternWarning, [
+        el("div", { className: "formfield" }, [el("label", {}, ["Test sender"]), testSenderInput]),
+        el("div", { className: "formfield" }, [
+          el("label", {}, [
+            originalSample ? "Test message body (from the original sample \u2014 editable)" : "Test message body"
+          ]),
+          testBodyTa
+        ])
+      ]),
+      previewBox
+    ];
+    const mbodyEl = el("div", { className: "mbody" }, body);
+    return el("div", { className: "modal-backdrop active" }, [
+      el("div", { className: "modal", style: { width: "760px" } }, [
+        el("div", { className: "mtop" }, [el("h4", {}, [title]), closeBtn]),
+        mbodyEl,
+        el("div", { className: "mfoot" }, [cancelBtn, saveBtn])
+      ])
+    ]);
+  }
+  function renderSnippetSuggestionPanel(suggestions, onDone) {
+    const rows = suggestions.map(({ name, fragment }) => {
+      const addBtn = el("div", { className: "formbtn primary", style: { marginTop: "4px" } }, [
+        "+ Add to Common Patterns"
+      ]);
+      addBtn.addEventListener("click", () => {
+        saveSnippet("new", { label: name, snippet: fragment });
+        addBtn.replaceWith(
+          el("div", { className: "regexstatus ok", style: { marginTop: "4px" } }, [
+            el("i", { className: "ti ti-circle-check" }),
+            " Added to Common Patterns."
+          ])
+        );
+      });
+      return el("div", { style: { marginBottom: "10px" } }, [
+        el("div", { className: "snippetrow" }, [el("span", { className: "lbl" }, [el("b", {}, [name])])]),
+        el("div", { className: "cheatcode" }, [fragment]),
+        addBtn
+      ]);
+    });
+    const doneBtn = el("div", { className: "formbtn primary" }, ["Done"]);
+    doneBtn.addEventListener("click", onDone);
+    return el("div", {}, [
+      el("div", { className: "regexstatus ok" }, [el("i", { className: "ti ti-circle-check" }), " Template saved."]),
+      el("div", { className: "htitle", style: { marginTop: "10px" } }, [
+        "New field pattern(s) not yet in your Common Patterns library"
+      ]),
+      ...rows,
+      el("div", { className: "formbtnrow" }, [doneBtn])
+    ]);
+  }
+  function renderSenderModal(m) {
+    const bankId = m.bankId;
+    const isNewBank = session.newBankIds.includes(bankId);
+    const official = isNewBank ? [] : baseBundle.banks.find((b) => b.bankId === bankId)?.senderIdPatterns ?? [];
+    const chipsWrap = el("div", { className: "senderbox" });
+    function renderChips() {
+      const extra = session.extraSenderPatterns[bankId] ?? [];
+      const chips = official.map(
+        (p) => el("span", { className: "patchip" }, [el("i", { className: "ti ti-lock" }), p])
+      );
+      extra.forEach((p, i) => {
+        const x = el("span", { className: "x" }, ["\u2715"]);
+        x.addEventListener("click", () => {
+          session.extraSenderPatterns[bankId] = extra.filter((_, idx) => idx !== i);
+          saveSession();
+          renderChips();
+          renderRightPanelInto();
+        });
+        chips.push(el("span", { className: "patchip custom" }, [p, x]));
+      });
+      chipsWrap.replaceChildren(...chips, input);
+    }
+    const input = el("input", { className: "addpatinput", placeholder: "+ add another sender pattern, e.g. ^SBIPSG$" });
+    const warnBox = el("div", {});
+    input.addEventListener("input", () => {
+      const value = input.value.trim();
+      if (!value) {
+        warnBox.replaceChildren();
+        return;
+      }
+      const compiled = tryCompile(value);
+      if (!compiled.ok) {
+        warnBox.replaceChildren(
+          el("div", { className: "regexstatus err" }, [
+            el("i", { className: "ti ti-alert-triangle" }),
+            ` Invalid regex: ${compiled.error}`
+          ])
+        );
+        return;
+      }
+      const overlapBank = findSenderPatternOverlap(value, bankId, effectiveBundle());
+      warnBox.replaceChildren(
+        ...overlapBank ? [
+          el("div", { className: "regexstatus err" }, [
+            el("i", { className: "ti ti-alert-triangle" }),
+            ` This would also match under ${overlapBank.toUpperCase()}'s existing patterns \u2014 double-check which bank actually owns this sender before adding it.`
+          ])
+        ] : []
+      );
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      const value = input.value.trim();
+      if (!value || !tryCompile(value).ok) return;
+      session.extraSenderPatterns[bankId] = [...session.extraSenderPatterns[bankId] ?? [], value];
+      saveSession();
+      input.value = "";
+      warnBox.replaceChildren();
+      renderChips();
+      renderRightPanelInto();
+    });
+    renderChips();
+    const doneBtn = el("div", { className: "formbtn primary" }, ["Done"]);
+    const close = () => {
+      setModal(null);
+      renderModalRoot();
+    };
+    doneBtn.addEventListener("click", close);
+    const closeBtn = el("span", { className: "x" }, ["\u2715"]);
+    closeBtn.addEventListener("click", close);
+    return el("div", { className: "modal-backdrop active" }, [
+      el("div", { className: "modal", style: { width: "460px" } }, [
+        el("div", { className: "mtop" }, [el("h4", {}, [`Sender ID patterns \u2014 ${bankId.toUpperCase()}`]), closeBtn]),
+        el("div", { className: "mbody" }, [
+          chipsWrap,
+          warnBox,
+          el("div", { className: "hint", style: { marginTop: "8px" } }, [
+            "\u{1F512} = official (real production coverage, not removable). New patterns are checked live against every other bank\u2019s patterns."
+          ])
+        ]),
+        el("div", { className: "mfoot" }, [doneBtn])
+      ])
+    ]);
+  }
+  function renderExportModal(scopeBankId) {
+    const full = effectiveBundle();
+    const bundle = scopeBankId ? { version: full.version, banks: full.banks.filter((b) => b.bankId === scopeBankId) } : full;
+    const json = JSON.stringify(bundle, null, 2);
+    const close = () => {
+      setModal(null);
+      renderModalRoot();
+    };
+    const closeBtn = el("span", { className: "x" }, ["\u2715"]);
+    closeBtn.addEventListener("click", close);
+    const copyBtn = el("div", { className: "formbtn primary" }, ["Copy JSON"]);
+    copyBtn.addEventListener("click", () => {
+      copyText(json);
+      showToast("JSON copied to clipboard");
+    });
+    const filename = scopeBankId ? `sms-patterns-${scopeBankId}.json` : "sms-patterns.json";
+    const downloadBtn = el("div", { className: "formbtn ghost" }, [`Download ${filename}`]);
+    downloadBtn.addEventListener("click", () => downloadTextFile(filename, json));
+    const title = scopeBankId ? `Export ${scopeBankId.toUpperCase()} only` : "Export all patterns";
+    const note = scopeBankId ? `Just ${scopeBankId.toUpperCase()}'s official data, overrides, and drafts \u2014 same SMS_PATTERN_BUNDLE-shaped JSON as the full export, filtered to one bank.` : `Includes every official bank, your session's overrides, and every draft template/bank \u2014 matches workers/api-proxy/src/smsPatterns.ts's SMS_PATTERN_BUNDLE shape exactly (${bundle.banks.length} banks).`;
+    return el("div", { className: "modal-backdrop active" }, [
+      el("div", { className: "modal" }, [
+        el("div", { className: "mtop" }, [el("h4", {}, [title]), closeBtn]),
+        el("div", { className: "mbody" }, [
+          el("div", { className: "hint" }, [note]),
+          el("pre", { className: "jsonpre" }, [json])
+        ]),
+        el("div", { className: "mfoot" }, [downloadBtn, copyBtn])
+      ])
+    ]);
+  }
+  function renderImportModal() {
+    const close = () => {
+      setModal(null);
+      renderModalRoot();
+    };
+    const closeBtn = el("span", { className: "x" }, ["\u2715"]);
+    closeBtn.addEventListener("click", close);
+    const textarea = el("textarea", { placeholder: "Paste exported JSON here\u2026", style: { minHeight: "70px" } });
+    const fileInput = el("input", { type: "file", accept: ".json", style: { display: "none" } });
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      void file.text().then((text) => textarea.value = text);
+    });
+    const uploadBtn = el("div", { className: "smallbtn" }, [
+      el("i", { className: "ti ti-file-upload" }),
+      "Upload a .json file instead"
+    ]);
+    uploadBtn.addEventListener("click", () => fileInput.click());
+    const statusBox = el("div", {});
+    const importBtn = el("div", { className: "formbtn primary" }, ["Import into this session"]);
+    importBtn.addEventListener("click", () => {
+      try {
+        const parsed = JSON.parse(textarea.value);
+        if (!Array.isArray(parsed.banks)) throw new Error("Not a valid pattern bundle (missing banks[])");
+        let bankCount = 0;
+        let templateCount = 0;
+        for (const bank of parsed.banks) {
+          bankCount++;
+          const knownBank = baseBundle.banks.find((b) => b.bankId === bank.bankId);
+          if (!knownBank && !session.newBankIds.includes(bank.bankId)) session.newBankIds.push(bank.bankId);
+          const knownPatterns = /* @__PURE__ */ new Set([
+            ...knownBank?.senderIdPatterns ?? [],
+            ...session.extraSenderPatterns[bank.bankId] ?? []
+          ]);
+          for (const p of bank.senderIdPatterns ?? []) {
+            if (!knownPatterns.has(p)) {
+              session.extraSenderPatterns[bank.bankId] = [...session.extraSenderPatterns[bank.bankId] ?? [], p];
+              knownPatterns.add(p);
+            }
+          }
+          const templates = bank.templates ?? [];
+          session.newTemplates[bank.bankId] = [...session.newTemplates[bank.bankId] ?? [], ...templates];
+          templateCount += templates.length;
+        }
+        saveSession();
+        statusBox.replaceChildren(
+          el("div", { className: "regexstatus ok" }, [
+            el("i", { className: "ti ti-circle-check" }),
+            ` Imported ${bankCount} bank(s), ${templateCount} template(s) as drafts.`
+          ])
+        );
+        renderAll();
+      } catch (err) {
+        statusBox.replaceChildren(
+          el("div", { className: "regexstatus err" }, [
+            el("i", { className: "ti ti-alert-triangle" }),
+            ` Import failed: ${err instanceof Error ? err.message : String(err)}`
+          ])
+        );
+      }
+    });
+    return el("div", { className: "modal-backdrop active" }, [
+      el("div", { className: "modal" }, [
+        el("div", { className: "mtop" }, [el("h4", {}, ["Import patterns"]), closeBtn]),
+        el("div", { className: "mbody" }, [
+          el("div", { className: "hint" }, [
+            "Paste JSON in the same shape, or upload a .json file. Every bank/template merges into your drafts \u2014 additive only, never replacing the bundled official fallback or an existing override."
+          ]),
+          el("div", { className: "console" }, [textarea]),
+          el("div", { className: "uploadrow", style: { marginTop: "8px" } }, [uploadBtn, fileInput]),
+          statusBox
+        ]),
+        el("div", { className: "mfoot" }, [importBtn])
+      ])
+    ]);
+  }
+  function renderNewBankModal() {
+    const bundle = effectiveBundle();
+    const close = () => {
+      setModal(null);
+      renderModalRoot();
+    };
+    const closeBtn = el("span", { className: "x" }, ["\u2715"]);
+    closeBtn.addEventListener("click", close);
+    const idInput = el("input", { placeholder: "e.g. kvb" });
+    const errBox = el("div", {});
+    const createBtn = el("div", { className: "formbtn primary" }, ["Create bank"]);
+    createBtn.addEventListener("click", () => {
+      const id = idInput.value.trim().toLowerCase();
+      if (!id) {
+        errBox.replaceChildren(
+          el("div", { className: "regexstatus err" }, [
+            el("i", { className: "ti ti-alert-triangle" }),
+            " Enter a bank ID."
+          ])
+        );
+        return;
+      }
+      if (bundle.banks.some((b) => b.bankId === id)) {
+        errBox.replaceChildren(
+          el("div", { className: "regexstatus err" }, [
+            el("i", { className: "ti ti-alert-triangle" }),
+            ` "${id}" already exists.`
+          ])
+        );
+        return;
+      }
+      session.newBankIds.push(id);
+      saveSession();
+      setSelection({ kind: "bank", bankId: id });
+      setModal(null);
+      renderModalRoot();
+      renderAll();
+    });
+    idInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") createBtn.dispatchEvent(new Event("click"));
+    });
+    const cancelBtn = el("div", { className: "formbtn ghost" }, ["Cancel"]);
+    cancelBtn.addEventListener("click", close);
+    return el("div", { className: "modal-backdrop active" }, [
+      el("div", { className: "modal", style: { width: "380px" } }, [
+        el("div", { className: "mtop" }, [el("h4", {}, ["New bank"]), closeBtn]),
+        el("div", { className: "mbody" }, [
+          el("div", { className: "formfield" }, [el("label", {}, ["Bank ID (short, lowercase)"]), idInput]),
+          errBox
+        ]),
+        el("div", { className: "mfoot" }, [cancelBtn, createBtn])
+      ])
+    ]);
+  }
+  function renderModalRoot() {
+    modalRoot.replaceChildren();
+    if (!modal) {
+      modalRoot.style.display = "none";
+      return;
+    }
+    modalRoot.style.display = "block";
+    if (modal.kind === "template") modalRoot.append(renderTemplateModal(modal));
+    else if (modal.kind === "senders") modalRoot.append(renderSenderModal(modal));
+    else if (modal.kind === "export") modalRoot.append(renderExportModal(modal.scopeBankId));
+    else if (modal.kind === "import") modalRoot.append(renderImportModal());
+    else modalRoot.append(renderNewBankModal());
+  }
+  var FILTER_LABELS = {
+    all: "Total tested",
+    parsed: "\u2713 Parsed",
+    partial: "\u26A0 Partial",
+    unrecognized: "\u274C Unrecognized",
+    excluded: "\u{1F6AB} Excluded"
+  };
+  function outcomeFilterKind(trace) {
+    if (trace.excludedAsOtp) return "excluded";
+    if (trace.outcome.kind === "parsed") return "parsed";
+    if (trace.outcome.kind === "unparsed_known_bank") return "partial";
+    return "unrecognized";
+  }
+  function badgeFor(trace) {
+    const kind = outcomeFilterKind(trace);
+    const map = {
+      all: ["", ""],
+      parsed: ["pass", "\u2713 Parsed"],
+      partial: ["warn", "\u26A0 Partial"],
+      unrecognized: ["fail", "\u274C Unrecognized"],
+      excluded: ["muted", "\u{1F6AB} Excluded"]
+    };
+    const [cls, label] = map[kind];
+    return el("span", { className: `badge ${cls}` }, [label]);
+  }
+  function renderTraceStrip(trace) {
+    if (trace.attempts.length === 0)
+      return el("div", { className: "tracestrip" }, [el("span", { className: "tdot skipped" }, ["\u2014"])]);
+    return el(
+      "div",
+      { className: "tracestrip" },
+      trace.attempts.map((a, i) => {
+        const cls = a.matched ? "matched" : a.attempted ? "tried" : "skipped";
+        return el("span", { className: `tdot ${cls}`, title: a.addedAt }, [String(i + 1)]);
+      })
+    );
+  }
+  function splitIntoBlocks(raw) {
+    return raw.split(/^\s*---\s*$/m).map((chunk) => chunk.trim()).filter(Boolean).map((chunk) => {
+      const lines = chunk.split("\n").map((l) => l.trim()).filter(Boolean);
+      const [sender, ...bodyLines] = lines;
+      return { sender: sender ?? "", body: bodyLines.join(" ") };
+    }).filter((b) => b.sender && b.body);
+  }
+  function runBatchedTest(blocks, computeTrace, onProgress, onDone) {
+    const total = blocks.length;
+    if (total === 0) {
+      onDone([]);
+      return;
+    }
+    const BATCH_SIZE = 500;
+    const results = [];
+    let i = 0;
+    function step() {
+      const end = Math.min(total, i + BATCH_SIZE);
+      for (; i < end; i++) {
+        const block = blocks[i];
+        if (!block) continue;
+        results.push({ sender: block.sender, body: block.body, trace: computeTrace(block.sender, block.body) });
+      }
+      onProgress(i, total);
+      if (i < total) {
+        (window.requestAnimationFrame || setTimeout)(() => setTimeout(step, 0));
+      } else {
+        onDone(results);
+      }
+    }
+    step();
+  }
+  function renderPaginationBar(state, filteredLength, onChange) {
+    const totalPages = Math.max(1, Math.ceil(filteredLength / state.pageSize));
+    if (state.page > totalPages) state.page = totalPages;
+    const start = (state.page - 1) * state.pageSize;
+    const info = el("span", {}, [
+      `Showing ${filteredLength === 0 ? 0 : start + 1}\u2013${Math.min(start + state.pageSize, filteredLength)} of ${filteredLength.toLocaleString()}`
+    ]);
+    const sizeSelect = el(
+      "select",
+      { className: "pagesize" },
+      [50, 100, 250, 500].map((n) => el("option", { value: String(n), selected: n === state.pageSize }, [`${n} / page`]))
+    );
+    sizeSelect.addEventListener("change", () => {
+      state.pageSize = Number(sizeSelect.value);
+      state.page = 1;
+      onChange();
+    });
+    const btnsWrap = el("div", { className: "pagebtns" });
+    const first = Math.max(1, state.page - 2);
+    const last = Math.min(totalPages, first + 4);
+    for (let p = first; p <= last; p++) {
+      const btn = el("div", { className: `pagebtn${p === state.page ? " active" : ""}` }, [String(p)]);
+      btn.addEventListener("click", () => {
+        state.page = p;
+        onChange();
+      });
+      btnsWrap.append(btn);
+    }
+    return el("div", { className: "pagerow" }, [info, sizeSelect, btnsWrap]);
+  }
+  function renderResultsTableInto(container, state) {
+    if (!state.hasRun) {
+      container.replaceChildren();
+      return;
+    }
+    const searchLower = state.search.trim().toLowerCase();
+    const filtered = state.results.filter(
+      (r) => (state.filter === "all" || outcomeFilterKind(r.trace) === state.filter) && (!searchLower || `${r.sender} ${r.body}`.toLowerCase().includes(searchLower))
+    );
+    const rerender = () => renderResultsTableInto(container, state);
+    const statStrip = el(
+      "div",
+      { className: "statstrip" },
+      Object.keys(FILTER_LABELS).map((key) => {
+        const count = key === "all" ? state.results.length : state.results.filter((r) => outcomeFilterKind(r.trace) === key).length;
+        const cls = key === "parsed" ? "pass" : key === "partial" ? "warn" : key === "unrecognized" ? "fail" : "";
+        const card = el("div", { className: `statcard ${cls}${state.filter === key ? " active" : ""}` }, [
+          el("div", { className: "n" }, [count.toLocaleString()]),
+          el("div", { className: "l" }, [FILTER_LABELS[key]])
+        ]);
+        card.addEventListener("click", () => {
+          state.filter = key;
+          state.page = 1;
+          rerender();
+        });
+        return card;
+      })
+    );
+    const searchInput = el("input", { value: state.search, placeholder: "Search sender or message text\u2026" });
+    searchInput.addEventListener("input", () => {
+      state.search = searchInput.value;
+      state.page = 1;
+      rerender();
+    });
+    const copyRedactedBtn = el("div", { className: "smallbtn" }, [
+      el("i", { className: "ti ti-copy" }),
+      "Copy (redacted)"
+    ]);
+    copyRedactedBtn.addEventListener("click", () => {
+      copyText(
+        filtered.map((r) => `[${FILTER_LABELS[outcomeFilterKind(r.trace)]}] ${redactDigits(r.sender)}: ${redactDigits(r.body)}`).join("\n")
+      );
+      showToast(`Copied ${filtered.length.toLocaleString()} redacted result(s)`);
+    });
+    const copyUnredactedBtn = el("div", { className: "smallbtn" }, [
+      el("i", { className: "ti ti-copy" }),
+      "Copy (unredacted)"
+    ]);
+    copyUnredactedBtn.addEventListener("click", () => {
+      copyText(filtered.map((r) => `[${FILTER_LABELS[outcomeFilterKind(r.trace)]}] ${r.sender}: ${r.body}`).join("\n"));
+      showToast(`Copied ${filtered.length.toLocaleString()} result(s)`);
+    });
+    const toolsRow = el("div", { className: "toolsrow" }, [
+      el("div", { className: "searchbox" }, [el("i", { className: "ti ti-search" }), searchInput]),
+      copyRedactedBtn,
+      copyUnredactedBtn
+    ]);
+    const topPager = renderPaginationBar(state, filtered.length, rerender);
+    const start = (state.page - 1) * state.pageSize;
+    const pageItems = filtered.slice(start, start + state.pageSize);
+    const table = el("table", { className: "rtable" }, [
+      el("thead", {}, [
+        el("tr", {}, [
+          el("th", {}, [""]),
+          el("th", {}, ["Sender"]),
+          el("th", {}, ["Bank"]),
+          el("th", {}, ["Message"]),
+          el("th", {}, ["Trace"]),
+          el("th", {}, ["Status"])
+        ])
+      ]),
+      el(
+        "tbody",
+        {},
+        pageItems.length === 0 ? [
+          el("tr", {}, [
+            el("td", { colSpan: 6, className: "muted" }, [
+              state.results.length === 0 ? "Nothing tested yet \u2014 paste or upload messages above." : "No results match this filter/search."
+            ])
+          ])
+        ] : pageItems.flatMap((result, i) => resultRows(result, start + i, container, state))
+      )
+    ]);
+    const bottomPager = renderPaginationBar(state, filtered.length, rerender);
+    container.replaceChildren(statStrip, toolsRow, topPager, table, bottomPager);
+  }
+  function resultRows(result, idx, container, state) {
+    const kind = outcomeFilterKind(result.trace);
+    const expandable = kind !== "parsed";
+    const isExpanded = expandable && state.expandedIndex === idx;
+    const winningAttempt = result.trace.attempts.find((a) => a.matched);
+    const bankLabel = result.trace.matchedSenderBanks[0]?.toUpperCase() ?? "\u2014";
+    const copyIcon = el("i", { className: "ti ti-copy rowcopy", title: "Copy sender + message" });
+    copyIcon.addEventListener("click", (e) => {
+      e.stopPropagation();
+      copyText(`${result.sender}
+${result.body}`);
+      showToast('Copied \u2014 paste it into "Add a new template"');
+    });
+    const row = el("tr", { className: "rrow" }, [
+      el(
+        "td",
+        { className: "chev" },
+        expandable ? [el("i", { className: `ti ti-chevron-${isExpanded ? "down" : "right"}` })] : []
+      ),
+      el("td", { className: `sndcell ${result.trace.matchedSenderBanks.length > 0 ? "recognized" : "unrecognized"}` }, [
+        result.sender
+      ]),
+      el("td", { className: "bankcell" }, [bankLabel]),
+      markedTableCell(result.body, winningAttempt?.captureRanges, copyIcon),
+      el("td", { className: "tracecell" }, [renderTraceStrip(result.trace)]),
+      el("td", { className: "badgecell" }, [badgeFor(result.trace)])
+    ]);
+    if (expandable) {
+      row.addEventListener("click", () => {
+        state.expandedIndex = isExpanded ? null : idx;
+        renderResultsTableInto(container, state);
+      });
+    } else {
+      row.style.cursor = "default";
+    }
+    if (!isExpanded) return [row];
+    const detail = el("td", { colSpan: 6 });
+    if (result.trace.attempts.length > 0) {
+      detail.append(
+        el("div", { className: "tracelbl" }, [
+          `Match trace \u2014 sender recognized as ${bankLabel}, ${result.trace.attempts.length} template(s) checked`
+        ])
+      );
+      for (const attempt of result.trace.attempts) {
+        const verdict = !attempt.attempted ? el("span", { className: "verdict no" }, ["\u2014 not tried (already matched)"]) : attempt.matched ? el("span", { className: "verdict yes" }, ["\u2713 MATCHED"]) : el("span", { className: "verdict no" }, ["\u2717 didn't match"]);
+        detail.append(
+          el("div", { className: "traceattempt" }, [
+            el("span", { className: "num" }, ["\u2022"]),
+            el("span", { className: "lbl" }, [attempt.addedAt]),
+            verdict
+          ])
+        );
+      }
+    } else if (!result.trace.excludedAsOtp) {
+      detail.append(
+        el("div", { className: "muted" }, [
+          "No configured bank recognized this sender \u2014 no templates were even attempted."
+        ])
+      );
+      const suggestion = suggestBankForSender(result.sender, effectiveBundle());
+      if (suggestion) {
+        detail.append(
+          el("div", { className: "regexstatus err", style: { marginTop: "6px" } }, [
+            el("i", { className: "ti ti-bulb" }),
+            ` Did you mean ${suggestion.bankId.toUpperCase()}? "${result.sender}" shares "${suggestion.fragment}" with its existing sender patterns.`
+          ])
+        );
+        const addSenderBtn = el("div", { className: "formbtn primary" }, [
+          `+ Add as a sender pattern for ${suggestion.bankId.toUpperCase()}`
+        ]);
+        addSenderBtn.addEventListener("click", () => {
+          const bankId = suggestion.bankId;
+          session.extraSenderPatterns[bankId] = [
+            ...session.extraSenderPatterns[bankId] ?? [],
+            `^${escapeRegExp(result.sender)}$`
+          ];
+          saveSession();
+          setSelection({ kind: "bank", bankId });
+          renderAll();
+        });
+        detail.append(el("div", { className: "formbtnrow", style: { marginTop: "8px" } }, [addSenderBtn]));
+      }
+    }
+    if (result.trace.outcome.kind === "unparsed_known_bank") {
+      const gapBankId = result.trace.outcome.bankId;
+      const addTplBtn = el("div", { className: "formbtn primary" }, [
+        `+ Add a template for ${gapBankId.toUpperCase()}, pre-filled from this message`
+      ]);
+      addTplBtn.addEventListener("click", () => {
+        setSelection({ kind: "bank", bankId: gapBankId });
+        setModal({
+          kind: "template",
+          bankId: gapBankId,
+          index: "new",
+          prefillSender: result.sender,
+          prefillBody: result.body
+        });
+        renderAll();
+        renderModalRoot();
+      });
+      detail.append(el("div", { className: "formbtnrow", style: { marginTop: "10px" } }, [addTplBtn]));
+    }
+    return [row, el("tr", { className: "exprow" }, [detail])];
+  }
+  function renderProgressWrap() {
+    const bar = el("div", { style: { width: "0%" } });
+    const text = el("span", {}, ["0 / 0"]);
+    const wrap = el("div", { className: "progresswrap" }, [
+      el("div", { className: "progresslbl" }, [el("span", {}, ["Parsing\u2026"]), text]),
+      el("div", { className: "progressbar" }, [bar])
+    ]);
+    return {
+      el: wrap,
+      show(done, total) {
+        wrap.classList.add("active");
+        text.textContent = `${done.toLocaleString()} / ${total.toLocaleString()}`;
+        bar.style.width = `${total === 0 ? 0 : done / total * 100}%`;
+      },
+      hide() {
+        wrap.classList.remove("active");
+      }
+    };
+  }
+  function renderBulkTestMain() {
+    const bundle = effectiveBundleForTesting();
+    const textarea = el("textarea", {
+      value: bulkRaw,
+      placeholder: "VM-HDFCBK\nHDFC Bank: Rs.500.00 debited from a/c XX1234..."
+    });
+    textarea.addEventListener("input", () => setBulkRaw(textarea.value));
+    const fileInput = el("input", { type: "file", accept: ".txt", style: { display: "none" } });
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      void file.text().then((text) => {
+        textarea.value = textarea.value ? `${textarea.value}
+---
+${text}` : text;
+        setBulkRaw(textarea.value);
+      });
+    });
+    const uploadBtn = el("div", { className: "smallbtn" }, [
+      el("i", { className: "ti ti-file-upload" }),
+      "Upload a .txt file"
+    ]);
+    uploadBtn.addEventListener("click", () => fileInput.click());
+    const progress = renderProgressWrap();
+    const errorBox = el("div", {});
+    const tableWrap = el("div", {});
+    const parseBtn = el("button", { className: "runbtn" }, [
+      el("i", { className: "ti ti-player-play-filled" }),
+      " Parse all"
+    ]);
+    parseBtn.addEventListener("click", () => {
+      const blocks = splitIntoBlocks(textarea.value);
+      if (blocks.length === 0) {
+        errorBox.replaceChildren(
+          el("div", { className: "regexstatus err", style: { marginTop: "8px" } }, [
+            el("i", { className: "ti ti-alert-triangle" }),
+            " Paste at least one message, or upload a .txt file, before testing."
+          ])
+        );
+        return;
+      }
+      errorBox.replaceChildren();
+      progress.show(0, blocks.length);
+      runBatchedTest(
+        blocks,
+        (sender, body) => traceSms(sender, body, RECEIVED_AT, bundle),
+        (done, total) => progress.show(done, total),
+        (results) => {
+          progress.hide();
+          bulkState.results = results;
+          bulkState.filter = "all";
+          bulkState.search = "";
+          bulkState.page = 1;
+          bulkState.expandedIndex = null;
+          bulkState.hasRun = true;
+          renderResultsTableInto(tableWrap, bulkState);
+          renderSidebarInto();
+        }
+      );
+    });
+    renderResultsTableInto(tableWrap, bulkState);
+    return el("div", {}, [
+      el("div", { className: "midhead" }, [
+        el("div", {}, [
+          el("div", { className: "breadcrumb" }, ["Bulk test"]),
+          el("h2", {}, ["Paste or upload messages \u2014 all banks"])
+        ])
+      ]),
+      el("div", { className: "console" }, [textarea]),
+      el("div", { className: "uploadrow" }, [
+        el("div", { className: "uploadleft" }, [
+          uploadBtn,
+          fileInput,
+          el("span", { className: "hint" }, [
+            "Sender line, body, --- between messages \u2014 tested against every bank at once."
+          ])
+        ]),
+        parseBtn
+      ]),
+      errorBox,
+      progress.el,
+      tableWrap
+    ]);
+  }
+  function renderBankTesterSection(bankId) {
+    const bt = bankTesterFor(bankId);
+    const textarea = el("textarea", {
+      value: bt.raw,
+      placeholder: "Any sender, any wording \u2014 one message per block, sender line first, then body. Try a sender this bank doesn't recognize yet, or switch to Force mode to test just the body."
+    });
+    textarea.addEventListener("input", () => bt.raw = textarea.value);
+    const fileInput = el("input", { type: "file", accept: ".txt", style: { display: "none" } });
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      void file.text().then((text) => {
+        textarea.value = textarea.value ? `${textarea.value}
+---
+${text}` : text;
+        bt.raw = textarea.value;
+      });
+    });
+    const uploadBtn = el("div", { className: "smallbtn" }, [
+      el("i", { className: "ti ti-file-upload" }),
+      "Upload a .txt file"
+    ]);
+    uploadBtn.addEventListener("click", () => fileInput.click());
+    const autoBtn = el("div", { className: `modechip${bt.mode === "auto" ? " active" : ""}` }, ["Auto-detect sender"]);
+    autoBtn.addEventListener("click", () => {
+      bt.mode = "auto";
+      renderMain();
+    });
+    const forceBtn = el("div", { className: `modechip${bt.mode === "force" ? " active" : ""}` }, [
+      `Force against ${bankId.toUpperCase()}'s templates`
+    ]);
+    forceBtn.addEventListener("click", () => {
+      bt.mode = "force";
+      renderMain();
+    });
+    const progress = renderProgressWrap();
+    const errorBox = el("div", {});
+    const tableWrap = el("div", {});
+    const testBtn = el("button", { className: "runbtn" }, [el("i", { className: "ti ti-player-play-filled" }), " Test"]);
+    testBtn.addEventListener("click", () => {
+      const blocks = splitIntoBlocks(textarea.value);
+      if (blocks.length === 0) {
+        errorBox.replaceChildren(
+          el("div", { className: "regexstatus err", style: { marginTop: "8px" } }, [
+            el("i", { className: "ti ti-alert-triangle" }),
+            " Paste at least one message, or upload a .txt file, before testing."
+          ])
+        );
+        return;
+      }
+      errorBox.replaceChildren();
+      const freshBundle = effectiveBundleForTesting();
+      const freshBank = freshBundle.banks.find((b) => b.bankId === bankId);
+      progress.show(0, blocks.length);
+      runBatchedTest(
+        blocks,
+        (sender, body) => bt.mode === "auto" ? traceSms(sender, body, RECEIVED_AT, freshBundle) : traceSms(
+          "FORCED",
+          body,
+          RECEIVED_AT,
+          forcedBankBundle(freshBank ?? { bankId, senderIdPatterns: [], templates: [] })
+        ),
+        (done, total) => progress.show(done, total),
+        (results) => {
+          progress.hide();
+          bt.state.results = results;
+          bt.state.filter = "all";
+          bt.state.search = "";
+          bt.state.page = 1;
+          bt.state.expandedIndex = null;
+          bt.state.hasRun = true;
+          renderResultsTableInto(tableWrap, bt.state);
+        }
+      );
+    });
+    renderResultsTableInto(tableWrap, bt.state);
+    return el("div", {}, [
+      el("div", { className: "modechips" }, [autoBtn, forceBtn]),
+      el("div", { className: "console" }, [textarea]),
+      el("div", { className: "uploadrow" }, [
+        el("div", { className: "uploadleft" }, [
+          uploadBtn,
+          fileInput,
+          el("span", { className: "hint" }, ["Same format as Bulk test."])
+        ]),
+        testBtn
+      ]),
+      errorBox,
+      progress.el,
+      tableWrap
+    ]);
+  }
+  function renderBankWorkspace(bankId) {
+    const bundle = effectiveBundle();
+    const bank = bundle.banks.find((b) => b.bankId === bankId);
+    if (!bank) return el("div", { className: "muted" }, [`Bank "${bankId}" not found.`]);
+    const exportBankBtn = el("div", { className: "smallbtn" }, [
+      el("i", { className: "ti ti-download" }),
+      `Export ${bankId.toUpperCase()} only`
+    ]);
+    exportBankBtn.addEventListener("click", () => {
+      setModal({ kind: "export", scopeBankId: bankId });
+      renderModalRoot();
+    });
+    return el("div", {}, [
+      el("div", { className: "midhead" }, [
+        el("div", {}, [el("div", { className: "breadcrumb" }, ["Bank workspace"]), el("h2", {}, [bankId.toUpperCase()])]),
+        exportBankBtn
+      ]),
+      renderBankTesterSection(bankId)
+    ]);
+  }
+  var root;
+  var sideEl;
+  var midEl;
+  var rightEl;
+  var modalRoot;
+  function renderMain() {
+    midEl.replaceChildren(selection.kind === "bulk" ? renderBulkTestMain() : renderBankWorkspace(selection.bankId));
+  }
+  function renderAll() {
+    renderSidebarInto();
+    renderMain();
+    renderRightPanelInto();
+  }
+  function renderSourceControl() {
+    const status = el("span", { className: "muted" }, [baseBundleLabel]);
+    const urlInput = el("input", {
+      className: "url-input",
+      placeholder: "https://penny-api-proxy.hesh.workers.dev/sms-patterns"
+    });
+    const fetchBtn = el("div", { className: "formbtn" }, ["Fetch & use this instead"]);
+    const resetBtn = el("div", { className: "formbtn ghost" }, ["Reset to bundled fallback"]);
+    fetchBtn.addEventListener("click", () => {
+      void fetch(urlInput.value).then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      }).then((json) => {
+        const bundle = json;
+        if (typeof bundle?.version !== "number" || !Array.isArray(bundle?.banks))
+          throw new Error("Not a valid pattern bundle");
+        setBaseBundle(bundle, `Fetched from ${urlInput.value} (${bundle.banks.length} banks)`);
+        status.textContent = baseBundleLabel;
+        renderAll();
+      }).catch((err) => {
+        status.textContent = `Fetch failed: ${err instanceof Error ? err.message : String(err)} \u2014 still using ${baseBundleLabel}`;
+      });
+    });
+    resetBtn.addEventListener("click", () => {
+      setBaseBundle(SMS_PATTERNS_FALLBACK, "Bundled fallback (offline, ships in the app)");
+      status.textContent = baseBundleLabel;
+      renderAll();
+    });
+    return el("div", { className: "source-control" }, [
+      el("div", {}, ["Pattern source: ", status]),
+      el("div", { className: "btn-row" }, [urlInput, fetchBtn, resetBtn])
+    ]);
+  }
+  function makeResizeHandle(target, opts) {
+    const handle = el("div", { className: "resize-handle" });
+    let startX = 0;
+    let startWidth = 0;
+    function onMouseMove(e) {
+      const delta = (e.clientX - startX) * (opts.growsRight ? 1 : -1);
+      target.style.width = `${Math.min(opts.max, Math.max(opts.min, startWidth + delta))}px`;
+    }
+    function onMouseUp() {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    }
+    handle.addEventListener("mousedown", (e) => {
+      startX = e.clientX;
+      startWidth = target.getBoundingClientRect().width;
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+      e.preventDefault();
+    });
+    return handle;
+  }
+  function mount() {
+    const appRoot = document.getElementById("app");
+    if (!appRoot) return;
+    root = appRoot;
+    root.append(renderSourceControl());
+    const shell = el("div", { className: "cc" });
+    sideEl = el("div", { className: "left" });
+    midEl = el("div", { className: "mid" });
+    rightEl = el("div", { className: "right" });
+    const leftHandle = makeResizeHandle(sideEl, { min: 150, max: 420, growsRight: true });
+    const rightHandle = makeResizeHandle(rightEl, { min: 220, max: 560, growsRight: false });
+    shell.append(sideEl, leftHandle, midEl, rightHandle, rightEl);
+    root.append(shell);
+    modalRoot = el("div", { className: "modal-root", style: { display: "none" } });
+    document.body.append(modalRoot);
+    initToast();
+    renderAll();
+  }
+  mount();
+})();
+
+    </script>
+  </body>
+</html>

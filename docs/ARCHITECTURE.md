@@ -2231,6 +2231,174 @@ full catalogue). A few structural choices worth recording:
   surfaces (matching the original Tax precedent's own simplicity) was judged not worth the added
   cross-component state-coordination complexity for the marginal anti-repetition benefit.
 
+### Decision: `tools/` — a new top-level home for dev tooling, outside the pnpm workspace (2026-08-16)
+
+**Rationale:** the SMS parser needed a way for non-developer testers (people with years of real bank SMS
+history, not codebases) to test the real parsing logic without needing the app, a device, or Node/pnpm
+installed. `tools/sms-parser-verifier/` is the first thing here — a standalone, offline HTML page (see
+`docs/features/sms-tracking.md`'s own section and the tool's own README) bundling the **real**
+`packages/core/src/core/sms-import/{smsParser,smsPatterns}.ts` (via `esbuild`, `scripts/build-sms-verifier.mjs`,
+`pnpm build:sms-verifier`) into one dependency-free file, rather than hand-duplicating the matching logic
+into a second copy anywhere. A few choices worth recording:
+
+- **`tools/` is deliberately NOT added to `pnpm-workspace.yaml`'s `packages` list** — nothing inside it
+  needs its own `package.json`/dependencies or participates in the monorepo's `tsc -b` project-reference
+  graph; it's built by a root-level script using a root-level `esbuild` devDependency, mirroring how
+  `apps/mobile/builds/`'s committed APKs are generated artifacts living outside any package boundary. A
+  small standalone `tools/sms-parser-verifier/tsconfig.json` exists purely so a developer can manually
+  `tsc --noEmit` the tool's own glue code after an edit — esbuild itself only transpiles, never type-checks.
+- **The generated HTML is committed, not gitignored** — same precedent as the mobile APKs: the intended
+  audience (real-world testers) needs to be able to grab and open a single file with no build step of
+  their own, not run `pnpm install`.
+- **`import.meta.env` (Vite-only, used transitively by `core/net/apiBase.ts`) is statically replaced with
+  `{}` at build time** (esbuild's `define` option) rather than avoided by not importing the real
+  `smsPatterns.ts` module — this tool only ever calls `parseSms()` directly against the bundled
+  `SMS_PATTERNS_FALLBACK`, never `getSmsPatternBundle()`'s live-fetch path by default, so the resulting
+  `undefined` env values are harmless; importing the unmodified production file (rather than a trimmed
+  copy) is what keeps this a single source of truth.
+- **A real bug caught before shipping:** the build script's first version used
+  `template.replace('/*__SCRIPT__*/', script)` (a string replacer) to inline the bundled JS into the HTML
+  shell — `String.replace` interprets `$`-patterns (`$&`, `$1`, etc.) in a _string_ replacement argument
+  even when the search value is a plain string, and the bundled JS legitimately contains a literal `$&`
+  (from a regex-escaping helper elsewhere in `packages/core`), corrupting the output. Fixed by using a
+  function replacer (`() => script`), whose return value is always inserted verbatim — a real,
+  non-obvious gotcha worth remembering for any future "inline this string into a template" script.
+
+**Follow-up — Command Center redesign (2026-08-16):** after user feedback that the first version's two
+plain tabs hid too much ("the parsers are hidden, there is no way to know if a message was checked
+against all configured [templates] or only a single one"), the tool was rebuilt around a real diagnostic
+primitive rather than just a nicer skin:
+
+- **`traceSms()` added to `smsParser.ts`** (`packages/core/src/core/sms-import/smsParser.ts`) — a full
+  per-template match trace (`SmsParseTrace`/`SmsTemplateTraceEntry`), with `parseSms()` reduced to a thin
+  `return traceSms(...).outcome` wrapper so there remains exactly one copy of the matching logic, and
+  every existing caller/test is unaffected (verified by rerunning the full pre-existing test suite before
+  adding new `traceSms`-specific tests). Recording `attempted: false` (not "didn't match") for any
+  template after an earlier one already won is the key faithfulness detail — it mirrors `parseSms`'s real
+  "first structural match wins, stop looking" short-circuit instead of implying an ambiguity production
+  code never actually reaches.
+- **Capture-group highlighting everywhere, always on:** the regex is additionally compiled with the `d`
+  (`hasIndices`) flag inside `traceSms()` only (parseSms's own historical `i`-only compilation is
+  untouched) to recover each named group's character offsets, letting the UI wrap the exact matched
+  substring in a colored `<mark>` — one shared rendering helper used by both the browse view and the
+  test-your-own view, not two implementations.
+- **A 3-mode "Command Center" shell** (persistent bank sidebar + main content, dark theme) replacing the
+  old 2 tabs: Known templates (every configured template per bank, not just a synthetic pass/fail),
+  Test your own (paste/upload, reworked into filter tabs + a dense one-line-per-message table with
+  click-to-expand trace detail — a full-width card per message, the first version's approach, doesn't
+  scale to the thousands of real messages testers actually have), and a new Add a parser mode (drafts a
+  candidate template, session-scoped via `localStorage`, live-tested against pasted samples, exportable
+  as ready-to-paste `SmsTemplateEntry` code — never auto-written to any file).
+- Followed the project's mockup-first workflow throughout: `docs/mockups/proposals/sms-verifier-redesign-v1.html`
+  (3 alternative designs, Command Center recommended) then `-v2.html` (same file, iterated twice within
+  one approval cycle per this doc's own "one file per discussion" convention) before any of the above was
+  implemented.
+
+**Follow-up — Add-a-parser split-pane (2026-08-16):** real usage of the Command Center's "Add a parser"
+mode surfaced a UX bug — the New-bank-ID and Sender-ID-pattern fields updated form state but never
+re-triggered a live re-test, so fixing a broken regex and only touching those two fields left the preview
+looking silently stale. Fixed alongside a requested redesign
+(`docs/mockups/proposals/sms-verifier-add-parser-redesign-v1.html`, Option B chosen): a split pane (fields
+left, bulk paste-and-test right, reusing "Test your own"'s `---`-block format instead of a single
+sender/body pair) with an explicit ▸ Test button replacing continuous auto-retest — one deliberate action
+that always re-tests off the full current form state, regardless of which field was last edited.
+
+**Follow-up — "Unified Workspace" redesign (2026-08-16):** further real-usage feedback found the 3-mode
+split itself to be the root cause of several complaints at once, not three independent gaps: "why 3
+tabs," "can't define a sender for a new template on an existing bank," "can't edit a known template,"
+"no way to export everything," "the results table needs richer inline info," "test any sender freely
+isn't discoverable," and "help users write a new regex." Rather than patching each individually on the
+existing 3-mode shell, `entry.ts` was rebuilt around one workspace per sidebar selection — a bank, or a
+pinned "Bulk test — all banks" entry — with:
+
+- **A new session-state model** (`SessionState`: `newBankIds`, `extraSenderPatterns`, `newTemplates`,
+  `overrides`, replacing the old flat `DraftTemplate[]`/`smsVerifierCustomTemplates`) — `overrides` is new:
+  a session-local replacement of an official bank's template at a given array index, never mutating
+  `SMS_PATTERNS_FALLBACK` itself; "Revert to official" just removes the entry. `effectiveBundle()` is the
+  one place all four pieces merge, read by every other function in the file.
+- **Regex ↔ message side-by-side, same color mapping**: `findNamedGroupSpans()` statically parses a
+  regex's own `(?<name>...)` spans (a balanced-paren walk over the pattern source, not a runtime match);
+  the previous `highlightedText()` was refactored into a lower-level `markedNodes()` primitive that both
+  the message-highlighting and the new `highlightedPattern()` build on — one shared "wrap ranges in
+  colored `<mark>`" implementation, not two. While editing, the live preview re-tests the in-progress
+  regex against that template's own original sample (`smsSampleMessages.ts`) on every keystroke.
+- **Editable sender patterns for every bank** (not just brand-new ones) with a live, non-blocking overlap
+  warning: `literalFragments()`/`sharesSignificantPrefixOrSubstring()` pull out and compare a pattern's
+  literal uppercase "bank code" run against every other bank's patterns — cheap and explainable rather
+  than executing arbitrary regexes against candidate strings. The same heuristic powers a "did you mean
+  `<bank>`?" suggestion for an unrecognized sender in the results table (e.g. "SBIPSG" sharing SBI's
+  "SBIINB" prefix), one click away from being added as that bank's own custom sender pattern.
+- **Results table upgrade** (shared by the bank-scoped tester and Bulk test — one `renderResultsTableInto()`,
+  not two): the Message column renders through the real highlighting primitive instead of flat gray text,
+  plus a compact trace-strip column (colored dot per template attempt: matched/tried-no-match/skipped).
+- **Auto-detect vs Force-against-this-bank** tester toggle — Force builds a synthetic single-bank bundle
+  with `senderIdPatterns: ['.*']` so a message's body can be tested against a bank's current templates
+  independent of whether its sender is recognized yet, isolating the two questions.
+- **Export/Import** — Export serializes `effectiveBundle()` to JSON (confirmed, by reading
+  `workers/api-proxy/src/index.ts`'s actual `/sms-patterns` handler, to be identical in shape to its real
+  response — not assumed); Import parses a same-shaped JSON and merges every bank/template into the
+  session's drafts additively (never attempting fine-grained per-template conflict resolution — a
+  deliberately simple v1 scope, disclosed as such rather than over-built).
+- **Regex helper panel** next to every pattern field: a curated "common patterns" snippet list grounded by
+  grepping the real, already-shipped `smsPatterns.ts` for its actual capture-group idioms (not invented),
+  click-to-insert-at-cursor, plus a general regex-syntax cheat sheet tab.
+- Followed the mockup-first workflow again:
+  `docs/mockups/proposals/sms-verifier-unified-workspace-v1.html`, iterated in place through several
+  rounds of feedback within one approval cycle (adding the fuzzy-suggestion/overlap-warning/import ideas,
+  then the regex↔message side-by-side pairing) before any of this was implemented.
+
+**Follow-up — "Unified Workspace v2" light-theme redesign + module split (2026-08-16):** real feedback on
+the v1 dark theme was sharp and specific: the dark theme itself was hard to use, and — the bigger
+structural problem — a bank's page put its 3 templates ahead of the actual testing space, when testing
+thousands of messages per bank is the tool's primary job, not a secondary one. Rebuilt around a real,
+interactive prototype rather than another static mockup (`docs/mockups/proposals/sms-verifier-unified-
+workspace-v2.html` — built with a fake 2,400-row dataset specifically so real pagination/search/progress-
+bar behavior could be seen working before any app code changed, since static mockups had repeatedly proven
+"confusing... I do not realize until it's built" per that same feedback):
+
+- **Light theme, three columns**: left sidebar (banks + pinned Bulk test, drag-resizable), middle column
+  dedicated ENTIRELY to test input + results (never templates/sender patterns — that was the root cause
+  being fixed), right panel as a read-only-at-a-glance reference (sender patterns + template "paper"
+  cards, also drag-resizable via a plain mousedown/mousemove/mouseup handle, no library).
+- **`entry.ts` split into focused modules** after separate, explicit feedback that one ~1,874-line file was
+  itself making edits slower and more error-prone ("Maybe longer files are creating a problem for you to
+  properly edit them without breaking?"): `state.ts` (session/data layer, zero dependency on rendering
+  code — `SessionState`, `effectiveBundle()`/`effectiveBundleForTesting()`, later also the editable Common
+  Patterns library), `dom.ts` (the `el()` builder, clipboard-with-legacy-fallback, download, toast),
+  `highlighting.ts` (the one shared `markedNodes()` "wrap ranges in colored `<mark>`" primitive), and
+  `regexAuthoring.ts` (compile checks, fuzzy heuristics, the regex helper panel). The convention: a
+  reassigned (not just mutated) module-level primitive needs an explicit setter function for cross-module
+  writes (`setSelection()`, `setModal()`, etc.) since ES module named imports are live bindings for reads
+  only. Verified the split preserved 100% of existing behavior via a full functional smoke-test re-run
+  (jsdom driving the actual built HTML) before any further feature work — every subsequent round of fixes
+  in this file then stayed small, targeted edits rather than repeated full-file rewrites.
+- Two large sequential rounds of concrete UX fixes followed on this new foundation, each fully verified
+  (jsdom functional tests against the real built HTML + the standard `tsc`/eslint/prettier/vitest/PII-gate
+  sweep) before being reported back: an 11-item round (drag-resizable sidebars; an editable original
+  sample instead of read-only; disable-vs-delete for templates so a toggled-off one stays visible to
+  re-enable; a real in-tool "New bank" popup replacing a native `prompt()`; bank-scoped Export actually
+  downloading, not just copying; results hidden until Test/Parse is actually clicked; a Trace column
+  replacing redundant expanded-row content; the per-row copy icon moved inside the message cell; a Bank
+  column; a sender-recognized/unrecognized color cue; a template's sender field actually re-tested against
+  the bank's real patterns instead of a silent `.*` catch-all); then a 4-item round (a new/edited
+  template's test message persisted as its real reference sample — which is also what makes its matched/
+  no-match pill appear at all; the results table's Message column no longer truncated with an ellipsis).
+- **Follow-up — further hardening (2026-08-16):** a later pass added: a fully editable Common Patterns
+  library (add/edit any entry, live duplicate detection that visually highlights the existing match, not
+  just a text warning); a proactive warning when a template's regex names a capture group the real parser
+  doesn't recognize (explains, rather than leaves a mystery, why a field silently isn't highlighted in a
+  real test message — `CAPTURE_GROUP_NAMES` was exported from `smsParser.ts` specifically so the tool could
+  check against the SAME closed list production code reads, not a hand-copied duplicate of it); a post-save
+  suggestion to catalog a template's own uncatalogued capture-group sub-pattern into Common Patterns;
+  dynamic per-distinct-name color assignment for capture groups (previously only a fixed handful of names
+  colored at all, leaving any custom name uncolored — extended the palette from 4 to 6 colors so `ref`/
+  `balance`/`dateStr` also stopped sharing one color); a clear inline error (instead of an empty results
+  block quietly rendering) when Test/Parse is clicked with nothing pasted and no file uploaded; the Test
+  sender/Test message body fields moved to sit directly below the regex pattern field in the same column
+  (filling space that used to sit empty next to the taller helper panel) instead of their own separate
+  full-width row; and every modal made user-resizable via the native CSS `resize` property (opt-in, from
+  the bottom-right corner, with sane min/max bounds) rather than a fixed size.
+
 ---
 
 ## Dependency graph (simplified)

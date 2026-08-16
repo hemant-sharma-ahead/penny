@@ -49,7 +49,7 @@ privacy model — is in [`docs/plans/sms-transaction-tracking.md`](../plans/sms-
 ## How it works
 
 **Core logic** (`packages/core/src/core/sms-import/`) — a deliberately separate module from
-`core/bank-import/` and `core/import/`, reusing only the matching *algorithm* shape from
+`core/bank-import/` and `core/import/`, reusing only the matching _algorithm_ shape from
 `core/bank-import/matcher.ts` (`matchesDirection` is shared, generalized to a minimal structural
 type), never its types or role:
 
@@ -115,6 +115,54 @@ base library):
   request + revocation detection) and `queryInboxAsync` (backs the historical "scan a date range"
   capability) to JS via `apps/mobile/src/lib/smsCapture.native.ts`.
 
+## Pattern-library verification tooling (2026-08-16, "Unified Workspace" redesign, latest pass 2026-08-16)
+
+`tools/sms-parser-verifier/` — a standalone, offline HTML page (see its own README) for hardening the
+parsing-template library before real-device rollout, without needing the app, a device, or any code.
+Bundles the real `parseSms`/`traceSms`/`SMS_PATTERNS_FALLBACK` (via `pnpm build:sms-verifier`, esbuild
+— one copy of the matching logic, no hand-duplicated version) into one dependency-free file: testers
+with years of real bank SMS history can open it and paste their own messages directly, with **nothing
+transmitted anywhere** (it's a static page with no server behind it at all).
+
+A light, three-column layout built around testing thousands of real messages per bank as the primary
+case: a left sidebar (banks + pinned "Bulk test — all banks", drag-resizable), a middle column dedicated
+entirely to test input + a paginated/searchable/chunk-parsed results table (never templates or sender
+patterns), and a right panel holding that bank's sender-ID patterns and template "paper" cards (regex +
+sample side by side, colors auto-assigned per distinct capture-group name rather than a fixed few, also
+drag-resizable). Editing anything — a template, a sender pattern, a new bank — always opens a resizable
+popup rather than displacing either the reference panel or the test column.
+
+- **Templates** can be edited (official ones get a session-local override, never touching the real
+  shipped data), added as drafts, or disabled-without-deleting (dimmed but still visible for one-click
+  re-enabling). A template's own test message is saved as its reference sample, so reopening it to edit
+  further brings that sample back instead of a blank box. If a template's regex names a capture group the
+  real parser doesn't recognize, the editor says so directly (that field compiles and highlights here, but
+  is silently dropped in production) rather than leaving it a silent mystery.
+- **Regex helper panel** — a "Common patterns" tab, now fully editable (add your own, edit any entry,
+  live duplicate detection before you add one), plus a "Regex syntax" cheat sheet. After saving a
+  template, an uncatalogued capture-group sub-pattern is offered a one-click "add to Common Patterns" for
+  reuse by the next tester.
+- **Results table** (shared by Bulk test and the bank-scoped tester) shows the full, un-truncated message
+  text, a sender-recognized/unrecognized color cue, a bank column, a compact colored trace-strip (one dot
+  per template attempted), and a copy icon inline with the message — a row only expands further for
+  Partial/Unrecognized/Excluded outcomes, where there's a genuine "did you mean `<bank>`?" nudge or
+  add-a-template action to take. Clicking Test/Parse with nothing to test shows a clear error instead of
+  an empty results block.
+- **Export / Import** — Export serializes the full effective bundle (official + every session
+  override/draft), confirmed identical in shape to `workers/api-proxy`'s real `/sms-patterns` response,
+  scoped to one bank or the whole set; Import merges a same-shaped JSON into the current session's drafts,
+  letting two testers hand off work without redoing each other's edits.
+
+The tool's own code is split into focused modules (`state.ts`/`dom.ts`/`highlighting.ts`/
+`regexAuthoring.ts`/`entry.ts` — see the README) rather than one long file, specifically so a future edit
+stays fast and low-risk instead of risking breakage in a single sprawling file.
+
+Intended workflow: harden the pattern set entirely offline with this tool first (editing/adding templates
+and re-testing in the same place a gap was found), export the final set as JSON, and only once it's solid
+deploy `workers/api-proxy`'s `/sms-patterns` route — the tool's own "Pattern source" control can also
+fetch and test against a live/local worker URL directly, to confirm a deployment matches before relying
+on it.
+
 ## Current limitations
 
 - **Not yet verified on a real device.** Everything here compiles and passes its own test suite
@@ -140,7 +188,9 @@ base library):
 
 - Real-device verification pass (permission flow, live capture, historical scan).
 - Grow the parsing-template library as real scans surface gaps in older-era/less-common bank
-  formats — the "N SMS from known banks couldn't be parsed" counter is the intended discovery loop.
+  formats — the "N SMS from known banks couldn't be parsed" counter is the intended in-app discovery
+  loop; `tools/sms-parser-verifier/` is the equivalent offline, no-device discovery loop for hardening
+  the library upfront against testers' own historical messages.
 - Possible future: a refund/reversal hint in the review UI (plan §8).
 
 ## Ideas welcome

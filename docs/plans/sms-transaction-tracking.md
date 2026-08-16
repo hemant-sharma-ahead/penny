@@ -49,11 +49,11 @@ This feature has to work for two genuinely different starting states, not just t
 "existing user with data to reconcile against" case:
 
 - **Existing user with transaction history already in Penny** (manual entries, CSV
-  imports, bank-sync) — here SMS tracking's job is mostly *reconciliation*: most incoming
+  imports, bank-sync) — here SMS tracking's job is mostly _reconciliation_: most incoming
   SMS should resolve to "this matches something you already logged," same as Bank Statement
   Import's whole purpose. Few genuinely new transactions surface.
 - **Fresh install, SMS tracking turned on with little or no existing data** — here SMS
-  tracking's job is *primary recording*, much closer to CSV-import's role: nearly every
+  tracking's job is _primary recording_, much closer to CSV-import's role: nearly every
   parsed SMS is a brand-new transaction with no existing candidate to match against, and
   needs the same account/category/payment-mode resolution-and-review flow CSV-import
   already has (draft categories, per-group review, bounded rendering of a large backfill).
@@ -65,15 +65,15 @@ only one, since the user explicitly wants SMS to be able to fully replace CSV im
 day-to-day recording method for a new user, not just top up an existing ledger.
 
 Two Explore passes confirmed Penny already has almost everything this feature needs as a
-*pattern* — the closest matching/dedup analog is **Bank Statement Import**
+_pattern_ — the closest matching/dedup analog is **Bank Statement Import**
 (`packages/core/src/core/bank-import/`, `apps/mobile/src/features/bank-import/`), because
 its whole purpose is reconciling incoming rows against transactions the user already
 logged. **To be explicit about scope, since this is easy to blur: SMS tracking becomes a
-third, independent way to *record* a transaction (alongside manual entry and CSV import) —
+third, independent way to _record_ a transaction (alongside manual entry and CSV import) —
 it is not, and does not replace, Bank Statement Import, which remains a separate feature
 whose job is reconciling whichever transactions already exist (regardless of how they were
 recorded — manually, via CSV, or via SMS) against the bank's own official statement/balance.
-SMS tracking only reuses bank-import's matching *algorithm* shape, not its role.**
+SMS tracking only reuses bank-import's matching _algorithm_ shape, not its role.**
 
 - **Two-tier matching** (`packages/core/src/core/bank-import/matcher.ts:207-293`,
   `matchStatementRows()`): Tier 1 is exact-provenance lookup against a dedicated link table
@@ -150,7 +150,7 @@ target. Research findings:
 
 - Play's "Permissions used only in default handlers" policy restricts `READ_SMS`/
   `RECEIVE_SMS` to apps approved via a **Restricted Permissions Declaration** that
-  demonstrates SMS access is *core* to the app's function — Google has both approved this
+  demonstrates SMS access is _core_ to the app's function — Google has both approved this
   for real finance apps (MoneyView itself reads SMS and is Play-distributed, as the user
   noted) and rejected/forced removal for others historically (Walnut/axio's well-documented
   2018-2019 SMS-policy retreat). The bar is that the app's **primary declared purpose** must
@@ -206,14 +206,14 @@ target. Research findings:
      (`HeadlessJsTaskService`) to run the actual parsing/matching/write using the same
      `packages/core` logic the foreground app uses (§5, §6) — not a native-only
      reimplementation of the parsing rules.
-  Flag the Headless-JS-under-WorkManager wiring as a build-time validation spike (this
-  combination has known rough edges under Expo prebuild specifically); if it doesn't hold
-  up cleanly, the fallback is "queue raw candidates natively via WorkManager, drain and
-  process the backlog on next app foreground" — worse latency (the review queue updates
-  only when the app is opened, not the instant an SMS arrives) but **still durable and
-  still never silently loses a message**, since the persistence step (native store +
-  WorkManager enqueue) happens either way — only the "when does WorkManager actually run
-  the JS side" part changes.
+     Flag the Headless-JS-under-WorkManager wiring as a build-time validation spike (this
+     combination has known rough edges under Expo prebuild specifically); if it doesn't hold
+     up cleanly, the fallback is "queue raw candidates natively via WorkManager, drain and
+     process the backlog on next app foreground" — worse latency (the review queue updates
+     only when the app is opened, not the instant an SMS arrives) but **still durable and
+     still never silently loses a message**, since the persistence step (native store +
+     WorkManager enqueue) happens either way — only the "when does WorkManager actually run
+     the JS side" part changes.
 - **Platform scope**: Android-only, full stop. iOS has no public SMS-reading API at all
   (Apple sandboxes Messages entirely) — the Settings entry must show an explicit "not
   available on iOS" explanation on that platform, never a dead/disabled toggle with no
@@ -260,7 +260,7 @@ one-shot fuzzy guess re-run every time:
 
 **Cards, specifically — Penny does not track cards as separate accounts (an established
 decision from the CSV-import redesign: cards merge into their underlying bank account, they
-are never their own `Account`).** A card transaction SMS will often carry the *card's* last
+are never their own `Account`).** A card transaction SMS will often carry the _card's_ last
 4 digits, which are **not the same number** as the underlying account's own last 4 — so a
 naive `last4` match against `Account.last4` will silently fail for every card SMS. Handle
 this as its own mapping tier, same persisted-table mechanism as the bank-string case above:
@@ -297,6 +297,7 @@ review queue with different flags:
 
 **(a) SMS vs. an already-recorded transaction** (manual entry, CSV import, or bank-sync) —
 reuse `matchStatementRows()`'s exact two-tier shape:
+
 - Tier 1: exact-provenance check against the new `sms_transactions` link table (has this
   literal SMS, by content hash, already been processed — protects against reprocessing the
   same message on a re-scan or app restart).
@@ -308,7 +309,7 @@ reuse `matchStatementRows()`'s exact two-tier shape:
   existing `Expense` itself is never overwritten or replaced** — only the link record is
   created. This is the literal wording of requirement 3 ("linked... not replace").
 - **Already-bank-reconciled records need an extra guard, not just "never overwrite."**
-  Sequencing matters: it's entirely possible SMS tracking gets turned on *after* Bank
+  Sequencing matters: it's entirely possible SMS tracking gets turned on _after_ Bank
   Statement Import has already reconciled a transaction — and reconciliation can itself
   correct a transaction's recorded date to match the bank's ground truth
   (`Expense.statementBalance`/`reconciledSeq`, already-established fields). An SMS for that
@@ -336,7 +337,7 @@ Pending" for normal review instead). No silent default, no auto-timeout accept.
 
 **(b) SMS vs. another SMS describing the same real-world event** (e.g. a bank sending both
 a generic "debited" alert and a separate UPI-rail confirmation for one payment, or a
-delivery retry) — run the *same* amount/direction/±1-day-window heuristic SMS-to-SMS, not
+delivery retry) — run the _same_ amount/direction/±1-day-window heuristic SMS-to-SMS, not
 just SMS-to-Expense. A tie/candidate match here is flagged "Possible duplicate SMS" and
 —per the user's explicit instruction—**always prompts the user to decide, never auto-merges
 and never auto-logs both.**
@@ -354,7 +355,7 @@ not a proxied third-party call):
 - New route, e.g. `workers/api-proxy/src/sms-patterns.ts` → `/sms-patterns`, versioned JSON:
   one entry per bank, `{ bankId, senderIdPatterns: string[], templates: TemplateEntry[] }`
   where `TemplateEntry` is `{ transactionType: 'debit'|'credit'|'upiSent'|'upiReceived'|
-  'cardSwipe'|'refund'|..., regex, addedAt }` — **`templates` is a list, not a single entry
+'cardSwipe'|'refund'|..., regex, addedAt }` — **`templates` is a list, not a single entry
   per type**, because bank SMS formats genuinely drift over the years (a bank's 2012-era
   SMS wording is not its 2020-era wording, is not its 2026-era wording) and a historical
   backfill scan needs to match whichever era's format a given old message actually used.
@@ -369,8 +370,8 @@ not a proxied third-party call):
     drift for free without needing a new template per tweak.
   - **Grow the list append-only over time** rather than trying to front-load a definitive
     15-year history now: start with each bank's current-era format (highest-value, most
-    real-world messages will be recent), and treat parse-failures against a *recognized
-    bank sender* as the actual discovery mechanism for missing older-era templates — the
+    real-world messages will be recent), and treat parse-failures against a _recognized
+    bank sender_ as the actual discovery mechanism for missing older-era templates — the
     visible "N SMS from known banks couldn't be parsed" counter (below) is exactly this
     feedback loop, not just a UX nicety. In practice, the richest source of genuinely old
     templates will be real historical inbox scans against real long-lived phone numbers
@@ -381,16 +382,16 @@ not a proxied third-party call):
     `addedAt` era) — first structural match wins; there's no need to guess which era a
     message belongs to before trying, since only one template will actually match a given
     message's real wording.
-  Start with the ~12-15 most common Indian banks' **current-era** formats first (HDFC,
-  ICICI, SBI, Axis, Kotak, IndusInd, BoB, Yes Bank, PNB, Canara, IDFC First, HSBC) — reuse
-  `BankPresetId` as the identifier set, extending it as needed — with older-era templates
-  for each added incrementally as gaps are found, per the discovery loop above.
+    Start with the ~12-15 most common Indian banks' **current-era** formats first (HDFC,
+    ICICI, SBI, Axis, Kotak, IndusInd, BoB, Yes Bank, PNB, Canara, IDFC First, HSBC) — reuse
+    `BankPresetId` as the identifier set, extending it as needed — with older-era templates
+    for each added incrementally as gaps are found, per the discovery loop above.
 - **Crucially: only the pattern templates cross the network — raw SMS text and every
   derived field (amount, account, merchant) are matched 100% on-device and never
   transmitted anywhere.** This is what reconciles the Worker requirement with
   `docs/PRIVACY.md`'s zero-server-PII model — the earlier ambiguity here (flagged by one of
-  the research agents) is resolved: "regex lives in the backend" means the *rules* are
-  centrally fixable, not that SMS *content* ever leaves the device.
+  the research agents) is resolved: "regex lives in the backend" means the _rules_ are
+  centrally fixable, not that SMS _content_ ever leaves the device.
 - App fetches + caches this bundle (same TTL-and-fallback shape as EPF/PPF rates:
   `packages/core/src/core/portfolio/ratesStorage.ts`'s pattern is a good template to copy),
   and ships a **bundled fallback set** (`SMS_PATTERNS_FALLBACK`, same idea as
@@ -417,7 +418,7 @@ not a proxied third-party call):
 
 New `packages/core/src/core/sms-import/` (own module, **not** sharing code with
 `bank-import/` or `import/` directly — same "these evolve independently" principle already
-established between those two — but sharing the *underlying reusable algorithms* via
+established between those two — but sharing the _underlying reusable algorithms_ via
 promotion to shared locations where a third consumer now exists):
 
 - `smsPatterns.ts` / `smsPatternsClient.ts` — fetch-cache-fallback client for §5's worker
@@ -436,6 +437,7 @@ promotion to shared locations where a third consumer now exists):
 
 **New storage** (via `EncryptedRepository`, never raw Dexie/SQLite access — per CLAUDE.md's
 non-negotiable rule):
+
 - `sms_transactions` table (name TBD at implementation time) — mirrors
   `BankStatementImportRecord`'s shape: id, contentHash (Tier-1 dedup key), sender, parsed
   fields, status (`pending` / `linked` / `dismissed` / `duplicate-flagged`), `linkedTxnId?`.
@@ -459,6 +461,7 @@ non-negotiable rule):
 **Settings** (`apps/mobile/src/features/settings/`) — new "SMS Tracking" sub-page (own
 page, not just an inline toggle, following `SafeModeSettingsPage.tsx`'s
 `ToggleRow`/sub-page structure since this needs more than one control):
+
 - Master on/off toggle (default off). Turning on: permission-education screen → OS
   permission dialog → if granted, "scan your SMS history?" choice:
   - Scan a bounded default window (recommend **last 3 months**, not all-time, for a
@@ -481,6 +484,7 @@ page, not just an inline toggle, following `SafeModeSettingsPage.tsx`'s
 **Review queue** — an ongoing inbox-style screen, not a wizard (this is a continuous
 feature, unlike CSV-import's one-shot batch), reusing the bank-import bucket-card visual
 language (`BucketCard.tsx`/`CategoryTile.tsx`-style shared components, not new patterns):
+
 - **Linked** — auto-matched to an existing transaction, collapsed/informational.
 - **Needs Review** — ambiguous account, possible-match tie, or possible-duplicate-SMS;
   user must resolve, never silently defaulted.
@@ -492,9 +496,9 @@ language (`BucketCard.tsx`/`CategoryTile.tsx`-style shared components, not new p
 - A badge count surfaces from Settings (and/or the Expenses tab) rather than a blocking
   screen — matches this feature's "ongoing," not "first-few-times-only," nature (explicitly
   the opposite framing from CSV-import's Import Progress screen, which the user scoped that
-  way *because* CSV import is a rare, one-off action; SMS tracking is the reverse case).
+  way _because_ CSV import is a rare, one-off action; SMS tracking is the reverse case).
 - The **historical backfill scan specifically** (initial enable, or an explicit
-  "scan a date range" request) *is* a bounded, first-few-times-ish operation and can reuse
+  "scan a date range" request) _is_ a bounded, first-few-times-ish operation and can reuse
   CSV-import's captive Import-Progress-screen pattern (progress/ETA/cancel, per-row durable
   writes) almost directly — but the **ongoing per-message capture** (day-to-day new SMS)
   must not lock any screen or block navigation; it just quietly grows the review queue in
@@ -515,12 +519,12 @@ language (`BucketCard.tsx`/`CategoryTile.tsx`-style shared components, not new p
 4. Refunds/reversals → treated as an independent new credit by default; if a strong
    opposite-direction match exists in the same window, surface a "possible refund of →
    [original expense]" hint in the review UI, but don't auto-net/auto-merge balances — this
-   is explicitly out of v1 scope as an *automation*, just a hint.
+   is explicitly out of v1 scope as an _automation_, just a hint.
 5. Family/shared-account or dual-SIM phones receiving SMS for accounts not the primary
    user's → same ambiguous-account flow (§3) handles it; sits unresolved in "Unmapped"
    until dismissed or mapped.
 6. Reinstall/restore → the encrypted `sms_transactions` link table restores with the rest
-   of the backup, so Tier-1 dedup still works post-restore; an uninstall *without* a
+   of the backup, so Tier-1 dedup still works post-restore; an uninstall _without_ a
    restore loses it and a rescan will re-surface everything as Pending (acceptable,
    documented).
 7. Corrupted/garbled/partial multi-part SMS → parser fails closed (no match) rather than
@@ -545,6 +549,10 @@ language (`BucketCard.tsx`/`CategoryTile.tsx`-style shared components, not new p
 - Re-validate the native SMS library choice (§2) at implementation time rather than locking
   it in now — this space moves fast and today's best-maintained option may not be it by
   the time building starts.
+- **Update (2026-08-16):** `tools/sms-parser-verifier/` now exists — a standalone offline HTML tool
+  (see `docs/features/sms-tracking.md` and the tool's own README) so testers with real, years-long bank
+  SMS history can harden the §5 template library entirely offline, before any device/app is involved and
+  before the `/sms-patterns` worker route needs to be deployed at all.
 
 ---
 

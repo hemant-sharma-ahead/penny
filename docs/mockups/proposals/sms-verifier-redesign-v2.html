@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SMS Parser Verifier v2 — Command Center, full match-trace transparency</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg: #0b0f14; --surface: #161b22; --border: #2d333b; --primary: #00a86b; --blue: #3b82f6;
+        --danger: #ef4444; --amber: #f59e0b;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #05070a; color: #e6edf3; -webkit-font-smoothing: antialiased; }
+      h1 { text-align: center; margin: 30px 16px 4px; font-size: 22px; color: #fff; }
+      .sub { text-align: center; margin: 0 16px 14px; color: #9aa5b1; font-size: 14px; max-width: 900px; margin-left: auto; margin-right: auto; line-height: 1.65; }
+      .topnav { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 0 16px 34px; }
+      .topnav a { font-size: 12px; font-weight: 700; color: #cfe9db; background: #0f2419; border: 1px solid #1c3d2a; padding: 7px 14px; border-radius: 999px; text-decoration: none; }
+      .sectionband { border-top: 1px solid #1b222b; padding-top: 36px; margin-top: 10px; }
+      .sectiontitle { text-align: center; font-size: 16px; font-weight: 800; color: #fff; margin: 0 0 4px; }
+      .sectiontitle .num { display: inline-block; width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: #04140d; font-size: 12px; line-height: 22px; margin-right: 8px; }
+      .sectionsub { text-align: center; color: #9aa5b1; font-size: 12.5px; max-width: 780px; margin: 0 auto 18px; line-height: 1.65; }
+      .groundnote { max-width: 780px; margin: 0 auto 20px; background: #12181f; border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; color: #9aa5b1; font-size: 11.5px; line-height: 1.6; }
+      .groundnote code { background: #1c2128; padding: 1px 5px; border-radius: 5px; font-size: 10.5px; color: #c3ccd6; }
+      .newtag { display: inline-block; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; background: #123524; color: #7ee6b8; padding: 2px 8px; border-radius: 999px; margin-left: 8px; vertical-align: middle; }
+      .frame { max-width: 900px; margin: 0 auto; border-radius: 16px; overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.5); border: 1px solid #232a34; }
+      .recommend { max-width: 820px; margin: 16px auto 6px; background: #0f2419; border: 1px solid #1c3d2a; border-radius: 16px; padding: 18px 22px; color: #d7f5e6; font-size: 13.5px; line-height: 1.7; }
+      .recommend b { color: #7ee6b8; }
+      .legend { max-width: 820px; margin: 14px auto 60px; background: #0e141b; border: 1px solid #1e2733; border-radius: 16px; padding: 22px 26px; color: #c3ccd6; font-size: 13px; line-height: 1.7; }
+      .legend h2 { font-size: 14px; margin: 0 0 8px; color: #fff; }
+      .legend code { background: #1c2128; padding: 1px 6px; border-radius: 5px; font-size: 11.5px; }
+      .legend li { margin-bottom: 6px; }
+
+      /* Command Center shell (carried over from v1 Option A) */
+      .cc { display: flex; height: 620px; background: #0d1117; }
+      .cc .side { width: 230px; flex-shrink: 0; background: #0a0e13; border-right: 1px solid #1d232c; padding: 18px 14px; overflow: auto; }
+      .cc .ring-wrap { display: flex; flex-direction: column; align-items: center; margin-bottom: 18px; }
+      .cc .ring { width: 84px; height: 84px; border-radius: 50%; background: conic-gradient(var(--primary) 0% 100%, #1d232c 100% 100%); display: flex; align-items: center; justify-content: center; position: relative; }
+      .cc .ring::before { content: ''; position: absolute; inset: 8px; border-radius: 50%; background: #0a0e13; }
+      .cc .ring span { position: relative; font-size: 15px; font-weight: 800; color: #fff; }
+      .cc .ring-lbl { font-size: 10px; color: #6b7684; margin-top: 6px; text-transform: uppercase; letter-spacing: .04em; }
+      .cc .searchbox { display: flex; align-items: center; gap: 6px; background: #151b23; border: 1px solid #232a34; border-radius: 8px; padding: 7px 10px; margin-bottom: 14px; }
+      .cc .searchbox .ph { color: #8b949e; font-size: 11.5px; }
+      .cc .navlbl { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #4a5361; margin: 4px 4px 8px; }
+      .cc .bankrow { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 7px; font-size: 12px; color: #b7c0cc; cursor: pointer; }
+      .cc .bankrow.active { background: #151b23; color: #fff; }
+      .cc .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+      .cc .bankrow .cnt { margin-left: auto; font-size: 10px; color: #5b6472; }
+      .cc .modeswitch { display: flex; gap: 6px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #1d232c; }
+      .cc .modebtn { flex: 1; text-align: center; font-size: 10.5px; font-weight: 700; padding: 8px 4px; border-radius: 8px; background: #151b23; color: #8b949e; cursor: pointer; }
+      .cc .modebtn.active { background: rgba(0,168,107,.15); color: #7ee6b8; }
+      .cc .main { flex: 1; padding: 20px 22px; overflow: auto; }
+      .cc .mainhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+      .cc .mainhead h3 { font-size: 14px; color: #fff; margin: 0; }
+      .cc .breadcrumb { font-size: 10.5px; color: #5b6472; }
+      .cc .senderbox { background: #131820; border: 1px solid #232a34; border-radius: 10px; padding: 10px 12px; margin: 12px 0 16px; }
+      .cc .senderbox .lbl { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #5b6472; margin-bottom: 6px; }
+      .cc .senderbox .pat { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: #9ea8b5; background: #0d1117; border-radius: 5px; padding: 3px 8px; display: inline-block; margin: 2px 4px 0 0; }
+
+      .tcard { background: #131820; border: 1px solid #232a34; border-radius: 12px; padding: 13px; margin-bottom: 10px; }
+      .tcard .head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+      .tcard .head b { font-size: 12px; color: #fff; }
+      .tcard .head .era { font-size: 9.5px; color: #6b7684; }
+      .tcard .head .copybtn { margin-left: auto; font-size: 9.5px; color: #5b6472; background: #0d1117; border: 1px solid #232a34; padding: 3px 8px; border-radius: 6px; }
+      .tcard .body { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: #8b949e; background: #0d1117; border-radius: 7px; padding: 9px 10px; line-height: 1.6; margin-bottom: 8px; }
+      .tcard .body mark { background: rgba(0,168,107,.28); color: #7ee6b8; border-radius: 3px; padding: 0 2px; font-weight: 700; }
+      .tcard .body mark.f2 { background: rgba(59,130,246,.28); color: #93c5fd; }
+      .tcard .body mark.f3 { background: rgba(236,72,153,.28); color: #f9a8d4; }
+      .tcard .pill { font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
+      .tcard .pill.pass { background: rgba(16,185,129,.15); color: #10b981; }
+      .tcard .fields { display: flex; flex-wrap: wrap; gap: 5px; }
+      .tcard .fchip { font-size: 9.5px; background: #1a2028; border: 1px solid #232a34; border-radius: 6px; padding: 3px 7px; color: #9ea8b5; }
+      .tcard .fchip b { color: #d5dbe3; }
+      .tcard .fchip.f1 b { color: #7ee6b8; }
+      .tcard .fchip.f2 b { color: #93c5fd; }
+      .tcard .fchip.f3 b { color: #f9a8d4; }
+
+      .console { background: #0d1117; border: 1px solid #232a34; border-radius: 10px; overflow: hidden; margin-bottom: 14px; }
+      .console-top { display: flex; gap: 5px; padding: 8px 10px; background: #131820; border-bottom: 1px solid #232a34; }
+      .console-top span { width: 9px; height: 9px; border-radius: 50%; }
+      .console textarea { width: 100%; height: 76px; background: transparent; border: none; color: #b7c0cc; font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; padding: 12px 14px; resize: none; outline: none; line-height: 1.7; }
+      .runbtn { background: var(--primary); color: #04140d; font-weight: 800; font-size: 11.5px; padding: 8px 16px; border-radius: 8px; display: inline-block; margin-bottom: 16px; }
+
+      .resultcard { background: #131820; border: 1px solid #232a34; border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
+      .resultcard .rhead { padding: 11px 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #232a34; }
+      .resultcard .rhead .sms { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: #9ea8b5; flex: 1; }
+      .badge { font-size: 9.5px; font-weight: 800; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+      .badge.pass { background: rgba(16,185,129,.15); color: #10b981; }
+      .badge.warn { background: rgba(245,158,11,.15); color: #f59e0b; }
+      .badge.fail { background: rgba(239,68,68,.15); color: #ef4444; }
+      .tracelbl { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #5b6472; padding: 10px 14px 4px; }
+      .traceattempt { display: flex; align-items: center; gap: 9px; padding: 7px 14px; border-top: 1px solid #1a2028; font-size: 11px; }
+      .traceattempt .num { width: 16px; height: 16px; border-radius: 50%; background: #1a2028; color: #6b7684; font-size: 9px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .traceattempt.matched .num { background: rgba(16,185,129,.2); color: #10b981; }
+      .traceattempt .lbl { flex: 1; color: #b7c0cc; }
+      .traceattempt.matched .lbl { color: #fff; font-weight: 600; }
+      .traceattempt .verdict { font-size: 9.5px; font-weight: 700; }
+      .traceattempt .verdict.no { color: #6b7684; }
+      .traceattempt .verdict.yes { color: #10b981; }
+
+      /* Section 4 — Add a parser form */
+      .formgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+      .formfield { display: flex; flex-direction: column; gap: 5px; }
+      .formfield.full { grid-column: 1 / -1; }
+      .formfield label { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #5b6472; }
+      .formfield input, .formfield select, .formfield textarea { background: #0d1117; border: 1px solid #232a34; border-radius: 7px; padding: 7px 10px; color: #d5dbe3; font-size: 11.5px; font-family: ui-monospace, Menlo, monospace; outline: none; }
+      .formfield select { font-family: -apple-system, sans-serif; }
+      .formfield .hint { font-size: 9.5px; color: #5b6472; font-family: -apple-system, sans-serif; }
+      .regexstatus { display: flex; align-items: center; gap: 6px; font-size: 10.5px; margin-top: 4px; }
+      .regexstatus.ok { color: #10b981; }
+      .regexstatus.err { color: #ef4444; }
+      .formbtnrow { display: flex; gap: 8px; margin-top: 4px; }
+      .formbtn { font-size: 11px; font-weight: 700; padding: 8px 14px; border-radius: 8px; font-family: -apple-system, sans-serif; }
+      .formbtn.primary { background: var(--primary); color: #04140d; }
+      .formbtn.ghost { background: #151b23; color: #b7c0cc; border: 1px solid #232a34; }
+      .codeblock { background: #0d1117; border: 1px solid #232a34; border-radius: 10px; padding: 12px 14px; font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: #9ea8b5; line-height: 1.7; white-space: pre-wrap; margin-top: 10px; }
+      .codeblock .k { color: #7ee6b8; }
+      .codeblock .s { color: #f9a8d4; }
+      .draftbadge { font-size: 8.5px; font-weight: 800; text-transform: uppercase; background: rgba(59,130,246,.18); color: #93c5fd; padding: 2px 7px; border-radius: 999px; }
+
+      /* Generic highlighted-SMS-text block — same mark colors as .tcard .body, usable anywhere (Section 1
+         cards AND Section 2's expanded table rows), always on, not tcard-specific. */
+      .smstext { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: #8b949e; background: #0d1117; border-radius: 7px; padding: 9px 10px; line-height: 1.6; }
+      .smstext mark { background: rgba(0,168,107,.28); color: #7ee6b8; border-radius: 3px; padding: 0 2px; font-weight: 700; }
+      .smstext mark.f2 { background: rgba(59,130,246,.28); color: #93c5fd; }
+      .smstext mark.f3 { background: rgba(236,72,153,.28); color: #f9a8d4; }
+
+      /* Section 2 — filter tabs + dense results table, built for hundreds/thousands of messages */
+      .filtertabs { display: flex; gap: 6px; margin: 4px 0 12px; flex-wrap: wrap; }
+      .ftab { font-size: 10.5px; font-weight: 700; padding: 6px 12px; border-radius: 999px; background: #131820; border: 1px solid #232a34; color: #8b949e; cursor: pointer; font-family: -apple-system, sans-serif; }
+      .ftab.active { background: rgba(0,168,107,.15); border-color: rgba(0,168,107,.4); color: #7ee6b8; }
+      .ftab .n { opacity: .7; margin-left: 3px; }
+      .uploadrow { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+      .uploadbtn { font-size: 10.5px; font-weight: 700; color: #b7c0cc; background: #151b23; border: 1px solid #232a34; padding: 7px 12px; border-radius: 8px; font-family: -apple-system, sans-serif; display: flex; align-items: center; gap: 5px; }
+      .uploadrow .hint { font-size: 10px; color: #5b6472; font-family: -apple-system, sans-serif; }
+      table.rtable { width: 100%; border-collapse: collapse; font-size: 11px; font-family: -apple-system, sans-serif; }
+      table.rtable th { text-align: left; font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em; color: #5b6472; padding: 7px 10px; border-bottom: 1px solid #1d232c; font-weight: 700; }
+      table.rtable td { padding: 7px 10px; border-bottom: 1px solid #161b22; color: #b7c0cc; }
+      table.rtable tr.rrow { cursor: pointer; }
+      table.rtable tr.rrow:hover td { background: #10151b; }
+      table.rtable .smscell { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: #7d8794; max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      table.rtable .chev { color: #4a5361; width: 16px; }
+      .exprow td { background: #0d1117 !important; padding: 14px 16px; border-bottom: 1px solid #1d232c; }
+    </style>
+  </head>
+  <body>
+    <h1>SMS Parser Verifier v2 — full match-trace transparency</h1>
+    <p class="sub">Refines Option A (Command Center) per feedback: the tool used to only show the final answer.
+      Now every configured template for a bank is always listed — browsing OR testing — and testing a message shows
+      exactly which templates were tried and which one (if any) actually matched, not just the final verdict.</p>
+    <div class="topnav">
+      <a href="#s1">① Browse a bank — every template, sender patterns, inline "+ add template"</a>
+      <a href="#s2">② Test your own — scales to thousands, filtered table + expandable detail</a>
+      <a href="#s3">③ Capture-group highlighting — everywhere, always on</a>
+      <a href="#s4">④ Add a parser as its own mode — for a brand-new bank</a>
+    </div>
+
+    <!-- ================= SECTION 1 ================= -->
+    <div class="sectionband" id="s1">
+      <div class="sectiontitle"><span class="num">1</span>Browse a bank — every configured template, in one place<span class="newtag">refined</span></div>
+      <div class="sectionsub">Selecting HDFC now shows: its sender-recognition patterns (the first gate, previously
+        invisible), then all 3 configured templates in order, each with its own sample + parsed fields + a
+        "copy regex" button for anyone iterating on that specific pattern.</div>
+      <div class="groundnote">This was actually already close in v1's mockup (each template got its own card) — the
+        new pieces are the sender-patterns box up top and the per-card "copy regex" button, both addressing "the
+        parsers are hidden" directly for the browse view specifically.</div>
+      <div class="frame">
+        <div class="cc">
+          <div class="side">
+            <div class="ring-wrap"><div class="ring"><span>20/20</span></div><div class="ring-lbl">Templates passing</div></div>
+            <div class="searchbox"><i class="ti ti-search" style="color:#5b6472;font-size:12px"></i><span class="ph">Filter banks…</span></div>
+            <div class="navlbl">Banks (12)</div>
+            <div class="bankrow active"><span class="dot" style="background:#10b981"></span>HDFC<span class="cnt">3/3</span></div>
+            <div class="bankrow"><span class="dot" style="background:#10b981"></span>ICICI<span class="cnt">3/3</span></div>
+            <div class="bankrow"><span class="dot" style="background:#10b981"></span>SBI<span class="cnt">3/3</span></div>
+            <div class="bankrow"><span class="dot" style="background:#10b981"></span>Axis<span class="cnt">2/2</span></div>
+            <div class="modeswitch">
+              <div class="modebtn active">Known templates</div>
+              <div class="modebtn">Test your own</div>
+            </div>
+          </div>
+          <div class="main">
+            <div class="mainhead"><div><div class="breadcrumb">Known templates</div><h3>HDFC</h3></div></div>
+            <div class="senderbox">
+              <div class="lbl">Sender ID patterns (checked first — if none of these match, no template is even tried)</div>
+              <span class="pat">^[A-Z]{2}-HDFCBK$</span><span class="pat">^HDFCBK$</span>
+            </div>
+
+            <div class="tcard">
+              <div class="head"><b>Template 1 of 3</b><span class="era">current-era UPI debit</span><span class="pill pass">✓ Parsed</span><span class="copybtn">Copy regex</span></div>
+              <div class="body">VM-HDFCBK: HDFC Bank: <mark>Rs.500.00</mark> debited from a/c <mark class="f2">XX1234</mark> on 15-Aug-26 to VPA <mark class="f3">merchant@ybl</mark> (UPI Ref No 123456789012).</div>
+              <div class="fields"><span class="fchip f1">amount <b>₹500</b></span><span class="fchip f2">acct <b>••1234</b></span><span class="fchip f3">counterparty <b>merchant@ybl</b></span></div>
+            </div>
+            <div class="tcard">
+              <div class="head"><b>Template 2 of 3</b><span class="era">current-era UPI credit</span><span class="pill pass">✓ Parsed</span><span class="copybtn">Copy regex</span></div>
+              <div class="body">AD-HDFCBK: HDFC Bank: Rs.1,500.00 credited to a/c XX1234 on 15-Aug-26 by VPA sender@okhdfcbank (UPI Ref No 123456789013).</div>
+              <div class="fields"><span class="fchip">amount <b>₹1,500</b></span><span class="fchip">acct <b>••1234</b></span></div>
+            </div>
+            <div class="tcard">
+              <div class="head"><b>Template 3 of 3</b><span class="era">older era (~2012-2016)</span><span class="pill pass">✓ Parsed</span><span class="copybtn">Copy regex</span></div>
+              <div class="body">HDFCBK: Rs.500.00 debited from A/c No. XX1234 on 15/08/26. Info: ATM WDL. Avl Bal: Rs.10000.00</div>
+              <div class="fields"><span class="fchip">amount <b>₹500</b></span><span class="fchip">balance <b>₹10,000</b></span></div>
+            </div>
+
+            <div class="tcard" style="border-style:dashed;display:flex;align-items:center;gap:8px;cursor:pointer;color:#5b6472">
+              <i class="ti ti-plus" style="font-size:14px"></i>
+              <span style="font-size:11.5px;font-family:-apple-system,sans-serif">Add a template for HDFC — didn't find wording that matches a message you have?</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="sectionsub" style="margin-top:14px"><b style="color:#cfe9db">New:</b> that dashed card is the same
+        "Add a parser" form from Section 4 below, just reached from right where the gap is noticed — bank
+        pre-filled, no need to jump to a separate mode. Section 4 stays as its own mode too, for the "this isn't
+        even a configured bank yet" case.</div>
+    </div>
+
+    <!-- ================= SECTION 2 ================= -->
+    <div class="sectionband" id="s2">
+      <div class="sectiontitle"><span class="num">2</span>Test your own — scales to thousands, filtered table + expandable detail<span class="newtag">revised</span></div>
+      <div class="sectionsub">Rethought after feedback: a full-width result card per message (the previous version)
+        falls apart once you're testing hundreds or thousands of real messages at once. This is now a dense,
+        one-line-per-message table with filter tabs by outcome — click any row to expand it into the full match
+        trace + highlighted text, instead of showing that much detail for every row by default.</div>
+      <div class="groundnote">Still backed by the same <code>traceSms()</code> core-module addition from before —
+        every template attempted for the sender-matched bank, not just the final outcome. What changed is purely
+        the presentation: table + tabs + expand-on-click, so scanning 1,000 results is actually feasible.</div>
+      <div class="frame">
+        <div class="cc">
+          <div class="side">
+            <div class="ring-wrap"><div class="ring" style="background:conic-gradient(#3b82f6 0 100%, #1d232c 100% 100%)"><span>1,204</span></div><div class="ring-lbl">Messages tested</div></div>
+            <div class="navlbl">This session</div>
+            <div class="bankrow"><span class="dot" style="background:#10b981"></span>HDFC — 412 parsed</div>
+            <div class="bankrow"><span class="dot" style="background:#f59e0b"></span>SBI — 38 partial</div>
+            <div class="bankrow"><span class="dot" style="background:#ef4444"></span>Unrecognized — 22</div>
+            <div class="modeswitch">
+              <div class="modebtn">Known templates</div>
+              <div class="modebtn active">Test your own</div>
+            </div>
+          </div>
+          <div class="main">
+            <div class="mainhead"><div><div class="breadcrumb">Test your own</div><h3>Paste or upload messages</h3></div></div>
+
+            <div class="uploadrow">
+              <div class="console" style="flex:1;margin-bottom:0">
+                <div class="console-top"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#10b981"></span></div>
+                <textarea style="height:46px">VM-HDFCBK
+HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26...</textarea>
+              </div>
+            </div>
+            <div class="uploadrow">
+              <div class="uploadbtn"><i class="ti ti-file-upload"></i> Upload a .txt file instead</div>
+              <span class="hint">Same format (sender line, body, --- between messages) — for testing a whole
+                exported message history at once, not one at a time.</span>
+            </div>
+            <div class="runbtn">▸ Parse all (1,204 messages)</div>
+
+            <div class="filtertabs">
+              <div class="ftab active">All <span class="n">1,204</span></div>
+              <div class="ftab">✓ Parsed <span class="n">1,102</span></div>
+              <div class="ftab">⚠ Partial — bank known, no template <span class="n">80</span></div>
+              <div class="ftab">❌ Unrecognized sender <span class="n">22</span></div>
+              <div class="ftab">🚫 Excluded (OTP) <span class="n">—</span></div>
+            </div>
+
+            <table class="rtable">
+              <thead>
+                <tr><th></th><th>Sender</th><th>Message</th><th>Bank</th><th>Status</th></tr>
+              </thead>
+              <tbody>
+                <tr class="rrow">
+                  <td class="chev"><i class="ti ti-chevron-right"></i></td>
+                  <td>VM-HDFCBK</td>
+                  <td class="smscell">HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl…</td>
+                  <td>HDFC</td>
+                  <td><span class="badge pass">✓ Parsed</span></td>
+                </tr>
+
+                <tr class="rrow" style="background:#0f141a">
+                  <td class="chev"><i class="ti ti-chevron-down"></i></td>
+                  <td>VM-SBIINB</td>
+                  <td class="smscell">SBI: Your account will be credited with cashback of Rs.50 within 3 working days…</td>
+                  <td>SBI</td>
+                  <td><span class="badge warn">⚠ Partial</span></td>
+                </tr>
+                <tr class="exprow">
+                  <td colspan="5">
+                    <div class="smstext">SBI: Your account will be credited with cashback of <mark>Rs.50</mark> within 3 working days for your recent transaction.</div>
+                    <div class="tracelbl" style="padding-left:0">Match trace — sender recognized as SBI, 3 templates checked, none matched</div>
+                    <div class="traceattempt" style="padding-left:0"><span class="num">1</span><span class="lbl">current-era debit</span><span class="verdict no">✗ didn't match</span></div>
+                    <div class="traceattempt" style="padding-left:0"><span class="num">2</span><span class="lbl">current-era credit</span><span class="verdict no">✗ didn't match</span></div>
+                    <div class="traceattempt" style="padding-left:0"><span class="num">3</span><span class="lbl">older era ~2014-2018, "Dear Customer"</span><span class="verdict no">✗ didn't match</span></div>
+                    <div class="formbtnrow" style="margin-top:10px"><div class="formbtn primary">+ Add a template for SBI, pre-filled from this message</div></div>
+                  </td>
+                </tr>
+
+                <tr class="rrow">
+                  <td class="chev"><i class="ti ti-chevron-right"></i></td>
+                  <td>MOM</td>
+                  <td class="smscell">Hey, are we still on for dinner tonight?</td>
+                  <td>—</td>
+                  <td><span class="badge fail">❌ Unrecognized</span></td>
+                </tr>
+                <tr class="rrow">
+                  <td class="chev"><i class="ti ti-chevron-right"></i></td>
+                  <td>AD-HDFCBK</td>
+                  <td class="smscell">HDFC Bank: Rs.1,500.00 credited to a/c XX1234 on 15-Aug-26 by VPA sender@okhdfcbank…</td>
+                  <td>HDFC</td>
+                  <td><span class="badge pass">✓ Parsed</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="sectionsub" style="margin-top:14px">The expanded SBI row above already shows the highlighted text
+        (Section 3) and a direct "+ Add a template for SBI, pre-filled from this message" action — clicking it opens
+        the same Section 4 form with the bank AND a starting-point regex sketch already in place, so fixing a gap
+        you just found is one click away, not a context switch.</div>
+    </div>
+
+    <!-- ================= SECTION 3 ================= -->
+    <div class="sectionband" id="s3">
+      <div class="sectiontitle"><span class="num">3</span>Capture-group highlighting — everywhere, always on<span class="newtag">confirmed</span></div>
+      <div class="sectionsub">Promoted from "bonus idea" to a core, always-on part of the tool per feedback:
+        color-coded highlighting of exactly what each field captured, directly on the raw SMS text — not just in
+        Section 1's browse cards, but in Section 2's expanded table rows too (already shown there), and for every
+        template/message, not a one-off illustration. Same color per field everywhere it appears (green=amount,
+        blue=account/card, pink=counterparty, etc.) so the mapping is learned once and stays consistent.</div>
+      <div class="groundnote">Cheap and already threaded through: <code>traceSms()</code>'s per-attempt regex
+        <code>.exec()</code> result has named-group start/end indices available for every match, in both Section 1
+        (browsing) and Section 2 (testing) — wrapping the matched substrings in <code>&lt;mark&gt;</code> tags is a
+        small shared rendering helper (<code>.smstext</code> in the CSS), no new parsing logic, one implementation
+        used by both views. Only applies where a template actually matched — an unmatched attempt has nothing
+        captured to highlight, which itself is informative (you can see nothing lit up).</div>
+      <div class="groundnote" style="background:#12181f">
+        Other small ideas, lower priority — happy to fold any of these in too:
+        <br>• When a sender is completely unrecognized, a soft "closest known sender ID" suggestion (fuzzy match
+        against configured <code>senderIdPatterns</code>) — helps distinguish "this bank isn't configured at all"
+        from "this bank IS configured but the sender ID variant is slightly different than expected."
+        <br>• A "download this session's results as JSON/CSV" button (in addition to the existing redacted-copy-as-
+        text) — matters more now that testing scales to thousands of messages (Section 2), so a real export format
+        is worth having alongside plain-text copy.
+      </div>
+    </div>
+
+    <!-- ================= SECTION 4 ================= -->
+    <div class="sectionband" id="s4">
+      <div class="sectiontitle"><span class="num">4</span>Add a parser — design and verify a new candidate, live<span class="newtag">new</span></div>
+      <div class="sectionsub">A third mode alongside Known templates / Test your own — reachable three ways: this
+        standalone mode (for a bank that isn't configured at all yet), the dashed "+ Add a template" card at the
+        bottom of a bank's template list (Section 1), or the "+ Add a template, pre-filled from this message" action
+        on an expanded partial-match row (Section 2). All three open the same form. Draft a template, test it
+        immediately against pasted samples, and — once it works — it's automatically included in every other view
+        for the rest of the session (Known templates, Test your own) and exportable as ready-to-paste code for a
+        developer to actually add to <code>smsPatterns.ts</code>.</div>
+      <div class="groundnote">Kept session-only + explicit-export by design, never auto-writes to any file — this
+        is a verification tool, not a code generator that silently changes the real pattern library. A developer
+        still deliberately pastes the exported snippet into <code>smsPatterns.ts</code> and reruns
+        <code>pnpm build:sms-verifier</code> for it to become real, shipped config.</div>
+      <div class="frame">
+        <div class="cc">
+          <div class="side">
+            <div class="ring-wrap"><div class="ring" style="background:conic-gradient(#ec4899 0 100%, #1d232c 100% 100%)"><span>1</span></div><div class="ring-lbl">Draft parsers this session</div></div>
+            <div class="navlbl">Draft parsers</div>
+            <div class="bankrow"><span class="dot" style="background:#3b82f6"></span>SBI<span class="cnt">+1 draft</span></div>
+            <div class="modeswitch">
+              <div class="modebtn">Known templates</div>
+              <div class="modebtn">Test your own</div>
+              <div class="modebtn active">Add a parser</div>
+            </div>
+          </div>
+          <div class="main">
+            <div class="mainhead"><div><div class="breadcrumb">Add a parser</div><h3>New candidate template</h3></div></div>
+
+            <div class="formgrid">
+              <div class="formfield">
+                <label>Bank</label>
+                <select><option>SBI (existing — adds a 4th template)</option><option>+ New bank…</option></select>
+              </div>
+              <div class="formfield">
+                <label>Transaction type</label>
+                <select><option>debit</option><option>credit</option><option>upi_sent</option><option>card_swipe</option></select>
+              </div>
+              <div class="formfield">
+                <label>Date format (only if your pattern captures dateStr)</label>
+                <input value="DD-MM-YY" />
+              </div>
+              <div class="formfield">
+                <label>Label (your own note, like addedAt)</label>
+                <input value="cashback/promo credit wording, 2026-08" />
+              </div>
+              <div class="formfield full">
+                <label>Regex pattern (named groups: amount, acctLast4, cardLast4, counterparty, ref, balance, dateStr)</label>
+                <textarea rows="2">SBI: (?&lt;counterparty&gt;[\w .]+) credited with cashback of Rs\.?(?&lt;amount&gt;[\d,]+\.?\d*) within \d+ working days</textarea>
+                <div class="regexstatus ok"><i class="ti ti-circle-check"></i> Valid regex syntax</div>
+              </div>
+            </div>
+
+            <div class="formfield full" style="margin-bottom:12px">
+              <label>Test against</label>
+              <div class="console" style="margin-bottom:0">
+                <div class="console-top"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#10b981"></span></div>
+                <textarea style="height:50px">VM-SBIINB
+SBI: Your account will be credited with cashback of Rs.50 within 3 working days for your recent transaction.</textarea>
+              </div>
+            </div>
+
+            <div class="resultcard">
+              <div class="rhead">
+                <div class="sms">Testing against your draft template only</div>
+                <span class="badge pass">✓ Matches your candidate</span>
+              </div>
+              <div class="tracelbl">Extracted fields</div>
+              <div class="traceattempt matched"><span class="num">✓</span><span class="lbl">amount</span><span class="verdict yes">₹50</span></div>
+              <div class="traceattempt matched"><span class="num">✓</span><span class="lbl">counterparty</span><span class="verdict yes">Your account</span></div>
+            </div>
+
+            <div class="formbtnrow">
+              <div class="formbtn primary">+ Add to this session <span class="draftbadge">draft</span></div>
+              <div class="formbtn ghost">Copy as code</div>
+            </div>
+
+            <div class="codeblock">{
+  <span class="k">transactionType</span>: <span class="s">'credit'</span>,
+  <span class="k">addedAt</span>: <span class="s">'cashback/promo credit wording, 2026-08'</span>,
+  <span class="k">dateFormat</span>: <span class="s">'DD-MM-YY'</span>,
+  <span class="k">pattern</span>:
+    <span class="s">'SBI: (?&lt;counterparty&gt;[\\w .]+) credited with cashback of Rs\\.?(?&lt;amount&gt;[\\d,]+\\.?\\d*) within \\d+ working days'</span>
+}</div>
+          </div>
+        </div>
+      </div>
+      <div class="sectionsub" style="margin-top:18px">Once added, it shows up everywhere else — e.g. back in
+        "Test your own" (Section 2), the SBI message that previously failed all 3 templates now matches on a new,
+        clearly-marked 4th:</div>
+      <div class="frame">
+        <div class="cc" style="height:300px">
+          <div class="side">
+            <div class="ring-wrap"><div class="ring"><span>21/21</span></div><div class="ring-lbl">incl. 1 draft</div></div>
+            <div class="navlbl">Banks (12)</div>
+            <div class="bankrow"><span class="dot" style="background:#10b981"></span>SBI<span class="cnt">4/4*</span></div>
+            <div class="modeswitch"><div class="modebtn active">Test your own</div></div>
+          </div>
+          <div class="main">
+            <div class="resultcard">
+              <div class="rhead">
+                <div class="sms">VM-SBIINB: SBI: Your account will be credited with cashback of Rs.50 within 3 working days…</div>
+                <span class="badge pass">✓ Parsed</span>
+              </div>
+              <div class="tracelbl">Match trace — sender recognized as SBI, 4 templates checked</div>
+              <div class="traceattempt"><span class="num">1</span><span class="lbl">current-era debit</span><span class="verdict no">✗ didn't match</span></div>
+              <div class="traceattempt"><span class="num">2</span><span class="lbl">current-era credit</span><span class="verdict no">✗ didn't match</span></div>
+              <div class="traceattempt"><span class="num">3</span><span class="lbl">older era ~2014-2018</span><span class="verdict no">✗ didn't match</span></div>
+              <div class="traceattempt matched"><span class="num">4</span><span class="lbl">cashback/promo credit wording, 2026-08 <span class="draftbadge">draft</span></span><span class="verdict yes">✓ MATCHED</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <b>My take:</b> all four sections are worth building together now — they're not independent features, they
+      reinforce each other. The match trace (②) is what makes a gap visible; the "+ Add a template" actions reachable
+      directly from that gap (Section 1's dashed card, Section 2's expanded-row action, both opening Section 4's
+      form) are what make it fixable in the same sitting; the highlighting (③) is what makes a new regex easy to
+      verify while drafting it. The table+tabs rework of Section 2 isn't optional either once real testers start
+      pasting hundreds/thousands of messages — the old full-card view would make the tool unusable at that scale,
+      not just less polished. The two remaining "other small ideas" (fuzzy sender suggestion, JSON/CSV export) are
+      genuinely lower priority — fine to defer.
+    </div>
+
+    <div class="legend">
+      <h2>Summary of what changes</h2>
+      <ul>
+        <li><b>Core module (real code change):</b> new <code>traceSms()</code> in
+          <code>packages/core/src/core/sms-import/smsParser.ts</code>, returning every template attempt for the
+          sender-matched bank (matched or not), plus each match's capture positions (for highlighting).
+          <code>parseSms()</code> becomes a thin wrapper deriving its existing return value from it — one copy of the
+          matching logic, existing tests unaffected.</li>
+        <li><b>Browse view (Section 1):</b> a sender-patterns box above the template cards; each card gets a "copy
+          regex" button and highlighted capture text; a dashed "+ Add a template for this bank" card at the end of
+          every bank's template list.</li>
+        <li><b>Test-your-own view (Section 2), reworked for scale:</b> filter tabs by outcome (Parsed / Partial /
+          Unrecognized / Excluded, each with a live count), a dense one-line-per-message table instead of full-width
+          cards, click-to-expand for the full trace + highlighted text, a file-upload option alongside pasting for
+          testing a whole exported message history at once, and a direct "+ Add a template, pre-filled from this
+          message" action on any expanded partial-match row.</li>
+        <li><b>Capture-group highlighting (Section 3):</b> always on, shared between the browse and test views (one
+          <code>.smstext</code> rendering helper, not two implementations) — no longer a "bonus," a core part of
+          both.</li>
+        <li><b>Add a parser (Section 4):</b> one form, three entry points (its own mode, or contextually from
+          Sections 1/2). Validates regex live, tests against pasted samples immediately, then either "Add to this
+          session" (folds into the in-memory bundle every other view uses, marked <code>draft</code>) or "Copy as
+          code" (ready-to-paste <code>SmsTemplateEntry</code>). Session-only, never auto-writes to any file — a
+          developer still deliberately pastes it into <code>smsPatterns.ts</code> and reruns
+          <code>pnpm build:sms-verifier</code> for it to become real, shipped config.</li>
+      </ul>
+    </div>
+  </body>
+</html>
