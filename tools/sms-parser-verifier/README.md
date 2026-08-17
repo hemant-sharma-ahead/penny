@@ -25,15 +25,28 @@ bank as the primary case, not an edge case:
   running real messages through the parser at scale (chunked parsing with a live progress bar, not one
   blocking loop). Clicking Test/Parse with nothing pasted (and no file uploaded) shows a clear inline
   error instead of rendering an empty results block.
-- **Right panel** — a read-only-at-a-glance reference for whichever bank is selected: its **Sender ID
-  patterns** (official ones locked 🔒, plus any you've added — checked live against every other bank's
-  patterns and flagged, not blocked, if they'd overlap) and every configured **template**, shown as a
-  "paper" card with its regex and sample message side by side, both color-coded (every distinct capture
-  group gets its own color automatically, not just a fixed few — see below) so you can trace exactly which
-  part of the regex produced which highlighted part of the message, plus a matched/no-match pill. Each
-  card has **Copy regex** / **Edit** / **Disable** (or **Enable**, if already disabled — dims the template
-  and excludes it from testing without deleting it, one click to bring back) / **Delete** (draft templates
-  only). Drag the panel's left edge to resize it.
+- **Right panel** — split into two independently-scrolling sections, **Templates** (top) and **Senders in
+  this test** (bottom), separated by a draggable horizontal divider (drag it to give either section more
+  room; the panel's left edge still resizes its overall width). Selecting Bulk test collapses this to just
+  the Senders section, since there's no "current bank" to show templates for.
+  - **Templates** — the selected bank's **Sender ID patterns** (official ones locked 🔒, plus any you've
+    added — checked live against every other bank's patterns and flagged, not blocked, if they'd overlap)
+    and every configured **template**, each a collapsed-by-default card: chevron, kind icon (none for
+    official, ✎ for modified, 🧪 for draft), label, era, the regex itself (truncated to one line, hover for
+    the full text), **Copy**/**Edit** icons, and a status icon (✓ parsed / ⚠ no match / − no sample yet /
+    👁‑off disabled) — no text pills anywhere. Click the card to expand it: the regex and its matched sample
+    side by side, each capture group colored identically on both sides (every distinct group gets its own
+    color automatically, not just a fixed few — see below), plus **Disable**/**Enable** and
+    **Remove**/**Delete** icons (Remove for official/modified — hides the card, reversible from a compact
+    "N removed — Restore" line in this section's header; Delete for drafts only, which truly deletes since
+    a draft has no official original to restore to).
+  - **Senders in this test** — every distinct sender actually present in whatever you last tested (Bulk
+    test, or this bank's own tester), grouped into collapsible **Included**/**Excluded** sections (Excluded
+    starts collapsed — the common case needs no attention). On a bank's own page, only senders recognized
+    as THIS bank are shown here directly; anything else (a message recognized as a different bank, or not
+    recognized at all — auto-detect mode can surface either) collapses behind its own **"Show N senders
+    from other/unrecognized banks"** toggle, off by default, so switching between banks doesn't clutter each
+    one's list with senders that don't belong to it. See below for what each compact row does.
 
 **Editing/adding a template or sender pattern always opens a popup** (never displaces the reference panel
 or the test column) — every popup can be resized by dragging its bottom-right corner if you want more
@@ -46,9 +59,11 @@ room. The template popup:
   with — it's saved as that template's own reference sample.
 - If your regex names a capture group the real parser doesn't recognize (only `amount`, `acctLast4`,
   `cardLast4`, `counterparty`, `ref`, `balance`, `dateStr` are read into a parsed transaction) — a warning
-  tells you so directly. A group like that still compiles and still highlights in the pattern preview
-  here, but its value is silently dropped in production: never extracted, never highlighted in a real test
-  message — this warning is the actual explanation, not a silent mystery.
+  tells you so directly. A group like that still compiles, and this live preview highlights it in BOTH the
+  regex and the test message (so you can actually confirm your own pattern is capturing what you meant),
+  but its value is silently dropped in real production: never extracted, never highlighted in a saved
+  template's reference card or the results table — only this in-progress preview is this permissive, on
+  purpose, so the warning is a real explanation, not a silent mystery.
 - The **Common patterns** tab (in the regex helper panel) is fully editable, not just a fixed reference
   list: **+ Add a common pattern** catalogs your own reusable snippet; every entry (built-in or your own)
   has an **Edit** link; typing an exact duplicate of an existing snippet warns you and highlights the
@@ -63,26 +78,26 @@ room. The template popup:
   message text (wraps rather than crops), a Sender column colored green/red by whether it was recognized,
   a Bank column, a compact colored **trace-strip** (● matched / ● tried, no match / ○ not attempted) so
   you can scan hundreds of rows without expanding each one, and a copy icon right next to the message text
-  itself. Only Partial/Unrecognized/Excluded rows expand further, for the full trace, field chips, and (for
+  itself. Only Partial/Unrecognized/Excluded rows expand further, for the full per-template trace, and (for
   an unrecognized sender) a **"Did you mean [bank]?"** suggestion when the sender looks like a near-miss of
   a configured pattern, one click away from being added. "Copy (redacted)"/"Copy (unredacted)" export the
   currently-filtered rows as plain text — redacted masks every digit and is the one to reach for by
   default; unredacted keeps the real numbers, only for when you actually mean to share raw data.
 
-- **Senders in this batch** (above the results table) — one card per distinct sender actually present,
-  sorted by message count so the sender most worth a decision shows first: a TRAI header-category badge
-  (T/S/P/G, from the sender's own `-T`/`-S`/`-P`/`-G` suffix, per the 6-May-2025 mandate), "View all"
-  (fills the search box with that sender — the drill-down for "is this sender's whole batch actually
-  legit?"), and "Exclude sender"/"Include" per card. A `-P`/`-G` sender auto-buckets into Excluded (with
-  a reversible "🤖 Auto-excluded" note — suffix categorization isn't guaranteed accurate) since a
-  Promotional/Government message is essentially never a real transaction; `-S`/`-T` never auto-exclude,
-  since real bank transaction alerts commonly register as Service, not just Transactional. Every
-  Partial/Unrecognized row also gets a "🚫 Not a transaction — exclude this message" action (for a
-  sender that mixes real transactions with noise, where excluding the whole sender would wrongly hide
-  the real ones too) alongside "🚫 Exclude sender entirely" — both undoable from the same expanded row.
-  This is the split between "a real coverage gap, worth a new template" (Partial) and "not a
-  transaction at all, no template should exist for this" (Excluded) that the stat strip previously
-  conflated.
+- **Senders in this test** (right panel, described above) — one compact row per distinct sender actually
+  present, sorted by message count within its group so the sender most worth a decision shows first: a
+  TRAI header-category badge (T/S/P/G, from the sender's own `-T`/`-S`/`-P`/`-G` suffix, per the
+  6-May-2025 mandate), a message count, and "Exclude"/"Include". Clicking the sender ID itself fills the
+  middle column's search box with it — the drill-down for "is this sender's whole batch actually legit?".
+  A `-P`/`-G` sender auto-buckets into Excluded (with a reversible "🤖 auto" note — suffix categorization
+  isn't guaranteed accurate) since a Promotional/Government message is essentially never a real
+  transaction; `-S`/`-T` never auto-exclude, since real bank transaction alerts commonly register as
+  Service, not just Transactional. Every Partial/Unrecognized row in the results table also gets a
+  "🚫 Not a transaction — exclude this message" action (for a sender that mixes real transactions with
+  noise, where excluding the whole sender would wrongly hide the real ones too) alongside "🚫 Exclude
+  sender entirely" — both undoable from the same expanded row. This is the split between "a real coverage
+  gap, worth a new template" (Partial) and "not a transaction at all, no template should exist for this"
+  (Excluded) that the stat strip previously conflated.
 
 - **A bank's page** (selected from the sidebar) gives you a tester scoped to just that bank, with a
   toggle: **Auto-detect sender** (real app behavior — the sender must match this bank's patterns first) or

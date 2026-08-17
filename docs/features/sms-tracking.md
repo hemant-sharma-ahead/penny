@@ -127,7 +127,7 @@ base library):
   request + revocation detection) and `queryInboxAsync` (backs the historical "scan a date range"
   capability) to JS via `apps/mobile/src/lib/smsCapture.native.ts`.
 
-## Pattern-library verification tooling (2026-08-16, "Unified Workspace" redesign, latest pass 2026-08-17)
+## Pattern-library verification tooling (2026-08-16, "Unified Workspace" redesign, latest pass 2026-08-18)
 
 `tools/sms-parser-verifier/` — a standalone, offline HTML page (see its own README) for hardening the
 parsing-template library before real-device rollout, without needing the app, a device, or any code.
@@ -139,17 +139,28 @@ transmitted anywhere** (it's a static page with no server behind it at all).
 A light, three-column layout built around testing thousands of real messages per bank as the primary
 case: a left sidebar (banks + pinned "Bulk test — all banks", drag-resizable), a middle column dedicated
 entirely to test input + a paginated/searchable/chunk-parsed results table (never templates or sender
-patterns), and a right panel holding that bank's sender-ID patterns and template "paper" cards (regex +
-sample side by side, colors auto-assigned per distinct capture-group name rather than a fixed few, also
-drag-resizable). Editing anything — a template, a sender pattern, a new bank — always opens a resizable
-popup rather than displacing either the reference panel or the test column.
+patterns), and a right panel split into two independently-scrolling, drag-resizable sections — Templates
+(top) and "Senders in this test" (bottom), separated by their own draggable divider. Bulk test collapses
+this to just the Senders section, since there's no "current bank" to show templates for. Editing anything
+— a template, a sender pattern, a new bank — always opens a resizable popup rather than displacing either
+the reference panel or the test column.
 
-- **Templates** can be edited (official ones get a session-local override, never touching the real
-  shipped data), added as drafts, or disabled-without-deleting (dimmed but still visible for one-click
-  re-enabling). A template's own test message is saved as its reference sample, so reopening it to edit
-  further brings that sample back instead of a blank box. If a template's regex names a capture group the
-  real parser doesn't recognize, the editor says so directly (that field compiles and highlights here, but
-  is silently dropped in production) rather than leaving it a silent mystery.
+- **Templates** are collapsed-by-default accordion cards — chevron, kind icon (official/modified/draft),
+  label, era, the regex itself inline (truncated, hover for the full text), Copy/Edit icons, and a status
+  icon, no text pills anywhere. Expanding shows the regex and its matched sample side by side, colors
+  auto-assigned per distinct capture-group name rather than a fixed few, always the SAME color on both
+  sides of the pair. Templates can be edited (official ones get a session-local override, never touching
+  the real shipped data), added as drafts, disabled-without-deleting (dimmed but still visible for
+  one-click re-enabling), or — for official/modified ones, since (2026-08-18) "some templates might not be
+  good" — removed-without-deleting (hidden entirely, reversible from a compact "N removed — Restore" line;
+  a draft's own Delete still truly deletes, since a draft has no official original to restore to). A
+  template's own test message is saved as its reference sample, so reopening it to edit further brings
+  that sample back instead of a blank box. If a template's regex names a capture group the real parser
+  doesn't recognize, the editor says so directly and (2026-08-18) highlights it in BOTH the live regex and
+  test-message preview — so a tester can actually confirm their own pattern captures what they meant —
+  while that field's value is still silently dropped in real production (never shown highlighted in a
+  saved template's card or the results table, only in this in-progress preview) rather than leaving it a
+  silent mystery.
 - **Regex helper panel** — a "Common patterns" tab, now fully editable (add your own, edit any entry,
   live duplicate detection before you add one), plus a "Regex syntax" cheat sheet. After saving a
   template, an uncatalogued capture-group sub-pattern is offered a one-click "add to Common Patterns" for
@@ -166,9 +177,14 @@ popup rather than displacing either the reference panel or the test column.
   ever be written for these). A `-P`/`-G` TRAI header-suffix sender auto-bucket into Excluded
   (reversible — suffix categorization isn't guaranteed accurate); every other case is manual, both
   sender-wide ("Exclude sender entirely," for a sender that's never a transaction) and per-message (for
-  a sender that mixes real transactions with noise). A "Senders in this batch" summary strip above the
-  table doubles as the "select a sender to see all its messages" drill-down — clicking any sender name
-  (there or in the table itself) filters the table to just its rows via the existing search box.
+  a sender that mixes real transactions with noise). The right panel's "Senders in this test" section
+  (2026-08-18: relocated out of a strip that used to sit above the results table, cluttering it on every
+  page/filter change) groups every distinct sender into collapsible Included/Excluded sections (Excluded
+  starts collapsed) and doubles as the "select a sender to see all its messages" drill-down — clicking a
+  sender name (there or in the table itself) filters the table to just its rows via the existing search
+  box. On a bank's own page, senders recognized as a DIFFERENT bank (or not recognized at all — possible
+  in auto-detect mode) collapse behind their own "Show N senders from other/unrecognized banks" toggle,
+  off by default, rather than cluttering that bank's own list.
 - **Export / Import** — Export serializes the full effective bundle (official + every session
   override/draft), confirmed identical in shape to `workers/api-proxy`'s real `/sms-patterns` response,
   scoped to one bank or the whole set; Import merges a same-shaped JSON into the current session's drafts,

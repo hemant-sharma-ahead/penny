@@ -110,6 +110,39 @@ export function highlightedPattern(pattern: string): HTMLElement {
   return container;
 }
 
+/** Authoring-only variant of `highlightedText()` — while actively writing/testing a template (the
+ *  modal's own live preview), a custom-named group (`(?<acct>...)` instead of `acctLast4`) should still
+ *  visibly highlight, so a tester can actually SEE their own regex is matching what they intended,
+ *  instead of it silently looking broken. `captureRanges` (the real production trace) is authoritative
+ *  for the 7 recognized names; any OTHER named group the pattern defines is highlighted too, computed
+ *  directly from a fresh exec against `body` — this is deliberately NOT used anywhere the tool shows a
+ *  saved/production-accurate result (the right panel's papercard sample, the results table), where only
+ *  what the real parser actually extracts should ever appear highlighted. */
+export function highlightedTextForAuthoring(
+  body: string,
+  pattern: string,
+  captureRanges: SmsTemplateTraceEntry['captureRanges']
+): HTMLElement {
+  const known = captureRangesToSpans(captureRanges);
+  const knownNames = new Set(known.map((s) => s.name));
+  let extra: NamedSpan[] = [];
+  try {
+    const m = new RegExp(pattern, 'di').exec(body) as
+      (RegExpExecArray & { indices?: { groups?: Record<string, [number, number]> } }) | null;
+    const groups = m?.indices?.groups;
+    if (groups) {
+      extra = Object.entries(groups)
+        .filter((entry): entry is [string, [number, number]] => !!entry[1] && !knownNames.has(entry[0]))
+        .map(([name, [start, end]]) => ({ name, start, end }));
+    }
+  } catch {
+    // Invalid regex — `known` (empty, since a real trace couldn't have been computed either) is enough.
+  }
+  const container = el('div', { className: 'smstext' });
+  container.append(...markedNodes(body, [...known, ...extra]));
+  return container;
+}
+
 /** Same highlighting, for a dense table cell (Bulk test / bank-scoped tester results) — the Message
  *  column renders the real highlighted text directly, not flat gray, per real-usage feedback that
  *  expanding every row just to see this was too much friction at scale. `trailing` (e.g. a per-row copy
@@ -129,30 +162,6 @@ export function markedTableCell(
   return td;
 }
 
-/** Chip labels are deliberately the exact named-capture-group identifier the regex itself uses
- *  (`acctLast4`, not a shortened `acct`) — a real reported confusion was the pattern field's own label
- *  saying `acctLast4` while this preview said `acct`, same value under two different names. `date` is
- *  only shown when a `dateStr` was actually captured — `candidate.date` is always populated (falls back to
- *  `receivedAt` otherwise), so showing it unconditionally would misleadingly imply a date was read from
- *  the message every time. */
-export function fieldChips(
-  candidate: NonNullable<SmsTemplateTraceEntry['candidate']>,
-  captureRanges?: SmsTemplateTraceEntry['captureRanges']
-): HTMLElement {
-  const rows: [string, string | number | undefined, string][] = [
-    ['amount', `₹${candidate.amount}`, ''],
-    ['acctLast4', candidate.accountLast4 ? `••${candidate.accountLast4}` : undefined, 'f2'],
-    ['cardLast4', candidate.cardLast4 ? `••${candidate.cardLast4}` : undefined, 'f2'],
-    ['counterparty', candidate.counterparty, 'f3'],
-    ['ref', candidate.referenceNumber, 'f4'],
-    ['balance', candidate.balance !== undefined ? `₹${candidate.balance}` : undefined, 'f5'],
-    ['date', captureRanges?.dateStr ? new Date(candidate.date).toISOString().slice(0, 10) : undefined, 'f6']
-  ];
-  return el(
-    'div',
-    { className: 'fields' },
-    rows
-      .filter((r): r is [string, string, string] => r[1] !== undefined && r[1] !== '')
-      .map(([label, value, cls]) => el('span', { className: `fchip ${cls}` }, [`${label} `, el('b', {}, [value])]))
-  );
-}
+// `fieldChips()` (a labeled-chip legend below the regex/sample) was removed 2026-08-18 once the template
+// card's regex and sample got distinct per-field colors matched between the two — the chips existed only
+// to translate those colors back into field names, which the color pairing itself now does directly.

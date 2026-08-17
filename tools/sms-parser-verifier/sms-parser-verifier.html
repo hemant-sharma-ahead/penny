@@ -154,8 +154,37 @@
         flex-shrink: 0;
         background: #f8f6f0;
         border-left: 1px solid var(--border);
-        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      /* Right panel's own internal Templates/Senders split (2026-08-18) — each pane scrolls
+         independently; `.rightpane-top`'s height is set inline (dragged via `.rightsplit-handle`, see
+         `makeVerticalResizeHandle()` in entry.ts). `.rightpane-single` is Bulk test's case: no split at
+         all, since there's no "current bank" to show Templates for. */
+      .rightpane-top,
+      .rightpane-bottom,
+      .rightpane-single {
         overflow: auto;
+        padding: 14px;
+      }
+      .rightpane-top {
+        flex-shrink: 0;
+      }
+      .rightpane-bottom,
+      .rightpane-single {
+        flex: 1;
+        min-height: 0;
+      }
+      .rightsplit-handle {
+        height: 5px;
+        flex-shrink: 0;
+        cursor: row-resize;
+        background: transparent;
+      }
+      .rightsplit-handle:hover,
+      .rightsplit-handle.active {
+        background: var(--blue-bg);
       }
 
       /* Draggable divider — resizes the adjacent panel (see `makeResizeHandle()` in entry.ts). A thin
@@ -257,22 +286,6 @@
       .minipill.modified {
         background: var(--amber-bg);
         color: var(--amber);
-      }
-      .minipill.official {
-        background: #f1f3f5;
-        color: var(--text2);
-      }
-      .minipill.pass {
-        background: var(--primary-bg);
-        color: var(--primary);
-      }
-      .minipill.warn {
-        background: var(--amber-bg);
-        color: var(--amber);
-      }
-      .minipill.disabled {
-        background: var(--danger-bg);
-        color: var(--danger);
       }
       .newbankrow {
         display: flex;
@@ -441,58 +454,9 @@
         transition: width 0.12s linear;
       }
 
-      /* "Senders in this batch" summary — the drill-down entry point (click a sender, or "View all", to
-         filter the table to just its rows) plus per-sender Exclude/Include. */
-      .senderstrip-label {
-        font-size: 9.5px;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--text3);
-        margin: 0 0 8px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-      .senderstrip {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 14px;
-      }
-      .sendercard {
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 8px 10px;
-        min-width: 168px;
-        background: #fafbfc;
-      }
-      .sendercard.excluded {
-        opacity: 0.6;
-        background: var(--danger-bg);
-        border-color: #f6c8c8;
-      }
-      .sendercard .top {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        margin-bottom: 4px;
-      }
-      .sendercard .senderid {
-        font-family: ui-monospace, Menlo, monospace;
-        font-size: 10.5px;
-        font-weight: 700;
-        cursor: pointer;
-        flex: 1;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .sendercard .senderid:hover {
-        color: var(--primary);
-        text-decoration: underline;
-      }
+      /* "Senders in this test" — relocated into the right panel 2026-08-18 (see `renderSendersSection()`
+         in entry.ts), compact single-row cards grouped into collapsible Included/Excluded sections so
+         many senders fit without the height the old bigger cards needed. */
       .catpill {
         font-size: 8px;
         font-weight: 800;
@@ -520,34 +484,101 @@
         background: #f1f3f5;
         color: var(--text3);
       }
-      .sendercard .meta {
-        font-size: 9.5px;
-        color: var(--text2);
-        margin-bottom: 6px;
+      .sendergroup {
+        margin-bottom: 10px;
       }
-      .sendercard .excludetag {
-        font-size: 8.5px;
-        color: var(--danger);
-        font-weight: 700;
-        margin-bottom: 6px;
-      }
-      .sendercard .actions {
+      .grouphead {
         display: flex;
-        gap: 8px;
-      }
-      .sendercard .actions span {
+        align-items: center;
+        gap: 6px;
         font-size: 9.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text3);
+        cursor: pointer;
+        padding: 5px 2px;
+      }
+      .grouphead.included {
+        color: var(--primary);
+      }
+      .grouphead.excluded {
+        color: var(--danger);
+      }
+      .grouphead .cnt {
+        font-size: 9px;
+        font-weight: 700;
+        background: #f1f3f5;
+        padding: 1px 6px;
+        border-radius: 999px;
+        margin-left: 2px;
+        text-transform: none;
+      }
+      .sendercard-compact {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 5px 8px;
+        margin-bottom: 4px;
+        background: #fafbfc;
+        font-size: 10px;
+      }
+      .sendercard-compact.excluded {
+        background: var(--danger-bg);
+        border-color: #f6c8c8;
+        opacity: 0.75;
+      }
+      .sendercard-compact .sid {
+        font-family: ui-monospace, Menlo, monospace;
         font-weight: 700;
         cursor: pointer;
+        flex-shrink: 0;
+        max-width: 40%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
-      .sendercard .actions .view {
-        color: var(--blue);
+      .sendercard-compact .sid:hover {
+        color: var(--primary);
+        text-decoration: underline;
       }
-      .sendercard .actions .exclude {
+      .sendercard-compact .scnt {
+        color: var(--text3);
+        font-size: 9px;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .sendercard-compact .sact {
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--danger);
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .sendercard-compact .sact.excl {
         color: var(--danger);
       }
-      .sendercard .actions .include {
+      /* Non-`.excl` = "Include" (the sender is currently excluded, clicking reverts it) */
+      .sendercard-compact .sact:not(.excl) {
         color: var(--primary);
+      }
+      .othertoggle {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--text3);
+        cursor: pointer;
+        padding: 6px 2px;
+      }
+      .othertoggle:hover {
+        color: var(--text2);
+      }
+      .othersenders {
+        margin-top: 4px;
       }
 
       /* Summary stat strip — doubles as the outcome filter (click a card to filter to it) */
@@ -930,33 +961,84 @@
         font-size: 9.5px;
         margin-right: 3px;
       }
-      .papercard {
+      /* Template card (chosen design, 2026-08-18: accordion + side-by-side + icons, see
+         docs/mockups/proposals/sms-verifier-senders-in-right-panel-v2.html §2b) — collapsed by default,
+         solid paper-card chrome (not transparent), regex itself + Copy/Edit inline in the header, no text
+         pills anywhere (kind/status are icons only). */
+      .tplcard {
         background: #fffefb;
         border: 1px solid #e8e2d0;
         border-radius: 8px;
-        padding: 11px 12px;
-        margin-bottom: 10px;
+        padding: 8px 10px;
+        margin-bottom: 8px;
         box-shadow: 0 2px 6px rgba(120, 100, 40, 0.06);
       }
-      .papercard.disabled {
+      .tplcard.disabled {
         opacity: 0.55;
       }
-      .papercard .ptop {
+      .tplhead {
         display: flex;
         align-items: center;
-        gap: 6px;
-        margin-bottom: 7px;
-        flex-wrap: wrap;
+        gap: 7px;
+        cursor: pointer;
       }
-      .papercard .ptop b {
+      .tplhead b {
         font-size: 11px;
+        color: var(--text);
       }
-      .papercard .ptop .era {
+      .tplhead .era {
         font-size: 9.5px;
         color: var(--text3);
       }
-      .papercard .ptop .spacer {
+      .tplchev {
+        color: var(--text3);
+        font-size: 12px;
+      }
+      .tplkindicon {
+        font-size: 12px;
+      }
+      .tplstatusicon {
+        font-size: 15px;
+        cursor: default;
+      }
+      .tplregex-inline {
         flex: 1;
+        min-width: 0;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 9px;
+        color: var(--text3);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: default;
+      }
+      .tplhead .tpliconbtn {
+        color: var(--text3);
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .tplhead .tpliconbtn:hover {
+        color: var(--primary);
+      }
+      .tplbody {
+        margin-top: 8px;
+        cursor: default;
+      }
+      .tplactions {
+        display: flex;
+        gap: 12px;
+        margin-top: 8px;
+      }
+      .tplactions i {
+        color: var(--text3);
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .tplactions i:hover {
+        color: var(--primary);
+      }
+      .tplactions i.danger {
+        color: var(--danger);
       }
       .paperregex {
         font-family: ui-monospace, Menlo, monospace;
@@ -1030,51 +1112,24 @@
         background: var(--teal-bg);
         color: var(--teal);
       }
-      .fields {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 5px;
-        margin-bottom: 8px;
-      }
-      .fchip {
-        font-size: 9.5px;
-        background: #f4f0e4;
-        border: 1px solid #e8e2d0;
-        border-radius: 6px;
-        padding: 3px 7px;
-        color: #6b6250;
-        font-family: ui-monospace, Menlo, monospace;
-      }
-      .fchip b {
-        color: var(--text);
-      }
-      .fchip.f2 b {
-        color: var(--blue);
-      }
-      .fchip.f3 b {
-        color: var(--pink);
-      }
-      .fchip.f4 b {
-        color: var(--amber);
-      }
-      .fchip.f5 b {
-        color: var(--violet);
-      }
-      .fchip.f6 b {
-        color: var(--teal);
-      }
-      .paperactions {
-        display: flex;
-        gap: 12px;
-      }
       .paperlink {
         font-size: 9.5px;
         color: var(--blue);
         cursor: pointer;
         font-weight: 700;
       }
-      .paperlink.danger {
-        color: var(--danger);
+      .removedrow {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        background: var(--danger-bg);
+        border: 1px dashed #f0b8b8;
+        border-radius: 8px;
+        padding: 8px 10px;
+        margin-bottom: 10px;
+      }
+      .removedrow .paperlink {
+        font-size: 9.5px;
       }
       .addtplbtn {
         border: 1px dashed #d8d0b8;
@@ -2042,6 +2097,22 @@
     container.append(...markedNodes(pattern, findNamedGroupSpans(pattern)));
     return container;
   }
+  function highlightedTextForAuthoring(body, pattern, captureRanges) {
+    const known = captureRangesToSpans(captureRanges);
+    const knownNames = new Set(known.map((s) => s.name));
+    let extra = [];
+    try {
+      const m = new RegExp(pattern, "di").exec(body);
+      const groups = m?.indices?.groups;
+      if (groups) {
+        extra = Object.entries(groups).filter((entry) => !!entry[1] && !knownNames.has(entry[0])).map(([name, [start, end]]) => ({ name, start, end }));
+      }
+    } catch {
+    }
+    const container = el("div", { className: "smstext" });
+    container.append(...markedNodes(body, [...known, ...extra]));
+    return container;
+  }
   function markedTableCell(text, captureRanges, trailing) {
     const td = el("td", { className: "msgcell" });
     const textSpan = el("span", { className: "msgtext" });
@@ -2049,22 +2120,6 @@
     td.append(textSpan);
     if (trailing) td.append(trailing);
     return td;
-  }
-  function fieldChips(candidate, captureRanges) {
-    const rows = [
-      ["amount", `\u20B9${candidate.amount}`, ""],
-      ["acctLast4", candidate.accountLast4 ? `\u2022\u2022${candidate.accountLast4}` : void 0, "f2"],
-      ["cardLast4", candidate.cardLast4 ? `\u2022\u2022${candidate.cardLast4}` : void 0, "f2"],
-      ["counterparty", candidate.counterparty, "f3"],
-      ["ref", candidate.referenceNumber, "f4"],
-      ["balance", candidate.balance !== void 0 ? `\u20B9${candidate.balance}` : void 0, "f5"],
-      ["date", captureRanges?.dateStr ? new Date(candidate.date).toISOString().slice(0, 10) : void 0, "f6"]
-    ];
-    return el(
-      "div",
-      { className: "fields" },
-      rows.filter((r) => r[1] !== void 0 && r[1] !== "").map(([label, value, cls]) => el("span", { className: `fchip ${cls}` }, [`${label} `, el("b", {}, [value])]))
-    );
   }
 
   // packages/core/src/core/sms-import/smsSampleMessages.ts
@@ -2232,7 +2287,8 @@
       snippetOverrides: {},
       excludedSenders: [],
       autoExcludeOverrides: [],
-      excludedMessageKeys: []
+      excludedMessageKeys: [],
+      removedTemplates: {}
     };
   }
   function loadSession() {
@@ -2251,7 +2307,8 @@
         snippetOverrides: parsed.snippetOverrides ?? {},
         excludedSenders: parsed.excludedSenders ?? [],
         autoExcludeOverrides: parsed.autoExcludeOverrides ?? [],
-        excludedMessageKeys: parsed.excludedMessageKeys ?? []
+        excludedMessageKeys: parsed.excludedMessageKeys ?? [],
+        removedTemplates: parsed.removedTemplates ?? {}
       };
     } catch {
       return emptySession();
@@ -2303,6 +2360,18 @@
     session.disabledTemplates[bankId] = current.includes(index) ? current.filter((i) => i !== index) : [...current, index];
     saveSession();
   }
+  function isTemplateRemoved(bankId, index) {
+    return (session.removedTemplates[bankId] ?? []).includes(index);
+  }
+  function removeTemplate(bankId, index) {
+    const current = session.removedTemplates[bankId] ?? [];
+    if (!current.includes(index)) session.removedTemplates[bankId] = [...current, index];
+    saveSession();
+  }
+  function restoreTemplate(bankId, index) {
+    session.removedTemplates[bankId] = (session.removedTemplates[bankId] ?? []).filter((i) => i !== index);
+    saveSession();
+  }
   function getDraftSample(bankId, index) {
     return session.draftSamples[bankId]?.[index];
   }
@@ -2318,7 +2387,7 @@
       version: full.version,
       banks: full.banks.map((b) => ({
         ...b,
-        templates: b.templates.filter((_, i) => !isTemplateDisabled(b.bankId, i))
+        templates: b.templates.filter((_, i) => !isTemplateDisabled(b.bankId, i) && !isTemplateRemoved(b.bankId, i))
       }))
     };
   }
@@ -2449,6 +2518,38 @@
   var bankTesters = {};
   function bankTesterFor(bankId) {
     return bankTesters[bankId] ?? (bankTesters[bankId] = { mode: "auto", raw: "", state: emptyResultsState() });
+  }
+  var expandedTemplateCards = /* @__PURE__ */ new Set();
+  function templateCardKey(bankId, index) {
+    return `${bankId}#${index}`;
+  }
+  function isTemplateCardExpanded(bankId, index) {
+    return expandedTemplateCards.has(templateCardKey(bankId, index));
+  }
+  function toggleTemplateCardExpanded(bankId, index) {
+    const key = templateCardKey(bankId, index);
+    if (expandedTemplateCards.has(key)) expandedTemplateCards.delete(key);
+    else expandedTemplateCards.add(key);
+  }
+  var showOtherBankSenders = {};
+  function isShowingOtherBankSenders(bankId) {
+    return showOtherBankSenders[bankId] ?? false;
+  }
+  function toggleShowOtherBankSenders(bankId) {
+    showOtherBankSenders[bankId] = !isShowingOtherBankSenders(bankId);
+  }
+  var includedSendersOpen = true;
+  var excludedSendersOpen = false;
+  function isSenderGroupOpen(group) {
+    return group === "included" ? includedSendersOpen : excludedSendersOpen;
+  }
+  function toggleSenderGroupOpen(group) {
+    if (group === "included") includedSendersOpen = !includedSendersOpen;
+    else excludedSendersOpen = !excludedSendersOpen;
+  }
+  var rightPaneTopHeight = 300;
+  function setRightPaneTopHeight(px) {
+    rightPaneTopHeight = px;
   }
   var BUILTIN_SNIPPETS = [
     { label: "amount", snippet: "Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)" },
@@ -2883,16 +2984,41 @@
   function renderSidebarInto() {
     sideEl.replaceChildren(...renderSidebarContents());
   }
+  function makeVerticalResizeHandle(target, opts) {
+    const handle = el("div", { className: "rightsplit-handle" });
+    let startY = 0;
+    let startHeight = 0;
+    function onMouseMove(e) {
+      const next = Math.min(opts.max, Math.max(opts.min, startHeight + (e.clientY - startY)));
+      target.style.height = `${next}px`;
+      setRightPaneTopHeight(next);
+    }
+    function onMouseUp() {
+      handle.classList.remove("active");
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    }
+    handle.addEventListener("mousedown", (e) => {
+      startY = e.clientY;
+      startHeight = target.getBoundingClientRect().height;
+      handle.classList.add("active");
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+      e.preventDefault();
+    });
+    return handle;
+  }
   function renderRightPanel() {
     if (selection.kind !== "bank") {
-      return [
-        el("div", { className: "muted" }, ["Select a bank to see its configured sender patterns and templates here."])
-      ];
+      return [el("div", { className: "rightpane-single" }, renderSendersSection(bulkState.results))];
     }
     const bankId = selection.bankId;
     const bundle = effectiveBundle();
     const bank = bundle.banks.find((b) => b.bankId === bankId);
-    if (!bank) return [el("div", { className: "muted" }, [`Bank "${bankId}" not found.`])];
+    if (!bank)
+      return [
+        el("div", { className: "rightpane-single" }, [el("div", { className: "muted" }, [`Bank "${bankId}" not found.`])])
+      ];
     const isNewBank = session.newBankIds.includes(bankId);
     const officialCount = isNewBank ? 0 : officialCountFor(bankId);
     const samples = samplesByBank().get(bankId) ?? [];
@@ -2914,14 +3040,35 @@
     );
     const modifiedCount = Object.keys(session.overrides[bankId] ?? {}).length;
     const draftCount = (session.newTemplates[bankId] ?? []).length;
-    const countLabel = `(${officialCount - modifiedCount} official${modifiedCount ? `, ${modifiedCount} modified` : ""}${draftCount ? `, ${draftCount} draft` : ""})`;
+    const removedIndices = bank.templates.map((_, index) => index).filter((index) => isTemplateRemoved(bankId, index));
+    const countLabel = `(${officialCount - modifiedCount} official${modifiedCount ? `, ${modifiedCount} modified` : ""}${draftCount ? `, ${draftCount} draft` : ""}${removedIndices.length ? `, ${removedIndices.length} removed` : ""})`;
     nodes.push(
       el("div", { className: "rightsub" }, [
-        `Templates ${bank.templates.length} `,
+        `Templates ${bank.templates.length - removedIndices.length} `,
         el("span", { className: "cnt" }, [countLabel])
       ])
     );
+    if (removedIndices.length > 0) {
+      const restoreRow = el(
+        "div",
+        { className: "removedrow" },
+        removedIndices.map((index) => {
+          const template = bank.templates[index];
+          const restoreLink = el("span", { className: "paperlink" }, [
+            `Template ${index + 1} (${template?.addedAt ?? ""})`,
+            " \u2014 Restore"
+          ]);
+          restoreLink.addEventListener("click", () => {
+            restoreTemplate(bankId, index);
+            renderAll();
+          });
+          return restoreLink;
+        })
+      );
+      nodes.push(restoreRow);
+    }
     bank.templates.forEach((template, index) => {
+      if (isTemplateRemoved(bankId, index)) return;
       const kind = index >= officialCount ? "draft" : session.overrides[bankId]?.[index] ? "modified" : "official";
       const disabled = isTemplateDisabled(bankId, index);
       const sample = getDraftSample(bankId, index) ?? (index < officialCount ? samples[index] : void 0);
@@ -2929,61 +3076,108 @@
       const attempt = trace?.attempts.find(
         (a) => a.transactionType === template.transactionType && a.addedAt === template.addedAt
       );
-      const kindLabel = kind === "official" ? "official" : kind === "modified" ? "modified" : "draft";
-      const top = el("div", { className: "ptop" }, [
-        el("b", {}, [`Template ${index + 1}`]),
-        el("span", { className: "era" }, [template.addedAt]),
-        el("span", { className: `minipill ${kind}` }, [kindLabel]),
-        ...disabled ? [el("span", { className: "minipill disabled" }, ["disabled"])] : [],
-        el("span", { className: "spacer" }),
-        ...attempt ? [
-          el("span", { className: `minipill ${attempt.matched ? "pass" : "warn"}` }, [
-            attempt.matched ? "\u2713 Parsed" : "\u2717 No match"
-          ])
-        ] : []
-      ]);
-      const copyBtn = el("span", { className: "paperlink" }, ["Copy regex"]);
-      copyBtn.addEventListener("click", () => {
+      const expanded = isTemplateCardExpanded(bankId, index);
+      const kindIcon = kind === "modified" ? el("i", {
+        className: "tplkindicon ti ti-pencil",
+        title: "Modified from official",
+        style: { color: "var(--amber)" }
+      }) : kind === "draft" ? el("i", {
+        className: "tplkindicon ti ti-flask",
+        title: "Draft \u2014 session only",
+        style: { color: "var(--blue)" }
+      }) : null;
+      const statusIcon = disabled ? el("i", {
+        className: "tplstatusicon ti ti-eye-off",
+        title: "Disabled",
+        style: { color: "var(--text3)" }
+      }) : !sample ? el("i", {
+        className: "tplstatusicon ti ti-minus",
+        title: "No sample on file yet",
+        style: { color: "var(--text3)" }
+      }) : attempt?.matched ? el("i", {
+        className: "tplstatusicon ti ti-circle-check",
+        title: "Parsed",
+        style: { color: "var(--primary)" }
+      }) : el("i", {
+        className: "tplstatusicon ti ti-alert-triangle",
+        title: "No match",
+        style: { color: "var(--amber)" }
+      });
+      const copyIconBtn = el("i", { className: "ti ti-copy tpliconbtn", title: "Copy regex" });
+      copyIconBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
         copyText(template.pattern);
         showToast("Regex copied to clipboard");
       });
-      const editBtn = el("span", { className: "paperlink" }, ["Edit"]);
-      editBtn.addEventListener("click", () => {
+      const editIconBtn = el("i", { className: "ti ti-pencil tpliconbtn", title: "Edit" });
+      editIconBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
         setModal({ kind: "template", bankId, index });
         renderModalRoot();
       });
-      const toggleDisableBtn = el("span", { className: "paperlink" }, [disabled ? "Enable" : "Disable"]);
-      toggleDisableBtn.addEventListener("click", () => {
-        toggleTemplateDisabled(bankId, index);
-        renderAll();
-      });
-      const actionsRow = el("div", { className: "paperactions" }, [copyBtn, editBtn, toggleDisableBtn]);
-      if (kind === "draft") {
-        const deleteBtn = el("span", { className: "paperlink danger" }, ["Delete"]);
-        deleteBtn.addEventListener("click", () => {
-          session.newTemplates[bankId]?.splice(index - officialCount, 1);
-          saveSession();
-          renderAll();
-        });
-        actionsRow.append(deleteBtn);
-      }
-      const card = el("div", { className: `papercard${disabled ? " disabled" : ""}` }, [
-        top,
-        highlightedPattern(template.pattern)
+      const head = el("div", { className: "tplhead" }, [
+        el("i", { className: `tplchev ti ti-chevron-${expanded ? "down" : "right"}` }),
+        ...kindIcon ? [kindIcon] : [],
+        el("b", {}, [`Template ${index + 1}`]),
+        el("span", { className: "era" }, [template.addedAt]),
+        el("span", { className: "tplregex-inline", title: template.pattern }, [template.pattern]),
+        copyIconBtn,
+        editIconBtn,
+        statusIcon
       ]);
-      if (sample) {
-        card.append(
-          el("div", { className: "papersample" }, markedNodes(sample.body, captureRangesToSpans(attempt?.captureRanges)))
-        );
-        if (attempt?.matched && attempt.candidate) card.append(fieldChips(attempt.candidate, attempt.captureRanges));
-      } else {
-        card.append(
+      head.addEventListener("click", () => {
+        toggleTemplateCardExpanded(bankId, index);
+        renderRightPanelInto();
+      });
+      const card = el("div", { className: `tplcard${disabled ? " disabled" : ""}` }, [head]);
+      if (expanded) {
+        const regexCol = el("div", {}, [
+          el("div", { className: "minilabel" }, ["Regex"]),
+          highlightedPattern(template.pattern)
+        ]);
+        const sampleCol = sample ? el("div", {}, [
+          el("div", { className: "minilabel" }, ["Sample"]),
+          el(
+            "div",
+            { className: "papersample" },
+            markedNodes(sample.body, captureRangesToSpans(attempt?.captureRanges))
+          )
+        ]) : el("div", {}, [
+          el("div", { className: "minilabel" }, ["Sample"]),
           el("div", { className: "muted", style: { fontSize: "10px" } }, [
             "No sample on file \u2014 verify it in the test column."
           ])
-        );
+        ]);
+        const body = el("div", { className: "tplbody" }, [
+          el("div", { className: "regexmsg-grid" }, [regexCol, sampleCol])
+        ]);
+        const disableIconBtn = el("i", {
+          className: `ti ti-${disabled ? "eye" : "eye-off"}`,
+          title: disabled ? "Enable" : "Disable"
+        });
+        disableIconBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          toggleTemplateDisabled(bankId, index);
+          renderAll();
+        });
+        const removeIconBtn = el("i", {
+          className: "ti ti-trash danger",
+          title: kind === "draft" ? "Delete" : "Remove"
+        });
+        removeIconBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (kind === "draft") {
+            session.newTemplates[bankId]?.splice(index - officialCount, 1);
+            saveSession();
+          } else {
+            removeTemplate(bankId, index);
+            showToast(`Template ${index + 1} removed \u2014 restore it from the Templates header above`);
+          }
+          renderAll();
+        });
+        body.append(el("div", { className: "tplactions" }, [disableIconBtn, removeIconBtn]));
+        card.append(body);
       }
-      card.append(actionsRow);
       nodes.push(card);
     });
     const addCard = el("div", { className: "addtplbtn" }, [`+ Add a new template for ${bankId.toUpperCase()}`]);
@@ -2992,10 +3186,99 @@
       renderModalRoot();
     });
     nodes.push(addCard);
-    return nodes;
+    const topPane = el("div", { className: "rightpane-top", style: { height: `${rightPaneTopHeight}px` } }, nodes);
+    const splitHandle = makeVerticalResizeHandle(topPane, { min: 120, max: 600 });
+    const bottomPane = el(
+      "div",
+      { className: "rightpane-bottom" },
+      renderSendersSection(bankTesterFor(bankId).state.results, bankId)
+    );
+    return [topPane, splitHandle, bottomPane];
   }
   function renderRightPanelInto() {
     rightEl.replaceChildren(...renderRightPanel());
+  }
+  function activeResultsState() {
+    return selection.kind === "bulk" ? bulkState : bankTesterFor(selection.bankId).state;
+  }
+  function filterMainToSender(sender) {
+    const state = activeResultsState();
+    state.search = sender;
+    state.page = 1;
+    renderMain();
+  }
+  function renderSendersSection(results, scopeBankId) {
+    const summaries = summarizeSenders(results);
+    if (summaries.length === 0) {
+      return [
+        el("div", { className: "rightsub" }, ["Senders in this test"]),
+        el("div", { className: "muted", style: { fontSize: "10px" } }, ["Nothing tested yet."])
+      ];
+    }
+    const relevant = scopeBankId ? summaries.filter((s) => s.bankLabel.toLowerCase() === scopeBankId) : summaries;
+    const other = scopeBankId ? summaries.filter((s) => s.bankLabel.toLowerCase() !== scopeBankId) : [];
+    function senderRow(s) {
+      const sidEl = el("span", { className: "sid" }, [s.sender]);
+      sidEl.addEventListener("click", () => filterMainToSender(s.sender));
+      const actionEl = el("span", { className: `sact${s.excluded ? "" : " excl"}` }, [
+        s.excluded ? "Include" : "Exclude"
+      ]);
+      actionEl.addEventListener("click", () => {
+        if (s.excluded) {
+          if (s.autoExcluded) setAutoExcludeOverride(s.sender, true);
+          else includeSender(s.sender);
+        } else {
+          excludeSender(s.sender);
+        }
+        renderMain();
+        renderRightPanelInto();
+      });
+      return el("div", { className: `sendercard-compact${s.excluded ? " excluded" : ""}` }, [
+        sidEl,
+        el("span", { className: `catpill ${s.category ?? "none"}` }, [s.category ?? "\u2014"]),
+        el("span", { className: "scnt" }, [
+          `${s.count.toLocaleString()} msg${s.count === 1 ? "" : "s"}${s.autoExcluded ? " \xB7 \u{1F916} auto" : ""}`
+        ]),
+        actionEl
+      ]);
+    }
+    function group(kind, list) {
+      const items = list.filter((s) => kind === "excluded" ? s.excluded : !s.excluded);
+      if (items.length === 0) return [];
+      const open = isSenderGroupOpen(kind);
+      const head = el("div", { className: `grouphead ${kind}` }, [
+        el("i", { className: `ti ti-chevron-${open ? "down" : "right"}` }),
+        kind === "included" ? "Included" : "Excluded",
+        el("span", { className: "cnt" }, [String(items.length)])
+      ]);
+      head.addEventListener("click", () => {
+        toggleSenderGroupOpen(kind);
+        renderRightPanelInto();
+      });
+      return [el("div", { className: "sendergroup" }, [head, el("div", {}, open ? items.map(senderRow) : [])])];
+    }
+    const nodes = [
+      el("div", { className: "rightsub" }, [
+        "Senders in this test ",
+        el("span", { className: "cnt" }, [`(${summaries.length})`])
+      ]),
+      ...group("included", relevant),
+      ...group("excluded", relevant)
+    ];
+    if (scopeBankId && other.length > 0) {
+      const showing = isShowingOtherBankSenders(scopeBankId);
+      const toggle = el("div", { className: "othertoggle" }, [
+        el("i", { className: `ti ti-chevron-${showing ? "down" : "right"}` }),
+        ` ${showing ? "Hide" : "Show"} ${other.length} sender${other.length === 1 ? "" : "s"} from other/unrecognized banks`
+      ]);
+      toggle.addEventListener("click", () => {
+        toggleShowOtherBankSenders(scopeBankId);
+        renderRightPanelInto();
+      });
+      nodes.push(toggle);
+      if (showing) nodes.push(el("div", { className: "othersenders" }, other.map(senderRow)));
+    }
+    return nodes;
   }
   function renderTemplateModal(m) {
     const bundle = effectiveBundle();
@@ -3032,7 +3315,7 @@
         ...unrecognized.length > 0 ? [
           el("div", { className: "regexstatus warn" }, [
             el("i", { className: "ti ti-alert-triangle" }),
-            ` Unrecognized field name(s): ${unrecognized.join(", ")} \u2014 the real parser only reads amount, acctLast4, cardLast4, counterparty, ref, balance, dateStr. Anything else compiles fine but is silently ignored: not extracted, not highlighted, in production.`
+            ` Unrecognized field name(s): ${unrecognized.join(", ")} \u2014 highlighted below to help you review the match, but the real parser only ever extracts amount, acctLast4, cardLast4, counterparty, ref, balance, dateStr. Anything else compiles and matches fine but is silently dropped in production.`
           ])
         ] : []
       );
@@ -3055,7 +3338,7 @@
         );
         const attempt = trace.attempts[0];
         const matched = trace.outcome.kind === "parsed" && !!attempt?.matched;
-        msgEl = highlightedText(testBodyTa.value, attempt?.captureRanges);
+        msgEl = highlightedTextForAuthoring(testBodyTa.value, fields.patternTa.value, attempt?.captureRanges);
         if (trace.matchedSenderBanks.length === 0) {
           statusEl = el("span", { className: "pill warn" }, ["\u2717 sender not recognized"]);
         } else {
@@ -3559,7 +3842,6 @@
       (r) => (state.filter === "all" || effectiveOutcomeKind(r) === state.filter) && (!searchLower || `${r.sender} ${r.body}`.toLowerCase().includes(searchLower))
     );
     const rerender = () => renderResultsTableInto(container, state);
-    const senderStrip = renderSenderSummaryStrip(state, container);
     const statStrip = el(
       "div",
       { className: "statstrip" },
@@ -3634,45 +3916,7 @@
       )
     ]);
     const bottomPager = renderPaginationBar(state, filtered.length, rerender);
-    container.replaceChildren(senderStrip, statStrip, toolsRow, topPager, table, bottomPager);
-  }
-  function renderSenderSummaryStrip(state, container) {
-    const summaries = summarizeSenders(state.results);
-    const rerenderResults = () => renderResultsTableInto(container, state);
-    const cards = summaries.map((s) => {
-      const senderIdEl = el("span", { className: "senderid" }, [s.sender]);
-      senderIdEl.addEventListener("click", () => setSearchAndRerender(state, container, s.sender));
-      const catPill = el("span", { className: `catpill ${s.category ?? "none"}` }, [s.category ?? "\u2014"]);
-      const viewLink = el("span", { className: "view" }, ["View all"]);
-      viewLink.addEventListener("click", () => setSearchAndRerender(state, container, s.sender));
-      const toggleLink = el("span", { className: s.excluded ? "include" : "exclude" }, [
-        s.excluded ? "Include" : "Exclude sender"
-      ]);
-      toggleLink.addEventListener("click", () => {
-        if (s.excluded) {
-          if (s.autoExcluded) setAutoExcludeOverride(s.sender, true);
-          else includeSender(s.sender);
-        } else {
-          excludeSender(s.sender);
-        }
-        rerenderResults();
-      });
-      return el("div", { className: `sendercard${s.excluded ? " excluded" : ""}` }, [
-        el("div", { className: "top" }, [senderIdEl, catPill]),
-        el("div", { className: "meta" }, [
-          `${s.bankLabel !== "\u2014" ? s.bankLabel + " \xB7 " : ""}${s.count.toLocaleString()} message${s.count === 1 ? "" : "s"}`
-        ]),
-        ...s.autoExcluded ? [el("div", { className: "excludetag" }, ["\u{1F916} Auto-excluded \u2014 reversible"])] : [],
-        el("div", { className: "actions" }, [viewLink, toggleLink])
-      ]);
-    });
-    return el("div", {}, [
-      el("div", { className: "senderstrip-label" }, [
-        el("i", { className: "ti ti-list-details" }),
-        ` Senders in this batch (${summaries.length}) \u2014 click a sender to view just its messages`
-      ]),
-      el("div", { className: "senderstrip" }, cards)
-    ]);
+    container.replaceChildren(statStrip, toolsRow, topPager, table, bottomPager);
   }
   function setSearchAndRerender(state, container, query) {
     state.search = query;
@@ -3905,6 +4149,7 @@ ${text}` : text;
           bulkState.hasRun = true;
           renderResultsTableInto(tableWrap, bulkState);
           renderSidebarInto();
+          renderRightPanelInto();
         }
       );
     });
@@ -4004,6 +4249,7 @@ ${text}` : text;
           bt.state.expandedIndex = null;
           bt.state.hasRun = true;
           renderResultsTableInto(tableWrap, bt.state);
+          renderRightPanelInto();
         }
       );
     });

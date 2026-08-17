@@ -18,11 +18,11 @@ import { SMS_PATTERNS_FALLBACK, type SmsPatternBundle, type BankSmsPatternSet } 
 import { el, copyText, downloadTextFile, initToast, showToast } from './dom';
 import {
   highlightedText,
+  highlightedTextForAuthoring,
   highlightedPattern,
   markedTableCell,
   markedNodes,
-  captureRangesToSpans,
-  fieldChips
+  captureRangesToSpans
 } from './highlighting';
 import {
   tryCompile,
@@ -49,6 +49,9 @@ import {
   effectiveBundleForTesting,
   isTemplateDisabled,
   toggleTemplateDisabled,
+  isTemplateRemoved,
+  removeTemplate,
+  restoreTemplate,
   getDraftSample,
   setDraftSample,
   saveSnippet,
@@ -72,11 +75,20 @@ import {
   excludeMessage,
   includeMessage,
   setAutoExcludeOverride,
+  isTemplateCardExpanded,
+  toggleTemplateCardExpanded,
+  isShowingOtherBankSenders,
+  toggleShowOtherBankSenders,
+  isSenderGroupOpen,
+  toggleSenderGroupOpen,
+  rightPaneTopHeight,
+  setRightPaneTopHeight,
   type ModalState,
   type ResultFilter,
   type TestResult,
   type ResultsTableState,
-  type ExclusionReason
+  type ExclusionReason,
+  type SenderSummary
 } from './state';
 
 // ── Sidebar ──────────────────────────────────────────────────────────────────────────────────────────
@@ -162,18 +174,51 @@ function renderSidebarInto() {
   sideEl.replaceChildren(...renderSidebarContents());
 }
 
-// ── Right panel: read-only reference — sender patterns + template "paper" cards ─────────────────────────
+// ── Right panel: read-only reference — sender patterns + template "paper" cards, plus (2026-08-18) the
+// "Senders in this test" summary that used to sit above the results table ───────────────────────────────
+
+/** Same drag-to-resize mechanic as `makeResizeHandle()` below, but for the right panel's OWN internal
+ *  Templates/Senders split (height, not width) — `setRightPaneTopHeight()` remembers the dragged height
+ *  across re-renders (nearly every session-state edit rebuilds this panel from scratch), so resizing
+ *  doesn't get silently undone by the next unrelated click elsewhere in the tool. */
+function makeVerticalResizeHandle(target: HTMLElement, opts: { min: number; max: number }): HTMLElement {
+  const handle = el('div', { className: 'rightsplit-handle' });
+  let startY = 0;
+  let startHeight = 0;
+  function onMouseMove(e: MouseEvent) {
+    const next = Math.min(opts.max, Math.max(opts.min, startHeight + (e.clientY - startY)));
+    target.style.height = `${next}px`;
+    setRightPaneTopHeight(next);
+  }
+  function onMouseUp() {
+    handle.classList.remove('active');
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  }
+  handle.addEventListener('mousedown', (e) => {
+    startY = e.clientY;
+    startHeight = target.getBoundingClientRect().height;
+    handle.classList.add('active');
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    e.preventDefault();
+  });
+  return handle;
+}
 
 function renderRightPanel(): Node[] {
   if (selection.kind !== 'bank') {
-    return [
-      el('div', { className: 'muted' }, ['Select a bank to see its configured sender patterns and templates here.'])
-    ];
+    // Bulk test has no "current bank" to scope Templates to at all — the right panel is just the sender
+    // summary, filling the whole panel in one scrollable pane (no split, no resize handle needed).
+    return [el('div', { className: 'rightpane-single' }, renderSendersSection(bulkState.results))];
   }
   const bankId = selection.bankId;
   const bundle = effectiveBundle();
   const bank = bundle.banks.find((b) => b.bankId === bankId);
-  if (!bank) return [el('div', { className: 'muted' }, [`Bank "${bankId}" not found.`])];
+  if (!bank)
+    return [
+      el('div', { className: 'rightpane-single' }, [el('div', { className: 'muted' }, [`Bank "${bankId}" not found.`])])
+    ];
   const isNewBank = session.newBankIds.includes(bankId);
   const officialCount = isNewBank ? 0 : officialCountFor(bankId);
   const samples = samplesByBank().get(bankId) ?? [];
@@ -200,15 +245,47 @@ function renderRightPanel(): Node[] {
 
   const modifiedCount = Object.keys(session.overrides[bankId] ?? {}).length;
   const draftCount = (session.newTemplates[bankId] ?? []).length;
-  const countLabel = `(${officialCount - modifiedCount} official${modifiedCount ? `, ${modifiedCount} modified` : ''}${draftCount ? `, ${draftCount} draft` : ''})`;
+  const removedIndices = bank.templates.map((_, index) => index).filter((index) => isTemplateRemoved(bankId, index));
+  const countLabel = `(${officialCount - modifiedCount} official${modifiedCount ? `, ${modifiedCount} modified` : ''}${draftCount ? `, ${draftCount} draft` : ''}${removedIndices.length ? `, ${removedIndices.length} removed` : ''})`;
   nodes.push(
     el('div', { className: 'rightsub' }, [
-      `Templates ${bank.templates.length} `,
+      `Templates ${bank.templates.length - removedIndices.length} `,
       el('span', { className: 'cnt' }, [countLabel])
     ])
   );
 
+  // Removed templates aren't rendered as cards at all (unlike disabled, which stays visible/dimmed) —
+  // surfaced only here, compactly, so a "some templates might not be good" cleanup doesn't leave the
+  // reference list cluttered with things you've already decided you don't want to see.
+  if (removedIndices.length > 0) {
+    const restoreRow = el(
+      'div',
+      { className: 'removedrow' },
+      removedIndices.map((index) => {
+        const template = bank.templates[index];
+        const restoreLink = el('span', { className: 'paperlink' }, [
+          `Template ${index + 1} (${template?.addedAt ?? ''})`,
+          ' — Restore'
+        ]);
+        restoreLink.addEventListener('click', () => {
+          restoreTemplate(bankId, index);
+          renderAll();
+        });
+        return restoreLink;
+      })
+    );
+    nodes.push(restoreRow);
+  }
+
+  // Collapsed-by-default accordion card, chosen 2026-08-18: chevron + kind icon (none for official,
+  // pencil for modified, flask for draft) + label + era + the regex itself (truncated to one line) +
+  // Copy/Edit icons, all in the always-visible header row — no text pills at all, kind/status are read
+  // from icons alone. Expanding reveals the regex and its matched sample SIDE BY SIDE, each field colored
+  // identically on both sides (`highlightedPattern()`/`markedNodes()` share one name→color primitive —
+  // see `highlighting.ts`), plus the two less-frequent actions (Disable, Remove/Delete) as icons — Copy/
+  // Edit don't repeat here since they're already one click away in the header.
   bank.templates.forEach((template, index) => {
+    if (isTemplateRemoved(bankId, index)) return;
     const kind: 'official' | 'modified' | 'draft' =
       index >= officialCount ? 'draft' : session.overrides[bankId]?.[index] ? 'modified' : 'official';
     const disabled = isTemplateDisabled(bankId, index);
@@ -220,68 +297,139 @@ function renderRightPanel(): Node[] {
     const attempt = trace?.attempts.find(
       (a) => a.transactionType === template.transactionType && a.addedAt === template.addedAt
     );
+    const expanded = isTemplateCardExpanded(bankId, index);
 
-    const kindLabel = kind === 'official' ? 'official' : kind === 'modified' ? 'modified' : 'draft';
-    const top = el('div', { className: 'ptop' }, [
-      el('b', {}, [`Template ${index + 1}`]),
-      el('span', { className: 'era' }, [template.addedAt]),
-      el('span', { className: `minipill ${kind}` }, [kindLabel]),
-      ...(disabled ? [el('span', { className: 'minipill disabled' }, ['disabled'])] : []),
-      el('span', { className: 'spacer' }),
-      ...(attempt
-        ? [
-            el('span', { className: `minipill ${attempt.matched ? 'pass' : 'warn'}` }, [
-              attempt.matched ? '✓ Parsed' : '✗ No match'
-            ])
-          ]
-        : [])
-    ]);
+    const kindIcon =
+      kind === 'modified'
+        ? el('i', {
+            className: 'tplkindicon ti ti-pencil',
+            title: 'Modified from official',
+            style: { color: 'var(--amber)' }
+          })
+        : kind === 'draft'
+          ? el('i', {
+              className: 'tplkindicon ti ti-flask',
+              title: 'Draft — session only',
+              style: { color: 'var(--blue)' }
+            })
+          : null;
 
-    const copyBtn = el('span', { className: 'paperlink' }, ['Copy regex']);
-    copyBtn.addEventListener('click', () => {
+    // Disabled trumps match state for the status icon — the card's already dimmed for the same reason,
+    // and "is this even active" matters more than what an inactive config happens to do. A template with
+    // no sample on file can't say anything about matching at all.
+    const statusIcon = disabled
+      ? el('i', {
+          className: 'tplstatusicon ti ti-eye-off',
+          title: 'Disabled',
+          style: { color: 'var(--text3)' }
+        })
+      : !sample
+        ? el('i', {
+            className: 'tplstatusicon ti ti-minus',
+            title: 'No sample on file yet',
+            style: { color: 'var(--text3)' }
+          })
+        : attempt?.matched
+          ? el('i', {
+              className: 'tplstatusicon ti ti-circle-check',
+              title: 'Parsed',
+              style: { color: 'var(--primary)' }
+            })
+          : el('i', {
+              className: 'tplstatusicon ti ti-alert-triangle',
+              title: 'No match',
+              style: { color: 'var(--amber)' }
+            });
+
+    const copyIconBtn = el('i', { className: 'ti ti-copy tpliconbtn', title: 'Copy regex' });
+    copyIconBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
       copyText(template.pattern);
       showToast('Regex copied to clipboard');
     });
-    const editBtn = el('span', { className: 'paperlink' }, ['Edit']);
-    editBtn.addEventListener('click', () => {
+    const editIconBtn = el('i', { className: 'ti ti-pencil tpliconbtn', title: 'Edit' });
+    editIconBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
       setModal({ kind: 'template', bankId, index });
       renderModalRoot();
     });
-    // Disabling (rather than deleting) is for "I want to see what my active config does without this
-    // template, without losing it" — it stays right here, dimmed, one click from being re-enabled.
-    const toggleDisableBtn = el('span', { className: 'paperlink' }, [disabled ? 'Enable' : 'Disable']);
-    toggleDisableBtn.addEventListener('click', () => {
-      toggleTemplateDisabled(bankId, index);
-      renderAll();
+
+    const head = el('div', { className: 'tplhead' }, [
+      el('i', { className: `tplchev ti ti-chevron-${expanded ? 'down' : 'right'}` }),
+      ...(kindIcon ? [kindIcon] : []),
+      el('b', {}, [`Template ${index + 1}`]),
+      el('span', { className: 'era' }, [template.addedAt]),
+      el('span', { className: 'tplregex-inline', title: template.pattern }, [template.pattern]),
+      copyIconBtn,
+      editIconBtn,
+      statusIcon
+    ]);
+    head.addEventListener('click', () => {
+      toggleTemplateCardExpanded(bankId, index);
+      renderRightPanelInto();
     });
-    const actionsRow = el('div', { className: 'paperactions' }, [copyBtn, editBtn, toggleDisableBtn]);
-    if (kind === 'draft') {
-      const deleteBtn = el('span', { className: 'paperlink danger' }, ['Delete']);
-      deleteBtn.addEventListener('click', () => {
-        session.newTemplates[bankId]?.splice(index - officialCount, 1);
-        saveSession();
+
+    const card = el('div', { className: `tplcard${disabled ? ' disabled' : ''}` }, [head]);
+
+    if (expanded) {
+      const regexCol = el('div', {}, [
+        el('div', { className: 'minilabel' }, ['Regex']),
+        highlightedPattern(template.pattern)
+      ]);
+      const sampleCol = sample
+        ? el('div', {}, [
+            el('div', { className: 'minilabel' }, ['Sample']),
+            el(
+              'div',
+              { className: 'papersample' },
+              markedNodes(sample.body, captureRangesToSpans(attempt?.captureRanges))
+            )
+          ])
+        : el('div', {}, [
+            el('div', { className: 'minilabel' }, ['Sample']),
+            el('div', { className: 'muted', style: { fontSize: '10px' } }, [
+              'No sample on file — verify it in the test column.'
+            ])
+          ]);
+      const body = el('div', { className: 'tplbody' }, [
+        el('div', { className: 'regexmsg-grid' }, [regexCol, sampleCol])
+      ]);
+
+      // Disabling (rather than deleting) is for "I want to see what my active config does without this
+      // template, without losing it" — it stays right here, dimmed, one click from being re-enabled. Also
+      // flips the sidebar's own pass-rate dot (disabled templates don't count), so this needs the full
+      // `renderAll()`, not just this panel.
+      const disableIconBtn = el('i', {
+        className: `ti ti-${disabled ? 'eye' : 'eye-off'}`,
+        title: disabled ? 'Enable' : 'Disable'
+      });
+      disableIconBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleTemplateDisabled(bankId, index);
         renderAll();
       });
-      actionsRow.append(deleteBtn);
+      const removeIconBtn = el('i', {
+        className: 'ti ti-trash danger',
+        title: kind === 'draft' ? 'Delete' : 'Remove'
+      });
+      removeIconBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (kind === 'draft') {
+          // A draft's own "Delete" truly splices it out of `session.newTemplates` — safe there, since
+          // drafts always sit at the array's tail (see `removedTemplates`'s doc comment for why an
+          // official/modified template can't be spliced the same way).
+          session.newTemplates[bankId]?.splice(index - officialCount, 1);
+          saveSession();
+        } else {
+          removeTemplate(bankId, index);
+          showToast(`Template ${index + 1} removed — restore it from the Templates header above`);
+        }
+        renderAll();
+      });
+      body.append(el('div', { className: 'tplactions' }, [disableIconBtn, removeIconBtn]));
+      card.append(body);
     }
 
-    const card = el('div', { className: `papercard${disabled ? ' disabled' : ''}` }, [
-      top,
-      highlightedPattern(template.pattern)
-    ]);
-    if (sample) {
-      card.append(
-        el('div', { className: 'papersample' }, markedNodes(sample.body, captureRangesToSpans(attempt?.captureRanges)))
-      );
-      if (attempt?.matched && attempt.candidate) card.append(fieldChips(attempt.candidate, attempt.captureRanges));
-    } else {
-      card.append(
-        el('div', { className: 'muted', style: { fontSize: '10px' } }, [
-          'No sample on file — verify it in the test column.'
-        ])
-      );
-    }
-    card.append(actionsRow);
     nodes.push(card);
   });
 
@@ -292,11 +440,121 @@ function renderRightPanel(): Node[] {
   });
   nodes.push(addCard);
 
-  return nodes;
+  const topPane = el('div', { className: 'rightpane-top', style: { height: `${rightPaneTopHeight}px` } }, nodes);
+  const splitHandle = makeVerticalResizeHandle(topPane, { min: 120, max: 600 });
+  const bottomPane = el(
+    'div',
+    { className: 'rightpane-bottom' },
+    renderSendersSection(bankTesterFor(bankId).state.results, bankId)
+  );
+
+  return [topPane, splitHandle, bottomPane];
 }
 
 function renderRightPanelInto() {
   rightEl.replaceChildren(...renderRightPanel());
+}
+
+/** Filters the CURRENTLY ACTIVE results table (Bulk test, or this bank's tester) to just one sender's
+ *  rows — the right panel and the middle column are rendered by separate top-level functions with no
+ *  shared closure, so this reaches into the active test state directly and asks for a full middle-column
+ *  re-render, rather than the scoped container-only update the old inline sender strip could do when it
+ *  lived in the same component as the table. */
+function activeResultsState(): ResultsTableState {
+  return selection.kind === 'bulk' ? bulkState : bankTesterFor(selection.bankId).state;
+}
+function filterMainToSender(sender: string): void {
+  const state = activeResultsState();
+  state.search = sender;
+  state.page = 1;
+  renderMain();
+}
+
+/** "Senders in this test" — the right panel's compact sender summary, relocated 2026-08-18 from a strip
+ *  that used to sit above the results table (cluttering it on every page/filter change, even though the
+ *  senders themselves only change per test run). For a bank workspace, `scopeBankId` limits the
+ *  Included/Excluded groups to senders actually recognized as THIS bank — auto-detect mode can still
+ *  surface a message recognized under a different bank (or unrecognized entirely), which collapses
+ *  behind its own "Show N from other banks" toggle, off by default, rather than cluttering this bank's
+ *  own list. Bulk test has no "current bank" to scope to, so every sender is shown directly. */
+function renderSendersSection(results: TestResult[], scopeBankId?: string): Node[] {
+  const summaries = summarizeSenders(results);
+  if (summaries.length === 0) {
+    return [
+      el('div', { className: 'rightsub' }, ['Senders in this test']),
+      el('div', { className: 'muted', style: { fontSize: '10px' } }, ['Nothing tested yet.'])
+    ];
+  }
+
+  const relevant = scopeBankId ? summaries.filter((s) => s.bankLabel.toLowerCase() === scopeBankId) : summaries;
+  const other = scopeBankId ? summaries.filter((s) => s.bankLabel.toLowerCase() !== scopeBankId) : [];
+
+  function senderRow(s: SenderSummary): HTMLElement {
+    const sidEl = el('span', { className: 'sid' }, [s.sender]);
+    sidEl.addEventListener('click', () => filterMainToSender(s.sender));
+    const actionEl = el('span', { className: `sact${s.excluded ? '' : ' excl'}` }, [
+      s.excluded ? 'Include' : 'Exclude'
+    ]);
+    actionEl.addEventListener('click', () => {
+      if (s.excluded) {
+        if (s.autoExcluded) setAutoExcludeOverride(s.sender, true);
+        else includeSender(s.sender);
+      } else {
+        excludeSender(s.sender);
+      }
+      renderMain();
+      renderRightPanelInto();
+    });
+    return el('div', { className: `sendercard-compact${s.excluded ? ' excluded' : ''}` }, [
+      sidEl,
+      el('span', { className: `catpill ${s.category ?? 'none'}` }, [s.category ?? '—']),
+      el('span', { className: 'scnt' }, [
+        `${s.count.toLocaleString()} msg${s.count === 1 ? '' : 's'}${s.autoExcluded ? ' · 🤖 auto' : ''}`
+      ]),
+      actionEl
+    ]);
+  }
+
+  function group(kind: 'included' | 'excluded', list: SenderSummary[]): Node[] {
+    const items = list.filter((s) => (kind === 'excluded' ? s.excluded : !s.excluded));
+    if (items.length === 0) return [];
+    const open = isSenderGroupOpen(kind);
+    const head = el('div', { className: `grouphead ${kind}` }, [
+      el('i', { className: `ti ti-chevron-${open ? 'down' : 'right'}` }),
+      kind === 'included' ? 'Included' : 'Excluded',
+      el('span', { className: 'cnt' }, [String(items.length)])
+    ]);
+    head.addEventListener('click', () => {
+      toggleSenderGroupOpen(kind);
+      renderRightPanelInto();
+    });
+    return [el('div', { className: 'sendergroup' }, [head, el('div', {}, open ? items.map(senderRow) : [])])];
+  }
+
+  const nodes: Node[] = [
+    el('div', { className: 'rightsub' }, [
+      'Senders in this test ',
+      el('span', { className: 'cnt' }, [`(${summaries.length})`])
+    ]),
+    ...group('included', relevant),
+    ...group('excluded', relevant)
+  ];
+
+  if (scopeBankId && other.length > 0) {
+    const showing = isShowingOtherBankSenders(scopeBankId);
+    const toggle = el('div', { className: 'othertoggle' }, [
+      el('i', { className: `ti ti-chevron-${showing ? 'down' : 'right'}` }),
+      ` ${showing ? 'Hide' : 'Show'} ${other.length} sender${other.length === 1 ? '' : 's'} from other/unrecognized banks`
+    ]);
+    toggle.addEventListener('click', () => {
+      toggleShowOtherBankSenders(scopeBankId);
+      renderRightPanelInto();
+    });
+    nodes.push(toggle);
+    if (showing) nodes.push(el('div', { className: 'othersenders' }, other.map(senderRow)));
+  }
+
+  return nodes;
 }
 
 // ── Modal: Edit/Add template — full form + regex helper + live preview + test-message box ───────────────
@@ -354,17 +612,18 @@ function renderTemplateModal(m: Extract<ModalState, { kind: 'template' }>): HTML
       compiled.ok ? ' Valid regex syntax' : ` Invalid: ${compiled.error}`
     );
 
-    // A named group whose name the real parser doesn't recognize compiles fine and highlights fine here
-    // (the pattern preview colors ANY named group), but its value is silently dropped in production —
-    // never read into the parsed candidate, never highlighted in a real test message. This is the direct
-    // answer to "why isn't my account number highlighted below," instead of leaving it a silent mystery.
+    // A named group whose name the real parser doesn't recognize compiles fine, and this tool still
+    // highlights it below (so you can actually see your own regex is capturing what you intended) — but
+    // its value is silently dropped in real production: never read into the parsed candidate, never
+    // highlighted in a real device's results. This is the direct answer to "why isn't my account number
+    // highlighted in the app," instead of leaving it a silent mystery.
     const unrecognized = compiled.ok ? findUnrecognizedGroupNames(fields.patternTa.value) : [];
     fields.patternWarning.replaceChildren(
       ...(unrecognized.length > 0
         ? [
             el('div', { className: 'regexstatus warn' }, [
               el('i', { className: 'ti ti-alert-triangle' }),
-              ` Unrecognized field name(s): ${unrecognized.join(', ')} — the real parser only reads amount, acctLast4, cardLast4, counterparty, ref, balance, dateStr. Anything else compiles fine but is silently ignored: not extracted, not highlighted, in production.`
+              ` Unrecognized field name(s): ${unrecognized.join(', ')} — highlighted below to help you review the match, but the real parser only ever extracts amount, acctLast4, cardLast4, counterparty, ref, balance, dateStr. Anything else compiles and matches fine but is silently dropped in production.`
             ])
           ]
         : [])
@@ -390,7 +649,9 @@ function renderTemplateModal(m: Extract<ModalState, { kind: 'template' }>): HTML
       );
       const attempt = trace.attempts[0];
       const matched = trace.outcome.kind === 'parsed' && !!attempt?.matched;
-      msgEl = highlightedText(testBodyTa.value, attempt?.captureRanges);
+      // Authoring-only highlighting — also colors any custom-named group your regex defines, not just
+      // the 7 the real parser reads, so you can see your own pattern working while you write it.
+      msgEl = highlightedTextForAuthoring(testBodyTa.value, fields.patternTa.value, attempt?.captureRanges);
       if (trace.matchedSenderBanks.length === 0) {
         // Same distinction established for the bulk/bank testers — a sender-pattern miss never even
         // reaches the regex, and collapsing that into "no match" would hide a real, fixable gap.
@@ -981,8 +1242,6 @@ function renderResultsTableInto(container: HTMLElement, state: ResultsTableState
 
   const rerender = () => renderResultsTableInto(container, state);
 
-  const senderStrip = renderSenderSummaryStrip(state, container);
-
   const statStrip = el(
     'div',
     { className: 'statstrip' },
@@ -1069,54 +1328,7 @@ function renderResultsTableInto(container: HTMLElement, state: ResultsTableState
 
   const bottomPager = renderPaginationBar(state, filtered.length, rerender);
 
-  container.replaceChildren(senderStrip, statStrip, toolsRow, topPager, table, bottomPager);
-}
-
-/** "Senders in this batch" summary — the user's own "select a sender to see all its messages" idea,
- *  plus per-sender Exclude/Include. Derived fresh from `state.results` (the full, unfiltered set) every
- *  render, so it always reflects every sender actually present regardless of the current filter/search —
- *  a persistent overview, not something that itself gets filtered away. */
-function renderSenderSummaryStrip(state: ResultsTableState, container: HTMLElement): HTMLElement {
-  const summaries = summarizeSenders(state.results);
-  const rerenderResults = () => renderResultsTableInto(container, state);
-
-  const cards = summaries.map((s) => {
-    const senderIdEl = el('span', { className: 'senderid' }, [s.sender]);
-    senderIdEl.addEventListener('click', () => setSearchAndRerender(state, container, s.sender));
-    const catPill = el('span', { className: `catpill ${s.category ?? 'none'}` }, [s.category ?? '—']);
-
-    const viewLink = el('span', { className: 'view' }, ['View all']);
-    viewLink.addEventListener('click', () => setSearchAndRerender(state, container, s.sender));
-    const toggleLink = el('span', { className: s.excluded ? 'include' : 'exclude' }, [
-      s.excluded ? 'Include' : 'Exclude sender'
-    ]);
-    toggleLink.addEventListener('click', () => {
-      if (s.excluded) {
-        if (s.autoExcluded) setAutoExcludeOverride(s.sender, true);
-        else includeSender(s.sender);
-      } else {
-        excludeSender(s.sender);
-      }
-      rerenderResults();
-    });
-
-    return el('div', { className: `sendercard${s.excluded ? ' excluded' : ''}` }, [
-      el('div', { className: 'top' }, [senderIdEl, catPill]),
-      el('div', { className: 'meta' }, [
-        `${s.bankLabel !== '—' ? s.bankLabel + ' · ' : ''}${s.count.toLocaleString()} message${s.count === 1 ? '' : 's'}`
-      ]),
-      ...(s.autoExcluded ? [el('div', { className: 'excludetag' }, ['🤖 Auto-excluded — reversible'])] : []),
-      el('div', { className: 'actions' }, [viewLink, toggleLink])
-    ]);
-  });
-
-  return el('div', {}, [
-    el('div', { className: 'senderstrip-label' }, [
-      el('i', { className: 'ti ti-list-details' }),
-      ` Senders in this batch (${summaries.length}) — click a sender to view just its messages`
-    ]),
-    el('div', { className: 'senderstrip' }, cards)
-  ]);
+  container.replaceChildren(statStrip, toolsRow, topPager, table, bottomPager);
 }
 
 /** Fills the search box with `query` and re-renders — the "select a sender to see all its messages"
@@ -1382,6 +1594,9 @@ function renderBulkTestMain(): HTMLElement {
         bulkState.hasRun = true;
         renderResultsTableInto(tableWrap, bulkState);
         renderSidebarInto();
+        // The right panel's "Senders in this test" section reads straight from `bulkState.results` — a
+        // fresh test run needs it refreshed too, not just the results table itself.
+        renderRightPanelInto();
       }
     );
   });
@@ -1491,6 +1706,9 @@ function renderBankTesterSection(bankId: string): HTMLElement {
         bt.state.expandedIndex = null;
         bt.state.hasRun = true;
         renderResultsTableInto(tableWrap, bt.state);
+        // The right panel's "Senders in this test" section reads straight from this bank's own tester
+        // state — a fresh test run needs it refreshed too, not just the results table itself.
+        renderRightPanelInto();
       }
     );
   });

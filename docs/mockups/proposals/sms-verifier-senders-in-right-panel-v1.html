@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Senders moved to the right panel, mockup proposal v1</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg: #eef1f4;
+        --paper: #ffffff;
+        --border: #e2e5ea;
+        --text: #1a2233;
+        --text2: #667085;
+        --text3: #98a2b3;
+        --primary: #059669;
+        --primary-bg: #ecfdf5;
+        --blue: #2563eb;
+        --blue-bg: #eff6ff;
+        --pink: #be185d;
+        --pink-bg: #fce7f3;
+        --amber: #b45309;
+        --amber-bg: #fef3c7;
+        --danger: #dc2626;
+        --danger-bg: #fef2f2;
+        --violet: #7c3aed;
+        --violet-bg: #f5f3ff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #f4f6f8;
+        color: var(--text);
+        -webkit-font-smoothing: antialiased;
+      }
+      h1 {
+        text-align: center;
+        margin: 26px 16px 4px;
+        font-size: 20px;
+      }
+      .sub {
+        text-align: center;
+        margin: 0 16px 8px;
+        color: var(--text2);
+        font-size: 13px;
+        max-width: 900px;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.6;
+      }
+      .opinion {
+        max-width: 760px;
+        margin: 0 auto 20px;
+        padding: 10px 14px;
+        background: var(--blue-bg);
+        border: 1px solid #bfdbfe;
+        border-radius: 10px;
+        font-size: 12px;
+        color: #1d4ed8;
+        line-height: 1.6;
+      }
+      .instructions {
+        text-align: center;
+        margin: 0 16px 18px;
+        font-size: 11.5px;
+        color: var(--text3);
+      }
+
+      /* ── The actual tool shell, live/interactive ───────────────────────────────────────────── */
+      .cc {
+        display: flex;
+        height: 640px;
+        max-width: 1180px;
+        margin: 0 auto 60px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        overflow: hidden;
+        background: var(--paper);
+        box-shadow: 0 12px 30px rgba(20, 25, 35, 0.1);
+      }
+      .left {
+        width: 190px;
+        flex-shrink: 0;
+        border-right: 1px solid var(--border);
+        background: #fafbfc;
+        padding: 10px;
+        overflow-y: auto;
+      }
+      .mid {
+        flex: 1;
+        min-width: 0;
+        padding: 14px;
+        overflow-y: auto;
+      }
+      .right {
+        width: 300px;
+        flex-shrink: 0;
+        border-left: 1px solid var(--border);
+        padding: 14px;
+        overflow-y: auto;
+      }
+      .navlbl {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text3);
+        margin: 10px 4px 6px;
+      }
+      .pinrow {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px;
+        border-radius: 8px;
+        font-size: 11.5px;
+        font-weight: 700;
+        cursor: pointer;
+        color: var(--primary);
+        background: var(--primary-bg);
+        margin-bottom: 4px;
+      }
+      .bankrow {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 8px;
+        border-radius: 8px;
+        font-size: 11.5px;
+        cursor: pointer;
+      }
+      .bankrow:hover {
+        background: #f1f3f5;
+      }
+      .bankrow.active {
+        background: #eef2ff;
+        color: #3730a3;
+        font-weight: 700;
+      }
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--primary);
+        flex-shrink: 0;
+      }
+
+      .midhead {
+        font-size: 15px;
+        font-weight: 800;
+        margin-bottom: 10px;
+      }
+      table.rtable {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+      }
+      table.rtable th {
+        text-align: left;
+        font-size: 9px;
+        text-transform: uppercase;
+        color: var(--text3);
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      table.rtable td {
+        padding: 7px 8px;
+        border-bottom: 1px solid #f1f3f5;
+      }
+      tr.dimmed {
+        opacity: 0.3;
+      }
+      .msgtext {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10px;
+        color: var(--text2);
+      }
+      .badge {
+        font-size: 8.5px;
+        font-weight: 800;
+        padding: 2px 7px;
+        border-radius: 999px;
+      }
+      .badge.pass {
+        background: var(--primary-bg);
+        color: var(--primary);
+      }
+      .badge.warn {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      .filterednote {
+        font-size: 10.5px;
+        color: var(--blue);
+        font-weight: 700;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+      }
+
+      .rightsub {
+        font-size: 9.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text3);
+        margin: 4px 0 8px;
+      }
+      .senderstrip-label {
+        font-size: 9.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text3);
+        margin: 0 0 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .senderstrip {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+      .sendercard {
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        padding: 7px 9px;
+        background: #fafbfc;
+      }
+      .sendercard.excluded {
+        opacity: 0.6;
+        background: var(--danger-bg);
+        border-color: #f6c8c8;
+      }
+      .sendercard .top {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 3px;
+      }
+      .sendercard .senderid {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10px;
+        font-weight: 700;
+        cursor: pointer;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .sendercard .senderid:hover {
+        color: var(--primary);
+        text-decoration: underline;
+      }
+      .catpill {
+        font-size: 7.5px;
+        font-weight: 800;
+        padding: 1px 5px;
+        border-radius: 999px;
+        flex-shrink: 0;
+      }
+      .catpill.T {
+        background: var(--primary-bg);
+        color: var(--primary);
+      }
+      .catpill.S {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      .catpill.P {
+        background: var(--pink-bg);
+        color: var(--pink);
+      }
+      .catpill.G {
+        background: var(--violet-bg);
+        color: var(--violet);
+      }
+      .catpill.none {
+        background: #f1f3f5;
+        color: var(--text3);
+      }
+      .sendercard .meta {
+        font-size: 9px;
+        color: var(--text2);
+        margin-bottom: 5px;
+      }
+      .sendercard .actions {
+        display: flex;
+        gap: 8px;
+      }
+      .sendercard .actions span {
+        font-size: 9px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .sendercard .actions .view {
+        color: var(--blue);
+      }
+      .sendercard .actions .exclude {
+        color: var(--danger);
+      }
+      .sendercard .actions .include {
+        color: var(--primary);
+      }
+      .othertoggle {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--blue);
+        cursor: pointer;
+        margin-bottom: 10px;
+        display: block;
+      }
+      .senderref {
+        font-size: 10px;
+        color: var(--text2);
+        line-height: 1.8;
+        margin-bottom: 10px;
+      }
+      .senderref code {
+        background: #f1f3f5;
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 9px;
+        margin-right: 3px;
+      }
+      .papercard {
+        background: #fffefb;
+        border: 1px solid #e8e2d0;
+        border-radius: 8px;
+        padding: 8px 9px;
+        margin-bottom: 8px;
+        font-size: 10px;
+        color: var(--text2);
+      }
+      hr.sep {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 12px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Senders moved into the right panel — proposal v1</h1>
+    <p class="sub">
+      Live, clickable prototype — switch between "Bulk test" and "HDFC" in the left sidebar to see how the
+      right panel's sender list changes context, click a sender card to filter the table, and try
+      Exclude/Include.
+    </p>
+    <div class="opinion">
+      <b>My take:</b> this lives in the <b>right panel</b>, not a third sidebar — the left sidebar is bank
+      navigation (a global list); the right panel is already "context for whatever's currently selected." For
+      the bank-scoped filter, this mockup shows a <b>visual collapse</b> (a "Show N other senders" toggle),
+      not real session-wide exclusion — switching banks shouldn't silently change Excluded counts everywhere
+      else. Say the word if you actually want the heavier version.
+    </div>
+    <p class="instructions">↓ Try it: click "HDFC" then "Bulk test — all banks" in the sidebar below.</p>
+
+    <div class="cc">
+      <div class="left">
+        <div class="navlbl">Test</div>
+        <div class="pinrow" id="bulkNav"><i class="ti ti-bolt"></i> Bulk test — all banks</div>
+        <div class="navlbl">Banks (3)</div>
+        <div class="bankrow active" id="hdfcNav"><span class="dot"></span> HDFC</div>
+        <div class="bankrow" id="iciciNav"><span class="dot" style="background:#b45309"></span> ICICI</div>
+        <div class="bankrow" id="sbiNav"><span class="dot" style="background:#c2c8d1"></span> SBI</div>
+      </div>
+
+      <div class="mid">
+        <div class="midhead" id="midTitle">HDFC — bank workspace</div>
+        <table class="rtable">
+          <thead>
+            <tr>
+              <th>Sender</th>
+              <th>Bank</th>
+              <th>Message</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="right" id="rightPanel"></div>
+    </div>
+
+    <script>
+      const ROWS = [
+        { sender: 'VM-HDFCBK-T', bank: 'HDFC', body: 'HDFC Bank: Rs.500.00 debited from a/c XX1234...', status: ['pass', '✓ Parsed'] },
+        { sender: 'AD-HDFCBK-S', bank: 'HDFC', body: 'HDFC Bank: your account activity summary...', status: ['warn', '⚠ Partial'] },
+        { sender: 'VM-ICICIB-T', bank: 'ICICI', body: 'ICICI Bank Acct XX789 debited with Rs 2,500.00...', status: ['pass', '✓ Parsed'] },
+        { sender: 'VK-HDFCPR-P', bank: '—', body: 'Get 10% cashback this weekend only!', status: ['warn', '🚫 Excluded'] }
+      ];
+
+      const SENDERS = {
+        hdfc: [
+          { id: 'VM-HDFCBK-T', bank: 'HDFC', cat: 'T', count: 812, excluded: false, auto: false },
+          { id: 'AD-HDFCBK-S', bank: 'HDFC', cat: 'S', count: 340, excluded: false, auto: false }
+        ],
+        others_for_hdfc: [
+          { id: 'VM-ICICIB-T', bank: 'ICICI', cat: 'T', count: 298, excluded: false, auto: false },
+          { id: 'VK-HDFCPR-P', bank: '—', cat: 'P', count: 610, excluded: true, auto: true }
+        ],
+        bulk_all: [
+          { id: 'VM-HDFCBK-T', bank: 'HDFC', cat: 'T', count: 812, excluded: false, auto: false },
+          { id: 'AD-HDFCBK-S', bank: 'HDFC', cat: 'S', count: 340, excluded: false, auto: false },
+          { id: 'VM-ICICIB-T', bank: 'ICICI', cat: 'T', count: 298, excluded: false, auto: false },
+          { id: 'VK-HDFCPR-P', bank: '—', cat: 'P', count: 610, excluded: true, auto: true }
+        ]
+      };
+
+      let selection = 'hdfc';
+      let showOthers = false;
+      let searchFilter = '';
+
+      function senderCard(s) {
+        const card = document.createElement('div');
+        card.className = 'sendercard' + (s.excluded ? ' excluded' : '');
+        card.innerHTML = `
+          <div class="top">
+            <span class="senderid" data-sender="${s.id}">${s.id}</span>
+            <span class="catpill ${s.cat}">${s.cat}</span>
+          </div>
+          <div class="meta">${s.bank !== '—' ? s.bank + ' · ' : ''}${s.count.toLocaleString()} messages</div>
+          ${s.auto ? '<div style="font-size:8.5px;color:var(--danger);font-weight:700;margin-bottom:5px;">🤖 Auto-excluded — reversible</div>' : ''}
+          <div class="actions">
+            <span class="view" data-view="${s.id}">View all</span>
+            <span class="${s.excluded ? 'include' : 'exclude'}" data-toggle="${s.id}">${s.excluded ? 'Include' : 'Exclude sender'}</span>
+          </div>`;
+        card.querySelector('[data-sender]').addEventListener('click', () => filterTable(s.id));
+        card.querySelector('[data-view]').addEventListener('click', () => filterTable(s.id));
+        card.querySelector('[data-toggle]').addEventListener('click', (e) => {
+          e.stopPropagation();
+          s.excluded = !s.excluded;
+          render();
+        });
+        return card;
+      }
+
+      function filterTable(sender) {
+        searchFilter = sender;
+        renderTable();
+      }
+
+      function renderRightPanel() {
+        const panel = document.getElementById('rightPanel');
+        panel.innerHTML = '';
+
+        if (selection === 'bulk') {
+          const label = document.createElement('div');
+          label.className = 'senderstrip-label';
+          label.innerHTML = '<i class="ti ti-list-details"></i> Senders in this test (4) — click one to view just its messages';
+          panel.appendChild(label);
+          const strip = document.createElement('div');
+          strip.className = 'senderstrip';
+          SENDERS.bulk_all.forEach((s) => strip.appendChild(senderCard(s)));
+          panel.appendChild(strip);
+          return;
+        }
+
+        // Bank-scoped: HDFC's own senders shown by default; others collapsed.
+        const label = document.createElement('div');
+        label.className = 'senderstrip-label';
+        label.innerHTML = '<i class="ti ti-list-details"></i> Senders in this test (2) — click one to view just its messages';
+        panel.appendChild(label);
+        const strip = document.createElement('div');
+        strip.className = 'senderstrip';
+        SENDERS.hdfc.forEach((s) => strip.appendChild(senderCard(s)));
+        panel.appendChild(strip);
+
+        const toggle = document.createElement('span');
+        toggle.className = 'othertoggle';
+        toggle.textContent = showOthers
+          ? 'Hide 2 sender(s) from other/unrecognized banks'
+          : '+ Show 2 sender(s) from other/unrecognized banks';
+        toggle.addEventListener('click', () => {
+          showOthers = !showOthers;
+          renderRightPanel();
+        });
+        panel.appendChild(toggle);
+        if (showOthers) {
+          const otherStrip = document.createElement('div');
+          otherStrip.className = 'senderstrip';
+          SENDERS.others_for_hdfc.forEach((s) => otherStrip.appendChild(senderCard(s)));
+          panel.appendChild(otherStrip);
+        }
+
+        panel.appendChild(document.createElement('hr')).className = 'sep';
+        const sendersub = document.createElement('div');
+        sendersub.className = 'rightsub';
+        sendersub.textContent = 'Sender ID patterns';
+        panel.appendChild(sendersub);
+        const senderref = document.createElement('div');
+        senderref.className = 'senderref';
+        senderref.innerHTML = '<code>^[A-Z]{2}-HDFCBK$</code><code>^HDFCBK$</code><code>^[A-Z]{2}-HDFCBK-[TSPG]$</code>';
+        panel.appendChild(senderref);
+        const tplsub = document.createElement('div');
+        tplsub.className = 'rightsub';
+        tplsub.textContent = 'Templates 3 (2 official, 1 modified)';
+        panel.appendChild(tplsub);
+        const card1 = document.createElement('div');
+        card1.className = 'papercard';
+        card1.textContent = 'Template 1 — debit, current era — (existing papercard content, unchanged)';
+        panel.appendChild(card1);
+      }
+
+      function renderTable() {
+        const tbody = document.getElementById('tbody');
+        tbody.innerHTML = '';
+        ROWS.forEach((r) => {
+          const tr = document.createElement('tr');
+          const matches = !searchFilter || r.sender.toLowerCase().includes(searchFilter.toLowerCase());
+          if (!matches) tr.className = 'dimmed';
+          tr.innerHTML = `
+            <td style="font-family:ui-monospace,monospace;font-size:10px">${r.sender}</td>
+            <td>${r.bank}</td>
+            <td class="msgtext">${r.body}</td>
+            <td><span class="badge ${r.status[0]}">${r.status[1]}</span></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      function render() {
+        document.getElementById('midTitle').textContent =
+          selection === 'bulk' ? 'Bulk test — all banks' : 'HDFC — bank workspace';
+        renderRightPanel();
+        renderTable();
+      }
+
+      document.getElementById('bulkNav').addEventListener('click', () => {
+        selection = 'bulk';
+        searchFilter = '';
+        document.getElementById('hdfcNav').classList.remove('active');
+        render();
+      });
+      document.getElementById('hdfcNav').addEventListener('click', () => {
+        selection = 'hdfc';
+        searchFilter = '';
+        document.getElementById('hdfcNav').classList.add('active');
+        render();
+      });
+
+      render();
+    </script>
+  </body>
+</html>

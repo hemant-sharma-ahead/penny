@@ -71,6 +71,16 @@ export interface SessionState {
    *  sender that sends a mix of real transactions and noise, where excluding the whole sender would
    *  wrongly hide the real ones too. */
   excludedMessageKeys: string[];
+  /** Official/modified templates a tester has removed outright — "some templates might not be good"
+   *  (2026-08-18). Distinct from `disabledTemplates`: a disabled template stays visible, dimmed, in the
+   *  right panel; a removed one is hidden from that list entirely (only surfaced via a compact "N
+   *  removed — Restore" line), and — like disabled — excluded from `effectiveBundleForTesting()`.
+   *  Deliberately does NOT delete the entry from `effectiveBundle()`'s own array (unlike a draft's real
+   *  `Delete`, which safely splices since drafts always sit at the array's tail) — every other
+   *  session-state map here (`overrides`/`disabledTemplates`/`draftSamples`) addresses a template by its
+   *  position in that SAME array, so removing an official template from the middle would silently shift
+   *  every later template's effective index and corrupt that bookkeeping. bankId -> removed indices. */
+  removedTemplates: Record<string, number[]>;
 }
 
 const SESSION_KEY = 'smsVerifierSessionV2';
@@ -87,7 +97,8 @@ function emptySession(): SessionState {
     snippetOverrides: {},
     excludedSenders: [],
     autoExcludeOverrides: [],
-    excludedMessageKeys: []
+    excludedMessageKeys: [],
+    removedTemplates: {}
   };
 }
 
@@ -107,7 +118,8 @@ function loadSession(): SessionState {
       snippetOverrides: parsed.snippetOverrides ?? {},
       excludedSenders: parsed.excludedSenders ?? [],
       autoExcludeOverrides: parsed.autoExcludeOverrides ?? [],
-      excludedMessageKeys: parsed.excludedMessageKeys ?? []
+      excludedMessageKeys: parsed.excludedMessageKeys ?? [],
+      removedTemplates: parsed.removedTemplates ?? {}
     };
   } catch {
     return emptySession();
@@ -182,6 +194,24 @@ export function toggleTemplateDisabled(bankId: string, index: number): void {
   saveSession();
 }
 
+export function isTemplateRemoved(bankId: string, index: number): boolean {
+  return (session.removedTemplates[bankId] ?? []).includes(index);
+}
+
+/** For an official/modified template — a draft's own "Delete" already truly splices it out of
+ *  `session.newTemplates`, which is safe there; this is the equivalent action for a template that can't
+ *  be safely spliced (see the field's own doc comment on `SessionState`). */
+export function removeTemplate(bankId: string, index: number): void {
+  const current = session.removedTemplates[bankId] ?? [];
+  if (!current.includes(index)) session.removedTemplates[bankId] = [...current, index];
+  saveSession();
+}
+
+export function restoreTemplate(bankId: string, index: number): void {
+  session.removedTemplates[bankId] = (session.removedTemplates[bankId] ?? []).filter((i) => i !== index);
+  saveSession();
+}
+
 export function getDraftSample(bankId: string, index: number): { sender: string; body: string } | undefined {
   return session.draftSamples[bankId]?.[index];
 }
@@ -196,17 +226,19 @@ export function setDraftSample(bankId: string, index: number, sample: { sender: 
   saveSession();
 }
 
-/** Same merge as `effectiveBundle()`, minus any template a tester has disabled — this is what the
- *  bank-scoped tester, Bulk test, and the sidebar pass-rate dot actually run against (the "what does my
- *  CURRENTLY ACTIVE configuration do" question), whereas `effectiveBundle()` itself (including disabled
- *  templates) backs the right panel's reference view so a disabled template stays visible to re-enable. */
+/** Same merge as `effectiveBundle()`, minus any template a tester has disabled OR removed — this is what
+ *  the bank-scoped tester, Bulk test, and the sidebar pass-rate dot actually run against (the "what does
+ *  my CURRENTLY ACTIVE configuration do" question), whereas `effectiveBundle()` itself (including
+ *  disabled/removed templates, so their session-state indices stay valid) backs the right panel's own
+ *  rendering logic, which is what actually decides whether to show a disabled (dimmed) or removed
+ *  (hidden) card. */
 export function effectiveBundleForTesting(): SmsPatternBundle {
   const full = effectiveBundle();
   return {
     version: full.version,
     banks: full.banks.map((b) => ({
       ...b,
-      templates: b.templates.filter((_, i) => !isTemplateDisabled(b.bankId, i))
+      templates: b.templates.filter((_, i) => !isTemplateDisabled(b.bankId, i) && !isTemplateRemoved(b.bankId, i))
     }))
   };
 }
@@ -458,6 +490,58 @@ export interface BankTesterState {
 const bankTesters: Record<string, BankTesterState> = {};
 export function bankTesterFor(bankId: string): BankTesterState {
   return (bankTesters[bankId] ??= { mode: 'auto', raw: '', state: emptyResultsState() });
+}
+
+// ── Right panel — ephemeral UI-only display state, NOT persisted (unlike `SessionState` above) — purely
+// "what's currently expanded/shown right now," never anything a tester would expect to survive a reload.
+// (2026-08-18, moving the sender summary + a redesigned template card into the right panel.) ─────────────
+
+const expandedTemplateCards = new Set<string>();
+function templateCardKey(bankId: string, index: number): string {
+  return `${bankId}#${index}`;
+}
+export function isTemplateCardExpanded(bankId: string, index: number): boolean {
+  return expandedTemplateCards.has(templateCardKey(bankId, index));
+}
+export function toggleTemplateCardExpanded(bankId: string, index: number): void {
+  const key = templateCardKey(bankId, index);
+  if (expandedTemplateCards.has(key)) expandedTemplateCards.delete(key);
+  else expandedTemplateCards.add(key);
+}
+
+/** "Show senders from other banks too" — a bank workspace's Senders section defaults to just THIS bank's
+ *  own senders (auto-detect mode can still surface a message recognized under a different bank, or none
+ *  at all), off by default, per bank. Deliberately visual-only: unlike `excludeSender()`, toggling this
+ *  never changes what counts as excluded anywhere else in the tool — it only decides whether the "other
+ *  banks" group is expanded on THIS bank's page right now. */
+const showOtherBankSenders: Record<string, boolean> = {};
+export function isShowingOtherBankSenders(bankId: string): boolean {
+  return showOtherBankSenders[bankId] ?? false;
+}
+export function toggleShowOtherBankSenders(bankId: string): void {
+  showOtherBankSenders[bankId] = !isShowingOtherBankSenders(bankId);
+}
+
+/** Collapsible Included/Excluded sender groups — Excluded starts collapsed (the common case needs no
+ *  attention), Included starts open. One shared pair of toggles rather than per-bank/per-scope — simpler,
+ *  and "did I open this section" is a reasonable thing to carry across switching banks/Bulk test. */
+let includedSendersOpen = true;
+let excludedSendersOpen = false;
+export function isSenderGroupOpen(group: 'included' | 'excluded'): boolean {
+  return group === 'included' ? includedSendersOpen : excludedSendersOpen;
+}
+export function toggleSenderGroupOpen(group: 'included' | 'excluded'): void {
+  if (group === 'included') includedSendersOpen = !includedSendersOpen;
+  else excludedSendersOpen = !excludedSendersOpen;
+}
+
+/** The right panel's Templates/Senders split height (px, top pane) — remembered across re-renders within
+ *  the same page load (nearly every session-state edit rebuilds this panel from scratch) so a drag-resize
+ *  doesn't get silently undone by the next unrelated click, but never persisted to storage; a fresh
+ *  reload starts back at the default. */
+export let rightPaneTopHeight = 300;
+export function setRightPaneTopHeight(px: number): void {
+  rightPaneTopHeight = px;
 }
 
 // ── Common-pattern snippet library — the regex helper panel's "insert at cursor" list, editable/

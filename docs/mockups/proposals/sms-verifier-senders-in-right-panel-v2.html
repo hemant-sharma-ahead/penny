@@ -1,0 +1,969 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Right panel: order, resizable split, compact templates, sender groups — v2</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg: #eef1f4;
+        --paper: #ffffff;
+        --border: #e2e5ea;
+        --text: #1a2233;
+        --text2: #667085;
+        --text3: #98a2b3;
+        --primary: #059669;
+        --primary-bg: #ecfdf5;
+        --blue: #2563eb;
+        --blue-bg: #eff6ff;
+        --pink: #be185d;
+        --pink-bg: #fce7f3;
+        --amber: #b45309;
+        --amber-bg: #fef3c7;
+        --danger: #dc2626;
+        --danger-bg: #fef2f2;
+        --violet: #7c3aed;
+        --violet-bg: #f5f3ff;
+        --indigo: #4338ca;
+        --indigo-bg: #eef2ff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #f4f6f8;
+        color: var(--text);
+        -webkit-font-smoothing: antialiased;
+      }
+      h1 {
+        text-align: center;
+        margin: 26px 16px 4px;
+        font-size: 20px;
+      }
+      .sub {
+        text-align: center;
+        margin: 0 16px 14px;
+        color: var(--text2);
+        font-size: 13px;
+        max-width: 900px;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.6;
+      }
+      .navbar {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: rgba(244, 246, 248, 0.94);
+        backdrop-filter: blur(6px);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        gap: 4px;
+        justify-content: center;
+        flex-wrap: wrap;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+      }
+      .navbar a {
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--text2);
+        text-decoration: none;
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+      }
+      .navbar a:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+      .sectionhead {
+        max-width: 1100px;
+        margin: 40px auto 8px;
+        padding: 0 16px;
+      }
+      .sectionhead h2 {
+        font-size: 17px;
+        margin: 0 0 5px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .sectionhead .stepno {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 7px;
+        background: var(--primary);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 900;
+        flex-shrink: 0;
+      }
+      .sectionhead p {
+        font-size: 12.5px;
+        color: var(--text2);
+        line-height: 1.6;
+        margin: 0;
+        max-width: 820px;
+      }
+
+      /* ── Section 1: full right-panel shell with resizable vertical split ─────────────────────── */
+      .cc {
+        display: flex;
+        height: 620px;
+        max-width: 1140px;
+        margin: 10px auto 50px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        overflow: hidden;
+        background: var(--paper);
+        box-shadow: 0 12px 30px rgba(20, 25, 35, 0.1);
+      }
+      .left {
+        width: 170px;
+        flex-shrink: 0;
+        border-right: 1px solid var(--border);
+        background: #fafbfc;
+        padding: 10px;
+      }
+      .mid {
+        flex: 1;
+        min-width: 0;
+        padding: 14px;
+        color: var(--text3);
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .right {
+        width: 320px;
+        flex-shrink: 0;
+        border-left: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+      }
+      .pane {
+        overflow-y: auto;
+        padding: 12px 14px;
+      }
+      .pane.top {
+        flex-shrink: 0;
+      }
+      .vsplit {
+        height: 7px;
+        flex-shrink: 0;
+        cursor: row-resize;
+        background: var(--border);
+        position: relative;
+      }
+      .vsplit:hover,
+      .vsplit.active {
+        background: var(--primary);
+      }
+      .vsplit::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 28px;
+        height: 3px;
+        background: rgba(255, 255, 255, 0.7);
+        border-radius: 2px;
+        transform: translate(-50%, -50%);
+      }
+      .pane.bottom {
+        flex: 1;
+        min-height: 0;
+      }
+      .bankrow {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 8px;
+        border-radius: 8px;
+        font-size: 11.5px;
+        background: #eef2ff;
+        color: #3730a3;
+        font-weight: 700;
+      }
+      .rightsub {
+        font-size: 9.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text3);
+        margin: 2px 0 8px;
+      }
+      .senderref {
+        font-size: 10px;
+        color: var(--text2);
+        line-height: 1.8;
+        margin-bottom: 10px;
+      }
+      .senderref code {
+        background: #f1f3f5;
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 9px;
+        margin-right: 3px;
+      }
+      .senderstrip-label {
+        font-size: 9.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text3);
+        margin: 0 0 8px;
+      }
+
+      /* ── Section 2: 5 template-card options ───────────────────────────────────────────────────── */
+      .optiongrid {
+        max-width: 1100px;
+        margin: 0 auto 40px;
+        padding: 0 16px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+      .optionbox {
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 6px 18px rgba(20, 25, 35, 0.06);
+      }
+      .optionbox .ohead {
+        padding: 9px 14px;
+        border-bottom: 1px solid var(--border);
+        background: #fafbfc;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .optionbox .onum {
+        width: 20px;
+        height: 20px;
+        border-radius: 6px;
+        background: var(--primary);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 900;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .optionbox .otitle {
+        font-size: 12.5px;
+        font-weight: 800;
+      }
+      .optionbox .osub {
+        font-size: 10.5px;
+        color: var(--text2);
+        padding: 0 14px 8px;
+        line-height: 1.5;
+      }
+      .optionbox .odemo {
+        padding: 12px 14px 16px;
+        background: #f4f6f8;
+      }
+
+      /* Papercard (compact variants share most of this, tweaked per option below) */
+      .papercard {
+        background: #fffefb;
+        border: 1px solid #e8e2d0;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 10px;
+        color: var(--text2);
+        box-shadow: 0 2px 6px rgba(120, 100, 40, 0.06);
+      }
+      /* Combined design (1+4+5): keeps the "paper card" chrome, but the collapsed row uses icons
+         instead of pills, and expanded content is the side-by-side regex|sample. */
+      .papercard-v2 {
+        background: #fffefb;
+        border: 1px solid #e8e2d0;
+        border-radius: 8px;
+        padding: 7px 10px;
+        font-size: 10px;
+        color: var(--text2);
+        box-shadow: 0 2px 6px rgba(120, 100, 40, 0.06);
+        cursor: pointer;
+      }
+      .crow {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .crow b {
+        font-size: 10.5px;
+        color: var(--text);
+      }
+      .crow .era {
+        font-size: 9px;
+        color: var(--text3);
+      }
+      .kindicon {
+        font-size: 11px;
+      }
+      .statusicon {
+        font-size: 14px;
+      }
+      .cbody {
+        margin-top: 8px;
+        cursor: default;
+      }
+      .minilabel {
+        font-size: 8.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text3);
+      }
+      /* Chosen design (4+5): same solid papercard-v2 chrome as the combined design above — not transparent —
+         but the collapsed .crow also carries the regex itself (truncated) plus Copy/Edit inline, via this
+         .densehead modifier layered onto .crow. */
+      .crow.densehead .flatregex {
+        flex: 1;
+        min-width: 0;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 8.5px;
+        color: var(--text3);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: default;
+      }
+      .crow.densehead i.ti-copy,
+      .crow.densehead i.ti-pencil {
+        color: var(--text3);
+        cursor: pointer;
+        font-size: 11px;
+      }
+      .crow.densehead i.ti-copy:hover,
+      .crow.densehead i.ti-pencil:hover {
+        color: var(--primary);
+      }
+      .cardstack {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .ptop {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .ptop b {
+        font-size: 10.5px;
+        color: var(--text);
+      }
+      .ptop .era,
+      .era {
+        font-size: 9px;
+        color: var(--text3);
+      }
+      .minipill {
+        font-size: 7.5px;
+        font-weight: 800;
+        padding: 1px 5px;
+        border-radius: 999px;
+        text-transform: uppercase;
+        background: #f1f3f5;
+        color: var(--text2);
+      }
+      .minipill.pass {
+        background: var(--primary-bg);
+        color: var(--primary);
+      }
+      .spacer {
+        flex: 1;
+      }
+      .paperregex {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 9px;
+        color: #6b6250;
+        background: #f4f0e4;
+        border-radius: 5px;
+        padding: 5px 7px;
+        line-height: 1.5;
+        margin-top: 6px;
+        word-break: break-word;
+      }
+      /* Every field gets its own distinct color, and — this is the fix over the first pass — that color is
+         always the SAME one in both the regex box and the sample box, so a capture and its matched value read
+         as an obviously-paired pair by sight, not because the whole card is monochrome. Class-to-field mapping
+         matches the real production color assignment (highlighting.ts's GROUP_COLOR_CLASS): amount has no
+         class (base color), acctLast4/cardLast4→f2, counterparty→f3, ref→f4, balance→f5, dateStr→f6. */
+      .paperregex mark,
+      .papersample mark {
+        background: var(--primary-bg);
+        color: var(--primary);
+        border-radius: 2px;
+        padding: 0 2px;
+        font-weight: 700;
+      }
+      .paperregex mark.f2,
+      .papersample mark.f2 {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      .paperregex mark.f3,
+      .papersample mark.f3 {
+        background: var(--pink-bg);
+        color: var(--pink);
+      }
+      .paperregex mark.f4,
+      .papersample mark.f4 {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      .paperregex mark.f5,
+      .papersample mark.f5 {
+        background: var(--violet-bg);
+        color: var(--violet);
+      }
+      .paperregex mark.f6,
+      .papersample mark.f6 {
+        background: var(--indigo-bg);
+        color: var(--indigo);
+      }
+      .papersample {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 9.5px;
+        color: var(--text);
+        line-height: 1.5;
+        margin-top: 6px;
+      }
+      .fields {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 6px;
+      }
+      .fchip {
+        font-size: 8.5px;
+        background: #f4f0e4;
+        border: 1px solid #e8e2d0;
+        border-radius: 5px;
+        padding: 2px 6px;
+        color: #6b6250;
+        font-family: ui-monospace, Menlo, monospace;
+      }
+      .fchip b {
+        color: var(--text);
+      }
+      .paperactions {
+        display: flex;
+        gap: 10px;
+        margin-top: 7px;
+      }
+      .paperlink {
+        font-size: 8.5px;
+        color: var(--blue);
+        cursor: pointer;
+        font-weight: 700;
+      }
+      .paperlink.danger {
+        color: var(--danger);
+      }
+      .oneliner {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 9px;
+        color: #6b6250;
+        background: #f4f0e4;
+        border-radius: 5px;
+        padding: 4px 7px;
+        margin-top: 6px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+      }
+      .oneliner.sample {
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text2);
+      }
+      .chev {
+        color: var(--text3);
+        font-size: 11px;
+        cursor: pointer;
+      }
+      .heightlabel {
+        text-align: center;
+        font-size: 9.5px;
+        color: var(--text3);
+        margin-top: 8px;
+        font-style: italic;
+      }
+
+      /* two-col option */
+      .twocol {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        margin-top: 6px;
+      }
+      .icononly {
+        display: flex;
+        gap: 10px;
+        margin-top: 7px;
+      }
+      .icononly i {
+        color: var(--text3);
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .icononly i:hover {
+        color: var(--primary);
+      }
+
+      /* dense row option */
+      .denserow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #fffefb;
+        border: 1px solid #e8e2d0;
+        border-radius: 6px;
+        padding: 6px 8px;
+        font-size: 9.5px;
+      }
+      .denserow .rid {
+        font-weight: 700;
+        color: var(--text);
+        flex-shrink: 0;
+      }
+      .denserow .rera {
+        color: var(--text3);
+        font-size: 8.5px;
+        flex-shrink: 0;
+      }
+      .denserow .rregex {
+        font-family: ui-monospace, Menlo, monospace;
+        color: #6b6250;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* ── Section 3: sender cards, compact + Included/Excluded groups ─────────────────────────── */
+      .gallery3 {
+        max-width: 900px;
+        margin: 0 auto 50px;
+        padding: 0 16px;
+      }
+      .sendergroup {
+        margin-bottom: 12px;
+      }
+      .grouphead {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 10.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text3);
+        cursor: pointer;
+        padding: 6px 2px;
+      }
+      .grouphead.included {
+        color: var(--primary);
+      }
+      .grouphead.excluded {
+        color: var(--danger);
+      }
+      .grouphead .cnt {
+        font-size: 9.5px;
+        font-weight: 700;
+        background: #f1f3f5;
+        padding: 1px 7px;
+        border-radius: 999px;
+        margin-left: 4px;
+      }
+      .sendercard-compact {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 5px 8px;
+        margin-bottom: 5px;
+        background: #fafbfc;
+        font-size: 10px;
+      }
+      .sendercard-compact.excluded {
+        background: var(--danger-bg);
+        border-color: #f6c8c8;
+        opacity: 0.75;
+      }
+      .sendercard-compact .sid {
+        font-family: ui-monospace, Menlo, monospace;
+        font-weight: 700;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .sendercard-compact .sid:hover {
+        color: var(--primary);
+        text-decoration: underline;
+      }
+      .catpill {
+        font-size: 7px;
+        font-weight: 800;
+        padding: 1px 4px;
+        border-radius: 999px;
+        flex-shrink: 0;
+      }
+      .catpill.T {
+        background: var(--primary-bg);
+        color: var(--primary);
+      }
+      .catpill.S {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      .catpill.P {
+        background: var(--pink-bg);
+        color: var(--pink);
+      }
+      .sendercard-compact .scnt {
+        color: var(--text3);
+        font-size: 9px;
+        flex: 1;
+      }
+      .sendercard-compact .sact {
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--blue);
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .sendercard-compact .sact.excl {
+        color: var(--danger);
+      }
+      .note {
+        max-width: 900px;
+        margin: 0 auto 40px;
+        padding: 0 16px;
+        font-size: 11.5px;
+        color: var(--text2);
+        line-height: 1.6;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="navbar">
+      <a href="#layout">1 · Order + resizable split</a>
+      <a href="#templates">2 · 5 compact template-card options</a>
+      <a href="#senders">3 · Compact sender cards + Included/Excluded groups</a>
+    </div>
+    <h1>Right panel v2 — order, resizable split, compact cards</h1>
+    <p class="sub">
+      Addressing your feedback: Templates-and-patterns now sit first, Senders-in-this-test moved below with a
+      draggable divider between them (drag the bar in section 1); 5 distinct compact template-card redesigns to
+      pick from (section 2, using the real HDFC Template 1 from your screenshot so it's a fair comparison); and
+      denser sender cards grouped into collapsible Included/Excluded sections, Excluded collapsed by default
+      (section 3).
+    </p>
+
+    <div class="sectionhead" id="layout">
+      <h2><span class="stepno">1</span> Order + resizable vertical split</h2>
+      <p>Drag the bar between the two panes below. Top pane = Sender ID patterns + Templates (now first); bottom pane = Senders in this test (now second, its own independently-scrolling area).</p>
+    </div>
+    <div class="cc">
+      <div class="left">
+        <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--text3);margin-bottom:6px;">Banks</div>
+        <div class="bankrow"><span style="width:7px;height:7px;border-radius:50%;background:var(--primary);flex-shrink:0;"></span> HDFC</div>
+      </div>
+      <div class="mid">Test column (unaffected by this change)</div>
+      <div class="right">
+        <div class="pane top" id="paneTop" style="height: 340px;">
+          <div class="rightsub">Sender ID patterns</div>
+          <div class="senderref">
+            <code>^[A-Z]{2}-HDFCBK$</code><code>^HDFCBK$</code><code>^[A-Z]{2}-HDFCBK-[TSPG]$</code>
+          </div>
+          <div class="rightsub">Templates 3 (2 official, 1 modified)</div>
+          <div class="papercard" style="margin-bottom:8px;">
+            <div class="ptop"><b>Template 1</b><span class="era">2026-08-15</span><span class="minipill">official</span><span class="spacer"></span><span class="minipill pass">✓ Parsed</span></div>
+            <div class="paperregex">Rs\.?\s?(?&lt;<mark>amount</mark>&gt;...)...</div>
+          </div>
+          <div class="papercard">
+            <div class="ptop"><b>Template 2</b><span class="era">2026-08-15</span><span class="minipill">official</span></div>
+            <div class="paperregex">Rs\.?\s?(?&lt;<mark>amount</mark>&gt;...) credited...</div>
+          </div>
+        </div>
+        <div class="vsplit" id="vsplit"></div>
+        <div class="pane bottom">
+          <div class="senderstrip-label">Senders in this test (2)</div>
+          <div class="sendercard-compact"><span class="sid">VM-HDFCBK-T</span><span class="catpill T">T</span><span class="scnt">812 msgs</span><span class="sact excl">Exclude</span></div>
+          <div class="sendercard-compact"><span class="sid">AD-HDFCBK-S</span><span class="catpill S">S</span><span class="scnt">340 msgs</span><span class="sact excl">Exclude</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectionhead" id="templates">
+      <h2><span class="stepno">2</span> Combined design — accordion (1) + side-by-side (4) + icons (5)</h2>
+      <p>
+        Collapsed row: chevron + Template N + era + one status <b>icon</b> (parsed/no-match/no-sample), no
+        text pills at all. Expanded: side-by-side regex | sample, <b>both highlighted in one single color</b>
+        (not a different color per field) — that's what makes a capture and its matched value visually
+        identifiable as a pair, without needing a color-to-field legend. The field chips row is gone entirely;
+        it was only there to translate multi-color highlights back into names, which a single consistent
+        highlight color no longer needs. Click the card below to try it, then see the other kind/status states
+        underneath.
+      </p>
+    </div>
+    <div style="max-width: 420px; margin: 0 auto 24px; padding: 0 16px">
+      <div class="papercard-v2" id="combinedCard">
+        <div class="crow" id="combinedHeader">
+          <i class="chev ti ti-chevron-right" id="combinedChev"></i>
+          <b>Template 1</b>
+          <span class="era">08-15</span>
+          <span class="spacer"></span>
+          <i class="statusicon ti ti-circle-check" title="Parsed" style="color: var(--primary)"></i>
+        </div>
+        <div class="cbody" id="combinedBody" style="display: none">
+          <div class="twocol">
+            <div>
+              <div class="minilabel">Regex</div>
+              <div class="paperregex" style="margin-top: 4px">
+                Rs\.?\s?(?&lt;<mark>amount</mark>&gt;[\d,]+\.?\d*)\s+debited from a\/c\s+X+(?&lt;<mark
+                  >acctLast4</mark
+                >&gt;\d{3,6})\s+on\s+(?&lt;<mark>dateStr</mark>&gt;\d{2}-[A-Za-z]{3}-\d{2})\s+to\s+VPA\s+(?&lt;<mark
+                  >counterparty</mark
+                >&gt;[\w.@-]+)\s+\(UPI Ref No\s+(?&lt;<mark>ref</mark>&gt;\d+)\)
+              </div>
+            </div>
+            <div>
+              <div class="minilabel">Sample</div>
+              <div class="papersample" style="margin-top: 4px">
+                HDFC Bank: <mark>Rs.500.00</mark> debited from a/c XX<mark>1234</mark> on
+                <mark>15-Aug-26</mark> to VPA <mark>merchant@ybl</mark> (UPI Ref No
+                <mark>123456789012</mark>).
+              </div>
+            </div>
+          </div>
+          <div class="icononly">
+            <i class="ti ti-copy" title="Copy regex"></i>
+            <i class="ti ti-pencil" title="Edit"></i>
+            <i class="ti ti-eye-off" title="Disable"></i>
+            <i class="ti ti-trash" title="Remove" style="color: var(--danger)"></i>
+          </div>
+        </div>
+      </div>
+      <div class="heightlabel">Collapsed: ~30px (no pills at all) · Expanded: ~110px, one highlight color, no chips</div>
+    </div>
+
+    <div class="sectionhead" style="margin-top: 20px">
+      <p>
+        The other states this icon language needs to cover — kind (official/modified/draft) shown as a small
+        icon right before the label instead of a pill; disabled shown as the whole row dimmed, same as today.
+      </p>
+    </div>
+    <div style="max-width: 420px; margin: 0 auto 40px; padding: 0 16px; display: flex; flex-direction: column; gap: 6px">
+      <div class="papercard-v2">
+        <div class="crow">
+          <i class="chev ti ti-chevron-right"></i>
+          <i class="kindicon ti ti-pencil" title="Modified from official" style="color: var(--amber)"></i>
+          <b>Template 2</b><span class="era">08-15</span><span class="spacer"></span
+          ><i class="statusicon ti ti-circle-check" title="Parsed" style="color: var(--primary)"></i>
+        </div>
+      </div>
+      <div class="papercard-v2">
+        <div class="crow">
+          <i class="chev ti ti-chevron-right"></i>
+          <i class="kindicon ti ti-flask" title="Draft — session only" style="color: var(--blue)"></i>
+          <b>Template 3</b><span class="era">draft, 2026-08-18</span><span class="spacer"></span
+          ><i class="statusicon ti ti-alert-triangle" title="No match" style="color: var(--amber)"></i>
+        </div>
+      </div>
+      <div class="papercard-v2" style="opacity: 0.55">
+        <div class="crow">
+          <i class="chev ti ti-chevron-right"></i>
+          <b>Template 4</b><span class="era">08-15</span><span class="spacer"></span
+          ><i class="statusicon ti ti-eye-off" title="Disabled" style="color: var(--text3)"></i>
+        </div>
+      </div>
+      <div class="papercard-v2">
+        <div class="crow">
+          <i class="chev ti ti-chevron-right"></i>
+          <b>Template 5</b><span class="era">08-15</span><span class="spacer"></span
+          ><i class="statusicon ti ti-minus" title="No sample on file yet" style="color: var(--text3)"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectionhead" style="margin-top: 8px">
+      <h2><span class="stepno">2b</span> Chosen — (4) + (5), with two touch-ups</h2>
+      <p>
+        Collapsed row matches what option 5 actually did: the regex itself (truncated to one line) plus Copy
+        and Edit icons sit right in the row — no click needed for the two most common actions. Expanding
+        (click the row, or the chevron) reveals the same side-by-side regex | sample as §2. Two touch-ups from
+        the first pass, both applied below: <b>(1)</b> solid paper-card chrome, same as §2 — not the
+        transparent/borderless row the first pass had; <b>(2)</b> every field gets its own distinct color, and
+        that color is now always the same one on both the regex side and the sample side (the first pass had
+        this backwards — it highlighted everything in one flat color instead of color-coding per field). Field
+        chips still gone — the color pairing now does that job.
+      </p>
+    </div>
+    <div class="cardstack" style="max-width: 420px; margin: 0 auto 24px; padding: 0 16px">
+      <div class="papercard-v2">
+        <div class="crow densehead" id="flatHeader">
+          <i class="chev ti ti-chevron-right" id="flatChev"></i>
+          <b>Template 1</b>
+          <span class="era">08-15</span>
+          <span class="flatregex" title="Rs\.?\s?(?&lt;amount&gt;[\d,]+\.?\d*)\s+debited from a\/c\s+X+(?&lt;acctLast4&gt;\d{3,6})\s+on\s+(?&lt;dateStr&gt;\d{2}-[A-Za-z]{3}-\d{2})\s+to\s+VPA\s+(?&lt;counterparty&gt;[\w.@-]+)\s+\(UPI Ref No\s+(?&lt;ref&gt;\d+)\)">Rs\.?\s?(?&lt;amount&gt;[\d,]+\.?\d*)\s+debited from a\/c\s+X+(?&lt;acctLast4&gt;\d{3,6})\s+on…</span>
+          <i class="ti ti-copy" title="Copy regex" onclick="event.stopPropagation()"></i>
+          <i class="ti ti-pencil" title="Edit" onclick="event.stopPropagation()"></i>
+          <i class="statusicon ti ti-circle-check" title="Parsed" style="color: var(--primary)"></i>
+        </div>
+        <div class="cbody" id="flatBody" style="display: none">
+          <div class="twocol">
+            <div>
+              <div class="minilabel">Regex</div>
+              <div class="paperregex" style="margin-top: 4px">
+                Rs\.?\s?(?&lt;<mark>amount</mark>&gt;[\d,]+\.?\d*)\s+debited from a\/c\s+X+(?&lt;<mark class="f2"
+                  >acctLast4</mark
+                >&gt;\d{3,6})\s+on\s+(?&lt;<mark class="f6">dateStr</mark>&gt;\d{2}-[A-Za-z]{3}-\d{2})\s+to\s+VPA\s+(?&lt;<mark
+                  class="f3"
+                  >counterparty</mark
+                >&gt;[\w.@-]+)\s+\(UPI Ref No\s+(?&lt;<mark class="f4">ref</mark>&gt;\d+)\)
+              </div>
+            </div>
+            <div>
+              <div class="minilabel">Sample</div>
+              <div class="papersample" style="margin-top: 4px">
+                HDFC Bank: <mark>Rs.500.00</mark> debited from a/c XX<mark class="f2">1234</mark> on
+                <mark class="f6">15-Aug-26</mark> to VPA <mark class="f3">merchant@ybl</mark> (UPI Ref No
+                <mark class="f4">123456789012</mark>).
+              </div>
+            </div>
+          </div>
+          <div class="icononly">
+            <i class="ti ti-eye-off" title="Disable"></i>
+            <i class="ti ti-trash" title="Remove" style="color: var(--danger)"></i>
+          </div>
+        </div>
+      </div>
+      <div class="papercard-v2">
+        <div class="crow densehead" style="cursor: default">
+          <i class="chev ti ti-chevron-right"></i>
+          <i class="kindicon ti ti-pencil" title="Modified from official" style="color: var(--amber)"></i>
+          <b>Template 2</b><span class="era">08-15</span>
+          <span class="flatregex" title="Rs\.?\s?(?&lt;amount&gt;[\d,]+\.?\d*)\s+debited from a\/c\s+ending\s+(?&lt;acctLast4&gt;\d{3,6})">Rs\.?\s?(?&lt;amount&gt;[\d,]+\.?\d*)\s+debited from a\/c\s+ending…</span>
+          <i class="ti ti-copy" title="Copy regex"></i>
+          <i class="ti ti-pencil" title="Edit"></i>
+          <i class="statusicon ti ti-circle-check" title="Parsed" style="color: var(--primary)"></i>
+        </div>
+      </div>
+      <div class="papercard-v2">
+        <div class="crow densehead" style="cursor: default">
+          <i class="chev ti ti-chevron-right"></i>
+          <i class="kindicon ti ti-flask" title="Draft — session only" style="color: var(--blue)"></i>
+          <b>Template 3</b><span class="era">draft, 2026-08-18</span>
+          <span class="flatregex" title="INR\s(?&lt;amount&gt;[\d,]+)\swithdrawn">INR\s(?&lt;amount&gt;[\d,]+)\swithdrawn…</span>
+          <i class="ti ti-copy" title="Copy regex"></i>
+          <i class="ti ti-pencil" title="Edit"></i>
+          <i class="statusicon ti ti-alert-triangle" title="No match" style="color: var(--amber)"></i>
+        </div>
+      </div>
+      <div class="heightlabel">Collapsed: ~30px, solid card, regex + copy/edit inline · Expanded: ~110px, each field's own color, matched on both sides, no chips</div>
+    </div>
+
+    <div class="sectionhead" id="senders">
+      <h2><span class="stepno">3</span> Compact sender cards + Included/Excluded groups</h2>
+      <p>Cards shrunk to a single row each (sender · category · count · action) — same info as before, far less height. Two collapsible groups, Excluded collapsed by default per your ask.</p>
+    </div>
+    <div class="gallery3">
+      <div class="sendergroup">
+        <div class="grouphead included" id="incHead"><i class="ti ti-chevron-down"></i> Included <span class="cnt">2</span></div>
+        <div id="incBody">
+          <div class="sendercard-compact"><span class="sid">VM-HDFCBK-T</span><span class="catpill T">T</span><span class="scnt">812 messages</span><span class="sact excl">Exclude</span></div>
+          <div class="sendercard-compact"><span class="sid">AD-HDFCBK-S</span><span class="catpill S">S</span><span class="scnt">340 messages</span><span class="sact excl">Exclude</span></div>
+        </div>
+      </div>
+      <div class="sendergroup">
+        <div class="grouphead excluded" id="exclHead"><i class="ti ti-chevron-right"></i> Excluded <span class="cnt">2</span></div>
+        <div id="exclBody" style="display:none">
+          <div class="sendercard-compact excluded"><span class="sid">VK-HDFCPR-P</span><span class="catpill P">P</span><span class="scnt">610 messages · 🤖 auto</span><span class="sact">Include</span></div>
+          <div class="sendercard-compact excluded"><span class="sid">BZ-KYCUPD-S</span><span class="catpill S">S</span><span class="scnt">34 messages · by you</span><span class="sact">Include</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>Decided:</b> §2b (with the two touch-ups above) for the template card, and §3's compact sender cards
+      with collapsible Included/Excluded groups. One open question left before I start porting this into the
+      real tool: should the Included/Excluded split in §3 scope to this whole page (Bulk test), or per bank as
+      originally designed in v1? Let me know and I'll move to implementing in `entry.ts`/`state.ts`.
+    </div>
+
+    <script>
+      // Section 1 — resizable vertical split
+      const paneTop = document.getElementById('paneTop');
+      const vsplit = document.getElementById('vsplit');
+      let startY = 0, startH = 0;
+      vsplit.addEventListener('mousedown', (e) => {
+        startY = e.clientY;
+        startH = paneTop.getBoundingClientRect().height;
+        vsplit.classList.add('active');
+        function onMove(ev) {
+          const next = Math.min(480, Math.max(80, startH + (ev.clientY - startY)));
+          paneTop.style.height = next + 'px';
+        }
+        function onUp() {
+          vsplit.classList.remove('active');
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        e.preventDefault();
+      });
+
+      // Section 2 — combined design (1+4+5): accordion toggle
+      document.getElementById('combinedHeader').addEventListener('click', () => {
+        const body = document.getElementById('combinedBody');
+        const chev = document.getElementById('combinedChev');
+        const open = body.style.display !== 'none';
+        body.style.display = open ? 'none' : 'block';
+        chev.className = 'chev ti ti-chevron-' + (open ? 'right' : 'down');
+      });
+
+      // Section 2b — alternative combined design (4+5): flat row, no card chrome
+      document.getElementById('flatHeader').addEventListener('click', () => {
+        const body = document.getElementById('flatBody');
+        const chev = document.getElementById('flatChev');
+        const open = body.style.display !== 'none';
+        body.style.display = open ? 'none' : 'block';
+        chev.className = 'chev ti ti-chevron-' + (open ? 'right' : 'down');
+      });
+
+      // Section 3 — Included/Excluded collapse
+      document.getElementById('incHead').addEventListener('click', function () {
+        const body = document.getElementById('incBody');
+        const open = body.style.display !== 'none';
+        body.style.display = open ? 'none' : 'block';
+        this.querySelector('i').className = 'ti ti-chevron-' + (open ? 'right' : 'down');
+      });
+      document.getElementById('exclHead').addEventListener('click', function () {
+        const body = document.getElementById('exclBody');
+        const open = body.style.display !== 'none';
+        body.style.display = open ? 'none' : 'block';
+        this.querySelector('i').className = 'ti ti-chevron-' + (open ? 'right' : 'down');
+      });
+    </script>
+  </body>
+</html>

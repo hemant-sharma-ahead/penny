@@ -154,8 +154,37 @@
         flex-shrink: 0;
         background: #f8f6f0;
         border-left: 1px solid var(--border);
-        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      /* Right panel's own internal Templates/Senders split (2026-08-18) — each pane scrolls
+         independently; `.rightpane-top`'s height is set inline (dragged via `.rightsplit-handle`, see
+         `makeVerticalResizeHandle()` in entry.ts). `.rightpane-single` is Bulk test's case: no split at
+         all, since there's no "current bank" to show Templates for. */
+      .rightpane-top,
+      .rightpane-bottom,
+      .rightpane-single {
         overflow: auto;
+        padding: 14px;
+      }
+      .rightpane-top {
+        flex-shrink: 0;
+      }
+      .rightpane-bottom,
+      .rightpane-single {
+        flex: 1;
+        min-height: 0;
+      }
+      .rightsplit-handle {
+        height: 5px;
+        flex-shrink: 0;
+        cursor: row-resize;
+        background: transparent;
+      }
+      .rightsplit-handle:hover,
+      .rightsplit-handle.active {
+        background: var(--blue-bg);
       }
 
       /* Draggable divider — resizes the adjacent panel (see `makeResizeHandle()` in entry.ts). A thin
@@ -257,22 +286,6 @@
       .minipill.modified {
         background: var(--amber-bg);
         color: var(--amber);
-      }
-      .minipill.official {
-        background: #f1f3f5;
-        color: var(--text2);
-      }
-      .minipill.pass {
-        background: var(--primary-bg);
-        color: var(--primary);
-      }
-      .minipill.warn {
-        background: var(--amber-bg);
-        color: var(--amber);
-      }
-      .minipill.disabled {
-        background: var(--danger-bg);
-        color: var(--danger);
       }
       .newbankrow {
         display: flex;
@@ -441,58 +454,9 @@
         transition: width 0.12s linear;
       }
 
-      /* "Senders in this batch" summary — the drill-down entry point (click a sender, or "View all", to
-         filter the table to just its rows) plus per-sender Exclude/Include. */
-      .senderstrip-label {
-        font-size: 9.5px;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--text3);
-        margin: 0 0 8px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-      .senderstrip {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 14px;
-      }
-      .sendercard {
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 8px 10px;
-        min-width: 168px;
-        background: #fafbfc;
-      }
-      .sendercard.excluded {
-        opacity: 0.6;
-        background: var(--danger-bg);
-        border-color: #f6c8c8;
-      }
-      .sendercard .top {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        margin-bottom: 4px;
-      }
-      .sendercard .senderid {
-        font-family: ui-monospace, Menlo, monospace;
-        font-size: 10.5px;
-        font-weight: 700;
-        cursor: pointer;
-        flex: 1;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .sendercard .senderid:hover {
-        color: var(--primary);
-        text-decoration: underline;
-      }
+      /* "Senders in this test" — relocated into the right panel 2026-08-18 (see `renderSendersSection()`
+         in entry.ts), compact single-row cards grouped into collapsible Included/Excluded sections so
+         many senders fit without the height the old bigger cards needed. */
       .catpill {
         font-size: 8px;
         font-weight: 800;
@@ -520,34 +484,101 @@
         background: #f1f3f5;
         color: var(--text3);
       }
-      .sendercard .meta {
-        font-size: 9.5px;
-        color: var(--text2);
-        margin-bottom: 6px;
+      .sendergroup {
+        margin-bottom: 10px;
       }
-      .sendercard .excludetag {
-        font-size: 8.5px;
-        color: var(--danger);
-        font-weight: 700;
-        margin-bottom: 6px;
-      }
-      .sendercard .actions {
+      .grouphead {
         display: flex;
-        gap: 8px;
-      }
-      .sendercard .actions span {
+        align-items: center;
+        gap: 6px;
         font-size: 9.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text3);
+        cursor: pointer;
+        padding: 5px 2px;
+      }
+      .grouphead.included {
+        color: var(--primary);
+      }
+      .grouphead.excluded {
+        color: var(--danger);
+      }
+      .grouphead .cnt {
+        font-size: 9px;
+        font-weight: 700;
+        background: #f1f3f5;
+        padding: 1px 6px;
+        border-radius: 999px;
+        margin-left: 2px;
+        text-transform: none;
+      }
+      .sendercard-compact {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 5px 8px;
+        margin-bottom: 4px;
+        background: #fafbfc;
+        font-size: 10px;
+      }
+      .sendercard-compact.excluded {
+        background: var(--danger-bg);
+        border-color: #f6c8c8;
+        opacity: 0.75;
+      }
+      .sendercard-compact .sid {
+        font-family: ui-monospace, Menlo, monospace;
         font-weight: 700;
         cursor: pointer;
+        flex-shrink: 0;
+        max-width: 40%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
-      .sendercard .actions .view {
-        color: var(--blue);
+      .sendercard-compact .sid:hover {
+        color: var(--primary);
+        text-decoration: underline;
       }
-      .sendercard .actions .exclude {
+      .sendercard-compact .scnt {
+        color: var(--text3);
+        font-size: 9px;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .sendercard-compact .sact {
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--danger);
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .sendercard-compact .sact.excl {
         color: var(--danger);
       }
-      .sendercard .actions .include {
+      /* Non-`.excl` = "Include" (the sender is currently excluded, clicking reverts it) */
+      .sendercard-compact .sact:not(.excl) {
         color: var(--primary);
+      }
+      .othertoggle {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--text3);
+        cursor: pointer;
+        padding: 6px 2px;
+      }
+      .othertoggle:hover {
+        color: var(--text2);
+      }
+      .othersenders {
+        margin-top: 4px;
       }
 
       /* Summary stat strip — doubles as the outcome filter (click a card to filter to it) */
@@ -930,33 +961,84 @@
         font-size: 9.5px;
         margin-right: 3px;
       }
-      .papercard {
+      /* Template card (chosen design, 2026-08-18: accordion + side-by-side + icons, see
+         docs/mockups/proposals/sms-verifier-senders-in-right-panel-v2.html §2b) — collapsed by default,
+         solid paper-card chrome (not transparent), regex itself + Copy/Edit inline in the header, no text
+         pills anywhere (kind/status are icons only). */
+      .tplcard {
         background: #fffefb;
         border: 1px solid #e8e2d0;
         border-radius: 8px;
-        padding: 11px 12px;
-        margin-bottom: 10px;
+        padding: 8px 10px;
+        margin-bottom: 8px;
         box-shadow: 0 2px 6px rgba(120, 100, 40, 0.06);
       }
-      .papercard.disabled {
+      .tplcard.disabled {
         opacity: 0.55;
       }
-      .papercard .ptop {
+      .tplhead {
         display: flex;
         align-items: center;
-        gap: 6px;
-        margin-bottom: 7px;
-        flex-wrap: wrap;
+        gap: 7px;
+        cursor: pointer;
       }
-      .papercard .ptop b {
+      .tplhead b {
         font-size: 11px;
+        color: var(--text);
       }
-      .papercard .ptop .era {
+      .tplhead .era {
         font-size: 9.5px;
         color: var(--text3);
       }
-      .papercard .ptop .spacer {
+      .tplchev {
+        color: var(--text3);
+        font-size: 12px;
+      }
+      .tplkindicon {
+        font-size: 12px;
+      }
+      .tplstatusicon {
+        font-size: 15px;
+        cursor: default;
+      }
+      .tplregex-inline {
         flex: 1;
+        min-width: 0;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 9px;
+        color: var(--text3);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: default;
+      }
+      .tplhead .tpliconbtn {
+        color: var(--text3);
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .tplhead .tpliconbtn:hover {
+        color: var(--primary);
+      }
+      .tplbody {
+        margin-top: 8px;
+        cursor: default;
+      }
+      .tplactions {
+        display: flex;
+        gap: 12px;
+        margin-top: 8px;
+      }
+      .tplactions i {
+        color: var(--text3);
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .tplactions i:hover {
+        color: var(--primary);
+      }
+      .tplactions i.danger {
+        color: var(--danger);
       }
       .paperregex {
         font-family: ui-monospace, Menlo, monospace;
@@ -1030,51 +1112,24 @@
         background: var(--teal-bg);
         color: var(--teal);
       }
-      .fields {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 5px;
-        margin-bottom: 8px;
-      }
-      .fchip {
-        font-size: 9.5px;
-        background: #f4f0e4;
-        border: 1px solid #e8e2d0;
-        border-radius: 6px;
-        padding: 3px 7px;
-        color: #6b6250;
-        font-family: ui-monospace, Menlo, monospace;
-      }
-      .fchip b {
-        color: var(--text);
-      }
-      .fchip.f2 b {
-        color: var(--blue);
-      }
-      .fchip.f3 b {
-        color: var(--pink);
-      }
-      .fchip.f4 b {
-        color: var(--amber);
-      }
-      .fchip.f5 b {
-        color: var(--violet);
-      }
-      .fchip.f6 b {
-        color: var(--teal);
-      }
-      .paperactions {
-        display: flex;
-        gap: 12px;
-      }
       .paperlink {
         font-size: 9.5px;
         color: var(--blue);
         cursor: pointer;
         font-weight: 700;
       }
-      .paperlink.danger {
-        color: var(--danger);
+      .removedrow {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        background: var(--danger-bg);
+        border: 1px dashed #f0b8b8;
+        border-radius: 8px;
+        padding: 8px 10px;
+        margin-bottom: 10px;
+      }
+      .removedrow .paperlink {
+        font-size: 9.5px;
       }
       .addtplbtn {
         border: 1px dashed #d8d0b8;
