@@ -16,7 +16,7 @@ export interface ParsedSmsCandidate {
   transactionType: SmsTransactionType;
   direction: 'debit' | 'credit';
   amount: number;
-  /** Resolved transaction date — the template's own captured `dateStr` if present and parseable,
+  /** Resolved transaction date — the template's own captured `date` group if present and parseable,
    *  else `receivedAt` (plan §5/§8). */
   date: number;
   accountLast4?: string | undefined;
@@ -42,8 +42,12 @@ export type SmsParseOutcome =
   | { kind: 'excluded_otp' };
 
 /** Named capture groups `smsParser.ts` looks for — kept as a literal union (not just `string`) so
- *  `SmsTemplateTraceEntry.captureRanges`' keys are typed precisely. */
-export type SmsCaptureGroupName = 'amount' | 'acctLast4' | 'cardLast4' | 'counterparty' | 'ref' | 'balance' | 'dateStr';
+ *  `SmsTemplateTraceEntry.captureRanges`' keys are typed precisely. Named to match the verified
+ *  real-world regex source's own convention (`account`/`card`/`reference`/`date`, 2026-08-18),
+ *  not `ParsedSmsCandidate`'s own field names — the two are deliberately decoupled (see the
+ *  explicit mapping in `traceSms()` below), so this rename doesn't touch `ParsedSmsCandidate` or
+ *  any of its consumers. */
+export type SmsCaptureGroupName = 'amount' | 'account' | 'card' | 'counterparty' | 'reference' | 'balance' | 'date';
 
 /** One template's attempt against a single message — the unit `traceSms()` records one of per
  *  template belonging to a sender-matched bank (2026-08-16, SMS parser verifier tool §2/§3: "there's
@@ -123,12 +127,12 @@ function parseAmount(raw: string): number {
  *  extracted or highlighted in production either. */
 export const CAPTURE_GROUP_NAMES: SmsCaptureGroupName[] = [
   'amount',
-  'acctLast4',
-  'cardLast4',
+  'account',
+  'card',
   'counterparty',
-  'ref',
+  'reference',
   'balance',
-  'dateStr'
+  'date'
 ];
 
 /** Full per-template diagnostic trace against `bundle` — the single implementation both `parseSms()`
@@ -183,8 +187,8 @@ export function traceSms(sender: string, body: string, receivedAt: number, bundl
 
       if (matched && m?.groups) {
         let date = receivedAt;
-        if (m.groups.dateStr && template.dateFormat) {
-          const parsed = parseStatementDate(m.groups.dateStr, template.dateFormat);
+        if (m.groups.date && template.dateFormat) {
+          const parsed = parseStatementDate(m.groups.date, template.dateFormat);
           if (parsed !== null) date = parsed;
         }
         candidate = {
@@ -193,10 +197,10 @@ export function traceSms(sender: string, body: string, receivedAt: number, bundl
           direction: DIRECTION_BY_TYPE[template.transactionType],
           amount,
           date,
-          accountLast4: m.groups.acctLast4,
-          cardLast4: m.groups.cardLast4,
+          accountLast4: m.groups.account,
+          cardLast4: m.groups.card,
           counterparty: m.groups.counterparty?.trim(),
-          referenceNumber: m.groups.ref,
+          referenceNumber: m.groups.reference,
           balance: m.groups.balance ? parseAmount(m.groups.balance) : undefined
         };
         const indexGroups = m.indices?.groups;

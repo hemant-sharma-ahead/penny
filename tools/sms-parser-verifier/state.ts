@@ -42,13 +42,15 @@ export interface SessionState {
    *  actually run against) but still shown, dimmed, in the right panel's reference cards so re-enabling
    *  is one click, not a re-add. bankId -> disabled indices. */
   disabledTemplates: Record<string, number[]>;
-  /** The message a tester last tested a template against, from the template modal's own test box —
-   *  persisted so the right panel's reference card can show a real sample (highlighted, with the
-   *  matched/no-match pill) for a session-added template, which otherwise has no official sample at all.
-   *  Also lets a tester's own edited/replacement sample stick for an OFFICIAL template, rather than only
-   *  living for the lifetime of that one modal session. Same effective-index addressing as `overrides`/
-   *  `disabledTemplates`. bankId -> { [effectiveIndex]: sample }. */
-  draftSamples: Record<string, Record<number, { sender: string; body: string }>>;
+  /** Every test message a tester has saved against a template, from the template modal's own samples
+   *  list — persisted so the right panel's reference card can show real sample(s) (highlighted, with a
+   *  matched/no-match pill each, cycled via a small pager once there's more than one) for a session-added
+   *  template, which otherwise has no official sample at all. Also lets a tester correct/replace an
+   *  OFFICIAL template's own sample, or add MORE samples alongside it — one regex can genuinely match
+   *  several differently-worded real messages, and one saved sample can't confirm that (2026-08-18). Same
+   *  effective-index addressing as `overrides`/`disabledTemplates`. bankId -> { [effectiveIndex]:
+   *  samples[] }. Was a single `{sender,body}` before 2026-08-18 — `loadSession()` migrates that shape. */
+  draftSamples: Record<string, Record<number, { sender: string; body: string }[]>>;
   /** Common-pattern snippets a tester has added themselves, appended after `BUILTIN_SNIPPETS` in the
    *  regex helper panel — additive only, same convention as `newTemplates`. */
   customSnippets: CommonSnippet[];
@@ -102,6 +104,23 @@ function emptySession(): SessionState {
   };
 }
 
+/** `draftSamples` was a single `{sender,body}` per template before 2026-08-18 — wraps any old-shaped
+ *  entry (a plain object, not an array) in a one-item array so an existing tester's session doesn't just
+ *  silently lose its one saved sample the first time they open the tool after this change. */
+function migrateDraftSamples(raw: unknown): Record<string, Record<number, { sender: string; body: string }[]>> {
+  const result: Record<string, Record<number, { sender: string; body: string }[]>> = {};
+  if (!raw || typeof raw !== 'object') return result;
+  for (const [bankId, byIndex] of Object.entries(raw as Record<string, unknown>)) {
+    if (!byIndex || typeof byIndex !== 'object') continue;
+    result[bankId] = {};
+    for (const [indexStr, value] of Object.entries(byIndex as Record<string, unknown>)) {
+      if (!value) continue;
+      result[bankId][Number(indexStr)] = Array.isArray(value) ? value : [value as { sender: string; body: string }];
+    }
+  }
+  return result;
+}
+
 function loadSession(): SessionState {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
@@ -113,7 +132,7 @@ function loadSession(): SessionState {
       newTemplates: parsed.newTemplates ?? {},
       overrides: parsed.overrides ?? {},
       disabledTemplates: parsed.disabledTemplates ?? {},
-      draftSamples: parsed.draftSamples ?? {},
+      draftSamples: migrateDraftSamples(parsed.draftSamples),
       customSnippets: parsed.customSnippets ?? [],
       snippetOverrides: parsed.snippetOverrides ?? {},
       excludedSenders: parsed.excludedSenders ?? [],
@@ -212,17 +231,19 @@ export function restoreTemplate(bankId: string, index: number): void {
   saveSession();
 }
 
-export function getDraftSample(bankId: string, index: number): { sender: string; body: string } | undefined {
-  return session.draftSamples[bankId]?.[index];
+export function getDraftSamples(bankId: string, index: number): { sender: string; body: string }[] {
+  return session.draftSamples[bankId]?.[index] ?? [];
 }
 
-/** Called from the template modal's Save action whenever a test message was actually provided — this is
- *  what makes a session-added template show a real reference sample (highlighted, with its own
- *  matched/no-match pill) in the right panel afterward, instead of "no sample on file." Also lets an
- *  edited/replacement sample for an OFFICIAL template stick beyond that one modal session. */
-export function setDraftSample(bankId: string, index: number, sample: { sender: string; body: string }): void {
+/** Called from the template modal's Save action whenever at least one non-blank test sample was provided
+ *  — this is what makes a session-added template show real reference sample(s) (highlighted, with their
+ *  own matched/no-match pill) in the right panel afterward, instead of "no sample on file." Also lets a
+ *  tester correct/replace an OFFICIAL template's own sample, or save several alongside it. Replaces the
+ *  WHOLE saved list for this template with `samples` (the modal always passes its complete current list,
+ *  not a single addition) — blank entries are the caller's job to filter out before calling this. */
+export function setDraftSamples(bankId: string, index: number, samples: { sender: string; body: string }[]): void {
   session.draftSamples[bankId] ??= {};
-  session.draftSamples[bankId][index] = sample;
+  session.draftSamples[bankId][index] = samples;
   saveSession();
 }
 
@@ -368,7 +389,10 @@ export function isSenderExcluded(sender: string): boolean {
   return isAutoExcludedCategory(sender) && !isAutoExcludeOverridden(sender);
 }
 
-function messageKey(sender: string, body: string): string {
+// Exported so the results table's row checkboxes (bulk-exclude, 2026-08-18) can key their own
+// `selectedKeys` set identically to how `excludeMessage()`/`includeMessage()`/`isMessageExcluded()`
+// already do — one canonical "identity" for a message, not two independent ones that could drift.
+export function messageKey(sender: string, body: string): string {
   return `${sender}::${body}`;
 }
 export function isMessageExcluded(sender: string, body: string): boolean {
@@ -424,6 +448,10 @@ export interface SenderSummary {
   sender: string;
   bankLabel: string;
   count: number;
+  /** How many of `count` structurally parsed (`outcomeFilterKind() === 'parsed'`) — deliberately the pure
+   *  trace-based outcome, not `effectiveOutcomeKind()`, so excluding a sender/message doesn't make an
+   *  otherwise-genuinely-parsed message stop counting as parsed here. */
+  parsedCount: number;
   category: SmsSenderCategory;
   excluded: boolean;
   /** True only when the CURRENT exclusion comes from the automatic −P/−G classification (not a manual
@@ -449,6 +477,7 @@ export function summarizeSenders(results: TestResult[]): SenderSummary[] {
         sender,
         bankLabel: bankId ? bankId.toUpperCase() : '—',
         count: rows.length,
+        parsedCount: rows.filter((r) => outcomeFilterKind(r.trace) === 'parsed').length,
         category: senderCategory(sender),
         excluded: isSenderExcluded(sender),
         autoExcluded:
@@ -469,9 +498,23 @@ export interface ResultsTableState {
    *  table, pagination) stays hidden until then, rather than showing an empty "Nothing tested yet" table
    *  before the tester has done anything. */
   hasRun: boolean;
+  /** Rows checked for the bulk Exclude/Include action bar (2026-08-18) — keyed by the same
+   *  `` `${sender}::${body}` `` message key `excludeMessage()`/`includeMessage()` already use, not by row
+   *  index, since index shifts with pagination/filtering/sorting and would silently "select" the wrong
+   *  row otherwise. Ephemeral, same lifecycle as `expandedIndex` — reset on every fresh test run. */
+  selectedKeys: Set<string>;
 }
 export function emptyResultsState(): ResultsTableState {
-  return { results: [], filter: 'all', search: '', expandedIndex: null, page: 1, pageSize: 100, hasRun: false };
+  return {
+    results: [],
+    filter: 'all',
+    search: '',
+    expandedIndex: null,
+    page: 1,
+    pageSize: 100,
+    hasRun: false,
+    selectedKeys: new Set()
+  };
 }
 
 export let bulkRaw = '';
@@ -544,6 +587,26 @@ export function setRightPaneTopHeight(px: number): void {
   rightPaneTopHeight = px;
 }
 
+/** The regex helper panel's own width inside the template add/edit modal (2026-08-18: was a fixed
+ *  260px — too narrow to read a longer snippet/example comfortably) — same "remembered across re-renders,
+ *  never persisted" convention as `rightPaneTopHeight` above, since the modal itself is rebuilt fresh
+ *  every time it's opened anyway (a stale width from a differently-sized template wouldn't mean much). */
+export let helperPanelWidth = 260;
+export function setHelperPanelWidth(px: number): void {
+  helperPanelWidth = px;
+}
+
+/** Which saved sample (index into `getDraftSamples()`'s array) a template's expanded card is currently
+ *  showing — the pager's own position. Ephemeral/per-card, defaults to the first sample; resets to 0 the
+ *  next time a card is collapsed and re-expanded (not worth persisting beyond that). */
+const activeSampleIndex = new Map<string, number>();
+export function getActiveSampleIndex(bankId: string, index: number): number {
+  return activeSampleIndex.get(templateCardKey(bankId, index)) ?? 0;
+}
+export function setActiveSampleIndex(bankId: string, index: number, sampleIndex: number): void {
+  activeSampleIndex.set(templateCardKey(bankId, index), sampleIndex);
+}
+
 // ── Common-pattern snippet library — the regex helper panel's "insert at cursor" list, editable/
 // extendable per session (never mutates the curated defaults below; overrides/additions are additive,
 // same convention as templates/sender patterns) ─────────────────────────────────────────────────────────
@@ -551,20 +614,47 @@ export function setRightPaneTopHeight(px: number): void {
 export interface CommonSnippet {
   label: string;
   snippet: string;
+  /** A real "matches X in Y" example — required for every built-in (authored below), optional for a
+   *  tester's own custom snippet (asking them to always write one would be friction for a quick add). */
+  example?: string;
 }
 
 /** Curated defaults, grounded in the real, already-shipped `smsPatterns.ts` — not invented. Session
  *  edits never mutate this array; see `snippetOverrides`/`customSnippets` above. */
 export const BUILTIN_SNIPPETS: CommonSnippet[] = [
-  { label: 'amount', snippet: 'Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)' },
-  { label: 'acctLast4', snippet: 'X+(?<acctLast4>\\d{3,6})' },
-  { label: 'cardLast4', snippet: 'X(?<cardLast4>\\d{4})' },
-  { label: 'counterparty', snippet: '(?<counterparty>[\\w .@-]+)' },
-  { label: 'ref', snippet: '(?:UPI )?Ref(?:erence)?\\.?\\s*No\\.?\\s*(?<ref>\\d+)' },
-  { label: 'balance', snippet: 'Avl\\.?\\s*Bal\\.?\\s*Rs\\.?\\s?(?<balance>[\\d,]+\\.?\\d*)' },
-  { label: 'dateStr (DD-Mon-YY)', snippet: '(?<dateStr>\\d{2}-[A-Za-z]{3}-\\d{2})' },
-  { label: 'dateStr (DD/MM/YY)', snippet: '(?<dateStr>\\d{2}\\/\\d{2}\\/\\d{2})' },
-  { label: 'dateStr (DD-MM-YYYY)', snippet: '(?<dateStr>\\d{2}-\\d{2}-\\d{4})' }
+  { label: 'amount', snippet: 'Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)', example: '"Rs.500.00 debited..." → 500.00' },
+  { label: 'account', snippet: 'X+(?<account>\\d{3,6})', example: '"...a/c XX1234 on..." → 1234' },
+  { label: 'card', snippet: 'X(?<card>\\d{4})', example: '"...card XXXX4410 at..." → 4410' },
+  {
+    label: 'counterparty',
+    snippet: '(?<counterparty>[\\w .@-]+)',
+    example: '"...to VPA merchant@ybl (UPI..." → merchant@ybl'
+  },
+  {
+    label: 'reference',
+    snippet: '(?:UPI )?Ref(?:erence)?\\.?\\s*No\\.?\\s*(?<reference>\\d+)',
+    example: '"...(UPI Ref No 123456789012)" → 123456789012'
+  },
+  {
+    label: 'balance',
+    snippet: 'Avl\\.?\\s*Bal\\.?\\s*Rs\\.?\\s?(?<balance>[\\d,]+\\.?\\d*)',
+    example: '"Avl Bal Rs.10,482.50" → 10,482.50'
+  },
+  {
+    label: 'date (DD-Mon-YY)',
+    snippet: '(?<date>\\d{2}-[A-Za-z]{3}-\\d{2})',
+    example: '"...on 15-Aug-26 to..." → 15-Aug-26'
+  },
+  {
+    label: 'date (DD/MM/YY)',
+    snippet: '(?<date>\\d{2}\\/\\d{2}\\/\\d{2})',
+    example: '"...on 15/08/26." → 15/08/26'
+  },
+  {
+    label: 'date (DD-MM-YYYY)',
+    snippet: '(?<date>\\d{2}-\\d{2}-\\d{4})',
+    example: '"...on 15-08-2026" → 15-08-2026'
+  }
 ];
 
 /** Built-ins (with any session override applied) followed by session-added custom snippets — the one
@@ -573,6 +663,31 @@ export const BUILTIN_SNIPPETS: CommonSnippet[] = [
  *  `deleteCustomSnippet()`/`isSnippetModified()`/`isSnippetCustom()` all address. */
 export function effectiveSnippets(): CommonSnippet[] {
   return [...BUILTIN_SNIPPETS.map((s, i) => session.snippetOverrides[i] ?? s), ...session.customSnippets];
+}
+
+export interface SnippetUsageEntry {
+  bankId: string;
+  index: number;
+  /** `template.addedAt` — shown as "T{index+1} (label)", same format as the right panel's own card
+   *  header, so a tester recognizes it as the exact same template they'd find there. */
+  label: string;
+}
+
+/** Every template, across every bank, whose regex contains this snippet's exact text as a substring —
+ *  same "does pattern contain this fragment" check `findUncatalogedGroupPatterns()` already uses, just
+ *  run in the other direction (given a snippet, find its templates, rather than given a template, find
+ *  its uncatalogued snippets). Backs both the Common Patterns list's "Used in N templates" count and the
+ *  popup listing them (2026-08-18). */
+export function snippetUsage(snippet: CommonSnippet): SnippetUsageEntry[] {
+  if (!snippet.snippet.trim()) return [];
+  const bundle = effectiveBundle();
+  const entries: SnippetUsageEntry[] = [];
+  for (const bank of bundle.banks) {
+    bank.templates.forEach((t, index) => {
+      if (t.pattern.includes(snippet.snippet)) entries.push({ bankId: bank.bankId, index, label: t.addedAt });
+    });
+  }
+  return entries;
 }
 
 export function isSnippetCustom(effectiveIndex: number): boolean {

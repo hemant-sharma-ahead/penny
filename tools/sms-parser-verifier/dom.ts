@@ -22,6 +22,28 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
+/** Runs `rebuild()` — typically ending in a `container.replaceChildren(...)` that tears down and
+ *  recreates every child — while preserving focus and cursor position on a text input/textarea living
+ *  inside `container`. Without this, a live-filtered search box loses focus on its very first keystroke
+ *  (the old, focused `<input>` is destroyed and a new one takes its place, and the browser doesn't move
+ *  focus to it) — making it impossible to type more than one character without re-clicking into the box
+ *  each time. `matches` is a CSS selector specific enough to re-find "the same logical input" in the
+ *  freshly rebuilt DOM (e.g. `.toolsrow input`) — the actual element instance is necessarily a new one. */
+export function withFocusPreserved(container: HTMLElement, matches: string, rebuild: () => void): void {
+  const active = document.activeElement;
+  const hadFocus = active instanceof HTMLElement && container.contains(active) && active.matches(matches);
+  const input = hadFocus ? (active as HTMLInputElement | HTMLTextAreaElement) : null;
+  const selStart = input?.selectionStart ?? null;
+  const selEnd = input?.selectionEnd ?? null;
+  rebuild();
+  if (!hadFocus) return;
+  const restored = container.querySelector(matches);
+  if (restored instanceof HTMLInputElement || restored instanceof HTMLTextAreaElement) {
+    restored.focus();
+    if (selStart !== null && selEnd !== null) restored.setSelectionRange(selStart, selEnd);
+  }
+}
+
 function legacyCopy(text: string): void {
   try {
     const ta = document.createElement('textarea');

@@ -50,11 +50,11 @@ describe('processRawSmsCore', () => {
   });
 
   it('excludes a durably-excluded sender even when its body WOULD have structurally matched a real template', async () => {
-    // The exact current-era HDFC debit wording (see smsParser.test.ts) — proves exclusion wins over a
+    // A real, genuinely-matching HDFC wording (see smsParser.test.ts) — proves exclusion wins over a
     // genuine structural match, not just over an already-non-matching one.
     const ctx: ProcessRawSmsContext = { ...EMPTY_CTX, excludedSenders: ['VM-HDFCBK'] };
     const body =
-      'HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl (UPI Ref No 123456789012). Not you? Call 18002586161';
+      'Sent Rs.1288.15 From HDFC Bank A/C *1234 To IRCTC FULL TRAIN RESERVAT On 08/08/26 Ref 127584388992 Not You?';
     const record = await processRawSmsCore('VM-HDFCBK', body, RECEIVED, ctx);
     expect(record).toBeUndefined();
   });

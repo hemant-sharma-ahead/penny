@@ -2439,6 +2439,32 @@ gained the same split, though with different mechanics given their different sta
   dismisses that sender's currently-showing `'unparsed'` records (via the existing `dismissUnparsed`),
   so excluding clears the current batch immediately rather than only preventing future recurrence.
 
+**Follow-up — HDFC/IndusInd/HSBC real-world templates + capture-group schema rename (2026-08-18):**
+HDFC's 3 templates (previously synthetic) and IndusInd/HSBC's single invented templates were replaced
+with a verified real-world set (9/8/10 templates respectively), sourced from real, user-verified
+message wording. The provided regexes were kept as-given rather than "cleaned up" — every named group
+(currency, bank name, description, etc.) is preserved exactly as provided even where the schema
+doesn't read it, and `account`/`card` capture the FULL masked token each bank's SMS actually presents
+(e.g. IndusInd's `159***660960`), not a trimmed last-4-digit substring. This means
+`smsAccountMatch.ts`'s exact-string auto-linking won't match for these three banks' real messages — a
+known, accepted gap (`docs/features/sms-tracking.md`'s "Current limitations") rather than something
+patched around in the regex. Three HSBC wordings that captured `credited|debited` at match time were
+split into matched credit/debit template pairs, since `transactionType` is a fixed property per
+template here, not something derivable from a capture at runtime — extending the parser to support a
+capture-driven `transactionType` was considered and explicitly declined in favor of keeping the split.
+One genuine regex defect was fixed (not a stylistic change): HDFC's debit-card-alert wording was
+missing an optional `On ` that 2 of its own 4 real samples actually have.
+
+Separately, `SmsCaptureGroupName` (`smsParser.ts`) was renamed from `acctLast4`/`cardLast4`/`ref`/
+`dateStr` to `account`/`card`/`reference`/`date` — adopting the verified source's own naming
+convention as Penny's canonical schema, rather than renaming the provided regexes to fit Penny's
+prior names. This is a global rename (all 12 banks' templates, `CAPTURE_GROUP_NAMES`, the verifier
+tool's `GROUP_COLOR_CLASS`/`BUILTIN_SNIPPETS`/UI label text) — `ParsedSmsCandidate`'s own output field
+names (`accountLast4`, `cardLast4`, `referenceNumber`, `date`) are a separate, already-decoupled layer
+(explicitly mapped inside `traceSms()`) and were not touched, so no consumer of a parsed candidate
+needed any change. `workers/api-proxy/src/smsPatterns.ts` was updated identically (confirmed
+byte-identical `pattern` strings against the core file) and redeployed live.
+
 ---
 
 ## Dependency graph (simplified)

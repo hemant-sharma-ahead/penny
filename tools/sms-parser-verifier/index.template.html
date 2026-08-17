@@ -669,6 +669,54 @@
         color: var(--text3);
         width: 14px;
       }
+      table.rtable .selcell {
+        width: 18px;
+      }
+      table.rtable .selcell input,
+      table.rtable th.selcell input {
+        cursor: pointer;
+      }
+      /* Bulk-exclude action bar (2026-08-18) — appears once any row is checked. */
+      .bulkbar {
+        display: none;
+        align-items: center;
+        gap: 14px;
+        background: var(--amber-bg);
+        border: 1px solid #fcd9a0;
+        border-radius: 8px;
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .bulkbar.show {
+        display: flex;
+      }
+      .bulkbar .cnt {
+        color: var(--amber);
+      }
+      .bulkbtn {
+        font-size: 10.5px;
+        font-weight: 700;
+        cursor: pointer;
+        padding: 3px 9px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: var(--paper);
+      }
+      .bulkbtn.excl {
+        color: var(--danger);
+        border-color: #f6c8c8;
+      }
+      .bulkbtn.incl {
+        color: var(--primary);
+        border-color: #a7f3d0;
+      }
+      .bulkbtn.clear {
+        color: var(--text2);
+        margin-left: auto;
+      }
       table.rtable .sndcell {
         font-family: ui-monospace, Menlo, monospace;
         font-size: 10.5px;
@@ -986,10 +1034,6 @@
         font-size: 11px;
         color: var(--text);
       }
-      .tplhead .era {
-        font-size: 9.5px;
-        color: var(--text3);
-      }
       .tplchev {
         color: var(--text3);
         font-size: 12px;
@@ -1022,6 +1066,28 @@
       }
       .tplbody {
         margin-top: 8px;
+        cursor: default;
+      }
+      /* Multi-sample pager (2026-08-18) — only rendered when a template has 2+ saved samples. */
+      .samplepager {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 4px;
+        font-size: 9.5px;
+        font-weight: 700;
+        color: var(--text3);
+      }
+      .samplepager i {
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .samplepager i:hover {
+        color: var(--primary);
+      }
+      .samplepager i.disabled {
+        color: #d5d9de;
         cursor: default;
       }
       .tplactions {
@@ -1319,6 +1385,141 @@
         gap: 10px;
         margin-top: 10px;
       }
+      /* Multi-sample list inside the template modal (2026-08-18) — click a row to make it the active
+         sample being edited/previewed below; ✕ removes it (hidden when there's only one, so a template
+         always has at least one editable slot). */
+      .samplelist {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        margin-bottom: 8px;
+      }
+      .samplerow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 6px 9px;
+        cursor: pointer;
+        font-size: 10.5px;
+      }
+      .samplerow.active {
+        border-color: var(--primary);
+        background: var(--primary-bg);
+      }
+      .samplerow .snum {
+        font-weight: 800;
+        color: var(--text3);
+        flex-shrink: 0;
+      }
+      .samplerow.active .snum {
+        color: var(--primary);
+      }
+      .samplerow .ssnippet {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-family: ui-monospace, Menlo, monospace;
+        color: var(--text2);
+        font-size: 9.5px;
+      }
+      .samplerow .sx {
+        color: var(--text3);
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .samplerow .sx:hover {
+        color: var(--danger);
+      }
+      .addsamplebtn {
+        border: 1px dashed #d8d0b8;
+        border-radius: 7px;
+        padding: 7px;
+        text-align: center;
+        font-size: 10px;
+        color: var(--text2);
+        cursor: pointer;
+        margin-bottom: 4px;
+      }
+      .addsamplebtn:hover {
+        background: #fafbfc;
+      }
+
+      /* "Used in N templates" popup (2026-08-18) — a separate stacked overlay above `.modal-root`, NOT
+         part of the tool's single-modal system (see `showSnippetUsagePopup()`'s own doc comment). */
+      .usagepopup-backdrop {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: rgba(20, 25, 35, 0.4);
+        align-items: center;
+        justify-content: center;
+        z-index: 60;
+      }
+      .usagepopup-backdrop.active {
+        display: flex;
+      }
+      .usagepopup {
+        background: var(--paper);
+        border-radius: 12px;
+        width: 380px;
+        max-height: 60vh;
+        overflow: auto;
+        padding: 16px;
+      }
+      .usagepopup h4 {
+        margin: 0 0 4px;
+        font-size: 13px;
+      }
+      .usagepopup .sub {
+        font-size: 10px;
+        color: var(--text3);
+        margin-bottom: 10px;
+        font-family: ui-monospace, Menlo, monospace;
+        word-break: break-word;
+      }
+      .popuprow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 8px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        margin-bottom: 5px;
+        font-size: 11px;
+        cursor: pointer;
+      }
+      .popuprow:hover {
+        background: #fafbfc;
+        border-color: var(--primary);
+      }
+      .popuprow .bank {
+        margin-left: auto;
+        font-size: 9.5px;
+        font-weight: 800;
+        color: var(--text3);
+        text-transform: uppercase;
+      }
+      .popupclose {
+        text-align: right;
+        margin-top: 8px;
+      }
+      /* Drag to resize the helper panel's own width (2026-08-18) — same visual treatment as the app-level
+         `.resize-handle`/`.rightsplit-handle`, just col-resize since this one's horizontal. */
+      .helper-resize-handle {
+        width: 5px;
+        flex-shrink: 0;
+        cursor: col-resize;
+        background: transparent;
+        border-radius: 3px;
+      }
+      .helper-resize-handle:hover,
+      .helper-resize-handle.active {
+        background: var(--blue-bg);
+      }
       .helper {
         flex: 0 0 260px;
         background: #fafbfc;
@@ -1387,6 +1588,21 @@
         gap: 10px;
         padding: 0 6px 6px;
         margin-top: -4px;
+      }
+      .snippetexample {
+        font-size: 9px;
+        color: var(--text3);
+        padding: 0 6px;
+        margin: -3px 0 4px;
+      }
+      .usagelink {
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--blue);
+        cursor: pointer;
+      }
+      .usagelink:hover {
+        text-decoration: underline;
       }
       .snippet-editform {
         padding: 6px;

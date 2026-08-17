@@ -2,17 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { parseSms, traceSms, redactDigits } from '@/core/sms-import/smsParser';
 import { SMS_PATTERNS_FALLBACK } from '@/core/sms-import/smsPatterns';
 
-// Every sample below is entirely synthetic — fabricated names/numbers/references constructed to
-// match each bank's documented public SMS wording conventions, never real message text (see
-// docs/plans/sms-transaction-tracking.md's own "gate before native work" step: prove the parser
-// against a real spread of samples before touching anything native/Android).
+// Every OTHER bank's sample below is entirely synthetic — fabricated names/numbers/references
+// constructed to match each bank's documented public SMS wording conventions, never real message
+// text (see docs/plans/sms-transaction-tracking.md's own "gate before native work" step: prove the
+// parser against a real spread of samples before touching anything native/Android). HDFC/IndusInd/
+// HSBC are the exception (2026-08-18): their `describe` blocks below use real, user-verified message
+// wording (with the one real personal name/VPA that appeared in the source messages swapped for a
+// placeholder before this file was ever written — see `smsPatterns.ts`'s own HDFC-block comment for
+// the full rationale on the schema-fitting choices made converting these).
 const BUNDLE = SMS_PATTERNS_FALLBACK;
 const RECEIVED = new Date(2026, 7, 15, 10, 30).getTime(); // 15-Aug-2026, arbitrary receive time
 
-describe('parseSms — HDFC', () => {
-  it('parses a current-era UPI debit', () => {
+describe('parseSms — HDFC (real wording)', () => {
+  it('parses a real "Sent" UPI-style debit', () => {
     const body =
-      'HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl (UPI Ref No 123456789012). Not you? Call 18002586161';
+      'Sent Rs.1288.15 From HDFC Bank A/C *1234 To IRCTC FULL TRAIN RESERVAT On 08/08/26 Ref 127584388992 Not You?';
     const outcome = parseSms('VM-HDFCBK', body, RECEIVED, BUNDLE);
     expect(outcome.kind).toBe('parsed');
     if (outcome.kind !== 'parsed') return;
@@ -20,40 +24,40 @@ describe('parseSms — HDFC', () => {
       bankId: 'hdfc',
       transactionType: 'debit',
       direction: 'debit',
-      amount: 500,
-      accountLast4: '1234',
-      counterparty: 'merchant@ybl',
-      referenceNumber: '123456789012'
+      amount: 1288.15,
+      accountLast4: '*1234',
+      counterparty: 'IRCTC FULL TRAIN RESERVAT',
+      referenceNumber: '127584388992'
     });
-    expect(new Date(outcome.candidate.date).getFullYear()).toBe(2026);
-    expect(new Date(outcome.candidate.date).getMonth()).toBe(7); // August, 0-indexed
-    expect(new Date(outcome.candidate.date).getDate()).toBe(15);
   });
 
-  it('parses a current-era UPI credit', () => {
+  it('parses a real "Credit Alert!" UPI credit, with a correctly-resolved date', () => {
     const body =
-      'HDFC Bank: Rs.1,500.00 credited to a/c XX1234 on 15-Aug-26 by VPA sender@okhdfcbank (UPI Ref No 123456789013).';
+      'Credit Alert! Rs.3000.00 credited to HDFC Bank A/c xx1234 on 25-06-25 from VPA 9829172900@ptyes (UPI 287130386996)';
     const outcome = parseSms('AD-HDFCBK', body, RECEIVED, BUNDLE);
     expect(outcome.kind).toBe('parsed');
     if (outcome.kind !== 'parsed') return;
     expect(outcome.candidate.transactionType).toBe('credit');
     expect(outcome.candidate.direction).toBe('credit');
-    expect(outcome.candidate.amount).toBe(1500);
-    expect(outcome.candidate.counterparty).toBe('sender@okhdfcbank');
+    expect(outcome.candidate.amount).toBe(3000);
+    expect(outcome.candidate.counterparty).toBe('9829172900@ptyes');
+    expect(new Date(outcome.candidate.date).getFullYear()).toBe(2025);
+    expect(new Date(outcome.candidate.date).getMonth()).toBe(5); // June, 0-indexed
+    expect(new Date(outcome.candidate.date).getDate()).toBe(25);
   });
 
-  it('parses an older-era terser debit with no VPA/UPI ref', () => {
-    const body = 'Rs.500.00 debited from A/c No. XX1234 on 15/08/26. Info: ATM WDL. Avl Bal: Rs.10000.00-HDFC Bank';
+  it('parses a real debit-card spend alert as card_swipe', () => {
+    const body =
+      "Alert!You've spent Rs.1107.73 On HDFC Bank Debit Card xx1234 At _RAJAN AUTO CARE.. On 2023-12-04:09:35:53 Avl bal: 317190.91 Not you?";
     const outcome = parseSms('HDFCBK', body, RECEIVED, BUNDLE);
     expect(outcome.kind).toBe('parsed');
     if (outcome.kind !== 'parsed') return;
     expect(outcome.candidate).toMatchObject({
       bankId: 'hdfc',
-      transactionType: 'debit',
-      amount: 500,
-      accountLast4: '1234',
-      counterparty: 'ATM WDL',
-      balance: 10000
+      transactionType: 'card_swipe',
+      amount: 1107.73,
+      cardLast4: 'xx1234',
+      balance: 317190.91
     });
   });
 
@@ -190,12 +194,14 @@ describe('parseSms — Kotak', () => {
 });
 
 describe('parseSms — remaining current-era-only banks', () => {
-  it('parses IndusInd', () => {
-    const body = 'IndusInd Bank: Rs.400.00 debited from A/c X7788 on 15-08-26 UPI Ref123456789012 to merchant@indus';
+  it('parses IndusInd (real wording)', () => {
+    const body =
+      'INR 200,000.00 is debited from your A/C 159***660960 towards Cheque withdrawal. Avl BAL INR 1,995,939.64 - IndusInd Bank';
     const outcome = parseSms('VM-INDUSB', body, RECEIVED, BUNDLE);
     expect(outcome.kind).toBe('parsed');
     if (outcome.kind !== 'parsed') return;
     expect(outcome.candidate.bankId).toBe('indusind');
+    expect(outcome.candidate.accountLast4).toBe('159***660960');
   });
 
   it('parses Bank of Baroda', () => {
@@ -206,12 +212,14 @@ describe('parseSms — remaining current-era-only banks', () => {
     expect(outcome.candidate.bankId).toBe('bob');
   });
 
-  it('parses HSBC', () => {
-    const body = 'HSBC: INR 1000.00 debited from a/c XX2233 on 15/08/2026 for Online Purchase';
+  it('parses HSBC (real wording)', () => {
+    const body =
+      'INR 240.00 is paid from HSBC account XXXXXX1234 to Sharma general Store on 14-Aug-26 with ref 123123123123.';
     const outcome = parseSms('VM-HSBCIN', body, RECEIVED, BUNDLE);
     expect(outcome.kind).toBe('parsed');
     if (outcome.kind !== 'parsed') return;
     expect(outcome.candidate.bankId).toBe('hsbc');
+    expect(outcome.candidate.accountLast4).toBe('XXXXXX1234');
   });
 
   it('parses Yes Bank', () => {
@@ -256,7 +264,7 @@ describe('parseSms — TRAI 2025 header-suffix sender format', () => {
   // `VM-HDFCBK-S`, in addition to (never instead of) the pre-2025 `VM-HDFCBK`/`HDFCBK` forms a
   // historical scan will keep encountering for plenty of older messages.
   const body =
-    'HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl (UPI Ref No 123456789012). Not you? Call 18002586161';
+    'Sent Rs.1288.15 From HDFC Bank A/C *1234 To IRCTC FULL TRAIN RESERVAT On 08/08/26 Ref 127584388992 Not You?';
 
   it('parses a prefixed sender with the Transactional (-T) suffix', () => {
     const outcome = parseSms('VM-HDFCBK-T', body, RECEIVED, BUNDLE);
@@ -310,11 +318,12 @@ describe('parseSms — negative/edge scenarios', () => {
   });
 
   it('falls back to receivedAt when no date is captured or parseable', () => {
-    // A deliberately malformed HDFC message: correct verb/amount/account shape, but a nonsense date
-    // token that the DD-MMM-YY format can't parse — the candidate should still resolve, using
-    // receivedAt, rather than being rejected outright over a bad date alone.
-    const body =
-      'HDFC Bank: Rs.500.00 debited from a/c XX1234 on 99-Xyz-99 to VPA merchant@ybl (UPI Ref No 123456789012).';
+    // A real HDFC message from the SAME template as the "Sent" test above, but this particular
+    // real-world variant has no year at all in its date ("02-11", a hyphenated day-month with
+    // nothing after it) — doesn't fit the template's own `dateFormat: 'DD/MM/YY'` (slash-separated,
+    // 2-digit year), so this should still resolve using receivedAt rather than being rejected
+    // outright over one unparseable field.
+    const body = 'Amt Sent Rs.205.33 From HDFC Bank A/C *1234 To ZOMATO LIMITED On 02-11 Ref 430770561103 Not You?';
     const outcome = parseSms('VM-HDFCBK', body, RECEIVED, BUNDLE);
     expect(outcome.kind).toBe('parsed');
     if (outcome.kind !== 'parsed') return;
@@ -336,30 +345,29 @@ describe('redactDigits', () => {
 describe('traceSms', () => {
   it('matches on the FIRST template of several — later ones are recorded as not-attempted, not "didn\'t match"', () => {
     const body =
-      'HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl (UPI Ref No 123456789012).';
+      'Sent Rs.1288.15 From HDFC Bank A/C *1234 To IRCTC FULL TRAIN RESERVAT On 08/08/26 Ref 127584388992 Not You?';
     const trace = traceSms('VM-HDFCBK', body, RECEIVED, BUNDLE);
     expect(trace.matchedSenderBanks).toEqual(['hdfc']);
-    expect(trace.attempts).toHaveLength(3); // HDFC has 3 templates
+    expect(trace.attempts).toHaveLength(9); // HDFC has 9 templates
     expect(trace.attempts[0]).toMatchObject({ attempted: true, matched: true });
-    expect(trace.attempts[1]).toMatchObject({ attempted: false, matched: false });
-    expect(trace.attempts[2]).toMatchObject({ attempted: false, matched: false });
+    for (let i = 1; i < 9; i++) expect(trace.attempts[i]).toMatchObject({ attempted: false, matched: false });
     expect(trace.outcome).toEqual(parseSms('VM-HDFCBK', body, RECEIVED, BUNDLE));
   });
 
   it('matches on the LAST template of several — every earlier one is a real, attempted non-match', () => {
-    const body = 'Rs.500.00 debited from A/c No. XX1234 on 15/08/26. Info: ATM WDL. Avl Bal: Rs.10000.00-HDFC Bank';
+    const body =
+      'Money Sent-INR 2,50,000.00 From HDFC Bank A/c XX1234 on 28-12-23 To A/c xxxxxxxxxxx6038 IMPS Ref-336215356196 Avl bal:INR 39,518.00 Not you?';
     const trace = traceSms('HDFCBK', body, RECEIVED, BUNDLE);
-    expect(trace.attempts).toHaveLength(3);
-    expect(trace.attempts[0]).toMatchObject({ attempted: true, matched: false });
-    expect(trace.attempts[1]).toMatchObject({ attempted: true, matched: false });
-    expect(trace.attempts[2]).toMatchObject({ attempted: true, matched: true });
+    expect(trace.attempts).toHaveLength(9);
+    for (let i = 0; i < 8; i++) expect(trace.attempts[i]).toMatchObject({ attempted: true, matched: false });
+    expect(trace.attempts[8]).toMatchObject({ attempted: true, matched: true });
   });
 
   it('recognized bank, no template matches — every template is a real, attempted non-match', () => {
     const body = 'HDFC Bank: your account activity summary for this month is now available in the app.';
     const trace = traceSms('VM-HDFCBK', body, RECEIVED, BUNDLE);
     expect(trace.matchedSenderBanks).toEqual(['hdfc']);
-    expect(trace.attempts).toHaveLength(3);
+    expect(trace.attempts).toHaveLength(9);
     expect(trace.attempts.every((a) => a.attempted && !a.matched)).toBe(true);
     expect(trace.outcome).toEqual({ kind: 'unparsed_known_bank', bankId: 'hdfc' });
   });
@@ -381,7 +389,7 @@ describe('traceSms', () => {
 
   it('captureRanges recover the exact substring each field came from', () => {
     const body =
-      'HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl (UPI Ref No 123456789012).';
+      'Sent Rs.1288.15 From HDFC Bank A/C *1234 To IRCTC FULL TRAIN RESERVAT On 08/08/26 Ref 127584388992 Not You?';
     const trace = traceSms('VM-HDFCBK', body, RECEIVED, BUNDLE);
     const matchedAttempt = trace.attempts.find((a) => a.matched);
     const amountRange = matchedAttempt?.captureRanges?.amount;
@@ -389,15 +397,15 @@ describe('traceSms', () => {
     expect(amountRange).toBeDefined();
     expect(counterpartyRange).toBeDefined();
     if (!amountRange || !counterpartyRange) return;
-    expect(body.slice(amountRange[0], amountRange[1])).toBe('500.00');
-    expect(body.slice(counterpartyRange[0], counterpartyRange[1])).toBe('merchant@ybl');
+    expect(body.slice(amountRange[0], amountRange[1])).toBe('1288.15');
+    expect(body.slice(counterpartyRange[0], counterpartyRange[1])).toBe('IRCTC FULL TRAIN RESERVAT');
   });
 
   it('parseSms and traceSms(...).outcome stay identical across every existing sample in this file', () => {
     const samples: [string, string][] = [
       [
         'VM-HDFCBK',
-        'HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl (UPI Ref No 123456789012).'
+        'Sent Rs.1288.15 From HDFC Bank A/C *1234 To IRCTC FULL TRAIN RESERVAT On 08/08/26 Ref 127584388992 Not You?'
       ],
       [
         'VK-ICICIB',

@@ -146,31 +146,38 @@ this to just the Senders section, since there's no "current bank" to show templa
 the reference panel or the test column.
 
 - **Templates** are collapsed-by-default accordion cards — chevron, kind icon (official/modified/draft),
-  label, era, the regex itself inline (truncated, hover for the full text), Copy/Edit icons, and a status
-  icon, no text pills anywhere. Expanding shows the regex and its matched sample side by side, colors
-  auto-assigned per distinct capture-group name rather than a fixed few, always the SAME color on both
-  sides of the pair. Templates can be edited (official ones get a session-local override, never touching
-  the real shipped data), added as drafts, disabled-without-deleting (dimmed but still visible for
-  one-click re-enabling), or — for official/modified ones, since (2026-08-18) "some templates might not be
-  good" — removed-without-deleting (hidden entirely, reversible from a compact "N removed — Restore" line;
-  a draft's own Delete still truly deletes, since a draft has no official original to restore to). A
-  template's own test message is saved as its reference sample, so reopening it to edit further brings
-  that sample back instead of a blank box. If a template's regex names a capture group the real parser
-  doesn't recognize, the editor says so directly and (2026-08-18) highlights it in BOTH the live regex and
-  test-message preview — so a tester can actually confirm their own pattern captures what they meant —
-  while that field's value is still silently dropped in real production (never shown highlighted in a
-  saved template's card or the results table, only in this in-progress preview) rather than leaving it a
-  silent mystery.
-- **Regex helper panel** — a "Common patterns" tab, now fully editable (add your own, edit any entry,
-  live duplicate detection before you add one), plus a "Regex syntax" cheat sheet. After saving a
-  template, an uncatalogued capture-group sub-pattern is offered a one-click "add to Common Patterns" for
-  reuse by the next tester.
+  label in `T1 (era/label)` form, the regex itself inline (truncated, hover for the full text), Copy/Edit
+  icons, and a status icon, no text pills anywhere. Expanding shows the regex and its matched sample side
+  by side, colors auto-assigned per distinct capture-group name rather than a fixed few, always the SAME
+  color on both sides of the pair. A template can have MULTIPLE saved samples (2026-08-18 — one regex can
+  genuinely match several differently-worded real messages) — a "Sample N of M ‹ ›" pager appears above
+  the regex|sample grid once there's more than one, and the template modal's own "Test samples" section
+  is a clickable list (add/remove/select which one you're editing) rather than a single box. Templates can
+  be edited (official ones get a session-local override, never touching the real shipped data), added as
+  drafts, disabled-without-deleting (dimmed but still visible for one-click re-enabling), or — for
+  official/modified ones, since "some templates might not be good" — removed-without-deleting (hidden
+  entirely, reversible from a compact "N removed — Restore" line; a draft's own Delete still truly
+  deletes, since a draft has no official original to restore to). If a template's regex names a capture
+  group the real parser doesn't recognize, the editor says so directly and highlights it in BOTH the live
+  regex and test-message preview — so a tester can actually confirm their own pattern captures what they
+  meant — while that field's value is still silently dropped in real production (never shown highlighted
+  in a saved template's card or the results table, only in this in-progress preview) rather than leaving
+  it a silent mystery.
+- **Regex helper panel** — a "Common patterns" tab, fully editable (add your own, edit any entry, live
+  duplicate detection before you add one) and sorted alphabetically, each entry showing a real matched
+  example string and a clickable **"Used in N templates"** count that opens a popup listing every one
+  (bank + template label; clicking a listed template navigates there and expands its card). After saving
+  a template, an uncatalogued capture-group sub-pattern is offered a one-click "add to Common Patterns"
+  for reuse by the next tester. The panel's own width is drag-resizable (2026-08-18 — was a fixed 260px,
+  too narrow for a longer snippet/example).
 - **Results table** (shared by Bulk test and the bank-scoped tester) shows the full, un-truncated message
   text, a sender-recognized/unrecognized color cue, a bank column, a compact colored trace-strip (one dot
   per template attempted), and a copy icon inline with the message — a row only expands further for
   Partial/Unrecognized/Excluded outcomes, where there's a genuine "did you mean `<bank>`?" nudge or
-  add-a-template action to take. Clicking Test/Parse with nothing to test shows a clear error instead of
-  an empty results block.
+  add-a-template action to take. A checkbox per row (plus "select all visible" in the header) backs a
+  bulk-exclude action bar (2026-08-18 — Exclude selected / Include selected / Clear selection), for
+  excluding just some of one sender's messages at once rather than one at a time or the whole sender.
+  Clicking Test/Parse with nothing to test shows a clear error instead of an empty results block.
 - **Sender/message exclusion** (2026-08-17) — splits "Partial/Unparsed" into two genuinely different
   things: a real coverage gap (recognized bank, wrong wording — worth a new template) vs. not a
   transaction at all (OTP, promotional, government, non-financial service pings — no template should
@@ -200,6 +207,35 @@ deploy `workers/api-proxy`'s `/sms-patterns` route — the tool's own "Pattern s
 fetch and test against a live/local worker URL directly, to confirm a deployment matches before relying
 on it.
 
+**HDFC/IndusInd/HSBC replaced with a verified real-world template set (2026-08-18)** — the first real
+instance of the discovery-loop workflow above: all three banks' templates were rewritten from real,
+user-verified message wording (previously synthetic placeholders for HDFC; IndusInd and HSBC had only
+one invented template each). The provided source regexes were kept as-given, not "cleaned up" — every
+named group (currency, bank name, description, a receiving-side account number, transaction mode, etc.)
+is preserved exactly as provided, even where this schema doesn't read it (it's simply not extracted,
+same as any unrecognized name); `account`/`card` capture the FULL masked token as each bank's own SMS
+wording presents it (e.g. IndusInd's `159***660960`, HSBC's `XXXXXX1234`), not a trimmed last-4-digit
+substring — meaning `smsAccountMatch.ts`'s exact-string auto-linking against a stored account's plain
+last-4 digits won't match for these three banks' real messages until that matcher is made
+mask-tolerant, a known, accepted gap rather than something patched around in the regex itself. Three
+HSBC wordings that used a single runtime-captured `credited|debited` choice were split into matched
+pairs, since `transactionType` here is a fixed property per template, not something read at match time.
+Only one genuine regex defect was fixed (not a stylistic change): HDFC's debit-card-alert wording was
+missing an optional `On ` before "HDFC Bank" that 2 of its own 4 real sample messages actually have.
+
+**Capture-group field names renamed to match the verified source's own convention (2026-08-18)** —
+`SmsCaptureGroupName` (`smsParser.ts`) now uses `account`/`card`/`reference`/`date` (previously
+`acctLast4`/`cardLast4`/`ref`/`dateStr`) across all 12 banks' templates, not just the three above —
+Penny's own schema adopted the provided naming rather than the provided regexes being renamed to fit
+Penny's prior schema. `ParsedSmsCandidate`'s own output field names (`accountLast4`, `cardLast4`,
+`referenceNumber`, `date`) are a separate, already-decoupled layer and were not touched by this rename.
+
+Real personal names/VPAs that appeared in the original source messages were swapped for placeholders
+before any of this ever reached a file that gets committed — the pre-commit PII gate
+(`scripts/check-pii.mjs`, `docs/PRIVACY.md`'s "Privacy architecture" §4) still caught one placeholder
+that happened to be shaped exactly like a real IFSC code, which was reworked into something that
+couldn't be mistaken for one, rather than bypassed.
+
 ## Current limitations
 
 - **Not yet verified on a real device.** Everything here compiles and passes its own test suite
@@ -210,16 +246,23 @@ on it.
   environment; this needs a real-device pass before relying on it day-to-day.
 - Android only — no iOS/web equivalent exists or is planned (neither platform exposes an SMS API).
 - The bundled parsing-template set covers roughly the dozen most common Indian banks' current-era
-  wording, with older-era templates added only for the banks most likely to need them
-  (HDFC/ICICI/SBI). A bank/format not yet covered surfaces as "unrecognized sender" (silently
-  skipped, by design — showing/exporting arbitrary non-bank-sender text would be a bigger privacy
-  overreach than this feature's scope) rather than a parse failure.
+  wording. HDFC/IndusInd/HSBC are verified against real message wording (2026-08-18); every other
+  bank's templates are still synthetic — fabricated to match each bank's documented public SMS
+  conventions, not yet checked against a real message. A bank/format not yet covered surfaces as
+  "unrecognized sender" (silently skipped, by design — showing/exporting arbitrary non-bank-sender text
+  would be a bigger privacy overreach than this feature's scope) rather than a parse failure.
 - No Play Store distribution decision has been finalized — the design accounts for Play's
   Restricted Permissions policy (see the plan doc §2), but the actual Restricted Permissions
   Declaration Form / Data Safety submission is a separate, later operational step, not something
   the app code does.
 - Refunds/reversals aren't auto-matched to their original transaction — treated as an independent
   new credit; a future improvement could surface a "possible refund of →" hint.
+- **Account/card auto-linking doesn't work for HDFC/IndusInd/HSBC's real-message wording.**
+  `smsAccountMatch.ts` does exact-string matching against a stored account's plain last-4 digits, but
+  these three banks' verified templates capture the full masked token as the bank's own SMS presents
+  it (e.g. `159***660960`, `XXXXXX1234`) — never trimmed to match the matcher's expectation. A parsed
+  transaction still gets created and is fully usable, it just won't auto-link to an existing account/
+  card the way other banks' transactions do until the matcher itself is made mask-tolerant.
 
 ## Planned improvements
 

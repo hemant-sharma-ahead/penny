@@ -669,6 +669,54 @@
         color: var(--text3);
         width: 14px;
       }
+      table.rtable .selcell {
+        width: 18px;
+      }
+      table.rtable .selcell input,
+      table.rtable th.selcell input {
+        cursor: pointer;
+      }
+      /* Bulk-exclude action bar (2026-08-18) — appears once any row is checked. */
+      .bulkbar {
+        display: none;
+        align-items: center;
+        gap: 14px;
+        background: var(--amber-bg);
+        border: 1px solid #fcd9a0;
+        border-radius: 8px;
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .bulkbar.show {
+        display: flex;
+      }
+      .bulkbar .cnt {
+        color: var(--amber);
+      }
+      .bulkbtn {
+        font-size: 10.5px;
+        font-weight: 700;
+        cursor: pointer;
+        padding: 3px 9px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: var(--paper);
+      }
+      .bulkbtn.excl {
+        color: var(--danger);
+        border-color: #f6c8c8;
+      }
+      .bulkbtn.incl {
+        color: var(--primary);
+        border-color: #a7f3d0;
+      }
+      .bulkbtn.clear {
+        color: var(--text2);
+        margin-left: auto;
+      }
       table.rtable .sndcell {
         font-family: ui-monospace, Menlo, monospace;
         font-size: 10.5px;
@@ -986,10 +1034,6 @@
         font-size: 11px;
         color: var(--text);
       }
-      .tplhead .era {
-        font-size: 9.5px;
-        color: var(--text3);
-      }
       .tplchev {
         color: var(--text3);
         font-size: 12px;
@@ -1022,6 +1066,28 @@
       }
       .tplbody {
         margin-top: 8px;
+        cursor: default;
+      }
+      /* Multi-sample pager (2026-08-18) — only rendered when a template has 2+ saved samples. */
+      .samplepager {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 4px;
+        font-size: 9.5px;
+        font-weight: 700;
+        color: var(--text3);
+      }
+      .samplepager i {
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .samplepager i:hover {
+        color: var(--primary);
+      }
+      .samplepager i.disabled {
+        color: #d5d9de;
         cursor: default;
       }
       .tplactions {
@@ -1319,6 +1385,141 @@
         gap: 10px;
         margin-top: 10px;
       }
+      /* Multi-sample list inside the template modal (2026-08-18) — click a row to make it the active
+         sample being edited/previewed below; ✕ removes it (hidden when there's only one, so a template
+         always has at least one editable slot). */
+      .samplelist {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        margin-bottom: 8px;
+      }
+      .samplerow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 6px 9px;
+        cursor: pointer;
+        font-size: 10.5px;
+      }
+      .samplerow.active {
+        border-color: var(--primary);
+        background: var(--primary-bg);
+      }
+      .samplerow .snum {
+        font-weight: 800;
+        color: var(--text3);
+        flex-shrink: 0;
+      }
+      .samplerow.active .snum {
+        color: var(--primary);
+      }
+      .samplerow .ssnippet {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-family: ui-monospace, Menlo, monospace;
+        color: var(--text2);
+        font-size: 9.5px;
+      }
+      .samplerow .sx {
+        color: var(--text3);
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .samplerow .sx:hover {
+        color: var(--danger);
+      }
+      .addsamplebtn {
+        border: 1px dashed #d8d0b8;
+        border-radius: 7px;
+        padding: 7px;
+        text-align: center;
+        font-size: 10px;
+        color: var(--text2);
+        cursor: pointer;
+        margin-bottom: 4px;
+      }
+      .addsamplebtn:hover {
+        background: #fafbfc;
+      }
+
+      /* "Used in N templates" popup (2026-08-18) — a separate stacked overlay above `.modal-root`, NOT
+         part of the tool's single-modal system (see `showSnippetUsagePopup()`'s own doc comment). */
+      .usagepopup-backdrop {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: rgba(20, 25, 35, 0.4);
+        align-items: center;
+        justify-content: center;
+        z-index: 60;
+      }
+      .usagepopup-backdrop.active {
+        display: flex;
+      }
+      .usagepopup {
+        background: var(--paper);
+        border-radius: 12px;
+        width: 380px;
+        max-height: 60vh;
+        overflow: auto;
+        padding: 16px;
+      }
+      .usagepopup h4 {
+        margin: 0 0 4px;
+        font-size: 13px;
+      }
+      .usagepopup .sub {
+        font-size: 10px;
+        color: var(--text3);
+        margin-bottom: 10px;
+        font-family: ui-monospace, Menlo, monospace;
+        word-break: break-word;
+      }
+      .popuprow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 8px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        margin-bottom: 5px;
+        font-size: 11px;
+        cursor: pointer;
+      }
+      .popuprow:hover {
+        background: #fafbfc;
+        border-color: var(--primary);
+      }
+      .popuprow .bank {
+        margin-left: auto;
+        font-size: 9.5px;
+        font-weight: 800;
+        color: var(--text3);
+        text-transform: uppercase;
+      }
+      .popupclose {
+        text-align: right;
+        margin-top: 8px;
+      }
+      /* Drag to resize the helper panel's own width (2026-08-18) — same visual treatment as the app-level
+         `.resize-handle`/`.rightsplit-handle`, just col-resize since this one's horizontal. */
+      .helper-resize-handle {
+        width: 5px;
+        flex-shrink: 0;
+        cursor: col-resize;
+        background: transparent;
+        border-radius: 3px;
+      }
+      .helper-resize-handle:hover,
+      .helper-resize-handle.active {
+        background: var(--blue-bg);
+      }
       .helper {
         flex: 0 0 260px;
         background: #fafbfc;
@@ -1387,6 +1588,21 @@
         gap: 10px;
         padding: 0 6px 6px;
         margin-top: -4px;
+      }
+      .snippetexample {
+        font-size: 9px;
+        color: var(--text3);
+        padding: 0 6px;
+        margin: -3px 0 4px;
+      }
+      .usagelink {
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--blue);
+        cursor: pointer;
+      }
+      .usagelink:hover {
+        text-decoration: underline;
       }
       .snippet-editform {
         padding: 6px;
@@ -1766,25 +1982,75 @@
       {
         bankId: "hdfc",
         senderIdPatterns: ["^[A-Z]{2}-HDFCBK$", "^HDFCBK$", "^[A-Z]{2}-HDFCBK-[TSPG]$", "^HDFCBK-[TSPG]$"],
+        // Replaced 2026-08-18 with a verified real-world set (9 templates spanning UPI sent/received,
+        // debit/credit card, IMPS, cheque, and prepaid-card wordings) — the 3 templates here before this
+        // date were synthetic placeholders, never checked against real HDFC message text. Every pattern
+        // below was reworked from the source wording to fit this schema's fixed 7 field names (amount,
+        // acctLast4, cardLast4, counterparty, ref, balance, dateStr) — fields with no equivalent here
+        // (currency, bank name, a receiving-side account number, free-text transaction mode/description
+        // beyond what maps to `counterparty`) are matched but not captured. `acctLast4`/`cardLast4`
+        // capture ONLY the trailing digit run (mask characters — X/x/*/hyphens — consumed just before
+        // it, in whichever position the bank's own masking convention puts them), never the whole masked
+        // token, since `smsAccountMatch.ts` does exact-string matching against a stored account's plain
+        // last-4 digits. Several dates have no year in the source wording at all (falls back to
+        // `receivedAt`, same graceful degradation `traceSms()` already does for any unparseable
+        // `dateStr`) — noted per template below where that applies.
         templates: [
           {
             transactionType: "debit",
-            addedAt: "2026-08-15 (current era)",
-            dateFormat: "DD-MMM-YY",
-            pattern: "Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)\\s+debited from a\\/c\\s+X+(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>\\d{2}-[A-Za-z]{3}-\\d{2})\\s+to\\s+VPA\\s+(?<counterparty>[\\w.@-]+)\\s+\\(UPI Ref No\\s+(?<ref>\\d+)\\)"
+            addedAt: '2026-08-18 (real, "Sent" wording)',
+            dateFormat: "DD/MM/YY",
+            pattern: "(?:Amt\\s+)?Sent\\s+(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)\\s+From\\s+[A-Za-z][A-Za-z0-9& .'-]*?\\s+(?:A/C|A/c|account)\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+To\\s+(?<counterparty>.*?)\\s+On\\s+(?<dateStr>[0-9]{1,2}[-/][0-9]{1,2}(?:[-/][0-9]{2,4})?)\\s+Ref\\s+(?<ref>[A-Za-z0-9-]+)"
           },
           {
             transactionType: "credit",
-            addedAt: "2026-08-15 (current era)",
-            dateFormat: "DD-MMM-YY",
-            pattern: "Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)\\s+credited to a\\/c\\s+X+(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>\\d{2}-[A-Za-z]{3}-\\d{2})\\s+by\\s+VPA\\s+(?<counterparty>[\\w.@-]+)\\s+\\(UPI Ref No\\s+(?<ref>\\d+)\\)"
+            addedAt: '2026-08-18 (real, "Credit Alert!" UPI wording)',
+            dateFormat: "DD-MM-YY",
+            pattern: "Credit\\s+Alert!\\s*(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)\\s+credited\\s+to\\s+[A-Za-z][A-Za-z0-9& .'-]*?\\s+(?:A/C|A/c|account)\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>[0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{2,4})\\s+from\\s+VPA\\s+(?<counterparty>[A-Za-z0-9._-]+@[A-Za-z0-9.-]+)\\s+\\(UPI\\s+(?<ref>[A-Za-z0-9-]+)\\)"
           },
           {
-            // Older, terser HDFC wording (pre-UPI-detail era) — narration-only, no VPA, "Info:" field.
             transactionType: "debit",
-            addedAt: "2026-08-15 (older era, ~2012-2016)",
-            dateFormat: "DD/MM/YY",
-            pattern: "Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)\\s+debited from A\\/c No\\.\\s+X+(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>\\d{2}\\/\\d{2}\\/\\d{2})\\.\\s+Info:\\s+(?<counterparty>[\\w .]+)\\.\\s+Avl Bal:\\s?Rs\\.?(?<balance>[\\d,]+\\.?\\d*)"
+            addedAt: '2026-08-18 (real, "HDFC Bank: ... debited ... to VPA" wording)',
+            dateFormat: "DD-MM-YY",
+            pattern: "HDFC\\s+Bank:\\s*(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)\\s+debited\\s+from\\s+(?:a/c|A/C|account)\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>[0-9]{1,2}[-/][0-9]{1,2}(?:[-/][0-9]{2,4})?)\\s+to\\s+VPA\\s+(?<counterparty>.*?)\\s*\\(UPI\\s+Ref\\s+No\\s+(?<ref>[A-Za-z0-9-]+)\\)"
+          },
+          {
+            // Debit card spend alert — "ALERT:"/"Alert!" prefix and "via"/"On <bank>" phrasing both seen
+            // in real messages; dateStr is YYYY-MM-DD immediately followed by an (unmapped) HH:MM:SS.
+            transactionType: "card_swipe",
+            addedAt: "2026-08-18 (real, debit card spend alert)",
+            dateFormat: "YYYY-MM-DD",
+            pattern: "(?:ALERT:|Alert!)\\s*You've\\s+spent\\s+(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)\\s+(?:On\\s+)?(?:via\\s+)?(?:HDFC\\s+Bank\\s+)?Debit\\s+Card\\s+[Xx*0-9-]*?(?<cardLast4>\\d{4})\\s+(?:At|at)\\s+(?<counterparty>.*?)\\s*\\.?\\s+(?:On|on)\\s+(?<dateStr>[0-9]{4}[-/][0-9]{2}[-/][0-9]{2})(?::[0-9]{2}:[0-9]{2}:[0-9]{2})?\\s*\\.?\\s*Avl\\s+[Bb]al\\s*:?\\s*(?:INR|Rs\\.?|\u20B9)?\\s*(?<balance>[0-9,]+(?:\\.[0-9]{1,2})?).*$"
+          },
+          {
+            transactionType: "debit",
+            addedAt: "2026-08-18 (real, IMPS sent wording)",
+            dateFormat: "DD-MM-YY",
+            pattern: "IMPS\\s+(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)\\s+sent\\s+from\\s+HDFC\\s+Bank\\s+(?:A/C|A/c|account)\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>[0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{2,4})\\s+To\\s+(?:A/C|A/c|account)\\s+[Xx*0-9-]+\\s+Ref-?\\s*(?<ref>[A-Za-z0-9-]+)"
+          },
+          {
+            transactionType: "credit",
+            addedAt: '2026-08-18 (real, "linked to VPA" credit wording)',
+            dateFormat: "DD-MM-YY",
+            pattern: "HDFC\\s+Bank:\\s*(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)\\s+credited\\s+to\\s+(?:a/c|A/C|account)\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>[0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{2,4})\\s+by\\s+(?:a/c|A/C|account)\\s+linked\\s+to\\s+VPA\\s+(?<counterparty>[A-Za-z0-9._-]+@[A-Za-z0-9.-]+)\\s*\\(\\s*UPI\\s+Ref\\s+No\\s+(?<ref>[A-Za-z0-9-]+)\\s*\\)"
+          },
+          {
+            transactionType: "debit",
+            addedAt: '2026-08-18 (real, "UPDATE:" cheque-withdrawal wording)',
+            dateFormat: "DD-MMM-YY",
+            pattern: "UPDATE:\\s*(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)\\s+debited\\s+from\\s+HDFC\\s+Bank\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>[0-9]{1,2}-[A-Za-z]{3}-[0-9]{2,4})\\.\\s*Info:\\s*(?<counterparty>.*?)\\.\\s*Avl\\s+bal:\\s*(?:INR|Rs\\.?|\u20B9)\\s*(?<balance>[0-9,]+(?:\\.[0-9]{1,2})?)"
+          },
+          {
+            transactionType: "credit",
+            addedAt: "2026-08-18 (real, prepaid card load wording)",
+            dateFormat: "DD MMM,YYYY",
+            pattern: "Alert!\\s*(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)\\s+loaded\\s+on\\s+HDFC\\s+Bank\\s+Prepaid\\s+Card\\s+[Xx*0-9-]*?(?<cardLast4>\\d{4})\\s+on\\s+(?<dateStr>[0-9]{1,2}\\s+[A-Za-z]{3},[0-9]{4})\\s+[0-9]{1,2}:[0-9]{2}\\s+[AP]M\\s+IST\\s+Bal:\\s*(?:INR|Rs\\.?|\u20B9)\\s*(?<balance>[0-9,]+(?:\\.[0-9]{1,2})?)"
+          },
+          {
+            transactionType: "debit",
+            addedAt: '2026-08-18 (real, "Money Sent-" IMPS wording)',
+            dateFormat: "DD-MM-YY",
+            pattern: "Money\\s+Sent-(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)\\s+From\\s+HDFC\\s+Bank\\s+(?:A/C|A/c|account)\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>[0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{2,4})\\s+To\\s+(?:A/C|A/c|account)\\s+[Xx*0-9-]+\\s+IMPS\\s+Ref-?\\s*(?<ref>[A-Za-z0-9-]+)(?:\\s+Avl\\s+bal:\\s*(?:INR|Rs\\.?|\u20B9)\\s*(?<balance>[0-9,]+(?:\\.[0-9]{1,2})?))?"
           }
         ]
       },
@@ -1885,12 +2151,50 @@
       {
         bankId: "indusind",
         senderIdPatterns: ["^[A-Z]{2}-INDUSB$", "^INDUSB$", "^[A-Z]{2}-INDUSB-[TSPG]$", "^INDUSB-[TSPG]$"],
+        // Replaced 2026-08-18 with a verified real-world set (8 templates) — see the HDFC block's own
+        // comment just above for the shared conversion notes (field mapping, mask-stripping,
+        // dropped/unmapped fields). None of these real messages included a transaction date at all, so
+        // no template here defines `dateFormat` — every one of these falls back to `receivedAt`.
         templates: [
           {
+            transactionType: "card_swipe",
+            addedAt: "2026-08-18 (real, debit card purchase wording)",
+            pattern: "INR\\s+(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)\\s+\\(Incl\\.\\s+TCS\\s+as\\s+applicable\\)\\s+is\\s+debited\\s+from\\s+your\\s+IndusInd\\s+(?:A/C|A/c|account)\\s+No\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+towards\\s+(?<counterparty>Debit\\s+Card\\s+Purchase)\\.\\s+Avl\\s+BAL\\s+is\\s+(?:INR|Rs\\.?|\u20B9)\\s+(?<balance>[0-9,]+(?:\\.[0-9]{1,2})?)"
+          },
+          {
+            transactionType: "credit",
+            addedAt: "2026-08-18 (real, NEFT/RTGS-style credit wording)",
+            pattern: "Your\\s+IndusInd\\s+(?:Account|A/C|A/c)\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+has\\s+been\\s+credited\\s+for\\s+(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)\\s+towards\\s+(?<counterparty>N/[A-Za-z0-9-]+/[A-Za-z0-9-]+/[A-Za-z0-9 .'-]+?)(?:\\.\\s+Call|\\s+Call)"
+          },
+          {
+            transactionType: "credit",
+            addedAt: "2026-08-18 (real, quarterly interest-credit wording)",
+            pattern: "INR\\s+(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)\\s+has\\s+been\\s+credited\\s+to\\s+your\\s+IndusInd\\s+(?:A/C|A/c|Account)\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+towards\\s+(?<counterparty>Interest\\s+Credit\\s+for\\s+the\\s+quarter\\s+ending\\s+[A-Za-z]+)"
+          },
+          {
             transactionType: "debit",
-            addedAt: "2026-08-15 (current era)",
-            dateFormat: "DD-MM-YY",
-            pattern: "IndusInd Bank:\\s?Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)\\s+debited from A\\/c\\s+X(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>\\d{2}-\\d{2}-\\d{2})\\s+UPI Ref\\s?(?<ref>\\d+)\\s+to\\s+(?<counterparty>[\\w.@-]+)"
+            addedAt: "2026-08-18 (real, IMPS debit wording)",
+            pattern: "Your\\s+IndusInd\\s+(?:Account|A/C|A/c)\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+has\\s+been\\s+debited\\s+for\\s+(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)\\s+towards\\s+IMPS/(?<ref>[A-Za-z0-9-]+)"
+          },
+          {
+            transactionType: "credit",
+            addedAt: "2026-08-18 (real, IMPS credit wording)",
+            pattern: "Your\\s+IndusInd\\s+(?:Account|A/C|A/c)\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+has\\s+been\\s+credited\\s+for\\s+(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)\\s+towards\\s+IMPS/(?<ref>[A-Za-z0-9-]+)"
+          },
+          {
+            transactionType: "debit",
+            addedAt: "2026-08-18 (real, cheque withdrawal wording)",
+            pattern: "INR\\s+(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)\\s+is\\s+debited\\s+from\\s+your\\s+(?:A/C|A/c|Account)\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+towards\\s+(?<counterparty>Cheque\\s+withdrawal)\\.\\s+Avl\\s+BAL\\s+(?:INR|Rs\\.?|\u20B9)\\s+(?<balance>[0-9,]+(?:\\.[0-9]{1,2})?)"
+          },
+          {
+            transactionType: "debit",
+            addedAt: "2026-08-18 (real, card annual-charge wording)",
+            pattern: "IndusInd\\s+(?:A/C|A/c|Account)\\s+Debited;\\s*(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)\\s+Ref-To\\s+(?<counterparty>Card\\s+Annual\\s+Charge)\\s+(?<ref>[0-9]+)\\.Bal\\s+(?:INR|Rs\\.?|\u20B9)\\s*(?<balance>[0-9,]+(?:\\.[0-9]{1,2})?)"
+          },
+          {
+            transactionType: "credit",
+            addedAt: "2026-08-18 (real, VPA + RRN credit wording)",
+            pattern: "(?:A/c|A/C|Account)\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+credited\\s+by\\s+(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)\\s+from\\s+(?<counterparty>[A-Za-z0-9._-]+@[A-Za-z0-9.-]+)\\.\\s*RRN:\\s*(?<ref>[A-Za-z0-9-]+)"
           }
         ]
       },
@@ -1909,12 +2213,68 @@
       {
         bankId: "hsbc",
         senderIdPatterns: ["^[A-Z]{2}-HSBCIN$", "^HSBCIN$", "^[A-Z]{2}-HSBCIN-[TSPG]$", "^HSBCIN-[TSPG]$"],
+        // Replaced 2026-08-18 with a verified real-world set (10 templates) — see the HDFC block's own
+        // comment above for the shared conversion notes. Three of the real source wordings covered BOTH
+        // credit and debit in one regex (a runtime-captured `credited|debited` choice) — split into a
+        // matched credit/debit pair here, since this schema's `transactionType` is a fixed property per
+        // template, not something read at match time. Most of these real messages have a day+month but
+        // NO year in the date field at all (e.g. "10AUG", "06JUN") — those templates omit `dateFormat`
+        // and fall back to `receivedAt`, same as IndusInd's block above.
         templates: [
           {
             transactionType: "debit",
-            addedAt: "2026-08-15 (current era)",
+            addedAt: '2026-08-18 (real, "is paid from" wording)',
+            dateFormat: "DD-MMM-YY",
+            pattern: "(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[\\d,]+(?:\\.\\d{1,2})?)\\s+is\\s+paid\\s+from\\s+[A-Za-z][A-Za-z0-9& .'-]*?\\s+(?:account|a/c)\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+to\\s+(?<counterparty>.*?)\\s+on\\s+(?<dateStr>\\d{1,2}[-/][A-Za-z]{3}[-/]\\d{2,4})\\s+with\\s+ref(?:erence)?\\s*[:#]?\\s*(?<ref>[A-Za-z0-9-]+)"
+          },
+          {
+            transactionType: "credit",
+            addedAt: '2026-08-18 (real, "Dear Customer... credited" wording)',
+            pattern: "HSBC:\\s*Dear\\s+Customer,\\s*your\\s+HSBC\\s+(?:A/c|Acc(?:ount)?)\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+has\\s+been\\s+credited\\s+with\\s+(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[\\d,]+(?:\\.\\d{1,2})?)[+-]?\\s+on\\s+(?<dateStr>\\d{1,2}[A-Za-z]{3}(?:[-/]\\d{2,4})?)\\s+as\\s+(?<counterparty>.*?)\\s*\\.\\s*Your\\s+(?:available|avl|Avl)\\s+Bal(?:ance)?\\s+is\\s+(?:(?:INR|Rs\\.?|\u20B9)\\s*)?(?<balance>[\\d,]+(?:\\.\\d{1,2})?)"
+          },
+          {
+            transactionType: "debit",
+            addedAt: '2026-08-18 (real, "Dear Customer... debited" wording)',
+            pattern: "HSBC:\\s*Dear\\s+Customer,\\s*your\\s+HSBC\\s+(?:A/c|Acc(?:ount)?)\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+has\\s+been\\s+debited\\s+with\\s+(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[\\d,]+(?:\\.\\d{1,2})?)[+-]?\\s+on\\s+(?<dateStr>\\d{1,2}[A-Za-z]{3}(?:[-/]\\d{2,4})?)\\s+as\\s+(?<counterparty>.*?)\\s*\\.\\s*Your\\s+(?:available|avl|Avl)\\s+Bal(?:ance)?\\s+is\\s+(?:(?:INR|Rs\\.?|\u20B9)\\s*)?(?<balance>[\\d,]+(?:\\.\\d{1,2})?)"
+          },
+          {
+            transactionType: "credit",
+            addedAt: "2026-08-18 (real, UPI credit wording)",
+            dateFormat: "DD-MMM-YY",
+            pattern: "Your\\s+HSBC\\s+(?:A/c|Acc(?:ount)?)\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+is\\s+credited\\s+for\\s+(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[\\d,]+(?:\\.\\d{1,2})?)\\s+on\\s+(?<dateStr>\\d{1,2}[-/][A-Za-z]{3}[-/]\\d{2,4})\\s+(?:from|towards)\\s+(?<counterparty>.*?)\\.\\s*UPI\\s+Ref(?:erence)?\\s+No\\.?\\s*[:#]?\\s*(?<ref>[A-Za-z0-9-]+)"
+          },
+          {
+            transactionType: "debit",
+            addedAt: "2026-08-18 (real, UPI debit wording)",
+            dateFormat: "DD-MMM-YY",
+            pattern: "Your\\s+HSBC\\s+(?:A/c|Acc(?:ount)?)\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+is\\s+debited\\s+for\\s+(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[\\d,]+(?:\\.\\d{1,2})?)\\s+on\\s+(?<dateStr>\\d{1,2}[-/][A-Za-z]{3}[-/]\\d{2,4})\\s+(?:from|towards)\\s+(?<counterparty>.*?)\\.\\s*UPI\\s+Ref(?:erence)?\\s+No\\.?\\s*[:#]?\\s*(?<ref>[A-Za-z0-9-]+)"
+          },
+          {
+            transactionType: "credit",
+            addedAt: "2026-08-18 (real, UTR/NEFT/IMPS credit wording)",
+            pattern: "HSBC:\\s*(?:Dear\\s+Customer,\\s*)?(?:Your\\s+)?A/c\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+is\\s+credited\\s+with\\s+(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)[+-]?\\s+on\\s+(?<dateStr>[0-9]{1,2}[A-Za-z]{3}(?:[-/][0-9]{2,4})?)\\s+(?:at\\s+[0-9]{1,2}[.:][0-9]{2}[.:][0-9]{2}\\s+)?with\\s+UTR\\s+(?<ref>[A-Za-z0-9-]+)\\s+as\\s+[A-Za-z]+\\s+(?<counterparty>.*?)\\s*\\.\\s*(?:Your\\s+)?(?:Avl|available)\\s+Bal(?:ance)?\\s+is\\s+(?:(?:INR|Rs\\.?|\u20B9)\\s*)?(?<balance>[0-9,]+(?:\\.[0-9]{1,2})?)"
+          },
+          {
+            transactionType: "debit",
+            addedAt: "2026-08-18 (real, UTR/NEFT/IMPS debit wording)",
+            pattern: "HSBC:\\s*(?:Dear\\s+Customer,\\s*)?(?:Your\\s+)?A/c\\s+[Xx*0-9-]*?(?<acctLast4>\\d{3,6})\\s+is\\s+debited\\s+with\\s+(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[0-9,]+(?:\\.[0-9]{1,2})?)[+-]?\\s+on\\s+(?<dateStr>[0-9]{1,2}[A-Za-z]{3}(?:[-/][0-9]{2,4})?)\\s+(?:at\\s+[0-9]{1,2}[.:][0-9]{2}[.:][0-9]{2}\\s+)?with\\s+UTR\\s+(?<ref>[A-Za-z0-9-]+)\\s+as\\s+[A-Za-z]+\\s+(?<counterparty>.*?)\\s*\\.\\s*(?:Your\\s+)?(?:Avl|available)\\s+Bal(?:ance)?\\s+is\\s+(?:(?:INR|Rs\\.?|\u20B9)\\s*)?(?<balance>[0-9,]+(?:\\.[0-9]{1,2})?)"
+          },
+          {
+            transactionType: "credit",
+            addedAt: "2026-08-18 (real, NEFT-credit-destination wording)",
+            dateFormat: "DD-MM-YYYY",
+            pattern: "HSBC:\\s*Dear\\s+HSBC\\s+Customer,\\s*your\\s+NEFT\\s+transaction\\s+with\\s+reference\\s+number\\s+(?<ref>[A-Za-z0-9-]+)\\s+for\\s+(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[\\d,]+(?:\\.\\d{1,2})?)\\s+has\\s+been\\s+credited\\s+to\\s+the\\s+[A-Za-z0-9& .'-]+\\s+(?:A/c|Acc(?:ount)?)\\s+[X*0-9-]+\\s+of\\s+(?<counterparty>.*?)\\s+on\\s+(?<dateStr>\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4})"
+          },
+          {
+            transactionType: "card_swipe",
+            addedAt: "2026-08-18 (real, debit card spend wording)",
+            pattern: "HSBC:\\s*Thank\\s+you\\s+for\\s+using\\s+HSBC\\s+Debit\\s+Card\\s+[Xx*0-9-]*?(?<cardLast4>\\d{3,6})\\s+for\\s+(?:INR|Rs\\.?|\u20B9)\\s*(?<amount>[\\d,]+(?:\\.\\d{1,2})?)\\s+on\\s+(?<dateStr>[0-9]{1,2}[A-Za-z]{3}(?:[-/][0-9]{2,4})?)\\s+at\\s+(?<counterparty>[^.]+)\\s*\\.\\s*Your\\s+available\\s+bal\\s+is\\s+(?:INR|Rs\\.?|\u20B9)\\s*(?<balance>[\\d,]+(?:\\.\\d{1,2})?)"
+          },
+          {
+            transactionType: "debit",
+            addedAt: "2026-08-18 (real, UPI AutoPay wording)",
             dateFormat: "DD/MM/YYYY",
-            pattern: "HSBC:\\s?INR\\s?(?<amount>[\\d,]+\\.?\\d*)\\s+debited from a\\/c\\s+X+(?<acctLast4>\\d{3,6})\\s+on\\s+(?<dateStr>\\d{2}\\/\\d{2}\\/\\d{4})\\s+for\\s+(?<counterparty>[\\w .]+)"
+            pattern: "Dear\\s+Customer,\\s*Your\\s+HSBC\\s+account\\s+has\\s+been\\s+successfully\\s+debited\\s+with\\s+(?:(?:INR|Rs\\.?|\u20B9)\\s*)?(?<amount>[\\d,]+(?:\\.\\d{1,2})?)\\s+on\\s+(?<dateStr>[0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{2,4})\\s+towards\\s+(?<counterparty>.*?)\\s*,\\s*[A-Za-z0-9._-]+@[A-Za-z0-9.-]+"
           }
         ]
       },
@@ -1978,6 +2338,20 @@
     if (style) Object.assign(node.style, style);
     for (const child of children) node.append(child);
     return node;
+  }
+  function withFocusPreserved(container, matches, rebuild) {
+    const active = document.activeElement;
+    const hadFocus = active instanceof HTMLElement && container.contains(active) && active.matches(matches);
+    const input = hadFocus ? active : null;
+    const selStart = input?.selectionStart ?? null;
+    const selEnd = input?.selectionEnd ?? null;
+    rebuild();
+    if (!hadFocus) return;
+    const restored = container.querySelector(matches);
+    if (restored instanceof HTMLInputElement || restored instanceof HTMLTextAreaElement) {
+      restored.focus();
+      if (selStart !== null && selEnd !== null) restored.setSelectionRange(selStart, selEnd);
+    }
   }
   function legacyCopy(text) {
     try {
@@ -2124,27 +2498,72 @@
 
   // packages/core/src/core/sms-import/smsSampleMessages.ts
   var SMS_SAMPLE_MESSAGES = [
-    // HDFC
+    // HDFC — real, user-verified message wording (2026-08-18 replacement of the earlier synthetic set;
+    // see smsPatterns.ts's own HDFC-block comment). One personal name/VPA that appeared in the original
+    // source messages (never any of these 9) never made it in — everything below was already either a
+    // masked account/card number, a bank helpline, or a merchant/service name.
     {
       bankId: "hdfc",
       transactionType: "debit",
-      templateLabel: "current-era UPI debit",
+      templateLabel: 'real, "Sent" wording',
       sender: "VM-HDFCBK",
-      body: "HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl (UPI Ref No 123456789012). Not you? Call 18002586161"
+      body: "Sent Rs.1288.15 From HDFC Bank A/C *1234 To IRCTC FULL TRAIN RESERVAT On 08/08/26 Ref 127584388992 Not You?"
     },
     {
       bankId: "hdfc",
       transactionType: "credit",
-      templateLabel: "current-era UPI credit",
+      templateLabel: 'real, "Credit Alert!" UPI wording',
       sender: "AD-HDFCBK",
-      body: "HDFC Bank: Rs.1,500.00 credited to a/c XX1234 on 15-Aug-26 by VPA sender@okhdfcbank (UPI Ref No 123456789013)."
+      body: "Credit Alert! Rs.3000.00 credited to HDFC Bank A/c xx1234 on 25-06-25 from VPA 9829172900@ptyes (UPI 287130386996)"
     },
     {
       bankId: "hdfc",
       transactionType: "debit",
-      templateLabel: "older era (~2012-2016), terser wording",
+      templateLabel: 'real, "HDFC Bank: ... debited ... to VPA" wording',
       sender: "HDFCBK",
-      body: "Rs.500.00 debited from A/c No. XX1234 on 15/08/26. Info: ATM WDL. Avl Bal: Rs.10000.00-HDFC Bank"
+      body: "HDFC Bank: Rs 54.00 debited from a/c **1234 on 10-08-23 to VPA paytmqr28100505010114phlsjpa5m8paytm(UPI Ref No 322256610741). Not you?"
+    },
+    {
+      bankId: "hdfc",
+      transactionType: "card_swipe",
+      templateLabel: "real, debit card spend alert",
+      sender: "VM-HDFCBK",
+      body: "Alert!You've spent Rs.1107.73 On HDFC Bank Debit Card xx1234 At _RAJAN AUTO CARE.. On 2023-12-04:09:35:53 Avl bal: 317190.91 Not you?"
+    },
+    {
+      bankId: "hdfc",
+      transactionType: "debit",
+      templateLabel: "real, IMPS sent wording",
+      sender: "VM-HDFCBK",
+      body: "IMPS INR 4,40,000.10 sent from HDFC Bank A/c XX1234 on 17-05-25 To A/c xxxxxxxx0960 Ref-513708399748 Not you?"
+    },
+    {
+      bankId: "hdfc",
+      transactionType: "credit",
+      templateLabel: 'real, "linked to VPA" credit wording',
+      sender: "AD-HDFCBK",
+      body: "HDFC Bank: Rs. 23000.00 credited to a/c XXXXXX1234 on 12-09-22 by a/c linked to VPA sainiprem410@ybl (UPI Ref No 225524688883)."
+    },
+    {
+      bankId: "hdfc",
+      transactionType: "debit",
+      templateLabel: 'real, "UPDATE:" cheque-withdrawal wording',
+      sender: "HDFCBK",
+      body: "UPDATE: INR 1,40,000.00 debited from HDFC Bank XX1234 on 30-JUN-26. Info: SELF - CHQ PAID - MANGYAWAS RO. Avl bal:INR 15,871.53"
+    },
+    {
+      bankId: "hdfc",
+      transactionType: "credit",
+      templateLabel: "real, prepaid card load wording",
+      sender: "VM-HDFCBK",
+      body: "Alert! INR 8800.0 loaded on HDFC Bank Prepaid Card 1234 on 30 Jun,2026 02:35 AM IST Bal: INR 19914.12 Cash withdrawal activated at 30 Jun,2026 03:05 AM IST Help?"
+    },
+    {
+      bankId: "hdfc",
+      transactionType: "debit",
+      templateLabel: 'real, "Money Sent-" IMPS wording',
+      sender: "VM-HDFCBK",
+      body: "Money Sent-INR 2,50,000.00 From HDFC Bank A/c XX1234 on 28-12-23 To A/c xxxxxxxxxxx6038 IMPS Ref-336215356196 Avl bal:INR 39,518.00 Not you?"
     },
     // ICICI
     {
@@ -2221,12 +2640,65 @@
       body: "Rs.1200.00 spent on Kotak Debit Card X5566 at Big Bazaar on 15-08-26"
     },
     // Remaining current-era-only banks
+    // IndusInd — real, user-verified wording (2026-08-18 replacement of the earlier synthetic single
+    // template). One real personal name and one real VPA that appeared in the original source messages
+    // (in the "credited for" and "VPA + RRN" wordings below) were swapped for a placeholder before this
+    // file was written.
+    {
+      bankId: "indusind",
+      transactionType: "card_swipe",
+      templateLabel: "real, debit card purchase wording",
+      sender: "VM-INDUSB",
+      body: "INR 618.93 (Incl. TCS as applicable) is debited from your IndusInd A/C No 159***660960 towards Debit Card Purchase. Avl BAL is INR 122,147.07 - IndusInd Bank."
+    },
+    {
+      bankId: "indusind",
+      transactionType: "credit",
+      templateLabel: "real, NEFT/RTGS-style credit wording",
+      sender: "VM-INDUSB",
+      body: "Your IndusInd Account XXXXXXXX0960 has been credited for INR 200000 towards N/HSBCN18160937466/REF1234567/MR JOHN DOE. Call 18602677777 to report issue-IndusInd Bank"
+    },
+    {
+      bankId: "indusind",
+      transactionType: "credit",
+      templateLabel: "real, quarterly interest-credit wording",
+      sender: "VM-INDUSB",
+      body: "INR 1,952.00 has been credited to your IndusInd A/C 159***660960 towards Interest Credit for the quarter ending June - IndusInd Bank"
+    },
     {
       bankId: "indusind",
       transactionType: "debit",
-      templateLabel: "current-era UPI debit",
+      templateLabel: "real, IMPS debit wording",
       sender: "VM-INDUSB",
-      body: "IndusInd Bank: Rs.400.00 debited from A/c X7788 on 15-08-26 UPI Ref123456789012 to merchant@indus"
+      body: "Your IndusInd Account 15XXXXX0960 has been debited for INR 200000 towards IMPS/318714889890. Call 18602677777 to report issue-IndusInd Bank"
+    },
+    {
+      bankId: "indusind",
+      transactionType: "credit",
+      templateLabel: "real, IMPS credit wording",
+      sender: "VM-INDUSB",
+      body: "Your IndusInd Account 15XXXXX0960 has been credited for INR 20000 towards IMPS/315615390081. Call 18602677777 to report issue-IndusInd Bank"
+    },
+    {
+      bankId: "indusind",
+      transactionType: "debit",
+      templateLabel: "real, cheque withdrawal wording",
+      sender: "VM-INDUSB",
+      body: "INR 200,000.00 is debited from your A/C 159***660960 towards Cheque withdrawal. Avl BAL INR 1,995,939.64 - IndusInd Bank"
+    },
+    {
+      bankId: "indusind",
+      transactionType: "debit",
+      templateLabel: "real, card annual-charge wording",
+      sender: "VM-INDUSB",
+      body: "IndusInd A/C Debited; INR 293.82 Ref-To Card Annual Charge 5256220704059967.Bal INR 1,747,843.64.Dispute-Call 18602677777-IndusInd Bank"
+    },
+    {
+      bankId: "indusind",
+      transactionType: "credit",
+      templateLabel: "real, VPA + RRN credit wording",
+      sender: "VM-INDUSB",
+      body: "A/c *XX0960 credited by Rs 38000.00 from j.doe2182-1@okhdfcbank. RRN: 433340613562. Not You? call 18602677777- IndusInd Bank"
     },
     {
       bankId: "bob",
@@ -2235,12 +2707,78 @@
       sender: "VM-BOBTXN",
       body: "Your A/c XX9900 is debited by Rs.600.00 on 15-08-2026 towards Grocery Store-Bank of Baroda"
     },
+    // HSBC — real, user-verified wording (2026-08-18 replacement of the earlier synthetic single
+    // template). The one real personal name that appeared in the original NEFT-credit-destination
+    // source message was swapped for a placeholder before this file was written.
     {
       bankId: "hsbc",
       transactionType: "debit",
-      templateLabel: "current-era debit",
+      templateLabel: 'real, "is paid from" wording',
       sender: "VM-HSBCIN",
-      body: "HSBC: INR 1000.00 debited from a/c XX2233 on 15/08/2026 for Online Purchase"
+      body: "INR 240.00 is paid from HSBC account XXXXXX1234 to Sharma general Store on 14-Aug-26 with ref 123123123123."
+    },
+    {
+      bankId: "hsbc",
+      transactionType: "credit",
+      templateLabel: 'real, "Dear Customer... credited" wording',
+      sender: "VM-HSBCIN",
+      body: "HSBC: Dear Customer, your HSBC A/c 123-456***-006 has been credited with INR 60.00+ on 10AUG as per the transaction . Your available Bal is 1,531,734.41 ."
+    },
+    {
+      bankId: "hsbc",
+      transactionType: "debit",
+      templateLabel: 'real, "Dear Customer... debited" wording',
+      sender: "VM-HSBCIN",
+      body: "HSBC:Dear Customer, your HSBC A/c 123-456***-006 has been debited with INR 10,000.00 on 02DEC as CSH WDL. Your Avl Bal is INR 752,932.09 ."
+    },
+    {
+      bankId: "hsbc",
+      transactionType: "credit",
+      templateLabel: "real, UPI credit wording",
+      sender: "VM-HSBCIN",
+      body: "Your HSBC Acc XXXXXX5006 is credited for INR 1.00 on 24-Jul-26 from goog-payments@axisbank. UPI Ref No 322063002056"
+    },
+    {
+      bankId: "hsbc",
+      transactionType: "debit",
+      templateLabel: "real, UPI debit wording",
+      sender: "VM-HSBCIN",
+      body: "Your HSBC Acc XXXXXX1234 is debited for INR 29.00 on 05-Aug-25 towards UBER INDIA SYSTEMS PRIVATE LIMITED. UPI Ref No 521774679819."
+    },
+    {
+      bankId: "hsbc",
+      transactionType: "credit",
+      templateLabel: "real, UTR/NEFT/IMPS credit wording",
+      sender: "VM-HSBCIN",
+      body: "HSBC: A/c 123-456***-006 is credited with INR 2,352.96+ on 06JUN at 05.04.16 with UTR YESF361575804825 as NEFT from YESB A/c ***0071 of ZERODHA BROKING L*** . Your Avl Bal is INR 1,573,623.50 ."
+    },
+    {
+      bankId: "hsbc",
+      transactionType: "debit",
+      templateLabel: "real, UTR/NEFT/IMPS debit wording",
+      sender: "VM-HSBCIN",
+      body: "HSBC: A/c 123-456***-006 is debited with INR 190,000.00- on 07JUL with UTR HSBCN18856936028 as NEFT via Online to IDIB A/c ***0960 John Doe*** . Avl Bal is INR 216,599.42 . Report fraud 18002663456/914065118001."
+    },
+    {
+      bankId: "hsbc",
+      transactionType: "credit",
+      templateLabel: "real, NEFT-credit-destination wording",
+      sender: "VM-HSBCIN",
+      body: "HSBC: Dear HSBC Customer, your NEFT transaction with reference number HSBCN123123123123 for INR 200,000.00 has been credited to the INDB A/c XXXXXXXX0960 of JANE ROE on 30-06-2026 at : : ."
+    },
+    {
+      bankId: "hsbc",
+      transactionType: "card_swipe",
+      templateLabel: "real, debit card spend wording",
+      sender: "VM-HSBCIN",
+      body: "HSBC:Thank you for using HSBC Debit Card XXXXX1234 for INR 2,100.00 on 07MAR at AMAZON PAY INDIA PRIVATE .Your available bal is INR 1,124,194.01 .To report fraudulent transaction call 18002673456 (local) Or +914061268007 (overseas)."
+    },
+    {
+      bankId: "hsbc",
+      transactionType: "debit",
+      templateLabel: "real, UPI AutoPay wording",
+      sender: "VM-HSBCIN",
+      body: "Dear Customer, Your HSBC account has been successfully debited with 199.00 on 21/05/2025 towards NETFLIX COM UPI AutoPay, 8aa70bd8e71f4c22b5651e887dc6417c@okaxis."
     },
     {
       bankId: "yesbank",
@@ -2291,6 +2829,19 @@
       removedTemplates: {}
     };
   }
+  function migrateDraftSamples(raw) {
+    const result = {};
+    if (!raw || typeof raw !== "object") return result;
+    for (const [bankId, byIndex] of Object.entries(raw)) {
+      if (!byIndex || typeof byIndex !== "object") continue;
+      result[bankId] = {};
+      for (const [indexStr, value] of Object.entries(byIndex)) {
+        if (!value) continue;
+        result[bankId][Number(indexStr)] = Array.isArray(value) ? value : [value];
+      }
+    }
+    return result;
+  }
   function loadSession() {
     try {
       const raw = localStorage.getItem(SESSION_KEY);
@@ -2302,7 +2853,7 @@
         newTemplates: parsed.newTemplates ?? {},
         overrides: parsed.overrides ?? {},
         disabledTemplates: parsed.disabledTemplates ?? {},
-        draftSamples: parsed.draftSamples ?? {},
+        draftSamples: migrateDraftSamples(parsed.draftSamples),
         customSnippets: parsed.customSnippets ?? [],
         snippetOverrides: parsed.snippetOverrides ?? {},
         excludedSenders: parsed.excludedSenders ?? [],
@@ -2372,13 +2923,13 @@
     session.removedTemplates[bankId] = (session.removedTemplates[bankId] ?? []).filter((i) => i !== index);
     saveSession();
   }
-  function getDraftSample(bankId, index) {
-    return session.draftSamples[bankId]?.[index];
+  function getDraftSamples(bankId, index) {
+    return session.draftSamples[bankId]?.[index] ?? [];
   }
-  function setDraftSample(bankId, index, sample) {
+  function setDraftSamples(bankId, index, samples) {
     var _a;
     (_a = session.draftSamples)[bankId] ?? (_a[bankId] = {});
-    session.draftSamples[bankId][index] = sample;
+    session.draftSamples[bankId][index] = samples;
     saveSession();
   }
   function effectiveBundleForTesting() {
@@ -2501,6 +3052,7 @@
         sender,
         bankLabel: bankId ? bankId.toUpperCase() : "\u2014",
         count: rows.length,
+        parsedCount: rows.filter((r) => outcomeFilterKind(r.trace) === "parsed").length,
         category: senderCategory(sender),
         excluded: isSenderExcluded(sender),
         autoExcluded: !isSenderManuallyExcluded(sender) && isAutoExcludedCategory(sender) && !isAutoExcludeOverridden(sender)
@@ -2508,7 +3060,16 @@
     }).sort((a, b) => b.count - a.count);
   }
   function emptyResultsState() {
-    return { results: [], filter: "all", search: "", expandedIndex: null, page: 1, pageSize: 100, hasRun: false };
+    return {
+      results: [],
+      filter: "all",
+      search: "",
+      expandedIndex: null,
+      page: 1,
+      pageSize: 100,
+      hasRun: false,
+      selectedKeys: /* @__PURE__ */ new Set()
+    };
   }
   var bulkRaw = "";
   function setBulkRaw(next) {
@@ -2551,19 +3112,65 @@
   function setRightPaneTopHeight(px) {
     rightPaneTopHeight = px;
   }
+  var helperPanelWidth = 260;
+  function setHelperPanelWidth(px) {
+    helperPanelWidth = px;
+  }
+  var activeSampleIndex = /* @__PURE__ */ new Map();
+  function getActiveSampleIndex(bankId, index) {
+    return activeSampleIndex.get(templateCardKey(bankId, index)) ?? 0;
+  }
+  function setActiveSampleIndex(bankId, index, sampleIndex) {
+    activeSampleIndex.set(templateCardKey(bankId, index), sampleIndex);
+  }
   var BUILTIN_SNIPPETS = [
-    { label: "amount", snippet: "Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)" },
-    { label: "acctLast4", snippet: "X+(?<acctLast4>\\d{3,6})" },
-    { label: "cardLast4", snippet: "X(?<cardLast4>\\d{4})" },
-    { label: "counterparty", snippet: "(?<counterparty>[\\w .@-]+)" },
-    { label: "ref", snippet: "(?:UPI )?Ref(?:erence)?\\.?\\s*No\\.?\\s*(?<ref>\\d+)" },
-    { label: "balance", snippet: "Avl\\.?\\s*Bal\\.?\\s*Rs\\.?\\s?(?<balance>[\\d,]+\\.?\\d*)" },
-    { label: "dateStr (DD-Mon-YY)", snippet: "(?<dateStr>\\d{2}-[A-Za-z]{3}-\\d{2})" },
-    { label: "dateStr (DD/MM/YY)", snippet: "(?<dateStr>\\d{2}\\/\\d{2}\\/\\d{2})" },
-    { label: "dateStr (DD-MM-YYYY)", snippet: "(?<dateStr>\\d{2}-\\d{2}-\\d{4})" }
+    { label: "amount", snippet: "Rs\\.?\\s?(?<amount>[\\d,]+\\.?\\d*)", example: '"Rs.500.00 debited..." \u2192 500.00' },
+    { label: "acctLast4", snippet: "X+(?<acctLast4>\\d{3,6})", example: '"...a/c XX1234 on..." \u2192 1234' },
+    { label: "cardLast4", snippet: "X(?<cardLast4>\\d{4})", example: '"...card XXXX4410 at..." \u2192 4410' },
+    {
+      label: "counterparty",
+      snippet: "(?<counterparty>[\\w .@-]+)",
+      example: '"...to VPA merchant@ybl (UPI..." \u2192 merchant@ybl'
+    },
+    {
+      label: "ref",
+      snippet: "(?:UPI )?Ref(?:erence)?\\.?\\s*No\\.?\\s*(?<ref>\\d+)",
+      example: '"...(UPI Ref No 123456789012)" \u2192 123456789012'
+    },
+    {
+      label: "balance",
+      snippet: "Avl\\.?\\s*Bal\\.?\\s*Rs\\.?\\s?(?<balance>[\\d,]+\\.?\\d*)",
+      example: '"Avl Bal Rs.10,482.50" \u2192 10,482.50'
+    },
+    {
+      label: "dateStr (DD-Mon-YY)",
+      snippet: "(?<dateStr>\\d{2}-[A-Za-z]{3}-\\d{2})",
+      example: '"...on 15-Aug-26 to..." \u2192 15-Aug-26'
+    },
+    {
+      label: "dateStr (DD/MM/YY)",
+      snippet: "(?<dateStr>\\d{2}\\/\\d{2}\\/\\d{2})",
+      example: '"...on 15/08/26." \u2192 15/08/26'
+    },
+    {
+      label: "dateStr (DD-MM-YYYY)",
+      snippet: "(?<dateStr>\\d{2}-\\d{2}-\\d{4})",
+      example: '"...on 15-08-2026" \u2192 15-08-2026'
+    }
   ];
   function effectiveSnippets() {
     return [...BUILTIN_SNIPPETS.map((s, i) => session.snippetOverrides[i] ?? s), ...session.customSnippets];
+  }
+  function snippetUsage(snippet) {
+    if (!snippet.snippet.trim()) return [];
+    const bundle = effectiveBundle();
+    const entries = [];
+    for (const bank of bundle.banks) {
+      bank.templates.forEach((t, index) => {
+        if (t.pattern.includes(snippet.snippet)) entries.push({ bankId: bank.bankId, index, label: t.addedAt });
+      });
+    }
+    return entries;
   }
   function isSnippetCustom(effectiveIndex) {
     return effectiveIndex >= BUILTIN_SNIPPETS.length;
@@ -2720,7 +3327,7 @@
       ]
     }
   ];
-  function renderRegexHelper(onInsert) {
+  function renderRegexHelper(onInsert, onShowUsage) {
     let tab = "common";
     let editing = null;
     const body = el("div", {});
@@ -2733,6 +3340,10 @@
         value: initial.snippet,
         placeholder: "(?<fieldName>...)",
         style: { fontFamily: "ui-monospace, Menlo, monospace", fontSize: "10px" }
+      });
+      const exampleInput = el("input", {
+        value: initial.example ?? "",
+        placeholder: 'optional \u2014 e.g. "Rs.500.00 debited..." \u2192 500.00'
       });
       const warnBox = el("div", {});
       function checkDuplicate() {
@@ -2760,7 +3371,11 @@
       const saveBtn = el("div", { className: "formbtn primary" }, ["Save"]);
       saveBtn.addEventListener("click", () => {
         if (!labelInput.value.trim() || !snippetTa.value.trim()) return;
-        saveSnippet(index, { label: labelInput.value.trim(), snippet: snippetTa.value.trim() });
+        saveSnippet(index, {
+          label: labelInput.value.trim(),
+          snippet: snippetTa.value.trim(),
+          ...exampleInput.value.trim() ? { example: exampleInput.value.trim() } : {}
+        });
         editing = null;
         renderCommonTab();
       });
@@ -2772,6 +3387,7 @@
       return el("div", { className: "snippet-editform" }, [
         el("div", { className: "formfield" }, [el("label", {}, ["Label"]), labelInput]),
         el("div", { className: "formfield" }, [el("label", {}, ["Snippet"]), snippetTa]),
+        el("div", { className: "formfield" }, [el("label", {}, ["Example (optional)"]), exampleInput]),
         warnBox,
         el("div", { className: "formbtnrow" }, [cancelBtn, saveBtn])
       ]);
@@ -2779,10 +3395,12 @@
     function renderCommonTab() {
       rowElements = /* @__PURE__ */ new Map();
       const nodes = [el("div", { className: "htitle" }, ["Insert at cursor"])];
-      effectiveSnippets().forEach((s, i) => {
+      const indexed = effectiveSnippets().map((s, i) => ({ s, i }));
+      indexed.sort((a, b) => a.s.label.localeCompare(b.s.label));
+      for (const { s, i } of indexed) {
         if (editing === i) {
           nodes.push(renderEditForm(s, i));
-          return;
+          continue;
         }
         const kindPill = isSnippetCustom(i) ? el("span", { className: "minipill draft" }, ["custom"]) : isSnippetModified(i) ? el("span", { className: "minipill modified" }, ["edited"]) : null;
         const row = el("div", { className: "snippetrow" }, [
@@ -2792,13 +3410,22 @@
         rowElements.set(i, row);
         row.addEventListener("click", () => onInsert(s.snippet));
         const code = el("div", { className: "cheatcode" }, [s.snippet]);
+        const exampleEl = s.example ? el("div", { className: "snippetexample" }, [s.example]) : null;
+        const usageCount = snippetUsage(s).length;
+        const usageLink = el("span", { className: "usagelink" }, [
+          `Used in ${usageCount} template${usageCount === 1 ? "" : "s"}`
+        ]);
+        usageLink.addEventListener("click", (e) => {
+          e.stopPropagation();
+          onShowUsage(s);
+        });
         const editLink = el("span", { className: "paperlink" }, ["Edit"]);
         editLink.addEventListener("click", (e) => {
           e.stopPropagation();
           editing = i;
           renderCommonTab();
         });
-        const links = [editLink];
+        const links = [usageLink, editLink];
         if (isSnippetCustom(i)) {
           const deleteLink = el("span", { className: "paperlink danger" }, ["Delete"]);
           deleteLink.addEventListener("click", (e) => {
@@ -2810,8 +3437,8 @@
         }
         const linksRow = el("div", { className: "snippetlinks" }, links);
         linksRow.addEventListener("click", (e) => e.stopPropagation());
-        nodes.push(row, code, linksRow);
-      });
+        nodes.push(row, code, ...exampleEl ? [exampleEl] : [], linksRow);
+      }
       const addBtn = el("div", { className: "addtplbtn", style: { marginTop: "4px" } }, ["+ Add a common pattern"]);
       addBtn.addEventListener("click", () => {
         editing = "new";
@@ -2866,7 +3493,33 @@
     textarea.setSelectionRange(pos, pos);
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
   }
-  function renderPatternFieldWithHelper(textarea, status, warning, extraLeftFields = []) {
+  function makeHelperResizeHandle(target) {
+    const handle = el("div", { className: "helper-resize-handle" });
+    let startX = 0;
+    let startWidth = 0;
+    function onMouseMove(e) {
+      const next = Math.min(480, Math.max(180, startWidth - (e.clientX - startX)));
+      target.style.flexBasis = `${next}px`;
+      setHelperPanelWidth(next);
+    }
+    function onMouseUp() {
+      handle.classList.remove("active");
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    }
+    handle.addEventListener("mousedown", (e) => {
+      startX = e.clientX;
+      startWidth = target.getBoundingClientRect().width;
+      handle.classList.add("active");
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+      e.preventDefault();
+    });
+    return handle;
+  }
+  function renderPatternFieldWithHelper(textarea, status, warning, onShowUsage, extraLeftFields = []) {
+    const helper = renderRegexHelper((snippet) => insertAtCursor(textarea, snippet), onShowUsage);
+    helper.style.flexBasis = `${helperPanelWidth}px`;
     return el("div", { className: "helperwrap" }, [
       el("div", { className: "field" }, [
         el("div", { className: "formfield" }, [
@@ -2877,7 +3530,8 @@
         ]),
         ...extraLeftFields.length > 0 ? [el("div", { className: "field-extra" }, extraLeftFields)] : []
       ]),
-      renderRegexHelper((snippet) => insertAtCursor(textarea, snippet))
+      makeHelperResizeHandle(helper),
+      helper
     ]);
   }
   function buildTemplateFormFields(template) {
@@ -2982,7 +3636,9 @@
     return nodes;
   }
   function renderSidebarInto() {
-    sideEl.replaceChildren(...renderSidebarContents());
+    withFocusPreserved(sideEl, ".searchbox input", () => {
+      sideEl.replaceChildren(...renderSidebarContents());
+    });
   }
   function makeVerticalResizeHandle(target, opts) {
     const handle = el("div", { className: "rightsplit-handle" });
@@ -3071,7 +3727,10 @@
       if (isTemplateRemoved(bankId, index)) return;
       const kind = index >= officialCount ? "draft" : session.overrides[bankId]?.[index] ? "modified" : "official";
       const disabled = isTemplateDisabled(bankId, index);
-      const sample = getDraftSample(bankId, index) ?? (index < officialCount ? samples[index] : void 0);
+      const draftSamples = getDraftSamples(bankId, index);
+      const effectiveSamples = draftSamples.length > 0 ? draftSamples : index < officialCount && samples[index] ? [samples[index]] : [];
+      const activeSampleIdx = Math.min(getActiveSampleIndex(bankId, index), Math.max(0, effectiveSamples.length - 1));
+      const sample = effectiveSamples[activeSampleIdx];
       const trace = sample ? traceSms(sample.sender, sample.body, RECEIVED_AT, bundle) : null;
       const attempt = trace?.attempts.find(
         (a) => a.transactionType === template.transactionType && a.addedAt === template.addedAt
@@ -3118,8 +3777,7 @@
       const head = el("div", { className: "tplhead" }, [
         el("i", { className: `tplchev ti ti-chevron-${expanded ? "down" : "right"}` }),
         ...kindIcon ? [kindIcon] : [],
-        el("b", {}, [`Template ${index + 1}`]),
-        el("span", { className: "era" }, [template.addedAt]),
+        el("b", {}, [`T${index + 1} (${template.addedAt})`]),
         el("span", { className: "tplregex-inline", title: template.pattern }, [template.pattern]),
         copyIconBtn,
         editIconBtn,
@@ -3148,7 +3806,35 @@
             "No sample on file \u2014 verify it in the test column."
           ])
         ]);
+        const pager = effectiveSamples.length > 1 ? (() => {
+          const prevIcon = el("i", {
+            className: `ti ti-chevron-left${activeSampleIdx === 0 ? " disabled" : ""}`
+          });
+          const nextIcon = el("i", {
+            className: `ti ti-chevron-right${activeSampleIdx === effectiveSamples.length - 1 ? " disabled" : ""}`
+          });
+          prevIcon.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (activeSampleIdx > 0) {
+              setActiveSampleIndex(bankId, index, activeSampleIdx - 1);
+              renderRightPanelInto();
+            }
+          });
+          nextIcon.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (activeSampleIdx < effectiveSamples.length - 1) {
+              setActiveSampleIndex(bankId, index, activeSampleIdx + 1);
+              renderRightPanelInto();
+            }
+          });
+          return el("div", { className: "samplepager" }, [
+            prevIcon,
+            `Sample ${activeSampleIdx + 1} of ${effectiveSamples.length}`,
+            nextIcon
+          ]);
+        })() : null;
         const body = el("div", { className: "tplbody" }, [
+          ...pager ? [pager] : [],
           el("div", { className: "regexmsg-grid" }, [regexCol, sampleCol])
         ]);
         const disableIconBtn = el("i", {
@@ -3237,7 +3923,7 @@
         sidEl,
         el("span", { className: `catpill ${s.category ?? "none"}` }, [s.category ?? "\u2014"]),
         el("span", { className: "scnt" }, [
-          `${s.count.toLocaleString()} msg${s.count === 1 ? "" : "s"}${s.autoExcluded ? " \xB7 \u{1F916} auto" : ""}`
+          `${s.count.toLocaleString()} msg${s.count === 1 ? "" : "s"} \xB7 ${s.parsedCount.toLocaleString()} parsed${s.autoExcluded ? " \xB7 \u{1F916} auto" : ""}`
         ]),
         actionEl
       ]);
@@ -3288,20 +3974,19 @@
     const existing = !isNew && bank ? bank.templates[m.index] : void 0;
     const kind = isNew ? "new" : m.index >= officialCount ? "draft" : session.overrides[m.bankId]?.[m.index] ? "modified" : "official";
     const originalSample = !isNew && m.index < officialCount ? samplesByBank().get(m.bankId)?.[m.index] : void 0;
-    const savedSample = !isNew ? getDraftSample(m.bankId, m.index) : void 0;
     const fields = buildTemplateFormFields(
       existing ?? { transactionType: "debit", dateFormat: "", addedAt: "", pattern: "" }
     );
     const previewBox = el("div", {});
-    const testSenderInput = el("input", {
-      value: m.prefillSender ?? savedSample?.sender ?? originalSample?.sender ?? m.bankId.toUpperCase(),
-      placeholder: "e.g. VM-SBIINB"
-    });
-    const testBodyTa = el("textarea", {
-      rows: 2,
-      value: m.prefillBody ?? savedSample?.body ?? originalSample?.body ?? "",
-      placeholder: "Paste one message to test your draft against\u2026"
-    });
+    const samples = isNew ? [{ sender: m.prefillSender ?? m.bankId.toUpperCase(), body: m.prefillBody ?? "" }] : (() => {
+      const saved = getDraftSamples(m.bankId, m.index);
+      if (saved.length > 0) return saved.map((s) => ({ ...s }));
+      if (originalSample) return [{ sender: originalSample.sender, body: originalSample.body }];
+      return [{ sender: m.bankId.toUpperCase(), body: "" }];
+    })();
+    let activeIdx = 0;
+    const samplesListEl = el("div", { className: "samplelist" });
+    const sampleFieldsEl = el("div", {});
     const realSenderPatterns = bank?.senderIdPatterns?.length ? bank.senderIdPatterns : [".*"];
     function updatePreview() {
       const compiled = tryCompile(fields.patternTa.value);
@@ -3323,22 +4008,18 @@
         el("div", { className: "minilabel" }, ["Your regex"]),
         highlightedPattern(fields.patternTa.value)
       ]);
+      const activeSample = samples[activeIdx];
       let statusEl;
       let msgEl = null;
-      if (!testBodyTa.value.trim()) {
+      if (!activeSample?.body.trim()) {
         statusEl = el("div", { className: "muted" }, ["Paste a message above to check your regex live."]);
       } else if (compiled.ok) {
         const draftTemplate = currentTemplateFromFields(fields, existing?.addedAt ?? "draft");
         const testBundle = singleTemplateBundle(m.bankId, draftTemplate, realSenderPatterns);
-        const trace = traceSms(
-          testSenderInput.value || m.bankId.toUpperCase(),
-          testBodyTa.value,
-          RECEIVED_AT,
-          testBundle
-        );
+        const trace = traceSms(activeSample.sender || m.bankId.toUpperCase(), activeSample.body, RECEIVED_AT, testBundle);
         const attempt = trace.attempts[0];
         const matched = trace.outcome.kind === "parsed" && !!attempt?.matched;
-        msgEl = highlightedTextForAuthoring(testBodyTa.value, fields.patternTa.value, attempt?.captureRanges);
+        msgEl = highlightedTextForAuthoring(activeSample.body, fields.patternTa.value, attempt?.captureRanges);
         if (trace.matchedSenderBanks.length === 0) {
           statusEl = el("span", { className: "pill warn" }, ["\u2717 sender not recognized"]);
         } else {
@@ -3347,7 +4028,7 @@
           ]);
         }
       } else {
-        msgEl = highlightedText(testBodyTa.value, void 0);
+        msgEl = highlightedText(activeSample.body, void 0);
         statusEl = el("span", { className: "pill warn" }, ["\u2717 invalid regex"]);
       }
       const right = el("div", {}, [
@@ -3356,12 +4037,77 @@
       ]);
       previewBox.replaceChildren(el("div", { className: "regexmsg-grid" }, [left, right]));
     }
+    function renderSamplesList() {
+      const rows = samples.map((s, i) => {
+        const snippet = s.body.trim() || "(blank \u2014 click to fill in)";
+        const row = el("div", { className: `samplerow${i === activeIdx ? " active" : ""}` }, [
+          el("span", { className: "snum" }, [`${i + 1}.`]),
+          el("span", { className: "ssnippet" }, [s.sender ? `${s.sender}: ${snippet}` : snippet])
+        ]);
+        if (samples.length > 1) {
+          const removeBtn = el("span", { className: "sx" }, ["\u2715"]);
+          removeBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            samples.splice(i, 1);
+            if (activeIdx >= samples.length) activeIdx = samples.length - 1;
+            renderSamplesList();
+            renderActiveSampleFields();
+            updatePreview();
+          });
+          row.append(removeBtn);
+        }
+        row.addEventListener("click", () => {
+          activeIdx = i;
+          renderSamplesList();
+          renderActiveSampleFields();
+          updatePreview();
+        });
+        return row;
+      });
+      const addBtn = el("div", { className: "addsamplebtn" }, ["+ Add another sample"]);
+      addBtn.addEventListener("click", () => {
+        samples.push({ sender: m.bankId.toUpperCase(), body: "" });
+        activeIdx = samples.length - 1;
+        renderSamplesList();
+        renderActiveSampleFields();
+        updatePreview();
+      });
+      samplesListEl.replaceChildren(...rows, addBtn);
+    }
+    function renderActiveSampleFields() {
+      const active = samples[activeIdx];
+      const senderInput = el("input", { value: active.sender, placeholder: "e.g. VM-SBIINB" });
+      senderInput.addEventListener("input", () => {
+        active.sender = senderInput.value;
+        renderSamplesList();
+        updatePreview();
+      });
+      const bodyTa = el("textarea", {
+        rows: 2,
+        value: active.body,
+        placeholder: "Paste one message to test your draft against\u2026"
+      });
+      bodyTa.addEventListener("input", () => {
+        active.body = bodyTa.value;
+        renderSamplesList();
+        updatePreview();
+      });
+      sampleFieldsEl.replaceChildren(
+        el("div", { className: "formfield" }, [el("label", {}, [`Test sender (sample ${activeIdx + 1})`]), senderInput]),
+        el("div", { className: "formfield" }, [
+          el("label", {}, [
+            originalSample && activeIdx === 0 ? `Test message body (sample ${activeIdx + 1} \u2014 from the original sample, editable)` : `Test message body (sample ${activeIdx + 1})`
+          ]),
+          bodyTa
+        ])
+      );
+    }
     fields.patternTa.addEventListener("input", updatePreview);
     fields.typeSelect.addEventListener("change", updatePreview);
     fields.dateFormatInput.addEventListener("input", updatePreview);
     fields.labelInput.addEventListener("input", updatePreview);
-    testSenderInput.addEventListener("input", updatePreview);
-    testBodyTa.addEventListener("input", updatePreview);
+    renderSamplesList();
+    renderActiveSampleFields();
     updatePreview();
     const saveBtn = el("div", { className: "formbtn primary" }, [
       isNew ? "Save template" : kind === "official" ? "Save override" : "Save changes"
@@ -3388,11 +4134,9 @@
         session.overrides[m.bankId][m.index] = newTemplate;
         effectiveIndex = m.index;
       }
-      if (testBodyTa.value.trim()) {
-        setDraftSample(m.bankId, effectiveIndex, {
-          sender: testSenderInput.value || m.bankId.toUpperCase(),
-          body: testBodyTa.value
-        });
+      const nonBlankSamples = samples.filter((s) => s.body.trim()).map((s) => ({ sender: s.sender || m.bankId.toUpperCase(), body: s.body }));
+      if (nonBlankSamples.length > 0) {
+        setDraftSamples(m.bankId, effectiveIndex, nonBlankSamples);
       }
       saveSession();
       renderRightPanelInto();
@@ -3427,18 +4171,16 @@
         el("div", { className: "formfield" }, [el("label", {}, ["Date format (if any)"]), fields.dateFormatInput]),
         el("div", { className: "formfield" }, [el("label", {}, ["Label"]), fields.labelInput])
       ]),
-      // Test sender/body render BELOW the pattern field, in the same left column — filling the space the
+      // Test samples render BELOW the pattern field, in the same left column — filling the space the
       // (taller) regex helper panel already occupies on the right, instead of needing their own separate
       // full-width row further down the modal.
-      renderPatternFieldWithHelper(fields.patternTa, fields.patternStatus, fields.patternWarning, [
-        el("div", { className: "formfield" }, [el("label", {}, ["Test sender"]), testSenderInput]),
-        el("div", { className: "formfield" }, [
-          el("label", {}, [
-            originalSample ? "Test message body (from the original sample \u2014 editable)" : "Test message body"
-          ]),
-          testBodyTa
-        ])
-      ]),
+      renderPatternFieldWithHelper(
+        fields.patternTa,
+        fields.patternStatus,
+        fields.patternWarning,
+        (snippet) => showSnippetUsagePopup(snippet),
+        [el("div", { className: "minilabel" }, ["Test samples"]), samplesListEl, sampleFieldsEl]
+      ),
       previewBox
     ];
     const mbodyEl = el("div", { className: "mbody" }, body);
@@ -3740,6 +4482,39 @@
     else if (modal.kind === "import") modalRoot.append(renderImportModal());
     else modalRoot.append(renderNewBankModal());
   }
+  function showSnippetUsagePopup(snippet) {
+    const usage = snippetUsage(snippet);
+    const close = () => backdrop.remove();
+    const closeBtn = el("span", { className: "paperlink" }, ["Close"]);
+    closeBtn.addEventListener("click", close);
+    const rows = usage.map((entry) => {
+      const row = el("div", { className: "popuprow" }, [
+        el("span", {}, [`T${entry.index + 1} (${entry.label})`]),
+        el("span", { className: "bank" }, [entry.bankId.toUpperCase()])
+      ]);
+      row.addEventListener("click", () => {
+        close();
+        setModal(null);
+        renderModalRoot();
+        setSelection({ kind: "bank", bankId: entry.bankId });
+        if (!isTemplateCardExpanded(entry.bankId, entry.index)) toggleTemplateCardExpanded(entry.bankId, entry.index);
+        renderAll();
+      });
+      return row;
+    });
+    const backdrop = el("div", { className: "usagepopup-backdrop active" }, [
+      el("div", { className: "usagepopup" }, [
+        el("h4", {}, [snippet.label]),
+        el("div", { className: "sub" }, [`${snippet.snippet} \u2014 used in ${usage.length} template(s)`]),
+        ...rows.length > 0 ? rows : [el("div", { className: "muted", style: { fontSize: "11px" } }, ["Not used in any template yet."])],
+        el("div", { className: "popupclose" }, [closeBtn])
+      ])
+    ]);
+    backdrop.addEventListener("click", (e) => {
+      if (e.target === backdrop) close();
+    });
+    document.body.append(backdrop);
+  }
   var FILTER_LABELS = {
     all: "Total tested",
     parsed: "\u2713 Parsed",
@@ -3892,9 +4667,51 @@
     const topPager = renderPaginationBar(state, filtered.length, rerender);
     const start = (state.page - 1) * state.pageSize;
     const pageItems = filtered.slice(start, start + state.pageSize);
+    const selectAllCb = el("input", { type: "checkbox" });
+    selectAllCb.checked = pageItems.length > 0 && pageItems.every((r) => state.selectedKeys.has(messageKey(r.sender, r.body)));
+    selectAllCb.addEventListener("change", () => {
+      for (const r of pageItems) {
+        const key = messageKey(r.sender, r.body);
+        if (selectAllCb.checked) state.selectedKeys.add(key);
+        else state.selectedKeys.delete(key);
+      }
+      rerender();
+    });
+    const bulkBar = state.selectedKeys.size > 0 ? (() => {
+      const excludeBtn = el("span", { className: "bulkbtn excl" }, ["\u{1F6AB} Exclude selected"]);
+      excludeBtn.addEventListener("click", () => {
+        for (const r of filtered) {
+          const key = messageKey(r.sender, r.body);
+          if (state.selectedKeys.has(key) && !r.trace.excludedAsOtp) excludeMessage(r.sender, r.body);
+        }
+        state.selectedKeys.clear();
+        renderAll();
+      });
+      const includeBtn = el("span", { className: "bulkbtn incl" }, ["\u21A9 Include selected"]);
+      includeBtn.addEventListener("click", () => {
+        for (const r of filtered) {
+          const key = messageKey(r.sender, r.body);
+          if (state.selectedKeys.has(key)) includeMessage(r.sender, r.body);
+        }
+        state.selectedKeys.clear();
+        renderAll();
+      });
+      const clearBtn = el("span", { className: "bulkbtn clear" }, ["Clear selection"]);
+      clearBtn.addEventListener("click", () => {
+        state.selectedKeys.clear();
+        rerender();
+      });
+      return el("div", { className: "bulkbar show" }, [
+        el("span", {}, [el("span", { className: "cnt" }, [String(state.selectedKeys.size)]), " selected"]),
+        excludeBtn,
+        includeBtn,
+        clearBtn
+      ]);
+    })() : null;
     const table = el("table", { className: "rtable" }, [
       el("thead", {}, [
         el("tr", {}, [
+          el("th", { className: "selcell" }, [selectAllCb]),
           el("th", {}, [""]),
           el("th", {}, ["Sender"]),
           el("th", {}, ["Bank"]),
@@ -3908,7 +4725,7 @@
         {},
         pageItems.length === 0 ? [
           el("tr", {}, [
-            el("td", { colSpan: 6, className: "muted" }, [
+            el("td", { colSpan: 7, className: "muted" }, [
               state.results.length === 0 ? "Nothing tested yet \u2014 paste or upload messages above." : "No results match this filter/search."
             ])
           ])
@@ -3916,7 +4733,9 @@
       )
     ]);
     const bottomPager = renderPaginationBar(state, filtered.length, rerender);
-    container.replaceChildren(statStrip, toolsRow, topPager, table, bottomPager);
+    withFocusPreserved(container, ".toolsrow input", () => {
+      container.replaceChildren(statStrip, toolsRow, ...bulkBar ? [bulkBar] : [], topPager, table, bottomPager);
+    });
   }
   function setSearchAndRerender(state, container, query) {
     state.search = query;
@@ -3958,7 +4777,17 @@ ${result.body}`);
       e.stopPropagation();
       setSearchAndRerender(state, container, result.sender);
     });
+    const rowKey = messageKey(result.sender, result.body);
+    const selectCb = el("input", { type: "checkbox" });
+    selectCb.checked = state.selectedKeys.has(rowKey);
+    selectCb.addEventListener("click", (e) => e.stopPropagation());
+    selectCb.addEventListener("change", () => {
+      if (selectCb.checked) state.selectedKeys.add(rowKey);
+      else state.selectedKeys.delete(rowKey);
+      renderResultsTableInto(container, state);
+    });
     const row = el("tr", { className: `rrow${kind === "excluded" ? " excludedrow" : ""}` }, [
+      el("td", { className: "selcell" }, [selectCb]),
       el(
         "td",
         { className: "chev" },
@@ -3979,7 +4808,7 @@ ${result.body}`);
       row.style.cursor = "default";
     }
     if (!isExpanded) return [row];
-    const detail = el("td", { colSpan: 6 });
+    const detail = el("td", { colSpan: 7 });
     if (result.trace.attempts.length > 0) {
       detail.append(
         el("div", { className: "tracelbl" }, [
@@ -4146,6 +4975,7 @@ ${text}` : text;
           bulkState.search = "";
           bulkState.page = 1;
           bulkState.expandedIndex = null;
+          bulkState.selectedKeys = /* @__PURE__ */ new Set();
           bulkState.hasRun = true;
           renderResultsTableInto(tableWrap, bulkState);
           renderSidebarInto();
@@ -4247,6 +5077,7 @@ ${text}` : text;
           bt.state.search = "";
           bt.state.page = 1;
           bt.state.expandedIndex = null;
+          bt.state.selectedKeys = /* @__PURE__ */ new Set();
           bt.state.hasRun = true;
           renderResultsTableInto(tableWrap, bt.state);
           renderRightPanelInto();

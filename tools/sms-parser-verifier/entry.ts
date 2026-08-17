@@ -15,7 +15,7 @@
 // real feedback that one long file was making edits slower and more error-prone than they needed to be.
 import { traceSms, redactDigits, type SmsParseTrace } from '@/core/sms-import/smsParser';
 import { SMS_PATTERNS_FALLBACK, type SmsPatternBundle, type BankSmsPatternSet } from '@/core/sms-import/smsPatterns';
-import { el, copyText, downloadTextFile, initToast, showToast } from './dom';
+import { el, copyText, downloadTextFile, initToast, showToast, withFocusPreserved } from './dom';
 import {
   highlightedText,
   highlightedTextForAuthoring,
@@ -52,8 +52,8 @@ import {
   isTemplateRemoved,
   removeTemplate,
   restoreTemplate,
-  getDraftSample,
-  setDraftSample,
+  getDraftSamples,
+  setDraftSamples,
   saveSnippet,
   samplesByBank,
   bankPassState,
@@ -74,6 +74,7 @@ import {
   includeSender,
   excludeMessage,
   includeMessage,
+  messageKey,
   setAutoExcludeOverride,
   isTemplateCardExpanded,
   toggleTemplateCardExpanded,
@@ -83,12 +84,16 @@ import {
   toggleSenderGroupOpen,
   rightPaneTopHeight,
   setRightPaneTopHeight,
+  getActiveSampleIndex,
+  setActiveSampleIndex,
+  snippetUsage,
   type ModalState,
   type ResultFilter,
   type TestResult,
   type ResultsTableState,
   type ExclusionReason,
-  type SenderSummary
+  type SenderSummary,
+  type CommonSnippet
 } from './state';
 
 // ── Sidebar ──────────────────────────────────────────────────────────────────────────────────────────
@@ -171,7 +176,11 @@ function renderSidebarContents(): Node[] {
 }
 
 function renderSidebarInto() {
-  sideEl.replaceChildren(...renderSidebarContents());
+  // Preserves focus/cursor on the "Filter banks…" box across the rebuild its own `input` handler
+  // triggers — otherwise every keystroke would drop focus (see `withFocusPreserved()`'s own doc comment).
+  withFocusPreserved(sideEl, '.searchbox input', () => {
+    sideEl.replaceChildren(...renderSidebarContents());
+  });
 }
 
 // ── Right panel: read-only reference — sender patterns + template "paper" cards, plus (2026-08-18) the
@@ -289,10 +298,16 @@ function renderRightPanel(): Node[] {
     const kind: 'official' | 'modified' | 'draft' =
       index >= officialCount ? 'draft' : session.overrides[bankId]?.[index] ? 'modified' : 'official';
     const disabled = isTemplateDisabled(bankId, index);
-    // A tester's own saved test message (from the modal) takes priority — this is what lets a
-    // session-added template show a real sample at all, and lets a corrected sample for an official one
-    // stick beyond the modal it was typed in.
-    const sample = getDraftSample(bankId, index) ?? (index < officialCount ? samples[index] : undefined);
+    // A tester's own saved test message(s) (from the modal) take priority — this is what lets a
+    // session-added template show real sample(s) at all, and lets a corrected/expanded sample set for an
+    // official one stick beyond the modal they were typed in. One regex can genuinely match several
+    // differently-worded real messages (2026-08-18), so this is an array, cycled via a small pager below
+    // once there's more than one — `activeSampleIdx` is that pager's own remembered position.
+    const draftSamples = getDraftSamples(bankId, index);
+    const effectiveSamples =
+      draftSamples.length > 0 ? draftSamples : index < officialCount && samples[index] ? [samples[index]] : [];
+    const activeSampleIdx = Math.min(getActiveSampleIndex(bankId, index), Math.max(0, effectiveSamples.length - 1));
+    const sample = effectiveSamples[activeSampleIdx];
     const trace = sample ? traceSms(sample.sender, sample.body, RECEIVED_AT, bundle) : null;
     const attempt = trace?.attempts.find(
       (a) => a.transactionType === template.transactionType && a.addedAt === template.addedAt
@@ -357,8 +372,7 @@ function renderRightPanel(): Node[] {
     const head = el('div', { className: 'tplhead' }, [
       el('i', { className: `tplchev ti ti-chevron-${expanded ? 'down' : 'right'}` }),
       ...(kindIcon ? [kindIcon] : []),
-      el('b', {}, [`Template ${index + 1}`]),
-      el('span', { className: 'era' }, [template.addedAt]),
+      el('b', {}, [`T${index + 1} (${template.addedAt})`]),
       el('span', { className: 'tplregex-inline', title: template.pattern }, [template.pattern]),
       copyIconBtn,
       editIconBtn,
@@ -391,7 +405,42 @@ function renderRightPanel(): Node[] {
               'No sample on file — verify it in the test column.'
             ])
           ]);
+
+      // Only shown once a template actually has more than one saved sample — keeps the common case (one
+      // sample, or none) exactly as compact as before this feature existed.
+      const pager =
+        effectiveSamples.length > 1
+          ? (() => {
+              const prevIcon = el('i', {
+                className: `ti ti-chevron-left${activeSampleIdx === 0 ? ' disabled' : ''}`
+              });
+              const nextIcon = el('i', {
+                className: `ti ti-chevron-right${activeSampleIdx === effectiveSamples.length - 1 ? ' disabled' : ''}`
+              });
+              prevIcon.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (activeSampleIdx > 0) {
+                  setActiveSampleIndex(bankId, index, activeSampleIdx - 1);
+                  renderRightPanelInto();
+                }
+              });
+              nextIcon.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (activeSampleIdx < effectiveSamples.length - 1) {
+                  setActiveSampleIndex(bankId, index, activeSampleIdx + 1);
+                  renderRightPanelInto();
+                }
+              });
+              return el('div', { className: 'samplepager' }, [
+                prevIcon,
+                `Sample ${activeSampleIdx + 1} of ${effectiveSamples.length}`,
+                nextIcon
+              ]);
+            })()
+          : null;
+
       const body = el('div', { className: 'tplbody' }, [
+        ...(pager ? [pager] : []),
         el('div', { className: 'regexmsg-grid' }, [regexCol, sampleCol])
       ]);
 
@@ -509,7 +558,7 @@ function renderSendersSection(results: TestResult[], scopeBankId?: string): Node
       sidEl,
       el('span', { className: `catpill ${s.category ?? 'none'}` }, [s.category ?? '—']),
       el('span', { className: 'scnt' }, [
-        `${s.count.toLocaleString()} msg${s.count === 1 ? '' : 's'}${s.autoExcluded ? ' · 🤖 auto' : ''}`
+        `${s.count.toLocaleString()} msg${s.count === 1 ? '' : 's'} · ${s.parsedCount.toLocaleString()} parsed${s.autoExcluded ? ' · 🤖 auto' : ''}`
       ]),
       actionEl
     ]);
@@ -574,34 +623,31 @@ function renderTemplateModal(m: Extract<ModalState, { kind: 'template' }>): HTML
         : 'official';
   const originalSample =
     !isNew && (m.index as number) < officialCount ? samplesByBank().get(m.bankId)?.[m.index as number] : undefined;
-  // A tester's own previously-saved test message (from an earlier visit to this SAME template's modal)
-  // takes priority over the official sample — this is what makes the test box come back populated when
-  // reopening a template to edit it further, instead of going blank (it's keyed by the same effective
-  // index the right panel's own sample lookup already uses).
-  const savedSample = !isNew ? getDraftSample(m.bankId, m.index as number) : undefined;
 
   const fields = buildTemplateFormFields(
     existing ?? { transactionType: 'debit', dateFormat: '', addedAt: '', pattern: '' }
   );
   const previewBox = el('div', {});
 
-  // ONE editable "test against" box, always — pre-filled from a tester's own previously-saved sample for
-  // THIS template if one exists, else the template's own original sample when editing an official one, or
-  // from the pre-fill passed in from a results-row action, or blank for a fresh draft. Previously the
-  // original sample was shown read-only with no way to correct/replace it, and a brand-new/draft template
-  // silently tested against a sender catch-all (`.*`) instead of this bank's REAL sender patterns — so
-  // typing a sender that wouldn't actually be recognized never showed as such. Both gaps are fixed by
-  // making this one box, always editable, always tested against the bank's real (or, if truly none
-  // configured yet, a catch-all) sender patterns.
-  const testSenderInput = el('input', {
-    value: m.prefillSender ?? savedSample?.sender ?? originalSample?.sender ?? m.bankId.toUpperCase(),
-    placeholder: 'e.g. VM-SBIINB'
-  });
-  const testBodyTa = el('textarea', {
-    rows: 2,
-    value: m.prefillBody ?? savedSample?.body ?? originalSample?.body ?? '',
-    placeholder: 'Paste one message to test your draft against…'
-  });
+  // Multiple editable "test against" samples (2026-08-18 — one regex can genuinely match several
+  // differently-worded real messages, and a single saved sample can't confirm that). Seeded from a
+  // tester's own previously-saved samples for THIS template if any exist, else the template's own
+  // original sample when editing an official one (still editable/correctable, same as before this
+  // change), else the pre-fill passed in from a results-row action (only ever set for a brand-new
+  // template), else one blank entry. `samples` is the in-memory working copy for this modal session —
+  // written back to session state as a whole array on Save, same "always tested against the bank's real
+  // (or, if truly none configured yet, a catch-all) sender patterns" behavior as before.
+  const samples: { sender: string; body: string }[] = isNew
+    ? [{ sender: m.prefillSender ?? m.bankId.toUpperCase(), body: m.prefillBody ?? '' }]
+    : (() => {
+        const saved = getDraftSamples(m.bankId, m.index as number);
+        if (saved.length > 0) return saved.map((s) => ({ ...s }));
+        if (originalSample) return [{ sender: originalSample.sender, body: originalSample.body }];
+        return [{ sender: m.bankId.toUpperCase(), body: '' }];
+      })();
+  let activeIdx = 0;
+  const samplesListEl = el('div', { className: 'samplelist' });
+  const sampleFieldsEl = el('div', {});
   const realSenderPatterns = bank?.senderIdPatterns?.length ? bank.senderIdPatterns : ['.*'];
 
   function updatePreview() {
@@ -623,7 +669,7 @@ function renderTemplateModal(m: Extract<ModalState, { kind: 'template' }>): HTML
         ? [
             el('div', { className: 'regexstatus warn' }, [
               el('i', { className: 'ti ti-alert-triangle' }),
-              ` Unrecognized field name(s): ${unrecognized.join(', ')} — highlighted below to help you review the match, but the real parser only ever extracts amount, acctLast4, cardLast4, counterparty, ref, balance, dateStr. Anything else compiles and matches fine but is silently dropped in production.`
+              ` Unrecognized field name(s): ${unrecognized.join(', ')} — highlighted below to help you review the match, but the real parser only ever extracts amount, account, card, counterparty, reference, balance, date. Anything else compiles and matches fine but is silently dropped in production.`
             ])
           ]
         : [])
@@ -634,24 +680,22 @@ function renderTemplateModal(m: Extract<ModalState, { kind: 'template' }>): HTML
       highlightedPattern(fields.patternTa.value)
     ]);
 
+    // Live-checks whichever sample is currently ACTIVE in the list below — switching samples re-runs this
+    // against the newly-active one, so each can be confirmed independently.
+    const activeSample = samples[activeIdx];
     let statusEl: HTMLElement;
     let msgEl: HTMLElement | null = null;
-    if (!testBodyTa.value.trim()) {
+    if (!activeSample?.body.trim()) {
       statusEl = el('div', { className: 'muted' }, ['Paste a message above to check your regex live.']);
     } else if (compiled.ok) {
       const draftTemplate = currentTemplateFromFields(fields, existing?.addedAt ?? 'draft');
       const testBundle = singleTemplateBundle(m.bankId, draftTemplate, realSenderPatterns);
-      const trace = traceSms(
-        testSenderInput.value || m.bankId.toUpperCase(),
-        testBodyTa.value,
-        RECEIVED_AT,
-        testBundle
-      );
+      const trace = traceSms(activeSample.sender || m.bankId.toUpperCase(), activeSample.body, RECEIVED_AT, testBundle);
       const attempt = trace.attempts[0];
       const matched = trace.outcome.kind === 'parsed' && !!attempt?.matched;
       // Authoring-only highlighting — also colors any custom-named group your regex defines, not just
       // the 7 the real parser reads, so you can see your own pattern working while you write it.
-      msgEl = highlightedTextForAuthoring(testBodyTa.value, fields.patternTa.value, attempt?.captureRanges);
+      msgEl = highlightedTextForAuthoring(activeSample.body, fields.patternTa.value, attempt?.captureRanges);
       if (trace.matchedSenderBanks.length === 0) {
         // Same distinction established for the bulk/bank testers — a sender-pattern miss never even
         // reaches the regex, and collapsing that into "no match" would hide a real, fixable gap.
@@ -662,7 +706,7 @@ function renderTemplateModal(m: Extract<ModalState, { kind: 'template' }>): HTML
         ]);
       }
     } else {
-      msgEl = highlightedText(testBodyTa.value, undefined);
+      msgEl = highlightedText(activeSample.body, undefined);
       statusEl = el('span', { className: 'pill warn' }, ['✗ invalid regex']);
     }
     const right = el('div', {}, [
@@ -671,12 +715,88 @@ function renderTemplateModal(m: Extract<ModalState, { kind: 'template' }>): HTML
     ]);
     previewBox.replaceChildren(el('div', { className: 'regexmsg-grid' }, [left, right]));
   }
+
+  /** Rebuilds the clickable sample-row list — one row per saved sample (click to make it active, ✕ to
+   *  remove), plus "+ Add another sample". Kept separate from `renderActiveSampleFields()` so switching
+   *  which sample is active doesn't need to rebuild the (identically-shaped) list itself. */
+  function renderSamplesList() {
+    const rows = samples.map((s, i) => {
+      const snippet = s.body.trim() || '(blank — click to fill in)';
+      const row = el('div', { className: `samplerow${i === activeIdx ? ' active' : ''}` }, [
+        el('span', { className: 'snum' }, [`${i + 1}.`]),
+        el('span', { className: 'ssnippet' }, [s.sender ? `${s.sender}: ${snippet}` : snippet])
+      ]);
+      if (samples.length > 1) {
+        const removeBtn = el('span', { className: 'sx' }, ['✕']);
+        removeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          samples.splice(i, 1);
+          if (activeIdx >= samples.length) activeIdx = samples.length - 1;
+          renderSamplesList();
+          renderActiveSampleFields();
+          updatePreview();
+        });
+        row.append(removeBtn);
+      }
+      row.addEventListener('click', () => {
+        activeIdx = i;
+        renderSamplesList();
+        renderActiveSampleFields();
+        updatePreview();
+      });
+      return row;
+    });
+    const addBtn = el('div', { className: 'addsamplebtn' }, ['+ Add another sample']);
+    addBtn.addEventListener('click', () => {
+      samples.push({ sender: m.bankId.toUpperCase(), body: '' });
+      activeIdx = samples.length - 1;
+      renderSamplesList();
+      renderActiveSampleFields();
+      updatePreview();
+    });
+    samplesListEl.replaceChildren(...rows, addBtn);
+  }
+
+  /** Rebuilds the sender/body input pair for whichever sample is currently active — fresh elements each
+   *  time (rather than mutating `.value` in place) so old event listeners never accumulate across a
+   *  session with several samples. */
+  function renderActiveSampleFields() {
+    const active = samples[activeIdx];
+    const senderInput = el('input', { value: active.sender, placeholder: 'e.g. VM-SBIINB' });
+    senderInput.addEventListener('input', () => {
+      active.sender = senderInput.value;
+      renderSamplesList();
+      updatePreview();
+    });
+    const bodyTa = el('textarea', {
+      rows: 2,
+      value: active.body,
+      placeholder: 'Paste one message to test your draft against…'
+    });
+    bodyTa.addEventListener('input', () => {
+      active.body = bodyTa.value;
+      renderSamplesList();
+      updatePreview();
+    });
+    sampleFieldsEl.replaceChildren(
+      el('div', { className: 'formfield' }, [el('label', {}, [`Test sender (sample ${activeIdx + 1})`]), senderInput]),
+      el('div', { className: 'formfield' }, [
+        el('label', {}, [
+          originalSample && activeIdx === 0
+            ? `Test message body (sample ${activeIdx + 1} — from the original sample, editable)`
+            : `Test message body (sample ${activeIdx + 1})`
+        ]),
+        bodyTa
+      ])
+    );
+  }
+
   fields.patternTa.addEventListener('input', updatePreview);
   fields.typeSelect.addEventListener('change', updatePreview);
   fields.dateFormatInput.addEventListener('input', updatePreview);
   fields.labelInput.addEventListener('input', updatePreview);
-  testSenderInput.addEventListener('input', updatePreview);
-  testBodyTa.addEventListener('input', updatePreview);
+  renderSamplesList();
+  renderActiveSampleFields();
   updatePreview();
 
   const saveBtn = el('div', { className: 'formbtn primary' }, [
@@ -703,14 +823,15 @@ function renderTemplateModal(m: Extract<ModalState, { kind: 'template' }>): HTML
       session.overrides[m.bankId][m.index as number] = newTemplate;
       effectiveIndex = m.index as number;
     }
-    // Persists whatever was in the test box as this template's own reference sample — the only way a
-    // session-added template (which has no official sample at all) ever gets one, and lets a corrected
-    // sample for an official template stick beyond this one modal session.
-    if (testBodyTa.value.trim()) {
-      setDraftSample(m.bankId, effectiveIndex, {
-        sender: testSenderInput.value || m.bankId.toUpperCase(),
-        body: testBodyTa.value
-      });
+    // Persists every non-blank sample as this template's own reference sample(s) — the only way a
+    // session-added template (which has no official sample at all) ever gets any, and lets a
+    // corrected/expanded sample set for an official template stick beyond this one modal session. A
+    // sample with no body typed in is just an unused "+ Add another sample" slot — never saved.
+    const nonBlankSamples = samples
+      .filter((s) => s.body.trim())
+      .map((s) => ({ sender: s.sender || m.bankId.toUpperCase(), body: s.body }));
+    if (nonBlankSamples.length > 0) {
+      setDraftSamples(m.bankId, effectiveIndex, nonBlankSamples);
     }
     saveSession();
     renderRightPanelInto();
@@ -751,18 +872,16 @@ function renderTemplateModal(m: Extract<ModalState, { kind: 'template' }>): HTML
       el('div', { className: 'formfield' }, [el('label', {}, ['Date format (if any)']), fields.dateFormatInput]),
       el('div', { className: 'formfield' }, [el('label', {}, ['Label']), fields.labelInput])
     ]),
-    // Test sender/body render BELOW the pattern field, in the same left column — filling the space the
+    // Test samples render BELOW the pattern field, in the same left column — filling the space the
     // (taller) regex helper panel already occupies on the right, instead of needing their own separate
     // full-width row further down the modal.
-    renderPatternFieldWithHelper(fields.patternTa, fields.patternStatus, fields.patternWarning, [
-      el('div', { className: 'formfield' }, [el('label', {}, ['Test sender']), testSenderInput]),
-      el('div', { className: 'formfield' }, [
-        el('label', {}, [
-          originalSample ? 'Test message body (from the original sample — editable)' : 'Test message body'
-        ]),
-        testBodyTa
-      ])
-    ]),
+    renderPatternFieldWithHelper(
+      fields.patternTa,
+      fields.patternStatus,
+      fields.patternWarning,
+      (snippet) => showSnippetUsagePopup(snippet),
+      [el('div', { className: 'minilabel' }, ['Test samples']), samplesListEl, sampleFieldsEl]
+    ),
     previewBox
   ];
 
@@ -1101,6 +1220,52 @@ function renderModalRoot() {
   else modalRoot.append(renderNewBankModal());
 }
 
+/** The Common Patterns tab's "Used in N templates" popup — deliberately NOT routed through
+ *  `setModal()`/`renderModalRoot()` (the tool's single-modal system), since this is only ever opened from
+ *  INSIDE the template add/edit modal (the regex helper panel lives nowhere else); replacing that modal's
+ *  content to show this would silently discard whatever the tester was mid-editing. Appended directly to
+ *  `document.body` as its own stacked overlay instead, at a higher z-index than `.modal-root`, and torn
+ *  down on close without touching whatever modal is open underneath. Clicking a listed template IS an
+ *  intentional "take me there instead" navigation, though — that one closes both this popup and the
+ *  underlying template modal, same as Cancel would. */
+function showSnippetUsagePopup(snippet: CommonSnippet): void {
+  const usage = snippetUsage(snippet);
+  const close = () => backdrop.remove();
+  const closeBtn = el('span', { className: 'paperlink' }, ['Close']);
+  closeBtn.addEventListener('click', close);
+
+  const rows = usage.map((entry) => {
+    const row = el('div', { className: 'popuprow' }, [
+      el('span', {}, [`T${entry.index + 1} (${entry.label})`]),
+      el('span', { className: 'bank' }, [entry.bankId.toUpperCase()])
+    ]);
+    row.addEventListener('click', () => {
+      close();
+      setModal(null);
+      renderModalRoot();
+      setSelection({ kind: 'bank', bankId: entry.bankId });
+      if (!isTemplateCardExpanded(entry.bankId, entry.index)) toggleTemplateCardExpanded(entry.bankId, entry.index);
+      renderAll();
+    });
+    return row;
+  });
+
+  const backdrop = el('div', { className: 'usagepopup-backdrop active' }, [
+    el('div', { className: 'usagepopup' }, [
+      el('h4', {}, [snippet.label]),
+      el('div', { className: 'sub' }, [`${snippet.snippet} — used in ${usage.length} template(s)`]),
+      ...(rows.length > 0
+        ? rows
+        : [el('div', { className: 'muted', style: { fontSize: '11px' } }, ['Not used in any template yet.'])]),
+      el('div', { className: 'popupclose' }, [closeBtn])
+    ])
+  ]);
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) close();
+  });
+  document.body.append(backdrop);
+}
+
 // ── Shared results table — paginated + searchable + chunked/progress-tracked parsing, used by BOTH the
 // bank-scoped tester and the Bulk-test page (one implementation, not two) ──────────────────────────────
 
@@ -1298,9 +1463,62 @@ function renderResultsTableInto(container: HTMLElement, state: ResultsTableState
 
   const start = (state.page - 1) * state.pageSize;
   const pageItems = filtered.slice(start, start + state.pageSize);
+
+  // Bulk-exclude (2026-08-18) — a sender can genuinely mix real transactions with noise, where "Exclude
+  // sender entirely" would wrongly hide the real ones too; this is the faster way to do the single-row
+  // "not a transaction" action several times at once instead of once. `selectedKeys` is keyed by message
+  // identity (`messageKey()`), not row index, so it survives pagination/filtering/re-sorting untouched.
+  const selectAllCb = el('input', { type: 'checkbox' });
+  selectAllCb.checked =
+    pageItems.length > 0 && pageItems.every((r) => state.selectedKeys.has(messageKey(r.sender, r.body)));
+  selectAllCb.addEventListener('change', () => {
+    for (const r of pageItems) {
+      const key = messageKey(r.sender, r.body);
+      if (selectAllCb.checked) state.selectedKeys.add(key);
+      else state.selectedKeys.delete(key);
+    }
+    rerender();
+  });
+
+  const bulkBar =
+    state.selectedKeys.size > 0
+      ? (() => {
+          const excludeBtn = el('span', { className: 'bulkbtn excl' }, ['🚫 Exclude selected']);
+          excludeBtn.addEventListener('click', () => {
+            for (const r of filtered) {
+              const key = messageKey(r.sender, r.body);
+              if (state.selectedKeys.has(key) && !r.trace.excludedAsOtp) excludeMessage(r.sender, r.body);
+            }
+            state.selectedKeys.clear();
+            renderAll();
+          });
+          const includeBtn = el('span', { className: 'bulkbtn incl' }, ['↩ Include selected']);
+          includeBtn.addEventListener('click', () => {
+            for (const r of filtered) {
+              const key = messageKey(r.sender, r.body);
+              if (state.selectedKeys.has(key)) includeMessage(r.sender, r.body);
+            }
+            state.selectedKeys.clear();
+            renderAll();
+          });
+          const clearBtn = el('span', { className: 'bulkbtn clear' }, ['Clear selection']);
+          clearBtn.addEventListener('click', () => {
+            state.selectedKeys.clear();
+            rerender();
+          });
+          return el('div', { className: 'bulkbar show' }, [
+            el('span', {}, [el('span', { className: 'cnt' }, [String(state.selectedKeys.size)]), ' selected']),
+            excludeBtn,
+            includeBtn,
+            clearBtn
+          ]);
+        })()
+      : null;
+
   const table = el('table', { className: 'rtable' }, [
     el('thead', {}, [
       el('tr', {}, [
+        el('th', { className: 'selcell' }, [selectAllCb]),
         el('th', {}, ['']),
         el('th', {}, ['Sender']),
         el('th', {}, ['Bank']),
@@ -1315,7 +1533,7 @@ function renderResultsTableInto(container: HTMLElement, state: ResultsTableState
       pageItems.length === 0
         ? [
             el('tr', {}, [
-              el('td', { colSpan: 6, className: 'muted' }, [
+              el('td', { colSpan: 7, className: 'muted' }, [
                 state.results.length === 0
                   ? 'Nothing tested yet — paste or upload messages above.'
                   : 'No results match this filter/search.'
@@ -1328,7 +1546,12 @@ function renderResultsTableInto(container: HTMLElement, state: ResultsTableState
 
   const bottomPager = renderPaginationBar(state, filtered.length, rerender);
 
-  container.replaceChildren(statStrip, toolsRow, topPager, table, bottomPager);
+  // Preserves focus/cursor on the search box across this rebuild — every keystroke re-renders the whole
+  // table (search-input handler → `rerender()` → back here), and without this the box would drop focus
+  // after every single character (see `withFocusPreserved()`'s own doc comment).
+  withFocusPreserved(container, '.toolsrow input', () => {
+    container.replaceChildren(statStrip, toolsRow, ...(bulkBar ? [bulkBar] : []), topPager, table, bottomPager);
+  });
 }
 
 /** Fills the search box with `query` and re-renders — the "select a sender to see all its messages"
@@ -1386,7 +1609,18 @@ function resultRows(result: TestResult, idx: number, container: HTMLElement, sta
     setSearchAndRerender(state, container, result.sender);
   });
 
+  const rowKey = messageKey(result.sender, result.body);
+  const selectCb = el('input', { type: 'checkbox' });
+  selectCb.checked = state.selectedKeys.has(rowKey);
+  selectCb.addEventListener('click', (e) => e.stopPropagation());
+  selectCb.addEventListener('change', () => {
+    if (selectCb.checked) state.selectedKeys.add(rowKey);
+    else state.selectedKeys.delete(rowKey);
+    renderResultsTableInto(container, state);
+  });
+
   const row = el('tr', { className: `rrow${kind === 'excluded' ? ' excludedrow' : ''}` }, [
+    el('td', { className: 'selcell' }, [selectCb]),
     el(
       'td',
       { className: 'chev' },
@@ -1408,7 +1642,7 @@ function resultRows(result: TestResult, idx: number, container: HTMLElement, sta
   }
   if (!isExpanded) return [row];
 
-  const detail = el('td', { colSpan: 6 });
+  const detail = el('td', { colSpan: 7 });
   if (result.trace.attempts.length > 0) {
     detail.append(
       el('div', { className: 'tracelbl' }, [
@@ -1591,6 +1825,7 @@ function renderBulkTestMain(): HTMLElement {
         bulkState.search = '';
         bulkState.page = 1;
         bulkState.expandedIndex = null;
+        bulkState.selectedKeys = new Set();
         bulkState.hasRun = true;
         renderResultsTableInto(tableWrap, bulkState);
         renderSidebarInto();
@@ -1704,6 +1939,7 @@ function renderBankTesterSection(bankId: string): HTMLElement {
         bt.state.search = '';
         bt.state.page = 1;
         bt.state.expandedIndex = null;
+        bt.state.selectedKeys = new Set();
         bt.state.hasRun = true;
         renderResultsTableInto(tableWrap, bt.state);
         // The right panel's "Senders in this test" section reads straight from this bank's own tester

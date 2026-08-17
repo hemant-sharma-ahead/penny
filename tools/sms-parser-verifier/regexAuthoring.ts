@@ -19,6 +19,9 @@ import {
   deleteCustomSnippet,
   isSnippetModified,
   isSnippetCustom,
+  snippetUsage,
+  helperPanelWidth,
+  setHelperPanelWidth,
   type CommonSnippet
 } from './state';
 
@@ -139,7 +142,7 @@ export function findUnrecognizedGroupNames(pattern: string): string[] {
  *  represented (as a literal substring) in the common-pattern library — a cheap, explainable way to
  *  suggest "this looks like a reusable fragment nobody's catalogued yet" without requiring an exact,
  *  brittle full-snippet match (a library entry usually wraps the same group in its own surrounding
- *  literal text, e.g. `X+(?<acctLast4>\d{3,6})` contains the bare `(?<acctLast4>\d{3,6})`). */
+ *  literal text, e.g. `X+(?<account>\d{3,6})` contains the bare `(?<account>\d{3,6})`). */
 export function findUncatalogedGroupPatterns(pattern: string): { name: string; fragment: string }[] {
   const catalog = effectiveSnippets();
   const seen = new Set<string>();
@@ -201,7 +204,10 @@ const REGEX_SYNTAX_CHEATSHEET: { category: string; rows: [string, string][] }[] 
   }
 ];
 
-export function renderRegexHelper(onInsert: (snippet: string) => void): HTMLElement {
+export function renderRegexHelper(
+  onInsert: (snippet: string) => void,
+  onShowUsage: (snippet: CommonSnippet) => void
+): HTMLElement {
   let tab: 'common' | 'syntax' = 'common';
   let editing: number | 'new' | null = null;
   const body = el('div', {});
@@ -222,6 +228,10 @@ export function renderRegexHelper(onInsert: (snippet: string) => void): HTMLElem
       value: initial.snippet,
       placeholder: '(?<fieldName>...)',
       style: { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '10px' }
+    });
+    const exampleInput = el('input', {
+      value: initial.example ?? '',
+      placeholder: 'optional — e.g. "Rs.500.00 debited..." → 500.00'
     });
     const warnBox = el('div', {});
     function checkDuplicate() {
@@ -253,7 +263,11 @@ export function renderRegexHelper(onInsert: (snippet: string) => void): HTMLElem
     const saveBtn = el('div', { className: 'formbtn primary' }, ['Save']);
     saveBtn.addEventListener('click', () => {
       if (!labelInput.value.trim() || !snippetTa.value.trim()) return;
-      saveSnippet(index, { label: labelInput.value.trim(), snippet: snippetTa.value.trim() });
+      saveSnippet(index, {
+        label: labelInput.value.trim(),
+        snippet: snippetTa.value.trim(),
+        ...(exampleInput.value.trim() ? { example: exampleInput.value.trim() } : {})
+      });
       editing = null;
       renderCommonTab();
     });
@@ -265,6 +279,7 @@ export function renderRegexHelper(onInsert: (snippet: string) => void): HTMLElem
     return el('div', { className: 'snippet-editform' }, [
       el('div', { className: 'formfield' }, [el('label', {}, ['Label']), labelInput]),
       el('div', { className: 'formfield' }, [el('label', {}, ['Snippet']), snippetTa]),
+      el('div', { className: 'formfield' }, [el('label', {}, ['Example (optional)']), exampleInput]),
       warnBox,
       el('div', { className: 'formbtnrow' }, [cancelBtn, saveBtn])
     ]);
@@ -273,10 +288,15 @@ export function renderRegexHelper(onInsert: (snippet: string) => void): HTMLElem
   function renderCommonTab() {
     rowElements = new Map<number, HTMLElement>();
     const nodes: HTMLElement[] = [el('div', { className: 'htitle' }, ['Insert at cursor'])];
-    effectiveSnippets().forEach((s, i) => {
+    // Sorted alphabetically for browsing (was insertion order) — `i` stays the ORIGINAL effective index
+    // into `effectiveSnippets()`, since every other operation here (edit/delete/dup-check) addresses a
+    // snippet by that index, not by its position in this sorted display list.
+    const indexed = effectiveSnippets().map((s, i) => ({ s, i }));
+    indexed.sort((a, b) => a.s.label.localeCompare(b.s.label));
+    for (const { s, i } of indexed) {
       if (editing === i) {
         nodes.push(renderEditForm(s, i));
-        return;
+        continue;
       }
       const kindPill = isSnippetCustom(i)
         ? el('span', { className: 'minipill draft' }, ['custom'])
@@ -290,13 +310,22 @@ export function renderRegexHelper(onInsert: (snippet: string) => void): HTMLElem
       rowElements.set(i, row);
       row.addEventListener('click', () => onInsert(s.snippet));
       const code = el('div', { className: 'cheatcode' }, [s.snippet]);
+      const exampleEl = s.example ? el('div', { className: 'snippetexample' }, [s.example]) : null;
+      const usageCount = snippetUsage(s).length;
+      const usageLink = el('span', { className: 'usagelink' }, [
+        `Used in ${usageCount} template${usageCount === 1 ? '' : 's'}`
+      ]);
+      usageLink.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onShowUsage(s);
+      });
       const editLink = el('span', { className: 'paperlink' }, ['Edit']);
       editLink.addEventListener('click', (e) => {
         e.stopPropagation();
         editing = i;
         renderCommonTab();
       });
-      const links = [editLink];
+      const links = [usageLink, editLink];
       if (isSnippetCustom(i)) {
         const deleteLink = el('span', { className: 'paperlink danger' }, ['Delete']);
         deleteLink.addEventListener('click', (e) => {
@@ -308,8 +337,8 @@ export function renderRegexHelper(onInsert: (snippet: string) => void): HTMLElem
       }
       const linksRow = el('div', { className: 'snippetlinks' }, links);
       linksRow.addEventListener('click', (e) => e.stopPropagation());
-      nodes.push(row, code, linksRow);
-    });
+      nodes.push(row, code, ...(exampleEl ? [exampleEl] : []), linksRow);
+    }
     const addBtn = el('div', { className: 'addtplbtn', style: { marginTop: '4px' } }, ['+ Add a common pattern']);
     addBtn.addEventListener('click', () => {
       editing = 'new';
@@ -370,29 +399,65 @@ export function insertAtCursor(textarea: HTMLTextAreaElement, snippet: string): 
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+/** A draggable divider that resizes the regex helper panel's own WIDTH inside the modal (2026-08-18 — the
+ *  panel was a fixed 260px, too narrow to comfortably read a longer snippet/example). Self-contained
+ *  (not `entry.ts`'s `makeResizeHandle()`) — this module has no dependency on the tool's rendering-only
+ *  code, only on `state.ts`, same as its existing imports. Same "drag left grows a right-anchored panel"
+ *  convention as the right panel's own width handle. */
+function makeHelperResizeHandle(target: HTMLElement): HTMLElement {
+  const handle = el('div', { className: 'helper-resize-handle' });
+  let startX = 0;
+  let startWidth = 0;
+  function onMouseMove(e: MouseEvent) {
+    const next = Math.min(480, Math.max(180, startWidth - (e.clientX - startX)));
+    target.style.flexBasis = `${next}px`;
+    setHelperPanelWidth(next);
+  }
+  function onMouseUp() {
+    handle.classList.remove('active');
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  }
+  handle.addEventListener('mousedown', (e) => {
+    startX = e.clientX;
+    startWidth = target.getBoundingClientRect().width;
+    handle.classList.add('active');
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    e.preventDefault();
+  });
+  return handle;
+}
+
 /** Pattern textarea + live syntax status + the unrecognized-group-name warning, paired with the regex
  *  helper panel — one shared layout used by both the "edit an existing template" form and the "add a new
  *  template" form. `extraLeftFields` (the Test sender/Test message body fields, in practice) render
  *  BELOW the pattern field in this same left column, filling the space the helper panel's own taller
  *  content already occupies on the right — rather than needing their own separate full-width row further
- *  down the modal. */
+ *  down the modal. `onShowUsage` opens the "used in these templates" popup — owned by `entry.ts` (the one
+ *  place that manages `ModalState`), passed in here the same way `onInsert` already is, to avoid this
+ *  module depending on `entry.ts`'s modal-rendering code. */
 export function renderPatternFieldWithHelper(
   textarea: HTMLTextAreaElement,
   status: HTMLElement,
   warning: HTMLElement,
+  onShowUsage: (snippet: CommonSnippet) => void,
   extraLeftFields: HTMLElement[] = []
 ): HTMLElement {
+  const helper = renderRegexHelper((snippet) => insertAtCursor(textarea, snippet), onShowUsage);
+  helper.style.flexBasis = `${helperPanelWidth}px`;
   return el('div', { className: 'helperwrap' }, [
     el('div', { className: 'field' }, [
       el('div', { className: 'formfield' }, [
-        el('label', {}, ['Regex pattern (amount, acctLast4, cardLast4, counterparty, ref, balance, dateStr)']),
+        el('label', {}, ['Regex pattern (amount, account, card, counterparty, reference, balance, date)']),
         textarea,
         status,
         warning
       ]),
       ...(extraLeftFields.length > 0 ? [el('div', { className: 'field-extra' }, extraLeftFields)] : [])
     ]),
-    renderRegexHelper((snippet) => insertAtCursor(textarea, snippet))
+    makeHelperResizeHandle(helper),
+    helper
   ]);
 }
 

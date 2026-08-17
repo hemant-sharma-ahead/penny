@@ -5,20 +5,20 @@ import type { SmsTemplateTraceEntry, SmsCaptureGroupName } from '@/core/sms-impo
 import { el } from './dom';
 
 /** Preferred colors for the parser's own recognized capture-group names — kept stable across every
- *  template so e.g. `acctLast4` always reads the same everywhere. `amount` maps to `''` (the default/
+ *  template so e.g. `account` always reads the same everywhere. `amount` maps to `''` (the default/
  *  unclassed `<mark>`, colored green by its base CSS rule) rather than being absent from this map. */
 const GROUP_COLOR_CLASS: Record<SmsCaptureGroupName, string> = {
   amount: '',
-  acctLast4: 'f2',
-  cardLast4: 'f2',
+  account: 'f2',
+  card: 'f2',
   counterparty: 'f3',
-  ref: 'f4',
+  reference: 'f4',
   balance: 'f5',
-  dateStr: 'f6'
+  date: 'f6'
 };
 const COLOR_PALETTE = ['', 'f2', 'f3', 'f4', 'f5', 'f6'];
 
-/** A tester's own regex can name a capture group anything (`(?<acct>...)` instead of `acctLast4`) — the
+/** A tester's own regex can name a capture group anything (`(?<acct>...)` instead of `account`) — the
  *  real parser only reads the fixed names above (see `CAPTURE_GROUP_NAMES` in `smsParser.ts`), but the
  *  PATTERN preview itself should never leave an unrecognized name uncolored just because it isn't one of
  *  them (that reads as "broken", not as the actual signal — "this field won't be captured in
@@ -111,7 +111,7 @@ export function highlightedPattern(pattern: string): HTMLElement {
 }
 
 /** Authoring-only variant of `highlightedText()` — while actively writing/testing a template (the
- *  modal's own live preview), a custom-named group (`(?<acct>...)` instead of `acctLast4`) should still
+ *  modal's own live preview), a custom-named group (`(?<acct>...)` instead of `account`) should still
  *  visibly highlight, so a tester can actually SEE their own regex is matching what they intended,
  *  instead of it silently looking broken. `captureRanges` (the real production trace) is authoritative
  *  for the 7 recognized names; any OTHER named group the pattern defines is highlighted too, computed
