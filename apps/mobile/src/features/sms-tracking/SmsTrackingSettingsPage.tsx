@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Platform, View, Pressable, ScrollView, Text } from 'react-native';
+import { AppState, Platform, View, Pressable, ScrollView, Text, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +16,7 @@ import { requestSmsPermission, scanSmsInbox, getSmsPermissionStatus, drainPendin
 import { useSmsTracking } from './useSmsTracking';
 import { ScanDateRangeModal } from './ScanDateRangeModal';
 import { MappingEditModal } from './MappingEditModal';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 
 type FlowStep = 'idle' | 'education' | 'scanChoice' | 'scanning';
 type ScanChoice = 'last3Months' | 'custom' | 'skip';
@@ -75,6 +76,19 @@ export function SmsTrackingSettingsPage() {
     smsRef.current = sms;
   }, [sms]);
 
+  /** Drains the native pending-SMS queue (messages captured while the app/JS engine wasn't around to
+   *  process them live — see `~/lib/smsHeadlessTask.ts`) and processes each into the same pipeline as a
+   *  live-captured message, reloading `useSmsTracking`'s state only if anything was actually pending.
+   *  Extracted so both the on-foreground drain below and the steady-state pull-to-refresh handler share
+   *  one processing loop instead of two copies that could quietly drift apart. */
+  const drainAndProcessPendingSms = useCallback(async () => {
+    const pending = await drainPendingSmsQueue();
+    for (const message of pending) {
+      await smsRef.current.processRawSms(message.sender, message.body, message.receivedAt);
+    }
+    if (pending.length > 0) smsRef.current.reload();
+  }, []);
+
   // Permission-revoked detection + native-queue foreground drain (plan §7/§8: "detect revocation on
   // next foreground, never fail silently"; plan §2's documented on-foreground fallback for whenever
   // the Headless-JS-under-WorkManager live-capture path didn't/couldn't run — see
@@ -94,11 +108,7 @@ export function SmsTrackingSettingsPage() {
         // this foreground's revocation check, try again next time.
       }
       try {
-        const pending = await drainPendingSmsQueue();
-        for (const message of pending) {
-          await smsRef.current.processRawSms(message.sender, message.body, message.receivedAt);
-        }
-        if (pending.length > 0) smsRef.current.reload();
+        await drainAndProcessPendingSms();
       } catch {
         // Best-effort — a stuck/broken native queue drain isn't worth a toast on every foreground;
         // whatever's pending simply gets retried on the next one instead (never lost either way, per
@@ -112,15 +122,31 @@ export function SmsTrackingSettingsPage() {
       if (state === 'active') void checkAndDrain();
     });
     return () => subscription.remove();
-  }, [isAndroid, smsTrackingEnabled]);
+  }, [isAndroid, smsTrackingEnabled, drainAndProcessPendingSms]);
 
+  /** Reports how many raw SMS the native query actually returned for the chosen range — silence on
+   *  success (previously the only feedback was an error toast) made "found nothing" indistinguishable
+   *  from "scan didn't really run": a genuinely empty range, a permission/content-provider read that
+   *  silently returned zero rows, and a real bug all looked identical to the user. This number alone
+   *  tells them which bucket they're in before they even check the Unparsed/mappings sections below. */
   async function runScan(fromDate: number, toDate: number) {
     setFlowStep('scanning');
+    let scannedCount = 0;
     try {
-      await scanSmsInbox(fromDate, toDate, sms.processRawSms);
+      await scanSmsInbox(fromDate, toDate, async (sender, body, receivedAt) => {
+        scannedCount++;
+        await sms.processRawSms(sender, body, receivedAt);
+      });
+      showToast({
+        message:
+          scannedCount === 0
+            ? "No SMS found in that date range — check the range, or that this device's default SMS app has messages there."
+            : `Scanned ${scannedCount} message${scannedCount === 1 ? '' : 's'} from that range.`,
+        durationMs: 5000
+      });
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
-      showToast({ message: `Couldn't scan SMS: ${detail}` });
+      showToast({ message: `Couldn't scan SMS: ${detail}`, durationMs: 6000 });
     } finally {
       setSmsTrackingEnabled(true);
       setFlowStep('idle');
@@ -165,6 +191,17 @@ export function SmsTrackingSettingsPage() {
     const now = Date.now();
     void runScan(now - 90 * DAY_MS, now);
   }
+
+  // Pull-to-refresh for the steady-state ("on") view only — re-reads sender mappings/records/accounts/
+  // expenses via `sms.reload()` and drains+processes anything the native queue picked up since the last
+  // foreground check, via the same `drainAndProcessPendingSms` the AppState effect above uses. Deliberately
+  // does NOT trigger `scanSmsInbox` (the historical-inbox scan) — that stays a deliberate explicit action
+  // via "Scan a date range" only, never something a pull-down gesture kicks off.
+  const refreshSteadyState = useCallback(async () => {
+    sms.reload();
+    await drainAndProcessPendingSms();
+  }, [sms, drainAndProcessPendingSms]);
+  const { refreshing: steadyRefreshing, onRefresh: onSteadyRefresh } = usePullToRefresh(refreshSteadyState);
 
   if (!isAndroid) {
     return (
@@ -388,7 +425,13 @@ export function SmsTrackingSettingsPage() {
   // Steady state — "on".
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, gap: 4 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ padding: 16, gap: 4 }}
+        refreshControl={
+          <RefreshControl refreshing={steadyRefreshing} onRefresh={onSteadyRefresh} tintColor={theme.primary} />
+        }
+      >
         {permissionRevoked && (
           <Banner variant="warning" className="mb-2">
             SMS permission was turned off in your phone&apos;s Settings — Penny can&apos;t read new transaction messages
@@ -526,16 +569,10 @@ export function SmsTrackingSettingsPage() {
           onClose={() => setShowScanRangeModal(false)}
           onStart={(fromDate, toDate) => {
             setShowScanRangeModal(false);
-            void (async () => {
-              try {
-                await scanSmsInbox(fromDate, toDate, sms.processRawSms);
-              } catch (err) {
-                const detail = err instanceof Error ? err.message : String(err);
-                showToast({ message: `Couldn't scan SMS: ${detail}` });
-              } finally {
-                sms.reload();
-              }
-            })();
+            // Reuses runScan() (same scanned-count toast, same error handling) rather than a second,
+            // slowly-diverging copy of the same scan+report logic — this modal previously had its own
+            // near-identical block with no completion feedback at all on the happy path.
+            void runScan(fromDate, toDate);
           }}
         />
       )}

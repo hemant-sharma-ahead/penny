@@ -49,7 +49,15 @@ export function forcedBankBundle(bank: BankSmsPatternSet): SmsPatternBundle {
 // ── Fuzzy "did you mean" + sender-pattern overlap — cheap, explainable literal-fragment heuristics ─────
 
 function literalFragments(pattern: string): string[] {
-  return pattern.toUpperCase().match(/[A-Z]{3,}/g) ?? [];
+  // Strip bracket expressions first — a character class like `[TSPG]` (the TRAI SMS header suffix
+  // category letters, e.g. `^[A-Z]{2}-HDFCBK-[TSPG]$`) reads as 4 contiguous uppercase letters to a
+  // naive scan, producing a spurious "TSPG" fragment that isn't a real bank-code substring at all.
+  return (
+    pattern
+      .replace(/\[[^\]]*\]/g, ' ')
+      .toUpperCase()
+      .match(/[A-Z]{3,}/g) ?? []
+  );
 }
 
 /** Two fragments/strings are "similar enough" if one contains the other whole, OR they share a leading

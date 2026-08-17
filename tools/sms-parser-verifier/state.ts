@@ -55,6 +55,22 @@ export interface SessionState {
   /** Session-local replacement of one of `BUILTIN_SNIPPETS` by its own index — never mutates the
    *  built-in array, same "override by index" convention as `overrides` above. */
   snippetOverrides: Record<number, CommonSnippet>;
+  /** Senders a tester has manually marked "never a transaction" (a promotional shortcode, a
+   *  KYC-reminder service, etc.) — every message from a literal sender in this list is bucketed as
+   *  Excluded regardless of what `traceSms()` itself would have said, everywhere a result is shown
+   *  (stat strip, table, pass-rate). Distinct from the automatic TRAI −P/−G suffix classification
+   *  (`isAutoExcludedCategory()` below, a pure computed check — not stored here at all), and distinct
+   *  from `disabledTemplates` (which excludes one template from matching, not a whole sender from
+   *  ever counting as a transaction candidate). */
+  excludedSenders: string[];
+  /** Senders whose automatic −P/−G suffix classification a tester has manually overridden back to
+   *  "treat normally" — since suffix categorization isn't guaranteed accurate (an older pre-2025
+   *  message has no suffix at all; a bank could plausibly mis-register a template's category). */
+  autoExcludeOverrides: string[];
+  /** Individual messages marked "not a transaction," keyed by `` `${sender}::${body}` `` — for a
+   *  sender that sends a mix of real transactions and noise, where excluding the whole sender would
+   *  wrongly hide the real ones too. */
+  excludedMessageKeys: string[];
 }
 
 const SESSION_KEY = 'smsVerifierSessionV2';
@@ -68,7 +84,10 @@ function emptySession(): SessionState {
     disabledTemplates: {},
     draftSamples: {},
     customSnippets: [],
-    snippetOverrides: {}
+    snippetOverrides: {},
+    excludedSenders: [],
+    autoExcludeOverrides: [],
+    excludedMessageKeys: []
   };
 }
 
@@ -85,7 +104,10 @@ function loadSession(): SessionState {
       disabledTemplates: parsed.disabledTemplates ?? {},
       draftSamples: parsed.draftSamples ?? {},
       customSnippets: parsed.customSnippets ?? [],
-      snippetOverrides: parsed.snippetOverrides ?? {}
+      snippetOverrides: parsed.snippetOverrides ?? {},
+      excludedSenders: parsed.excludedSenders ?? [],
+      autoExcludeOverrides: parsed.autoExcludeOverrides ?? [],
+      excludedMessageKeys: parsed.excludedMessageKeys ?? []
     };
   } catch {
     return emptySession();
@@ -255,6 +277,155 @@ export interface TestResult {
   body: string;
   trace: SmsParseTrace;
 }
+
+// ── Sender/message exclusion — "this is not a transaction," distinct from "no template matches yet" ────
+//
+// Splits what used to be a single ambiguous "Unparsed" bucket into two genuinely different things: a
+// real coverage gap (recognized bank, wrong wording — worth a new template) vs. not a transaction at
+// all (OTP, promotional, government, non-financial service pings — no template should ever be written
+// for these, and lumping them in with real gaps wastes review effort). Automatic where cheaply reliable
+// (OTP keyword matching, already existed via `traceSms().excludedAsOtp`; the TRAI 2025 header suffix
+// below), manual everywhere else — both sender-wide and per-message, since a sender can genuinely mix
+// real transactions with noise (excluding the whole sender would wrongly hide the real ones too).
+
+export type SmsSenderCategory = 'T' | 'S' | 'P' | 'G' | null;
+
+/** Reads the TRAI 2025 header-suffix category straight off the sender string — a pure, stateless
+ *  classification, not persisted session state at all (unlike everything else in this section). */
+export function senderCategory(sender: string): SmsSenderCategory {
+  const m = /-([TSPG])$/i.exec(sender.trim());
+  return m ? ((m[1] as string).toUpperCase() as Exclude<SmsSenderCategory, null>) : null;
+}
+
+/** Promotional/Government are near-certain non-transactional; Service is deliberately NOT auto-excluded
+ *  — real bank transaction alerts commonly register under Service too (confirmed during the TRAI
+ *  suffix sender-pattern research), so auto-excluding it would risk hiding genuine transactions. */
+export function isAutoExcludedCategory(sender: string): boolean {
+  const cat = senderCategory(sender);
+  return cat === 'P' || cat === 'G';
+}
+
+export function isSenderManuallyExcluded(sender: string): boolean {
+  return session.excludedSenders.includes(sender);
+}
+
+export function excludeSender(sender: string): void {
+  if (!session.excludedSenders.includes(sender)) session.excludedSenders.push(sender);
+  saveSession();
+}
+
+export function includeSender(sender: string): void {
+  session.excludedSenders = session.excludedSenders.filter((s) => s !== sender);
+  saveSession();
+}
+
+/** Reverts an automatically-excluded (−P/−G) sender back to normal handling — independent of, and
+ *  checked ahead of, `isAutoExcludedCategory()` itself, since suffix categorization isn't guaranteed
+ *  accurate (an older pre-2025 message has no suffix at all; a bank could mis-register a template). */
+export function isAutoExcludeOverridden(sender: string): boolean {
+  return session.autoExcludeOverrides.includes(sender);
+}
+export function setAutoExcludeOverride(sender: string, overridden: boolean): void {
+  session.autoExcludeOverrides = session.autoExcludeOverrides.filter((s) => s !== sender);
+  if (overridden) session.autoExcludeOverrides.push(sender);
+  saveSession();
+}
+
+export function isSenderExcluded(sender: string): boolean {
+  if (isSenderManuallyExcluded(sender)) return true;
+  return isAutoExcludedCategory(sender) && !isAutoExcludeOverridden(sender);
+}
+
+function messageKey(sender: string, body: string): string {
+  return `${sender}::${body}`;
+}
+export function isMessageExcluded(sender: string, body: string): boolean {
+  return session.excludedMessageKeys.includes(messageKey(sender, body));
+}
+export function excludeMessage(sender: string, body: string): void {
+  const key = messageKey(sender, body);
+  if (!session.excludedMessageKeys.includes(key)) session.excludedMessageKeys.push(key);
+  saveSession();
+}
+export function includeMessage(sender: string, body: string): void {
+  const key = messageKey(sender, body);
+  session.excludedMessageKeys = session.excludedMessageKeys.filter((k) => k !== key);
+  saveSession();
+}
+
+/** The one place a raw parse trace becomes the bucket every stat card/filter/badge shows — purely
+ *  trace-based (OTP + parsed/partial/unrecognized), no session/exclusion awareness. Kept separate from
+ *  `effectiveOutcomeKind()` below so a caller that genuinely only has a trace (not a full `TestResult`)
+ *  still has something to call. */
+export function outcomeFilterKind(trace: SmsParseTrace): ResultFilter {
+  if (trace.excludedAsOtp) return 'excluded';
+  if (trace.outcome.kind === 'parsed') return 'parsed';
+  if (trace.outcome.kind === 'unparsed_known_bank') return 'partial';
+  return 'unrecognized';
+}
+
+/** Human-readable "why excluded" — `null` for anything not currently excluded. Distinguishes OTP
+ *  (permanent parser behavior, nothing to undo) from the three reversible cases, so the UI can offer
+ *  the right undo action for each. */
+export type ExclusionReason =
+  { kind: 'otp' } | { kind: 'auto'; category: 'P' | 'G' } | { kind: 'sender' } | { kind: 'message' };
+
+export function exclusionReasonFor(result: TestResult): ExclusionReason | null {
+  if (result.trace.excludedAsOtp) return { kind: 'otp' };
+  if (isMessageExcluded(result.sender, result.body)) return { kind: 'message' };
+  if (isSenderManuallyExcluded(result.sender)) return { kind: 'sender' };
+  const cat = senderCategory(result.sender);
+  if ((cat === 'P' || cat === 'G') && !isAutoExcludeOverridden(result.sender)) return { kind: 'auto', category: cat };
+  return null;
+}
+
+/** The bucket a tested message ACTUALLY shows under — sender/message exclusion (manual, or automatic
+ *  −P/−G) takes priority over whatever `traceSms()` itself concluded, since "this sender/message is
+ *  categorically not a transaction" is a stronger, tester-asserted fact than a structural regex
+ *  match/non-match. Every stat-strip count, filter, badge, and export in the results table reads from
+ *  this — never `outcomeFilterKind()` directly. */
+export function effectiveOutcomeKind(result: TestResult): ResultFilter {
+  return exclusionReasonFor(result) ? 'excluded' : outcomeFilterKind(result.trace);
+}
+
+export interface SenderSummary {
+  sender: string;
+  bankLabel: string;
+  count: number;
+  category: SmsSenderCategory;
+  excluded: boolean;
+  /** True only when the CURRENT exclusion comes from the automatic −P/−G classification (not a manual
+   *  exclude) — lets the UI show the reversible "🤖 Auto-excluded" note only where it actually applies. */
+  autoExcluded: boolean;
+}
+
+/** One row per distinct sender actually present in `results` — the "Senders in this batch" summary
+ *  strip's data source, sorted by message count descending (the sender most worth a decision first).
+ *  Recomputed fresh from whatever's currently in the results table, not persisted itself (only the
+ *  exclusion decisions it surfaces are). */
+export function summarizeSenders(results: TestResult[]): SenderSummary[] {
+  const bySender = new Map<string, TestResult[]>();
+  for (const r of results) {
+    const arr = bySender.get(r.sender) ?? [];
+    arr.push(r);
+    bySender.set(r.sender, arr);
+  }
+  return [...bySender.entries()]
+    .map(([sender, rows]) => {
+      const bankId = rows.find((r) => r.trace.matchedSenderBanks.length > 0)?.trace.matchedSenderBanks[0];
+      return {
+        sender,
+        bankLabel: bankId ? bankId.toUpperCase() : '—',
+        count: rows.length,
+        category: senderCategory(sender),
+        excluded: isSenderExcluded(sender),
+        autoExcluded:
+          !isSenderManuallyExcluded(sender) && isAutoExcludedCategory(sender) && !isAutoExcludeOverridden(sender)
+      };
+    })
+    .sort((a, b) => b.count - a.count);
+}
+
 export interface ResultsTableState {
   results: TestResult[];
   filter: ResultFilter;

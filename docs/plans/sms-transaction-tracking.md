@@ -553,6 +553,22 @@ language (`BucketCard.tsx`/`CategoryTile.tsx`-style shared components, not new p
   (see `docs/features/sms-tracking.md` and the tool's own README) so testers with real, years-long bank
   SMS history can harden the §5 template library entirely offline, before any device/app is involved and
   before the `/sms-patterns` worker route needs to be deployed at all.
+- **Update (2026-08-17):** real testing against a genuine multi-year SMS history surfaced that
+  "Partial/Unparsed" was conflating two different things — a real §5 template-coverage gap vs. a
+  message that's simply never a transaction at all (OTP, promotional, government, non-financial
+  service pings). Both the tool and the real app gained a sender/message exclusion capability to
+  separate the two (full design in `docs/ARCHITECTURE.md`'s matching decision-log entries): the real
+  app's side adds a new `sms_excluded_senders` table (schema v15, `docs/SCHEMA.md`) that
+  `processRawSmsCore` checks before parsing at all, and a durable "Exclude sender" action on the
+  already-shipped Unparsed Messages sender-group accordion — deliberately sender-level only (no
+  auto-exclusion by TRAI header suffix, unlike the tool's session-scoped, lower-stakes version), since
+  auto-excluding real financial messages carries materially higher risk than auto-excluding a test
+  corpus's.
+- **Update (2026-08-17):** separately, TRAI's SMS header suffix mandate (effective 6 May 2025) means a
+  bank's sender can now legitimately arrive as `VM-HDFCBK-T`/`VM-HDFCBK-S` rather than just the pre-2025
+  `VM-HDFCBK`/`HDFCBK` — every bank's `senderIdPatterns` in §5's template bundle gained the matching
+  additive patterns (old, un-suffixed ones untouched, since historical messages never carried a
+  suffix). Full rationale in `smsPatterns.ts`'s own doc comment.
 
 ---
 

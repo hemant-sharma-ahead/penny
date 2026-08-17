@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, Pressable, Text } from 'react-native';
+import { View, Pressable, Text, RefreshControl } from 'react-native';
 import { FlashList, type FlashListRef, type ListRenderItemInfo } from '@shopify/flash-list';
 import { formatCurrency } from '@/lib/formatters';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -9,6 +9,7 @@ import { isHiddenInSafeMode, isTagHiddenInSafeMode } from '@/core/expenses/categ
 import { Badge } from '~/components/ui/Badge';
 import { SwipeableRow, type SwipeAction } from './SwipeableRow';
 import { tint } from '~/lib/color';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 
 /** Stage 4's drill-in mark for one row (docs/plans/bank-balance-sync.md §7 Stage 4, mockup
  *  `bank-balance-sync-v2.html` Frame 3) — `'agree'` = the last-agreeing checkpoint, `'flag'` = the
@@ -65,6 +66,9 @@ interface TransactionsTabProps {
   paymentModeMismatchTxnIds?: Set<string>;
   /** Stage 4's checkpoint-diff drill-in — see {@link CheckpointHighlight}. Omitted everywhere else. */
   checkpointHighlight?: CheckpointHighlight;
+  /** Pull-to-refresh — omit for a read-only list (e.g. `EntityTransactionsModal`'s drill-down), same
+   *  gating as `onEdit`/`onDelete` above. */
+  onRefresh?: () => void;
 }
 
 interface Row {
@@ -404,10 +408,12 @@ export function TransactionsTab({
   onLongPressSelect,
   goalLinkedTxnIds,
   paymentModeMismatchTxnIds,
-  checkpointHighlight
+  checkpointHighlight,
+  onRefresh
 }: TransactionsTabProps) {
   const theme = useThemeColors();
   const listRef = useRef<FlashListRef<Row> | null>(null);
+  const { refreshing, onRefresh: handleRefresh } = usePullToRefresh(onRefresh ?? (() => {}));
 
   // Skeleton rows instead of silently reusing the empty state — while `expensesRepo.getAll()` is still
   // decrypting, `grouped` is indistinguishable from "genuinely no transactions" (both are `[]`), so
@@ -535,6 +541,11 @@ export function TransactionsTab({
       data={rows}
       keyExtractor={keyExtractor}
       renderItem={renderItem}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.primary} />
+        ) : undefined
+      }
       // Default is 250dp — the buffer of off-screen rows kept pre-rendered ahead of the viewport.
       // Bumped after a user-reported blank flash during a fast fling: a larger buffer gives the recycler
       // more lead room before a cell scrolls into view with no rendered content yet to swap in.

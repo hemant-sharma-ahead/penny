@@ -34,6 +34,7 @@ import type {
   Profile,
   RetirementPlan,
   SmsAccountMapping,
+  SmsExcludedSender,
   SmsTransactionRecord,
   Subscription,
   SyncCursor,
@@ -81,3 +82,4 @@ export const retirementPlanRepo = new EncryptedRepository<RetirementPlan>(db.ret
 export const netWorthSnapshotsRepo = new EncryptedRepository<NetWorthSnapshot>(db.net_worth_snapshots as never);
 export const smsTransactionsRepo = new EncryptedRepository<SmsTransactionRecord>(db.sms_transactions as never);
 export const smsAccountMappingsRepo = new EncryptedRepository<SmsAccountMapping>(db.sms_account_mappings as never);
+export const smsExcludedSendersRepo = new EncryptedRepository<SmsExcludedSender>(db.sms_excluded_senders as never);

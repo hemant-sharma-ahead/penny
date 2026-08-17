@@ -240,5 +240,5 @@ export function useHome() {
     [summary]
   );
 
-  return { summary, assetGroups, totalAssets, totalLiabilities };
+  return { summary, assetGroups, totalAssets, totalLiabilities, reload };
 }

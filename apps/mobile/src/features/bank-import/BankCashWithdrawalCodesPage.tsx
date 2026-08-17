@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { View, Pressable, ScrollView, Text } from 'react-native';
+import { View, Pressable, ScrollView, RefreshControl, Text } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BANK_PRESETS } from '@/core/bank-import/presets';
 import { useBankCashWithdrawalCodes } from '~/hooks/useBankCashWithdrawalCodes';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 import {
@@ -51,7 +52,8 @@ export function BankCashWithdrawalCodesPage() {
   const theme = useThemeColors();
   const insets = useSafeAreaInsets();
   useDefaultHeaderBack('BankCashWithdrawalCodes');
-  const { codes, save, remove } = useBankCashWithdrawalCodes();
+  const { codes, save, remove, reload } = useBankCashWithdrawalCodes();
+  const { refreshing, onRefresh } = usePullToRefresh(reload);
 
   const [showAdd, setShowAdd] = useState(false);
   const [bankId, setBankId] = useState<string>(ANY_BANK);
@@ -96,7 +98,10 @@ export function BankCashWithdrawalCodesPage() {
         </Text>
       </View>
 
-      <ScrollView className="flex-1">
+      <ScrollView
+        className="flex-1"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         <View className="px-4 py-4 gap-4">
           {grouped.length === 0 ? (
             <Card>

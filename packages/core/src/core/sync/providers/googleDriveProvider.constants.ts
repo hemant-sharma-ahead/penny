@@ -9,3 +9,21 @@
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 
 export const DRIVE_BACKUP_FILE_NAME = 'penny-backup.penny';
+
+/** Turns a failed Drive API response into an actually-diagnosable string (`"403: Drive API has not
+ *  been used in project ... before or it is disabled"`, `"403: The user does not have sufficient
+ *  permissions"`, etc.) instead of a bare status code — every non-2xx/401 throw in all three provider
+ *  variants was previously collapsing to one generic "Could not read your Google Drive"/"Upload...
+ *  failed" message with no way to tell a disabled-API 403 apart from a scope/permission 403 apart from a
+ *  transient 5xx without attaching a debugger. Reads Google's own standard `{error:{message}}` error
+ *  body shape (same shape `isQuotaError()` already parses in the two callers that check for it); falls
+ *  back to the HTTP status text alone if the body isn't that shape or isn't valid JSON. */
+export async function describeDriveError(res: Response): Promise<string> {
+  try {
+    const body = (await res.clone().json()) as { error?: { message?: string } };
+    if (body.error?.message) return `${res.status}: ${body.error.message}`;
+  } catch {
+    // body wasn't JSON (or already consumed) — fall through to the plain status line below
+  }
+  return `${res.status}${res.statusText ? ` ${res.statusText}` : ''}`;
+}

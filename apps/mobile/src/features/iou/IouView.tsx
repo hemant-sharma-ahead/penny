@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, ScrollView, Pressable, Text } from 'react-native';
+import { View, ScrollView, RefreshControl, Pressable, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { useSettings } from '~/context/SettingsContext';
@@ -16,6 +16,7 @@ import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useRepository } from '@/hooks/useRepository';
 import { notifyTxnChanged } from '@/hooks/useTxnRefresh';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import { useIou } from './useIou';
 import { PersonListView } from './PersonListView';
 import { PersonLedgerView } from './PersonLedgerView';
@@ -68,6 +69,9 @@ export function IouView() {
   } = useIou();
   const { items: accounts } = useRepository<Account>(accountsRepo);
   const { items: expenses } = useRepository<Expense>(expensesRepo);
+  const { refreshing, onRefresh } = usePullToRefresh(async () => {
+    await Promise.all([reloadEntries(), reloadPersons()]);
+  });
 
   const [openPersonId, setOpenPersonId] = useState<string | null>(null);
   const [entryForm, setEntryForm] = useState<EntryFormState | null>(null);
@@ -228,7 +232,11 @@ export function IouView() {
 
   return (
     <>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 96 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 96 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         {showGroupNote && (
           <View className="flex-row items-start gap-1.5 px-4 py-2.5 border-b border-theme">
             <View className="mt-0.5">

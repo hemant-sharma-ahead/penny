@@ -69,6 +69,21 @@ room. The template popup:
   currently-filtered rows as plain text — redacted masks every digit and is the one to reach for by
   default; unredacted keeps the real numbers, only for when you actually mean to share raw data.
 
+- **Senders in this batch** (above the results table) — one card per distinct sender actually present,
+  sorted by message count so the sender most worth a decision shows first: a TRAI header-category badge
+  (T/S/P/G, from the sender's own `-T`/`-S`/`-P`/`-G` suffix, per the 6-May-2025 mandate), "View all"
+  (fills the search box with that sender — the drill-down for "is this sender's whole batch actually
+  legit?"), and "Exclude sender"/"Include" per card. A `-P`/`-G` sender auto-buckets into Excluded (with
+  a reversible "🤖 Auto-excluded" note — suffix categorization isn't guaranteed accurate) since a
+  Promotional/Government message is essentially never a real transaction; `-S`/`-T` never auto-exclude,
+  since real bank transaction alerts commonly register as Service, not just Transactional. Every
+  Partial/Unrecognized row also gets a "🚫 Not a transaction — exclude this message" action (for a
+  sender that mixes real transactions with noise, where excluding the whole sender would wrongly hide
+  the real ones too) alongside "🚫 Exclude sender entirely" — both undoable from the same expanded row.
+  This is the split between "a real coverage gap, worth a new template" (Partial) and "not a
+  transaction at all, no template should exist for this" (Excluded) that the stat strip previously
+  conflated.
+
 - **A bank's page** (selected from the sidebar) gives you a tester scoped to just that bank, with a
   toggle: **Auto-detect sender** (real app behavior — the sender must match this bank's patterns first) or
   **Force against this bank's templates** (skips the sender gate entirely, so you can check "does the

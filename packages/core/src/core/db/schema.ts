@@ -34,6 +34,7 @@ import type {
   RetirementPlan,
   SecurityRecord,
   SmsAccountMapping,
+  SmsExcludedSender,
   SmsTransactionRecord,
   Subscription,
   SyncCursor,
@@ -82,6 +83,7 @@ export class PennyDatabase extends Dexie {
   net_worth_snapshots!: EntityTable<NetWorthSnapshot, 'id'>;
   sms_transactions!: EntityTable<SmsTransactionRecord, 'id'>;
   sms_account_mappings!: EntityTable<SmsAccountMapping, 'id'>;
+  sms_excluded_senders!: EntityTable<SmsExcludedSender, 'id'>;
 
   constructor() {
     super('penny');
@@ -168,6 +170,10 @@ export class PennyDatabase extends Dexie {
     // v14 — SMS-Based Transaction Tracking (docs/plans/sms-transaction-tracking.md): parsed-SMS
     // link/audit table + the persisted sender/card→account mapping table. Encrypted; id-only index.
     this.version(14).stores({ sms_transactions: 'id', sms_account_mappings: 'id' });
+
+    // v15 — senders explicitly marked "never a transaction" (2026-08-17), durable/sender-wide unlike a
+    // per-record `dismissed` status. Encrypted; id-only index.
+    this.version(15).stores({ sms_excluded_senders: 'id' });
   }
 }
 

@@ -19,7 +19,11 @@ import {
 } from '@react-native-google-signin/google-signin';
 import type { CloudProvider } from './types';
 import { NeedsConsentError, QuotaExceededError } from './types';
-import { DRIVE_SCOPE as SCOPE, DRIVE_BACKUP_FILE_NAME as FILE_NAME } from './googleDriveProvider.constants';
+import {
+  DRIVE_SCOPE as SCOPE,
+  DRIVE_BACKUP_FILE_NAME as FILE_NAME,
+  describeDriveError
+} from './googleDriveProvider.constants';
 
 function webClientId(): string | undefined {
   return Constants.expoConfig?.extra?.googleWebClientId as string | undefined;
@@ -81,7 +85,7 @@ async function findFileMeta(token: string): Promise<DriveMeta | null> {
     { headers: { Authorization: `Bearer ${token}` } }
   );
   if (res.status === 401) throw new NeedsConsentError('google-drive');
-  if (!res.ok) throw new Error('Could not read your Google Drive');
+  if (!res.ok) throw new Error(`Could not read your Google Drive (${await describeDriveError(res)})`);
   const data = (await res.json()) as { files?: { id: string; headRevisionId?: string; modifiedTime?: string }[] };
   const f = data.files?.[0];
   if (!f) return null;
@@ -142,7 +146,7 @@ export const googleDriveProvider: CloudProvider = {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.status === 401) throw new NeedsConsentError('google-drive');
-      if (!res.ok) throw new Error('Download from Google Drive failed');
+      if (!res.ok) throw new Error(`Download from Google Drive failed (${await describeDriveError(res)})`);
       return { text: await res.text(), tag: meta.tag };
     });
   },
@@ -165,7 +169,7 @@ export const googleDriveProvider: CloudProvider = {
       if (res.status === 401) throw new NeedsConsentError('google-drive');
       if (!res.ok) {
         if (await isQuotaError(res)) throw new QuotaExceededError('google-drive');
-        throw new Error('Upload to Google Drive failed');
+        throw new Error(`Upload to Google Drive failed (${await describeDriveError(res)})`);
       }
       const saved = (await res.json()) as { id: string; headRevisionId?: string; modifiedTime?: string };
       return { tag: saved.headRevisionId ?? saved.modifiedTime ?? saved.id };

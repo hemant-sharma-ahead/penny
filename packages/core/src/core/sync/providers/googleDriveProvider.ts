@@ -8,7 +8,11 @@
 // Drive v3 docs but is UNTESTED until a client ID + CSP are in place.
 import type { CloudProvider } from './types';
 import { NeedsConsentError, QuotaExceededError } from './types';
-import { DRIVE_SCOPE as SCOPE, DRIVE_BACKUP_FILE_NAME as FILE_NAME } from './googleDriveProvider.constants';
+import {
+  DRIVE_SCOPE as SCOPE,
+  DRIVE_BACKUP_FILE_NAME as FILE_NAME,
+  describeDriveError
+} from './googleDriveProvider.constants';
 
 const GIS_SRC = 'https://accounts.google.com/gsi/client';
 
@@ -78,7 +82,7 @@ async function findFileMeta(token: string): Promise<DriveMeta | null> {
     `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&orderBy=modifiedTime desc&fields=${fields}`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
-  if (!res.ok) throw new Error('Could not read your Google Drive');
+  if (!res.ok) throw new Error(`Could not read your Google Drive (${await describeDriveError(res)})`);
   const data = (await res.json()) as { files?: { id: string; headRevisionId?: string; modifiedTime?: string }[] };
   const f = data.files?.[0];
   if (!f) return null;
@@ -123,7 +127,7 @@ export const googleDriveProvider: CloudProvider = {
     const res = await fetch(`https://www.googleapis.com/drive/v3/files/${meta.id}?alt=media`, {
       headers: { Authorization: `Bearer ${token}` }
     });
-    if (!res.ok) throw new Error('Download from Google Drive failed');
+    if (!res.ok) throw new Error(`Download from Google Drive failed (${await describeDriveError(res)})`);
     return { text: await res.text(), tag: meta.tag };
   },
 
@@ -144,7 +148,7 @@ export const googleDriveProvider: CloudProvider = {
     });
     if (!res.ok) {
       if (await isQuotaError(res)) throw new QuotaExceededError('google-drive');
-      throw new Error('Upload to Google Drive failed');
+      throw new Error(`Upload to Google Drive failed (${await describeDriveError(res)})`);
     }
     const saved = (await res.json()) as { id: string; headRevisionId?: string; modifiedTime?: string };
     return { tag: saved.headRevisionId ?? saved.modifiedTime ?? saved.id };

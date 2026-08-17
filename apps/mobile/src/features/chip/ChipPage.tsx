@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { View, ScrollView, Text } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { View, ScrollView, Text, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Card } from '~/components/ui';
 import { Icon } from '~/components/Icon';
@@ -9,6 +9,7 @@ import { DEFAULT_INSIGHTS } from '@/core/ai-safety/mockChip';
 import type { ChipInsight } from '@/core/db/types';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useRegisterHeaderScreen } from '~/navigation/HeaderBackContext';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 
 async function seedInsightsIfEmpty(): Promise<ChipInsight[]> {
   const existing = await chipInsightsRepo.getAll();
@@ -37,6 +38,10 @@ export function ChipPage() {
   useRegisterHeaderScreen('Chip');
   const [insights, setInsights] = useState<ChipInsight[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  // Bump-driven reload — same idiom as `useForecast.ts`/`useTaxData.ts`, so pull-to-refresh re-runs this
+  // exact load effect (fresh `cancelled` guard each run) instead of a second, separately-guarded copy.
+  const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,11 +51,15 @@ export function ChipPage() {
         setInsights(all.filter((x) => !x.isRead));
         setLoaded(true);
       })
-      .catch(() => setLoaded(true));
+      .catch(() => {
+        if (!cancelled) setLoaded(true);
+      });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
+
+  const { refreshing, onRefresh } = usePullToRefresh(reload);
 
   function dismissInsight(insight: ChipInsight) {
     chipInsightsRepo
@@ -61,7 +70,11 @@ export function ChipPage() {
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, gap: 16 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ padding: 16, gap: 16 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         {loaded && insights.length === 0 && (
           <Card className="items-center">
             <Icon name="ti-sparkles" size={36} color={theme.textTertiary} />

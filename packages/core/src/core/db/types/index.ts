@@ -1246,6 +1246,27 @@ export interface SmsAccountMapping {
   updatedAt: number;
 }
 
+/**
+ * A sender explicitly marked "never a transaction" (a promotional shortcode, a KYC-reminder service,
+ * etc.) — added from the Unparsed Messages screen's per-sender-group "Exclude sender" action
+ * (2026-08-17). Checked by `processRawSmsCore` BEFORE it would otherwise create an `'unparsed'`
+ * record for a recognized-bank-sender message that didn't match any template — a matching sender here
+ * is treated exactly like an unrecognized one (dropped, never persisted at all), so this sender's
+ * *next* non-transactional message never resurfaces a fresh "needs review" record either. Durable and
+ * sender-wide, unlike `SmsTransactionRecord.status === 'dismissed'` (which only clears ONE
+ * already-created record's instance, not future ones from the same sender) — for a sender that mixes
+ * real transactions with noise, dismissing individual messages (not excluding the whole sender) stays
+ * the right tool, which is exactly why both exist rather than one replacing the other.
+ */
+export interface SmsExcludedSender {
+  id: string;
+  /** The literal SMS sender/shortcode string as reported by the OS (e.g. "VM-HDFCBK-S") — NOT
+   *  normalized, so exclusion stays precise to the exact sender ID; a slightly different variant
+   *  sender still surfaces for review rather than being silently swept up too. */
+  sender: string;
+  createdAt: number;
+}
+
 // ─── Retirement Corpus (Home hero + FIRE Calculator) ────────────────────────
 // One shared plan powers both Home's "Retirement Corpus" card and the FIRE Calculator — editing
 // either place updates both. See core/calculators/retirementProjection.ts for the projection math and

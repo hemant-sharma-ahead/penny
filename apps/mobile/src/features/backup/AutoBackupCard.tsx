@@ -167,6 +167,13 @@ export function AutoBackupCard() {
           <Button variant="secondary" onPress={() => void connect()}>
             Reconnect
           </Button>
+        ) : status === 'error' && choice !== 'local' ? (
+          // A plain "Back up now" label here read as a no-op to a user who'd just seen an error — this
+          // is the exact same underlying retry (handleBackupNow re-runs the whole sync attempt), just
+          // labeled for what it actually does in this state.
+          <Button variant="secondary" onPress={handleBackupNow}>
+            Retry
+          </Button>
         ) : (
           <Button
             variant="secondary"

@@ -22,7 +22,13 @@
  * lost, only ever delayed to next foreground in the locked case.
  */
 import { AppRegistry } from 'react-native';
-import { accountsRepo, expensesRepo, smsAccountMappingsRepo, smsTransactionsRepo } from '@/core/db/repositories';
+import {
+  accountsRepo,
+  expensesRepo,
+  smsAccountMappingsRepo,
+  smsExcludedSendersRepo,
+  smsTransactionsRepo
+} from '@/core/db/repositories';
 import { keystore } from '@/core/crypto/keystore';
 import { processRawSmsCore } from '@/core/sms-import/processRawSms';
 import { drainPendingSmsQueue } from './smsCapture';
@@ -40,11 +46,13 @@ async function runSmsHeadlessTask(): Promise<void> {
     const pending = await drainPendingSmsQueue();
     if (pending.length === 0) return;
 
-    const [accounts, mappings, expenses] = await Promise.all([
+    const [accounts, mappings, expenses, excludedSenderRecords] = await Promise.all([
       accountsRepo.getAll(),
       smsAccountMappingsRepo.getAll(),
-      expensesRepo.getAll()
+      expensesRepo.getAll(),
+      smsExcludedSendersRepo.getAll()
     ]);
+    const excludedSenders = excludedSenderRecords.map((r) => r.sender);
     let records = await smsTransactionsRepo.getAll();
 
     for (const message of pending) {
@@ -53,7 +61,8 @@ async function runSmsHeadlessTask(): Promise<void> {
           accounts,
           mappings,
           expenses,
-          records
+          records,
+          excludedSenders
         });
         if (record) {
           await smsTransactionsRepo.put(record);

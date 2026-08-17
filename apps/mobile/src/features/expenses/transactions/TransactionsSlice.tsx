@@ -55,6 +55,8 @@ interface TransactionsSliceProps {
   shouldMask: (sensitive: boolean | undefined) => boolean;
   onSaveExpense: (e: Expense, newTagSetAside?: Record<string, boolean>) => Promise<void>;
   onDeleteExpense: (id: string) => Promise<void>;
+  /** Pull-to-refresh — `useExpenses.ts`'s `reloadExpenses`. */
+  onRefresh: () => void;
   iouPersons: Person[];
   onSeedIou: (expenseId: string, intent: ExpenseSeedIntent | null) => Promise<void>;
   iouLinkByTxn: Map<string, { personName: string }>;
@@ -116,6 +118,7 @@ export function TransactionsSlice({
   shouldMask,
   onSaveExpense,
   onDeleteExpense,
+  onRefresh,
   iouPersons,
   onSeedIou,
   iouLinkByTxn,
@@ -573,6 +576,7 @@ export function TransactionsSlice({
         onLongPressSelect={handleLongPressSelect}
         goalLinkedTxnIds={goalLinkedTxnIds}
         paymentModeMismatchTxnIds={paymentModeMismatchTxnIds}
+        onRefresh={onRefresh}
       />
 
       {/* Bulk action bar (select mode). Each Pressable is a plain `flex: 1` — the previous

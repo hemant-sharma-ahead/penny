@@ -1032,6 +1032,7 @@ export function useExpenses() {
     categories,
     hashtags,
     reloadCategories,
+    reloadExpenses,
     expenseCategories,
     categoryMap,
     parentCategoryMap,

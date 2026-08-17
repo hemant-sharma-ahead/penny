@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Pressable, ScrollView, Text } from 'react-native';
+import { View, Pressable, ScrollView, RefreshControl, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ListContainer, SearchInput, Toggle } from '~/components/ui';
 import { TipNudgeBanner } from '~/components/shared';
@@ -12,6 +12,7 @@ import { dismissTip } from '~/lib/tipsStorage';
 import { shouldNudgeSetAside } from '@/core/tips/tipTriggers';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 
 /**
  * RN port of apps/web-react/src/features/settings/ManageTagsPage.tsx. The only place an *existing*
@@ -21,10 +22,11 @@ import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 export function ManageTagsPage() {
   const modeBg = useModeBackgroundColor();
   const theme = useThemeColors();
-  const { items: hashtags, save: saveHashtag, loading } = useRepository(hashtagsRepo);
+  const { items: hashtags, save: saveHashtag, loading, reload } = useRepository(hashtagsRepo);
   const [search, setSearch] = useState('');
   const [showInfo, setShowInfo] = useState(false);
   useDefaultHeaderBack('ManageTags');
+  const { refreshing, onRefresh } = usePullToRefresh(reload);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -34,7 +36,11 @@ export function ManageTagsPage() {
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 32 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         <View className="px-4 py-4 gap-4">
           <SearchInput value={search} onChange={setSearch} placeholder="Search tags…" />
 

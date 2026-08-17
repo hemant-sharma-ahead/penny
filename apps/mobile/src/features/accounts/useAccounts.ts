@@ -162,6 +162,7 @@ export function useAccounts() {
     deleteAccount,
     reconcileAccount,
     categoryMap,
-    hashtags
+    hashtags,
+    reload
   };
 }

@@ -35,6 +35,13 @@ export interface ProcessRawSmsContext {
    *  scan/capture, not just ones from the current run, or dedup/duplicate-detection would miss
    *  cross-run duplicates. */
   records: SmsTransactionRecord[];
+  /** Literal sender strings a tester has durably marked "never a transaction" (`SmsExcludedSender`,
+   *  2026-08-17) — checked before any parsing happens; a match here is treated exactly like an
+   *  `unrecognized_sender`, dropped and never persisted, regardless of whether the body would have
+   *  otherwise structurally matched a template. Must include every excluded sender the caller
+   *  currently knows about (historical scan, foreground live capture, and the Headless JS background
+   *  path all funnel through this same function, so all three need the same up-to-date list). */
+  excludedSenders: string[];
 }
 
 /**
@@ -117,6 +124,10 @@ export async function processRawSmsCore(
 ): Promise<SmsTransactionRecord | undefined> {
   const contentHash = computeSmsContentHash(sender, receivedAt, body);
   if (ctx.records.some((r) => r.contentHash === contentHash)) return undefined; // Tier-1 dedup
+  // A sender the user has explicitly excluded is checked BEFORE parsing at all — "this sender is
+  // categorically never a transaction" is a stronger, user-asserted fact than any structural regex
+  // match, so it wins even if the body would otherwise have matched a template.
+  if (ctx.excludedSenders.includes(sender)) return undefined;
 
   const bundle = await getSmsPatternBundle();
   const outcome = parseSms(sender, body, receivedAt, bundle);

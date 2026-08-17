@@ -64,10 +64,19 @@ import {
   setBulkRaw,
   bulkState,
   bankTesterFor,
+  effectiveOutcomeKind,
+  exclusionReasonFor,
+  summarizeSenders,
+  excludeSender,
+  includeSender,
+  excludeMessage,
+  includeMessage,
+  setAutoExcludeOverride,
   type ModalState,
   type ResultFilter,
   type TestResult,
-  type ResultsTableState
+  type ResultsTableState,
+  type ExclusionReason
 } from './state';
 
 // ── Sidebar ──────────────────────────────────────────────────────────────────────────────────────────
@@ -842,15 +851,7 @@ const FILTER_LABELS: Record<ResultFilter, string> = {
   excluded: '🚫 Excluded'
 };
 
-function outcomeFilterKind(trace: SmsParseTrace): ResultFilter {
-  if (trace.excludedAsOtp) return 'excluded';
-  if (trace.outcome.kind === 'parsed') return 'parsed';
-  if (trace.outcome.kind === 'unparsed_known_bank') return 'partial';
-  return 'unrecognized';
-}
-
-function badgeFor(trace: SmsParseTrace): HTMLElement {
-  const kind = outcomeFilterKind(trace);
+function badgeFor(kind: ResultFilter): HTMLElement {
   const map: Record<ResultFilter, [string, string]> = {
     all: ['', ''],
     parsed: ['pass', '✓ Parsed'],
@@ -974,18 +975,20 @@ function renderResultsTableInto(container: HTMLElement, state: ResultsTableState
   const searchLower = state.search.trim().toLowerCase();
   const filtered = state.results.filter(
     (r) =>
-      (state.filter === 'all' || outcomeFilterKind(r.trace) === state.filter) &&
+      (state.filter === 'all' || effectiveOutcomeKind(r) === state.filter) &&
       (!searchLower || `${r.sender} ${r.body}`.toLowerCase().includes(searchLower))
   );
 
   const rerender = () => renderResultsTableInto(container, state);
+
+  const senderStrip = renderSenderSummaryStrip(state, container);
 
   const statStrip = el(
     'div',
     { className: 'statstrip' },
     (Object.keys(FILTER_LABELS) as ResultFilter[]).map((key) => {
       const count =
-        key === 'all' ? state.results.length : state.results.filter((r) => outcomeFilterKind(r.trace) === key).length;
+        key === 'all' ? state.results.length : state.results.filter((r) => effectiveOutcomeKind(r) === key).length;
       const cls = key === 'parsed' ? 'pass' : key === 'partial' ? 'warn' : key === 'unrecognized' ? 'fail' : '';
       const card = el('div', { className: `statcard ${cls}${state.filter === key ? ' active' : ''}` }, [
         el('div', { className: 'n' }, [count.toLocaleString()]),
@@ -1013,7 +1016,7 @@ function renderResultsTableInto(container: HTMLElement, state: ResultsTableState
   copyRedactedBtn.addEventListener('click', () => {
     copyText(
       filtered
-        .map((r) => `[${FILTER_LABELS[outcomeFilterKind(r.trace)]}] ${redactDigits(r.sender)}: ${redactDigits(r.body)}`)
+        .map((r) => `[${FILTER_LABELS[effectiveOutcomeKind(r)]}] ${redactDigits(r.sender)}: ${redactDigits(r.body)}`)
         .join('\n')
     );
     showToast(`Copied ${filtered.length.toLocaleString()} redacted result(s)`);
@@ -1023,7 +1026,7 @@ function renderResultsTableInto(container: HTMLElement, state: ResultsTableState
     'Copy (unredacted)'
   ]);
   copyUnredactedBtn.addEventListener('click', () => {
-    copyText(filtered.map((r) => `[${FILTER_LABELS[outcomeFilterKind(r.trace)]}] ${r.sender}: ${r.body}`).join('\n'));
+    copyText(filtered.map((r) => `[${FILTER_LABELS[effectiveOutcomeKind(r)]}] ${r.sender}: ${r.body}`).join('\n'));
     showToast(`Copied ${filtered.length.toLocaleString()} result(s)`);
   });
   const toolsRow = el('div', { className: 'toolsrow' }, [
@@ -1066,7 +1069,77 @@ function renderResultsTableInto(container: HTMLElement, state: ResultsTableState
 
   const bottomPager = renderPaginationBar(state, filtered.length, rerender);
 
-  container.replaceChildren(statStrip, toolsRow, topPager, table, bottomPager);
+  container.replaceChildren(senderStrip, statStrip, toolsRow, topPager, table, bottomPager);
+}
+
+/** "Senders in this batch" summary — the user's own "select a sender to see all its messages" idea,
+ *  plus per-sender Exclude/Include. Derived fresh from `state.results` (the full, unfiltered set) every
+ *  render, so it always reflects every sender actually present regardless of the current filter/search —
+ *  a persistent overview, not something that itself gets filtered away. */
+function renderSenderSummaryStrip(state: ResultsTableState, container: HTMLElement): HTMLElement {
+  const summaries = summarizeSenders(state.results);
+  const rerenderResults = () => renderResultsTableInto(container, state);
+
+  const cards = summaries.map((s) => {
+    const senderIdEl = el('span', { className: 'senderid' }, [s.sender]);
+    senderIdEl.addEventListener('click', () => setSearchAndRerender(state, container, s.sender));
+    const catPill = el('span', { className: `catpill ${s.category ?? 'none'}` }, [s.category ?? '—']);
+
+    const viewLink = el('span', { className: 'view' }, ['View all']);
+    viewLink.addEventListener('click', () => setSearchAndRerender(state, container, s.sender));
+    const toggleLink = el('span', { className: s.excluded ? 'include' : 'exclude' }, [
+      s.excluded ? 'Include' : 'Exclude sender'
+    ]);
+    toggleLink.addEventListener('click', () => {
+      if (s.excluded) {
+        if (s.autoExcluded) setAutoExcludeOverride(s.sender, true);
+        else includeSender(s.sender);
+      } else {
+        excludeSender(s.sender);
+      }
+      rerenderResults();
+    });
+
+    return el('div', { className: `sendercard${s.excluded ? ' excluded' : ''}` }, [
+      el('div', { className: 'top' }, [senderIdEl, catPill]),
+      el('div', { className: 'meta' }, [
+        `${s.bankLabel !== '—' ? s.bankLabel + ' · ' : ''}${s.count.toLocaleString()} message${s.count === 1 ? '' : 's'}`
+      ]),
+      ...(s.autoExcluded ? [el('div', { className: 'excludetag' }, ['🤖 Auto-excluded — reversible'])] : []),
+      el('div', { className: 'actions' }, [viewLink, toggleLink])
+    ]);
+  });
+
+  return el('div', {}, [
+    el('div', { className: 'senderstrip-label' }, [
+      el('i', { className: 'ti ti-list-details' }),
+      ` Senders in this batch (${summaries.length}) — click a sender to view just its messages`
+    ]),
+    el('div', { className: 'senderstrip' }, cards)
+  ]);
+}
+
+/** Fills the search box with `query` and re-renders — the "select a sender to see all its messages"
+ *  drill-down reuses the existing search mechanism (a sender string is specific enough that a substring
+ *  search on it effectively isolates just that sender's rows) rather than a second, parallel filter. */
+function setSearchAndRerender(state: ResultsTableState, container: HTMLElement, query: string): void {
+  state.search = query;
+  state.page = 1;
+  renderResultsTableInto(container, state);
+}
+
+function exclusionReasonLabel(reason: ExclusionReason): string {
+  if (reason.kind === 'otp') return 'OTP';
+  if (reason.kind === 'auto') return reason.category === 'P' ? 'Promotional (auto, −P)' : 'Government (auto, −G)';
+  if (reason.kind === 'sender') return 'Excluded by you (sender)';
+  return 'Excluded by you (message)';
+}
+
+function exclusionReasonTag(reason: ExclusionReason): HTMLElement {
+  return el('div', { className: 'exclreason' }, [
+    exclusionReasonLabel(reason),
+    ...(reason.kind === 'auto' ? [el('span', { className: 'autotag' }, ['AUTO'])] : [])
+  ]);
 }
 
 function resultRows(result: TestResult, idx: number, container: HTMLElement, state: ResultsTableState): HTMLElement[] {
@@ -1074,7 +1147,8 @@ function resultRows(result: TestResult, idx: number, container: HTMLElement, sta
   // row — expanding it would just repeat the same highlighted text a second time for no new information.
   // Only Partial/Unrecognized/Excluded rows still expand, where there's real additional value (the full
   // per-template breakdown, a did-you-mean nudge, or an "add a template" action).
-  const kind = outcomeFilterKind(result.trace);
+  const kind = effectiveOutcomeKind(result);
+  const reason = exclusionReasonFor(result);
   const expandable = kind !== 'parsed';
   const isExpanded = expandable && state.expandedIndex === idx;
   const winningAttempt = result.trace.attempts.find((a) => a.matched);
@@ -1087,19 +1161,30 @@ function resultRows(result: TestResult, idx: number, container: HTMLElement, sta
     showToast('Copied — paste it into "Add a new template"');
   });
 
-  const row = el('tr', { className: 'rrow' }, [
+  // Clicking the sender name is the "select a sender to see all its messages" drill-down — reuses the
+  // existing search box (a sender string is specific enough that a substring search on it effectively
+  // isolates just that sender's rows) rather than inventing a second, parallel filter mechanism.
+  const sndCell = el(
+    'td',
+    { className: `sndcell ${result.trace.matchedSenderBanks.length > 0 ? 'recognized' : 'unrecognized'}` },
+    [result.sender]
+  );
+  sndCell.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setSearchAndRerender(state, container, result.sender);
+  });
+
+  const row = el('tr', { className: `rrow${kind === 'excluded' ? ' excludedrow' : ''}` }, [
     el(
       'td',
       { className: 'chev' },
       expandable ? [el('i', { className: `ti ti-chevron-${isExpanded ? 'down' : 'right'}` })] : []
     ),
-    el('td', { className: `sndcell ${result.trace.matchedSenderBanks.length > 0 ? 'recognized' : 'unrecognized'}` }, [
-      result.sender
-    ]),
+    sndCell,
     el('td', { className: 'bankcell' }, [bankLabel]),
     markedTableCell(result.body, winningAttempt?.captureRanges, copyIcon),
     el('td', { className: 'tracecell' }, [renderTraceStrip(result.trace)]),
-    el('td', { className: 'badgecell' }, [badgeFor(result.trace)])
+    el('td', { className: 'badgecell' }, [badgeFor(kind), ...(reason ? [exclusionReasonTag(reason)] : [])])
   ]);
   if (expandable) {
     row.addEventListener('click', () => {
@@ -1181,6 +1266,39 @@ function resultRows(result: TestResult, idx: number, container: HTMLElement, sta
     });
     detail.append(el('div', { className: 'formbtnrow', style: { marginTop: '10px' } }, [addTplBtn]));
   }
+
+  // Exclusion actions — the "this is not a transaction at all" side of the picture, distinct from
+  // "recognized bank, wrong wording" above. A reversible OTP exclusion has nothing to undo (it's the
+  // parser's own permanent keyword check, not session state); every other reason has a real undo.
+  if (reason && reason.kind !== 'otp') {
+    const undoBtn = el('div', { className: 'formbtn ghost' }, ['↩ Not excluded — treat as unparsed']);
+    undoBtn.addEventListener('click', () => {
+      if (reason.kind === 'auto') setAutoExcludeOverride(result.sender, true);
+      else if (reason.kind === 'sender') includeSender(result.sender);
+      else includeMessage(result.sender, result.body);
+      renderAll();
+    });
+    detail.append(el('div', { className: 'formbtnrow', style: { marginTop: '10px' } }, [undoBtn]));
+  } else if (!reason) {
+    // `kind` is guaranteed not 'parsed' here — this whole branch only runs once expanded, and only a
+    // non-'parsed' row is ever expandable in the first place (see `expandable` above).
+    const excludeMsgBtn = el('div', { className: 'formbtn ghost danger' }, [
+      '🚫 Not a transaction — exclude this message'
+    ]);
+    excludeMsgBtn.addEventListener('click', () => {
+      excludeMessage(result.sender, result.body);
+      renderAll();
+    });
+    const excludeSenderBtn = el('div', { className: 'formbtn ghost danger' }, ['🚫 Exclude sender entirely']);
+    excludeSenderBtn.addEventListener('click', () => {
+      excludeSender(result.sender);
+      renderAll();
+    });
+    detail.append(
+      el('div', { className: 'formbtnrow', style: { marginTop: '10px' } }, [excludeMsgBtn, excludeSenderBtn])
+    );
+  }
+
   return [row, el('tr', { className: 'exprow' }, [detail])];
 }
 

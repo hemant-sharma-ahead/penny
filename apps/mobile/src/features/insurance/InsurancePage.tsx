@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, ScrollView } from 'react-native';
+import { View, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { useSettings } from '~/context/SettingsContext';
@@ -11,15 +11,19 @@ import { PolicyCard } from './PolicyCard';
 import { CoverageSummary } from './CoverageSummary';
 import { PolicyForm } from './PolicyForm';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useThemeColors } from '~/theme/useThemeColors';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 
 export function InsurancePage() {
   const modeBg = useModeBackgroundColor();
+  const theme = useThemeColors();
   const insets = useSafeAreaInsets();
   const { shouldMask } = usePrivacy();
   const { safeModeVisibility } = useSettings();
   const masked = shouldMask(!safeModeVisibility.insurance);
-  const { policies, savePolicy, removePolicy, totalAnnualPremium, expiringCount, sorted } = useInsurance();
+  const { policies, savePolicy, removePolicy, totalAnnualPremium, expiringCount, sorted, reload } = useInsurance();
+  const { refreshing, onRefresh } = usePullToRefresh(reload);
   useDefaultHeaderBack('Insurance');
 
   const [showForm, setShowForm] = useState(false);
@@ -35,7 +39,11 @@ export function InsurancePage() {
         }
       />
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 96 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 96 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         {policies.length === 0 ? (
           <EmptyState icon="ti-shield" title="No policies yet" description="Tap + to add your first policy." />
         ) : (

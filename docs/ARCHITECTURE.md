@@ -2399,6 +2399,46 @@ bar behavior could be seen working before any app code changed, since static moc
   full-width row; and every modal made user-resizable via the native CSS `resize` property (opt-in, from
   the bottom-right corner, with sane min/max bounds) rather than a fixed size.
 
+**Follow-up — TRAI 2025 sender-header-suffix support (2026-08-17):** TRAI's SMS header suffix mandate
+(effective 6 May 2025, per the amended TCCCPR regulations) requires every registered header to carry a
+single-letter category suffix appended after the existing 6-character brand code: `-T`
+(Transactional), `-S` (Service — real-world DLT registrations show plenty of banks' own transactional
+alerts filed under this category, not just `-T`), `-P` (Promotional), `-G` (Government). Every bank in
+`smsPatterns.ts`/`workers/api-proxy/src/smsPatterns.ts` (kept in sync, confirmed byte-identical data)
+gained two additive `-[TSPG]`-tolerant sender patterns (prefixed and unprefixed) alongside its
+originals — old, un-suffixed patterns are untouched, since a historical multi-year scan keeps
+encountering plenty of genuine pre-May-2025 messages that never had a suffix at all. Caught one real
+bug this surfaced in the tool: `literalFragments()` (the fuzzy sender-suggestion heuristic) was reading
+a `[TSPG]` character class as a literal 4-letter fragment — fixed by stripping bracket expressions
+before matching.
+
+**Follow-up — sender/message exclusion, both the tool and the real app (2026-08-17):** real usage
+surfaced that "Partial/Unparsed" was conflating two genuinely different things: a real coverage gap
+(recognized bank, wrong wording — worth a new template) vs. not a transaction at all (OTP, promotional,
+government, non-financial service pings — no template should ever be written for these). Both surfaces
+gained the same split, though with different mechanics given their different stakes:
+
+- **The tool** (session-only, low-stakes test data): `-P`/`-G` senders auto-bucket into an Excluded
+  filter (reversible per-sender via `autoExcludeOverrides`, since suffix categorization isn't
+  guaranteed accurate); manual exclusion exists at BOTH sender level (`excludedSenders`) and per-message
+  level (`excludedMessageKeys`, keyed by `` `${sender}::${body}` ``), since a sender can genuinely mix
+  real transactions with noise. A new "Senders in this batch" summary strip doubles as the "select a
+  sender to see all its messages" drill-down (reuses the existing search box rather than a second
+  filter mechanism). `effectiveOutcomeKind()`/`exclusionReasonFor()` in `state.ts` are the one place
+  every stat card/filter/badge/export reads the EFFECTIVE bucket from, rather than the raw
+  `traceSms()` outcome directly.
+- **The real app** (durable, touches actual user data — a deliberately more conservative design given
+  the higher stakes of auto-excluding real financial messages): a new `sms_excluded_senders` Dexie
+  table (schema v15, `docs/SCHEMA.md`), sender-level only (no per-message durable exclusion — the
+  existing per-message `dismissed` status already covers that case for one already-created record). No
+  auto-exclusion by suffix at all — every exclusion here is an explicit "Exclude sender" tap on the
+  already-shipped Unparsed Messages sender-group accordion. `processRawSmsCore` checks
+  `ProcessRawSmsContext.excludedSenders` before parsing at all, dropping a match exactly like an
+  `unrecognized_sender` — applies uniformly across historical scan, foreground live capture, and the
+  Headless JS background path, since all three funnel through this one function. "Exclude sender" also
+  dismisses that sender's currently-showing `'unparsed'` records (via the existing `dismissUnparsed`),
+  so excluding clears the current batch immediately rather than only preventing future recurrence.
+
 ---
 
 ## Dependency graph (simplified)

@@ -11,7 +11,8 @@ export function useInsurance() {
   const {
     items: policies,
     save: savePolicy,
-    remove: removePolicy
+    remove: removePolicy,
+    reload
   } = useLoggedRepository(insurancePoliciesRepo, {
     entityType: 'insurance',
     summarize: summarizePolicy,
@@ -27,5 +28,5 @@ export function useInsurance() {
 
   const sorted = useMemo(() => [...policies].sort((a, b) => a.renewalDate - b.renewalDate), [policies]);
 
-  return { policies, savePolicy, removePolicy, totalAnnualPremium, expiringCount, sorted };
+  return { policies, savePolicy, removePolicy, totalAnnualPremium, expiringCount, sorted, reload };
 }

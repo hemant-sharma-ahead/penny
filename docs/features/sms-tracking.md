@@ -42,7 +42,15 @@ privacy model — is in [`docs/plans/sms-transaction-tracking.md`](../plans/sms-
 - An **Unparsed Messages** screen: any SMS from a bank Penny recognizes that didn't match a known
   message format is kept here — visible, expandable, copyable (digit-masked by default, with an
   explicit "copy unmasked" escape hatch), and exportable — rather than silently dropped the way most
-  SMS-tracking apps handle a parse failure.
+  SMS-tracking apps handle a parse failure. Grouped by sender into collapsed-by-default accordions
+  (2026-08-17), sorted by message count so the sender most worth a decision surfaces first.
+- **Sender exclusion** (2026-08-17) — a real coverage gap (recognized bank, wrong wording — worth a
+  new template) is a genuinely different thing from a message that's simply never a transaction at all
+  (a promotional offer, a KYC-reminder, an account-statement ping). "Exclude sender," available per
+  group on the Unparsed Messages screen, durably marks a sender as never-a-transaction — its _next_
+  non-transactional message never resurfaces a fresh "needs review" record either, unlike the existing
+  per-message "Dismiss"/"Dismiss all" (which only clears what's already been created). Reversible any
+  time from that same screen's "Excluded senders" list.
 - Not available on iOS or the web target — neither exposes an SMS-reading API to any app. The
   Settings row explains this rather than showing a dead toggle.
 
@@ -74,13 +82,17 @@ type), never its types or role:
   (`SmsTransactionRecord.contentHash`) is the caller's own lookup.
 - `processRawSms.ts` — `processRawSmsCore()`/`deriveStatusForAccount()`: the single, shared
   "what happens when one raw SMS needs to become a record" pipeline, callable from both a React
-  hook and a Headless JS task with no React tree (see Mobile section).
+  hook and a Headless JS task with no React tree (see Mobile section). Checks
+  `ProcessRawSmsContext.excludedSenders` before parsing at all (2026-08-17) — a durably-excluded
+  sender is dropped exactly like an unrecognized one, never persisted, regardless of whether the
+  body would otherwise have structurally matched a template.
 
 **Data model** (`docs/SCHEMA.md`'s "SMS-Based Transaction Tracking" section has full field tables):
 `sms_transactions` (one row per parsed-or-attempted SMS, `status`: unparsed/needs_review/ready/
-linked/dismissed) and `sms_account_mappings` (the persisted sender/card→account mapping). Both
-`EncryptedRepository`-backed, added in Dexie schema v14. `Account` gained two new optional fields,
-`bankId`/`last4`, feeding the account-matching order above.
+linked/dismissed), `sms_account_mappings` (the persisted sender/card→account mapping), and
+`sms_excluded_senders` (senders durably marked never-a-transaction, added v15). All
+`EncryptedRepository`-backed. `Account` gained two new optional fields, `bankId`/`last4`, feeding the
+account-matching order above.
 
 **Privacy**: raw SMS text is retained only while a record is `unparsed`/`needs_review`/`ready` (the
 window where the user might need to see it), cleared once `linked`/`dismissed`. Nothing from this
@@ -115,7 +127,7 @@ base library):
   request + revocation detection) and `queryInboxAsync` (backs the historical "scan a date range"
   capability) to JS via `apps/mobile/src/lib/smsCapture.native.ts`.
 
-## Pattern-library verification tooling (2026-08-16, "Unified Workspace" redesign, latest pass 2026-08-16)
+## Pattern-library verification tooling (2026-08-16, "Unified Workspace" redesign, latest pass 2026-08-17)
 
 `tools/sms-parser-verifier/` — a standalone, offline HTML page (see its own README) for hardening the
 parsing-template library before real-device rollout, without needing the app, a device, or any code.
@@ -148,6 +160,15 @@ popup rather than displacing either the reference panel or the test column.
   Partial/Unrecognized/Excluded outcomes, where there's a genuine "did you mean `<bank>`?" nudge or
   add-a-template action to take. Clicking Test/Parse with nothing to test shows a clear error instead of
   an empty results block.
+- **Sender/message exclusion** (2026-08-17) — splits "Partial/Unparsed" into two genuinely different
+  things: a real coverage gap (recognized bank, wrong wording — worth a new template) vs. not a
+  transaction at all (OTP, promotional, government, non-financial service pings — no template should
+  ever be written for these). A `-P`/`-G` TRAI header-suffix sender auto-bucket into Excluded
+  (reversible — suffix categorization isn't guaranteed accurate); every other case is manual, both
+  sender-wide ("Exclude sender entirely," for a sender that's never a transaction) and per-message (for
+  a sender that mixes real transactions with noise). A "Senders in this batch" summary strip above the
+  table doubles as the "select a sender to see all its messages" drill-down — clicking any sender name
+  (there or in the table itself) filters the table to just its rows via the existing search box.
 - **Export / Import** — Export serializes the full effective bundle (official + every session
   override/draft), confirmed identical in shape to `workers/api-proxy`'s real `/sms-patterns` response,
   scoped to one bank or the whole set; Import merges a same-shaped JSON into the current session's drafts,

@@ -441,6 +441,115 @@
         transition: width 0.12s linear;
       }
 
+      /* "Senders in this batch" summary — the drill-down entry point (click a sender, or "View all", to
+         filter the table to just its rows) plus per-sender Exclude/Include. */
+      .senderstrip-label {
+        font-size: 9.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text3);
+        margin: 0 0 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .senderstrip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+      .sendercard {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px 10px;
+        min-width: 168px;
+        background: #fafbfc;
+      }
+      .sendercard.excluded {
+        opacity: 0.6;
+        background: var(--danger-bg);
+        border-color: #f6c8c8;
+      }
+      .sendercard .top {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 4px;
+      }
+      .sendercard .senderid {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10.5px;
+        font-weight: 700;
+        cursor: pointer;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .sendercard .senderid:hover {
+        color: var(--primary);
+        text-decoration: underline;
+      }
+      .catpill {
+        font-size: 8px;
+        font-weight: 800;
+        padding: 1px 5px;
+        border-radius: 999px;
+        flex-shrink: 0;
+      }
+      .catpill.T {
+        background: var(--primary-bg);
+        color: var(--primary);
+      }
+      .catpill.S {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      .catpill.P {
+        background: var(--pink-bg);
+        color: var(--pink);
+      }
+      .catpill.G {
+        background: var(--violet-bg);
+        color: var(--violet);
+      }
+      .catpill.none {
+        background: #f1f3f5;
+        color: var(--text3);
+      }
+      .sendercard .meta {
+        font-size: 9.5px;
+        color: var(--text2);
+        margin-bottom: 6px;
+      }
+      .sendercard .excludetag {
+        font-size: 8.5px;
+        color: var(--danger);
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+      .sendercard .actions {
+        display: flex;
+        gap: 8px;
+      }
+      .sendercard .actions span {
+        font-size: 9.5px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .sendercard .actions .view {
+        color: var(--blue);
+      }
+      .sendercard .actions .exclude {
+        color: var(--danger);
+      }
+      .sendercard .actions .include {
+        color: var(--primary);
+      }
+
       /* Summary stat strip — doubles as the outcome filter (click a card to filter to it) */
       .statstrip {
         display: flex;
@@ -652,6 +761,21 @@
       .badge.muted {
         background: #f1f3f5;
         color: var(--text2);
+      }
+      .exclreason {
+        font-size: 8.5px;
+        color: var(--text3);
+        margin-top: 3px;
+      }
+      .autotag {
+        font-size: 7.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: var(--text3);
+        margin-left: 3px;
+      }
+      table.rtable tr.excludedrow td {
+        opacity: 0.55;
       }
       .exprow td {
         background: #fafbfc !important;
@@ -1114,6 +1238,11 @@
         background: var(--paper);
         color: var(--text2);
         border: 1px solid var(--border);
+      }
+      .formbtn.ghost.danger {
+        color: var(--danger);
+        border-color: #f6c8c8;
+        background: var(--danger-bg);
       }
 
       /* Regex helper — common-pattern snippets + syntax cheat sheet, inside the template modal */

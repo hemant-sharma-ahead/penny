@@ -136,6 +136,14 @@ export function formatTime(epochMs: number): string {
   );
 }
 
+/** "12 Aug 2026, 2:30 PM" — full date (with year) + time in one string. Neither `formatDate` (no time)
+ *  nor `formatDateShort` (no year, no time) is enough on its own for a record whose actual moment
+ *  matters and can plausibly span several years (e.g. an "all time" SMS scan) — using either alone
+ *  silently loses real information the source data (the original SMS) still carries. */
+export function formatDateTime(epochMs: number): string {
+  return `${formatDate(epochMs)}, ${formatTime(epochMs)}`;
+}
+
 /** Formats a month count as a compact duration, e.g. 27 → "2y 3m", 12 → "1y", 5 → "5m". */
 export function formatMonthsDuration(totalMonths: number): string {
   const y = Math.floor(totalMonths / 12);

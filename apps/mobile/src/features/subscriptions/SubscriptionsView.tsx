@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { View, Text } from 'react-native';
+import { View, ScrollView, RefreshControl, Text } from 'react-native';
 import { TabStrip, DetailRow, Button, EmptyState } from '~/components/ui';
 import { formatCurrency } from '@/lib/formatters';
 import type { Subscription } from '@/core/db/types';
 import type { DetectedSubscription } from '@/core/subscriptions/detector';
+import { useThemeColors } from '~/theme/useThemeColors';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import { DetectedSubCard } from './DetectedSubCard';
 import { ActiveSubCard } from './ActiveSubCard';
 import { SubscriptionForm } from './SubscriptionForm';
@@ -20,9 +22,20 @@ interface SubscriptionsViewProps {
   onDismiss: (c: DetectedSubscription) => void;
   onCancel: (sub: Subscription) => void;
   onAdd: (sub: ManualSubscription) => void;
+  /** This component's own `useSubscriptions(expenses)` reload — never the caller's `expenses` source
+   *  (that's `useExpenses()` in a different feature and out of scope for this shared view). */
+  reload: () => unknown;
+  /** Bottom padding for the owned scroll container — callers differ (standalone page vs. an Expenses
+   *  sub-tab sitting above other chrome), so this stays caller-supplied rather than hardcoded here. */
+  contentBottomPadding?: number;
 }
 
-/** Shared subscriptions body: detected/active sub-tabs, lists, empty states, monthly + annual summary. */
+/** Shared subscriptions body: detected/active sub-tabs, lists, empty states, monthly + annual summary.
+ *  Owns its own scrollable container (rather than relying on each caller's own `ScrollView`) so that
+ *  pull-to-refresh is wired exactly once here — this component is rendered from both
+ *  `SubscriptionsPage.tsx` (standalone) and `SubscriptionsSlice.tsx` (Expenses sub-tab) as the same
+ *  instance, and duplicating the wiring in each caller would be redundant (and risk a nested
+ *  `ScrollView`). */
 export function SubscriptionsView({
   detected,
   active,
@@ -33,14 +46,22 @@ export function SubscriptionsView({
   onConfirm,
   onDismiss,
   onCancel,
-  onAdd
+  onAdd,
+  reload,
+  contentBottomPadding = 24
 }: SubscriptionsViewProps) {
+  const theme = useThemeColors();
   const [tab, setTab] = useState<'detected' | 'active'>('detected');
   const [nowMs] = useState(() => Date.now());
   const [showAdd, setShowAdd] = useState(false);
+  const { refreshing, onRefresh } = usePullToRefresh(reload);
 
   return (
-    <>
+    <ScrollView
+      className="flex-1"
+      contentContainerStyle={{ paddingBottom: contentBottomPadding }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+    >
       <TabStrip
         options={[
           { value: 'detected', label: `Detected (${detected.length})` },
@@ -111,6 +132,6 @@ export function SubscriptionsView({
       )}
 
       {showAdd && <SubscriptionForm onAdd={onAdd} onClose={() => setShowAdd(false)} />}
-    </>
+    </ScrollView>
   );
 }

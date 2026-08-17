@@ -7,6 +7,7 @@ import {
   hashtagsRepo,
   merchantMemoryRepo,
   smsAccountMappingsRepo,
+  smsExcludedSendersRepo,
   smsTransactionsRepo
 } from '@/core/db/repositories';
 import { useRepository } from '@/hooks/useRepository';
@@ -57,6 +58,12 @@ export function useSmsTracking() {
   const { items: categories } = useRepository(expenseCategoriesRepo);
   const { items: hashtags, save: saveHashtag } = useRepository(hashtagsRepo);
   const { items: merchantMemories } = useRepository(merchantMemoryRepo);
+  const {
+    items: excludedSenderRecords,
+    save: saveExcludedSender,
+    remove: removeExcludedSender,
+    reload: reloadExcludedSenders
+  } = useRepository(smsExcludedSendersRepo);
 
   // Mirrors `useExpenses.ts`'s own `expensesRef` pattern — a same-tick-consistent cache of records,
   // updated directly on every write rather than waiting for `useRepository`'s state to re-render, so a
@@ -81,7 +88,13 @@ export function useSmsTracking() {
     reloadMappings();
     reloadAccounts();
     reloadExpenses();
-  }, [reloadRecords, reloadMappings, reloadAccounts, reloadExpenses]);
+    reloadExcludedSenders();
+  }, [reloadRecords, reloadMappings, reloadAccounts, reloadExpenses, reloadExcludedSenders]);
+
+  /** Plain sender strings — `processRawSmsCore`'s `ProcessRawSmsContext.excludedSenders` just needs the
+   *  literal values, not the full `SmsExcludedSender` record (which the UI needs for id-based removal
+   *  and `createdAt` display instead). */
+  const excludedSenders = useMemo(() => excludedSenderRecords.map((r) => r.sender), [excludedSenderRecords]);
 
   const accountsById = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
   const expensesById = useMemo(() => new Map(expenses.map((e) => [e.id, e])), [expenses]);
@@ -137,11 +150,12 @@ export function useSmsTracking() {
         accounts,
         mappings,
         expenses,
-        records: recordsRef.current
+        records: recordsRef.current,
+        excludedSenders
       });
       if (record) await persistRecord(record);
     },
-    [accounts, mappings, expenses, persistRecord]
+    [accounts, mappings, expenses, excludedSenders, persistRecord]
   );
 
   /** User picked (or created) an account for an `'ambiguous_account'` item — persists the mapping so
@@ -319,6 +333,34 @@ export function useSmsTracking() {
     [persistRecord]
   );
 
+  /** Durably marks `sender` "never a transaction" (`SmsExcludedSender`, 2026-08-17) — `processRawSms`
+   *  (and the headless/historical-scan paths, which read the same repo) will never create a fresh
+   *  'unparsed' record for this sender again. Also dismisses every 'unparsed' record this sender
+   *  already has right now, same as "Dismiss all" on its group — excluding a sender should clear it
+   *  from view immediately, not just prevent future recurrence. */
+  const excludeSender = useCallback(
+    async (sender: string) => {
+      if (!excludedSenderRecords.some((r) => r.sender === sender)) {
+        await saveExcludedSender({ id: crypto.randomUUID(), sender, createdAt: Date.now() });
+      }
+      for (const record of recordsRef.current.filter((r) => r.sender === sender && r.status === 'unparsed')) {
+        await dismissUnparsed(record);
+      }
+    },
+    [excludedSenderRecords, saveExcludedSender, dismissUnparsed]
+  );
+
+  /** Reverses `excludeSender` — this sender's future messages resume normal parsing/review. Never
+   *  retroactively restores anything already dismissed while the exclusion was active (same
+   *  non-destructive spirit as every other session/settings toggle in this project). */
+  const unexcludeSender = useCallback(
+    async (sender: string) => {
+      const existing = excludedSenderRecords.find((r) => r.sender === sender);
+      if (existing) await removeExcludedSender(existing.id);
+    },
+    [excludedSenderRecords, removeExcludedSender]
+  );
+
   /** Sender-mapping list edit (plan §7) — re-points an already-confirmed mapping at a different
    *  account; does NOT retroactively re-resolve already-processed records (matching Bank Statement
    *  Import's own precedent: a mapping correction only ever affects what happens from here on). */
@@ -391,6 +433,9 @@ export function useSmsTracking() {
     commitReady,
     dismiss,
     dismissUnparsed,
+    excludedSenderRecords,
+    excludeSender,
+    unexcludeSender,
     editMapping,
     deleteMapping,
     saveAccountForForm,

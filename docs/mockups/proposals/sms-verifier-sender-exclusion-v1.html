@@ -1,0 +1,1062 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Sender/Message Exclusion (SMS Verifier Tool + Real App), mockup proposal v1</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg: #eef1f4;
+        --paper: #ffffff;
+        --border: #e2e5ea;
+        --text: #1a2233;
+        --text2: #667085;
+        --text3: #98a2b3;
+        --primary: #059669;
+        --primary-bg: #ecfdf5;
+        --blue: #2563eb;
+        --blue-bg: #eff6ff;
+        --pink: #be185d;
+        --pink-bg: #fce7f3;
+        --amber: #b45309;
+        --amber-bg: #fef3c7;
+        --danger: #dc2626;
+        --danger-bg: #fef2f2;
+        --violet: #7c3aed;
+        --violet-bg: #f5f3ff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #f4f6f8;
+        color: var(--text);
+        -webkit-font-smoothing: antialiased;
+      }
+      h1 {
+        text-align: center;
+        margin: 30px 16px 4px;
+        font-size: 22px;
+      }
+      .sub {
+        text-align: center;
+        margin: 0 16px 22px;
+        color: var(--text2);
+        font-size: 13.5px;
+        max-width: 920px;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.65;
+      }
+      .navbar {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: rgba(244, 246, 248, 0.94);
+        backdrop-filter: blur(6px);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        gap: 4px;
+        justify-content: center;
+        flex-wrap: wrap;
+        padding: 10px 12px;
+      }
+      .navbar a {
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--text2);
+        text-decoration: none;
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+      }
+      .navbar a:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+      .sectionhead {
+        max-width: 1080px;
+        margin: 46px auto 4px;
+        padding: 0 16px;
+      }
+      .sectionhead h2 {
+        font-size: 18px;
+        margin: 0 0 5px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .sectionhead .stepno {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 7px;
+        background: var(--primary);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 900;
+        flex-shrink: 0;
+      }
+      .sectionhead p {
+        font-size: 13px;
+        color: var(--text2);
+        line-height: 1.6;
+        margin: 0 0 4px;
+        max-width: 820px;
+      }
+
+      /* ══════════ Section 1 — the standalone tool ══════════ */
+      .toolwrap {
+        max-width: 1080px;
+        margin: 16px auto 60px;
+        background: var(--paper);
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(20, 25, 35, 0.08);
+      }
+      .toolhead {
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+        font-size: 12.5px;
+        font-weight: 800;
+        color: var(--text2);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .toolbody {
+        padding: 16px 18px 20px;
+      }
+
+      /* Sender summary strip — new */
+      .senderstrip-label {
+        font-size: 9.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text3);
+        margin: 2px 2px 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .senderstrip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .sendercard {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px 10px;
+        min-width: 168px;
+        background: #fafbfc;
+        transition: opacity 0.15s;
+      }
+      .sendercard.excluded {
+        opacity: 0.55;
+        background: var(--danger-bg);
+        border-color: #f6c8c8;
+      }
+      .sendercard .top {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 4px;
+      }
+      .sendercard .senderid {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10.5px;
+        font-weight: 700;
+        cursor: pointer;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .sendercard .senderid:hover {
+        color: var(--primary);
+        text-decoration: underline;
+      }
+      .catpill {
+        font-size: 8px;
+        font-weight: 800;
+        padding: 1px 5px;
+        border-radius: 999px;
+        flex-shrink: 0;
+      }
+      .catpill.T {
+        background: var(--primary-bg);
+        color: var(--primary);
+      }
+      .catpill.S {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      .catpill.P {
+        background: var(--pink-bg);
+        color: var(--pink);
+      }
+      .catpill.G {
+        background: var(--violet-bg);
+        color: var(--violet);
+      }
+      .catpill.none {
+        background: #f1f3f5;
+        color: var(--text3);
+      }
+      .sendercard .meta {
+        font-size: 9.5px;
+        color: var(--text2);
+        margin-bottom: 6px;
+      }
+      .sendercard .actions {
+        display: flex;
+        gap: 8px;
+      }
+      .sendercard .actions span {
+        font-size: 9.5px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .sendercard .actions .view {
+        color: var(--blue);
+      }
+      .sendercard .actions .exclude {
+        color: var(--danger);
+      }
+      .sendercard .actions .include {
+        color: var(--primary);
+      }
+      .sendercard .excludetag {
+        font-size: 8.5px;
+        color: var(--danger);
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+
+      /* Stat strip */
+      .statstrip {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+      }
+      .statcard {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 9px 14px;
+        cursor: pointer;
+        background: var(--paper);
+        min-width: 92px;
+      }
+      .statcard.active {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 1px var(--primary) inset;
+      }
+      .statcard .n {
+        font-size: 17px;
+        font-weight: 800;
+      }
+      .statcard .l {
+        font-size: 9.5px;
+        color: var(--text2);
+        margin-top: 1px;
+      }
+      .statcard.excluded .n {
+        color: var(--danger);
+      }
+      .statcard.parsed .n {
+        color: var(--primary);
+      }
+      .statcard.partial .n {
+        color: var(--amber);
+      }
+
+      .searchrow {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .searchbox {
+        flex: 1;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 7px 10px;
+        font-size: 11.5px;
+        color: var(--text2);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .searchbox input {
+        border: none;
+        outline: none;
+        flex: 1;
+        font-size: 11.5px;
+        background: transparent;
+      }
+
+      table.rtable {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+      }
+      table.rtable th {
+        text-align: left;
+        font-size: 9.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text3);
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      table.rtable td {
+        padding: 8px;
+        border-bottom: 1px solid #f1f3f5;
+        vertical-align: top;
+      }
+      .sndcell.recognized {
+        color: var(--primary);
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .sndcell.unrecognized {
+        color: var(--danger);
+        cursor: pointer;
+      }
+      .sndcell:hover {
+        text-decoration: underline;
+      }
+      .msgtext {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10.5px;
+        color: var(--text2);
+      }
+      .badge {
+        font-size: 9px;
+        font-weight: 800;
+        padding: 3px 8px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .badge.pass {
+        background: var(--primary-bg);
+        color: var(--primary);
+      }
+      .badge.warn {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      .badge.fail {
+        background: var(--danger-bg);
+        color: var(--danger);
+      }
+      .badge.excl {
+        background: var(--danger-bg);
+        color: var(--danger);
+      }
+      .exclreason {
+        font-size: 8.5px;
+        color: var(--text3);
+        margin-top: 2px;
+      }
+      .rowactions {
+        display: flex;
+        gap: 8px;
+        margin-top: 4px;
+      }
+      .rowactions span {
+        font-size: 9.5px;
+        font-weight: 700;
+        color: var(--danger);
+        cursor: pointer;
+      }
+      .rowactions span.sender {
+        color: var(--danger);
+      }
+      .rowactions span.undo {
+        color: var(--blue);
+      }
+      tr.excludedrow td {
+        opacity: 0.5;
+      }
+      .autotag {
+        font-size: 8px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: var(--text3);
+        margin-left: 4px;
+      }
+
+      /* ══════════ Section 2 — real app phone frame ══════════ */
+      .gallery {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 40px 22px;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 18px 20px 40px;
+        max-width: 1080px;
+        margin: 0 auto;
+      }
+      .frame-wrap {
+        width: 300px;
+      }
+      .vtitle {
+        font-size: 12.5px;
+        font-weight: 800;
+        margin: 0 2px 3px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .vtitle .tag {
+        font-size: 8.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 2px 7px;
+        border-radius: 999px;
+        background: var(--primary-bg);
+        color: var(--primary);
+      }
+      .vsub {
+        font-size: 10.5px;
+        color: var(--text2);
+        margin: 0 2px 12px;
+        line-height: 1.55;
+      }
+      .phone {
+        width: 300px;
+        background: #fff;
+        border-radius: 30px;
+        border: 8px solid #1a2233;
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+        min-height: 610px;
+      }
+      .statusbar {
+        height: 18px;
+        background: #fff;
+        flex-shrink: 0;
+      }
+      .header {
+        height: 42px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 10px;
+        flex-shrink: 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .header .back {
+        width: 26px;
+        height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text);
+        font-size: 16px;
+      }
+      .htitle {
+        flex: 1;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .headeraction {
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f1f3f5;
+      }
+      .headeraction i {
+        font-size: 13px;
+        color: var(--text2);
+      }
+      .content {
+        padding: 12px 14px 20px;
+        flex: 1;
+        overflow: hidden;
+      }
+      .m-banner {
+        border-radius: 12px;
+        border: 1px solid;
+        padding: 10px 11px;
+        font-size: 10.5px;
+        line-height: 1.5;
+        margin-bottom: 10px;
+      }
+      .m-banner.info {
+        background: var(--blue-bg);
+        border-color: #bfdbfe;
+        color: #1d4ed8;
+      }
+      .m-excludedbox {
+        border: 1px dashed #f0b8b8;
+        background: var(--danger-bg);
+        border-radius: 10px;
+        padding: 8px 10px;
+        margin-bottom: 10px;
+      }
+      .m-excludedbox .t {
+        font-size: 10px;
+        font-weight: 800;
+        color: var(--danger);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-bottom: 5px;
+      }
+      .m-excludedchip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 9.5px;
+        background: #fff;
+        border: 1px solid #f0b8b8;
+        border-radius: 999px;
+        padding: 3px 8px;
+        margin: 0 4px 4px 0;
+        color: var(--text2);
+      }
+      .m-excludedchip b {
+        color: var(--danger);
+        font-family: ui-monospace, Menlo, monospace;
+        font-weight: 700;
+      }
+      .m-excludedchip .undo {
+        color: var(--blue);
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .m-group {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        margin-bottom: 10px;
+        overflow: hidden;
+      }
+      .m-grouphead {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 11px;
+      }
+      .m-grouphead .ic {
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        background: #f1f3f5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text2);
+        font-size: 12px;
+      }
+      .m-grouphead .lbl {
+        flex: 1;
+        min-width: 0;
+      }
+      .m-grouphead .t1 {
+        font-size: 12px;
+        font-weight: 700;
+        font-family: ui-monospace, Menlo, monospace;
+      }
+      .m-grouphead .t2 {
+        font-size: 9.5px;
+        color: var(--text3);
+      }
+      .m-grouphead .cnt {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--text2);
+      }
+      .m-groupbody {
+        border-top: 1px solid var(--border);
+        padding: 8px 10px 10px;
+      }
+      .m-groupactions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        margin-bottom: 8px;
+      }
+      .m-actionbtn {
+        font-size: 9.5px;
+        font-weight: 700;
+        padding: 5px 9px;
+        border-radius: 7px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .m-actionbtn.excludesender {
+        background: var(--danger-bg);
+        color: var(--danger);
+      }
+      .m-actionbtn.dismissall {
+        background: #f1f3f5;
+        color: var(--text2);
+      }
+      .m-msgcard {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px 9px;
+        margin-bottom: 6px;
+      }
+      .m-msgcard .mtop {
+        display: flex;
+        justify-content: space-between;
+        font-size: 9px;
+        color: var(--text3);
+        margin-bottom: 4px;
+      }
+      .m-msgcard .body {
+        font-size: 10px;
+        color: var(--text2);
+        line-height: 1.5;
+      }
+      .m-msgcard .mactions {
+        display: flex;
+        gap: 10px;
+        margin-top: 6px;
+        padding-top: 6px;
+        border-top: 1px solid #f1f3f5;
+      }
+      .m-msgcard .mactions span {
+        font-size: 9.5px;
+        font-weight: 700;
+        color: var(--text3);
+      }
+      .m-msgcard .mactions span.notxn {
+        color: var(--danger);
+      }
+      .note {
+        max-width: 1080px;
+        margin: 10px auto 0;
+        padding: 0 16px;
+        font-size: 11.5px;
+        color: var(--text2);
+        line-height: 1.6;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="navbar">
+      <a href="#tool">1 · Tool — sender/message exclusion</a>
+      <a href="#realapp">2 · Real app — Unparsed Messages</a>
+    </div>
+
+    <h1>Sender &amp; Message Exclusion — proposal v1</h1>
+    <p class="sub">
+      The core idea: split "Unparsed" into two genuinely different things — <b>a real coverage gap</b> (recognized
+      bank, wrong wording, worth a new template) vs. <b>not a transaction at all</b> (OTP, promotional, government,
+      non-financial service pings). Auto-detect what's cheaply detectable (OTP keywords, the TRAI −P/−G suffix);
+      let you manually exclude a whole sender or just one message for everything else. Both sections below are
+      clickable — try excluding a sender, clicking a sender name to filter, or undoing an auto-exclusion.
+    </p>
+
+    <div class="sectionhead" id="tool">
+      <h2><span class="stepno">1</span> SMS Parser Verifier Tool</h2>
+      <p>
+        New: a "Senders in this batch" summary above the results table (your own "select a sender to see all its
+        messages" idea) + per-sender and per-message exclude actions + an auto-excluded bucket for −P/−G senders,
+        reversible per your confirmed choice.
+      </p>
+    </div>
+
+    <div class="toolwrap">
+      <div class="toolhead"><i class="ti ti-flask"></i> Bulk test — all banks · results (2,417 messages)</div>
+      <div class="toolbody">
+        <div class="senderstrip-label">
+          <i class="ti ti-list-details"></i> Senders in this batch (7) — click a sender to view just its messages
+        </div>
+        <div class="senderstrip" id="senderstrip"></div>
+
+        <div class="statstrip" id="statstrip"></div>
+
+        <div class="searchrow">
+          <div class="searchbox"><i class="ti ti-search"></i><input id="searchbox" placeholder="Search sender or message text…" /></div>
+        </div>
+
+        <table class="rtable">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Sender</th>
+              <th>Bank</th>
+              <th>Message</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      const SENDERS = [
+        { id: 'VM-HDFCBK-T', bank: 'HDFC', cat: 'T', count: 812, excluded: false, auto: false },
+        { id: 'AD-HDFCBK-S', bank: 'HDFC', cat: 'S', count: 340, excluded: false, auto: false },
+        { id: 'VK-HDFCPR-P', bank: '—', cat: 'P', count: 610, excluded: true, auto: true },
+        { id: 'JK-INCMTX-G', bank: '—', cat: 'G', count: 205, excluded: true, auto: true },
+        { id: 'VM-ICICIB-T', bank: 'ICICI', cat: 'T', count: 298, excluded: false, auto: false },
+        { id: 'TX-SBIINB-S', bank: 'SBI', cat: 'S', count: 118, excluded: false, auto: false },
+        { id: 'BZ-KYCUPD-S', bank: '—', cat: 'S', count: 34, excluded: false, auto: false }
+      ];
+
+      const ROWS = [
+        {
+          sender: 'VM-HDFCBK-T',
+          bank: 'HDFC',
+          body: 'HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl (UPI Ref No 123456789012).',
+          kind: 'parsed'
+        },
+        {
+          sender: 'AD-HDFCBK-S',
+          bank: 'HDFC',
+          body: 'HDFC Bank: your account activity summary for this month is now available in the app.',
+          kind: 'partial'
+        },
+        {
+          sender: 'VK-HDFCPR-P',
+          bank: '—',
+          body: 'Get 10% cashback on your HDFC Credit Card this weekend only! T&C apply.',
+          kind: 'excluded',
+          reason: 'Promotional (−P)',
+          auto: true
+        },
+        {
+          sender: 'JK-INCMTX-G',
+          bank: '—',
+          body: 'Income Tax Dept: Your ITR for AY 2026-27 has been processed. Refund, if any, will be credited soon.',
+          kind: 'excluded',
+          reason: 'Government (−G)',
+          auto: true
+        },
+        {
+          sender: 'VM-ICICIB-T',
+          bank: 'ICICI',
+          body: 'ICICI Bank Acct XX789 debited with Rs 2,500.00 on 15-Aug-26; Merchant Store credited. UPI:123456789012.',
+          kind: 'parsed'
+        },
+        {
+          sender: 'TX-SBIINB-S',
+          bank: 'SBI',
+          body: 'Dear Customer, your SBI YONO app has a new feature. Update now for a better experience.',
+          kind: 'partial'
+        },
+        {
+          sender: 'BZ-KYCUPD-S',
+          bank: '—',
+          body: 'Your KYC is due for re-verification. Visit your nearest branch or update online to avoid account freeze.',
+          kind: 'unrecognized'
+        }
+      ];
+
+      let filter = 'all';
+      let search = '';
+      const manualExcludedSenders = new Set();
+      const manualExcludedMessages = new Set();
+
+      function effectiveKind(row, idx) {
+        if (manualExcludedMessages.has(idx)) return { kind: 'excluded', reason: 'Excluded by you (message)' };
+        const s = SENDERS.find((s) => s.id === row.sender);
+        if (s && (manualExcludedSenders.has(s.id) || (s.excluded && !manualExcludedSenders.has('un:' + s.id)))) {
+          return { kind: 'excluded', reason: row.reason ? row.reason + ', sender' : 'Excluded by you (sender)', auto: row.auto };
+        }
+        return { kind: row.kind, reason: row.reason, auto: row.auto };
+      }
+
+      function renderSenderStrip() {
+        const el = document.getElementById('senderstrip');
+        el.innerHTML = '';
+        SENDERS.forEach((s) => {
+          const isExcluded = manualExcludedSenders.has(s.id) || (s.excluded && !manualExcludedSenders.has('un:' + s.id));
+          const card = document.createElement('div');
+          card.className = 'sendercard' + (isExcluded ? ' excluded' : '');
+          card.innerHTML = `
+            <div class="top">
+              <span class="senderid" data-sender="${s.id}">${s.id}</span>
+              <span class="catpill ${s.cat}">${s.cat}</span>
+            </div>
+            <div class="meta">${s.bank !== '—' ? s.bank + ' · ' : ''}${s.count.toLocaleString()} messages</div>
+            ${isExcluded && s.auto ? '<div class="excludetag">🤖 Auto-excluded — reversible</div>' : ''}
+            <div class="actions">
+              <span class="view" data-view="${s.id}">View all</span>
+              ${
+                isExcluded
+                  ? '<span class="include" data-include="' + s.id + '">Include</span>'
+                  : '<span class="exclude" data-exclude="' + s.id + '">Exclude sender</span>'
+              }
+            </div>`;
+          el.appendChild(card);
+        });
+        el.querySelectorAll('[data-view]').forEach((n) =>
+          n.addEventListener('click', () => {
+            document.getElementById('searchbox').value = n.dataset.view;
+            search = n.dataset.view.toLowerCase();
+            render();
+          })
+        );
+        el.querySelectorAll('.senderid').forEach((n) =>
+          n.addEventListener('click', () => {
+            document.getElementById('searchbox').value = n.dataset.sender;
+            search = n.dataset.sender.toLowerCase();
+            render();
+          })
+        );
+        el.querySelectorAll('[data-exclude]').forEach((n) =>
+          n.addEventListener('click', () => {
+            manualExcludedSenders.add(n.dataset.exclude);
+            renderAll();
+          })
+        );
+        el.querySelectorAll('[data-include]').forEach((n) =>
+          n.addEventListener('click', () => {
+            const id = n.dataset.include;
+            manualExcludedSenders.delete(id);
+            manualExcludedSenders.add('un:' + id);
+            renderAll();
+          })
+        );
+      }
+
+      function outcomeKind(row, idx) {
+        return effectiveKind(row, idx).kind;
+      }
+
+      function renderStatStrip() {
+        const counts = { all: ROWS.length, parsed: 0, partial: 0, unrecognized: 0, excluded: 0 };
+        ROWS.forEach((r, i) => {
+          const k = outcomeKind(r, i);
+          counts[k] = (counts[k] || 0) + 1;
+        });
+        const labels = { all: 'Total', parsed: '✓ Parsed', partial: '⚠ Partial (gap)', unrecognized: '❌ Unrecognized', excluded: '🚫 Excluded' };
+        const el = document.getElementById('statstrip');
+        el.innerHTML = '';
+        Object.keys(labels).forEach((k) => {
+          const card = document.createElement('div');
+          card.className = `statcard ${k}` + (filter === k ? ' active' : '');
+          card.innerHTML = `<div class="n">${counts[k]}</div><div class="l">${labels[k]}</div>`;
+          card.addEventListener('click', () => {
+            filter = k;
+            render();
+          });
+          el.appendChild(card);
+        });
+      }
+
+      function renderTable() {
+        const tbody = document.getElementById('tbody');
+        tbody.innerHTML = '';
+        ROWS.forEach((row, idx) => {
+          const eff = effectiveKind(row, idx);
+          if (filter !== 'all' && eff.kind !== filter) return;
+          if (search && !(row.sender.toLowerCase().includes(search) || row.body.toLowerCase().includes(search))) return;
+          const tr = document.createElement('tr');
+          if (eff.kind === 'excluded') tr.className = 'excludedrow';
+          const badgeMap = { parsed: ['pass', '✓ Parsed'], partial: ['warn', '⚠ Partial'], unrecognized: ['fail', '❌ Unrecognized'], excluded: ['excl', '🚫 Excluded'] };
+          const [cls, label] = badgeMap[eff.kind];
+          tr.innerHTML = `
+            <td><i class="ti ti-chevron-right" style="font-size:11px;color:#98a2b3"></i></td>
+            <td class="sndcell ${eff.kind === 'unrecognized' || eff.kind === 'excluded' ? 'unrecognized' : 'recognized'}" data-sender="${row.sender}">${row.sender}</td>
+            <td>${row.bank}</td>
+            <td>
+              <div class="msgtext">${row.body}</div>
+              ${
+                eff.kind !== 'excluded' && eff.kind !== 'parsed'
+                  ? `<div class="rowactions"><span class="msg" data-msgexclude="${idx}">🚫 Not a transaction — exclude this message</span><span class="sender" data-senderexclude="${row.sender}">🚫 Exclude sender entirely</span></div>`
+                  : ''
+              }
+              ${eff.kind === 'excluded' ? `<div class="rowactions"><span class="undo" data-undomsg="${idx}" data-undosender="${row.sender}">↩ Not excluded — treat as unparsed</span></div>` : ''}
+            </td>
+            <td><span class="badge ${cls}">${label}</span>${eff.reason ? `<div class="exclreason">${eff.reason}${eff.auto ? '<span class="autotag">AUTO</span>' : ''}</div>` : ''}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+        tbody.querySelectorAll('[data-sender]').forEach((n) =>
+          n.addEventListener('click', () => {
+            document.getElementById('searchbox').value = n.dataset.sender;
+            search = n.dataset.sender.toLowerCase();
+            render();
+          })
+        );
+        tbody.querySelectorAll('[data-msgexclude]').forEach((n) =>
+          n.addEventListener('click', () => {
+            manualExcludedMessages.add(Number(n.dataset.msgexclude));
+            renderAll();
+          })
+        );
+        tbody.querySelectorAll('[data-senderexclude]').forEach((n) =>
+          n.addEventListener('click', () => {
+            manualExcludedSenders.add(n.dataset.senderexclude);
+            renderAll();
+          })
+        );
+        tbody.querySelectorAll('[data-undomsg]').forEach((n) =>
+          n.addEventListener('click', () => {
+            manualExcludedMessages.delete(Number(n.dataset.undomsg));
+            const sid = n.dataset.undosender;
+            if (manualExcludedSenders.has(sid)) manualExcludedSenders.delete(sid);
+            else manualExcludedSenders.add('un:' + sid);
+            renderAll();
+          })
+        );
+      }
+
+      function render() {
+        renderStatStrip();
+        renderTable();
+      }
+      function renderAll() {
+        renderSenderStrip();
+        render();
+      }
+      document.getElementById('searchbox').addEventListener('input', (e) => {
+        search = e.target.value.toLowerCase();
+        render();
+      });
+      renderAll();
+    </script>
+
+    <div class="sectionhead" id="realapp">
+      <h2><span class="stepno">2</span> Real app — Unparsed Messages screen</h2>
+      <p>
+        Same underlying idea, ported to the already-shipped sender-grouped accordion screen: each group's header
+        gains an "Exclude sender" action next to the existing "Dismiss all" — durable and persisted (a new
+        <code>sms_excluded_senders</code> table), so this sender never creates a fresh "unparsed" record again on a
+        future scan or live capture, not just a one-time dismiss of today's batch. A collapsible "Excluded senders"
+        strip at the top lets you undo one if you change your mind. Per-message "Not a transaction" stays available
+        inside a still-included sender's own messages, for senders that mix real transactions with noise.
+      </p>
+    </div>
+
+    <div class="gallery">
+      <div class="frame-wrap">
+        <div class="vtitle">Unparsed Messages <span class="tag">Updated</span></div>
+        <div class="vsub">Two senders already excluded (one auto, one manual) — shown collapsed at top, undoable.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-chevron-left"></i></div>
+            <div class="htitle">Unparsed Messages</div>
+            <div class="headeraction"><i class="ti ti-share-2"></i></div>
+          </div>
+          <div class="content">
+            <div class="m-banner info">1,240 messages from 5 senders looked like transactions Penny recognizes, but didn't match a known message format.</div>
+
+            <div class="m-excludedbox">
+              <div class="t"><i class="ti ti-ban"></i> Excluded senders (2) — never surfaced here again</div>
+              <span class="m-excludedchip"><b>VK-HDFCPR-P</b> · auto (Promotional) <span class="undo">Undo</span></span>
+              <span class="m-excludedchip"><b>BZ-KYCUPD-S</b> · by you <span class="undo">Undo</span></span>
+            </div>
+
+            <div class="m-group">
+              <div class="m-grouphead">
+                <div class="ic"><i class="ti ti-building-bank"></i></div>
+                <div class="lbl"><div class="t1">AD-HDFCBK-S</div><div class="t2">HDFC</div></div>
+                <div class="cnt">340</div>
+                <i class="ti ti-chevron-down" style="color:#98a2b3;margin-left:6px"></i>
+              </div>
+              <div class="m-groupbody">
+                <div class="m-groupactions">
+                  <div class="m-actionbtn dismissall"><i class="ti ti-x"></i> Dismiss all 340</div>
+                  <div class="m-actionbtn excludesender"><i class="ti ti-ban"></i> Exclude sender</div>
+                </div>
+                <div class="m-msgcard">
+                  <div class="mtop"><span>AD-HDFCBK-S</span><span>15 Aug 2026, 2:30 PM</span></div>
+                  <div class="body">HDFC Bank: your account activity summary for this month is now available in the app.</div>
+                  <div class="mactions"><span class="notxn">Not a transaction</span><span>Dismiss</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="m-group">
+              <div class="m-grouphead">
+                <div class="ic"><i class="ti ti-building-bank"></i></div>
+                <div class="lbl"><div class="t1">TX-SBIINB-S</div><div class="t2">SBI</div></div>
+                <div class="cnt">118</div>
+                <i class="ti ti-chevron-right" style="color:#98a2b3;margin-left:6px"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="vtitle">"Not a transaction" tapped <span class="tag">Detail</span></div>
+        <div class="vsub">Distinguishes a per-message call (this sender still needs review) from a sender-wide one.</div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <div class="header">
+            <div class="back"><i class="ti ti-chevron-left"></i></div>
+            <div class="htitle">Unparsed Messages</div>
+            <div class="headeraction"><i class="ti ti-share-2"></i></div>
+          </div>
+          <div class="content">
+            <div class="m-group">
+              <div class="m-grouphead">
+                <div class="ic"><i class="ti ti-building-bank"></i></div>
+                <div class="lbl"><div class="t1">AD-HDFCBK-S</div><div class="t2">HDFC</div></div>
+                <div class="cnt">339</div>
+                <i class="ti ti-chevron-down" style="color:#98a2b3;margin-left:6px"></i>
+              </div>
+              <div class="m-groupbody">
+                <div class="m-groupactions">
+                  <div class="m-actionbtn dismissall"><i class="ti ti-x"></i> Dismiss all 339</div>
+                  <div class="m-actionbtn excludesender"><i class="ti ti-ban"></i> Exclude sender</div>
+                </div>
+                <div class="m-msgcard" style="opacity:.5">
+                  <div class="mtop"><span>AD-HDFCBK-S</span><span>15 Aug 2026, 2:30 PM</span></div>
+                  <div class="body">HDFC Bank: your account activity summary for this month is now available in the app.</div>
+                  <div class="mactions"><span style="color:#dc2626">↩ Marked not-a-transaction</span></div>
+                </div>
+                <div class="m-msgcard">
+                  <div class="mtop"><span>AD-HDFCBK-S</span><span>2 Aug 2026, 9:14 AM</span></div>
+                  <div class="body">HDFC Bank: Rs.1,200.00 debited from a/c XX1234 towards NEFT to Landlord. Ref 998877.</div>
+                  <div class="mactions"><span class="notxn">Not a transaction</span><span>Dismiss</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="m-banner info" style="margin-top:8px;background:#fef3c7;border-color:#fde68a;color:#92400e">
+              <i class="ti ti-bulb"></i> This sender still has a real transaction in it (the NEFT one) — good reason
+              per-message exclusion exists alongside sender-level exclusion.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>Open questions to confirm before implementing:</b><br />
+      • New Dexie table <code>sms_excluded_senders</code> (id, sender, createdAt) — checked by
+      <code>processRawSmsCore</code> before creating an <code>'unparsed'</code> record (treated like an unrecognized
+      sender: dropped, never persisted) — applies uniformly to historical scan, foreground live capture, and the
+      Headless JS background path, since all three funnel through the same function.<br />
+      • Auto-exclusion (−P/−G suffix) is a <i>display-time</i> classification only in the tool (no schema change
+      there); in the real app it would need the same "auto, but undoable" treatment — worth deciding whether the
+      real app auto-excludes on first sight or only suggests it, independently of the tool's already-confirmed
+      answer.<br />
+      • Undoing an exclusion (tool or real app) never retroactively restores anything that was already silently
+      dropped before the rule existed — it only stops applying going forward, same non-destructive spirit as every
+      other session/settings toggle in this project.
+    </div>
+  </body>
+</html>

@@ -1,5 +1,5 @@
-import { Fragment, useMemo } from 'react';
-import { View, ScrollView, Text } from 'react-native';
+import { Fragment, useCallback, useMemo } from 'react';
+import { View, ScrollView, RefreshControl, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -12,6 +12,7 @@ import { mergeCoveredRanges, detectCoverageGap } from '@/core/bank-import/covera
 import { useRepository } from '@/hooks/useRepository';
 import { useAccountsRefresh } from '@/hooks/useDataRefresh';
 import { useTxnRefresh } from '@/hooks/useTxnRefresh';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import { formatCurrency } from '@/lib/formatters';
 import { formatDate, formatDateShort } from '@/lib/date';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
@@ -64,6 +65,13 @@ export function CheckpointTimelinePage() {
   // kept running against a stale `allExpenses` snapshot from whenever it first mounted.
   useTxnRefresh(reloadExpenses);
   const account = accounts.find((a) => a.id === accountId) ?? null;
+
+  // Pull-to-refresh re-derives both halves this page's diagnostics depend on — the account (opening
+  // balance/anchor reference) and its transactions — rather than just one, since either can change
+  // this page's verdict.
+  const { refreshing, onRefresh } = usePullToRefresh(
+    useCallback(() => Promise.all([reloadAccounts(), reloadExpenses()]), [reloadAccounts, reloadExpenses])
+  );
 
   // Description + this row's own signed amount (found via on-device feedback 2026-08-09: the table only
   // ever showed the running balance, never what actually moved between checkpoints) — `delta()` gives the
@@ -147,7 +155,10 @@ export function CheckpointTimelinePage() {
         <Text className="text-sm font-semibold text-primary">Reconciliation</Text>
         <Text className="text-xs text-tertiary mt-0.5">{account.name}</Text>
       </View>
-      <ScrollView className="flex-1">
+      <ScrollView
+        className="flex-1"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         <View className="px-4 py-4 gap-3">
           <Text className="text-[11px] text-secondary leading-relaxed">
             Comparing Penny's running balance against your bank's own stated balance after each checkpointed

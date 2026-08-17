@@ -5,6 +5,7 @@ import {
   Pressable,
   Image,
   ScrollView,
+  RefreshControl,
   ActivityIndicator,
   Platform,
   TextInput as RNTextInput
@@ -34,6 +35,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useToast } from '~/context/ToastContext';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 
 /**
  * RN port of apps/web-react/src/features/profile/ProfilePage.tsx. Deviations:
@@ -60,7 +62,7 @@ import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
  */
 export function ProfilePage() {
   const modeBg = useModeBackgroundColor();
-  const { profile, loading } = useProfile();
+  const { profile, loading, reload } = useProfile();
   useDefaultHeaderBack('Profile');
 
   return (
@@ -70,7 +72,7 @@ export function ProfilePage() {
           <ActivityIndicator size="small" color="#00a86b" />
         </View>
       ) : profile ? (
-        <ProfileEditor key={profile.id} profile={profile} />
+        <ProfileEditor key={profile.id} profile={profile} reload={reload} />
       ) : (
         <Text className="px-4 py-8 text-sm text-tertiary text-center">No profile found.</Text>
       )}
@@ -117,12 +119,13 @@ function SectionLabel({ children }: { children: ReactNode }) {
   return <Text className="text-[11px] font-semibold uppercase tracking-wide text-tertiary mt-5 mb-2">{children}</Text>;
 }
 
-function ProfileEditor({ profile }: { profile: Profile }) {
+function ProfileEditor({ profile, reload }: { profile: Profile; reload: () => void }) {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const theme = useThemeColors();
   const { activePalette } = useTheme();
   const { showToast } = useToast();
   const syncOn = hasEntitlement('sync');
+  const { refreshing, onRefresh } = usePullToRefresh(reload);
 
   const [avatarDataUrl, setAvatarDataUrl] = useState(profile.avatarDataUrl ?? '');
   const [fullName, setFullName] = useState(profile.displayName ?? '');
@@ -291,7 +294,11 @@ function ProfileEditor({ profile }: { profile: Profile }) {
   const showBackupNudge = syncOn && claimed && !backupIsRecoverable;
 
   return (
-    <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
+    <ScrollView
+      className="flex-1"
+      contentContainerStyle={{ paddingBottom: 32 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+    >
       <View className="px-4 py-4">
         {/* Identity hero */}
         <View className="flex-row items-center gap-4 py-2">

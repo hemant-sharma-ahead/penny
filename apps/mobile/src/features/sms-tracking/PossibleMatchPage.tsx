@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { View, ScrollView, Text } from 'react-native';
+import { View, ScrollView, RefreshControl, Text } from 'react-native';
 import { useNavigation, useRoute, type ParamListBase, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 import type { HomeStackParamList } from '~/navigation/HomeStack';
 import { useSmsTracking } from './useSmsTracking';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 
 const SOURCE_LABELS: Record<string, string> = {
   manual: 'Manual entry',
@@ -79,17 +80,23 @@ export function PossibleMatchPage() {
   useDefaultHeaderBack('SmsPossibleMatch');
   const sms = useSmsTracking();
   const [candidateIndex, setCandidateIndex] = useState(0);
+  const { refreshing, onRefresh } = usePullToRefresh(sms.reload);
 
   const record = sms.needsReview.find((r) => r.id === route.params.recordId);
 
   if (!record) {
     return (
       <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-        <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-xs text-tertiary text-center">
-            This item was already resolved or no longer needs review.
-          </Text>
-        </View>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+        >
+          <View className="flex-1 items-center justify-center px-6">
+            <Text className="text-xs text-tertiary text-center">
+              This item was already resolved or no longer needs review.
+            </Text>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -103,18 +110,27 @@ export function PossibleMatchPage() {
   if (!candidate) {
     return (
       <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-        <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-xs text-tertiary text-center">
-            The recorded transaction this SMS matched no longer exists.
-          </Text>
-        </View>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+        >
+          <View className="flex-1 items-center justify-center px-6">
+            <Text className="text-xs text-tertiary text-center">
+              The recorded transaction this SMS matched no longer exists.
+            </Text>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 16 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ padding: 16 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         {isReconciled ? (
           <Banner variant="warning" className="mb-3">
             This looks like a reconciled transaction from {formatDate(candidate.date)} — the SMS says{' '}

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { View, ScrollView, Text } from 'react-native';
+import { View, ScrollView, RefreshControl, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Banner, ListContainer, SectionLabel, Toggle } from '~/components/ui';
 import { Icon } from '~/components/Icon';
@@ -13,6 +13,7 @@ import { useSettings, type SafeModeVisibility } from '~/context/SettingsContext'
 import type { ExpenseCategory } from '@/core/db/types';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 
 /** RN port of apps/web-react/src/features/settings/SafeModeSettingsPage.tsx — straightforward
  *  list/toggle port, no CSS grids or hand-rolled overlays to translate. */
@@ -74,12 +75,34 @@ function ToggleRow({
 
 export function SafeModeSettingsPage() {
   const modeBg = useModeBackgroundColor();
+  const theme = useThemeColors();
   useDefaultHeaderBack('SafeModeSettings');
   const { safeModeVisibility, setSafeModeVisibility } = useSettings();
-  const { items: categories, save: saveCategory, loading: categoriesLoading } = useRepository(expenseCategoriesRepo);
-  const { items: accounts, save: saveAccount, loading: accountsLoading } = useRepository(accountsRepo);
-  const { items: hashtags, save: saveHashtag, loading: hashtagsLoading } = useRepository(hashtagsRepo);
+  const {
+    items: categories,
+    save: saveCategory,
+    loading: categoriesLoading,
+    reload: reloadCategories
+  } = useRepository(expenseCategoriesRepo);
+  const {
+    items: accounts,
+    save: saveAccount,
+    loading: accountsLoading,
+    reload: reloadAccounts
+  } = useRepository(accountsRepo);
+  const {
+    items: hashtags,
+    save: saveHashtag,
+    loading: hashtagsLoading,
+    reload: reloadHashtags
+  } = useRepository(hashtagsRepo);
   const sortedHashtags = useMemo(() => [...hashtags].sort((a, b) => b.usageCount - a.usageCount), [hashtags]);
+  // Three independent repos back this one screen — pull-to-refresh reloads all of them together.
+  const { refreshing, onRefresh } = usePullToRefresh(() => {
+    reloadCategories();
+    reloadAccounts();
+    reloadHashtags();
+  });
 
   const parentCategoryMap = useMemo(() => buildParentCategoryMap(categories), [categories]);
 
@@ -106,7 +129,11 @@ export function SafeModeSettingsPage() {
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 32 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         <View className="px-4 py-4 gap-4">
           <Banner variant="info">
             Safe Mode shows your everyday numbers so you can check things at a glance in public — toggle on the

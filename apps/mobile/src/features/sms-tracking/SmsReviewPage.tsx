@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, ScrollView, Text } from 'react-native';
+import { View, ScrollView, RefreshControl, Text } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +16,7 @@ import { useSmsTracking } from './useSmsTracking';
 import { SmsTile } from './SmsTile';
 import { ResolveAccountModal } from './ResolveAccountModal';
 import { DuplicateSmsModal } from './DuplicateSmsModal';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 
 type BucketKey = 'linked' | 'needsReview' | 'ready' | 'dismissed';
 
@@ -57,6 +58,7 @@ export function SmsReviewPage() {
   useDefaultHeaderBack('SmsReview');
   const sms = useSmsTracking();
   const { isExpanded, toggle } = useBucketExpansion<BucketKey>('needsReview');
+  const { refreshing, onRefresh } = usePullToRefresh(sms.reload);
 
   const [resolvingAccountFor, setResolvingAccountFor] = useState<SmsTransactionRecord | null>(null);
   const [viewingDuplicateFor, setViewingDuplicateFor] = useState<SmsTransactionRecord | null>(null);
@@ -73,7 +75,11 @@ export function SmsReviewPage() {
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, gap: 9 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ padding: 16, gap: 9 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         <BucketCard
           dotColor={theme.success}
           title="Linked"

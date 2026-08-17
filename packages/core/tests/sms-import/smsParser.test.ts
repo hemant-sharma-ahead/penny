@@ -248,6 +248,51 @@ describe('parseSms — remaining current-era-only banks', () => {
   });
 });
 
+describe('parseSms — TRAI 2025 header-suffix sender format', () => {
+  // TRAI's SMS header suffix mandate (effective 6 May 2025) appends a single-letter category suffix
+  // to every registered header — `-T` (Transactional), `-S` (Service — real-world DLT registrations
+  // show plenty of banks' own transactional alerts filed under this category, not just `-T`), `-P`
+  // (Promotional), `-G` (Government). A bank's sender can now legitimately arrive as `VM-HDFCBK-T` or
+  // `VM-HDFCBK-S`, in addition to (never instead of) the pre-2025 `VM-HDFCBK`/`HDFCBK` forms a
+  // historical scan will keep encountering for plenty of older messages.
+  const body =
+    'HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl (UPI Ref No 123456789012). Not you? Call 18002586161';
+
+  it('parses a prefixed sender with the Transactional (-T) suffix', () => {
+    const outcome = parseSms('VM-HDFCBK-T', body, RECEIVED, BUNDLE);
+    expect(outcome.kind).toBe('parsed');
+  });
+
+  it('parses a prefixed sender with the Service (-S) suffix', () => {
+    const outcome = parseSms('VM-HDFCBK-S', body, RECEIVED, BUNDLE);
+    expect(outcome.kind).toBe('parsed');
+  });
+
+  it('parses an unprefixed sender with a suffix', () => {
+    const outcome = parseSms('HDFCBK-T', body, RECEIVED, BUNDLE);
+    expect(outcome.kind).toBe('parsed');
+  });
+
+  it('still parses the pre-2025 unsuffixed form — old patterns are additive, never replaced', () => {
+    const outcome = parseSms('VM-HDFCBK', body, RECEIVED, BUNDLE);
+    expect(outcome.kind).toBe('parsed');
+  });
+
+  it('does not match a Promotional (-P) suffix against an unrelated bare sender', () => {
+    // Sanity check that the suffix character class doesn't accidentally widen the match beyond a
+    // real bank's own registered header — an entirely different 6-character code plus a suffix must
+    // still not match.
+    const outcome = parseSms('VM-RANDOM-T', body, RECEIVED, BUNDLE);
+    expect(outcome.kind).toBe('unrecognized_sender');
+  });
+
+  it('SBI recognizes both its registered headers with a suffix', () => {
+    const sbiBody = 'A/C X4567 debited by 500.0 on date 15Aug26 trf to Merchant Name Refno 123456789012 -SBI';
+    expect(parseSms('AD-SBIINB-S', sbiBody, RECEIVED, BUNDLE).kind).toBe('parsed');
+    expect(parseSms('AD-SBIUPI-T', sbiBody, RECEIVED, BUNDLE).kind).toBe('parsed');
+  });
+});
+
 describe('parseSms — negative/edge scenarios', () => {
   it('excludes an OTP message before any bank matching runs', () => {
     const body = '123456 is your OTP to login to HDFC NetBanking. Do not share this with anyone.';

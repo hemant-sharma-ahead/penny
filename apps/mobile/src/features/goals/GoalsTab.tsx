@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, EmptyState } from '~/components/ui';
 import { ExpenseForm, TipNudgeBanner } from '~/components/shared';
@@ -12,6 +12,7 @@ import { getRiskReturn } from '@/core/goals/meta';
 import type { Account, Expense, ExpenseCategory, GoalContribution, Hashtag } from '@/core/db/types';
 import type { AccountInput } from '~/hooks/useAccountForm';
 import { useEventMode } from '~/context/EventModeContext';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import { GoalCard } from './GoalCard';
 import { GoalForm } from './GoalForm';
 import { GoalDetailView } from './GoalDetailView';
@@ -99,6 +100,9 @@ interface GoalsTabProps {
   removeContribution: (contribution: GoalContribution) => Promise<void>;
   goalLinkedTxnIds: Set<string>;
   linkTransaction: (goalId: string, txn: Expense) => Promise<void>;
+  /** Pull-to-refresh — combines `reloadGoals`/`reloadContributions`/`reloadAccounts`/`reloadExpenses`
+   *  (see `useGoals.ts`'s `refreshGoalData`). */
+  onRefresh: () => void;
 }
 
 export function GoalsTab({
@@ -117,10 +121,13 @@ export function GoalsTab({
   saveGoalContributionTxn,
   removeContribution,
   goalLinkedTxnIds,
-  linkTransaction
+  linkTransaction,
+  onRefresh
 }: GoalsTabProps) {
+  const theme = useThemeColors();
   const insets = useSafeAreaInsets();
   const { events: activeEvents } = useEventMode();
+  const { refreshing, onRefresh: handleRefresh } = usePullToRefresh(onRefresh);
   const [showForm, setShowForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [detailGoal, setDetailGoal] = useState<Goal | null>(null);
@@ -155,7 +162,11 @@ export function GoalsTab({
 
   return (
     <>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 96 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 96 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.primary} />}
+      >
         {goals.length > 0 && (
           <View className="px-4 pt-4">
             <GoalsSummaryCard goals={goals} masked={masked} effectiveSaved={effectiveSaved} />

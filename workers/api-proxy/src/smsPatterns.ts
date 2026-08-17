@@ -16,6 +16,10 @@
 // If you add/change a template here, add/change it in that file's `SMS_PATTERNS_FALLBACK` too (and
 // vice versa) — see that file's own doc comment for the full rationale (tolerant-not-brittle regex,
 // append-only growth, the "N SMS from known banks couldn't be parsed" discovery loop).
+//
+// Sender-ID suffix update (2026-08-17) — every bank's `senderIdPatterns` gained two additive
+// `-[TSPG]` patterns (prefixed and unprefixed) for TRAI's 6-May-2025 SMS header suffix mandate; see
+// the core file's doc comment for the full rationale. Old, un-suffixed patterns are untouched.
 
 type SmsTransactionType = 'debit' | 'credit' | 'upi_sent' | 'upi_received' | 'card_swipe' | 'refund';
 
@@ -42,7 +46,7 @@ export const SMS_PATTERN_BUNDLE: SmsPatternBundle = {
   banks: [
     {
       bankId: 'hdfc',
-      senderIdPatterns: ['^[A-Z]{2}-HDFCBK$', '^HDFCBK$'],
+      senderIdPatterns: ['^[A-Z]{2}-HDFCBK$', '^HDFCBK$', '^[A-Z]{2}-HDFCBK-[TSPG]$', '^HDFCBK-[TSPG]$'],
       templates: [
         {
           transactionType: 'debit',
@@ -69,7 +73,7 @@ export const SMS_PATTERN_BUNDLE: SmsPatternBundle = {
     },
     {
       bankId: 'icici',
-      senderIdPatterns: ['^[A-Z]{2}-ICICIB$', '^ICICIB$'],
+      senderIdPatterns: ['^[A-Z]{2}-ICICIB$', '^ICICIB$', '^[A-Z]{2}-ICICIB-[TSPG]$', '^ICICIB-[TSPG]$'],
       templates: [
         {
           transactionType: 'debit',
@@ -96,7 +100,15 @@ export const SMS_PATTERN_BUNDLE: SmsPatternBundle = {
     },
     {
       bankId: 'sbi',
-      senderIdPatterns: ['^[A-Z]{2}-SBIINB$', '^SBIINB$', '^[A-Z]{2}-SBIUPI$'],
+      senderIdPatterns: [
+        '^[A-Z]{2}-SBIINB$',
+        '^SBIINB$',
+        '^[A-Z]{2}-SBIUPI$',
+        '^[A-Z]{2}-SBIINB-[TSPG]$',
+        '^SBIINB-[TSPG]$',
+        '^[A-Z]{2}-SBIUPI-[TSPG]$',
+        '^SBIUPI-[TSPG]$'
+      ],
       templates: [
         {
           transactionType: 'debit',
@@ -123,7 +135,7 @@ export const SMS_PATTERN_BUNDLE: SmsPatternBundle = {
     },
     {
       bankId: 'axis',
-      senderIdPatterns: ['^[A-Z]{2}-AXISBK$', '^AXISBK$'],
+      senderIdPatterns: ['^[A-Z]{2}-AXISBK$', '^AXISBK$', '^[A-Z]{2}-AXISBK-[TSPG]$', '^AXISBK-[TSPG]$'],
       templates: [
         {
           transactionType: 'debit',
@@ -143,7 +155,7 @@ export const SMS_PATTERN_BUNDLE: SmsPatternBundle = {
     },
     {
       bankId: 'kotak',
-      senderIdPatterns: ['^[A-Z]{2}-KOTAKB$', '^KOTAKB$'],
+      senderIdPatterns: ['^[A-Z]{2}-KOTAKB$', '^KOTAKB$', '^[A-Z]{2}-KOTAKB-[TSPG]$', '^KOTAKB-[TSPG]$'],
       templates: [
         {
           transactionType: 'debit',
@@ -163,7 +175,7 @@ export const SMS_PATTERN_BUNDLE: SmsPatternBundle = {
     },
     {
       bankId: 'indusind',
-      senderIdPatterns: ['^[A-Z]{2}-INDUSB$', '^INDUSB$'],
+      senderIdPatterns: ['^[A-Z]{2}-INDUSB$', '^INDUSB$', '^[A-Z]{2}-INDUSB-[TSPG]$', '^INDUSB-[TSPG]$'],
       templates: [
         {
           transactionType: 'debit',
@@ -176,7 +188,7 @@ export const SMS_PATTERN_BUNDLE: SmsPatternBundle = {
     },
     {
       bankId: 'bob',
-      senderIdPatterns: ['^[A-Z]{2}-BOBTXN$', '^BOBTXN$'],
+      senderIdPatterns: ['^[A-Z]{2}-BOBTXN$', '^BOBTXN$', '^[A-Z]{2}-BOBTXN-[TSPG]$', '^BOBTXN-[TSPG]$'],
       templates: [
         {
           transactionType: 'debit',
@@ -189,7 +201,7 @@ export const SMS_PATTERN_BUNDLE: SmsPatternBundle = {
     },
     {
       bankId: 'hsbc',
-      senderIdPatterns: ['^[A-Z]{2}-HSBCIN$', '^HSBCIN$'],
+      senderIdPatterns: ['^[A-Z]{2}-HSBCIN$', '^HSBCIN$', '^[A-Z]{2}-HSBCIN-[TSPG]$', '^HSBCIN-[TSPG]$'],
       templates: [
         {
           transactionType: 'debit',
@@ -202,7 +214,7 @@ export const SMS_PATTERN_BUNDLE: SmsPatternBundle = {
     },
     {
       bankId: 'yesbank',
-      senderIdPatterns: ['^[A-Z]{2}-YESBNK$', '^YESBNK$'],
+      senderIdPatterns: ['^[A-Z]{2}-YESBNK$', '^YESBNK$', '^[A-Z]{2}-YESBNK-[TSPG]$', '^YESBNK-[TSPG]$'],
       templates: [
         {
           transactionType: 'debit',
@@ -215,7 +227,7 @@ export const SMS_PATTERN_BUNDLE: SmsPatternBundle = {
     },
     {
       bankId: 'pnb',
-      senderIdPatterns: ['^[A-Z]{2}-PNBSMS$', '^PNBSMS$'],
+      senderIdPatterns: ['^[A-Z]{2}-PNBSMS$', '^PNBSMS$', '^[A-Z]{2}-PNBSMS-[TSPG]$', '^PNBSMS-[TSPG]$'],
       templates: [
         {
           transactionType: 'debit',
@@ -228,7 +240,7 @@ export const SMS_PATTERN_BUNDLE: SmsPatternBundle = {
     },
     {
       bankId: 'canara',
-      senderIdPatterns: ['^[A-Z]{2}-CANBNK$', '^CANBNK$'],
+      senderIdPatterns: ['^[A-Z]{2}-CANBNK$', '^CANBNK$', '^[A-Z]{2}-CANBNK-[TSPG]$', '^CANBNK-[TSPG]$'],
       templates: [
         {
           transactionType: 'debit',
@@ -241,7 +253,7 @@ export const SMS_PATTERN_BUNDLE: SmsPatternBundle = {
     },
     {
       bankId: 'idfcfirst',
-      senderIdPatterns: ['^[A-Z]{2}-IDFCFB$', '^IDFCFB$'],
+      senderIdPatterns: ['^[A-Z]{2}-IDFCFB$', '^IDFCFB$', '^[A-Z]{2}-IDFCFB-[TSPG]$', '^IDFCFB-[TSPG]$'],
       templates: [
         {
           transactionType: 'debit',

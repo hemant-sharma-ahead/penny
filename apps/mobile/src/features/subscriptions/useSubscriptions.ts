@@ -15,7 +15,11 @@ const summarizeSubscription = (s: Subscription) => `subscription: ${s.merchantCa
 
 export function useSubscriptions(expenses: Expense[]) {
   const [nowMs] = useState(() => Date.now());
-  const { items: stored, save: saveSubscription } = useLoggedRepository(subscriptionsRepo, {
+  const {
+    items: stored,
+    save: saveSubscription,
+    reload
+  } = useLoggedRepository(subscriptionsRepo, {
     entityType: 'subscription',
     summarize: summarizeSubscription,
     diffFields: ['status', 'detectedAmount', 'confirmedByUser']
@@ -120,6 +124,7 @@ export function useSubscriptions(expenses: Expense[]) {
     confirmSubscription,
     dismissSubscription,
     cancelSubscription,
-    addSubscription
+    addSubscription,
+    reload
   };
 }

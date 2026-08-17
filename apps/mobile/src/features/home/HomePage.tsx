@@ -1,4 +1,4 @@
-import { View, ScrollView } from 'react-native';
+import { View, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -13,7 +13,9 @@ import { FinancialHealthCard } from '~/features/health/FinancialHealthCard';
 import { HomeGroupsCard } from './HomeGroupsCard';
 import { useHome } from './useHome';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useThemeColors } from '~/theme/useThemeColors';
 import { useRegisterHeaderScreen } from '~/navigation/HeaderBackContext';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import type { AppRouteKey } from '@/core/advisor/guidance';
 
 /** Maps the advisor's platform-agnostic route keys to this app's actual screen names — RN port of
@@ -35,10 +37,12 @@ const ROUTE_MAP: Record<AppRouteKey, string> = {
  * placement, both previously dropped when Home was ported personal-only ahead of Groups.
  */
 export function HomePage() {
+  const theme = useThemeColors();
   const modeBg = useModeBackgroundColor();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { activeGroup } = useGroupContext();
-  const { summary, assetGroups, totalAssets } = useHome();
+  const { summary, assetGroups, totalAssets, reload } = useHome();
+  const { refreshing, onRefresh } = usePullToRefresh(reload);
   useRegisterHeaderScreen('HomeMain');
 
   // When a group is the active context, Home becomes that group's dashboard. "Personal ▾"/the group
@@ -57,7 +61,11 @@ export function HomePage() {
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 96 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 96 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         <View className="px-4 pt-3 pb-6">
           {/* Home's daily "Did you know" card (2026-08-16) — deliberately the very first thing on the
               screen, above the at-a-glance summary: Home is the most-visited screen, so this is where a

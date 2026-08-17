@@ -50,7 +50,8 @@ export function GoalsPage() {
     saveGoalContributionTxn,
     removeContribution,
     goalLinkedTxnIds,
-    linkTransaction
+    linkTransaction,
+    refreshGoalData
   } = useGoals();
   const [activeTab, setActiveTab] = useState<GoalsTabKey>('goals');
 
@@ -100,6 +101,7 @@ export function GoalsPage() {
           removeContribution={removeContribution}
           goalLinkedTxnIds={goalLinkedTxnIds}
           linkTransaction={linkTransaction}
+          onRefresh={refreshGoalData}
         />
       )}
       {activeTab === 'goal-sip' && <SipCalculatorTab />}

@@ -35,6 +35,7 @@ import type {
   RetirementPlan,
   SecurityRecord,
   SmsAccountMapping,
+  SmsExcludedSender,
   SmsTransactionRecord,
   Subscription,
   SyncCursor,
@@ -121,7 +122,8 @@ const ENCRYPTED_TABLES = [
   'retirement_plan',
   'net_worth_snapshots',
   'sms_transactions',
-  'sms_account_mappings'
+  'sms_account_mappings',
+  'sms_excluded_senders'
 ];
 const PLAIN_TABLES = ['security', 'price_cache', 'privacy_stats'];
 
@@ -305,7 +307,8 @@ const tableStores = {
   retirement_plan: makeEncryptedRowStore('retirement_plan') as unknown as RowStore<RetirementPlan>,
   net_worth_snapshots: makeEncryptedRowStore('net_worth_snapshots') as unknown as RowStore<NetWorthSnapshot>,
   sms_transactions: makeEncryptedRowStore('sms_transactions') as unknown as RowStore<SmsTransactionRecord>,
-  sms_account_mappings: makeEncryptedRowStore('sms_account_mappings') as unknown as RowStore<SmsAccountMapping>
+  sms_account_mappings: makeEncryptedRowStore('sms_account_mappings') as unknown as RowStore<SmsAccountMapping>,
+  sms_excluded_senders: makeEncryptedRowStore('sms_excluded_senders') as unknown as RowStore<SmsExcludedSender>
 };
 
 export const db = {

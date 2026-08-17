@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { View, Pressable, Text } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { View, Pressable, Text, RefreshControl } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { ListContainer, SectionLabel, EmptyState, Button } from '~/components/ui';
 import { Icon } from '~/components/Icon';
@@ -13,6 +13,7 @@ import { SharedExpenseComposer } from './SharedExpenseComposer';
 import { SettleUpGroupModal } from './SettleUpGroupModal';
 import { GroupMembersModal } from './GroupMembersModal';
 import { tint } from '~/lib/color';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 
 const TYPE_ICON: Record<string, string> = {
   family: 'ti-home',
@@ -34,7 +35,7 @@ export function GroupDashboard({ group }: { group: Group }) {
   const [modal, setModal] = useState<'add' | 'settle' | 'members' | null>(null);
   const [settleWith, setSettleWith] = useState<string | undefined>();
   const [refreshKey, setRefreshKey] = useState(0);
-  const bump = () => setRefreshKey((k) => k + 1);
+  const bump = useCallback(() => setRefreshKey((k) => k + 1), []);
   const closed = group.status === 'closed';
 
   useEffect(() => {
@@ -59,6 +60,18 @@ export function GroupDashboard({ group }: { group: Group }) {
       cancelled = true;
     };
   }, [group.id, refreshKey]);
+
+  // Pull-to-refresh handler — unlike `bump()` (a fire-and-forget re-trigger of the effect above, whose
+  // own `syncGroup` call is background-only), this awaits the real network sync directly so the
+  // RefreshControl spinner stays up for the actual round trip, not just a re-read of already-cached
+  // local data. A failed/offline sync surfaces via `usePullToRefresh`'s own catch, same as everywhere
+  // else; the effect's independent background sync that `bump()` still triggers afterwards is a
+  // harmless redundant retry, not a correctness issue.
+  const refresh = useCallback(async () => {
+    await syncGroup(group.id);
+    bump();
+  }, [group.id, bump]);
+  const { refreshing, onRefresh } = usePullToRefresh(refresh);
 
   const myNet = myId ? (balances[myId] ?? 0) : 0;
   const nameFor = (userId: string) => members.find((m) => m.userId === userId)?.displayName ?? 'Member';
@@ -202,6 +215,7 @@ export function GroupDashboard({ group }: { group: Group }) {
         keyExtractor={(e: GroupEvent) => e.id}
         ListHeaderComponent={header}
         renderItem={({ item }) => <FeedRow event={item} nameFor={nameFor} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
       />
 
       {modal === 'add' && <SharedExpenseComposer group={group} onClose={() => setModal(null)} onSaved={bump} />}

@@ -48,6 +48,7 @@ export function ExpensesPage() {
     accounts,
     categories,
     hashtags,
+    reloadExpenses,
     expenseCategories,
     categoryMap,
     parentCategoryMap,
@@ -224,6 +225,7 @@ export function ExpensesPage() {
               shouldMask={shouldMask}
               onSaveExpense={saveExpenseWithHashtags}
               onDeleteExpense={deleteExpense}
+              onRefresh={reloadExpenses}
               onOpenBudgets={() => setShowBudgets(true)}
               iouPersons={persons}
               onSeedIou={seedIouFromExpense}

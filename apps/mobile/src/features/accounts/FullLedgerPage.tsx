@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, ScrollView, Text, Pressable } from 'react-native';
+import { View, ScrollView, RefreshControl, Text, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, type RouteProp } from '@react-navigation/native';
 import type { Account, Expense } from '@/core/db/types';
@@ -25,6 +25,7 @@ import { notifyAccountsChanged, notifyBankImportsChanged, useAccountsRefresh } f
 import { notifyTxnChanged, useTxnRefresh } from '@/hooks/useTxnRefresh';
 import { useRepository } from '@/hooks/useRepository';
 import type { AccountInput } from '~/hooks/useAccountForm';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import { formatCurrency } from '@/lib/formatters';
 import { formatDate, formatDateShort } from '@/lib/date';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
@@ -76,6 +77,15 @@ export function FullLedgerPage() {
   useTxnRefresh(reloadExpenses);
   const account = accounts.find((a) => a.id === accountId) ?? null;
   const accountMap = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
+
+  // Same three-repo combo already used after a relink/unmatch/resolve write below (e.g.
+  // `handleUnmatchConfirm`) — pull-to-refresh re-derives the whole ledger from scratch the same way.
+  const { refreshing, onRefresh } = usePullToRefresh(
+    useCallback(
+      () => Promise.all([reloadAccounts(), reloadExpenses(), reloadImportRecords()]),
+      [reloadAccounts, reloadExpenses, reloadImportRecords]
+    )
+  );
 
   // Recent-first, continuously-growing window (docs/plans/bank-reconciliation-ledger.md —
   // "windowed, recent-first" decision, refined 2026-08-10 on-device feedback: a discrete ‹/› window
@@ -341,7 +351,10 @@ export function FullLedgerPage() {
         <Text className="text-sm font-semibold text-primary">Full ledger</Text>
         <Text className="text-xs text-tertiary mt-0.5">{account.name} · every transaction, statement order</Text>
       </View>
-      <ScrollView className="flex-1">
+      <ScrollView
+        className="flex-1"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         <View className="px-4 py-4 gap-3">
           <View className="flex-row items-center justify-between px-3 py-2 rounded-xl border border-theme">
             <Text className="text-xs font-bold text-primary">

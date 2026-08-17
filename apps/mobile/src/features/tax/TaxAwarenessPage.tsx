@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, ScrollView, Text } from 'react-native';
+import { View, ScrollView, Text, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TabStrip, Badge, PageHeader, Banner } from '~/components/ui';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -14,6 +14,7 @@ import { ExploreTab } from './explore/ExploreTab';
 import { OptimizePillar } from './optimize/OptimizePillar';
 import { CalculatorsPillar } from './calculators/CalculatorsPillar';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 
 type TaxTab = 'footprint' | 'explore' | 'optimize' | 'calculators';
 
@@ -21,12 +22,13 @@ type TaxTab = 'footprint' | 'explore' | 'optimize' | 'calculators';
 export function TaxAwarenessPage() {
   const modeBg = useModeBackgroundColor();
   const theme = useThemeColors();
-  const { summary } = useTaxData();
+  const { summary, reload } = useTaxData();
   const deductions = useTaxDeductions(summary);
   const { profile } = useProfile();
   const footprintData = useFootprint(summary, deductions, profile);
   const [activeTab, setActiveTab] = useState<TaxTab>('footprint');
   useDefaultHeaderBack('Tax');
+  const { refreshing, onRefresh } = usePullToRefresh(reload);
 
   // Personalised, informational tax context from DOB + employment (no computation changes).
   const age = profile?.dob ? deriveAge(profile.dob) : null;
@@ -78,7 +80,10 @@ export function TaxAwarenessPage() {
         onChange={setActiveTab}
       />
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 96 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 96 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         <View className="px-4 py-4 gap-4">
           {showNotes && (
             <Banner variant="info">

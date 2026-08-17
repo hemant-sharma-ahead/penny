@@ -441,6 +441,115 @@
         transition: width 0.12s linear;
       }
 
+      /* "Senders in this batch" summary — the drill-down entry point (click a sender, or "View all", to
+         filter the table to just its rows) plus per-sender Exclude/Include. */
+      .senderstrip-label {
+        font-size: 9.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text3);
+        margin: 0 0 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .senderstrip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+      .sendercard {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px 10px;
+        min-width: 168px;
+        background: #fafbfc;
+      }
+      .sendercard.excluded {
+        opacity: 0.6;
+        background: var(--danger-bg);
+        border-color: #f6c8c8;
+      }
+      .sendercard .top {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 4px;
+      }
+      .sendercard .senderid {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10.5px;
+        font-weight: 700;
+        cursor: pointer;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .sendercard .senderid:hover {
+        color: var(--primary);
+        text-decoration: underline;
+      }
+      .catpill {
+        font-size: 8px;
+        font-weight: 800;
+        padding: 1px 5px;
+        border-radius: 999px;
+        flex-shrink: 0;
+      }
+      .catpill.T {
+        background: var(--primary-bg);
+        color: var(--primary);
+      }
+      .catpill.S {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      .catpill.P {
+        background: var(--pink-bg);
+        color: var(--pink);
+      }
+      .catpill.G {
+        background: var(--violet-bg);
+        color: var(--violet);
+      }
+      .catpill.none {
+        background: #f1f3f5;
+        color: var(--text3);
+      }
+      .sendercard .meta {
+        font-size: 9.5px;
+        color: var(--text2);
+        margin-bottom: 6px;
+      }
+      .sendercard .excludetag {
+        font-size: 8.5px;
+        color: var(--danger);
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+      .sendercard .actions {
+        display: flex;
+        gap: 8px;
+      }
+      .sendercard .actions span {
+        font-size: 9.5px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .sendercard .actions .view {
+        color: var(--blue);
+      }
+      .sendercard .actions .exclude {
+        color: var(--danger);
+      }
+      .sendercard .actions .include {
+        color: var(--primary);
+      }
+
       /* Summary stat strip — doubles as the outcome filter (click a card to filter to it) */
       .statstrip {
         display: flex;
@@ -652,6 +761,21 @@
       .badge.muted {
         background: #f1f3f5;
         color: var(--text2);
+      }
+      .exclreason {
+        font-size: 8.5px;
+        color: var(--text3);
+        margin-top: 3px;
+      }
+      .autotag {
+        font-size: 7.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: var(--text3);
+        margin-left: 3px;
+      }
+      table.rtable tr.excludedrow td {
+        opacity: 0.55;
       }
       .exprow td {
         background: #fafbfc !important;
@@ -1114,6 +1238,11 @@
         background: var(--paper);
         color: var(--text2);
         border: 1px solid var(--border);
+      }
+      .formbtn.ghost.danger {
+        color: var(--danger);
+        border-color: #f6c8c8;
+        background: var(--danger-bg);
       }
 
       /* Regex helper — common-pattern snippets + syntax cheat sheet, inside the template modal */
@@ -1581,7 +1710,7 @@
     banks: [
       {
         bankId: "hdfc",
-        senderIdPatterns: ["^[A-Z]{2}-HDFCBK$", "^HDFCBK$"],
+        senderIdPatterns: ["^[A-Z]{2}-HDFCBK$", "^HDFCBK$", "^[A-Z]{2}-HDFCBK-[TSPG]$", "^HDFCBK-[TSPG]$"],
         templates: [
           {
             transactionType: "debit",
@@ -1606,7 +1735,7 @@
       },
       {
         bankId: "icici",
-        senderIdPatterns: ["^[A-Z]{2}-ICICIB$", "^ICICIB$"],
+        senderIdPatterns: ["^[A-Z]{2}-ICICIB$", "^ICICIB$", "^[A-Z]{2}-ICICIB-[TSPG]$", "^ICICIB-[TSPG]$"],
         templates: [
           {
             transactionType: "debit",
@@ -1631,7 +1760,15 @@
       },
       {
         bankId: "sbi",
-        senderIdPatterns: ["^[A-Z]{2}-SBIINB$", "^SBIINB$", "^[A-Z]{2}-SBIUPI$"],
+        senderIdPatterns: [
+          "^[A-Z]{2}-SBIINB$",
+          "^SBIINB$",
+          "^[A-Z]{2}-SBIUPI$",
+          "^[A-Z]{2}-SBIINB-[TSPG]$",
+          "^SBIINB-[TSPG]$",
+          "^[A-Z]{2}-SBIUPI-[TSPG]$",
+          "^SBIUPI-[TSPG]$"
+        ],
         templates: [
           {
             transactionType: "debit",
@@ -1656,7 +1793,7 @@
       },
       {
         bankId: "axis",
-        senderIdPatterns: ["^[A-Z]{2}-AXISBK$", "^AXISBK$"],
+        senderIdPatterns: ["^[A-Z]{2}-AXISBK$", "^AXISBK$", "^[A-Z]{2}-AXISBK-[TSPG]$", "^AXISBK-[TSPG]$"],
         templates: [
           {
             transactionType: "debit",
@@ -1674,7 +1811,7 @@
       },
       {
         bankId: "kotak",
-        senderIdPatterns: ["^[A-Z]{2}-KOTAKB$", "^KOTAKB$"],
+        senderIdPatterns: ["^[A-Z]{2}-KOTAKB$", "^KOTAKB$", "^[A-Z]{2}-KOTAKB-[TSPG]$", "^KOTAKB-[TSPG]$"],
         templates: [
           {
             transactionType: "debit",
@@ -1692,7 +1829,7 @@
       },
       {
         bankId: "indusind",
-        senderIdPatterns: ["^[A-Z]{2}-INDUSB$", "^INDUSB$"],
+        senderIdPatterns: ["^[A-Z]{2}-INDUSB$", "^INDUSB$", "^[A-Z]{2}-INDUSB-[TSPG]$", "^INDUSB-[TSPG]$"],
         templates: [
           {
             transactionType: "debit",
@@ -1704,7 +1841,7 @@
       },
       {
         bankId: "bob",
-        senderIdPatterns: ["^[A-Z]{2}-BOBTXN$", "^BOBTXN$"],
+        senderIdPatterns: ["^[A-Z]{2}-BOBTXN$", "^BOBTXN$", "^[A-Z]{2}-BOBTXN-[TSPG]$", "^BOBTXN-[TSPG]$"],
         templates: [
           {
             transactionType: "debit",
@@ -1716,7 +1853,7 @@
       },
       {
         bankId: "hsbc",
-        senderIdPatterns: ["^[A-Z]{2}-HSBCIN$", "^HSBCIN$"],
+        senderIdPatterns: ["^[A-Z]{2}-HSBCIN$", "^HSBCIN$", "^[A-Z]{2}-HSBCIN-[TSPG]$", "^HSBCIN-[TSPG]$"],
         templates: [
           {
             transactionType: "debit",
@@ -1728,7 +1865,7 @@
       },
       {
         bankId: "yesbank",
-        senderIdPatterns: ["^[A-Z]{2}-YESBNK$", "^YESBNK$"],
+        senderIdPatterns: ["^[A-Z]{2}-YESBNK$", "^YESBNK$", "^[A-Z]{2}-YESBNK-[TSPG]$", "^YESBNK-[TSPG]$"],
         templates: [
           {
             transactionType: "debit",
@@ -1740,7 +1877,7 @@
       },
       {
         bankId: "pnb",
-        senderIdPatterns: ["^[A-Z]{2}-PNBSMS$", "^PNBSMS$"],
+        senderIdPatterns: ["^[A-Z]{2}-PNBSMS$", "^PNBSMS$", "^[A-Z]{2}-PNBSMS-[TSPG]$", "^PNBSMS-[TSPG]$"],
         templates: [
           {
             transactionType: "debit",
@@ -1752,7 +1889,7 @@
       },
       {
         bankId: "canara",
-        senderIdPatterns: ["^[A-Z]{2}-CANBNK$", "^CANBNK$"],
+        senderIdPatterns: ["^[A-Z]{2}-CANBNK$", "^CANBNK$", "^[A-Z]{2}-CANBNK-[TSPG]$", "^CANBNK-[TSPG]$"],
         templates: [
           {
             transactionType: "debit",
@@ -1764,7 +1901,7 @@
       },
       {
         bankId: "idfcfirst",
-        senderIdPatterns: ["^[A-Z]{2}-IDFCFB$", "^IDFCFB$"],
+        senderIdPatterns: ["^[A-Z]{2}-IDFCFB$", "^IDFCFB$", "^[A-Z]{2}-IDFCFB-[TSPG]$", "^IDFCFB-[TSPG]$"],
         templates: [
           {
             transactionType: "debit",
@@ -2092,7 +2229,10 @@
       disabledTemplates: {},
       draftSamples: {},
       customSnippets: [],
-      snippetOverrides: {}
+      snippetOverrides: {},
+      excludedSenders: [],
+      autoExcludeOverrides: [],
+      excludedMessageKeys: []
     };
   }
   function loadSession() {
@@ -2108,7 +2248,10 @@
         disabledTemplates: parsed.disabledTemplates ?? {},
         draftSamples: parsed.draftSamples ?? {},
         customSnippets: parsed.customSnippets ?? [],
-        snippetOverrides: parsed.snippetOverrides ?? {}
+        snippetOverrides: parsed.snippetOverrides ?? {},
+        excludedSenders: parsed.excludedSenders ?? [],
+        autoExcludeOverrides: parsed.autoExcludeOverrides ?? [],
+        excludedMessageKeys: parsed.excludedMessageKeys ?? []
       };
     } catch {
       return emptySession();
@@ -2212,6 +2355,89 @@
   function setBankFilterQuery(next) {
     bankFilterQuery = next;
   }
+  function senderCategory(sender) {
+    const m = /-([TSPG])$/i.exec(sender.trim());
+    return m ? m[1].toUpperCase() : null;
+  }
+  function isAutoExcludedCategory(sender) {
+    const cat = senderCategory(sender);
+    return cat === "P" || cat === "G";
+  }
+  function isSenderManuallyExcluded(sender) {
+    return session.excludedSenders.includes(sender);
+  }
+  function excludeSender(sender) {
+    if (!session.excludedSenders.includes(sender)) session.excludedSenders.push(sender);
+    saveSession();
+  }
+  function includeSender(sender) {
+    session.excludedSenders = session.excludedSenders.filter((s) => s !== sender);
+    saveSession();
+  }
+  function isAutoExcludeOverridden(sender) {
+    return session.autoExcludeOverrides.includes(sender);
+  }
+  function setAutoExcludeOverride(sender, overridden) {
+    session.autoExcludeOverrides = session.autoExcludeOverrides.filter((s) => s !== sender);
+    if (overridden) session.autoExcludeOverrides.push(sender);
+    saveSession();
+  }
+  function isSenderExcluded(sender) {
+    if (isSenderManuallyExcluded(sender)) return true;
+    return isAutoExcludedCategory(sender) && !isAutoExcludeOverridden(sender);
+  }
+  function messageKey(sender, body) {
+    return `${sender}::${body}`;
+  }
+  function isMessageExcluded(sender, body) {
+    return session.excludedMessageKeys.includes(messageKey(sender, body));
+  }
+  function excludeMessage(sender, body) {
+    const key = messageKey(sender, body);
+    if (!session.excludedMessageKeys.includes(key)) session.excludedMessageKeys.push(key);
+    saveSession();
+  }
+  function includeMessage(sender, body) {
+    const key = messageKey(sender, body);
+    session.excludedMessageKeys = session.excludedMessageKeys.filter((k) => k !== key);
+    saveSession();
+  }
+  function outcomeFilterKind(trace) {
+    if (trace.excludedAsOtp) return "excluded";
+    if (trace.outcome.kind === "parsed") return "parsed";
+    if (trace.outcome.kind === "unparsed_known_bank") return "partial";
+    return "unrecognized";
+  }
+  function exclusionReasonFor(result) {
+    if (result.trace.excludedAsOtp) return { kind: "otp" };
+    if (isMessageExcluded(result.sender, result.body)) return { kind: "message" };
+    if (isSenderManuallyExcluded(result.sender)) return { kind: "sender" };
+    const cat = senderCategory(result.sender);
+    if ((cat === "P" || cat === "G") && !isAutoExcludeOverridden(result.sender)) return { kind: "auto", category: cat };
+    return null;
+  }
+  function effectiveOutcomeKind(result) {
+    return exclusionReasonFor(result) ? "excluded" : outcomeFilterKind(result.trace);
+  }
+  function summarizeSenders(results) {
+    const bySender = /* @__PURE__ */ new Map();
+    for (const r of results) {
+      const arr = bySender.get(r.sender) ?? [];
+      arr.push(r);
+      bySender.set(r.sender, arr);
+    }
+    return [...bySender.entries()].map(([sender, rows]) => {
+      const bankId = rows.find((r) => r.trace.matchedSenderBanks.length > 0)?.trace.matchedSenderBanks[0];
+      return {
+        sender,
+        bankLabel: bankId ? bankId.toUpperCase() : "\u2014",
+        count: rows.length,
+        category: senderCategory(sender),
+        excluded: isSenderExcluded(sender),
+        autoExcluded: !isSenderManuallyExcluded(sender) && isAutoExcludedCategory(sender) && !isAutoExcludeOverridden(sender)
+      };
+    }).sort((a, b) => b.count - a.count);
+  }
   function emptyResultsState() {
     return { results: [], filter: "all", search: "", expandedIndex: null, page: 1, pageSize: 100, hasRun: false };
   }
@@ -2290,7 +2516,7 @@
     return { version: 1, banks: [{ ...bank, senderIdPatterns: [".*"] }] };
   }
   function literalFragments(pattern) {
-    return pattern.toUpperCase().match(/[A-Z]{3,}/g) ?? [];
+    return pattern.replace(/\[[^\]]*\]/g, " ").toUpperCase().match(/[A-Z]{3,}/g) ?? [];
   }
   function sharesSignificantPrefixOrSubstring(a, b) {
     if (a.includes(b) || b.includes(a)) return true;
@@ -3238,14 +3464,7 @@
     unrecognized: "\u274C Unrecognized",
     excluded: "\u{1F6AB} Excluded"
   };
-  function outcomeFilterKind(trace) {
-    if (trace.excludedAsOtp) return "excluded";
-    if (trace.outcome.kind === "parsed") return "parsed";
-    if (trace.outcome.kind === "unparsed_known_bank") return "partial";
-    return "unrecognized";
-  }
-  function badgeFor(trace) {
-    const kind = outcomeFilterKind(trace);
+  function badgeFor(kind) {
     const map = {
       all: ["", ""],
       parsed: ["pass", "\u2713 Parsed"],
@@ -3337,14 +3556,15 @@
     }
     const searchLower = state.search.trim().toLowerCase();
     const filtered = state.results.filter(
-      (r) => (state.filter === "all" || outcomeFilterKind(r.trace) === state.filter) && (!searchLower || `${r.sender} ${r.body}`.toLowerCase().includes(searchLower))
+      (r) => (state.filter === "all" || effectiveOutcomeKind(r) === state.filter) && (!searchLower || `${r.sender} ${r.body}`.toLowerCase().includes(searchLower))
     );
     const rerender = () => renderResultsTableInto(container, state);
+    const senderStrip = renderSenderSummaryStrip(state, container);
     const statStrip = el(
       "div",
       { className: "statstrip" },
       Object.keys(FILTER_LABELS).map((key) => {
-        const count = key === "all" ? state.results.length : state.results.filter((r) => outcomeFilterKind(r.trace) === key).length;
+        const count = key === "all" ? state.results.length : state.results.filter((r) => effectiveOutcomeKind(r) === key).length;
         const cls = key === "parsed" ? "pass" : key === "partial" ? "warn" : key === "unrecognized" ? "fail" : "";
         const card = el("div", { className: `statcard ${cls}${state.filter === key ? " active" : ""}` }, [
           el("div", { className: "n" }, [count.toLocaleString()]),
@@ -3370,7 +3590,7 @@
     ]);
     copyRedactedBtn.addEventListener("click", () => {
       copyText(
-        filtered.map((r) => `[${FILTER_LABELS[outcomeFilterKind(r.trace)]}] ${redactDigits(r.sender)}: ${redactDigits(r.body)}`).join("\n")
+        filtered.map((r) => `[${FILTER_LABELS[effectiveOutcomeKind(r)]}] ${redactDigits(r.sender)}: ${redactDigits(r.body)}`).join("\n")
       );
       showToast(`Copied ${filtered.length.toLocaleString()} redacted result(s)`);
     });
@@ -3379,7 +3599,7 @@
       "Copy (unredacted)"
     ]);
     copyUnredactedBtn.addEventListener("click", () => {
-      copyText(filtered.map((r) => `[${FILTER_LABELS[outcomeFilterKind(r.trace)]}] ${r.sender}: ${r.body}`).join("\n"));
+      copyText(filtered.map((r) => `[${FILTER_LABELS[effectiveOutcomeKind(r)]}] ${r.sender}: ${r.body}`).join("\n"));
       showToast(`Copied ${filtered.length.toLocaleString()} result(s)`);
     });
     const toolsRow = el("div", { className: "toolsrow" }, [
@@ -3414,10 +3634,66 @@
       )
     ]);
     const bottomPager = renderPaginationBar(state, filtered.length, rerender);
-    container.replaceChildren(statStrip, toolsRow, topPager, table, bottomPager);
+    container.replaceChildren(senderStrip, statStrip, toolsRow, topPager, table, bottomPager);
+  }
+  function renderSenderSummaryStrip(state, container) {
+    const summaries = summarizeSenders(state.results);
+    const rerenderResults = () => renderResultsTableInto(container, state);
+    const cards = summaries.map((s) => {
+      const senderIdEl = el("span", { className: "senderid" }, [s.sender]);
+      senderIdEl.addEventListener("click", () => setSearchAndRerender(state, container, s.sender));
+      const catPill = el("span", { className: `catpill ${s.category ?? "none"}` }, [s.category ?? "\u2014"]);
+      const viewLink = el("span", { className: "view" }, ["View all"]);
+      viewLink.addEventListener("click", () => setSearchAndRerender(state, container, s.sender));
+      const toggleLink = el("span", { className: s.excluded ? "include" : "exclude" }, [
+        s.excluded ? "Include" : "Exclude sender"
+      ]);
+      toggleLink.addEventListener("click", () => {
+        if (s.excluded) {
+          if (s.autoExcluded) setAutoExcludeOverride(s.sender, true);
+          else includeSender(s.sender);
+        } else {
+          excludeSender(s.sender);
+        }
+        rerenderResults();
+      });
+      return el("div", { className: `sendercard${s.excluded ? " excluded" : ""}` }, [
+        el("div", { className: "top" }, [senderIdEl, catPill]),
+        el("div", { className: "meta" }, [
+          `${s.bankLabel !== "\u2014" ? s.bankLabel + " \xB7 " : ""}${s.count.toLocaleString()} message${s.count === 1 ? "" : "s"}`
+        ]),
+        ...s.autoExcluded ? [el("div", { className: "excludetag" }, ["\u{1F916} Auto-excluded \u2014 reversible"])] : [],
+        el("div", { className: "actions" }, [viewLink, toggleLink])
+      ]);
+    });
+    return el("div", {}, [
+      el("div", { className: "senderstrip-label" }, [
+        el("i", { className: "ti ti-list-details" }),
+        ` Senders in this batch (${summaries.length}) \u2014 click a sender to view just its messages`
+      ]),
+      el("div", { className: "senderstrip" }, cards)
+    ]);
+  }
+  function setSearchAndRerender(state, container, query) {
+    state.search = query;
+    state.page = 1;
+    renderResultsTableInto(container, state);
+  }
+  function exclusionReasonLabel(reason) {
+    if (reason.kind === "otp") return "OTP";
+    if (reason.kind === "auto") return reason.category === "P" ? "Promotional (auto, \u2212P)" : "Government (auto, \u2212G)";
+    if (reason.kind === "sender") return "Excluded by you (sender)";
+    return "Excluded by you (message)";
+  }
+  function exclusionReasonTag(reason) {
+    return el("div", { className: "exclreason" }, [
+      exclusionReasonLabel(reason),
+      ...reason.kind === "auto" ? [el("span", { className: "autotag" }, ["AUTO"])] : []
+    ]);
   }
   function resultRows(result, idx, container, state) {
-    const kind = outcomeFilterKind(result.trace);
+    const kind = effectiveOutcomeKind(result);
+    const reason = exclusionReasonFor(result);
     const expandable = kind !== "parsed";
     const isExpanded = expandable && state.expandedIndex === idx;
     const winningAttempt = result.trace.attempts.find((a) => a.matched);
@@ -3429,19 +3705,26 @@
 ${result.body}`);
       showToast('Copied \u2014 paste it into "Add a new template"');
     });
-    const row = el("tr", { className: "rrow" }, [
+    const sndCell = el(
+      "td",
+      { className: `sndcell ${result.trace.matchedSenderBanks.length > 0 ? "recognized" : "unrecognized"}` },
+      [result.sender]
+    );
+    sndCell.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setSearchAndRerender(state, container, result.sender);
+    });
+    const row = el("tr", { className: `rrow${kind === "excluded" ? " excludedrow" : ""}` }, [
       el(
         "td",
         { className: "chev" },
         expandable ? [el("i", { className: `ti ti-chevron-${isExpanded ? "down" : "right"}` })] : []
       ),
-      el("td", { className: `sndcell ${result.trace.matchedSenderBanks.length > 0 ? "recognized" : "unrecognized"}` }, [
-        result.sender
-      ]),
+      sndCell,
       el("td", { className: "bankcell" }, [bankLabel]),
       markedTableCell(result.body, winningAttempt?.captureRanges, copyIcon),
       el("td", { className: "tracecell" }, [renderTraceStrip(result.trace)]),
-      el("td", { className: "badgecell" }, [badgeFor(result.trace)])
+      el("td", { className: "badgecell" }, [badgeFor(kind), ...reason ? [exclusionReasonTag(reason)] : []])
     ]);
     if (expandable) {
       row.addEventListener("click", () => {
@@ -3517,6 +3800,32 @@ ${result.body}`);
         renderModalRoot();
       });
       detail.append(el("div", { className: "formbtnrow", style: { marginTop: "10px" } }, [addTplBtn]));
+    }
+    if (reason && reason.kind !== "otp") {
+      const undoBtn = el("div", { className: "formbtn ghost" }, ["\u21A9 Not excluded \u2014 treat as unparsed"]);
+      undoBtn.addEventListener("click", () => {
+        if (reason.kind === "auto") setAutoExcludeOverride(result.sender, true);
+        else if (reason.kind === "sender") includeSender(result.sender);
+        else includeMessage(result.sender, result.body);
+        renderAll();
+      });
+      detail.append(el("div", { className: "formbtnrow", style: { marginTop: "10px" } }, [undoBtn]));
+    } else if (!reason) {
+      const excludeMsgBtn = el("div", { className: "formbtn ghost danger" }, [
+        "\u{1F6AB} Not a transaction \u2014 exclude this message"
+      ]);
+      excludeMsgBtn.addEventListener("click", () => {
+        excludeMessage(result.sender, result.body);
+        renderAll();
+      });
+      const excludeSenderBtn = el("div", { className: "formbtn ghost danger" }, ["\u{1F6AB} Exclude sender entirely"]);
+      excludeSenderBtn.addEventListener("click", () => {
+        excludeSender(result.sender);
+        renderAll();
+      });
+      detail.append(
+        el("div", { className: "formbtnrow", style: { marginTop: "10px" } }, [excludeMsgBtn, excludeSenderBtn])
+      );
     }
     return [row, el("tr", { className: "exprow" }, [detail])];
   }

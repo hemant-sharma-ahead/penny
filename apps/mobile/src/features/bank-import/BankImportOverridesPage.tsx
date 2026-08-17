@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { View, Pressable, ScrollView, Text } from 'react-native';
+import { View, Pressable, ScrollView, RefreshControl, Text } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bankNarrationOverridesRepo } from '@/core/db/repositories';
 import { CONNECTOR_KEYWORDS_LIST } from '@/core/bank-import/normalization';
 import { useRepository } from '@/hooks/useRepository';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 import { Button, Card, ConfirmDialog, EmptyState, ListContainer, Modal, TextInput } from '~/components/ui';
@@ -28,7 +29,8 @@ export function BankImportOverridesPage() {
   const theme = useThemeColors();
   const insets = useSafeAreaInsets();
   useDefaultHeaderBack('BankImportOverrides');
-  const { items: overrides, save, remove } = useRepository(bankNarrationOverridesRepo);
+  const { items: overrides, save, remove, reload } = useRepository(bankNarrationOverridesRepo);
+  const { refreshing, onRefresh } = usePullToRefresh(reload);
 
   const [showAdd, setShowAdd] = useState(false);
   const [keyword, setKeyword] = useState('');
@@ -60,7 +62,10 @@ export function BankImportOverridesPage() {
         <Text className="text-xs text-tertiary mt-0.5">Custom overrides always win over the automatic guess.</Text>
       </View>
 
-      <ScrollView className="flex-1">
+      <ScrollView
+        className="flex-1"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         <View className="px-4 py-4 gap-4">
           {/* Read-only view of the fixed heuristic — the overrides list below is the only *editable*
               surface here; this is purely explanatory so the automatic guess isn't a total black box

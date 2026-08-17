@@ -1,4 +1,3 @@
-import { ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { useSettings } from '~/context/SettingsContext';
@@ -25,7 +24,8 @@ export function SubscriptionsPage() {
     confirmSubscription,
     dismissSubscription,
     cancelSubscription,
-    addSubscription
+    addSubscription,
+    reload
   } = useSubscriptions(expenses);
   useDefaultHeaderBack('Subscriptions');
 
@@ -37,20 +37,21 @@ export function SubscriptionsPage() {
         }
       />
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 24 }}>
-        <SubscriptionsView
-          detected={detectedSubs}
-          active={activeSubs}
-          monthlyTotal={subsMonthlyTotal}
-          annualTotal={subsAnnualTotal}
-          hasExpenses={expenses.length > 0}
-          masked={masked}
-          onConfirm={confirmSubscription}
-          onDismiss={dismissSubscription}
-          onCancel={cancelSubscription}
-          onAdd={addSubscription}
-        />
-      </ScrollView>
+      {/* SubscriptionsView owns its own scrollable container (incl. pull-to-refresh) — no ScrollView
+          wrapper here, to avoid nesting scroll containers. */}
+      <SubscriptionsView
+        detected={detectedSubs}
+        active={activeSubs}
+        monthlyTotal={subsMonthlyTotal}
+        annualTotal={subsAnnualTotal}
+        hasExpenses={expenses.length > 0}
+        masked={masked}
+        onConfirm={confirmSubscription}
+        onDismiss={dismissSubscription}
+        onCancel={cancelSubscription}
+        onAdd={addSubscription}
+        reload={reload}
+      />
     </SafeAreaView>
   );
 }

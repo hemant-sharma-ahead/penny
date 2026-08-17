@@ -1,4 +1,4 @@
-import { View, ScrollView } from 'react-native';
+import { View, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -11,15 +11,29 @@ import { AccountList } from './AccountList';
 import { PaymentModesSection } from './PaymentModesSection';
 import { AccountFormModal } from '~/components/shared';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useThemeColors } from '~/theme/useThemeColors';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import type { HomeStackParamList } from '~/navigation/HomeStack';
 
 export function AccountsPage() {
   const modeBg = useModeBackgroundColor();
+  const theme = useThemeColors();
   const { shouldMask } = usePrivacy();
   const navigation = useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
-  const { accounts, txns, saving, totalBalance, saveAccount, deleteAccount, reconcileAccount, categoryMap, hashtags } =
-    useAccounts();
+  const {
+    accounts,
+    txns,
+    saving,
+    totalBalance,
+    saveAccount,
+    deleteAccount,
+    reconcileAccount,
+    categoryMap,
+    hashtags,
+    reload
+  } = useAccounts();
+  const { refreshing, onRefresh } = usePullToRefresh(reload);
   const form = useAccountForm(saveAccount, accounts);
   useDefaultHeaderBack('Accounts');
 
@@ -74,7 +88,10 @@ export function AccountsPage() {
         }
       />
 
-      <ScrollView className="flex-1">
+      <ScrollView
+        className="flex-1"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         <AccountList
           accounts={accounts}
           txns={txns}

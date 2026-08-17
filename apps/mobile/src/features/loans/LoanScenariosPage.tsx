@@ -17,7 +17,7 @@ export function LoanScenariosPage() {
   const { shouldMask } = usePrivacy();
   const { safeModeVisibility } = useSettings();
   const masked = shouldMask(!safeModeVisibility.loans);
-  const { saveLiability, deleteLiability, emiLoans } = useLoans();
+  const { saveLiability, deleteLiability, emiLoans, reload } = useLoans();
   const planner = usePlanner();
   const [activeTab, setActiveTab] = useState<'myloans' | 'planner'>('myloans');
   useDefaultHeaderBack('Loans');
@@ -47,10 +47,11 @@ export function LoanScenariosPage() {
           saveLiability={saveLiability}
           deleteLiability={deleteLiability}
           onPlanLoan={handlePlanLoan}
+          reload={reload}
         />
       )}
 
-      {activeTab === 'planner' && <PlannerTab planner={planner} masked={masked} />}
+      {activeTab === 'planner' && <PlannerTab planner={planner} masked={masked} reload={reload} />}
     </SafeAreaView>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, ScrollView, Text } from 'react-native';
+import { View, ScrollView, RefreshControl, Text } from 'react-native';
 import type { Liability } from '@/core/db/types';
 import { formatCurrency, formatMonthsDuration } from '@/lib/formatters';
 import { deriveTenureMonths } from '@/core/loans/amortization';
@@ -7,6 +7,7 @@ import { getLoanMeta } from '@/core/loans/meta';
 import { Card, Button, EmptyState, DetailRow, Badge, ConfirmDialog } from '~/components/ui';
 import { ListRow } from '~/components/shared';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import { AddLoanModal } from './AddLoanModal';
 
 interface MyLoansTabProps {
@@ -15,6 +16,7 @@ interface MyLoansTabProps {
   saveLiability: (l: Liability) => Promise<unknown>;
   deleteLiability: (id: string) => Promise<unknown>;
   onPlanLoan: (l: Liability) => void;
+  reload: () => unknown;
 }
 
 function estimatedMonthsLeft(l: Liability): number | null {
@@ -23,14 +25,19 @@ function estimatedMonthsLeft(l: Liability): number | null {
   return null;
 }
 
-export function MyLoansTab({ emiLoans, masked, saveLiability, deleteLiability, onPlanLoan }: MyLoansTabProps) {
+export function MyLoansTab({ emiLoans, masked, saveLiability, deleteLiability, onPlanLoan, reload }: MyLoansTabProps) {
   const theme = useThemeColors();
   const [showAddLoan, setShowAddLoan] = useState(false);
   const [editLoan, setEditLoan] = useState<Liability | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Liability | null>(null);
+  const { refreshing, onRefresh } = usePullToRefresh(reload);
 
   return (
-    <ScrollView className="flex-1" contentContainerStyle={{ padding: 16 }}>
+    <ScrollView
+      className="flex-1"
+      contentContainerStyle={{ padding: 16 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+    >
       {emiLoans.length === 0 ? (
         <View className="py-8">
           <EmptyState

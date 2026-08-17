@@ -322,7 +322,8 @@ export function useGoals() {
     saveGoalContributionTxn,
     removeContribution,
     goalLinkedTxnIds,
-    linkTransaction
+    linkTransaction,
+    refreshGoalData
   };
 }
 
